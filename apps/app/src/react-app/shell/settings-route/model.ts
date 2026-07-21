@@ -48,7 +48,6 @@ export function settingsMemoryHasChanges(input: {
 export type SettingsRoutePath = {
   tab: SettingsTab;
   redirectPath: string | null;
-  extensionsSection?: "all" | "mcp" | "plugins";
 };
 
 export function mapDesktopWorkspace(workspace: WorkspaceInfo): RouteWorkspace {
@@ -297,11 +296,9 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "cloud-account":
     case "den":
       return { tab: "general", redirectPath: "general" };
+    // Settings → Extensions / MCP page removed; deep links redirect to general.
     case "extensions":
-      if (tail === "mcp") return { tab: "extensions", redirectPath: null, extensionsSection: "mcp" };
-      if (tail === "skills") return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
-      if (tail === "plugins") return { tab: "extensions", redirectPath: null, extensionsSection: "plugins" };
-      return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
+      return { tab: "general", redirectPath: "general" };
     default:
       return { tab: "general", redirectPath: "general" };
   }
@@ -431,9 +428,6 @@ export function updateSettingsWorkspaceConnectionOverrides(input: {
 }
 
 export function settingsPathForRoute(route: SettingsRoutePath) {
-  if (route.tab === "extensions" && route.extensionsSection && route.extensionsSection !== "all") {
-    return `extensions/${route.extensionsSection}`;
-  }
   return route.tab;
 }
 

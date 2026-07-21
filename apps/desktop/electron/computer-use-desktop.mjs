@@ -12,6 +12,73 @@ import path from "node:path";
 const COMPUTER_USE_HELPER_APP_NAME = "OnMyAgent Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
 
+/** Appshot native helper is macOS-only (Swift HandsFree). */
+export function isComputerUseAppshotSupported(
+  platform = process.platform,
+) {
+  return platform === "darwin";
+}
+
+/**
+ * Normalize native Appshot filenames across platforms.
+ * - macOS: strips Swift JoinedSequence / ArraySlice debug dumps
+ * - Windows: strips reserved names and illegal path characters
+ * - Linux: same safe basename rules
+ */
+export function sanitizeAppshotFileName(
+  rawName,
+  { platform = process.platform, now = Date.now() } = {},
+) {
+  const raw = typeof rawName === "string" ? rawName.trim() : "";
+  const looksLikeSwiftDump =
+    /JoinedSequence|ArraySlice|ContiguousArray|_base|_separator|Array</i.test(
+      raw,
+    );
+  const base = path.basename(raw.replace(/\\/g, "/"));
+  let candidate = base || raw;
+
+  // Windows-illegal characters + control chars
+  candidate = candidate.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "-");
+  candidate = candidate.replace(/\.+$/g, ""); // trailing dots invalid on Windows
+  candidate = candidate.replace(/\s+/g, " ").trim();
+
+  const reserved =
+    platform === "win32" &&
+    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(candidate);
+
+  const extMatch = candidate.match(/\.(jpe?g|png|webp)$/i);
+  const ext = extMatch ? extMatch[0].toLowerCase() : ".jpg";
+  const stem = extMatch
+    ? candidate.slice(0, -extMatch[0].length)
+    : candidate;
+
+  const safeStem =
+    stem &&
+    stem.length <= 80 &&
+    !looksLikeSwiftDump &&
+    !reserved &&
+    !/JoinedSequence|ArraySlice/i.test(stem)
+      ? stem
+      : null;
+
+  if (safeStem && /^Appshot[-_\w. ()]+$/i.test(safeStem)) {
+    return `${safeStem}${ext === ".jpeg" ? ".jpg" : ext}`;
+  }
+
+  const stamp = new Date(now);
+  const pad = (n) => String(n).padStart(2, "0");
+  const stampText = [
+    stamp.getFullYear(),
+    pad(stamp.getMonth() + 1),
+    pad(stamp.getDate()),
+    "-",
+    pad(stamp.getHours()),
+    pad(stamp.getMinutes()),
+    pad(stamp.getSeconds()),
+  ].join("");
+  return `Appshot-${stampText}.jpg`;
+}
+
 export function parseComputerUseStatus(stdout) {
   try {
     const parsed = JSON.parse(String(stdout ?? "").trim());
@@ -315,14 +382,34 @@ function appshotAttachmentPayload(result) {
     throw new Error("Computer Use returned an invalid Appshot result.");
   }
   return {
-    name: result.name,
+    // Sanitize on every platform so a bad native name never reaches the UI.
+    name: sanitizeAppshotFileName(result.name),
     mimeType: result.mimeType,
     data: readFile(result.path).toString("base64"),
     ...(typeof result.appName === "string" ? { appName: result.appName } : {}),
   };
 }
 
+function appshotUnsupportedError() {
+  const platform = process.platform;
+  if (platform === "win32") {
+    return new Error(
+      "Appshot is only available on macOS. Windows support is not available yet.",
+    );
+  }
+  if (platform === "linux") {
+    return new Error(
+      "Appshot is only available on macOS. Linux support is not available yet.",
+    );
+  }
+  return new Error("Appshot is not available on this platform.");
+}
+
 async function captureComputerUseAppshot() {
+  // Native Appshot helper is Swift / Accessibility / Screen Recording — macOS only.
+  if (!isComputerUseAppshotSupported()) {
+    throw appshotUnsupportedError();
+  }
   const bin = resolveComputerUseExecutable();
   if (!bin) {
     throw new Error("Helper binary not found. Run pnpm dev to build it.");
@@ -333,6 +420,7 @@ async function captureComputerUseAppshot() {
 }
 
 function startAppshotMonitor(bin) {
+  if (!isComputerUseAppshotSupported()) return;
   if (appshotMonitor !== null && appshotMonitor.exitCode === null) return;
   const child = spawnProcess(bin, ["appshot", "monitor"], { stdio: "ignore" });
   appshotMonitor = child;
@@ -456,6 +544,9 @@ function disposeComputerUseServices() {
 }
 
 function watchComputerUseAppshots(onAppshot) {
+  if (!isComputerUseAppshotSupported()) {
+    return () => {};
+  }
   if (watchedAppshotFile) unwatchFile(watchedAppshotFile);
   const eventFile = path.join(
     os.homedir(),
@@ -733,6 +824,8 @@ async function openComputerUseSetupApp() {
     updateComputerUseSkysightExclusion,
     clearComputerUseSkysightData,
     captureComputerUseAppshot,
+    isComputerUseAppshotSupported,
+    sanitizeAppshotFileName,
     revokeComputerUseAppAuthorization,
     clearComputerUseAppAuthorizations,
     restoreComputerUseServices,

@@ -120,6 +120,12 @@ export function AgentConversationPanel(props: {
   onOpenAutomation?: () => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  /** Expert list: delete whole expert (all sessions under agent). */
+  onDeleteExpert?: (target: {
+    agentId: string;
+    name: string;
+    sessionIds: string[];
+  }) => void;
 }) {
   const registry = useAgentRegistryStore((state) => state.registry);
   const { showToast } = useStatusToasts();
@@ -292,6 +298,68 @@ export function AgentConversationPanel(props: {
       assistantPreviewBySessionId.set(session.id, summary.preview);
     }
   });
+
+  // Expert list: one snapshot per expert’s latest session → last-message subtitle.
+  const expertLatestSessions = useMemo(() => {
+    if (mode !== "agent") return [];
+    const groups = buildAgentConversationGroups(sessions, registry);
+    const seen = new Set<string>();
+    const list: WorkspaceSessionGroup["sessions"] = [];
+    for (const group of groups) {
+      const session = group.latestSession;
+      if (!session || session.id.startsWith("draft:") || seen.has(session.id)) {
+        continue;
+      }
+      seen.add(session.id);
+      list.push(session);
+    }
+    return list;
+  }, [mode, registry, sessions]);
+
+  const expertSnapshotQueries = useQueries({
+    queries: expertLatestSessions.map((session) => ({
+      queryKey: [
+        "onmyagent-expert-list-snapshot",
+        props.selectedWorkspaceId,
+        session.id,
+      ],
+      enabled: Boolean(props.client) && mode === "agent",
+      queryFn: async () => {
+        const client = props.client;
+        if (!client) throw new Error("OnMyAgent server unavailable");
+        return (
+          await client.getSessionSnapshot(
+            props.selectedWorkspaceId,
+            session.id,
+            { limit: 8 },
+          )
+        ).item;
+      },
+      staleTime: 5_000,
+    })),
+  });
+
+  const expertPreviewBySessionId = useMemo(() => {
+    const map = new Map<string, string>();
+    expertLatestSessions.forEach((session, index) => {
+      const snapshot = expertSnapshotQueries[index]?.data;
+      if (!snapshot) return;
+      const summary = snapshotConversationSummary(
+        snapshot,
+        session.time?.updated ?? session.time?.created,
+        { preferAssistantReply: true },
+      );
+      const preview = summary.preview?.trim();
+      if (
+        preview &&
+        preview !== t("session.default_title")
+      ) {
+        map.set(session.id, preview);
+      }
+    });
+    return map;
+  }, [expertLatestSessions, expertSnapshotQueries]);
+
   const normalizedQuery = props.query.trim().toLowerCase();
   const agentGroups = useMemo(
     () =>
@@ -301,8 +369,19 @@ export function AgentConversationPanel(props: {
             assistantTitleFallbacks,
             assistantPreviewBySessionId,
           )
-        : buildAgentConversationGroups(sessions, registry),
-    [assistantPreviewBySessionId, assistantTitleFallbacks, mode, registry, sessions],
+        : buildAgentConversationGroups(
+            sessions,
+            registry,
+            expertPreviewBySessionId,
+          ),
+    [
+      assistantPreviewBySessionId,
+      assistantTitleFallbacks,
+      expertPreviewBySessionId,
+      mode,
+      registry,
+      sessions,
+    ],
   );
   const visibleAgentGroups = useMemo(() => {
     if (mode === "assistant") return agentGroups;
@@ -332,7 +411,7 @@ export function AgentConversationPanel(props: {
   );
   const filteredAgentGroups = normalizedQuery
     ? visibleAgentGroups.filter((item) =>
-        `${item.name} ${item.description}`
+        `${item.name} ${item.description} ${item.preview ?? ""}`
           .toLowerCase()
           .includes(normalizedQuery),
       )
@@ -693,6 +772,7 @@ export function AgentConversationPanel(props: {
             onOpenDraftSession={props.onOpenDraftAgent}
             onOpenStarter={props.onOpenAgentStarter}
             onPrefetchSession={props.onPrefetchSession}
+            onDeleteExpert={props.onDeleteExpert}
           />
         )}
       </div>

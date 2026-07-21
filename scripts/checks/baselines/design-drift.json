@@ -28,12 +28,13 @@
     "signatures": []
   },
   "stateTimings": {
-    "count": 13,
+    "count": 14,
     "signatures": [
       "react-app/domains/connections/mcp-auth-modal.tsx:ms=500",
       "react-app/domains/messaging/automation-page.tsx:ms=300",
       "react-app/domains/messaging/feishu-channel-panel.tsx:ms=500",
       "react-app/domains/messaging/weixin-channel-panel.tsx:ms=500",
+      "react-app/domains/session/chat/session-page-session-archive-page.tsx:ms=400",
       "react-app/domains/session/surface/message-list.tsx:ms=1200",
       "react-app/domains/session/surface/session-surface.tsx:ms=1200",
       "react-app/domains/settings/pages/system-authorizations-view.tsx:ms=300",

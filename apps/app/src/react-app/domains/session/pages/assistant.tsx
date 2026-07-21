@@ -118,6 +118,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { CustomConnectorDialog } from "@/react-app/domains/plugins";
+import { useStatusToasts } from "../../shell-feedback";
 
 export type AssistantPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -137,6 +139,7 @@ const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 
 export function AssistantPage(props: AssistantPageProps) {
+  const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const sidePanelSessionKey =
     props.selectedSessionId ?? `assistant-draft:${props.selectedWorkspaceId}`;
@@ -170,6 +173,14 @@ export function AssistantPage(props: AssistantPageProps) {
   );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
+  const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
+  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
+    "list" | "config"
+  >("list");
+  const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
+    setCustomConnectorInitialView(view);
+    setCustomConnectorOpen(true);
+  }, []);
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -784,6 +795,7 @@ export function AssistantPage(props: AssistantPageProps) {
     props.startupPhase !== "sessionIndexReady" &&
     props.startupPhase !== "firstSessionReady" &&
     props.startupPhase !== "ready";
+  // Same as expert: draft home/new-session must not be masked by prior session loading.
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) &&
     props.sessionLoadingById(props.selectedSessionId) &&
@@ -863,6 +875,15 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
   /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
   const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
+  // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
+  const sidePanelVisibleOnSession =
+    sidePanelVisible && isPrimarySessionView;
+
+  // Leaving 助理/专家 chat for other rail pages must close the workspace panel.
+  useEffect(() => {
+    if (isPrimarySessionView) return;
+    setCurrentSidePanel(null);
+  }, [isPrimarySessionView, setCurrentSidePanel]);
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -1223,14 +1244,14 @@ export function AssistantPage(props: AssistantPageProps) {
             <ResizablePanelGroup
               orientation="horizontal"
               onLayoutChanged={
-                sidePanelVisible ? commitBrowserPanelWidth : undefined
+                sidePanelVisibleOnSession ? commitBrowserPanelWidth : undefined
               }
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
                 <main className={cn(
                   "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
-                  sidePanelVisible ? "border-r-0" : "border-r border-dls-border",
+                  sidePanelVisibleOnSession ? "border-r-0" : "border-r border-dls-border",
                 )}>
                   <div className="flex min-h-0 flex-1 overflow-hidden">
                     <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
@@ -1247,6 +1268,7 @@ export function AssistantPage(props: AssistantPageProps) {
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
+                          onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       </KeepAlivePane>
 
@@ -1481,6 +1503,11 @@ export function AssistantPage(props: AssistantPageProps) {
                               setStoreActiveTab("skills");
                               setActiveSidebarView("store");
                             }}
+                            onOpenConnectorsMarketplace={() => {
+                              setStoreActiveTab("plugins");
+                              setActiveSidebarView("store");
+                            }}
+                            onOpenCustomConnector={() => openCustomConnector("config")}
                           />
                         </KeepAlivePane>
                       ) : null}
@@ -1600,9 +1627,10 @@ export function AssistantPage(props: AssistantPageProps) {
                   </div>
                 </main>
               </ResizablePanel>
-              {sidePanelVisible ? (
+              {sidePanelVisibleOnSession ? (
                 <>
-                  <ResizableHandle className="hidden bg-transparent before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-dls-border/70 before:transition-colors after:w-3 hover:before:bg-dls-border-strong focus-visible:before:bg-dls-accent lg:flex" />
+                  {/* Single 1px rule — base handle also paints bg-border; avoid before: double line. */}
+                  <ResizableHandle className="hidden lg:flex" />
                   <ResizablePanel
                     key={assistantCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
                     panelRef={browserPanelRef}
@@ -1711,6 +1739,19 @@ export function AssistantPage(props: AssistantPageProps) {
       {props.shareWorkspaceModal ? (
         <ShareWorkspaceModal {...props.shareWorkspaceModal} />
       ) : null}
+
+      <CustomConnectorDialog
+        open={customConnectorOpen}
+        onOpenChange={setCustomConnectorOpen}
+        workspaceRoot={props.selectedWorkspaceRoot}
+        initialView={customConnectorInitialView}
+        onSaved={() => {
+          showToast({
+            title: t("plugins.custom_connector_saved"),
+            tone: "success",
+          });
+        }}
+      />
     </div>
   );
 }

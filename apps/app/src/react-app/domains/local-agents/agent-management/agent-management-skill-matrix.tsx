@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { IconTile, MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
-import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -18,7 +19,7 @@ import {
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
 import type { SkillInventoryScope } from "./skill-inventory-scope";
-import { AgentSkillIcon } from "../../../design-system/agent-skill-icon";
+import { AgentBrandIcon, agentBrandIconTileClass } from "../agent-brand-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
 
@@ -34,6 +35,76 @@ function skillMatrixGridStyle(agentColCount: number) {
   return {
     gridTemplateColumns: `minmax(12rem,1fr) repeat(${n}, ${SKILL_MATRIX_AGENT_COL}) ${SKILL_MATRIX_ACTION_COL}`,
   } as const;
+}
+
+const SKILL_MATRIX_SKELETON_ROWS = 8;
+const SKILL_MATRIX_SKELETON_TITLE_WIDTHS = [
+  "w-3/5",
+  "w-1/2",
+  "w-2/3",
+  "w-2/5",
+  "w-3/4",
+  "w-1/2",
+  "w-3/5",
+  "w-2/5",
+] as const;
+const SKILL_MATRIX_SKELETON_META_WIDTHS = [
+  "w-1/3",
+  "w-1/4",
+  "w-2/5",
+  "w-1/4",
+  "w-1/3",
+  "w-1/5",
+  "w-2/5",
+  "w-1/4",
+] as const;
+
+/** Placeholder rows that mirror SkillMatrixRow tracks while the snapshot loads. */
+function SkillMatrixSkeletonRows(props: { agentColCount: number }) {
+  const gridStyle = skillMatrixGridStyle(props.agentColCount);
+  const agentSlots = Math.max(1, props.agentColCount);
+  return (
+    <div role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{t("skills.matrix_loading")}</span>
+      {Array.from({ length: SKILL_MATRIX_SKELETON_ROWS }, (_, rowIndex) => (
+        <div
+          key={rowIndex}
+          className={cn("grid min-h-12 items-stretch border-b", SKILL_MATRIX_RULE)}
+          style={gridStyle}
+        >
+          <div className="flex min-w-0 items-center gap-2.5 self-center px-3 py-2">
+            <div className="flex h-8 w-[3.75rem] shrink-0 items-center">
+              <Skeleton className="size-6 rounded-md" />
+              <Skeleton className="-ml-1.5 size-6 rounded-md opacity-70" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton
+                className={cn(
+                  "h-3.5 max-w-full rounded-lg",
+                  SKILL_MATRIX_SKELETON_TITLE_WIDTHS[rowIndex % SKILL_MATRIX_SKELETON_TITLE_WIDTHS.length],
+                )}
+              />
+              <Skeleton
+                className={cn(
+                  "h-3 max-w-full rounded-md",
+                  SKILL_MATRIX_SKELETON_META_WIDTHS[rowIndex % SKILL_MATRIX_SKELETON_META_WIDTHS.length],
+                )}
+              />
+            </div>
+          </div>
+          {Array.from({ length: agentSlots }, (_, colIndex) => (
+            <SkillMatrixAgentTrack key={colIndex} leadRule={colIndex === 0}>
+              <Skeleton className="size-5 rounded-md" />
+            </SkillMatrixAgentTrack>
+          ))}
+          <div className={cn("flex items-center justify-center gap-0.5 border-l px-1", SKILL_MATRIX_RULE)}>
+            <Skeleton className="size-5 rounded-md" />
+            <Skeleton className="size-5 rounded-md" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -224,9 +295,8 @@ function SkillMatrixColumnHeader(props: {
                     })
               }
             >
-              <span className="flex size-4 items-center justify-center">
-                <AgentSkillIcon agent={props.agent} />
-              </span>
+              {/* Same plate as local-agent list (muted / dark white), smaller xs tile. */}
+              <AgentBrandIcon id={props.agent} provider={props.agent} size="xs" alt={label} />
               <span className="tabular-nums leading-none opacity-80">{props.count}</span>
             </MatrixButton>
           }
@@ -268,13 +338,20 @@ function getSkillCellState(
   return { state: "available", tooltip: t("skills.matrix_tooltip_available", { label }) };
 }
 
-function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
-  const enabledAgents = STUDIO_SWITCH_SKILL_AGENT_OPTIONS.filter((agent) =>
+function SkillAgentCluster(props: {
+  skill: AgentManagementSkill;
+  /** Visible matrix columns — cluster must match these, not a hard-coded agent list. */
+  matrixAgents: ReadonlyArray<AgentManagementSkillAgent>;
+}) {
+  // Order by matrix columns so the stack mirrors the green checkmarks the user sees.
+  // (Old code filtered only STUDIO_SWITCH_SKILL_AGENT_OPTIONS and dropped grok/mimo/workbuddy/…)
+  const enabledAgents = props.matrixAgents.filter((agent) =>
     props.skill.agents.includes(agent),
   );
-  const visibleLimit = enabledAgents.length > 3 ? 2 : 3;
-  const visibleAgents = enabledAgents.slice(0, visibleLimit);
-  const overflow = enabledAgents.length - visibleAgents.length;
+  // Always at most 3 slots: 2 brand icons + optional +N plate (e.g. 5 enabled → 2 icons + "+3").
+  const showOverflow = enabledAgents.length > 2;
+  const visibleAgents = enabledAgents.slice(0, showOverflow ? 2 : enabledAgents.length);
+  const overflow = showOverflow ? enabledAgents.length - 2 : 0;
   const label =
     enabledAgents.length > 0
       ? enabledAgents.map((agent) => skillAgentLabel(agent)).join(" / ")
@@ -284,33 +361,40 @@ function SkillAgentCluster(props: { skill: AgentManagementSkill }) {
       <TooltipTrigger
         render={
           <div
-            className="flex h-8 w-11 shrink-0 items-center justify-start"
+            // Match single-icon rows below: fixed height, left-aligned stack.
+            className="flex h-8 w-[3.75rem] shrink-0 items-center justify-start"
             aria-label={label}
           >
             {visibleAgents.length > 0 ? (
               <div className="flex items-center">
                 {visibleAgents.map((agent, index) => (
-                  <span
+                  <AgentBrandIcon
                     key={agent}
+                    id={agent}
+                    provider={agent}
+                    size="xs"
+                    alt={skillAgentLabel(agent)}
                     className={cn(
-                      "flex size-5 items-center justify-center rounded-full border border-dls-surface bg-dls-surface-muted",
+                      "relative",
                       index > 0 && "-ml-1.5",
                     )}
-                    style={{ zIndex: 10 - index }}
-                  >
-                    <span className="flex size-3.5 items-center justify-center">
-                      <AgentSkillIcon agent={agent} />
-                    </span>
-                  </span>
+                    // Stacked cluster: denser xs plate, soft overlap.
+                  />
                 ))}
                 {overflow > 0 ? (
-                  <BadgeDot className="-ml-1.5 border border-dls-surface" size="sm">
+                  <span
+                    className={cn(
+                      agentBrandIconTileClass,
+                      "relative -ml-1.5 size-6 rounded-md text-2xs font-semibold tabular-nums leading-none text-dls-secondary dark:text-neutral-700",
+                    )}
+                    aria-hidden
+                  >
                     +{overflow}
-                  </BadgeDot>
+                  </span>
                 ) : null}
               </div>
             ) : (
-              <span className="size-5 rounded-full border border-dashed border-dls-border bg-dls-surface" />
+              <span className="size-6 rounded-md border border-dashed border-dls-border bg-dls-surface-muted dark:bg-white/80" />
             )}
           </div>
         }
@@ -372,7 +456,7 @@ function SkillMatrixRow(props: {
         align="center"
         className="min-w-0 gap-2.5 self-center px-3 py-2"
       >
-        <SkillAgentCluster skill={props.skill} />
+        <SkillAgentCluster skill={props.skill} matrixAgents={props.matrixAgents} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-medium leading-5 text-dls-text">
@@ -582,7 +666,7 @@ function SkillMatrixDrawer(props: {
               );
               return (
                 <div key={agent} className="flex flex-col items-center gap-1 rounded-lg border border-dls-border bg-dls-surface-muted py-2">
-                  <div className="size-4"><AgentSkillIcon agent={agent} /></div>
+                  <AgentBrandIcon id={agent} provider={agent} size="xs" alt={skillAgentLabel(agent)} />
                   <SkillMatrixCell
                     state={state}
                     agent={agent}
@@ -604,7 +688,7 @@ function SkillMatrixDrawer(props: {
             {skill.sources.map((source, index) => (
               <li key={`${source.agent}:${source.path}:${index}`} className="rounded-lg border border-dls-border bg-dls-surface px-2.5 py-2">
                 <div className="flex items-center gap-1.5 text-xs">
-                  <span className="flex size-3.5 items-center justify-center"><AgentSkillIcon agent={source.agent} /></span>
+                  <AgentBrandIcon id={source.agent} provider={source.agent} size="xs" alt={source.label} />
                   <span className="font-medium">{source.label}</span>
                   <span className="text-dls-secondary">·</span>
                   <span className="text-dls-secondary">{source.scope}</span>
@@ -691,12 +775,15 @@ export function SkillMatrixPanel(props: {
   inventoryScope?: SkillInventoryScope;
   onInventoryScopeChange?: (scope: SkillInventoryScope) => void;
   scopeCounts?: { fleet: number; all: number; shared: number };
+  /** First-load without cache: show skeleton instead of false empty state. */
+  loading?: boolean;
 }) {
   const matrixAgents = props.matrixAgents?.length
     ? props.matrixAgents
     : STUDIO_SWITCH_SKILL_AGENT_OPTIONS;
   const unavailable = props.unavailableAgents ?? EMPTY_UNAVAILABLE_AGENTS;
   const inventoryScope = props.inventoryScope ?? "all";
+  const loading = Boolean(props.loading);
   const gridStyle = skillMatrixGridStyle(matrixAgents.length);
 
   const filtered = useMemo(() => {
@@ -704,8 +791,18 @@ export function SkillMatrixPanel(props: {
     return props.skills.filter((skill) => props.columnFilter.every((agent) => skill.agents.includes(agent)));
   }, [props.skills, props.columnFilter]);
 
+  /** Scope/search/column reduced the list; distinct from a truly empty snapshot. */
+  const hasActiveFilters =
+    Boolean(props.search.trim()) ||
+    props.columnFilter.length > 0 ||
+    inventoryScope !== "all";
+  const isEmptyInventory =
+    props.totalSkills === 0 &&
+    !props.search.trim() &&
+    props.columnFilter.length === 0;
+
   const handleHeaderToggle = useCallback((agent: AgentManagementSkillAgent, event: React.MouseEvent) => {
-    if (unavailable.has(agent)) return;
+    if (loading || unavailable.has(agent)) return;
     const multi = event.shiftKey;
     const exists = props.columnFilter.includes(agent);
     if (multi) {
@@ -714,7 +811,7 @@ export function SkillMatrixPanel(props: {
       if (exists && props.columnFilter.length === 1) props.onColumnFilterChange([]);
       else props.onColumnFilterChange([agent]);
     }
-  }, [props.columnFilter, props.onColumnFilterChange, unavailable]);
+  }, [loading, props.columnFilter, props.onColumnFilterChange, unavailable]);
 
   return (
     <section
@@ -722,6 +819,7 @@ export function SkillMatrixPanel(props: {
         "grid h-full min-h-0 flex-1 gap-0",
         props.selectedSkill && "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]",
       )}
+      aria-busy={loading || undefined}
     >
       <div
         className={cn(
@@ -741,6 +839,7 @@ export function SkillMatrixPanel(props: {
               onChange={(event) => props.onSearchChange(event.currentTarget.value)}
               placeholder={t("skills.matrix_search_placeholder")}
               className="h-8 text-xs"
+              disabled={loading}
             />
           </InputGroup>
           {props.onInventoryScopeChange ? (
@@ -757,11 +856,12 @@ export function SkillMatrixPanel(props: {
                   type="button"
                   size="filter"
                   active={inventoryScope === scope}
+                  disabled={loading}
                   onClick={() => props.onInventoryScopeChange?.(scope)}
                   className="gap-1 px-2 text-xs"
                 >
                   <span>{label}</span>
-                  {typeof count === "number" ? (
+                  {!loading && typeof count === "number" ? (
                     <span className="tabular-nums opacity-70">{count}</span>
                   ) : null}
                 </NavTabButton>
@@ -773,13 +873,23 @@ export function SkillMatrixPanel(props: {
               type="button"
               variant="outline"
               size="xs"
+              disabled={loading}
               onClick={() => props.onColumnFilterChange([])}
             >
               <X data-icon="inline-start" className="size-3" />
               <span>{t("skills.matrix_clear_column_filters", { count: props.columnFilter.length })}</span>
             </Button>
           ) : null}
-          <span className="text-xs tabular-nums text-dls-secondary">{t("skills.matrix_count", { visible: filtered.length, total: props.totalSkills })}</span>
+          {loading ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-dls-secondary">
+              <LoadingSpinner size="sm" />
+              <span>{t("skills.matrix_loading")}</span>
+            </span>
+          ) : (
+            <span className="text-xs tabular-nums text-dls-secondary">
+              {t("skills.matrix_count", { visible: filtered.length, total: props.totalSkills })}
+            </span>
+          )}
         </div>
 
         {/*
@@ -803,7 +913,7 @@ export function SkillMatrixPanel(props: {
                 key={agent}
                 agent={agent}
                 active={props.columnFilter.includes(agent)}
-                count={props.countsByAgent[agent] ?? 0}
+                count={loading ? 0 : (props.countsByAgent[agent] ?? 0)}
                 unavailable={unavailable.has(agent)}
                 leadRule={index === 0}
                 onToggle={(event) => handleHeaderToggle(agent, event)}
@@ -812,7 +922,9 @@ export function SkillMatrixPanel(props: {
             <div aria-hidden="true" className={cn("border-l", SKILL_MATRIX_RULE)} />
           </div>
 
-          {filtered.length > 0 ? (
+          {loading && filtered.length === 0 ? (
+            <SkillMatrixSkeletonRows agentColCount={matrixAgents.length} />
+          ) : filtered.length > 0 ? (
             filtered.map((skill) => (
               <SkillMatrixRow
                 key={`${skill.path}/${skill.name}`}
@@ -828,8 +940,12 @@ export function SkillMatrixPanel(props: {
           ) : (
             <div className="px-4 py-12 text-center text-sm text-dls-secondary">
               <FileText className="mx-auto mb-2 size-8 opacity-40" />
-              <div>{t("skills.matrix_empty")}</div>
-              {props.search || props.columnFilter.length > 0 || inventoryScope !== "all" ? (
+              <div>
+                {isEmptyInventory
+                  ? t("skills.matrix_empty_inventory")
+                  : t("skills.matrix_empty")}
+              </div>
+              {!isEmptyInventory && hasActiveFilters ? (
                 <Button
                   type="button"
                   variant="link"

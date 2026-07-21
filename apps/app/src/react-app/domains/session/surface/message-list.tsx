@@ -5,17 +5,27 @@ import type { Part } from "@opencode-ai/sdk/v2/client";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Box,
+  Bot,
+  Bug,
   Check,
+  CheckCircle2,
   ChevronDown,
   CircleAlert,
+  ClipboardCheck,
+  Cloud,
   Copy,
+  Database,
+  Eye,
   File as FileIcon,
   Folder,
   GitFork,
   Globe,
   HelpCircle,
+  Image as ImageIcon,
   MessageSquareWarning,
   MoreHorizontal,
+  PanelsTopLeft,
+  Pencil,
   RotateCcw,
   Search,
   Share2,
@@ -23,6 +33,7 @@ import {
   Terminal,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   Volume2,
 } from "lucide-react";
 
@@ -71,6 +82,7 @@ import { MarkdownBlock, type MarkdownVerifiedCodePath } from "./markdown";
 import {
   ImageGenerationToolCard,
   SpecializedToolDetails,
+  VisualizerReadMeToolRow,
   specializedToolCanExpand,
   specializedToolHeadline,
 } from "./specialized-tool-details";
@@ -289,13 +301,6 @@ function cancelledAssistantMessageIds(
     if (assistantMessage) ids.add(assistantMessage.id);
   }
   return ids;
-}
-
-export function isInternalAssistantNarration(text: string): boolean {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  return /^(?:the user(?: wants|['’]s| is| said| has| just| seems)|let me|i(?:'ll| will| need to| should| can) |first,? i(?:'ll| will| need to)|now,? i(?:'ll| will| need to)|next,? i(?:'ll| will| need to))/i.test(
-    normalized,
-  );
 }
 
 /**
@@ -699,13 +704,37 @@ function ToolActivityIcon(props: { category?: string }) {
     case "terminal":
       return <Terminal className={className} strokeWidth={1.9} />;
     case "read":
+    case "viewed":
+      return <Eye className={className} strokeWidth={1.7} />;
     case "edit":
     case "write":
-      return <FileIcon className={className} strokeWidth={1.9} />;
+      return <Pencil className={className} strokeWidth={1.8} />;
     case "glob":
       return <Folder className={className} strokeWidth={1.9} />;
     case "search":
       return <Search className={className} strokeWidth={1.9} />;
+    case "browser":
+      return <Eye className={className} strokeWidth={1.7} />;
+    case "web":
+      return <Globe className={className} strokeWidth={1.8} />;
+    case "image":
+      return <ImageIcon className={className} strokeWidth={1.8} />;
+    case "delete":
+      return <Trash2 className={className} strokeWidth={1.8} />;
+    case "completion":
+      return <CheckCircle2 className={className} strokeWidth={1.8} />;
+    case "plan":
+      return <ClipboardCheck className={className} strokeWidth={1.8} />;
+    case "agent":
+      return <Bot className={className} strokeWidth={1.8} />;
+    case "widget":
+      return <PanelsTopLeft className={className} strokeWidth={1.8} />;
+    case "database":
+      return <Database className={className} strokeWidth={1.8} />;
+    case "cloud":
+      return <Cloud className={className} strokeWidth={1.8} />;
+    case "debug":
+      return <Bug className={className} strokeWidth={1.8} />;
     default:
       return <Box className={className} strokeWidth={1.9} />;
   }
@@ -1236,7 +1265,7 @@ function TranscriptTurnStatus(props: {
   onDetailsExpandedChange: (expanded: boolean) => void;
 }) {
   if (
-    props.presentation.state !== "completed" ||
+    props.presentation.turnContent?.turnCollapseEligible !== true ||
     !props.presentation.hasExecutionDetails
   ) return null;
   const status = transcriptTurnStatusLabel(props.presentation.state);
@@ -1280,7 +1309,7 @@ function TranscriptAssistantHeader(props: {
 }) {
   const showStatus =
     props.presentation?.isFirstAssistantBlock === true &&
-    props.presentation.state === "completed" &&
+    props.presentation.turnContent?.turnCollapseEligible === true &&
     props.presentation.hasExecutionDetails &&
     props.presentation.copyText.trim().length > 0;
   if (!props.showAssistantAvatar && !showStatus) return null;
@@ -1742,6 +1771,8 @@ function StepRow(props: {
   onToggle: () => void;
   onOpenCodePath?: (path: string) => void;
   isStreamingReasoning: boolean;
+  headlineOverride?: string;
+  categoryOverride?: string;
 }) {
   const platform = usePlatform();
   const summary = useMemo(() => summarizeStep(props.part), [props.part]);
@@ -1768,9 +1799,10 @@ function StepRow(props: {
     (specializedDetails
       ? specializedToolCanExpand(specializedDetails) || Boolean(toolError)
       : hasStructuredValue(toolInput) || hasStructuredValue(toolOutput) || Boolean(toolError));
-  const headline = specializedDetails
+  const headline = props.headlineOverride ?? (specializedDetails
     ? specializedToolHeadline(specializedDetails, isRunningStepStatus(summary.status))
-    : summary.title?.trim() || t("session.step_progress");
+    : summary.title?.trim() || t("session.step_progress"));
+  const iconCategory = props.categoryOverride ?? summary.toolCategory;
   const statusText = toolStatusText(summary.status);
   const questionAnswers =
     props.part.type === "tool" && props.part.tool.toLowerCase() === "question"
@@ -1817,6 +1849,17 @@ function StepRow(props: {
     );
   }
 
+  if (specializedDetails?.kind === "visualizer-read-me") {
+    return (
+      <VisualizerReadMeToolRow
+        details={specializedDetails}
+        running={isRunningStepStatus(summary.status)}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+      />
+    );
+  }
+
   if (props.part.type === "reasoning") {
     if (!props.part.text.trim()) return null;
     return (
@@ -1835,7 +1878,7 @@ function StepRow(props: {
     return (
       <div className={messageTextClass.body}>
         <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
-          <ToolActivityIcon category={summary.toolCategory} />
+          <ToolActivityIcon category={iconCategory} />
           <span>{headline}</span>
           <Button
             type="button"
@@ -1856,7 +1899,7 @@ function StepRow(props: {
     return (
       <div className={messageTextClass.body}>
         <div className="inline-flex min-w-0 max-w-[760px] items-center gap-3 text-dls-secondary">
-          <ToolActivityIcon category={summary.toolCategory} />
+          <ToolActivityIcon category={iconCategory} />
           <span>{headline}</span>
           <Button
             type="button"
@@ -1891,7 +1934,7 @@ function StepRow(props: {
         }}
       >
         <span className="inline-flex min-w-0 max-w-[760px] items-center gap-3">
-          <ToolActivityIcon category={summary.toolCategory} />
+          <ToolActivityIcon category={iconCategory} />
           <span className="min-w-0 flex-1">
             <span className="block wrap-break-word">{headline}</span>
             {toolPresentation?.secondary ? (
@@ -1975,6 +2018,96 @@ function processItemToLegacyPart(item: TurnProcessItem) {
   return toLegacyPart(item.part, `${item.messageId}:${item.partIndex}`);
 }
 
+export function shouldUseSemanticProcessFold(part: Part) {
+  if (part.type !== "tool") return false;
+  const tool = part.tool.toLowerCase();
+  return isVisualizerReadMeToolName(tool) ||
+    tool === "skill" ||
+    tool === "useskill" ||
+    tool.includes("skill") ||
+    tool === "bash" ||
+    tool === "shell" ||
+    tool.includes("command") ||
+    tool.includes("terminal") ||
+    tool.includes("browser") ||
+    tool.includes("playwright");
+}
+
+function isVisualizerReadMeToolName(toolName: string) {
+  return [
+    "readme",
+    "visualize:readme",
+    "visualizer:readme",
+    "visualizer:readmetool",
+    "getdesignspec",
+  ].includes(toolName.toLowerCase().replace(/[-_]/g, ""));
+}
+
+function browserNodeReplProcessMeta(input: Record<string, unknown> | null): {
+  label: string;
+  category: string;
+} {
+  const code = typeof input?.code === "string" ? input.code : "";
+  const normalized = code.toLowerCase();
+  if (/\.goto\s*\(|\.navigate\s*\(|\.open\s*\(/.test(normalized)) {
+    const rawUrl = code.match(/https?:\/\/[^"'`\s)]+/)?.[0];
+    let domain = "";
+    if (rawUrl) {
+      try {
+        domain = new URL(rawUrl).hostname;
+      } catch {
+        domain = "";
+      }
+    }
+    return {
+      label: domain
+        ? t("session.process_summary_browser_open_page_target", { target: domain })
+        : t("session.process_summary_browser_open_page"),
+      category: "web",
+    };
+  }
+  if (/\.click\s*\(|\.fill\s*\(|\.type\s*\(|\.press\s*\(|\.selectoption\s*\(|\.check\s*\(|\.hover\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_interact"),
+      category: "browser",
+    };
+  }
+  if (/\.screenshot\s*\(|emitimage\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_snapshot"),
+      category: "image",
+    };
+  }
+  if (/waitfortimeout\s*\(|waitforloadstate\s*\(|waitforselector\s*\(|waitforurl\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_wait"),
+      category: "browser",
+    };
+  }
+  if (/scrollby\s*\(|scrollto\s*\(|scrollintoview\s*\(|mouse\.wheel\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_browse"),
+      category: "browser",
+    };
+  }
+  if (/browsers\.getdefault\s*\(|tabs\.list\s*\(|tabs\.get\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_prepare"),
+      category: "browser",
+    };
+  }
+  if (/\.evaluate\s*\(|textcontent|innerhtml|queryselector|\.locator\s*\(|\.url\s*\(|\.title\s*\(/.test(normalized)) {
+    return {
+      label: t("session.process_summary_browser_inspect"),
+      category: "read",
+    };
+  }
+  return {
+    label: t("session.tool_chip_browser"),
+    category: "browser",
+  };
+}
+
 function processPlanDetails(items: TurnProcessItem[]) {
   for (const item of items) {
     const part = processItemToLegacyPart(item);
@@ -1991,28 +2124,39 @@ function processPlanDetails(items: TurnProcessItem[]) {
   return null;
 }
 
-function processFoldChipMeta(items: TurnProcessItem[]): {
+export function processFoldChipMeta(items: TurnProcessItem[], turnRunning = false): {
   label: string;
   category?: string;
   variant: "thinking" | "tool-chip" | "summary";
+  running: boolean;
 } {
   if (processPlanDetails(items)) {
-    return { label: t("session.workbuddy_task_list"), category: "terminal", variant: "summary" };
+    return {
+      label: t("session.workbuddy_task_list"),
+      category: "terminal",
+      variant: "summary",
+      running: turnRunning,
+    };
   }
   const legacyParts = items.flatMap((item) => {
     const part = processItemToLegacyPart(item);
     return part ? [part] : [];
   });
+  const toolParts = legacyParts.filter((part) => part.type === "tool");
+  const running = turnRunning && toolParts.some((part) => (
+    isRunningStepStatus(summarizeStep(part).status)
+  ));
   if (legacyParts.length > 0 && legacyParts.every((part) => part.type === "reasoning")) {
     return {
       label: t("session.process_summary_deep_thinking"),
       variant: "thinking",
+      running: turnRunning,
     };
   }
 
-  // Single concrete op → WorkBuddy chip label (load skill / run command / browser)
-  if (legacyParts.length === 1 && legacyParts[0]?.type === "tool") {
-    const part = legacyParts[0];
+  // WorkBuddy summaries ignore reasoning and derive intent only from tool calls.
+  if (toolParts.length === 1 && toolParts[0]) {
+    const part = toolParts[0];
     const summary = summarizeStep(part);
     const tool = part.tool.toLowerCase();
     const toolState = "state" in part && isRecordValue(part.state) ? part.state : null;
@@ -2026,6 +2170,15 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
       : "";
     const skillName = skillNameRaw || summary.skillName?.trim() || "";
 
+    if (isVisualizerReadMeToolName(tool)) {
+      return {
+        label: t("session.tool_visualizer_read_me"),
+        category: "read",
+        variant: "tool-chip",
+        running,
+      };
+    }
+
     if (tool === "skill" || tool === "useskill" || tool.includes("skill")) {
       return {
         label: skillName
@@ -2033,6 +2186,7 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
           : t("session.tool_chip_load_skill_generic"),
         category: "skill",
         variant: "tool-chip",
+        running,
       };
     }
     if (
@@ -2045,30 +2199,53 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
         label: t("session.tool_chip_run_command"),
         category: "terminal",
         variant: "tool-chip",
+        running,
       };
     }
     if (
       tool.includes("browser") ||
-      tool.includes("playwright") ||
-      tool.includes("web") ||
-      tool.includes("fetch")
+      tool.includes("playwright")
     ) {
+      const browserMeta = browserNodeReplProcessMeta(toolInput);
       return {
-        label: t("session.tool_chip_browser"),
-        category: "search",
-        variant: "tool-chip",
+        ...browserMeta,
+        variant: "summary",
+        running,
       };
     }
-    return {
-      label: summary.title?.trim() || t("session.process_summary_continue_processing"),
-      category: summary.toolCategory,
-      variant: "tool-chip",
-    };
   }
 
-  const toolNames = legacyParts.flatMap((part) => (
-    part.type === "tool" ? [part.tool.toLowerCase()] : []
-  ));
+  const toolNames = toolParts.map((part) => part.tool.toLowerCase());
+  const terminalCount = toolNames.filter((name) => (
+    name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
+  )).length;
+  const editCount = toolNames.filter((name) => (
+    name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
+  )).length;
+  if (terminalCount > 0 && editCount > 0) {
+    const topic = toolParts.flatMap((part) => {
+      const state = "state" in part ? recordValue(part.state) : null;
+      const input = recordValue(state?.input);
+      const path = ["filePath", "file_path", "path"]
+        .map((key) => input?.[key])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+      if (!path) return [];
+      const normalized = path.replace(/[\\/]+$/, "");
+      return [normalized.split(/[\\/]/).at(-1) || normalized];
+    })[0];
+    if (topic) {
+      return {
+        label: t("session.process_summary_command_modify_topic", { topic }),
+        category: toolNames.findIndex((name) => (
+          name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
+        )) <= toolNames.findIndex((name) => (
+          name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
+        )) ? "terminal" : "edit",
+        variant: "summary",
+        running,
+      };
+    }
+  }
   if (toolNames.some((name) => (
     name.includes("search") || name.includes("fetch") || name.includes("browser") || name.includes("web")
   ))) {
@@ -2076,26 +2253,23 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
       label: t("session.process_summary_collecting_sources"),
       category: "search",
       variant: "summary",
+      running,
     };
   }
-  const terminalCount = toolNames.filter((name) => (
-    name === "bash" || name.includes("command") || name.includes("terminal") || name === "shell"
-  )).length;
   if (terminalCount > 0) {
     return {
       label: t("session.process_summary_ran_commands", { count: terminalCount }),
       category: "terminal",
       variant: "summary",
+      running,
     };
   }
-  const editCount = toolNames.filter((name) => (
-    name.includes("write") || name.includes("edit") || name.includes("patch") || name.includes("replace")
-  )).length;
   if (editCount > 0) {
     return {
       label: t("session.process_summary_edited", { count: editCount }),
       category: "edit",
       variant: "summary",
+      running,
     };
   }
   const readCount = toolNames.filter((name) => (
@@ -2106,22 +2280,31 @@ function processFoldChipMeta(items: TurnProcessItem[]): {
       label: t("session.process_summary_reviewed_files", { count: readCount }),
       category: "read",
       variant: "summary",
+      running,
     };
   }
-  if (legacyParts.length > 0) {
+  if (toolParts.length > 0) {
     const summary = summarizeStepCluster([{
       id: `turn-process:${items[0]?.messageId ?? "unknown"}`,
-      parts: legacyParts,
+      parts: toolParts,
       mode: "standalone",
     }]);
     if (summary.category !== "tool") {
-      return { label: summary.label, category: summary.category, variant: "summary" };
+      return {
+        label: summary.label,
+        category: summary.category,
+        variant: "summary",
+        running,
+      };
     }
   }
   return {
     label: t("session.process_summary_continue_processing"),
-    category: "tool",
+    category: toolNames.some((name) => name.includes("browser") || name.includes("playwright"))
+      ? "browser"
+      : "tool",
     variant: "summary",
+    running,
   };
 }
 
@@ -2215,7 +2398,7 @@ function WorkBuddyProcessFold(props: {
   const [expanded, setExpanded] = useState(false);
   if (plan) return <WorkBuddyTaskList todos={plan.todos} running={props.running} />;
 
-  const chip = processFoldChipMeta(props.items);
+  const chip = processFoldChipMeta(props.items, props.running);
   const isThinking = chip.variant === "thinking";
   const isToolChip = chip.variant === "tool-chip";
 
@@ -2252,14 +2435,16 @@ function WorkBuddyProcessFold(props: {
       >
         {isThinking ? null : (
           <span className="session-workbuddy-process-icon-wrap" aria-hidden="true">
-            {props.running && chip.variant === "summary" ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              <ToolActivityIcon category={chip.category} />
-            )}
+            <ToolActivityIcon category={chip.category} />
           </span>
         )}
-        <span>{chip.label}</span>
+        <span
+          className={cn(
+            isThinking && chip.running && "session-transcript-loading-shimmer",
+          )}
+        >
+          {chip.label}
+        </span>
         <ChevronDown aria-hidden="true" className="session-workbuddy-process-arrow" />
       </button>
       {expanded ? (
@@ -2268,11 +2453,24 @@ function WorkBuddyProcessFold(props: {
             const key = `${item.messageId}:${item.partIndex}`;
             if (item.part.type === "reasoning") {
               if (!item.part.text.trim()) return null;
+              if (props.items.length > 1) {
+                return (
+                  <WorkBuddyProcessFold
+                    key={key}
+                    id={`${props.id}:${key}`}
+                    items={[item]}
+                    running={chip.running}
+                    expandedStepIds={props.expandedStepIds}
+                    onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+                    onOpenCodePath={props.onOpenCodePath}
+                  />
+                );
+              }
               return (
                 <MarkdownBlock
                   key={key}
                   text={item.part.text}
-                  streaming={props.running}
+                  streaming={chip.running}
                   showStreamingCursor={false}
                   locale={currentLocale()}
                 />
@@ -2288,7 +2486,7 @@ function WorkBuddyProcessFold(props: {
                 expanded={props.expandedStepIds.has(key)}
                 onToggle={() => toggleStep(key)}
                 onOpenCodePath={props.onOpenCodePath}
-                isStreamingReasoning={props.running}
+                isStreamingReasoning={chip.running}
               />
             );
           })}
@@ -2571,26 +2769,101 @@ function WorkBuddyTurnContent(props: {
 }) {
   const running = props.presentation.state === "streaming" ||
     props.presentation.state === "awaiting-approval";
-  const showExpandedProcess = running || props.detailsExpanded ||
-    props.presentation.state === "cancelled" || props.presentation.state === "failed";
+  const showExpandedProcess = !props.presentation.turnCollapseEligible ||
+    props.detailsExpanded;
   const lastBodyId = props.presentation.segments.findLast(
     (segment) => segment.kind === "body",
   )?.id;
 
-  const renderProcess = (id: string, items: TurnProcessItem[]) => (
-    <WorkBuddyProcessFold
-      key={id}
-      id={id}
-      items={items}
-      running={running}
-      expandedStepIds={props.expandedStepIds}
-      onExpandedStepIdsChange={props.onExpandedStepIdsChange}
-      onOpenCodePath={props.onOpenCodePath}
-    />
-  );
+  const toggleStep = (id: string) => {
+    props.onExpandedStepIdsChange((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderSingletonProcess = (
+    id: string,
+    item: TurnProcessItem,
+    processRunning: boolean,
+  ) => {
+    const legacyPart = processItemToLegacyPart(item);
+    if (item.part.type === "reasoning" || processPlanDetails([item])) {
+      return (
+        <WorkBuddyProcessFold
+          key={id}
+          id={id}
+          items={[item]}
+          running={processRunning}
+          expandedStepIds={props.expandedStepIds}
+          onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+          onOpenCodePath={props.onOpenCodePath}
+        />
+      );
+    }
+    if (!legacyPart) return null;
+    const semanticMeta = shouldUseSemanticProcessFold(legacyPart)
+      ? processFoldChipMeta([item], processRunning)
+      : null;
+    const stepId = `${item.messageId}:${item.partIndex}`;
+    return (
+      <StepRow
+        key={id}
+        id={stepId}
+        part={legacyPart}
+        expanded={props.expandedStepIds.has(stepId)}
+        onToggle={() => toggleStep(stepId)}
+        onOpenCodePath={props.onOpenCodePath}
+        isStreamingReasoning={processRunning}
+        headlineOverride={semanticMeta?.label}
+        categoryOverride={semanticMeta?.category}
+      />
+    );
+  };
+
+  const renderProcess = (id: string, items: TurnProcessItem[]) => {
+    const processRunning = running && items.some(
+      (item) => item.messageId === props.presentation.streamingMessageId,
+    );
+    const item = items[0];
+    if (items.length === 1 && item) {
+      return renderSingletonProcess(id, item, processRunning);
+    }
+    return (
+      <WorkBuddyProcessFold
+        key={id}
+        id={id}
+        items={items}
+        running={processRunning}
+        expandedStepIds={props.expandedStepIds}
+        onExpandedStepIdsChange={props.onExpandedStepIdsChange}
+        onOpenCodePath={props.onOpenCodePath}
+      />
+    );
+  };
 
   const renderExpandedSegment = (segment: TurnContentSegment) => {
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.kind === "synthetic-body") {
+      return (
+        <div key={segment.id} className="session-workbuddy-turn-body">
+          <MarkdownBlock
+            text={t(segment.messageKey)}
+            streaming={false}
+            showStreamingCursor={false}
+            highlightQuery={props.highlightQuery}
+            locale={currentLocale()}
+            onOpenCodePath={props.onOpenCodePath}
+            verifiedCodePaths={props.verifiedCodePaths}
+          />
+        </div>
+      );
+    }
+    if (segment.kind === "widget") {
+      return <InlineVisual key={segment.id} visual={segment.visual} />;
+    }
     if (segment.kind === "file" && segment.item.part.type === "file") {
       return (
         <FileCard
@@ -2605,6 +2878,35 @@ function WorkBuddyTurnContent(props: {
       );
     }
     if (segment.kind !== "body") return null;
+    if (segment.item.bodySegments) {
+      return (
+        <div key={segment.id} className="session-workbuddy-turn-body">
+          {segment.item.bodySegments.map((bodySegment, index) => (
+            bodySegment.kind === "widget"
+              ? (
+                  <InlineVisual
+                    key={`${segment.id}:widget:${index}`}
+                    visual={bodySegment.visual}
+                  />
+                )
+              : bodySegment.text.trim()
+                ? (
+                    <MarkdownBlock
+                      key={`${segment.id}:text:${index}`}
+                      text={bodySegment.text}
+                      streaming={running && segment.id === lastBodyId}
+                      showStreamingCursor={false}
+                      highlightQuery={props.highlightQuery}
+                      locale={currentLocale()}
+                      onOpenCodePath={props.onOpenCodePath}
+                      verifiedCodePaths={props.verifiedCodePaths}
+                    />
+                  )
+                : null
+          ))}
+        </div>
+      );
+    }
     return (
       <div key={segment.id} className="session-workbuddy-turn-body">
         <MarkdownBlock
@@ -2623,6 +2925,33 @@ function WorkBuddyTurnContent(props: {
   const renderCollapsedSegment = (segment: TurnFoldSegment) => {
     if (segment.kind === "hidden") return null;
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
+    if (segment.item.bodySegments) {
+      return (
+        <div key={segment.id} className="session-workbuddy-turn-body">
+          {segment.item.bodySegments.map((bodySegment, index) => (
+            bodySegment.kind === "widget"
+              ? (
+                  <InlineVisual
+                    key={`${segment.id}:widget:${index}`}
+                    visual={bodySegment.visual}
+                  />
+                )
+              : bodySegment.text.trim()
+                ? (
+                    <MarkdownBlock
+                      key={`${segment.id}:text:${index}`}
+                      text={bodySegment.text}
+                      highlightQuery={props.highlightQuery}
+                      locale={currentLocale()}
+                      onOpenCodePath={props.onOpenCodePath}
+                      verifiedCodePaths={props.verifiedCodePaths}
+                    />
+                  )
+                : null
+          ))}
+        </div>
+      );
+    }
     return (
       <div key={segment.id} className="session-workbuddy-turn-body">
         <MarkdownBlock
@@ -2641,12 +2970,14 @@ function WorkBuddyTurnContent(props: {
       {showExpandedProcess
         ? props.presentation.segments.map(renderExpandedSegment)
         : props.presentation.collapsedSegments.map(renderCollapsedSegment)}
-      {props.presentation.hoistedItems.map((visual) => (
-        <InlineVisual
-          key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
-          visual={visual}
-        />
-      ))}
+      {!showExpandedProcess
+        ? props.presentation.hoistedItems.map((visual) => (
+            <InlineVisual
+              key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
+              visual={visual}
+            />
+          ))
+        : null}
     </div>
   );
 }
@@ -3076,6 +3407,7 @@ function MessageBlockRow(props: {
 function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? DEFAULT_SHOW_THINKING;
   const isNestedVariant = props.variant === "nested";
+  const transcriptLocale = currentLocale();
   const [rootContentWidth, setRootContentWidth] = useState(
     DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
   );
@@ -3172,13 +3504,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     pushReadyDividers(0);
     transcriptMessages.forEach((message, messageIndex) => {
       const renderableParts = message.parts.filter((part) => {
-        if (
-          message.role === "assistant" &&
-          (part.type === "text" || part.type === "reasoning") &&
-          isInternalAssistantNarration(part.text)
-        ) {
-          return false;
-        }
         if (part.type === "reasoning") {
           return showThinking;
         }
@@ -3349,11 +3674,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     const presentations = new Map<string, TurnContentPresentation>();
     if (isNestedVariant || props.searchHighlightQuery?.trim()) return presentations;
     transcriptTurns.forEach((turn) => {
-      const presentation = buildTurnContentPresentation(turn);
+      const presentation = buildTurnContentPresentation(turn, {
+        locale: transcriptLocale,
+      });
       if (presentation) presentations.set(turn.id, presentation);
     });
     return presentations;
-  }, [isNestedVariant, props.searchHighlightQuery, transcriptTurns]);
+  }, [isNestedVariant, props.searchHighlightQuery, transcriptLocale, transcriptTurns]);
 
   const turnPresentationByBlockKey = useMemo(() => {
     const presentations = new Map<string, TranscriptBlockTurnPresentation>();
@@ -3427,7 +3754,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             : firstAssistantBlockKeys.has(blockKey),
           isActionBlock: blockKey === actionBlockKey,
           hasExecutionDetails: turnContent
-            ? turnContent.processItems.length > 0
+            ? turnContent.processItems.length > 0 || turnContent.turnCollapseEligible
             : turnsWithExecutionDetails.has(turn.id),
           turnContent,
           isTurnContentAnchor: turnContentAnchorBlockKey === blockKey,

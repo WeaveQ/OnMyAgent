@@ -1,0 +1,58 @@
+{
+  "name": "capacity-dispatcher",
+  "version": "1.1.0",
+  "description": "Maintain a live capacity pool and match pending orders to available trucks — 1-3 load plans with reasons and risk flags",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "capacity-dispatcher",
+  "agents": ["./agents/capacity-dispatcher.md"],
+  "skills": ["./skills/capacity-pool"],
+  "displayName": {
+    "en": "Capacity Dispatcher",
+    "zh": "运力调配专家"
+  },
+  "profession": {
+    "en": "Capacity Dispatch Operations",
+    "zh": "运力调配作业"
+  },
+  "displayDescription": {
+    "en": "Maintain a live capacity pool, then match pending orders to trucks with 1-3 load plans, clear reasons, and risk flags for your final call.",
+    "zh": "维护动态运力池，把订单与运力多因素匹配成1-3套配载方案，说明理由并提示高风险。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "待调度：①广州花都→东莞常平 注塑机1台约4吨要尾板 明天上午装；②深圳宝安→东莞塘厦 配件12方 今天下午能装。运力：张师傅东莞茶山空车6.8高栏余8吨可接东莞/深圳；李师傅深圳盐田预计今晚10点卸完想回东莞；王师傅在途惠州还能配3方。给我1-3套配载方案和理由。",
+    "en": "Orders: (1) Huadu→Changping injection machine ~4t tail-lift tomorrow AM; (2) Baoan→Tangxia 12 CBM parts load this PM. Fleet: Zhang empty Chashan 6.8 high-side 8t residual OK Dongguan/Shenzhen; Li free after 10pm Yantian unload wants back to Dongguan; Wang en route Huizhou 3 CBM residual. Give 1-3 load plans with reasons."
+  },
+  "tags": [
+    { "zh": "运力池", "en": "Capacity Pool" },
+    { "zh": "配载推荐", "en": "Load Matching" },
+    { "zh": "空驶优化", "en": "Empty-Mile Cut" },
+    { "zh": "动态调度", "en": "Live Dispatch" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "待调度：①广州花都→东莞常平 注塑机1台约4吨要尾板 明天上午装；②深圳宝安→东莞塘厦 配件12方 今天下午能装。运力：张师傅东莞茶山空车6.8高栏余8吨可接东莞/深圳；李师傅深圳盐田预计今晚10点卸完想回东莞；王师傅在途惠州还能配3方。给我1-3套配载方案和理由。",
+      "en": "Orders: (1) Huadu→Changping ~4t tail-lift tomorrow AM; (2) Baoan→Tangxia 12 CBM this PM. Fleet: Zhang empty Chashan 8t; Li free after 10pm wants Dongguan; Wang en route Huizhou 3 CBM. Give 1-3 load plans with reasons."
+    },
+    {
+      "zh": "刚收到几位司机微信：张师傅在东莞茶山空车还能拉8吨、李师傅深圳盐田预计今晚10点卸完、王师傅在途去惠州还能配3方货。帮我整理成当前可用运力清单。",
+      "en": "Drivers just reported: Zhang empty in Dongguan Chashan can take 8t; Li free after 10pm unload in Yantian; Wang en route to Huizhou can co-load 3 CBM. Build the live capacity list."
+    },
+    {
+      "zh": "当前可用运力有哪些？按区域汇总，长时间没更新的标红提醒。",
+      "en": "What capacity is available now? Summarize by region and flag stale vehicles in red."
+    },
+    {
+      "zh": "帮我写一段发到司机群的话术：请大家回报现在位置、剩余载重、预计空闲时间和能否接往东莞方向的货。",
+      "en": "Draft a WeChat group message asking drivers for location, remaining load, free time, and whether they can take loads toward Dongguan."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【运力调配专家】。\n\n两件事我都能扛：\n1）**运力池** — 位置、剩余载重、状态、空闲时间汇总成实时可用清单，超时未更新标红催更\n2）**配载推荐** — 待调度订单 + 当前运力，综合顺路、载重、意愿、时效、空驶，给出 1–3 套方案和理由；高风险我会标出来请你最终确认\n\n丢司机汇报、订单清单，或直接说「帮我配一下」。",
+    "en": "Boss, I'm Capacity Dispatcher.\n\nI cover two jobs:\n1) **Capacity pool** — location, residual load, status, free time into a live list; flag and nudge stale updates\n2) **Load matching** — pending orders + current fleet → 1–3 plans with reasons (route fit, load, willingness, SLA, empty miles); high risk flagged for your final call\n\nDrop driver updates, order lists, or just say match these loads."
+  }
+}

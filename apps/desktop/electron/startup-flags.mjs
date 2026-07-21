@@ -16,5 +16,12 @@ export async function configureDesktopStartupFlags(app) {
     }
   }
 
+  // Dev renderer loads Vite from localhost. Chromium's HTTP cache can keep
+  // module graphs that import optimize-deps chunks deleted after a re-opt,
+  // which paints a permanent blank window. Always disable HTTP cache in dev.
+  if (process.env.ONMYAGENT_DEV_MODE === "1") {
+    app.commandLine.appendSwitch("disable-http-cache");
+  }
+
   return {};
 }

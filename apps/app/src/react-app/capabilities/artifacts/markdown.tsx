@@ -286,7 +286,10 @@ const baseMarkedOptions = {
     table(token) {
       const header = token.header.map((cell) => this.tablecell({ ...cell, header: true })).join("");
       const body = token.rows.map((row) => this.tablerow({ text: row.map((cell) => this.tablecell(cell)).join("") })).join("");
-      return `<div class="session-markdown-table my-4 overflow-x-auto rounded-xl border"><table class="w-full min-w-max border-collapse"><thead>${this.tablerow({ text: header })}</thead><tbody>${body}</tbody></table></div>`;
+      // Outer shell owns the rounded frame border once; cells only draw
+      // internal grid lines (see .session-markdown-table in index.css) so
+      // edges don't stack as double borders.
+      return `<div class="session-markdown-table my-4 overflow-x-auto rounded-xl border"><table class="w-full min-w-max border-collapse border-0"><thead>${this.tablerow({ text: header })}</thead><tbody>${body}</tbody></table></div>`;
     },
     tablerow({ text }) {
       return `<tr>${text}</tr>`;
@@ -294,8 +297,8 @@ const baseMarkedOptions = {
     tablecell({ tokens, header, align }) {
       const tag = header ? "th" : "td";
       const className = header
-        ? "session-markdown-table-header border px-4 py-2 text-left font-semibold"
-        : "session-markdown-table-cell border px-4 py-2 align-top";
+        ? "session-markdown-table-header px-4 py-2 text-left font-semibold"
+        : "session-markdown-table-cell px-4 py-2 align-top";
       return `<${tag}${alignAttribute(align)} class="${className}">${this.parser.parseInline(tokens)}</${tag}>`;
     },
     hr() {

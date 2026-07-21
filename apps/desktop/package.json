@@ -2,7 +2,7 @@
   "name": "@onmyagent/desktop",
   "private": true,
   "version": "0.2.0",
-  "description": "OnMyAgent desktop shell",
+  "description": "OnMyAgent — local control plane for your AI agents",
   "author": {
     "name": "OnMyAgent Contributors"
   },
@@ -14,11 +14,14 @@
     "dev:windows:x64": "node ./scripts/dev-windows.mjs x64",
     "build": "node ./scripts/electron-build.mjs",
     "build:electron": "node ./scripts/electron-build.mjs",
-    "package:electron": "pnpm run build:electron && pnpm exec electron-builder --config electron-builder.yml",
-    "package:electron:dir": "pnpm run build:electron && pnpm exec electron-builder --config electron-builder.yml --dir",
+    "package:electron": "pnpm run build:electron && node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml",
+    "package:electron:dir": "pnpm run build:electron && node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml --dir",
+    "package:electron:local": "node ./scripts/package-electron-local.mjs",
+    "package:nsis": "node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml --win --x64 --publish never",
     "electron": "pnpm exec electron ./electron/main.mjs",
     "check:electron": "node ./scripts/check-electron-bridge.mjs",
-    "test:runtime": "node --test ./scripts/prepare-sidecar-policy.test.mjs ./scripts/runtime-archive.test.mjs ./electron/desktop-command-contract.test.mjs ./electron/desktop-handlers/domain-smoke.test.mjs ./electron/browser-runtime/*.test.mjs && pnpm check:electron",
+    "test:runtime": "node --test ./scripts/prepare-sidecar-policy.test.mjs ./scripts/vite-deps-integrity.test.mjs ./scripts/runtime-archive.test.mjs ./electron/desktop-command-contract.test.mjs ./electron/desktop-handlers/domain-smoke.test.mjs ./electron/browser-runtime/*.test.mjs && pnpm check:electron",
+    "test:vite-deps-integrity": "node --test ./scripts/vite-deps-integrity.test.mjs",
     "test:windows-runtime": "node ../../scripts/dev/windows-runtime-test.mjs",
     "test:browser-smoke": "electron ./scripts/browser-runtime-smoke.mjs",
     "test:release-smoke": "pnpm build && node ./scripts/check-electron-bridge.mjs && pnpm exec electron-builder --config electron-builder.yml --dir --publish never",
@@ -40,6 +43,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electron/asar": "^4.2.0",
     "electron": "^39.8.10",
     "electron-builder": "^25.1.8",
     "electron-devtools-installer": "^4.0.0"

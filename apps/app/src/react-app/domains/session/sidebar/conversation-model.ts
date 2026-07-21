@@ -128,12 +128,27 @@ function messagePartPreview(part: OnMyAgentSessionMessage["parts"][number]) {
     if (part.synthetic || part.ignored) return "";
     return part.text.trim();
   }
-  if (part.type === "reasoning") return part.text.trim();
+  // Reasoning is internal monologue (often "The user sent…") — never list subtitle.
+  if (part.type === "reasoning") return "";
   if (part.type === "tool") return t("session.preview_tool", { tool: part.tool });
   if (part.type === "agent")
     return part.name ? `@${part.name}` : t("session.preview_agent_mention");
   if (part.type === "file") return t("session.preview_file");
   return "";
+}
+
+/** Visible text parts only (model reply / user text), no reasoning. */
+function messageVisibleTextPreview(message: OnMyAgentSessionMessage) {
+  return message.parts
+    .map((part) => {
+      if (part.type !== "text") return "";
+      if (part.synthetic || part.ignored) return "";
+      return part.text.trim();
+    })
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function sessionMessagePreview(message: OnMyAgentSessionMessage) {
@@ -145,9 +160,27 @@ export function sessionMessagePreview(message: OnMyAgentSessionMessage) {
     .trim();
 }
 
+/**
+ * Expert list subtitle: prefer latest **model reply** text.
+ * Skips user turns and reasoning so we never show "The user sent…".
+ */
+export function sessionAssistantReplyPreview(
+  message: OnMyAgentSessionMessage,
+): string {
+  if (message.info.role !== "assistant") return "";
+  return messageVisibleTextPreview(message);
+}
+
 export function snapshotConversationSummary(
   snapshot: OnMyAgentSessionSnapshot | undefined,
   fallbackTime: number | null | undefined,
+  options?: {
+    /**
+     * Expert list: last assistant text reply first.
+     * Falls back to last user text only if no model reply yet.
+     */
+    preferAssistantReply?: boolean;
+  },
 ) {
   if (!snapshot) {
     return {
@@ -155,22 +188,42 @@ export function snapshotConversationSummary(
       time: formatConversationTime(fallbackTime),
     };
   }
-  for (let index = snapshot.messages.length - 1; index >= 0; index -= 1) {
-    const message = snapshot.messages[index];
-    if (!message) continue;
-    const preview = sessionMessagePreview(message);
-    if (preview) {
-      return {
-        preview,
-        time: formatConversationTime(
-          sessionMessageTime(message) ??
-            snapshot.session.time?.updated ??
-            snapshot.session.time?.created ??
-            fallbackTime,
-        ),
-      };
+
+  const pickFromMessages = (
+    matcher: (message: OnMyAgentSessionMessage) => string,
+  ) => {
+    for (let index = snapshot.messages.length - 1; index >= 0; index -= 1) {
+      const message = snapshot.messages[index];
+      if (!message) continue;
+      const preview = matcher(message);
+      if (preview) {
+        return {
+          preview,
+          time: formatConversationTime(
+            sessionMessageTime(message) ??
+              snapshot.session.time?.updated ??
+              snapshot.session.time?.created ??
+              fallbackTime,
+          ),
+        };
+      }
     }
+    return null;
+  };
+
+  if (options?.preferAssistantReply) {
+    const assistantHit = pickFromMessages(sessionAssistantReplyPreview);
+    if (assistantHit) return assistantHit;
+    // Waiting for model: show last user text, still never reasoning.
+    const userHit = pickFromMessages((message) =>
+      message.info.role === "user" ? messageVisibleTextPreview(message) : "",
+    );
+    if (userHit) return userHit;
+  } else {
+    const anyHit = pickFromMessages(sessionMessagePreview);
+    if (anyHit) return anyHit;
   }
+
   return {
     preview: t("session.default_title"),
     time: formatConversationTime(
@@ -215,6 +268,92 @@ export function writeAssistantPinnedSessionIds(workspaceId: string, sessionIds: 
     else delete record[workspaceId];
     window.localStorage.setItem(
       ASSISTANT_PINNED_SESSIONS_STORAGE_KEY,
+      JSON.stringify(record),
+    );
+  } catch {
+    return;
+  }
+}
+
+/** Expert list pin — by agentId (one row = one expert), local only. */
+const EXPERT_PINNED_AGENTS_STORAGE_KEY = "onmyagent.expertPinnedAgents.v1";
+
+export function readExpertPinnedAgentIds(workspaceId: string) {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(EXPERT_PINNED_AGENTS_STORAGE_KEY) ?? "{}",
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+    const value = (parsed as Record<string, unknown>)[workspaceId];
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeExpertPinnedAgentIds(workspaceId: string, agentIds: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(EXPERT_PINNED_AGENTS_STORAGE_KEY) ?? "{}",
+    );
+    const record =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? { ...(parsed as Record<string, unknown>) }
+        : {};
+    const uniqueAgentIds = Array.from(new Set(agentIds));
+    if (uniqueAgentIds.length > 0) record[workspaceId] = uniqueAgentIds;
+    else delete record[workspaceId];
+    window.localStorage.setItem(
+      EXPERT_PINNED_AGENTS_STORAGE_KEY,
+      JSON.stringify(record),
+    );
+  } catch {
+    return;
+  }
+}
+
+/** Session tab pin within an expert — order chips (pinned first), local only. */
+const AGENT_SESSION_TAB_PINNED_STORAGE_KEY =
+  "onmyagent.agentSessionTabPinned.v1";
+
+export function readAgentSessionTabPinnedIds(workspaceId: string) {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(AGENT_SESSION_TAB_PINNED_STORAGE_KEY) ?? "{}",
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+    const value = (parsed as Record<string, unknown>)[workspaceId];
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeAgentSessionTabPinnedIds(
+  workspaceId: string,
+  sessionIds: string[],
+) {
+  if (typeof window === "undefined") return;
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(AGENT_SESSION_TAB_PINNED_STORAGE_KEY) ?? "{}",
+    );
+    const record =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? { ...(parsed as Record<string, unknown>) }
+        : {};
+    const uniqueSessionIds = Array.from(new Set(sessionIds));
+    if (uniqueSessionIds.length > 0) record[workspaceId] = uniqueSessionIds;
+    else delete record[workspaceId];
+    window.localStorage.setItem(
+      AGENT_SESSION_TAB_PINNED_STORAGE_KEY,
       JSON.stringify(record),
     );
   } catch {
@@ -297,9 +436,19 @@ export function buildAssistantConversationGroups(
     );
 }
 
+/**
+ * Collapse whitespace for one-line list previews (WeChat-style last message).
+ */
+export function compactConversationPreview(input: string | undefined): string {
+  return (input ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function buildAgentConversationGroups(
   sessions: WorkspaceSessionGroup["sessions"],
   registry: AgentRegistry | null,
+  previewBySessionId?: Map<string, string>,
 ): AgentConversationGroup[] {
   const groups = new Map<string, AgentConversationGroup>();
   for (const session of sessions) {
@@ -322,6 +471,9 @@ export function buildAgentConversationGroups(
       : readSessionAgentSnapshot(session.id);
     const key = `agent:${agentId}`;
     const existing = groups.get(key);
+    const sessionPreview =
+      compactConversationPreview(previewBySessionId?.get(session.id)) ||
+      undefined;
 
     if (existing) {
       existing.sessions.push(session);
@@ -332,6 +484,8 @@ export function buildAgentConversationGroups(
           0)
       ) {
         existing.latestSession = session;
+        // Keep list subtitle in sync with the newest session’s last message.
+        if (sessionPreview) existing.preview = sessionPreview;
       }
       continue;
     }
@@ -354,6 +508,7 @@ export function buildAgentConversationGroups(
       agentId,
       name,
       description,
+      preview: sessionPreview,
       avatarUrl:
         restoredAgent?.avatar.avatarUrl ??
         marketplaceExpert?.avatarUrl ??

@@ -54,4 +54,10 @@ describe("agentVersionLabel", () => {
       agentVersionLabel(agent({ id: "tool", name: "Tool", executablePath: "/opt/tool-1.2.3" })),
     ).toBe("v1.2.3");
   });
+
+  it("extracts semver from grok-style version banners", () => {
+    expect(
+      agentVersionLabel(agent({ id: "grok", name: "Grok Build", version: "grok 0.2.106 (bde89716f679)" })),
+    ).toBe("v0.2.106");
+  });
 });

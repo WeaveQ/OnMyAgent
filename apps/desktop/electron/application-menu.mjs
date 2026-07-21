@@ -9,6 +9,9 @@ export function createApplicationMenuController(input) {
     openSettingsEvent,
     toggleSidebarEvent,
   } = input;
+  // macOS keeps the system menu bar (setMenuBarVisibility is a no-op there).
+  // On Windows/Linux hide the native File/Edit/View strip by default — the app
+  // chrome already has settings/navigation, and the native bar looks redundant.
   let applicationMenuVisible = process.platform === "darwin";
 
   async function openSettingsFromNativeMenu() {
@@ -30,7 +33,7 @@ export function createApplicationMenuController(input) {
       ? [
           {
             label: "Settings...",
-            accelerator: "CommandOrControl,",
+            accelerator: "CommandOrControl+,",
             click: () => {
               void openSettingsFromNativeMenu();
             },
@@ -41,7 +44,7 @@ export function createApplicationMenuController(input) {
       : [
           {
             label: "Settings...",
-            accelerator: "CommandOrControl,",
+            accelerator: "CommandOrControl+,",
             click: () => {
               void openSettingsFromNativeMenu();
             },
@@ -84,7 +87,7 @@ export function createApplicationMenuController(input) {
                 { type: "separator" },
                 {
                   label: "Settings...",
-                  accelerator: "CommandOrControl,",
+                  accelerator: "CommandOrControl+,",
                   click: () => {
                     void openSettingsFromNativeMenu();
                   },

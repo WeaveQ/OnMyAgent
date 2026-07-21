@@ -134,7 +134,8 @@ export function ModelSelectView({
         disabled={disabled}
         aria-label={t("settings.model_change")}
         aria-keyshortcuts="Meta+Alt+/"
-        className="flex h-7 max-w-44 shrink min-w-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+        title={selectedOption?.title ?? value.modelID ?? t("session.default_model")}
+        className="flex h-7 max-w-36 shrink min-w-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
       >
         <span className="min-w-0 truncate">
           {selectedOption?.title ?? value.modelID ?? t("session.default_model")}

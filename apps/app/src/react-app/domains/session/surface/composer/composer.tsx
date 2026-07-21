@@ -7,7 +7,7 @@ import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
 import { desktopBridge } from "../../../../../app/lib/desktop";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { MenuRowButton } from "@/components/ui/action-row";
+import { IconTile, MenuRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { SendButton } from "@/components/ui/send-button";
@@ -23,7 +23,13 @@ import { cn } from "@/lib/utils";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { ComposerAccessMode, ComposerAttachment, ComposerCollaborationMode, McpServerEntry, McpStatusMap, ModelRef, SkillCard, SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
-import { isOnMyAgentExtensionEnabled, isOnMyAgentExtensionHidden, ONMYAGENT_EXTENSION_STATE_CHANGED, useDesktopRestriction } from "../../../shared";
+import {
+  isOnMyAgentExtensionEnabled,
+  isOnMyAgentExtensionHidden,
+  ONMYAGENT_EXTENSION_STATE_CHANGED,
+  setOnMyAgentExtensionEnabled,
+  useDesktopRestriction,
+} from "../../../shared";
 import { ModelBehaviorSelect } from "../../../../../components/model-behavior-select";
 import { ModelSelectContainer } from "../../components/model-select";
 import { LexicalPromptEditor } from "./editor";
@@ -56,7 +62,6 @@ import {
   collaborationModeValue,
   selectedCollaborationModeKey,
   collaborationModeOptions,
-  isComposerExtensionAvailable,
   FLUSH_PROMPT_EVENT,
   FOCUS_PROMPT_EVENT,
   MAX_ATTACHMENT_BYTES,
@@ -64,21 +69,97 @@ import {
   formatBytes,
   isImageAttachment,
   compressImageFile,
-  formatMcpStatusLabel,
   toReactMcpStatus,
-  mcpStatusBadgeTone,
   mcpServerDescription,
   COMPOSER_CONTAIN_STYLE,
   extensionIcon,
+  extensionIconTileClassName,
   pluginSlashCommandName,
 } from "./composer-helpers";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
-  togglePinnedSkillId,
   writePinnedSkillIds,
 } from "./pinned-skills";
+
+/** Client platform for Appshot naming / availability (Electron + browser). */
+function detectClientPlatform(): "macos" | "windows" | "linux" | "unknown" {
+  if (typeof navigator === "undefined") return "unknown";
+  const ua = navigator.userAgent ?? "";
+  const platform = navigator.platform ?? "";
+  if (/Mac|Macintosh|Darwin/i.test(platform) || /Mac OS X|Macintosh/i.test(ua)) {
+    return "macos";
+  }
+  if (/Win/i.test(platform) || /Windows/i.test(ua)) return "windows";
+  if (/Linux/i.test(platform) || /Linux/i.test(ua)) return "linux";
+  return "unknown";
+}
+
+/** Reject Swift debug dumps / control junk so notice + chips stay readable. */
+function isSafeAttachmentDisplayName(name: string): boolean {
+  const value = name.trim();
+  if (!value || value.length > 96) return false;
+  if (/JoinedSequence|ArraySlice|ContiguousArray|_base|_separator|Array</i.test(value)) {
+    return false;
+  }
+  // No control chars / newlines; allow normal unicode file names.
+  if (/[\u0000-\u001f\u007f]/.test(value)) return false;
+  return !value.includes("\n") && !value.includes("\r");
+}
+
+/**
+ * Cross-platform Appshot basename.
+ * - macOS: strips Swift JoinedSequence dumps from the native helper
+ * - Windows: strips reserved device names and illegal path characters
+ * - Linux / fallback: same safe basename rules
+ */
+function sanitizeAppshotFileName(
+  raw: string,
+  platform: "macos" | "windows" | "linux" | "unknown" = detectClientPlatform(),
+): string {
+  const value = raw.trim().replace(/\\/g, "/");
+  const base = value.includes("/") ? value.slice(value.lastIndexOf("/") + 1) : value;
+  let candidate = base
+    .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "-")
+    .replace(/\.+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const reservedWin =
+    platform === "windows" &&
+    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(candidate);
+
+  const looksBad =
+    !candidate ||
+    !isSafeAttachmentDisplayName(candidate) ||
+    reservedWin ||
+    !/^Appshot[-_\w. ()]+\.(jpe?g|png|webp)$/i.test(candidate);
+
+  if (!looksBad) {
+    return candidate.replace(/\.jpeg$/i, ".jpg");
+  }
+
+  const stamp = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stampText = [
+    stamp.getFullYear(),
+    pad(stamp.getMonth() + 1),
+    pad(stamp.getDate()),
+    "-",
+    pad(stamp.getHours()),
+    pad(stamp.getMinutes()),
+    pad(stamp.getSeconds()),
+  ].join("");
+  return `Appshot-${stampText}.jpg`;
+}
+
+/** Native Appshot helper is macOS-only today (Swift HandsFree). */
+function isAppshotCaptureSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!window.__ONMYAGENT_ELECTRON__?.computerUse) return false;
+  return detectClientPlatform() === "macos";
+}
 
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
@@ -141,7 +222,10 @@ export function ReactSessionComposer(props: ComposerProps) {
     draftRef.current = props.draft;
   }, [props.draft]);
 
-  const slashMatch = props.draft.match(/^\/(\S*)$/);
+  // Open slash menu whenever the caret-side draft ends with `/` or `/partial`.
+  // Previous regex required the *entire* draft to be a slash token, so after a
+  // skill chip (`/12306 `) a second `/` never opened the menu again.
+  const slashMatch = props.draft.match(/\/([^\s/]*)$/);
   const slashOpenNext = Boolean(slashMatch);
   const slashQuery = slashMatch?.[1] ?? "";
   const mentionMatch = props.draft.match(/@([^\s@]*)$/);
@@ -209,23 +293,67 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [props.listCommands]);
 
   const loadCommands = useCallback(() => {
-    if (commandsCacheRef.current !== null) {
+    // Never treat an empty list as a permanent cache — first paint often races
+    // the OpenCode client / skill catalog and would stick on "未找到命令".
+    if (commandsCacheRef.current !== null && commandsCacheRef.current.length > 0) {
       return Promise.resolve(commandsCacheRef.current);
     }
     if (commandsRequestRef.current) {
       return commandsRequestRef.current;
     }
     const version = commandsLoadVersionRef.current;
-    const request = listCommandsRef.current().then((next) => {
-      if (commandsLoadVersionRef.current === version) {
-        commandsCacheRef.current = next;
+    const request = (async (): Promise<SlashCommandOption[]> => {
+      // Slash menu needs both OpenCode command.list and OnMyAgent skills.
+      // Skills alone used to live only in the + tool flyout, so typing `/`
+      // looked empty even when many skills were installed.
+      const listSkills = listSkillsRef.current;
+      const [cmdResult, skillResult] = await Promise.allSettled([
+        listCommandsRef.current(),
+        listSkills ? listSkills() : Promise.resolve([] as SkillCard[]),
+      ]);
+      const cmds =
+        cmdResult.status === "fulfilled" && Array.isArray(cmdResult.value)
+          ? cmdResult.value
+          : [];
+      const skillCards =
+        skillResult.status === "fulfilled" && Array.isArray(skillResult.value)
+          ? skillResult.value
+          : [];
+
+      const byName = new Map<string, SlashCommandOption>();
+      for (const skill of skillCards) {
+        const name = String(skill.name ?? "").trim();
+        if (!name) continue;
+        byName.set(name, {
+          id: `skill:${name}`,
+          name,
+          description: skill.description ? String(skill.description) : undefined,
+          source: "skill",
+        });
       }
-      return next;
-    }).finally(() => {
-      if (commandsLoadVersionRef.current === version) {
-        commandsRequestRef.current = null;
+      for (const cmd of cmds) {
+        const name = String(cmd.name ?? "").trim();
+        if (!name) continue;
+        byName.set(name, cmd);
       }
-    });
+      // Preserve SkillCard.scope so OnMyAgent installs can sort ahead of the rest.
+      if (skillCards.length) {
+        setSkills(skillCards);
+        setSkillsLoaded(true);
+      }
+      return Array.from(byName.values());
+    })()
+      .then((next) => {
+        if (commandsLoadVersionRef.current === version && next.length > 0) {
+          commandsCacheRef.current = next;
+        }
+        return next;
+      })
+      .finally(() => {
+        if (commandsLoadVersionRef.current === version) {
+          commandsRequestRef.current = null;
+        }
+      });
     commandsRequestRef.current = request;
     return request;
   }, []);
@@ -260,7 +388,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!toolMenuOpen || toolMenuSection !== "templates") {
       setSelectedPromptTemplateId(null);
     } else {
-      // WorkBuddy-style cascade: open the 3rd flyout as soon as 提示词 is active.
+      // WorkBuddy-style cascade: open the 3rd flyout as soon as prompts section is active.
       const templates = props.promptTemplates ?? [];
       setSelectedPromptTemplateId((current) => {
         if (current && templates.some((template) => template.id === current)) {
@@ -275,39 +403,58 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [toolMenuOpen, toolMenuSection, props.promptTemplates]);
 
   useEffect(() => {
-    if (!slashOpen && !toolMenuOpen) return;
+    // Closing the menus must clear loading; otherwise a cancelled in-flight
+    // listCommands leaves commandsLoading=true and the slash panel stuck on
+    // "正在加载命令…" the next time `/` is typed (or even while still open).
+    if (!slashOpen && !toolMenuOpen) {
+      setCommandsLoading(false);
+      return;
+    }
     const openId = toolMenuLoadRef.current.openId;
     if (toolMenuOpen && toolMenuLoadRef.current.commands) return;
     if (toolMenuOpen) toolMenuLoadRef.current.commands = true;
     let cancelled = false;
     const cached = commandsCacheRef.current;
-    if (cached !== null) {
+    if (cached !== null && cached.length > 0) {
       setCommands(cached);
       setCommandsLoading(false);
-      if (toolMenuOpen && toolMenuLoadRef.current.openId === openId) setCommandsLoaded(true);
+      setCommandsLoaded(true);
       return () => {
         cancelled = true;
       };
     }
     setCommandsLoading(true);
+    // Soft deadline: stop the spinner if backends stall, but do not wipe a
+    // partial catalog or cache an empty failure forever.
+    const timeoutMs = 12_000;
+    let timeoutId: number | undefined;
+    let settled = false;
+    timeoutId = window.setTimeout(() => {
+      if (cancelled || settled) return;
+      settled = true;
+      setCommandsLoading(false);
+      setCommandsLoaded(true);
+    }, timeoutMs);
     void loadCommands()
       .then((next) => {
-        if (!cancelled) {
-          setCommands(next);
-          if (toolMenuOpen && toolMenuLoadRef.current.openId === openId) setCommandsLoaded(true);
-        }
+        if (cancelled) return;
+        settled = true;
+        setCommands(next);
+        setCommandsLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) {
-          setCommands([]);
-          if (toolMenuOpen && toolMenuLoadRef.current.openId === openId) setCommandsLoaded(true);
-        }
+        if (cancelled) return;
+        settled = true;
+        // Leave any previously shown list; only mark loaded so UI exits spinner.
+        setCommandsLoaded(true);
       })
       .finally(() => {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         if (!cancelled) setCommandsLoading(false);
       });
     return () => {
       cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
   }, [slashOpen, toolMenuOpen, loadCommands]);
 
@@ -457,26 +604,92 @@ export function ReactSessionComposer(props: ComposerProps) {
     return undefined;
   }, [toolMenuOpen, toolMenuSection]);
 
-  const slashFiltered = useMemo(() => {
-    if (!slashOpen) return [];
-    if (!slashQuery) return commands.slice(0, 8);
-    return fuzzysort.go(slashQuery, commands, { keys: ["name", "description"], limit: 8 }).map((entry) => entry.obj);
-  }, [commands, slashOpen, slashQuery]);
   const mentionFiltered = useMemo(() => {
     if (!mentionOpen) return [];
     if (!mentionQuery) return mentionItems.slice(0, 8);
     return fuzzysort.go(mentionQuery, mentionItems, { keys: ["label"], limit: 8 }).map((entry) => entry.obj);
   }, [mentionItems, mentionOpen, mentionQuery]);
+  // Shared skill catalog for `+` skills flyout and `/` slash menu so count + order match.
+  // Prefer OpenCode command.list rows when both sources have the same name, but keep
+  // the OnMyAgent install set so those can sort first after pins.
+  const onmyagentInstalledNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const skill of skills) {
+      if (skill.scope === "onmyagent") {
+        const name = String(skill.name ?? "").trim();
+        if (name) names.add(name);
+      }
+    }
+    return names;
+  }, [skills]);
+  const combinedSkillItems = useMemo(() => {
+    const byName = new Map<string, SlashCommandOption>();
+    for (const skill of skills) {
+      const name = String(skill.name ?? "").trim();
+      if (!name) continue;
+      byName.set(name, {
+        id: `skill:${name}`,
+        name,
+        description: skill.description,
+        source: "skill",
+      });
+    }
+    for (const command of commands) {
+      if (command.source === "mcp") continue;
+      const name = String(command.name ?? "").trim();
+      if (!name) continue;
+      // Stable pin key: skill:<name> so + menu pins still match slash rows.
+      byName.set(name, {
+        ...command,
+        id: command.source === "skill" || !command.source ? `skill:${name}` : command.id,
+        name,
+      });
+    }
+    const alpha = (left: SlashCommandOption, right: SlashCommandOption) =>
+      left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+    // OnMyAgent-installed first (alpha), then everything else (alpha).
+    const installed: SlashCommandOption[] = [];
+    const rest: SlashCommandOption[] = [];
+    for (const item of byName.values()) {
+      if (onmyagentInstalledNames.has(item.name)) installed.push(item);
+      else rest.push(item);
+    }
+    installed.sort(alpha);
+    rest.sort(alpha);
+    return [...installed, ...rest];
+  }, [commands, onmyagentInstalledNames, skills]);
+  const skillCatalogOrdered = useMemo(
+    () =>
+      sortWithPinnedFirst(combinedSkillItems, pinnedSkillIds, (item) => {
+        // Accept either skill:<name> or cmd:<name> pins from older builds.
+        if (pinnedSkillIds.includes(item.id)) return item.id;
+        const skillId = `skill:${item.name}`;
+        if (pinnedSkillIds.includes(skillId)) return skillId;
+        const cmdId = `cmd:${item.name}`;
+        if (pinnedSkillIds.includes(cmdId)) return cmdId;
+        return item.id;
+      }),
+    [combinedSkillItems, pinnedSkillIds],
+  );
+  const slashFiltered = useMemo(() => {
+    if (!slashOpen) return [];
+    // Slash menu is skills/commands only — connectors live under + → connectors.
+    return slashQuery.trim()
+      ? filterToolMenuItems(
+          skillCatalogOrdered,
+          slashQuery,
+          (item) => `${item.name} ${item.description ?? ""}`,
+        )
+      : skillCatalogOrdered;
+  }, [skillCatalogOrdered, slashOpen, slashQuery]);
   const activeMenu = slashOpen ? "slash" : mentionOpen ? "mention" : null;
   const activeItems = activeMenu === "slash" ? slashFiltered : activeMenu === "mention" ? mentionFiltered : [];
-  const toolCommandItems = commands.filter((command) => !command.source || command.source === "command");
-  const toolSkillItems = commands.filter((command) => command.source === "skill");
   const pluginSkillFiles = importedPlugins.flatMap((plugin) =>
     plugin.files.filter((file) => file.objectType === "command" || file.objectType === "skill"),
   );
-  const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter((entry) =>
-    !builtInExtensionsDisabled &&
-    !isOnMyAgentExtensionHidden(entry) && isComposerExtensionAvailable(entry)
+  // List all non-hidden built-ins so toggles match market built-in extensions; hide only product-hidden.
+  const composerExtensions = ONMYAGENT_EXTENSION_CATALOG.filter(
+    (entry) => !builtInExtensionsDisabled && !isOnMyAgentExtensionHidden(entry),
   );
   const canSend = props.draft.trim().length > 0 || props.attachments.length > 0;
   const collaborationVariant = props.collaborationModeVariant ?? "legacy";
@@ -518,7 +731,15 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [menuIndex, activeItems.length]);
 
   const applyCommandSelection = (command: SlashCommandOption) => {
-    props.onDraftChange(`/${command.name} `);
+    const insertion = `/${command.name} `;
+    const draft = props.draft;
+    // Replace only the trailing `/` or `/partial` so an existing skill chip is kept.
+    if (/\/[^\s/]*$/.test(draft)) {
+      props.onDraftChange(draft.replace(/\/[^\s/]*$/, insertion));
+    } else {
+      const needsSpace = draft.length > 0 && !/\s$/.test(draft);
+      props.onDraftChange(`${draft}${needsSpace ? " " : ""}${insertion}`);
+    }
     setSlashOpen(false);
     setToolMenuOpen(false);
   };
@@ -553,6 +774,26 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!props.onOpenSkillsMarketplace) {
       props.onOpenSettingsSection?.("skills");
     }
+  };
+
+  /** Connectors header configure → custom MCP dialog (or market connectors). */
+  const openConnectorsConfigure = () => {
+    setToolMenuOpen(false);
+    if (props.onOpenConnectorsMarketplace) {
+      props.onOpenConnectorsMarketplace();
+      return;
+    }
+    props.onOpenSettingsSection?.("mcps");
+  };
+
+  /** Custom MCP editor / fallback when marketplace is unavailable. */
+  const openCustomConnectorOrMarketplace = () => {
+    setToolMenuOpen(false);
+    if (props.onOpenCustomConnector) {
+      props.onOpenCustomConnector();
+      return;
+    }
+    props.onOpenConnectorsMarketplace?.();
   };
 
   const openFilePicker = () => {
@@ -718,20 +959,39 @@ export function ReactSessionComposer(props: ComposerProps) {
 
     if (accepted.length) {
       props.onAttachFiles(accepted);
-      props.onNotice({
-        title:
-          accepted.length === 1
-            ? t("composer.uploaded_single_file", { name: accepted[0]?.name ?? t("composer.file_kind") })
-            : t("composer.uploaded_multiple_files", { count: accepted.length }),
-        tone: "success",
-      });
+      // Compact composer notice — never dump long/corrupted native names into the card.
+      if (accepted.length === 1) {
+        const name = accepted[0]?.name?.trim() || "";
+        const displayName = isSafeAttachmentDisplayName(name)
+          ? name.length > 40
+            ? `${name.slice(0, 37)}…`
+            : name
+          : null;
+        props.onNotice({
+          title: t("composer.upload_success_title"),
+          description: displayName
+            ? t("composer.uploaded_single_file_short", { name: displayName })
+            : null,
+          tone: "success",
+        });
+      } else {
+        props.onNotice({
+          title: t("composer.upload_success_title"),
+          description: t("composer.uploaded_multiple_files", { count: accepted.length }),
+          tone: "success",
+        });
+      }
     }
 
     if (oversize.length) {
       props.onNotice({
         title:
           oversize.length === 1
-            ? t("composer.file_exceeds_limit", { name: oversize[0] })
+            ? t("composer.file_exceeds_limit", {
+                name: isSafeAttachmentDisplayName(oversize[0] ?? "")
+                  ? oversize[0]
+                  : t("composer.file_kind"),
+              })
             : `${oversize.length} files exceed the 8MB limit.`,
         tone: "warning",
       });
@@ -744,22 +1004,28 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (!("name" in payload) || typeof payload.name !== "string") return;
     if (!("mimeType" in payload) || typeof payload.mimeType !== "string") return;
     if (!("data" in payload) || typeof payload.data !== "string") return;
+    // Guard against native bugs that stringify Swift String as JoinedSequence debug text.
+    const safeName = sanitizeAppshotFileName(payload.name);
     const binary = atob(payload.data);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) {
       bytes[index] = binary.charCodeAt(index);
     }
     await addAttachments([
-      new File([bytes], payload.name, {
+      new File([bytes], safeName, {
         type: payload.mimeType,
         lastModified: Date.now(),
       }),
     ]);
+    // Dedicated short notice — no filename dump (attachment chip already shows it).
+    props.onNotice({
+      title: t("composer.appshot_success"),
+      tone: "success",
+    });
   };
 
-  const canCaptureAppshot = Boolean(
-    typeof window !== "undefined" && window.__ONMYAGENT_ELECTRON__?.computerUse,
-  );
+  // Appshot requires the macOS Computer Use helper; hide the action elsewhere.
+  const canCaptureAppshot = isAppshotCaptureSupported();
 
   const captureAppshot = async () => {
     if (!props.attachmentsEnabled || !canCaptureAppshot) return;
@@ -767,14 +1033,22 @@ export function ReactSessionComposer(props: ComposerProps) {
     try {
       await attachAppshot(await desktopBridge.captureComputerUseAppshot());
     } catch (error) {
+      const platform = detectClientPlatform();
+      const fallback =
+        platform === "windows"
+          ? t("composer.appshot_unsupported_windows")
+          : platform === "linux"
+            ? t("composer.appshot_unsupported_linux")
+            : t("composer.appshot_failed");
       props.onNotice({
-        title: error instanceof Error ? error.message : t("composer.appshot_failed"),
+        title: error instanceof Error ? error.message : fallback,
         tone: "warning",
       });
     }
   };
 
   useEffect(() => {
+    if (!canCaptureAppshot) return;
     const subscribe = window.__ONMYAGENT_ELECTRON__?.computerUse?.onAppshot;
     if (!subscribe) return;
     return subscribe((payload) => {
@@ -787,31 +1061,21 @@ export function ReactSessionComposer(props: ComposerProps) {
     entry,
     status: toReactMcpStatus(entry.name, entry, mcpStatuses),
   }));
-  const combinedSkillItems = [
-    ...toolCommandItems,
-    ...toolSkillItems,
-    ...skills
-      .filter((skill) => !toolSkillItems.some((command) => command.name === skill.name))
-      .map((skill) => ({
-        id: `skill:${skill.name}`,
-        name: skill.name,
-        description: skill.description,
-        source: "skill" as const,
-      })),
-  ];
-  const filteredSkillItems = sortWithPinnedFirst(
-    filterToolMenuItems(
-      combinedSkillItems,
-      skillSearchQuery,
-      (item) => `${item.name} ${item.description ?? ""}`,
-    ),
-    pinnedSkillIds,
-    (item) => item.id,
+  // + menu reuses the same catalog/order as `/` (already pin-sorted).
+  const filteredSkillItems = filterToolMenuItems(
+    skillCatalogOrdered,
+    skillSearchQuery,
+    (item) => `${item.name} ${item.description ?? ""}`,
   );
 
-  const handleTogglePinnedSkill = useCallback((skillId: string) => {
+  const handleTogglePinnedSkill = useCallback((command: SlashCommandOption) => {
+    // Normalize to skill:<name> and drop legacy cmd:/skill: aliases for the same name.
+    const primaryId = `skill:${command.name}`;
+    const aliases = new Set([primaryId, command.id, `cmd:${command.name}`, `skill:${command.name}`]);
     setPinnedSkillIds((current) => {
-      const { next } = togglePinnedSkillId(current, skillId);
+      const had = current.some((id) => aliases.has(id));
+      const stripped = current.filter((id) => !aliases.has(id));
+      const next = had ? stripped : [primaryId, ...stripped].slice(0, 24);
       writePinnedSkillIds(next);
       return next;
     });
@@ -846,10 +1110,16 @@ export function ReactSessionComposer(props: ComposerProps) {
         ? "rounded-t-xl rounded-b-none"
         : "rounded-xl";
 
+  const homeLayout = Boolean(props.homeLayout);
+
   return (
     <div
       ref={rootRef}
-      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`}
+      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
+        homeLayout
+          ? "bg-transparent px-0 pb-0 pt-0"
+          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`
+      }`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
       onCompositionStart={() => {
@@ -859,10 +1129,17 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      <div className="mx-auto w-full max-w-[1120px]">
+      {/* Same max-w as session transcript column (session-surface contentRef). */}
+      <div
+        className={
+          homeLayout
+            ? "mx-auto w-full max-w-none"
+            : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */
+        }
+      >
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
-          className={`relative overflow-visible bg-dls-surface ${props.showOuterBorder ? `border border-dls-mist${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
+          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
@@ -955,7 +1232,14 @@ export function ReactSessionComposer(props: ComposerProps) {
 
           <div
             className={
-              props.attachments.length > 0 ? "px-4 pb-2 pt-2" : "px-4 pb-2 pt-3"
+              props.attachments.length > 0
+                ? homeLayout
+                  ? "px-3.5 pb-1.5 pt-2"
+                  : "px-4 pb-2 pt-2"
+                : homeLayout
+                  ? // Same tight empty height as assistant in-session composer.
+                    "px-3.5 pb-1.5 pt-2.5"
+                  : "px-4 pb-2 pt-3"
             }
           >
             {/* Editor */}
@@ -964,6 +1248,7 @@ export function ReactSessionComposer(props: ComposerProps) {
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}
               disabled={props.disabled}
+              compact={homeLayout}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={props.onDraftChange}
               onSubmit={props.onSend}
@@ -1046,7 +1331,13 @@ export function ReactSessionComposer(props: ComposerProps) {
             />
 
             {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div className="mt-2 flex items-end justify-between gap-1.5">
+            <div
+              className={
+                homeLayout
+                  ? "mt-1 flex items-center justify-between gap-1.5"
+                  : "mt-2 flex items-end justify-between gap-1.5"
+              }
+            >
               <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {
@@ -1103,15 +1394,16 @@ export function ReactSessionComposer(props: ComposerProps) {
                             align="center"
                             density="compact"
                             active={toolMenuSection === "files"}
-                            className="justify-between gap-2"
+                            // Match 2nd-column skill titles: primary text, not muted gray.
+                            className="justify-between gap-2 text-dls-text hover:text-dls-text"
                             disabled={!props.attachmentsEnabled}
                             onMouseEnter={() => setToolMenuSection("files")}
                             onFocus={() => setToolMenuSection("files")}
                             onClick={openFilePicker}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <Paperclip className="size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="truncate text-sm">{t("composer.add_file")}</span>
+                              <Paperclip className="size-3.5 shrink-0 text-dls-text" />
+                              <span className="truncate text-sm leading-5 text-dls-text">{t("composer.add_file")}</span>
                             </span>
                           </MenuRowButton>
                           {canCaptureAppshot ? (
@@ -1119,12 +1411,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                               type="button"
                               align="center"
                               density="compact"
-                              className="gap-2"
+                              className="gap-2 text-dls-text hover:text-dls-text"
                               disabled={!props.attachmentsEnabled}
                               onClick={() => void captureAppshot()}
                             >
-                              <Camera className="size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="truncate text-sm">{t("composer.capture_appshot")}</span>
+                              <Camera className="size-3.5 shrink-0 text-dls-text" />
+                              <span className="truncate text-sm leading-5 text-dls-text">{t("composer.capture_appshot")}</span>
                             </MenuRowButton>
                           ) : null}
                           <div
@@ -1145,7 +1437,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                               align="center"
                               density="compact"
                               active={toolMenuSection === section}
-                              className="justify-between gap-2"
+                              className="justify-between gap-2 text-dls-text hover:text-dls-text"
                               onMouseEnter={() => {
                                 setToolMenuSection(section);
                                 // WorkBuddy-style: open first template category so the 3rd flyout appears.
@@ -1167,17 +1459,20 @@ export function ReactSessionComposer(props: ComposerProps) {
                               }}
                             >
                               <span className="flex min-w-0 items-center gap-2">
-                                <Icon className="size-3.5 shrink-0 text-dls-secondary" />
-                                <span className="truncate text-sm">{label}</span>
+                                <Icon className="size-3.5 shrink-0 text-dls-text" />
+                                <span className="truncate text-sm leading-5 text-dls-text">{label}</span>
                               </span>
-                              <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+                              <ChevronRight className="size-3.5 shrink-0 text-dls-text/50" />
                             </MenuRowButton>
                           ))}
                         </div>
                       </div>
                       {toolMenuSection === "files" ? null : (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),14rem)] min-h-0 max-w-[14rem] flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className={cn(
+                            // Shared 2nd-column width for modes / prompts / skills / connectors.
+                            "absolute bottom-0 left-[calc(11rem-1px)] flex w-[min(calc(100vw-13.5rem),17.5rem)] max-w-[17.5rem] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid",
+                          )}
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           {toolMenuSection === "templates" ? (
@@ -1185,11 +1480,15 @@ export function ReactSessionComposer(props: ComposerProps) {
                               {t("composer.prompt_templates")}
                             </div>
                           ) : toolMenuSection === "skills" ? (
-                            <div className="space-y-2 border-b border-dls-border px-3 py-2">
+                            <div className="space-y-1.5 px-3 pt-2 pb-1">
                               {/* Match connectors panel: title + quiet configure, then search */}
-                              <div className="flex min-h-8 items-center justify-between gap-3">
+                              <div className="flex min-h-7 items-center justify-between gap-3">
                                 <div className="text-sm font-medium text-dls-text">
                                   {t("dashboard.skills")}
+                                  <span className="tabular-nums font-medium text-dls-secondary">
+                                    {" "}
+                                    ({filteredSkillItems.length + filteredPluginSkillFiles.length})
+                                  </span>
                                 </div>
                                 <Button
                                   type="button"
@@ -1205,9 +1504,14 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   {t("composer.configure")}
                                 </Button>
                               </div>
-                              <InputGroup controlSize="sm" radius="md" tone="surface">
-                                <InputGroupAddon align="inline-start">
-                                  <Search aria-hidden="true" className="size-3.5" />
+                              <InputGroup
+                                controlSize="sm"
+                                radius="lg"
+                                tone="surfaceMuted"
+                                className="border-dls-border/50"
+                              >
+                                <InputGroupAddon align="inline-start" inset="compact">
+                                  <Search aria-hidden="true" className="size-3.5 text-dls-secondary" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={skillSearchQuery}
@@ -1219,29 +1523,37 @@ export function ReactSessionComposer(props: ComposerProps) {
                               </InputGroup>
                             </div>
                           ) : toolMenuSection === "mcps" ? (
-                            <div className="space-y-2 border-b border-dls-border px-3 py-2">
-                              {/* Match skills panel: title + quiet configure, then search */}
-                              <div className="flex min-h-8 items-center justify-between gap-3">
+                            <div className="space-y-1.5 px-3 pt-2 pb-1">
+                              {/* WorkBuddy-like: title + count, configure, then search */}
+                              <div className="flex min-h-7 items-center justify-between gap-3">
                                 <div className="text-sm font-medium text-dls-text">
                                   {t("composer.connectors_label")}
+                                  <span className="tabular-nums font-medium text-dls-secondary">
+                                    {" "}
+                                    ({filteredMcpItems.length + filteredComposerExtensions.length})
+                                  </span>
                                 </div>
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="xs"
                                   className="shrink-0 gap-1 text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
-                                  onClick={() => {
-                                    setToolMenuOpen(false);
-                                    openToolMenuSettings();
-                                  }}
+                                  onClick={openConnectorsConfigure}
+                                  title={t("composer.configure")}
+                                  aria-label={t("composer.configure")}
                                 >
                                   <Settings className="size-3.5" />
                                   {t("composer.configure")}
                                 </Button>
                               </div>
-                              <InputGroup controlSize="sm" radius="md" tone="surface">
-                                <InputGroupAddon align="inline-start">
-                                  <Search aria-hidden="true" className="size-3.5" />
+                              <InputGroup
+                                controlSize="sm"
+                                radius="lg"
+                                tone="surfaceMuted"
+                                className="border-dls-border/50"
+                              >
+                                <InputGroupAddon align="inline-start" inset="compact">
+                                  <Search aria-hidden="true" className="size-3.5 text-dls-secondary" />
                                 </InputGroupAddon>
                                 <InputGroupInput
                                   value={connectorSearchQuery}
@@ -1259,7 +1571,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                           ) : null}
                           <div
                             className={cn(
-                              "overflow-x-hidden overflow-y-auto p-1.5",
+                              "overflow-x-hidden overflow-y-auto px-1.5 pb-1.5",
+                              // Skills/connectors already pad under search — avoid double gap.
+                              toolMenuSection === "skills" || toolMenuSection === "mcps"
+                                ? "pt-0"
+                                : "pt-1.5",
                               // Templates list is short (≤3) — keep panel compact so the 3rd flyout fits.
                               toolMenuSection === "templates" ? "max-h-48" : "max-h-56",
                             )}
@@ -1295,7 +1611,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                             {toolMenuSection === "modes" ? (
                               collaborationVariant === "office" ? (
                                 <div className="space-y-3 px-1 py-1">
-                                  <p className="text-sm leading-5 text-dls-secondary">
+                                  <p className="whitespace-nowrap text-sm leading-5 text-dls-secondary">
                                     {(
                                       modeOptions.find((option) => option.key === (selectedModeKey ?? "craft")) ??
                                       modeOptions[0]
@@ -1385,18 +1701,18 @@ export function ReactSessionComposer(props: ComposerProps) {
                                   <div className="grid min-w-0 gap-0.5">
                                     {filteredSkillItems.map((command) => {
                                       const description = skillMenuDescription(command.description);
-                                      const isPinned = pinnedSkillIds.includes(command.id);
+                                      const isPinned =
+                                        pinnedSkillIds.includes(command.id) ||
+                                        pinnedSkillIds.includes(`skill:${command.name}`) ||
+                                        pinnedSkillIds.includes(`cmd:${command.name}`);
                                       const rowBody = (
                                         <div className="group/skill flex min-w-0 items-stretch gap-0.5 rounded-xl hover:bg-dls-surface-muted/70">
                                           <MenuRowButton
                                             type="button"
                                             align="center"
-                                            className="min-w-0 flex-1 gap-3 overflow-hidden bg-transparent hover:bg-transparent"
+                                            className="min-w-0 flex-1 gap-2 overflow-hidden bg-transparent hover:bg-transparent"
                                             onClick={() => applyCommandSelection(command)}
                                           >
-                                            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                              <SkillGlyphIcon className="size-3.5 text-dls-secondary" />
-                                            </div>
                                             <div className="min-w-0 flex-1 overflow-hidden text-left">
                                               <div className="truncate text-sm font-medium text-dls-text">
                                                 {command.name}
@@ -1430,7 +1746,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();
-                                              handleTogglePinnedSkill(command.id);
+                                              handleTogglePinnedSkill(command);
                                             }}
                                           >
                                             {isPinned ? (
@@ -1468,12 +1784,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                                         key={`${file.configObjectId}:${file.path}`}
                                         type="button"
                                         align="center"
-                                        className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
+                                        className="w-full min-w-0 max-w-full gap-2 overflow-hidden"
                                         onClick={() => applyPluginFileSelection(file)}
                                       >
-                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                          <FileText className="size-3.5 text-dls-secondary" aria-hidden="true" />
-                                        </div>
                                         <div className="min-w-0 flex-1 overflow-hidden">
                                           <div className="flex min-w-0 items-center justify-between gap-2">
                                             <div className="min-w-0 truncate text-sm font-medium text-dls-text">
@@ -1500,128 +1813,168 @@ export function ReactSessionComposer(props: ComposerProps) {
                             ) : null}
                             {toolMenuSection === "mcps" ? (
                               hasConnectorMatches ? (
-                                <div className="grid min-w-0 gap-0.5">
-                                  {filteredMcpItems.map(({ entry, status }) => {
-                                    const description = mcpServerDescription(entry);
-                                    return (
-                                      <MenuRowButton
-                                        key={entry.name}
-                                        type="button"
-                                        align="center"
-                                        className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                        // Display-only MCP status rows; keep soft skills-like chrome.
-                                        tabIndex={-1}
-                                        onClick={(event) => event.preventDefault()}
-                                      >
-                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                          <Plug className="size-3.5 text-dls-secondary" aria-hidden="true" />
+                                <TooltipProvider delay={280}>
+                                  <div className="grid min-w-0 gap-0.5">
+                                    {filteredComposerExtensions.length > 0 ? (
+                                      <>
+                                        <div className="px-2 pb-0.5 pt-1 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
+                                          {t("composer.connectors_group_builtin")}
                                         </div>
-                                        <div className="min-w-0 flex-1 overflow-hidden">
-                                          <div className="flex min-w-0 items-center justify-between gap-2">
-                                            <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-                                              {entry.name}
-                                            </div>
-                                            <StatusBadge
-                                              size="tiny"
-                                              shape="soft"
-                                              tone={mcpStatusBadgeTone(status)}
-                                              className="shrink-0"
+                                        {filteredComposerExtensions.map((entry) => {
+                                          const description = entry.description?.trim() ?? "";
+                                          const enabled = isOnMyAgentExtensionEnabled(entry);
+                                          const hasPrompts = Boolean(entry.suggestedPrompts?.length);
+                                          const rowKey = entry.id ?? entry.serverName ?? entry.name;
+                                          const rowBody = (
+                                            <div
+                                              className={cn(
+                                                "flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover",
+                                                selectedComposerExtension === entry && "bg-dls-hover",
+                                              )}
+                                              onMouseEnter={() =>
+                                                setSelectedComposerExtension(hasPrompts ? entry : null)
+                                              }
                                             >
-                                              {formatMcpStatusLabel(status)}
-                                            </StatusBadge>
-                                          </div>
-                                          {description ? (
-                                            <div className="truncate text-xs text-dls-secondary">
-                                              {description}
+                                              <IconTile
+                                                size="sm"
+                                                shape="lg"
+                                                tone="surface"
+                                                border
+                                                className={extensionIconTileClassName}
+                                              >
+                                                {extensionIcon(entry, 16)}
+                                              </IconTile>
+                                              <button
+                                                type="button"
+                                                className="min-w-0 flex-1 overflow-hidden text-left"
+                                                onClick={() => {
+                                                  if (hasPrompts) {
+                                                    setSelectedComposerExtension(entry);
+                                                    return;
+                                                  }
+                                                  if (!enabled) {
+                                                    setOnMyAgentExtensionEnabled(entry, true);
+                                                    setExtensionStateVersion((v) => v + 1);
+                                                  }
+                                                  applyExtensionSelection(entry);
+                                                }}
+                                              >
+                                                <div className="truncate text-sm font-medium text-dls-text">
+                                                  {entry.name}
+                                                </div>
+                                                {description ? (
+                                                  <div className="truncate text-xs text-dls-secondary">
+                                                    {description}
+                                                  </div>
+                                                ) : null}
+                                              </button>
+                                              <Switch
+                                                size="sm"
+                                                className="shrink-0"
+                                                checked={enabled}
+                                                onCheckedChange={(next) => {
+                                                  setOnMyAgentExtensionEnabled(entry, next);
+                                                  setExtensionStateVersion((v) => v + 1);
+                                                }}
+                                                aria-label={entry.name}
+                                              />
                                             </div>
-                                          ) : null}
+                                          );
+                                          if (!description) {
+                                            return <div key={rowKey}>{rowBody}</div>;
+                                          }
+                                          return (
+                                            <Tooltip key={rowKey}>
+                                              <TooltipTrigger
+                                                render={<div className="min-w-0" />}
+                                                className="min-w-0"
+                                              >
+                                                {rowBody}
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="bottom"
+                                                align="start"
+                                                sideOffset={6}
+                                                className="max-w-[18rem] whitespace-normal text-left leading-5"
+                                              >
+                                                {description}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          );
+                                        })}
+                                      </>
+                                    ) : null}
+                                    {filteredMcpItems.length > 0 ? (
+                                      <>
+                                        <div className="px-2 pb-0.5 pt-2 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
+                                          {t("composer.connectors_group_mcp")}
                                         </div>
-                                      </MenuRowButton>
-                                    );
-                                  })}
-                                  <TooltipProvider delay={280}>
-                                    {filteredComposerExtensions.map((entry) => {
-                                      const description = entry.description?.trim() ?? "";
-                                      const row = (
-                                        <MenuRowButton
-                                          type="button"
-                                          align="center"
-                                          className="w-full min-w-0 max-w-full gap-3 overflow-hidden"
-                                          active={selectedComposerExtension === entry}
-                                          onMouseEnter={() => setSelectedComposerExtension(
-                                            entry.suggestedPrompts?.length ? entry : null,
-                                          )}
-                                          onFocus={() => setSelectedComposerExtension(
-                                            entry.suggestedPrompts?.length ? entry : null,
-                                          )}
-                                          onClick={() => {
-                                            if (entry.suggestedPrompts?.length) {
-                                              setSelectedComposerExtension(entry);
-                                              return;
-                                            }
-                                            applyExtensionSelection(entry);
-                                          }}
-                                        >
-                                          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface">
-                                            {extensionIcon(entry, 16)}
-                                          </div>
-                                          <div className="min-w-0 flex-1 overflow-hidden">
-                                            <div className="flex min-w-0 items-center justify-between gap-2">
-                                              <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-                                                {entry.name}
-                                              </div>
-                                              {entry.defaultEnabled ? (
-                                                <StatusBadge
-                                                  size="tiny"
-                                                  shape="soft"
-                                                  tone="accent"
-                                                  className="shrink-0"
-                                                >
-                                                  {t("plugins.enabled")}
-                                                </StatusBadge>
-                                              ) : entry.suggestedPrompts?.length ? (
-                                                <ChevronRight
-                                                  className="size-3.5 shrink-0 text-dls-secondary"
+                                        {filteredMcpItems.map(({ entry, status }) => {
+                                          const description = mcpServerDescription(entry);
+                                          const ready = status === "connected";
+                                          const rowBody = (
+                                            <div className="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover">
+                                              <IconTile
+                                                size="sm"
+                                                shape="lg"
+                                                tone="surface"
+                                                border
+                                                className={extensionIconTileClassName}
+                                              >
+                                                <Plug
+                                                  className="size-3.5 text-neutral-900"
+                                                  strokeWidth={2}
                                                   aria-hidden="true"
                                                 />
-                                              ) : null}
-                                            </div>
-                                            {description ? (
-                                              <div className="truncate text-xs text-dls-secondary">
-                                                {description}
+                                              </IconTile>
+                                              <div className="min-w-0 flex-1 overflow-hidden">
+                                                <div className="truncate text-sm font-medium text-dls-text">
+                                                  {entry.name}
+                                                </div>
+                                                {description ? (
+                                                  <div className="truncate text-xs text-dls-secondary">
+                                                    {description}
+                                                  </div>
+                                                ) : null}
                                               </div>
-                                            ) : null}
-                                          </div>
-                                        </MenuRowButton>
-                                      );
-                                      if (!description) {
-                                        return (
-                                          <div key={entry.id ?? entry.serverName ?? entry.name}>
-                                            {row}
-                                          </div>
-                                        );
-                                      }
-                                      return (
-                                        <Tooltip key={entry.id ?? entry.serverName ?? entry.name}>
-                                          <TooltipTrigger
-                                            render={<div className="min-w-0" />}
-                                            className="min-w-0"
-                                          >
-                                            {row}
-                                          </TooltipTrigger>
-                                          <TooltipContent
-                                            side="bottom"
-                                            align="start"
-                                            sideOffset={6}
-                                            className="max-w-[18rem] whitespace-normal text-left leading-5"
-                                          >
-                                            {description}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    })}
-                                  </TooltipProvider>
-                                </div>
+                                              <Switch
+                                                size="sm"
+                                                className="shrink-0"
+                                                checked={ready}
+                                                onCheckedChange={() => {
+                                                  // MCP enable/disable lives in opencode config — open the editor.
+                                                  openCustomConnectorOrMarketplace();
+                                                }}
+                                                aria-label={entry.name}
+                                              />
+                                            </div>
+                                          );
+                                          if (!description) {
+                                            return <div key={entry.name}>{rowBody}</div>;
+                                          }
+                                          return (
+                                            <Tooltip key={entry.name}>
+                                              <TooltipTrigger
+                                                render={<div className="min-w-0" />}
+                                                className="min-w-0"
+                                              >
+                                                {rowBody}
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="bottom"
+                                                align="start"
+                                                sideOffset={6}
+                                                className="max-w-[18rem] whitespace-normal text-left leading-5"
+                                              >
+                                                {description}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          );
+                                        })}
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </TooltipProvider>
                               ) : (
                                 <div className="px-3 py-2 text-xs text-dls-secondary">
                                   {!mcpLoaded && mcpLoading
@@ -1637,7 +1990,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                       )}
                       {toolMenuSection === "templates" && selectedPromptTemplate ? (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem+14rem-2px)] flex w-[min(calc(100vw-27rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className="absolute bottom-0 left-[calc(11rem+17.5rem-2px)] flex w-[min(calc(100vw-30rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
@@ -1664,7 +2017,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                       ) : null}
                       {toolMenuSection === "mcps" && selectedComposerExtension?.suggestedPrompts?.length ? (
                         <div
-                          className="absolute bottom-0 left-[calc(11rem+14rem-2px)] flex w-[min(calc(100vw-27rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+                          className="absolute bottom-0 left-[calc(11rem+17.5rem-2px)] flex w-[min(calc(100vw-30rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
                           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
                         >
                           <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
@@ -1697,13 +2050,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="group max-w-40 shrink-0 bg-dls-hover px-2 text-dls-text hover:bg-dls-active"
+                    className="max-w-40 shrink-0 gap-1.5 bg-dls-hover px-2 text-dls-text hover:bg-dls-active"
                     onClick={clearCollaborationModeSelection}
                     title={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
                     aria-label={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
                   >
-                    <SelectedModeIcon size={14} className="shrink-0 group-hover:hidden" />
-                    <X size={14} className="hidden shrink-0 group-hover:block" />
+                    <SelectedModeIcon size={14} className="shrink-0" />
                     <span className="min-w-0 truncate">{selectedModeOption.label}</span>
                   </Button>
                 ) : null}
@@ -1791,7 +2143,7 @@ export function ReactSessionComposer(props: ComposerProps) {
         {props.bottomAccessory ? (
           <div
             className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
-              props.showOuterBorder ? " border border-t-0 border-dls-mist" : ""
+              props.showOuterBorder ? " border border-t-0 border-dls-border shadow-sm" : ""
             }`}
           >
             {props.bottomAccessory}

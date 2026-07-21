@@ -9,7 +9,6 @@ export default {
   "agent_manager.tab_archive": "會話",
   "agent_manager.agent_check": "AI 同事",
   "agent_manager.agents_desc": "本機編程 Agent 的狀態、連線檢查與運行資訊",
-  "agent_manager.config_preview": "配置預覽",
   "agent_manager.current": "目前",
   "agent_manager.import_current": "導入當前配置",
   "agent_manager.local_runs": "本地運行",

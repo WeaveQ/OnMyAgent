@@ -38,13 +38,15 @@ export function createAgentManagementDomainHandlers({
   async function agentManagementSnapshot(input = {}) {
     const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const [{ agents }, managedSkills, usageByProvider, providers, mcp] = await Promise.all([
+    // Agents first so skill inventory can scan each managed agent's
+    // nativeSkillsDirs (catalog agents like WorkBuddy are not in the fixed product set).
+    const [{ agents }, usageByProvider, providers, mcp] = await Promise.all([
       personalAgentRuntime.listAgents({ workspaceRoot, includeModels: true, includeDiscoverable: true }),
-      scanAgentManagementSkills(workspaceRoot),
       personalAgentLegacyHarness.readPersonalAgentUsageSummary(workspaceRoot),
       readAgentManagementProvidersSnapshot(),
       agentManagementMcpSnapshot(),
     ]);
+    const managedSkills = await scanAgentManagementSkills(workspaceRoot, { fleetAgents: agents });
     const skillCounts = new Map();
     for (const skill of managedSkills) {
       for (const agent of skill.agents) {
@@ -54,15 +56,27 @@ export function createAgentManagementDomainHandlers({
     return {
       generatedAt: Date.now(),
       workspaceRoot,
-      agents: agents.map((agent) => ({
-        ...agent,
+      agents: agents.map((agent) => {
         // Custom agents share the literal provider "custom", so we must NOT key
         // their lookup by provider (that would hit the empty pre-seeded "custom"
         // bucket and hide their real stats). Their run logs are keyed by agentId
         // == agent.id. Built-in providers are keyed by provider directly.
-        usage: usageByProvider.get(agent.provider === "custom" ? agent.id : agent.provider) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
-        skillCount: skillCounts.get(agent.provider) ?? 0,
-      })),
+        const usageKey = agent.provider === "custom" ? agent.id : agent.provider;
+        const skillKey =
+          agent.provider === "custom"
+            ? String(agent.id ?? "").toLowerCase()
+            : String(agent.provider ?? "").toLowerCase();
+        const skillCount =
+          skillCounts.get(skillKey)
+          ?? skillCounts.get(String(agent.id ?? "").toLowerCase())
+          ?? skillCounts.get(String(agent.provider ?? "").toLowerCase())
+          ?? 0;
+        return {
+          ...agent,
+          usage: usageByProvider.get(usageKey) ?? personalAgentLegacyHarness.emptyAgentUsageSummary(),
+          skillCount,
+        };
+      }),
       skills: managedSkills,
       providers,
       mcp,

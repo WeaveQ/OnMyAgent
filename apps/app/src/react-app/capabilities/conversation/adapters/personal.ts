@@ -4,6 +4,10 @@
  */
 
 import type { ConversationItemKind, ConversationItemVM } from "../item-types";
+import {
+  looksLikeSkillCatalogDump,
+  stripSkillCatalogDump,
+} from "../assistant-text-sanitize";
 
 /** Minimal personal run event shape used by the adapter (duck-typed). */
 export type PersonalAdapterRunEvent = {
@@ -179,6 +183,14 @@ export function filterPersonalTimelineMessages(
 ): PersonalAdapterMessage[] {
   return messages.filter((message) => {
     if (message.type === "thought") return false;
+    // Grok-style skill inventory dumps are noise in the transcript timeline.
+    if (
+      (message.role === "assistant" || message.type === "text" || message.type === "finish")
+      && looksLikeSkillCatalogDump(message.text)
+      && !stripSkillCatalogDump(message.text).trim()
+    ) {
+      return false;
+    }
     if (
       !message.text.trim()
       && !(message.type === "thinking" && (message.status === "done" || message.status === "completed"))

@@ -1,0 +1,58 @@
+{
+  "name": "warehouse-manager",
+  "version": "1.0.0",
+  "description": "Send inbound, outbound, transfer and stocktake records — I update the inventory ledger, flag anomalies and draft simple stock reports",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "warehouse-manager",
+  "agents": ["./agents/warehouse-manager.md"],
+  "skills": ["./skills/warehouse-ledger"],
+  "displayName": {
+    "en": "Warehouse Manager",
+    "zh": "仓储管理员"
+  },
+  "profession": {
+    "en": "Warehouse Operations",
+    "zh": "仓储作业"
+  },
+  "displayDescription": {
+    "en": "Log inbound/outbound/transfer/stocktake, keep a clear inventory ledger, flag mismatches and overstays, and draft simple stock reports for line-haul hubs.",
+    "zh": "记录入库出库移库盘点，维护库存台账，发现账实不符与异常滞留并提醒，生成简单库存报表。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "今天网点仓：入库 运单YD001 纸箱配件 20 件到货位 A-03；出库 运单YD002 发上海专线从 B-01 提走 8 托；盘点发现 C-02 账面 15 箱实物 12 箱。帮我更新台账、标异常，并给一份当日库存简报。",
+    "en": "Today at the hub: inbound waybill YD001 20 cartons of parts to bin A-03; outbound YD002 8 pallets from B-01 to Shanghai line; stocktake C-02 book 15 vs physical 12 cartons. Update the ledger, flag anomalies, and draft today's stock brief."
+  },
+  "tags": [
+    { "zh": "库存台账", "en": "Stock Ledger" },
+    { "zh": "出入库", "en": "In/Out Bound" },
+    { "zh": "盘点差异", "en": "Stocktake Gap" },
+    { "zh": "异常提醒", "en": "Anomaly Alerts" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "今天网点仓：入库 运单YD001 纸箱配件 20 件到货位 A-03；出库 运单YD002 发上海专线从 B-01 提走 8 托；盘点发现 C-02 账面 15 箱实物 12 箱。帮我更新台账、标异常，并给一份当日库存简报。",
+      "en": "Hub today: inbound YD001 20 cartons to A-03; outbound YD002 8 pallets from B-01; stocktake C-02 15 book vs 12 physical. Update ledger, flag gaps, draft stock brief."
+    },
+    {
+      "zh": "这是昨晚卸货照片和司机交接单，件数好像对不上运单，帮我列入库清点检查项和异常怎么倒查。",
+      "en": "Here are last-night unload photos and the driver handover note — counts may not match the waybill. List inbound count checks and how to trace the mismatch."
+    },
+    {
+      "zh": "帮我按货位汇总当前库存，标出超 7 天未出库的滞留票，并写一条提醒调度的话术。",
+      "en": "Summarize current stock by bin, flag loads sitting over 7 days, and draft a short nudge to dispatch."
+    },
+    {
+      "zh": "易碎玻璃一批要进仓，给存放与操作注意点；另外危险品标签的货能不能和食品同区，先提醒风险。",
+      "en": "Fragile glass inbound — storage and handling notes. Also: can hazmat-labeled goods share a zone with food? Flag risks first."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【仓储管理员】，专管网点仓的货动账动。\n\n把入库、出库、移库、盘点信息发给我：更新库存台账、标异常（账实不符、货位错、超期滞留、单据与实物不一致）、给简单库存报表。重货/泡货/易损/危险品会提醒存放与操作要点；错发漏发优先从交接与复核环节倒查。\n不编造件数和货位；回单未闭环导致的库存虚高、卸货未当面确认等关键节点我会点名。\n\n丢交接单、Excel 或口头流水即可。",
+    "en": "Boss, I'm Warehouse Manager — goods move, books move.\n\nSend inbound/outbound/transfer/stocktake: I update the ledger, flag anomalies (book vs physical, wrong bin, overstay, doc vs cargo), and draft simple stock reports. Notes for heavy/light/fragile/hazmat; mis-ship trace starts at handover and double-check.\nNo inventing qty or bins; I'll call out ghost stock from open PODs and unload without face-to-face confirm.\n\nDrop handover notes, Excel, or verbal logs."
+  }
+}

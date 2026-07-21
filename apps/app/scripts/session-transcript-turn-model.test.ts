@@ -90,7 +90,7 @@ describe("session transcript turn model", () => {
     expect(toolFailed?.state).toBe("completed");
   });
 
-  test("keeps an active turn running despite stale terminal metadata or tool errors", () => {
+  test("lets completed assistant metadata terminate a stale session stream", () => {
     const active = buildTranscriptTurns(
       [
         message("user", "user", createTranscriptMessageMetadata({
@@ -113,8 +113,35 @@ describe("session transcript turn model", () => {
       { isStreaming: true },
     )[0];
 
-    expect(active?.state).toBe("streaming");
-    expect(active?.durationMs).toBeNull();
+    expect(active?.state).toBe("failed");
+    expect(active?.durationMs).toBe(7_000);
+
+    const completed = buildTranscriptTurns(
+      [
+        message("user", "user"),
+        message("assistant", "assistant", createTranscriptMessageMetadata({
+          time: { completed: 8_000 },
+        })),
+      ],
+      { isStreaming: true, hasPendingApproval: true },
+    )[0];
+    expect(completed?.state).toBe("completed");
+
+    const incompleteToolError = buildTranscriptTurns(
+      [
+        message("user", "user"),
+        message("assistant", "assistant", undefined, [{
+          type: "dynamic-tool",
+          toolName: "shell",
+          toolCallId: "tool-live",
+          state: "output-error",
+          input: {},
+          errorText: "failed",
+        }]),
+      ],
+      { isStreaming: true },
+    )[0];
+    expect(incompleteToolError?.state).toBe("streaming");
   });
 
   test("marks only the latest active turn as waiting or streaming", () => {

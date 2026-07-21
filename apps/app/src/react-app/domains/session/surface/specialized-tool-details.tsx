@@ -17,6 +17,7 @@ import {
   Plug,
   Sparkles,
   ExternalLink,
+  Eye,
   Terminal,
 } from "lucide-react";
 
@@ -210,6 +211,9 @@ export function specializedToolHeadline(
       : t("session.tool_mcp_resource");
   }
   if (details.kind === "skill") return details.skillName || t("session.tool_skill");
+  if (details.kind === "visualizer-read-me") {
+    return t("session.tool_visualizer_read_me");
+  }
   if (details.kind === "completion") {
     const status = running
       ? t("session.tool_completion_running")
@@ -266,6 +270,7 @@ export function specializedToolCanExpand(details: TranscriptSpecializedToolDetai
   }
   if (details.kind === "mcp-resource") return Boolean(details.uri || details.content || details.downloadPath);
   if (details.kind === "skill") return false;
+  if (details.kind === "visualizer-read-me") return Boolean(details.result);
   if (details.kind === "completion") return Boolean(details.details);
   if (details.kind === "open-result") return false;
   if (details.kind === "mcp-match") return details.requests.length > 0;
@@ -706,6 +711,54 @@ function ReferencesToolDetails(props: {
   );
 }
 
+export function VisualizerReadMeToolRow(props: {
+  details: Extract<TranscriptSpecializedToolDetails, { kind: "visualizer-read-me" }>;
+  running: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const canExpand = !props.running && Boolean(props.details.result);
+  return (
+    <div
+      data-tool-details="visualizer-read-me"
+      className="flex w-full max-w-[760px] flex-col gap-1 pb-0.5 text-sm leading-7 text-dls-secondary"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-auto w-fit max-w-full justify-start gap-2 rounded-none p-0 font-normal text-dls-secondary hover:bg-transparent hover:text-dls-text disabled:cursor-default disabled:opacity-100"
+        aria-expanded={canExpand ? props.expanded : undefined}
+        disabled={!canExpand}
+        onClick={() => {
+          if (canExpand) props.onToggle();
+        }}
+      >
+        {!props.running ? <Eye className="size-3.5 shrink-0" strokeWidth={1.7} /> : null}
+        <span className={cn("shrink-0", props.running && "session-transcript-loading-shimmer")}>
+          {t("session.tool_visualizer_read_me")}
+        </span>
+        <span className="min-w-0 truncate">
+          {t(props.running
+            ? "session.tool_visualizer_read_me_loading"
+            : "session.tool_visualizer_read_me_loaded")}
+        </span>
+        {canExpand ? (
+          <ChevronDown
+            className={cn("size-4 shrink-0 transition-transform", !props.expanded && "-rotate-90")}
+            strokeWidth={1.5}
+          />
+        ) : null}
+      </Button>
+      {canExpand && props.expanded ? (
+        <pre className="m-0 max-h-[300px] overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-xl bg-dls-surface-muted px-4 py-3 font-mono text-xs leading-5 text-dls-text">
+          {props.details.result}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
 export function SpecializedToolDetails(props: {
   details: TranscriptSpecializedToolDetails;
   onOpenCodePath?: (path: string) => void;
@@ -741,6 +794,14 @@ export function SpecializedToolDetails(props: {
         ) : null}
       </div>
     );
+  }
+
+  if (details.kind === "visualizer-read-me") {
+    return details.result ? (
+      <pre className="m-0 max-h-[300px] overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-xl bg-dls-surface-muted px-4 py-3 font-mono text-xs leading-5 text-dls-text">
+        {details.result}
+      </pre>
+    ) : null;
   }
 
   if (details.kind === "mcp") {

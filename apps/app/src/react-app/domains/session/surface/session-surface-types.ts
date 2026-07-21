@@ -92,6 +92,8 @@ export type SessionSurfaceProps = {
     | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
   onOpenSkillsMarketplace?: (() => void) | undefined;
+  onOpenConnectorsMarketplace?: (() => void) | undefined;
+  onOpenCustomConnector?: (() => void) | undefined;
   onRevertToMessage?: (messageId: string) => void;
   onForkAtMessage?: (messageId: string) => void;
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
@@ -103,6 +105,12 @@ export type SessionSurfaceProps = {
   onPersonalAssistantCategoryChange?: (id: AssistantCategoryId) => void;
   onPersonalAssistantCategoryActive?: (id: AssistantCategoryId) => void;
   draftWorkspaceDirectory?: string | null;
+  /** Active app workspace id — draft picker loads Spaces dirs for this owner. */
+  draftWorkspaceOwnerId?: string | null;
+  /** Select / create / open a draft workspace path (list or folder picker). */
+  onSelectDraftWorkspace?: (path: string) => void;
+  /** Create named subfolder under the active app workspace; returns absolute path. */
+  onCreateDraftWorkspace?: (name: string) => Promise<string>;
   onPickDraftWorkspace?: () => void;
   onClearDraftWorkspace?: () => void;
 };

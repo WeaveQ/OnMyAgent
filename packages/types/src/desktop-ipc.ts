@@ -359,6 +359,7 @@ export type PersonalLocalAgentErrorInfo = {
     | "timeout"
     | "empty_output"
     | "acp_incomplete_output"
+    | "acp_prompt_failed"
     | "cancelled"
     | "codex_acp_model_format"
     | "codex_acp_mode_failed"
@@ -1402,6 +1403,7 @@ export type AgentManagementUsageSummary = {
   lastStatus: string | null;
 };
 
+/** Product columns plus catalog/custom fleet keys (e.g. workbuddy). */
 export type AgentManagementSkillAgent =
   | "opencode"
   | "claude"
@@ -1410,7 +1412,8 @@ export type AgentManagementSkillAgent =
   | "codex"
   | "gemini"
   | "onmyagent"
-  | "unknown";
+  | "unknown"
+  | (string & {});
 
 export type AgentManagementSkillSource = {
   agent: AgentManagementSkillAgent;

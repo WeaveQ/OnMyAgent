@@ -60,6 +60,8 @@ export const sessionArchiveDedicatedParserAgents: readonly SessionArchiveAgent[]
   "qwenpaw",
   "reasonix",
   "aider",
+  "grok",
+  "workbuddy",
 ] as const;
 
 export const sessionArchiveGenericParserAgents = sessionArchiveRegistry
@@ -111,6 +113,14 @@ export async function discoverSessionArchiveSessionFiles(input: {
   if (agent === "hermes") {
     return walkFiles(input.root, (path) => [".jsonl", ".json"].includes(extname(path)));
   }
+  if (agent === "grok") {
+    // ~/.grok/sessions/<workspace>/<sessionId>/chat_history.jsonl
+    return walkFiles(input.root, (path) => basename(path) === "chat_history.jsonl");
+  }
+  if (agent === "workbuddy") {
+    // ~/.workbuddy/projects/<project>/<sessionId>.jsonl
+    return walkFiles(input.root, (path) => extname(path) === ".jsonl");
+  }
   return walkFiles(input.root, (path) => [".jsonl", ".json"].includes(extname(path)));
 }
 
@@ -134,6 +144,8 @@ function createParserForAgent(entry: SessionArchiveRegistryEntry): SessionArchiv
   if (entry.agent === "qwenpaw") return parseQwenPawFile;
   if (entry.agent === "reasonix") return parseReasonixFile;
   if (entry.agent === "aider") return parseAiderFile;
+  if (entry.agent === "grok") return parseGrokFile;
+  if (entry.agent === "workbuddy") return parseWorkBuddyFile;
   return (path, options) => parseGenericAgentFile(path, entry, options);
 }
 
@@ -469,6 +481,97 @@ async function parseGenericAgentFile(path: string, entry: SessionArchiveRegistry
   const rows = await readGenericRows(path);
   const id = `${entry.idPrefix}${sessionIdFromFilename(path)}`;
   return buildSimpleRowsResult({ path, agent: entry.agent, id, rows, options });
+}
+
+/**
+ * Grok Build CLI: ~/.grok/sessions/<workspace>/<sessionId>/chat_history.jsonl
+ * Rows: { type: "user"|"assistant"|…, content: string | [{type,text}] }
+ */
+async function parseGrokFile(path: string, options: SessionArchiveParserOptions = {}) {
+  const rows = await readJsonLines(path);
+  const sessionId = `grok:${basename(dirname(path)) || sessionIdFromFilename(path)}`;
+  const messages: SessionArchiveMessage[] = [];
+  for (const row of rows) {
+    const type = stringValue(row, "type");
+    if (type !== "user" && type !== "assistant") continue;
+    const extracted = extractContent(fieldValue(row, "content"));
+    const content = extracted.text.trim();
+    if (!content && extracted.toolCalls.length === 0) continue;
+    // Skip pure system-reminder / skill-list synthetic user dumps when they are the only text.
+    if (type === "user" && content.includes("<system-reminder>") && content.length > 400) continue;
+    messages.push(makeMessage({
+      id: messages.length + 1,
+      sessionId,
+      ordinal: messages.length,
+      role: type === "assistant" ? "assistant" : "user",
+      content,
+      timestamp: stringValue(row, "timestamp") || isoFromMillis(numberValue(row, "timestamp")),
+      thinkingText: extracted.thinkingText,
+      toolCalls: extracted.toolCalls,
+      sourceType: type,
+      sourceUuid: stringValue(row, "uuid") || stringValue(row, "id"),
+    }));
+  }
+  const project = projectFromGrokSessionPath(path);
+  return buildParseResult({ path, agent: "grok", id: sessionId, messages, project, options });
+}
+
+/**
+ * WorkBuddy / CodeBuddy CLI: ~/.workbuddy/projects/<project>/<sessionId>.jsonl
+ * Rows: { type: "message", role: "user"|"assistant", content: [{type:input_text|output_text,text}], timestamp: number }
+ */
+async function parseWorkBuddyFile(path: string, options: SessionArchiveParserOptions = {}) {
+  const rows = await readJsonLines(path);
+  const rawId = stringValue(rows[0], "sessionId") || sessionIdFromFilename(path);
+  const sessionId = `workbuddy:${rawId}`;
+  const messages: SessionArchiveMessage[] = [];
+  for (const row of rows) {
+    const role = stringValue(row, "role");
+    if (role !== "user" && role !== "assistant") continue;
+    const extracted = extractContent(fieldValue(row, "content"));
+    const content = extracted.text.trim();
+    if (!content && extracted.toolCalls.length === 0) continue;
+    const tsMs = numberValue(row, "timestamp");
+    messages.push(makeMessage({
+      id: messages.length + 1,
+      sessionId,
+      ordinal: messages.length,
+      role: role === "assistant" ? "assistant" : "user",
+      content,
+      timestamp: isoFromMillis(tsMs) || stringValue(row, "timestamp"),
+      thinkingText: extracted.thinkingText,
+      toolCalls: extracted.toolCalls,
+      sourceType: stringValue(row, "type") || role,
+      sourceUuid: stringValue(row, "id"),
+      sourceParentUuid: stringValue(row, "parentId") || stringValue(row, "logicalParentId"),
+    }));
+  }
+  const project = projectFromWorkBuddyPath(path);
+  return buildParseResult({ path, agent: "workbuddy", id: sessionId, messages, project, options });
+}
+
+function projectFromGrokSessionPath(path: string): string {
+  // .../sessions/%2FUsers%2Fwork%2Fcode%2F.../<id>/chat_history.jsonl
+  const sessionsIdx = path.split(sep).lastIndexOf("sessions");
+  if (sessionsIdx < 0) return "";
+  const encoded = path.split(sep)[sessionsIdx + 1] ?? "";
+  try {
+    const decoded = decodeURIComponent(encoded);
+    if (decoded.startsWith("/") || /^[A-Za-z]:[\\/]/.test(decoded)) {
+      return projectFromCwd(decoded);
+    }
+  } catch {
+    // ignore
+  }
+  return projectFromPath(path);
+}
+
+function projectFromWorkBuddyPath(path: string): string {
+  // .../projects/Users-work-foo/<session>.jsonl
+  const projectsIdx = path.split(sep).lastIndexOf("projects");
+  if (projectsIdx < 0) return "";
+  const folder = path.split(sep)[projectsIdx + 1] ?? "";
+  return folder || projectFromPath(path);
 }
 
 async function parseAiderFile(path: string, options: SessionArchiveParserOptions = {}) {

@@ -4,6 +4,13 @@ export * from "./timeline";
 export * from "./runtime";
 export * from "./item-types";
 export {
+  countSkillCatalogMarkers,
+  looksLikeSkillCatalogDump,
+  sanitizeAssistantTranscriptText,
+  stripSkillCatalogDump,
+  type AssistantTextSanitizeResult,
+} from "./assistant-text-sanitize";
+export {
   ConversationItemsList,
   type ConversationItemsListProps,
 } from "./conversation-items-list";

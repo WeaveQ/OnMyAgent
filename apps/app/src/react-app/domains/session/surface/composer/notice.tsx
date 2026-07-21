@@ -23,23 +23,40 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
 
   const toneClass = composerNoticeToneClass[tone];
 
+  const hasDescription = Boolean(props.notice.description?.trim());
+  const hasAction = Boolean(props.notice.actionLabel && props.notice.onAction);
+
   return (
-    <div className="absolute bottom-full right-0 z-30 mb-3 w-[min(26rem,calc(100vw-2rem))] max-w-full overflow-hidden rounded-xl border border-dls-border bg-dls-surface px-4 py-3 backdrop-blur-xl">
-      <div className="flex items-start gap-3">
-        <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-medium ${toneClass}`}>
+    <div
+      className={`absolute bottom-full right-0 z-30 mb-2 max-w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-dls-border bg-dls-surface-solid shadow-sm ${
+        hasDescription || hasAction ? "px-3 py-2" : "px-2.5 py-1.5"
+      }`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className={`flex ${hasDescription || hasAction ? "items-start" : "items-center"} gap-2`}>
+        <div
+          className={`flex size-5 shrink-0 items-center justify-center rounded-md border text-[10px] font-semibold leading-none ${toneClass} ${
+            hasDescription || hasAction ? "mt-0.5" : ""
+          }`}
+        >
           {tone === "success" ? "✓" : tone === "warning" ? "!" : tone === "error" ? "×" : "i"}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium leading-relaxed text-dls-text">{props.notice.title}</div>
-          {props.notice.description?.trim() ? (
-            <p className="mt-1 text-xs leading-relaxed text-dls-secondary">{props.notice.description}</p>
+          <div className="truncate text-xs font-medium leading-4 text-dls-text">
+            {props.notice.title}
+          </div>
+          {hasDescription ? (
+            <p className="mt-0.5 line-clamp-2 break-all text-[11px] leading-4 text-dls-secondary">
+              {props.notice.description}
+            </p>
           ) : null}
-          {props.notice.actionLabel && props.notice.onAction ? (
+          {hasAction ? (
             <Button
               type="button"
               variant="outline"
               size="xs"
-              className="mt-3 text-dls-text hover:bg-dls-hover"
+              className="mt-1.5 text-dls-text hover:bg-dls-hover"
               onClick={() => props.notice?.onAction?.()}
             >
               {props.notice.actionLabel}

@@ -23,6 +23,8 @@ import qoderIconUrl from "../../../assets/agent-icons/qoder.svg";
 import qwenIconUrl from "../../../assets/agent-icons/qwen.svg";
 import snowIconUrl from "../../../assets/agent-icons/snow.svg";
 import traeIconUrl from "../../../assets/agent-icons/trae.svg";
+// Same host mark AgentSkillIcon used (skill matrix / archive host column).
+import onmyagentIconUrl from "../../../../../desktop/resources/icons/icon.png";
 
 const AGENT_ICON_BY_ID: Record<string, string> = {
   opencode: opencodeIconUrl,
@@ -37,6 +39,8 @@ const AGENT_ICON_BY_ID: Record<string, string> = {
   qwen: qwenIconUrl,
   kimi: kimiIconUrl,
   copilot: copilotIconUrl,
+  "vscode-copilot": copilotIconUrl,
+  "visualstudio-copilot": copilotIconUrl,
   qoder: qoderIconUrl,
   augment: augmentIconUrl,
   snow: snowIconUrl,
@@ -46,7 +50,9 @@ const AGENT_ICON_BY_ID: Record<string, string> = {
   workbuddy: codebuddyIconUrl,
   trae: traeIconUrl,
   mimo: mimoIconUrl,
+  mimocode: mimoIconUrl,
   grok: grokIconUrl,
+  onmyagent: onmyagentIconUrl,
 };
 
 const AGENT_ICON_BY_PROVIDER: Partial<Record<PersonalLocalAgentProvider, string>> = {
@@ -60,9 +66,11 @@ const AGENT_ICON_BY_PROVIDER: Partial<Record<PersonalLocalAgentProvider, string>
 // Try known-id catalog first (covers built-in + discoverable custom agents
 // like grok/codebuddy/gemini), then fall back to provider-family brand.
 export function resolveAgentIconUrl(input: { id: string; provider: string }): string | null {
-  const byId = AGENT_ICON_BY_ID[input.id];
+  const id = String(input.id ?? "").trim().toLowerCase();
+  const provider = String(input.provider ?? "").trim().toLowerCase();
+  const byId = AGENT_ICON_BY_ID[id];
   if (byId) return byId;
-  const byProvider = AGENT_ICON_BY_PROVIDER[input.provider as PersonalLocalAgentProvider];
+  const byProvider = AGENT_ICON_BY_PROVIDER[provider as PersonalLocalAgentProvider];
   return byProvider ?? null;
 }
 

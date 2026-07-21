@@ -7,6 +7,11 @@ export {
   SkillsPage,
   type ArtifactPluginPromptSelection,
 } from "./plugins-page";
+export {
+  CustomConnectorDialog,
+  CustomConnectorEntryButton,
+} from "./custom-connector-dialog";
+export { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 export { ArtifactPluginCard, type ArtifactPluginCardProps } from "./artifact-plugin-card";
 export {
   ArtifactPluginDetail,

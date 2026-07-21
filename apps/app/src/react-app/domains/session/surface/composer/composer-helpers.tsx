@@ -2,9 +2,8 @@
 /** Pure helpers, types, and styles for the session composer (mechanical extract). */
 import type { ComponentType, ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { ClipboardList, MessageCircle, Plug, Rocket, Target } from "lucide-react";
+import { ClipboardList, MessageCircle, Rocket, Target } from "lucide-react";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import type { StatusBadgeTone } from "@/components/ui/status-badge";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type {
@@ -61,16 +60,21 @@ export const composerTextClass = {
 };
 
 export const composerMenuClass = {
-  anchor: "absolute bottom-full left-[-1px] right-[-1px] z-30",
-  panel: "overflow-hidden rounded-t-[20px] border border-dls-border bg-dls-surface-solid",
+  anchor: "absolute bottom-full left-[-1px] right-[-1px] z-30 mb-1.5",
+  // Full rounded card so the popup sits above the composer with soft corners all around.
+  panel:
+    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
   panelWithoutBottomBorder:
-    "overflow-hidden rounded-t-[20px] border border-dls-border border-b-0 bg-dls-surface-solid",
-  scrollArea: "max-h-64 overflow-y-auto p-2",
+    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
+  // Grouped skills / commands list — roomy horizontal padding, compact vertical stack.
+  scrollArea: "max-h-72 overflow-y-auto px-1.5 py-2",
+
   itemIcon: "mt-0.5 shrink-0 text-dls-secondary",
-  itemTitle: "truncate text-xs font-medium",
-  itemMeta: "truncate text-xs text-dls-secondary",
+  itemTitle: "truncate text-sm font-medium leading-5 text-dls-text",
+  itemMeta: "truncate text-sm leading-5 text-dls-secondary",
   // Neutral muted wash — not blue-tinted dls-hover.
-  toolButton: "text-dls-secondary hover:bg-dls-surface-muted",
+  // Match model chip weight (secondary + soft hover) so + / model sit as peers.
+  toolButton: "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   activeToolButton: "bg-dls-surface-muted text-dls-text",
 };
 
@@ -208,6 +212,10 @@ export type ComposerProps = {
   importedPlugins?: CloudImportedPlugin[];
   onOpenSettingsSection?: (section: ToolMenuSettingsSection) => void;
   onOpenSkillsMarketplace?: () => void;
+  /** Open market → connectors (plugins) tab — connectors flyout configure. */
+  onOpenConnectorsMarketplace?: () => void;
+  /** Open custom MCP config dialog (e.g. MCP row toggle / advanced). */
+  onOpenCustomConnector?: () => void;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<string[]>;
   onInsertMention: (kind: "agent" | "file", value: string) => void;
@@ -225,6 +233,11 @@ export type ComposerProps = {
   draftScopeKey?: string;
   compactTopSpacing?: boolean;
   showOuterBorder?: boolean;
+  /**
+   * Draft-home empty state: parent owns max width; strip outer padding so the
+   * card aligns with the brand title, and use a denser editor/toolbar.
+   */
+  homeLayout?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;
@@ -377,15 +390,9 @@ export function mcpServerDescription(entry: McpServerEntry) {
 
 export const COMPOSER_CONTAIN_STYLE = { contain: "layout style" };
 
-export function extensionIcon(entry: McpDirectoryInfo, size = 16) {
-  if (entry.iconSrc) {
-    return <img src={resolvePublicAssetUrl(entry.iconSrc)} alt="" width={size} height={size} loading="lazy" className="block" />;
-  }
-  if (entry.iconSlug) {
-    return <img src={`https://cdn.simpleicons.org/${entry.iconSlug}`} alt="" width={size} height={size} loading="lazy" className="block" />;
-  }
-  return <Plug size={size} className="text-dls-secondary" />;
-}
+// Re-export from plugins domain so session composer shares one icon helper
+// without plugins depending on session.
+export { extensionIcon, extensionIconTileClassName } from "@/react-app/domains/plugins";
 
 export function pluginSlashCommandName(file: CloudImportedPluginFile) {
   const path = file.path.trim();

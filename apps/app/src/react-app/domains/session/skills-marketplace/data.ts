@@ -97,7 +97,8 @@ function inferCategoryIds(entry: {
       category.keywords.some((keyword) => haystack.includes(keyword.toLowerCase())),
     )
     .map((category) => category.id);
-  return [...new Set(categoryIds)].slice(0, 3);
+  // "deploy" was merged into "developer"; never emit the legacy id on new inference.
+  return [...new Set(categoryIds.map((id) => (id === "deploy" ? "developer" : id)))].slice(0, 3);
 }
 
 export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {

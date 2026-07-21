@@ -81,18 +81,21 @@ OnMyAgent is not:
 - **Automations**: Schedule recurring local agent runs and review their history.
 - **MCP Control**: Configure MCP servers and expose UI actions through MCP.
 - **Skills & Memory**: Organize reusable capabilities and project context.
-- **Software & Environment Settings**: Manage bundled runtimes, API keys, local environment variables, and macOS permissions.
+- **Software & Environment Settings**: Manage bundled runtimes, API keys, local environment variables, and platform permissions (macOS Accessibility / Screen Recording where required).
 - **Artifact Review**: Review logs, diffs, files, screenshots, and deliverables in one place.
 - **Permission & Approval**: Add explicit approval surfaces for risky local actions.
 - **Local-first / BYOK**: Keep work on your machine and use your own model/provider keys.
-- **Desktop Packaging**: Electron desktop packaging for macOS.
+- **Desktop Packaging**: Electron packaging for macOS (primary) and Windows NSIS (developer preview).
 - **Internationalization**: English, Simplified Chinese, and Traditional Chinese locale files.
 
 ## Platform Support
 
-- First public releases target macOS only, with both Apple Silicon and Intel builds.
-- Windows support is planned for a later release.
-- Linux packages, including Arch Linux AUR packages, are not supported for now.
+- **macOS** is the primary release and dogfood target (Apple Silicon + Intel).
+- **Windows** runs the Electron shell, sidecars, and most product UI; see
+  [`docs/windows-compat.md`](./docs/windows-compat.md) for preflight, NSIS packaging,
+  and macOS-only gaps (Computer Use / Appshot desktop capture, `sandbox-exec`).
+- **Linux** packages (including Arch AUR) are not supported for now.
+- **Computer Use + Appshot** require the native HandsFree helper and are **macOS only**.
 
 ## Workflow
 

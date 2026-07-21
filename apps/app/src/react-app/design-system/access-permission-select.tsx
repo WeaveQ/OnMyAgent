@@ -6,6 +6,7 @@ import type { ComposerAccessMode } from "../../app/types";
 import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 type AccessPermissionSelectProps = {
@@ -54,11 +55,11 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const selected = optionFor(props.value);
   const compact = props.density === "compact";
-  // Match composer bottom chrome chips: text-xs / icon size-3.5 / chevron size-3.5.
+  // Same text-sm as default composer chrome so draft-home chips match (+ / 默认权限).
   const triggerClass = compact
     ? props.value === "full"
-      ? "h-8 max-w-44 shrink min-w-0 gap-1.5 rounded-lg px-2 text-xs font-normal leading-none text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
-      : "h-8 max-w-44 shrink min-w-0 gap-1.5 rounded-lg px-2 text-xs font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
+      ? "h-8 max-w-44 shrink min-w-0 gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
+      : "h-8 max-w-44 shrink min-w-0 gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-3.5"
     : props.value === "full"
       ? "max-h-9 max-w-44 shrink min-w-0 gap-1.5 px-2 text-sm font-normal text-dls-danger hover:bg-dls-hover hover:text-dls-danger disabled:cursor-not-allowed disabled:opacity-60"
       : "max-h-9 max-w-44 shrink min-w-0 gap-1.5 px-2 text-sm font-normal text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-not-allowed disabled:opacity-60";
@@ -102,7 +103,8 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
       {open ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),320px)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-1.5"
+          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),20rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5"
+          style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
         >
           {ACCESS_PERMISSION_OPTIONS.map((option) => {
             const active = option.value === props.value;
@@ -119,22 +121,24 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                 role="menuitemradio"
                 aria-checked={active}
                 active={active}
-                className="gap-3 py-3"
+                density="compact"
+                align="start"
+                className="gap-2.5 py-2"
                 onClick={() => {
                   props.onChange(option.value);
                   setOpen(false);
                 }}
               >
                 <Icon
-                  size={16}
-                  className={
+                  className={cn(
+                    "mt-0.5 size-3.5 shrink-0",
                     option.value === "full"
-                      ? "mt-0.5 shrink-0 text-dls-danger"
-                      : "mt-0.5 shrink-0 text-dls-secondary"
-                  }
+                      ? "text-dls-danger"
+                      : "text-dls-secondary",
+                  )}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 text-sm font-medium">
+                  <span className="flex items-center gap-2 text-sm font-medium leading-5 text-dls-text">
                     <span>{option.label}</span>
                     {option.risk ? (
                       <StatusBadge size="tiny" tone="warning">
@@ -142,12 +146,12 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                       </StatusBadge>
                     ) : null}
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-dls-secondary">
+                  <span className="mt-0.5 block text-sm leading-5 text-dls-secondary">
                     {option.description}
                   </span>
                 </span>
                 {active ? (
-                  <Check size={16} className="mt-0.5 shrink-0 text-dls-secondary" />
+                  <Check className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
                 ) : null}
               </MenuRowButton>
             );

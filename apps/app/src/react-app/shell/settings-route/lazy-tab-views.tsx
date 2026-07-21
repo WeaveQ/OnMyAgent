@@ -16,9 +16,7 @@ import {
   loadConversationMemoryView,
   loadDebugView,
   loadEnvironmentView,
-  loadExtensionsView,
   loadGeneralSettingsView,
-  loadMcpView,
   loadMemoryView,
   loadPreferencesView,
   loadSystemAuthorizationsView,
@@ -129,14 +127,4 @@ export const LazyCloudMarketplacesView = lazy(() =>
   loadCloudMarketplacesView().then((module) => ({
     default: module.CloudMarketplacesView,
   })),
-);
-
-export const LazyExtensionsView = lazy(() =>
-  loadExtensionsView().then((module) => ({
-    default: module.ExtensionsView,
-  })),
-);
-
-export const LazyMcpView = lazy(() =>
-  loadMcpView().then((module) => ({ default: module.McpView })),
 );

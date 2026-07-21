@@ -11,7 +11,11 @@ import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
-import { detectAvailableLocalAgents, discoverableAgentDrafts } from "./detect-local-agents.mjs";
+import {
+  detectAvailableLocalAgents,
+  discoverableAgentDrafts,
+  mergeCatalogNativeSkillDirs,
+} from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
@@ -1418,6 +1422,26 @@ export function createPersonalAgentRuntime(options) {
       let status = agent?.status === "offline" ? "offline" : "online";
       let error = agent?.error ?? null;
       let acpProbeStep = agent?.acpProbeStep ?? null;
+      // Detect binary version the same way as built-ins (`--version`). Custom
+      // agents used to skip this path, so the sidebar showed "Custom" instead
+      // of e.g. "0.2.106" / "0.1.0".
+      let version = agent?.version ?? null;
+      if (agent?.executablePath) {
+        try {
+          const detected = await legacy.detectAgent(agent, workspaceRoot, { includeModels: false });
+          if (detected && typeof detected === "object") {
+            const detectedVersion = String(detected.version ?? "").trim();
+            if (detectedVersion) version = detectedVersion.split("\n")[0].trim();
+            // Prefer detect status when ACP probe is not applicable.
+            if (!isCliAcp && detected.status) {
+              status = detected.status;
+              error = detected.error ?? null;
+            }
+          }
+        } catch {
+          // keep stored status / null version
+        }
+      }
       if (isCliAcp && agent?.executablePath) {
         const probeResult = await probeCliAcpAgent(agent.executablePath, agent.acpArgs, workspaceRoot);
         status = probeResult.status;
@@ -1425,10 +1449,17 @@ export function createPersonalAgentRuntime(options) {
         acpProbeStep = probeResult.step;
       }
       const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
-      const connectionMode = agent.connectionMode ?? personalLocalAgentConnectionMode(agent.provider, agent);
+      // Always recompute connection mode so named custom agents never stick on
+      // the legacy stored "Custom ACP session" label.
+      const connectionMode = personalLocalAgentConnectionMode(agent.provider, agent);
+      // Backfill catalog skill roots (WorkBuddy often only stored ~/.codebuddy/skills
+      // while the bulk of user skills live under ~/.workbuddy/skills).
+      const nativeSkillsDirs = mergeCatalogNativeSkillDirs(agent);
       // Store-backed agents are fleet members (mine), never catalog drafts.
       return {
         ...agent,
+        version,
+        nativeSkillsDirs,
         capability,
         connectionMode,
         discoverable: false,

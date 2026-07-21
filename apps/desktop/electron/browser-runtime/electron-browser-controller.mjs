@@ -101,10 +101,29 @@ export function createElectronBrowserController(options) {
     return view;
   };
 
+  const isWindowAlive = (window) => {
+    if (!window) return false;
+    try {
+      // Electron throws "Object has been destroyed" if we touch a dead window.
+      if (typeof window.isDestroyed === "function" && window.isDestroyed()) {
+        return false;
+      }
+      return Boolean(window.contentView);
+    } catch {
+      return false;
+    }
+  };
+
   const detach = (view) => {
-    if (!mainWindow || !view) return;
-    if (mainWindow.contentView.children.includes(view)) {
-      mainWindow.contentView.removeChildView(view);
+    if (!view || !isWindowAlive(mainWindow)) return;
+    try {
+      const contentView = mainWindow.contentView;
+      const children = contentView?.children;
+      if (Array.isArray(children) && children.includes(view)) {
+        contentView.removeChildView(view);
+      }
+    } catch {
+      // Window or view already torn down during close — ignore.
     }
   };
 
@@ -335,7 +354,15 @@ export function createElectronBrowserController(options) {
     reload() { records.get(activeTabId)?.view.webContents.reload(); },
     openAllowedExternalUrl,
     showBrowserTabContextMenu(_tabId, _point) { return false; },
-    destroyBrowserView() { for (const record of records.values()) detach(record.view); visible = false; },
+    destroyBrowserView() {
+      // Safe during BrowserWindow "closed": detach no-ops if the window is gone.
+      for (const record of records.values()) detach(record.view);
+      records.clear();
+      order = [];
+      activeTabId = null;
+      visible = false;
+      bounds = null;
+    },
     async startRpc({ runtimeDir, instanceId = randomUUID() }) {
       if (rpcServer) return { ...rpcEnvironment };
       const bootstrap = randomBytes(32).toString("base64url");

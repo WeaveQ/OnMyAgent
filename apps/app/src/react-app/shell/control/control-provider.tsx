@@ -424,13 +424,6 @@ export function OnMyAgentRouteControlActions() {
       execute: () => navigate("/settings/general"),
     },
     {
-      id: "route.settings.extensions",
-      label: t("system.control_open_extensions_settings"),
-      description: t("system.control_open_extensions_settings_desc"),
-      sideEffect: "navigation",
-      execute: () => navigate("/settings/extensions"),
-    },
-    {
       id: "route.settings.providers",
       label: t("system.control_open_provider_settings"),
       description: t("system.control_open_ai_settings_desc"),

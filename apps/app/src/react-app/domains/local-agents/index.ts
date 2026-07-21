@@ -90,6 +90,7 @@ export {
   getRecentWorkspaces,
   readWorkspaceOverride,
   writeWorkspaceOverride,
+  workspaceDisplayName,
 } from "./workspace-picker/recent-workspaces";
 
 export { resolveAgentIconUrlFor, resolveAgentIconUrl } from "./agent-icon-map";

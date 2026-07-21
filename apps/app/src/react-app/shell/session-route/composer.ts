@@ -13,10 +13,16 @@ import { t, type Language } from "../../../i18n";
 
 export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
 
+/**
+ * Map tool-menu "open settings" intents to settings routes.
+ * MCP / connectors no longer live under Settings → Extensions (removed).
+ * Skills & connectors use marketplace side panel from Composer; these routes
+ * are only last-resort deep links and intentionally avoid dead extension pages.
+ */
 export function routeForSettingsSection(section: SettingsSection) {
-  if (section === "skills") return "/settings/extensions";
-  if (section === "mcps") return "/settings/extensions/mcp";
-  if (section === "plugins") return "/settings/extensions/plugins";
+  if (section === "skills") return "/settings/general";
+  // mcps / plugins: custom MCP dialog + store connectors; never /settings/extensions*
+  if (section === "mcps" || section === "plugins") return "/settings/general";
   return "/settings/general";
 }
 
