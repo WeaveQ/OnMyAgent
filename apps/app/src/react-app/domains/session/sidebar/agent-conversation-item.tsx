@@ -67,7 +67,7 @@ export function AgentConversationItem(props: {
   selected: boolean;
   status?: string;
   taskStatusVariant: TaskStatusIndicator["variant"];
-  /** WeChat-style unread for this expert (hidden while selected). */
+  /** Unread badge for this expert (hidden while selected). */
   unread?: boolean;
   /** Raw unread for menu mark-read / mark-unread (ignores selected focus). */
   unreadRecord?: boolean;
@@ -307,7 +307,7 @@ export function AgentConversationItem(props: {
             <span
               className={cn(
                 "absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1",
-                "border-2 border-dls-sidebar bg-dls-status-danger text-2xs font-semibold leading-none text-white",
+                "border-2 border-dls-sidebar bg-dls-accent text-2xs font-semibold leading-none text-white",
                 props.selected && "border-dls-list-selected",
               )}
               aria-label={t("session.expert_unread_count", {
@@ -343,18 +343,17 @@ export function AgentConversationItem(props: {
             >
               {props.group.name}
             </div>
-            {/* Busy / time — sits flush right; swaps for ··· on hover. */}
-            {activityLabel ? (
+            {/* Busy (unselected): three-dot pulse (no label). Selected / idle: time. */}
+            {activityLabel && !props.selected ? (
               <span
                 className={cn(
-                  agentConversationTextClass.activity,
-                  "ms-auto",
+                  "ms-auto inline-flex items-center text-dls-accent",
                   hasMenu && !menuOpen && "group-hover:hidden",
                   menuOpen && "hidden",
                 )}
-                aria-live="polite"
+                title={activityLabel}
+                aria-label={activityLabel}
               >
-                <span>{activityLabel}</span>
                 <ExpertStatusDots />
               </span>
             ) : (

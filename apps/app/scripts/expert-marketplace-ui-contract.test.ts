@@ -476,10 +476,11 @@ describe("expert marketplace UI contract", () => {
     expect(sessionRoute).toContain('marketplaceExpert.source !== "builtin"');
     expect(sessionRoute).toContain("installExpertPackage({");
     expect(sessionRoute).toContain("bindPendingAgentToSession({");
+    expect(sessionRoute).toContain("sessionId: newSession.id");
     expect(sessionRoute).toContain("writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id)");
     expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     expect(sessionRoute).toContain("await installMarketplaceExpertAfterSessionCreated");
-    expect(sessionRoute).toContain("boundSessionId: newSession.id");
+    // Binding goes through helper; agent-context stamps boundSessionId from sessionId.
     expect(agentContext).toContain("boundSessionId: input.sessionId");
   });
 
@@ -490,7 +491,9 @@ describe("expert marketplace UI contract", () => {
     const store = readWorkspaceFile("apps/app/src/react-app/domains/agents/agent-registry-store.ts");
     const model = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/conversation-model.ts");
 
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, pendingAgentSnapshot)");
+    // After create, resolvePendingAgentForPrompt may inherit; bind uses agentToBind.
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, agentToBind)");
+    expect(sessionRoute).toContain("resolvePendingAgentForPrompt");
     expect(store).toContain("onmyagent:customAgentSnapshotBySessionId");
     expect(store).toContain("export function readSessionAgentSnapshot");
     expect(store).toContain("export function writeSessionAgentSnapshot");

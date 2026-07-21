@@ -73,8 +73,15 @@ import {
 
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
-    // Same secondary tone as file icons — no warning/orange folder hue.
-    return <Folder className="size-4 shrink-0 text-dls-secondary" />;
+    // Folders stay neutral; use primary text at partial opacity so dark mode
+    // does not wash them out like pure secondary strokes on muted panels.
+    return (
+      <Folder
+        className="size-4 shrink-0 text-dls-text/75"
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
+    );
   }
   const target = workspaceFileOpenTarget({
     fileRoot: props.fileRoot || "/",

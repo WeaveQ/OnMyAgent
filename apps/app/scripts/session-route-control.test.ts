@@ -163,7 +163,8 @@ describe("session route control", () => {
     ).toEqual({ type: "workspace", workspaceId: "ws_fallback", sessionId: "ses_current" });
   });
 
-  test("switches away from known session when it does not match page mode", () => {
+  test("keeps the selected session even when page-mode registry lags", () => {
+    // Do not jump to firstSessionIdForPageMode — that stole focus from task #3 → #1.
     expect(
       resolveSessionRouteRestoreNavigation({
         firstSessionIdForPageMode: () => "ses_assistant",
@@ -179,7 +180,7 @@ describe("session route control", () => {
         suppressRestoreSession: false,
         workspaces: [workspace("ws_a")],
       }),
-    ).toEqual({ type: "workspace", workspaceId: "ws_a", sessionId: "ses_assistant" });
+    ).toEqual({ type: "reset-suppression" });
   });
 
   test("restores remembered session only when it belongs to current page mode", () => {

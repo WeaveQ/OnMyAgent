@@ -236,21 +236,20 @@ function AgentConversationItem(props: {
           <div className={cn(agentConversationPanelClass.rowTitle, "min-w-0 flex-1")}>
             {name}
           </div>
-          {activityLabel ? (
+          {activityLabel && !props.selected ? (
             <span
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-dls-accent"
-              aria-live="polite"
+              className="inline-flex shrink-0 items-center gap-[3px] text-dls-accent"
+              title={activityLabel}
+              aria-label={activityLabel}
             >
-              <span>{activityLabel}</span>
-              <span className="inline-flex items-center gap-[3px]" aria-hidden>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="expert-status-dot size-[3.5px] rounded-full"
-                    style={{ animationDelay: `${i * 0.16}s` }}
-                  />
-                ))}
-              </span>
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="expert-status-dot size-[3.5px] rounded-full"
+                  style={{ animationDelay: `${i * 0.16}s` }}
+                  aria-hidden
+                />
+              ))}
             </span>
           ) : (
             <div className={agentConversationPanelClass.rowTime}>

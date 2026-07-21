@@ -159,7 +159,11 @@ function WorkspaceTreeRow(props: {
           )}
         />
         {isDirectory ? (
-          <FolderIcon className="size-3.5 shrink-0 text-dls-secondary" />
+          <FolderIcon
+            className="size-3.5 shrink-0 text-dls-text/75"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         ) : (
           <WorkspaceTreeFileIcon name={fullName} className="size-3.5 shrink-0" />
         )}

@@ -313,7 +313,7 @@ select:disabled {
   /* Neutral grays — blue-tinted hover (#EEF4FF) read as “selected chip” on menus. */
   --dls-hover: #F0F0F1;
   --dls-active: #E6E6E8;
-  --dls-list-selected: #E4E4E4;
+  --dls-list-selected: #D4D4D4;
   --dls-list-hover: #E8E8E8;
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
@@ -378,7 +378,7 @@ select:disabled {
   --dls-brand-coupang: #473600;
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
-  --dls-rail-bg: #E8E8E8;
+  --dls-rail-bg: #E4E2E3;
   /* Soft brand wash — selected sidebar rows (e.g. 新建任务) should read as
      highlighted, not a muddy mid-gray on the gray sidebar. */
   --dls-rail-active: #EAF2FF;
@@ -522,7 +522,7 @@ select:disabled {
   --dls-text-secondary: var(--ow-slate);
   --dls-hover: #323232;
   --dls-active: #3A3A3A;
-  --dls-list-selected: #363636;
+  --dls-list-selected: #454545;
   --dls-list-hover: #323232;
   --dls-scrollbar-thumb: rgb(248 250 252 / 0.12);
   --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.18);
@@ -576,17 +576,18 @@ select:disabled {
   --dls-shell-shadow: none;
   --dls-card-shadow: none;
 
-  /* Artifact hue tokens (dark). Radix shade 4 for consistent perceived
-     chroma on dark surfaces without over-saturation. See DESIGN.md § 4h
-     and § 11 Intentional Exceptions. */
-  --dls-artifact-hue-image: var(--violet-4);
-  --dls-artifact-hue-code: var(--blue-4);
-  --dls-artifact-hue-document: var(--slate-4);
-  --dls-artifact-hue-data: var(--teal-4);
-  --dls-artifact-hue-plot: var(--grass-4);
-  --dls-artifact-hue-3d: var(--plum-4);
-  --dls-artifact-hue-audio: var(--pink-4);
-  --dls-artifact-hue-video: var(--crimson-4);
+  /* Artifact hue tokens (dark). Radix dark step 4 is a *surface* shade
+     (#272a2d etc.) — nearly invisible as icon strokes on #2C2C2C panels.
+     Use step 11 (low-contrast text) so file-tree / ArtifactIcon glyphs stay
+     readable without oversaturating. See DESIGN.md § 4h / § 11. */
+  --dls-artifact-hue-image: var(--violet-11);
+  --dls-artifact-hue-code: var(--blue-11);
+  --dls-artifact-hue-document: var(--slate-11);
+  --dls-artifact-hue-data: var(--teal-11);
+  --dls-artifact-hue-plot: var(--grass-11);
+  --dls-artifact-hue-3d: var(--plum-11);
+  --dls-artifact-hue-audio: var(--pink-11);
+  --dls-artifact-hue-video: var(--crimson-11);
 
   --background: var(--dls-background);
   --foreground: var(--dls-text-primary);
@@ -806,20 +807,45 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: var(--session-content-border, var(--dls-hover));
   }
 
+  /*
+   * Jump-to-latest FAB: must read as a floating chip over the transcript.
+   * Dark mode previously used surface-on-background with only black shadows —
+   * nearly invisible. Use a solid face + hairline border + dual-tone elevation.
+   */
   .session-workbuddy-scroll-to-bottom {
-    width: 32px;
-    height: 32px;
-    border-color: transparent;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--dls-border);
     border-radius: 999px;
-    background: var(--dls-surface);
+    background: var(--dls-surface-solid, var(--dls-surface));
     color: var(--dls-text);
-    box-shadow: 0 4px 12px rgb(0 0 0 / 4%), 0 3px 6px rgb(0 0 0 / 4%);
-    transition: background-color 200ms ease;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 10%) inset,
+      0 4px 14px rgb(0 0 0 / 18%),
+      0 2px 6px rgb(0 0 0 / 12%);
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      color 200ms ease;
   }
 
   .session-workbuddy-scroll-to-bottom:hover {
-    background: var(--dls-surface);
-    box-shadow: 0 6px 12px -4px rgb(0 0 0 / 8%), 0 3px 6px -8px rgb(0 0 0 / 4%);
+    background: var(--dls-hover);
+    border-color: color-mix(in srgb, var(--dls-text) 18%, var(--dls-border));
+    color: var(--dls-text);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 12%) inset,
+      0 8px 18px rgb(0 0 0 / 24%),
+      0 3px 8px rgb(0 0 0 / 16%);
+  }
+
+  .session-workbuddy-scroll-to-bottom:focus-visible {
+    outline: none;
+    border-color: var(--dls-accent);
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--dls-accent) 35%, transparent),
+      0 4px 14px rgb(0 0 0 / 18%);
   }
 
   .session-transcript-turn {
@@ -1403,13 +1429,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     background: radial-gradient(circle at top, rgba(var(--dls-accent-rgb), 0.12), transparent 42%), var(--app-bg, var(--dls-background));
   }
 
-  /* macOS: do not paint an opaque shell veil over native vibrancy. */
+  /* macOS: no shell veil over native vibrancy (rail sits in this layer). */
   html.onmyagent-electron.onmyagent-platform-mac .bg-dls-radial-shell {
-    background: radial-gradient(
-      circle at top,
-      rgba(var(--dls-accent-rgb), 0.06),
-      transparent 42%
-    );
+    background: transparent;
   }
 
   .bg-dls-list-selected {
@@ -1488,9 +1510,11 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 /*
  * macOS Electron vibrancy (WeChat-like translucency).
  * Must come AFTER light/dark token blocks so these color-mix overrides win.
- * Electron already sets vibrancy + near-transparent window background; opaque
- * shell fills would hide the material. Opacity ladder:
- * rail (most open) → sidebar → background → surface (most solid).
+ * Electron sets vibrancy=under-window + near-transparent window background;
+ * opaque shell fills would hide the material.
+ *
+ * Opacity ladder (lower % = more wallpaper / blur shows through):
+ *   rail (most open, WeChat primary strip) → sidebar → background → surface
  */
 html.onmyagent-electron.onmyagent-platform-mac,
 html.onmyagent-electron.onmyagent-platform-mac body,
@@ -1500,33 +1524,35 @@ html.onmyagent-electron.onmyagent-platform-mac #root {
 }
 
 html.onmyagent-electron.onmyagent-platform-mac:not([data-theme="dark"]) {
-  --dls-rail-bg: color-mix(in srgb, #e8e8e8 62%, transparent);
-  --dls-sidebar: color-mix(in srgb, #f0f0f0 74%, transparent);
-  --dls-background: color-mix(in srgb, #fafafa 88%, transparent);
-  --dls-surface: color-mix(in srgb, #ffffff 92%, transparent);
-  --dls-surface-muted: color-mix(in srgb, #f4f4f5 84%, transparent);
+  /* Match dark ladder: rail more open than sidebar so wallpaper bleeds (WeChat). */
+  --dls-rail-bg: color-mix(in srgb, #e4e2e3 40%, transparent);
+  --dls-sidebar: color-mix(in srgb, #f0f0f0 72%, transparent);
+  --dls-background: color-mix(in srgb, #fafafa 78%, transparent);
+  --dls-surface: color-mix(in srgb, #ffffff 90%, transparent);
+  --dls-surface-muted: color-mix(in srgb, #f4f4f5 72%, transparent);
   --dls-app-bg: transparent;
   --dls-canvas: transparent;
   --background: transparent;
-  --dls-list-selected: color-mix(in srgb, #e4e4e4 82%, transparent);
-  --dls-list-hover: color-mix(in srgb, #e8e8e8 70%, transparent);
-  --dls-rail-active: color-mix(in srgb, #eaf2ff 86%, transparent);
-  --dls-rail-hover: color-mix(in srgb, #e2e2e2 68%, transparent);
+  --dls-list-selected: color-mix(in srgb, #d4d4d4 90%, transparent);
+  --dls-list-hover: color-mix(in srgb, #e8e8e8 48%, transparent);
+  --dls-rail-active: color-mix(in srgb, #eaf2ff 62%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #e2e2e2 34%, transparent);
 }
 
 html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] {
-  --dls-rail-bg: color-mix(in srgb, #141414 52%, transparent);
-  --dls-sidebar: color-mix(in srgb, #2a2a2a 68%, transparent);
-  --dls-background: color-mix(in srgb, #1f1f1f 82%, transparent);
-  --dls-surface: color-mix(in srgb, #2c2c2c 88%, transparent);
-  --dls-surface-muted: color-mix(in srgb, #333333 80%, transparent);
+  /* Rail more open than sidebar; mix base matches DESIGN.md dark rail-bg #141414. */
+  --dls-rail-bg: color-mix(in srgb, #141414 40%, transparent);
+  --dls-sidebar: color-mix(in srgb, #2a2a2a 88%, transparent);
+  --dls-background: color-mix(in srgb, #1f1f1f 78%, transparent);
+  --dls-surface: color-mix(in srgb, #2c2c2c 86%, transparent);
+  --dls-surface-muted: color-mix(in srgb, #333333 74%, transparent);
   --dls-app-bg: transparent;
   --dls-canvas: transparent;
   --background: transparent;
-  --dls-list-selected: color-mix(in srgb, #363636 78%, transparent);
-  --dls-list-hover: color-mix(in srgb, #323232 68%, transparent);
-  --dls-rail-active: color-mix(in srgb, #2e2e2e 72%, transparent);
-  --dls-rail-hover: color-mix(in srgb, #222222 60%, transparent);
-  --dls-hover: color-mix(in srgb, #323232 68%, transparent);
-  --dls-active: color-mix(in srgb, #3a3a3a 76%, transparent);
+  --dls-list-selected: color-mix(in srgb, #454545 92%, transparent);
+  --dls-list-hover: color-mix(in srgb, #323232 58%, transparent);
+  --dls-rail-active: color-mix(in srgb, #2e2e2e 56%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #222222 40%, transparent);
+  --dls-hover: color-mix(in srgb, #323232 58%, transparent);
+  --dls-active: color-mix(in srgb, #3a3a3a 68%, transparent);
 }
