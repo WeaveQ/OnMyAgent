@@ -191,12 +191,13 @@ describe("session route composer", () => {
     ).toEqual({
       needsNewSession: false,
       initialSessionId: "ses_1",
+      // Existing session: draft workspace is ignored for binding.
       explicitAssistantWorkspace: "",
       taskWorkspaceRoot: "/tmp/session",
     });
   });
 
-  test("uses picked draft workspace for new expert sessions without assistant workspace registration", () => {
+  test("binds picked draft workspace for new expert sessions so the side panel scopes to it", () => {
     expect(
       resolveDraftSendPlan({
         selectedSessionId: "ses_existing",
@@ -208,7 +209,7 @@ describe("session route composer", () => {
     ).toEqual({
       needsNewSession: true,
       initialSessionId: null,
-      explicitAssistantWorkspace: "",
+      explicitAssistantWorkspace: "/tmp/expert-code",
       taskWorkspaceRoot: "/tmp/expert-code",
     });
   });
