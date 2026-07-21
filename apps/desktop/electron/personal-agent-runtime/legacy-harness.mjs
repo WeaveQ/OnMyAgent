@@ -207,9 +207,22 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     for (const candidate of [path.join(os.homedir(), ".claude", "settings.json"), path.join(os.homedir(), ".claude", "settings.local.json")]) {
       const config = await readJsonLikeFile(candidate);
       const model = typeof config?.model === "string" ? config.model.trim() : typeof config?.defaultModel === "string" ? config.defaultModel.trim() : typeof config?.env?.ANTHROPIC_MODEL === "string" ? config.env.ANTHROPIC_MODEL.trim() : "";
-      if (!model) continue;
-      defaultModel = defaultModel ?? model;
-      options.push({ id: model, label: `配置默认 · ${model}` });
+      if (model) {
+        defaultModel = defaultModel ?? model;
+        options.push({ id: model, label: `配置默认 · ${model}` });
+      }
+      // 读取 ANTHROPIC_DEFAULT_*_MODEL 角色模型（sonnet/opus/haiku/fable 对应的真实模型）
+      const roleEnv = config?.env || {};
+      const roleMap = [
+        ["ANTHROPIC_DEFAULT_SONNET_MODEL", "sonnet"],
+        ["ANTHROPIC_DEFAULT_OPUS_MODEL", "opus"],
+        ["ANTHROPIC_DEFAULT_HAIKU_MODEL", "haiku"],
+        ["ANTHROPIC_DEFAULT_FABLE_MODEL", "fable"],
+      ];
+      for (const [envKey, role] of roleMap) {
+        const roleModel = typeof roleEnv[envKey] === "string" ? roleEnv[envKey].trim() : "";
+        if (roleModel) options.push({ id: roleModel, label: `${role} · ${roleModel}` });
+      }
     }
     return { modelOptions: uniqueModelOptions(options), defaultModel };
   }

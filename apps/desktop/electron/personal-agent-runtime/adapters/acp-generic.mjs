@@ -543,7 +543,22 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
     }
     if (modelId && supportsSessionSetModel(provider)) {
       await client.request("session/set_model", { sessionId, modelId }).catch((error) => {
-        const message = `${provider} ACP set_model failed: ${error.message}`;
+        const detail = String(error?.message ?? error);
+        // Codex configured with a custom model_provider (e.g. codeproxy)
+        // exposes a model alias (e.g. "gpt-5.6-sol") that its own ACP
+        // session/set_model rejects as "Unknown model ...". The alias is
+        // already wired up via config.toml at launch, so instead of aborting
+        // the whole turn we log a warning and let Codex fall back to its
+        // configured default model. Only genuine format errors (wrong
+        // modelId[effort] shape) still hard-fail so real misconfigurations
+        // surface.
+        const isUnknownModel = /unknown model/i.test(detail);
+        const isFormatError = /Unsupported format of modelId|Expected: modelId\[effort\]/i.test(detail);
+        if (provider === "codex" && isUnknownModel && !isFormatError) {
+          appendEvent({ type: "status", text: `${provider} ACP set_model skipped: model "${modelId}" not recognized by ACP (likely a custom provider alias); using Codex configured default.` });
+          return;
+        }
+        const message = `${provider} ACP set_model failed: ${detail}`;
         appendEvent({ type: "error", text: message });
         throw acpFailureError(provider, acpFailureCode(provider, message) ?? "acp_model_set_failed", message);
       });
