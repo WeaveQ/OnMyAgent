@@ -34,6 +34,7 @@ import {
 import { clearSession, readSession, writeSession } from "./session-store.mjs";
 import { runId, isProcessTreeAlive, terminateProcessTreeByPid } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { readAgentHandshakeCache, writeAgentHandshakeCache } from "./agent-handshake-cache.mjs";
 import { reconcileChannelActiveRuns } from "./reconcile-channel-active-runs.mjs";
 import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
 import { probeAcpCommand } from "./acp-probe.mjs";
@@ -659,7 +660,10 @@ export function createPersonalAgentRuntime(options) {
           resumeKey: conversation.resumeKey,
           conversationWorkdir: state.conversationWorkdir,
           agent: detected,
-          model: detected.model,
+          // Prefer the caller-supplied model (IM per-chat #model, or the Studio
+          // model dropdown) so channel turns actually use the requested model
+          // rather than falling back to the agent default.
+          model: (typeof input.model === "string" && input.model.trim()) ? input.model.trim() : detected.model,
           prompt,
           rawPrompt: prompt,
           approvalMode: state.approvalMode,
@@ -1068,6 +1072,17 @@ export function createPersonalAgentRuntime(options) {
               // best-effort mirror; the primary write above already succeeded.
             }
           }
+          // Also cache the handshake at the agent level (independent of
+          // workspace) so channels using a different workspaceRoot (e.g.
+          // WeChat) can hydrate the model list without re-warming-up. An
+          // agent's advertised models are an agent property, not a workspace
+          // property, so this global cache is correct and avoids scanning
+          // other workspaces' private session data.
+          const cacheProvider = originalProvider || provider;
+          await writeAgentHandshakeCache(cacheProvider, agentId, {
+            sessionMetadata: warmSessionMetadata,
+            handshakeAt: Date.now(),
+          }).catch(() => undefined);
         } catch (error) {
           // eslint-disable-next-line no-console
           console.warn(`[personal-agent-runtime] warmup session-store write failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -1203,6 +1218,17 @@ export function createPersonalAgentRuntime(options) {
     const provider = detected.provider ?? agent.provider;
     const adapterFactory = adapterFactoryForProvider(provider, detected);
     if (!adapterFactory) throw new Error(`No adapter for ${provider}`);
+    // codex/claude ship their ACP entrypoint as a managed npm package
+    // (`codex-acp`, `claude-acp`); the raw `codex` / `claude` CLIs run a TUI
+    // and exit 1 when spawned as an ACP subprocess (no TTY). Mirror the
+    // warmup/start paths so `#model` / model dropdown reach the correct
+    // binary instead of ACP-crashing with `ACP process exited: 1`.
+    if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
+      const tool = await ensureManagedAcpTool(provider);
+      detected.executablePath = tool.binPath;
+      detected.managedAcpTool = tool;
+      detected.connectionMode = defaultConnectionMode(provider, detected);
+    }
     const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
     if (typeof adapter.setConfigOption !== "function") throw new Error(`${provider} does not support config/set`);
     return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected });
@@ -1453,10 +1479,55 @@ export function createPersonalAgentRuntime(options) {
       ? await buildDiscoverableAgents(workspaceRoot, registeredAgents, input.includeModels !== false)
       : [];
     const agents = [...registeredAgents, ...discoverableAgents];
+    // Merge handshake-advertised models into agent.modelOptions so all
+    // channels (WeChat #model, Feishu, local page) share the same dynamic
+    // model list. Static modelOptions (from CLI probes for built-in providers)
+    // take priority; handshake models fill gaps for custom/CodeBuddy agents.
+    function mergeHandshakeModelsIntoOptions(existingOptions, handshake) {
+      const base = Array.isArray(existingOptions) ? existingOptions.filter((o) => o && typeof o.id === "string" && o.id.trim()) : [];
+      const seen = new Set(base.map((o) => o.id.trim().toLowerCase()));
+      const merged = [...base];
+      // From config_options (category === "model")
+      const configOptions = Array.isArray(handshake?.config_options) ? handshake.config_options : [];
+      for (const item of configOptions) {
+        if (!item || typeof item !== "object") continue;
+        const category = typeof item.category === "string" ? item.category : "";
+        const itemId = typeof item.id === "string" ? item.id : typeof item.name === "string" ? item.name : "";
+        if (category !== "model" && !/model/i.test(itemId)) continue;
+        const opts = Array.isArray(item.options) ? item.options : [];
+        for (const opt of opts) {
+          if (!opt || typeof opt !== "object") continue;
+          const id = String(opt.value ?? opt.id ?? opt.name ?? "").trim();
+          if (!id || seen.has(id.toLowerCase())) continue;
+          seen.add(id.toLowerCase());
+          merged.push({ id, label: String(opt.name ?? opt.label ?? opt.value ?? id).trim() || id });
+        }
+      }
+      // From available_models
+      const availableModels = Array.isArray(handshake?.available_models) ? handshake.available_models : [];
+      for (const item of availableModels) {
+        if (item && typeof item === "object") {
+          const id = String(item.id ?? item.modelId ?? item.model_id ?? item.name ?? "").trim();
+          if (!id || seen.has(id.toLowerCase())) continue;
+          seen.add(id.toLowerCase());
+          merged.push({ id, label: String(item.label ?? item.name ?? item.displayName ?? id).trim() || id });
+        } else if (typeof item === "string" && item.trim()) {
+          const id = item.trim();
+          if (seen.has(id.toLowerCase())) continue;
+          seen.add(id.toLowerCase());
+          merged.push({ id, label: id });
+        }
+      }
+      return merged;
+    }
+
     // Hydrate ACP session metadata cached from the last warmup so the
     // handshake exposes available_commands / config options / models before
     // the user sends a message. Falls back to the raw agent when the
     // session-store has nothing for that provider/agent yet.
+    const accessibleRoots = Array.isArray(input.accessibleWorkspaceRoots)
+      ? input.accessibleWorkspaceRoots.map((r) => String(r ?? "").trim()).filter(Boolean)
+      : [];
     const hydratedAgents = workspaceRoot
       ? await Promise.all(agents.map(async (agent) => {
           const provider = String(agent?.provider ?? "").trim();
@@ -1472,10 +1543,35 @@ export function createPersonalAgentRuntime(options) {
             const backend = String(agent?.backend ?? "").trim();
             if (backend && !candidateProviders.includes(backend)) candidateProviders.push(backend);
             if (!candidateProviders.includes("opencode")) candidateProviders.push("opencode");
+            // Search the primary workspace first, then fall back to any
+            // accessible workspace roots. This lets channels (e.g. WeChat)
+            // that use a different workspaceRoot still pick up handshake
+            // metadata captured in another workspace where the agent was
+            // actually warmed up.
+            const candidateRoots = [workspaceRoot, ...accessibleRoots.filter((r) => r !== workspaceRoot)];
             let stored = null;
-            for (const candidate of candidateProviders) {
-              stored = await readSession(workspaceRoot, candidate, agentId);
+            for (const root of candidateRoots) {
+              for (const candidate of candidateProviders) {
+                stored = await readSession(root, candidate, agentId);
+                if (stored?.sessionMetadata && typeof stored.sessionMetadata === "object") break;
+              }
               if (stored?.sessionMetadata && typeof stored.sessionMetadata === "object") break;
+            }
+            // Final fallback: read the agent-level global handshake cache.
+            // This is populated by warmupConversation whenever any workspace
+            // warms up the agent, so channels using a different workspaceRoot
+            // (e.g. WeChat) can still hydrate the model list. Unlike scanning
+            // other workspaces' session files, this cache only contains
+            // handshake metadata (models/commands/config options) that the
+            // agent itself advertised, so no cross-workspace data leaks.
+            if (!stored?.sessionMetadata || typeof stored.sessionMetadata !== "object") {
+              for (const candidate of candidateProviders) {
+                const cached = await readAgentHandshakeCache(candidate, agentId);
+                if (cached?.sessionMetadata && typeof cached.sessionMetadata === "object") {
+                  stored = cached;
+                  break;
+                }
+              }
             }
             const meta = stored?.sessionMetadata;
             if (!meta || typeof meta !== "object") return agent;
@@ -1497,7 +1593,14 @@ export function createPersonalAgentRuntime(options) {
             if (meta.currentModelId && !handshake.current_model_id) {
               handshake.current_model_id = meta.currentModelId;
             }
-            return { ...agent, handshake, sessionMetadata: meta, availableCommands: nextAvailableCommands };
+            // Plan 3: merge handshake-advertised models into agent.modelOptions
+            // so all channels (WeChat #model, Feishu, local page) share the
+            // same dynamic model list without each channel re-implementing
+            // handshake parsing. Static modelOptions (from CLI probes) take
+            // priority; handshake models fill in the gaps for custom/CodeBuddy
+            // agents that only advertise models via ACP handshake.
+            const hydratedModelOptions = mergeHandshakeModelsIntoOptions(agent.modelOptions, handshake);
+            return { ...agent, handshake, sessionMetadata: meta, availableCommands: nextAvailableCommands, modelOptions: hydratedModelOptions };
           } catch {
             return agent;
           }

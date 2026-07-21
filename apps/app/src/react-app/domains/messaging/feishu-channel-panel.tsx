@@ -135,6 +135,10 @@ function agentPayload(agent: PersonalLocalAgent) {
     executablePath: agent.executablePath,
     model: agent.model,
     customArgs: agent.customArgs,
+    // Forward the resolved model list so IM-side `#model` can enumerate the
+    // same choices the local chat surface shows in its picker.
+    modelOptions: agent.modelOptions,
+    defaultModel: agent.defaultModel,
   };
 }
 
@@ -242,7 +246,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
 
   const refreshAgents = useCallback(async () => {
     try {
-      const result = await personalLocalAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: false });
+      const result = await personalLocalAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: true });
       const nextAgents = result.agents.length ? result.agents : [FALLBACK_AGENT];
       setAgents(nextAgents);
       setSelectedAgentId((current) => nextAgents.some((agent) => agent.id === current) ? current : nextAgents[0]?.id ?? "opencode");
@@ -299,7 +303,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
       if (accountPayload?.config?.webhookPath) setWebhookPath(String(accountPayload.config.webhookPath));
       if (accountPayload?.config?.connectionMode === "webhook" || accountPayload?.config?.connectionMode === "websocket") setConnectionMode(accountPayload.config.connectionMode);
       let autoStartAgents = agents;
-      const agentResult = await personalLocalAgentsList({ workspaceRoot: autoStartWorkspaceRoot, includeModels: false }).catch(() => null);
+      const agentResult = await personalLocalAgentsList({ workspaceRoot: autoStartWorkspaceRoot, includeModels: true }).catch(() => null);
       if (agentResult) {
         autoStartAgents = agentResult.agents.length ? agentResult.agents : [FALLBACK_AGENT];
         setAgents(autoStartAgents);

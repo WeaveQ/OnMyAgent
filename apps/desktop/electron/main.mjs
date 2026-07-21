@@ -82,6 +82,56 @@ import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 
+// --- Global crash guards (main process) ---
+// The desktop app makes HTTPS requests from several places (channel transports
+// tunnel through undici's ProxyAgent when HTTPS_PROXY/ALL_PROXY is set, the
+// Discord gateway patches `ws`, etc.). A flaky upstream proxy can kill a pooled
+// TLS socket mid-handshake ("Client network socket disconnected before secure
+// TLS connection was established") with no per-call listener attached, which
+// otherwise surfaces as an Uncaught Exception and takes the whole app down.
+// These handlers keep the app alive for transient network/TLS blips (log only),
+// and only hard-exit for genuinely unexpected errors.
+function isTransientNetworkError(error) {
+  if (!error) return false;
+  const message = String(error.message ?? "");
+  const code = String(error.code ?? error.cause?.code ?? "");
+  return (
+    /client network socket disconnected|secure tls connection|socket hang up|econnreset|etimedout|enotfound|econnrefused|und_err|proxy/i.test(
+      message
+    ) ||
+    /^(ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR)$/i.test(code)
+  );
+}
+
+process.on("unhandledRejection", (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  if (isTransientNetworkError(error)) {
+    console.warn("[main] unhandledRejection (network, ignored):", error.message);
+    return;
+  }
+  console.error("[main] unhandledRejection:", error?.stack ?? error);
+});
+
+process.on("uncaughtException", (error) => {
+  try {
+    if (isTransientNetworkError(error)) {
+      console.warn("[main] uncaughtException (network, kept alive):", error?.message ?? error);
+      return;
+    }
+    console.error("[main] uncaughtException:", error?.stack ?? error);
+  } catch {
+    // Never let the guard itself crash the process.
+  }
+  if (isTransientNetworkError(error)) return;
+  // Non-transient: let the app terminate rather than run in a corrupted state.
+  try {
+    if (typeof app?.exit === "function") app.exit(1);
+    else process.exit(1);
+  } catch {
+    process.exit(1);
+  }
+});
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
 const NATIVE_MENU_OPEN_SETTINGS_EVENT = "onmyagent:native-menu:open-settings";

@@ -319,8 +319,11 @@ export function createFeishuService(options = {}) {
   async function processEvent(session, event) {
     if (!event.senderId || event.senderId === session.account.appId) return null;
     if (event.messageId && dedup.hasOrAdd(`id:${event.messageId}`)) return null;
-    const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
-    if (dedup.hasOrAdd(contentKey)) return null;
+    const isControlCommand = parseApprovalCommand(event.text) || parseRunCommand(event.text) || parseModeCommand(event.text) || parseModelSwitchCommand(event.text) || parseAgentSwitchCommand(event.text);
+    if (!isControlCommand) {
+      const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
+      if (dedup.hasOrAdd(contentKey)) return null;
+    }
     if (!isAllowed(session.options, event, event.senderId)) {
       appendLog({ type: "warn", text: `feishu inbound dropped (policy): sender=${event.senderId} chatType=${event.chatType}` });
       return null;
@@ -685,10 +688,11 @@ export function createFeishuService(options = {}) {
     const modelCommand = parseModelSwitchCommand(event.text);
     if (modelCommand) {
       const boundAgent = await currentAgentForChat(session, event.chatId);
+      const enrichedAgent = await enrichAgentModelOptions(runtime, session, boundAgent).catch(() => boundAgent);
       const currentModel = await currentModelForChat(session, event.chatId);
       const rawTarget = modelCommand.target;
       if (!rawTarget) {
-        await sendText(session, event.chatId, renderModelHelp(boundAgent, currentModel)).catch((error) => {
+        await sendText(session, event.chatId, renderModelHelp(enrichedAgent, currentModel)).catch((error) => {
           appendLog({ type: "error", text: `feishu model-switch help send failed: ${error?.message ?? error}` });
         });
         return true;
@@ -699,12 +703,12 @@ export function createFeishuService(options = {}) {
         await store.writeChatSetting(session.account.accountId, event.chatId, { model: "" }).catch((error) => {
           appendLog({ type: "error", text: `feishu model-switch: writeChatSetting failed: ${error?.message ?? error}` });
         });
-        await sendText(session, event.chatId, `已恢复当前飞书会话的默认模型（${agentLabel(boundAgent)}）。`).catch(() => undefined);
+        await sendText(session, event.chatId, `已恢复当前飞书会话的默认模型（${agentLabel(enrichedAgent)}）。`).catch(() => undefined);
         return true;
       }
-      const resolved = resolveAgentModelId(boundAgent, rawTarget);
+      const resolved = resolveAgentModelId(enrichedAgent, rawTarget);
       if (!resolved) {
-        await sendText(session, event.chatId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(boundAgent, currentModel)}`).catch(() => undefined);
+        await sendText(session, event.chatId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(enrichedAgent, currentModel)}`).catch(() => undefined);
         return true;
       }
       session.options.modelByChat.set(event.chatId, resolved);
@@ -1144,6 +1148,26 @@ async function currentModelForChat(session, chatId) {
   const stored = typeof setting?.model === "string" ? setting.model.trim() : "";
   session.options.modelByChat.set(chatId, stored);
   return stored;
+}
+
+async function enrichAgentModelOptions(runtime, session, agent) {
+  if (!agent) return agent;
+  const existing = agentModelOptionsFor(agent);
+  if (existing.length > 0) return agent;
+  if (!runtime || typeof runtime.listAgents !== "function") return agent;
+  try {
+    const workspaceRoot = session?.options?.workspaceRoot ?? "";
+    const listed = await runtime.listAgents({ workspaceRoot, includeModels: true });
+    const list = Array.isArray(listed?.agents) ? listed.agents : [];
+    const match = list.find((item) => item?.id === agent.id)
+      || list.find((item) => item?.provider === agent.provider);
+    if (!match) return agent;
+    const options = Array.isArray(match.modelOptions) ? match.modelOptions : [];
+    const defaultModel = typeof match.defaultModel === "string" ? match.defaultModel : agent.defaultModel;
+    return { ...agent, modelOptions: options, defaultModel };
+  } catch {
+    return agent;
+  }
 }
 
 function agentModelOptionsFor(agent) {

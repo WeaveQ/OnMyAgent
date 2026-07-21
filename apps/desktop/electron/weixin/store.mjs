@@ -183,6 +183,26 @@ export function createWeixinStore(rootDir) {
     return next;
   }
 
+  // Clears the per-chat agent override for every chat of an account. Used when
+  // the user switches the global reply agent from the panel: the panel change
+  // should become the new default for ALL chats, discarding any per-chat agent
+  // that was previously pinned via #agent or older sessions.
+  async function clearAllChatAgentOverrides(accountId) {
+    const raw = await readChatSettings(accountId);
+    if (!raw || typeof raw !== "object") return 0;
+    let changed = 0;
+    for (const chat of Object.keys(raw)) {
+      const entry = raw[chat];
+      if (entry && typeof entry === "object" && "agent" in entry) {
+        const { agent, ...rest } = entry;
+        raw[chat] = rest;
+        changed += 1;
+      }
+    }
+    if (changed > 0) await writeJsonFile(chatSettingsFile(accountId), raw);
+    return changed;
+  }
+
   async function readChatHistory(accountId, chatId, limit = 12) {
     const chat = String(chatId ?? "").trim();
     if (!chat) return [];
@@ -275,6 +295,7 @@ export function createWeixinStore(rootDir) {
     writeContextToken,
     readChatSetting,
     writeChatSetting,
+    clearAllChatAgentOverrides,
     readChatHistory,
     appendChatHistory,
     clearChatHistory,
