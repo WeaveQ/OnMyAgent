@@ -990,9 +990,39 @@ export function ExpertPage(props: ExpertPageProps) {
     [
       draftSessionActive,
       props.onCreateSessionForAgent,
+      props.selectedSessionId,
       props.surface,
     ],
   );
+
+  // Preview widget “保存修改” posts a field patch. Forward it to the agent as a
+  // normal turn (agent merges + refreshes), while transcript markdown strips the
+  // waybill-patch fence so users never see raw JSON.
+  const lastWaybillPatchRef = useRef<string>("");
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ patch?: Record<string, unknown> }>).detail;
+      const patch = detail?.patch;
+      if (!patch || typeof patch !== "object") return;
+      const fingerprint = JSON.stringify(patch);
+      if (!fingerprint || fingerprint === lastWaybillPatchRef.current) return;
+      lastWaybillPatchRef.current = fingerprint;
+      const body =
+        "我已在预览中保存字段修改，请静默合并下列补丁到 waybill-data.json 并刷新三联预览（show_widget）。" +
+        "不要向我展示 JSON、代码、补丁原文或 waybill-patch 围栏。\n\n" +
+        "```waybill-patch\n" +
+        fingerprint +
+        "\n```";
+      void wrappedOnSendDraft({
+        mode: "prompt",
+        parts: [],
+        attachments: [],
+        text: body,
+      });
+    };
+    window.addEventListener("onmyagent-waybill-fields-patch", handler);
+    return () => window.removeEventListener("onmyagent-waybill-fields-patch", handler);
+  }, [wrappedOnSendDraft]);
 
   useEffect(() => {
     if (props.selectedSessionId) {

@@ -219,9 +219,19 @@ function createEmojiAliases() {
 
 const emojiAliases = createEmojiAliases();
 
+/** Strip internal waybill-patch fences so users never see raw JSON dumps. */
+export function stripInternalWaybillPatchFences(markdown: string) {
+  return markdown
+    .replace(/```waybill-patch\s*\n[\s\S]*?```/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function preprocessSessionMarkdown(markdown: string) {
   const repeatLimit = 200;
-  const truncated = markdown.replace(/(.)\1{200,}/g, (match, character: string) => (
+  const withoutInternalPatches = stripInternalWaybillPatchFences(markdown);
+  const truncated = withoutInternalPatches.replace(/(.)\1{200,}/g, (match, character: string) => (
     `${character.repeat(repeatLimit)}…${t("session.markdown_chars_omitted", { count: match.length - repeatLimit })}`
   ));
   return normalizeMarkdownMathDelimiters(truncated);

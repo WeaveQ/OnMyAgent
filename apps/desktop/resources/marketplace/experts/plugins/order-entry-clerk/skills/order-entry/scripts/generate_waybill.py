@@ -479,11 +479,10 @@ def inline_widget_fragment(preview_html: str) -> str:
 .waybill-edit-bar button:hover{background:#f4f4f5;border-color:#cbd5e1}
 .waybill-edit-bar button[data-active="true"]{border-color:#005dff;background:#eaf2ff;color:#004ed6}
 .waybill-edit-bar .hint{font:12px/1.4 system-ui,sans-serif;color:#64748b}
+.waybill-edit-bar .hint[data-tone="ok"]{color:#0f766e}
 .waybill-copy-preview[data-editing="true"] [data-field]{outline:1px dashed #d19a2a;cursor:text;min-width:1.5em}
 .waybill-copy-preview[data-editing="true"] [data-field="document.status"],
 .waybill-copy-preview[data-editing="true"] [data-field="copy.label"]{outline:none;cursor:default}
-.waybill-patch-box{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;font:12px/1.45 ui-monospace,monospace;white-space:pre-wrap;color:#334155}
-.waybill-copy-preview[data-show-patch="true"] .waybill-patch-box{display:block}
 """
     script = f"""<script>(()=>{{
 const root=document.currentScript.closest('[data-waybill-copy-preview]');
@@ -495,7 +494,6 @@ const sheet=root.querySelector('.sheet');
 const editBtn=root.querySelector('[data-edit-toggle]');
 const saveBtn=root.querySelector('[data-edit-save]');
 const hint=root.querySelector('[data-edit-hint]');
-const patchBox=root.querySelector('[data-patch-box]');
 const select=key=>{{
   if(!sheet||!labels[key])return;
   tabs.forEach(item=>item.setAttribute('aria-selected',String(item.getAttribute('data-copy-tab')===key)));
@@ -505,11 +503,21 @@ const select=key=>{{
   parent.postMessage({{type:'onmyagent:waybill-copy',key}},'*');
 }};
 tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.getAttribute('data-copy-tab'))));
+const setHint=(text,tone)=>{{
+  if(!hint)return;
+  hint.textContent=text;
+  if(tone)hint.setAttribute('data-tone',tone);
+  else hint.removeAttribute('data-tone');
+}};
 const setEditing=on=>{{
   root.dataset.editing=on?'true':'false';
-  if(editBtn)editBtn.dataset.active=on?'true':'false';
+  if(editBtn){{
+    editBtn.hidden=false;
+    editBtn.dataset.active=on?'true':'false';
+    editBtn.textContent=on?'取消编辑':'编辑字段';
+  }}
   if(saveBtn)saveBtn.hidden=!on;
-  if(hint)hint.textContent=on?'点击字段直接修改，改完点保存':'可点“编辑字段”手动改值';
+  setHint(on?'点击字段直接修改，改完点「保存修改」':'可点「编辑字段」手动改值');
   root.querySelectorAll('[data-field]').forEach(node=>{{
     const field=node.getAttribute('data-field')||'';
     const canEdit=on&&editable.has(field);
@@ -536,21 +544,20 @@ const applyPatchToAll=patch=>{{
     const shown=value||(node.classList.contains('missing')?'待补充':'—');
     node.textContent=shown;
     if(value)node.classList.remove('missing');
+    else if(node.classList.contains('missing')||shown==='待补充')node.classList.add('missing');
   }});
 }};
-editBtn&&editBtn.addEventListener('click',()=>setEditing(root.dataset.editing!=='true'));
+editBtn&&editBtn.addEventListener('click',()=>{{
+  const next=root.dataset.editing!=='true';
+  setEditing(next);
+}});
 saveBtn&&saveBtn.addEventListener('click',()=>{{
   const patch=collect();
   applyPatchToAll(patch);
+  // Stay on the visual preview. Never dump JSON / waybill-patch fences to the user.
   setEditing(false);
-  root.dataset.showPatch='true';
-  // Build markdown fences at runtime (fromCharCode) so this HTML never contains
-  // literal ``` sequences that would early-close an outer ```show_widget fence.
-  const ticks=String.fromCharCode(96).repeat(3);
-  const body=ticks+'waybill-patch\\n'+JSON.stringify(patch,null,2)+'\\n'+ticks;
-  if(patchBox)patchBox.textContent='已保存到预览。请把下面这段发给专家以写入数据并刷新预览：\\n'+body;
+  setHint('已保存到预览，可继续点「编辑字段」修改','ok');
   parent.postMessage({{type:'onmyagent:waybill-fields',patch}},'*');
-  try{{navigator.clipboard&&navigator.clipboard.writeText(body)}}catch(_){{}}
 }});
 setEditing(false);
 select('white');
@@ -561,9 +568,8 @@ select('white');
         '<div class="waybill-edit-bar">'
         '<button type="button" data-edit-toggle>编辑字段</button>'
         '<button type="button" data-edit-save hidden>保存修改</button>'
-        '<span class="hint" data-edit-hint>可点“编辑字段”手动改值</span>'
+        '<span class="hint" data-edit-hint>可点「编辑字段」手动改值</span>'
         "</div>"
-        '<div class="waybill-patch-box" data-patch-box></div>'
         f'<div class="waybill-copy-tabs" role="tablist" aria-label="联次切换">{"".join(tabs)}</div>'
         f'<div role="tabpanel" data-copy-panel="live">{main.group(1)}</div>'
         f"{script}"
