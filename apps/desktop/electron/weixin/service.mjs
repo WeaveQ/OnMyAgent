@@ -213,6 +213,18 @@ export function createWeixinService(options = {}) {
     const accountId = String(input.accountId ?? input.account_id ?? state.accountId ?? "").trim();
     if (!accountId) return { ok: false, error: "accountId is required" };
     if (active?.account?.accountId === accountId) {
+      // When the front-end panel switches the global reply agent, any
+      // per-chat agent override (pinned via #agent or left over from older
+      // sessions) must be cleared so every WeChat chat follows the new
+      // global choice instead of silently keeping the stale agent.
+      const nextAgentId = input.agent && typeof input.agent === "object" ? String(input.agent.id ?? "").trim() : "";
+      const currentAgentId = active.options.agent && typeof active.options.agent === "object" ? String(active.options.agent.id ?? "").trim() : "";
+      if (nextAgentId && currentAgentId && nextAgentId !== currentAgentId) {
+        for (const key of [...active.options.agentByChat.keys()]) {
+          if (active.options.agentByChat.get(key)?.id !== nextAgentId) active.options.agentByChat.delete(key);
+        }
+        await store.clearAllChatAgentOverrides(accountId).catch(() => 0);
+      }
       active.options = runtimeOptions({ ...active.options, ...input });
       setState({
         status: "running",
@@ -317,8 +329,12 @@ export function createWeixinService(options = {}) {
     const itemList = Array.isArray(message?.item_list) ? message.item_list : [];
     const text = extractText(itemList).trim();
     if (!text) return null;
-    const contentKey = `content:${senderId}:${text}`;
-    if (dedup.hasOrAdd(contentKey)) return null;
+    // 控制命令不应被 content dedup 吞掉；固定短文本命令可能在短时间内重复发送
+    const isControlCommand = parseApprovalCommand(text) || parseRunCommand(text) || parseModeCommand(text) || parseModelSwitchCommand(text) || parseAgentSwitchCommand(text);
+    if (!isControlCommand) {
+      const contentKey = `content:${senderId}:${text}`;
+      if (dedup.hasOrAdd(contentKey)) return null;
+    }
     const chat = guessChatType(message, session.account.accountId);
     if (!isAllowed(session.options, chat, senderId)) {
       appendLog({ type: "warn", text: `weixin inbound dropped (policy): sender=${senderId} chatType=${chat.chatType}` });
@@ -398,7 +414,7 @@ export function createWeixinService(options = {}) {
       const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
       const prompt = buildPrompt(event, { mode: promptMode, history, agent });
       if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-        const legacyModel = await currentModelForChat(session, event.chatId);
+        const legacyModel = await validatedModelForAgent(session, event.chatId, agent);
         const result = await runAgentTurn(runtime, {
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -412,7 +428,7 @@ export function createWeixinService(options = {}) {
         await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
         return result;
       }
-      const chatModel = await currentModelForChat(session, event.chatId);
+      const chatModel = await validatedModelForAgent(session, event.chatId, agent);
       const started = await runtime.startMessage({
         workspaceRoot: session.options.workspaceRoot,
         accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -808,6 +824,9 @@ export function createWeixinService(options = {}) {
         accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(lastStartOptions.accessibleWorkspaceRoots, lastStartOptions.workspaceRoot),
         approvalMode: normalizeApprovalMode(lastStartOptions.approvalMode),
         defaultAccountId: String(config.defaultAccountId ?? ""),
+        // Expose the last-started agent so the UI can restore the selected
+        // agent on mount without forcing the user to re-pick it every time.
+        agent: lastStartOptions.agent && typeof lastStartOptions.agent === "object" ? lastStartOptions.agent : null,
       },
     };
   }
@@ -878,10 +897,11 @@ export function createWeixinService(options = {}) {
     const modelCommand = parseModelSwitchCommand(event.text);
     if (modelCommand) {
       const boundAgent = await currentAgentForChat(session, event.chatId);
+      const enrichedAgent = await enrichAgentModelOptions(runtime, session, boundAgent).catch(() => boundAgent);
       const currentModel = await currentModelForChat(session, event.chatId);
       const rawTarget = modelCommand.target;
       if (!rawTarget) {
-        await sendText(session, event.chatId, renderModelHelp(boundAgent, currentModel), event.senderId).catch((error) => {
+        await sendText(session, event.chatId, renderModelHelp(enrichedAgent, currentModel), event.senderId).catch((error) => {
           appendLog({ type: "error", text: `weixin model-switch help send failed: ${error?.message ?? error}` });
         });
         return true;
@@ -892,12 +912,12 @@ export function createWeixinService(options = {}) {
         await store.writeChatSetting(session.account.accountId, event.chatId, { model: "" }).catch((error) => {
           appendLog({ type: "error", text: `weixin model-switch: writeChatSetting failed: ${error?.message ?? error}` });
         });
-        await sendText(session, event.chatId, `已恢复当前微信会话的默认模型（${agentLabel(boundAgent)}）。`, event.senderId).catch(() => undefined);
+        await sendText(session, event.chatId, `已恢复当前微信会话的默认模型（${agentLabel(enrichedAgent)}）。`, event.senderId).catch(() => undefined);
         return true;
       }
-      const resolved = resolveAgentModelId(boundAgent, rawTarget);
+      const resolved = resolveAgentModelId(enrichedAgent, rawTarget);
       if (!resolved) {
-        await sendText(session, event.chatId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(boundAgent, currentModel)}`, event.senderId).catch(() => undefined);
+        await sendText(session, event.chatId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(enrichedAgent, currentModel)}`, event.senderId).catch(() => undefined);
         return true;
       }
       session.options.modelByChat.set(event.chatId, resolved);
@@ -1351,6 +1371,53 @@ async function currentModelForChat(session, chatId) {
   const stored = typeof setting?.model === "string" ? setting.model.trim() : "";
   session.options.modelByChat.set(chatId, stored);
   return stored;
+}
+
+// Returns the per-chat model only if it is actually offered by the current
+// agent. When the user switches agents (e.g. from CodeBuddy which accepts
+// "auto" to Codex which requires a "modelId[effort]" form), a stale per-chat
+// model from the previous agent must not be forwarded — otherwise the runtime
+// rejects it (e.g. "Unknown model auto[medium]"). We drop the stale override
+// from memory and persisted settings so the agent falls back to its default.
+async function validatedModelForAgent(session, chatId, agent) {
+  const model = await currentModelForChat(session, chatId);
+  if (!model) return "";
+  const options = agentModelOptionsFor(agent);
+  if (options.length === 0) {
+    // Agent exposes no model list: only forward the per-chat model when the
+    // agent itself was configured with this model as its default (so we don't
+    // pass an arbitrary string to a provider that can't validate it).
+    return agent?.model === model ? model : "";
+  }
+  const ok = options.some((option) => option.id === model)
+    || options.some((option) => option.id.toLowerCase() === model.toLowerCase());
+  if (ok) return model;
+  // Stale model from a different agent — clear it so we stop failing.
+  session.options.modelByChat.set(chatId, "");
+  await store.writeChatSetting(session.account.accountId, chatId, { model: "" }).catch(() => undefined);
+  appendLog({ type: "debug", text: `weixin: dropped stale per-chat model "${model}" (not in ${agent?.id ?? "unknown"} model list)` });
+  return "";
+}
+
+async function enrichAgentModelOptions(runtime, session, agent) {
+  if (!agent) return agent;
+  const existing = agentModelOptionsFor(agent);
+  if (existing.length > 0) return agent;
+  if (!runtime || typeof runtime.listAgents !== "function") return agent;
+  try {
+    const workspaceRoot = session?.options?.workspaceRoot ?? "";
+    const accessibleWorkspaceRoots = session?.options?.accessibleWorkspaceRoots ?? [];
+    const listed = await runtime.listAgents({ workspaceRoot, accessibleWorkspaceRoots, includeModels: true });
+    const list = Array.isArray(listed?.agents) ? listed.agents : [];
+    const match = list.find((item) => item?.id === agent.id)
+      || list.find((item) => item?.provider === agent.provider);
+    if (!match) return agent;
+    const options = Array.isArray(match.modelOptions) ? match.modelOptions : [];
+    const defaultModel = typeof match.defaultModel === "string" ? match.defaultModel : agent.defaultModel;
+    return { ...agent, modelOptions: options, defaultModel };
+  } catch {
+    return agent;
+  }
 }
 
 function agentModelOptionsFor(agent) {

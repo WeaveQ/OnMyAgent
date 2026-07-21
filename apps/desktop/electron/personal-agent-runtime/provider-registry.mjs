@@ -144,7 +144,24 @@ export function normalizePersonalLocalAgent(input) {
   const customArgs = Array.isArray(input?.customArgs)
     ? input.customArgs.map((item) => String(item ?? "").trim()).filter(Boolean)
     : [];
-  const result = { id, name, provider, executablePath, model, customArgs };
+  const modelOptions = Array.isArray(input?.modelOptions)
+    ? input.modelOptions
+        .map((option) => {
+          if (option && typeof option === "object") {
+            const optId = String(option.id ?? option.value ?? option.name ?? "").trim();
+            if (!optId) return null;
+            const label = String(option.label ?? option.name ?? optId).trim() || optId;
+            return { id: optId, label };
+          }
+          const optId = String(option ?? "").trim();
+          return optId ? { id: optId, label: optId } : null;
+        })
+        .filter(Boolean)
+    : [];
+  const defaultModel = typeof input?.defaultModel === "string" && input.defaultModel.trim()
+    ? input.defaultModel.trim()
+    : null;
+  const result = { id, name, provider, executablePath, model, customArgs, modelOptions, defaultModel };
   if (provider === "custom") {
     const connectionType = input?.connectionType === "cli" ? "cli" : "raw";
     const acpArgs = Array.isArray(input?.acpArgs)
