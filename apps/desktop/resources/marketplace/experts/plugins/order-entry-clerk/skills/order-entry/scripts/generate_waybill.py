@@ -929,13 +929,8 @@ def main() -> int:
                 if "pdf" in formats:
                     pdf_jobs.append((html_path, pdf_path))
                     generated.append(str(pdf_path))
+                # Only expose paths for formats actually generated (empty string = hide menu item).
                 if copy_info["pdf"] or copy_info["xlsx"]:
-                    # Client currently requires both strings; keep expected paths for selected formats
-                    # and fill the other with the expected sibling path so menu still works after full export.
-                    if not copy_info["pdf"]:
-                        copy_info["pdf"] = str(pdf_path)
-                    if not copy_info["xlsx"]:
-                        copy_info["xlsx"] = str(xlsx_path)
                     artifact_copies.append(copy_info)
             write_pdfs(pdf_jobs)
             for _, pdf_path in pdf_jobs:

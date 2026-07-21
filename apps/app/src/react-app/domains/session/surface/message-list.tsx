@@ -3830,15 +3830,30 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       .map((target) => [target.value, target]),
   ), [props.openTargets]);
   const onOpenMarkdownCodePath = useCallback((path: string, mode: MarkdownCodePathOpenMode = "preview") => {
-    const target = verifiedOpenTargetByPath.get(path);
-    if (!target) return;
-    if (mode === "preview") {
-      props.onOpenTarget?.(target);
+    const normalized = path.replace(/[\\]+/g, "/").replace(/^\.\//, "").trim();
+    if (!normalized) return;
+    const target = verifiedOpenTargetByPath.get(path)
+      ?? verifiedOpenTargetByPath.get(normalized)
+      ?? [...verifiedOpenTargetByPath.entries()].find(([key]) => {
+        const candidate = key.replace(/[\\]+/g, "/");
+        return candidate === normalized
+          || candidate.endsWith(`/${normalized}`)
+          || normalized.endsWith(`/${candidate}`);
+      })?.[1];
+    // Reveal must work for agent-authored artifact: links even when the path is
+    // not yet in the verified openTargets set (common right after export).
+    if (mode === "reveal") {
+      const absolute = absoluteArtifactPath(
+        props.workspaceRoot,
+        target?.value ?? normalized,
+      );
+      void revealDesktopItemInDir(absolute).catch((error) => {
+        console.error("Failed to open artifact in folder:", error);
+      });
       return;
     }
-    void revealDesktopItemInDir(absoluteArtifactPath(props.workspaceRoot, target.value)).catch((error) => {
-      console.error("Failed to open artifact in folder:", error);
-    });
+    if (!target) return;
+    props.onOpenTarget?.(target);
   }, [props.onOpenTarget, props.workspaceRoot, verifiedOpenTargetByPath]);
 
   const blockIndexByMessageId = useMemo(() => {
