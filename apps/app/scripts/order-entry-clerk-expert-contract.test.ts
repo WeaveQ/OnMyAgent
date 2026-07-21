@@ -95,7 +95,8 @@ describe("order entry clerk expert contract", () => {
     const protocol = readExpertFile("skills/order-entry/references/waybill-data-protocol.md");
 
     expect(agent).toContain("制作物流单、发货单、发车单/派车单或运单前，都先询问用户是否有要求的模板");
-    expect(agent).toContain("output/.process/");
+    expect(agent).toContain(".process/");
+    expect(agent).not.toContain("output/.process/");
     expect(agent).toContain("PDF 与/或 XLSX");
     expect(agent).toContain("白、红、黄三联");
     expect(agent).toContain("待派车确认稿");
@@ -105,7 +106,8 @@ describe("order entry clerk expert contract", () => {
     expect(agent).toContain("会话内直接展示");
     expect(agent).toContain("禁止自由发挥或另行设计");
     expect(agent).toContain("在文件夹中显示");
-    expect(agent).toContain("artifact:output/");
+    expect(agent).toContain("artifact:实际文件名.ext");
+    expect(agent).not.toContain("artifact:output/");
     expect(agent).toContain("不是会话工作区目录");
     expect(agent).toContain("~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html");
     expect(agent).toContain("生成 PDF 和 Excel");
@@ -116,19 +118,23 @@ describe("order entry clerk expert contract", () => {
     expect(skill).toContain("专家模板安装异常");
     expect(skill).toContain("只写一份");
     expect(skill).toContain("scripts/generate_waybill.py");
+    expect(skill).toContain("--output-dir .");
     expect(skill).toContain("物流单` 与 `字段数据");
     expect(skill).toContain("只有导出脚本成功且返回的 PDF/XLSX 文件存在");
-    expect(skill).toContain("preview:output/.process/");
+    expect(skill).toContain("preview:.process/");
+    expect(skill).not.toContain("preview:output/.process/");
     expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
     expect(skill).toContain("在文件夹中显示");
-    expect(skill).toContain("artifact:output/");
-    expect(skill).toContain("output/.process/");
+    expect(skill).toContain("artifact:");
+    expect(skill).not.toContain("artifact:output/");
+    expect(skill).toContain(".process/");
+    expect(skill).toContain("禁止");
     expect(skill).toContain("--formats");
     expect(skill).toContain("waybill-patch");
-    expect(skill).toContain("禁止");
     expect(skill).toContain("remarks");
-    expect(protocol).toContain("output/.process/");
+    expect(protocol).toContain(".process/");
+    expect(protocol).toContain("禁止再套一层 `output/`");
     expect(protocol).toContain("export-fingerprint");
     expect(protocol).toContain("结果产物呈现规范");
     const fields = readExpertFile("skills/order-entry/references/waybill-fields.md");
