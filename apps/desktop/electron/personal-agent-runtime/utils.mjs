@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -145,16 +145,44 @@ export async function writeJsonFile(targetPath, data) {
   // filename is randomized so concurrent writers targeting the same path
   // do not race on a shared `<target>.tmp` (the previous fixed suffix caused
   // spurious ENOENT during rename when two writes overlapped).
+  //
+  // Windows: concurrent rename-over-existing often throws EPERM/EACCES/EBUSY.
+  // Retry with short backoff; if dest is locked, remove it then rename again.
   const suffix = randomBytes(6).toString("hex");
   const tmpPath = `${targetPath}.${suffix}.tmp`;
   await writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  try {
-    await rename(tmpPath, targetPath);
-  } catch (error) {
-    // Best-effort cleanup so a failed rename does not leak temp files.
-    try { const { rm } = await import("node:fs/promises"); await rm(tmpPath, { force: true }); } catch { /* noop */ }
-    throw error;
+  const attempts = process.platform === "win32" ? 12 : 3;
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await rename(tmpPath, targetPath);
+      return;
+    } catch (error) {
+      lastError = error;
+      const code = error && typeof error === "object" ? error.code : undefined;
+      const retryable =
+        code === "EPERM" ||
+        code === "EACCES" ||
+        code === "EBUSY" ||
+        code === "EEXIST" ||
+        code === "ENOENT";
+      if (!retryable || attempt === attempts - 1) break;
+      if (process.platform === "win32" && (code === "EPERM" || code === "EACCES" || code === "EEXIST")) {
+        try {
+          await rm(targetPath, { force: true });
+        } catch {
+          /* dest may already be gone or still locked */
+        }
+      }
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 8 * (attempt + 1)));
+    }
   }
+  try {
+    await rm(tmpPath, { force: true });
+  } catch {
+    /* noop */
+  }
+  throw lastError;
 }
 
 export function uniqueModelOptions(options) {
