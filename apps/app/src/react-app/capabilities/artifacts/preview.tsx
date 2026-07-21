@@ -1,7 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type * as React from "react";
-import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { MarkdownBlock } from "./markdown";

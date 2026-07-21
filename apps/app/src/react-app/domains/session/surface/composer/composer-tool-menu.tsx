@@ -3,6 +3,7 @@
  * Composer + menu flyouts (files / modes / templates / skills / connectors).
  * Extracted from composer.tsx to shrink the host and keep menu UI presentational.
  */
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { Dispatch, SetStateAction } from "react";
 import {
   Camera,
@@ -10,7 +11,6 @@ import {
   ChevronRight,
   ClipboardList,
   Download,
-  Loader2,
   MessageCircle,
   Paperclip,
   Pin,

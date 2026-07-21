@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { Check, FolderPlus, Loader2, XCircle } from "lucide-react";
+import { Check, FolderPlus, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
@@ -189,10 +189,7 @@ export function CreateWorkspaceLocalPanel(
                   {progress.error ? (
                     <XCircle size={14} className={localPanelStateClass.errorIcon} />
                   ) : (
-                    <Loader2
-                      size={14}
-                      className="animate-spin text-dls-accent"
-                    />
+                    <LoadingSpinner size="sm" className="text-dls-accent" />
                   )}
                   Sandbox setup
                 </div>

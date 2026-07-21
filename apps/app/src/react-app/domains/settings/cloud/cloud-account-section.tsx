@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { Building2, Check, LogOut, Loader2 } from "lucide-react";
+import { Building2, Check, LogOut } from "lucide-react";
 
 import type { DenOrgSummary } from "../../../../app/lib/den";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";

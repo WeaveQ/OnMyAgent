@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { AlertCircle, CheckCircle2, Loader2, Plug2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Plug2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { t } from "../../i18n";
 import { APP_NAME } from "../../i18n/locales/brand";
