@@ -51,7 +51,7 @@ import {
   ONMYAGENT_EXTENSION_STATE_CHANGED,
   setOnMyAgentExtensionEnabled,
 } from "@/react-app/domains/shared";
-import { extensionIcon } from "@/react-app/domains/session/surface/composer/composer-helpers";
+import { extensionIcon } from "./extension-icon";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";

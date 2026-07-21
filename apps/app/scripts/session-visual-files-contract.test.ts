@@ -19,10 +19,17 @@ describe("session visual and file contracts", () => {
 
     expect(markdown).not.toContain("bg-dls-hover p-2 text-left");
     expect(markdown).toContain("rounded-xl border border-dls-mist bg-dls-surface-muted");
+    // Table frame border lives on the outer shell; cells use internal grid only.
     expect(markdown).toContain(
+      'class="session-markdown-table my-4 overflow-x-auto rounded-xl border"',
+    );
+    expect(markdown).toContain(
+      "session-markdown-table-header px-4 py-2 text-left font-semibold",
+    );
+    expect(markdown).toContain("session-markdown-table-cell px-4 py-2 align-top");
+    expect(markdown).not.toContain(
       "session-markdown-table-header border px-4 py-2 text-left font-semibold",
     );
-    expect(markdown).toContain("session-markdown-table-cell border px-4 py-2 align-top");
     expect(messageList).not.toContain("hover:bg-primary/10");
     expect(messageList).toContain("bg-dls-chat-user-bg text-dls-text");
     expect(messageList).toContain("bg-dls-surface-muted text-dls-text");

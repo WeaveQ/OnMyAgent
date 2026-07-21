@@ -111,7 +111,7 @@ import {
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
-import { CustomConnectorDialog } from "@/react-app/domains/plugins/custom-connector-dialog";
+import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
