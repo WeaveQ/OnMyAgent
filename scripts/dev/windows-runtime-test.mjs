@@ -127,6 +127,23 @@ async function runStaticChecks() {
         : "missing terminateProcessTree import/use",
     );
   }
+
+  // Path contracts: Windows launch helpers must stay drive-letter / backslash safe.
+  const { join: winJoin, normalize: winNormalize, isAbsolute: winAbs } = await import(
+    "node:path"
+  ).then((m) => m.win32);
+  const joined = winJoin("C:\\Users\\demo", "ws", "file.txt");
+  record(
+    "path.win32 join keeps drive + separators",
+    winAbs(joined) && joined.includes("C:") && joined.includes("file.txt"),
+    joined,
+  );
+  const mixed = winNormalize("C:/Users/demo/../demo\\ws");
+  record(
+    "path.win32 normalize collapses mixed slashes",
+    mixed.toLowerCase() === "c:\\users\\demo\\ws",
+    mixed,
+  );
 }
 
 function runUnitTests() {

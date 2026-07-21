@@ -6,12 +6,36 @@ but macOS is where release engineering and daily dogfooding happen. This doc
 captures the concrete gotchas we already know about so a first-time Windows
 run has a fighting chance.
 
+## CI gate (PR required)
+
+Every PR to `main` runs a **Windows compat** job on `windows-2022`:
+
+| Step | Command | Notes |
+|------|---------|--------|
+| Runtime contracts | `pnpm test:windows-runtime` | Kill-tree + terminal launch + adapter source audit + path.win32 contracts (also runs on macOS/Linux Checks) |
+| Preflight (ci) | `ONMYAGENT_WINDOWS_PREFLIGHT_MODE=ci node scripts/dev/windows-preflight.mjs` | Required checks fail the job; Docker / symlink / unbuilt sidecars are warnings |
+| Desktop typecheck | `pnpm --filter @onmyagent/desktop typecheck` | Catches Electron API misuse on Windows typings |
+
+Locally:
+
+```bat
+pnpm check:windows
+:: or separately:
+pnpm test:windows-runtime
+node scripts/dev/windows-preflight.mjs --ci
+```
+
 ## Preflight
 
 ```bat
 :: from an elevated PowerShell or Developer Prompt so symlinks work
 node scripts/dev/windows-preflight.mjs
 ```
+
+Modes (`ONMYAGENT_WINDOWS_PREFLIGHT_MODE`):
+
+- **`strict`** (default): any failed check exits 1 — use for first local dogfood.
+- **`ci`**: only **required** checks fail (node/pnpm/constants/USERPROFILE/electron dist). Docker, symlink privilege, runtimes/sidecars, native rebuild artifacts are optional warnings.
 
 The preflight checks:
 
