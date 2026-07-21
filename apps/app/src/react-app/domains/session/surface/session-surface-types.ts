@@ -23,6 +23,11 @@ export type SessionSurfaceProps = {
   workspaceRoot: string;
   sessionId: string;
   draftOnly?: boolean;
+  /**
+   * False while the host keep-alive pane is hidden (other rail pages).
+   * Used to persist / restore transcript scroll height across page leaves.
+   */
+  surfaceVisible?: boolean;
   opencodeBaseUrl: string;
   onmyagentToken: string;
   developerMode: boolean;

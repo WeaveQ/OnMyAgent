@@ -146,20 +146,34 @@ export function resolveDraftSendPlan(input: {
   pageMode: "assistant" | "expert";
   assistantDraftWorkspaceRoot: string;
   sessionWorkspaceRoot: string;
+  /**
+   * When force-new / idle-new from a space-bound session, pass that session's
+   * project directory so the new chat stays under 空间 instead of dropping
+   * into the unscoped 任务 list (and becoming "first task").
+   */
+  inheritAssistantWorkspaceDirectory?: string | null;
 }) {
   const needsNewSession = !input.selectedSessionId || input.forceNewSession;
   const explicitDraftWorkspace = needsNewSession
     ? input.assistantDraftWorkspaceRoot.trim()
     : "";
+  const inheritedWorkspace =
+    needsNewSession && input.pageMode === "assistant"
+      ? (input.inheritAssistantWorkspaceDirectory?.trim() || "")
+      : "";
+  // Prefer the draft-picked folder; else keep the previous session's space.
   const explicitAssistantWorkspace =
     input.pageMode === "assistant"
-      ? explicitDraftWorkspace
+      ? explicitDraftWorkspace || inheritedWorkspace
       : "";
   return {
     needsNewSession,
     initialSessionId: needsNewSession ? null : input.selectedSessionId,
     explicitAssistantWorkspace,
-    taskWorkspaceRoot: explicitDraftWorkspace || input.sessionWorkspaceRoot,
+    taskWorkspaceRoot:
+      explicitDraftWorkspace ||
+      inheritedWorkspace ||
+      input.sessionWorkspaceRoot,
   };
 }
 

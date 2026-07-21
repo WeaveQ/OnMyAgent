@@ -738,6 +738,7 @@ export function AgentConversationPanel(props: {
             categoryId={activeAssistantCategoryId}
             workspaceId={props.selectedWorkspaceId}
             selectedSessionId={props.selectedSessionId}
+            sessionStatusById={props.sessionStatusById}
             automationGroups={automationGroups}
             pinnedGroups={assistantPinnedGroups}
             taskGroups={assistantTaskGroups}

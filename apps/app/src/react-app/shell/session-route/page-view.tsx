@@ -78,6 +78,10 @@ import {
 } from "../../domains/session";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
+import {
+  bindPendingAgentToSession,
+  resolvePendingAgentForPrompt,
+} from "./agent-context";
 import { SessionCloudAccountBridge } from "../session-cloud-account-bridge";
 import { WorkspaceProvider } from "../workspace-provider";
 import { SettingsSurface } from "../settings-route";
@@ -174,6 +178,10 @@ export type SessionRoutePageViewProps = {
   handleRuntimeSessionUpdated: (update: {
     sessionId: string;
     info: Record<string, unknown>;
+  }) => void;
+  handleRuntimeSessionStatus: (update: {
+    sessionId: string;
+    status: unknown;
   }) => void;
   handleSaveRenameWorkspace: () => Promise<void> | void;
   handleSaveShareRemoteAccess: (enabled: boolean) => Promise<void> | void;
@@ -299,6 +307,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     handleReorderWorkspaces,
     handleRevealWorkspace,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     handleSaveRenameWorkspace,
     handleSaveShareRemoteAccess,
     handleShareWorkspace,
@@ -401,6 +410,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             opencodeBaseUrl={opencodeBaseUrl}
             onmyagentToken={selectedWorkspaceServerToken}
             onSessionUpdated={handleRuntimeSessionUpdated}
+            onSessionStatus={handleRuntimeSessionStatus}
           />
         ) : null}
         <SessionPage
@@ -558,13 +568,21 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
 
             // Bind the pending agent to this new session (so it appears with
             // the agent avatar + system prompt when user sends first message).
-            const pendingAgentSnapshot =
-              usePendingAgentStore.getState().getAgent();
+            // If the store is empty (e.g. race after navigation), inherit from
+            // the session the user was viewing so we never land on 默认智能体.
+            const { pendingAgentSnapshot } = resolvePendingAgentForPrompt({
+              currentAgent: usePendingAgentStore.getState().getAgent(),
+              createdSession: true,
+              sessionId: newSession.id,
+              inheritFromSessionId: selectedSessionId,
+            });
             if (pendingAgentSnapshot) {
-              usePendingAgentStore.getState().setAgent({
-                ...pendingAgentSnapshot,
-                boundSessionId: newSession.id,
-              });
+              usePendingAgentStore.getState().setAgent(
+                bindPendingAgentToSession({
+                  agent: pendingAgentSnapshot,
+                  sessionId: newSession.id,
+                }),
+              );
               writeCustomAgentIdForSession(
                 newSession.id,
                 pendingAgentSnapshot.id,

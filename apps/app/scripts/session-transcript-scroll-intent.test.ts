@@ -152,10 +152,15 @@ describe("session transcript scroll intent", () => {
     expect(surface).not.toContain("session.jump_to_start");
     expect(surface).not.toContain("jumpToStartOfMessage");
     expect(controller).not.toContain("jumpToStartOfMessage");
-    // Jump control is hosted by the transcript layout shell.
+    // Jump control is hosted by the transcript layout shell and subscribes
+    // to sticky mode on its own so SessionSurface does not re-render on scroll.
     expect(layout).toContain("TranscriptScrollToLatest");
-    expect(layout).toContain("showJumpToLatest && !props.isAtBottom");
+    expect(layout).toContain("TranscriptJumpToLatestChip");
+    expect(layout).toContain("props.enabled && !isAtBottom");
+    expect(layout).toContain("useSessionScrollStore");
+    expect(surface).not.toContain("sessionScroll.isAtBottom");
     expect(surface).toContain('sessionScroll.jumpToLatest("auto")');
+    expect(controller).toContain("isAtBottomRef");
     expect(control).toContain("session-workbuddy-scroll-to-bottom");
     expect(control).toContain("ChevronsDown");
     expect(styles).toContain(".session-workbuddy-scroll-to-bottom");

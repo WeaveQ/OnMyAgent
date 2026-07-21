@@ -39,6 +39,7 @@ export {
 export type { SessionActivityStatus } from "./status/session-activity-store";
 export {
   resolveAgentIdForSession,
+  resolveUnreadAgentIdForSession,
   useExpertUnreadStore,
 } from "./status/expert-unread-store";
 export type { ExpertUnreadRecord } from "./status/expert-unread-store";

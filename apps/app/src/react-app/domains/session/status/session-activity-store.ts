@@ -229,6 +229,20 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
           nextState = {
             ...nextState,
             ...updateRecord(nextState, id, sessionId, (record) => {
+              // Sidebar list `status` lags live SSE (session.idle / session.status).
+              // After a run finishes, list rows can still say "busy" until the next
+              // full refetch — re-applying that stale busy here sticks expert list
+              // on "思考中" until the user opens the session (snapshot reseed).
+              const incoming = normalizeRunStatus(status);
+              const incomingActive =
+                incoming === "running" || incoming === "retry";
+              if (
+                incomingActive &&
+                !record.runActive &&
+                record.updatedAt > 0
+              ) {
+                return record;
+              }
               return applyRuntimeStatus(
                 record,
                 status,

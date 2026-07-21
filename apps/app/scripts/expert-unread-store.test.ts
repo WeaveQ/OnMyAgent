@@ -138,4 +138,38 @@ describe("expert unread store", () => {
     expect(state.isSessionUnread("ws_1", "ses_b")).toBe(true);
     expect(state.hasUnreadRecord("ws_1", "agent_e")).toBe(true);
   });
+
+  test("pure assistant session notes unread via synthetic scope key", () => {
+    // No custom agent / snapshot → still records for task-list blue dots.
+    useExpertUnreadStore
+      .getState()
+      .noteAssistantActivityForSession("ws_1", "ses_assistant_1", 50_000);
+    const state = useExpertUnreadStore.getState();
+    expect(state.isSessionUnread("ws_1", "ses_assistant_1")).toBe(true);
+    expect(state.isUnread("ws_1", "assistant-session:ses_assistant_1")).toBe(
+      true,
+    );
+    expect(
+      state.getUnreadCount("ws_1", "assistant-session:ses_assistant_1"),
+    ).toBe(1);
+
+    state.setFocusedAgent("ws_1", "assistant-session:ses_assistant_1");
+    const after = useExpertUnreadStore.getState();
+    expect(after.isSessionUnread("ws_1", "ses_assistant_1")).toBe(false);
+    expect(after.isUnread("ws_1", "assistant-session:ses_assistant_1")).toBe(
+      false,
+    );
+  });
+
+  test("focused assistant session does not accumulate unread from stream", () => {
+    useExpertUnreadStore
+      .getState()
+      .setFocusedAgent("ws_1", "assistant-session:ses_focused");
+    useExpertUnreadStore
+      .getState()
+      .noteAssistantActivityForSession("ws_1", "ses_focused", 60_000);
+    expect(
+      useExpertUnreadStore.getState().isSessionUnread("ws_1", "ses_focused"),
+    ).toBe(false);
+  });
 });

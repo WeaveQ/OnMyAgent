@@ -28,7 +28,7 @@ colors:
     background: "#FAFAFA"
     app-bg: "#F5F5F5"
     sidebar: "#F0F0F0"
-    rail-bg: "#E8E8E8"
+    rail-bg: "#E4E2E3"
     # soft brand wash for selected sidebar rows
     rail-active: "#EAF2FF"
     rail-hover: "#E2E2E2"
@@ -40,7 +40,7 @@ colors:
     # and decision-soft instead; do not re-tint hover/active blue.
     hover: "#F0F0F1"
     active: "#E6E6E8"
-    list-selected: "#E4E4E4"
+    list-selected: "#D4D4D4"
     list-hover: "#E8E8E8"
     danger: "#EF4444"
     warning: "#D19A2A"
@@ -85,7 +85,7 @@ colors:
     border-strong: "#4A4A4A"
     hover: "#323232"
     active: "#3A3A3A"
-    list-selected: "#363636"
+    list-selected: "#454545"
     list-hover: "#323232"
     danger: "#F87171"
     warning: "#FBBF24"

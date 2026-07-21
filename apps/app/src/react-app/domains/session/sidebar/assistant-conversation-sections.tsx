@@ -40,6 +40,11 @@ import {
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_ROW_ACTION_CLASS,
 } from "./assistant-task-item";
+import {
+  resolveUnreadAgentIdForSession,
+  useExpertUnreadStore,
+} from "../status/expert-unread-store";
+import { pickAggregateSessionStatus } from "./utils";
 
 /** Floating row/section icon → short hover tip (native title is too slow in Electron). */
 function IconHoverTip(props: {
@@ -77,6 +82,8 @@ type AssistantConversationSectionsProps = {
   categoryId: AssistantCategoryId;
   workspaceId: string;
   selectedSessionId: string | null;
+  /** Live run status by session — busy rows show 思考中 / 回复中 like WorkBuddy. */
+  sessionStatusById?: Record<string, string>;
   automationGroups: AssistantAutomationGroup<AgentConversationGroup>[];
   pinnedGroups: AgentConversationGroup[];
   taskGroups: AgentConversationGroup[];
@@ -175,6 +182,7 @@ function AssistantTaskRows(props: {
   groups: AgentConversationGroup[];
   workspaceId: string;
   selectedSessionId: string | null;
+  sessionStatusById?: Record<string, string>;
   pinned?: boolean;
   pinnable?: boolean;
   typeIcon?: React.ReactNode;
@@ -191,33 +199,54 @@ function AssistantTaskRows(props: {
   onOpenFolder?: (path: string) => void;
   onSaveToSpace?: (sessionId: string) => void;
 }) {
+  // Subscribe so task red dots update when stream activity / focus changes.
+  const sessionUnreadByWorkspace = useExpertUnreadStore(
+    (state) => state.sessionUnreadByWorkspace,
+  );
+  const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
+  const focused = useExpertUnreadStore((state) => state.focused);
+  const isSessionUnread = useExpertUnreadStore((state) => state.isSessionUnread);
+  void sessionUnreadByWorkspace;
+  void byWorkspace;
+  void focused;
+
   return (
     <>
-      {props.groups.map((item) => (
-        <AssistantTaskItem
-          key={item.key}
-          group={item}
-          workspaceId={props.workspaceId}
-          selected={assistantTaskSelected(item, props.selectedSessionId)}
-          pinned={props.pinned}
-          pinnable={props.pinnable}
-          typeIcon={props.typeIcon}
-          singleLine={props.singleLine}
-          folderPath={
-            props.folderPathBySessionId?.get(item.latestSession.id) ??
-            props.folderPath ??
-            null
-          }
-          onOpenSession={props.onOpenSession}
-          onPrefetchSession={props.onPrefetchSession}
-          onTogglePinned={props.onTogglePinned}
-          onRenameSession={props.onRenameSession}
-          onArchiveSession={props.onArchiveSession}
-          onDeleteSession={props.onDeleteSession}
-          onOpenFolder={props.onOpenFolder}
-          onSaveToSpace={props.onSaveToSpace}
-        />
-      ))}
+      {props.groups.map((item) => {
+        const unread = item.sessions.some((session) =>
+          isSessionUnread(props.workspaceId, session.id),
+        );
+        return (
+          <AssistantTaskItem
+            key={item.key}
+            group={item}
+            workspaceId={props.workspaceId}
+            selected={assistantTaskSelected(item, props.selectedSessionId)}
+            status={pickAggregateSessionStatus(
+              item.sessions.map((session) => session.id),
+              props.sessionStatusById,
+            )}
+            unread={unread}
+            pinned={props.pinned}
+            pinnable={props.pinnable}
+            typeIcon={props.typeIcon}
+            singleLine={props.singleLine}
+            folderPath={
+              props.folderPathBySessionId?.get(item.latestSession.id) ??
+              props.folderPath ??
+              null
+            }
+            onOpenSession={props.onOpenSession}
+            onPrefetchSession={props.onPrefetchSession}
+            onTogglePinned={props.onTogglePinned}
+            onRenameSession={props.onRenameSession}
+            onArchiveSession={props.onArchiveSession}
+            onDeleteSession={props.onDeleteSession}
+            onOpenFolder={props.onOpenFolder}
+            onSaveToSpace={props.onSaveToSpace}
+          />
+        );
+      })}
     </>
   );
 }
@@ -540,6 +569,17 @@ export function AssistantConversationSections(props: AssistantConversationSectio
   /** Per space-folder / automation-group: expand beyond FOLDER_TASK_PREVIEW_LIMIT. */
   const [showAllByFolder, setShowAllByFolder] = useState<Record<string, boolean>>({});
 
+  const setFocusedAgent = useExpertUnreadStore((state) => state.setFocusedAgent);
+
+  // Keep unread cursor in sync with the open assistant task (clears blue dot).
+  useEffect(() => {
+    const sessionId = props.selectedSessionId?.trim() || null;
+    const scopeId = sessionId
+      ? resolveUnreadAgentIdForSession(sessionId)
+      : null;
+    setFocusedAgent(props.workspaceId, scopeId);
+  }, [props.selectedSessionId, props.workspaceId, setFocusedAgent]);
+
   const pinnedCount = props.pinnedGroups.length;
   const taskCount = props.taskGroups.length;
   const spacesCount = props.spaceGroups.reduce(
@@ -654,6 +694,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                 groups={visiblePinnedGroups}
                 workspaceId={props.workspaceId}
                 selectedSessionId={props.selectedSessionId}
+                sessionStatusById={props.sessionStatusById}
                 pinned
                 singleLine
                 folderPathBySessionId={props.folderPathBySessionId}
@@ -707,6 +748,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   groups={visibleTaskGroups}
                   workspaceId={props.workspaceId}
                   selectedSessionId={props.selectedSessionId}
+                  sessionStatusById={props.sessionStatusById}
                   singleLine
                   folderPathBySessionId={props.folderPathBySessionId}
                   onOpenSession={props.onOpenSession}
@@ -830,6 +872,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                                   groups={visibleItems}
                                   workspaceId={props.workspaceId}
                                   selectedSessionId={props.selectedSessionId}
+                                  sessionStatusById={props.sessionStatusById}
                                   singleLine
                                   folderPath={directory}
                                   folderPathBySessionId={props.folderPathBySessionId}
@@ -968,6 +1011,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                                   groups={visibleItems}
                                   workspaceId={props.workspaceId}
                                   selectedSessionId={props.selectedSessionId}
+                                  sessionStatusById={props.sessionStatusById}
                                   singleLine
                                   pinnable={false}
                                   folderPathBySessionId={props.folderPathBySessionId}
