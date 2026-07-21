@@ -42,7 +42,7 @@ import {
 import {
   CustomConnectorDialog,
   CustomConnectorEntryButton,
-} from "@/react-app/domains/plugins/custom-connector-dialog";
+} from "@/react-app/domains/plugins";
 
 const sidePanelTextClass = {
   emptyTitle: "mt-5 text-base font-medium text-dls-text",

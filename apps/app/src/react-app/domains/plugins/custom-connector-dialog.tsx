@@ -30,7 +30,7 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 import { ProviderReloadRequiredModal } from "@/react-app/design-system/modals/provider-reload-required-modal";
-import { useReloadCoordinator } from "@/react-app/shell/reload-coordinator";
+import { useReloadCoordinator } from "@/react-app/shell";
 
 const MCP_HUB_URL = "https://github.com/modelcontextprotocol/servers";
 const DEFAULT_EDITOR_DOC = `{\n  "mcpServers": {}\n}\n`;

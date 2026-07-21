@@ -118,7 +118,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { CustomConnectorDialog } from "@/react-app/domains/plugins/custom-connector-dialog";
+import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
 
 export type AssistantPageProps = SessionPageProps & {
