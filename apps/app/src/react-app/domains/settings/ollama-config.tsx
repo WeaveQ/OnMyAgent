@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, CheckCircle2, Download, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { Bot, CheckCircle2, Download, RefreshCw, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

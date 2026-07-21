@@ -8,7 +8,7 @@ import {
   useRef,
   type SetStateAction,
 } from "react";
-import { ArrowLeft, Cloud, FolderPlus, Globe, Loader2 } from "lucide-react";
+import { ArrowLeft, Cloud, FolderPlus, Globe } from "lucide-react";
 
 import {
   Dialog,

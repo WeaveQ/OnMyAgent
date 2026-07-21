@@ -11,7 +11,6 @@ import {
 import {
   ChevronDown,
   ChevronRight,
-  Loader2,
   Mic2,
   MicOff,
   Radio,

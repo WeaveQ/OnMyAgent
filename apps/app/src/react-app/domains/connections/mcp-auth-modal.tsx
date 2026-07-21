@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCcw } from "lucide-react";
+import { CheckCircle2, RefreshCcw } from "lucide-react";
 
 import {
   Dialog,
@@ -652,7 +652,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
           {!isBusy && isPreparingReload ? (
             <div className={mcpAuthStateClass.waitingPanel}>
               <div className="flex items-center justify-center">
-                <Loader2 size={24} className={mcpAuthStateClass.waitingIcon} />
+                <LoadingSpinner size="default" className={mcpAuthStateClass.waitingIcon} />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-dls-text">
