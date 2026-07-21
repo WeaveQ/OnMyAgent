@@ -38,6 +38,7 @@ import {
   collaborationModeOptionKeys,
   filterToolMenuItems,
   formatPluginObjectType,
+  matchComposerSlashQuery,
   pluginSkillFileSearchText,
   skillMenuDescription,
   type CollaborationModeOptionKey,
@@ -221,17 +222,30 @@ export function ReactSessionComposer(props: ComposerProps) {
   const imeComposingRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef(props.draft);
+  // Live draft for slash/mention matching — updated in the same tick as editor
+  // onChange so the menu filters while typing even if parent store re-render lags.
+  const [liveDraft, setLiveDraft] = useState(props.draft);
   useEffect(() => {
+    setLiveDraft(props.draft);
     draftRef.current = props.draft;
   }, [props.draft]);
+
+  const handleDraftChange = useCallback(
+    (value: string) => {
+      draftRef.current = value;
+      setLiveDraft(value);
+      props.onDraftChange(value);
+    },
+    [props.onDraftChange],
+  );
 
   // Open slash menu whenever the caret-side draft ends with `/` or `/partial`.
   // Previous regex required the *entire* draft to be a slash token, so after a
   // skill chip (`/12306 `) a second `/` never opened the menu again.
-  const slashMatch = props.draft.match(/\/([^\s/]*)$/);
-  const slashOpenNext = Boolean(slashMatch);
-  const slashQuery = slashMatch?.[1] ?? "";
-  const mentionMatch = props.draft.match(/@([^\s@]*)$/);
+  const slashToken = matchComposerSlashQuery(liveDraft);
+  const slashOpenNext = slashToken.open;
+  const slashQuery = slashToken.query;
+  const mentionMatch = liveDraft.match(/@([^\s@]*)$/);
   const mentionOpenNext = Boolean(mentionMatch);
   const mentionQuery = mentionMatch?.[1] ?? "";
 
@@ -677,11 +691,14 @@ export function ReactSessionComposer(props: ComposerProps) {
   const slashFiltered = useMemo(() => {
     if (!slashOpen) return [];
     // Slash menu is skills/commands only — connectors live under + → connectors.
+    // Weight the name twice so `/obsidian` ranks the skill itself above long
+    // descriptions that only fuzzy-match a few letters.
     return slashQuery.trim()
       ? filterToolMenuItems(
           skillCatalogOrdered,
           slashQuery,
-          (item) => `${item.name} ${item.description ?? ""}`,
+          (item) =>
+            `${item.name} ${item.name} ${item.description ?? ""}`,
         )
       : skillCatalogOrdered;
   }, [skillCatalogOrdered, slashOpen, slashQuery]);
@@ -735,13 +752,14 @@ export function ReactSessionComposer(props: ComposerProps) {
 
   const applyCommandSelection = (command: SlashCommandOption) => {
     const insertion = `/${command.name} `;
-    const draft = props.draft;
-    // Replace only the trailing `/` or `/partial` so an existing skill chip is kept.
-    if (/\/[^\s/]*$/.test(draft)) {
-      props.onDraftChange(draft.replace(/\/[^\s/]*$/, insertion));
+    // Prefer live draft so chip insertion replaces the in-progress `/query`.
+    // Drop trailing newlines (Lexical multi-paragraph) so `/obsidian\n` still replaces.
+    const draft = liveDraft.replace(/[\n\r]+$/u, "");
+    if (/\/[^\s/]*$/u.test(draft)) {
+      handleDraftChange(draft.replace(/\/[^\s/]*$/u, insertion));
     } else {
-      const needsSpace = draft.length > 0 && !/\s$/.test(draft);
-      props.onDraftChange(`${draft}${needsSpace ? " " : ""}${insertion}`);
+      const needsSpace = draft.length > 0 && !/\s$/u.test(draft);
+      handleDraftChange(`${draft}${needsSpace ? " " : ""}${insertion}`);
     }
     setSlashOpen(false);
     setToolMenuOpen(false);
@@ -1299,7 +1317,7 @@ export function ReactSessionComposer(props: ComposerProps) {
               disabled={props.disabled}
               compact={homeLayout}
               placeholder={props.placeholder ?? t("composer.placeholder")}
-              onChange={props.onDraftChange}
+              onChange={handleDraftChange}
               onSubmit={props.onSend}
               onPaste={(event) => {
                 // Paste policy:
