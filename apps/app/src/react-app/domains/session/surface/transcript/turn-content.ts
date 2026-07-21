@@ -17,6 +17,7 @@ const WIDGET_TOOL_NAMES = new Set([
 ]);
 
 const WIDGET_FENCE_PATTERN = /```(?:show_widget|show-widget|widget|visualizer_widget)\s*\n([\s\S]*?)```/gi;
+const WIDGET_FENCE_START_PATTERN = /```(?:show_widget|show-widget|widget|visualizer_widget)\b[^\n]*\n?/i;
 
 type UIMessagePart = UIMessage["parts"][number];
 
@@ -224,7 +225,11 @@ function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
   };
 }
 
-function extractFencedWidgets(item: TurnContentItem, text: string) {
+function extractFencedWidgets(
+  item: TurnContentItem,
+  text: string,
+  incompleteStatus: "running" | "failed",
+) {
   const widgets: TurnWidgetItem[] = [];
   const segments: TurnBodySegment[] = [];
   const pattern = new RegExp(WIDGET_FENCE_PATTERN.source, WIDGET_FENCE_PATTERN.flags);
@@ -256,7 +261,26 @@ function extractFencedWidgets(item: TurnContentItem, text: string) {
     match = pattern.exec(text);
   }
   const trailingText = text.slice(cursor);
-  if (trailingText) segments.push({ kind: "text", text: trailingText });
+  const incompleteMatch = WIDGET_FENCE_START_PATTERN.exec(trailingText);
+  if (incompleteMatch) {
+    const precedingText = trailingText.slice(0, incompleteMatch.index);
+    if (precedingText) segments.push({ kind: "text", text: precedingText });
+    const visual: TurnWidgetItem = {
+      kind: "widget",
+      messageId: item.messageId,
+      partIndex: item.partIndex,
+      title: null,
+      html: "",
+      toolName: "show_widget",
+      status: incompleteStatus,
+      loadingMessages: [],
+      errorText: null,
+    };
+    widgets.push(visual);
+    segments.push({ kind: "widget", visual });
+  } else if (trailingText) {
+    segments.push({ kind: "text", text: trailingText });
+  }
   const withoutWidgets = segments
     .filter((segment) => segment.kind === "text")
     .map((segment) => segment.text)
@@ -459,7 +483,10 @@ export function buildTurnContentPresentation(
         ? stripCancellationSentinel(item.part.text)
         : { text: item.part.text, removed: false };
       removedCancellationSentinel ||= normalized.removed;
-      const fenced = extractFencedWidgets(item, normalized.text);
+      const incompleteWidgetStatus = turn.state === "streaming" || turn.state === "awaiting-approval"
+        ? "running"
+        : "failed";
+      const fenced = extractFencedWidgets(item, normalized.text, incompleteWidgetStatus);
       if (!fenced.text && fenced.widgets.length === 0) continue;
       renderItems.push({
         ...item,
