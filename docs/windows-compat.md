@@ -8,13 +8,14 @@ run has a fighting chance.
 
 ## CI gate (PR required)
 
-Every PR to `main` runs a **Windows compat** job on `windows-2022`:
+| Job | OS | What | Why |
+|-----|-----|------|-----|
+| **Checks** | ubuntu (+ macos for `pnpm check` only) | On **Linux only**: `pnpm test:windows-runtime` | Fail-fast mocked win32 contracts without waiting for a Windows runner |
+| **Windows compat** | `windows-2022` | `test:windows-runtime` + preflight `--ci` | Real Windows host; optional Docker/symlink/sidecars are warnings |
+| **Checks → typecheck** | ubuntu + macos | `pnpm check` includes `@onmyagent/desktop` typecheck | TS is OS-agnostic — **not** re-run on Windows job (avoids duplicate) |
 
-| Step | Command | Notes |
-|------|---------|--------|
-| Runtime contracts | `pnpm test:windows-runtime` | Kill-tree + terminal launch + adapter source audit + path.win32 contracts (also runs on macOS/Linux Checks) |
-| Preflight (ci) | `ONMYAGENT_WINDOWS_PREFLIGHT_MODE=ci node scripts/dev/windows-preflight.mjs` | Required checks fail the job; Docker / symlink / unbuilt sidecars are warnings |
-| Desktop typecheck | `pnpm --filter @onmyagent/desktop typecheck` | Catches Electron API misuse on Windows typings |
+**Not duplicated:** desktop typecheck (only in Checks).  
+**Run twice on purpose:** `test:windows-runtime` on Linux (fast) + Windows (host truth). Not on macos Checks.
 
 Locally:
 

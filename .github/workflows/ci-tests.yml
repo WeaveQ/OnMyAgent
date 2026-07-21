@@ -77,10 +77,15 @@ jobs:
       - name: Run rename consistency check
         run: pnpm test:rename-consistency
 
-      # Cross-platform Windows kill-tree / terminal-launch contracts (mocked win32).
+      # Fail-fast Windows *contracts* (platform-mocked) once on Linux only.
+      # Full Windows host gate is the dedicated windows-compat job — do not
+      # also run this suite on macos Checks (same mocked assertions, ~2x cost).
       - name: Run Windows runtime contracts
+        if: runner.os == 'Linux'
         run: pnpm test:windows-runtime
 
+  # Sole Windows *host* gate. Owns win32-runtime on a real Windows runner +
+  # preflight. Desktop typecheck stays in Checks (pnpm check) — TS is OS-agnostic.
   windows-compat:
     name: Windows compat (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -126,7 +131,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      # Platform-mocked contracts + unit tests; must pass on Windows host too.
+      # Real Windows host: same contracts as Linux fail-fast, plus native path/spawn.
       - name: Windows runtime contracts
         run: pnpm test:windows-runtime
         env:
@@ -143,10 +148,6 @@ jobs:
       # Soft optional tooling (Docker, symlink privilege, unbuilt sidecars).
       - name: Windows preflight (ci mode)
         run: node scripts/dev/windows-preflight.mjs --ci
-
-      # Desktop Electron typecheck catches win32-facing API misuse (e.g. vibrancy).
-      - name: Desktop typecheck
-        run: pnpm --filter @onmyagent/desktop typecheck
 
   tests:
     name: ${{ matrix.test.name }} (${{ matrix.os }})
