@@ -554,12 +554,30 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             let sessionDirectory = draftRoot || workspaceRoot || undefined;
             let bindDirectory = draftRoot || "";
             // Treat empty draft and "draft == workspace root" as no real folder pick.
-            // Bind path only — do not write placeholder README.md into the panel.
+            // Materialize via a hidden .onmyagent-session.json (not README) so opencode
+            // realPath succeeds and the files panel stays clean.
             if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
                 agentName: pendingAgentSnapshot?.name?.trim() || "expert",
               });
+              const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
+              const ensureWorkspaceId =
+                selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
+              if (ensureClient && ensureWorkspaceId?.trim()) {
+                try {
+                  await ensureClient.writeWorkspaceFile(ensureWorkspaceId, {
+                    path: isolated.markerRelativePath,
+                    content: isolated.markerContent,
+                    force: true,
+                  });
+                } catch (error) {
+                  console.warn(
+                    "[expert-session] failed to create isolated session directory",
+                    error,
+                  );
+                }
+              }
               sessionDirectory = isolated.directory;
               bindDirectory = isolated.directory;
             }

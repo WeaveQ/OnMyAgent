@@ -53,13 +53,15 @@ export function isSameDirectory(left: string, right: string): boolean {
   return Boolean(a) && a === b;
 }
 
+/** Hidden marker so the files panel stays clean (dotfiles are filtered). */
+export const EXPERT_SESSION_MARKER_NAME = ".onmyagent-session.json";
+
 /**
  * Build an isolated session directory under the workspace when the user did
  * not pick an explicit folder.
  *
- * Does not create placeholder files (no README.md). The directory appears when
- * the agent first writes real artifacts — avoids empty confusing markers in
- * the files panel.
+ * Callers must materialize the directory (write the marker file) before
+ * binding the opencode session — opencode realPath fails if the path is missing.
  */
 export function buildIsolatedExpertSessionDirectory(input: {
   workspaceRoot: string;
@@ -69,11 +71,28 @@ export function buildIsolatedExpertSessionDirectory(input: {
   sessionKey: string;
   agentSegment: string;
   directory: string;
+  /** Relative path under the workspace root for writeWorkspaceFile. */
+  markerRelativePath: string;
+  markerContent: string;
 } {
   const sessionKey = input.sessionKey?.trim() || createExpertSessionKey();
   const agentSegment = sanitizePathSegment(input.agentName, "expert");
   const directory = joinWorkspacePath(input.workspaceRoot, agentSegment, sessionKey);
-  return { sessionKey, agentSegment, directory };
+  const markerRelativePath = relativePosixPath(
+    agentSegment,
+    sessionKey,
+    EXPERT_SESSION_MARKER_NAME,
+  );
+  const markerContent = `${JSON.stringify(
+    {
+      kind: "expert-session",
+      agent: agentSegment,
+      sessionKey,
+    },
+    null,
+    2,
+  )}\n`;
+  return { sessionKey, agentSegment, directory, markerRelativePath, markerContent };
 }
 
 /**
