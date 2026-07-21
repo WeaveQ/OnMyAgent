@@ -250,6 +250,7 @@ export default {
   "session.openable_items": "可開啟的項目",
   "session.open_browser": "開啟瀏覽器",
   "session.open_artifact": "開啟產物",
+  "session.waybill_patch_save_failed": "預覽修改已保留，但未能寫入資料檔；匯出前請再儲存一次或補充說明。",
   "session.voice_read_latest": "朗讀此會話中的最新消息",
   "session.voice_read_latest_short": "朗讀最新會話消息",
   "session.send_prompt_failed": "發送提示詞失敗。",
