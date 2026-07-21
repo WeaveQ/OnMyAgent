@@ -303,6 +303,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     setCurrentSidePanel,
     openTarget,
     handleOpenTargetsChange,
+    removeAccessibleTarget,
     closeRightPane,
     openBrowserRailPane,
     openArtifactRailPane,

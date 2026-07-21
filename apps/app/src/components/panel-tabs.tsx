@@ -56,6 +56,31 @@ type PanelTabCloseProps = Omit<React.ComponentProps<typeof Button>, "children" |
   onClose: () => void;
 };
 
+type PanelTabActionProps = Omit<React.ComponentProps<typeof Button>, "size" | "variant">;
+
+function PanelTabAction({ className, onClick, onPointerDown, ...props }: PanelTabActionProps) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className={cn(
+        "absolute right-1 top-1/2 z-10 -translate-y-1/2 text-dls-secondary opacity-0 transition-opacity hover:bg-dls-surface-muted hover:text-dls-text group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100",
+        className,
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.(event);
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onPointerDown?.(event);
+      }}
+      {...props}
+    />
+  );
+}
+
 function PanelTabClose({
   active,
   className,
@@ -96,4 +121,4 @@ function PanelTabClose({
   );
 }
 
-export { PanelTabList, PanelTabItem, PanelTab, PanelTabClose };
+export { PanelTabList, PanelTabItem, PanelTab, PanelTabAction, PanelTabClose };

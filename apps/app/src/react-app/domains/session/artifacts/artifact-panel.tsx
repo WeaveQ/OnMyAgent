@@ -1,14 +1,21 @@
 /** @jsxImportSource react */
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ExternalLink, X } from "lucide-react";
+import { Download, FolderOpen, MoreHorizontal, Trash2, X } from "lucide-react";
 
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
-import { openDesktopPath } from "@/app/lib/desktop";
-import { PanelTab, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
+import { revealDesktopItemInDir } from "@/app/lib/desktop";
+import { PanelTab, PanelTabAction, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatFileSize } from "@/lib/utils";
+import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { ArtifactIcon } from "./artifact-icon";
 import type { BinaryData, Data, OpenTarget, TextData } from "./open-target";
 import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
@@ -29,6 +36,7 @@ type ArtifactPanelProps = {
   target: OpenTarget;
   targets?: OpenTarget[];
   onSelectTarget?: (target: OpenTarget) => void;
+  onDeleteTarget?: (target: OpenTarget) => void;
   onClose: () => void;
 };
 
@@ -49,10 +57,24 @@ function isTextContent(target: OpenTarget): boolean {
   return ["markdown", "text", "sheet", "html"].includes(target.preview) && !/\.(xlsx|xls|ods)$/i.test(target.value);
 }
 
-export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWorkspace = false, target, targets = [], onSelectTarget, onClose }: ArtifactPanelProps) {
+function inferContentType(target: OpenTarget): string | undefined {
+  if (target.preview === "pdf") return "application/pdf";
+  if (target.preview === "image") {
+    const ext = target.value.toLowerCase().split(".").pop() ?? "";
+    if (ext === "png") return "image/png";
+    if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+    if (ext === "gif") return "image/gif";
+    if (ext === "webp") return "image/webp";
+    if (ext === "svg") return "image/svg+xml";
+  }
+  return undefined;
+}
+
+export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWorkspace = false, target, targets = [], onSelectTarget, onDeleteTarget, onClose }: ArtifactPanelProps) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [pendingDeleteTarget, setPendingDeleteTarget] = useState<OpenTarget | null>(null);
   const isDirectTextEdit = isTextContent(target) && target.preview === "markdown";
   const externalPath = useMemo(() => target.kind === "file" ? absoluteWorkspacePath(workspaceRoot, target.value) : target.value, [target.kind, target.value, workspaceRoot]);
 
@@ -90,7 +112,11 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
       return;
     }
 
-    const url = URL.createObjectURL(new Blob([data.data], { type: data.contentType ?? "application/octet-stream" }));
+    const inferredContentType = inferContentType(target);
+    const blobType = data.contentType && data.contentType !== "application/octet-stream"
+      ? data.contentType
+      : inferredContentType ?? "application/octet-stream";
+    const url = URL.createObjectURL(new Blob([data.data], { type: blobType }));
 
     setBinaryObjectUrl(url);
 
@@ -157,12 +183,42 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
       return;
     }
     else if (!isRemoteWorkspace) {
-      void openDesktopPath(externalPath);
+      try {
+        await revealDesktopItemInDir(externalPath);
+      } catch (error) {
+        console.error("Failed to reveal item in folder:", error);
+      }
 
       return;
     }
 
     await download();
+  };
+
+  const revealTarget = async (item: OpenTarget) => {
+    if (item.kind !== "file") return;
+    await revealDesktopItemInDir(absoluteWorkspacePath(workspaceRoot, item.value));
+  };
+
+  const confirmDeleteTarget = async () => {
+    const item = pendingDeleteTarget;
+    if (!item || item.kind !== "file") return;
+
+    try {
+      await client.deleteWorkspaceFile(workspaceId, item.value);
+      queryClient.removeQueries({ queryKey: ["artifact-panel", workspaceId, item.id] });
+      setPendingDeleteTarget(null);
+      onDeleteTarget?.(item);
+
+      const nextTarget = targets.find((candidate) => candidate.id !== item.id);
+      if (nextTarget) {
+        onSelectTarget?.(nextTarget);
+      } else {
+        onClose();
+      }
+    } catch (deleteError) {
+      console.error("Failed to delete artifact:", deleteError);
+    }
   };
 
   const save = () => {
@@ -214,6 +270,35 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
                       <ArtifactIcon type={item.preview} />
                       <span className="truncate">{item.name}{item.exists === false ? " · missing" : ""}</span>
                     </PanelTab>
+                    {item.kind === "file" ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={(
+                            <PanelTabAction
+                              aria-label={t("files.file_actions", { name: item.name })}
+                              title={t("files.file_actions", { name: item.name })}
+                            >
+                              <MoreHorizontal />
+                            </PanelTabAction>
+                          )}
+                        />
+                        <DropdownMenuContent align="end" className="min-w-40">
+                          {!isRemoteWorkspace ? (
+                            <DropdownMenuItem onClick={() => void revealTarget(item)}>
+                              <FolderOpen />
+                              {t("files.open_in_folder")}
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setPendingDeleteTarget(item)}
+                          >
+                            <Trash2 />
+                            {t("common.delete")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
                   </PanelTabItem>
                 ))}
               </PanelTabList>
@@ -287,12 +372,12 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           <Tooltip>
             <TooltipTrigger
               render={(
-                <Button variant="ghost" size="icon-sm" onClick={() => void openExternal()} aria-label={isRemoteWorkspace ? t("session.artifact_download") : t("session.artifact_open_externally")}>
-                  <ExternalLink />
+                  <Button variant="ghost" size="icon-sm" onClick={() => void openExternal()} aria-label={isRemoteWorkspace ? t("session.artifact_download") : t("files.open_in_folder")}>
+                  {isRemoteWorkspace ? <Download /> : <FolderOpen />}
                 </Button>
               )}
             />
-            <TooltipContent>{isRemoteWorkspace ? t("session.artifact_download") : t("session.artifact_open_externally")}</TooltipContent>
+            <TooltipContent>{isRemoteWorkspace ? t("session.artifact_download") : t("files.open_in_folder")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger
@@ -315,6 +400,11 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           <TextEditor value={draft} language={target.preview === "markdown" ? "markdown" : "text"} onChange={setDraft} />
         ) : target.preview === "markdown" && data?.kind === "text" ? (
           <MarkdownPreview content={data.data} />
+        ) : target.preview === "sheet" && /\.(xlsx|xls|ods)$/i.test(target.value) ? (
+          <UnsupportedBinaryNotice
+            onReveal={isRemoteWorkspace ? undefined : () => void revealDesktopItemInDir(externalPath)}
+            onDownload={() => void download()}
+          />
         ) : target.preview === "sheet" ? (
           <SheetEditor
             name={target.name}
@@ -334,6 +424,16 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           <PreviewUnavailable />
         )}
       </div>
+      <ConfirmModal
+        open={pendingDeleteTarget !== null}
+        title={t("files.delete_confirm_title")}
+        message={t("files.delete_confirm_desc", { name: pendingDeleteTarget?.name ?? "" })}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void confirmDeleteTarget()}
+        onCancel={() => setPendingDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -364,5 +464,32 @@ function SheetEditor({ className, ...props }: SheetEditorProps) {
         {...props}
       />
     </Suspense>
+  );
+}
+
+interface UnsupportedBinaryNoticeProps {
+  onReveal?: () => void;
+  onDownload?: () => void;
+}
+
+function UnsupportedBinaryNotice({ onReveal, onDownload }: UnsupportedBinaryNoticeProps) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+      <p className="max-w-sm text-sm text-dls-secondary">{t("session.artifact_binary_preview_unsupported")}</p>
+      <div className="flex items-center gap-2">
+        {onReveal ? (
+          <Button variant="default" size="sm" onClick={onReveal}>
+            <FolderOpen data-icon="inline-start" className="size-3.5" />
+            {t("files.open_in_folder")}
+          </Button>
+        ) : null}
+        {onDownload ? (
+          <Button variant="outline" size="sm" onClick={onDownload}>
+            <Download data-icon="inline-start" className="size-3.5" />
+            {t("session.artifact_download")}
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }

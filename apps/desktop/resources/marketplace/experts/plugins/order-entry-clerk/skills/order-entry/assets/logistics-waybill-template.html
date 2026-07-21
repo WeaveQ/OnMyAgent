@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>物流运输协议（草稿）</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Noto Serif SC", "Songti SC", SimSun, serif;
+        color: #28242f;
+        opacity: 1 !important;
+        filter: none !important;
+        background: #eceaf0;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; }
+      .sheet {
+        position: relative;
+        color: #28242f;
+        width: min(1040px, 100%);
+        margin: 0 auto;
+        padding: 24px 58px 16px 24px;
+        background: var(--copy-background, #f8f7fb);
+        border: 1px solid #77717f;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .sheet[data-copy="white"] { --copy-background: #f8f7fb; }
+      .sheet[data-copy="red"] { --copy-background: #f8e5e9; }
+      .sheet[data-copy="yellow"] { --copy-background: #fff4bf; }
+      header { position: relative; min-height: 98px; text-align: center; }
+      h1 { margin: 0; font-size: 32px; letter-spacing: .18em; font-weight: 800; }
+      .subtitle { margin-top: 6px; font-size: 15px; }
+      .serial { position: absolute; top: 4px; right: 0; color: #a24c64; font: 22px/1.2 ui-monospace, monospace; letter-spacing: .08em; }
+      .status { position: absolute; top: 37px; right: 0; font-size: 12px; color: #7c2d12; }
+      .copy-name { position: absolute; top: 56px; right: 0; font-size: 12px; font-weight: 700; color: #6b3847; }
+      .route-line { display: grid; grid-template-columns: 1fr 280px; gap: 24px; margin-top: 10px; text-align: left; font-size: 16px; }
+      .field-line { display: inline-block; min-width: 90px; padding: 0 5px 2px; border-bottom: 1px solid #4f4a55; }
+      .missing { color: #8a5a12; background: #fff4d8; font-weight: 700; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { height: 38px; padding: 5px 7px; border: 1px solid #5f5966; font-size: 14px; text-align: center; vertical-align: middle; }
+      th { font-weight: 500; background: transparent; }
+      td.value { text-align: left; }
+      .party-label { width: 16%; }
+      .goods-head th { height: 42px; }
+      .goods-row td { height: 54px; }
+      .settlement, .amount { text-align: left; line-height: 1.8; }
+      .check { display: inline-flex; align-items: center; gap: 3px; margin: 0 8px 0 3px; white-space: nowrap; }
+      .box { display: inline-block; width: 15px; height: 15px; border: 1px solid #4f4a55; vertical-align: -2px; }
+      .signatures td { height: 96px; padding: 7px; text-align: left; vertical-align: top; }
+      .sign-date { display: block; margin-top: 48px; text-align: right; }
+      .copies { position: absolute; top: 182px; right: 17px; display: flex; gap: 5px; writing-mode: vertical-rl; font-size: 12px; line-height: 1.2; }
+      .copies span { opacity: .42; }
+      .sheet[data-copy="white"] .copies [data-copy="white"],
+      .sheet[data-copy="red"] .copies [data-copy="red"],
+      .sheet[data-copy="yellow"] .copies [data-copy="yellow"] { opacity: 1; font-weight: 800; }
+      footer { margin-top: 6px; font-size: 12px; line-height: 1.55; }
+      footer strong { font-size: 16px; }
+      @media print {
+        @page { size: A4 landscape; margin: 8mm; }
+        body { padding: 0; background: #fff; }
+        .sheet { width: 100%; border: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      固定通用物流单模板：只替换文字与 missing 状态，不得增删区块、重排字段、改变合并单元格或另行设计版式。
+      用户提供指定模板时，应改为忠实复刻用户模板，不使用本文件。
+    -->
+    <main class="sheet" data-template="common-logistics-transport-agreement-v2" data-status="草稿·待确认">
+      <header>
+        <h1>物流运输协议</h1>
+        <div class="subtitle">承揽全国各地整车零担业务 · 代收货款</div>
+        <div class="serial">NO. <span class="missing" data-field="document.number">待补充</span></div>
+        <div class="status" data-field="document.status">草稿·待确认</div>
+        <div class="copy-name" data-field="copy.label">一联存根（白）</div>
+        <div class="route-line">
+          <div>起运地点：<span class="field-line missing" data-field="route.origin">待补充</span> 至 <span class="field-line missing" data-field="route.destination">待补充</span></div>
+          <div>发货日期：<span class="field-line missing" data-field="document.date">待补充</span></div>
+        </div>
+      </header>
+
+      <table aria-label="物流运输协议">
+        <colgroup>
+          <col style="width: 16%" /><col style="width: 34%" />
+          <col style="width: 14%" /><col style="width: 36%" />
+        </colgroup>
+        <tbody>
+          <tr><th class="party-label">托运单位</th><td class="value missing" data-field="shipper.name">待补充</td><th>收货单位</th><td class="value missing" data-field="consignee.name">待补充</td></tr>
+          <tr><th>姓名</th><td class="value missing" data-field="shipper.contact">待补充</td><th>姓名</th><td class="value missing" data-field="consignee.contact">待补充</td></tr>
+          <tr><th>电话</th><td class="value missing" data-field="shipper.phone">待补充</td><th>电话</th><td class="value missing" data-field="consignee.phone">待补充</td></tr>
+        </tbody>
+      </table>
+
+      <table aria-label="货物明细">
+        <colgroup>
+          <col style="width: 18%" /><col style="width: 8%" /><col style="width: 9%" /><col style="width: 13%" />
+          <col style="width: 12%" /><col style="width: 10%" /><col style="width: 12%" /><col style="width: 18%" />
+        </colgroup>
+        <thead class="goods-head">
+          <tr><th>货物名称</th><th>件数</th><th>包装</th><th>重量/体积</th><th>保险金额</th><th>保险费</th><th>代收货款</th><th>备注</th></tr>
+        </thead>
+        <tbody>
+          <tr class="goods-row"><td class="missing" data-field="cargo.name">待补充</td><td class="missing" data-field="cargo.quantity">待补充</td><td class="missing" data-field="cargo.packaging">待补充</td><td class="missing" data-field="cargo.weightOrVolume">待补充</td><td data-field="cargo.declaredValue">—</td><td data-field="cargo.insuranceFee">—</td><td data-field="cargo.codAmount">—</td><td data-field="remarks">—</td></tr>
+        </tbody>
+      </table>
+
+      <table aria-label="车辆司机信息">
+        <colgroup><col style="width: 14%" /><col style="width: 34%" /><col style="width: 14%" /><col style="width: 38%" /></colgroup>
+        <tbody>
+          <tr><th>车牌号</th><td class="value" data-field="vehicle.plate">—</td><th>家庭住址</th><td class="value" data-field="vehicle.driverAddress">—</td></tr>
+          <tr><th>驾驶证号</th><td class="value" data-field="vehicle.licenseNumber">—</td><th>司机姓名</th><td class="value"><span data-field="vehicle.driverName">—</span>　　电话：<span data-field="vehicle.driverPhone">—</span></td></tr>
+          <tr><td colspan="4" class="settlement">
+            运输结算方式：
+            <span class="check">到付 <i class="box" data-check="payment.collect"></i></span>
+            <span class="check">已付 <i class="box" data-check="payment.prepaid"></i></span>
+            <span class="check">回付 <i class="box" data-check="payment.receipt"></i></span>
+            <span class="check">欠付 <i class="box" data-check="payment.unpaid"></i></span>
+            提货方式：
+            <span class="check">自提 <i class="box" data-check="handover.pickup"></i></span>
+            <span class="check">送货 <i class="box" data-check="handover.delivery"></i></span>
+          </td></tr>
+          <tr><td colspan="4" class="amount">金额合计（大写）：<span class="missing" data-field="payment.amountUppercase">待补充</span>　￥：<span class="missing" data-field="payment.amount">待补充</span></td></tr>
+        </tbody>
+      </table>
+
+      <table class="signatures" aria-label="签字确认">
+        <tbody>
+          <tr>
+            <td>发货单位<span class="sign-date">年　月　日</span></td>
+            <td>承运司机<span class="sign-date">年　月　日</span></td>
+            <td>本部经手人<span class="sign-date">年　月　日</span></td>
+            <td>收货单位<span class="sign-date">年　月　日</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="copies" aria-label="三联单说明">
+        <span data-copy="white">一联存根（白）</span><span data-copy="red">二联收货单位（红）</span><span data-copy="yellow">三联发货单位（黄）</span>
+      </div>
+
+      <footer>
+        <div>地址：<span class="missing" data-field="carrier.address">待补充</span>　手机：<strong class="missing" data-field="carrier.phone">待补充</strong></div>
+        <div>托运方在本公司托运货物时请仔细阅读客户联背面，本运单一经签署即生法律效用。</div>
+      </footer>
+    </main>
+  </body>
+</html>

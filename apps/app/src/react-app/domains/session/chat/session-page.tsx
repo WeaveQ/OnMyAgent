@@ -540,6 +540,7 @@ export function SessionPage(props: SessionPageProps) {
     setCurrentSidePanel,
     openTarget,
     handleOpenTargetsChange,
+    removeAccessibleTarget,
     closeRightPane,
     openBrowserRailPane,
     openArtifactRailPane,
@@ -1227,6 +1228,7 @@ export function SessionPage(props: SessionPageProps) {
                         target={visibleArtifactTarget}
                         targets={artifactFileTargets}
                         onSelectTarget={openTarget}
+                        onDeleteTarget={removeAccessibleTarget}
                         onClose={closeRightPane}
                       />
                     ) : activeSidePanel === "artifacts" ? (
