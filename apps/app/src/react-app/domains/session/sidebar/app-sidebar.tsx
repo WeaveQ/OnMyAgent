@@ -12,7 +12,6 @@ import {
   Globe2,
   Info,
   KeyRound,
-  Loader2,
   LogOut,
   MonitorSmartphone,
   Moon,

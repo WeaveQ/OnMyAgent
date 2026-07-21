@@ -5,7 +5,6 @@ import {
   Activity,
   CircleStop,
   Clock3,
-  Loader2,
   MessageSquare,
   Plus,
   RefreshCw,

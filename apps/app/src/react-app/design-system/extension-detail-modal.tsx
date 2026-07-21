@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { CheckCircle2, ExternalLink, Loader2, Plug2 } from "lucide-react";
+import { CheckCircle2, ExternalLink, Plug2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -601,10 +601,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                 <Button onClick={onConnect} disabled={connecting}>
                   {connecting ? (
                     <>
-                      <Loader2
-                        data-icon="inline-start"
-                        className="animate-spin"
-                      />
+                      <LoadingSpinner data-icon="inline-start" />
                       {connectingLabel}
                     </>
                   ) : (
