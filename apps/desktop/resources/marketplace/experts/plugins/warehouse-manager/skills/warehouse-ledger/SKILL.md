@@ -1,30 +1,39 @@
 ---
 name: warehouse-ledger
-description: 网点仓库存台账方法论。当需要登记入库/出库/移库/盘点，更新库存账面，发现账实不符、货位错误、超期滞留、单据与实物不一致等异常，按货物特性给存放注意，倒查错发漏发，或生成简单库存报表与提醒话术时使用。
+description: 网点仓库存台账方法论。登记入/出/移/盘到 warehouse-ledger.json，扫描异常与滞留，生成简报与 CSV，用户确认后创建 OnMyAgent 每日库存定时任务。
 ---
 
 # 仓储台账技能（Warehouse Ledger）
 
-中小专线/零担 **网点仓** 的「货动账动」作业法：流水清楚、台账可查、异常可倒查、报表能发调度。
+中小专线/零担 **网点仓**：「货动账动」、异常可倒查、报表与定时简报可交付。
 
 ## 标准作业流程
 
-1. **吃素材**：交接单、Excel、群消息、盘点表；模糊处标「识别存疑」。
-2. **写成变动行**：按 `references/ledger-fields.md` 定类型、运单、数量、货位、时间。
-3. **更新台账**：按运单+货位（或约定主键）汇总账面；缺键进待确认。
-4. **异常扫描**：`references/anomaly-playbook.md`（账实、负库存、滞留、错发漏发倒查）。
-5. **货物特性**：`references/cargo-handling.md` 给存放与操作提示。
-6. **报表与提醒**：当日简报、滞留清单、给调度/仓管的提醒话术。
+1. **吃素材** → 2. **维护 `warehouse-ledger.json`**（`ledger-fields.md` + `data-protocol.md`）  
+3. **异常扫描**（`anomaly-playbook.md`）→ 4. **货物特性**（`cargo-handling.md`）  
+5. **preview**：
+   ```bash
+   python3 <Skill根目录>/scripts/build_warehouse_artifacts.py --input warehouse-ledger.json --output-dir . --mode preview
+   ```
+6. **用户确认后 export + 定时任务**（`onmyagent-automations.md`）：
+   ```bash
+   python3 <Skill根目录>/scripts/build_warehouse_artifacts.py --input warehouse-ledger.json --output-dir . --mode export
+   ```
 
 ## 铁律
 
-- **货动必有账**；无数量/无运单不静默改账面。
-- **禁止编造** 件数、货位、盘点结果。
-- 负库存与大额盘亏必须标红并给倒查步骤。
-- 危险品仅提示合规隔离，不指导违规混放。
+- **货动必有账**；无数量/无运单不静默改账面。  
+- **禁止编造** 件数、货位、盘点结果。  
+- 负库存与大额盘亏必须标红并给倒查步骤。  
+- 危险品仅提示合规隔离。  
+- **禁止未确认创建定时任务**。  
+- 会话根落文件，禁止多余 `output/`。
 
 ## 参考资料
 
-- `references/ledger-fields.md` — 字段、变动类型、台账与报表模板
-- `references/anomaly-playbook.md` — 异常类型与倒查优先级
-- `references/cargo-handling.md` — 重货/泡货/易损/危险品注意点
+- `references/data-protocol.md`  
+- `references/onmyagent-automations.md`  
+- `references/ledger-fields.md`  
+- `references/anomaly-playbook.md`  
+- `references/cargo-handling.md`  
+- `scripts/build_warehouse_artifacts.py`  
