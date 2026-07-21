@@ -87,6 +87,8 @@ export default {
   "skills.matrix_count": "Showing {visible} / {total}",
   "skills.matrix_description": "Description",
   "skills.matrix_empty": "No matching skills",
+  "skills.matrix_empty_inventory": "No skills found yet",
+  "skills.matrix_loading": "Loading skills…",
   "skills.matrix_filtered_suffix": " (filtered)",
   "skills.matrix_import_managed": "Import as managed",
   "skills.matrix_import_to_studio_switch": "Import to Studio Switch",

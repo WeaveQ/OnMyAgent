@@ -19,6 +19,7 @@ import { snapshotToUIMessages } from "./usechat-adapter";
 import type { OnMyAgentSessionSnapshot } from "@/app/lib/onmyagent-server";
 import { reconcileTranscriptMessages } from "./transcript-reconcile";
 import { useSessionActivityStore } from "../status/session-activity-store";
+import { useExpertUnreadStore } from "../status/expert-unread-store";
 import {
   createTranscriptMessageMetadata,
   type TranscriptMessageSourceInfo,
@@ -1032,6 +1033,10 @@ function applyEvent(
       useSessionActivityStore
         .getState()
         .markAssistantOutput(workspaceId, part.sessionID, part.messageID);
+      // Expert list unread (WeChat-style red dot) — local cursor only.
+      useExpertUnreadStore
+        .getState()
+        .noteAssistantActivityForSession(workspaceId, part.sessionID);
     }
     if (!isTrackedSession(entry, part.sessionID)) return;
     const [mapped, ...attachments] = toUIParts(part);

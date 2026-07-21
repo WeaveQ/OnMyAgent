@@ -65,9 +65,21 @@ export function SessionSurfaceHeader(props: {
   personalAssistantHome?: boolean;
   onOpenAgentSettings?: () => void;
   headerActions?: ReactNode;
+  /**
+   * Bottom rule under the title row. Hide when the session-tab strip is
+   * expanded (tabs own the single divider) to avoid double lines.
+   */
+  showBottomBorder?: boolean;
 }) {
+  const showBottomBorder = props.showBottomBorder !== false;
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between bg-dls-background px-5">
+    <header
+      className={cn(
+        "flex h-12 shrink-0 items-center justify-between bg-dls-background px-5",
+        // Align with side-panel header when this is the only chrome rule.
+        showBottomBorder && "border-b border-dls-mist",
+      )}
+    >
       <div className="flex min-w-0 items-center gap-2.5">
         <PendingAgentAvatar
           name={props.agent.name}

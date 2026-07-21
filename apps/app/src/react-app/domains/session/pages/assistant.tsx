@@ -795,6 +795,7 @@ export function AssistantPage(props: AssistantPageProps) {
     props.startupPhase !== "sessionIndexReady" &&
     props.startupPhase !== "firstSessionReady" &&
     props.startupPhase !== "ready";
+  // Same as expert: draft home/new-session must not be masked by prior session loading.
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) &&
     props.sessionLoadingById(props.selectedSessionId) &&
@@ -874,6 +875,15 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
   /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
   const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
+  // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
+  const sidePanelVisibleOnSession =
+    sidePanelVisible && isPrimarySessionView;
+
+  // Leaving 助理/专家 chat for other rail pages must close the workspace panel.
+  useEffect(() => {
+    if (isPrimarySessionView) return;
+    setCurrentSidePanel(null);
+  }, [isPrimarySessionView, setCurrentSidePanel]);
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -1234,14 +1244,14 @@ export function AssistantPage(props: AssistantPageProps) {
             <ResizablePanelGroup
               orientation="horizontal"
               onLayoutChanged={
-                sidePanelVisible ? commitBrowserPanelWidth : undefined
+                sidePanelVisibleOnSession ? commitBrowserPanelWidth : undefined
               }
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
                 <main className={cn(
                   "flex h-full min-w-0 flex-col overflow-hidden bg-dls-background",
-                  sidePanelVisible ? "border-r-0" : "border-r border-dls-border",
+                  sidePanelVisibleOnSession ? "border-r-0" : "border-r border-dls-border",
                 )}>
                   <div className="flex min-h-0 flex-1 overflow-hidden">
                     <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
@@ -1617,10 +1627,10 @@ export function AssistantPage(props: AssistantPageProps) {
                   </div>
                 </main>
               </ResizablePanel>
-              {sidePanelVisible ? (
+              {sidePanelVisibleOnSession ? (
                 <>
                   {/* Single 1px rule — base handle also paints bg-border; avoid before: double line. */}
-                  <ResizableHandle className="hidden w-px shrink-0 bg-dls-border/70 transition-colors hover:bg-dls-border-strong focus-visible:bg-dls-accent focus-visible:outline-none focus-visible:ring-0 lg:flex after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 after:bg-transparent after:content-['']" />
+                  <ResizableHandle className="hidden lg:flex" />
                   <ResizablePanel
                     key={assistantCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
                     panelRef={browserPanelRef}

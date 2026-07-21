@@ -11,7 +11,7 @@ export {
   CustomConnectorDialog,
   CustomConnectorEntryButton,
 } from "./custom-connector-dialog";
-export { extensionIcon } from "./extension-icon";
+export { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 export { ArtifactPluginCard, type ArtifactPluginCardProps } from "./artifact-plugin-card";
 export {
   ArtifactPluginDetail,
