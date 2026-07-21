@@ -31,7 +31,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FilterChip, MenuRowButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { MenuRowButton, NavTabButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1580,28 +1580,40 @@ export function AutomationPage(props: {
           </div>
         ) : (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center gap-0.5">
-              {automationStatusTabs.map((tab) => (
-                <FilterChip
-                  key={tab}
-                  type="button"
-                  selected={activeStatusTab === tab}
-                  onClick={() => setActiveStatusTab(tab)}
-                  label={
-                    <>
-                      {tab === "scheduled"
-                        ? t("automation.scheduled_section")
-                        : tab === "running"
-                          ? t("automation.running_section")
-                          : t("automation.completed_section")}
-                      <StatusBadge tone="neutral" size="tiny" shape="soft">
-                        {statusTabCounts[tab]}
-                      </StatusBadge>
-                    </>
-                  }
-                />
-              ))}
-            </div>
+            {/* Match files page My / Drive free-float inverted pills. */}
+            <SegmentedTabGroup density="bare">
+              {automationStatusTabs.map((tab) => {
+                const active = activeStatusTab === tab;
+                const label =
+                  tab === "scheduled"
+                    ? t("automation.scheduled_section")
+                    : tab === "running"
+                      ? t("automation.running_section")
+                      : t("automation.completed_section");
+                return (
+                  <NavTabButton
+                    key={tab}
+                    type="button"
+                    active={active}
+                    size="tab"
+                    shape="tab"
+                    aria-pressed={active}
+                    onClick={() => setActiveStatusTab(tab)}
+                  >
+                    <span>{label}</span>
+                    <span
+                      className={
+                        active
+                          ? "tabular-nums text-xs font-medium opacity-70"
+                          : "tabular-nums text-xs font-medium text-dls-secondary"
+                      }
+                    >
+                      {statusTabCounts[tab]}
+                    </span>
+                  </NavTabButton>
+                );
+              })}
+            </SegmentedTabGroup>
             <div className="space-y-1">
               {activeStatusTab === "scheduled"
                 ? scheduled.map((item) => (

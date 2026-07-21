@@ -88,6 +88,7 @@ import {
   specializedToolHeadline,
 } from "./specialized-tool-details";
 import { TranscriptResourceChip } from "./transcript-resource-chip";
+import { parseSkillReference } from "./skill-reference";
 import { applyTextHighlights } from "./text-highlights";
 import {
   computeTranscriptMaxContentWidth,
@@ -493,7 +494,12 @@ function estimateBlockSize(block: MessageBlockItem | undefined) {
     if (group.kind === "steps") {
       return total + 72 + group.parts.length * 58;
     }
-    return total + estimateTextBlockSize(partToText(group.part), block.isUser);
+    const text = partToText(group.part);
+    // Expanded auto-slash dumps collapse to a single chip row in the UI.
+    if (block.isUser && parseSkillReference(text)) {
+      return total + 56;
+    }
+    return total + estimateTextBlockSize(text, block.isUser);
   }, 0);
   const attachmentSize = block.attachments.length > 0 ? 76 : 0;
   const openTargetsSize = !block.isUser ? 44 : 0;
@@ -1503,53 +1509,6 @@ function HighlightedPlainText(props: {
   );
 }
 
-function parseExpandedSkillReference(text: string): { name: string; arguments: string } | null {
-  const frontmatter = text.match(/^---\s*\r?\n[\s\S]*?\bname:\s*["']?([A-Za-z0-9][\w.-]*)["']?\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n/);
-  const name = frontmatter?.[1];
-  if (!name) return null;
-
-  const lines = text.trimEnd().split(/\r?\n/);
-  const trailing: string[] = [];
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index] ?? "";
-    const trimmed = line.trim();
-    if (!trimmed) {
-      if (trailing.length > 0) break;
-      continue;
-    }
-    if (
-      trimmed.startsWith("#") ||
-      trimmed.startsWith(">") ||
-      trimmed.startsWith("- ") ||
-      trimmed.startsWith("* ") ||
-      trimmed.startsWith("```") ||
-      trimmed.startsWith("|") ||
-      /^\d+\.\s/.test(trimmed)
-    ) {
-      break;
-    }
-    trailing.unshift(line);
-  }
-
-  const args = trailing.join("\n").trim();
-  if (!args || args === text.trim()) return null;
-  return { name, arguments: args };
-}
-
-function parseSkillReference(text: string): { name: string; arguments: string } | null {
-  const markerMatch = text.match(/^\[\[skill:([A-Za-z0-9][\w.-]*)\]\]\s*([\s\S]*)$/);
-  if (markerMatch?.[1]) {
-    return { name: markerMatch[1], arguments: markerMatch[2] ?? "" };
-  }
-
-  const slashMatch = text.match(/^\/([A-Za-z0-9][\w.-]*)\s+([\s\S]*)$/);
-  if (slashMatch?.[1]) {
-    return { name: slashMatch[1], arguments: slashMatch[2] ?? "" };
-  }
-
-  return parseExpandedSkillReference(text);
-}
-
 function SkillReferenceText(props: { text: string; highlightQuery?: string }) {
   const skillReference = parseSkillReference(props.text);
   if (!skillReference) {
@@ -1565,14 +1524,16 @@ function SkillReferenceText(props: { text: string; highlightQuery?: string }) {
   return (
     <div className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 whitespace-pre-wrap wrap-break-word text-dls-text">
       <span className={messageStateClass.skillReferenceChip}>
-        <Terminal size={12} aria-hidden="true" />
-        /{skillReference.name}
+        <SkillGlyphIcon className="size-3 shrink-0" aria-hidden="true" />
+        {skillReference.name}
       </span>
-      <HighlightedPlainText
-        text={skillReference.arguments}
-        className="min-w-0 wrap-break-word"
-        highlightQuery={props.highlightQuery}
-      />
+      {skillReference.arguments ? (
+        <HighlightedPlainText
+          text={skillReference.arguments}
+          className="min-w-0 wrap-break-word"
+          highlightQuery={props.highlightQuery}
+        />
+      ) : null}
     </div>
   );
 }
