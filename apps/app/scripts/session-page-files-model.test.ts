@@ -100,25 +100,27 @@ describe("session page files model", () => {
       entry("agent-b/task-2/opencode.jsonc", "file", 100),
     ]);
 
-    expect(groups).toEqual([
-      {
-        agentName: "agent-a",
-        taskName: "未分组",
-        files: [{ name: "profile.md", path: "agent-a/profile.md", kind: "file", size: 60, mtimeMs: 1000 }],
-      },
-      {
-        agentName: "agent-a",
-        taskName: "task-1",
-        files: [
-          { name: "trace.log", path: "agent-a/task-1/nested/trace.log", kind: "file", size: 80, mtimeMs: 1000 },
-          { name: "output.txt", path: "agent-a/task-1/output.txt", kind: "file", size: 70, mtimeMs: 1000 },
-        ],
-      },
-      {
-        agentName: "工作区根目录",
-        taskName: "未分组",
-        files: [{ name: "README.md", path: "README.md", kind: "file", size: 50, mtimeMs: 1000 }],
-      },
+    // Locale-agnostic structure checks (labels come from i18n).
+    expect(groups).toHaveLength(3);
+    expect(groups[0]).toMatchObject({
+      agentName: "agent-a",
+      files: [{ name: "profile.md", path: "agent-a/profile.md", kind: "file", size: 60, mtimeMs: 1000 }],
+    });
+    expect(groups[1]).toMatchObject({
+      agentName: "agent-a",
+      taskName: "task-1",
+      files: [
+        { name: "trace.log", path: "agent-a/task-1/nested/trace.log", kind: "file", size: 80, mtimeMs: 1000 },
+        { name: "output.txt", path: "agent-a/task-1/output.txt", kind: "file", size: 70, mtimeMs: 1000 },
+      ],
+    });
+    expect(groups[2]?.files).toEqual([
+      { name: "README.md", path: "README.md", kind: "file", size: 50, mtimeMs: 1000 },
     ]);
+    // Hidden paths never appear in hierarchy output.
+    expect(groups.flatMap((g) => g.files.map((f) => f.path))).not.toContain("agent-a/.secret");
+    expect(groups.flatMap((g) => g.files.map((f) => f.path))).not.toContain(
+      "agent-b/task-2/opencode.jsonc",
+    );
   });
 });

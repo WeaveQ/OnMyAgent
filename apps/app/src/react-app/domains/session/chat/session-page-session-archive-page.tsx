@@ -389,11 +389,11 @@ export function SessionArchivePage(props: Props) {
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center text-xs text-dls-secondary">
                 <MessageSquare className="size-8 opacity-30" />
                 <span>{t("session_archive.empty")}</span>
-                <span className="max-w-[16rem] text-[11px] leading-relaxed text-dls-secondary/80">
+                <span className="max-w-[16rem] text-2xs leading-relaxed text-dls-secondary/80">
                   {t("session_archive.empty_hint")}
                 </span>
                 {lastSyncSummary ? (
-                  <span className="max-w-[16rem] text-[11px] leading-relaxed text-dls-secondary/70">
+                  <span className="max-w-[16rem] text-2xs leading-relaxed text-dls-secondary/70">
                     {t("session_archive.empty_sync_stats", {
                       discovered: lastSyncSummary.discovered,
                       synced: lastSyncSummary.synced,

@@ -307,7 +307,7 @@ export function AgentConversationItem(props: {
             <span
               className={cn(
                 "absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1",
-                "border-2 border-dls-sidebar bg-dls-status-danger text-[10px] font-semibold leading-none text-white",
+                "border-2 border-dls-sidebar bg-dls-status-danger text-2xs font-semibold leading-none text-white",
                 props.selected && "border-dls-list-selected",
               )}
               aria-label={t("session.expert_unread_count", {

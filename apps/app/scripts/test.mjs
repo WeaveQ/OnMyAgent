@@ -53,6 +53,7 @@ const testTargets = new Map([
   ['session-page-info-models', ['bun', ['test', 'scripts/session-page-info-models.test.ts']]],
   ['session-page-conversation-model', ['bun', ['test', 'scripts/session-page-conversation-model.test.ts']]],
   ['session-page-files-model', ['bun', ['test', 'scripts/session-page-files-model.test.ts']]],
+  ['session-empty-contracts', ['bun', ['test', 'scripts/session-empty-contracts.test.ts']]],
   ['session-page-model', ['bun', ['test', 'scripts/session-page-model.test.ts']]],
   ['session-archive-page', ['bun', ['test', 'scripts/session-archive-page.test.ts']]],
   ['local-agent-constants', ['bun', ['test', 'scripts/local-agent-constants.test.ts']]],
