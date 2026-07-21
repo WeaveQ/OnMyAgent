@@ -144,7 +144,8 @@ function SkillStateGlyph(props: {
         className={cn(
           "flex items-center justify-center rounded-full font-semibold leading-none text-white",
           sizeClass,
-          "bg-dls-online",
+          // Theme accent blue — not online/green status (product selection marker).
+          "bg-dls-accent",
         )}
       >
         ✓
@@ -156,9 +157,9 @@ function SkillStateGlyph(props: {
     return (
       <span
         className={cn(
-          "flex items-center justify-center rounded-full font-semibold leading-none text-dls-online",
+          "flex items-center justify-center rounded-full font-semibold leading-none text-dls-accent",
           sizeClass,
-          "bg-dls-online/15 ring-1 ring-dls-online/40",
+          "bg-dls-accent/15 ring-1 ring-dls-accent/40",
         )}
       >
         ✓
@@ -343,7 +344,7 @@ function SkillAgentCluster(props: {
   /** Visible matrix columns — cluster must match these, not a hard-coded agent list. */
   matrixAgents: ReadonlyArray<AgentManagementSkillAgent>;
 }) {
-  // Order by matrix columns so the stack mirrors the green checkmarks the user sees.
+  // Order by matrix columns so the stack mirrors the accent checkmarks the user sees.
   // (Old code filtered only STUDIO_SWITCH_SKILL_AGENT_OPTIONS and dropped grok/mimo/workbuddy/…)
   const enabledAgents = props.matrixAgents.filter((agent) =>
     props.skill.agents.includes(agent),
