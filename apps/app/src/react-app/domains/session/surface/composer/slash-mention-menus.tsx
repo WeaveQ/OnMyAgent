@@ -22,7 +22,7 @@ function partitionSlashCommands(commands: SlashCommandOption[]) {
   const skills: SlashCommandOption[] = [];
   const cmds: SlashCommandOption[] = [];
   for (const command of commands) {
-    // Connectors (source "mcp") are excluded from slash — use + → 连接器.
+    // Connectors (source "mcp") are excluded from slash — use + → connectors.
     if (command.source === "mcp") continue;
     if (command.source === "skill") skills.push(command);
     else cmds.push(command);
@@ -142,8 +142,8 @@ export function ComposerSlashMenu(props: {
   if (!props.open) return null;
 
   const { skills, cmds } = partitionSlashCommands(props.filtered);
-  // Merge skills + commands under 「技能」 only (no connector section).
-  // (Many backends tag skills as source "command" — still show under 技能.)
+  // Merge skills + commands under skills only (no connector section).
+  // (Many backends tag skills as source "command" — still show under skills.)
   const skillItems = [...skills, ...cmds];
 
   return (

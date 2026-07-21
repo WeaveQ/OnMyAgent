@@ -67,7 +67,7 @@ export const composerMenuClass = {
     "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
   panelWithoutBottomBorder:
     "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
-  // Grouped 技能 / 指令 list — roomy horizontal padding, compact vertical stack.
+  // Grouped skills / commands list — roomy horizontal padding, compact vertical stack.
   scrollArea: "max-h-72 overflow-y-auto px-1.5 py-2",
 
   itemIcon: "mt-0.5 shrink-0 text-dls-secondary",
@@ -213,7 +213,7 @@ export type ComposerProps = {
   importedPlugins?: CloudImportedPlugin[];
   onOpenSettingsSection?: (section: ToolMenuSettingsSection) => void;
   onOpenSkillsMarketplace?: () => void;
-  /** Open market → connectors (plugins) tab — 连接器 flyout「配置」. */
+  /** Open market → connectors (plugins) tab — connectors flyout configure. */
   onOpenConnectorsMarketplace?: () => void;
   /** Open custom MCP config dialog (e.g. MCP row toggle / advanced). */
   onOpenCustomConnector?: () => void;

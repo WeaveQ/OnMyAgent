@@ -42,7 +42,7 @@ type CustomConnectorDialogProps = {
   onOpenChange: (open: boolean) => void;
   workspaceRoot?: string | null;
   onSaved?: () => void;
-  /** When opening from Composer「配置」, jump straight to the JSON editor. */
+  /** When opening from Composer configure, jump straight to the JSON editor. */
   initialView?: ViewMode;
 };
 
@@ -474,7 +474,7 @@ export function CustomConnectorEntryButton(props: {
   onClick: () => void;
   className?: string;
 }) {
-  // Match store header chrome for「我安装的」(outline sm + rounded-md), keep +.
+  // Match store header chrome for "My installed" (outline sm + rounded-md), keep +.
   return (
     <Button
       type="button"
