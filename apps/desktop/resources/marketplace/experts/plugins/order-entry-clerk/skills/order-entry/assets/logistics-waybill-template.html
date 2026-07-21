@@ -56,15 +56,15 @@
       固定通用物流单模板：只替换文字与 missing 状态，不得增删区块、重排字段、改变合并单元格或另行设计版式。
       用户提供指定模板时，应改为忠实复刻用户模板，不使用本文件。
     -->
-    <main class="sheet" data-template="common-logistics-transport-agreement-v1" data-status="草稿·待确认">
+    <main class="sheet" data-template="common-logistics-transport-agreement-v2" data-status="草稿·待确认">
       <header>
         <h1>物流运输协议</h1>
         <div class="subtitle">承揽全国各地整车零担业务 · 代收货款</div>
-        <div class="serial">NO. <span class="missing">待补充</span></div>
-        <div class="status">草稿·待确认</div>
+        <div class="serial">NO. <span class="missing" data-field="document.number">待补充</span></div>
+        <div class="status" data-field="document.status">草稿·待确认</div>
         <div class="route-line">
-          <div>起运地点：<span class="field-line missing">待补充</span> 至 <span class="field-line missing">待补充</span></div>
-          <div>发货日期：<span class="field-line missing">待补充</span></div>
+          <div>起运地点：<span class="field-line missing" data-field="route.origin">待补充</span> 至 <span class="field-line missing" data-field="route.destination">待补充</span></div>
+          <div>发货日期：<span class="field-line missing" data-field="document.date">待补充</span></div>
         </div>
       </header>
 
@@ -74,9 +74,9 @@
           <col style="width: 14%" /><col style="width: 36%" />
         </colgroup>
         <tbody>
-          <tr><th class="party-label">托运单位</th><td class="value missing">待补充</td><th>收货单位</th><td class="value missing">待补充</td></tr>
-          <tr><th>姓名</th><td class="value missing">待补充</td><th>姓名</th><td class="value missing">待补充</td></tr>
-          <tr><th>电话</th><td class="value missing">待补充</td><th>电话</th><td class="value missing">待补充</td></tr>
+          <tr><th class="party-label">托运单位</th><td class="value missing" data-field="shipper.name">待补充</td><th>收货单位</th><td class="value missing" data-field="consignee.name">待补充</td></tr>
+          <tr><th>姓名</th><td class="value missing" data-field="shipper.contact">待补充</td><th>姓名</th><td class="value missing" data-field="consignee.contact">待补充</td></tr>
+          <tr><th>电话</th><td class="value missing" data-field="shipper.phone">待补充</td><th>电话</th><td class="value missing" data-field="consignee.phone">待补充</td></tr>
         </tbody>
       </table>
 
@@ -89,26 +89,26 @@
           <tr><th>货物名称</th><th>件数</th><th>包装</th><th>重量/体积</th><th>保险金额</th><th>保险费</th><th>代收货款</th><th>备注</th></tr>
         </thead>
         <tbody>
-          <tr class="goods-row"><td class="missing">待补充</td><td class="missing">待补充</td><td class="missing">待补充</td><td class="missing">待补充</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr class="goods-row"><td class="missing" data-field="cargo.name">待补充</td><td class="missing" data-field="cargo.quantity">待补充</td><td class="missing" data-field="cargo.packaging">待补充</td><td class="missing" data-field="cargo.weightOrVolume">待补充</td><td data-field="cargo.declaredValue">—</td><td data-field="cargo.insuranceFee">—</td><td data-field="cargo.codAmount">—</td><td data-field="remarks">—</td></tr>
         </tbody>
       </table>
 
       <table aria-label="车辆司机信息">
         <colgroup><col style="width: 14%" /><col style="width: 34%" /><col style="width: 14%" /><col style="width: 38%" /></colgroup>
         <tbody>
-          <tr><th>车牌号</th><td class="value">—</td><th>家庭住址</th><td class="value">—</td></tr>
-          <tr><th>驾驶证号</th><td class="value">—</td><th>司机姓名</th><td class="value">—　　电话：—</td></tr>
+          <tr><th>车牌号</th><td class="value" data-field="vehicle.plate">—</td><th>家庭住址</th><td class="value" data-field="vehicle.driverAddress">—</td></tr>
+          <tr><th>驾驶证号</th><td class="value" data-field="vehicle.licenseNumber">—</td><th>司机姓名</th><td class="value"><span data-field="vehicle.driverName">—</span>　　电话：<span data-field="vehicle.driverPhone">—</span></td></tr>
           <tr><td colspan="4" class="settlement">
             运输结算方式：
-            <span class="check">到付 <i class="box"></i></span>
-            <span class="check">已付 <i class="box"></i></span>
-            <span class="check">回付 <i class="box"></i></span>
-            <span class="check">欠付 <i class="box"></i></span>
+            <span class="check">到付 <i class="box" data-check="payment.collect"></i></span>
+            <span class="check">已付 <i class="box" data-check="payment.prepaid"></i></span>
+            <span class="check">回付 <i class="box" data-check="payment.receipt"></i></span>
+            <span class="check">欠付 <i class="box" data-check="payment.unpaid"></i></span>
             提货方式：
-            <span class="check">自提 <i class="box"></i></span>
-            <span class="check">送货 <i class="box"></i></span>
+            <span class="check">自提 <i class="box" data-check="handover.pickup"></i></span>
+            <span class="check">送货 <i class="box" data-check="handover.delivery"></i></span>
           </td></tr>
-          <tr><td colspan="4" class="amount">金额合计（大写）：<span class="missing">待补充</span>　万　仟　佰　拾　元　￥：<span class="missing">待补充</span></td></tr>
+          <tr><td colspan="4" class="amount">金额合计（大写）：<span class="missing" data-field="payment.amountUppercase">待补充</span>　￥：<span class="missing" data-field="payment.amount">待补充</span></td></tr>
         </tbody>
       </table>
 
@@ -128,7 +128,7 @@
       </div>
 
       <footer>
-        <div>地址：<span class="missing">待补充</span>　手机：<strong class="missing">待补充</strong></div>
+        <div>地址：<span class="missing" data-field="carrier.address">待补充</span>　手机：<strong class="missing" data-field="carrier.phone">待补充</strong></div>
         <div>托运方在本公司托运货物时请仔细阅读客户联背面，本运单一经签署即生法律效用。</div>
       </footer>
     </main>
