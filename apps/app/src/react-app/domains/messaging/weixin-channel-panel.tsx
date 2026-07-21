@@ -64,6 +64,7 @@ type WeixinAccountStatusPayload = {
     accessibleWorkspaceRoots?: string[];
     approvalMode?: PersonalLocalAgentApprovalMode;
     defaultAccountId?: string;
+    agent?: { id: string; [key: string]: unknown } | null;
   };
 };
 
@@ -207,6 +208,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
   const canSimulate = Boolean(effectiveAccountId && allowedUser.trim());
   const busyIcon = useMemo(() => busy ? <LoadingSpinner size="default" /> : null, [busy]);
   const qrScanValue = qrCodeUrl || qrCode;
+
   const qrImageUrl = qrImageDataUrl;
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents[0] ?? FALLBACK_AGENT;
   const selectedAgentSupportsApproval = selectedAgent.capability?.supportsApproval !== false;
@@ -217,11 +219,13 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
     executablePath: selectedAgent.executablePath,
     model: selectedAgent.model,
     customArgs: selectedAgent.customArgs,
+    modelOptions: selectedAgent.modelOptions,
+    defaultModel: selectedAgent.defaultModel,
   }), [selectedAgent]);
 
   const refreshAgents = useCallback(async () => {
     try {
-      const result = await personalLocalAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: false });
+      const result = await personalLocalAgentsList({ workspaceRoot: effectiveWorkspaceRoot, includeModels: true });
       const nextAgents = result.agents.length ? result.agents : [FALLBACK_AGENT];
       setAgents(nextAgents);
       setSelectedAgentId((current) => nextAgents.some((agent) => agent.id === current) ? current : nextAgents[0]?.id ?? "opencode");
@@ -231,6 +235,53 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
       setError(agentError instanceof Error ? agentError.message : String(agentError));
     }
   }, [effectiveWorkspaceRoot]);
+
+  // Auto-load the agent list whenever the access workspace becomes available
+  // or changes, so the reply-agent dropdown is populated without requiring a
+  // manual refresh press.
+  useEffect(() => {
+    if (effectiveWorkspaceRoot.trim()) void refreshAgents();
+  }, [effectiveWorkspaceRoot, refreshAgents]);
+
+  // Selecting a reply agent updates local state and, when the service is
+  // already running, re-applies the start options so the choice is persisted
+  // to the WeChat config (otherwise it would be lost on the next panel mount).
+  const chooseAgent = useCallback(async (agentId: string) => {
+    setSelectedAgentId(agentId);
+    if (!running) return;
+    setBusy("start");
+    setError(null);
+    try {
+      const result = await weixinStart({
+        accountId: effectiveAccountId,
+        workspaceRoot: effectiveWorkspaceRoot,
+        accessibleWorkspaceRoots: effectiveAccessibleRoots,
+        agent: agentPayload,
+        availableAgents: agents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          provider: agent.provider,
+          executablePath: agent.executablePath,
+          model: agent.model,
+          customArgs: agent.customArgs,
+          modelOptions: agent.modelOptions,
+          defaultModel: agent.defaultModel,
+        })),
+        approvalMode,
+        promptMode,
+        dmPolicy: allowedUser.trim() ? "allowlist" : "open",
+        allowedUsers: allowedUser.trim() ? [allowedUser.trim()] : [],
+      });
+      if (result.status) {
+        setServiceState(result.status as WeixinPanelState);
+        onStatusChange?.(result.status as WeixinPanelState);
+      }
+    } catch (chooseError) {
+      setError(chooseError instanceof Error ? chooseError.message : String(chooseError));
+    } finally {
+      setBusy(null);
+    }
+  }, [agentPayload, agents, allowedUser, approvalMode, effectiveAccessibleRoots, effectiveAccountId, effectiveWorkspaceRoot, onStatusChange, promptMode, running]);
 
   const refresh = useCallback(async () => {
     setBusy("refresh");
@@ -251,6 +302,10 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
       if (storedAccessibleRoots.length) setAccessibleWorkspaceRoots((current) => current.length ? current : storedAccessibleRoots);
       const storedApprovalMode = accountPayload.config?.approvalMode ?? accountPayload.status?.approvalMode;
       if (storedApprovalMode === "auto" || storedApprovalMode === "ask" || storedApprovalMode === "read-only-auto") setApprovalMode(storedApprovalMode);
+      const storedAgent = accountPayload.config?.agent;
+      if (storedAgent && typeof storedAgent === "object" && storedAgent.id) {
+        setSelectedAgentId((current) => current && current !== "opencode" ? current : String(storedAgent.id));
+      }
       setServiceState(statusResult as WeixinPanelState);
       onStatusChange?.(statusResult as WeixinPanelState);
     } catch (refreshError) {
@@ -271,17 +326,25 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
       if (storedWorkspaceRoot) setAccessWorkspaceRoot(storedWorkspaceRoot);
       if (storedAccessibleRoots.length) setAccessibleWorkspaceRoots(storedAccessibleRoots);
       if (storedApprovalMode === "auto" || storedApprovalMode === "ask" || storedApprovalMode === "read-only-auto") setApprovalMode(storedApprovalMode);
+      const storedAgent = accountPayload?.config?.agent;
+      const storedAgentId = storedAgent && typeof storedAgent === "object" && storedAgent.id ? String(storedAgent.id) : null;
       let autoStartAgents = agents;
-      const agentResult = await personalLocalAgentsList({ workspaceRoot: autoStartWorkspaceRoot, includeModels: false }).catch((agentError) => {
+      const agentResult = await personalLocalAgentsList({ workspaceRoot: autoStartWorkspaceRoot, includeModels: true }).catch((agentError) => {
         setAgents([FALLBACK_AGENT]);
-        setSelectedAgentId("opencode");
+        if (storedAgentId) setSelectedAgentId(storedAgentId);
+        else setSelectedAgentId("opencode");
         setError(agentError instanceof Error ? agentError.message : String(agentError));
         return null;
       });
       if (agentResult) {
         autoStartAgents = agentResult.agents.length ? agentResult.agents : [FALLBACK_AGENT];
         setAgents(autoStartAgents);
-        setSelectedAgentId((current) => autoStartAgents.some((agent) => agent.id === current) ? current : autoStartAgents[0]?.id ?? "opencode");
+        // Restore the previously selected agent when possible; only fall back
+        // to the first listed agent if nothing was ever chosen.
+        const preferred = storedAgentId && autoStartAgents.some((agent) => agent.id === storedAgentId)
+          ? storedAgentId
+          : (autoStartAgents[0]?.id ?? "opencode");
+        setSelectedAgentId(preferred);
       }
       const result = await weixinAutoStart({
         workspaceRoot: autoStartWorkspaceRoot,
@@ -293,6 +356,8 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           executablePath: agent.executablePath,
           model: agent.model,
           customArgs: agent.customArgs,
+          modelOptions: agent.modelOptions,
+          defaultModel: agent.defaultModel,
         })),
       }).catch(() => null);
       if (result?.status) {
@@ -394,6 +459,8 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           executablePath: agent.executablePath,
           model: agent.model,
           customArgs: agent.customArgs,
+          modelOptions: agent.modelOptions,
+          defaultModel: agent.defaultModel,
         })),
         approvalMode,
         promptMode,
@@ -461,6 +528,8 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           executablePath: agent.executablePath,
           model: agent.model,
           customArgs: agent.customArgs,
+          modelOptions: agent.modelOptions,
+          defaultModel: agent.defaultModel,
         })),
         approvalMode,
         promptMode,
@@ -496,6 +565,8 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           executablePath: agent.executablePath,
           model: agent.model,
           customArgs: agent.customArgs,
+          modelOptions: agent.modelOptions,
+          defaultModel: agent.defaultModel,
         })),
         approvalMode: nextMode,
         promptMode,
@@ -547,6 +618,8 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           executablePath: agent.executablePath,
           model: agent.model,
           customArgs: agent.customArgs,
+          modelOptions: agent.modelOptions,
+          defaultModel: agent.defaultModel,
         })),
         dmPolicy: "allowlist",
         allowedUsers: [allowedUser.trim()],

@@ -21,9 +21,11 @@ describe("session empty / draft / files / composer contracts", () => {
 
   test("composer homeLayout covers assistant + expert empty", () => {
     const src = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const mode = read("src/react-app/domains/session/surface/session-surface-layout-mode.ts");
     expect(src).toContain("homeComposerLayout");
-    expect(src).toContain("expertEmptyComposer");
     expect(src).toContain("homeLayout={homeComposerLayout}");
+    expect(mode).toContain("expertEmptyComposer");
+    expect(mode).toContain("personalAssistantDraftHome");
     const editor = read("src/react-app/domains/session/surface/composer/editor.tsx");
     expect(editor).toMatch(/props\.compact[\s\S]*min-h-14/);
   });
@@ -118,5 +120,42 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(host).toContain("SessionSurfaceTranscriptPane");
     expect(host).toContain("SessionSurfaceComposerColumn");
     expect(host).toContain("SessionSurfaceBody");
+  });
+
+  test("session-surface uses layout-mode helper + transcript content extract", () => {
+    const host = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const mode = read("src/react-app/domains/session/surface/session-surface-layout-mode.ts");
+    const transcript = read(
+      "src/react-app/domains/session/surface/session-surface-transcript-content.tsx",
+    );
+    expect(mode).toContain("export function deriveSessionSurfaceLayoutMode");
+    expect(transcript).toContain("export function SessionSurfaceTranscriptContent");
+    expect(host).toContain("deriveSessionSurfaceLayoutMode");
+    expect(host).toContain("SessionSurfaceTranscriptContent");
+  });
+
+  test("session chrome barrel re-exports focused chrome modules", () => {
+    const barrel = read("src/react-app/domains/session/surface/session-surface-chrome.tsx");
+    expect(barrel).toContain("./chrome/session-surface-header");
+    expect(barrel).toContain("./chrome/session-draft-workspace-accessory");
+    expect(barrel).toContain("SessionSurfaceHeader");
+    expect(barrel).toContain("SessionDraftWorkspaceAccessory");
+  });
+
+  test("expert and assistant share SessionHistorySearchChrome", () => {
+    const expert = read("src/react-app/domains/session/pages/expert.tsx");
+    const assistant = read("src/react-app/domains/session/pages/assistant.tsx");
+    const chrome = read("src/react-app/domains/session/pages/session-history-search-chrome.tsx");
+    expect(chrome).toContain("export function SessionHistorySearchChrome");
+    expect(expert).toContain("SessionHistorySearchChrome");
+    expect(assistant).toContain("SessionHistorySearchChrome");
+  });
+
+  test("model picker distinguishes loading from empty", () => {
+    const src = read("src/react-app/domains/session/modals/model-picker-modal.tsx");
+    expect(src).toContain("loading?: boolean");
+    expect(src).toMatch(
+      /props\.loading && providerGroups\.length === 0[\s\S]*?common\.loading[\s\S]*?providerGroups\.length === 0/,
+    );
   });
 });

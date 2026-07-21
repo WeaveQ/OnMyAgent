@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useMemo } from "react";
-import { Boxes, Cloud, Loader2, RefreshCcw, Search } from "lucide-react";
+import { Boxes, Cloud, RefreshCcw, Search } from "lucide-react";
 
 import type { DenOrgSummary, DenWorkerSummary } from "../../../app/lib/den";
 import {

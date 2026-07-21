@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { CheckCircle2, ChevronRight, Loader2, Search } from "lucide-react";
+import { CheckCircle2, ChevronRight, Search } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -1289,14 +1289,9 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-xs text-dls-secondary">
-                      <Loader2
-                        size={14}
-                        className={
-                          props.submitting || pollingBusy || oauthAutoBusy
+                      <LoadingSpinner size="sm" className={props.submitting || pollingBusy || oauthAutoBusy
                             ? "animate-spin"
-                            : ""
-                        }
-                      />
+                            : ""} />
                       <span>{t("provider_auth.checking_connection_automatically")}</span>
                     </div>
                   )}

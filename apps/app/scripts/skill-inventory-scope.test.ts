@@ -122,4 +122,18 @@ describe("skill inventory scope", () => {
     expect(countFleetRelatedSkills(all, fleet)).toBe(1);
     expect(countSharedPoolSkills(all)).toBe(2);
   });
+
+  test("empty fleet excludes all fleet-related", () => {
+    expect(isFleetRelatedSkill(fleetNative, [])).toBe(false);
+    expect(filterSkillsByInventoryScope([fleetNative, poolOnly], "fleet", []).map((s) => s.name)).toEqual([]);
+  });
+
+  test("unknown agent key is not fleet-related", () => {
+    const unknownOnly = skill({
+      name: "mystery",
+      path: "/tmp/mystery",
+      agents: ["unknown"],
+    });
+    expect(isFleetRelatedSkill(unknownOnly, fleet)).toBe(false);
+  });
 });

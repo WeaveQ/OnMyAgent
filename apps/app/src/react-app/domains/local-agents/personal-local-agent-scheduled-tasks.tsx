@@ -1,5 +1,5 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { ChevronDown, Loader2, Play, Plus, RefreshCw, Trash2, X, Clock3 } from "lucide-react";
+import { ChevronDown, Play, Plus, RefreshCw, Trash2, X, Clock3 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
