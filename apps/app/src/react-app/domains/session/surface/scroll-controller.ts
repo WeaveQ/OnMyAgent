@@ -27,7 +27,13 @@ type SessionScrollControllerOptions = {
   containerRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
   sessionChangeScroll?: "bottom" | "top";
+  /** Sticky-bottom while streaming / content growth. */
   active: boolean;
+  /**
+   * Whether the transcript chrome is on-screen (not keep-alive hidden).
+   * Leaving the page saves scroll; returning restores it for the same session.
+   */
+  surfaceVisible?: boolean;
 };
 
 function scrollBottomGap(container: HTMLElement) {
@@ -64,11 +70,10 @@ function firstVisibleMessageElement(container: HTMLElement) {
 }
 
 function messageElementById(container: HTMLElement, messageId: string) {
-  const messageEls = container.querySelectorAll("[data-message-id]");
-  for (const element of messageEls) {
-    if (!(element instanceof HTMLElement)) continue;
-    if (messageIdForElement(element) === messageId) return element;
-  }
+  // Prefer getElementById-style attribute selector for one id over scanning all.
+  const escaped = messageId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const direct = container.querySelector(`[data-message-id="${escaped}"]`);
+  if (direct instanceof HTMLElement) return direct;
   return null;
 }
 
@@ -87,15 +92,21 @@ function latestMessageTopClippedId(container: HTMLElement) {
   return lastMessageDoesNotFit && !startVisible ? messageId : null;
 }
 
+/**
+ * Transcript scroll controller.
+ *
+ * Performance contract:
+ * - Never re-render SessionSurface on scroll frames. Sticky mode lives in a
+ *   ref; only the tiny "jump to latest" chip subscribes to store mode.
+ * - Mid-scroll writes only coalesce scrollTop (no O(n) topClipped measure).
+ * - Layout-heavy topClipped measurement runs on leave / unmount / sticky edge.
+ */
 export function useSessionScrollController(
   options: SessionScrollControllerOptions,
 ) {
   const selectedSessionId = options.selectedSessionId;
-  const selectScrollState = useCallback(
-    (state: ReturnType<typeof useSessionScrollStore.getState>) => getSessionScrollState(state.sessions, selectedSessionId),
-    [selectedSessionId],
-  );
-  const scrollState = useSessionScrollStore(selectScrollState);
+
+  // Stable action handles — selecting functions from zustand never re-renders.
   const setStickyBottom = useSessionScrollStore((state) => state.setStickyBottom);
   const setManualScroll = useSessionScrollStore((state) => state.setManualScroll);
   const setTopClippedMessageId = useSessionScrollStore((state) => state.setTopClippedMessageId);
@@ -108,6 +119,10 @@ export function useSessionScrollController(
   const lastGestureAtRef = useRef(0);
   const previousSessionIdRef = useRef<string | null>(null);
   const previousMessageIdsRef = useRef<readonly string[]>([]);
+  const pendingManualSaveRafRef = useRef<number | undefined>(undefined);
+  const pendingTopClippedRafRef = useRef<number | undefined>(undefined);
+  const pendingManualScrollTopRef = useRef(0);
+  const pendingTopClippedIdRef = useRef<string | null>(null);
   const prependAnchorRef = useRef<{
     sessionId: string;
     messageId: string;
@@ -115,19 +130,27 @@ export function useSessionScrollController(
     scrollTop: number;
   } | null>(null);
 
-  const isAtBottom = scrollState.mode === "stickyBottom";
-  const topClippedMessageId = scrollState.topClippedMessageId;
+  // Source of truth for sticky follow while scrolling — ref only, no React state.
+  const isAtBottomRef = useRef(
+    getSessionScrollState(
+      useSessionScrollStore.getState().sessions,
+      selectedSessionId,
+    ).mode === "stickyBottom",
+  );
 
   const hasScrollGesture = useCallback(
     () => Date.now() - lastGestureAtRef.current < SCROLL_GESTURE_WINDOW_MS,
     [],
   );
 
-  const updateOverflowAnchor = useCallback(() => {
-    const container = options.containerRef.current;
-    if (!container) return;
-    container.style.overflowAnchor = isAtBottom ? "none" : "auto";
-  }, [isAtBottom, options.containerRef]);
+  const applyOverflowAnchor = useCallback(
+    (sticky: boolean) => {
+      const container = options.containerRef.current;
+      if (!container) return;
+      container.style.overflowAnchor = sticky ? "none" : "auto";
+    },
+    [options.containerRef],
+  );
 
   const markScrollGesture = useCallback(
     (target?: EventTarget | null) => {
@@ -175,12 +198,48 @@ export function useSessionScrollController(
     });
   }, [clearProgrammaticScrollReset]);
 
-  const refreshTopClippedMessage = useCallback(() => {
-    const container = options.containerRef.current;
-    const nextId = container ? latestMessageTopClippedId(container) : null;
-    setTopClippedMessageId(selectedSessionId, nextId);
-    return nextId;
-  }, [options.containerRef, selectedSessionId, setTopClippedMessageId]);
+  const flushPendingManualScroll = useCallback(() => {
+    if (pendingManualSaveRafRef.current !== undefined) {
+      window.cancelAnimationFrame(pendingManualSaveRafRef.current);
+      pendingManualSaveRafRef.current = undefined;
+    }
+    setManualScroll(
+      selectedSessionId,
+      pendingManualScrollTopRef.current,
+      pendingTopClippedIdRef.current,
+    );
+  }, [selectedSessionId, setManualScroll]);
+
+  /** Layout-heavy: measure at most once per frame; avoid on pure scroll frames. */
+  const refreshTopClippedMessage = useCallback(
+    (immediate = false) => {
+      const measure = () => {
+        const el = options.containerRef.current;
+        const nextId = el ? latestMessageTopClippedId(el) : null;
+        pendingTopClippedIdRef.current = nextId;
+        setTopClippedMessageId(selectedSessionId, nextId);
+        return nextId;
+      };
+
+      if (immediate) {
+        if (pendingTopClippedRafRef.current !== undefined) {
+          window.cancelAnimationFrame(pendingTopClippedRafRef.current);
+          pendingTopClippedRafRef.current = undefined;
+        }
+        return measure();
+      }
+
+      if (pendingTopClippedRafRef.current !== undefined) {
+        return pendingTopClippedIdRef.current;
+      }
+      pendingTopClippedRafRef.current = window.requestAnimationFrame(() => {
+        pendingTopClippedRafRef.current = undefined;
+        measure();
+      });
+      return pendingTopClippedIdRef.current;
+    },
+    [options.containerRef, selectedSessionId, setTopClippedMessageId],
+  );
 
   const syncToBottom = useCallback(() => {
     const container = options.containerRef.current;
@@ -189,15 +248,17 @@ export function useSessionScrollController(
     programmaticScrollRef.current = true;
     container.scrollTop = container.scrollHeight;
     lastKnownScrollTopRef.current = container.scrollTop;
-    refreshTopClippedMessage();
+    // Skip topClipped DOM walk on high-frequency stick-to-bottom frames.
     releaseProgrammaticScrollSoon();
-  }, [options.containerRef, refreshTopClippedMessage, releaseProgrammaticScrollSoon]);
+  }, [options.containerRef, releaseProgrammaticScrollSoon]);
 
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const container = options.containerRef.current;
       if (!container) return;
 
+      isAtBottomRef.current = true;
+      applyOverflowAnchor(true);
       setStickyBottom(selectedSessionId, null);
       programmaticScrollRef.current = true;
 
@@ -209,20 +270,68 @@ export function useSessionScrollController(
 
       syncToBottom();
     },
-    [options.containerRef, releaseProgrammaticScrollSoon, selectedSessionId, setStickyBottom, syncToBottom],
+    [
+      applyOverflowAnchor,
+      options.containerRef,
+      releaseProgrammaticScrollSoon,
+      selectedSessionId,
+      setStickyBottom,
+      syncToBottom,
+    ],
   );
 
   const saveScrollPosition = useCallback(
-    (container: HTMLDivElement) => {
-      const nextTopClippedMessageId = latestMessageTopClippedId(container);
+    (container: HTMLDivElement, immediate = false) => {
       if (isExactlyAtBottom(container)) {
-        setStickyBottom(selectedSessionId, nextTopClippedMessageId);
-      } else {
-        setManualScroll(selectedSessionId, container.scrollTop, nextTopClippedMessageId);
+        if (pendingManualSaveRafRef.current !== undefined) {
+          window.cancelAnimationFrame(pendingManualSaveRafRef.current);
+          pendingManualSaveRafRef.current = undefined;
+        }
+        isAtBottomRef.current = true;
+        applyOverflowAnchor(true);
+        // Only measure topClipped when leaving the page / explicit flush.
+        const topClipped = immediate
+          ? latestMessageTopClippedId(container)
+          : pendingTopClippedIdRef.current;
+        if (immediate) pendingTopClippedIdRef.current = topClipped;
+        setStickyBottom(selectedSessionId, topClipped);
+        return topClipped;
       }
-      return nextTopClippedMessageId;
+
+      isAtBottomRef.current = false;
+      applyOverflowAnchor(false);
+      pendingManualScrollTopRef.current = container.scrollTop;
+
+      if (immediate) {
+        pendingTopClippedIdRef.current = latestMessageTopClippedId(container);
+        flushPendingManualScroll();
+        return pendingTopClippedIdRef.current;
+      }
+
+      // Restore scroll height persistence: coalesce scrollTop into the store
+      // once per frame so leave / switch-session restore works again.
+      // Still skip latestMessageTopClippedId mid-scroll (layout thrash).
+      // Jump-chip only subscribes to mode — manual+scrollTop updates do not
+      // re-render SessionSurface / message list.
+      if (pendingManualSaveRafRef.current === undefined) {
+        pendingManualSaveRafRef.current = window.requestAnimationFrame(() => {
+          pendingManualSaveRafRef.current = undefined;
+          setManualScroll(
+            selectedSessionId,
+            pendingManualScrollTopRef.current,
+            pendingTopClippedIdRef.current,
+          );
+        });
+      }
+      return pendingTopClippedIdRef.current;
     },
-    [selectedSessionId, setManualScroll, setStickyBottom],
+    [
+      applyOverflowAnchor,
+      flushPendingManualScroll,
+      selectedSessionId,
+      setManualScroll,
+      setStickyBottom,
+    ],
   );
 
   const handleScroll = useCallback<UIEventHandler<HTMLDivElement>>(
@@ -241,11 +350,6 @@ export function useSessionScrollController(
         exactlyAtBottom,
       });
 
-      // If the user scrolls up meaningfully while a programmatic scroll is
-      // in flight, abandon the programmatic state and switch to manual browse
-      // immediately. Without this the ResizeObserver's auto-scroll during
-      // streaming keeps re-anchoring us to the bottom and the user can never
-      // actually get away from the tail of the transcript.
       if (intent === "interrupt-follow") {
         programmaticScrollRef.current = false;
         clearProgrammaticScrollReset();
@@ -256,18 +360,19 @@ export function useSessionScrollController(
 
       if (intent === "follow-frame") {
         lastKnownScrollTopRef.current = currentTop;
-        refreshTopClippedMessage();
         return;
       }
 
       if (intent === "restore-follow") {
-        setStickyBottom(selectedSessionId, latestMessageTopClippedId(container));
+        isAtBottomRef.current = true;
+        applyOverflowAnchor(true);
+        // No topClipped measure mid-scroll — store mode flip only.
+        setStickyBottom(selectedSessionId, pendingTopClippedIdRef.current);
         lastKnownScrollTopRef.current = currentTop;
         return;
       }
 
       if (intent === "passive") {
-        refreshTopClippedMessage();
         lastKnownScrollTopRef.current = currentTop;
         return;
       }
@@ -275,7 +380,14 @@ export function useSessionScrollController(
       saveScrollPosition(container);
       lastKnownScrollTopRef.current = currentTop;
     },
-    [clearProgrammaticScrollReset, hasScrollGesture, refreshTopClippedMessage, saveScrollPosition, selectedSessionId, setStickyBottom],
+    [
+      applyOverflowAnchor,
+      clearProgrammaticScrollReset,
+      hasScrollGesture,
+      saveScrollPosition,
+      selectedSessionId,
+      setStickyBottom,
+    ],
   );
 
   const jumpToLatest = useCallback(
@@ -285,14 +397,11 @@ export function useSessionScrollController(
     [scrollToBottom],
   );
 
-  useEffect(() => {
-    updateOverflowAnchor();
-  }, [updateOverflowAnchor]);
-
+  // Pin tail while streaming without depending on React state for sticky mode.
   useLayoutEffect(() => {
     void options.renderedMessages;
     if (
-      !isAtBottom ||
+      !isAtBottomRef.current ||
       !options.active ||
       options.sessionChangeScroll === "top" ||
       hasScrollGesture()
@@ -306,7 +415,6 @@ export function useSessionScrollController(
     syncToBottom();
   }, [
     hasScrollGesture,
-    isAtBottom,
     options.active,
     options.renderedMessages,
     options.sessionChangeScroll,
@@ -318,76 +426,129 @@ export function useSessionScrollController(
     if (!content) return;
 
     observedContentHeightRef.current = content.offsetHeight;
+    let mutationRaf = 0;
     const stickToMutatedGrowth = () => {
-      const nextContent = options.contentRef.current;
-      if (!nextContent) return;
+      // Coalesce streaming DOM thrash to one layout read per frame.
+      if (mutationRaf) return;
+      mutationRaf = window.requestAnimationFrame(() => {
+        mutationRaf = 0;
+        const nextContent = options.contentRef.current;
+        if (!nextContent) return;
 
-      // Math, Mermaid, syntax highlighting, iframe reports, and other child
-      // effects can change transcript geometry without changing the messages
-      // prop. MutationObserver runs in the same microtask checkpoint as those
-      // DOM writes; forcing layout here lets us pin the tail before the next
-      // frame instead of waiting for a later ResizeObserver delivery.
-      const nextHeight = nextContent.offsetHeight;
-      const grew = nextHeight > observedContentHeightRef.current + 1;
-      observedContentHeightRef.current = nextHeight;
-      if (shouldAutoStickTranscriptGrowth({
-        grew,
-        stickyBottom: isAtBottom,
-        active: options.active,
-        userInteracting: hasScrollGesture(),
-        sessionChangeScroll: options.sessionChangeScroll,
-      })) {
-        syncToBottom();
-      }
+        const nextHeight = nextContent.offsetHeight;
+        const grew = nextHeight > observedContentHeightRef.current + 1;
+        observedContentHeightRef.current = nextHeight;
+        if (shouldAutoStickTranscriptGrowth({
+          grew,
+          stickyBottom: isAtBottomRef.current,
+          active: options.active,
+          userInteracting: hasScrollGesture(),
+          sessionChangeScroll: options.sessionChangeScroll,
+        })) {
+          syncToBottom();
+        }
+      });
     };
     const mutationObserver = new MutationObserver(stickToMutatedGrowth);
+    // childList only — characterData/attributes fire on every streaming text
+    // node update and made the conversation surface unusable while generating.
     mutationObserver.observe(content, {
-      attributes: true,
-      characterData: true,
       childList: true,
       subtree: true,
     });
+    let resizeRaf = 0;
     const observer = new ResizeObserver(() => {
-      const nextContent = options.contentRef.current;
-      if (!nextContent) return;
+      if (resizeRaf) return;
+      resizeRaf = window.requestAnimationFrame(() => {
+        resizeRaf = 0;
+        const nextContent = options.contentRef.current;
+        if (!nextContent) return;
 
-      const nextHeight = nextContent.offsetHeight;
-      const previousContentHeight = observedContentHeightRef.current;
-      const grew = nextHeight > previousContentHeight + 1;
-      observedContentHeightRef.current = nextHeight;
+        const nextHeight = nextContent.offsetHeight;
+        const previousContentHeight = observedContentHeightRef.current;
+        const grew = nextHeight > previousContentHeight + 1;
+        observedContentHeightRef.current = nextHeight;
 
-      // Only re-anchor to the bottom when we're already in sticky bottom mode
-      // AND the user isn't actively scrolling. If they've touched the wheel,
-      // touchpad, or scrollbar in the last SCROLL_GESTURE_WINDOW_MS, treat
-      // that as intent to break out of autoscroll and leave their position
-      // alone until the next handleScroll tick reclassifies the mode.
-      if (shouldAutoStickTranscriptGrowth({
-        grew,
-        stickyBottom: isAtBottom,
-        active: options.active,
-        userInteracting: hasScrollGesture(),
-        sessionChangeScroll: options.sessionChangeScroll,
-      })) {
-        syncToBottom();
-        return;
-      }
-
-      refreshTopClippedMessage();
+        if (shouldAutoStickTranscriptGrowth({
+          grew,
+          stickyBottom: isAtBottomRef.current,
+          active: options.active,
+          userInteracting: hasScrollGesture(),
+          sessionChangeScroll: options.sessionChangeScroll,
+        })) {
+          syncToBottom();
+        }
+      });
     });
 
     observer.observe(content);
     return () => {
+      if (mutationRaf) window.cancelAnimationFrame(mutationRaf);
+      if (resizeRaf) window.cancelAnimationFrame(resizeRaf);
       mutationObserver.disconnect();
       observer.disconnect();
     };
   }, [
     hasScrollGesture,
-    isAtBottom,
     options.active,
     options.contentRef,
     options.sessionChangeScroll,
-    refreshTopClippedMessage,
     syncToBottom,
+  ]);
+
+  // Keep-alive hide/show: persist height when leaving; restore when returning.
+  const surfaceVisible = options.surfaceVisible !== false;
+  const previousSurfaceVisibleRef = useRef(surfaceVisible);
+  useLayoutEffect(() => {
+    const wasVisible = previousSurfaceVisibleRef.current;
+    previousSurfaceVisibleRef.current = surfaceVisible;
+    const container = options.containerRef.current;
+    if (!selectedSessionId || !container) return;
+
+    if (!surfaceVisible) {
+      if (wasVisible) {
+        flushPendingManualScroll();
+        saveScrollPosition(container, true);
+      }
+      return;
+    }
+
+    if (wasVisible) return;
+    // Became visible again on the same session (rail switch / delayed loader).
+    const savedState = getSessionScrollState(
+      useSessionScrollStore.getState().sessions,
+      selectedSessionId,
+    );
+    programmaticScrollRef.current = true;
+    if (savedState.mode === "manual") {
+      isAtBottomRef.current = false;
+      applyOverflowAnchor(false);
+      const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      container.scrollTop = Math.min(savedState.scrollTop, maxTop);
+      lastKnownScrollTopRef.current = container.scrollTop;
+      window.requestAnimationFrame(() => {
+        const next = options.containerRef.current;
+        if (!next) {
+          programmaticScrollRef.current = false;
+          return;
+        }
+        const nextMax = Math.max(0, next.scrollHeight - next.clientHeight);
+        next.scrollTop = Math.min(savedState.scrollTop, nextMax);
+        lastKnownScrollTopRef.current = next.scrollTop;
+        releaseProgrammaticScrollSoon();
+      });
+      return;
+    }
+    scrollToBottom("auto");
+  }, [
+    applyOverflowAnchor,
+    flushPendingManualScroll,
+    options.containerRef,
+    releaseProgrammaticScrollSoon,
+    saveScrollPosition,
+    scrollToBottom,
+    selectedSessionId,
+    surfaceVisible,
   ]);
 
   useLayoutEffect(() => {
@@ -401,6 +562,8 @@ export function useSessionScrollController(
       const container = options.containerRef.current;
       if (container) {
         programmaticScrollRef.current = true;
+        isAtBottomRef.current = false;
+        applyOverflowAnchor(false);
         container.scrollTop = 0;
         setManualScroll(selectedSessionId, 0, null);
         releaseProgrammaticScrollSoon();
@@ -414,6 +577,8 @@ export function useSessionScrollController(
 
       const savedState = getSessionScrollState(useSessionScrollStore.getState().sessions, selectedSessionId);
       if (savedState.mode === "manual") {
+        isAtBottomRef.current = false;
+        applyOverflowAnchor(false);
         programmaticScrollRef.current = true;
         container.scrollTop = Math.min(savedState.scrollTop, Math.max(0, container.scrollHeight - container.clientHeight));
         lastKnownScrollTopRef.current = container.scrollTop;
@@ -434,6 +599,7 @@ export function useSessionScrollController(
       scrollToBottom("auto");
     });
   }, [
+    applyOverflowAnchor,
     options.containerRef,
     options.sessionChangeScroll,
     releaseProgrammaticScrollSoon,
@@ -443,7 +609,12 @@ export function useSessionScrollController(
     setManualScroll,
   ]);
 
-  const renderedMessageIdsKey = options.renderedMessageIds.join("\u0000");
+  // Cheap identity key — avoid joining every id into a giant string each render.
+  const renderedMessageIdsKey =
+    options.renderedMessageIds.length === 0
+      ? ""
+      : `${options.renderedMessageIds.length}:${options.renderedMessageIds[0]}:${options.renderedMessageIds[options.renderedMessageIds.length - 1]}`;
+
   useLayoutEffect(() => {
     const previousIds = previousMessageIdsRef.current;
     const prependedCount = countPrependedTranscriptMessages(
@@ -452,11 +623,12 @@ export function useSessionScrollController(
     );
     const pendingAnchor = prependAnchorRef.current;
     const container = options.containerRef.current;
+    const isManual = !isAtBottomRef.current;
 
     if (
       prependedCount > 0 &&
       pendingAnchor?.sessionId === selectedSessionId &&
-      scrollState.mode === "manual" &&
+      isManual &&
       container
     ) {
       const anchor = messageElementById(container, pendingAnchor.messageId);
@@ -478,7 +650,7 @@ export function useSessionScrollController(
 
     return () => {
       const currentContainer = options.containerRef.current;
-      if (!selectedSessionId || !currentContainer || scrollState.mode !== "manual") {
+      if (!selectedSessionId || !currentContainer || isAtBottomRef.current) {
         prependAnchorRef.current = null;
         return;
       }
@@ -499,25 +671,60 @@ export function useSessionScrollController(
     options.containerRef,
     releaseProgrammaticScrollSoon,
     renderedMessageIdsKey,
+    options.renderedMessageIds,
     saveScrollPosition,
-    scrollState.mode,
     selectedSessionId,
   ]);
 
+  // Top-clipped is only needed for restore anchors — throttle to message set
+  // changes, never per scroll frame.
   useEffect(() => {
     void options.renderedMessages;
-    queueMicrotask(refreshTopClippedMessage);
+    if (!isAtBottomRef.current) {
+      queueMicrotask(() => refreshTopClippedMessage(false));
+    }
   }, [options.renderedMessages, refreshTopClippedMessage]);
 
   useEffect(() => {
     return () => {
       clearProgrammaticScrollReset();
+      if (pendingManualSaveRafRef.current !== undefined) {
+        window.cancelAnimationFrame(pendingManualSaveRafRef.current);
+        pendingManualSaveRafRef.current = undefined;
+      }
+      if (pendingTopClippedRafRef.current !== undefined) {
+        window.cancelAnimationFrame(pendingTopClippedRafRef.current);
+        pendingTopClippedRafRef.current = undefined;
+      }
+      // Flush last known position before unmount so leave-page restore works.
+      const container = options.containerRef.current;
+      if (container && selectedSessionId) {
+        if (isExactlyAtBottom(container)) {
+          setStickyBottom(selectedSessionId, latestMessageTopClippedId(container));
+        } else {
+          setManualScroll(
+            selectedSessionId,
+            container.scrollTop,
+            latestMessageTopClippedId(container),
+          );
+        }
+      }
     };
-  }, [clearProgrammaticScrollReset]);
+  }, [
+    clearProgrammaticScrollReset,
+    options.containerRef,
+    selectedSessionId,
+    setManualScroll,
+    setStickyBottom,
+  ]);
 
   return {
-    isAtBottom,
-    topClippedMessageId,
+    /**
+     * Snapshot only — do not put this in parent render paths that rebuild the
+     * transcript. The jump-to-latest chip reads store mode on its own.
+     */
+    isAtBottom: isAtBottomRef.current,
+    topClippedMessageId: pendingTopClippedIdRef.current,
     handleScroll,
     markScrollGesture,
     markWheelGesture,

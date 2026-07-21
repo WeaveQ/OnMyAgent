@@ -108,18 +108,10 @@ export function resolveSessionRouteRestoreNavigation(input: {
     return { type: "workspace", workspaceId: input.selectedWorkspaceId, sessionId: input.selectedSessionId };
   }
   if (input.selectedSessionId) {
-    const sessions = input.sessionsByWorkspaceId[input.selectedWorkspaceId] ?? [];
-    const selectedSessionKnownInWorkspace = input.sessionListOwnsSession({
-      sessions,
-      sessionId: input.selectedSessionId,
-    });
-    if (selectedSessionKnownInWorkspace && !input.sessionMatchesPageMode(input.selectedSessionId)) {
-      return {
-        type: "workspace",
-        workspaceId: input.selectedWorkspaceId,
-        sessionId: input.firstSessionIdForPageMode(input.selectedWorkspaceId),
-      };
-    }
+    // Keep the user's selected session. Never steal focus to "first task" when
+    // isAssistantSession/isExpertSession lags (e.g. race after create, or
+    // force-new without start intent). That jump felt like "chatting on #3
+    // then suddenly on #1".
     return { type: "reset-suppression" };
   }
   if (!input.selectedWorkspaceId) return { type: "none" };

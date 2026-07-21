@@ -82,6 +82,10 @@ import {
 } from "../../domains/session";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
+import {
+  bindPendingAgentToSession,
+  resolvePendingAgentForPrompt,
+} from "./agent-context";
 import { SessionCloudAccountBridge } from "../session-cloud-account-bridge";
 import { WorkspaceProvider } from "../workspace-provider";
 import { SettingsSurface } from "../settings-route";
@@ -178,6 +182,10 @@ export type SessionRoutePageViewProps = {
   handleRuntimeSessionUpdated: (update: {
     sessionId: string;
     info: Record<string, unknown>;
+  }) => void;
+  handleRuntimeSessionStatus: (update: {
+    sessionId: string;
+    status: unknown;
   }) => void;
   handleSaveRenameWorkspace: () => Promise<void> | void;
   handleSaveShareRemoteAccess: (enabled: boolean) => Promise<void> | void;
@@ -303,6 +311,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     handleReorderWorkspaces,
     handleRevealWorkspace,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     handleSaveRenameWorkspace,
     handleSaveShareRemoteAccess,
     handleShareWorkspace,
@@ -405,6 +414,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             opencodeBaseUrl={opencodeBaseUrl}
             onmyagentToken={selectedWorkspaceServerToken}
             onSessionUpdated={handleRuntimeSessionUpdated}
+            onSessionStatus={handleRuntimeSessionStatus}
           />
         ) : null}
         <SessionPage
@@ -412,7 +422,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           agentManagementIntent={agentManagementIntent}
           onAgentManagementIntentConsumed={clearAgentManagementIntent}
           onNavigateToMode={(targetMode) => {
-            // Returning to 助理 must restore the last session/task selection —
+            // Returning to assistant must restore the last session/task selection —
             // do not suppress restore (WorkBuddy-style sidebar memory).
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
@@ -534,7 +544,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             forceNewSessionOnNextSendRef.current = true;
           }}
           onCreateFreshSessionForAgent={async (workspaceId) => {
-            // Called when the user clicks "+对话" on an agent that is NOT yet
+            // Called when the user clicks "+ conversation" on an agent that is NOT yet
             // present in the left-side agent list. We must create a real
             // session right now (so the new agent is visible on the left as
             // soon as we navigate to that session).
@@ -595,19 +605,27 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
 
             // Bind the pending agent to this new session (so it appears with
             // the agent avatar + system prompt when user sends first message).
-            if (pendingAgentSnapshot) {
-              usePendingAgentStore.getState().setAgent({
-                ...pendingAgentSnapshot,
-                boundSessionId: newSession.id,
+            // If the store is empty (e.g. race after navigation), inherit from
+            // the session the user was viewing so we never land on the default agent.
+            const { pendingAgentSnapshot: agentToBind } =
+              resolvePendingAgentForPrompt({
+                currentAgent:
+                  usePendingAgentStore.getState().getAgent() ??
+                  pendingAgentSnapshot,
+                createdSession: true,
+                sessionId: newSession.id,
+                inheritFromSessionId: selectedSessionId,
               });
-              writeCustomAgentIdForSession(
-                newSession.id,
-                pendingAgentSnapshot.id,
+            if (agentToBind) {
+              usePendingAgentStore.getState().setAgent(
+                bindPendingAgentToSession({
+                  agent: agentToBind,
+                  sessionId: newSession.id,
+                }),
               );
-              writeSessionAgentSnapshot(newSession.id, pendingAgentSnapshot);
-              await installMarketplaceExpertAfterSessionCreated(
-                pendingAgentSnapshot,
-              );
+              writeCustomAgentIdForSession(newSession.id, agentToBind.id);
+              writeSessionAgentSnapshot(newSession.id, agentToBind);
+              await installMarketplaceExpertAfterSessionCreated(agentToBind);
             }
             if (bindDirectory) {
               writeAssistantSessionWorkspace({

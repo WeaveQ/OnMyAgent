@@ -1033,7 +1033,7 @@ function applyEvent(
       useSessionActivityStore
         .getState()
         .markAssistantOutput(workspaceId, part.sessionID, part.messageID);
-      // Expert list unread (WeChat-style red dot) — local cursor only.
+      // Expert / assistant list unread (blue dot) — local cursor only.
       useExpertUnreadStore
         .getState()
         .noteAssistantActivityForSession(workspaceId, part.sessionID);

@@ -30,6 +30,8 @@ import {
   formatConversationTime,
   type AgentConversationGroup,
 } from "./conversation-model";
+import { ExpertStatusDots } from "./expert-status-dots";
+import { expertActivityLabel } from "./utils";
 import { resolveOpenFolderPath } from "../../shared";
 
 function IconHoverTip(props: {
@@ -92,6 +94,13 @@ type AssistantTaskItemProps = {
   selected: boolean;
   pinned?: boolean;
   pinnable?: boolean;
+  /** Live run status for latest (or any) session under this task. */
+  status?: string;
+  /**
+   * Unread blue dot after a reply finishes while this task is not focused.
+   * Hidden while selected / busy (busy shows status dots).
+   */
+  unread?: boolean;
   /** Bound workspace/folder path for “open folder”; hide action when empty. */
   folderPath?: string | null;
   typeIcon?: React.ReactNode;
@@ -115,6 +124,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
   const summaryTime = formatConversationTime(
     latestSession.time?.updated ?? latestSession.time?.created,
   );
+  const activityLabel = expertActivityLabel(props.status);
+  const unread = Boolean(props.unread) && !props.selected;
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState<{
@@ -196,14 +207,30 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           menuOpen && "hidden",
         )}
       >
-        <span
-          className={cn(
-            "tabular-nums text-xs font-normal leading-none text-dls-secondary/55",
-            !singleLine && "leading-5",
-          )}
-        >
-          {summaryTime}
-        </span>
+        {activityLabel && !props.selected ? (
+          <span
+            className="inline-flex items-center text-dls-accent"
+            title={activityLabel}
+            aria-label={activityLabel}
+          >
+            <ExpertStatusDots />
+          </span>
+        ) : unread ? (
+          <span
+            className="size-2 shrink-0 rounded-full bg-dls-accent"
+            title={t("session.expert_unread")}
+            aria-label={t("session.expert_unread")}
+          />
+        ) : (
+          <span
+            className={cn(
+              "tabular-nums text-xs font-normal leading-none text-dls-secondary/55",
+              !singleLine && "leading-5",
+            )}
+          >
+            {summaryTime}
+          </span>
+        )}
       </div>
       <TooltipProvider delay={200}>
       <div

@@ -146,19 +146,35 @@ export function resolveDraftSendPlan(input: {
   pageMode: "assistant" | "expert";
   assistantDraftWorkspaceRoot: string;
   sessionWorkspaceRoot: string;
+  /**
+   * When force-new / idle-new from a space-bound session, pass that session's
+   * project directory so the new chat stays under Spaces instead of dropping
+   * into the unscoped Tasks list (and becoming "first task").
+   */
+  inheritAssistantWorkspaceDirectory?: string | null;
 }) {
   const needsNewSession = !input.selectedSessionId || input.forceNewSession;
   const explicitDraftWorkspace = needsNewSession
     ? input.assistantDraftWorkspaceRoot.trim()
     : "";
-  // Bind both assistant and expert sessions to an explicit folder when the
-  // user picked one, so the side panel scans that folder only.
-  const explicitAssistantWorkspace = explicitDraftWorkspace;
+  const inheritedWorkspace =
+    needsNewSession && input.pageMode === "assistant"
+      ? (input.inheritAssistantWorkspaceDirectory?.trim() || "")
+      : "";
+  // Prefer the draft-picked folder; else keep the previous session's space.
+  // Expert force-new without a pick stays unbound so isolation path can run.
+  const explicitAssistantWorkspace =
+    input.pageMode === "assistant"
+      ? explicitDraftWorkspace || inheritedWorkspace
+      : explicitDraftWorkspace;
   return {
     needsNewSession,
     initialSessionId: needsNewSession ? null : input.selectedSessionId,
     explicitAssistantWorkspace,
-    taskWorkspaceRoot: explicitDraftWorkspace || input.sessionWorkspaceRoot,
+    taskWorkspaceRoot:
+      explicitDraftWorkspace ||
+      inheritedWorkspace ||
+      input.sessionWorkspaceRoot,
   };
 }
 
