@@ -159,6 +159,7 @@ import {
   packageEntryToMarketplaceExpert,
   isTrackableAccessibleTarget,
   setComposerDraftAfterNewTask,
+  setExpertComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import {
   expertFeatureCategoryForAgent,
@@ -834,8 +835,9 @@ export function ExpertPage(props: ExpertPageProps) {
       // Re-assert after create-task's synchronous setAgent(null).
       activateDraftAgent(pendingWithStart);
       if (initialPrompt) {
-        setComposerDraftAfterNewTask(
+        setExpertComposerDraftAfterNewTask(
           props.selectedWorkspaceId,
+          pendingWithStart.id,
           initialPrompt,
         );
       }
