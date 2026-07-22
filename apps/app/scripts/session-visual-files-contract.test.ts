@@ -96,7 +96,11 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain('t("session.open_artifact")');
     expect(sidePanel).toContain('t("files.preview_unsupported")');
     expect(sidePanel).toContain('targetPreview === "external"');
-    expect(sidePanel).toContain('targetPreview === "pdf"');
+    expect(sidePanel).toContain("usesOfficeRenderer");
+    expect(sidePanel).toContain('preview === "pdf"');
+    expect(sidePanel).toContain('preview === "document"');
+    expect(sidePanel).toContain('preview === "presentation"');
+    expect(sidePanel).toContain("<OfficeFilePreview");
     expect(sidePanel).toContain('targetPreview === "image"');
     expect(sidePanel).toContain('targetPreview === "html"');
     expect(sidePanel).toContain('<HTMLPreview className="min-h-0 flex-1" type="text"');
