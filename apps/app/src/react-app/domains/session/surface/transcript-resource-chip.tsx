@@ -1,17 +1,23 @@
 /** @jsxImportSource react */
 import { useState } from "react";
-import { File as FileIcon } from "lucide-react";
+import { FileText } from "lucide-react";
 
-import { openDesktopPath } from "../../../../app/lib/desktop";
-import { Button } from "@/components/ui/button";
+import {
+  openDesktopPath,
+  revealDesktopItemInDir,
+} from "../../../../app/lib/desktop";
 import { t } from "@/i18n";
 import { usePlatform } from "../../../kernel/platform";
+import { formatBytes } from "./composer/composer-helpers";
 import { ImageAttachmentLightbox } from "./image-attachment-lightbox";
+import { absolutePathFromFileUrl } from "./user-upload-display";
 
 export function TranscriptResourceChip(props: {
   filename?: string;
   url: string;
   mediaType: string;
+  /** Optional byte size when known (composer chips show this). */
+  size?: number;
 }) {
   const platform = usePlatform();
   const label = props.filename || props.url || t("session.attached_file");
@@ -44,6 +50,9 @@ export function TranscriptResourceChip(props: {
             </span>
             <span className="block truncate text-2xs text-dls-secondary">
               {t("composer.image_kind")}
+              {typeof props.size === "number" && props.size > 0
+                ? ` · ${formatBytes(props.size)}`
+                : ""}
             </span>
           </span>
         </button>
@@ -57,25 +66,42 @@ export function TranscriptResourceChip(props: {
     );
   }
 
+  const handleOpen = () => {
+    if (!props.url) return;
+    if (isRemote) {
+      platform.openLink(props.url);
+      return;
+    }
+    const absolute = absolutePathFromFileUrl(props.url);
+    // Prefer reveal-in-folder for local docs (pdf/doc/xlsx); fall back to open.
+    void revealDesktopItemInDir(absolute).catch(() => {
+      void openDesktopPath(absolute);
+    });
+  };
+
   return (
-    <Button
+    <button
       type="button"
-      variant="ghost"
-      size="sm"
-      className="h-auto max-w-[200px] justify-start gap-1.5 rounded-sm border border-dls-border bg-dls-surface-muted px-2 py-1 text-xs font-normal text-dls-text hover:bg-dls-hover"
-      title={label}
+      className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-left text-xs transition hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent disabled:opacity-50"
+      title={t("files.open_in_folder")}
+      aria-label={`${label} · ${t("files.open_in_folder")}`}
       disabled={!props.url}
-      onClick={() => {
-        if (!props.url) return;
-        if (isRemote) {
-          platform.openLink(props.url);
-          return;
-        }
-        void openDesktopPath(props.url);
-      }}
+      onClick={handleOpen}
     >
-      <FileIcon className="size-4 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 truncate leading-4">{label}</span>
-    </Button>
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
+        <FileText className="size-3.5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 max-w-[14rem]">
+        <span className="block truncate text-xs font-medium text-dls-text">
+          {label}
+        </span>
+        <span className="block truncate text-2xs text-dls-secondary">
+          {t("composer.file_kind")}
+          {typeof props.size === "number" && props.size > 0
+            ? ` · ${formatBytes(props.size)}`
+            : ""}
+        </span>
+      </span>
+    </button>
   );
 }

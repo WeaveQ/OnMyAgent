@@ -108,6 +108,11 @@ import {
 } from "./transcript/render-items";
 import { activeTurnReserveStyle } from "./message-list/virtual-window";
 import {
+  fileUrlFromAbsolutePath,
+  isUserUploadInstructionText,
+  parseUserUploadInstructionBlock,
+} from "./user-upload-display";
+import {
   formatCompactTokenCount,
   summarizeTranscriptTurn,
   type TranscriptTurnPresentation,
@@ -603,24 +608,58 @@ function toLegacyPart(
 function isAttachmentPart(part: TranscriptPart) {
   if (part.type !== "file") return false;
   const url = (part as { url?: string }).url;
-  return typeof url === "string" && !url.startsWith("file://");
+  // Include data:/http(s):/file: so session-upload docs render as chips.
+  return typeof url === "string" && url.trim().length > 0;
 }
 
 function attachmentsForParts(parts: TranscriptPart[]) {
+  const fromFileParts = parts.flatMap((part) => {
+    if (!isAttachmentPart(part)) return [];
+    const record = part as {
+      url?: string;
+      filename?: string;
+      mime?: string;
+    };
+    const attachment = {
+      url: record.url ?? "",
+      filename: record.filename ?? "attachment",
+      mime: record.mime ?? "application/octet-stream",
+    };
+    return attachment.url ? [attachment] : [];
+  });
+
+  // Historical messages only have the model instruction text — recover chips.
+  const fromUploadText = parts.flatMap((part) => {
+    if (part.type !== "text") return [];
+    const { files } = parseUserUploadInstructionBlock(partToText(part));
+    return files.map((file) => ({
+      url: fileUrlFromAbsolutePath(file.absolutePath),
+      filename: file.name,
+      mime: file.mime,
+    }));
+  });
+
+  const seen = new Set<string>();
+  const merged: Array<{ url: string; filename: string; mime: string }> = [];
+  for (const item of [...fromFileParts, ...fromUploadText]) {
+    const key = `${item.filename}|${item.url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
+/** Drop model-only upload instruction parts; strip the block when mixed with user text. */
+function partsForUserVisibleGroups(parts: TranscriptPart[]): TranscriptPart[] {
   return parts.flatMap((part) => {
-      if (!isAttachmentPart(part)) return [];
-      const record = part as {
-        url?: string;
-        filename?: string;
-        mime?: string;
-      };
-      const attachment = {
-        url: record.url ?? "",
-        filename: record.filename ?? "attachment",
-        mime: record.mime ?? "application/octet-stream",
-      };
-      return attachment.url ? [attachment] : [];
-    });
+    if (part.type !== "text") return [part];
+    const text = partToText(part);
+    if (!isUserUploadInstructionText(text)) return [part];
+    const { remainingText } = parseUserUploadInstructionBlock(text);
+    if (!remainingText.trim()) return [];
+    return [{ ...part, text: remainingText } as TranscriptPart];
+  });
 }
 
 function partToText(part: TranscriptPart) {
@@ -3534,7 +3573,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       }
       const attachments = attachmentsForParts(renderableParts);
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
-      const groups = groupMessageParts(nonAttachmentParts, message.id);
+      // Strip model-only upload path dump from user bubbles (chips carry the files).
+      const visibleParts = isUser
+        ? partsForUserVisibleGroups(nonAttachmentParts)
+        : nonAttachmentParts;
+      const groups = groupMessageParts(visibleParts, message.id);
       const isStepsOnly = groups.length > 0 && groups.every((group) => group.kind === "steps");
       const stepGroups = isStepsOnly
         ? (groups as Array<{
