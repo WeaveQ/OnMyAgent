@@ -747,7 +747,8 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
       }
     };
     void refresh();
-    // Interval is null when tab hidden or panel unmounted (cleanup clears timer).
+    // Always install while mounted — visibility only gates each tick so a
+    // panel that mounted while the tab was hidden resumes when visible again.
     const intervalMs = codeTerminalSnapshotIntervalMs({ mounted: true });
     if (intervalMs == null) {
       return () => {

@@ -165,6 +165,8 @@ export function AgentConversationPanel(props: {
       automationListRefetchIntervalMs({
         anyRunning: Boolean(query.state.data?.items.some((item) => item.running)),
       }),
+    // Pause interval while backgrounded without permanently disabling it.
+    refetchIntervalInBackground: false,
   });
   useEffect(() => {
     if (mode !== "assistant" || !automationQuery.data) return;
