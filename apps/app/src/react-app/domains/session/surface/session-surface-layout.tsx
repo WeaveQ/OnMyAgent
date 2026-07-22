@@ -111,25 +111,19 @@ export function SessionSurfaceComposerColumn(props: {
         </div>
       ) : null}
       {/*
-        Brand hero stays max-w-2xl on assistant draft home.
-        Composer width matches in-session (max-w-[1120px] inside the composer host)
-        so expert empty and chat use the same input bar size.
+        Assistant office/code new-task: one max-w-4xl column so brand title +
+        hero composer share width (taller card lives inside the composer host).
+        Expert empty / in-session: full width; composer host uses max-w-[1120px].
       */}
       <div
         className={cn(
           "flex w-full shrink-0 flex-col items-stretch",
-          props.personalAssistantDraftHome && "items-center",
+          props.personalAssistantDraftHome &&
+            "mx-auto w-full max-w-4xl items-stretch",
         )}
       >
         {props.draftHome ? (
-          <div
-            className={cn(
-              props.personalAssistantDraftHome &&
-                "w-full max-w-2xl",
-            )}
-          >
-            {props.draftHome}
-          </div>
+          <div className="w-full">{props.draftHome}</div>
         ) : null}
         <div
           ref={props.composerShellRef}

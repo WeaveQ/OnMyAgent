@@ -13,8 +13,8 @@ export function SessionSurfaceDraftHome(props: {
 }) {
   return (
     // Brand hero above composer; outer shell handles upper-centered placement.
-    // Generous title→composer gap so the card sits clear of the hero.
-    <div className="mb-8 flex w-full flex-col items-center text-center">
+    // Slightly tighter title→composer gap so the larger hero card sits with the mark.
+    <div className="mb-7 flex w-full flex-col items-center text-center">
       <div className="flex items-center gap-3 text-dls-text">
         <AssistantDraftHomeMark categoryId={props.categoryId} />
         <h2 className={sessionSurfaceTextClass.draftHomeTitle}>{props.title}</h2>

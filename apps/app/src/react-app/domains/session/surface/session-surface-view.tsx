@@ -132,6 +132,7 @@ export type SessionSurfaceViewProps = {
   scrollToMessageByIdRef: RefObject<
     ((messageId: string, behavior?: ScrollBehavior) => boolean) | null
   >;
+  // scrollToMessageById uses the stable ref prop on SessionTranscript
 
   // Draft home / composer column
   assistantCategoryId: AssistantCategoryId;
@@ -351,9 +352,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                   props.searchQuery ? props.searchMatchIdSet : undefined
                 }
                 activeSearchMessageId={props.activeSearchMessageId}
-                setScrollToMessageById={(handler) => {
-                  props.scrollToMessageByIdRef.current = handler;
-                }}
+                scrollToMessageByIdRef={props.scrollToMessageByIdRef}
               />
             }
           />
@@ -444,6 +443,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               showOuterBorder={composerOuterBorderVisible}
               compactTopSpacing={Boolean(props.composerAccessory)}
               homeLayout={homeComposerLayout}
+              heroHome={Boolean(personalAssistantDraftHome)}
               topAccessory={props.composerAccessory}
               hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
               bottomAccessory={

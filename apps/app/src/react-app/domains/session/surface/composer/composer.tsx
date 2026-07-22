@@ -1027,6 +1027,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
   const homeLayout = Boolean(props.homeLayout);
+  const heroHome = Boolean(props.heroHome);
   // Home / expert-empty: fold workspace+permission into the primary toolbar so
   // the card stays one compact unit (no tall empty middle + sparse under-bar).
   const inlineToolbarAccessory = homeLayout && Boolean(props.bottomAccessory);
@@ -1038,18 +1039,37 @@ export function ReactSessionComposer(props: ComposerProps) {
       ? "rounded-t-[18px] border-t-transparent"
       : underCardAccessory
         ? "rounded-t-xl rounded-b-none"
-        : "rounded-xl";
+        : heroHome
+          ? "rounded-2xl"
+          : "rounded-xl";
 
-  // Same shell size for home empty and in-session: 1120 content column + side padding.
-  const shellPadClass = `px-4 md:px-8 ${
-    props.compactTopSpacing ? "pt-0" : "pt-3"
-  } ${homeLayout ? "pb-3" : "pb-5"}`;
+  // In-session / expert empty: 1120 column + side pad.
+  // Assistant new-task hero: parent centers max-w-4xl; no extra outer pad.
+  const shellPadClass = heroHome
+    ? "px-0 pb-0 pt-0"
+    : `px-4 md:px-8 ${
+        props.compactTopSpacing ? "pt-0" : "pt-3"
+      } ${homeLayout ? "pb-3" : "pb-5"}`;
+  const columnMaxClass = heroHome
+    ? "mx-auto w-full max-w-4xl"
+    : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */;
+  const panelChromeClass = heroHome
+    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
+    : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
+  const editorPadClass =
+    props.attachments.length > 0
+      ? heroHome
+        ? "px-5 pb-2.5 pt-3"
+        : "px-4 pb-2 pt-2"
+      : heroHome
+        ? "px-5 pb-2.5 pt-4"
+        : "px-4 pb-2 pt-3";
 
   return (
     <div
       ref={rootRef}
       className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
-        homeLayout
+        homeLayout || heroHome
           ? `bg-transparent ${shellPadClass}`
           : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`
       }`}
@@ -1063,11 +1083,9 @@ export function ReactSessionComposer(props: ComposerProps) {
       }}
     >
       {/* Same max-w as session transcript column (session-surface contentRef). */}
-      <div className="mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */>
+      <div className={columnMaxClass}>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
-        <div
-          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
-        >
+        <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
 
@@ -1203,20 +1221,15 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           ) : null}
 
-          <div
-            className={
-              props.attachments.length > 0
-                ? "px-4 pb-2 pt-2"
-                : "px-4 pb-2 pt-3"
-            }
-          >
+          <div className={editorPadClass}>
             {/* Editor */}
             <LexicalPromptEditor
               value={props.draft}
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}
               disabled={props.disabled}
-              compact={homeLayout}
+              compact={homeLayout && !heroHome}
+              hero={heroHome}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={handleDraftChange}
               onSubmit={props.onSend}

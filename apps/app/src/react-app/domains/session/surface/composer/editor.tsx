@@ -40,6 +40,8 @@ type EditorProps = {
   placeholder: string;
   /** Shorter empty-state min height (draft home). */
   compact?: boolean;
+  /** Assistant new-task hero: taller empty field under the brand title. */
+  hero?: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onPaste?: React.ClipboardEventHandler<HTMLDivElement>;
@@ -775,16 +777,19 @@ export function LexicalPromptEditor(props: EditorProps) {
     <LexicalComposer initialConfig={initialConfig}>
       {/*
         Tight start, bounded growth:
-        - min-h matches in-session and home/expert-empty so the bar is one size.
-        - max-h caps the composer — long pastes / multi-paragraph drafts scroll
-          inside the editor instead of pushing the transcript out of view.
-        - compact only trims spacing elsewhere; empty height stays min-h-16.
+        - min-h-16 matches in-session + expert empty.
+        - hero (assistant new-task) uses a taller empty field under the brand title.
+        - max-h caps long pastes so the transcript stays in view.
       */}
       <div className="relative">
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              className="min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+              className={
+                props.hero
+                  ? "min-h-28 max-h-80 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+                  : "min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+              }
               aria-placeholder={props.placeholder}
               placeholder={<span />}
               onPaste={props.onPaste}
