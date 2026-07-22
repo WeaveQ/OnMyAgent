@@ -440,9 +440,19 @@ describe("session route composer", () => {
 
     expect(uploaded).toHaveLength(1);
     expect(uploaded[0]?.path).toContain("session-uploads/");
-    expect(parts).toHaveLength(1);
-    expect(parts[0]).toMatchObject({ type: "text" });
-    expect(parts[0]?.text).toContain("report.pdf (application/pdf)");
-    expect(parts[0]?.text).toContain("/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf");
+    expect(parts).toHaveLength(2);
+    expect(parts[0]).toMatchObject({
+      type: "file",
+      filename: "report.pdf",
+      mime: "application/pdf",
+    });
+    expect(String(parts[0]?.url ?? "")).toContain(
+      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf",
+    );
+    expect(parts[1]).toMatchObject({ type: "text" });
+    expect(parts[1]?.text).toContain("report.pdf (application/pdf)");
+    expect(parts[1]?.text).toContain(
+      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf",
+    );
   });
 });
