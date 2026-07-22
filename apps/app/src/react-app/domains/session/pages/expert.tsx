@@ -166,6 +166,10 @@ import {
   pendingAgentMatchesMarketplaceExpert,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
+import { useMyExpertPackages } from "./use-my-expert-packages";
+import { useAgentPanelResize } from "./use-agent-panel-resize";
+import { useSessionHostSidePanel } from "./use-session-host-side-panel";
+
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import {
@@ -219,7 +223,7 @@ export function ExpertPage(props: ExpertPageProps) {
   const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
-  const [agentPanelWidth, setAgentPanelWidth] = useState(
+  const { agentPanelWidth, startAgentPanelResize } = useAgentPanelResize(
     AGENT_PANEL_DEFAULT_WIDTH,
   );
   const [storeActiveTab, setStoreActiveTab] =
@@ -230,9 +234,6 @@ export function ExpertPage(props: ExpertPageProps) {
     customConnectorInitialView,
     openCustomConnector,
   } = useCustomConnectorDialog();
-  const [myExpertPackages, setMyExpertPackages] = useState<
-    ExpertMarketplaceEntry[]
-  >([]);
   const [agentCreateRequestKey, setAgentCreateRequestKey] =
     useState<number | null>(null);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
@@ -499,94 +500,40 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "localAgent"
       ? `localAgent:${props.selectedWorkspaceId}`
       : props.selectedSessionId;
-  const sessionSidePanel = useUiStateStore((state) =>
-    sidePanelScopeId
-      ? (state.sidePanelState[sidePanelScopeId] ?? null)
-      : null,
-  );
-  const voiceSidePanelOpen = useUiStateStore(
-    (state) => state.sidePanelState[GLOBAL_VOICE_SIDE_PANEL_KEY] === "voice",
-  );
-  const setSidePanelState = useUiStateStore((state) => state.setSidePanelState);
-  const toggleSidePanelState = useUiStateStore(
-    (state) => state.toggleSidePanelState,
-  );
-  const [artifactTarget, setArtifactTarget] = useState<OpenTarget | null>(null);
-  const [openTargets, setOpenTargets] = useState<OpenTarget[]>([]);
-  const [hiddenAccessibleTargetIds, setHiddenAccessibleTargetIds] = useState<
-    Set<string>
-  >(() => new Set());
-  const [, setExtensionStateVersion] = useState(0);
-  const loadedHiddenTargetsKeyRef = useRef<string | null>(null);
-  const accessibleTargets = useMemo(
-    () =>
-      openTargets.filter(
-        (target) =>
-          isTrackableAccessibleTarget(target) &&
-          !hiddenAccessibleTargetIds.has(target.id),
-      ),
-    [hiddenAccessibleTargetIds, openTargets],
-  );
-  const artifactFileTargets = useMemo(
-    () => accessibleTargets.filter(isCollectibleArtifactTarget),
-    [accessibleTargets],
-  );
-  const visibleArtifactTarget =
-    artifactTarget ?? artifactFileTargets[0] ?? null;
-  const artifactTargetCount = artifactFileTargets.length;
-  const hasArtifactTargets = artifactTargetCount > 0;
-  const activeSidePanel = voiceSidePanelOpen ? "voice" : sessionSidePanel;
-  const sidePanelOpen = activeSidePanel !== null;
+  const {
+    sessionSidePanel,
+    setSidePanelState,
+    toggleSidePanelState,
+    setCurrentSidePanel: setCurrentSidePanelFromHook,
+    toggleCurrentSidePanel,
+    artifactTarget,
+    setArtifactTarget,
+    openTargets,
+    setOpenTargets,
+    hiddenAccessibleTargetIds,
+    setHiddenAccessibleTargetIds,
+    accessibleTargets,
+    artifactFileTargets,
+    visibleArtifactTarget,
+    artifactTargetCount,
+    hasArtifactTargets,
+    activeSidePanel,
+    sidePanelOpen,
+    voiceExtensionEnabled,
+    handleOpenTargetsChange,
+    removeAccessibleTarget,
+  } = useSessionHostSidePanel({
+    sidePanelScopeId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    selectedSessionId: props.selectedSessionId,
+    onAccessibleTargetsChange: props.onAccessibleTargetsChange,
+  });
   const codeWorkspacePath =
     props.surface?.draftWorkspaceDirectory?.trim() ||
     props.selectedWorkspaceRoot;
   const codeWorkspaceCatalogRoot =
     props.workspaces.find((workspace) => workspace.id === props.selectedWorkspaceId)
       ?.path?.trim() || props.selectedWorkspaceRoot;
-  const voiceExtension = useMemo(
-    () =>
-      ONMYAGENT_EXTENSION_CATALOG.find(
-        (entry) => getExtensionId(entry) === "onmyagent-voice",
-      ) ?? null,
-    [],
-  );
-  const voiceExtensionEnabled = voiceExtension
-    ? isOnMyAgentExtensionEnabled(voiceExtension)
-    : false;
-
-  const startAgentPanelResize = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      const startX = event.clientX;
-      const startWidth = agentPanelWidth;
-      const controller = new AbortController();
-
-      const resize = (moveEvent: PointerEvent) => {
-        const nextWidth = Math.min(
-          AGENT_PANEL_MAX_WIDTH,
-          Math.max(
-            AGENT_PANEL_MIN_WIDTH,
-            startWidth + moveEvent.clientX - startX,
-          ),
-        );
-        setAgentPanelWidth(nextWidth);
-      };
-      const stop = () => controller.abort();
-
-      window.addEventListener("pointermove", resize, {
-        signal: controller.signal,
-      });
-      window.addEventListener("pointerup", stop, {
-        once: true,
-        signal: controller.signal,
-      });
-      window.addEventListener("pointercancel", stop, {
-        once: true,
-        signal: controller.signal,
-      });
-    },
-    [agentPanelWidth],
-  );
 
   useReactRenderWatchdog("ExpertPage", {
     selectedSessionId: props.selectedSessionId,
@@ -1433,29 +1380,7 @@ export function ExpertPage(props: ExpertPageProps) {
     }
   }, [props.selectedSessionId]);
 
-  const setCurrentSidePanel = useCallback(
-    (panel: SidePanelItem | null) => {
-      setSidePanelState(
-        GLOBAL_VOICE_SIDE_PANEL_KEY,
-        panel === "voice" ? "voice" : null,
-      );
-      if (panel === "voice") return;
-      setSidePanelState(sidePanelScopeId, panel);
-    },
-    [setSidePanelState, sidePanelScopeId],
-  );
-
-  const toggleCurrentSidePanel = useCallback(
-    (panel: SidePanelItem) => {
-      if (panel === "voice") {
-        toggleSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, "voice");
-        return;
-      }
-      setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
-      toggleSidePanelState(sidePanelScopeId, panel);
-    },
-    [setSidePanelState, sidePanelScopeId, toggleSidePanelState],
-  );
+  const setCurrentSidePanel = setCurrentSidePanelFromHook;
 
   const openBrowserPanelFromAgent = useCallback(() => {
     if (preserveSidePanelOnPanelOpenRef.current) {
@@ -1524,42 +1449,6 @@ export function ExpertPage(props: ExpertPageProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeSidebarView, openHistorySearch]);
 
-  useEffect(() => {
-    loadedHiddenTargetsKeyRef.current = hiddenAccessibleTargetsStorageKey(
-      props.selectedWorkspaceId,
-      props.selectedSessionId,
-    );
-    setArtifactTarget(null);
-    setOpenTargets([]);
-    setHiddenAccessibleTargetIds(
-      readHiddenAccessibleTargetIds(
-        props.selectedWorkspaceId,
-        props.selectedSessionId,
-      ),
-    );
-  }, [props.selectedSessionId, props.selectedWorkspaceId]);
-  useEffect(() => {
-    if (
-      loadedHiddenTargetsKeyRef.current !==
-      hiddenAccessibleTargetsStorageKey(
-        props.selectedWorkspaceId,
-        props.selectedSessionId,
-      )
-    )
-      return;
-    writeHiddenAccessibleTargetIds(
-      props.selectedWorkspaceId,
-      props.selectedSessionId,
-      hiddenAccessibleTargetIds,
-    );
-  }, [
-    hiddenAccessibleTargetIds,
-    props.selectedSessionId,
-    props.selectedWorkspaceId,
-  ]);
-  useEffect(() => {
-    props.onAccessibleTargetsChange?.(accessibleTargets);
-  }, [accessibleTargets, props.onAccessibleTargetsChange]);
   const commitBrowserPanelWidth = useCallback(() => {
     const size = browserPanelRef.current?.getSize();
     if (size?.inPixels) setBrowserPanelWidth(Math.round(size.inPixels));
@@ -1592,26 +1481,9 @@ export function ExpertPage(props: ExpertPageProps) {
       setCurrentSidePanel,
     ],
   );
-  const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {
-    setOpenTargets(targets);
-    setArtifactTarget((current) => {
-      if (!current) return current;
-      const updated = targets.find(
-        (target) => target.id === current.id || target.value === current.value,
-      );
-      if (!updated) return current;
-      return isCollectibleArtifactTarget(updated) ? updated : null;
-    });
-  }, []);
   const closeRightPane = useCallback(() => {
     setCurrentSidePanel(null);
   }, [setCurrentSidePanel]);
-  const removeAccessibleTarget = useCallback((target: OpenTarget) => {
-    setHiddenAccessibleTargetIds((current) => new Set(current).add(target.id));
-    setArtifactTarget((current) =>
-      current?.id === target.id ? null : current,
-    );
-  }, []);
   useEffect(() => {
     const open = (event: Event) => {
       const requested = (event as CustomEvent<OpenTarget>).detail;
@@ -1642,21 +1514,6 @@ export function ExpertPage(props: ExpertPageProps) {
     return () =>
       window.removeEventListener("onmyagent-close-right-pane", handler);
   }, [setCurrentSidePanel]);
-  useEffect(() => {
-    const refresh = () => setExtensionStateVersion((value) => value + 1);
-    window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-  useEffect(() => {
-    if (activeSidePanel === "voice" && !voiceExtensionEnabled) {
-      setCurrentSidePanel(null);
-    }
-  }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
-
   const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
     () =>
       voiceExtensionEnabled
