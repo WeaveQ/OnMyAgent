@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { Check, CircleAlert, Code2, FileSpreadsheet, FileText, MoreHorizontal } from "lucide-react";
+import { Check, CircleAlert, Code2, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { ArtifactIcon } from "../../../../capabilities/artifacts/artifact-icon";
 
 import type { TurnWidgetItem } from "./turn-content";
 
@@ -300,13 +301,13 @@ export function InlineVisual(props: {
               <>
                 {selectedCopy.pdf.trim() ? (
                   <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
-                    <FileText className="size-4" />
+                    <ArtifactIcon name={selectedCopy.pdf} className="size-4" />
                     {t("session.visual_reveal_pdf")}
                   </DropdownMenuItem>
                 ) : null}
                 {selectedCopy.xlsx.trim() ? (
                   <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
-                    <FileSpreadsheet className="size-4" />
+                    <ArtifactIcon name={selectedCopy.xlsx} className="size-4" />
                     {t("session.visual_reveal_excel")}
                   </DropdownMenuItem>
                 ) : null}

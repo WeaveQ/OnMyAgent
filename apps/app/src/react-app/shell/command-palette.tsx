@@ -23,9 +23,11 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { ChevronLeftIcon, FileText, Globe } from "lucide-react";
+import { ChevronLeftIcon, Globe } from "lucide-react";
 
 import { formatShortcut } from "@/lib/format-shortcut";
+import { ArtifactIcon } from "../capabilities/artifacts/artifact-icon";
+import type { OpenTargetPreview } from "../capabilities/artifacts/open-target";
 
 /** Display label for the command palette chord. */
 export const COMMAND_PALETTE_SHORTCUT = formatShortcut(["Mod", "K"]);
@@ -44,14 +46,12 @@ export type AccessibleTargetOption = {
   kind: "url" | "file";
   value: string;
   name: string;
-  preview: string;
+  preview: OpenTargetPreview;
 };
 
 type PaletteMode = "root" | "sessions" | "accessible-items";
 
 const commandPaletteClass = {
-  sheetBadge: "inline-flex h-4 min-w-6 shrink-0 items-center justify-center rounded-xs border border-dls-accent/30 bg-dls-accent/10 px-0.5 text-xs font-medium leading-none text-dls-accent",
-  markdownBadge: "inline-flex size-4 shrink-0 items-center justify-center rounded-xs border border-primary/25 bg-primary/10 text-xs font-medium leading-none text-primary",
   header: "flex items-center gap-0",
   backButton: "rounded-xl",
   input: "w-full",
@@ -73,21 +73,7 @@ export type SessionOption = {
 
 function targetIcon(target: AccessibleTargetOption) {
   if (target.kind === "url") return <Globe className="size-4 text-primary" />;
-  if (target.preview === "sheet") {
-    return (
-      <span className={commandPaletteClass.sheetBadge}>
-        XLS
-      </span>
-    );
-  }
-  if (target.preview === "markdown") {
-    return (
-      <span className={commandPaletteClass.markdownBadge}>
-        MD
-      </span>
-    );
-  }
-  return <FileText className="size-4 text-primary" />;
+  return <ArtifactIcon type={target.preview} name={target.name || target.value} className="size-4" />;
 }
 
 export type CommandPaletteProps = {

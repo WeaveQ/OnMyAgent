@@ -8,6 +8,11 @@ const OFFICE_EXTENSIONS = new Set([
   ".xls", ".xlsx", ".xlsm", ".xlsb", ".xlt", ".xltx", ".xltm", ".ods", ".fods",
   ".ppt", ".pptx", ".pptm", ".pps", ".ppsx", ".ppsm", ".pot", ".potx", ".potm", ".odp",
 ]);
+const NATIVE_FILE_EXTENSIONS = new Set([".pdf", ".mp3", ".mp4"]);
+
+function previewKind(extension) {
+  return extension === ".pdf" ? "pdf" : NATIVE_FILE_EXTENSIONS.has(extension) ? "media" : "office";
+}
 
 function normalizedForComparison(value) {
   const resolved = path.resolve(value);
@@ -106,7 +111,7 @@ export function createArtifactPreviewController(options) {
     const info = await stat(candidate);
     if (!info.isFile()) throw new Error("Artifact preview target is not a file.");
     const extension = path.extname(candidate).toLowerCase();
-    if (extension !== ".pdf" && !OFFICE_EXTENSIONS.has(extension)) {
+    if (!NATIVE_FILE_EXTENSIONS.has(extension) && !OFFICE_EXTENSIONS.has(extension)) {
       throw new Error(`Unsupported artifact preview type: ${extension || "unknown"}`);
     }
     return { filePath: candidate, extension, size: info.size, mtimeMs: info.mtimeMs };
@@ -133,7 +138,7 @@ export function createArtifactPreviewController(options) {
       const target = await validateFile(filePath);
       if (!view || version !== intentVersion || activePath !== filePath || view.webContents.isDestroyed()) return;
       if (activeTarget && target.mtimeMs === activeTarget.mtimeMs && target.size === activeTarget.size) return;
-      if (target.extension === ".pdf") {
+      if (NATIVE_FILE_EXTENSIONS.has(target.extension)) {
         activeTarget = target;
         await view.webContents.reloadIgnoringCache();
         return;
@@ -179,13 +184,13 @@ export function createArtifactPreviewController(options) {
         scheduleRefresh(version);
       }
       attach();
-      return { ok: true, kind: target.extension === ".pdf" ? "pdf" : "office" };
+      return { ok: true, kind: previewKind(target.extension) };
     }
 
     destroyView();
     activePath = target.filePath;
     activeTarget = target;
-    const isPdf = target.extension === ".pdf";
+    const isNativeFile = NATIVE_FILE_EXTENSIONS.has(target.extension);
     view = new options.WebContentsView({
       webPreferences: {
         backgroundThrottling: false,
@@ -193,16 +198,16 @@ export function createArtifactPreviewController(options) {
         contextIsolation: true,
         nodeIntegration: false,
         partition: "persist:onmyagent-artifact-preview",
-        ...(isPdf ? {} : { preload: options.preloadPath }),
+        ...(isNativeFile ? {} : { preload: options.preloadPath }),
       },
     });
     view.webContents.setWindowOpenHandler?.(() => ({ action: "deny" }));
     view.webContents.on?.("will-navigate", (event, url) => {
-      const allowed = isPdf ? url === pathToFileURL(target.filePath).href : url === officeViewerUrl();
+      const allowed = isNativeFile ? url === pathToFileURL(target.filePath).href : url === officeViewerUrl();
       if (!allowed) event.preventDefault();
     });
     attach();
-    if (isPdf) {
+    if (isNativeFile) {
       await view.webContents.loadURL(pathToFileURL(target.filePath).href);
     } else {
       const bytes = await readFile(target.filePath);
@@ -223,7 +228,7 @@ export function createArtifactPreviewController(options) {
       if (version !== intentVersion) return { ok: false, stale: true };
     }
     if (version === intentVersion && activePath === target.filePath) startWatching(target.filePath, version);
-    return { ok: true, kind: isPdf ? "pdf" : "office" };
+    return { ok: true, kind: previewKind(target.extension) };
   }
 
   async function openForEditing(request) {
@@ -249,4 +254,9 @@ export function createArtifactPreviewController(options) {
   };
 }
 
-export const artifactPreviewInternals = { isWithinRoot, safeBounds, OFFICE_EXTENSIONS };
+export const artifactPreviewInternals = {
+  isWithinRoot,
+  safeBounds,
+  OFFICE_EXTENSIONS,
+  NATIVE_FILE_EXTENSIONS,
+};

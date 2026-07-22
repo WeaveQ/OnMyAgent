@@ -64,6 +64,8 @@ describe("open target classification", () => {
     expect(classifyOpenTarget("contract.docx", "file")).toBe("document");
     expect(classifyOpenTarget("briefing.pptx", "file")).toBe("presentation");
     expect(classifyOpenTarget("manual.pdf", "file")).toBe("pdf");
+    expect(classifyOpenTarget("meeting.mp3", "file")).toBe("audio");
+    expect(classifyOpenTarget("demo.mp4", "file")).toBe("video");
     expect(classifyOpenTarget("invoice.ofd", "file")).toBe("pdf");
     expect(classifyOpenTarget("diagram.svg", "file")).toBe("image");
     expect(classifyOpenTarget("dist/index.html", "file")).toBe("html");
@@ -79,6 +81,8 @@ describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
     expect(canPreviewOpenTargetInline(fileTarget("script.py"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("page.html"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("meeting.mp3"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("demo.mp4"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("data.csv"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("rows.tsv"))).toBe(true);
     expect(

@@ -9,6 +9,8 @@ export type OpenTargetPreview =
   | "sheet"
   | "presentation"
   | "image"
+  | "audio"
+  | "video"
   | "pdf"
   | "html"
   | "text"
@@ -65,6 +67,8 @@ const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>([
   "sheet",
   "presentation",
   "image",
+  "audio",
+  "video",
   "pdf",
   "html",
 ]);
@@ -199,6 +203,8 @@ export function classifyOpenTarget(value: string, kind: OpenTargetKind): OpenTar
     return "presentation";
   }
   if ([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif"].includes(ext)) return "image";
+  if (ext === ".mp3") return "audio";
+  if (ext === ".mp4") return "video";
   if ([".pdf", ".ofd"].includes(ext)) return "pdf";
   if ([".html", ".htm"].includes(ext)) return "html";
   // Source / config that the text pane can open safely (not Office binaries).
@@ -262,7 +268,7 @@ export function canPreviewOpenTargetInline(target: OpenTarget): boolean {
   if (target.kind === "url" || target.preview === "browser") return true;
   if (target.preview === "markdown" || target.preview === "text") return true;
   if (target.preview === "html") return true;
-  if (target.preview === "image") return true;
+  if (["image", "audio", "video"].includes(target.preview)) return true;
   if (["document", "sheet", "presentation", "pdf"].includes(target.preview)) return true;
   return false;
 }
