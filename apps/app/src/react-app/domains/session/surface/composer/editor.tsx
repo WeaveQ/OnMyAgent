@@ -775,24 +775,16 @@ export function LexicalPromptEditor(props: EditorProps) {
     <LexicalComposer initialConfig={initialConfig}>
       {/*
         Tight start, bounded growth:
-        - min-h holds the editor to a single-line look until the user starts typing.
+        - min-h matches in-session and home/expert-empty so the bar is one size.
         - max-h caps the composer — long pastes / multi-paragraph drafts scroll
           inside the editor instead of pushing the transcript out of view.
-        - compact (home / expert empty): short empty card; once draft has text,
-          drop the large min-height so one-line prompts don't leave a tall gap
-          above the toolbar.
+        - compact only trims spacing elsewhere; empty height stays min-h-16.
       */}
       <div className="relative">
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
-              className={
-                props.compact
-                  ? props.value.trim()
-                    ? "min-h-6 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
-                    : "min-h-10 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
-                  : "min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
-              }
+              className="min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
               aria-placeholder={props.placeholder}
               placeholder={<span />}
               onPaste={props.onPaste}
