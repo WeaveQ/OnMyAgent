@@ -140,8 +140,10 @@ export function ConversationHistoryPanel(props: {
         })
       ).item;
     },
-    staleTime: 3_000,
-    refetchInterval: 8_000,
+    // Snapshot already updates via session stream + seed; avoid 8s blind poll.
+    // Soft refresh when the panel is focused / becomes stale after a minute.
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   const entries = useMemo(
