@@ -29,10 +29,8 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
-import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProviderAuthModal } from "../../connections";
-import { RenameSessionModal } from "../modals/rename-session-modal";
 import {
   SessionSurface,
 } from "../surface/session-surface";
@@ -64,17 +62,11 @@ import { SessionHistorySearchChrome } from "./session-history-search-chrome";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
 import {
-  expertMarketplaceCategoryLabel,
-  normalizeExpertMarketplaceCategoryId,
-} from "../expert-marketplace/categories";
-import {
   findBuiltinMarketplaceExpertById,
-  isBuiltinMarketplaceExpertAgentId,
 } from "../expert-marketplace/data";
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import { writeAssistantSelectionMemory } from "../sidebar/session-chrome";
 import {
   KeepAlivePane,
@@ -130,7 +122,6 @@ import {
   GLOBAL_VOICE_SIDE_PANEL_KEY,
   hiddenAccessibleTargetsStorageKey,
   readHiddenAccessibleTargetIds,
-  sessionTitleForId,
   writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
   type OnMyAgentPrimaryView,
@@ -164,6 +155,14 @@ import {
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import {
+  expertFeatureCategoryForAgent,
+  marketplaceExpertMatchesAgentId,
+  pendingAgentMatchesMarketplaceExpert,
+} from "./expert-page-utils";
+import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
+import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
+import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
+import {
   automationProposalsFingerprint,
   createAutomationsFromPayloads,
   loadAutomationProposals,
@@ -189,50 +188,12 @@ const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 
-function expertFeatureCategoryForCategoryId(
-  categoryId: string | null | undefined,
-): AssistantCategoryId {
-  return normalizeExpertMarketplaceCategoryId(categoryId) ===
-    "product-development"
-    ? "code"
-    : "office";
-}
-
-function expertFeatureCategoryForAgent(
-  agentId: string | null | undefined,
-): AssistantCategoryId {
-  if (!agentId) return "office";
-  return expertFeatureCategoryForCategoryId(
-    findBuiltinMarketplaceExpertById(agentId)?.categoryId,
-  );
-}
-
-function marketplaceExpertMatchesAgentId(
-  expert: ExpertMarketplaceEntry,
-  agentId: string | null | undefined,
-): boolean {
-  const normalized = agentId?.trim();
-  if (!normalized) return false;
-  if (expert.source === "builtin") {
-    return isBuiltinMarketplaceExpertAgentId(expert, normalized);
-  }
-  return (
-    normalized === expert.id ||
-    normalized === expert.packageName ||
-    normalized === expert.leadAgentName
-  );
-}
-
-function pendingAgentMatchesMarketplaceExpert(
-  agent: PendingAgentContext,
-  expert: ExpertMarketplaceEntry,
-): boolean {
-  return (
-    marketplaceExpertMatchesAgentId(expert, agent.id) ||
-    agent.marketplaceExpert?.packageName === expert.packageName ||
-    agent.marketplaceExpert?.packagePath === expert.packagePath
-  );
-}
+type ExpertGroupDeleteTarget = {
+  kind: "expert";
+  agentId: string;
+  name: string;
+  sessionIds: string[];
+};
 
 export type ExpertPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -257,14 +218,12 @@ export function ExpertPage(props: ExpertPageProps) {
   );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
-  const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
-  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
-    "list" | "config"
-  >("list");
-  const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
-    setCustomConnectorInitialView(view);
-    setCustomConnectorOpen(true);
-  }, []);
+  const {
+    customConnectorOpen,
+    setCustomConnectorOpen,
+    customConnectorInitialView,
+    openCustomConnector,
+  } = useCustomConnectorDialog();
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -742,33 +701,12 @@ export function ExpertPage(props: ExpertPageProps) {
     [],
   );
 
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameTitle, setRenameTitle] = useState("");
-  const [renameBusy, setRenameBusy] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  /**
-   * Delete confirm target:
-   * - session: single session chip / control
-   * - expert: whole expert row (all sessions under agent)
-   */
-  const [deleteTarget, setDeleteTarget] = useState<
-    | { kind: "session"; sessionId: string }
-    | {
-        kind: "expert";
-        agentId: string;
-        name: string;
-        sessionIds: string[];
-      }
-    | null
-  >(null);
   /** Header find bar (same chrome as assistant — not a right rail). */
   const [historySearchOpen, setHistorySearchOpen] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyMatchCount, setHistoryMatchCount] = useState(0);
   const [historyActiveMatch, setHistoryActiveMatch] = useState(0);
   const historySearchInputRef = useRef<HTMLInputElement>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [sessionActionId, setSessionActionId] = useState<string | null>(null);
   const browserPanelRef = usePanelRef();
   const preserveSidePanelOnPanelOpenRef = useRef(false);
   const activateDraftAgent = useCallback(
@@ -1664,11 +1602,98 @@ export function ExpertPage(props: ExpertPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
-  const sessionActionTitle = useMemo(
-    () =>
-      sessionTitleForId(props.sidebar.workspaceSessionGroups, sessionActionId),
-    [props.sidebar.workspaceSessionGroups, sessionActionId],
+  const executeExpertDelete = useCallback(
+    async (
+      target:
+        | { kind: "session"; sessionId: string }
+        | ExpertGroupDeleteTarget,
+    ) => {
+      if (target.kind === "session") {
+        await props.onDeleteSession?.(target.sessionId);
+        return;
+      }
+      if (props.onDeleteSession) {
+        for (const sessionId of target.sessionIds) {
+          await props.onDeleteSession(sessionId);
+        }
+      }
+      // Drop local expert pin + unread for this agent after sessions are gone.
+      try {
+        const pinned = readExpertPinnedAgentIds(props.selectedWorkspaceId);
+        if (pinned.includes(target.agentId)) {
+          writeExpertPinnedAgentIds(
+            props.selectedWorkspaceId,
+            pinned.filter((id) => id !== target.agentId),
+          );
+        }
+        useExpertUnreadStore
+          .getState()
+          .markRead(props.selectedWorkspaceId, target.agentId);
+      } catch {
+        // Local cleanup only — ignore storage failures.
+      }
+    },
+    [props.onDeleteSession, props.selectedWorkspaceId],
   );
+
+  const {
+    renameOpen,
+    renameTitle,
+    setRenameTitle,
+    renameBusy,
+    canSaveRename,
+    deleteOpen,
+    deleteBusy,
+    deleteTarget,
+    sessionActionTitle,
+    openRenameModal,
+    openDeleteModal,
+    openDeleteGroupModal,
+    submitRename,
+    confirmDelete,
+    closeDeleteModal,
+    closeRenameModal,
+  } = useSessionTaskRenameDelete<ExpertGroupDeleteTarget>({
+    selectedSessionId: props.selectedSessionId,
+    workspaceSessionGroups: props.sidebar.workspaceSessionGroups,
+    onRenameSession: props.onRenameSession,
+    onDeleteSession: props.onDeleteSession,
+    executeDelete: executeExpertDelete,
+    requireGroupSessionIds: false,
+  });
+
+  const openDeleteExpertModal = useCallback(
+    (target: { agentId: string; name: string; sessionIds: string[] }) => {
+      openDeleteGroupModal({
+        kind: "expert",
+        agentId: target.agentId.trim(),
+        name: target.name.trim(),
+        sessionIds: target.sessionIds,
+      });
+    },
+    [openDeleteGroupModal],
+  );
+
+  const expertDeleteTitle =
+    deleteTarget?.kind === "expert"
+      ? t("session.delete_expert_title")
+      : t("session.delete_session_title");
+  const expertDeleteMessage =
+    deleteTarget?.kind === "expert"
+      ? deleteTarget.name
+        ? t("session.delete_named_expert_message", {
+            name: deleteTarget.name,
+          })
+        : t("session.delete_expert_generic")
+      : sessionActionTitle.trim()
+        ? t("session.delete_named_session_message", {
+            title: sessionActionTitle.trim(),
+          })
+        : t("session.delete_session_generic");
+  const expertDeleteConfirmLabel = deleteBusy
+    ? t("session.deleting")
+    : t("session.delete");
+
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
   const showStartupSkeleton =
@@ -1782,104 +1807,6 @@ export function ExpertPage(props: ExpertPageProps) {
     }, 1000);
     return () => window.clearTimeout(id);
   }, [showSessionLoadingState]);
-
-  useEffect(() => {
-    setRenameOpen(false);
-    setDeleteOpen(false);
-    setDeleteTarget(null);
-    setRenameBusy(false);
-    setDeleteBusy(false);
-    setSessionActionId(null);
-  }, [props.selectedSessionId]);
-
-  const openRenameModal = (sessionId: string, title: string) => {
-    if (!props.onRenameSession) return;
-    setSessionActionId(sessionId);
-    setRenameTitle(title);
-    setRenameOpen(true);
-  };
-
-  const openDeleteModal = (sessionId: string) => {
-    if (!props.onDeleteSession) return;
-    setSessionActionId(sessionId);
-    setDeleteTarget({ kind: "session", sessionId });
-    setDeleteOpen(true);
-  };
-
-  const openDeleteExpertModal = (target: {
-    agentId: string;
-    name: string;
-    sessionIds: string[];
-  }) => {
-    if (!props.onDeleteSession) return;
-    const sessionIds = target.sessionIds.filter(
-      (id) => id.trim() && !id.startsWith("draft:"),
-    );
-    // Still open confirm when only local expert state remains (no sessions).
-    setSessionActionId(null);
-    setDeleteTarget({
-      kind: "expert",
-      agentId: target.agentId.trim(),
-      name: target.name.trim(),
-      sessionIds,
-    });
-    setDeleteOpen(true);
-  };
-
-  const submitRename = async () => {
-    const sessionId = sessionActionId;
-    const nextTitle = renameTitle.trim();
-    if (
-      !sessionId ||
-      !props.onRenameSession ||
-      !nextTitle ||
-      nextTitle === sessionActionTitle.trim()
-    )
-      return;
-    setRenameBusy(true);
-    try {
-      await props.onRenameSession(sessionId, nextTitle);
-      setRenameOpen(false);
-    } finally {
-      setRenameBusy(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    if (deleteTarget.kind === "session" && !props.onDeleteSession) return;
-    setDeleteBusy(true);
-    try {
-      if (deleteTarget.kind === "session") {
-        await props.onDeleteSession?.(deleteTarget.sessionId);
-      } else {
-        if (props.onDeleteSession) {
-          for (const sessionId of deleteTarget.sessionIds) {
-            await props.onDeleteSession(sessionId);
-          }
-        }
-        // Drop local expert pin + unread for this agent after sessions are gone.
-        try {
-          const pinned = readExpertPinnedAgentIds(props.selectedWorkspaceId);
-          if (pinned.includes(deleteTarget.agentId)) {
-            writeExpertPinnedAgentIds(
-              props.selectedWorkspaceId,
-              pinned.filter((id) => id !== deleteTarget.agentId),
-            );
-          }
-          useExpertUnreadStore
-            .getState()
-            .markRead(props.selectedWorkspaceId, deleteTarget.agentId);
-        } catch {
-          // Local cleanup only — ignore storage failures.
-        }
-      }
-      setDeleteOpen(false);
-      setDeleteTarget(null);
-    } finally {
-      setDeleteBusy(false);
-    }
-  };
 
   const historySearchShortcut = formatShortcut(["Mod", "F"]);
   const historyMatchLabel =
@@ -2555,58 +2482,24 @@ export function ExpertPage(props: ExpertPageProps) {
         <ProviderAuthModal {...props.providerAuthModal} />
       ) : null}
 
-      {props.onRenameSession ? (
-        <RenameSessionModal
-          open={renameOpen}
-          title={renameTitle}
-          busy={renameBusy}
-          canSave={
-            renameTitle.trim().length > 0 &&
-            renameTitle.trim() !== sessionActionTitle.trim()
-          }
-          onClose={() => {
-            if (!renameBusy) setRenameOpen(false);
-          }}
-          onSave={() => void submitRename()}
-          onTitleChange={setRenameTitle}
-        />
-      ) : null}
-
-      {deleteOpen ? (
-        <ConfirmModal
-          open={deleteOpen}
-          title={
-            deleteTarget?.kind === "expert"
-              ? t("session.delete_expert_title")
-              : t("session.delete_session_title")
-          }
-          message={
-            deleteTarget?.kind === "expert"
-              ? deleteTarget.name
-                ? t("session.delete_named_expert_message", {
-                    name: deleteTarget.name,
-                  })
-                : t("session.delete_expert_generic")
-              : sessionActionTitle.trim()
-                ? t("session.delete_named_session_message", {
-                    title: sessionActionTitle.trim(),
-                  })
-                : t("session.delete_session_generic")
-          }
-          confirmLabel={
-            deleteBusy ? t("session.deleting") : t("session.delete")
-          }
-          cancelLabel={t("common.cancel")}
-          variant="danger"
-          onConfirm={() => void confirmDelete()}
-          onCancel={() => {
-            if (!deleteBusy) {
-              setDeleteOpen(false);
-              setDeleteTarget(null);
-            }
-          }}
-        />
-      ) : null}
+      <SessionTaskRenameDeleteModals
+        canRename={Boolean(props.onRenameSession)}
+        renameOpen={renameOpen}
+        renameTitle={renameTitle}
+        renameBusy={renameBusy}
+        canSaveRename={canSaveRename}
+        onRenameClose={closeRenameModal}
+        onRenameSave={() => void submitRename()}
+        onRenameTitleChange={setRenameTitle}
+        showDelete={deleteOpen}
+        deleteOpen={deleteOpen}
+        deleteBusy={deleteBusy}
+        deleteTitle={expertDeleteTitle}
+        deleteMessage={expertDeleteMessage}
+        deleteConfirmLabel={expertDeleteConfirmLabel}
+        onDeleteConfirm={() => void confirmDelete()}
+        onDeleteCancel={closeDeleteModal}
+      />
 
       {props.shareWorkspaceModal ? (
         <ShareWorkspaceModal {...props.shareWorkspaceModal} />

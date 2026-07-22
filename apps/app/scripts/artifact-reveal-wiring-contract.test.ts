@@ -26,7 +26,7 @@ describe("artifact reveal wiring contract", () => {
   });
 
   test("OpenableTargetsStrip always receives workspaceRoot on both render paths", () => {
-    const list = read("src/react-app/domains/session/surface/message-list.tsx");
+    const list = read("src/react-app/domains/session/surface/message-list/message-block-row.tsx");
     const stripUsages = list.match(/<OpenableTargetsStrip[\s\S]*?\/>/g) ?? [];
     expect(stripUsages.length).toBeGreaterThanOrEqual(2);
     for (const usage of stripUsages) {
@@ -35,7 +35,10 @@ describe("artifact reveal wiring contract", () => {
   });
 
   test("markdown reveal and strip use multi-candidate desktop reveal", () => {
-    const list = read("src/react-app/domains/session/surface/message-list.tsx");
+    const list = [
+      read("src/react-app/domains/session/surface/message-list.tsx"),
+      read("src/react-app/domains/session/surface/message-list/message-block-row.tsx"),
+    ].join("\n");
     expect(list).toContain("resolveArtifactRevealCandidates");
     expect(list).toContain("revealDesktopItemCandidates");
     expect(list).not.toMatch(/function absoluteArtifactPath\(/);

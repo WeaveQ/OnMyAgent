@@ -5,6 +5,8 @@ const messageListSurfaceDir = new URL(
   import.meta.url,
 );
 const messageListSourceFiles = [
+  // MessageBlockRow must precede SessionTranscriptInner so slice(MessageBlockRow↔Inner) works.
+  "message-list/message-block-row.tsx",
   "message-list.tsx",
   "message-list/chrome.tsx",
   "message-list/reasoning.tsx",
