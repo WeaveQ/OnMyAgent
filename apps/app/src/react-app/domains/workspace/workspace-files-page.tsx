@@ -47,11 +47,15 @@ import {
 import { cn } from "@/lib/utils";
 import { shellChrome, typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
-import { revealDesktopItemInDir } from "../../../app/lib/desktop";
+import {
+  listCodeWorkspaceFiles,
+  revealDesktopItemInDir,
+} from "../../../app/lib/desktop";
 import type {
   OnMyAgentServerClient,
   OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../app/lib/onmyagent-server";
+import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 import { OfficeFilePreview } from "../../capabilities/artifacts/office-file-preview";
@@ -512,7 +516,7 @@ export function WorkspaceFilesPage(props: {
   }, [fileRoot, selectedFile]);
 
   useEffect(() => {
-    if (!props.client || !props.workspaceId.trim() || !fileRoot.trim()) {
+    if (!fileRoot.trim()) {
       setEntries([]);
       setError(null);
       setLoading(false);
@@ -522,26 +526,56 @@ export function WorkspaceFilesPage(props: {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void props.client
-      .listWorkspaceFiles(props.workspaceId, {
+
+    const finishRefreshFlash = () => {
+      if (!manualRefreshRef.current) return;
+      manualRefreshRef.current = false;
+      setRefreshDone(true);
+      if (refreshDoneTimerRef.current != null) {
+        window.clearTimeout(refreshDoneTimerRef.current);
+      }
+      refreshDoneTimerRef.current = window.setTimeout(() => {
+        setRefreshDone(false);
+        refreshDoneTimerRef.current = null;
+      }, 1400);
+    };
+
+    const directoryPrefix = currentDirectoryPath.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+
+    const load = async (): Promise<OnMyAgentWorkspaceFileCatalogEntry[]> => {
+      if (isElectronRuntime()) {
+        const result = await listCodeWorkspaceFiles({
+          workspacePath: fileRoot,
+          ...(directoryPrefix ? { relativePath: directoryPrefix } : {}),
+        });
+        return result.items.map((item) => ({
+          path: item.path,
+          kind: item.kind,
+          size: item.size,
+          mtimeMs: item.mtimeMs,
+          revision: "",
+        }));
+      }
+
+      if (!props.client || !props.workspaceId.trim()) {
+        throw new Error(t("files.load_failed"));
+      }
+
+      const catalog = await props.client.listWorkspaceFiles(props.workspaceId, {
         includeDirs: true,
-        limit: 5000,
+        limit: 10_000,
+        shallow: true,
+        ...(directoryPrefix ? { prefix: directoryPrefix } : {}),
         ...(hasScopedFileRoot ? { root: fileRoot } : {}),
-      })
-      .then((catalog) => {
+      });
+      return catalog.items;
+    };
+
+    void load()
+      .then((items) => {
         if (cancelled) return;
-        setEntries(catalog.items);
-        if (manualRefreshRef.current) {
-          manualRefreshRef.current = false;
-          setRefreshDone(true);
-          if (refreshDoneTimerRef.current != null) {
-            window.clearTimeout(refreshDoneTimerRef.current);
-          }
-          refreshDoneTimerRef.current = window.setTimeout(() => {
-            setRefreshDone(false);
-            refreshDoneTimerRef.current = null;
-          }, 1400);
-        }
+        setEntries(items);
+        finishRefreshFlash();
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -557,7 +591,14 @@ export function WorkspaceFilesPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
+  }, [
+    currentDirectoryPath,
+    fileRoot,
+    hasScopedFileRoot,
+    props.client,
+    props.workspaceId,
+    refreshKey,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -793,9 +834,11 @@ export function WorkspaceFilesPage(props: {
                 disabled={
                   loading ||
                   refreshDone ||
-                  !props.client ||
-                  !props.workspaceId.trim() ||
-                  !fileRoot.trim()
+                  !fileRoot.trim() ||
+                  (
+                    !isElectronRuntime()
+                    && (!props.client || !props.workspaceId.trim())
+                  )
                 }
                 onClick={() => {
                   manualRefreshRef.current = true;
