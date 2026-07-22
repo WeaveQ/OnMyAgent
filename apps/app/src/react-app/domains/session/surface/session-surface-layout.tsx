@@ -110,11 +110,11 @@ export function SessionSurfaceComposerColumn(props: {
           {props.floatingToolbar}
         </div>
       ) : null}
-      {/* Home: one max-w-2xl column so brand title + composer share width. */}
+      {/* Home / expert-empty: max-w-2xl so composer matches prompt cards / brand title. */}
       <div
         className={cn(
-          props.personalAssistantDraftHome &&
-            "flex w-full max-w-2xl shrink-0 flex-col items-stretch",
+          (props.personalAssistantDraftHome || props.homeComposerLayout) &&
+            "mx-auto flex w-full max-w-2xl shrink-0 flex-col items-stretch",
         )}
       >
         {props.draftHome}
