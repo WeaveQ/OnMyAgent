@@ -254,11 +254,16 @@ describe("session-archive archive sync", () => {
       try {
         await writeFile(join(sourceRoot, "rollout-2026-06-11T12-44-06-watch-1.jsonl"), codexSession("watch-1", "Watcher sync"));
         await waitFor(async () => {
-          const store = await openSessionArchiveStore({ dbPath: paths.dbPath });
+          // Prefer read-only + soft-fail on transient SQLite locks (macOS CI disk I/O races).
           try {
-            return store.search({ query: "Watcher" }).count === 1;
-          } finally {
-            store.close();
+            const store = await openSessionArchiveStore({ dbPath: paths.dbPath, readOnly: true });
+            try {
+              return store.search({ query: "Watcher" }).count === 1;
+            } finally {
+              store.close();
+            }
+          } catch {
+            return false;
           }
         });
       } finally {

@@ -69,3 +69,12 @@ export function createOpencodeClientPool(options?: {
 }
 
 export const defaultOpencodeClientPool = createOpencodeClientPool();
+
+
+export function getWorkspaceOpencodeClient(
+  config: ServerConfig,
+  workspace: WorkspaceInfo,
+  directoryOverride?: string,
+) {
+  return defaultOpencodeClientPool.get(config, workspace, directoryOverride);
+}

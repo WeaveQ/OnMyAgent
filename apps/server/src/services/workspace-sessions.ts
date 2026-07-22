@@ -1,10 +1,8 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
-import {
-  createWorkspaceOpencodeClient,
-  unwrapOpencodeResult,
-} from "./opencode-proxy.js";
+import { getWorkspaceOpencodeClient } from "./opencode-client-pool.js";
+import { unwrapOpencodeResult } from "./opencode-proxy.js";
 import {
   buildSession,
   buildSessionList,
@@ -51,7 +49,7 @@ export async function listWorkspaceSessions(
     if (!connection.baseUrl?.trim()) {
       return [];
     }
-    const opencode = createWorkspaceOpencodeClient(config, workspace, input.directory);
+    const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     return buildSessionList(
       unwrapOpencodeResult(
         await opencode.session.list({
@@ -75,7 +73,7 @@ export async function readWorkspaceSession(
   directory?: string,
 ) {
   try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace, directory);
+    const opencode = getWorkspaceOpencodeClient(config, workspace, directory);
     return buildSession(
       unwrapOpencodeResult(
         await opencode.session.get({ sessionID: sessionId }),
@@ -94,7 +92,7 @@ export async function readWorkspaceSessionMessages(
   input: { limit?: number; directory?: string },
 ) {
   try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace, input.directory);
+    const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     return buildSessionMessages(
       unwrapOpencodeResult(
         await opencode.session.messages({
@@ -115,7 +113,7 @@ export async function readWorkspaceSessionTodos(
   sessionId: string,
 ) {
   try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace);
+    const opencode = getWorkspaceOpencodeClient(config, workspace);
     return buildSessionTodos(
       unwrapOpencodeResult(
         await opencode.session.todo({ sessionID: sessionId }),
@@ -132,7 +130,7 @@ export async function readWorkspaceSessionStatuses(
   workspace: WorkspaceInfo,
 ) {
   try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace);
+    const opencode = getWorkspaceOpencodeClient(config, workspace);
     return buildSessionStatuses(
       unwrapOpencodeResult(await opencode.session.status(), "/session/status"),
     );
@@ -148,7 +146,7 @@ export async function readWorkspaceSessionSnapshot(
   input: { limit?: number; directory?: string },
 ) {
   try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace, input.directory);
+    const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     const [session, messages, todos, statuses] = await Promise.all([
       opencode.session
         .get({ sessionID: sessionId })
@@ -190,7 +188,7 @@ export async function deleteWorkspaceSession(
   sessionId: string,
   directory?: string,
 ): Promise<void> {
-  const opencode = createWorkspaceOpencodeClient(config, workspace, directory);
+  const opencode = getWorkspaceOpencodeClient(config, workspace, directory);
   unwrapOpencodeResult(
     await opencode.session.delete({ sessionID: sessionId }),
     `/session/${encodeURIComponent(sessionId)}`,
