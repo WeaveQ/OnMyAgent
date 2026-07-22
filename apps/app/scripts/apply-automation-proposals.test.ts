@@ -104,6 +104,21 @@ describe("automationProposalSearchRoots", () => {
       true,
     );
   });
+
+  test("can omit workspace-global proposals for session-scoped offers", () => {
+    const roots = automationProposalSearchRoots({
+      catalogRoot: "/Users/me/ws",
+      sessionRoot: "/Users/me/ws/ar-collector/abc",
+      includeWorkspaceRoot: false,
+    });
+    expect(roots).toEqual(["ar-collector/abc/automations/proposals"]);
+    expect(
+      automationProposalSearchRoots({
+        catalogRoot: "/Users/me/ws",
+        includeWorkspaceRoot: false,
+      }),
+    ).toEqual([]);
+  });
 });
 
 const flowLabels: AutomationOfferLabels = {
