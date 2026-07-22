@@ -78,6 +78,11 @@ import {
   velocityForSession,
   velocityOverview,
 } from "./session-archive-analytics-math.js";
+import {
+  ANALYTICS_CACHE_TTL_MS,
+  analyticsCacheScopeKey,
+  shouldServeAnalyticsCache,
+} from "./analytics-cache-policy.js";
 
 export type SessionArchiveAnalyticsApi = {
   getAnalyticsSummary: () => SessionArchiveAnalyticsSummary;
@@ -99,45 +104,58 @@ export type SessionArchiveAnalyticsApi = {
 
 export function createSessionArchiveAnalyticsApi(input: {
   db: SqliteDatabase;
+  /** Stable scope (typically archive dbPath) so caches never cross workspaces. */
+  cacheScope?: string;
   listAllMessages: (sessionId: string) => SessionArchiveMessage[];
   usageRows: (input: SessionArchiveUsageFilterInput) => UsageRow[];
 }): SessionArchiveAnalyticsApi {
   const { db, listAllMessages, usageRows } = input;
+  const scopeKey = analyticsCacheScopeKey({
+    dbPath: input.cacheScope?.trim() || "default",
+  });
 
-// TTL cache for analytics data to avoid repeated full-table scans
-// Cache is shared across requests within TTL window for better performance
-const ANALYTICS_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+// TTL cache for analytics data — scoped by cacheScope/dbPath, never shared across archives.
 const _analyticsCache = {
+  scopeKey: null as string | null,
   sessions: null as SessionArchiveSession[] | null,
   messages: null as AnalyticsMessageRow[] | null,
   toolCalls: null as AnalyticsToolCallRow[] | null,
   _timestamp: 0,
-  _isExpired() {
-    return Date.now() - this._timestamp > ANALYTICS_CACHE_TTL_MS;
+  isHit() {
+    return shouldServeAnalyticsCache({
+      scopeKey,
+      cachedScopeKey: this.scopeKey,
+      cachedAtMs: this._timestamp,
+      nowMs: Date.now(),
+      ttlMs: ANALYTICS_CACHE_TTL_MS,
+    });
   },
   reset() {
+    this.scopeKey = null;
     this.sessions = null;
     this.messages = null;
     this.toolCalls = null;
     this._timestamp = 0;
   },
   _touch() {
+    this.scopeKey = scopeKey;
     this._timestamp = Date.now();
-  }
+  },
 };
 
 function analyticsSessions(): SessionArchiveSession[] {
-  if (_analyticsCache.sessions && !_analyticsCache._isExpired()) return _analyticsCache.sessions;
+  if (_analyticsCache.sessions && _analyticsCache.isHit()) return _analyticsCache.sessions;
   _analyticsCache.sessions = db.prepare(`
     SELECT * FROM sessions
     WHERE deleted_at IS NULL
     ORDER BY COALESCE(started_at, ended_at, created_at) ASC, id ASC
   `).all().map(sessionFromRow);
+  _analyticsCache._touch();
   return _analyticsCache.sessions;
 }
 
 function analyticsMessages(): AnalyticsMessageRow[] {
-  if (_analyticsCache.messages && !_analyticsCache._isExpired()) return _analyticsCache.messages;
+  if (_analyticsCache.messages && _analyticsCache.isHit()) return _analyticsCache.messages;
   _analyticsCache.messages = db.prepare(`
     SELECT m.session_id, m.role, m.timestamp, m.has_thinking, m.content_length, m.tool_calls_json,
            s.agent, s.project
@@ -146,11 +164,12 @@ function analyticsMessages(): AnalyticsMessageRow[] {
     WHERE s.deleted_at IS NULL AND m.is_system = 0
     ORDER BY m.timestamp ASC, m.session_id ASC, m.ordinal ASC
   `).all().map(analyticsMessageFromRow);
+  _analyticsCache._touch();
   return _analyticsCache.messages;
 }
 
 function toolCallRows(): AnalyticsToolCallRow[] {
-  if (_analyticsCache.toolCalls && !_analyticsCache._isExpired()) return _analyticsCache.toolCalls;
+  if (_analyticsCache.toolCalls && _analyticsCache.isHit()) return _analyticsCache.toolCalls;
   const rows: AnalyticsToolCallRow[] = [];
   for (const message of analyticsMessages()) {
     for (const call of parseToolCalls(message.tool_calls_json)) {
@@ -166,6 +185,7 @@ function toolCallRows(): AnalyticsToolCallRow[] {
     }
   }
   _analyticsCache.toolCalls = rows;
+  _analyticsCache._touch();
   return rows;
 }
 
