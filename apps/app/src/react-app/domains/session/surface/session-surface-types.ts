@@ -85,6 +85,8 @@ export type SessionSurfaceProps = {
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;
   respondQuestion?: (requestID: string, answers: string[][]) => void;
+  /** Extra composer accessory (e.g. host automation result table). */
+  extraComposerAccessory?: import("react").ReactNode;
   safeStringify?: (value: unknown) => string;
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
   onUploadInboxFiles?:

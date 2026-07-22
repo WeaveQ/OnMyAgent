@@ -2030,6 +2030,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     activeQuestion: props.activeQuestion,
     questionReplyBusy: props.questionReplyBusy,
     respondQuestion: props.respondQuestion,
+    extraComposerAccessory: props.extraComposerAccessory,
     activePermission: props.activePermission,
     activePermissionNeedsApproval,
     permissionReplyBusy: props.permissionReplyBusy,

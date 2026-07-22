@@ -1,6 +1,6 @@
 {
   "name": "pdf",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "Read, create, inspect, and transform PDF files.",
   "author": {
     "name": "OnMyAgent",

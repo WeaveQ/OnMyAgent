@@ -12,7 +12,7 @@
     ]
   },
   "runtime": {
-    "entry": "runtime/artifact_runtime.py",
+    "entry": "skills/documents/runtime/artifact_runtime.py",
     "requiredTools": ["python", "libreoffice"]
   }
 }
