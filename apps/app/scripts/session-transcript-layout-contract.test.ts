@@ -219,18 +219,20 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("activeTurnMinHeight");
     expect(messageList).toContain("activeTurnReserveStyle");
     expect(messageList).toContain("isDetachedTail");
-    expect(messageList).toContain("scrollContainer.clientHeight");
-    // Live-turn viewport reserve must not inflate historical virtual estimates.
+    expect(messageList).toContain("scrollContainer.clientWidth");
+    // Live-turn viewport reserve must not inflate historical virtual estimates
+    // and must not force a full-viewport minHeight on the turn.
     expect(messageList).not.toContain(
       "Math.max(estimate, activeTurnMinHeight)",
     );
+    expect(messageList).toContain("const activeTurnMinHeight = 0");
     const virtualWindow = await Bun.file(
       new URL(
         "../src/react-app/domains/session/surface/message-list/virtual-window.ts",
         import.meta.url,
       ),
     ).text();
-    expect(virtualWindow).toContain('justifyContent: "flex-end"');
+    expect(virtualWindow).toContain("return undefined");
     expect(messageList).not.toContain("updateViewport(entry.contentRect.width, entry.contentRect.height)");
     expect(sessionSurface).toContain("scrollElement={resolveTranscriptScrollElement}");
     expect(messageList).toContain('data-transcript-turn-active={isActiveTurn ? "true" : undefined}');

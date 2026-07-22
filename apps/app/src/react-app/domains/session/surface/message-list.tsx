@@ -3409,7 +3409,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const [rootContentWidth, setRootContentWidth] = useState(
     DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
   );
-  const [rootViewportHeight, setRootViewportHeight] = useState(0);
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -3450,12 +3449,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     if (!scrollContainer) return;
 
     const updateViewport = () => {
-      // Use the same box metric for both the initial read and ResizeObserver
-      // delivery. clientHeight/clientWidth include the scroll container's
-      // padding; contentRect does not. Mixing them made the active turn's
-      // reserved height alternate by exactly 40px on every streaming render.
+      // Use clientWidth (includes padding) — not contentRect — so width stays
+      // stable across ResizeObserver deliveries while streaming.
       setRootContentWidth(computeTranscriptMaxContentWidth(scrollContainer.clientWidth));
-      setRootViewportHeight(scrollContainer.clientHeight);
     };
     updateViewport();
     const observer = new ResizeObserver(updateViewport);
@@ -3866,7 +3862,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     ? renderItems.findLast((item) => item.kind === "turn" && item.turnId === activeTurnId)?.id ?? null
     : null;
   const footerRenderItemId = activeRenderItemId ?? renderItems.at(-1)?.id ?? null;
-  const activeTurnMinHeight = Math.max(0, rootViewportHeight - 40);
+  // Live-turn minHeight reserve is intentionally 0 — see activeTurnReserveStyle.
+  const activeTurnMinHeight = 0;
 
   // Virtualize by turn once either the turn count or the underlying block
   // count is large. Do NOT gate on whether
