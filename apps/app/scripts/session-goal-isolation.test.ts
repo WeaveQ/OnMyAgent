@@ -11,7 +11,16 @@ function readSource(relativePath: string) {
   return readFileSync(new URL(`../src/react-app/${relativePath}`, import.meta.url), "utf8");
 }
 
-const surfaceSource = readSource("domains/session/surface/session-surface.tsx");
+/** Host + presentational view for session surface structural contracts. */
+function readSessionSurfaceSources() {
+  return [
+    readSource("domains/session/surface/session-surface.tsx"),
+    readSource("domains/session/surface/session-surface-view.tsx"),
+  ].join("\n");
+}
+
+const surfaceSource = readSessionSurfaceSources();
+const hostSource = readSource("domains/session/surface/session-surface.tsx");
 
 function goalRuntime(
   objective: string,
@@ -57,6 +66,7 @@ describe("session goal isolation", () => {
   });
 
   test("continues the goal runtime supplied by the active session", () => {
+    expect(hostSource).toContain("export function SessionSurface");
     const resumeStart = surfaceSource.indexOf("const resumeGoalRuntime");
     const resumeEnd = surfaceSource.indexOf("const stopActiveRun", resumeStart);
     const resumeBlock = surfaceSource.slice(resumeStart, resumeEnd);

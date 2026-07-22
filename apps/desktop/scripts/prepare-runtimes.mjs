@@ -28,6 +28,14 @@ const cacheDirIndex = process.argv.indexOf("--cachedir");
 const offline =
   process.argv.includes("--offline") ||
   process.env.ONMYAGENT_RUNTIME_OFFLINE === "1";
+/**
+ * Skip LibreOffice download/stage (large DMG/MSI).
+ * electron-dev passes --skip-office by default; packaging keeps office.
+ */
+const skipOffice =
+  process.argv.includes("--skip-office") ||
+  process.env.ONMYAGENT_RUNTIME_SKIP_OFFICE === "1" ||
+  process.env.ONMYAGENT_SKIP_LIBREOFFICE === "1";
 const outputRoot = resolve(
   outdirIndex >= 0 && process.argv[outdirIndex + 1]
     ? process.argv[outdirIndex + 1]
@@ -159,7 +167,7 @@ const expectedManifest = {
   python: pythonVersion,
   pythonStandaloneRelease: pythonRelease,
   artifactPythonPackages,
-  libreOffice: spec.officeAsset ? libreOfficeVersion : null,
+  libreOffice: skipOffice || !spec.officeAsset ? null : libreOfficeVersion,
 };
 const nodeBinary = join(
   targetRoot,
@@ -199,22 +207,60 @@ function officeBinaryFor(root) {
 }
 
 function officeWorks(root) {
-  if (!spec.officeAsset) return true;
+  if (skipOffice || !spec.officeAsset) return true;
   const binary = officeBinaryFor(root);
   return existsSync(binary) && spawnSync(binary, ["--version"], { encoding: "utf8" }).status === 0;
 }
 
-if (
-  existsSync(manifestPath) &&
-  JSON.stringify(JSON.parse(readFileSync(manifestPath, "utf8"))) ===
-    JSON.stringify(expectedManifest) &&
+function coreRuntimesReady() {
+  return (
     executableWorks(nodeBinary) &&
     executableWorks(pythonBinary) &&
-    pythonArtifactPackagesWork(pythonBinary) &&
+    pythonArtifactPackagesWork(pythonBinary)
+  );
+}
+
+function manifestCoreMatches(current) {
+  if (!current || typeof current !== "object") return false;
+  return (
+    current.target === expectedManifest.target &&
+    current.node === expectedManifest.node &&
+    current.python === expectedManifest.python &&
+    current.pythonStandaloneRelease ===
+      expectedManifest.pythonStandaloneRelease &&
+    JSON.stringify(current.artifactPythonPackages ?? null) ===
+      JSON.stringify(expectedManifest.artifactPythonPackages)
+  );
+}
+
+if (existsSync(manifestPath) && coreRuntimesReady()) {
+  let current = null;
+  try {
+    current = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch {
+    current = null;
+  }
+  if (skipOffice) {
+    // Dev path: do not re-download just because LibreOffice is missing.
+    if (manifestCoreMatches(current)) {
+      process.stdout.write(
+        `[runtimes] ${target} already prepared (LibreOffice skipped)\n`,
+      );
+      process.exit(0);
+    }
+  } else if (
+    JSON.stringify(current) === JSON.stringify(expectedManifest) &&
     officeWorks(targetRoot)
-) {
-  process.stdout.write(`[runtimes] ${target} already prepared\n`);
-  process.exit(0);
+  ) {
+    process.stdout.write(`[runtimes] ${target} already prepared\n`);
+    process.exit(0);
+  }
+}
+
+if (skipOffice) {
+  process.stdout.write(
+    `[runtimes] Skipping LibreOffice (unset ONMYAGENT_RUNTIME_SKIP_OFFICE or omit --skip-office to bundle it)\n`,
+  );
 }
 
 const workRoot = join(
@@ -378,13 +424,14 @@ try {
     spec.pythonAsset,
     spec.pythonSha256,
   );
-  const officeArchive = spec.officeAsset
-    ? await acquireArchive(
-        `https://downloadarchive.documentfoundation.org/libreoffice/old/${libreOfficeVersion}/${spec.officePath}/${spec.officeAsset}`,
-        spec.officeAsset,
-        spec.officeSha256,
-      )
-    : null;
+  const officeArchive =
+    !skipOffice && spec.officeAsset
+      ? await acquireArchive(
+          `https://downloadarchive.documentfoundation.org/libreoffice/old/${libreOfficeVersion}/${spec.officePath}/${spec.officeAsset}`,
+          spec.officeAsset,
+          spec.officeSha256,
+        )
+      : null;
 
   const nodeExtract = join(workRoot, "node-extract");
   const pythonExtract = join(workRoot, "python-extract");
@@ -470,7 +517,8 @@ try {
     throw new Error(`Prepared runtimes failed validation for ${target}`);
   }
   process.stdout.write(
-    `[runtimes] Prepared Node ${nodeVersion} and Python ${pythonVersion} for ${target}\n`,
+    `[runtimes] Prepared Node ${nodeVersion} and Python ${pythonVersion} for ${target}` +
+      (skipOffice ? " (LibreOffice skipped)\n" : "\n"),
   );
 } finally {
   rmSync(workRoot, { recursive: true, force: true });

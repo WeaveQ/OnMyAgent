@@ -13,9 +13,11 @@ describe("session visual and file contracts", () => {
     const markdown = readWorkspaceFile(
       "apps/app/src/react-app/capabilities/artifacts/markdown.tsx",
     );
-    const messageList = readWorkspaceFile(
+    const messageList = [
       "apps/app/src/react-app/domains/session/surface/message-list.tsx",
-    );
+      "apps/app/src/react-app/domains/session/surface/message-list/styles.ts",
+      "apps/app/src/react-app/domains/session/surface/message-list/file-card.tsx",
+    ].map(readWorkspaceFile).join("\n");
 
     expect(markdown).not.toContain("bg-dls-hover p-2 text-left");
     expect(markdown).toContain("rounded-xl border border-dls-mist bg-dls-surface-muted");

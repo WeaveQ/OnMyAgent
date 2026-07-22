@@ -207,6 +207,8 @@ test("runtime preparation pins and validates local artifact dependencies", async
   assert.match(source, /libreOfficeVersion = "25\.8\.2\.2"/);
   assert.match(source, /downloadarchive\.documentfoundation\.org/);
   assert.match(source, /officeWorks/);
+  assert.match(source, /skipOffice/);
+  assert.match(source, /--skip-office/);
 });
 
 test(

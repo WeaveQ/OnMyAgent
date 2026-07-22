@@ -84,16 +84,23 @@ describe("output-limit recovery", () => {
   });
 
   test("session surface renders and sends the output-limit continuation card", async () => {
-    const source = await readFile(
-      new URL("../src/react-app/domains/session/surface/session-surface.tsx", import.meta.url),
-      "utf8",
-    );
+    const [host, view] = await Promise.all([
+      readFile(
+        new URL("../src/react-app/domains/session/surface/session-surface.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/react-app/domains/session/surface/session-surface-view.tsx", import.meta.url),
+        "utf8",
+      ),
+    ]);
+    const source = [host, view].join("\n");
     const cardSource = await readFile(
       new URL("../src/react-app/domains/session/surface/chrome/assistant-status.tsx", import.meta.url),
       "utf8",
     );
     const transcriptSource = await readFile(
-      new URL("../src/react-app/domains/session/surface/message-list.tsx", import.meta.url),
+      new URL("../src/react-app/domains/session/surface/message-list/message-block-row.tsx", import.meta.url),
       "utf8",
     );
     const fixtureSource = await readFile(
@@ -101,6 +108,7 @@ describe("output-limit recovery", () => {
       "utf8",
     );
 
+    expect(host).toContain("export function SessionSurface");
     expect(source).toContain("latestOutputLimitedAssistantMessage(renderedMessages)");
     expect(source).toContain("buildOutputLimitContinuationDraft({");
     expect(source).toContain("await props.onSendDraft(continuationDraft)");
@@ -111,3 +119,4 @@ describe("output-limit recovery", () => {
     expect(fixtureSource).toContain("<OutputLimitContinueCard");
   });
 });
+

@@ -6,7 +6,7 @@ describe("session transcript WorkBuddy specialized tools", () => {
   test("routes specialized details through the shared root transcript row", async () => {
     const [messageList, specializedTools] = await Promise.all([
       Bun.file(new URL(
-        "../src/react-app/domains/session/surface/message-list.tsx",
+        "../src/react-app/domains/session/surface/message-list/step-row.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
@@ -218,7 +218,7 @@ describe("session transcript WorkBuddy specialized tools", () => {
   test("routes visualizer read-me through its dedicated WorkBuddy transcript row", async () => {
     const [messageList, specializedTools] = await Promise.all([
       Bun.file(new URL(
-        "../src/react-app/domains/session/surface/message-list.tsx",
+        "../src/react-app/domains/session/surface/message-list/step-row.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
