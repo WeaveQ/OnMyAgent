@@ -135,16 +135,34 @@ describe("session transcript layout contract", () => {
   test("keeps WorkBuddy geometry scoped to the root transcript", async () => {
     const messageList = await readMessageListSources();
     const appStyles = await Bun.file(appStylesPath).text();
+    const layout = await Bun.file(
+      new URL(
+        "../src/react-app/domains/session/surface/session-surface-layout.tsx",
+        import.meta.url,
+      ),
+    ).text();
+    const presentation = await Bun.file(
+      new URL(
+        "../src/react-app/domains/session/surface/transcript-presentation.ts",
+        import.meta.url,
+      ),
+    ).text();
 
-    expect(messageList).toContain("computeTranscriptMaxContentWidth");
+    // Body column = contentRef max-w-[1120px] (same as composer); no second JS max-width.
+    expect(layout).toContain("SESSION_CONTENT_MAX_WIDTH_CLASS");
+    expect(presentation).toContain("DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH = 1120");
+    expect(messageList).toContain('maxWidth: "100%"');
     expect(messageList).toContain("session-transcript-root mx-auto w-full");
     expect(messageList).toContain("session-transcript-user-row");
     expect(messageList).toContain("session-transcript-assistant-row");
     expect(appStyles).toContain("border-radius: 16px 16px 0 16px");
     expect(appStyles).toContain("max-height: 310px");
     expect(appStyles).toContain("padding: 8px 12px");
-    expect(appStyles).toContain("padding-inline: 12px");
-    expect(appStyles).toContain("padding-inline: 8px");
+    // No extra inline pad that would shrink body vs the composer card.
+    expect(appStyles).toMatch(/\.session-transcript-root[\s\S]*?padding-inline:\s*0/);
+    expect(appStyles).toMatch(
+      /\.session-transcript-assistant-row[\s\S]*?padding-inline:\s*0/,
+    );
     expect(appStyles).toContain(".session-transcript-turn-assistant-only");
     expect(messageList).toContain("firstAssistantRenderItemId");
     expect(messageList).toContain("data-transcript-turn-assistant-only");
@@ -262,7 +280,6 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("activeTurnMinHeight");
     expect(messageList).toContain("activeTurnReserveStyle");
     expect(messageList).toContain("isDetachedTail");
-    expect(messageList).toContain("scrollContainer.clientWidth");
     // Live-turn viewport reserve must not inflate historical virtual estimates
     // and must not force a full-viewport minHeight on the turn.
     expect(messageList).not.toContain(

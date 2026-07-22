@@ -1077,8 +1077,8 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      {/* Same max-w as session transcript column (session-surface contentRef). */}
-      <div className="mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */>
+      {/* Keep in sync with SESSION_CONTENT_MAX_WIDTH_CLASS / contentRef. */}
+      <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
