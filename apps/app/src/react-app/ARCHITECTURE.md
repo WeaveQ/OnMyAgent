@@ -18,7 +18,8 @@ src/react-app/
 ├── kernel/                    App-wide state + provider contracts
 ├── infra/                     React-only runtime infra (e.g. QueryClient)
 ├── capabilities/              Cross-domain application capabilities with neutral ownership
-│   ├── artifacts/             Markdown, open-target and artifact preview contracts
+│   ├── artifacts/             Markdown, Office preview, open-target and artifact contracts
+│   ├── conversation/          Dual-runtime timeline / item VM (OpenCode + Personal → one UI shape)
 │   ├── model-selection/       Shared model selection container + hidden-model state
 │   └── session-identity/      Session/workspace identity persistence shared by domains
 ├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
@@ -58,13 +59,16 @@ Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` §
 Domain ownership gives every feature one obvious home.
 
 - `session/` owns the **live conversation runtime** (surface, sync, composer, voice, goal
-  lifecycle). It must not re-absorb agent management or messaging channels.
+  lifecycle) on the **OpenCode primary path** (HTTP/SSE/archive). It must not re-absorb
+  agent management or messaging channels.
   Composer attachments (including **Appshot** desktop capture) live under
   `domains/session/surface/composer/`; Appshot is macOS-only and talks to the
   desktop bridge (`captureComputerUseAppshot` / `computerUse.onAppshot`). Multi-skill
   slash chips are Lexical token nodes in `composer/editor.tsx`.
-- `local-agents/` owns local/ACP agent edit, cards, messages UI,
-  `agent-management/` pages, and the personal local-agent host under `host/`.
+- `local-agents/` owns the **Personal Local Agent auxiliary path** (desktop CLI/ACP
+  harness UI): local/ACP agent edit, cards, messages UI, `agent-management/` pages,
+  and the personal host under `host/`. Not the product main session engine—see
+  monorepo `docs/Architecture.md` **Dual Runtime Boundary**.
   Public exports (`AgentBrandIcon`, recent-workspace helpers, …) go through
   `domains/local-agents/index.ts` for other domains.
 - `messaging/` owns automation pages and messaging channel panels (Feishu, Weixin, pairing).
