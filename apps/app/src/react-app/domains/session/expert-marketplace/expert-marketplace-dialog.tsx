@@ -10,7 +10,10 @@ import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
 import { EXPERT_MARKETPLACE_CATEGORIES } from "./categories";
 import { BUILTIN_MARKETPLACE_EXPERTS } from "./data";
-import type { ExpertMarketplaceEntry } from "./types";
+import type {
+  ExpertMarketplaceEntry,
+  ExpertMarketplaceSummonHandler,
+} from "./types";
 
 export type ExpertMarketplaceView = "market" | "mine";
 
@@ -116,7 +119,7 @@ export function ExpertMarketplacePage(props: {
   view?: ExpertMarketplaceView;
   query?: string;
   myExperts: ExpertMarketplaceEntry[];
-  onSummonMarketplaceExpert: (expert: ExpertMarketplaceEntry) => void;
+  onSummonMarketplaceExpert: ExpertMarketplaceSummonHandler;
   onCreateExpert: () => void;
   className?: string;
 }) {
@@ -274,6 +277,10 @@ export function ExpertMarketplacePage(props: {
                         key={prompt}
                         type="button"
                         className="flex w-full items-center justify-between gap-3 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-3 text-left text-sm leading-6 text-dls-secondary transition-colors hover:border-dls-accent/30 hover:bg-dls-hover mac:titlebar-no-drag"
+                        onClick={() => {
+                          props.onSummonMarketplaceExpert(selectedExpert, prompt);
+                          setSelectedExpert(null);
+                        }}
                       >
                         <span>{prompt}</span>
                         <ChevronRight className="size-4 shrink-0" />
@@ -307,7 +314,7 @@ export function ExpertMarketplaceDialog(props: {
   open: boolean;
   myExperts: ExpertMarketplaceEntry[];
   onOpenChange: (open: boolean) => void;
-  onSummonMarketplaceExpert: (expert: ExpertMarketplaceEntry) => void;
+  onSummonMarketplaceExpert: ExpertMarketplaceSummonHandler;
   onCreateExpert: () => void;
 }) {
   return (

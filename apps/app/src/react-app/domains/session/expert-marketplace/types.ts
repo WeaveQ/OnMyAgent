@@ -26,6 +26,11 @@ export type ExpertMarketplaceEntry = {
   version: string | null;
 };
 
+export type ExpertMarketplaceSummonHandler = (
+  expert: ExpertMarketplaceEntry,
+  initialPrompt?: string,
+) => void;
+
 export type ExpertRegistryRecord = {
   id: string;
   name: string;

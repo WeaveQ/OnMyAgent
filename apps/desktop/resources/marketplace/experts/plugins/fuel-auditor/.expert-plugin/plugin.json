@@ -29,8 +29,8 @@
   },
   "tags": [
     { "zh": "油耗对比", "en": "Fuel Economy" },
+    { "zh": "自动化周检", "en": "Automated Weekly Audit" },
     { "zh": "异常标记", "en": "Anomaly Flags" },
-    { "zh": "油卡稽核", "en": "Card Audit" },
     { "zh": "成本管控", "en": "Cost Control" }
   ],
   "quickPrompts": [

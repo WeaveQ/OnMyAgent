@@ -171,6 +171,9 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain('t("session.create_expert")');
     expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
+    expect(dialog).toContain(
+      "props.onSummonMarketplaceExpert(selectedExpert, prompt)",
+    );
     expect(dialog).not.toContain("MyExpertCard");
     expect(dialog).not.toContain("AgentRecord");
     expect(dialog).not.toContain("onSummonMyExpert");
@@ -273,12 +276,19 @@ describe("expert marketplace UI contract", () => {
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
     expect(summonHook).toContain("onCreateTaskInWorkspace(selectedWorkspaceId)");
     expect(summonHook).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    expect(summonHook).toContain(
+      "setComposerDraftAfterNewTask(selectedWorkspaceId, initialPrompt)",
+    );
     expect(summonHook).toContain('onNavigateToMode("expert")');
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
     // Build pending first, activate, open draft (+ 新任务 clears pending), re-activate.
     expect(expertPage).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
     expect(expertPage).toContain("activateDraftAgent(pendingWithStart)");
+    expect(expertPage).toContain(
+      ".setDraft(existingConversationGroup.latestSession.id, initialPrompt)",
+    );
+    expect(expertPage).toContain("setComposerDraftAfterNewTask(");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {

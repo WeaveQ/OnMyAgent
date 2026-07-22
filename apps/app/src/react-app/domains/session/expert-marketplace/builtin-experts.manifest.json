@@ -48,12 +48,12 @@
             "en": "Affiliate Ledger"
           },
           {
-            "zh": "证件到期",
-            "en": "Doc Expiry"
+            "zh": "自动化到期提醒",
+            "en": "Automated Expiry Alerts"
           },
           {
-            "zh": "保险年检",
-            "en": "Insurance/Inspect"
+            "zh": "证件到期",
+            "en": "Doc Expiry"
           },
           {
             "zh": "合规预警",
@@ -278,12 +278,12 @@
             "en": "AR Ledger"
           },
           {
-            "zh": "账龄提醒",
-            "en": "Aging Alerts"
+            "zh": "自动化催收节点",
+            "en": "Automated Collection Nodes"
           },
           {
-            "zh": "催款话术",
-            "en": "Collection Scripts"
+            "zh": "账龄提醒",
+            "en": "Aging Alerts"
           },
           {
             "zh": "现金流",
@@ -2114,12 +2114,12 @@
             "en": "Fuel Economy"
           },
           {
-            "zh": "异常标记",
-            "en": "Anomaly Flags"
+            "zh": "自动化周检",
+            "en": "Automated Weekly Audit"
           },
           {
-            "zh": "油卡稽核",
-            "en": "Card Audit"
+            "zh": "异常标记",
+            "en": "Anomaly Flags"
           },
           {
             "zh": "成本管控",

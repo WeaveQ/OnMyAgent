@@ -29,8 +29,8 @@
   },
   "tags": [
     { "zh": "挂靠台账", "en": "Affiliate Ledger" },
+    { "zh": "自动化到期提醒", "en": "Automated Expiry Alerts" },
     { "zh": "证件到期", "en": "Doc Expiry" },
-    { "zh": "保险年检", "en": "Insurance/Inspect" },
     { "zh": "合规预警", "en": "Compliance Alert" }
   ],
   "quickPrompts": [
