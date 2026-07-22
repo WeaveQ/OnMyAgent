@@ -40,13 +40,13 @@ describe("assistant draft home brand contract", () => {
     );
     expect(layoutMode).toContain('t("session.assistant_work_subtitle")');
     expect(layoutMode).toContain('t("session.assistant_code_subtitle")');
-    // Title + hero composer share one max-w-4xl column on assistant new-task.
-    expect(layout).toContain("max-w-4xl");
+    // Title stays max-w-2xl; composer width matches in-session (1120). Hero only grows height.
+    expect(layout).toContain("max-w-2xl");
     expect(surface).toMatch(/homeLayout=\{(?:props\.)?homeComposerLayout\}/);
     expect(surface).toMatch(/heroHome=\{Boolean\(personalAssistantDraftHome\)\}/);
     expect(composer).toContain("const homeLayout = Boolean(props.homeLayout);");
     expect(composer).toContain("const heroHome = Boolean(props.heroHome);");
-    expect(composer).toContain("max-w-4xl");
+    expect(composer).toContain("max-w-[1120px]");
     expect(composer).toContain("rounded-2xl");
     const editor = readSurface("composer/editor.tsx");
     expect(editor).toContain("min-h-28");

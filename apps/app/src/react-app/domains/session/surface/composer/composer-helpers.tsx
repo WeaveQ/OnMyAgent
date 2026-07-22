@@ -239,8 +239,8 @@ export type ComposerProps = {
    */
   homeLayout?: boolean;
   /**
-   * Assistant office/code “new task” hero: taller, wider, softer card under the
-   * brand title. Does not apply to expert empty or in-session chat.
+   * Assistant office/code “new task” hero: taller field + softer card under the
+   * brand title (width stays the same as in-session). Not expert empty / chat.
    */
   heroHome?: boolean;
   topAccessory?: ReactNode;
