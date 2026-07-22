@@ -52,7 +52,7 @@ const documentsRuntime: ArtifactPluginRuntimeConfig = {
   },
   runtime: {
     entry: "runtime/artifact_runtime.py",
-    requiredTools: ["python", "libreoffice"],
+    requiredTools: ["node"],
   },
 };
 

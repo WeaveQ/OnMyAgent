@@ -4,14 +4,13 @@
 
 转换流程：
 1. 预提取：用 PyMuPDF 提取 PDF 中所有图片及位置信息
-2. 转换：调用 pdf2docx（优先）或 LibreOffice 执行转换
+2. 转换：调用 pdf2docx 执行转换
 3. 补全：检测 Word 中缺失的图片，按页码位置补插回去
 
-依赖：PyMuPDF（核心）、python-docx（图片补全）、pdf2docx（可选）、LibreOffice（可选）
+依赖：PyMuPDF（核心）、python-docx（图片补全）、pdf2docx（可选）
 """
 
 import os
-import tempfile
 
 COMMAND = "pdf_to_word"
 DESCRIPTION = "Convert PDF to Word document (.docx) with image enhancement"
@@ -23,7 +22,7 @@ PARAMS = [
     {"name": "pages",  "type": "json", "required": False,
      "help": "Page range [start, end] (0-based, default all)"},
     {"name": "method", "type": "str", "required": False, "default": "auto",
-     "choices": ["auto", "pdf2docx", "libreoffice"],
+     "choices": ["auto", "pdf2docx"],
      "help": "Conversion method"},
     {"name": "enhance_images", "type": "bool", "required": False, "default": True,
      "help": "Enable image enhancement (extract and re-insert missing images)"},
@@ -274,40 +273,6 @@ def _convert_pdf2docx(input_path, output_path, pages):
     return page_count
 
 
-def _convert_libreoffice(input_path, output_path):
-    """使用 LibreOffice 转换。"""
-    import shutil
-    import subprocess
-
-    lo_path = shutil.which("soffice") or shutil.which("libreoffice")
-    if not lo_path:
-        raise FileNotFoundError("LibreOffice 未安装")
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        cmd = [
-            lo_path, "--headless",
-            "--convert-to", "docx",
-            "--outdir", tmpdir,
-            input_path
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        if result.returncode != 0:
-            raise RuntimeError(f"LibreOffice 转换失败: {result.stderr}")
-
-        base_name = os.path.splitext(os.path.basename(input_path))[0]
-        tmp_output = os.path.join(tmpdir, base_name + ".docx")
-        if not os.path.exists(tmp_output):
-            raise FileNotFoundError(f"LibreOffice 输出文件未找到: {tmp_output}")
-
-        shutil.move(tmp_output, output_path)
-
-    import fitz
-    doc = fitz.open(input_path)
-    page_count = len(doc)
-    doc.close()
-    return page_count
-
-
 # ---------------------------------------------------------------------------
 # handler
 # ---------------------------------------------------------------------------
@@ -317,7 +282,7 @@ def handler(params):
 
     流程：
     1. [可选] 预提取 PDF 中的图片及位置信息
-    2. 调用 pdf2docx 或 LibreOffice 执行转换
+    2. 调用 pdf2docx 执行转换
     3. [可选] 检测 Word 中缺失的图片并补插
     """
     input_path = params["input"]
@@ -357,19 +322,8 @@ def handler(params):
             if method == "pdf2docx":
                 raise
 
-    if engine_used == "none" and method in ("auto", "libreoffice"):
-        try:
-            page_count = _convert_libreoffice(input_path, output_path)
-            engine_used = "libreoffice"
-        except FileNotFoundError:
-            if method == "libreoffice":
-                raise FileNotFoundError("LibreOffice 未安装")
-        except Exception:
-            if method == "libreoffice":
-                raise
-
     if engine_used == "none":
-        raise RuntimeError("无可用的 PDF 转 Word 引擎。请安装 pdf2docx 或 LibreOffice。")
+        raise RuntimeError("无可用的 PDF 转 Word 引擎。请安装 pdf2docx。")
 
     # ---- Step 3: 图片补全 ----
     image_enhance_result = None

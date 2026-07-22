@@ -54,6 +54,7 @@ import type {
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import { OfficeFilePreview } from "../../capabilities/artifacts/office-file-preview";
 import {
   canPreviewOpenTargetInline,
   type OpenTarget,
@@ -239,13 +240,26 @@ type FilePreviewState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; content: string }
+  | {
+      status: "office";
+      filePath: string;
+      revision: number;
+    }
   | { status: "external" }
   | { status: "browser" }
   | { status: "error"; message: string };
 
 function canPreviewWorkspaceFileInline(target: OpenTarget) {
-  // Shared policy with side-panel file tree (no Office / binary dump).
   return canPreviewOpenTargetInline(target);
+}
+
+function usesOfficeRenderer(target: OpenTarget) {
+  return (
+    target.preview === "document" ||
+    target.preview === "presentation" ||
+    target.preview === "pdf" ||
+    (target.preview === "sheet" && !/\.(csv|tsv)$/i.test(target.name || target.value))
+  );
 }
 
 function filterWorkspaceFileTree(
@@ -386,6 +400,12 @@ function FilePreviewDrawer(props: {
                 <PreviewLoading />
               ) : state.status === "error" ? (
                 <PreviewError message={state.message} />
+              ) : state.status === "office" ? (
+                <OfficeFilePreview
+                  filePath={state.filePath}
+                  name={file.name}
+                  revision={state.revision}
+                />
               ) : state.status === "ready" && target.preview === "markdown" ? (
                 <MarkdownPreview content={state.content} />
               ) : state.status === "ready" ? (
@@ -575,10 +595,21 @@ export function WorkspaceFilesPage(props: {
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
-    void props.client
-      .readWorkspaceFile(props.workspaceId, selectedTarget.value)
-      .then((result) => {
-        if (!cancelled) setPreviewState({ status: "ready", content: result.content });
+    const previewRequest = usesOfficeRenderer(selectedTarget)
+      ? Promise.resolve({
+          status: "office" as const,
+          filePath: selectedFile?.path.startsWith("/")
+            ? selectedFile.path
+            : `${fileRoot.replace(/[/\\]+$/, "")}/${selectedFile?.path.replace(/^[/\\]+/, "") ?? ""}`,
+          revision: selectedTarget.updatedAt ?? Date.now(),
+        })
+      : props.client
+          .readWorkspaceFile(props.workspaceId, selectedTarget.value)
+          .then((result) => ({ status: "ready" as const, content: result.content }));
+
+    void previewRequest
+      .then((state) => {
+        if (!cancelled) setPreviewState(state);
       })
       .catch((previewError: unknown) => {
         if (cancelled) return;
@@ -591,7 +622,7 @@ export function WorkspaceFilesPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.client, props.workspaceId, selectedTarget]);
+  }, [fileRoot, props.client, props.workspaceId, selectedFile, selectedTarget]);
 
   const visibleFileTree = useMemo(() => {
     const tree = filterHiddenFromTree(

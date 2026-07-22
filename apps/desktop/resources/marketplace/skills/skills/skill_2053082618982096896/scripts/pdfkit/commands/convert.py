@@ -51,7 +51,6 @@ def handler(params):
         "pdf_to_html": _pdf_to_html,
         "pdf_to_md": _pdf_to_markdown,
         "pdf_to_images": _pdf_to_images,
-        "docx_to_pdf": _docx_to_pdf,
         "html_to_pdf": _html_to_pdf,
         "md_to_pdf": _md_to_pdf,
         "images_to_pdf": _images_to_pdf,
@@ -127,15 +126,7 @@ def _pdf_to_docx(input_path, output_path, options):
                 raise
             # auto 模式下继续尝试其他方法
 
-    # 方法 2: LibreOffice headless
-    if method in ("auto", "libreoffice"):
-        try:
-            return _convert_with_libreoffice(input_path, output_path, "docx")
-        except Exception as e:
-            if method == "libreoffice":
-                raise
-
-    raise RuntimeError("PDF → Word 转换失败：pdf2docx 和 LibreOffice 均不可用")
+    raise RuntimeError("PDF → Word 转换失败：pdf2docx 不可用")
 
 
 def _pdf_to_html(input_path, output_path, options):
@@ -301,11 +292,6 @@ def _pdf_to_images(input_path, output_path, options):
     }
 
 
-def _docx_to_pdf(input_path, output_path, options):
-    """Word (.docx) → PDF 转换。"""
-    return _convert_with_libreoffice(input_path, output_path, "pdf")
-
-
 def _html_to_pdf(input_path, output_path, options):
     """HTML → PDF 转换。"""
     # 方法 1: wkhtmltopdf
@@ -422,39 +408,6 @@ def _images_to_pdf(input_path, output_path, options):
         "pages_converted": len(image_files),
         "images_count": len(image_files),
     }
-
-
-def _convert_with_libreoffice(input_path, output_path, to_format):
-    """使用 LibreOffice headless 模式转换。"""
-    import tempfile
-
-    output_dir = tempfile.mkdtemp(prefix="pdfkit-lo-")
-
-    try:
-        # 查找 LibreOffice
-        for lo in ["soffice", "libreoffice"]:
-            try:
-                result = subprocess.run(
-                    [lo, "--headless", "--convert-to", to_format,
-                     "--outdir", output_dir, input_path],
-                    capture_output=True, text=True, timeout=300
-                )
-                if result.returncode == 0:
-                    # 找到转换后的文件
-                    base_name = os.path.splitext(os.path.basename(input_path))[0]
-                    converted = os.path.join(output_dir, f"{base_name}.{to_format}")
-                    if os.path.exists(converted):
-                        shutil.move(converted, output_path)
-                        return {
-                            "engine": f"libreoffice ({lo})",
-                            "pages_converted": -1,
-                        }
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                continue
-    finally:
-        shutil.rmtree(output_dir, ignore_errors=True)
-
-    raise RuntimeError(f"LibreOffice 转换失败：未找到 soffice 或 libreoffice 命令")
 
 
 def _count_docx_pages(docx_path):

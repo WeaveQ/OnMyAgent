@@ -66,7 +66,7 @@ Does the cell contain a <f> element?
 
 numFmtId 169–172 are custom formats that need to be appended beyond the 4 formats (164–167) pre-defined in the minimal_xlsx template. When appending, assign IDs according to the rules (see Section 3.4).
 
-**Built-in format IDs do not need to be declared in `<numFmts>`** (IDs 0–163 are built into Excel/LibreOffice; simply reference the numFmtId in `<xf>`):
+**Built-in format IDs do not need to be declared in `<numFmts>`** (IDs 0–163 are built into Excel-compatible applications; simply reference the numFmtId in `<xf>`):
 
 | numFmtId | formatCode | Description |
 |----------|-----------|-------------|
@@ -275,7 +275,7 @@ Alpha Red Green Blue
 ### 3.4 numFmtId Assignment Rules
 
 ```
-ID 0-163    -> Excel/LibreOffice built-in formats, no declaration needed in <numFmts>, reference directly in <xf>
+ID 0-163    -> built-in spreadsheet formats, no declaration needed in <numFmts>, reference directly in <xf>
 ID 164+     -> Custom formats, must be explicitly declared as <numFmt> elements in <numFmts>
 ```
 

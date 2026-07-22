@@ -45,6 +45,11 @@ import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/component
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -60,6 +65,7 @@ import {
   PreviewError,
   PreviewLoading,
 } from "../artifacts/preview";
+import { OfficeFilePreview } from "../artifacts/office-file-preview";
 import {
   buildWorkspaceFileTree,
   filterHiddenFromTree,
@@ -178,6 +184,7 @@ type WorkspaceFilePreview =
   | { kind: "loading" }
   | { kind: "unsupported" }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
+  | { kind: "office"; filePath: string; name: string }
   | { kind: "binary"; url: string; name: string };
 
 function absoluteWorkspaceFilePath(root: string, path: string) {
@@ -190,6 +197,15 @@ function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {
 
 function isTextSheet(path: string) {
   return /\.(csv|tsv)$/i.test(path);
+}
+
+function usesOfficeRenderer(preview: OpenTarget["preview"], path: string) {
+  return (
+    preview === "document" ||
+    preview === "presentation" ||
+    preview === "pdf" ||
+    (preview === "sheet" && !isTextSheet(path))
+  );
 }
 
 function inferredImageContentType(path: string) {
@@ -418,11 +434,7 @@ function WorkspaceFilesPanel(props: {
     async (path: string) => {
       const targetPreview = classifyOpenTarget(path, "file");
       const targetName = path.split("/").filter(Boolean).at(-1) ?? path;
-      if (
-        targetPreview === "external"
-        || targetPreview === "pdf"
-        || (targetPreview === "sheet" && !isTextSheet(path))
-      ) {
+      if (targetPreview === "external") {
         setSelectedPath(path);
         setError(null);
         setPreview({ kind: "unsupported" });
@@ -439,6 +451,19 @@ function WorkspaceFilesPanel(props: {
       setPreview({ kind: "loading" });
       try {
         const requestPath = workspaceFileRequestPath(rootRelativePrefix, path);
+        if (usesOfficeRenderer(targetPreview, path)) {
+          const localRoot = fileRoot || props.workspacePath;
+          if (!isElectronRuntime() || !localRoot) {
+            setPreview({ kind: "unsupported" });
+            return;
+          }
+          setPreview({
+            kind: "office",
+            filePath: absoluteWorkspaceFilePath(localRoot, path),
+            name: targetName,
+          });
+          return;
+        }
         if (targetPreview === "image") {
           const client = props.client;
           const workspaceId = props.workspaceId;
@@ -544,8 +569,10 @@ function WorkspaceFilesPanel(props: {
   );
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[220px_minmax(0,1fr)] bg-dls-background">
-      <div className="min-h-0 overflow-auto border-r border-dls-border p-2">
+    <div className="h-full min-h-0 bg-dls-background">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0">
+        <ResizablePanel defaultSize="220px" minSize="144px" maxSize="45%" className="min-w-0">
+          <div className="h-full min-h-0 overflow-auto p-2">
         {tree?.children.length ? tree.children.map((node) => (
           <WorkspaceTreeRow
             key={node.path}
@@ -576,8 +603,11 @@ function WorkspaceFilesPanel(props: {
             </p>
           </div>
         )}
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-col">
+          </div>
+        </ResizablePanel>
+        <ResizableHandle aria-label={t("files.resize_tree")} className="w-2" />
+        <ResizablePanel minSize="180px" className="min-w-0">
+          <div className="flex h-full min-h-0 min-w-0 flex-col">
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-dls-border px-3 text-xs text-dls-secondary">
           <span className="min-w-0 flex-1 truncate">
             {selectedPath ?? t("session.code_side_panel_files")}
@@ -603,6 +633,12 @@ function WorkspaceFilesPanel(props: {
           <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
             {t("files.preview_unsupported")}
           </div>
+        ) : preview.kind === "office" ? (
+          <OfficeFilePreview
+            className="min-h-0 flex-1"
+            filePath={preview.filePath}
+            name={preview.name}
+          />
         ) : preview.kind === "binary" ? (
           <ImagePreview className="min-h-0 flex-1" src={preview.url} alt={preview.name} />
         ) : preview.kind === "text" && preview.format === "markdown" ? (
@@ -616,7 +652,9 @@ function WorkspaceFilesPanel(props: {
             {t("files.preview_empty")}
           </div>
         )}
-      </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
       <ConfirmModal
         open={Boolean(pendingDeleteNode)}
         title={t("files.delete_confirm_title")}
