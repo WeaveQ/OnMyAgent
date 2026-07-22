@@ -30,6 +30,11 @@ import {
   buildSessionMessages,
   buildSessionStatuses,
 } from "./session-read-model.js";
+import {
+  AUTOMATION_SCHEDULER_DEFAULT_MS,
+  nextAutomationWakeMs,
+} from "./automation-schedule-policy.js";
+import { defaultOpencodeClientPool } from "./opencode-client-pool.js";
 
 export type AutomationExecution = {
   sessionId: string;
@@ -45,15 +50,46 @@ type AutomationModel = {
 export function startAutomationScheduler(config: ServerConfig, logger: ServerLogger) {
   const inFlight = new Set<string>();
   let closed = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const scheduleNext = (delayMs: number) => {
+    if (closed) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      void run();
+    }, delayMs);
+    timer.unref?.();
+  };
 
   const run = async () => {
     if (closed || config.readOnly) return;
+    const now = Date.now();
+    const nextRunAts: number[] = [];
+    let hasRunning = false;
+    let hasExpiringLease = false;
+
     for (const workspace of config.workspaces) {
       const workspaceId = workspace.id.trim();
       if (!workspaceId || inFlight.has(workspaceId)) continue;
       inFlight.add(workspaceId);
       try {
-        await runDueWorkspaceAutomations(config, workspace, logger);
+        const tasks = await listAutomations(workspace.path);
+        for (const task of tasks) {
+          if (task.running) {
+            hasRunning = true;
+            if (
+              task.running.expiresAt != null &&
+              task.running.expiresAt <= now + 60_000
+            ) {
+              hasExpiringLease = true;
+            }
+          }
+          if (task.enabled && task.nextRunAt != null) {
+            nextRunAts.push(task.nextRunAt);
+          }
+        }
+        await runDueWorkspaceAutomations(config, workspace, logger, tasks);
       } catch (error) {
         logger.log("warn", "Automation scheduler failed", {
           workspaceId,
@@ -63,17 +99,23 @@ export function startAutomationScheduler(config: ServerConfig, logger: ServerLog
         inFlight.delete(workspaceId);
       }
     }
+
+    const wakeMs = nextAutomationWakeMs({
+      now: Date.now(),
+      nextRunAts,
+      hasRunning,
+      hasExpiringLease,
+    });
+    scheduleNext(wakeMs || AUTOMATION_SCHEDULER_DEFAULT_MS);
   };
 
-  const interval = setInterval(() => {
-    void run();
-  }, 30_000);
   void run();
 
   return {
     close: () => {
       closed = true;
-      clearInterval(interval);
+      if (timer) clearTimeout(timer);
+      timer = null;
     },
   };
 }
@@ -82,9 +124,10 @@ async function runDueWorkspaceAutomations(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   logger: ServerLogger,
+  prefetchedTasks?: AutomationTaskItem[],
 ) {
   await recordOverlappingAutomationSkips(workspace.path);
-  const tasks = await listAutomations(workspace.path);
+  const tasks = prefetchedTasks ?? (await listAutomations(workspace.path));
   const now = Date.now();
   if (!tasks.some((task) => (
     task.running?.expiresAt != null && task.running.expiresAt <= now
@@ -209,7 +252,7 @@ export async function startAutomationTask(
 
   const workspaceRoot = task.workspaceDirectory?.trim() || workspace.path;
   const { groupName, outputDirectory } = await createAutomationOutputDirectory(workspaceRoot);
-  const opencode = createWorkspaceOpencodeClient(config, workspace, outputDirectory);
+  const opencode = defaultOpencodeClientPool.get(config, workspace, outputDirectory);
   await writeFile(
     join(outputDirectory, "任务说明.md"),
     `# ${task.title}\n\n${task.prompt}\n`,
@@ -285,7 +328,7 @@ export async function waitForAutomationSession(
   workspace: WorkspaceInfo,
   execution: AutomationExecution,
 ): Promise<void> {
-  const opencode = createWorkspaceOpencodeClient(config, workspace, execution.outputDirectory);
+  const opencode = defaultOpencodeClientPool.get(config, workspace, execution.outputDirectory);
   const startedAt = Date.now();
   const timeoutAt = startedAt + 2 * 60 * 60 * 1000;
   const emptyOutputGraceMs = 30_000;
@@ -359,7 +402,7 @@ export async function reconcileAutomationRuns(
         !run.outputDirectory
       ) continue;
       try {
-        const opencode = createWorkspaceOpencodeClient(config, workspace, run.outputDirectory);
+        const opencode = defaultOpencodeClientPool.get(config, workspace, run.outputDirectory);
         const saved = await saveAutomationSessionOutput(opencode, {
           sessionId: run.sessionId,
           groupName: run.groupName ?? basename(run.outputDirectory),

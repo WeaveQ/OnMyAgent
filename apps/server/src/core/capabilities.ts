@@ -91,10 +91,17 @@ export function resolveInboxMaxBytes(): number {
   return 50_000_000;
 }
 
+/**
+ * Toy/dev UI is opt-in. Default off so production serve does not imply the
+ * large toy-ui surface. Enable with ONMYAGENT_TOY_UI=1 or ONMYAGENT_DEV_MODE=1.
+ */
 export function resolveToyUiEnabled(): boolean {
   const raw = (process.env.ONMYAGENT_TOY_UI ?? "").trim().toLowerCase();
-  if (!raw) return true;
-  return ["1", "true", "yes", "on"].includes(raw);
+  if (raw) {
+    return ["1", "true", "yes", "on"].includes(raw);
+  }
+  const dev = (process.env.ONMYAGENT_DEV_MODE ?? "").trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(dev);
 }
 
 function resolveBrowserProvider(): Capabilities["toolProviders"]["browser"] {
