@@ -64,6 +64,8 @@ export function useCodeWorkspaceEnvironment(props: {
   }, [props.enabled, refresh]);
 
   useEffect(() => {
+    // Install whenever enabled+polling — do not consult document visibility
+    // here or a hidden-at-setup tab never resumes after focus returns.
     const intervalMs = codeReviewPollIntervalMs({
       enabled: props.enabled,
       polling: props.polling === true,
@@ -73,7 +75,15 @@ export function useCodeWorkspaceEnvironment(props: {
       if (!shouldRunActivePoll({ enabled: true })) return;
       void refresh();
     }, intervalMs);
-    return () => window.clearInterval(timer);
+    const onVisibility = () => {
+      if (!shouldRunActivePoll({ enabled: true })) return;
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [props.enabled, props.polling, refresh]);
 
   return { snapshot, error, loading, refresh };

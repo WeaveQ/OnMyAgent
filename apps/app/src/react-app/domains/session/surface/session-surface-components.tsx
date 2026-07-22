@@ -45,7 +45,10 @@ import {
   formatGoalElapsed,
   isGoalIntentRuntime,
 } from "./session-surface-utils";
-import { shouldTickGoalRuntimeClock } from "../sync/session-poll-policy";
+import {
+  shouldInstallGoalRuntimeClock,
+  shouldTickGoalRuntimeClock,
+} from "../sync/session-poll-policy";
 
 // ============================================================================
 // Constants
@@ -523,8 +526,10 @@ export function GoalRuntimePanel(props: {
   const elapsed = formatGoalElapsed(goalElapsedMs(props.runtime, now));
 
   useEffect(() => {
+    // Install from status only; gate each tick on visibility so a goal that
+    // becomes active while the tab is hidden still ticks after focus returns.
     if (
-      !shouldTickGoalRuntimeClock({
+      !shouldInstallGoalRuntimeClock({
         status: props.runtime.status,
         waitingReason: props.runtime.waitingReason,
       })
@@ -532,8 +537,24 @@ export function GoalRuntimePanel(props: {
       setNow(Date.now());
       return;
     }
-    const id = window.setInterval(() => setNow(Date.now()), GOAL_RUNTIME_TICK_MS);
-    return () => window.clearInterval(id);
+    const tick = () => {
+      if (
+        !shouldTickGoalRuntimeClock({
+          status: props.runtime.status,
+          waitingReason: props.runtime.waitingReason,
+        })
+      ) {
+        return;
+      }
+      setNow(Date.now());
+    };
+    tick();
+    const id = window.setInterval(tick, GOAL_RUNTIME_TICK_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [props.runtime.status, props.runtime.waitingReason]);
 
   const objective = props.runtime.objective.slice(0, 80);

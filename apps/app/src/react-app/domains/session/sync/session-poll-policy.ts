@@ -1,7 +1,11 @@
 /**
  * Shared predicates for session-area background timers / React Query polls.
- * Intervals must clear when the surface is unmounted, inactive, or the
- * document is hidden.
+ *
+ * Split "install interval" vs "fire this tick":
+ * - Install ignores document visibility so a tab that mounts/setup while
+ *   hidden still has a live timer that resumes when visible again.
+ * - Tick/fire checks visibility (and feature enablement) so we skip work
+ *   while backgrounded without tearing down the schedule.
  */
 
 export const CODE_TERMINAL_SNAPSHOT_INTERVAL_MS = 250;
@@ -16,7 +20,7 @@ export function isDocumentVisible(documentVisible?: boolean): boolean {
   return document.visibilityState !== "hidden";
 }
 
-/** Whether an interval-based poll should be scheduled. */
+/** Whether this tick should do work (enabled + tab visible). */
 export function shouldRunActivePoll(input: {
   enabled: boolean;
   documentVisible?: boolean;
@@ -26,50 +30,62 @@ export function shouldRunActivePoll(input: {
 }
 
 /**
- * Code-workspace terminal snapshot interval, or null when polling must stop.
- * Panel unmount (mounted=false) always stops the 250ms loop.
+ * Terminal snapshot interval when the panel is mounted.
+ * Visibility does NOT null the interval — skip ticks via shouldRunActivePoll.
+ * Unmount (mounted=false) is the only way to stop scheduling.
  */
 export function codeTerminalSnapshotIntervalMs(input: {
   mounted: boolean;
-  documentVisible?: boolean;
 }): number | null {
-  if (!shouldRunActivePoll({ enabled: input.mounted, documentVisible: input.documentVisible })) {
-    return null;
-  }
+  if (!input.mounted) return null;
   return CODE_TERMINAL_SNAPSHOT_INTERVAL_MS;
 }
 
-/** Git/env review panel poll interval, or null when idle. */
+/**
+ * Review panel poll interval when enabled+polling.
+ * Visibility does not null the interval — skip ticks while hidden.
+ */
 export function codeReviewPollIntervalMs(input: {
   enabled: boolean;
   polling: boolean;
-  documentVisible?: boolean;
 }): number | null {
   if (!input.enabled || !input.polling) return null;
-  if (!isDocumentVisible(input.documentVisible)) return null;
   return CODE_REVIEW_POLL_INTERVAL_MS;
 }
 
 /**
- * Automation list refetch for React Query.
- * Returns false to disable interval when the tab is hidden.
+ * Automation list refetch interval (always a number when the query is active).
+ * Prefer React Query `refetchIntervalInBackground: false` so hidden tabs pause
+ * without permanently disabling the interval callback.
  */
 export function automationListRefetchIntervalMs(input: {
   anyRunning: boolean;
-  documentVisible?: boolean;
-}): number | false {
-  if (!isDocumentVisible(input.documentVisible)) return false;
+}): number {
   return input.anyRunning ? AUTOMATION_RUNNING_REFETCH_MS : AUTOMATION_IDLE_REFETCH_MS;
 }
 
-/** Goal elapsed clock ticks only while the goal is actively running. */
+/**
+ * Whether the goal elapsed clock should keep an interval installed
+ * (status-driven only — not document visibility).
+ */
+export function shouldInstallGoalRuntimeClock(input: {
+  status: string;
+  waitingReason?: string | null;
+}): boolean {
+  if (input.status === "paused" || input.status === "completed") return false;
+  if (input.waitingReason === "user") return false;
+  return true;
+}
+
+/**
+ * Whether this clock tick should advance "now".
+ * Requires install-worthy status AND a visible document.
+ */
 export function shouldTickGoalRuntimeClock(input: {
   status: string;
   waitingReason?: string | null;
   documentVisible?: boolean;
 }): boolean {
-  if (!isDocumentVisible(input.documentVisible)) return false;
-  if (input.status === "paused" || input.status === "completed") return false;
-  if (input.waitingReason === "user") return false;
-  return true;
+  if (!shouldInstallGoalRuntimeClock(input)) return false;
+  return isDocumentVisible(input.documentVisible);
 }
