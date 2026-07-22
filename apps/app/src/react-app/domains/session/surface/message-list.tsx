@@ -58,11 +58,11 @@ import {
 import { selectTurnOpenTargets } from "./message-list/open-targets";
 import {
   blockIdentityKey,
-  blocksAreEquivalent,
   canMergeStepClusters,
   mergeLeadingAssistantStepClusters,
   messageIdsForBlock,
   shouldFoldStepGroups,
+  stabilizeMessageBlocks,
 } from "./message-list/block-model";
 import {
   attachmentsForParts,
@@ -115,6 +115,14 @@ type SessionTranscriptProps = {
   activeSearchMessageId?: string | null;
   searchHighlightQuery?: string;
   scrollElement?: () => HTMLElement | null | undefined;
+  /**
+   * Prefer a stable ref over a register callback so parent re-renders
+   * (composer typing, sending flag) do not bust SessionTranscript memo.
+   */
+  scrollToMessageByIdRef?: {
+    current: ((messageId: string, behavior?: ScrollBehavior) => boolean) | null;
+  };
+  /** @deprecated Prefer scrollToMessageByIdRef for stable memo props. */
   setScrollToMessageById?: (
     handler: ((messageId: string, behavior?: ScrollBehavior) => boolean) | null,
   ) => void;
@@ -371,25 +379,15 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     return blocks;
   }, [props.developerMode, props.dividers, showThinking, transcriptMessages]);
 
-  // Structural sharing: reuse the previous block object reference for any
-  // block whose content is equivalent. During streaming, only the active
-  // assistant message's block is actually new — every other block in the
-  // transcript keeps its previous reference, which means every
-  // React.memo'd descendant (MarkdownBlock, SessionTranscript itself, and
-  // any future per-row components) gets a pointer-equal prop and can bail
-  // out of rendering entirely.
+  // Structural sharing: reuse previous block refs when content-equivalent
+  // (see stabilizeMessageBlocks) so memo'd rows skip work during streaming.
   const messageBlocks = useMemo<MessageBlockItem[]>(() => {
-    const prev = previousBlocksRef.current;
-    const next = new Map<string, MessageBlockItem>();
-    const stable: MessageBlockItem[] = rawMessageBlocks.map((block) => {
-      const key = blockIdentityKey(block);
-      const prevBlock = prev.get(key);
-      const reused = blocksAreEquivalent(prevBlock, block) ? (prevBlock as MessageBlockItem) : block;
-      next.set(key, reused);
-      return reused;
-    });
-    previousBlocksRef.current = next;
-    return stable;
+    const stabilized = stabilizeMessageBlocks(
+      previousBlocksRef.current,
+      rawMessageBlocks,
+    );
+    previousBlocksRef.current = stabilized.nextByKey;
+    return stabilized.blocks;
   }, [rawMessageBlocks]);
 
   const cancelledMessageIds = useMemo(
@@ -746,10 +744,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   }, [props.messages.length, props.isStreaming, shouldVirtualize, virtualizer]);
 
   useEffect(() => {
-    const register = props.setScrollToMessageById;
-    if (!register) return;
-
-    register((messageId, behavior = "smooth") => {
+    const scrollToMessage = (messageId: string, behavior: ScrollBehavior = "smooth") => {
       const index = blockIndexByMessageId.get(messageId);
       if (index === undefined) return false;
 
@@ -780,12 +775,31 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       if (!target) return false;
       target.scrollIntoView({ behavior, block: "center" });
       return true;
-    });
+    };
 
+    const ref = props.scrollToMessageByIdRef;
+    if (ref) {
+      ref.current = scrollToMessage;
+      return () => {
+        if (ref.current === scrollToMessage) ref.current = null;
+      };
+    }
+
+    const register = props.setScrollToMessageById;
+    if (!register) return;
+    register(scrollToMessage);
     return () => {
       register(null);
     };
-  }, [blockIndexByMessageId, props.scrollElement, props.setScrollToMessageById, shouldVirtualize, virtualizer, virtualRenderItems.length]);
+  }, [
+    blockIndexByMessageId,
+    props.scrollElement,
+    props.scrollToMessageByIdRef,
+    props.setScrollToMessageById,
+    shouldVirtualize,
+    virtualizer,
+    virtualRenderItems.length,
+  ]);
 
   // NOTE: we intentionally do NOT call virtualizer.measure() on every
   // messageBlocks change. react-virtual already invalidates and
@@ -799,10 +813,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // work reduces the chance that one large session makes the UI feel frozen.
   const shouldUseContentVisibility = !shouldVirtualize && messageBlocks.length > 24;
 
+  // Fill the shared contentRef column (max-w-[1120px]); do not re-cap narrower
+  // than the composer bar. rootContentWidth still tracks viewport for layout.
   const transcriptStyle = isNestedVariant
     ? MESSAGE_LIST_CONTAIN_STYLE
     : {
         ...MESSAGE_LIST_CONTAIN_STYLE,
+        width: "100%",
         maxWidth: `${rootContentWidth}px`,
       } satisfies CSSProperties;
   const renderConversationBlock = (block: MessageBlockItem) => {
