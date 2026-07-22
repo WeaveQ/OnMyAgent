@@ -10,7 +10,7 @@ import type {
 } from "@onmyagent/types/session-archive";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
-import { openSessionArchiveStore, type SessionArchiveStore } from "./session-archive.js";
+import type { SessionArchiveStore } from "./session-archive.js";
 import { findOpenCodeSqliteSource, listOpenCodeSqliteSessions, loadOpenCodeSqliteSession, type OpenCodeSqliteSessionMeta, type OpenCodeSqliteSource } from "./session-archive-sqlite-opencode.js";
 import {
   sessionArchiveParserForAgent,
@@ -18,6 +18,7 @@ import {
 } from "./session-archive-parser.js";
 import { resolveSessionArchiveSourceRoots, resolveSessionArchiveWatchRoots } from "./session-archive-registry.js";
 import { shouldRunIncrementalSessionArchiveSync } from "./automation-schedule-policy.js";
+import { withSessionArchiveStore } from "./session-archive-store-pool.js";
 
 export type SessionArchiveRuntimePaths = {
   root: string;
@@ -68,8 +69,7 @@ export async function syncSessionArchive(
   const watchRoots = sessionArchiveSyncWatchRoots(sourceRoots);
   const limit = normalizeSyncLimit(input.limit);
   const mode = input.mode ?? "incremental";
-  const store = await openSessionArchiveStore({ dbPath: input.paths.dbPath });
-  try {
+  return withSessionArchiveStore({ dbPath: input.paths.dbPath }, async (store) => {
     const candidates: SessionArchiveSyncCandidate[] = [];
     let synced = 0;
     let skipped = 0;
@@ -220,9 +220,7 @@ export async function syncSessionArchive(
       warnings,
       aborted: false,
     };
-  } finally {
-    store.close();
-  }
+  });
 }
 
 type SessionArchiveSyncCandidate = {
