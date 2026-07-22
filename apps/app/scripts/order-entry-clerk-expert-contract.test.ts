@@ -105,8 +105,9 @@ describe("order entry clerk expert contract", () => {
     expect(agent).toContain("```show_widget");
     expect(agent).toContain("会话内直接展示");
     expect(agent).toContain("禁止自由发挥或另行设计");
-    expect(agent).toContain("在文件夹中显示");
+    expect(agent).toContain("查看");
     expect(agent).toContain("artifact:实际文件名.ext");
+    expect(agent).toContain("侧边栏");
     expect(agent).not.toContain("artifact:output/");
     expect(agent).toContain("不是会话工作区目录");
     expect(agent).toContain("~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html");
@@ -125,8 +126,9 @@ describe("order entry clerk expert contract", () => {
     expect(skill).not.toContain("preview:output/.process/");
     expect(skill).toContain("禁止调用浏览器打开本地 HTML");
     expect(skill).toContain("HTML 只是“草稿”");
-    expect(skill).toContain("在文件夹中显示");
+    expect(skill).toContain("查看");
     expect(skill).toContain("artifact:");
+    expect(skill).toContain("侧边栏");
     expect(skill).not.toContain("artifact:output/");
     expect(skill).toContain(".process/");
     expect(skill).toContain("禁止");

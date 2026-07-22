@@ -312,6 +312,8 @@ function WorkspaceFilesPanel(props: {
   workspacePath: string;
   fileRoot?: string | null;
   fileTargets?: OpenTarget[];
+  focusPath?: string | null;
+  focusToken?: number | null;
 }) {
   const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -322,6 +324,7 @@ function WorkspaceFilesPanel(props: {
   const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
     new Set(),
   );
+  const lastFocusKeyRef = useRef<string | null>(null);
   const fileRoot =
     props.fileRoot === undefined ? props.workspacePath : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
@@ -500,6 +503,44 @@ function WorkspaceFilesPanel(props: {
     },
     [fileRoot, rootRelativePrefix, props.client, props.workspaceId, props.workspacePath],
   );
+
+  useEffect(() => {
+    const raw = props.focusPath?.trim();
+    if (!raw) {
+      lastFocusKeyRef.current = null;
+      return;
+    }
+    const normalized = raw.replace(/\\/g, "/").replace(/^\.\//, "");
+    if (!normalized) return;
+    const focusKey = `${normalized}::${props.focusToken ?? 0}`;
+    if (lastFocusKeyRef.current === focusKey) return;
+    const canLoad =
+      (isElectronRuntime() && Boolean(fileRoot || props.workspacePath))
+      || Boolean(props.client && props.workspaceId);
+    if (!canLoad) return;
+    lastFocusKeyRef.current = focusKey;
+    const segments = normalized.split("/").filter(Boolean);
+    if (segments.length > 1) {
+      setExpanded((current) => {
+        const next = new Set(current);
+        let prefix = "";
+        for (let index = 0; index < segments.length - 1; index += 1) {
+          prefix = prefix ? `${prefix}/${segments[index]}` : segments[index] ?? "";
+          if (prefix) next.add(prefix);
+        }
+        return next;
+      });
+    }
+    void selectFile(normalized);
+  }, [
+    fileRoot,
+    props.client,
+    props.focusPath,
+    props.focusToken,
+    props.workspaceId,
+    props.workspacePath,
+    selectFile,
+  ]);
 
   const confirmDeleteFile = useCallback(async () => {
     const node = pendingDeleteNode;
@@ -830,6 +871,8 @@ export function CodeWorkspaceSidePanel(props: {
   workspaceCatalogRoot: string;
   fileRoot?: string | null;
   fileTargets?: OpenTarget[];
+  focusPath?: string | null;
+  focusToken?: number | null;
   workspaceId: string | null;
   sessionId: string | null;
   client: OnMyAgentServerClient | null;
@@ -1043,6 +1086,8 @@ export function CodeWorkspaceSidePanel(props: {
           workspacePath={props.workspacePath ?? props.workspaceCatalogRoot}
           fileRoot={props.fileRoot}
           fileTargets={props.fileTargets}
+          focusPath={props.focusPath}
+          focusToken={props.focusToken}
         />
       );
     }
@@ -1054,6 +1099,8 @@ export function CodeWorkspaceSidePanel(props: {
     props.workspaceCatalogRoot,
     props.fileRoot,
     props.fileTargets,
+    props.focusPath,
+    props.focusToken,
     props.workspaceId,
     props.workspacePath,
   ]);

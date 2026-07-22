@@ -19,6 +19,9 @@ describe("workspace files page navigation", () => {
     expect(source).toContain("setCurrentDirectoryPath(node.path)");
     expect(source).toContain('data-workspace-file-breadcrumb="true"');
     expect(source).toContain('data-workspace-file-row={node.kind}');
+    expect(source).toContain("listCodeWorkspaceFiles");
+    expect(source).toContain("shallow: true");
+    expect(source).toContain("currentDirectoryPath");
   });
 
   test("matches the compact shell tab switcher and surface list chrome", () => {
