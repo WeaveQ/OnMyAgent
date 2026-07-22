@@ -950,15 +950,17 @@ export function SessionPage(props: SessionPageProps) {
                           opencodeBaseUrl={pageView.reactSessionBaseUrl}
                           onmyagentToken={pageView.reactSessionToken}
                           todos={props.todos}
-                          activePermission={props.activePermission}
-                          permissionReplyBusy={props.permissionReplyBusy}
-                          respondPermission={props.respondPermission}
-                          autoApprovedPermissionNoticeId={
-                            props.autoApprovedPermissionNoticeId
-                          }
-                          activeQuestion={props.activeQuestion}
-                          questionReplyBusy={props.questionReplyBusy}
-                          respondQuestion={props.respondQuestion}
+                          permission={{
+                            ...props.surface!.permission,
+                            activePermission: props.activePermission,
+                            permissionReplyBusy: props.permissionReplyBusy,
+                            respondPermission: props.respondPermission,
+                            autoApprovedPermissionNoticeId:
+                              props.autoApprovedPermissionNoticeId,
+                            activeQuestion: props.activeQuestion,
+                            questionReplyBusy: props.questionReplyBusy,
+                            respondQuestion: props.respondQuestion,
+                          }}
                           safeStringify={props.safeStringify}
                           userIdentity={{
                             name:
@@ -972,15 +974,18 @@ export function SessionPage(props: SessionPageProps) {
                           headerActions={headerPanelControls}
                           onOpenTarget={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          onOpenSkillsMarketplace={() => {
-                            setStoreActiveTab("skills");
-                            agentPanel.openSidebarView("store");
+                          marketplace={{
+                            ...props.surface!.marketplace,
+                            onOpenSkillsMarketplace: () => {
+                              setStoreActiveTab("skills");
+                              agentPanel.openSidebarView("store");
+                            },
+                            onOpenConnectorsMarketplace: () => {
+                              setStoreActiveTab("plugins");
+                              agentPanel.openSidebarView("store");
+                            },
+                            onOpenCustomConnector: () => openCustomConnector("config"),
                           }}
-                          onOpenConnectorsMarketplace={() => {
-                            setStoreActiveTab("plugins");
-                            agentPanel.openSidebarView("store");
-                          }}
-                          onOpenCustomConnector={() => openCustomConnector("config")}
                         />
                       ) : null}
 

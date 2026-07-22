@@ -631,7 +631,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         setServiceState(result.status as WeixinPanelState);
         onStatusChange?.(result.status as WeixinPanelState);
       }
-      window.setTimeout(() => void refresh(), 500);
+      window.setTimeout(() => void refresh(), 200);
     } catch (simulateError) {
       setError(simulateError instanceof Error ? simulateError.message : String(simulateError));
     } finally {

@@ -140,11 +140,23 @@ function isRecordStringUnknown(value: unknown): value is Record<string, unknown>
 function describeAgentTestConnection(result: PersonalLocalAgentTestConnectionResult): string {
   if (result.ok) {
     const modelCount = Array.isArray(result.models) ? result.models.length : 0;
-    return modelCount ? `连接正常 · ${modelCount} 个模型可用` : "连接正常";
+    return modelCount
+      ? t("agent_manager.conn_ok_models", { count: modelCount })
+      : t("agent_manager.conn_ok");
   }
-  if (result.status === "needs_auth") return `需要登录认证${result.error ? `：${result.error}` : ""}`;
-  if (result.status === "missing") return `未安装${result.error ? `：${result.error}` : ""}`;
-  return `连接失败${result.error ? `：${result.error}` : `（${result.step}）`}`;
+  if (result.status === "needs_auth") {
+    return t("agent_manager.conn_needs_auth", {
+      detail: result.error ? `：${result.error}` : "",
+    });
+  }
+  if (result.status === "missing") {
+    return t("agent_manager.conn_missing", {
+      detail: result.error ? `：${result.error}` : "",
+    });
+  }
+  return t("agent_manager.conn_failed", {
+    detail: result.error ? `：${result.error}` : `（${result.step}）`,
+  });
 }
 
 function coerceAgentManagementUiCache(input: unknown): AgentManagementUiCache {

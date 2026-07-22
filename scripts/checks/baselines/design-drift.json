@@ -5,47 +5,16 @@
     "seed-command": "pnpm task check design -- --json"
   },
   "iconography": {
-    "count": 14,
-    "signatures": [
-      "react-app/design-system/extension-card.tsx:size=18",
-      "react-app/domains/cloud/den-signin-surface.tsx:size=18",
-      "react-app/domains/session/components/permission-modal/index.tsx:size=23",
-      "react-app/domains/session/modals/model-picker-modal.tsx:size=18",
-      "react-app/domains/session/surface/composer/access-permission-select.tsx:size=18",
-      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
-      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=15",
-      "react-app/domains/session/surface/composer/collaboration-mode-select.tsx:size=18",
-      "react-app/domains/settings/pages/mcp-view.tsx:size=15",
-      "react-app/domains/settings/pages/messaging-view.tsx:size=28",
-      "react-app/domains/settings/pages/messaging-view.tsx:size=28",
-      "react-app/domains/shared/provider-auth-modal.tsx:size=18",
-      "react-app/domains/shared/status-toast.tsx:size=18",
-      "react-app/domains/shared/workspace-option-card.tsx:size=18"
-    ]
+    "count": 0,
+    "signatures": []
   },
   "zLayers": {
     "count": 0,
     "signatures": []
   },
   "stateTimings": {
-    "count": 15,
-    "signatures": [
-      "react-app/domains/connections/mcp-auth-modal.tsx:ms=500",
-      "react-app/domains/messaging/automation-page.tsx:ms=300",
-      "react-app/domains/messaging/feishu-channel-panel.tsx:ms=500",
-      "react-app/domains/messaging/weixin-channel-panel.tsx:ms=500",
-      "react-app/domains/session/chat/session-page-session-archive-page.tsx:ms=400",
-      "react-app/domains/session/surface/message-list.tsx:ms=1200",
-      "react-app/domains/session/surface/scroll-store.ts:ms=300",
-      "react-app/domains/session/surface/session-surface.tsx:ms=1200",
-      "react-app/domains/settings/pages/system-authorizations-view.tsx:ms=300",
-      "react-app/domains/shared/onmyagent-server-store.ts:ms=250",
-      "react-app/shell/app-root.tsx:ms=500",
-      "react-app/shell/app-root.tsx:ms=500",
-      "react-app/shell/app-root.tsx:ms=900",
-      "react-app/shell/boot-state.tsx:ms=160",
-      "react-app/shell/debug-logger.ts:ms=500"
-    ]
+    "count": 0,
+    "signatures": []
   },
   "notifications": {
     "count": 0,

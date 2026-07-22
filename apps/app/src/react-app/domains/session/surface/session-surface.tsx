@@ -161,8 +161,11 @@ import {
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
+import { flattenSessionSurfaceProps } from "./session-surface-types";
+import { useSessionSurfaceSearch } from "./session-surface-search";
 
-export function SessionSurface(props: SessionSurfaceProps) {
+export function SessionSurface(bagProps: SessionSurfaceProps) {
+  const props = flattenSessionSurfaceProps(bagProps);
   const local = useLocal();
   const queryClient = useQueryClient();
   const showThinking = local.prefs.showThinking;
@@ -494,40 +497,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
     [compactBoundary, rawRenderedMessages],
   );
-  const searchQuery = props.searchQuery?.trim() ?? "";
-  const searchMatchIds = useMemo(
-    () => findTranscriptSearchMatchIds(renderedMessages, searchQuery),
-    [renderedMessages, searchQuery],
-  );
-  const searchMatchIdSet = useMemo(
-    () => new Set(searchMatchIds),
-    [searchMatchIds],
-  );
-  const activeSearchMessageId =
-    searchQuery && searchMatchIds.length > 0
-      ? searchMatchIds[
-          ((props.searchActiveMatchIndex ?? 0) % searchMatchIds.length +
-            searchMatchIds.length) %
-            searchMatchIds.length
-        ] ?? null
-      : null;
   const scrollToMessageByIdRef = useRef<
     ((messageId: string, behavior?: ScrollBehavior) => boolean) | null
   >(null);
-
-  useEffect(() => {
-    props.onSearchMatchCountChange?.(searchMatchIds.length);
-  }, [props, searchMatchIds.length]);
-
-  useEffect(() => {
-    if (!activeSearchMessageId) return;
-    const scroll = scrollToMessageByIdRef.current;
-    if (!scroll) return;
-    // Wait a frame so highlight marks / virtual rows can settle.
-    window.requestAnimationFrame(() => {
-      scroll(activeSearchMessageId, "smooth");
-    });
-  }, [activeSearchMessageId, searchQuery]);
+  const {
+    searchQuery,
+    searchMatchIdSet,
+    activeSearchMessageId,
+  } = useSessionSurfaceSearch({
+    messages: renderedMessages,
+    searchQuery: props.searchQuery,
+    activeMatchIndex: props.searchActiveMatchIndex,
+    onSearchMatchCountChange: props.onSearchMatchCountChange,
+    scrollToMessageById: (messageId, behavior) =>
+      scrollToMessageByIdRef.current?.(messageId, behavior) ?? false,
+  });
   const outputLimitedAssistantMessage = useMemo(
     () => latestOutputLimitedAssistantMessage(renderedMessages),
     [renderedMessages],

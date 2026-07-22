@@ -357,7 +357,7 @@ export function createOnMyAgentServerStore(options: CreateOnMyAgentServerStoreOp
       let result = await checkOnMyAgentServer(url, auth.token, auth.hostToken);
 
       if (shouldRetryStartupCheck(result.status)) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 200));
         if (disposed) return;
 
         try {

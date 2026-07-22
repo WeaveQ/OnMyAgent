@@ -184,4 +184,9 @@ export default {
   "agent_manager.mcp.type_http": "http",
   "agent_manager.agent_card.expand": "展開 {name} 的詳情與操作",
   "agent_manager.agent_card.collapse": "收起 {name} 的詳情與操作",
+  "agent_manager.conn_ok": "連線正常",
+  "agent_manager.conn_ok_models": "連線正常 · {count} 個模型可用",
+  "agent_manager.conn_needs_auth": "需要登入認證{detail}",
+  "agent_manager.conn_missing": "未安裝{detail}",
+  "agent_manager.conn_failed": "連線失敗{detail}",
 } as const;

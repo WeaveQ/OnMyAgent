@@ -178,5 +178,5 @@ useSessionScrollStore.subscribe((state) => {
   persistTimer = setTimeout(() => {
     persistTimer = null;
     persistSessionScrollState(sessions);
-  }, 300);
+  }, 200);
 });

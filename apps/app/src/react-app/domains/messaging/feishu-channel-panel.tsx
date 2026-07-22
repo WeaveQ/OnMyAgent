@@ -418,7 +418,7 @@ export function FeishuChannelPanel(props: { workspaceRoot?: string; onStatusChan
       });
       if (!result.ok) throw new Error(String(result.error ?? "simulate failed"));
       if (result.status) applyServiceState(result.status as FeishuPanelState);
-      window.setTimeout(() => void refresh(), 500);
+      window.setTimeout(() => void refresh(), 200);
     } catch (simulateError) {
       setError(simulateError instanceof Error ? simulateError.message : String(simulateError));
     } finally {

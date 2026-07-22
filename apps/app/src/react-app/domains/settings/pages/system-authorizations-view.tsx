@@ -173,7 +173,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleRefresh = () => {
       if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => void checkPermissions(), 300);
+      refreshTimer = setTimeout(() => void checkPermissions(), 200);
     };
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
