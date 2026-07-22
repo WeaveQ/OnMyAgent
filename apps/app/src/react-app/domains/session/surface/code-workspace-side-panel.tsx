@@ -12,6 +12,7 @@ import {
   Globe,
   MoreHorizontal,
   PanelRight,
+  Pencil,
   Plus,
   SquareTerminal,
   Trash2,
@@ -66,6 +67,11 @@ import {
   PreviewLoading,
 } from "../artifacts/preview";
 import { OfficeFilePreview } from "../artifacts/office-file-preview";
+import {
+  canEditArtifactTarget,
+  openArtifactForEditing,
+} from "../artifacts/open-artifact-for-editing";
+import { useStatusToasts } from "../../shell-feedback";
 import {
   buildWorkspaceFileTree,
   filterHiddenFromTree,
@@ -195,17 +201,8 @@ function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {
   return rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path;
 }
 
-function isTextSheet(path: string) {
-  return /\.(csv|tsv)$/i.test(path);
-}
-
 function usesOfficeRenderer(preview: OpenTarget["preview"], path: string) {
-  return (
-    preview === "document" ||
-    preview === "presentation" ||
-    preview === "pdf" ||
-    (preview === "sheet" && !isTextSheet(path))
-  );
+  return canEditArtifactTarget({ preview, name: path });
 }
 
 function inferredImageContentType(path: string) {
@@ -313,6 +310,7 @@ function WorkspaceFilesPanel(props: {
   fileRoot?: string | null;
   fileTargets?: OpenTarget[];
 }) {
+  const { showToast } = useStatusToasts();
   const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -428,6 +426,22 @@ function WorkspaceFilesPanel(props: {
       await revealDesktopItemInDir(absoluteWorkspaceFilePath(root, path));
     },
     [fileRoot, props.workspacePath],
+  );
+
+  const editFile = useCallback(
+    async (filePath: string) => {
+      try {
+        await openArtifactForEditing(filePath);
+      } catch {
+        showToast({
+          tone: "error",
+          title: t("files.edit_file_failed"),
+          dismissLabel: t("common.dismiss"),
+          durationMs: 0,
+        });
+      }
+    },
+    [showToast],
   );
 
   const selectFile = useCallback(
@@ -612,6 +626,18 @@ function WorkspaceFilesPanel(props: {
           <span className="min-w-0 flex-1 truncate">
             {selectedPath ?? t("session.code_side_panel_files")}
           </span>
+          {preview.kind === "office" ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="shrink-0 mac:titlebar-no-drag"
+              onClick={() => void editFile(preview.filePath)}
+            >
+              <Pencil aria-hidden="true" />
+              {t("files.edit_file")}
+            </Button>
+          ) : null}
           {selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath) ? (
             <Button
               type="button"

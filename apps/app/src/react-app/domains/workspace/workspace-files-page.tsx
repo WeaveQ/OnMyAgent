@@ -13,6 +13,7 @@ import {
   Folder,
   FolderOpen,
   MoreHorizontal,
+  Pencil,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -55,6 +56,10 @@ import type {
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 import { OfficeFilePreview } from "../../capabilities/artifacts/office-file-preview";
+import {
+  canEditArtifactTarget,
+  openArtifactForEditing,
+} from "../../capabilities/artifacts/open-artifact-for-editing";
 import {
   canPreviewOpenTargetInline,
   type OpenTarget,
@@ -254,12 +259,7 @@ function canPreviewWorkspaceFileInline(target: OpenTarget) {
 }
 
 function usesOfficeRenderer(target: OpenTarget) {
-  return (
-    target.preview === "document" ||
-    target.preview === "presentation" ||
-    target.preview === "pdf" ||
-    (target.preview === "sheet" && !/\.(csv|tsv)$/i.test(target.name || target.value))
-  );
+  return canEditArtifactTarget(target);
 }
 
 function filterWorkspaceFileTree(
@@ -294,10 +294,11 @@ function FilePreviewDrawer(props: {
   copied: boolean;
   onClose: () => void;
   onCopyPath: () => void;
+  onEdit?: () => void;
   onOpenInFolder?: () => void;
   onOpenExternally?: () => void;
 }) {
-  const { open, file, target, state, copied, onClose, onCopyPath, onOpenInFolder, onOpenExternally } = props;
+  const { open, file, target, state, copied, onClose, onCopyPath, onEdit, onOpenInFolder, onOpenExternally } = props;
 
   if (typeof document === "undefined") return null;
 
@@ -359,6 +360,18 @@ function FilePreviewDrawer(props: {
             </header>
 
             <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
+              {onEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onEdit}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <Pencil data-icon="inline-start" className="size-3.5" aria-hidden="true" />
+                  {t("files.edit_file")}
+                </Button>
+              ) : null}
               {onOpenExternally ? (
                 <Button
                   type="button"
@@ -475,6 +488,7 @@ export function WorkspaceFilesPage(props: {
   workspaceRoot: string;
   fileRoot?: string | null;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
+  onEditError?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>(
@@ -664,6 +678,17 @@ export function WorkspaceFilesPage(props: {
       }
     },
     [fileRoot],
+  );
+
+  const handleEditFile = useCallback(
+    async (filePath: string) => {
+      try {
+        await openArtifactForEditing(filePath);
+      } catch {
+        props.onEditError?.();
+      }
+    },
+    [props.onEditError],
   );
 
   const handleDeleteFile = useCallback((file: FileNode) => {
@@ -1053,6 +1078,11 @@ export function WorkspaceFilesPage(props: {
               copied={copiedPath}
               onClose={closePreview}
               onCopyPath={handleCopyPath}
+              onEdit={
+                selectedTarget && previewState.status === "office" && canEditArtifactTarget(selectedTarget)
+                  ? () => void handleEditFile(previewState.filePath)
+                  : undefined
+              }
               onOpenInFolder={selectedFile ? () => handleOpenFile(selectedFile.path) : undefined}
               onOpenExternally={
                 selectedTarget && selectedFile

@@ -2,6 +2,26 @@ export type ArtifactEditingBridge = {
   openForEditing?: (request: { filePath: string }) => Promise<{ ok: boolean }>;
 };
 
+type EditableArtifactTarget = {
+  preview: string;
+  name?: string;
+  value?: string;
+};
+
+const EDITABLE_ARTIFACT_EXTENSIONS = new Set([
+  ".doc", ".docx", ".docm", ".dot", ".dotx", ".dotm", ".rtf", ".odt",
+  ".xls", ".xlsx", ".xlsm", ".xlsb", ".xlt", ".xltx", ".xltm", ".ods", ".fods",
+  ".ppt", ".pptx", ".pptm", ".pps", ".ppsx", ".ppsm", ".pot", ".potx", ".potm", ".odp",
+  ".pdf",
+]);
+
+export function canEditArtifactTarget(target: EditableArtifactTarget): boolean {
+  const filename = target.name || target.value || "";
+  const extensionIndex = filename.lastIndexOf(".");
+  const extension = extensionIndex >= 0 ? filename.slice(extensionIndex).toLowerCase() : "";
+  return EDITABLE_ARTIFACT_EXTENSIONS.has(extension);
+}
+
 export async function openArtifactForEditing(
   filePath: string,
   bridge?: ArtifactEditingBridge,
