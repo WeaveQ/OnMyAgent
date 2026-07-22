@@ -44,3 +44,13 @@ export function analyticsCacheScopesToEvict(input: {
   const excess = input.scopes.length - max;
   return sorted.slice(0, excess).map((row) => row.scopeKey);
 }
+
+/**
+ * When TTL/scope is invalid, every field must be dropped before any reload.
+ * Prevents: refresh sessions + touch timestamp while leaving stale messages.
+ */
+export function shouldResetAllAnalyticsFields(input: {
+  isHit: boolean;
+}): boolean {
+  return !input.isHit;
+}
