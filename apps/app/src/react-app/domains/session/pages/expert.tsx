@@ -2159,6 +2159,12 @@ export function ExpertPage(props: ExpertPageProps) {
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
+                          onEditError={() => showToast({
+                            tone: "error",
+                            title: t("files.edit_file_failed"),
+                            dismissLabel: t("common.dismiss"),
+                            durationMs: 0,
+                          })}
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
