@@ -119,16 +119,19 @@ describe("conversation model assistant pinned sessions", () => {
     expect(readAssistantPinnedSessionIds("ws_2")).toEqual(["other"]);
   });
 
-  test("global pins support sessions + folders with order", () => {
+  test("global pins support sessions + folders + automation groups with order", () => {
     writeAssistantGlobalPins("ws_a", [
       { kind: "folder", id: "/tmp/test1" },
       { kind: "session", id: "ses_a" },
+      { kind: "automation", id: "auto_1" },
       { kind: "session", id: "ses_a" },
       { kind: "folder", id: "/tmp/test1" },
+      { kind: "automation", id: "auto_1" },
     ]);
     expect(readAssistantGlobalPins("ws_a")).toEqual([
       { kind: "folder", id: "/tmp/test1" },
       { kind: "session", id: "ses_a" },
+      { kind: "automation", id: "auto_1" },
     ]);
   });
 

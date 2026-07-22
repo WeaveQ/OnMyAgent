@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactElement,
@@ -17,7 +18,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -31,7 +31,7 @@ import {
   type AgentConversationGroup,
 } from "./conversation-model";
 import { ExpertStatusDots } from "./expert-status-dots";
-import { expertActivityLabel } from "./utils";
+import { resolveTaskRowTrailingStatus } from "./task-row-trailing-status";
 import { resolveOpenFolderPath } from "../../shared";
 
 function IconHoverTip(props: {
@@ -57,6 +57,57 @@ export const TASK_CONTEXT_MENU_CLASS =
 
 export const TASK_CONTEXT_MENU_SEPARATOR_CLASS =
   "my-1 h-px bg-dls-border/80";
+
+/** Matches `min-w-[11.5rem]` on TASK_CONTEXT_MENU_CLASS. */
+export const TASK_CONTEXT_MENU_WIDTH = 184;
+
+/**
+ * Place a fixed context menu relative to an anchor.
+ * Prefer below; flip above when the remaining viewport space under the
+ * anchor is shorter than the menu (and shorter than space above).
+ */
+export function positionTaskContextMenu(
+  anchor: Pick<DOMRect, "top" | "bottom" | "left" | "right">,
+  options?: {
+    width?: number;
+    /** Approximate menu height before measure; default covers ~5 rows. */
+    estimatedHeight?: number;
+    gap?: number;
+    margin?: number;
+  },
+): { left: number; top: number } {
+  const width = options?.width ?? TASK_CONTEXT_MENU_WIDTH;
+  const height = options?.estimatedHeight ?? 220;
+  const gap = options?.gap ?? 4;
+  const margin = options?.margin ?? 8;
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1280;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
+
+  let left = anchor.right - width;
+  left = Math.min(
+    Math.max(margin, left),
+    Math.max(margin, viewportWidth - width - margin),
+  );
+
+  const spaceBelow = viewportHeight - anchor.bottom - margin;
+  const spaceAbove = anchor.top - margin;
+  // Flip up when below cannot fit and above has more room (or enough room).
+  const openBelow =
+    spaceBelow >= height || (spaceBelow >= spaceAbove && spaceBelow >= 96);
+
+  let top = openBelow
+    ? anchor.bottom + gap
+    : anchor.top - gap - height;
+
+  top = Math.min(
+    Math.max(margin, top),
+    Math.max(margin, viewportHeight - height - margin),
+  );
+
+  return { left, top };
+}
 
 /** Quiet outline row — icon + label, soft hover wash (matches reference). */
 export const TASK_CONTEXT_MENU_ITEM_CLASS =
@@ -124,10 +175,15 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
   const summaryTime = formatConversationTime(
     latestSession.time?.updated ?? latestSession.time?.created,
   );
-  const activityLabel = expertActivityLabel(props.status);
-  const unread = Boolean(props.unread) && !props.selected;
+  const trailing = resolveTaskRowTrailingStatus({
+    status: props.status,
+    unread: props.unread,
+    selected: props.selected,
+    timeLabel: summaryTime,
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{
     left: number;
     top: number;
@@ -144,13 +200,42 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
     };
   }, [menuOpen]);
 
+  // After paint, re-place using real menu size so near-bottom rows flip up.
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const anchor = anchorRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchor, {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 220,
+      }),
+    );
+  }, [menuOpen]);
+
   const singleLine = props.singleLine === true;
+  const openSession = () => {
+    props.onOpenSession(props.workspaceId, latestSession.id);
+  };
 
   return (
     <div
+      data-assistant-task-row="true"
+      role="button"
+      tabIndex={0}
+      // Whole-row open: nested Button inside HTML5-draggable ancestors was
+      // unreliable in Electron (clicks swallowed). Actions stopPropagation.
+      // No data-no-drag on the open surface — pin reorder drags from this row.
+      onClick={openSession}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openSession();
+        }
+      }}
       className={cn(
         // WorkBuddy task card: soft pill selection, single-line dense row.
-        "group relative flex w-full gap-1 rounded-lg px-2 transition-colors",
+        "group relative flex w-full cursor-pointer gap-1 rounded-lg px-2 transition-colors mac:titlebar-no-drag",
         singleLine
           ? // Match LIST_ROW_H in assistant-conversation-sections (strict 32px).
             "h-8 min-h-8 max-h-8 shrink-0 items-center overflow-hidden py-0"
@@ -166,16 +251,12 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
       {!singleLine && props.typeIcon ? (
         <span className="shrink-0 text-dls-secondary">{props.typeIcon}</span>
       ) : null}
-      <Button
-        type="button"
-        onClick={() => props.onOpenSession(props.workspaceId, latestSession.id)}
-        variant="ghost"
-        size={singleLine ? "sm" : "xs"}
+      <div
         className={cn(
-          "min-w-0 flex-1 truncate px-0 text-left hover:bg-transparent",
+          "min-w-0 flex-1 truncate text-left",
           singleLine
-            ? "h-8 min-h-0 max-h-8 flex-row items-center gap-0 py-0 leading-none"
-            : "h-auto flex-col items-start justify-center gap-0.5",
+            ? "flex h-8 min-h-0 max-h-8 flex-row items-center gap-0 py-0 leading-none"
+            : "flex h-auto flex-col items-start justify-center gap-0.5",
           props.selected ? "font-medium" : "font-normal",
         )}
       >
@@ -193,29 +274,29 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             {props.group.preview}
           </span>
         ) : null}
-      </Button>
+      </div>
       {/*
         WorkBuddy idle: relative time only (pin lives under 置顶任务 section).
         Hover: ⋯ / pin / archive icon — label via tooltip only.
       */}
       <div
         className={cn(
-          "shrink-0 group-hover:hidden",
+          "pointer-events-none shrink-0 group-hover:hidden",
           singleLine
             ? "flex h-8 min-w-[2.75rem] items-center justify-end self-center"
             : "self-start pt-0.5",
           menuOpen && "hidden",
         )}
       >
-        {activityLabel && !props.selected ? (
+        {trailing.kind === "busy" ? (
           <span
             className="inline-flex items-center text-dls-accent"
-            title={activityLabel}
-            aria-label={activityLabel}
+            title={trailing.activityLabel ?? undefined}
+            aria-label={trailing.activityLabel ?? undefined}
           >
             <ExpertStatusDots />
           </span>
-        ) : unread ? (
+        ) : trailing.kind === "unread" ? (
           <span
             className="size-2 shrink-0 rounded-full bg-dls-accent"
             title={t("session.expert_unread")}
@@ -228,17 +309,21 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
               !singleLine && "leading-5",
             )}
           >
-            {summaryTime}
+            {trailing.timeLabel}
           </span>
         )}
       </div>
       <TooltipProvider delay={200}>
       <div
+        data-no-drag
         className={cn(
           "hidden shrink-0 items-center justify-end gap-0.5 group-hover:flex",
           singleLine ? "h-8 self-center" : "self-start",
           menuOpen && "flex",
         )}
+        // Keep ⋯ / pin / archive from also opening the session row / starting drag.
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
         <IconHoverTip label={t("session.task_actions")}>
           <button
@@ -247,8 +332,11 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             onClick={(event) => {
               event.stopPropagation();
               if (anchorRef.current) {
-                const rect = anchorRef.current.getBoundingClientRect();
-                setMenuPosition({ left: rect.right - 176, top: rect.bottom + 4 });
+                setMenuPosition(
+                  positionTaskContextMenu(
+                    anchorRef.current.getBoundingClientRect(),
+                  ),
+                );
               }
               setMenuOpen((value) => !value);
             }}
@@ -310,6 +398,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
 
       {menuOpen && menuPosition ? (
         <div
+          ref={menuRef}
           className={TASK_CONTEXT_MENU_CLASS}
           data-task-context-menu="true"
           style={{ left: menuPosition.left, top: menuPosition.top }}
