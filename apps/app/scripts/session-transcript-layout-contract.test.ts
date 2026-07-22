@@ -232,7 +232,9 @@ describe("session transcript layout contract", () => {
     expect(messageList).not.toContain('props.running && "session-transcript-loading-shimmer"');
     expect(messageList).toContain("function TranscriptTurnActions");
     expect(messageList).toContain("function TranscriptSpeechButton");
-    expect(messageList).toContain("function TranscriptShareButton");
+    // Share + overflow (fork / feedback / copy request id) removed from turn chrome.
+    expect(messageList).not.toContain("function TranscriptShareButton");
+    expect(messageList).not.toContain("function TranscriptMoreMenu");
     expect(messageList).toContain("turnDetailsExpanded={props.turnDetailsExpanded}");
     expect(messageList).not.toContain("disabled={isLockedOpen}");
     expect(messageList).not.toContain("if (props.onTurnDetailsExpandedChange && !detailsExpanded) return null");

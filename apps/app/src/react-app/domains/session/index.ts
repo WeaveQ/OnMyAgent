@@ -1,4 +1,18 @@
 export type { OpenTarget, OpenTargetKind, OpenTargetPreview } from "./artifacts/open-target";
+
+export {
+  bagSessionSurfaceProps,
+  flattenSessionSurfaceProps,
+} from "./surface/session-surface-types";
+export type {
+  SessionSurfaceProps,
+  SessionSurfaceFlatProps,
+  SessionSurfaceModelBag,
+  SessionSurfaceCollaborationBag,
+  SessionSurfacePermissionBag,
+  SessionSurfaceMarketplaceBag,
+  SessionSurfaceDraftWorkspaceBag,
+} from "./surface/session-surface-types";
 export {
   classifyOpenTarget,
   deriveOpenTargets,

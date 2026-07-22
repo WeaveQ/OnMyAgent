@@ -135,12 +135,7 @@ describe("shipped pure helpers", () => {
       "../src/react-app/domains/session/surface/session-surface-types.ts"
     );
     const flat = {
-      client: {} as never,
-      workspaceId: "w",
       workspaceRoot: "/tmp",
-      sessionId: "s",
-      opencodeBaseUrl: "http://127.0.0.1",
-      onmyagentToken: "t",
       developerMode: false,
       modelLabel: "m",
       onModelClick: () => {},
@@ -167,7 +162,7 @@ describe("shipped pure helpers", () => {
       draftWorkspaceDirectory: "/space",
       draftWorkspaceOwnerId: "w",
     };
-    const bagged = bagSessionSurfaceProps(flat as never);
+    const bagged = bagSessionSurfaceProps(flat as Parameters<typeof bagSessionSurfaceProps>[0]);
     expect(bagged.model.modelLabel).toBe("m");
     expect(bagged.draftWorkspace.draftWorkspaceDirectory).toBe("/space");
     expect("modelLabel" in bagged).toBe(false);
