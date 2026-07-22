@@ -54,7 +54,7 @@ const runtimeConfig = () => ({
   },
   runtime: {
     entry: "./runtime/artifact_runtime.py",
-    requiredTools: ["python", "libreoffice"],
+    requiredTools: ["node"],
   },
 });
 

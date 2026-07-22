@@ -2,7 +2,17 @@
 import type { UIMessage } from "ai";
 
 export type OpenTargetKind = "url" | "file";
-export type OpenTargetPreview = "browser" | "markdown" | "sheet" | "image" | "pdf" | "html" | "text" | "external";
+export type OpenTargetPreview =
+  | "browser"
+  | "markdown"
+  | "document"
+  | "sheet"
+  | "presentation"
+  | "image"
+  | "pdf"
+  | "html"
+  | "text"
+  | "external";
 
 export interface TextData {
   kind: "text";
@@ -49,7 +59,15 @@ const FILE_PATTERN = new RegExp(
 );
 const URL_PATTERN = /https?:\/\/[^\s)\]}>"'`]+/gi;
 const SOCKET_PATTERN = /(?:ws|wss):\/\/[^\s)\]}>"'`]+/gi;
-const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>(["markdown", "sheet", "image", "pdf", "html"]);
+const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>([
+  "markdown",
+  "document",
+  "sheet",
+  "presentation",
+  "image",
+  "pdf",
+  "html",
+]);
 const DISCOVERY_TOOL_NAMES = new Set(["glob", "grep", "search", "find"]);
 const WRITE_TOOL_NAMES = new Set([
   "apply_patch",
@@ -171,9 +189,17 @@ export function classifyOpenTarget(value: string, kind: OpenTargetKind): OpenTar
   if (kind === "url") return "browser";
   const ext = extname(value);
   if ([".md", ".markdown", ".mdx"].includes(ext)) return "markdown";
-  if ([".csv", ".tsv", ".xlsx", ".xls", ".ods"].includes(ext)) return "sheet";
+  if ([".doc", ".docx", ".docm", ".dot", ".dotx", ".dotm", ".rtf", ".odt"].includes(ext)) {
+    return "document";
+  }
+  if ([".csv", ".tsv", ".xls", ".xlsx", ".xlsm", ".xlsb", ".xlt", ".xltx", ".xltm", ".ods", ".fods", ".numbers"].includes(ext)) {
+    return "sheet";
+  }
+  if ([".ppt", ".pptx", ".pptm", ".ppsx", ".ppsm", ".potx", ".potm", ".odp"].includes(ext)) {
+    return "presentation";
+  }
   if ([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".avif"].includes(ext)) return "image";
-  if (ext === ".pdf") return "pdf";
+  if ([".pdf", ".ofd"].includes(ext)) return "pdf";
   if ([".html", ".htm"].includes(ext)) return "html";
   // Source / config that the text pane can open safely (not Office binaries).
   if (
@@ -230,16 +256,13 @@ export function classifyOpenTarget(value: string, kind: OpenTargetKind): OpenTar
 
 /**
  * Whether the files / side-panel surface can render this target inline
- * without a binary decoder (Office docs, media, archives stay external).
+ * through the existing text/browser paths or the local Office/PDF renderer.
  */
 export function canPreviewOpenTargetInline(target: OpenTarget): boolean {
   if (target.kind === "url" || target.preview === "browser") return true;
   if (target.preview === "markdown" || target.preview === "text") return true;
   if (target.preview === "html") return true;
-  // Spreadsheet previews only for plain-text tabular files (not xlsx/xls/ods).
-  if (target.preview === "sheet") {
-    return /\.(csv|tsv)$/i.test(target.name || target.value);
-  }
+  if (["document", "sheet", "presentation", "pdf"].includes(target.preview)) return true;
   return false;
 }
 

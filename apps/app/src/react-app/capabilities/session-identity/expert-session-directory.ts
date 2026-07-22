@@ -114,27 +114,21 @@ export function shouldIsolateExpertSessionDirectory(
 }
 
 /**
- * Side-panel file root for a session. Bound / session directories that resolve
- * to the workspace root are treated as unscoped so the panel falls back to
- * transcript artifacts only (never the whole project tree).
+ * Side-panel file root for a session. An explicitly bound directory wins,
+ * including the workspace root: the folder selected when creating the session
+ * is the scope the user expects to browse. Transcript artifacts are only used
+ * when the session has no directory information at all.
  */
 export function resolveSelectedSessionFileRoot(input: {
   boundDirectory?: string | null;
   sessionDirectory?: string | null;
   workspaceRoot: string;
 }): string {
-  const workspace = input.workspaceRoot.trim();
   const candidates = [
     input.boundDirectory?.trim() ?? "",
     input.sessionDirectory?.trim() ?? "",
   ].filter(Boolean);
-
-  for (const directory of candidates) {
-    if (!workspace || !isSameDirectory(directory, workspace)) {
-      return directory;
-    }
-  }
-  return "";
+  return candidates[0] ?? "";
 }
 
 /**

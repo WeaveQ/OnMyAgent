@@ -20,6 +20,7 @@ import { BrowserWindow } from "electron";
  * @param {string} options.dirname
  * @param {(win: import("electron").BrowserWindow) => void} options.applyApplicationMenuVisibility
  * @param {object} options.browserController
+ * @param {object} options.artifactPreviewController
  * @param {() => void} options.flushPendingDeepLinks
  */
 export function createDesktopWindowController(options) {
@@ -37,6 +38,7 @@ export function createDesktopWindowController(options) {
     dirname: electronDirname,
     applyApplicationMenuVisibility,
     browserController,
+    artifactPreviewController,
     flushPendingDeepLinks,
   } = options;
 
@@ -204,6 +206,7 @@ export function createDesktopWindowController(options) {
     mainWindow.on("close", () => {
       try {
         browserController.destroyBrowserView();
+        artifactPreviewController.destroy();
       } catch (error) {
         console.warn(
           "[main] destroyBrowserView on close failed:",
@@ -218,7 +221,17 @@ export function createDesktopWindowController(options) {
         // Already cleaned up in "close", or window is fully gone.
       }
       browserController.setMainWindow(null);
+      artifactPreviewController.setMainWindow(null);
       setMainWindow(null);
+    });
+
+    // A full renderer reload (including Vite HMR fallback) does not run React
+    // unmount cleanup reliably. Detach the native preview before the new DOM
+    // is laid out so a stale WebContentsView can never cover the file tree or
+    // conversation surface. The remounted OfficeFilePreview will reattach it
+    // with fresh bounds when the selected file is still open.
+    mainWindow.webContents.on("did-start-navigation", (_event, _url, _isInPlace, isMainFrame) => {
+      if (isMainFrame) artifactPreviewController.hide();
     });
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -274,6 +287,7 @@ export function createDesktopWindowController(options) {
     }
 
     browserController.setMainWindow(mainWindow);
+    artifactPreviewController.setMainWindow(mainWindow);
     if (!browserController.hasActiveBrowserTab()) {
       browserController.createBrowserTab("about:blank", { select: true });
     }
