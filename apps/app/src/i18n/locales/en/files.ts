@@ -39,6 +39,8 @@ export default {
   "files.no_session_files": "This session has not generated files yet",
   "files.no_session_files_hint": "Files created during this session will appear here.",
   "files.open_file": "Open file",
+  "files.edit_file": "Edit",
+  "files.edit_file_failed": "Couldn't open this file for editing",
   "files.open_in_folder": "Open in folder",
   "files.view_in_panel": "View",
   "files.delete_confirm_title": "Delete file?",
