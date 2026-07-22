@@ -1,3 +1,4 @@
+import { unwatchFile, watchFile } from "node:fs";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -38,8 +39,16 @@ export function createArtifactPreviewController(options) {
   let visible = false;
   let bounds = null;
   let activePath = null;
+  let activeTarget = null;
   let activePayload = null;
   let intentVersion = 0;
+  let watchedPath = null;
+  let refreshTimer = null;
+
+  const watchPath = options.watchFile ?? watchFile;
+  const unwatchPath = options.unwatchFile ?? unwatchFile;
+  const schedule = options.schedule ?? ((callback, delay) => setTimeout(callback, delay));
+  const cancelScheduled = options.cancelScheduled ?? clearTimeout;
 
   function windowAlive() {
     return Boolean(mainWindow && !mainWindow.isDestroyed?.() && mainWindow.contentView);
@@ -57,11 +66,26 @@ export function createArtifactPreviewController(options) {
     view.setBounds(bounds);
   }
 
+  function clearRefreshTimer() {
+    if (refreshTimer === null) return;
+    cancelScheduled(refreshTimer);
+    refreshTimer = null;
+  }
+
+  function stopWatching() {
+    clearRefreshTimer();
+    if (!watchedPath) return;
+    unwatchPath(watchedPath);
+    watchedPath = null;
+  }
+
   function destroyView() {
+    stopWatching();
     detach();
     if (view && !view.webContents.isDestroyed()) view.webContents.close();
     view = null;
     activePath = null;
+    activeTarget = null;
     activePayload = null;
   }
 
@@ -94,6 +118,55 @@ export function createArtifactPreviewController(options) {
     return pathToFileURL(path.join(process.resourcesPath, "app-dist", "office-viewer.html")).href;
   }
 
+  function scheduleRefresh(version, attempt = 0) {
+    clearRefreshTimer();
+    refreshTimer = schedule(async () => {
+      refreshTimer = null;
+      await refreshActiveFile(version, attempt);
+    }, attempt === 0 ? 250 : 200);
+  }
+
+  async function refreshActiveFile(version, attempt) {
+    const filePath = activePath;
+    if (!filePath || !view || version !== intentVersion || view.webContents.isDestroyed()) return;
+    try {
+      const target = await validateFile(filePath);
+      if (!view || version !== intentVersion || activePath !== filePath || view.webContents.isDestroyed()) return;
+      if (activeTarget && target.mtimeMs === activeTarget.mtimeMs && target.size === activeTarget.size) return;
+      if (target.extension === ".pdf") {
+        activeTarget = target;
+        await view.webContents.reloadIgnoringCache();
+        return;
+      }
+      const bytes = await readFile(target.filePath);
+      if (!view || version !== intentVersion || activePath !== filePath || view.webContents.isDestroyed()) return;
+      activeTarget = target;
+      activePayload = {
+        ...activePayload,
+        bytes: new Uint8Array(bytes),
+        name: path.basename(target.filePath),
+        extension: target.extension,
+        size: target.size,
+        mtimeMs: target.mtimeMs,
+      };
+      view.webContents.send("onmyagent:artifact-preview:file", activePayload);
+    } catch {
+      if (version === intentVersion && activePath === filePath && attempt < 3) {
+        scheduleRefresh(version, attempt + 1);
+      }
+    }
+  }
+
+  function startWatching(filePath, version) {
+    stopWatching();
+    watchedPath = filePath;
+    watchPath(filePath, { interval: 500 }, (current, previous) => {
+      if (version !== intentVersion || activePath !== filePath) return;
+      if (current.mtimeMs === previous.mtimeMs && current.size === previous.size) return;
+      scheduleRefresh(version);
+    });
+  }
+
   async function show(request) {
     const version = ++intentVersion;
     const target = await validateFile(request?.filePath);
@@ -101,12 +174,17 @@ export function createArtifactPreviewController(options) {
     bounds = safeBounds(request?.bounds);
     visible = true;
     if (view && activePath === target.filePath) {
+      startWatching(target.filePath, version);
+      if (activeTarget && (target.mtimeMs !== activeTarget.mtimeMs || target.size !== activeTarget.size)) {
+        scheduleRefresh(version);
+      }
       attach();
       return { ok: true, kind: target.extension === ".pdf" ? "pdf" : "office" };
     }
 
     destroyView();
     activePath = target.filePath;
+    activeTarget = target;
     const isPdf = target.extension === ".pdf";
     view = new options.WebContentsView({
       webPreferences: {
@@ -144,12 +222,22 @@ export function createArtifactPreviewController(options) {
       await view.webContents.loadURL(officeViewerUrl());
       if (version !== intentVersion) return { ok: false, stale: true };
     }
+    if (version === intentVersion && activePath === target.filePath) startWatching(target.filePath, version);
     return { ok: true, kind: isPdf ? "pdf" : "office" };
+  }
+
+  async function openForEditing(request) {
+    if (typeof options.openPath !== "function") throw new TypeError("openPath is required");
+    const target = await validateFile(request?.filePath);
+    const error = await options.openPath(target.filePath);
+    if (typeof error === "string" && error.trim()) throw new Error(error);
+    return { ok: true };
   }
 
   return {
     setMainWindow(window) { mainWindow = window; attach(); },
     show,
+    openForEditing,
     hide() { intentVersion += 1; visible = false; detach(); },
     setBounds(nextBounds) { bounds = safeBounds(nextBounds); attach(); },
     sendFileTo(sender) {

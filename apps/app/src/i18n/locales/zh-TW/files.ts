@@ -37,6 +37,8 @@ export default {
   "files.no_session_files": "當前會話暫未生成文件",
   "files.no_session_files_hint": "會話運行產生的文件會列在此處。",
   "files.open_file": "打開文件",
+  "files.edit_file": "編輯",
+  "files.edit_file_failed": "無法打開此文件進行編輯",
   "files.open_in_folder": "在文件夾中打開",
   "files.view_in_panel": "查看",
   "files.delete_confirm_title": "刪除檔案？",
