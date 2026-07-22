@@ -27,17 +27,18 @@ export function estimateBlockSize(block: MessageBlockItem | undefined) {
   }
 
   if (block.kind === "steps-cluster") {
+    // Folded process timeline is compact; do not reserve full expanded height.
     const partCount = block.stepGroups.reduce((total, group) => total + group.parts.length, 0);
-    return clampVirtualEstimate(64 + partCount * 58, 96, 900);
+    return clampVirtualEstimate(64 + Math.min(partCount, 6) * 36, 72, 320);
   }
 
   const leadingStepSize = (block.leadingStepGroups ?? []).reduce(
-    (total, group) => total + 72 + group.parts.length * 58,
+    (total, group) => total + 48 + Math.min(group.parts.length, 4) * 28,
     0,
   );
   const textSize = block.groups.reduce((total, group) => {
     if (group.kind === "steps") {
-      return total + 72 + group.parts.length * 58;
+      return total + 48 + Math.min(group.parts.length, 4) * 28;
     }
     const text = partToText(group.part);
     // Expanded auto-slash dumps collapse to a single chip row in the UI.
@@ -50,10 +51,13 @@ export function estimateBlockSize(block: MessageBlockItem | undefined) {
   const openTargetsSize = !block.isUser ? 44 : 0;
   const actionsSize = block.isUser ? 24 : 36;
 
+  // Cap assistant estimates tightly: tool-heavy turns collapse in the UI but
+  // step counting used to reserve ~1800px each and leave multi-viewport blanks
+  // until measureElement ran (often deferred while sticky-bottom scrolls).
   return clampVirtualEstimate(
     leadingStepSize + textSize + attachmentSize + openTargetsSize + actionsSize,
-    block.isUser ? 112 : 260,
-    block.isUser ? 720 : 1800,
+    block.isUser ? 112 : 200,
+    block.isUser ? 720 : 720,
   );
 }
 

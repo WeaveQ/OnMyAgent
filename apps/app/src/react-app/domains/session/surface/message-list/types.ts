@@ -62,6 +62,7 @@ export type MessageBlock = {
     url: string;
     filename: string;
     mime: string;
+    relativePath?: string;
   }>;
   groups: MessageGroup[];
   isUser: boolean;

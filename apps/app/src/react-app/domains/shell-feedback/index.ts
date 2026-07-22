@@ -17,3 +17,11 @@ export {
   shouldNotifyAgentReadyTransition,
   type AgentActivityPhase,
 } from "./agent-ready-desktop-notifications";
+export {
+  automationRunNotifyFingerprint,
+  buildAutomationRunNotificationCopy,
+  collectAutomationRunNotifications,
+  type AutomationRunNotifyCandidate,
+  type AutomationRunNotifyStatus,
+  type AutomationRunSnapshotItem,
+} from "./automation-run-desktop-notifications";

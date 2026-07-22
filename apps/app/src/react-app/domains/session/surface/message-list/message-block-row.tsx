@@ -427,10 +427,12 @@ export function MessageBlockRow(props: {
           <div className={cn("flex flex-wrap gap-2", block.isUser ? "mb-3" : "mb-4")}>
             {block.attachments.map((attachment) => block.isUser ? (
               <TranscriptResourceChip
-                key={`${block.messageId}:${attachment.url}`}
+                key={`${block.messageId}:${attachment.url}:${attachment.relativePath ?? ""}`}
                 filename={attachment.filename}
                 url={attachment.url}
                 mediaType={attachment.mime}
+                relativePath={attachment.relativePath}
+                workspaceRoot={props.workspaceRoot}
               />
             ) : (
               <FileCard
