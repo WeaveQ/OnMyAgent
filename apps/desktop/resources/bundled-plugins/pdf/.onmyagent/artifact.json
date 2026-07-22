@@ -10,7 +10,7 @@
     "mimeTypes": ["application/pdf"]
   },
   "runtime": {
-    "entry": "skills/pdf/runtime/artifact_runtime.py",
-    "requiredTools": ["python"]
+    "entry": "skills/pdf/runtime/artifact_runtime.cjs",
+    "requiredTools": ["node"]
   }
 }

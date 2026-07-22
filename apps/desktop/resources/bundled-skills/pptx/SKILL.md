@@ -14,7 +14,7 @@ license: Proprietary. LICENSE.txt has complete terms
 
 | Task                         | Guide                                    |
 | ---------------------------- | ---------------------------------------- |
-| Read/analyze content         | `python -m markitdown presentation.pptx` |
+| Read/analyze structure       | `node runtime/artifact_runtime.cjs inspect presentation.pptx` |
 | Edit or create from template | Read [editing.md](editing.md)            |
 | Create from scratch          | Read [pptxgenjs.md](pptxgenjs.md)        |
 
@@ -22,16 +22,10 @@ license: Proprietary. LICENSE.txt has complete terms
 
 ## Reading Content
 
-```bash
-# Text extraction
-python -m markitdown presentation.pptx
-
-# Visual overview
-python scripts/thumbnail.py presentation.pptx
-
-# Raw XML
-python scripts/office/unpack.py presentation.pptx unpacked/
-```
+Run `node runtime/artifact_runtime.cjs doctor`, then inspect the presentation with
+`node runtime/artifact_runtime.cjs inspect presentation.pptx`. For detailed text or
+shape edits, use `jszip` plus `fast-xml-parser` in a CommonJS task script. Never
+install or invoke external presentation engines.
 
 ---
 
@@ -39,8 +33,10 @@ python scripts/office/unpack.py presentation.pptx unpacked/
 
 **Read [editing.md](editing.md) for full details.**
 
-1. Analyze template with `thumbnail.py`
-2. Unpack → manipulate slides → edit content → clean → pack
+1. Inspect the original package with the JavaScript runtime.
+2. Use `pptxgenjs` for a new presentation or `jszip`/OOXML for targeted edits.
+3. Preserve unrelated ZIP parts, relationships, slide masters, layouts, notes, and media.
+4. Save to a new path, open it in OnMyAgent preview, then run the runtime verifier.
 
 ---
 
@@ -154,16 +150,15 @@ Your first render is almost never correct. Approach QA as a bug hunt, not a conf
 ### Content QA
 
 ```bash
-python -m markitdown output.pptx
+node runtime/artifact_runtime.cjs inspect output.pptx
 ```
 
 Check for missing content, typos, wrong order.
 
 **When using templates, check for leftover placeholder text:**
 
-```bash
-python -m markitdown output.pptx | grep -iE "xxxx|lorem|ipsum|this.*(page|slide).*layout"
-```
+Inspect extracted OOXML text in the task script and reject placeholders matching
+`xxxx|lorem|ipsum|this.*(page|slide).*layout`.
 
 If grep returns results, fix them before declaring success.
 
@@ -171,7 +166,9 @@ If grep returns results, fix them before declaring success.
 
 **⚠️ USE SUBAGENTS** — even for 2-3 slides. You've been staring at the code and will see what you expect, not what's there. Subagents have fresh eyes.
 
-Convert slides to images (see [Converting to Images](#converting-to-images)), then use this prompt:
+Open the presentation in OnMyAgent's built-in file preview, inspect every slide,
+and capture screenshots of affected slides when visual QA is required. Do not
+convert through an external presentation engine.
 
 ```
 Visually inspect these slides. Assume there are issues — find them.
@@ -211,29 +208,11 @@ Report ALL issues found, including minor ones.
 
 ---
 
-## Converting to Images
-
-Convert presentations to individual slide images for visual inspection:
-
-```bash
-python scripts/office/soffice.py --headless --convert-to pdf output.pptx
-pdftoppm -jpeg -r 150 output.pdf slide
-```
-
-This creates `slide-01.jpg`, `slide-02.jpg`, etc.
-
-To re-render specific slides after fixes:
-
-```bash
-pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
-```
-
----
-
 ## Dependencies
 
-- `pip install "markitdown[pptx]"` - text extraction
-- `pip install Pillow` - thumbnail grids
-- `npm install -g pptxgenjs` - creating from scratch
-- LibreOffice (`soffice`) - PDF conversion (auto-configured for sandboxed environments via `scripts/office/soffice.py`)
-- Poppler (`pdftoppm`) - PDF to images
+- Bundled Node.js runtime
+- `pptxgenjs` for presentation generation
+- `jszip` and `fast-xml-parser` for existing-package edits
+- OnMyAgent's built-in Office preview for visual QA
+
+Do not install global npm packages. The required JavaScript modules are bundled by OnMyAgent.

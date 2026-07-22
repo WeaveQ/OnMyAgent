@@ -653,9 +653,8 @@ python3 SKILL_DIR/scripts/xlsx_pack.py /tmp/xlsx_work/ output.xlsx
 # Static formula validation (always run)
 python3 SKILL_DIR/scripts/formula_check.py output.xlsx
 
-# Dynamic validation (if LibreOffice available)
-python3 SKILL_DIR/scripts/libreoffice_recalc.py output.xlsx /tmp/recalc.xlsx
-python3 SKILL_DIR/scripts/formula_check.py /tmp/recalc.xlsx
+# Static formula validation
+python3 SKILL_DIR/scripts/formula_check.py output.xlsx
 ```
 
 If `formula_check.py` reports any error:

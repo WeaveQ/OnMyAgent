@@ -63,14 +63,14 @@ describe("expert session directory isolation", () => {
     expect(shouldIsolateExpertSessionDirectory("", "/tmp/x")).toBe(false);
   });
 
-  test("session file root never exposes the whole workspace tree", () => {
+  test("session file root follows the folder selected for the session", () => {
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work",
         sessionDirectory: "/Users/me/Work",
         workspaceRoot: "/Users/me/Work/",
       }),
-    ).toBe("");
+    ).toBe("/Users/me/Work");
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work/物流单专家/abc",

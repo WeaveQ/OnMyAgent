@@ -33,6 +33,10 @@
     "@dicebear/core": "^9.4.2",
     "@dicebear/lorelei": "^9.4.2",
     "@dicebear/pixel-art": "^9.4.2",
+    "@file-viewer/react": "2.2.2",
+    "@file-viewer/renderer-presentation": "2.2.2",
+    "@file-viewer/renderer-spreadsheet": "2.2.2",
+    "@file-viewer/renderer-word": "2.2.2",
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@heroicons/react": "^2.2.0",
@@ -74,6 +78,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@file-viewer/vite-plugin": "2.2.2",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",

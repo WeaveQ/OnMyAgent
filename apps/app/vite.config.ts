@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { fileViewerRenderers } from "@file-viewer/vite-plugin";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -32,6 +33,7 @@ const appPackagePath = resolve(appRoot, "package.json");
 const desktopPackagePath = resolve(appRoot, "..", "desktop", "package.json");
 const marketplaceResourcesRoot = resolve(repoRoot, "apps/desktop/resources/marketplace");
 const marketplaceManifestScript = resolve(appRoot, "scripts/generate-marketplace-manifests.mjs");
+const fileViewerDevAssetsRoot = resolve(repoRoot, ".loop/runtime/file-viewer-assets");
 
 function readPackageVersion(packagePath: string): string | null {
   if (!existsSync(packagePath)) return null;
@@ -164,6 +166,14 @@ export default defineConfig({
         });
       },
     },
+    fileViewerRenderers({
+      formats: ["doc", "docx", "rtf", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp"],
+      inject: false,
+      copyAssets: {
+        publicDir: fileViewerDevAssetsRoot,
+        mode: "both",
+      },
+    }),
     tailwindcss(),
     react({
       babel: {
@@ -185,6 +195,7 @@ export default defineConfig({
       input: {
         app: resolve(appRoot, "index.html"),
         overlay: resolve(appRoot, "overlay.html"),
+        officeViewer: resolve(appRoot, "office-viewer.html"),
       },
     },
   },

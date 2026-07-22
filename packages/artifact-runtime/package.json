@@ -1,0 +1,20 @@
+{
+  "name": "@onmyagent/artifact-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure JavaScript artifact editing and verification runtime for OnMyAgent agents.",
+  "type": "commonjs",
+  "files": [
+    "*.cjs"
+  ],
+  "dependencies": {
+    "docx": "9.7.1",
+    "exceljs": "4.4.0",
+    "fast-xml-parser": "5.10.1",
+    "jszip": "3.10.1",
+    "pdf-lib": "1.17.1",
+    "pptxgenjs": "4.0.1",
+    "xlsx": "npm:@e965/xlsx@0.20.3"
+  },
+  "license": "Apache-2.0"
+}

@@ -219,16 +219,11 @@ process.once("SIGINT", () => void stopAll(130));
 process.once("SIGTERM", () => void stopAll(143));
 
 runSync(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--prefer-existing-opencode", "--outdir", electronSidecarDir], { cwd: desktopRoot });
-// LibreOffice DMG/MSI is huge — skip in dev unless ONMYAGENT_INCLUDE_LIBREOFFICE=1.
-const includeLibreOffice =
-  process.env.ONMYAGENT_INCLUDE_LIBREOFFICE === "1" ||
-  process.argv.includes("--include-office");
 const prepareRuntimeArgs = [
   resolve(__dirname, "prepare-runtimes.mjs"),
   "--outdir",
   electronRuntimeDir,
 ];
-if (!includeLibreOffice) prepareRuntimeArgs.push("--skip-office");
 runSync(nodeCmd, prepareRuntimeArgs, { cwd: desktopRoot });
 runSync(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], { cwd: desktopRoot });
 // Patch Electron.app Info.plist so the macOS menu bar and Dock show "OnMyAgent"

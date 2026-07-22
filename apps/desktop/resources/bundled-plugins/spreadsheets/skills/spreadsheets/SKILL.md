@@ -1,39 +1,44 @@
 ---
 name: spreadsheets
-description: Create, edit, analyze, calculate, render, and verify local XLSX, XLS, CSV, and TSV files. Use for spreadsheet attachments, formulas, charts, formatting, cleanup, reconciliation, and tabular analysis.
+description: Create, edit, analyze, and verify local XLSX, XLS, CSV, and TSV files with the bundled JavaScript artifact runtime. Use for formulas, charts, formatting, cleanup, reconciliation, and tabular analysis.
 ---
 
 # Spreadsheets
 
-Work only with standalone local files. Do not claim control of a live Excel session or hand off to Google Sheets.
+Work only with standalone local files. Do not claim control of a live Excel session or hand off to Google Sheets. Use only the bundled Node.js libraries; do not install or invoke external spreadsheet engines.
 
 ## Required workflow
 
-1. Treat the base directory reported for this skill as the skill root. `runtime/` and `resources/` are direct children of that directory; do not walk upward or infer a plugin root. Use only the bundled Python environment when available.
-2. Run `python3 runtime/artifact_runtime.py doctor` from the skill root. Stop or clearly degrade if workbook dependencies are missing.
-3. Inspect inputs with `... inspect <path>` before modifying them. For large workbooks, examine sheets and ranges incrementally.
-4. Use `openpyxl` for workbook structure, formulas, styles, tables, charts, comments, validation, conditional formatting, print settings, and named ranges. Use `pandas`/`numpy` for analysis, not as a replacement for workbook formatting.
-5. Prefer formulas for derived values and keep source data, assumptions, calculations, and outputs auditable. Never replace a requested formula model with unexplained hard-coded numbers.
-6. Recalculate with `... recalculate <workbook> --output-dir <dir>`, then run `... verify <recalculated.xlsx>` and resolve `#REF!`, `#DIV/0!`, `#VALUE!`, `#NAME?`, `#N/A`, and related errors.
-7. Render with `... render <workbook> --output-dir <dir>` and inspect the PDF for clipped columns, unreadable scale, broken page areas, hidden totals, and inconsistent formats.
+1. Treat the reported base directory as the skill root. Run `node runtime/artifact_runtime.cjs doctor` before the first operation.
+2. Inspect inputs with `node runtime/artifact_runtime.cjs inspect <path>` before modifying them.
+3. Use `exceljs` for modern XLSX structure, formulas, styles, tables, charts, comments, validation, conditional formatting, print settings, and named ranges.
+4. Use `xlsx` for CSV/TSV and legacy XLS import/export. Prefer saving edited legacy workbooks as `.xlsx` and disclose the conversion.
+5. Write task scripts as CommonJS (`.cjs`) so bundled dependencies resolve without installing packages into the user's workspace.
+6. Preserve formulas and cached results when possible. Never replace a requested formula model with unexplained hard-coded numbers.
+7. Open the result in OnMyAgent's file preview and inspect every relevant sheet, merged range, table, chart, width, number format, and frozen pane.
+8. Finish with `node runtime/artifact_runtime.cjs verify <output>` and report the exact output path.
+
+## Formula boundary
+
+OnMyAgent preserves and writes formulas but does not pretend to be a complete Excel-compatible calculation engine. Without a native spreadsheet calculation engine, volatile functions, external links, Power Query, data models, macros, and some advanced formulas cannot be recalculated with full fidelity. When formulas lack cached values:
+
+- keep the formula intact;
+- calculate only formulas whose semantics are explicitly implemented in the task script;
+- disclose any cells that require recalculation when later opened in Excel-compatible software;
+- never fabricate cached results.
 
 ## Quality contract
 
 - Preserve existing styles and formulas unless the user asks for redesign.
 - Use typed dates/numbers, appropriate number formats, frozen headers, filters, restrained colors, readable widths, and clear units.
-- Cite analytical sources inside the workbook when external data is used.
-- Charts must have truthful scales, titles, labels, and source ranges; do not use decorative charts that obscure the data.
-- CSV/TSV output must preserve delimiter, encoding, quoting, headers, and row shape; explain that these formats cannot retain workbook styles or formulas.
+- Charts must have truthful scales, titles, labels, and source ranges.
+- CSV/TSV output must preserve delimiter, encoding, quoting, headers, and row shape; these formats cannot retain workbook styles or formulas.
 
 ## Runtime commands
 
 - `--capabilities` or `capabilities`: machine-readable operations.
-- `doctor`: Python and office renderer health.
-- `inspect <file> [--data-only]`: structure, formula, and error summary.
-- `recalculate <file> --output-dir <dir>`: LibreOffice recalculation into XLSX.
-- `render <file> --output-dir <dir>`: PDF rendering for visual QA.
-- `verify <file>`: formula-error and structural checks.
+- `doctor`: bundled JavaScript dependency health.
+- `inspect <file>`: workbook, sheet, formula, and error summary.
+- `verify <file>`: structural, formula-error, and cached-value checks.
 
-The skill-local `resources/scripts/office/` directory contains OOXML pack, unpack, and validation helpers for repairs that cannot be expressed safely through `openpyxl`. Resolve it directly from the reported skill base directory and never reference the retired `bundled-skills/spreadsheets` path.
-
-Do not report workbook completion until the final file exists, formula verification passes, and the rendered layout has been checked when presentation matters.
+Visual rendering belongs to the OnMyAgent preview surface. The artifact runtime does not expose external recalculation or PDF-conversion commands.

@@ -9,6 +9,7 @@ const repoRoot = resolve(desktopRoot, "../..");
 const electronSidecarDir = resolve(desktopRoot, "resources", "sidecars");
 const electronRuntimeDir = resolve(desktopRoot, "resources", "runtimes");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
+const electronArtifactRuntimeDir = resolve(desktopRoot, "resources", "artifact-runtime");
 const electronRoot = resolve(desktopRoot, "electron");
 const packagedServerRoot = resolve(desktopRoot, "server");
 
@@ -34,6 +35,12 @@ function run(command, args, cwd, env) {
 run(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--outdir", electronSidecarDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-runtimes.mjs"), "--outdir", electronRuntimeDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], desktopRoot);
+rmSync(electronArtifactRuntimeDir, { recursive: true, force: true });
+run(
+  pnpmCmd,
+  ["--filter", "@onmyagent/artifact-runtime", "deploy", "--legacy", "--prod", electronArtifactRuntimeDir],
+  repoRoot,
+);
 // Built-in skills are curated directly in resources/bundled-skills and are
 // packaged read-only. Workspace-local .opencode/skills is development-only and
 // must not implicitly change the shipped desktop bundle.
