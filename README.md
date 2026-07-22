@@ -59,7 +59,8 @@ OnMyAgent is not:
 |------|--------------|----------------------|
 | Codex | Coding agent runtime | Managed as a local Worker |
 | Claude Code | Coding agent CLI | Managed as a local Worker |
-| OpenCode | Open-source coding agent runtime | Used as a core compatible runtime |
+| OpenCode | Open-source coding agent runtime | **Primary runtime / main session stack** (server, archive, SSE) |
+| Personal Local Agent | Local CLI/ACP harness (Claude Code, Codex, …) | **Auxiliary path**: unified desktop access; does not replace OpenCode |
 | MCP servers | External tool connectors | Configured, inspected, and controlled from OnMyAgent |
 | Skills | Reusable agent capabilities | Installed, organized, and invoked through the workspace |
 | ChatGPT / LibreChat | Chat interface | Different category: OnMyAgent is a local control plane, not a chat clone |
@@ -195,6 +196,8 @@ packages/onmyagent-ui-mcp MCP server that lets agents inspect/control the UI
 
 The desktop app can start a local host stack, connect to an existing OpenCode server, or attach to a remote worker. The UI talks to the agent backend through the OpenCode SDK and OnMyAgent local APIs.
 
+**Dual-runtime boundary:** OpenCode is the primary session and server source of truth; Personal Local Agent is the desktop harness for local CLI agents (auxiliary path). UI may share a conversation timeline shape; storage and hot-write paths must not cross. See **Dual Runtime Boundary** and **Server Archive Runtime** in `docs/Architecture.md`.
+
 For deeper architecture details, see `docs/Architecture.md`.
 
 ## MCP UI Control
@@ -224,8 +227,8 @@ For vulnerability reporting and project security boundaries, see `SECURITY.md`.
 
 ### Available Today
 
-- Local agent registry and provider switching for Codex, Claude Code, OpenCode, and compatible runtimes.
-- Session, task, automation, artifact, log, permission, and approval surfaces for local agent work.
+- OpenCode primary-path sessions, tasks, automations, artifacts, logs, permissions, and approvals (server + archive).
+- Local agent registry and provider switching (Personal auxiliary path: Codex, Claude Code, and other CLI/ACP agents).
 - Skill, MCP, provider, model, memory, software environment, and workspace management in the desktop UI.
 - Local messaging channels for personal-agent workflows, including Weixin and Feishu desktop integration paths.
 - UI control bridge and local-first server/orchestrator runtime for desktop and headless development.

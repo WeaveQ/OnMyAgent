@@ -42,6 +42,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | --- | --- |
 | Commands (`dev` / `task` / checks) | root `package.json`, `scripts/cli/*`, summarized in `Architecture.md` |
 | Monorepo & package boundaries | `Architecture.md` |
+| Dual runtime (OpenCode 主 / Personal 辅) + archive 热路径 | `Architecture.md` → **Dual Runtime Boundary**, **Server Archive Runtime** |
 | React domains | `apps/app/src/react-app/ARCHITECTURE.md` + `domains/*/README.md` |
 | Visual tokens / components | `../DESIGN.md` |
 | Design philosophy only | `design/theme-system.md` |
