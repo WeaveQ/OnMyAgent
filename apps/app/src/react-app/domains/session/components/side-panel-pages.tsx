@@ -31,7 +31,10 @@ import {
   ExpertMarketplacePage,
   type ExpertMarketplaceView,
 } from "../expert-marketplace/expert-marketplace-dialog";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import type {
+  ExpertMarketplaceEntry,
+  ExpertMarketplaceSummonHandler,
+} from "../expert-marketplace/types";
 import { SkillsMarketplacePage } from "../skills-marketplace/skills-marketplace-page";
 import { useStatusToasts } from "../../shell-feedback";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
@@ -337,7 +340,7 @@ export function StorePage(props: {
   activeTab?: StorePrimaryTab;
   myExperts?: ExpertMarketplaceEntry[];
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
-  onSummonMarketplaceExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
   onCreateExpert?: () => void;
   onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
   /** Parent-owned custom MCP dialog opener (shared with Composer configure). */
@@ -464,8 +467,8 @@ export function StorePage(props: {
             view={expertView}
             query={query}
             myExperts={props.myExperts ?? []}
-            onSummonMarketplaceExpert={(expert) => {
-              props.onSummonMarketplaceExpert?.(expert);
+            onSummonMarketplaceExpert={(expert, initialPrompt) => {
+              props.onSummonMarketplaceExpert?.(expert, initialPrompt);
             }}
             onCreateExpert={props.onCreateExpert ?? showComingSoonToast}
           />

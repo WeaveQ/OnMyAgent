@@ -795,7 +795,7 @@ export function ExpertPage(props: ExpertPageProps) {
   }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
   const handleStartMarketplaceExpert = useCallback(
-    (expert: ExpertMarketplaceEntry) => {
+    (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
@@ -805,6 +805,11 @@ export function ExpertPage(props: ExpertPageProps) {
           props.sidebar.selectedWorkspaceId,
           existingConversationGroup.latestSession.id,
         );
+        if (initialPrompt) {
+          useComposerStateStore
+            .getState()
+            .setDraft(existingConversationGroup.latestSession.id, initialPrompt);
+        }
         void installSummonedMarketplaceExpert(expert).catch((error) => {
           console.warn("[expert-marketplace] failed to install expert package", error);
         });
@@ -828,6 +833,12 @@ export function ExpertPage(props: ExpertPageProps) {
       openFreshExpertDraft();
       // Re-assert after create-task's synchronous setAgent(null).
       activateDraftAgent(pendingWithStart);
+      if (initialPrompt) {
+        setComposerDraftAfterNewTask(
+          props.selectedWorkspaceId,
+          initialPrompt,
+        );
+      }
       setActiveSidebarView("chat");
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn("[expert-marketplace] failed to install expert package", error);

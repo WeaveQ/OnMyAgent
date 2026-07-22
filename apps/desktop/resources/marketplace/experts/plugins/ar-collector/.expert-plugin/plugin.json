@@ -29,8 +29,8 @@
   },
   "tags": [
     { "zh": "应收台账", "en": "AR Ledger" },
+    { "zh": "自动化催收节点", "en": "Automated Collection Nodes" },
     { "zh": "账龄提醒", "en": "Aging Alerts" },
-    { "zh": "催款话术", "en": "Collection Scripts" },
     { "zh": "现金流", "en": "Cash Flow" }
   ],
   "quickPrompts": [
