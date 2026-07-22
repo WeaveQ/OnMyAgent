@@ -81,6 +81,7 @@ import {
   TranscriptAssistantHeader,
 } from "./message-list/chrome";
 import { MessageBlockRow } from "./message-list/message-block-row";
+import { blockIsActivelyStreaming } from "./message-list/message-block-row-equality";
 import { activeTurnReserveStyle } from "./message-list/virtual-window";
 
 export type {
@@ -182,11 +183,15 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     () => new Set(),
   );
   const expandedStepIds = props.expandedStepIds ?? internalExpandedStepIds;
-  const onExpandedStepIdsChange =
-    props.onExpandedStepIdsChange ??
-    ((updater: (current: Set<string>) => Set<string>) => {
+  const internalOnExpandedStepIdsChange = useCallback(
+    (updater: (current: Set<string>) => Set<string>) => {
       setInternalExpandedStepIds((current) => updater(current));
-    });
+    },
+    [],
+  );
+  // Stable callback identity so memo(MessageBlockRow) is not busted every parent render.
+  const onExpandedStepIdsChange =
+    props.onExpandedStepIdsChange ?? internalOnExpandedStepIdsChange;
   const onTurnDetailsExpandedChange = useCallback((turnId: string, expanded: boolean) => {
     if (!turnId) return;
     setExpandedTurnIds((current) => {
@@ -822,7 +827,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         searchMatchMessageIds={props.searchMatchMessageIds}
         activeSearchMessageId={props.activeSearchMessageId}
         searchHighlightQuery={props.searchHighlightQuery}
-        isStreaming={props.isStreaming}
+        // Per-block streaming flag so non-tail rows stay memo-stable during token bursts.
+        isStreaming={blockIsActivelyStreaming(
+          block,
+          props.isStreaming,
+          latestAssistantMessageId,
+        )}
         latestAssistantMessageId={latestAssistantMessageId}
         onRevertToMessage={props.onRevertToMessage}
         onForkAtMessage={props.onForkAtMessage}

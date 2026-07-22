@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { type CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 import {
   CircleAlert,
   File as FileIcon,
@@ -19,7 +19,7 @@ import {
   type MessageGroup,
 } from "../../../../../app/types";
 import { isOutputLimitContinuationMessageId } from "../../sync/output-limit-recovery";
-import { MarkdownBlock, type MarkdownCodePathOpenMode, type MarkdownVerifiedCodePath } from "../markdown";
+import { MarkdownBlock } from "../markdown";
 import { TranscriptResourceChip } from "../transcript-resource-chip";
 import {
   resolveArtifactRevealCandidates,
@@ -30,10 +30,6 @@ import {
   messageStateClass,
   messageTextClass,
 } from "./styles";
-import type {
-  ConversationBlockItem,
-  TranscriptBlockTurnPresentation,
-} from "./types";
 import { partToText } from "./parts";
 import {
   TranscriptAssistantHeader,
@@ -45,6 +41,10 @@ import { FileCard } from "./file-card";
 import { SkillReferenceText } from "./skill-text";
 import { StepsContainer } from "./steps-container";
 import { WorkBuddyTurnContent } from "./turn-content";
+import {
+  messageBlockRowPropsEqual,
+  type MessageBlockRowMemoProps,
+} from "./message-block-row-equality";
 
 function messageGroupKey(messageId: string, group: MessageGroup) {
   if (group.kind === "steps") return `${messageId}:steps:${group.id}`;
@@ -124,33 +124,7 @@ function OpenableTargetsStrip(props: {
   );
 }
 
-export function MessageBlockRow(props: {
-  block: ConversationBlockItem;
-  blockIndex: number;
-  totalBlocks: number;
-  isNestedVariant: boolean;
-  shouldUseContentVisibility: boolean;
-  expandedStepIds: Set<string>;
-  onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
-  searchMatchMessageIds?: ReadonlySet<string>;
-  activeSearchMessageId?: string | null;
-  searchHighlightQuery?: string;
-  isStreaming: boolean;
-  latestAssistantMessageId: string;
-  onRevertToMessage?: (messageId: string) => void;
-  onForkAtMessage?: (messageId: string) => void;
-  turnOpenTargets?: OpenTarget[];
-  verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
-  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
-  onOpenTarget?: (target: OpenTarget) => void;
-  workspaceRoot?: string;
-  assistantAvatar?: { name: string; avatarUrl: string | null; avatarBackground?: string | null };
-  showAssistantIdentity: boolean;
-  turnPresentation?: TranscriptBlockTurnPresentation;
-  turnDetailsExpanded: boolean;
-  onTurnDetailsExpandedChange: (turnId: string, expanded: boolean) => void;
-
-}) {
+function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
   const block = props.block;
   const turnPresentation = props.turnPresentation;
   const onTurnDetailsExpandedChange = (expanded: boolean) => {
@@ -550,3 +524,10 @@ export function MessageBlockRow(props: {
     </div>
   );
 }
+
+/**
+ * Memo at the block-row boundary so non-streaming rows skip commit while the
+ * live tail streams. Equality uses stabilizeMessageBlocks pointer reuse.
+ */
+export const MessageBlockRow = memo(MessageBlockRowInner, messageBlockRowPropsEqual);
+MessageBlockRow.displayName = "MessageBlockRow";

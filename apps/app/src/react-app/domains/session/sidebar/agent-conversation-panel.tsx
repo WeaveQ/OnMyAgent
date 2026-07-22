@@ -37,6 +37,9 @@ import {
   type TaskStatusIndicator,
 } from "./conversation-model";
 import {
+  automationListRefetchIntervalMs,
+} from "../sync/session-poll-policy";
+import {
   buildAssistantSidebarModel,
   buildAutomationLocalPinsMap,
   globalPinKey,
@@ -159,7 +162,9 @@ export function AgentConversationPanel(props: {
       return client.listAutomations(props.selectedWorkspaceId);
     },
     refetchInterval: (query) =>
-      query.state.data?.items.some((item) => item.running) ? 2_000 : 15_000,
+      automationListRefetchIntervalMs({
+        anyRunning: Boolean(query.state.data?.items.some((item) => item.running)),
+      }),
   });
   useEffect(() => {
     if (mode !== "assistant" || !automationQuery.data) return;
