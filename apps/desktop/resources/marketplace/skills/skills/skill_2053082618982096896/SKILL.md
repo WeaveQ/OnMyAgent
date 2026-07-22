@@ -187,7 +187,6 @@ pip 路径：
 | `gs` | PDF 压缩 | compress | `brew install ghostscript` | `winget install ArtifexSoftware.GhostScript --accept-package-agreements --accept-source-agreements` | `sudo apt install -y ghostscript` |
 | `tesseract` | OCR 识别 | smart_edit, edit_scanned, ocr_locate, search_text, extract_text | `brew install tesseract` | `winget install UB-Mannheim.TesseractOCR --accept-package-agreements --accept-source-agreements` | `sudo apt install -y tesseract-ocr` |
 | `tesseract-lang` | OCR 中文语言包 | 同上（涉及中文 PDF 时需要） | `brew install tesseract-lang` | 安装 tesseract 时已包含 | `sudo apt install -y tesseract-ocr-chi-sim` |
-| `soffice` | 格式转换 | convert, pdf_to_word | `brew install --cask libreoffice` | `winget install TheDocumentFoundation.LibreOffice --accept-package-agreements --accept-source-agreements` | `sudo apt install -y libreoffice` |
 
 **安装流程**：执行命令 → 报错含"未找到 xxx 命令"或"语言包缺失" → 根据当前 OS 执行上表对应安装命令 → 重试原命令。
 
@@ -681,7 +680,7 @@ pdfkit.py pdf_to_word --input doc.pdf --output doc.docx --pages '[0,5]'
 | `--input` | **必填** 输入 PDF 路径 |
 | `--output` | **必填** 输出 Word 路径 |
 | `--pages` | 页码范围 JSON `[start, end]` |
-| `--method` | 转换方法，默认 `auto`。可选 `auto` / `pdf2docx` / `libreoffice` |
+| `--method` | 转换方法，默认 `auto`。可选 `auto` / `pdf2docx` |
 
 ### bookmarks — 书签管理
 
@@ -1063,7 +1062,7 @@ def handler(params):
 5. **复杂 JSON 参数**：优先写入文件后用 `--config` 传入
 6. **页码从 0 开始**：用户说"第 1 页"→ 参数 `0`
 7. **错误处理与读取兜底链**：
-   - 依赖缺失（`ModuleNotFoundError` / `tesseract` / `gs` / `soffice` 缺失）→ 自动安装后重试，不要把指引丢给用户
+   - 依赖缺失（`ModuleNotFoundError` / `tesseract` / `gs` 缺失）→ 自动安装后重试，不要把指引丢给用户
    - 加密 PDF（`extract_text` 返回 `error_type: "encrypted"`，或其它命令报 "document is encrypted"）→ 先用 `decrypt --password ...` 解密，再操作；若用户未提供密码，向用户索取
    - 文字层为空 / CID 乱码（`extract_text` 返回 `empty_pages` 且带 `hint`）→ 按以下顺序兜底：
      1. 重新调用 `extract_text --ocr_fallback`

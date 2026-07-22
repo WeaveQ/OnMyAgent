@@ -25,7 +25,7 @@ license: Proprietary. LICENSE.txt has complete terms
 Run `node runtime/artifact_runtime.cjs doctor`, then inspect the presentation with
 `node runtime/artifact_runtime.cjs inspect presentation.pptx`. For detailed text or
 shape edits, use `jszip` plus `fast-xml-parser` in a CommonJS task script. Never
-install or invoke Python or LibreOffice.
+install or invoke external presentation engines.
 
 ---
 
@@ -168,7 +168,7 @@ If grep returns results, fix them before declaring success.
 
 Open the presentation in OnMyAgent's built-in file preview, inspect every slide,
 and capture screenshots of affected slides when visual QA is required. Do not
-convert through LibreOffice.
+convert through an external presentation engine.
 
 ```
 Visually inspect these slides. Assume there are issues — find them.

@@ -5,7 +5,7 @@ description: Read, create, merge, split, rotate, fill, and verify local PDF file
 
 # PDF
 
-Use the bundled Node.js artifact runtime. Do not install or invoke Python, LibreOffice, a remote document service, or a live PDF application.
+Use only the bundled Node.js artifact runtime. Do not install or invoke external document engines, remote document services, or live PDF applications.
 
 ## Required workflow
 

@@ -5,7 +5,7 @@ description: Create, edit, analyze, and verify local XLSX, XLS, CSV, and TSV fil
 
 # Spreadsheets
 
-Work only with standalone local files. Do not claim control of a live Excel session or hand off to Google Sheets. This skill uses bundled Node.js libraries and must not install or invoke Python or LibreOffice.
+Work only with standalone local files. Do not claim control of a live Excel session or hand off to Google Sheets. Use only the bundled Node.js libraries; do not install or invoke external spreadsheet engines.
 
 ## Required workflow
 
@@ -20,7 +20,7 @@ Work only with standalone local files. Do not claim control of a live Excel sess
 
 ## Formula boundary
 
-OnMyAgent preserves and writes formulas but does not pretend to be a complete Excel-compatible calculation engine. Without Excel or LibreOffice, volatile functions, external links, Power Query, data models, macros, and some advanced formulas cannot be recalculated with full fidelity. When formulas lack cached values:
+OnMyAgent preserves and writes formulas but does not pretend to be a complete Excel-compatible calculation engine. Without a native spreadsheet calculation engine, volatile functions, external links, Power Query, data models, macros, and some advanced formulas cannot be recalculated with full fidelity. When formulas lack cached values:
 
 - keep the formula intact;
 - calculate only formulas whose semantics are explicitly implemented in the task script;
@@ -41,4 +41,4 @@ OnMyAgent preserves and writes formulas but does not pretend to be a complete Ex
 - `inspect <file>`: workbook, sheet, formula, and error summary.
 - `verify <file>`: structural, formula-error, and cached-value checks.
 
-Visual rendering belongs to the OnMyAgent preview surface. There is no LibreOffice recalculation or PDF-conversion command.
+Visual rendering belongs to the OnMyAgent preview surface. The artifact runtime does not expose external recalculation or PDF-conversion commands.

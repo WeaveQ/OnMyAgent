@@ -195,13 +195,19 @@ test("artifact resources live beside their skills and retired legacy skills cann
   );
 });
 
-test("runtime preparation excludes Office Python packages and LibreOffice", async () => {
+test("runtime preparation excludes retired artifact packages", async () => {
   const source = await readFile(path.join(scriptDir, "prepare-runtimes.mjs"), "utf8");
   assert.doesNotMatch(source, /python-docx|openpyxl|python-pptx|reportlab|pdfplumber/);
-  assert.doesNotMatch(source, /LibreOffice|libreoffice|soffice|artifact-wheels/);
+  assert.doesNotMatch(source, /artifact-wheels/);
+  assert.match(source, /supportedRuntimeEntries/);
+  assert.match(source, /pruneRetiredRuntimeEntries/);
   const buildSource = await readFile(path.join(scriptDir, "electron-build.mjs"), "utf8");
   assert.match(buildSource, /@onmyagent\/artifact-runtime/);
   assert.match(buildSource, /deploy/);
+  const builderSource = await readFile(path.resolve(scriptDir, "..", "electron-builder.yml"), "utf8");
+  assert.match(builderSource, /"\*\*\/node\/\*\*"/);
+  assert.match(builderSource, /"\*\*\/python\/\*\*"/);
+  assert.match(builderSource, /"\*\*\/versions\.json"/);
 });
 
 test(

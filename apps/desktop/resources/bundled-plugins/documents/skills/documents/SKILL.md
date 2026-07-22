@@ -5,7 +5,7 @@ description: Create, read, edit, review, and verify local DOCX files with the bu
 
 # Documents
 
-Work only with local files. Do not hand off to Google Docs or claim control of a live Word application. This skill uses the bundled Node.js artifact runtime; do not install or invoke Python, LibreOffice, Microsoft Office, or WPS.
+Work only with local files. Do not hand off to Google Docs or claim control of a live Word application. Use only the bundled Node.js artifact runtime; do not install or invoke external document engines or live office applications.
 
 ## Required workflow
 
