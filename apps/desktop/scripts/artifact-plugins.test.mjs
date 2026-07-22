@@ -204,10 +204,18 @@ test("runtime preparation excludes retired artifact packages", async () => {
   const buildSource = await readFile(path.join(scriptDir, "electron-build.mjs"), "utf8");
   assert.match(buildSource, /@onmyagent\/artifact-runtime/);
   assert.match(buildSource, /deploy/);
+  assert.match(buildSource, /artifactRuntimeWorkspaceLink/);
+  assert.match(buildSource, /"--offline", "--filter", "@onmyagent\/artifact-runtime", "deploy"/);
+  assert.match(buildSource, /rmSync\(artifactRuntimeWorkspaceLink, \{ recursive: true, force: true \}\)/);
   const builderSource = await readFile(path.resolve(scriptDir, "..", "electron-builder.yml"), "utf8");
   assert.match(builderSource, /"\*\*\/node\/\*\*"/);
   assert.match(builderSource, /"\*\*\/python\/\*\*"/);
   assert.match(builderSource, /"\*\*\/versions\.json"/);
+  assert.match(builderSource, /signIgnore:/);
+  assert.match(builderSource, /Contents\/Frameworks\/\.\*\/Resources/);
+  assert.match(builderSource, /Contents\/Resources\/runtimes/);
+  assert.match(builderSource, /app-dist\|artifact-runtime\|browser\|bundled-plugins\|bundled-skills\|marketplace/);
+  assert.match(builderSource, /so\|dylib/);
 });
 
 test(
