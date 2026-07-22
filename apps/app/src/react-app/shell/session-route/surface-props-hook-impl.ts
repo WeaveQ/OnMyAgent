@@ -111,7 +111,7 @@ import {
 } from "../session-memory";
 import type { NavigateFunction } from "react-router-dom";
 import { updateDefaultModelPrefs } from "./composer";
-import { bagSessionSurfaceProps } from "../../domains/session/surface/session-surface-types";
+import { bagSessionSurfaceProps } from "../../domains/session";
 
 type NavigateToWorkspaceSession = (
   workspaceId: string,
@@ -143,7 +143,7 @@ export type SessionRouteSurfacePropsInput = {
   localeSnapshot: Language;
   modelAvailabilityBlocksTask: boolean;
   modelBehaviorOptions: NonNullable<
-    import("../../domains/session/surface/session-surface-types").SessionSurfaceModelBag["modelBehaviorOptions"]
+    import("../../domains/session").SessionSurfaceModelBag["modelBehaviorOptions"]
   >;
   modelLabel: string;
   modelVariantLabel: string;
