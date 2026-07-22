@@ -1085,7 +1085,7 @@ export function AgentConversationPanel(props: {
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col bg-dls-sidebar pb-5 mac:bg-dls-sidebar",
+        "flex shrink-0 flex-col bg-dls-sidebar pb-5 mac:bg-dls-sidebar mac:titlebar-no-drag",
         mode === "agent" ? "overflow-visible" : "overflow-hidden",
         mode === "assistant" && "px-2.5",
       )}

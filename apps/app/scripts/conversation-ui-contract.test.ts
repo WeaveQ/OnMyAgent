@@ -82,13 +82,19 @@ describe("conversation shared UI contract", () => {
   });
 
   test("OpenCode session transcript keeps WorkBuddy process fold and reasoning chrome", () => {
-    const messageList = readFileSync(
-      join(
-        import.meta.dir,
-        "../src/react-app/domains/session/surface/message-list.tsx",
-      ),
-      "utf8",
+    const surfaceDir = join(
+      import.meta.dir,
+      "../src/react-app/domains/session/surface",
     );
+    const messageList = [
+      "message-list.tsx",
+      "message-list/chrome.tsx",
+      "message-list/reasoning.tsx",
+      "message-list/process-fold-ui.tsx",
+      "message-list/turn-content.tsx",
+    ]
+      .map((relativePath) => readFileSync(join(surfaceDir, relativePath), "utf8"))
+      .join("\n");
     expect(messageList).toContain("function WorkBuddyProcessFold");
     expect(messageList).toContain("function WorkBuddyTurnContent");
     expect(messageList).toContain("showExpandedProcess");
