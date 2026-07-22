@@ -40,12 +40,18 @@ describe("assistant draft home brand contract", () => {
     );
     expect(layoutMode).toContain('t("session.assistant_work_subtitle")');
     expect(layoutMode).toContain('t("session.assistant_code_subtitle")');
-    // Title + composer share one max-w-2xl column; dense home layout.
+    // Title stays max-w-2xl; composer width matches in-session (1120). Hero only grows height.
     expect(layout).toContain("max-w-2xl");
     expect(surface).toMatch(/homeLayout=\{(?:props\.)?homeComposerLayout\}/);
+    expect(surface).toMatch(/heroHome=\{Boolean\(personalAssistantDraftHome\)\}/);
     expect(composer).toContain("const homeLayout = Boolean(props.homeLayout);");
+    expect(composer).toContain("const heroHome = Boolean(props.heroHome);");
+    expect(composer).toContain("max-w-[1120px]");
+    expect(composer).toContain("rounded-2xl");
+    const editor = readSurface("composer/editor.tsx");
+    expect(editor).toContain("min-h-28");
 
-    // Workspace + permission full-width under composer; square joint (no top radii).
+    // Workspace + permission may still use under-card strip when not home-inline.
     expect(composer).toContain("bg-dls-surface-muted");
     expect(composer).toContain("bottomAccessory");
     expect(composer).toContain("rounded-t-none rounded-b-xl");

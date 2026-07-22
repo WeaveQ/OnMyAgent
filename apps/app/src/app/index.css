@@ -750,7 +750,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     --session-content-border: #ebebeb;
     --session-content-cell: #ffffff;
     box-sizing: border-box;
-    padding-inline: 8px;
+    /* No extra inline pad — column is already max-w-[1120px] like the composer. */
+    width: 100%;
+    padding-inline: 0;
   }
 
   [data-theme="dark"] .session-transcript-root,
@@ -858,7 +860,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-user-row {
     box-sizing: border-box;
-    padding: 32px 16px;
+    /* Vertical rhythm only; full column width matches composer card. */
+    padding: 32px 0;
+    width: 100%;
   }
 
   .session-transcript-user-bubble {
@@ -922,7 +926,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-assistant-row {
     box-sizing: border-box;
-    padding-inline: 12px;
+    /* No side pad — body column width must match the composer card (1120). */
+    padding-inline: 0;
+    width: 100%;
   }
 
   .session-transcript-assistant-turn {

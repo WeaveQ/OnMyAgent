@@ -37,7 +37,20 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(mode).toContain("expertEmptyComposer");
     expect(mode).toContain("personalAssistantDraftHome");
     const editor = read("src/react-app/domains/session/surface/composer/editor.tsx");
-    expect(editor).toMatch(/props\.compact[\s\S]*min-h-14/);
+    // In-session / expert empty share min-h-16; assistant new-task uses hero min-h-28.
+    expect(editor).toContain("min-h-16 max-h-72");
+    expect(editor).toContain("min-h-28 max-h-80");
+    const composer = read("src/react-app/domains/session/surface/composer/composer.tsx");
+    expect(composer).toContain("inlineToolbarAccessory");
+    expect(composer).toContain("underCardAccessory");
+    expect(composer).toContain("heroHome");
+    // Same content column width for hero home, expert empty, and in-session.
+    expect(composer).toContain("max-w-[1120px]");
+    expect(composer).not.toContain("max-w-4xl");
+    expect(composer).toContain("px-4 md:px-8");
+    const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
+    expect(layout).toContain("homeComposerLayout");
+    expect(layout).toMatch(/personalAssistantDraftHome[\s\S]*max-w-2xl/);
   });
 
   test("files panel is tree-first until a file is selected", () => {

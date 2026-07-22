@@ -195,7 +195,9 @@ describe("session transcript scroll intent", () => {
 
     expect(source).toContain("const VIRTUAL_OVERSCAN = 4");
     expect(source).toContain("overscan: VIRTUAL_OVERSCAN");
+    // TanStack Virtual attaches ResizeObserver via measureElement — do not require
+    // a raw `new ResizeObserver` in this file (avoids double observers + scroll jank).
     expect(source).toContain("virtualizer.measureElement");
-    expect(source).toContain("new ResizeObserver");
+    expect(source).toMatch(/measureElement[\s\S]{0,80}ResizeObserver|ResizeObserver[\s\S]{0,80}measureElement/);
   });
 });

@@ -427,9 +427,10 @@ function MarkdownBlockInner(props: {
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    // Skip KaTeX while streaming — re-run once idle (same as shiki path).
+    if (!root || props.streaming) return;
     void renderMarkdownMath(root).catch(() => undefined);
-  }, [html]);
+  }, [html, props.streaming]);
 
   useEffect(() => {
     const root = rootRef.current;
