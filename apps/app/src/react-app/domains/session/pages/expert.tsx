@@ -69,7 +69,6 @@ import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pe
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import { writeAssistantSelectionMemory } from "../sidebar/session-chrome";
 import {
-  KeepAlivePane,
   useVisitedRailViews,
 } from "../sidebar/keep-alive-pane";
 import {
@@ -78,6 +77,10 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import {
+  SessionPageMainColumn,
+  SessionRailKeepAliveStack,
+} from "./session-page-shell";
 
 import type { SessionPageProps } from "./index";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
@@ -1997,47 +2000,27 @@ export function ExpertPage(props: ExpertPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main
-                  className={cn(
-                    "flex h-full min-w-0 flex-col overflow-hidden",
-                    // Local agent paints its own list/content chrome; avoid stacking
-                    // extra bg-dls-background under the list (was washing out sidebar).
-                    activeSidebarView === "localAgent"
-                      ? "bg-transparent"
-                      : "bg-dls-background",
-                    // One separator only: handle draws the line when the right panel is open.
-                    sidePanelOpen && isPrimarySessionView
-                      ? "border-r-0"
-                      : "border-r border-dls-border",
-                  )}
+                <SessionPageMainColumn
+                  activeSidebarView={activeSidebarView}
+                  sidePanelBorderOpen={sidePanelOpen && isPrimarySessionView}
                 >
-                  <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div
-                      className={cn(
-                        "relative min-w-0 flex-1 overflow-hidden",
-                        activeSidebarView === "localAgent"
-                          ? "bg-transparent"
-                          : "bg-dls-background mac:bg-dls-background",
-                      )}
-                    >
-                      <KeepAlivePane
-                        active={activeSidebarView === "agents"}
-                        mounted={visitedRailViews.has("agents")}
-                      >
-                        {props.renderAgentsPage({
-                          workspaceId: props.selectedWorkspaceId,
-                          workspaceRoot: props.selectedWorkspaceRoot,
-                          client: props.onmyagentServerClient,
-                          providers: props.providers,
-                          connectedProviderIds: props.providerConnectedIds,
-                          onStartConversation: handleStartAgentConversation,
-                        })}
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "store"}
-                        mounted={visitedRailViews.has("store")}
-                      >
+                  <SessionRailKeepAliveStack
+                    activeSidebarView={activeSidebarView}
+                    visitedRailViews={visitedRailViews}
+                    isPrimarySessionView={isPrimarySessionView}
+                    primarySessionActive={
+                      isPrimarySessionView && !showDelayedSessionLoadingState
+                    }
+                    panes={{
+                      agents: props.renderAgentsPage({
+                        workspaceId: props.selectedWorkspaceId,
+                        workspaceRoot: props.selectedWorkspaceRoot,
+                        client: props.onmyagentServerClient,
+                        providers: props.providers,
+                        connectedProviderIds: props.providerConnectedIds,
+                        onStartConversation: handleStartAgentConversation,
+                      }),
+                      store: (
                         <StorePage
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
@@ -2049,12 +2032,8 @@ export function ExpertPage(props: ExpertPageProps) {
                           onCreateExpert={handleCreateExpert}
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "localAgent"}
-                        mounted={visitedRailViews.has("localAgent")}
-                      >
+                      ),
+                      localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
                           onResumeConsumed={() => setPendingArchiveResume(null)}
@@ -2065,12 +2044,8 @@ export function ExpertPage(props: ExpertPageProps) {
                           onOpenArtifact={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "agentManagement"}
-                        mounted={visitedRailViews.has("agentManagement")}
-                      >
+                      ),
+                      agentManagement: (
                         <AgentManagementPage
                           workspaceRoot={props.selectedWorkspaceRoot}
                           sessionArchiveSlot={(
@@ -2084,12 +2059,8 @@ export function ExpertPage(props: ExpertPageProps) {
                             />
                           )}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "files"}
-                        mounted={visitedRailViews.has("files")}
-                      >
+                      ),
+                      files: (
                         <WorkspaceFilesPage
                           client={props.onmyagentServerClient}
                           workspaceId={
@@ -2099,36 +2070,16 @@ export function ExpertPage(props: ExpertPageProps) {
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "projects"}
-                        mounted={visitedRailViews.has("projects")}
-                      >
-                        <ProjectsComingSoonPage />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "devices"}
-                        mounted={visitedRailViews.has("devices")}
-                      >
-                        <DevicesPage />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "channels"}
-                        mounted={visitedRailViews.has("channels")}
-                      >
+                      ),
+                      projects: <ProjectsComingSoonPage />,
+                      devices: <DevicesPage />,
+                      channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "billing"}
-                        mounted={visitedRailViews.has("billing")}
-                      >
-                        <BillingPage />
-                      </KeepAlivePane>
-
+                      ),
+                      billing: <BillingPage />,
+                    }}
+                    middle={
+                      <>
                       {activePlaceholderView &&
                       activeSidebarView !== "agents" &&
                       activeSidebarView !== "files" &&
@@ -2216,15 +2167,11 @@ export function ExpertPage(props: ExpertPageProps) {
                           </div>
                         </div>
                       ) : null}
-
-                      {canRenderReactSurface &&
+                      </>
+                    }
+                    primarySession={
+                      canRenderReactSurface &&
                       !showNoExpertConversationEmptyState ? (
-                        <KeepAlivePane
-                          active={
-                            isPrimarySessionView && !showDelayedSessionLoadingState
-                          }
-                          mounted
-                        >
                           <SessionSurface
                             key={renderedSessionId}
                             {...props.surface!}
@@ -2279,10 +2226,10 @@ export function ExpertPage(props: ExpertPageProps) {
                             }}
                             onOpenCustomConnector={() => openCustomConnector("config")}
                           />
-                        </KeepAlivePane>
-                      ) : null}
-
-                      {isPrimarySessionView &&
+                      ) : null
+                    }
+                    afterPrimary={
+                      isPrimarySessionView &&
                       !showNoExpertConversationEmptyState &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
@@ -2393,10 +2340,11 @@ export function ExpertPage(props: ExpertPageProps) {
                             </div>
                           ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </main>
+                      ) : null
+                    }
+                  />
+                </SessionPageMainColumn>
+
               </ResizablePanel>
               {sidePanelOpen && isPrimarySessionView ? (
                 <>

@@ -63,8 +63,6 @@ import {
 } from "../status/session-activity-store";
 import {
   deriveOpenTargets,
-  selectAutoOpenTarget,
-  type OpenTarget,
 } from "../artifacts/open-target";
 import {
   seedSessionState,
@@ -82,7 +80,6 @@ import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
   shouldShowSessionActivity,
-  settleGoalRuntimeAfterRun,
   summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
@@ -114,9 +111,6 @@ import {
   type SessionError,
 } from "./session-surface-support";
 import {
-  planTextFromMessages,
-} from "./plan-goal/plan-parse";
-import {
   filterCompactionMessages,
   messageActivityFingerprint,
 } from "./transcript/message-compaction";
@@ -125,6 +119,9 @@ import { useSessionSurfaceControlActions } from "./session-surface-control-actio
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import { useSessionSurfaceCollaboration } from "./session-surface-collaboration";
 import { useSessionSurfacePendingAgent } from "./session-surface-pending-agent";
+import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
+import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
+import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
 import { SessionSurfaceView } from "./session-surface-view";
 import {
   AssistantNoVisibleOutputCard,
@@ -140,7 +137,6 @@ import {
   createSessionInterruptionNotice,
   goalElapsedMs,
   isGoalIntentRuntime,
-  normalizedTodoItems,
   removeRecordKey,
   shouldRecordSessionInterruption,
   transcriptNoticeLabel,
@@ -152,8 +148,6 @@ import {
 } from "./chrome/personal-assistant";
 
 import {
-  ASSISTANT_RECOVERY_HINT_MS,
-  ASSISTANT_STALL_NOTICE_MS,
   EMPTY_TRANSCRIPT,
   IDLE_STATUS,
   MAX_TRANSCRIPT_NOTICES_PER_SESSION,
@@ -318,13 +312,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [toolImportedPlugins, setToolImportedPlugins] = useState<
     CloudImportedPlugin[]
   >([]);
-  const [verifiedOpenTargets, setVerifiedOpenTargets] = useState<OpenTarget[]>(
-    [],
-  );
   const composerShellRef = useRef<HTMLDivElement>(null);
   const hydratedKeyRef = useRef<string | null>(null);
-  const autoOpenedTargetRef = useRef<string | null>(null);
-  const initializedAutoOpenSessionRef = useRef<string | null>(null);
   const opencodeClient = useMemo(
     () =>
       createClient(props.opencodeBaseUrl, undefined, {
@@ -405,9 +394,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
-    autoOpenedTargetRef.current = null;
-    initializedAutoOpenSessionRef.current = null;
-    setVerifiedOpenTargets([]);
   }, [props.sessionId]);
 
   useEffect(() => {
@@ -697,66 +683,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
     sessionActivityStatus,
     updateLatestTranscriptNotice,
   ]);
-  useEffect(() => {
-    const runtime = props.planRuntime;
-    if (!runtime || runtime.status !== "drafting" || chatStreaming) return;
-    const planText = planTextFromMessages(
-      renderedMessages.slice(runtime.messageBaseline),
-    );
-    if (!planText) return;
-    props.onPlanRuntimeChange?.({
-      ...runtime,
-      status: "awaiting_approval",
-      planText,
-    });
-  }, [
+  useSessionSurfacePlanGoalEffects({
     chatStreaming,
-    props.onPlanRuntimeChange,
-    props.planRuntime,
     renderedMessages,
-  ]);
-  useEffect(() => {
-    const runtime = props.goalRuntime;
-    if (
-      !isGoalIntentRuntime(runtime) ||
-      runtime.status !== "running" ||
-      chatStreaming
-    ) {
-      return;
-    }
-    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
-    const runText = planTextFromMessages(renderedMessages.slice(baseline));
-    props.onGoalRuntimeChange?.(settleGoalRuntimeAfterRun({
-      runtime,
-      todos: normalizedTodoItems(props.todos),
-      runText,
-      now: Date.now(),
-    }));
-  }, [
-    chatStreaming,
-    props.goalRuntime,
-    props.onGoalRuntimeChange,
-    props.todos,
-    renderedMessages,
-  ]);
-  useEffect(() => {
-    const runtime = props.planRuntime;
-    if (!runtime || runtime.status !== "executing" || chatStreaming) return;
-    const executionBaseline = runtime.executionBaseline ?? runtime.messageBaseline;
-    const executionText = planTextFromMessages(
-      renderedMessages.slice(executionBaseline),
-    );
-    if (!executionText) return;
-    props.onPlanRuntimeChange?.({
-      ...runtime,
-      status: "completed",
-    });
-  }, [
-    chatStreaming,
-    props.onPlanRuntimeChange,
-    props.planRuntime,
-    renderedMessages,
-  ]);
+    planRuntime: props.planRuntime,
+    goalRuntime: props.goalRuntime,
+    todos: props.todos,
+    onPlanRuntimeChange: props.onPlanRuntimeChange,
+    onGoalRuntimeChange: props.onGoalRuntimeChange,
+  });
   const snapshotSessionError = useMemo(
     () => readSnapshotSessionError(snapshot),
     [snapshot],
@@ -774,7 +709,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .join("|"),
     [openTargets],
   );
-  const autoOpenTarget = selectAutoOpenTarget(verifiedOpenTargets);
+  const { verifiedOpenTargets } = useSessionSurfaceOpenTargets({
+    sessionId: props.sessionId,
+    workspaceId: props.workspaceId,
+    client: props.client,
+    openTargets,
+    openTargetsFingerprint,
+    chatStreaming,
+    onOpenTarget: props.onOpenTarget,
+    onOpenTargetsChange: props.onOpenTargetsChange,
+  });
   const pendingSessionLoad =
     !props.draftOnly &&
     !snapshot &&
@@ -831,25 +775,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => messageActivityFingerprint(renderedMessages),
     [renderedMessages],
   );
-  const [activityPulseAt, setActivityPulseAt] = useState(Date.now());
-  // Stall / recovery flags via one-shot timers — NOT a 1s setInterval.
-  // The old interval re-rendered SessionSurface (+ memo-busted transcript)
-  // every second while the assistant was active, which felt like "scroll is
-  // fine for a few seconds then suddenly janks" once a tick landed mid-gesture.
-  const [showStalledActivityNotice, setShowStalledActivityNotice] =
-    useState(false);
-  const [shouldInjectStallRecovery, setShouldInjectStallRecovery] =
-    useState(false);
-  useEffect(() => {
-    setActivityPulseAt(Date.now());
-    setShowStalledActivityNotice(false);
-    setShouldInjectStallRecovery(false);
-  }, [
-    activityFingerprint,
-    effectiveActivityStatus,
-    liveStatus.type,
-    props.sessionId,
-  ]);
   const activityVisible = shouldShowSessionActivity({
     chatStreaming,
     activityStatus: effectiveActivityStatus,
@@ -864,38 +789,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
           notice.runKey === storedSessionRunKey,
       ),
   });
-  useEffect(() => {
-    if (!activityVisible || effectiveActivityStatus === "compacting") {
-      setShowStalledActivityNotice(false);
-      setShouldInjectStallRecovery(false);
-      return;
-    }
-    const elapsed = Date.now() - activityPulseAt;
-    const stallDelay = Math.max(0, ASSISTANT_STALL_NOTICE_MS - elapsed);
-    const recoveryDelay = Math.max(0, ASSISTANT_RECOVERY_HINT_MS - elapsed);
-    let stallTimer: number | undefined;
-    let recoveryTimer: number | undefined;
-    if (stallDelay === 0) {
-      setShowStalledActivityNotice(true);
-    } else {
-      stallTimer = window.setTimeout(
-        () => setShowStalledActivityNotice(true),
-        stallDelay,
-      );
-    }
-    if (recoveryDelay === 0) {
-      setShouldInjectStallRecovery(true);
-    } else {
-      recoveryTimer = window.setTimeout(
-        () => setShouldInjectStallRecovery(true),
-        recoveryDelay,
-      );
-    }
-    return () => {
-      if (stallTimer !== undefined) window.clearTimeout(stallTimer);
-      if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
-    };
-  }, [activityPulseAt, activityVisible, effectiveActivityStatus]);
+  const { showStalledActivityNotice, shouldInjectStallRecovery } =
+    useSessionSurfaceActivityStall({
+      sessionId: props.sessionId,
+      activityFingerprint,
+      effectiveActivityStatus,
+      liveStatusType: liveStatus.type,
+      activityVisible,
+    });
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
@@ -989,63 +890,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     noVisibleAssistantOutputBaseline,
     hasSnapshot: Boolean(snapshot),
   });
-
-  useEffect(() => {
-    if (!autoOpenTarget || chatStreaming) return;
-    if (autoOpenedTargetRef.current === autoOpenTarget.id) return;
-    autoOpenedTargetRef.current = autoOpenTarget.id;
-    props.onOpenTarget?.(autoOpenTarget, { auto: true });
-  }, [autoOpenTarget, chatStreaming, props.onOpenTarget]);
-
-  useEffect(() => {
-    let cancelled = false;
-    function initializeAutoOpenState(targets: OpenTarget[]) {
-      if (initializedAutoOpenSessionRef.current === props.sessionId) return;
-      initializedAutoOpenSessionRef.current = props.sessionId;
-      autoOpenedTargetRef.current = selectAutoOpenTarget(targets)?.id ?? null;
-    }
-
-    async function verifyTargets() {
-      if (!openTargets.length) {
-        initializeAutoOpenState([]);
-        setVerifiedOpenTargets([]);
-        return;
-      }
-      try {
-        const response = await props.client.resolveArtifacts(
-          props.workspaceId,
-          openTargets,
-        );
-        if (!cancelled) {
-          const nextTargets = response.items as OpenTarget[];
-          initializeAutoOpenState(nextTargets);
-          setVerifiedOpenTargets(nextTargets);
-        }
-      } catch {
-        if (!cancelled) {
-          const nextTargets = openTargets.map((target) => ({
-            ...target,
-            exists: target.kind === "url",
-          }));
-          initializeAutoOpenState(nextTargets);
-          setVerifiedOpenTargets(nextTargets);
-        }
-      }
-    }
-    void verifyTargets();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    openTargetsFingerprint,
-    props.client,
-    props.sessionId,
-    props.workspaceId,
-  ]);
-
-  useEffect(() => {
-    props.onOpenTargetsChange?.(verifiedOpenTargets);
-  }, [props.onOpenTargetsChange, verifiedOpenTargets]);
 
   useEffect(() => {
     if (!pendingSessionLoad) {
