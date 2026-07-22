@@ -4,17 +4,11 @@ import { dirname } from "node:path";
 import { resolveToyUiEnabled } from "../core/capabilities.js";
 import { ApiError } from "../core/errors.js";
 import { addRoute, systemJsonResponse, type Route } from "./route-core.js";
-import {
-  TOY_UI_CSS,
-  TOY_UI_FAVICON_SVG,
-  TOY_UI_HTML,
-  TOY_UI_JS,
-  cssResponse,
-  htmlResponse,
-  jsResponse,
-  svgResponse,
-} from "../toy-ui.js";
 
+/**
+ * Dev/toy UI routes. The large `toy-ui.ts` module loads only when a toy UI
+ * asset is requested and the feature flag is on — not at route registration.
+ */
 export function registerDevUiRoutes(routes: Route[]) {
   addRoute(routes, "POST", "/dev/log", "none", async (ctx) => {
     const target = resolveDevLogPath();
@@ -69,27 +63,32 @@ export function registerDevUiRoutes(routes: Route[]) {
 
   addRoute(routes, "GET", "/ui", "none", async () => {
     assertToyUiEnabled();
-    return htmlResponse(TOY_UI_HTML);
+    const toy = await loadToyUi();
+    return toy.htmlResponse(toy.TOY_UI_HTML);
   });
 
   addRoute(routes, "GET", "/w/:id/ui", "none", async () => {
     assertToyUiEnabled();
-    return htmlResponse(TOY_UI_HTML);
+    const toy = await loadToyUi();
+    return toy.htmlResponse(toy.TOY_UI_HTML);
   });
 
   addRoute(routes, "GET", "/ui/assets/toy.css", "none", async () => {
     assertToyUiEnabled();
-    return cssResponse(TOY_UI_CSS);
+    const toy = await loadToyUi();
+    return toy.cssResponse(toy.TOY_UI_CSS);
   });
 
   addRoute(routes, "GET", "/ui/assets/toy.js", "none", async () => {
     assertToyUiEnabled();
-    return jsResponse(TOY_UI_JS);
+    const toy = await loadToyUi();
+    return toy.jsResponse(toy.TOY_UI_JS);
   });
 
   addRoute(routes, "GET", "/ui/assets/onmyagent-mark.svg", "none", async () => {
     assertToyUiEnabled();
-    return svgResponse(TOY_UI_FAVICON_SVG);
+    const toy = await loadToyUi();
+    return toy.svgResponse(toy.TOY_UI_FAVICON_SVG);
   });
 }
 
@@ -102,4 +101,8 @@ function assertToyUiEnabled() {
   if (!resolveToyUiEnabled()) {
     throw new ApiError(404, "ui_disabled", "Toy UI is disabled");
   }
+}
+
+async function loadToyUi() {
+  return import("../toy-ui.js");
 }

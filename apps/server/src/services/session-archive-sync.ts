@@ -17,6 +17,7 @@ import {
   discoverSessionArchiveSessionFiles,
 } from "./session-archive-parser.js";
 import { resolveSessionArchiveSourceRoots, resolveSessionArchiveWatchRoots } from "./session-archive-registry.js";
+import { shouldRunIncrementalSessionArchiveSync } from "./automation-schedule-policy.js";
 
 export type SessionArchiveRuntimePaths = {
   root: string;
@@ -82,6 +83,8 @@ export async function syncSessionArchive(
         warnings.push(`No parser for ${source.agent}`);
         continue;
       }
+      // Prefer changed-path narrow walk when paths were supplied; otherwise
+      // discover the full root (explicit full incremental / resync).
       const files = changedCandidates.length
         ? changedCandidates.filter((candidate) => candidate.source.agent === source.agent && candidate.source.root === source.root).map((candidate) => candidate.file)
         : await discoverSessionArchiveSessionFiles({ agent: source.agent, root: source.root });
@@ -323,7 +326,16 @@ export function startSessionArchiveSyncWatcher(input: {
     }
   }
   if (input.periodicMs && input.periodicMs > 0) {
+    // Only periodic-wake when we have pending paths (or force via syncNow).
+    // Empty incremental full-discover every period was a major IO tax.
     periodicTimer = setInterval(() => {
+      if (pendingChangedPaths.size === 0) return;
+      if (!shouldRunIncrementalSessionArchiveSync({
+        mode: "incremental",
+        changedPathCount: pendingChangedPaths.size,
+      })) {
+        return;
+      }
       void syncNow("incremental");
     }, input.periodicMs);
   }
