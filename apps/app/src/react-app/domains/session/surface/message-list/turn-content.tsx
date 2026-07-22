@@ -2,6 +2,7 @@
 import { currentLocale, t } from "@/i18n";
 import { MarkdownBlock, type MarkdownCodePathOpenMode, type MarkdownVerifiedCodePath } from "../markdown";
 import { InlineVisual } from "../transcript/inline-visual";
+import { progressNarrationTransitionKey } from "../transcript/progress-narration";
 import {
   type TurnContentSegment,
   type TurnContentPresentation,
@@ -107,10 +108,22 @@ export function WorkBuddyTurnContent(props: {
   const renderExpandedSegment = (segment: TurnContentSegment) => {
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
     if (segment.kind === "synthetic-body") {
+      const narrationText = segment.previousStep
+        ? [
+            t(
+              progressNarrationTransitionKey("completed", segment.previousStep),
+              { target: segment.previousStep.target ?? "" },
+            ),
+            t(
+              progressNarrationTransitionKey("next", segment.nextStep),
+              { target: segment.nextStep.target ?? "" },
+            ),
+          ].join(" ")
+        : t(segment.messageKey);
       return (
         <div key={segment.id} className="session-workbuddy-turn-body">
           <MarkdownBlock
-            text={t(segment.messageKey)}
+            text={narrationText}
             streaming={false}
             showStreamingCursor={false}
             highlightQuery={props.highlightQuery}
