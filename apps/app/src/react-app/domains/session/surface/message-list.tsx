@@ -28,6 +28,7 @@ import {
   type TurnContentPresentation,
 } from "./transcript/turn-content";
 import {
+  classifyOpenTarget,
   resolveArtifactRevealCandidates,
   type OpenTarget,
 } from "../artifacts/open-target";
@@ -555,8 +556,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
           || candidate.endsWith(`/${normalized}`)
           || normalized.endsWith(`/${candidate}`);
       })?.[1];
-    // Reveal must work for agent-authored artifact: links even when the path is
-    // not yet in the verified openTargets set (common right after export).
     if (mode === "reveal") {
       const candidates = resolveArtifactRevealCandidates(normalized, {
         workspaceRoot: props.workspaceRoot,
@@ -565,13 +564,21 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       void revealDesktopItemCandidates(candidates)
         .catch((error) => {
           console.error("Failed to open artifact in folder:", error, candidates);
-          // Fallback: open in-app when Finder reveal cannot resolve a real path.
           if (target) props.onOpenTarget?.(target);
         });
       return;
     }
-    if (!target) return;
-    props.onOpenTarget?.(target);
+    const name = normalized.split("/").filter(Boolean).at(-1) ?? normalized;
+    const resolved: OpenTarget = target ?? {
+      id: `file:${normalized.toLowerCase()}`,
+      kind: "file",
+      value: normalized,
+      name,
+      preview: classifyOpenTarget(normalized, "file"),
+      confidence: 100,
+      reason: "markdown artifact link",
+    };
+    props.onOpenTarget?.(resolved);
   }, [props.onOpenTarget, props.workspaceRoot, verifiedOpenTargetByPath]);
 
   const blockIndexByMessageId = useMemo(() => {

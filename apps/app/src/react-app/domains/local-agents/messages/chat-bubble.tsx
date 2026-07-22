@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, Copy, ExternalLink, FileText, Globe } from "lucide-react";
+import { Bot, Copy, FileText, FolderOpen, Globe } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage, type PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
 import { shortTime } from "../local-agent-formatters";
 import type { OpenTarget } from "../../../capabilities/artifacts/open-target";
+import { ArtifactIcon } from "../../../capabilities/artifacts/artifact-icon";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
 import { MessageFileChanges } from "./message-file-changes";
@@ -267,8 +268,6 @@ export const ChatBubble = memo(function ChatBubble(props: {
                 <div className="flex flex-wrap gap-2">
                 {artifactTargets.map((target) => {
                   const isUrl = target.kind === "url";
-                  const PrimaryIcon = isUrl ? Globe : ExternalLink;
-                  const SecondaryIcon = isUrl ? Copy : FileText;
                   const primaryTitle = isUrl
                     ? t("local_agent.open_artifact_in_browser", { name: target.name })
                     : t("local_agent.open_artifact_in_workspace", { name: target.name });
@@ -285,7 +284,9 @@ export const ChatBubble = memo(function ChatBubble(props: {
                         title={primaryTitle}
                         onClick={() => void handleOpenArtifact(target)}
                       >
-                        <PrimaryIcon className="size-3.5 shrink-0" />
+                        {isUrl
+                          ? <Globe className="size-3.5 shrink-0" />
+                          : <ArtifactIcon type={target.preview} name={target.name || target.value} className="size-3.5" />}
                         <span className="truncate">{target.name}</span>
                       </Button>
                       <Button
@@ -296,7 +297,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
                         title={secondaryTitle}
                         onClick={() => void handleRevealArtifact(target)}
                       >
-                        <SecondaryIcon className="size-3.5" />
+                        {isUrl ? <Copy className="size-3.5" /> : <FolderOpen className="size-3.5" />}
                       </Button>
                     </div>
                   );

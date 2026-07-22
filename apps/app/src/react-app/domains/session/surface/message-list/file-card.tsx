@@ -1,7 +1,5 @@
 /** @jsxImportSource react */
 import { useState } from "react";
-import { File as FileIcon } from "lucide-react";
-
 import {
   openDesktopPath,
   revealDesktopItemInDir,
@@ -13,6 +11,7 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { isDesktopRuntime } from "../../../../../app/utils";
 import { humanMediaType, isImageAttachment } from "./parts";
+import { ArtifactIcon } from "../../artifacts/artifact-icon";
 
 export async function openFileWithOS(path: string) {
   try {
@@ -66,7 +65,7 @@ export function FileCard(props: {
             props.tone === "user" ? "bg-dls-surface-muted text-dls-text" : "bg-dls-surface-muted text-dls-secondary",
           )}
         >
-          <FileIcon size={20} />
+          <ArtifactIcon name={title} className="size-5" />
         </div>
       )}
       <div className="min-w-0 flex-1">

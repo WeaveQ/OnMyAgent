@@ -502,6 +502,7 @@ export function ExpertPage(props: ExpertPageProps) {
     selectedSessionId: props.selectedSessionId,
     onAccessibleTargetsChange: props.onAccessibleTargetsChange,
   });
+  const [artifactFocusToken, setArtifactFocusToken] = useState(0);
   const codeWorkspacePath =
     props.surface?.draftWorkspace?.draftWorkspaceDirectory?.trim() ||
     props.selectedWorkspaceRoot;
@@ -1445,6 +1446,7 @@ export function ExpertPage(props: ExpertPageProps) {
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
       setArtifactTarget(target);
+      setArtifactFocusToken((token) => token + 1);
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
@@ -1990,6 +1992,12 @@ export function ExpertPage(props: ExpertPageProps) {
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
+                          onEditError={() => showToast({
+                            tone: "error",
+                            title: t("files.edit_file_failed"),
+                            dismissLabel: t("common.dismiss"),
+                            durationMs: 0,
+                          })}
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
@@ -2306,6 +2314,8 @@ export function ExpertPage(props: ExpertPageProps) {
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
                         fileRoot={props.selectedSessionFileRoot ?? ""}
                         fileTargets={artifactFileTargets}
+                        focusPath={artifactTarget?.value ?? null}
+                        focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}

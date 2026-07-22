@@ -57,6 +57,8 @@ function isTextContent(target: OpenTarget): boolean {
 
 function inferContentType(target: OpenTarget): string | undefined {
   if (target.preview === "pdf") return "application/pdf";
+  if (target.preview === "audio") return "audio/mpeg";
+  if (target.preview === "video") return "video/mp4";
   if (target.preview === "image") {
     const ext = target.value.toLowerCase().split(".").pop() ?? "";
     if (ext === "png") return "image/png";
@@ -265,7 +267,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
                       title={`${item.value}${item.exists === false ? " (missing)" : ""}`}
                       onClick={() => onSelectTarget?.(item)}
                     >
-                      <ArtifactIcon type={item.preview} />
+                      <ArtifactIcon type={item.preview} name={item.name || item.value} />
                       <span className="truncate">{item.name}{item.exists === false ? " · missing" : ""}</span>
                     </PanelTab>
                     {item.kind === "file" ? (
@@ -414,7 +416,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           <HTMLPreview type="text" title={target.name} content={data.data} />
         ) : target.preview === "image" && data?.kind === "binary" && binaryObjectUrl ? (
           <ImagePreview src={binaryObjectUrl} alt={target.name} />
-        ) : data?.kind === "binary" && binaryObjectUrl && (target.preview === "pdf" || target.preview === "html") ? (
+        ) : data?.kind === "binary" && binaryObjectUrl && (["pdf", "html", "audio", "video"].includes(target.preview)) ? (
           <HTMLPreview type="binary" title={target.name} url={binaryObjectUrl} />
         ) : data?.kind === "text" ? (
           <PlainText content={data.data} />

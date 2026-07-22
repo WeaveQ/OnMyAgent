@@ -3,6 +3,7 @@ export * from "./artifact-icon";
 export * from "./diff-utils";
 export * from "./markdown";
 export * from "./open-target";
+export * from "./open-artifact-for-editing";
 export * from "./preview";
 export * from "./text-highlights";
 export * from "./workspace-file-open-target";
