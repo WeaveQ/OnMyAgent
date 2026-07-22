@@ -106,6 +106,7 @@ import {
   groupTranscriptRenderItems,
   type TranscriptRenderItem,
 } from "./transcript/render-items";
+import { activeTurnReserveStyle } from "./message-list/virtual-window";
 import {
   formatCompactTokenCount,
   summarizeTranscriptTurn,
@@ -3917,15 +3918,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     };
   }, [props.scrollElement, shouldVirtualize]);
 
+  // Never inflate historical virtual-row estimates with the live-turn reserve
+  // height. That reserve is only for the detached tail; baking it into
+  // estimateSize left multi-viewport blank gaps after the turn scrolled up.
   const estimateVirtualItemSize = useCallback(
-    (index: number) => {
-      const item = virtualRenderItems[index];
-      const estimate = estimateRenderItemSize(item);
-      return item?.id === activeRenderItemId
-        ? Math.max(estimate, activeTurnMinHeight)
-        : estimate;
-    },
-    [activeRenderItemId, activeTurnMinHeight, virtualRenderItems],
+    (index: number) => estimateRenderItemSize(virtualRenderItems[index]),
+    [virtualRenderItems],
   );
 
   const getVirtualItemKey = useCallback((index: number) => {
@@ -3950,6 +3948,18 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     if (!shouldVirtualize || !measureWhileScrolling) return;
     virtualizer.measure();
   }, [measureWhileScrolling, shouldVirtualize, virtualizer]);
+
+  // After the live turn stops reserving viewport height, remeasure so any
+  // residual virtual sizes collapse immediately instead of leaving blank scroll.
+  const previousActiveRenderItemIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousActiveRenderItemIdRef.current;
+    previousActiveRenderItemIdRef.current = activeRenderItemId;
+    if (!shouldVirtualize) return;
+    if (previous && previous !== activeRenderItemId) {
+      virtualizer.measure();
+    }
+  }, [activeRenderItemId, shouldVirtualize, virtualizer]);
 
   useEffect(() => {
     const register = props.setScrollToMessageById;
@@ -4070,6 +4080,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         : null;
     }
     const isActiveTurn = item.id === activeRenderItemId;
+    const isDetachedTail =
+      !shouldVirtualize || item.id === detachedTailRenderItem?.id;
     const isInitialAssistantOnly = item.id === firstAssistantRenderItemId && !item.blocks.some(
       (block) => block.kind !== "divider" && block.isUser,
     );
@@ -4082,9 +4094,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         data-transcript-turn-id={item.turnId ?? undefined}
         data-transcript-turn-active={isActiveTurn ? "true" : undefined}
         data-transcript-turn-assistant-only={isInitialAssistantOnly ? "true" : undefined}
-        style={isActiveTurn && !isNestedVariant
-          ? { minHeight: `${activeTurnMinHeight}px` }
-          : undefined}
+        style={activeTurnReserveStyle({
+          isActiveTurn,
+          isNestedVariant,
+          isDetachedTail,
+          minHeightPx: activeTurnMinHeight,
+        })}
       >
         {item.blocks.map(renderConversationBlock)}
         {!isNestedVariant && props.footer && item.id === footerRenderItemId ? (
