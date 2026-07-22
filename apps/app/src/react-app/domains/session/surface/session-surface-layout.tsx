@@ -153,8 +153,10 @@ export function SessionSurfaceBody(props: {
     <div
       className={cn(
         "flex min-h-0 flex-1 flex-col",
+        // Optical center slightly below geometric mid: more top air so title +
+        // hero composer sit a bit lower (feels calmer under the chrome).
         props.personalAssistantDraftHome &&
-          "items-center justify-center px-6 pb-[min(8vh,3.5rem)] pt-6",
+          "items-center justify-center px-6 pb-[min(6vh,2.5rem)] pt-[min(14vh,6.5rem)]",
       )}
     >
       {props.children}
