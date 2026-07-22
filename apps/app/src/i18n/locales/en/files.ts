@@ -40,6 +40,7 @@ export default {
   "files.no_session_files_hint": "Files created during this session will appear here.",
   "files.open_file": "Open file",
   "files.open_in_folder": "Open in folder",
+  "files.view_in_panel": "View",
   "files.delete_confirm_title": "Delete file?",
   "files.delete_confirm_desc": "Delete \"{name}\"? This cannot be undone.",
   "files.preview_empty": "Select a file to preview its contents",

@@ -231,8 +231,8 @@ export function AssistantPage(props: AssistantPageProps) {
     (state) => state.toggleSidePanelState,
   );
   const [artifactTarget, setArtifactTarget] = useState<OpenTarget | null>(null);
-  const [openTargets, setOpenTargets] = useState<OpenTarget[]>([]);
-  const [hiddenAccessibleTargetIds, setHiddenAccessibleTargetIds] = useState<
+  const [artifactFocusToken, setArtifactFocusToken] = useState(0);
+  const [openTargets, setOpenTargets] = useState<OpenTarget[]>([]);  const [hiddenAccessibleTargetIds, setHiddenAccessibleTargetIds] = useState<
     Set<string>
   >(() => new Set());
   const [, setExtensionStateVersion] = useState(0);
@@ -689,6 +689,7 @@ export function AssistantPage(props: AssistantPageProps) {
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
       setArtifactTarget(target);
+      setArtifactFocusToken((token) => token + 1);
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
@@ -1587,6 +1588,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
                         fileRoot={props.selectedSessionFileRoot ?? ""}
                         fileTargets={artifactFileTargets}
+                        focusPath={artifactTarget?.value ?? null}
+                        focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={browserSessionScopeId}
                         client={props.onmyagentServerClient}
