@@ -3,10 +3,13 @@ import type { UIMessage } from "ai";
 import type { Locale } from "@/i18n";
 import type { TranscriptTurn, TranscriptTurnState } from "./turn-model";
 import {
+  completedProgressNarrationStep,
   isTranscriptToolPart,
   isWrongLanguageProgressNarration,
   progressNarrationKey,
+  progressNarrationStep,
   type ProgressNarrationMessageKey,
+  type ProgressNarrationStep,
 } from "./progress-narration";
 
 const WIDGET_TOOL_NAMES = new Set([
@@ -68,7 +71,13 @@ export type TurnBodySegment =
 
 export type TurnContentSegment =
   | { kind: "process"; id: string; items: TurnProcessItem[] }
-  | { kind: "synthetic-body"; id: string; messageKey: ProgressNarrationMessageKey }
+  | {
+      kind: "synthetic-body";
+      id: string;
+      messageKey: ProgressNarrationMessageKey;
+      previousStep: ProgressNarrationStep | null;
+      nextStep: ProgressNarrationStep;
+    }
   | { kind: "body"; id: string; item: TurnContentItem; text: string }
   | { kind: "file"; id: string; item: TurnContentItem }
   | { kind: "widget"; id: string; visual: TurnWidgetItem };
@@ -520,6 +529,7 @@ function buildExpandedSegments(
   let nextStageStart: number | null = null;
   let operationCount = 0;
   let nextOperationCovered = false;
+  let previousCompletedStep: ProgressNarrationStep | null = null;
   const flushProcess = () => {
     if (processItems.length === 0) return;
     const operation = processTool;
@@ -529,8 +539,10 @@ function buildExpandedSegments(
         id: `synthetic-body:${itemId(operation)}`,
         messageKey: progressNarrationKey(
           operation.part,
-          operationCount === 0 ? "start" : "continue",
+          operationCount === 0 || !previousCompletedStep ? "start" : "continue",
         ),
+        previousStep: previousCompletedStep,
+        nextStep: progressNarrationStep(operation.part),
       });
     }
     segments.push({
@@ -541,6 +553,7 @@ function buildExpandedSegments(
     if (operation) {
       operationCount += 1;
       nextOperationCovered = false;
+      previousCompletedStep = completedProgressNarrationStep(operation.part);
     }
     processItems = [];
     processTool = null;
@@ -557,8 +570,10 @@ function buildExpandedSegments(
           id: `synthetic-body:${itemId(item)}`,
           messageKey: progressNarrationKey(
             item.part,
-            operationCount === 0 ? "start" : "continue",
+            operationCount === 0 || !previousCompletedStep ? "start" : "continue",
           ),
+          previousStep: previousCompletedStep,
+          nextStep: progressNarrationStep(item.part),
         });
       }
       segments.push({
@@ -568,6 +583,7 @@ function buildExpandedSegments(
       });
       operationCount += 1;
       nextOperationCovered = false;
+      previousCompletedStep = completedProgressNarrationStep(item.part);
       continue;
     }
     if (item.part.type === "text") {

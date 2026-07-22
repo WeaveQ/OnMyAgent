@@ -619,7 +619,10 @@ describe("WorkBuddy turn content presentation", () => {
       id: "synthetic-body:edit-1:0",
       messageKey: "session.progress_narration.edit_continue",
     });
-    expect(JSON.stringify(synthetic)).not.toContain("secret.ts");
+    expect(synthetic).toMatchObject({
+      previousStep: { intent: "read", target: "secret.ts" },
+    });
+    expect(JSON.stringify(synthetic)).not.toContain("/private/project");
     expect(JSON.stringify(synthetic)).not.toContain("private patch contents");
   });
 
@@ -700,6 +703,50 @@ describe("WorkBuddy turn content presentation", () => {
     }
     expect(zhSession["session.progress_narration.web_start"]).toContain("内置浏览器");
     expect(zhTWSession["session.progress_narration.command_start"]).toContain("執行");
+
+    const transitionKeys = [
+      "session.progress_narration.completed_command",
+      "session.progress_narration.completed_edit",
+      "session.progress_narration.completed_generic",
+      "session.progress_narration.completed_plan",
+      "session.progress_narration.completed_read",
+      "session.progress_narration.completed_read_target",
+      "session.progress_narration.completed_search",
+      "session.progress_narration.completed_skill",
+      "session.progress_narration.completed_skill_target",
+      "session.progress_narration.completed_task",
+      "session.progress_narration.completed_visual",
+      "session.progress_narration.completed_web",
+      "session.progress_narration.next_command",
+      "session.progress_narration.next_edit",
+      "session.progress_narration.next_generic",
+      "session.progress_narration.next_plan",
+      "session.progress_narration.next_read",
+      "session.progress_narration.next_read_target",
+      "session.progress_narration.next_search",
+      "session.progress_narration.next_skill",
+      "session.progress_narration.next_skill_target",
+      "session.progress_narration.next_task",
+      "session.progress_narration.next_visual",
+      "session.progress_narration.next_web",
+    ] as const;
+    for (const key of transitionKeys) {
+      expect(enSession[key]).toBeTruthy();
+      expect(zhSession[key]).toBeTruthy();
+      expect(zhTWSession[key]).toBeTruthy();
+    }
+    expect(
+      zhSession["session.progress_narration.completed_skill_target"].replace(
+        "{target}",
+        "order-entry",
+      ),
+    ).toBe("技能order-entry已加载完成。");
+    expect(
+      zhSession["session.progress_narration.next_read_target"].replace(
+        "{target}",
+        "waybill-data-protocol.md",
+      ),
+    ).toBe("下一步我来查看waybill-data-protocol.md文件。");
   });
 
   test("adds narration between consecutive completed tools", () => {
@@ -736,6 +783,41 @@ describe("WorkBuddy turn content presentation", () => {
           : [],
       ),
     ).toEqual(["skill", "bash"]);
+    expect(presentation?.segments[2]).toMatchObject({
+      kind: "synthetic-body",
+      previousStep: { intent: "skill", target: "smooth-browser" },
+      nextStep: { intent: "command", target: null },
+    });
+  });
+
+  test("uses safe basenames to bridge completed file reads", () => {
+    const turn = completedTurn([
+      assistant("read-waybill", [{
+        type: "dynamic-tool",
+        toolName: "read_file",
+        toolCallId: "read-1",
+        state: "output-available",
+        input: { filePath: "/private/order-entry/references/waybill-data-protocol.md" },
+        output: "private contents",
+      }]),
+      assistant("read-follow-up", [{
+        type: "dynamic-tool",
+        toolName: "read_file",
+        toolCallId: "read-2",
+        state: "output-available",
+        input: { filePath: "/private/order-entry/references/follow-up-scripts.md" },
+        output: "private contents",
+      }]),
+    ]);
+
+    expect(buildTurnContentPresentation(turn)?.segments[2]).toMatchObject({
+      kind: "synthetic-body",
+      previousStep: { intent: "read", target: "waybill-data-protocol.md" },
+      nextStep: { intent: "read", target: "follow-up-scripts.md" },
+    });
+    expect(JSON.stringify(buildTurnContentPresentation(turn)?.segments[2])).not.toContain(
+      "/private/order-entry",
+    );
   });
 
   test.each(["cancelled", "failed"] as const)(
