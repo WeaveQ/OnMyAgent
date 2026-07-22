@@ -21,6 +21,8 @@ import {
   type SessionArchiveSourceRoot,
   type SessionArchiveSyncMode,
 } from "../services/session-archive-sync.js";
+import { defaultSessionArchiveStorePool } from "../services/session-archive-store-pool.js";
+import { resolveArchiveSsePollMs } from "../services/archive-sse-policy.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import pkg from "../../package.json" with { type: "json" };
 
@@ -398,30 +400,47 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const dbPath = resolveArchivePaths(workspace).dbPath;
     const sessionId = readSessionId(ctx);
-    const pollMs = parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms") ?? 1500;
+    const pollMs = resolveArchiveSsePollMs(
+      parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms"),
+    );
     const maxEvents = parseOptionalPositiveInteger(ctx.url.searchParams.get("max_events"), "max_events") ?? 0;
-    const store = await openSessionArchiveStore({ dbPath });
-    try {
-      const session = store.getSession(sessionId);
-      const timing = store.getTiming(sessionId);
-      if (!session || !timing) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
-      return persistentSessionArchiveWatchResponse({ dbPath, sessionId, session, timing, pollMs, maxEvents, signal: ctx.request.signal });
-    } finally {
-      store.close();
+    // Acquire for the SSE connection lifetime (released on abort/close).
+    const store = await defaultSessionArchiveStorePool.acquire({ dbPath });
+    const session = store.getSession(sessionId);
+    const timing = store.getTiming(sessionId);
+    if (!session || !timing) {
+      defaultSessionArchiveStorePool.release({ dbPath });
+      throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
     }
+    return persistentSessionArchiveWatchResponse({
+      store,
+      dbPath,
+      sessionId,
+      session,
+      timing,
+      pollMs,
+      maxEvents,
+      signal: ctx.request.signal,
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/events", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const dbPath = resolveArchivePaths(workspace).dbPath;
-    const pollMs = parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms") ?? 2500;
+    const pollMs = resolveArchiveSsePollMs(
+      parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms"),
+    );
     const maxEvents = parseOptionalPositiveInteger(ctx.url.searchParams.get("max_events"), "max_events") ?? 0;
-    const store = await openSessionArchiveStore({ dbPath });
-    try {
-      return persistentSessionArchiveEventsResponse({ dbPath, workspaceId: workspace.id, stats: store.stats(), pollMs, maxEvents, signal: ctx.request.signal });
-    } finally {
-      store.close();
-    }
+    const store = await defaultSessionArchiveStorePool.acquire({ dbPath });
+    return persistentSessionArchiveEventsResponse({
+      store,
+      dbPath,
+      workspaceId: workspace.id,
+      stats: store.stats(),
+      pollMs,
+      maxEvents,
+      signal: ctx.request.signal,
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/usage/summary", "client", async (ctx) => {
@@ -1070,6 +1089,7 @@ function sseResponse(events: string[]): Response {
 }
 
 function persistentSessionArchiveWatchResponse(input: {
+  store: SessionArchiveStore;
   dbPath: string;
   sessionId: string;
   session: unknown;
@@ -1094,6 +1114,7 @@ function persistentSessionArchiveWatchResponse(input: {
         if (closed) return;
         closed = true;
         if (timer) clearInterval(timer);
+        defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
         controller.close();
       };
       const closeIfDone = () => {
@@ -1106,28 +1127,26 @@ function persistentSessionArchiveWatchResponse(input: {
       send("session.timing", input.timing);
       send("heartbeat", new Date().toISOString());
       if (closeIfDone()) return;
-      timer = setInterval(async () => {
+
+      // Reuse the acquired store for every tick — no open/close per interval.
+      timer = setInterval(() => {
         if (input.signal.aborted) {
           close();
           return;
         }
-        const store = await openSessionArchiveStore({ dbPath: input.dbPath });
-        try {
-          const session = store.getSession(input.sessionId);
-          const timing = store.getTiming(input.sessionId);
-          const version = JSON.stringify({ session, timing });
-          if (session && timing && version !== lastVersion) {
-            lastVersion = version;
-            send("session.timing", timing);
-            send("session_updated", { session_id: input.sessionId, session });
-          } else {
-            send("heartbeat", new Date().toISOString());
-          }
-          closeIfDone();
-        } finally {
-          store.close();
+        const session = input.store.getSession(input.sessionId);
+        const timing = input.store.getTiming(input.sessionId);
+        const version = JSON.stringify({ session, timing });
+        if (session && timing && version !== lastVersion) {
+          lastVersion = version;
+          send("session.timing", timing);
+          send("session_updated", { session_id: input.sessionId, session });
+        } else {
+          send("heartbeat", new Date().toISOString());
         }
+        closeIfDone();
       }, input.pollMs);
+
       input.signal.addEventListener("abort", () => {
         close();
       }, { once: true });
@@ -1144,6 +1163,7 @@ function persistentSessionArchiveWatchResponse(input: {
 }
 
 function persistentSessionArchiveEventsResponse(input: {
+  store: SessionArchiveStore;
   dbPath: string;
   workspaceId: string;
   stats: unknown;
@@ -1167,6 +1187,7 @@ function persistentSessionArchiveEventsResponse(input: {
         if (closed) return;
         closed = true;
         if (timer) clearInterval(timer);
+        defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
         controller.close();
       };
       const closeIfDone = () => {
@@ -1179,26 +1200,23 @@ function persistentSessionArchiveEventsResponse(input: {
       send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats: input.stats });
       send("heartbeat", new Date().toISOString());
       if (closeIfDone()) return;
-      timer = setInterval(async () => {
+
+      timer = setInterval(() => {
         if (input.signal.aborted) {
           close();
           return;
         }
-        const store = await openSessionArchiveStore({ dbPath: input.dbPath });
-        try {
-          const stats = store.stats();
-          const version = JSON.stringify(stats);
-          if (version !== lastVersion) {
-            lastVersion = version;
-            send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats });
-          } else {
-            send("heartbeat", new Date().toISOString());
-          }
-          closeIfDone();
-        } finally {
-          store.close();
+        const stats = input.store.stats();
+        const version = JSON.stringify(stats);
+        if (version !== lastVersion) {
+          lastVersion = version;
+          send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats });
+        } else {
+          send("heartbeat", new Date().toISOString());
         }
+        closeIfDone();
       }, input.pollMs);
+
       input.signal.addEventListener("abort", () => {
         close();
       }, { once: true });
