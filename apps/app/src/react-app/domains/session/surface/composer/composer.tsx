@@ -66,11 +66,9 @@ import {
   collaborationModeOptions,
   FLUSH_PROMPT_EVENT,
   FOCUS_PROMPT_EVENT,
-  MAX_ATTACHMENT_BYTES,
   parseClipboardUriList,
   formatBytes,
   isImageAttachment,
-  compressImageFile,
   toReactMcpStatus,
   mcpServerDescription,
   COMPOSER_CONTAIN_STYLE,
@@ -78,7 +76,13 @@ import {
   extensionIconTileClassName,
   pluginSlashCommandName,
 } from "./composer-helpers";
-import { isSafeAttachmentDisplayName } from "./appshot";
+import {
+  fileFromAppshotPayload,
+  formatAttachmentSuccessDisplayName,
+  formatOversizeAttachmentName,
+  parseAppshotPayload,
+  processAttachmentFiles,
+} from "./attachments";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
 import {
@@ -89,7 +93,6 @@ import {
 import {
   detectClientPlatform,
   isAppshotCaptureSupported,
-  sanitizeAppshotFileName,
 } from "./appshot";
 
 export function ReactSessionComposer(props: ComposerProps) {
@@ -894,28 +897,15 @@ export function ReactSessionComposer(props: ComposerProps) {
       return;
     }
 
-    const accepted: File[] = [];
-    const oversize: string[] = [];
-
-    for (const original of inputFiles) {
-      const processed = original.type.startsWith("image/") ? await compressImageFile(original) : original;
-      if (processed.size > MAX_ATTACHMENT_BYTES) {
-        oversize.push(processed.name || original.name);
-        continue;
-      }
-      accepted.push(processed);
-    }
+    const { accepted, oversizeNames } = await processAttachmentFiles(inputFiles);
 
     if (accepted.length) {
       props.onAttachFiles(accepted);
       // Compact composer notice — never dump long/corrupted native names into the card.
       if (accepted.length === 1) {
-        const name = accepted[0]?.name?.trim() || "";
-        const displayName = isSafeAttachmentDisplayName(name)
-          ? name.length > 40
-            ? `${name.slice(0, 37)}…`
-            : name
-          : null;
+        const displayName = formatAttachmentSuccessDisplayName(
+          accepted[0]?.name?.trim() || "",
+        );
         props.onNotice({
           title: t("composer.upload_success_title"),
           description: displayName
@@ -932,40 +922,27 @@ export function ReactSessionComposer(props: ComposerProps) {
       }
     }
 
-    if (oversize.length) {
+    if (oversizeNames.length) {
       props.onNotice({
         title:
-          oversize.length === 1
+          oversizeNames.length === 1
             ? t("composer.file_exceeds_limit", {
-                name: isSafeAttachmentDisplayName(oversize[0] ?? "")
-                  ? oversize[0]
-                  : t("composer.file_kind"),
+                name: formatOversizeAttachmentName(
+                  oversizeNames[0] ?? "",
+                  t("composer.file_kind"),
+                ),
               })
-            : `${oversize.length} files exceed the 8MB limit.`,
+            : `${oversizeNames.length} files exceed the 8MB limit.`,
         tone: "warning",
       });
     }
-
   };
 
   const attachAppshot = async (payload: unknown) => {
-    if (typeof payload !== "object" || payload === null) return;
-    if (!("name" in payload) || typeof payload.name !== "string") return;
-    if (!("mimeType" in payload) || typeof payload.mimeType !== "string") return;
-    if (!("data" in payload) || typeof payload.data !== "string") return;
+    const parsed = parseAppshotPayload(payload);
+    if (!parsed) return;
     // Guard against native bugs that stringify Swift String as JoinedSequence debug text.
-    const safeName = sanitizeAppshotFileName(payload.name);
-    const binary = atob(payload.data);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    await addAttachments([
-      new File([bytes], safeName, {
-        type: payload.mimeType,
-        lastModified: Date.now(),
-      }),
-    ]);
+    await addAttachments([fileFromAppshotPayload(parsed)]);
     // Dedicated short notice — no filename dump (attachment chip already shows it).
     props.onNotice({
       title: t("composer.appshot_success"),

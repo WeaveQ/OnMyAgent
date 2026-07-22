@@ -94,7 +94,6 @@ import {
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
 import {
-  KeepAlivePane,
   useVisitedRailViews,
 } from "../sidebar/keep-alive-pane";
 import {
@@ -104,6 +103,10 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import {
+  SessionPageMainColumn,
+  SessionRailKeepAliveStack,
+} from "./session-page-shell";
 import {
   BillingPage,
   DevicesPage,
@@ -1195,28 +1198,19 @@ export function AssistantPage(props: AssistantPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className={cn(
-                  "flex h-full min-w-0 flex-col overflow-hidden",
-                  // Local agent paints its own list/content chrome; avoid stacking
-                  // extra bg-dls-background under the list (was washing out sidebar).
-                  activeSidebarView === "localAgent"
-                    ? "bg-transparent"
-                    : "bg-dls-background",
-                  sidePanelVisibleOnSession ? "border-r-0" : "border-r border-dls-border",
-                )}>
-                  <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div
-                      className={cn(
-                        "relative min-w-0 flex-1 overflow-hidden",
-                        activeSidebarView === "localAgent"
-                          ? "bg-transparent"
-                          : "bg-dls-background mac:bg-dls-background",
-                      )}
-                    >
-                      <KeepAlivePane
-                        active={activeSidebarView === "store"}
-                        mounted={visitedRailViews.has("store")}
-                      >
+                <SessionPageMainColumn
+                  activeSidebarView={activeSidebarView}
+                  sidePanelBorderOpen={sidePanelVisibleOnSession}
+                >
+                  <SessionRailKeepAliveStack
+                    activeSidebarView={activeSidebarView}
+                    visitedRailViews={visitedRailViews}
+                    isPrimarySessionView={isPrimarySessionView}
+                    primarySessionActive={
+                      isPrimarySessionView && !showDelayedSessionLoadingState
+                    }
+                    panes={{
+                      store: (
                         <StorePage
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
@@ -1228,12 +1222,8 @@ export function AssistantPage(props: AssistantPageProps) {
                           onCreateExpert={handleCreateExpert}
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "localAgent"}
-                        mounted={visitedRailViews.has("localAgent")}
-                      >
+                      ),
+                      localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
                           onResumeConsumed={() => setPendingArchiveResume(null)}
@@ -1257,12 +1247,8 @@ export function AssistantPage(props: AssistantPageProps) {
                             setActiveSidebarView("agentManagement");
                           }}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "agentManagement"}
-                        mounted={visitedRailViews.has("agentManagement")}
-                      >
+                      ),
+                      agentManagement: (
                         <AgentManagementPage
                           workspaceRoot={props.selectedWorkspaceRoot}
                           intent={agentManagementPageIntent}
@@ -1282,12 +1268,8 @@ export function AssistantPage(props: AssistantPageProps) {
                             />
                           )}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "files"}
-                        mounted={visitedRailViews.has("files")}
-                      >
+                      ),
+                      files: (
                         <WorkspaceFilesPage
                           client={props.onmyagentServerClient}
                           workspaceId={
@@ -1297,36 +1279,16 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "projects"}
-                        mounted={visitedRailViews.has("projects")}
-                      >
-                        <ProjectsComingSoonPage />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "devices"}
-                        mounted={visitedRailViews.has("devices")}
-                      >
-                        <DevicesPage />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "channels"}
-                        mounted={visitedRailViews.has("channels")}
-                      >
+                      ),
+                      projects: <ProjectsComingSoonPage />,
+                      devices: <DevicesPage />,
+                      channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "billing"}
-                        mounted={visitedRailViews.has("billing")}
-                      >
-                        <BillingPage />
-                      </KeepAlivePane>
-
+                      ),
+                      billing: <BillingPage />,
+                    }}
+                    middle={
+                      <>
                       {activeSidebarView === "scheduledTasks" ? (
                         <AutomationPage
                           scene={assistantCategoryId}
@@ -1412,14 +1374,10 @@ export function AssistantPage(props: AssistantPageProps) {
                           </div>
                         </div>
                       ) : null}
-
-                      {canRenderReactSurface ? (
-                        <KeepAlivePane
-                          active={
-                            isPrimarySessionView && !showDelayedSessionLoadingState
-                          }
-                          mounted
-                        >
+                      </>
+                    }
+                    primarySession={
+                      canRenderReactSurface ? (
                           <SessionSurface
                             key={renderedSessionId}
                             {...props.surface!}
@@ -1472,10 +1430,10 @@ export function AssistantPage(props: AssistantPageProps) {
                             }}
                             onOpenCustomConnector={() => openCustomConnector("config")}
                           />
-                        </KeepAlivePane>
-                      ) : null}
-
-                      {isPrimarySessionView &&
+                      ) : null
+                    }
+                    afterPrimary={
+                      isPrimarySessionView &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
                       !showStartupSkeleton ? (
@@ -1585,10 +1543,11 @@ export function AssistantPage(props: AssistantPageProps) {
                             </div>
                           ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </main>
+                      ) : null
+                    }
+                  />
+                </SessionPageMainColumn>
+
               </ResizablePanel>
               {sidePanelVisibleOnSession ? (
                 <>
