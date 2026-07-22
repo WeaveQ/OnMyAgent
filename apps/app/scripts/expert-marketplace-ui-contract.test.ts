@@ -440,7 +440,7 @@ describe("expert marketplace UI contract", () => {
     expect(tabs).not.toContain("rounded-full border-dls-border bg-dls-surface");
   });
 
-  test("assistant automation session rows do not expose pinning", () => {
+  test("assistant automation session rows support local pinning under scheduled groups", () => {
     const sections = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx");
     const taskItem = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/assistant-task-item.tsx");
 
@@ -448,7 +448,9 @@ describe("expert marketplace UI contract", () => {
     expect(taskItem).toContain("const pinnable = props.pinnable ?? true");
     // Pin control only when pinnable and a toggle handler is provided.
     expect(taskItem).toContain("{pinnable && props.onTogglePinned ? (");
-    expect(sections).toContain("pinnable={false}");
+    // Scheduled-group runs are locally pinnable (feature/schedule pins).
+    expect(sections).toContain("automationLocalPinsById");
+    expect(sections).toMatch(/pinnable\s*\n\s*pinnedSessionIds=\{/);
   });
 
   test("session route cleans local expert and assistant indexes after deletion", () => {

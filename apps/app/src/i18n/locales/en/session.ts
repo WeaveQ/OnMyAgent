@@ -893,6 +893,7 @@ export default {
   "session.resize_agent_list": "Resize agent list",
   "session.user_initial": "Me",
   "session.pin": "Pin",
+  "session.drag_to_reorder": "Drag to reorder",
   "session.open_folder": "Open folder",
   "session.open_folder_desktop_only": "Open folder is available in the desktop app.",
   "session.open_folder_failed": "Failed to open folder.",

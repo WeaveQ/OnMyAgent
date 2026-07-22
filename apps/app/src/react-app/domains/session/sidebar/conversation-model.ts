@@ -235,13 +235,21 @@ export function snapshotConversationSummary(
 }
 
 /**
- * Global pin strip (WorkBuddy-style): ordered mix of sessions + folders.
- * Space-folder sessions are pinned *inside* the folder (see space-local pins),
- * not here — unless the user pins the folder itself.
+ * Global pin strip (WorkBuddy-style): ordered mix of sessions + folders +
+ * scheduled-task (automation) groups.
+ * Space / automation sessions pin *inside* their group (local pins), not here —
+ * unless the user pins the folder / automation group itself.
  */
 export type AssistantGlobalPin =
   | { kind: "session"; id: string }
-  | { kind: "folder"; id: string };
+  | { kind: "folder"; id: string }
+  | { kind: "automation"; id: string };
+
+/** Storage scope key for local pins inside a scheduled-task group. */
+export function automationLocalPinScope(automationId: string): string {
+  const id = automationId.trim();
+  return id ? `auto:${id}` : "";
+}
 
 const ASSISTANT_PINNED_SESSIONS_STORAGE_KEY =
   "onmyagent.assistantPinnedSessions.v1";
@@ -256,7 +264,9 @@ function parseGlobalPin(value: unknown): AssistantGlobalPin | null {
   const id =
     "id" in value && typeof value.id === "string" ? value.id.trim() : "";
   if (!id) return null;
-  if (kind === "session" || kind === "folder") return { kind, id };
+  if (kind === "session" || kind === "folder" || kind === "automation") {
+    return { kind, id };
+  }
   return null;
 }
 
@@ -343,7 +353,14 @@ export function writeAssistantGlobalPins(
   const next: AssistantGlobalPin[] = [];
   for (const pin of pins) {
     const pinId = pin.id.trim();
-    if (!pinId || (pin.kind !== "session" && pin.kind !== "folder")) continue;
+    if (
+      !pinId ||
+      (pin.kind !== "session" &&
+        pin.kind !== "folder" &&
+        pin.kind !== "automation")
+    ) {
+      continue;
+    }
     const key = `${pin.kind}:${pinId}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -366,14 +383,14 @@ export function writeAssistantPinnedSessionIds(
   workspaceId: string,
   sessionIds: string[],
 ) {
-  const existingFolders = readAssistantGlobalPins(workspaceId).filter(
-    (pin) => pin.kind === "folder",
+  const existingNonSessions = readAssistantGlobalPins(workspaceId).filter(
+    (pin) => pin.kind !== "session",
   );
   const sessions = Array.from(new Set(sessionIds)).map((id) => ({
     kind: "session" as const,
     id,
   }));
-  writeAssistantGlobalPins(workspaceId, [...sessions, ...existingFolders]);
+  writeAssistantGlobalPins(workspaceId, [...sessions, ...existingNonSessions]);
 }
 
 function readSpaceLocalPinsRecord(): Record<

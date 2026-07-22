@@ -863,6 +863,7 @@ export default {
   "session.resize_agent_list": "调整智能体列表宽度",
   "session.user_initial": "我",
   "session.pin": "置顶",
+  "session.drag_to_reorder": "拖动排序",
   "session.open_folder": "打开文件夹",
   "session.open_folder_desktop_only": "打开文件夹仅在桌面应用中可用。",
   "session.open_folder_failed": "打开文件夹失败。",
