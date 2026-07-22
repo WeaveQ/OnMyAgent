@@ -1097,9 +1097,7 @@ export function useSessionRouteSurfaceProps(
           ? () => setAssistantDraftWorkspaceRoot("")
           : undefined,
     };
-    return bagSessionSurfaceProps(
-      flatSurfaceProps as unknown as Parameters<typeof bagSessionSurfaceProps>[0],
-    );
+    return bagSessionSurfaceProps(flatSurfaceProps);
   }, [
     client,
     assistantDraftWorkspaceRoot,
