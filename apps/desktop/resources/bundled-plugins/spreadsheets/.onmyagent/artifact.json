@@ -15,7 +15,7 @@
     ]
   },
   "runtime": {
-    "entry": "skills/spreadsheets/runtime/artifact_runtime.py",
-    "requiredTools": ["python", "libreoffice"]
+    "entry": "skills/spreadsheets/runtime/artifact_runtime.cjs",
+    "requiredTools": ["node"]
   }
 }

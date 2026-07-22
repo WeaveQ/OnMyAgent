@@ -81,6 +81,8 @@ import { createAllDesktopDomainHandlers } from "./desktop-handlers/index.mjs";
 import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
+import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
+import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 
 // --- Global crash guards (main process) ---
 // The desktop app makes HTTPS requests from several places (channel transports
@@ -371,6 +373,17 @@ const browserController = createElectronBrowserController({
   },
 });
 
+const listLocalWorkspacePaths = async () =>
+  (await readWorkspaceState()).workspaces
+    .filter((entry) => entry?.workspaceType !== "remote")
+    .map((entry) => String(entry?.path ?? "").trim())
+    .filter(Boolean);
+const artifactPreviewController = createArtifactPreviewController({
+  WebContentsView,
+  listWorkspaceRoots: listLocalWorkspacePaths,
+  preloadPath: path.join(__dirname, "artifact-preview-preload.cjs"),
+});
+
 desktopWindowController = createDesktopWindowController({
   getMainWindow: () => mainWindow,
   setMainWindow: (win) => {
@@ -387,6 +400,7 @@ desktopWindowController = createDesktopWindowController({
   dirname: __dirname,
   applyApplicationMenuVisibility,
   browserController,
+  artifactPreviewController,
   flushPendingDeepLinks,
 });
 
@@ -972,11 +986,7 @@ const runtimeManager = createRuntimeManager({
   app,
   desktopRoot: path.resolve(__dirname, ".."),
   runtimeEnvironment: () => browserController.browserEnvironment(),
-  listLocalWorkspacePaths: async () =>
-    (await readWorkspaceState()).workspaces
-      .filter((entry) => entry?.workspaceType !== "remote")
-      .map((entry) => String(entry?.path ?? "").trim())
-      .filter(Boolean),
+  listLocalWorkspacePaths,
 });
 
 const {
@@ -1694,6 +1704,7 @@ ipcMain.handle("onmyagent:system:architecture", async () =>
 );
 
 registerDesktopBrowserIpc({ ipcMain, browserController });
+registerDesktopArtifactPreviewIpc({ ipcMain, artifactPreviewController });
 
 registerMigrationIpc({ app, ipcMain });
 const { ensureAutoUpdater } = registerUpdaterIpc({
@@ -1718,6 +1729,7 @@ if (!app.requestSingleInstanceLock()) {
     void Promise.all([
       disposeRuntimeBeforeQuit(),
       browserController.close(),
+      Promise.resolve(artifactPreviewController.destroy()),
       uiControlBridge.stop(),
       Promise.resolve(disposeComputerUseServices()),
     ]).finally(() => app.quit());

@@ -1,0 +1,361 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: #f7f7f8; }
+@media (prefers-color-scheme: dark) { body { background: #18181b; } }
+#root > * { width: 100%; height: 100%; }
+.office-viewer-status { display: grid; place-items: center; color: #71717a; font-size: 13px; }
+
+.spreadsheet-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+.spreadsheet-grid-extension {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  overflow: hidden;
+  color: #5f6368;
+  font: 12px/1 Aptos, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  pointer-events: none;
+}
+.spreadsheet-grid-extension-right,
+.spreadsheet-grid-extension-bottom {
+  position: absolute;
+  overflow: hidden;
+  background: #fff;
+}
+.spreadsheet-grid-extension-columns {
+  display: grid;
+  overflow: hidden;
+  border-bottom: 1px solid #d7dbe0;
+  background: #f3f3f3;
+}
+.spreadsheet-grid-extension-columns > span {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  border-right: 1px solid #d7dbe0;
+  font-weight: 600;
+}
+.spreadsheet-grid-extension-body,
+.spreadsheet-grid-extension-cells {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background-color: #fff;
+}
+.spreadsheet-grid-extension-body { left: 0; }
+.spreadsheet-grid-extension-rows {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  border-right: 1px solid #d7dbe0;
+  background: #f3f3f3;
+}
+.spreadsheet-grid-extension-rows > span {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border-bottom: 1px solid #d7dbe0;
+}
+.spreadsheet-viewer .excel-wrapper .toolbar {
+  min-height: 40px;
+  padding: 0 12px;
+  border-top-color: #d7dbe0;
+  background: #fff;
+}
+.spreadsheet-viewer .excel-wrapper .btn-group {
+  gap: 0;
+  height: 40px;
+  overflow-y: visible;
+}
+.spreadsheet-viewer .excel-wrapper .btn-group::before {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-right: 10px;
+  background:
+    linear-gradient(135deg, transparent 35%, #334155 36% 45%, transparent 46%) 1px 1px / 12px 12px no-repeat,
+    linear-gradient(315deg, transparent 35%, #334155 36% 45%, transparent 46%) 5px 5px / 12px 12px no-repeat;
+  content: "";
+}
+.spreadsheet-viewer .excel-wrapper .sheet-tab {
+  position: relative;
+  min-width: 0;
+  max-width: 220px;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+}
+.spreadsheet-viewer .excel-wrapper .sheet-tab:hover { background: #f4f6f8; }
+.spreadsheet-viewer .excel-wrapper .sheet-tab.active {
+  border: 0;
+  background: transparent;
+  color: #005dff;
+  font-weight: 600;
+}
+.spreadsheet-viewer .excel-wrapper .sheet-tab.active::after {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  left: 8px;
+  height: 2px;
+  background: #005dff;
+  content: "";
+}
+.spreadsheet-viewer .excel-wrapper .summary { display: none; }
+
+.presentation-viewer {
+  --presentation-outline-width: 132px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #eef3f8;
+  transition: grid-template-columns 160ms ease;
+}
+.presentation-viewer.is-outline-open { grid-template-columns: var(--presentation-outline-width) minmax(0, 1fr); }
+.presentation-outline-tab {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  left: 0;
+  display: grid;
+  width: 36px;
+  min-height: 76px;
+  place-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px solid #e5e7eb;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: rgba(255, 255, 255, .96);
+  color: #475569;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .12), 0 1px 2px rgba(15, 23, 42, .08);
+  font: 12px/1.2 system-ui, sans-serif;
+  transform: translateY(-50%);
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.presentation-outline-tab:hover {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #005dff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .16), 0 1px 3px rgba(15, 23, 42, .1);
+  transform: translate(2px, -50%);
+}
+.presentation-outline-tab:focus-visible,
+.presentation-outline-close:focus-visible {
+  outline: 2px solid #005dff;
+  outline-offset: 2px;
+}
+.presentation-outline-tab-icon,
+.presentation-outline-title-icon {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+}
+.presentation-outline-tab-icon svg,
+.presentation-outline-title-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
+}
+.presentation-outline-tab-label {
+  letter-spacing: 2px;
+  writing-mode: vertical-rl;
+}
+.presentation-outline {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden auto;
+  border-right: 1px solid rgba(100, 116, 139, .22);
+  background: #f8fafc;
+}
+.presentation-outline-header {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #334155;
+  font: 600 14px/1 system-ui, sans-serif;
+}
+.presentation-outline-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.presentation-outline-title-icon {
+  color: #005dff;
+}
+.presentation-outline-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: 20px/1 system-ui, sans-serif;
+  transition: color 120ms ease, background 120ms ease;
+}
+.presentation-outline-close:hover { background: #eef2f7; color: #334155; }
+.presentation-outline-list { display: grid; gap: 8px; padding: 8px 8px 12px; }
+.presentation-outline-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 4px 5px;
+  width: 100%;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  text-align: left;
+  cursor: pointer;
+}
+.presentation-outline-item:hover { background: #eef2f7; }
+.presentation-outline-item.is-active { border-color: #3b82f6; background: #eaf2ff; color: #1d4ed8; }
+.presentation-outline-number { grid-row: 1 / span 2; padding-top: 2px; font: 11px/1.2 system-ui, sans-serif; text-align: right; }
+.presentation-outline-thumbnail {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgba(100, 116, 139, .3);
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .08);
+  pointer-events: none;
+  min-height: 0 !important;
+}
+.presentation-outline-clone {
+  position: absolute !important;
+  margin: 0 !important;
+  transform-origin: top left !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+.presentation-outline-caption {
+  grid-column: 2;
+  overflow: hidden;
+  color: inherit;
+  font: 10px/1.25 system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.presentation-viewport {
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.presentation-viewport > * { min-height: 100%; }
+.presentation-viewer.is-document .presentation-viewport .docx-fit-viewer,
+.presentation-viewer.is-document .presentation-viewport .msdoc-zoom-viewer,
+.presentation-viewer.is-document .presentation-viewport .odf-viewer,
+.presentation-viewer.is-document .presentation-viewport .flyfish-rtf-viewer {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+.document-outline-tree,
+.document-outline-children {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.document-outline-item { min-width: 0; }
+.document-outline-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  padding-left: calc(var(--outline-depth, 0) * 12px);
+  border-radius: 6px;
+}
+.document-outline-row:hover { background: #eef2f7; }
+.document-outline-item.is-active > .document-outline-row { background: #eaf2ff; color: #1d4ed8; }
+.document-outline-caret,
+.document-outline-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.document-outline-caret {
+  width: 18px;
+  min-height: 26px;
+  padding: 5px 0;
+  color: #64748b;
+  font: 11px/1 system-ui, sans-serif;
+}
+.document-outline-caret:disabled { cursor: default; }
+.document-outline-link {
+  min-width: 0;
+  padding: 5px 3px;
+  overflow: hidden;
+  font: 12px/1.35 system-ui, sans-serif;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .spreadsheet-viewer,
+  .spreadsheet-grid-extension-right,
+  .spreadsheet-grid-extension-bottom,
+  .spreadsheet-grid-extension-body,
+  .spreadsheet-grid-extension-cells { background-color: #111827; }
+  .spreadsheet-grid-extension-columns,
+  .spreadsheet-grid-extension-rows { border-color: #374151; background: #1f2937; color: #cbd5e1; }
+  .spreadsheet-grid-extension-columns > span,
+  .spreadsheet-grid-extension-rows > span { border-color: #374151; }
+  .spreadsheet-viewer .excel-wrapper .toolbar { border-top-color: #374151; background: #111827; }
+  .spreadsheet-viewer .excel-wrapper .sheet-tab { color: #cbd5e1; }
+  .spreadsheet-viewer .excel-wrapper .sheet-tab:hover { background: #1f2937; }
+  .spreadsheet-viewer .excel-wrapper .sheet-tab.active { background: transparent; color: #5b96ff; }
+  .spreadsheet-viewer .excel-wrapper .sheet-tab.active::after { background: #5b96ff; }
+  .presentation-viewer { background: #101820; }
+  .presentation-outline { border-right-color: rgba(148, 163, 184, .2); background: #111827; }
+  .presentation-outline-tab { border-color: #3a3a3a; background: rgba(44, 44, 44, .96); color: #cbd5e1; }
+  .presentation-outline-tab:hover { border-color: #4a4a4a; background: #333; color: #5b96ff; }
+  .presentation-outline-header { border-bottom-color: #3a3a3a; color: #f8fafc; }
+  .presentation-outline-title-icon { color: #5b96ff; }
+  .presentation-outline-close:hover { background: #1e293b; color: #e2e8f0; }
+  .presentation-outline-item { color: #94a3b8; }
+  .presentation-outline-item:hover { background: #1e293b; }
+  .presentation-outline-item.is-active { border-color: #60a5fa; background: #172554; color: #bfdbfe; }
+  .document-outline-row:hover { background: #1e293b; }
+  .document-outline-item.is-active > .document-outline-row { background: #172554; color: #bfdbfe; }
+  .document-outline-caret { color: #94a3b8; }
+}
+
+@media (max-width: 520px) {
+  .presentation-viewer { --presentation-outline-width: 104px; }
+  .presentation-outline-list { padding-inline: 5px; }
+  .presentation-outline-caption { display: none; }
+}

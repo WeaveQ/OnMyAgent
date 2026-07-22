@@ -298,6 +298,16 @@ declare global {
         onPanelOpened?: (callback: () => void) => () => void;
         onPanelClosed?: (callback: () => void) => () => void;
       };
+      artifactPreview?: {
+        show?: (request: {
+          filePath: string;
+          bounds: { x: number; y: number; width: number; height: number };
+          theme: "light" | "dark";
+          locale: string;
+        }) => Promise<{ ok: boolean; kind: "pdf" | "office" }>;
+        hide?: () => Promise<void>;
+        setBounds?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
+      };
       meta?: {
         initialDeepLinks?: string[];
         platform?: "darwin" | "linux" | "windows";

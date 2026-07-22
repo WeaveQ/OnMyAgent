@@ -174,6 +174,11 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       return () => ipcRenderer.removeListener("onmyagent:browser:panel-closed", handler);
     },
   },
+  artifactPreview: {
+    show(request) { return ipcRenderer.invoke("onmyagent:artifact-preview:show", request); },
+    hide() { return ipcRenderer.invoke("onmyagent:artifact-preview:hide"); },
+    setBounds(bounds) { return ipcRenderer.invoke("onmyagent:artifact-preview:bounds", bounds); },
+  },
   meta: {
     initialDeepLinks: [],
     platform: normalizePlatform(process.platform),
