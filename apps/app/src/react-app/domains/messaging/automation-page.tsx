@@ -1377,7 +1377,7 @@ export function AutomationPage(props: {
     setError(null);
     setDialogOpen(false);
     setActiveStatusTab("running");
-    window.setTimeout(refreshAutomations, 300);
+    window.setTimeout(refreshAutomations, 200);
     window.setTimeout(refreshAutomations, 1_200);
     void props.client.runAutomation(props.workspaceId, item.id)
       .then((result) => {

@@ -238,14 +238,14 @@ export function inferPlanStepsFromPrompt(prompt: string): PlanStepItem[] {
     prompt.includes("创建");
   const contents = isFileTask
     ? [
-        "确认目标文件路径和写入内容",
-        "创建或更新文件并写入指定内容",
-        "验证文件已生成且内容符合要求",
+        t("session.inferred_plan_file_step_1"),
+        t("session.inferred_plan_file_step_2"),
+        t("session.inferred_plan_file_step_3"),
       ]
     : [
-        "确认任务目标和执行范围",
-        "按计划完成核心操作",
-        "验证结果并向用户汇报",
+        t("session.inferred_plan_generic_step_1"),
+        t("session.inferred_plan_generic_step_2"),
+        t("session.inferred_plan_generic_step_3"),
       ];
   return contents.map((content, index) => ({
     id: `inferred-plan-step-${index}`,

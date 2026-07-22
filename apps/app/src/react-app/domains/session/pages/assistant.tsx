@@ -207,9 +207,8 @@ export function AssistantPage(props: AssistantPageProps) {
   });
   const [agentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
-  const { agentPanelWidth, startAgentPanelResize } = useAgentPanelResize(
-    AGENT_PANEL_DEFAULT_WIDTH,
-  );
+  const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
+    useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
   const sidePanelScopeId =
     activeSidebarView === "localAgent"
       ? `localAgent:${props.selectedWorkspaceId}`
@@ -244,7 +243,7 @@ export function AssistantPage(props: AssistantPageProps) {
   });
   const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
   const codeWorkspacePath =
-    props.surface?.draftWorkspaceDirectory?.trim() ||
+    props.surface?.draftWorkspace?.draftWorkspaceDirectory?.trim() ||
     props.selectedWorkspaceRoot;
   const codeWorkspaceCatalogRoot =
     props.workspaces.find((workspace) => workspace.id === props.selectedWorkspaceId)
@@ -1223,15 +1222,17 @@ export function AssistantPage(props: AssistantPageProps) {
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}
-                            activePermission={props.activePermission}
-                            permissionReplyBusy={props.permissionReplyBusy}
-                            respondPermission={props.respondPermission}
-                            autoApprovedPermissionNoticeId={
-                              props.autoApprovedPermissionNoticeId
-                            }
-                            activeQuestion={props.activeQuestion}
-                            questionReplyBusy={props.questionReplyBusy}
-                            respondQuestion={props.respondQuestion}
+                            permission={{
+                              ...props.surface!.permission,
+                              activePermission: props.activePermission,
+                              permissionReplyBusy: props.permissionReplyBusy,
+                              respondPermission: props.respondPermission,
+                              autoApprovedPermissionNoticeId:
+                                props.autoApprovedPermissionNoticeId,
+                              activeQuestion: props.activeQuestion,
+                              questionReplyBusy: props.questionReplyBusy,
+                              respondQuestion: props.respondQuestion,
+                            }}
                             safeStringify={props.safeStringify}
                             userIdentity={{
                               name:
@@ -1251,15 +1252,18 @@ export function AssistantPage(props: AssistantPageProps) {
                             personalAssistantCategoryId={assistantCategoryId}
                             onPersonalAssistantCategoryChange={setAssistantCategoryAndRemember}
                             onPersonalAssistantCategoryActive={setAssistantCategoryAndRemember}
-                            onOpenSkillsMarketplace={() => {
-                              setStoreActiveTab("skills");
-                              setActiveSidebarView("store");
+                            marketplace={{
+                              ...props.surface!.marketplace,
+                              onOpenSkillsMarketplace: () => {
+                                setStoreActiveTab("skills");
+                                setActiveSidebarView("store");
+                              },
+                              onOpenConnectorsMarketplace: () => {
+                                setStoreActiveTab("plugins");
+                                setActiveSidebarView("store");
+                              },
+                              onOpenCustomConnector: () => openCustomConnector("config"),
                             }}
-                            onOpenConnectorsMarketplace={() => {
-                              setStoreActiveTab("plugins");
-                              setActiveSidebarView("store");
-                            }}
-                            onOpenCustomConnector={() => openCustomConnector("config")}
                           />
                       ) : null
                     }

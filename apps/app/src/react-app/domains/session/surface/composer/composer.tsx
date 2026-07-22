@@ -85,6 +85,7 @@ import {
 } from "./attachments";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
+import { mergeSlashCommandsWithSkills } from "./slash-command-merge";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
@@ -268,28 +269,13 @@ export function ReactSessionComposer(props: ComposerProps) {
           ? skillResult.value
           : [];
 
-      const byName = new Map<string, SlashCommandOption>();
-      for (const skill of skillCards) {
-        const name = String(skill.name ?? "").trim();
-        if (!name) continue;
-        byName.set(name, {
-          id: `skill:${name}`,
-          name,
-          description: skill.description ? String(skill.description) : undefined,
-          source: "skill",
-        });
-      }
-      for (const cmd of cmds) {
-        const name = String(cmd.name ?? "").trim();
-        if (!name) continue;
-        byName.set(name, cmd);
-      }
+      const merged = mergeSlashCommandsWithSkills(cmds, skillCards);
       // Preserve SkillCard.scope so OnMyAgent installs can sort ahead of the rest.
-      if (skillCards.length) {
-        setSkills(skillCards);
+      if (merged.skillsForState) {
+        setSkills(merged.skillsForState);
         setSkillsLoaded(true);
       }
-      return Array.from(byName.values());
+      return merged.commands;
     })()
       .then((next) => {
         if (commandsLoadVersionRef.current === version && next.length > 0) {

@@ -1184,4 +1184,10 @@ export default {
   "session.preview_tool": "[Tool] {tool}",
   "session.preview_agent_mention": "@agent",
   "session.preview_file": "[File]",
+  "session.inferred_plan_file_step_1": "Confirm target file path and content to write",
+  "session.inferred_plan_file_step_2": "Create or update the file with the specified content",
+  "session.inferred_plan_file_step_3": "Verify the file exists and content matches requirements",
+  "session.inferred_plan_generic_step_1": "Confirm task goal and execution scope",
+  "session.inferred_plan_generic_step_2": "Complete core operations per plan",
+  "session.inferred_plan_generic_step_3": "Verify results and report back to the user",
 } as const;

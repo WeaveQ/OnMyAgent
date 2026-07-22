@@ -132,7 +132,7 @@ function scheduleFlush() {
   flushTimer = setTimeout(() => {
     flushTimer = null;
     void flushQueue();
-  }, 500);
+  }, 200);
 }
 
 async function flushQueue() {

@@ -561,7 +561,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               usePendingAgentStore.getState().getAgent();
             const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
             const draftRoot =
-              surfaceProps?.draftWorkspaceDirectory?.trim() || "";
+              surfaceProps?.draftWorkspace?.draftWorkspaceDirectory?.trim() || "";
             let sessionDirectory = draftRoot || workspaceRoot || undefined;
             let bindDirectory = draftRoot || "";
             // Treat empty draft and "draft == workspace root" as no real folder pick.

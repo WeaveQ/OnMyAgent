@@ -1154,4 +1154,10 @@ export default {
   "session.compact_heading_key_decisions": "关键决策",
   "session.compact_heading_next_steps": "下一步",
   "session.compact_heading_progress": "进度",
+  "session.inferred_plan_file_step_1": "确认目标文件路径和写入内容",
+  "session.inferred_plan_file_step_2": "创建或更新文件并写入指定内容",
+  "session.inferred_plan_file_step_3": "验证文件已生成且内容符合要求",
+  "session.inferred_plan_generic_step_1": "确认任务目标和执行范围",
+  "session.inferred_plan_generic_step_2": "按计划完成核心操作",
+  "session.inferred_plan_generic_step_3": "验证结果并向用户汇报",
 } as const;

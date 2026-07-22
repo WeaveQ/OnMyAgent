@@ -1154,4 +1154,10 @@ export default {
   "session.compact_heading_progress": "進度",
   "session.diff": "差異",
   "session.copy": "複製",
+  "session.inferred_plan_file_step_1": "確認目標檔案路徑和寫入內容",
+  "session.inferred_plan_file_step_2": "建立或更新檔案並寫入指定內容",
+  "session.inferred_plan_file_step_3": "驗證檔案已產生且內容符合要求",
+  "session.inferred_plan_generic_step_1": "確認任務目標和執行範圍",
+  "session.inferred_plan_generic_step_2": "依計畫完成核心操作",
+  "session.inferred_plan_generic_step_3": "驗證結果並向使用者回報",
 } as const;

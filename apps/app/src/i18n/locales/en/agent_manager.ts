@@ -188,4 +188,9 @@ export default {
   "agent_manager.mcp.type_stdio": "stdio",
   "agent_manager.mcp.type_sse": "sse",
   "agent_manager.mcp.type_http": "http",
+  "agent_manager.conn_ok": "Connected",
+  "agent_manager.conn_ok_models": "Connected · {count} models available",
+  "agent_manager.conn_needs_auth": "Sign-in required{detail}",
+  "agent_manager.conn_missing": "Not installed{detail}",
+  "agent_manager.conn_failed": "Connection failed{detail}",
 } as const;

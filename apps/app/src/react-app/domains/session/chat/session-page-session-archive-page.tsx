@@ -133,7 +133,7 @@ export function SessionArchivePage(props: Props) {
             break;
           }
           await new Promise((resolve) => {
-            window.setTimeout(resolve, 400);
+            window.setTimeout(resolve, 200);
           });
         }
         await loadSessionList();
