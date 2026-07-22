@@ -262,6 +262,7 @@ export function canPreviewOpenTargetInline(target: OpenTarget): boolean {
   if (target.kind === "url" || target.preview === "browser") return true;
   if (target.preview === "markdown" || target.preview === "text") return true;
   if (target.preview === "html") return true;
+  if (target.preview === "image") return true;
   if (["document", "sheet", "presentation", "pdf"].includes(target.preview)) return true;
   return false;
 }
