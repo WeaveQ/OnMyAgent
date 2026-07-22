@@ -169,6 +169,7 @@ import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
 import { useSessionHostSidePanel } from "./use-session-host-side-panel";
+import { resolveBoundExpertDraftSession } from "./expert-draft-session";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
@@ -695,6 +696,21 @@ export function ExpertPage(props: ExpertPageProps) {
     },
     [props.sidebar],
   );
+  useEffect(() => {
+    const createdSessionId = resolveBoundExpertDraftSession({
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+    });
+    if (!createdSessionId) return;
+    handleOpenExpertSession(props.selectedWorkspaceId, createdSessionId);
+  }, [
+    draftAgentId,
+    draftSessionActive,
+    handleOpenExpertSession,
+    pendingAgent,
+    props.selectedWorkspaceId,
+  ]);
   const handleStartAgentConversation = useCallback(
     (
       item: AgentCardItem,
