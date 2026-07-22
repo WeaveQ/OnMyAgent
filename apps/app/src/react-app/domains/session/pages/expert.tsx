@@ -512,6 +512,7 @@ export function ExpertPage(props: ExpertPageProps) {
     (state) => state.toggleSidePanelState,
   );
   const [artifactTarget, setArtifactTarget] = useState<OpenTarget | null>(null);
+  const [artifactFocusToken, setArtifactFocusToken] = useState(0);
   const [openTargets, setOpenTargets] = useState<OpenTarget[]>([]);
   const [hiddenAccessibleTargetIds, setHiddenAccessibleTargetIds] = useState<
     Set<string>
@@ -1582,6 +1583,7 @@ export function ExpertPage(props: ExpertPageProps) {
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
       setArtifactTarget(target);
+      setArtifactFocusToken((token) => token + 1);
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
@@ -2471,6 +2473,8 @@ export function ExpertPage(props: ExpertPageProps) {
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
                         fileRoot={props.selectedSessionFileRoot ?? ""}
                         fileTargets={artifactFileTargets}
+                        focusPath={artifactTarget?.value ?? null}
+                        focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}

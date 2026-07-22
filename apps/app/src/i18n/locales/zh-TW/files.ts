@@ -38,6 +38,7 @@ export default {
   "files.no_session_files_hint": "會話運行產生的文件會列在此處。",
   "files.open_file": "打開文件",
   "files.open_in_folder": "在文件夾中打開",
+  "files.view_in_panel": "查看",
   "files.delete_confirm_title": "刪除檔案？",
   "files.delete_confirm_desc": "確定刪除「{name}」嗎？此操作不可復原。",
   "files.preview_empty": "選擇文件後預覽內容",
