@@ -10,6 +10,14 @@ const electronSidecarDir = resolve(desktopRoot, "resources", "sidecars");
 const electronRuntimeDir = resolve(desktopRoot, "resources", "runtimes");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
 const electronArtifactRuntimeDir = resolve(desktopRoot, "resources", "artifact-runtime");
+const artifactRuntimeWorkspaceLink = resolve(
+  electronArtifactRuntimeDir,
+  "node_modules",
+  ".pnpm",
+  "node_modules",
+  "@onmyagent",
+  "artifact-runtime",
+);
 const electronRoot = resolve(desktopRoot, "electron");
 const packagedServerRoot = resolve(desktopRoot, "server");
 
@@ -38,9 +46,13 @@ run(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", 
 rmSync(electronArtifactRuntimeDir, { recursive: true, force: true });
 run(
   pnpmCmd,
-  ["--filter", "@onmyagent/artifact-runtime", "deploy", "--legacy", "--prod", electronArtifactRuntimeDir],
+  ["--offline", "--filter", "@onmyagent/artifact-runtime", "deploy", "--legacy", "--prod", electronArtifactRuntimeDir],
   repoRoot,
 );
+// pnpm's legacy deploy includes a workspace self-link that points back into the
+// source checkout. It is unnecessary at runtime and becomes broken after
+// electron-builder copies resources into the application bundle for signing.
+rmSync(artifactRuntimeWorkspaceLink, { recursive: true, force: true });
 // Built-in skills are curated directly in resources/bundled-skills and are
 // packaged read-only. Workspace-local .opencode/skills is development-only and
 // must not implicitly change the shipped desktop bundle.
