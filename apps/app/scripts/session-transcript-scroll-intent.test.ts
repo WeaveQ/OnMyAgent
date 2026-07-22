@@ -96,9 +96,13 @@ describe("session transcript scroll intent", () => {
   });
 
   test("wires WorkBuddy touch, scrollbar drag, resize cleanup, and retry activity", async () => {
-    const [surface, controller] = await Promise.all([
+    const [host, view, controller] = await Promise.all([
       Bun.file(new URL(
         "../src/react-app/domains/session/surface/session-surface.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/session-surface-view.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
@@ -106,7 +110,9 @@ describe("session transcript scroll intent", () => {
         import.meta.url,
       )).text(),
     ]);
+    const surface = [host, view].join("\n");
 
+    expect(host).toContain("export function SessionSurface");
     expect(surface).toContain("onTouchStart={(event) =>");
     expect(surface).toContain("onTouchMove={(event) =>");
     expect(surface).toContain("onPointerDown={(event) =>");
@@ -132,9 +138,13 @@ describe("session transcript scroll intent", () => {
   });
 
   test("matches the WorkBuddy scroll-to-bottom affordance", async () => {
-    const [surface, layout, controller, control, styles] = await Promise.all([
+    const [host, view, layout, controller, control, styles] = await Promise.all([
       Bun.file(new URL(
         "../src/react-app/domains/session/surface/session-surface.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/session-surface-view.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
@@ -151,6 +161,7 @@ describe("session transcript scroll intent", () => {
       )).text(),
       Bun.file(new URL("../src/app/index.css", import.meta.url)).text(),
     ]);
+    const surface = [host, view].join("\n");
 
     expect(surface).not.toContain("session.jump_to_start");
     expect(surface).not.toContain("jumpToStartOfMessage");

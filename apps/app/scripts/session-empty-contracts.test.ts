@@ -12,15 +12,25 @@ function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
 }
 
+/** Host + presentational view (JSX shell extracted from SessionSurface). */
+function readSessionSurfaceSources() {
+  return [
+    read("src/react-app/domains/session/surface/session-surface.tsx"),
+    read("src/react-app/domains/session/surface/session-surface-view.tsx"),
+  ].join("\n");
+}
+
 describe("session empty / draft / files / composer contracts", () => {
   test("assistant draft home hides SessionSurfaceHeader", () => {
-    const src = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const host = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const src = readSessionSurfaceSources();
+    expect(host).toContain("export function SessionSurface");
     expect(src).toContain("personalAssistantDraftHome");
     expect(src).toMatch(/!personalAssistantDraftHome\s*\?\s*\(\s*\n\s*<SessionSurfaceHeader/);
   });
 
   test("composer homeLayout covers assistant + expert empty", () => {
-    const src = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const src = readSessionSurfaceSources();
     const mode = read("src/react-app/domains/session/surface/session-surface-layout-mode.ts");
     expect(src).toContain("homeComposerLayout");
     expect(src).toContain("homeLayout={homeComposerLayout}");
@@ -113,25 +123,29 @@ describe("session empty / draft / files / composer contracts", () => {
 
   test("session-surface transcript and composer columns use layout shells", () => {
     const host = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const src = readSessionSurfaceSources();
     const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
     expect(layout).toContain("export function SessionSurfaceTranscriptPane");
     expect(layout).toContain("export function SessionSurfaceComposerColumn");
     expect(layout).toContain("export function SessionSurfaceBody");
-    expect(host).toContain("SessionSurfaceTranscriptPane");
-    expect(host).toContain("SessionSurfaceComposerColumn");
-    expect(host).toContain("SessionSurfaceBody");
+    expect(host).toContain("export function SessionSurface");
+    expect(src).toContain("SessionSurfaceTranscriptPane");
+    expect(src).toContain("SessionSurfaceComposerColumn");
+    expect(src).toContain("SessionSurfaceBody");
   });
 
   test("session-surface uses layout-mode helper + transcript content extract", () => {
     const host = read("src/react-app/domains/session/surface/session-surface.tsx");
+    const src = readSessionSurfaceSources();
     const mode = read("src/react-app/domains/session/surface/session-surface-layout-mode.ts");
     const transcript = read(
       "src/react-app/domains/session/surface/session-surface-transcript-content.tsx",
     );
     expect(mode).toContain("export function deriveSessionSurfaceLayoutMode");
     expect(transcript).toContain("export function SessionSurfaceTranscriptContent");
+    expect(host).toContain("export function SessionSurface");
     expect(host).toContain("deriveSessionSurfaceLayoutMode");
-    expect(host).toContain("SessionSurfaceTranscriptContent");
+    expect(src).toContain("SessionSurfaceTranscriptContent");
   });
 
   test("session chrome barrel re-exports focused chrome modules", () => {

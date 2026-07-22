@@ -1,16 +1,29 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-const source = readFileSync(
-  new URL(
-    "../src/react-app/domains/session/surface/session-surface.tsx",
-    import.meta.url,
-  ),
-  "utf8",
-);
+function readSessionSurfaceSources() {
+  const host = readFileSync(
+    new URL(
+      "../src/react-app/domains/session/surface/session-surface.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const view = readFileSync(
+    new URL(
+      "../src/react-app/domains/session/surface/session-surface-view.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  return [host, view].join("\n");
+}
+
+const source = readSessionSurfaceSources();
 
 describe("session interruption path", () => {
   test("captures goal elapsed time before the transcript state updater runs", () => {
+    expect(source).toContain("export function SessionSurface");
     const recordStart = source.indexOf("const recordSessionInterruption");
     const recordEnd = source.indexOf("useEffect(() => {", recordStart);
     const recordBlock = source.slice(recordStart, recordEnd);
