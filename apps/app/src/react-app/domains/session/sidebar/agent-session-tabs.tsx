@@ -132,17 +132,28 @@ function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
  */
 export function mergeStableSessionTabOrder(
   previousIds: readonly string[],
-  sessions: readonly { id: string }[],
+  sessions: readonly {
+    id: string;
+    time?: { created?: number | null };
+  }[],
 ): string[] {
   const present = new Set(sessions.map((session) => session.id));
   const kept = previousIds.filter((id) => present.has(id));
   const keptSet = new Set(kept);
-  // Preserve parent order for newcomers (listSessions is typically newest-first).
-  const newcomers: string[] = [];
-  for (const session of sessions) {
-    if (keptSet.has(session.id) || newcomers.includes(session.id)) continue;
-    newcomers.push(session.id);
-  }
+  const newcomers = sessions
+    .map((session, sourceIndex) => ({
+      id: session.id,
+      createdAt: session.time?.created ?? Number.NEGATIVE_INFINITY,
+      sourceIndex,
+    }))
+    .filter((session, index, all) => (
+      !keptSet.has(session.id) &&
+      all.findIndex((candidate) => candidate.id === session.id) === index
+    ))
+    .sort((left, right) =>
+      right.createdAt - left.createdAt || left.sourceIndex - right.sourceIndex
+    )
+    .map((session) => session.id);
   const isDraft = (id: string) => id.startsWith("draft:");
   const draftNew = newcomers.filter(isDraft);
   const realNew = newcomers.filter((id) => !isDraft(id));
@@ -274,14 +285,8 @@ export function AgentSessionTabs(props: {
         if (!seen.has(session.id)) stable.push(session);
       }
     }
-    const indexById = new Map(stable.map((session, index) => [session.id, index]));
-    return [...stable].sort((left, right) => {
-      const leftPinned = pinnedSet.has(left.id) ? 1 : 0;
-      const rightPinned = pinnedSet.has(right.id) ? 1 : 0;
-      if (leftPinned !== rightPinned) return rightPinned - leftPinned;
-      return (indexById.get(left.id) ?? 0) - (indexById.get(right.id) ?? 0);
-    });
-  }, [pinnedSet, props.sessions, stableOrderIds]);
+    return stable;
+  }, [props.sessions, stableOrderIds]);
 
   const snapshotQueries = useQueries({
     queries: orderedSessions.map((session) => ({
