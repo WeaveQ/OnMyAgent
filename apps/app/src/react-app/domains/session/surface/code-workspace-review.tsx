@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getCodeWorkspaceEnvironment } from "../../../../app/lib/desktop";
 import type { CodeWorkspaceEnvironmentSnapshot } from "@onmyagent/types";
 import { t } from "../../../../i18n";
+import { codeReviewPollIntervalMs, shouldRunActivePoll } from "../sync/session-poll-policy";
 
 function diffLineClass(line: string) {
   if (line.startsWith("+") && !line.startsWith("+++")) {
@@ -63,10 +64,15 @@ export function useCodeWorkspaceEnvironment(props: {
   }, [props.enabled, refresh]);
 
   useEffect(() => {
-    if (!props.enabled || !props.polling) return;
+    const intervalMs = codeReviewPollIntervalMs({
+      enabled: props.enabled,
+      polling: props.polling === true,
+    });
+    if (intervalMs == null) return;
     const timer = window.setInterval(() => {
+      if (!shouldRunActivePoll({ enabled: true })) return;
       void refresh();
-    }, 2500);
+    }, intervalMs);
     return () => window.clearInterval(timer);
   }, [props.enabled, props.polling, refresh]);
 

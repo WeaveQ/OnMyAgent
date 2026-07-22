@@ -10,6 +10,7 @@ import type {
 import { currentLocale, t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
 import { summarizeGoalObjective } from "../session-run-controller";
+import { shouldTickGoalRuntimeClock } from "../../sync/session-poll-policy";
 
 export type SessionTranscriptNotice = {
   id: string;
@@ -324,16 +325,17 @@ export function GoalRuntimePanel(props: {
 
   useEffect(() => {
     if (
-      props.runtime.status === "paused" ||
-      props.runtime.status === "completed" ||
-      props.runtime.waitingReason === "user"
+      !shouldTickGoalRuntimeClock({
+        status: props.runtime.status,
+        waitingReason: props.runtime.waitingReason,
+      })
     ) {
       setNow(Date.now());
       return;
     }
     const id = window.setInterval(() => setNow(Date.now()), GOAL_RUNTIME_TICK_MS);
     return () => window.clearInterval(id);
-  }, [props.runtime.status]);
+  }, [props.runtime.status, props.runtime.waitingReason]);
 
   return (
     <div className="overflow-hidden border-b border-dls-border bg-transparent">

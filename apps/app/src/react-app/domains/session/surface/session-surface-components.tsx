@@ -45,6 +45,7 @@ import {
   formatGoalElapsed,
   isGoalIntentRuntime,
 } from "./session-surface-utils";
+import { shouldTickGoalRuntimeClock } from "../sync/session-poll-policy";
 
 // ============================================================================
 // Constants
@@ -523,16 +524,17 @@ export function GoalRuntimePanel(props: {
 
   useEffect(() => {
     if (
-      props.runtime.status === "paused" ||
-      props.runtime.status === "completed" ||
-      props.runtime.waitingReason === "user"
+      !shouldTickGoalRuntimeClock({
+        status: props.runtime.status,
+        waitingReason: props.runtime.waitingReason,
+      })
     ) {
       setNow(Date.now());
       return;
     }
     const id = window.setInterval(() => setNow(Date.now()), GOAL_RUNTIME_TICK_MS);
     return () => window.clearInterval(id);
-  }, [props.runtime.status]);
+  }, [props.runtime.status, props.runtime.waitingReason]);
 
   const objective = props.runtime.objective.slice(0, 80);
 
