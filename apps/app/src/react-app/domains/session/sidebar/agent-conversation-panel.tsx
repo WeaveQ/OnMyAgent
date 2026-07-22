@@ -18,7 +18,6 @@ import {
   writeAssistantSessionCategory,
 } from "../../agents";
 import { AssistantConversationSections } from "./assistant-conversation-sections";
-import { groupAssistantAutomationItems } from "./assistant-automation-groups";
 import { AgentConversationPanelHeader } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
 import {
@@ -32,15 +31,18 @@ import {
   writeAssistantSpaceLocalPins,
   readAssistantSpaceFolderOrder,
   writeAssistantSpaceFolderOrder,
-  sortGroupsByPinnedSessionIds,
   snapshotConversationSummary,
   type AgentConversationGroup,
   type AssistantGlobalPin,
   type TaskStatusIndicator,
 } from "./conversation-model";
 import {
-  buildAssistantListModel,
-  reorderList,
+  buildAssistantSidebarModel,
+  buildAutomationLocalPinsMap,
+  globalPinKey,
+  localPinMapsEqual,
+  mergeVisibleReorderIntoFull,
+  partitionCategoryGroupsForSidebar,
 } from "./assistant-list-model";
 import { queueAssistantNewTaskDirectory } from "../../../capabilities/session-identity/assistant-new-task-directory";
 import {
@@ -55,7 +57,6 @@ import {
   archiveAssistantTask,
   archivedSessionIdSet,
   assistantArchivedTasksChangedEvent,
-  filterGroupsExcludingArchived,
   readAssistantArchivedTasks,
 } from "../../shared";
 import { isDesktopRuntime } from "../../../../app/utils";
@@ -426,45 +427,53 @@ export function AgentConversationPanel(props: {
           }),
     [mode, normalizedQuery, registry],
   );
-  const filteredAgentGroups = normalizedQuery
-    ? visibleAgentGroups.filter((item) =>
-        `${item.name} ${item.description} ${item.preview ?? ""}`
-          .toLowerCase()
-          .includes(normalizedQuery),
-      )
-    : visibleAgentGroups;
+  const filteredAgentGroups = useMemo(
+    () =>
+      normalizedQuery
+        ? visibleAgentGroups.filter((item) =>
+            `${item.name} ${item.description} ${item.preview ?? ""}`
+              .toLowerCase()
+              .includes(normalizedQuery),
+          )
+        : visibleAgentGroups,
+    [normalizedQuery, visibleAgentGroups],
+  );
   const activeAssistantCategoryId = props.assistantCategoryId ?? "office";
-  const automationSessionRecordById = new Map(
-    automationSessionRecords.map((record) => [record.sessionId, record]),
+  const assistantCategoryGroups = useMemo(
+    () =>
+      mode === "assistant"
+        ? filteredAgentGroups.filter(
+            (item) =>
+              readAssistantSessionCategory(item.latestSession.id) ===
+              activeAssistantCategoryId,
+          )
+        : filteredAgentGroups,
+    [activeAssistantCategoryId, filteredAgentGroups, mode],
   );
-  const assistantCategoryGroups =
-    mode === "assistant"
-      ? filteredAgentGroups.filter(
-          (item) =>
-            readAssistantSessionCategory(item.latestSession.id) ===
-            activeAssistantCategoryId,
-        )
-      : filteredAgentGroups;
-  // Note: archivedIdSet is applied after this block via filtering each group’s items
-  // once assistantArchivedIdSet is ready (see visible automation handling below).
-  const automationGroupsRaw = groupAssistantAutomationItems(
-    assistantCategoryGroups.flatMap((item) => {
-      const record = automationSessionRecordById.get(item.latestSession.id);
-      if (!record || record.category !== activeAssistantCategoryId) return [];
-      return [{
-        item,
-        automationId: record.automationId,
-        title: record.title,
-        updatedAt:
-          item.latestSession.time?.updated ??
-          item.latestSession.time?.created ??
-          record.createdAt,
-      }];
-    }),
+  /** Raw partition only — full list model goes through buildAssistantSidebarModel. */
+  const categoryPartition = useMemo(
+    () =>
+      mode === "assistant"
+        ? partitionCategoryGroupsForSidebar({
+            categoryGroups: assistantCategoryGroups,
+            categoryId: activeAssistantCategoryId,
+            automationRecords: automationSessionRecords,
+          })
+        : {
+            regularGroups: assistantCategoryGroups,
+            automationGroupsRaw: [] as ReturnType<
+              typeof partitionCategoryGroupsForSidebar
+            >["automationGroupsRaw"],
+          },
+    [
+      activeAssistantCategoryId,
+      assistantCategoryGroups,
+      automationSessionRecords,
+      mode,
+    ],
   );
-  const regularAssistantGroups = assistantCategoryGroups.filter(
-    (item) => !automationSessionRecordById.has(item.latestSession.id),
-  );
+  const automationGroupsRaw = categoryPartition.automationGroupsRaw;
+
   const [assistantGlobalPins, setAssistantGlobalPins] = useState<
     AssistantGlobalPin[]
   >(() => readAssistantGlobalPins(props.selectedWorkspaceId));
@@ -491,90 +500,57 @@ export function AgentConversationPanel(props: {
     () => archivedSessionIdSet(assistantArchivedTasks),
     [assistantArchivedTasks],
   );
-  const visibleRegularAssistantGroups = useMemo(
-    () =>
-      filterGroupsExcludingArchived(
-        regularAssistantGroups,
-        assistantArchivedIdSet,
-      ),
-    [regularAssistantGroups, assistantArchivedIdSet],
-  );
   /** automationId → local pin order (sessions pinned inside a scheduled group). */
   const [automationLocalPinsById, setAutomationLocalPinsById] = useState<
     Record<string, string[]>
   >({});
 
   // Hydrate local pins whenever automation groups appear / change.
+  // Bail out when the map is deeply equal so we never setState every render.
   useEffect(() => {
     if (mode !== "assistant") return;
-    const next: Record<string, string[]> = {};
-    for (const group of automationGroupsRaw) {
-      const scope = automationLocalPinScope(group.id);
-      if (!scope) continue;
-      next[group.id] = readAssistantSpaceLocalPins(
-        props.selectedWorkspaceId,
-        scope,
-      );
-    }
-    setAutomationLocalPinsById(next);
+    const next = buildAutomationLocalPinsMap(
+      automationGroupsRaw.map((group) => group.id),
+      (scope) =>
+        readAssistantSpaceLocalPins(props.selectedWorkspaceId, scope),
+    );
+    setAutomationLocalPinsById((current) =>
+      localPinMapsEqual(current, next) ? current : next,
+    );
   }, [automationGroupsRaw, mode, props.selectedWorkspaceId]);
-
-  const automationGroupsAll = useMemo(
-    () =>
-      automationGroupsRaw
-        .map((group) => {
-          const items = filterGroupsExcludingArchived(
-            group.items,
-            assistantArchivedIdSet,
-          );
-          const localPins = automationLocalPinsById[group.id] ?? [];
-          return {
-            ...group,
-            items: sortGroupsByPinnedSessionIds(items, localPins),
-          };
-        })
-        .filter((group) => group.items.length > 0),
-    [automationGroupsRaw, assistantArchivedIdSet, automationLocalPinsById],
-  );
-
-  const pinnedAutomationIds = useMemo(
-    () =>
-      new Set(
-        assistantGlobalPins
-          .filter((pin) => pin.kind === "automation")
-          .map((pin) => pin.id),
-      ),
-    [assistantGlobalPins],
-  );
-
-  /** Schedules section: exclude groups already elevated into global pins. */
-  const automationGroups = useMemo(
-    () =>
-      automationGroupsAll.filter((group) => !pinnedAutomationIds.has(group.id)),
-    [automationGroupsAll, pinnedAutomationIds],
-  );
 
   const [spaceFolderOrder, setSpaceFolderOrder] = useState<string[]>(() =>
     readAssistantSpaceFolderOrder(props.selectedWorkspaceId),
   );
 
-  const assistantListModel = useMemo(
+  const assistantSidebarModel = useMemo(
     () =>
-      buildAssistantListModel({
-        groups: visibleRegularAssistantGroups,
+      buildAssistantSidebarModel({
+        categoryGroups: assistantCategoryGroups,
+        categoryId: activeAssistantCategoryId,
         globalPins: assistantGlobalPins,
         spaceLocalPinsByDirectory,
         spaceFolderOrder,
         workspaceBySessionId: assistantWorkspaceBySessionId,
+        automationRecords: automationSessionRecords,
+        archivedIdSet: assistantArchivedIdSet,
+        automationLocalPinsById,
       }),
     [
+      activeAssistantCategoryId,
+      assistantArchivedIdSet,
+      assistantCategoryGroups,
       assistantGlobalPins,
       assistantWorkspaceBySessionId,
+      automationLocalPinsById,
+      automationSessionRecords,
       spaceFolderOrder,
       spaceLocalPinsByDirectory,
-      visibleRegularAssistantGroups,
     ],
   );
+  const assistantListModel = assistantSidebarModel.listModel;
+  const automationGroupsAll = assistantSidebarModel.automationGroupsAll;
+  const automationGroups = assistantSidebarModel.automationGroups;
 
   const [expandedAssistantDirectories, setExpandedAssistantDirectories] =
     useState<string[]>([]);
@@ -625,8 +601,10 @@ export function AgentConversationPanel(props: {
         .map((item) => item.directory?.trim())
         .filter((item): item is string => Boolean(item)),
     );
+    // All automations in the workspace — not category-scoped (else code view
+    // would strip office automation pins from storage).
     const availableAutomations = new Set(
-      automationGroupsRaw.map((group) => group.id),
+      automationSessionRecords.map((record) => record.automationId),
     );
     setAssistantGlobalPins((current) => {
       const next = current.filter((pin) => {
@@ -642,7 +620,7 @@ export function AgentConversationPanel(props: {
   }, [
     agentGroups,
     assistantWorkspaceRecords,
-    automationGroupsRaw,
+    automationSessionRecords,
     mode,
     props.selectedWorkspaceId,
   ]);
@@ -762,14 +740,28 @@ export function AgentConversationPanel(props: {
 
   const reorderAssistantGlobalPins = useCallback(
     (fromIndex: number, toIndex: number) => {
+      // UI indices are into the *category-visible* pin list; merge back so
+      // pins that belong only to the other category keep their storage order.
+      const visible = assistantListModel.globalPins;
       setAssistantGlobalPins((current) => {
-        const next = reorderList(current, fromIndex, toIndex);
-        if (next === current) return current;
+        const next = mergeVisibleReorderIntoFull({
+          full: current,
+          visible,
+          fromIndex,
+          toIndex,
+          keyOf: globalPinKey,
+        });
+        if (
+          next.length === current.length &&
+          next.every((pin, i) => globalPinKey(pin) === globalPinKey(current[i]!))
+        ) {
+          return current;
+        }
         writeAssistantGlobalPins(props.selectedWorkspaceId, next);
         return next;
       });
     },
-    [props.selectedWorkspaceId],
+    [assistantListModel.globalPins, props.selectedWorkspaceId],
   );
 
   const reorderAssistantSpaceFolders = useCallback(
@@ -995,7 +987,7 @@ export function AgentConversationPanel(props: {
       );
       const now = Date.now();
       const titleBySessionId = new Map(
-        visibleRegularAssistantGroups.map((group) => [
+        assistantSidebarModel.regularGroups.map((group) => [
           group.latestSession.id,
           group.description,
         ]),
@@ -1048,11 +1040,11 @@ export function AgentConversationPanel(props: {
       });
     },
     [
+      assistantSidebarModel.regularGroups,
       assistantWorkspaceRecords,
       props.assistantCategoryId,
       props.selectedWorkspaceId,
       showToast,
-      visibleRegularAssistantGroups,
     ],
   );
 

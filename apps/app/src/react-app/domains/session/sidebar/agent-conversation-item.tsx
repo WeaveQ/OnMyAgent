@@ -6,13 +6,13 @@ import { Mail, MailOpen, MoreHorizontal, Pin, PinOff, Trash2 } from "lucide-reac
 import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
-import { expertActivityLabel } from "./utils";
 import {
   formatConversationTime,
   type AgentConversationGroup,
   type TaskStatusIndicator,
 } from "./conversation-model";
 import { ExpertStatusDots } from "./expert-status-dots";
+import { resolveTaskRowTrailingStatus } from "./task-row-trailing-status";
 import {
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
@@ -86,7 +86,13 @@ export function AgentConversationItem(props: {
   const summaryTime = formatConversationTime(
     latestSession.time?.updated ?? latestSession.time?.created,
   );
-  const activityLabel = expertActivityLabel(props.status);
+  // Trailing uses shared busy/time rules; unread is title weight for experts.
+  const trailing = resolveTaskRowTrailingStatus({
+    status: props.status,
+    selected: props.selected,
+    unread: false,
+    timeLabel: summaryTime,
+  });
   // Manual 标为未读 keeps the badge while the expert is still open.
   const unread = Boolean(props.unread);
   const unreadRecord = Boolean(props.unreadRecord);
@@ -354,16 +360,16 @@ export function AgentConversationItem(props: {
             >
               {props.group.name}
             </div>
-            {/* Busy (unselected): three-dot pulse (no label). Selected / idle: time. */}
-            {activityLabel && !props.selected ? (
+            {/* Busy: three-dot pulse (incl. selected active task). Idle: time. */}
+            {trailing.kind === "busy" ? (
               <span
                 className={cn(
                   "ms-auto inline-flex items-center text-dls-accent",
                   hasMenu && !menuOpen && "group-hover:hidden",
                   menuOpen && "hidden",
                 )}
-                title={activityLabel}
-                aria-label={activityLabel}
+                title={trailing.activityLabel ?? undefined}
+                aria-label={trailing.activityLabel ?? undefined}
               >
                 <ExpertStatusDots />
               </span>
@@ -376,7 +382,7 @@ export function AgentConversationItem(props: {
                   menuOpen && "hidden",
                 )}
               >
-                {summaryTime}
+                {trailing.timeLabel}
               </div>
             )}
           </div>
