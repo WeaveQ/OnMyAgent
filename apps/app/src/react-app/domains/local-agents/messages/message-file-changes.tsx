@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { openDesktopPath } from "../../../../app/lib/desktop";
 import type { PersonalLocalAgentRunFileChange } from "../../../../app/lib/desktop-types";
+import { ArtifactIcon } from "../../../capabilities/artifacts/artifact-icon";
 import { localAgentLayoutClass, localAgentTextClass } from "./message-style";
 
 type Props = {
@@ -49,7 +50,7 @@ export function MessageFileChanges({ fileChanges, onFeedback }: Props) {
             title={t("local_agent.open_file_change", { name: entry.fileName, tool: entry.tool })}
             onClick={() => void handleOpen(entry)}
           >
-            <FilePenLine className="size-3.5 shrink-0" />
+            <ArtifactIcon name={entry.fileName || entry.filePath} className="size-3.5" />
             <span className="truncate">{entry.fileName}</span>
             <span className="ml-1 shrink-0 text-xs uppercase tracking-wide text-dls-secondary">{entry.tool}</span>
           </Button>

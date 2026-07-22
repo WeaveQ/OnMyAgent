@@ -6,7 +6,6 @@ import "@xterm/xterm/css/xterm.css";
 import {
   ChevronRight,
   ClipboardCheck,
-  FileText,
   Folder,
   FolderOpen,
   Globe,
@@ -38,6 +37,7 @@ import type {
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
+import { ArtifactIcon } from "../artifacts/artifact-icon";
 import {
   codeTerminalSnapshotIntervalMs,
   shouldRunActivePoll,
@@ -152,7 +152,7 @@ const toolItems: Array<{
 ];
 
 function toolIcon(kind: ToolKind) {
-  return toolItems.find((item) => item.kind === kind)?.icon ?? FileText;
+  return toolItems.find((item) => item.kind === kind)?.icon ?? Folder;
 }
 
 function flattenWorkspaceFileTree(
@@ -190,7 +190,7 @@ type WorkspaceFilePreview =
   | { kind: "loading" }
   | { kind: "unsupported" }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
-  | { kind: "office"; filePath: string; name: string }
+  | { kind: "local"; filePath: string; name: string }
   | { kind: "binary"; url: string; name: string };
 
 function absoluteWorkspaceFilePath(root: string, path: string) {
@@ -201,8 +201,8 @@ function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {
   return rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path;
 }
 
-function usesOfficeRenderer(preview: OpenTarget["preview"], path: string) {
-  return canEditArtifactTarget({ preview, name: path });
+function usesLocalFileRenderer(preview: OpenTarget["preview"], path: string) {
+  return canEditArtifactTarget({ preview, name: path }) || preview === "audio" || preview === "video";
 }
 
 function inferredImageContentType(path: string) {
@@ -227,7 +227,7 @@ function WorkspaceTreeRow(props: {
 }) {
   const isDirectory = props.node.kind === "dir";
   const isExpanded = props.expanded.has(props.node.path);
-  const Icon = isDirectory ? (isExpanded ? FolderOpen : Folder) : FileText;
+  const FolderIcon = isExpanded ? FolderOpen : Folder;
   return (
     <div>
       <div className="group relative">
@@ -251,7 +251,11 @@ function WorkspaceTreeRow(props: {
               isExpanded && "rotate-90",
             )}
           />
-          <Icon className="size-3.5 shrink-0" />
+          {isDirectory ? (
+            <FolderIcon className="size-3.5 shrink-0" />
+          ) : (
+            <ArtifactIcon name={props.node.name} className="size-3.5 shrink-0" />
+          )}
           <span className="truncate">{props.node.name}</span>
         </TreeRowButton>
         {!isDirectory ? (
@@ -468,14 +472,14 @@ function WorkspaceFilesPanel(props: {
       setPreview({ kind: "loading" });
       try {
         const requestPath = workspaceFileRequestPath(rootRelativePrefix, path);
-        if (usesOfficeRenderer(targetPreview, path)) {
+        if (usesLocalFileRenderer(targetPreview, path)) {
           const localRoot = fileRoot || props.workspacePath;
           if (!isElectronRuntime() || !localRoot) {
             setPreview({ kind: "unsupported" });
             return;
           }
           setPreview({
-            kind: "office",
+            kind: "local",
             filePath: absoluteWorkspaceFilePath(localRoot, path),
             name: targetName,
           });
@@ -667,7 +671,7 @@ function WorkspaceFilesPanel(props: {
           <span className="min-w-0 flex-1 truncate">
             {selectedPath ?? t("session.code_side_panel_files")}
           </span>
-          {preview.kind === "office" ? (
+          {preview.kind === "local" && canEditArtifactTarget({ preview: "", name: preview.name }) ? (
             <Button
               type="button"
               variant="ghost"
@@ -700,7 +704,7 @@ function WorkspaceFilesPanel(props: {
           <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
             {t("files.preview_unsupported")}
           </div>
-        ) : preview.kind === "office" ? (
+        ) : preview.kind === "local" ? (
           <OfficeFilePreview
             className="min-h-0 flex-1"
             filePath={preview.filePath}

@@ -19,7 +19,7 @@ const desktopWindow = readFileSync(
   "utf8",
 );
 
-test("adds Office preview only inside the existing session Files tool", () => {
+test("adds local Office and media preview inside the existing session Files tool", () => {
   expect(sessionPanel).toContain('import { OfficeFilePreview }');
   expect(sessionPanel).toContain("absoluteWorkspaceFilePath");
   expect(sessionPanel).toContain("filePath={preview.filePath}");
@@ -27,6 +27,9 @@ test("adds Office preview only inside the existing session Files tool", () => {
   expect(sessionPanel).toContain('<ResizablePanelGroup orientation="horizontal"');
   expect(sessionPanel).toContain('<ResizableHandle aria-label={t("files.resize_tree")}');
   expect(sessionPanel).toContain('defaultSize="220px"');
+  expect(sessionPanel).toContain("usesLocalFileRenderer");
+  expect(sessionPanel).toContain('preview === "audio"');
+  expect(sessionPanel).toContain('preview === "video"');
   expect(sessionPanel).not.toContain('grid-cols-[220px_minmax(0,1fr)]');
 
   expect(sessionPanel).toContain('type ToolKind = "review" | "terminal" | "browser" | "files"');
@@ -35,9 +38,12 @@ test("adds Office preview only inside the existing session Files tool", () => {
   expect(sessionPanel).toContain("<BrowserPanel");
 });
 
-test("uses the same Office preview capability in the workspace Files drawer", () => {
+test("uses the same local preview capability in the workspace Files drawer", () => {
   expect(filesPage).toContain('import { OfficeFilePreview }');
-  expect(filesPage).toContain('status: "office" as const');
+  expect(filesPage).toContain('status: "local" as const');
+  expect(filesPage).toContain("usesLocalFileRenderer");
+  expect(filesPage).toContain('target.preview === "audio"');
+  expect(filesPage).toContain('target.preview === "video"');
   expect(filesPage).toContain("filePath={state.filePath}");
   expect(filesPage).toContain('<OfficeFilePreview');
   expect(filesPage).toContain("onOpenExternally");

@@ -259,7 +259,7 @@ type FilePreviewState =
   | { status: "ready"; content: string }
   | { status: "binary"; url: string }
   | {
-      status: "office";
+      status: "local";
       filePath: string;
       revision: number;
     }
@@ -271,8 +271,8 @@ function canPreviewWorkspaceFileInline(target: OpenTarget) {
   return canPreviewOpenTargetInline(target);
 }
 
-function usesOfficeRenderer(target: OpenTarget) {
-  return canEditArtifactTarget(target);
+function usesLocalFileRenderer(target: OpenTarget) {
+  return canEditArtifactTarget(target) || target.preview === "audio" || target.preview === "video";
 }
 
 function filterWorkspaceFileTree(
@@ -343,7 +343,7 @@ function FilePreviewDrawer(props: {
         {file && target ? (
           <>
             <header className="flex items-start gap-3 border-b border-dls-border px-5 py-4">
-              <ArtifactIcon type={target.preview} className="mt-0.5 size-5 shrink-0 text-dls-secondary" />
+              <ArtifactIcon type={target.preview} name={file.name} className="mt-0.5 size-5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
                   {file.name}
@@ -426,7 +426,7 @@ function FilePreviewDrawer(props: {
                 <PreviewLoading />
               ) : state.status === "error" ? (
                 <PreviewError message={state.message} />
-              ) : state.status === "office" ? (
+              ) : state.status === "local" ? (
                 <OfficeFilePreview
                   filePath={state.filePath}
                   name={file.name}
@@ -689,9 +689,9 @@ export function WorkspaceFilesPage(props: {
       };
     }
 
-    const previewRequest = usesOfficeRenderer(selectedTarget)
+    const previewRequest = usesLocalFileRenderer(selectedTarget)
       ? Promise.resolve({
-          status: "office" as const,
+          status: "local" as const,
           filePath: selectedFile?.path.startsWith("/")
             ? selectedFile.path
             : `${fileRoot.replace(/[/\\]+$/, "")}/${selectedFile?.path.replace(/^[/\\]+/, "") ?? ""}`,
@@ -1161,7 +1161,7 @@ export function WorkspaceFilesPage(props: {
               onClose={closePreview}
               onCopyPath={handleCopyPath}
               onEdit={
-                selectedTarget && previewState.status === "office" && canEditArtifactTarget(selectedTarget)
+                selectedTarget && previewState.status === "local" && canEditArtifactTarget(selectedTarget)
                   ? () => void handleEditFile(previewState.filePath)
                   : undefined
               }

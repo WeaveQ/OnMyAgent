@@ -6,7 +6,6 @@ import {
   Circle,
   CircleAlert,
   FileX2,
-  File,
   Folder,
   Globe,
   Image as ImageIcon,
@@ -28,6 +27,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { ArtifactIcon } from "../../../capabilities/artifacts/artifact-icon";
 import { usePlatform } from "../../../kernel/platform";
 import type {
   TranscriptSpecializedToolDetails,
@@ -560,12 +560,13 @@ function FileResultsToolDetails(props: {
       {props.details.items.length > 0 ? (
         <div className="max-h-[360px] overflow-y-auto">
           {props.details.items.map((item, index) => {
-            const Icon = item.isDirectory ? Folder : File;
             const folderPath = relativeFolderPath(item.path, props.details.directory);
             const lineLabel = fileResultLineLabel(item.startLine, item.endLine);
             const content = (
               <>
-                <Icon className="size-3.5 shrink-0 text-dls-secondary" aria-hidden="true" />
+                {item.isDirectory
+                  ? <Folder className="size-3.5 shrink-0 text-dls-secondary" aria-hidden="true" />
+                  : <ArtifactIcon name={item.fileName || item.path} className="size-3.5" />}
                 <span className="min-w-0 max-w-[45%] truncate font-medium text-dls-text">
                   {item.fileName}
                 </span>
@@ -890,7 +891,7 @@ export function SpecializedToolDetails(props: {
             className="h-auto w-full justify-start gap-2 rounded-none border-b border-dls-border px-3 py-2 font-mono text-xs font-normal text-dls-secondary"
             onClick={() => void openDesktopPath(details.downloadPath ?? "")}
           >
-            <File className="size-3.5 shrink-0" />
+            <ArtifactIcon name={details.downloadPath} className="size-3.5" />
             <span className="truncate">{details.downloadPath}</span>
           </Button>
         ) : details.presentation === "http" ? (

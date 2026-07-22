@@ -3,6 +3,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
 import {
   artifactPreviewInternals,
@@ -109,6 +110,34 @@ test("artifact preview renderer list covers Office families without PDF", () => 
     assert.equal(artifactPreviewInternals.OFFICE_EXTENSIONS.has(extension), true);
   }
   assert.equal(artifactPreviewInternals.OFFICE_EXTENSIONS.has(".pdf"), false);
+});
+
+test("artifact preview native file list covers PDF, MP3, and MP4", () => {
+  for (const extension of [".pdf", ".mp3", ".mp4"]) {
+    assert.equal(artifactPreviewInternals.NATIVE_FILE_EXTENSIONS.has(extension), true);
+  }
+});
+
+test("artifact preview loads MP3 and MP4 through local file URLs", async (t) => {
+  const root = await createTempWorkspace(t);
+  const harness = createPreviewHarness(root);
+
+  for (const filename of ["meeting.mp3", "demo.mp4"]) {
+    const filePath = path.join(root, filename);
+    await writeFile(filePath, "media-bytes");
+    assert.deepEqual(
+      await harness.controller.show({
+        filePath,
+        bounds: { x: 0, y: 0, width: 600, height: 400 },
+      }),
+      { ok: true, kind: "media" },
+    );
+    assert.equal(
+      harness.views.at(-1).webContents.url,
+      pathToFileURL(await realpath(filePath)).href,
+    );
+    assert.deepEqual(harness.views.at(-1).webContents.sent, []);
+  }
 });
 
 test("artifact preview opens only validated workspace files for editing", async (t) => {

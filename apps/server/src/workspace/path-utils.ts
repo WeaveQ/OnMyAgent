@@ -160,6 +160,8 @@ export function contentTypeForPath(path: string): string {
   if (lowered.endsWith(".gif")) return "image/gif";
   if (lowered.endsWith(".webp")) return "image/webp";
   if (lowered.endsWith(".pdf")) return "application/pdf";
+  if (lowered.endsWith(".mp3")) return "audio/mpeg";
+  if (lowered.endsWith(".mp4")) return "video/mp4";
   if (lowered.endsWith(".csv")) return "text/csv; charset=utf-8";
   if (lowered.endsWith(".tsv"))
     return "text/tab-separated-values; charset=utf-8";
@@ -200,6 +202,8 @@ function artifactPreviewForPath(path: string): string {
   if (/\.(csv|tsv|xlsx|xls|ods)$/.test(lowered)) return "sheet";
   if (/\.(png|jpe?g|gif|webp|svg)$/.test(lowered)) return "image";
   if (lowered.endsWith(".pdf")) return "pdf";
+  if (lowered.endsWith(".mp3")) return "audio";
+  if (lowered.endsWith(".mp4")) return "video";
   if (/\.(html|htm)$/.test(lowered)) return "html";
   if (isSupportedWorkspaceTextFilePath(path)) return "text";
   return "external";

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { isSupportedWorkspaceTextFilePath, normalizeWorkspaceRelativePath } from "../src/server.js";
+import { contentKindForPath, contentTypeForPath } from "../src/workspace/path-utils.js";
 
 describe("normalizeWorkspaceRelativePath", () => {
   test("accepts a plain workspace-relative path", () => {
@@ -67,5 +68,17 @@ describe("isSupportedWorkspaceTextFilePath", () => {
 
   test("rejects unsupported binary-like extensions", () => {
     expect(isSupportedWorkspaceTextFilePath(".opencode/plugins/cloud.bin")).toBe(false);
+  });
+});
+
+describe("workspace media metadata", () => {
+  test("serves MP3 and MP4 with browser-playable content types", () => {
+    expect(contentTypeForPath("recordings/meeting.mp3")).toBe("audio/mpeg");
+    expect(contentTypeForPath("videos/demo.mp4")).toBe("video/mp4");
+  });
+
+  test("keeps media files outside the text-reading path", () => {
+    expect(contentKindForPath("recordings/meeting.mp3")).toBe("binary");
+    expect(contentKindForPath("videos/demo.mp4")).toBe("binary");
   });
 });
