@@ -47,7 +47,16 @@ jobs:
           fi
           mapfile -t files < <(git diff --name-only "$BASE" "${{ github.sha }}" || git diff --name-only "$BASE" HEAD)
           pattern='^(apps/desktop/|apps/orchestrator/|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
-          if printf '%s\n' "${files[@]}" | grep -qE "$pattern"; then
+          # Avoid `printf | head` / `grep -q` under pipefail: early consumer close
+          # yields SIGPIPE and fails the job on large merges.
+          matched=false
+          for f in "${files[@]}"; do
+            if [[ "$f" =~ $pattern ]]; then
+              matched=true
+              break
+            fi
+          done
+          if [ "$matched" = true ]; then
             echo "windows=true" >> "$GITHUB_OUTPUT"
             echo "reason=matched-paths" >> "$GITHUB_OUTPUT"
           else
@@ -55,7 +64,14 @@ jobs:
             echo "reason=no-windows-paths" >> "$GITHUB_OUTPUT"
           fi
           echo "Changed files sample:"
-          printf '%s\n' "${files[@]}" | head -40
+          sample=0
+          for f in "${files[@]}"; do
+            printf '%s\n' "$f"
+            sample=$((sample + 1))
+            if [ "$sample" -ge 40 ]; then
+              break
+            fi
+          done
 
   checks:
     name: Checks (${{ matrix.os }})
