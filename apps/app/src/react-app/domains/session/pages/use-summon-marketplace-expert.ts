@@ -7,7 +7,7 @@ import { usePendingAgentStore } from "../../agents";
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import { setComposerDraftAfterNewTask } from "./shared-page-utils";
+import { setExpertComposerDraftAfterNewTask } from "./shared-page-utils";
 
 export function useSummonMarketplaceExpert(options: {
   selectedWorkspaceId: string;
@@ -30,7 +30,11 @@ export function useSummonMarketplaceExpert(options: {
         .getState()
         .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
       if (initialPrompt) {
-        setComposerDraftAfterNewTask(selectedWorkspaceId, initialPrompt);
+        setExpertComposerDraftAfterNewTask(
+          selectedWorkspaceId,
+          expert.id,
+          initialPrompt,
+        );
       }
       onNavigateToMode("expert");
     },

@@ -17,6 +17,10 @@ import type {
 
 export type ExpertMarketplaceView = "market" | "mine";
 
+// DESIGN.md motion.duration.normal: let the dialog finish its exit animation
+// before the marketplace page becomes keepalive-hidden.
+const MARKETPLACE_DIALOG_EXIT_DURATION_MS = 200;
+
 function agentFallbackInitial(name: string): string {
   return name.trim().slice(0, 1) || t("session.expert_initial");
 }
@@ -223,7 +227,7 @@ export function ExpertMarketplacePage(props: {
           if (!open) setSelectedExpert(null);
         }}
       >
-        <DialogContent className="!max-w-[520px] rounded-xl bg-dls-surface p-5">
+        <DialogContent className="max-h-[calc(100vh-48px)] !max-w-[520px] overflow-y-auto rounded-xl bg-dls-surface p-5">
           {selectedExpert ? (
             <div>
               <div className="flex items-start gap-4 pr-8">
@@ -272,14 +276,16 @@ export function ExpertMarketplacePage(props: {
                     {t("session.try_ask_expert")}
                   </div>
                   <div className="mt-2 space-y-2">
-                    {selectedExpert.quickPrompts.slice(0, 3).map((prompt) => (
+                    {selectedExpert.quickPrompts.slice(0, 2).map((prompt) => (
                       <button
                         key={prompt}
                         type="button"
                         className="flex w-full items-center justify-between gap-3 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-3 text-left text-sm leading-6 text-dls-secondary transition-colors hover:border-dls-accent/30 hover:bg-dls-hover mac:titlebar-no-drag"
                         onClick={() => {
-                          props.onSummonMarketplaceExpert(selectedExpert, prompt);
                           setSelectedExpert(null);
+                          window.setTimeout(() => {
+                            props.onSummonMarketplaceExpert(selectedExpert, prompt);
+                          }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
                         }}
                       >
                         <span>{prompt}</span>
@@ -294,8 +300,10 @@ export function ExpertMarketplacePage(props: {
                 size="lg"
                 className="mt-8 w-full"
                 onClick={() => {
-                  props.onSummonMarketplaceExpert(selectedExpert);
                   setSelectedExpert(null);
+                  window.setTimeout(() => {
+                    props.onSummonMarketplaceExpert(selectedExpert);
+                  }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
                 }}
               >
                 {t("session.summon_expert", {
