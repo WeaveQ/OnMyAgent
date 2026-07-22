@@ -1,0 +1,73 @@
+{
+  "asOf": "2026-07-23T10:00:00+08:00",
+  "freshness": { "freshMinutes": 60, "agingMinutes": 180 },
+  "order": {
+    "orderId": "D-001",
+    "originRegion": "深圳宝安",
+    "destinationRegion": "东莞塘厦",
+    "pickupAt": "2026-07-23T15:00:00+08:00",
+    "weightKg": 1800,
+    "volumeM3": 12,
+    "allowedVehicleTypes": ["6.8米高栏", "9.6米厢车"],
+    "requiredCapabilities": ["普货"]
+  },
+  "vehicles": [
+    {
+      "plate": "粤B10001",
+      "driverName": "张师傅",
+      "status": "available",
+      "currentRegion": "深圳宝安",
+      "vehicleType": "6.8米高栏",
+      "remainingWeightKg": 8000,
+      "remainingVolumeM3": 35,
+      "availableAt": "2026-07-23T10:30:00+08:00",
+      "willingDestinations": ["东莞", "深圳"],
+      "capabilities": ["普货"],
+      "emptyDistanceKm": 8,
+      "updatedAt": "2026-07-23T09:45:00+08:00",
+      "source": "司机微信"
+    },
+    {
+      "plate": "粤B10002",
+      "driverName": "李师傅",
+      "status": "available",
+      "currentRegion": "深圳盐田",
+      "vehicleType": "9.6米厢车",
+      "remainingWeightKg": 5000,
+      "remainingVolumeM3": 20,
+      "availableAt": "2026-07-23T12:00:00+08:00",
+      "willingDestinations": ["东莞"],
+      "capabilities": ["普货"],
+      "emptyDistanceKm": 48,
+      "updatedAt": "2026-07-23T08:30:00+08:00"
+    },
+    {
+      "plate": "粤B10003",
+      "driverName": "王师傅",
+      "status": "available",
+      "currentRegion": "惠州",
+      "vehicleType": "6.8米高栏",
+      "remainingWeightKg": 7000,
+      "remainingVolumeM3": 30,
+      "availableAt": "2026-07-23T11:00:00+08:00",
+      "willingDestinations": ["东莞"],
+      "capabilities": ["普货"],
+      "emptyDistanceKm": 90,
+      "updatedAt": "2026-07-23T05:00:00+08:00"
+    },
+    {
+      "plate": "粤B10004",
+      "driverName": "赵师傅",
+      "status": "available",
+      "currentRegion": "深圳宝安",
+      "vehicleType": "6.8米高栏",
+      "remainingWeightKg": 1000,
+      "remainingVolumeM3": 20,
+      "availableAt": "2026-07-23T10:00:00+08:00",
+      "willingDestinations": ["东莞"],
+      "capabilities": ["普货"],
+      "emptyDistanceKm": 3,
+      "updatedAt": "2026-07-23T09:55:00+08:00"
+    }
+  ]
+}
