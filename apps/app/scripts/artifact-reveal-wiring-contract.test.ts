@@ -8,10 +8,19 @@ function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
 }
 
+function readSessionSurfaceSources() {
+  return [
+    read("src/react-app/domains/session/surface/session-surface.tsx"),
+    read("src/react-app/domains/session/surface/session-surface-view.tsx"),
+  ].join("\n");
+}
+
 describe("artifact reveal wiring contract", () => {
   test("SessionTranscript always receives workspaceRoot for Finder reveal", () => {
-    const surface = read("src/react-app/domains/session/surface/session-surface.tsx");
-    expect(surface).toContain("openTargets={verifiedOpenTargets}");
+    const surface = readSessionSurfaceSources();
+    expect(surface).toContain("export function SessionSurface");
+    // View wires verified targets; host may pass as props.verifiedOpenTargets.
+    expect(surface).toMatch(/openTargets=\{(?:props\.)?verifiedOpenTargets\}/);
     expect(surface).toContain("onOpenTarget={props.onOpenTarget}");
     expect(surface).toContain("workspaceRoot={props.workspaceRoot}");
   });

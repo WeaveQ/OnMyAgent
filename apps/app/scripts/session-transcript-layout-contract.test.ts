@@ -32,6 +32,18 @@ const sessionSurfacePath = new URL(
   "../src/react-app/domains/session/surface/session-surface.tsx",
   import.meta.url,
 );
+const sessionSurfaceViewPath = new URL(
+  "../src/react-app/domains/session/surface/session-surface-view.tsx",
+  import.meta.url,
+);
+
+async function readSessionSurfaceSources() {
+  const [host, view] = await Promise.all([
+    Bun.file(sessionSurfacePath).text(),
+    Bun.file(sessionSurfaceViewPath).text(),
+  ]);
+  return [host, view].join("\n");
+}
 const appStylesPath = new URL("../src/app/index.css", import.meta.url);
 const assistantStatusPath = new URL(
   "../src/react-app/domains/session/surface/chrome/assistant-status.tsx",
@@ -164,16 +176,19 @@ describe("session transcript layout contract", () => {
   });
 
   test("uses the active header identity and leaves composer coupling out", async () => {
-    const sessionSurface = await Bun.file(sessionSurfacePath).text();
+    const sessionSurface = await readSessionSurfaceSources();
 
-    expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
+    expect(sessionSurface).toContain("export function SessionSurface");
+    expect(sessionSurface).toMatch(
+      /assistantAvatar=\{(?:props\.)?chatHeaderAgent\}/,
+    );
     expect(sessionSurface).not.toContain("assistantAvatarOverride");
   });
 
   test("routes office, code, and selected experts through one shared root surface", async () => {
     const [sessionPage, sessionSurface] = await Promise.all([
       Bun.file(sessionPagePath).text(),
-      Bun.file(sessionSurfacePath).text(),
+      readSessionSurfaceSources(),
     ]);
 
     expect(sessionPage.match(/<SessionSurface/g)?.length).toBe(1);
@@ -181,7 +196,9 @@ describe("session transcript layout contract", () => {
     expect(sessionPage).toContain('activeAssistantCategoryId === "code"');
     expect(sessionPage).toContain("agentPanel.activeSidebarView");
     expect(sessionSurface).toContain("<SessionTranscript");
-    expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
+    expect(sessionSurface).toMatch(
+      /assistantAvatar=\{(?:props\.)?chatHeaderAgent\}/,
+    );
   });
 
   test("keeps final output visible while folding execution details", async () => {
@@ -232,7 +249,7 @@ describe("session transcript layout contract", () => {
   test("virtualizes root transcripts by turn and reserves the active viewport", async () => {
     const [messageList, sessionSurface] = await Promise.all([
       readMessageListSources(),
-      Bun.file(sessionSurfacePath).text(),
+      readSessionSurfaceSources(),
     ]);
 
     expect(messageList).toContain("groupTranscriptRenderItems");
@@ -243,7 +260,9 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("activeTurnMinHeight");
     expect(messageList).toContain("scrollContainer.clientHeight");
     expect(messageList).not.toContain("updateViewport(entry.contentRect.width, entry.contentRect.height)");
-    expect(sessionSurface).toContain("scrollElement={resolveTranscriptScrollElement}");
+    expect(sessionSurface).toMatch(
+      /scrollElement=\{(?:props\.)?resolveTranscriptScrollElement\}/,
+    );
     expect(messageList).toContain('data-transcript-turn-active={isActiveTurn ? "true" : undefined}');
     expect(messageList).toContain('id: `block:${blockKey}`, turnId: null, blocks: [block]');
   });
