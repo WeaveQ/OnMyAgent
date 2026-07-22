@@ -488,6 +488,11 @@ export function AssistantPage(props: AssistantPageProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [sessionActionId, setSessionActionId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "session"; sessionId: string }
+    | { kind: "automation"; title: string; sessionIds: string[] }
+    | null
+  >(null);
   /** Header find bar (expands in chrome like in-chat search). */
   const [historySearchOpen, setHistorySearchOpen] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -942,6 +947,7 @@ export function AssistantPage(props: AssistantPageProps) {
     setRenameBusy(false);
     setDeleteBusy(false);
     setSessionActionId(null);
+    setDeleteTarget(null);
   }, [props.selectedSessionId]);
 
   const openRenameModal = (sessionId: string, title: string) => {
@@ -954,6 +960,26 @@ export function AssistantPage(props: AssistantPageProps) {
   const openDeleteModal = (sessionId: string) => {
     if (!props.onDeleteSession) return;
     setSessionActionId(sessionId);
+    setDeleteTarget({ kind: "session", sessionId });
+    setDeleteOpen(true);
+  };
+
+  const openDeleteAutomationGroupModal = (target: {
+    groupId: string;
+    title: string;
+    sessionIds: string[];
+  }) => {
+    if (!props.onDeleteSession) return;
+    const sessionIds = target.sessionIds.filter(
+      (id) => id.trim() && !id.startsWith("draft:"),
+    );
+    if (sessionIds.length === 0) return;
+    setSessionActionId(null);
+    setDeleteTarget({
+      kind: "automation",
+      title: target.title.trim(),
+      sessionIds,
+    });
     setDeleteOpen(true);
   };
 
@@ -977,16 +1003,26 @@ export function AssistantPage(props: AssistantPageProps) {
   };
 
   const confirmDelete = async () => {
-    const sessionId = sessionActionId;
-    if (!sessionId || !props.onDeleteSession) return;
+    if (!deleteTarget || !props.onDeleteSession) return;
     setDeleteBusy(true);
     try {
-      permanentlyRemoveAssistantArchivedTask(
-        props.selectedWorkspaceId,
-        sessionId,
-      );
-      await props.onDeleteSession(sessionId);
+      if (deleteTarget.kind === "session") {
+        permanentlyRemoveAssistantArchivedTask(
+          props.selectedWorkspaceId,
+          deleteTarget.sessionId,
+        );
+        await props.onDeleteSession(deleteTarget.sessionId);
+      } else {
+        for (const sessionId of deleteTarget.sessionIds) {
+          permanentlyRemoveAssistantArchivedTask(
+            props.selectedWorkspaceId,
+            sessionId,
+          );
+          await props.onDeleteSession(sessionId);
+        }
+      }
       setDeleteOpen(false);
+      setDeleteTarget(null);
     } finally {
       setDeleteBusy(false);
     }
@@ -1131,6 +1167,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 onPrefetchSession={props.sidebar.onPrefetchSession}
                 onRenameSession={openRenameModal}
                 onDeleteSession={openDeleteModal}
+                onDeleteAutomationGroup={openDeleteAutomationGroupModal}
               />
             ) : null}
             {(activeSidebarView === "chat" ||
@@ -1666,11 +1703,17 @@ export function AssistantPage(props: AssistantPageProps) {
           open={deleteOpen}
           title={t("session.delete_task_title")}
           message={
-            sessionActionTitle.trim()
-              ? t("session.delete_named_task_message", {
-                  title: sessionActionTitle.trim(),
-                })
-              : t("session.delete_task_generic")
+            deleteTarget?.kind === "automation"
+              ? deleteTarget.title
+                ? t("session.delete_named_task_message", {
+                    title: deleteTarget.title,
+                  })
+                : t("session.delete_task_generic")
+              : sessionActionTitle.trim()
+                ? t("session.delete_named_task_message", {
+                    title: sessionActionTitle.trim(),
+                  })
+                : t("session.delete_task_generic")
           }
           confirmLabel={
             deleteBusy ? t("session.deleting") : t("session.delete_task")
@@ -1679,7 +1722,10 @@ export function AssistantPage(props: AssistantPageProps) {
           variant="danger"
           onConfirm={() => void confirmDelete()}
           onCancel={() => {
-            if (!deleteBusy) setDeleteOpen(false);
+            if (!deleteBusy) {
+              setDeleteOpen(false);
+              setDeleteTarget(null);
+            }
           }}
         />
       ) : null}
