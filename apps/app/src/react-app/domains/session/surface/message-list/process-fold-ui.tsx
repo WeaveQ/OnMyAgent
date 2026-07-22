@@ -17,6 +17,7 @@ import {
   processFoldChipMeta,
   processItemToLegacyPart,
   processPlanDetails,
+  shouldDefaultExpandProcessFold,
 } from "./process-fold";
 import { StepRow } from "./step-row";
 import { ToolActivityIcon } from "./tool-activity-icon";
@@ -26,7 +27,12 @@ export function WorkBuddyTaskList(props: {
   running: boolean;
 }) {
   const [displayRunning, setDisplayRunning] = useState(() => props.running);
-  const [expanded, setExpanded] = useState(() => props.running);
+  const [expanded, setExpanded] = useState(() =>
+    shouldDefaultExpandProcessFold({
+      isPlanList: true,
+      running: props.running,
+    }),
+  );
   const previousRunningRef = useRef(props.running);
   const taskHistoryRef = useRef<Map<number, string>>(new Map());
   useEffect(() => {
@@ -104,8 +110,20 @@ export function WorkBuddyProcessFold(props: {
   onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
 }) {
   const plan = processPlanDetails(props.items);
-  const [expanded, setExpanded] = useState(false);
-  if (plan) return <WorkBuddyTaskList todos={plan.todos} running={props.running} />;
+  const [expanded, setExpanded] = useState(() =>
+    shouldDefaultExpandProcessFold({
+      isPlanList: false,
+      running: props.running,
+    }),
+  );
+  if (plan) {
+    return (
+      <WorkBuddyTaskList
+        todos={plan.todos}
+        running={props.running}
+      />
+    );
+  }
 
   const chip = processFoldChipMeta(props.items, props.running);
   const isThinking = chip.variant === "thinking";

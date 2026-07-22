@@ -163,7 +163,7 @@ export function OutputLimitContinueCard(props: {
 export function TranscriptHistorySkeleton({ pairCount = 3 }: { pairCount?: number }) {
   return (
     <div
-      className="mx-auto w-full max-w-[832px] px-3 py-4"
+      className="mx-auto w-full max-w-[1120px] px-3 py-4"
       role="status"
       aria-label={t("session.loading_detail")}
     >

@@ -24,6 +24,7 @@ import {
   createTranscriptMessageMetadata,
   type TranscriptMessageSourceInfo,
 } from "./message-metadata";
+import { selectFullStreamSessionIds } from "./stream-session-policy";
 
 type SyncOptions = {
   workspaceId: string;
@@ -1475,18 +1476,27 @@ export function trackWorkspaceSessionSync(
 export function trackWorkspaceSessionsSync(
   input: SyncOptions,
   sessionIds: Array<string | null | undefined>,
+  options?: {
+    /**
+     * Only this session (plus fallback) receives full message deltas.
+     * Defaults to the first candidate when omitted.
+     */
+    focusedSessionId?: string | null;
+  },
 ) {
-  const seen = new Set<string>();
-  const releases = sessionIds.flatMap((sessionId) => {
-    const id = sessionId?.trim() ?? "";
-    if (!id || seen.has(id)) return [];
-    seen.add(id);
-    return [trackWorkspaceSessionSync(input, id)];
+  const fullStreamIds = selectFullStreamSessionIds({
+    focusedSessionId: options?.focusedSessionId,
+    candidateSessionIds: sessionIds,
   });
+  const releases = fullStreamIds.map((id) =>
+    trackWorkspaceSessionSync(input, id),
+  );
   return () => {
     for (const release of releases) release();
   };
 }
+
+export { selectFullStreamSessionIds, selectStatusOnlySessionIds } from "./stream-session-policy";
 
 export function __createWorkspaceSessionSyncForTest(input: SyncOptions) {
   const key = syncKey(input);

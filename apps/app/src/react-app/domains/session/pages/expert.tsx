@@ -45,7 +45,6 @@ import {
   listExpertPackages,
   type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
-import { VoicePanel } from "../voice/voice-panel";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
@@ -56,11 +55,15 @@ import {
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
-import { CodeWorkspaceSidePanel } from "../surface/code-workspace-side-panel";
 import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
 import { SessionHistorySearchChrome } from "./session-history-search-chrome";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
-import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
+import { createCanvasSessionKey } from "../infinite-canvas";
+import {
+  LazyCodeWorkspaceSidePanel,
+  LazyInfiniteCanvasPanel,
+  LazyVoicePanel,
+} from "./lazy-session-side-panels";
 import {
   findBuiltinMarketplaceExpertById,
 } from "../expert-marketplace/data";
@@ -2448,7 +2451,7 @@ export function ExpertPage(props: ExpertPageProps) {
                     className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "canvas" ? (
-                      <InfiniteCanvasPanel
+                      <LazyInfiniteCanvasPanel
                         canvasKey={canvasSessionKey}
                         onClose={closeRightPane}
                       />
@@ -2457,13 +2460,13 @@ export function ExpertPage(props: ExpertPageProps) {
                         {props.settingsSlot}
                       </div>
                     ) : activeSidePanel === "voice" ? (
-                      <VoicePanel
+                      <LazyVoicePanel
                         client={props.onmyagentServerClient}
                         sessionId={props.selectedSessionId}
                         onClose={closeRightPane}
                       />
                     ) : (
-                      <CodeWorkspaceSidePanel
+                      <LazyCodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
                         fileRoot={props.selectedSessionFileRoot ?? ""}

@@ -115,6 +115,31 @@ export function canMergeStepClusters(previous: MessageBlockItem | undefined, nex
   return true;
 }
 
+/**
+ * Structural sharing across transcript rebuilds: for each raw block, reuse
+ * the previous block object when content-equivalent so React.memo children
+ * keep pointer equality during streaming (only the active turn typically
+ * changes `message` reference).
+ */
+export function stabilizeMessageBlocks(
+  previousByKey: ReadonlyMap<string, MessageBlockItem>,
+  rawBlocks: readonly MessageBlockItem[],
+): {
+  blocks: MessageBlockItem[];
+  nextByKey: Map<string, MessageBlockItem>;
+} {
+  const nextByKey = new Map<string, MessageBlockItem>();
+  const blocks = rawBlocks.map((block) => {
+    const key = blockIdentityKey(block);
+    const previous = previousByKey.get(key);
+    const reused =
+      previous && blocksAreEquivalent(previous, block) ? previous : block;
+    nextByKey.set(key, reused);
+    return reused;
+  });
+  return { blocks, nextByKey };
+}
+
 export function shouldFoldStepGroups(stepGroups: StepTimelineGroup[]) {
   return stepGroups.some((group) => group.parts.length > 0);
 }

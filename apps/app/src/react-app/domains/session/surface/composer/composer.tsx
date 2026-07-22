@@ -1026,25 +1026,47 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
-  const hasBottomAccessory = Boolean(props.bottomAccessory);
+  const homeLayout = Boolean(props.homeLayout);
+  const heroHome = Boolean(props.heroHome);
+  // Home / expert-empty: fold workspace+permission into the primary toolbar so
+  // the card stays one compact unit (no tall empty middle + sparse under-bar).
+  const inlineToolbarAccessory = homeLayout && Boolean(props.bottomAccessory);
+  const underCardAccessory = Boolean(props.bottomAccessory) && !inlineToolbarAccessory;
   // When workspace/permission bar sits under the card, share the outer silhouette:
   // full width + square joint (no top corners on the bar, no bottom corners on the card).
   const panelRoundedClass =
     mentionOpen || slashOpen
       ? "rounded-t-[18px] border-t-transparent"
-      : hasBottomAccessory
+      : underCardAccessory
         ? "rounded-t-xl rounded-b-none"
-        : "rounded-xl";
+        : heroHome
+          ? "rounded-2xl"
+          : "rounded-xl";
 
-  const homeLayout = Boolean(props.homeLayout);
+  // Same width for hero home, expert empty, and in-session (1120 + side pad).
+  // Hero only grows height / padding / corner radius — not column width.
+  const shellPadClass = `px-4 md:px-8 ${
+    props.compactTopSpacing ? "pt-0" : "pt-3"
+  } ${homeLayout || heroHome ? "pb-3" : "pb-5"}`;
+  const panelChromeClass = heroHome
+    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
+    : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
+  const editorPadClass =
+    props.attachments.length > 0
+      ? heroHome
+        ? "px-5 pb-2.5 pt-3"
+        : "px-4 pb-2 pt-2"
+      : heroHome
+        ? "px-5 pb-2.5 pt-4"
+        : "px-4 pb-2 pt-3";
 
   return (
     <div
       ref={rootRef}
       className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
-        homeLayout
-          ? "bg-transparent px-0 pb-0 pt-0"
-          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`
+        homeLayout || heroHome
+          ? `bg-transparent ${shellPadClass}`
+          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`
       }`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
@@ -1055,18 +1077,10 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      {/* Same max-w as session transcript column (session-surface contentRef). */}
-      <div
-        className={
-          homeLayout
-            ? "mx-auto w-full max-w-none"
-            : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */
-        }
-      >
+      {/* Keep in sync with SESSION_CONTENT_MAX_WIDTH_CLASS / contentRef. */}
+      <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
-        <div
-          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
-        >
+        <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
 
@@ -1202,25 +1216,15 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           ) : null}
 
-          <div
-            className={
-              props.attachments.length > 0
-                ? homeLayout
-                  ? "px-3.5 pb-1.5 pt-2"
-                  : "px-4 pb-2 pt-2"
-                : homeLayout
-                  ? // Same tight empty height as assistant in-session composer.
-                    "px-3.5 pb-1.5 pt-2.5"
-                  : "px-4 pb-2 pt-3"
-            }
-          >
+          <div className={editorPadClass}>
             {/* Editor */}
             <LexicalPromptEditor
               value={props.draft}
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}
               disabled={props.disabled}
-              compact={homeLayout}
+              compact={homeLayout && !heroHome}
+              hero={heroHome}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={handleDraftChange}
               onSubmit={props.onSend}
@@ -1303,13 +1307,7 @@ export function ReactSessionComposer(props: ComposerProps) {
             />
 
             {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div
-              className={
-                homeLayout
-                  ? "mt-1 flex items-center justify-between gap-1.5"
-                  : "mt-2 flex items-end justify-between gap-1.5"
-              }
-            >
+            <div className="mt-2 flex items-end justify-between gap-1.5">
               <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {
@@ -1405,6 +1403,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     />
                   ) : null}
                 </div>
+                {inlineToolbarAccessory ? (
+                  <div className="flex min-w-0 shrink items-center">
+                    {props.bottomAccessory}
+                  </div>
+                ) : null}
                 {shouldShowCollaborationChip && selectedModeOption ? (
                   <Button
                     type="button"
@@ -1499,8 +1502,8 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           </div>
         </div>
-        {/* Secondary chrome: full-width bar flush under card, square top corners. */}
-        {props.bottomAccessory ? (
+        {/* Secondary chrome under the card (in-session only). Home folds this into the toolbar. */}
+        {underCardAccessory ? (
           <div
             className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
               props.showOuterBorder ? " border border-t-0 border-dls-border shadow-sm" : ""
