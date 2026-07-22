@@ -29,6 +29,8 @@ extraResources:
     to: browser
   - from: resources/runtimes
     to: runtimes
+  - from: resources/artifact-runtime
+    to: artifact-runtime
   # Window / tray icon fallback in packaged app (desktop-paths resolveAppIconPath).
   - from: resources/icons
     to: icons

@@ -62,7 +62,7 @@ test("plugin packages are the source of truth for Artifact skill identities", as
       assert.ok(frontmatterValue(markdown, "description"));
       if (plugin.pluginId !== "browser") {
         assert.equal(
-          existsSync(path.join(skill.sourcePath, "runtime", "artifact_runtime.py")),
+          existsSync(path.join(skill.sourcePath, "runtime", "artifact_runtime.cjs")),
           true,
         );
         assert.equal(existsSync(path.join(skill.sourcePath, "resources")), true);
@@ -92,7 +92,7 @@ test("managed links resolve to package-local Artifact skills", async () => {
       assert.equal(existsSync(path.join(item.destinationPath, "SKILL.md")), true);
       if (item.pluginId !== "browser") {
         assert.equal(
-          existsSync(path.join(item.destinationPath, "runtime", "artifact_runtime.py")),
+          existsSync(path.join(item.destinationPath, "runtime", "artifact_runtime.cjs")),
           true,
         );
         assert.equal(existsSync(path.join(item.destinationPath, "resources")), true);
@@ -130,10 +130,10 @@ test("windows electron-builder target is configured for local test packaging", a
   assert.match(builderConfig, /output:\s*dist-electron/);
 });
 
-test("package runtimes advertise real local artifact operations", async () => {
+test("package runtimes advertise real local JavaScript artifact operations", async () => {
   const catalog = await scanBundledArtifactPlugins(bundledPluginsRoot);
   for (const plugin of catalog.items) {
-    // Browser is host-integrated (Electron in-app browser); it has no Python runtime.
+    // Browser is host-integrated and has no standalone artifact runtime.
     if (plugin.pluginId === "browser") continue;
     const runtime = JSON.parse(
       await readFile(path.join(plugin.root, ".onmyagent", "artifact.json"), "utf8"),
@@ -142,14 +142,21 @@ test("package runtimes advertise real local artifact operations", async () => {
     const runtimePath = path.join(plugin.root, runtime.runtime.entry);
     assert.equal(existsSync(runtimePath), true);
     const result = await import("node:child_process").then(({ spawnSync }) =>
-      spawnSync("python3", [runtimePath, "--capabilities"], { encoding: "utf8" }),
+      spawnSync(process.execPath, [runtimePath, "--capabilities"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          ONMYAGENT_ARTIFACT_RUNTIME_ROOT: path.resolve(scriptDir, "../../../packages/artifact-runtime"),
+          NODE_PATH: path.resolve(scriptDir, "../../../packages/artifact-runtime/node_modules"),
+        },
+      }),
     );
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.status, "ready");
     assert.equal(payload.capabilities.includes("inspect"), true);
-    assert.equal(payload.capabilities.includes("render"), true);
     assert.equal(payload.capabilities.includes("verify"), true);
+    assert.equal(payload.language, "javascript");
   }
 });
 
@@ -188,88 +195,45 @@ test("artifact resources live beside their skills and retired legacy skills cann
   );
 });
 
-test("runtime preparation pins and validates local artifact dependencies", async () => {
+test("runtime preparation excludes Office Python packages and LibreOffice", async () => {
   const source = await readFile(path.join(scriptDir, "prepare-runtimes.mjs"), "utf8");
-  for (const dependency of [
-    "python-docx",
-    "openpyxl",
-    "pandas",
-    "pypdf",
-    "pdfplumber",
-    "reportlab",
-    "PyMuPDF",
-  ]) {
-    assert.match(source, new RegExp(`${dependency.replace("-", "-")}==`));
-  }
-  assert.match(source, /pythonArtifactPackagesWork/);
-  assert.match(source, /--no-index/);
-  assert.match(source, /artifact-wheels/);
-  assert.match(source, /libreOfficeVersion = "25\.8\.2\.2"/);
-  assert.match(source, /downloadarchive\.documentfoundation\.org/);
-  assert.match(source, /officeWorks/);
+  assert.doesNotMatch(source, /python-docx|openpyxl|python-pptx|reportlab|pdfplumber/);
+  assert.doesNotMatch(source, /LibreOffice|libreoffice|soffice|artifact-wheels/);
+  const buildSource = await readFile(path.join(scriptDir, "electron-build.mjs"), "utf8");
+  assert.match(buildSource, /@onmyagent\/artifact-runtime/);
+  assert.match(buildSource, /deploy/);
 });
 
 test(
-  "packaged runtime performs isolated DOCX, spreadsheet, and PDF E2E",
+  "packaged JavaScript runtime performs isolated artifact E2E",
   { skip: !artifactRuntimeRoot },
   async () => {
     const runtimeRoot = path.resolve(artifactRuntimeRoot);
-    const python = path.join(
-      runtimeRoot,
-      "python",
-      process.platform === "win32" ? "python.exe" : "bin/python3",
-    );
-    const runtimePath = [
-      path.join(runtimeRoot, "bin"),
-      path.dirname(python),
-      ...(process.platform === "win32"
-        ? [path.join(runtimeRoot, "libreoffice", "LibreOffice", "program")]
-        : ["/usr/bin", "/bin"]),
-    ].join(path.delimiter);
     const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-artifact-e2e-"));
     const env = {
-      PATH: runtimePath,
-      Path: runtimePath,
-      TMPDIR: os.tmpdir(),
-      TEMP: os.tmpdir(),
-      TMP: os.tmpdir(),
+      ...process.env,
+      ONMYAGENT_ARTIFACT_RUNTIME_ROOT: runtimeRoot,
+      NODE_PATH: path.join(runtimeRoot, "node_modules"),
     };
-    const runJson = (args) => {
-      const result = spawnSync(python, args, { encoding: "utf8", env });
+    const runJson = (runtime, args) => {
+      const result = spawnSync(process.execPath, [runtime, ...args], { encoding: "utf8", env });
       assert.equal(result.status, 0, result.stderr || result.stdout);
       return JSON.parse(result.stdout);
     };
     try {
-      const fixture = spawnSync(
-        python,
-        [
-          "-c",
-          [
-            "import sys",
-            "from pathlib import Path",
-            "from docx import Document",
-            "from openpyxl import Workbook",
-            "from reportlab.pdfgen import canvas",
-            "root=Path(sys.argv[1])",
-            "doc=Document()",
-            "doc.add_heading('OnMyAgent Document',0)",
-            "doc.add_paragraph('Local connector verification.')",
-            "doc.add_table(rows=2,cols=2)",
-            "doc.save(root/'sample.docx')",
-            "wb=Workbook()",
-            "ws=wb.active",
-            "ws.append(['Item','Value','Double'])",
-            "ws.append(['A',21,'=B2*2'])",
-            "wb.save(root/'sample.xlsx')",
-            "pdf=canvas.Canvas(str(root/'sample.pdf'))",
-            "pdf.drawString(72,750,'OnMyAgent PDF connector verification')",
-            "pdf.showPage()",
-            "pdf.save()",
-          ].join(";"),
-          root,
-        ],
-        { encoding: "utf8", env },
-      );
+      const fixtureSource = [
+        'const fs=require("node:fs"),path=require("node:path");',
+        'const {Document,Packer,Paragraph}=require("docx");',
+        'const ExcelJS=require("exceljs");',
+        'const pptxgen=require("pptxgenjs");',
+        'const {PDFDocument,StandardFonts}=require("pdf-lib");',
+        '(async()=>{const root=process.argv[1];',
+        'fs.writeFileSync(path.join(root,"sample.docx"),await Packer.toBuffer(new Document({sections:[{children:[new Paragraph("OnMyAgent Document")]}]})));',
+        'const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("Data");ws.addRow(["Item","Value"]);ws.addRow(["A",21]);await wb.xlsx.writeFile(path.join(root,"sample.xlsx"));',
+        'const deck=new pptxgen();deck.addSlide().addText("OnMyAgent Presentation",{x:1,y:1,w:6,h:1});await deck.writeFile({fileName:path.join(root,"sample.pptx")});',
+        'const pdf=await PDFDocument.create();const page=pdf.addPage();const font=await pdf.embedFont(StandardFonts.Helvetica);page.drawText("OnMyAgent PDF",{x:72,y:700,font});fs.writeFileSync(path.join(root,"sample.pdf"),await pdf.save());})();',
+      ].join("");
+      const fixture = spawnSync(process.execPath, ["-e", fixtureSource, root], { encoding: "utf8", env });
       assert.equal(fixture.status, 0, fixture.stderr);
 
       const documentsRuntime = path.join(
@@ -278,7 +242,7 @@ test(
         "skills",
         "documents",
         "runtime",
-        "artifact_runtime.py",
+        "artifact_runtime.cjs",
       );
       const spreadsheetsRuntime = path.join(
         bundledPluginsRoot,
@@ -286,7 +250,7 @@ test(
         "skills",
         "spreadsheets",
         "runtime",
-        "artifact_runtime.py",
+        "artifact_runtime.cjs",
       );
       const pdfRuntime = path.join(
         bundledPluginsRoot,
@@ -294,56 +258,18 @@ test(
         "skills",
         "pdf",
         "runtime",
-        "artifact_runtime.py",
+        "artifact_runtime.cjs",
       );
-      const documentDoctor = runJson([documentsRuntime, "doctor"]);
+      const presentationRuntime = path.resolve(bundledPluginsRoot, "..", "bundled-skills", "pptx", "runtime", "artifact_runtime.cjs");
+      const documentDoctor = runJson(documentsRuntime, ["doctor"]);
       assert.equal(documentDoctor.status, "ready");
-      assert.equal(
-        documentDoctor.dependencies.office_renderer.path.startsWith(runtimeRoot),
-        true,
-      );
-      const document = runJson([
-        documentsRuntime,
-        "verify",
-        path.join(root, "sample.docx"),
-        "--output-dir",
-        path.join(root, "document-render"),
-      ]);
+      const document = runJson(documentsRuntime, ["verify", path.join(root, "sample.docx")]);
       assert.equal(document.status, "success");
-      assert.equal(existsSync(document.render.pdf), true);
-
-      const initialWorkbook = runJson([
-        spreadsheetsRuntime,
-        "verify",
-        path.join(root, "sample.xlsx"),
-      ]);
-      assert.equal(initialWorkbook.status, "issues_found");
-      assert.match(initialWorkbook.issues[0], /recalculate/);
-      const recalculated = runJson([
-        spreadsheetsRuntime,
-        "recalculate",
-        path.join(root, "sample.xlsx"),
-        "--output-dir",
-        path.join(root, "recalculated"),
-      ]);
-      assert.equal(recalculated.status, "success");
-      const finalWorkbook = runJson([
-        spreadsheetsRuntime,
-        "verify",
-        recalculated.output,
-      ]);
-      assert.equal(finalWorkbook.status, "success");
-
-      const pdf = runJson([
-        pdfRuntime,
-        "verify",
-        path.join(root, "sample.pdf"),
-        "--output-dir",
-        path.join(root, "pdf-render"),
-      ]);
+      assert.equal(runJson(spreadsheetsRuntime, ["verify", path.join(root, "sample.xlsx")]).status, "success");
+      assert.equal(runJson(presentationRuntime, ["verify", path.join(root, "sample.pptx")]).status, "success");
+      const pdf = runJson(pdfRuntime, ["verify", path.join(root, "sample.pdf")]);
       assert.equal(pdf.status, "success");
-      assert.equal(pdf.render.page_count, 1);
-      assert.equal(existsSync(pdf.render.pages[0]), true);
+      assert.equal(pdf.inspection.page_count, 1);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
