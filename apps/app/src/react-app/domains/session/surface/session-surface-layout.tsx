@@ -111,19 +111,23 @@ export function SessionSurfaceComposerColumn(props: {
         </div>
       ) : null}
       {/*
-        Assistant office/code new-task: one max-w-4xl column so brand title +
-        hero composer share width (taller card lives inside the composer host).
-        Expert empty / in-session: full width; composer host uses max-w-[1120px].
+        Brand hero can stay centered; composer width is owned by the composer
+        host (max-w-[1120px] — same as in-session / expert empty).
       */}
       <div
         className={cn(
           "flex w-full shrink-0 flex-col items-stretch",
-          props.personalAssistantDraftHome &&
-            "mx-auto w-full max-w-4xl items-stretch",
+          props.personalAssistantDraftHome && "items-center",
         )}
       >
         {props.draftHome ? (
-          <div className="w-full">{props.draftHome}</div>
+          <div
+            className={cn(
+              props.personalAssistantDraftHome && "w-full max-w-2xl",
+            )}
+          >
+            {props.draftHome}
+          </div>
         ) : null}
         <div
           ref={props.composerShellRef}

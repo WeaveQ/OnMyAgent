@@ -16,9 +16,8 @@ export const sessionSurfaceTextClass = {
   // Home empty: brand-scale hero title; subtitle one step softer so title leads.
   draftHomeTitle:
     "inline-flex items-center justify-center gap-3 text-3xl font-semibold tracking-tight text-dls-text sm:text-4xl",
-  // Wider subtitle under max-w-4xl hero column so copy doesn’t feel narrow vs input.
-  draftHomeSubtitle:
-    "mt-3 max-w-2xl text-balance text-composer leading-6 text-dls-secondary/80 sm:text-base sm:leading-7",
+  // text-composer = 15px design token for long-form UI copy under the hero.
+  draftHomeSubtitle: "mt-2.5 max-w-lg text-composer leading-6 text-dls-secondary/80",
   noVisibleOutput: "font-mono text-sm leading-6 text-dls-secondary whitespace-pre-wrap",
   headerAgentName: "min-w-0 truncate text-sm font-medium text-dls-text",
   openingSession: "text-sm text-dls-secondary",

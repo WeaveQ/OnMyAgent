@@ -44,13 +44,13 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(composer).toContain("inlineToolbarAccessory");
     expect(composer).toContain("underCardAccessory");
     expect(composer).toContain("heroHome");
-    // Expert empty / in-session column; hero home uses max-w-4xl.
+    // Same content column width for hero home, expert empty, and in-session.
     expect(composer).toContain("max-w-[1120px]");
-    expect(composer).toContain("max-w-4xl");
+    expect(composer).not.toContain("max-w-4xl");
     expect(composer).toContain("px-4 md:px-8");
     const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
     expect(layout).toContain("homeComposerLayout");
-    expect(layout).toMatch(/personalAssistantDraftHome[\s\S]*max-w-4xl/);
+    expect(layout).toMatch(/personalAssistantDraftHome[\s\S]*max-w-2xl/);
   });
 
   test("files panel is tree-first until a file is selected", () => {

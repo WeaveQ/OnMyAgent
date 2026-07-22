@@ -1043,16 +1043,11 @@ export function ReactSessionComposer(props: ComposerProps) {
           ? "rounded-2xl"
           : "rounded-xl";
 
-  // In-session / expert empty: 1120 column + side pad.
-  // Assistant new-task hero: parent centers max-w-4xl; no extra outer pad.
-  const shellPadClass = heroHome
-    ? "px-0 pb-0 pt-0"
-    : `px-4 md:px-8 ${
-        props.compactTopSpacing ? "pt-0" : "pt-3"
-      } ${homeLayout ? "pb-3" : "pb-5"}`;
-  const columnMaxClass = heroHome
-    ? "mx-auto w-full max-w-4xl"
-    : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */;
+  // Same width for hero home, expert empty, and in-session (1120 + side pad).
+  // Hero only grows height / padding / corner radius — not column width.
+  const shellPadClass = `px-4 md:px-8 ${
+    props.compactTopSpacing ? "pt-0" : "pt-3"
+  } ${homeLayout || heroHome ? "pb-3" : "pb-5"}`;
   const panelChromeClass = heroHome
     ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
     : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
@@ -1083,7 +1078,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       }}
     >
       {/* Same max-w as session transcript column (session-surface contentRef). */}
-      <div className={columnMaxClass}>
+      <div className="mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
