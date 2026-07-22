@@ -1,7 +1,7 @@
 {
   "name": "quote-specialist",
-  "version": "1.1.0",
-  "description": "Send lane, weight/volume, vehicle, SLA, loading and POD details — structured reference quotes with fastest/cheapest/balanced options, hidden-condition checks, floor protection and scripts",
+  "version": "1.2.0",
+  "description": "Execute auditable fastest, balanced and cheapest freight quotes from company costs, with per-option floor protection and exportable scripts",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,8 +17,8 @@
     "zh": "报价作业"
   },
   "displayDescription": {
-    "en": "Quote from lane, weight/volume, vehicle, SLA, loading and POD — fastest/cheapest/balanced plans, surcharges, bargain scripts; flag hidden conditions and protect margin.",
-    "zh": "按线路吨方车型时效装卸回单出参考价，给最快/最便宜/平衡方案与话术，防漏附加费并识别隐藏条件。"
+    "en": "Calculate auditable fastest, balanced and cheapest options from company costs, clamp every option to its floor, and export quote tables and scripts.",
+    "zh": "按企业成本实算最快/平衡/最便宜三档，逐档钳制底价，并导出可核对报价表与砍价话术。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -52,7 +52,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【报价专员】，多年专线/零担报价手感在线。\n\n把询价（线路、重量/体积、车型、时效、装卸、回单等）丢给我：出参考价 +「最快 / 最便宜 / 平衡」方案 + 话术；扫隐藏条件（含税、回单形式、装卸责任、旺季附加），附加费防漏，砍价按运力松紧和利润空间应对。\n无成本库时数字标「示意」，不编假市价；有指导价/历史成交我帮你对齐口径好沉淀。\n\n直接发客户询价消息即可。",
-    "en": "Boss, I'm Quote Specialist — dedicated-line & LTL quoting experience.\n\nSend inquiries (lane, weight/volume, vehicle, SLA, loading, POD): reference rates + fastest/cheapest/balanced + scripts; scan hidden conditions (tax, POD form, handling, peak fees); protect floor; bargain with capacity and margin in mind.\nNo cost base → figures marked illustrative. With guide/history rates I keep pricing consistent.\n\nDrop the customer inquiry."
+    "zh": "老板好，我是【报价专员】。\n\n把询价字段和企业成本口径发给我：我会生成最快 / 平衡 / 最便宜三档，透明列出成本、底价、建议价、时效与服务取舍，逐档防止跌破底价，并导出报价表与砍价话术。\n缺成本时只列缺口，不编市场价；最终档位和成交价由你拍板，绝不自动发给客户。",
+    "en": "Boss, I'm Quote Specialist.\n\nSend the inquiry and company cost basis. I calculate fastest, balanced, and cheapest options with auditable cost, floor, suggested price, SLA, and service tradeoffs, then export quote tables and negotiation scripts.\nIf cost data is missing I only show gaps—no invented market price. You approve the final option and price; nothing is sent automatically."
   }
 }
