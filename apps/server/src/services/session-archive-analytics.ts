@@ -81,6 +81,7 @@ import {
 import {
   ANALYTICS_CACHE_TTL_MS,
   analyticsCacheScopeKey,
+  shouldResetAllAnalyticsFields,
   shouldServeAnalyticsCache,
 } from "./analytics-cache-policy.js";
 
@@ -115,6 +116,8 @@ export function createSessionArchiveAnalyticsApi(input: {
   });
 
 // TTL cache for analytics data — scoped by cacheScope/dbPath, never shared across archives.
+// When TTL expires, the whole cache is reset before any field reloads so a
+// partial refresh cannot keep stale messages/toolCalls under a fresh timestamp.
 const _analyticsCache = {
   scopeKey: null as string | null,
   sessions: null as SessionArchiveSession[] | null,
@@ -141,10 +144,15 @@ const _analyticsCache = {
     this.scopeKey = scopeKey;
     this._timestamp = Date.now();
   },
+  /** Drop all fields when the TTL/scope entry is invalid. */
+  ensureFresh() {
+    if (shouldResetAllAnalyticsFields({ isHit: this.isHit() })) this.reset();
+  },
 };
 
 function analyticsSessions(): SessionArchiveSession[] {
-  if (_analyticsCache.sessions && _analyticsCache.isHit()) return _analyticsCache.sessions;
+  _analyticsCache.ensureFresh();
+  if (_analyticsCache.sessions) return _analyticsCache.sessions;
   _analyticsCache.sessions = db.prepare(`
     SELECT * FROM sessions
     WHERE deleted_at IS NULL
@@ -155,7 +163,8 @@ function analyticsSessions(): SessionArchiveSession[] {
 }
 
 function analyticsMessages(): AnalyticsMessageRow[] {
-  if (_analyticsCache.messages && _analyticsCache.isHit()) return _analyticsCache.messages;
+  _analyticsCache.ensureFresh();
+  if (_analyticsCache.messages) return _analyticsCache.messages;
   _analyticsCache.messages = db.prepare(`
     SELECT m.session_id, m.role, m.timestamp, m.has_thinking, m.content_length, m.tool_calls_json,
            s.agent, s.project
@@ -169,7 +178,8 @@ function analyticsMessages(): AnalyticsMessageRow[] {
 }
 
 function toolCallRows(): AnalyticsToolCallRow[] {
-  if (_analyticsCache.toolCalls && _analyticsCache.isHit()) return _analyticsCache.toolCalls;
+  _analyticsCache.ensureFresh();
+  if (_analyticsCache.toolCalls) return _analyticsCache.toolCalls;
   const rows: AnalyticsToolCallRow[] = [];
   for (const message of analyticsMessages()) {
     for (const call of parseToolCalls(message.tool_calls_json)) {
