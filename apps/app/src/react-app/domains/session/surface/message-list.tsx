@@ -14,10 +14,7 @@ import {
 import { groupMessageParts } from "../../../../app/utils";
 import { DEFAULT_SHOW_THINKING } from "../../../kernel/local-provider";
 import { type MarkdownCodePathOpenMode, type MarkdownVerifiedCodePath } from "./markdown";
-import {
-  computeTranscriptMaxContentWidth,
-  DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
-} from "./transcript-presentation";
+
 import { buildTranscriptTurns } from "./transcript/turn-model";
 import {
   groupTranscriptRenderItems,
@@ -178,10 +175,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? DEFAULT_SHOW_THINKING;
   const isNestedVariant = props.variant === "nested";
   const transcriptLocale = currentLocale();
-  const [rootContentWidth, setRootContentWidth] = useState(
-    DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
-  );
-  const [rootViewportHeight, setRootViewportHeight] = useState(0);
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -215,25 +208,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       }),
     }));
   }, [props.messages]);
-
-  useEffect(() => {
-    if (isNestedVariant) return;
-    const scrollContainer = props.scrollElement?.();
-    if (!scrollContainer) return;
-
-    const updateViewport = () => {
-      // Use the same box metric for both the initial read and ResizeObserver
-      // delivery. clientHeight/clientWidth include the scroll container's
-      // padding; contentRect does not. Mixing them made the active turn's
-      // reserved height alternate by exactly 40px on every streaming render.
-      setRootContentWidth(computeTranscriptMaxContentWidth(scrollContainer.clientWidth));
-      setRootViewportHeight(scrollContainer.clientHeight);
-    };
-    updateViewport();
-    const observer = new ResizeObserver(updateViewport);
-    observer.observe(scrollContainer);
-    return () => observer.disconnect();
-  }, [isNestedVariant, props.scrollElement]);
 
   // Cache of the previous messageBlocks array, indexed by identity key.
   // Used by useStableBlocks below so structurally-equivalent blocks keep
@@ -813,15 +787,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // work reduces the chance that one large session makes the UI feel frozen.
   const shouldUseContentVisibility = !shouldVirtualize && messageBlocks.length > 24;
 
-  // Fill the shared contentRef column (max-w-[1120px]); do not re-cap narrower
-  // than the composer bar. rootContentWidth still tracks viewport for layout.
-  const transcriptStyle = isNestedVariant
-    ? MESSAGE_LIST_CONTAIN_STYLE
-    : {
-        ...MESSAGE_LIST_CONTAIN_STYLE,
-        width: "100%",
-        maxWidth: `${rootContentWidth}px`,
-      } satisfies CSSProperties;
+  // Always fill the parent contentRef (SESSION max-w-[1120px]). A second
+  // maxWidth here used to re-cap the body narrower than the composer card.
+  const transcriptStyle = {
+    ...MESSAGE_LIST_CONTAIN_STYLE,
+    width: "100%",
+    maxWidth: "100%",
+  } satisfies CSSProperties;
   const renderConversationBlock = (block: MessageBlockItem) => {
     const blockKey = blockIdentityKey(block);
     if (block.kind === "divider") {

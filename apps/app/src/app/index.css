@@ -860,8 +860,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-user-row {
     box-sizing: border-box;
-    /* 16px inline matches assistant-row / composer editor pad (px-4). */
-    padding: 32px 16px;
+    /* Vertical rhythm only; full column width matches composer card. */
+    padding: 32px 0;
     width: 100%;
   }
 
@@ -926,8 +926,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-assistant-row {
     box-sizing: border-box;
-    /* Match composer editor horizontal pad (px-4) so body and input share edges. */
-    padding-inline: 16px;
+    /* No side pad — body column width must match the composer card (1120). */
+    padding-inline: 0;
     width: 100%;
   }
 
