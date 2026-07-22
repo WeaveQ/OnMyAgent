@@ -30,6 +30,7 @@ import {
   renderMarkdownMath,
 } from "./markdown-math";
 import { applyTextHighlights } from "./text-highlights";
+import { shouldRunMarkdownHeavyEnhance } from "./markdown-stream-policy";
 
 const MARKDOWN_COPY_LABEL_TOKEN = "__ONMYAGENT_MARKDOWN_COPY_LABEL__";
 
@@ -428,22 +429,23 @@ function MarkdownBlockInner(props: {
   useEffect(() => {
     const root = rootRef.current;
     // Skip KaTeX while streaming — re-run once idle (same as shiki path).
-    if (!root || props.streaming) return;
+    if (!root || !shouldRunMarkdownHeavyEnhance(props.streaming)) return;
     void renderMarkdownMath(root).catch(() => undefined);
   }, [html, props.streaming]);
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    // Skip Mermaid bind/render while streaming — keep cheap sync HTML only.
+    if (!root || !shouldRunMarkdownHeavyEnhance(props.streaming)) return;
     return setupMarkdownMermaid(root, {
-      streaming: props.streaming === true,
+      streaming: false,
       labels: mermaidLabels,
     });
   }, [html, mermaidLabels, props.streaming]);
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || props.streaming) return;
+    if (!root || !shouldRunMarkdownHeavyEnhance(props.streaming)) return;
     let cancelled = false;
     let renderGeneration = 0;
 

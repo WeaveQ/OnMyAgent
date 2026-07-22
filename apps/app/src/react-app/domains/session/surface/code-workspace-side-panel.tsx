@@ -37,6 +37,10 @@ import type {
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
+import {
+  codeTerminalSnapshotIntervalMs,
+  shouldRunActivePoll,
+} from "../sync/session-poll-policy";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -743,10 +747,27 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
       }
     };
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 250);
+    // Always install while mounted — visibility only gates each tick so a
+    // panel that mounted while the tab was hidden resumes when visible again.
+    const intervalMs = codeTerminalSnapshotIntervalMs({ mounted: true });
+    if (intervalMs == null) {
+      return () => {
+        disposed = true;
+      };
+    }
+    const timer = window.setInterval(() => {
+      if (!shouldRunActivePoll({ enabled: true })) return;
+      void refresh();
+    }, intervalMs);
+    const onVisibility = () => {
+      if (!shouldRunActivePoll({ enabled: true })) return;
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       disposed = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [props.terminal.terminalId]);
 
