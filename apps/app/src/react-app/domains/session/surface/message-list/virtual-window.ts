@@ -1,5 +1,7 @@
 /** Pure helpers for SessionTranscript virtualization windowing. */
 
+import type { CSSProperties } from "react";
+
 export const TRANSCRIPT_VIRTUALIZATION_THRESHOLD = 20;
 export const TRANSCRIPT_VIRTUAL_OVERSCAN = 4;
 
@@ -35,4 +37,19 @@ export function resolveVirtualItemKey<T extends { id?: string }>(
   index: number,
 ): string {
   return virtualItems[index]?.id ?? `item-${index}`;
+}
+
+/**
+ * Previously reserved ~1 viewport of minHeight on the live turn. That made
+ * sticky-bottom land in empty padding (or, with flex-end, left a full-screen
+ * blank above the first reply). Sticky follow alone is enough — do not invent
+ * extra height on turns.
+ */
+export function activeTurnReserveStyle(_input: {
+  isActiveTurn: boolean;
+  isNestedVariant: boolean;
+  isDetachedTail: boolean;
+  minHeightPx: number;
+}): CSSProperties | undefined {
+  return undefined;
 }

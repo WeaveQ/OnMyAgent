@@ -217,7 +217,22 @@ describe("session transcript layout contract", () => {
     expect(messageList).toContain("renderItems.slice(0, detachedTailRenderItemIndex)");
     expect(messageList).toContain("estimateRenderItemSize");
     expect(messageList).toContain("activeTurnMinHeight");
-    expect(messageList).toContain("scrollContainer.clientHeight");
+    expect(messageList).toContain("activeTurnReserveStyle");
+    expect(messageList).toContain("isDetachedTail");
+    expect(messageList).toContain("scrollContainer.clientWidth");
+    // Live-turn viewport reserve must not inflate historical virtual estimates
+    // and must not force a full-viewport minHeight on the turn.
+    expect(messageList).not.toContain(
+      "Math.max(estimate, activeTurnMinHeight)",
+    );
+    expect(messageList).toContain("const activeTurnMinHeight = 0");
+    const virtualWindow = await Bun.file(
+      new URL(
+        "../src/react-app/domains/session/surface/message-list/virtual-window.ts",
+        import.meta.url,
+      ),
+    ).text();
+    expect(virtualWindow).toContain("return undefined");
     expect(messageList).not.toContain("updateViewport(entry.contentRect.width, entry.contentRect.height)");
     expect(sessionSurface).toContain("scrollElement={resolveTranscriptScrollElement}");
     expect(messageList).toContain('data-transcript-turn-active={isActiveTurn ? "true" : undefined}');
@@ -288,7 +303,13 @@ describe("session transcript layout contract", () => {
     expect(assistantStatus).toContain("Array.from({ length: pairCount }");
     expect(assistantStatus).toContain('className="flex justify-end px-4 py-8"');
     expect(assistantStatus).toContain('className="mb-3 flex items-center gap-2.5"');
-    expect(sessionSurface).toContain("<TranscriptHistorySkeleton pairCount={3} />");
+    const transcriptContent = await Bun.file(
+      new URL(
+        "../src/react-app/domains/session/surface/session-surface-transcript-content.tsx",
+        import.meta.url,
+      ),
+    ).text();
+    expect(transcriptContent).toContain("<TranscriptHistorySkeleton pairCount={3} />");
     expect(sessionSurface).toContain('label={t("session.jump_to_latest")}');
     expect(scrollToLatest).toContain("aria-label={props.label}");
     expect(scrollToLatest).toContain('<ChevronDown className="size-4" />');

@@ -599,6 +599,9 @@ export async function draftToParts(
   }
 
   if (uploadedFiles.length > 0) {
+    // Only text for the model — office/pdf MIME as file parts is rejected
+    // ("file part media type ... functionality not supported"). Transcript
+    // chips are recovered by parsing this block in the display layer.
     parts.push({
       type: "text",
       text: [
