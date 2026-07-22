@@ -642,7 +642,7 @@ export function ExpertPage(props: ExpertPageProps) {
   }, [props.selectedSessionId]);
 
   useEffect(() => {
-    if (activeSidebarView !== "chat" || props.selectedSessionId) return;
+    if (activeSidebarView !== "chat") return;
     // Never steal focus while a marketplace/agent draft is being summoned —
     // otherwise the first expert session flashes then disappears.
     if (draftSessionActive || draftAgentId) return;
@@ -650,16 +650,41 @@ export function ExpertPage(props: ExpertPageProps) {
       pendingAgent?.conversationStartId &&
       !pendingAgent.boundSessionId &&
       pendingAgent.draftSource === "agent-selection"
-    )
+    ) {
       return;
-    const group = props.sidebar.workspaceSessionGroups.find(
-      (item) => item.workspace.id === props.sidebar.selectedWorkspaceId,
+    }
+
+    const workspaceId = props.sidebar.selectedWorkspaceId?.trim();
+    if (!workspaceId) return;
+
+    // Valid selection = expert session bound to a summoned agent (left list).
+    const selectedId = props.selectedSessionId?.trim() ?? "";
+    const selectedAgentId = selectedId
+      ? readCustomAgentIdForSession(selectedId)
+      : null;
+    const hasValidSummonedSelection = Boolean(
+      selectedId &&
+        isExpertSession(selectedId) &&
+        selectedAgentId &&
+        conversationGroups.some((group) => group.agentId === selectedAgentId),
     );
-    const firstExpert = group?.sessions.find((s) => isExpertSession(s.id));
-    if (!firstExpert) return;
-    props.sidebar.onOpenSession(props.sidebar.selectedWorkspaceId, firstExpert.id);
+    if (hasValidSummonedSelection) return;
+
+    // Prefer first summoned expert in the left list.
+    const firstSummonedSession = conversationGroups[0]?.latestSession;
+    if (firstSummonedSession?.id) {
+      props.sidebar.onOpenSession(workspaceId, firstSummonedSession.id);
+      return;
+    }
+
+    // No summoned experts: leave non-expert sessions (e.g. 默认智能体) so the
+    // empty state can show instead of the default agent chat.
+    if (selectedId && !isExpertSession(selectedId)) {
+      props.sidebar.onCreateTaskInWorkspace(workspaceId);
+    }
   }, [
     activeSidebarView,
+    conversationGroups,
     draftAgentId,
     draftSessionActive,
     props.selectedSessionId,
