@@ -643,6 +643,9 @@ export function ExpertPage(props: ExpertPageProps) {
 
   useEffect(() => {
     if (activeSidebarView !== "chat" || props.selectedSessionId) return;
+    // Never steal focus while a marketplace/agent draft is being summoned —
+    // otherwise the first expert session flashes then disappears.
+    if (draftSessionActive || draftAgentId) return;
     if (
       pendingAgent?.conversationStartId &&
       !pendingAgent.boundSessionId &&
@@ -657,6 +660,8 @@ export function ExpertPage(props: ExpertPageProps) {
     props.sidebar.onOpenSession(props.sidebar.selectedWorkspaceId, firstExpert.id);
   }, [
     activeSidebarView,
+    draftAgentId,
+    draftSessionActive,
     props.selectedSessionId,
     props.sidebar,
     pendingAgent?.boundSessionId,
@@ -900,9 +905,6 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry) => {
-      void installSummonedMarketplaceExpert(expert).catch((error) => {
-        console.warn("[expert-marketplace] failed to install expert package", error);
-      });
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
@@ -912,21 +914,33 @@ export function ExpertPage(props: ExpertPageProps) {
           props.sidebar.selectedWorkspaceId,
           existingConversationGroup.latestSession.id,
         );
+        void installSummonedMarketplaceExpert(expert).catch((error) => {
+          console.warn("[expert-marketplace] failed to install expert package", error);
+        });
         return;
       }
 
       const existingDraftAgent = Object.values(draftAgentContexts).find(
         (agent) => pendingAgentMatchesMarketplaceExpert(agent, expert),
       );
-      if (existingDraftAgent) {
-        openFreshExpertDraft();
-        activateDraftAgent(existingDraftAgent);
-        return;
-      }
-
+      // Build pending first. onCreateTaskInWorkspace clears pendingAgent for
+      // plain "+新任务", so we re-apply the draft agent after that clear.
+      const pending =
+        existingDraftAgent ?? buildPendingAgentFromMarketplaceExpert(expert);
+      const pendingWithStart: PendingAgentContext = {
+        ...pending,
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "agent-selection",
+      };
+      activateDraftAgent(pendingWithStart);
       openFreshExpertDraft();
-      activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert));
+      // Re-assert after create-task's synchronous setAgent(null).
+      activateDraftAgent(pendingWithStart);
       setActiveSidebarView("chat");
+      void installSummonedMarketplaceExpert(expert).catch((error) => {
+        console.warn("[expert-marketplace] failed to install expert package", error);
+      });
     },
     [
       activateDraftAgent,
@@ -1003,9 +1017,16 @@ export function ExpertPage(props: ExpertPageProps) {
   const [automationOfferFlow, setAutomationOfferFlow] =
     useState<AutomationOfferFlowState>(() => createIdleAutomationOfferFlow());
   const offeredAutomationFingerprintRef = useRef("");
+  const automationOfferScopeRef = useRef("");
   const wasExpertSessionBusyRef = useRef(false);
   const automationOfferFlowRef = useRef(automationOfferFlow);
   automationOfferFlowRef.current = automationOfferFlow;
+
+  const automationOfferScopeKey =
+    props.selectedSessionId?.trim() ||
+    (draftSessionActive && draftAgentId
+      ? `draft:${draftAgentId}`
+      : "");
 
   const automationOfferLabels = useMemo<AutomationOfferLabels>(
     () => ({
@@ -1064,16 +1085,41 @@ export function ExpertPage(props: ExpertPageProps) {
     rawWorkspaceSessions,
   ]);
 
+  const clearAutomationOffer = useCallback(() => {
+    offeredAutomationFingerprintRef.current = "";
+    automationOfferScopeRef.current = "";
+    wasExpertSessionBusyRef.current = false;
+    setAutomationOfferFlow(createIdleAutomationOfferFlow());
+  }, []);
+
+  // Isolate offer UI to the session/agent that produced it.
+  useEffect(() => {
+    if (!automationOfferScopeKey) {
+      clearAutomationOffer();
+      return;
+    }
+    if (
+      automationOfferScopeRef.current &&
+      automationOfferScopeRef.current !== automationOfferScopeKey
+    ) {
+      clearAutomationOffer();
+    }
+  }, [automationOfferScopeKey, clearAutomationOffer]);
+
   const scanAutomationProposals = useCallback(async () => {
     const client = props.onmyagentServerClient;
     const { workspaceId, sessionDirectory } = resolveAutomationSessionDirectory();
     if (!client || !workspaceId) return;
+    // Never offer on a different expert's empty home / draft without a real session.
+    if (!props.selectedSessionId?.trim() || !sessionDirectory?.trim()) return;
     if (props.activeQuestion) return;
+    const scopeKey = props.selectedSessionId.trim();
     const currentPhase = automationOfferFlowRef.current.phase;
     if (
       currentPhase !== "idle" &&
       currentPhase !== "dismissed" &&
-      currentPhase !== "result"
+      currentPhase !== "result" &&
+      automationOfferScopeRef.current === scopeKey
     ) {
       return;
     }
@@ -1084,11 +1130,21 @@ export function ExpertPage(props: ExpertPageProps) {
         catalogRoot: codeWorkspaceCatalogRoot,
         sessionRoot: props.selectedWorkspaceRoot,
         sessionDirectory,
+        // Session-only: do not pull another expert's workspace-global proposals.
+        includeWorkspaceRoot: false,
       });
       if (loaded.proposals.length === 0) return;
+      // Scope may have changed while the scan was in flight.
+      if (props.selectedSessionId?.trim() !== scopeKey) return;
       const fingerprint = automationProposalsFingerprint(loaded.proposals);
-      if (fingerprint === offeredAutomationFingerprintRef.current) return;
+      if (
+        fingerprint === offeredAutomationFingerprintRef.current &&
+        automationOfferScopeRef.current === scopeKey
+      ) {
+        return;
+      }
       offeredAutomationFingerprintRef.current = fingerprint;
+      automationOfferScopeRef.current = scopeKey;
       setAutomationOfferFlow(
         startAutomationOfferFlow({
           proposals: loaded.proposals,
@@ -1102,6 +1158,7 @@ export function ExpertPage(props: ExpertPageProps) {
     codeWorkspaceCatalogRoot,
     props.activeQuestion,
     props.onmyagentServerClient,
+    props.selectedSessionId,
     props.selectedWorkspaceRoot,
     resolveAutomationSessionDirectory,
   ]);
@@ -1128,12 +1185,13 @@ export function ExpertPage(props: ExpertPageProps) {
 
   // Also offer when files panel discovers proposal paths (export may finish after idle).
   useEffect(() => {
+    if (!props.selectedSessionId?.trim()) return;
     const hasProposalTarget = openTargets.some((target) =>
       target.value.replace(/\\/g, "/").includes("automations/proposals/"),
     );
     if (!hasProposalTarget || expertSessionBusy) return;
     void scanAutomationProposals();
-  }, [expertSessionBusy, openTargets, scanAutomationProposals]);
+  }, [expertSessionBusy, openTargets, props.selectedSessionId, scanAutomationProposals]);
 
   const runAutomationCreate = useCallback(
     async (flow: AutomationOfferFlowState) => {
@@ -1231,22 +1289,25 @@ export function ExpertPage(props: ExpertPageProps) {
   );
 
   const hostAutomationQuestion = useMemo(() => {
+    // Only inject the offer into the session that owns it (never another expert's draft home).
+    const scope = props.selectedSessionId?.trim() ?? "";
+    if (!scope || scope !== automationOfferScopeRef.current) return null;
+    if (
+      automationOfferFlow.phase === "idle" ||
+      automationOfferFlow.phase === "dismissed"
+    ) {
+      return null;
+    }
     const question = buildAutomationOfferQuestion(
       automationOfferFlow,
       automationOfferLabels,
     );
     if (!question) return null;
-    const sessionId =
-      (draftSessionActive ? activeDraftSessionId : props.selectedSessionId) ??
-      `expert-draft:${props.selectedWorkspaceId}`;
-    return toHostPendingQuestion({ sessionId, question });
+    return toHostPendingQuestion({ sessionId: scope, question });
   }, [
-    activeDraftSessionId,
     automationOfferFlow,
     automationOfferLabels,
-    draftSessionActive,
     props.selectedSessionId,
-    props.selectedWorkspaceId,
   ]);
 
   const effectiveActiveQuestion =
@@ -1286,7 +1347,8 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const automationResultAccessory =
     automationOfferFlow.phase === "result" &&
-    automationOfferFlow.resultRows.length > 0 ? (
+    automationOfferFlow.resultRows.length > 0 &&
+    props.selectedSessionId?.trim() === automationOfferScopeRef.current ? (
       <AutomationCreateResultCard
         rows={automationOfferFlow.resultRows}
         onView={(row) => openCreatedAutomation(row)}
