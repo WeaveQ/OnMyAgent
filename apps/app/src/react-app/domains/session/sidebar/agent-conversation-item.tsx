@@ -17,7 +17,9 @@ import {
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_CONTEXT_MENU_SEPARATOR_CLASS,
+  TASK_CONTEXT_MENU_WIDTH,
   TASK_ROW_ACTION_CLASS,
+  positionTaskContextMenu,
 } from "./assistant-task-item";
 
 /** Match local-agent list row typography (`localAgentTextClass` / list subtitle). */
@@ -32,18 +34,7 @@ const agentConversationTextClass = {
 };
 
 /** Keep fixed menus fully on-screen (4 rows + separator ≈ 200px). */
-const EXPERT_MENU_WIDTH = 184;
 const EXPERT_MENU_HEIGHT = 200;
-
-function clampMenuPosition(left: number, top: number) {
-  if (typeof window === "undefined") return { left, top };
-  const maxLeft = Math.max(8, window.innerWidth - EXPERT_MENU_WIDTH - 8);
-  const maxTop = Math.max(8, window.innerHeight - EXPERT_MENU_HEIGHT - 8);
-  return {
-    left: Math.min(Math.max(8, left), maxLeft),
-    top: Math.min(Math.max(8, top), maxTop),
-  };
-}
 
 function ExpertMenuItem(props: {
   onClick: () => void;
@@ -146,15 +137,35 @@ export function AgentConversationItem(props: {
     };
   }, [menuOpen]);
 
-  const openMenuAt = (left: number, top: number) => {
-    setMenuPosition(clampMenuPosition(left, top));
+  const openMenuAt = (clientX: number, clientY: number) => {
+    // Synthetic anchor at cursor so flip/clamp still apply.
+    setMenuPosition(
+      positionTaskContextMenu(
+        {
+          top: clientY,
+          bottom: clientY,
+          left: clientX,
+          right: clientX,
+        },
+        {
+          width: TASK_CONTEXT_MENU_WIDTH,
+          estimatedHeight: EXPERT_MENU_HEIGHT,
+        },
+      ),
+    );
     setMenuOpen(true);
   };
 
   const openMenuFromButton = () => {
     const rect = moreRef.current?.getBoundingClientRect();
     if (!rect) return;
-    openMenuAt(rect.right - EXPERT_MENU_WIDTH, rect.bottom + 4);
+    setMenuPosition(
+      positionTaskContextMenu(rect, {
+        width: TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: EXPERT_MENU_HEIGHT,
+      }),
+    );
+    setMenuOpen(true);
   };
 
   const handleDeleteExpert = () => {

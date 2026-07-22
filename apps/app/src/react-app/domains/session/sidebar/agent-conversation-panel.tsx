@@ -22,6 +22,7 @@ import { groupAssistantAutomationItems } from "./assistant-automation-groups";
 import { AgentConversationPanelHeader } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
 import {
+  automationLocalPinScope,
   buildAgentConversationGroups,
   buildAgentStarterItems,
   buildAssistantConversationGroups,
@@ -31,6 +32,7 @@ import {
   writeAssistantSpaceLocalPins,
   readAssistantSpaceFolderOrder,
   writeAssistantSpaceFolderOrder,
+  sortGroupsByPinnedSessionIds,
   snapshotConversationSummary,
   type AgentConversationGroup,
   type AssistantGlobalPin,
@@ -133,6 +135,12 @@ export function AgentConversationPanel(props: {
   onDeleteExpert?: (target: {
     agentId: string;
     name: string;
+    sessionIds: string[];
+  }) => void;
+  /** Confirm + permanently delete every run under a scheduled-task group. */
+  onDeleteAutomationGroup?: (target: {
+    groupId: string;
+    title: string;
     sessionIds: string[];
   }) => void;
 }) {
@@ -491,19 +499,61 @@ export function AgentConversationPanel(props: {
       ),
     [regularAssistantGroups, assistantArchivedIdSet],
   );
-  const automationGroups = useMemo(
+  /** automationId → local pin order (sessions pinned inside a scheduled group). */
+  const [automationLocalPinsById, setAutomationLocalPinsById] = useState<
+    Record<string, string[]>
+  >({});
+
+  // Hydrate local pins whenever automation groups appear / change.
+  useEffect(() => {
+    if (mode !== "assistant") return;
+    const next: Record<string, string[]> = {};
+    for (const group of automationGroupsRaw) {
+      const scope = automationLocalPinScope(group.id);
+      if (!scope) continue;
+      next[group.id] = readAssistantSpaceLocalPins(
+        props.selectedWorkspaceId,
+        scope,
+      );
+    }
+    setAutomationLocalPinsById(next);
+  }, [automationGroupsRaw, mode, props.selectedWorkspaceId]);
+
+  const automationGroupsAll = useMemo(
     () =>
       automationGroupsRaw
-        .map((group) => ({
-          ...group,
-          items: filterGroupsExcludingArchived(
+        .map((group) => {
+          const items = filterGroupsExcludingArchived(
             group.items,
             assistantArchivedIdSet,
-          ),
-        }))
+          );
+          const localPins = automationLocalPinsById[group.id] ?? [];
+          return {
+            ...group,
+            items: sortGroupsByPinnedSessionIds(items, localPins),
+          };
+        })
         .filter((group) => group.items.length > 0),
-    [automationGroupsRaw, assistantArchivedIdSet],
+    [automationGroupsRaw, assistantArchivedIdSet, automationLocalPinsById],
   );
+
+  const pinnedAutomationIds = useMemo(
+    () =>
+      new Set(
+        assistantGlobalPins
+          .filter((pin) => pin.kind === "automation")
+          .map((pin) => pin.id),
+      ),
+    [assistantGlobalPins],
+  );
+
+  /** Schedules section: exclude groups already elevated into global pins. */
+  const automationGroups = useMemo(
+    () =>
+      automationGroupsAll.filter((group) => !pinnedAutomationIds.has(group.id)),
+    [automationGroupsAll, pinnedAutomationIds],
+  );
+
   const [spaceFolderOrder, setSpaceFolderOrder] = useState<string[]>(() =>
     readAssistantSpaceFolderOrder(props.selectedWorkspaceId),
   );
@@ -533,7 +583,7 @@ export function AgentConversationPanel(props: {
   const assistantSpaceDirectoryKey = Array.from(
     assistantListModel.spaceItemsByDirectory.keys(),
   ).join("\n");
-  const automationDirectoryKey = automationGroups
+  const automationDirectoryKey = automationGroupsAll
     .map((group) => group.id)
     .join("\n");
 
@@ -575,12 +625,16 @@ export function AgentConversationPanel(props: {
         .map((item) => item.directory?.trim())
         .filter((item): item is string => Boolean(item)),
     );
+    const availableAutomations = new Set(
+      automationGroupsRaw.map((group) => group.id),
+    );
     setAssistantGlobalPins((current) => {
-      const next = current.filter((pin) =>
-        pin.kind === "session"
-          ? availableSessionIds.has(pin.id)
-          : availableFolders.has(pin.id),
-      );
+      const next = current.filter((pin) => {
+        if (pin.kind === "session") return availableSessionIds.has(pin.id);
+        if (pin.kind === "folder") return availableFolders.has(pin.id);
+        if (pin.kind === "automation") return availableAutomations.has(pin.id);
+        return false;
+      });
       if (next.length === current.length) return current;
       writeAssistantGlobalPins(props.selectedWorkspaceId, next);
       return next;
@@ -588,15 +642,46 @@ export function AgentConversationPanel(props: {
   }, [
     agentGroups,
     assistantWorkspaceRecords,
+    automationGroupsRaw,
     mode,
     props.selectedWorkspaceId,
   ]);
 
   const folderPathBySessionId = assistantListModel.folderPathBySessionId;
 
-  /** Task sessions → global pin; space sessions → pin inside that folder only. */
+  const automationIdBySessionId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const record of automationSessionRecords) {
+      if (record.sessionId) map.set(record.sessionId, record.automationId);
+    }
+    return map;
+  }, [automationSessionRecords]);
+
+  /**
+   * Task sessions → global pin;
+   * space sessions → pin inside that folder only;
+   * automation runs → pin inside that scheduled group only.
+   */
   const toggleAssistantPinnedSession = useCallback(
     (sessionId: string) => {
+      const automationId = automationIdBySessionId.get(sessionId)?.trim() || null;
+      if (automationId) {
+        const scope = automationLocalPinScope(automationId);
+        if (!scope) return;
+        setAutomationLocalPinsById((current) => {
+          const prev = current[automationId] ?? [];
+          const nextIds = prev.includes(sessionId)
+            ? prev.filter((id) => id !== sessionId)
+            : [sessionId, ...prev];
+          writeAssistantSpaceLocalPins(
+            props.selectedWorkspaceId,
+            scope,
+            nextIds,
+          );
+          return { ...current, [automationId]: nextIds };
+        });
+        return;
+      }
       const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
       if (spaceDir) {
         setSpaceLocalPinsByDirectory((current) => {
@@ -626,7 +711,11 @@ export function AgentConversationPanel(props: {
         return next;
       });
     },
-    [folderPathBySessionId, props.selectedWorkspaceId],
+    [
+      automationIdBySessionId,
+      folderPathBySessionId,
+      props.selectedWorkspaceId,
+    ],
   );
 
   const toggleAssistantPinnedFolder = useCallback(
@@ -643,6 +732,30 @@ export function AgentConversationPanel(props: {
         writeAssistantGlobalPins(props.selectedWorkspaceId, next);
         return next;
       });
+    },
+    [props.selectedWorkspaceId],
+  );
+
+  const toggleAssistantPinnedAutomationGroup = useCallback(
+    (groupId: string) => {
+      const id = groupId.trim();
+      if (!id) return;
+      setAssistantGlobalPins((current) => {
+        const exists = current.some(
+          (pin) => pin.kind === "automation" && pin.id === id,
+        );
+        const next = exists
+          ? current.filter(
+              (pin) => !(pin.kind === "automation" && pin.id === id),
+            )
+          : [{ kind: "automation" as const, id }, ...current];
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+        return next;
+      });
+      // Keep the group expanded under the pin strip after pin.
+      setExpandedAutomationDirectories((current) =>
+        current.includes(id) ? current : [...current, id],
+      );
     },
     [props.selectedWorkspaceId],
   );
@@ -681,6 +794,25 @@ export function AgentConversationPanel(props: {
       });
       setArchivedRevision((value) => value + 1);
       // Drop pin membership when archiving so restore lands in the main list.
+      const automationId =
+        automationIdBySessionId.get(sessionId)?.trim() || null;
+      if (automationId) {
+        const scope = automationLocalPinScope(automationId);
+        setAutomationLocalPinsById((current) => {
+          const prev = current[automationId] ?? [];
+          if (!prev.includes(sessionId)) return current;
+          const nextIds = prev.filter((id) => id !== sessionId);
+          if (scope) {
+            writeAssistantSpaceLocalPins(
+              props.selectedWorkspaceId,
+              scope,
+              nextIds,
+            );
+          }
+          return { ...current, [automationId]: nextIds };
+        });
+        return;
+      }
       const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
       if (spaceDir) {
         setSpaceLocalPinsByDirectory((current) => {
@@ -706,6 +838,7 @@ export function AgentConversationPanel(props: {
       }
     },
     [
+      automationIdBySessionId,
       folderPathBySessionId,
       props.assistantCategoryId,
       props.selectedWorkspaceId,
@@ -809,6 +942,49 @@ export function AgentConversationPanel(props: {
     [props.selectedWorkspaceId, showToast],
   );
 
+  /** Soft-archive every run under a scheduled-task (automation) group. */
+  const handleArchiveAutomationGroup = useCallback(
+    (groupId: string) => {
+      const group = automationGroupsAll.find((item) => item.id === groupId);
+      if (!group || group.items.length === 0) return;
+      for (const item of group.items) {
+        handleArchiveAssistantSession(
+          item.latestSession.id,
+          item.description,
+        );
+      }
+      // Drop group from global pins + clear local pin order.
+      setAssistantGlobalPins((current) => {
+        const next = current.filter(
+          (pin) => !(pin.kind === "automation" && pin.id === groupId),
+        );
+        if (next.length === current.length) return current;
+        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+        return next;
+      });
+      const scope = automationLocalPinScope(groupId);
+      if (scope) {
+        writeAssistantSpaceLocalPins(props.selectedWorkspaceId, scope, []);
+      }
+      setAutomationLocalPinsById((current) => {
+        if (!current[groupId]) return current;
+        const next = { ...current };
+        delete next[groupId];
+        return next;
+      });
+      showToast({
+        tone: "success",
+        title: t("session.archive_space_done"),
+      });
+    },
+    [
+      automationGroupsAll,
+      handleArchiveAssistantSession,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
+  );
+
   /** Soft-archive every session under a space folder, then unbind the folder. */
   const handleArchiveSpaceDirectory = useCallback(
     (directory: string) => {
@@ -907,9 +1083,11 @@ export function AgentConversationPanel(props: {
   useEffect(() => {
     setExpandedAutomationDirectories((current) => {
       const next = new Set(current);
-      for (const group of automationGroups) next.add(group.id);
+      for (const group of automationGroupsAll) next.add(group.id);
       return next.size === current.length ? current : Array.from(next);
     });
+    // automationDirectoryKey fingerprints the automation group id set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key is the stable signal
   }, [automationDirectoryKey]);
 
   return (
@@ -944,6 +1122,8 @@ export function AgentConversationPanel(props: {
             selectedSessionId={props.selectedSessionId}
             sessionStatusById={props.sessionStatusById}
             automationGroups={automationGroups}
+            automationGroupsAll={automationGroupsAll}
+            automationLocalPinsById={automationLocalPinsById}
             listModel={assistantListModel}
             expandedDirectories={expandedAssistantDirectories}
             expandedAutomationDirectories={expandedAutomationDirectories}
@@ -953,6 +1133,7 @@ export function AgentConversationPanel(props: {
             onPrefetchSession={props.onPrefetchSession}
             onTogglePinned={toggleAssistantPinnedSession}
             onToggleFolderPinned={toggleAssistantPinnedFolder}
+            onToggleAutomationGroupPinned={toggleAssistantPinnedAutomationGroup}
             onReorderGlobalPins={reorderAssistantGlobalPins}
             onReorderSpaceFolders={reorderAssistantSpaceFolders}
             onRenameSession={props.onRenameSession}
@@ -963,6 +1144,8 @@ export function AgentConversationPanel(props: {
             onRemoveSpaceDirectory={handleRemoveSpaceDirectory}
             onArchiveSpaceDirectory={handleArchiveSpaceDirectory}
             onCreateTaskInDirectory={handleCreateTaskInDirectory}
+            onArchiveAutomationGroup={handleArchiveAutomationGroup}
+            onDeleteAutomationGroup={props.onDeleteAutomationGroup}
           />
         ) : (
           <AgentConversationList
