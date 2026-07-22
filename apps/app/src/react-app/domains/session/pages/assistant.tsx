@@ -139,6 +139,10 @@ import {
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
+import { useMyExpertPackages } from "./use-my-expert-packages";
+import { useAgentPanelResize } from "./use-agent-panel-resize";
+import { useSessionHostSidePanel } from "./use-session-host-side-panel";
+import { useSummonMarketplaceExpert } from "./use-summon-marketplace-expert";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 
@@ -187,71 +191,57 @@ export function AssistantPage(props: AssistantPageProps) {
   );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
+  const myExpertPackages = useMyExpertPackages({
+    enabled: activeSidebarView === "store",
+  });
   const {
     customConnectorOpen,
     setCustomConnectorOpen,
     customConnectorInitialView,
     openCustomConnector,
   } = useCustomConnectorDialog();
-  const [myExpertPackages, setMyExpertPackages] = useState<
-    ExpertMarketplaceEntry[]
-  >([]);
-  const handleSummonMarketplaceExpert = useCallback(
-    (expert: ExpertMarketplaceEntry) => {
-      void installSummonedMarketplaceExpert(expert).catch((error) => {
-        console.warn("[expert-marketplace] failed to install expert package", error);
-      });
-      props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-      usePendingAgentStore
-        .getState()
-        .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
-      props.onNavigateToMode("expert");
-    },
-    [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar],
-  );
+  const handleSummonMarketplaceExpert = useSummonMarketplaceExpert({
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
+    onNavigateToMode: props.onNavigateToMode,
+  });
   const [agentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
-  const [agentPanelWidth, setAgentPanelWidth] = useState(
+  const { agentPanelWidth, startAgentPanelResize } = useAgentPanelResize(
     AGENT_PANEL_DEFAULT_WIDTH,
   );
   const sidePanelScopeId =
     activeSidebarView === "localAgent"
       ? `localAgent:${props.selectedWorkspaceId}`
       : sidePanelSessionKey;
-  const sessionSidePanel = useUiStateStore((state) =>
-    sidePanelScopeId
-      ? (state.sidePanelState[sidePanelScopeId] ?? null)
-      : null,
-  );
-  const voiceSidePanelOpen = useUiStateStore(
-    (state) => state.sidePanelState[GLOBAL_VOICE_SIDE_PANEL_KEY] === "voice",
-  );
-  const setSidePanelState = useUiStateStore((state) => state.setSidePanelState);
-  const toggleSidePanelState = useUiStateStore(
-    (state) => state.toggleSidePanelState,
-  );
-  const [artifactTarget, setArtifactTarget] = useState<OpenTarget | null>(null);
-  const [openTargets, setOpenTargets] = useState<OpenTarget[]>([]);
-  const [hiddenAccessibleTargetIds, setHiddenAccessibleTargetIds] = useState<
-    Set<string>
-  >(() => new Set());
-  const [, setExtensionStateVersion] = useState(0);
-  const loadedHiddenTargetsKeyRef = useRef<string | null>(null);
-  const accessibleTargets = useMemo(
-    () =>
-      openTargets.filter(
-        (target) =>
-          isTrackableAccessibleTarget(target) &&
-          !hiddenAccessibleTargetIds.has(target.id),
-      ),
-    [hiddenAccessibleTargetIds, openTargets],
-  );
-  const artifactFileTargets = useMemo(
-    () => accessibleTargets.filter(isCollectibleArtifactTarget),
-    [accessibleTargets],
-  );
-  const activeSidePanel = voiceSidePanelOpen ? "voice" : sessionSidePanel;
-  const sidePanelOpen = activeSidePanel !== null;
+  const {
+    sessionSidePanel,
+    setSidePanelState,
+    toggleSidePanelState,
+    setCurrentSidePanel: setCurrentSidePanelFromHook,
+    toggleCurrentSidePanel,
+    artifactTarget,
+    setArtifactTarget,
+    openTargets,
+    setOpenTargets,
+    hiddenAccessibleTargetIds,
+    setHiddenAccessibleTargetIds,
+    accessibleTargets,
+    artifactFileTargets,
+    visibleArtifactTarget,
+    artifactTargetCount,
+    hasArtifactTargets,
+    activeSidePanel,
+    sidePanelOpen,
+    voiceExtensionEnabled,
+    handleOpenTargetsChange,
+    removeAccessibleTarget,
+  } = useSessionHostSidePanel({
+    sidePanelScopeId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    selectedSessionId: props.selectedSessionId,
+    onAccessibleTargetsChange: props.onAccessibleTargetsChange,
+  });
   const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
   const codeWorkspacePath =
     props.surface?.draftWorkspaceDirectory?.trim() ||
@@ -259,79 +249,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const codeWorkspaceCatalogRoot =
     props.workspaces.find((workspace) => workspace.id === props.selectedWorkspaceId)
       ?.path?.trim() || props.selectedWorkspaceRoot;
-  const voiceExtension = useMemo(
-    () =>
-      ONMYAGENT_EXTENSION_CATALOG.find(
-        (entry) => getExtensionId(entry) === "onmyagent-voice",
-      ) ?? null,
-    [],
-  );
-  const voiceExtensionEnabled = voiceExtension
-    ? isOnMyAgentExtensionEnabled(voiceExtension)
-    : false;
 
-  useEffect(() => {
-    if (activeSidebarView !== "store") {
-      return undefined;
-    }
-    if (!isElectronRuntime()) {
-      setMyExpertPackages([]);
-      return undefined;
-    }
-
-    let cancelled = false;
-    listExpertPackages("my-experts")
-      .then((entries) => {
-        if (cancelled) return;
-        setMyExpertPackages(
-          entries
-            .filter(isVisibleExpertPackageEntry)
-            .map(packageEntryToMarketplaceExpert),
-        );
-      })
-      .catch((error) => {
-        console.warn("Failed to load local expert packages", error);
-        if (!cancelled) setMyExpertPackages([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeSidebarView]);
-
-  const startAgentPanelResize = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      const startX = event.clientX;
-      const startWidth = agentPanelWidth;
-      const controller = new AbortController();
-
-      const resize = (moveEvent: PointerEvent) => {
-        const nextWidth = Math.min(
-          AGENT_PANEL_MAX_WIDTH,
-          Math.max(
-            AGENT_PANEL_MIN_WIDTH,
-            startWidth + moveEvent.clientX - startX,
-          ),
-        );
-        setAgentPanelWidth(nextWidth);
-      };
-      const stop = () => controller.abort();
-
-      window.addEventListener("pointermove", resize, {
-        signal: controller.signal,
-      });
-      window.addEventListener("pointerup", stop, {
-        once: true,
-        signal: controller.signal,
-      });
-      window.addEventListener("pointercancel", stop, {
-        once: true,
-        signal: controller.signal,
-      });
-    },
-    [agentPanelWidth],
-  );
 
   const openAssistantSessionView = useCallback(() => {
     writeRailView("assistant", props.selectedWorkspaceId, "assistant");
@@ -519,29 +437,7 @@ export function AssistantPage(props: AssistantPageProps) {
     [assistantCategoryId, props.selectedSessionId, props.onCreateSessionForAgent, props.surface],
   );
 
-  const setCurrentSidePanel = useCallback(
-    (panel: SidePanelItem | null) => {
-      setSidePanelState(
-        GLOBAL_VOICE_SIDE_PANEL_KEY,
-        panel === "voice" ? "voice" : null,
-      );
-      if (panel === "voice") return;
-      setSidePanelState(sidePanelScopeId, panel);
-    },
-    [setSidePanelState, sidePanelScopeId],
-  );
-
-  const toggleCurrentSidePanel = useCallback(
-    (panel: SidePanelItem) => {
-      if (panel === "voice") {
-        toggleSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, "voice");
-        return;
-      }
-      setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
-      toggleSidePanelState(sidePanelScopeId, panel);
-    },
-    [setSidePanelState, sidePanelScopeId, toggleSidePanelState],
-  );
+  const setCurrentSidePanel = setCurrentSidePanelFromHook;
 
   const openBrowserPanelFromAgent = useCallback(() => {
     if (preserveSidePanelOnPanelOpenRef.current) {
@@ -626,42 +522,6 @@ export function AssistantPage(props: AssistantPageProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeSidebarView, openHistorySearch]);
-  useEffect(() => {
-    loadedHiddenTargetsKeyRef.current = hiddenAccessibleTargetsStorageKey(
-      props.selectedWorkspaceId,
-      props.selectedSessionId,
-    );
-    setArtifactTarget(null);
-    setOpenTargets([]);
-    setHiddenAccessibleTargetIds(
-      readHiddenAccessibleTargetIds(
-        props.selectedWorkspaceId,
-        props.selectedSessionId,
-      ),
-    );
-  }, [props.selectedSessionId, props.selectedWorkspaceId]);
-  useEffect(() => {
-    if (
-      loadedHiddenTargetsKeyRef.current !==
-      hiddenAccessibleTargetsStorageKey(
-        props.selectedWorkspaceId,
-        props.selectedSessionId,
-      )
-    )
-      return;
-    writeHiddenAccessibleTargetIds(
-      props.selectedWorkspaceId,
-      props.selectedSessionId,
-      hiddenAccessibleTargetIds,
-    );
-  }, [
-    hiddenAccessibleTargetIds,
-    props.selectedSessionId,
-    props.selectedWorkspaceId,
-  ]);
-  useEffect(() => {
-    props.onAccessibleTargetsChange?.(accessibleTargets);
-  }, [accessibleTargets, props.onAccessibleTargetsChange]);
   const commitBrowserPanelWidth = useCallback(() => {
     const size = browserPanelRef.current?.getSize();
     if (size?.inPixels) {
@@ -699,26 +559,9 @@ export function AssistantPage(props: AssistantPageProps) {
       setCurrentSidePanel,
     ],
   );
-  const handleOpenTargetsChange = useCallback((targets: OpenTarget[]) => {
-    setOpenTargets(targets);
-    setArtifactTarget((current) => {
-      if (!current) return current;
-      const updated = targets.find(
-        (target) => target.id === current.id || target.value === current.value,
-      );
-      if (!updated) return current;
-      return isCollectibleArtifactTarget(updated) ? updated : null;
-    });
-  }, []);
   const closeRightPane = useCallback(() => {
     setCurrentSidePanel(null);
   }, [setCurrentSidePanel]);
-  const removeAccessibleTarget = useCallback((target: OpenTarget) => {
-    setHiddenAccessibleTargetIds((current) => new Set(current).add(target.id));
-    setArtifactTarget((current) =>
-      current?.id === target.id ? null : current,
-    );
-  }, []);
   useEffect(() => {
     const open = (event: Event) => {
       const requested = (event as CustomEvent<OpenTarget>).detail;
@@ -749,21 +592,6 @@ export function AssistantPage(props: AssistantPageProps) {
     return () =>
       window.removeEventListener("onmyagent-close-right-pane", handler);
   }, [setCurrentSidePanel]);
-  useEffect(() => {
-    const refresh = () => setExtensionStateVersion((value) => value + 1);
-    window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-  useEffect(() => {
-    if (activeSidePanel === "voice" && !voiceExtensionEnabled) {
-      setCurrentSidePanel(null);
-    }
-  }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
-
   // History is a header popover now; clear any persisted right-rail "history".
   useEffect(() => {
     if (sessionSidePanel === "history") {
