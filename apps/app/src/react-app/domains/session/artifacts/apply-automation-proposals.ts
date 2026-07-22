@@ -111,6 +111,12 @@ export function automationProposalSearchRoots(input: {
   catalogRoot: string;
   sessionRoot?: string | null;
   sessionDirectory?: string | null;
+  /**
+   * When false, never fall back to workspace-global `automations/proposals`
+   * (prevents AR proposals offering on an unrelated expert draft home).
+   * Default true for backward-compatible callers/tests.
+   */
+  includeWorkspaceRoot?: boolean;
 }): string[] {
   const roots: string[] = [];
   const seen = new Set<string>();
@@ -134,7 +140,9 @@ export function automationProposalSearchRoots(input: {
       push(`${sessionDir.replace(/[/\\]+$/, "")}/automations/proposals`);
     }
   }
-  push("automations/proposals");
+  if (input.includeWorkspaceRoot !== false) {
+    push("automations/proposals");
+  }
   return roots;
 }
 
@@ -183,6 +191,7 @@ export async function loadAutomationProposals(input: {
   catalogRoot: string;
   sessionRoot?: string | null;
   sessionDirectory?: string | null;
+  includeWorkspaceRoot?: boolean;
 }): Promise<{
   proposals: LoadedAutomationProposal[];
   errors: Array<{ path: string; message: string }>;
@@ -196,7 +205,9 @@ export async function loadAutomationProposals(input: {
     catalogRoot: input.catalogRoot,
     sessionRoot: input.sessionRoot,
     sessionDirectory: input.sessionDirectory,
+    includeWorkspaceRoot: input.includeWorkspaceRoot,
   });
+  if (roots.length === 0) return { proposals, errors };
 
   const pathSet = new Set<string>(knownAutomationProposalPaths(roots));
   for (const root of roots) {

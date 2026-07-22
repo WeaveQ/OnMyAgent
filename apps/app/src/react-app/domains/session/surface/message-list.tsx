@@ -69,6 +69,7 @@ import {
   isAttachmentPart,
   messageToText,
   partToText,
+  partsForUserVisibleGroups,
   toLegacyPart,
 } from "./message-list/parts";
 import { estimateRenderItemSize } from "./message-list/estimate-size";
@@ -83,6 +84,7 @@ import {
   TranscriptAssistantHeader,
 } from "./message-list/chrome";
 import { MessageBlockRow } from "./message-list/message-block-row";
+import { activeTurnReserveStyle } from "./message-list/virtual-window";
 
 export type {
   SessionTranscriptDivider,
@@ -299,8 +301,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         return;
       }
       const attachments = attachmentsForParts(renderableParts);
+      // File parts render as chips only; never as raw text rows.
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
-      const groups = groupMessageParts(nonAttachmentParts, message.id);
+      // Strip model-only upload path dump from user bubbles (chips carry the files).
+      const visibleParts = isUser
+        ? partsForUserVisibleGroups(nonAttachmentParts)
+        : nonAttachmentParts;
+      const groups = groupMessageParts(visibleParts, message.id);
       const isStepsOnly = groups.length > 0 && groups.every((group) => group.kind === "steps");
       const stepGroups = isStepsOnly
         ? (groups as Array<{
@@ -628,7 +635,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     ? renderItems.findLast((item) => item.kind === "turn" && item.turnId === activeTurnId)?.id ?? null
     : null;
   const footerRenderItemId = activeRenderItemId ?? renderItems.at(-1)?.id ?? null;
-  const activeTurnMinHeight = Math.max(0, rootViewportHeight - 40);
+  // Live-turn minHeight reserve is intentionally 0 — see activeTurnReserveStyle.
+  const activeTurnMinHeight = 0;
 
   // Virtualize by turn once either the turn count or the underlying block
   // count is large. Do NOT gate on whether
@@ -654,6 +662,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // getBoundingClientRect on every entering row). After ~3–4s of continuous
   // scrolling that measurement work piles up and the list suddenly stutters.
   // Estimates are good enough mid-gesture; remeasure once scrolling settles.
+  // Keep measuring while the assistant streams — sticky-bottom fires many
+  // programmatic scrolls that would otherwise disable measure and leave huge
+  // estimate-only blank regions above the live tail.
   const [measureWhileScrolling, setMeasureWhileScrolling] = useState(true);
   const measureWhileScrollingRef = useRef(true);
   useEffect(() => {
@@ -663,6 +674,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
     let settleTimer: number | undefined;
     const onScroll = () => {
+      if (props.isStreaming) return;
       if (measureWhileScrollingRef.current) {
         measureWhileScrollingRef.current = false;
         setMeasureWhileScrolling(false);
@@ -678,17 +690,14 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       scrollContainer.removeEventListener("scroll", onScroll);
       if (settleTimer !== undefined) window.clearTimeout(settleTimer);
     };
-  }, [props.scrollElement, shouldVirtualize]);
+  }, [props.isStreaming, props.scrollElement, shouldVirtualize]);
 
+  // Never inflate historical virtual-row estimates with the live-turn reserve
+  // height. That reserve is only for the detached tail; baking it into
+  // estimateSize left multi-viewport blank gaps after the turn scrolled up.
   const estimateVirtualItemSize = useCallback(
-    (index: number) => {
-      const item = virtualRenderItems[index];
-      const estimate = estimateRenderItemSize(item);
-      return item?.id === activeRenderItemId
-        ? Math.max(estimate, activeTurnMinHeight)
-        : estimate;
-    },
-    [activeRenderItemId, activeTurnMinHeight, virtualRenderItems],
+    (index: number) => estimateRenderItemSize(virtualRenderItems[index]),
+    [virtualRenderItems],
   );
 
   const getVirtualItemKey = useCallback((index: number) => {
@@ -707,12 +716,34 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   });
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
   const firstVirtualRow = virtualRows[0];
+  // When the scroll parent is not ready, getVirtualItems() is empty but
+  // getTotalSize() still sums estimates — a fixed-height empty shell looks like
+  // multi-screen blank space above the live message. Fall back to normal flow.
+  const useVirtualWindow = shouldVirtualize && virtualRows.length > 0;
+  const shouldMeasureVirtualRows =
+    measureWhileScrolling || props.isStreaming;
 
-  // After scroll settles, force one measurement pass so estimates converge.
+  // After scroll settles (or while streaming), force measurement so estimates converge.
   useEffect(() => {
-    if (!shouldVirtualize || !measureWhileScrolling) return;
+    if (!shouldVirtualize || !shouldMeasureVirtualRows) return;
     virtualizer.measure();
-  }, [measureWhileScrolling, shouldVirtualize, virtualizer]);
+  }, [shouldMeasureVirtualRows, shouldVirtualize, virtualizer]);
+
+  // Remeasure when the live turn ends or message volume changes (export/tools).
+  const previousActiveRenderItemIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousActiveRenderItemIdRef.current;
+    previousActiveRenderItemIdRef.current = activeRenderItemId;
+    if (!shouldVirtualize) return;
+    if (previous && previous !== activeRenderItemId) {
+      virtualizer.measure();
+    }
+  }, [activeRenderItemId, shouldVirtualize, virtualizer]);
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    virtualizer.measure();
+  }, [props.messages.length, props.isStreaming, shouldVirtualize, virtualizer]);
 
   useEffect(() => {
     const register = props.setScrollToMessageById;
@@ -833,6 +864,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         : null;
     }
     const isActiveTurn = item.id === activeRenderItemId;
+    const isDetachedTail =
+      !shouldVirtualize || item.id === detachedTailRenderItem?.id;
     const isInitialAssistantOnly = item.id === firstAssistantRenderItemId && !item.blocks.some(
       (block) => block.kind !== "divider" && block.isUser,
     );
@@ -845,9 +878,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         data-transcript-turn-id={item.turnId ?? undefined}
         data-transcript-turn-active={isActiveTurn ? "true" : undefined}
         data-transcript-turn-assistant-only={isInitialAssistantOnly ? "true" : undefined}
-        style={isActiveTurn && !isNestedVariant
-          ? { minHeight: `${activeTurnMinHeight}px` }
-          : undefined}
+        style={activeTurnReserveStyle({
+          isActiveTurn,
+          isNestedVariant,
+          isDetachedTail,
+          minHeightPx: activeTurnMinHeight,
+        })}
       >
         {item.blocks.map(renderConversationBlock)}
         {!isNestedVariant && props.footer && item.id === footerRenderItemId ? (
@@ -872,48 +908,43 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       className={cn("pb-0", !isNestedVariant && "session-transcript-root mx-auto w-full")}
       style={transcriptStyle}
     >
-      {shouldVirtualize ? (
-        // Always render the virtualized container once we've decided to
-        // virtualize — even if virtualRows is empty on the very first tick
-        // (e.g. scrollElement ref hasn't attached yet). A fallback to
-        // rendering every message would re-introduce the eager-render
-        // freeze on huge sessions.
+      {useVirtualWindow ? (
         <>
           <div
             className="relative"
             style={{
-            height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
-            width: "100%",
-          }}
-        >
-          {firstVirtualRow ? (
-            <div
-              className="absolute left-0 top-0 w-full"
-              style={{
-                transform: `translateY(${firstVirtualRow.start}px)`,
-              }}
-            >
-              {virtualRows.map((virtualRow) => {
-                const item = virtualRenderItems[virtualRow.index];
-                if (!item) return null;
-                return (
-                  <div
-                    key={virtualRow.key}
-                    data-index={virtualRow.index}
-                    // Skip live measure mid-scroll — see measureWhileScrolling.
-                    ref={
-                      measureWhileScrolling
-                        ? virtualizer.measureElement
-                        : undefined
-                    }
-                    className="w-full"
-                  >
-                    {renderTranscriptItem(item)}
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
+              height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
+              width: "100%",
+            }}
+          >
+            {firstVirtualRow ? (
+              <div
+                className="absolute left-0 top-0 w-full"
+                style={{
+                  transform: `translateY(${firstVirtualRow.start}px)`,
+                }}
+              >
+                {virtualRows.map((virtualRow) => {
+                  const item = virtualRenderItems[virtualRow.index];
+                  if (!item) return null;
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      // Skip live measure mid-scroll — keep measuring while streaming.
+                      ref={
+                        shouldMeasureVirtualRows
+                          ? virtualizer.measureElement
+                          : undefined
+                      }
+                      className="w-full"
+                    >
+                      {renderTranscriptItem(item)}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
           {detachedTailRenderItem
             ? renderTranscriptItem(detachedTailRenderItem)
@@ -921,9 +952,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         </>
       ) : (
         <div>
-          {renderItems.map((item) => (
+          {/*
+            Prefer normal flow until the virtualizer has a real scroll window.
+            Otherwise estimate-only totalSize creates a tall empty shell.
+          */}
+          {(shouldVirtualize ? virtualRenderItems : renderItems).map((item) => (
             <div key={item.id}>{renderTranscriptItem(item)}</div>
           ))}
+          {shouldVirtualize && detachedTailRenderItem
+            ? renderTranscriptItem(detachedTailRenderItem)
+            : null}
         </div>
       )}
     </div>

@@ -1,5 +1,11 @@
 import { isToolUIPart, type DynamicToolUIPart, type UIMessage } from "ai";
 import { summarizeStep } from "../../../../../app/utils";
+import {
+  absolutePathFromFileUrl,
+  fileUrlFromAbsolutePath,
+  isUserUploadInstructionText,
+  parseUserUploadInstructionBlock,
+} from "../user-upload-display";
 import type { TranscriptPart } from "./types";
 
 export function partIdFromUiPart(part: UIMessage["parts"][number], fallbackId: string) {
@@ -86,24 +92,84 @@ export function toLegacyPart(
 export function isAttachmentPart(part: TranscriptPart) {
   if (part.type !== "file") return false;
   const url = (part as { url?: string }).url;
-  return typeof url === "string" && !url.startsWith("file://");
+  return typeof url === "string" && url.trim().length > 0;
 }
 
-export function attachmentsForParts(parts: TranscriptPart[]) {
+/**
+ * Native image attachments use data:/http(s) file parts.
+ * Session-uploaded docs (pdf/docx/xlsx) must NOT be model file parts (runtime
+ * rejects those MIME types); chips come only from the upload-instruction text.
+ */
+export function isNativeDisplayFilePart(part: TranscriptPart) {
+  if (!isAttachmentPart(part)) return false;
+  const record = part as { url?: string; mime?: string };
+  const url = record.url?.trim() ?? "";
+  const mime = record.mime ?? "application/octet-stream";
+  if (url.startsWith("data:") || /^https?:/i.test(url)) return true;
+  if (mime.startsWith("image/")) return true;
+  // Local file:// office/docs are recovered from upload text, not file parts.
+  if (url.startsWith("file://")) return false;
+  return true;
+}
+
+export type TranscriptAttachment = {
+  url: string;
+  filename: string;
+  mime: string;
+  relativePath?: string;
+};
+
+export function attachmentsForParts(parts: TranscriptPart[]): TranscriptAttachment[] {
+  const fromFileParts = parts.flatMap((part) => {
+    if (!isNativeDisplayFilePart(part)) return [];
+    const record = part as {
+      url?: string;
+      filename?: string;
+      mime?: string;
+    };
+    const attachment: TranscriptAttachment = {
+      url: record.url ?? "",
+      filename: record.filename ?? "attachment",
+      mime: record.mime ?? "application/octet-stream",
+    };
+    return attachment.url ? [attachment] : [];
+  });
+
+  // Model-facing upload dump → chips (and strip the dump from the bubble).
+  // Prefer plain absolute paths (not file://) so desktop reveal gets a real FS path.
+  const fromUploadText = parts.flatMap((part) => {
+    if (part.type !== "text") return [];
+    const { files } = parseUserUploadInstructionBlock(partToText(part));
+    return files.map((file) => ({
+      url: file.absolutePath.trim() || fileUrlFromAbsolutePath(file.absolutePath),
+      filename: file.name,
+      mime: file.mime,
+      relativePath: file.relativePath.trim() || undefined,
+    }));
+  });
+
+  const seen = new Set<string>();
+  const merged: TranscriptAttachment[] = [];
+  for (const item of [...fromUploadText, ...fromFileParts]) {
+    const abs = absolutePathFromFileUrl(item.url) || item.url;
+    const key = `${item.filename}|${abs}|${item.relativePath ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
+/** Drop model-only upload instruction parts; strip the block when mixed with user text. */
+export function partsForUserVisibleGroups(parts: TranscriptPart[]): TranscriptPart[] {
   return parts.flatMap((part) => {
-      if (!isAttachmentPart(part)) return [];
-      const record = part as {
-        url?: string;
-        filename?: string;
-        mime?: string;
-      };
-      const attachment = {
-        url: record.url ?? "",
-        filename: record.filename ?? "attachment",
-        mime: record.mime ?? "application/octet-stream",
-      };
-      return attachment.url ? [attachment] : [];
-    });
+    if (part.type !== "text") return [part];
+    const text = partToText(part);
+    if (!isUserUploadInstructionText(text)) return [part];
+    const { remainingText } = parseUserUploadInstructionBlock(text);
+    if (!remainingText.trim()) return [];
+    return [{ ...part, text: remainingText } as TranscriptPart];
+  });
 }
 
 export function partToText(part: TranscriptPart) {
