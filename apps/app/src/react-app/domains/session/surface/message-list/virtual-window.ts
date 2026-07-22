@@ -40,32 +40,16 @@ export function resolveVirtualItemKey<T extends { id?: string }>(
 }
 
 /**
- * Reserve nearly one viewport for the *live* turn so sticky-bottom stays stable
- * while the assistant streams. Content must sit at the **bottom** of that box
- * (flex-end); otherwise sticky-bottom shows the empty padding and users must
- * scroll through a huge blank region to find the new messages.
- *
- * Never apply this to historical virtualized rows — only the live tail.
+ * Previously reserved ~1 viewport of minHeight on the live turn. That made
+ * sticky-bottom land in empty padding (or, with flex-end, left a full-screen
+ * blank above the first reply). Sticky follow alone is enough — do not invent
+ * extra height on turns.
  */
-export function activeTurnReserveStyle(input: {
+export function activeTurnReserveStyle(_input: {
   isActiveTurn: boolean;
   isNestedVariant: boolean;
-  /** When virtualizing, only the detached newest row may reserve height. */
   isDetachedTail: boolean;
   minHeightPx: number;
 }): CSSProperties | undefined {
-  if (
-    !input.isActiveTurn ||
-    input.isNestedVariant ||
-    !input.isDetachedTail ||
-    input.minHeightPx <= 0
-  ) {
-    return undefined;
-  }
-  return {
-    minHeight: `${input.minHeightPx}px`,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-end",
-  };
+  return undefined;
 }
