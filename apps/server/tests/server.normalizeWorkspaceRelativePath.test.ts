@@ -48,6 +48,15 @@ describe("isSupportedWorkspaceTextFilePath", () => {
     expect(isSupportedWorkspaceTextFilePath("config/app.yaml")).toBe(true);
     expect(isSupportedWorkspaceTextFilePath("styles/app.css")).toBe(true);
     expect(isSupportedWorkspaceTextFilePath("dist/index.html")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("scripts/report.py")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/main.rs")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/main.go")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/Main.java")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("scripts/build.sh")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("queries/report.sql")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("config/app.ini")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/App.vue")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("schema/query.graphql")).toBe(true);
   });
 
   test("keeps accepting OpenCode config/plugin text file extensions", () => {

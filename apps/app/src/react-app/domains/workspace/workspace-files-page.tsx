@@ -68,7 +68,15 @@ import {
   canPreviewOpenTargetInline,
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
-import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
+import {
+  HTMLPreview,
+  ImagePreview,
+  MarkdownPreview,
+  PlainText,
+  PreviewError,
+  PreviewLoading,
+  PreviewUnavailable,
+} from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 import {
   buildWorkspaceFileTree,
@@ -249,6 +257,7 @@ type FilePreviewState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; content: string }
+  | { status: "binary"; url: string }
   | {
       status: "office";
       filePath: string;
@@ -425,8 +434,12 @@ function FilePreviewDrawer(props: {
                 />
               ) : state.status === "ready" && target.preview === "markdown" ? (
                 <MarkdownPreview content={state.content} />
+              ) : state.status === "ready" && target.preview === "html" ? (
+                <HTMLPreview type="text" title={file.name} content={state.content} />
               ) : state.status === "ready" ? (
                 <PlainText content={state.content} />
+              ) : state.status === "binary" && target.preview === "image" ? (
+                <ImagePreview src={state.url} alt={file.name} />
               ) : state.status === "browser" ? (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {t("files.preview_opened_in_browser")}
@@ -650,6 +663,32 @@ export function WorkspaceFilesPage(props: {
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
+
+    if (selectedTarget.preview === "image") {
+      let objectUrl: string | null = null;
+      void props.client
+        .downloadWorkspaceFile(props.workspaceId, selectedTarget.value)
+        .then((result) => {
+          if (cancelled) return;
+          objectUrl = URL.createObjectURL(new Blob([result.data], {
+            type: result.contentType ?? "application/octet-stream",
+          }));
+          setPreviewState({ status: "binary", url: objectUrl });
+        })
+        .catch((previewError: unknown) => {
+          if (cancelled) return;
+          setPreviewState({
+            status: "error",
+            message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
+          });
+        });
+
+      return () => {
+        cancelled = true;
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      };
+    }
+
     const previewRequest = usesOfficeRenderer(selectedTarget)
       ? Promise.resolve({
           status: "office" as const,

@@ -60,7 +60,7 @@ describe("session visual and file contracts", () => {
     }
   });
 
-  test("workspace files page previews file content and routes browser targets through open artifacts", () => {
+  test("workspace files page preserves text, HTML, image, and Office preview branches", () => {
     const filesPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
@@ -76,10 +76,13 @@ describe("session visual and file contracts", () => {
 
     expect(filesPage).toContain("workspaceFileOpenTarget");
     expect(filesPage).toContain("readWorkspaceFile(props.workspaceId, selectedTarget.value)");
-    expect(filesPage).toContain('selectedTarget.preview === "browser"');
+    expect(filesPage).toContain("downloadWorkspaceFile(props.workspaceId, selectedTarget.value)");
     expect(filesPage).toContain("props.onOpenArtifact?.(target)");
     expect(filesPage).toContain("MarkdownPreview content={state.content}");
+    expect(filesPage).toContain('<HTMLPreview type="text"');
+    expect(filesPage).toContain("<ImagePreview");
     expect(filesPage).toContain("PlainText content={state.content}");
+    expect(filesPage).toContain("<OfficeFilePreview");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");
@@ -97,9 +100,7 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain('t("files.preview_unsupported")');
     expect(sidePanel).toContain('targetPreview === "external"');
     expect(sidePanel).toContain("usesOfficeRenderer");
-    expect(sidePanel).toContain('preview === "pdf"');
-    expect(sidePanel).toContain('preview === "document"');
-    expect(sidePanel).toContain('preview === "presentation"');
+    expect(sidePanel).toContain("canEditArtifactTarget");
     expect(sidePanel).toContain("<OfficeFilePreview");
     expect(sidePanel).toContain('targetPreview === "image"');
     expect(sidePanel).toContain('targetPreview === "html"');

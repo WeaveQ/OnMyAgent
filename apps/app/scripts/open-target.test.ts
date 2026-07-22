@@ -18,6 +18,7 @@ import {
   filterHiddenFromTree,
   shouldHideEntry,
 } from "../src/react-app/capabilities/artifacts/workspace-file-tree";
+import { workspaceFileOpenTarget } from "../src/react-app/capabilities/artifacts/workspace-file-open-target";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {
   return { id, role, parts: [{ type: "text", text, state: "done" }] };
@@ -71,9 +72,13 @@ describe("open target classification", () => {
 });
 
 describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
-  it("allows existing text, markdown, html, browser, and tabular csv/tsv previews", () => {
+  it("allows text, markdown, html, images, browser targets, and tabular csv/tsv previews", () => {
     expect(canPreviewOpenTargetInline(fileTarget("notes.md"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("app.ts"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("data.json"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("script.py"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("page.html"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("data.csv"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("rows.tsv"))).toBe(true);
     expect(
@@ -109,9 +114,24 @@ describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
     ]) {
       expect(canPreviewOpenTargetInline(fileTarget(path))).toBe(true);
     }
-    expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(false);
     expect(canPreviewOpenTargetInline(fileTarget("archive.zip"))).toBe(false);
     expect(canPreviewOpenTargetInline(fileTarget("program.exe"))).toBe(false);
+  });
+});
+
+describe("workspace file preview targets", () => {
+  it("keeps local HTML in the My Files preview surface", () => {
+    const target = workspaceFileOpenTarget({
+      fileRoot: "/workspace",
+      path: "site/index.html",
+      name: "index.html",
+      size: 128,
+      mtimeMs: 42,
+    });
+
+    expect(target.kind).toBe("file");
+    expect(target.preview).toBe("html");
+    expect(target.value).toBe("site/index.html");
   });
 });
 
