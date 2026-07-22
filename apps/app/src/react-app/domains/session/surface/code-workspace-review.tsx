@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getCodeWorkspaceEnvironment } from "../../../../app/lib/desktop";
 import type { CodeWorkspaceEnvironmentSnapshot } from "@onmyagent/types";
 import { t } from "../../../../i18n";
+import { codeReviewPollIntervalMs, shouldRunActivePoll } from "../sync/session-poll-policy";
 
 function diffLineClass(line: string) {
   if (line.startsWith("+") && !line.startsWith("+++")) {
@@ -63,11 +64,26 @@ export function useCodeWorkspaceEnvironment(props: {
   }, [props.enabled, refresh]);
 
   useEffect(() => {
-    if (!props.enabled || !props.polling) return;
+    // Install whenever enabled+polling — do not consult document visibility
+    // here or a hidden-at-setup tab never resumes after focus returns.
+    const intervalMs = codeReviewPollIntervalMs({
+      enabled: props.enabled,
+      polling: props.polling === true,
+    });
+    if (intervalMs == null) return;
     const timer = window.setInterval(() => {
+      if (!shouldRunActivePoll({ enabled: true })) return;
       void refresh();
-    }, 2500);
-    return () => window.clearInterval(timer);
+    }, intervalMs);
+    const onVisibility = () => {
+      if (!shouldRunActivePoll({ enabled: true })) return;
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [props.enabled, props.polling, refresh]);
 
   return { snapshot, error, loading, refresh };
