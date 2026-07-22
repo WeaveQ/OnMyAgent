@@ -254,6 +254,7 @@ type MessageBlock = {
     url: string;
     filename: string;
     mime: string;
+    relativePath?: string;
   }>;
   groups: MessageGroup[];
   isUser: boolean;
@@ -646,21 +647,28 @@ function attachmentsForParts(parts: TranscriptPart[]) {
   });
 
   // Model-facing upload dump → chips (and strip the dump from the bubble).
+  // Prefer plain absolute paths (not file://) so desktop reveal gets a real FS path.
   const fromUploadText = parts.flatMap((part) => {
     if (part.type !== "text") return [];
     const { files } = parseUserUploadInstructionBlock(partToText(part));
     return files.map((file) => ({
-      url: fileUrlFromAbsolutePath(file.absolutePath),
+      url: file.absolutePath.trim() || fileUrlFromAbsolutePath(file.absolutePath),
       filename: file.name,
       mime: file.mime,
+      relativePath: file.relativePath.trim() || undefined,
     }));
   });
 
   const seen = new Set<string>();
-  const merged: Array<{ url: string; filename: string; mime: string }> = [];
+  const merged: Array<{
+    url: string;
+    filename: string;
+    mime: string;
+    relativePath?: string;
+  }> = [];
   for (const item of [...fromUploadText, ...fromFileParts]) {
     const abs = absolutePathFromFileUrl(item.url) || item.url;
-    const key = `${item.filename}|${abs}`;
+    const key = `${item.filename}|${abs}|${item.relativePath ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(item);
@@ -3337,10 +3345,12 @@ function MessageBlockRow(props: {
           <div className={cn("flex flex-wrap gap-2", block.isUser ? "mb-3" : "mb-4")}>
             {block.attachments.map((attachment) => block.isUser ? (
               <TranscriptResourceChip
-                key={`${block.messageId}:${attachment.url}`}
+                key={`${block.messageId}:${attachment.url}:${attachment.relativePath ?? ""}`}
                 filename={attachment.filename}
                 url={attachment.url}
                 mediaType={attachment.mime}
+                relativePath={attachment.relativePath}
+                workspaceRoot={props.workspaceRoot}
               />
             ) : (
               <FileCard
