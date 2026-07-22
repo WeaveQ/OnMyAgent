@@ -1,9 +1,9 @@
 {
   "entries": {
-    "apps/server/src/server.ts": 1131,
+    "apps/server/src/server.ts": 1108,
     "apps/server/src/toy-ui.ts": 1582,
     "apps/server/src/services/session-archive.ts": 2038,
     "apps/server/src/services/automations.ts": 1075,
-    "apps/server/src/routes/workspace-session-archive-routes.ts": 1250
+    "apps/server/src/routes/workspace-session-archive-routes.ts": 1215
   }
 }
