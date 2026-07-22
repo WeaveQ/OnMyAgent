@@ -1,5 +1,5 @@
 /**
- * Orchestration gate for frontend P0/P1 perf acceptance criteria.
+ * Orchestration gate for frontend P0/P1 + P2 perf acceptance criteria.
  * Spawns existing real suites (does not reimplement helpers).
  */
 import { describe, expect, test } from "bun:test";
@@ -65,6 +65,21 @@ const AC_SUITES: Array<{
     label: "focused-session full-stream policy",
     files: ["scripts/session-stream-policy.test.ts"],
   },
+  {
+    ac: "AC7",
+    label: "P2 row memo + per-block streaming isolation",
+    files: ["scripts/session-message-block-row-memo.test.ts"],
+  },
+  {
+    ac: "AC8",
+    label: "P2 markdown heavy-enhance stream budget",
+    files: ["scripts/session-markdown-stream-policy.test.ts"],
+  },
+  {
+    ac: "AC9",
+    label: "P2 poll/timer policy (terminal/review/automation/goal)",
+    files: ["scripts/session-poll-policy.test.ts"],
+  },
 ];
 
 function runSuite(files: string[]) {
@@ -84,8 +99,8 @@ function runSuite(files: string[]) {
   };
 }
 
-describe("session P0/P1 perf gate (orchestration)", () => {
-  test("AC1–AC6 suite matrix all exit 0", () => {
+describe("session P0/P1/P2 perf gate (orchestration)", () => {
+  test("AC1–AC9 suite matrix all exit 0", () => {
     const matrix: Array<{ ac: string; label: string; exit: number }> = [];
     let failed = false;
     for (const row of AC_SUITES) {
@@ -107,5 +122,5 @@ describe("session P0/P1 perf gate (orchestration)", () => {
     }
     expect(failed).toBe(false);
     expect(matrix.every((row) => row.exit === 0)).toBe(true);
-  }, 120_000);
+  }, 180_000);
 });
