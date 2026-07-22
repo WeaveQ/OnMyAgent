@@ -176,6 +176,7 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
   },
   artifactPreview: {
     show(request) { return ipcRenderer.invoke("onmyagent:artifact-preview:show", request); },
+    openForEditing(request) { return ipcRenderer.invoke("onmyagent:artifact-preview:openForEditing", request); },
     hide() { return ipcRenderer.invoke("onmyagent:artifact-preview:hide"); },
     setBounds(bounds) { return ipcRenderer.invoke("onmyagent:artifact-preview:bounds", bounds); },
   },

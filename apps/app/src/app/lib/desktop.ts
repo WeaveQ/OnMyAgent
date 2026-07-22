@@ -305,6 +305,7 @@ declare global {
           theme: "light" | "dark";
           locale: string;
         }) => Promise<{ ok: boolean; kind: "pdf" | "office" }>;
+        openForEditing?: (request: { filePath: string }) => Promise<{ ok: boolean }>;
         hide?: () => Promise<void>;
         setBounds?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>;
       };
