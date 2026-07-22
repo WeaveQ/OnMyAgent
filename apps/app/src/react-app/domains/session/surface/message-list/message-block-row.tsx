@@ -2,8 +2,6 @@
 import { memo, type CSSProperties } from "react";
 import {
   CircleAlert,
-  File as FileIcon,
-  Globe,
 } from "lucide-react";
 
 import {
@@ -25,6 +23,7 @@ import {
   resolveArtifactRevealCandidates,
   type OpenTarget,
 } from "../../artifacts/open-target";
+import { ArtifactIcon } from "../../artifacts/artifact-icon";
 import {
   messageBlockStyle,
   messageStateClass,
@@ -53,26 +52,13 @@ function messageGroupKey(messageId: string, group: MessageGroup) {
 }
 
 function OpenTargetIcon(props: { target: OpenTarget }) {
-  if (props.target.kind === "url") {
-    return <Globe size={12} className="shrink-0 text-dls-secondary" />;
-  }
-
-  if (props.target.preview === "sheet") {
-    return (
-      <StatusBadge size="fileType" className={messageStateClass.sheetBadge}>
-        XLS
-      </StatusBadge>
-    );
-  }
-  if (props.target.preview === "markdown") {
-    return (
-      <StatusBadge size="fileType" className="border border-dls-border bg-dls-surface-muted text-dls-text">
-        MD
-      </StatusBadge>
-    );
-  }
-
-  return <FileIcon size={12} className="shrink-0 text-dls-secondary" />;
+  return (
+    <ArtifactIcon
+      type={props.target.preview}
+      name={props.target.name || props.target.value}
+      className="size-3.5 shrink-0"
+    />
+  );
 }
 
 function OpenableTargetsStrip(props: {

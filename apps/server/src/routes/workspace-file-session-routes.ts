@@ -201,23 +201,32 @@ function normalizeResolvedRelativePath(input: string): string {
   return parts.join("/");
 }
 
-async function listWorkspaceCatalogEntries(
-  workspaceRoot: string,
+async function listDirectoryCatalogLevel(
+  rootResolved: string,
+  dirPath: string,
 ): Promise<FileSessionCatalogEntry[]> {
-  const rootResolved = resolve(workspaceRoot);
   const items: FileSessionCatalogEntry[] = [];
+  let entries;
+  try {
+    entries = await readdir(dirPath, { withFileTypes: true });
+  } catch {
+    return items;
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
 
-  const walk = async (dirPath: string) => {
-    const entries = await readdir(dirPath, { withFileTypes: true });
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-
-    for (const entry of entries) {
-      const absPath = join(dirPath, entry.name);
+  for (const entry of entries) {
+    const absPath = join(dirPath, entry.name);
+    let rel: string;
+    try {
       const relRaw = relative(rootResolved, absPath).replace(/\\/g, "/");
-      const rel = normalizeResolvedRelativePath(relRaw);
+      rel = normalizeResolvedRelativePath(relRaw);
+    } catch {
+      continue;
+    }
 
-      if (entry.isDirectory()) {
-        const info = await stat(absPath);
+    try {
+      const info = await stat(absPath);
+      if (info.isDirectory()) {
         items.push({
           path: rel,
           kind: "dir",
@@ -225,12 +234,9 @@ async function listWorkspaceCatalogEntries(
           mtimeMs: info.mtimeMs,
           revision: fileRevision({ mtimeMs: info.mtimeMs, size: 0 }),
         });
-        await walk(absPath);
         continue;
       }
-
-      if (!entry.isFile()) continue;
-      const info = await stat(absPath);
+      if (!info.isFile()) continue;
       items.push({
         path: rel,
         kind: "file",
@@ -238,13 +244,51 @@ async function listWorkspaceCatalogEntries(
         mtimeMs: info.mtimeMs,
         revision: fileRevision(info),
       });
+    } catch {
+    }
+  }
+
+  items.sort((a, b) => a.path.localeCompare(b.path));
+  return items;
+}
+
+async function listWorkspaceCatalogEntries(
+  workspaceRoot: string,
+  options: { prefix?: string | null; shallow?: boolean } = {},
+): Promise<FileSessionCatalogEntry[]> {
+  const rootResolved = resolve(workspaceRoot);
+  if (!(await exists(rootResolved))) return [];
+
+  const prefix = options.prefix?.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") ?? "";
+  const startDir = prefix
+    ? resolve(rootResolved, ...prefix.split("/").filter(Boolean))
+    : rootResolved;
+  if (
+    startDir !== rootResolved &&
+    !startDir.startsWith(`${rootResolved}${sep}`)
+  ) {
+    throw new ApiError(400, "invalid_path", "Path traversal is not allowed");
+  }
+  if (!(await exists(startDir))) return [];
+  const startInfo = await stat(startDir);
+  if (!startInfo.isDirectory()) return [];
+
+  if (options.shallow) {
+    return listDirectoryCatalogLevel(rootResolved, startDir);
+  }
+
+  const items: FileSessionCatalogEntry[] = [];
+  const walk = async (dirPath: string) => {
+    const level = await listDirectoryCatalogLevel(rootResolved, dirPath);
+    for (const entry of level) {
+      items.push(entry);
+      if (entry.kind === "dir") {
+        await walk(join(rootResolved, ...entry.path.split("/")));
+      }
     }
   };
 
-  if (await exists(rootResolved)) {
-    await walk(rootResolved);
-  }
-
+  await walk(startDir);
   items.sort((a, b) => a.path.localeCompare(b.path));
   return items;
 }
@@ -401,12 +445,16 @@ function parseBatchWriteList(input: unknown): Array<{
       const prefix = parseCatalogPathFilter(ctx.url.searchParams.get("prefix"));
       const after = parseCatalogPathFilter(ctx.url.searchParams.get("after"));
       const includeDirs = ctx.url.searchParams.get("includeDirs") !== "false";
+      const shallow = ctx.url.searchParams.get("shallow") === "true";
       const limit = parseCatalogLimit(ctx.url.searchParams.get("limit"));
 
-      const entries = await listWorkspaceCatalogEntries(session.workspaceRoot);
+      const entries = await listWorkspaceCatalogEntries(session.workspaceRoot, {
+        prefix,
+        shallow,
+      });
       const filtered = entries.filter((entry) => {
         if (!includeDirs && entry.kind === "dir") return false;
-        if (!matchesCatalogFilter(entry.path, prefix)) return false;
+        if (!shallow && !matchesCatalogFilter(entry.path, prefix)) return false;
         if (after && entry.path <= after) return false;
         return true;
       });

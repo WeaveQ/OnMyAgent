@@ -381,6 +381,7 @@ const listLocalWorkspacePaths = async () =>
 const artifactPreviewController = createArtifactPreviewController({
   WebContentsView,
   listWorkspaceRoots: listLocalWorkspacePaths,
+  openPath: (filePath) => shell.openPath(filePath),
   preloadPath: path.join(__dirname, "artifact-preview-preload.cjs"),
 });
 

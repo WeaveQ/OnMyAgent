@@ -11,7 +11,7 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { FileText, Paperclip, Quote, SlashSquare, X } from "lucide-react";
+import { Folder, Paperclip, Quote, SlashSquare, X } from "lucide-react";
 
 import { ContextUsageIndicator } from "./context-usage-indicator";
 
@@ -26,6 +26,7 @@ import {
 } from "@/app/lib/desktop";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 
 export type LocalAgentSlashCommand = {
   name: string;
@@ -526,7 +527,11 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                 onMouseEnter={() => setMentionIndex(index)}
                 onClick={() => insertMention(entry)}
               >
-                <FileText size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
+                {entry.isDirectory ? (
+                  <Folder className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
+                ) : (
+                  <ArtifactIcon name={entry.name} className="mt-0.5 size-3.5 shrink-0" />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-medium text-dls-text">{entry.name}{entry.isDirectory ? "/" : ""}</div>
                   <div className="truncate text-xs text-dls-secondary">{entry.relativePath}</div>
@@ -550,7 +555,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                 </div>
               ) : (
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
-                  <FileText className="size-3.5" aria-hidden="true" />
+                  <ArtifactIcon name={att.name} className="size-3.5" />
                 </div>
               )}
               <div className="min-w-0 max-w-[14rem]">

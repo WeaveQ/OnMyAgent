@@ -6,12 +6,12 @@ import "@xterm/xterm/css/xterm.css";
 import {
   ChevronRight,
   ClipboardCheck,
-  FileText,
   Folder,
   FolderOpen,
   Globe,
   MoreHorizontal,
   PanelRight,
+  Pencil,
   Plus,
   SquareTerminal,
   Trash2,
@@ -37,6 +37,7 @@ import type {
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
+import { ArtifactIcon } from "../artifacts/artifact-icon";
 import {
   codeTerminalSnapshotIntervalMs,
   shouldRunActivePoll,
@@ -66,6 +67,11 @@ import {
   PreviewLoading,
 } from "../artifacts/preview";
 import { OfficeFilePreview } from "../artifacts/office-file-preview";
+import {
+  canEditArtifactTarget,
+  openArtifactForEditing,
+} from "../artifacts/open-artifact-for-editing";
+import { useStatusToasts } from "../../shell-feedback";
 import {
   buildWorkspaceFileTree,
   filterHiddenFromTree,
@@ -146,7 +152,7 @@ const toolItems: Array<{
 ];
 
 function toolIcon(kind: ToolKind) {
-  return toolItems.find((item) => item.kind === kind)?.icon ?? FileText;
+  return toolItems.find((item) => item.kind === kind)?.icon ?? Folder;
 }
 
 function flattenWorkspaceFileTree(
@@ -184,7 +190,7 @@ type WorkspaceFilePreview =
   | { kind: "loading" }
   | { kind: "unsupported" }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
-  | { kind: "office"; filePath: string; name: string }
+  | { kind: "local"; filePath: string; name: string }
   | { kind: "binary"; url: string; name: string };
 
 function absoluteWorkspaceFilePath(root: string, path: string) {
@@ -195,17 +201,8 @@ function workspaceFileRequestPath(rootRelativePrefix: string, path: string) {
   return rootRelativePrefix ? `${rootRelativePrefix}/${path}` : path;
 }
 
-function isTextSheet(path: string) {
-  return /\.(csv|tsv)$/i.test(path);
-}
-
-function usesOfficeRenderer(preview: OpenTarget["preview"], path: string) {
-  return (
-    preview === "document" ||
-    preview === "presentation" ||
-    preview === "pdf" ||
-    (preview === "sheet" && !isTextSheet(path))
-  );
+function usesLocalFileRenderer(preview: OpenTarget["preview"], path: string) {
+  return canEditArtifactTarget({ preview, name: path }) || preview === "audio" || preview === "video";
 }
 
 function inferredImageContentType(path: string) {
@@ -230,7 +227,7 @@ function WorkspaceTreeRow(props: {
 }) {
   const isDirectory = props.node.kind === "dir";
   const isExpanded = props.expanded.has(props.node.path);
-  const Icon = isDirectory ? (isExpanded ? FolderOpen : Folder) : FileText;
+  const FolderIcon = isExpanded ? FolderOpen : Folder;
   return (
     <div>
       <div className="group relative">
@@ -254,7 +251,11 @@ function WorkspaceTreeRow(props: {
               isExpanded && "rotate-90",
             )}
           />
-          <Icon className="size-3.5 shrink-0" />
+          {isDirectory ? (
+            <FolderIcon className="size-3.5 shrink-0" />
+          ) : (
+            <ArtifactIcon name={props.node.name} className="size-3.5 shrink-0" />
+          )}
           <span className="truncate">{props.node.name}</span>
         </TreeRowButton>
         {!isDirectory ? (
@@ -312,7 +313,10 @@ function WorkspaceFilesPanel(props: {
   workspacePath: string;
   fileRoot?: string | null;
   fileTargets?: OpenTarget[];
+  focusPath?: string | null;
+  focusToken?: number | null;
 }) {
+  const { showToast } = useStatusToasts();
   const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -322,6 +326,7 @@ function WorkspaceFilesPanel(props: {
   const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
     new Set(),
   );
+  const lastFocusKeyRef = useRef<string | null>(null);
   const fileRoot =
     props.fileRoot === undefined ? props.workspacePath : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
@@ -430,6 +435,22 @@ function WorkspaceFilesPanel(props: {
     [fileRoot, props.workspacePath],
   );
 
+  const editFile = useCallback(
+    async (filePath: string) => {
+      try {
+        await openArtifactForEditing(filePath);
+      } catch {
+        showToast({
+          tone: "error",
+          title: t("files.edit_file_failed"),
+          dismissLabel: t("common.dismiss"),
+          durationMs: 0,
+        });
+      }
+    },
+    [showToast],
+  );
+
   const selectFile = useCallback(
     async (path: string) => {
       const targetPreview = classifyOpenTarget(path, "file");
@@ -451,14 +472,14 @@ function WorkspaceFilesPanel(props: {
       setPreview({ kind: "loading" });
       try {
         const requestPath = workspaceFileRequestPath(rootRelativePrefix, path);
-        if (usesOfficeRenderer(targetPreview, path)) {
+        if (usesLocalFileRenderer(targetPreview, path)) {
           const localRoot = fileRoot || props.workspacePath;
           if (!isElectronRuntime() || !localRoot) {
             setPreview({ kind: "unsupported" });
             return;
           }
           setPreview({
-            kind: "office",
+            kind: "local",
             filePath: absoluteWorkspaceFilePath(localRoot, path),
             name: targetName,
           });
@@ -500,6 +521,44 @@ function WorkspaceFilesPanel(props: {
     },
     [fileRoot, rootRelativePrefix, props.client, props.workspaceId, props.workspacePath],
   );
+
+  useEffect(() => {
+    const raw = props.focusPath?.trim();
+    if (!raw) {
+      lastFocusKeyRef.current = null;
+      return;
+    }
+    const normalized = raw.replace(/\\/g, "/").replace(/^\.\//, "");
+    if (!normalized) return;
+    const focusKey = `${normalized}::${props.focusToken ?? 0}`;
+    if (lastFocusKeyRef.current === focusKey) return;
+    const canLoad =
+      (isElectronRuntime() && Boolean(fileRoot || props.workspacePath))
+      || Boolean(props.client && props.workspaceId);
+    if (!canLoad) return;
+    lastFocusKeyRef.current = focusKey;
+    const segments = normalized.split("/").filter(Boolean);
+    if (segments.length > 1) {
+      setExpanded((current) => {
+        const next = new Set(current);
+        let prefix = "";
+        for (let index = 0; index < segments.length - 1; index += 1) {
+          prefix = prefix ? `${prefix}/${segments[index]}` : segments[index] ?? "";
+          if (prefix) next.add(prefix);
+        }
+        return next;
+      });
+    }
+    void selectFile(normalized);
+  }, [
+    fileRoot,
+    props.client,
+    props.focusPath,
+    props.focusToken,
+    props.workspaceId,
+    props.workspacePath,
+    selectFile,
+  ]);
 
   const confirmDeleteFile = useCallback(async () => {
     const node = pendingDeleteNode;
@@ -612,6 +671,18 @@ function WorkspaceFilesPanel(props: {
           <span className="min-w-0 flex-1 truncate">
             {selectedPath ?? t("session.code_side_panel_files")}
           </span>
+          {preview.kind === "local" && canEditArtifactTarget({ preview: "", name: preview.name }) ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="shrink-0 mac:titlebar-no-drag"
+              onClick={() => void editFile(preview.filePath)}
+            >
+              <Pencil aria-hidden="true" />
+              {t("files.edit_file")}
+            </Button>
+          ) : null}
           {selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath) ? (
             <Button
               type="button"
@@ -633,7 +704,7 @@ function WorkspaceFilesPanel(props: {
           <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
             {t("files.preview_unsupported")}
           </div>
-        ) : preview.kind === "office" ? (
+        ) : preview.kind === "local" ? (
           <OfficeFilePreview
             className="min-h-0 flex-1"
             filePath={preview.filePath}
@@ -830,6 +901,8 @@ export function CodeWorkspaceSidePanel(props: {
   workspaceCatalogRoot: string;
   fileRoot?: string | null;
   fileTargets?: OpenTarget[];
+  focusPath?: string | null;
+  focusToken?: number | null;
   workspaceId: string | null;
   sessionId: string | null;
   client: OnMyAgentServerClient | null;
@@ -1043,6 +1116,8 @@ export function CodeWorkspaceSidePanel(props: {
           workspacePath={props.workspacePath ?? props.workspaceCatalogRoot}
           fileRoot={props.fileRoot}
           fileTargets={props.fileTargets}
+          focusPath={props.focusPath}
+          focusToken={props.focusToken}
         />
       );
     }
@@ -1054,6 +1129,8 @@ export function CodeWorkspaceSidePanel(props: {
     props.workspaceCatalogRoot,
     props.fileRoot,
     props.fileTargets,
+    props.focusPath,
+    props.focusToken,
     props.workspaceId,
     props.workspacePath,
   ]);

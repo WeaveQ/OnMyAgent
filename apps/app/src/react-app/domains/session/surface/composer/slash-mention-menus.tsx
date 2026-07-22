@@ -4,8 +4,8 @@
  * Extracted from composer.tsx (mechanical UI split).
  */
 import type { RefObject } from "react";
-import { FileText } from "lucide-react";
 import { MenuRowButton } from "@/components/ui/action-row";
+import { ArtifactIcon } from "../../artifacts/artifact-icon";
 import { cn } from "@/lib/utils";
 import type { SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
@@ -218,7 +218,7 @@ export function ComposerMentionMenu(props: {
                 onMouseEnter={() => props.setMenuIndex(index)}
                 onClick={() => props.onSelect(item)}
               >
-                <FileText className="size-3.5 shrink-0 text-dls-secondary" />
+                <ArtifactIcon name={item.value || item.label} className="size-3.5 shrink-0" />
                 <div className="min-w-0 flex-1 overflow-hidden text-left">
                   <div className="truncate text-sm font-medium leading-5 text-dls-text">
                     @{item.label}

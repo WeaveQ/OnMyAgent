@@ -241,6 +241,7 @@ export function AssistantPage(props: AssistantPageProps) {
     selectedSessionId: props.selectedSessionId,
     onAccessibleTargetsChange: props.onAccessibleTargetsChange,
   });
+  const [artifactFocusToken, setArtifactFocusToken] = useState(0);
   const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
   const codeWorkspacePath =
     props.surface?.draftWorkspace?.draftWorkspaceDirectory?.trim() ||
@@ -548,6 +549,7 @@ export function AssistantPage(props: AssistantPageProps) {
       }
       if (options?.auto && artifactTarget?.id === target.id) return;
       setArtifactTarget(target);
+      setArtifactFocusToken((token) => token + 1);
       preserveSidePanelOnPanelOpenRef.current = true;
       setCurrentSidePanel("artifacts");
     },
@@ -1108,6 +1110,12 @@ export function AssistantPage(props: AssistantPageProps) {
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
+                          onEditError={() => showToast({
+                            tone: "error",
+                            title: t("files.edit_file_failed"),
+                            dismissLabel: t("common.dismiss"),
+                            durationMs: 0,
+                          })}
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
@@ -1419,6 +1427,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
                         fileRoot={props.selectedSessionFileRoot ?? ""}
                         fileTargets={artifactFileTargets}
+                        focusPath={artifactTarget?.value ?? null}
+                        focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={browserSessionScopeId}
                         client={props.onmyagentServerClient}

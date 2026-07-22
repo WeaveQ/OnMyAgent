@@ -1,7 +1,5 @@
 /** @jsxImportSource react */
 import { useState } from "react";
-import { FileText } from "lucide-react";
-
 import {
   openDesktopPath,
   revealDesktopItemCandidates,
@@ -9,6 +7,7 @@ import {
 import { t } from "@/i18n";
 import { usePlatform } from "../../../kernel/platform";
 import { resolveArtifactRevealCandidates } from "../artifacts/open-target";
+import { ArtifactIcon } from "../artifacts/artifact-icon";
 import { formatBytes } from "./composer/composer-helpers";
 import { ImageAttachmentLightbox } from "./image-attachment-lightbox";
 import { absolutePathFromFileUrl } from "./user-upload-display";
@@ -139,7 +138,7 @@ export function TranscriptResourceChip(props: {
       }}
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
-        <FileText className="size-3.5" aria-hidden="true" />
+        <ArtifactIcon name={label} className="size-3.5" />
       </span>
       <span className="min-w-0 max-w-[14rem]">
         <span className="block truncate text-xs font-medium text-dls-text">
