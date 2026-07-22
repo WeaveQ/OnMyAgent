@@ -83,7 +83,10 @@ import {
 } from "./message-list/chrome";
 import { MessageBlockRow } from "./message-list/message-block-row";
 import { blockIsActivelyStreaming } from "./message-list/message-block-row-equality";
-import { activeTurnReserveStyle } from "./message-list/virtual-window";
+import {
+  activeTurnReserveStyle,
+  resolveVirtualItemEstimate,
+} from "./message-list/virtual-window";
 
 export type {
   SessionTranscriptDivider,
@@ -638,6 +641,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const detachedTailRenderItem = detachedTailRenderItemIndex >= 0
     ? renderItems[detachedTailRenderItemIndex]
     : null;
+  const detachedTailRenderItemId = detachedTailRenderItem?.id ?? null;
   const virtualRenderItems = detachedTailRenderItem
     ? renderItems.slice(0, detachedTailRenderItemIndex)
     : renderItems;
@@ -651,6 +655,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // estimate-only blank regions above the live tail.
   const [measureWhileScrolling, setMeasureWhileScrolling] = useState(true);
   const measureWhileScrollingRef = useRef(true);
+  const measuredRenderItemSizesRef = useRef(new Map<string, number>());
+  const detachedTailElementRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!shouldVirtualize) return;
     const scrollContainer = props.scrollElement?.();
@@ -680,7 +686,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // height. That reserve is only for the detached tail; baking it into
   // estimateSize left multi-viewport blank gaps after the turn scrolled up.
   const estimateVirtualItemSize = useCallback(
-    (index: number) => estimateRenderItemSize(virtualRenderItems[index]),
+    (index: number) => resolveVirtualItemEstimate(
+      virtualRenderItems[index],
+      measuredRenderItemSizesRef.current,
+      estimateRenderItemSize,
+    ),
     [virtualRenderItems],
   );
 
@@ -707,27 +717,23 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const shouldMeasureVirtualRows =
     measureWhileScrolling || props.isStreaming;
 
-  // After scroll settles (or while streaming), force measurement so estimates converge.
+  // The detached tail is outside TanStack Virtual. Measure it while it grows so
+  // its exact height is ready when the next message moves it into history.
   useEffect(() => {
-    if (!shouldVirtualize || !shouldMeasureVirtualRows) return;
-    virtualizer.measure();
-  }, [shouldMeasureVirtualRows, shouldVirtualize, virtualizer]);
-
-  // Remeasure when the live turn ends or message volume changes (export/tools).
-  const previousActiveRenderItemIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    const previous = previousActiveRenderItemIdRef.current;
-    previousActiveRenderItemIdRef.current = activeRenderItemId;
-    if (!shouldVirtualize) return;
-    if (previous && previous !== activeRenderItemId) {
-      virtualizer.measure();
-    }
-  }, [activeRenderItemId, shouldVirtualize, virtualizer]);
-
-  useEffect(() => {
-    if (!shouldVirtualize) return;
-    virtualizer.measure();
-  }, [props.messages.length, props.isStreaming, shouldVirtualize, virtualizer]);
+    const element = detachedTailElementRef.current;
+    if (!detachedTailRenderItemId || !element) return;
+    const rememberHeight = () => {
+      const height = Math.max(1, Math.ceil(element.getBoundingClientRect().height));
+      measuredRenderItemSizesRef.current.set(detachedTailRenderItemId, height);
+    };
+    rememberHeight();
+    const observer = new ResizeObserver(rememberHeight);
+    observer.observe(element);
+    return () => {
+      rememberHeight();
+      observer.disconnect();
+    };
+  }, [detachedTailRenderItemId]);
 
   useEffect(() => {
     const scrollToMessage = (messageId: string, behavior: ScrollBehavior = "smooth") => {
@@ -953,7 +959,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             ) : null}
           </div>
           {detachedTailRenderItem
-            ? renderTranscriptItem(detachedTailRenderItem)
+            ? (
+                <div ref={detachedTailElementRef}>
+                  {renderTranscriptItem(detachedTailRenderItem)}
+                </div>
+              )
             : null}
         </>
       ) : (
@@ -966,7 +976,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             <div key={item.id}>{renderTranscriptItem(item)}</div>
           ))}
           {shouldVirtualize && detachedTailRenderItem
-            ? renderTranscriptItem(detachedTailRenderItem)
+            ? (
+                <div ref={detachedTailElementRef}>
+                  {renderTranscriptItem(detachedTailRenderItem)}
+                </div>
+              )
             : null}
         </div>
       )}

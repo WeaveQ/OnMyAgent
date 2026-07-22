@@ -39,6 +39,15 @@ export function resolveVirtualItemKey<T extends { id?: string }>(
   return virtualItems[index]?.id ?? `item-${index}`;
 }
 
+export function resolveVirtualItemEstimate<T extends { id: string }>(
+  item: T | undefined,
+  measuredSizes: ReadonlyMap<string, number>,
+  estimate: (item: T | undefined) => number,
+): number {
+  if (!item) return estimate(item);
+  return measuredSizes.get(item.id) ?? estimate(item);
+}
+
 /**
  * Previously reserved ~1 viewport of minHeight on the live turn. That made
  * sticky-bottom land in empty padding (or, with flex-end, left a full-screen
