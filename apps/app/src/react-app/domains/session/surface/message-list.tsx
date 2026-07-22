@@ -106,6 +106,13 @@ import {
   groupTranscriptRenderItems,
   type TranscriptRenderItem,
 } from "./transcript/render-items";
+import { activeTurnReserveStyle } from "./message-list/virtual-window";
+import {
+  absolutePathFromFileUrl,
+  fileUrlFromAbsolutePath,
+  isUserUploadInstructionText,
+  parseUserUploadInstructionBlock,
+} from "./user-upload-display";
 import {
   formatCompactTokenCount,
   summarizeTranscriptTurn,
@@ -247,6 +254,7 @@ type MessageBlock = {
     url: string;
     filename: string;
     mime: string;
+    relativePath?: string;
   }>;
   groups: MessageGroup[];
   isUser: boolean;
@@ -482,17 +490,18 @@ function estimateBlockSize(block: MessageBlockItem | undefined) {
   }
 
   if (block.kind === "steps-cluster") {
+    // Folded process timeline is compact; do not reserve full expanded height.
     const partCount = block.stepGroups.reduce((total, group) => total + group.parts.length, 0);
-    return clampVirtualEstimate(64 + partCount * 58, 96, 900);
+    return clampVirtualEstimate(64 + Math.min(partCount, 6) * 36, 72, 320);
   }
 
   const leadingStepSize = (block.leadingStepGroups ?? []).reduce(
-    (total, group) => total + 72 + group.parts.length * 58,
+    (total, group) => total + 48 + Math.min(group.parts.length, 4) * 28,
     0,
   );
   const textSize = block.groups.reduce((total, group) => {
     if (group.kind === "steps") {
-      return total + 72 + group.parts.length * 58;
+      return total + 48 + Math.min(group.parts.length, 4) * 28;
     }
     const text = partToText(group.part);
     // Expanded auto-slash dumps collapse to a single chip row in the UI.
@@ -505,10 +514,13 @@ function estimateBlockSize(block: MessageBlockItem | undefined) {
   const openTargetsSize = !block.isUser ? 44 : 0;
   const actionsSize = block.isUser ? 24 : 36;
 
+  // Cap assistant estimates tightly: tool-heavy turns collapse in the UI but
+  // step counting used to reserve ~1800px each and leave multi-viewport blanks
+  // until measureElement ran (often deferred while sticky-bottom scrolls).
   return clampVirtualEstimate(
     leadingStepSize + textSize + attachmentSize + openTargetsSize + actionsSize,
-    block.isUser ? 112 : 260,
-    block.isUser ? 720 : 1800,
+    block.isUser ? 112 : 200,
+    block.isUser ? 720 : 720,
   );
 }
 
@@ -602,24 +614,87 @@ function toLegacyPart(
 function isAttachmentPart(part: TranscriptPart) {
   if (part.type !== "file") return false;
   const url = (part as { url?: string }).url;
-  return typeof url === "string" && !url.startsWith("file://");
+  return typeof url === "string" && url.trim().length > 0;
+}
+
+/**
+ * Native image attachments use data:/http(s) file parts.
+ * Session-uploaded docs (pdf/docx/xlsx) must NOT be model file parts (runtime
+ * rejects those MIME types); chips come only from the upload-instruction text.
+ */
+function isNativeDisplayFilePart(part: TranscriptPart) {
+  if (!isAttachmentPart(part)) return false;
+  const record = part as { url?: string; mime?: string };
+  const url = record.url?.trim() ?? "";
+  const mime = record.mime ?? "application/octet-stream";
+  if (url.startsWith("data:") || /^https?:/i.test(url)) return true;
+  if (mime.startsWith("image/")) return true;
+  // Local file:// office/docs are recovered from upload text, not file parts.
+  if (url.startsWith("file://")) return false;
+  return true;
 }
 
 function attachmentsForParts(parts: TranscriptPart[]) {
+  const fromFileParts = parts.flatMap((part) => {
+    if (!isNativeDisplayFilePart(part)) return [];
+    const record = part as {
+      url?: string;
+      filename?: string;
+      mime?: string;
+    };
+    const attachment: {
+      url: string;
+      filename: string;
+      mime: string;
+      relativePath?: string;
+    } = {
+      url: record.url ?? "",
+      filename: record.filename ?? "attachment",
+      mime: record.mime ?? "application/octet-stream",
+    };
+    return attachment.url ? [attachment] : [];
+  });
+
+  // Model-facing upload dump → chips (and strip the dump from the bubble).
+  // Prefer plain absolute paths (not file://) so desktop reveal gets a real FS path.
+  const fromUploadText = parts.flatMap((part) => {
+    if (part.type !== "text") return [];
+    const { files } = parseUserUploadInstructionBlock(partToText(part));
+    return files.map((file) => ({
+      url: file.absolutePath.trim() || fileUrlFromAbsolutePath(file.absolutePath),
+      filename: file.name,
+      mime: file.mime,
+      relativePath: file.relativePath.trim() || undefined,
+    }));
+  });
+
+  const seen = new Set<string>();
+  const merged: Array<{
+    url: string;
+    filename: string;
+    mime: string;
+    relativePath?: string;
+  }> = [];
+  for (const item of [...fromUploadText, ...fromFileParts]) {
+    const abs = absolutePathFromFileUrl(item.url) || item.url;
+    const key = `${item.filename}|${abs}|${item.relativePath ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
+/** Drop model-only upload instruction parts; strip the block when mixed with user text. */
+function partsForUserVisibleGroups(parts: TranscriptPart[]): TranscriptPart[] {
   return parts.flatMap((part) => {
-      if (!isAttachmentPart(part)) return [];
-      const record = part as {
-        url?: string;
-        filename?: string;
-        mime?: string;
-      };
-      const attachment = {
-        url: record.url ?? "",
-        filename: record.filename ?? "attachment",
-        mime: record.mime ?? "application/octet-stream",
-      };
-      return attachment.url ? [attachment] : [];
-    });
+    if (part.type !== "text") return [part];
+    const text = partToText(part);
+    if (!isUserUploadInstructionText(text)) return [part];
+    const { remainingText } = parseUserUploadInstructionBlock(text);
+    if (!remainingText.trim()) return [];
+    return [{ ...part, text: remainingText } as TranscriptPart];
+  });
 }
 
 function partToText(part: TranscriptPart) {
@@ -3279,10 +3354,12 @@ function MessageBlockRow(props: {
           <div className={cn("flex flex-wrap gap-2", block.isUser ? "mb-3" : "mb-4")}>
             {block.attachments.map((attachment) => block.isUser ? (
               <TranscriptResourceChip
-                key={`${block.messageId}:${attachment.url}`}
+                key={`${block.messageId}:${attachment.url}:${attachment.relativePath ?? ""}`}
                 filename={attachment.filename}
                 url={attachment.url}
                 mediaType={attachment.mime}
+                relativePath={attachment.relativePath}
+                workspaceRoot={props.workspaceRoot}
               />
             ) : (
               <FileCard
@@ -3408,7 +3485,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const [rootContentWidth, setRootContentWidth] = useState(
     DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH,
   );
-  const [rootViewportHeight, setRootViewportHeight] = useState(0);
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -3449,12 +3525,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     if (!scrollContainer) return;
 
     const updateViewport = () => {
-      // Use the same box metric for both the initial read and ResizeObserver
-      // delivery. clientHeight/clientWidth include the scroll container's
-      // padding; contentRect does not. Mixing them made the active turn's
-      // reserved height alternate by exactly 40px on every streaming render.
+      // Use clientWidth (includes padding) — not contentRect — so width stays
+      // stable across ResizeObserver deliveries while streaming.
       setRootContentWidth(computeTranscriptMaxContentWidth(scrollContainer.clientWidth));
-      setRootViewportHeight(scrollContainer.clientHeight);
     };
     updateViewport();
     const observer = new ResizeObserver(updateViewport);
@@ -3536,8 +3609,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         return;
       }
       const attachments = attachmentsForParts(renderableParts);
+      // File parts render as chips only; never as raw text rows.
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
-      const groups = groupMessageParts(nonAttachmentParts, message.id);
+      // Strip model-only upload path dump from user bubbles (chips carry the files).
+      const visibleParts = isUser
+        ? partsForUserVisibleGroups(nonAttachmentParts)
+        : nonAttachmentParts;
+      const groups = groupMessageParts(visibleParts, message.id);
       const isStepsOnly = groups.length > 0 && groups.every((group) => group.kind === "steps");
       const stepGroups = isStepsOnly
         ? (groups as Array<{
@@ -3865,7 +3943,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     ? renderItems.findLast((item) => item.kind === "turn" && item.turnId === activeTurnId)?.id ?? null
     : null;
   const footerRenderItemId = activeRenderItemId ?? renderItems.at(-1)?.id ?? null;
-  const activeTurnMinHeight = Math.max(0, rootViewportHeight - 40);
+  // Live-turn minHeight reserve is intentionally 0 — see activeTurnReserveStyle.
+  const activeTurnMinHeight = 0;
 
   // Virtualize by turn once either the turn count or the underlying block
   // count is large. Do NOT gate on whether
@@ -3891,6 +3970,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // getBoundingClientRect on every entering row). After ~3–4s of continuous
   // scrolling that measurement work piles up and the list suddenly stutters.
   // Estimates are good enough mid-gesture; remeasure once scrolling settles.
+  // Keep measuring while the assistant streams — sticky-bottom fires many
+  // programmatic scrolls that would otherwise disable measure and leave huge
+  // estimate-only blank regions above the live tail.
   const [measureWhileScrolling, setMeasureWhileScrolling] = useState(true);
   const measureWhileScrollingRef = useRef(true);
   useEffect(() => {
@@ -3900,6 +3982,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
 
     let settleTimer: number | undefined;
     const onScroll = () => {
+      if (props.isStreaming) return;
       if (measureWhileScrollingRef.current) {
         measureWhileScrollingRef.current = false;
         setMeasureWhileScrolling(false);
@@ -3915,17 +3998,14 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       scrollContainer.removeEventListener("scroll", onScroll);
       if (settleTimer !== undefined) window.clearTimeout(settleTimer);
     };
-  }, [props.scrollElement, shouldVirtualize]);
+  }, [props.isStreaming, props.scrollElement, shouldVirtualize]);
 
+  // Never inflate historical virtual-row estimates with the live-turn reserve
+  // height. That reserve is only for the detached tail; baking it into
+  // estimateSize left multi-viewport blank gaps after the turn scrolled up.
   const estimateVirtualItemSize = useCallback(
-    (index: number) => {
-      const item = virtualRenderItems[index];
-      const estimate = estimateRenderItemSize(item);
-      return item?.id === activeRenderItemId
-        ? Math.max(estimate, activeTurnMinHeight)
-        : estimate;
-    },
-    [activeRenderItemId, activeTurnMinHeight, virtualRenderItems],
+    (index: number) => estimateRenderItemSize(virtualRenderItems[index]),
+    [virtualRenderItems],
   );
 
   const getVirtualItemKey = useCallback((index: number) => {
@@ -3944,12 +4024,34 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   });
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
   const firstVirtualRow = virtualRows[0];
+  // When the scroll parent is not ready, getVirtualItems() is empty but
+  // getTotalSize() still sums estimates — a fixed-height empty shell looks like
+  // multi-screen blank space above the live message. Fall back to normal flow.
+  const useVirtualWindow = shouldVirtualize && virtualRows.length > 0;
+  const shouldMeasureVirtualRows =
+    measureWhileScrolling || props.isStreaming;
 
-  // After scroll settles, force one measurement pass so estimates converge.
+  // After scroll settles (or while streaming), force measurement so estimates converge.
   useEffect(() => {
-    if (!shouldVirtualize || !measureWhileScrolling) return;
+    if (!shouldVirtualize || !shouldMeasureVirtualRows) return;
     virtualizer.measure();
-  }, [measureWhileScrolling, shouldVirtualize, virtualizer]);
+  }, [shouldMeasureVirtualRows, shouldVirtualize, virtualizer]);
+
+  // Remeasure when the live turn ends or message volume changes (export/tools).
+  const previousActiveRenderItemIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousActiveRenderItemIdRef.current;
+    previousActiveRenderItemIdRef.current = activeRenderItemId;
+    if (!shouldVirtualize) return;
+    if (previous && previous !== activeRenderItemId) {
+      virtualizer.measure();
+    }
+  }, [activeRenderItemId, shouldVirtualize, virtualizer]);
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    virtualizer.measure();
+  }, [props.messages.length, props.isStreaming, shouldVirtualize, virtualizer]);
 
   useEffect(() => {
     const register = props.setScrollToMessageById;
@@ -4070,6 +4172,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         : null;
     }
     const isActiveTurn = item.id === activeRenderItemId;
+    const isDetachedTail =
+      !shouldVirtualize || item.id === detachedTailRenderItem?.id;
     const isInitialAssistantOnly = item.id === firstAssistantRenderItemId && !item.blocks.some(
       (block) => block.kind !== "divider" && block.isUser,
     );
@@ -4082,9 +4186,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         data-transcript-turn-id={item.turnId ?? undefined}
         data-transcript-turn-active={isActiveTurn ? "true" : undefined}
         data-transcript-turn-assistant-only={isInitialAssistantOnly ? "true" : undefined}
-        style={isActiveTurn && !isNestedVariant
-          ? { minHeight: `${activeTurnMinHeight}px` }
-          : undefined}
+        style={activeTurnReserveStyle({
+          isActiveTurn,
+          isNestedVariant,
+          isDetachedTail,
+          minHeightPx: activeTurnMinHeight,
+        })}
       >
         {item.blocks.map(renderConversationBlock)}
         {!isNestedVariant && props.footer && item.id === footerRenderItemId ? (
@@ -4109,48 +4216,43 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       className={cn("pb-0", !isNestedVariant && "session-transcript-root mx-auto w-full")}
       style={transcriptStyle}
     >
-      {shouldVirtualize ? (
-        // Always render the virtualized container once we've decided to
-        // virtualize — even if virtualRows is empty on the very first tick
-        // (e.g. scrollElement ref hasn't attached yet). A fallback to
-        // rendering every message would re-introduce the eager-render
-        // freeze on huge sessions.
+      {useVirtualWindow ? (
         <>
           <div
             className="relative"
             style={{
-            height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
-            width: "100%",
-          }}
-        >
-          {firstVirtualRow ? (
-            <div
-              className="absolute left-0 top-0 w-full"
-              style={{
-                transform: `translateY(${firstVirtualRow.start}px)`,
-              }}
-            >
-              {virtualRows.map((virtualRow) => {
-                const item = virtualRenderItems[virtualRow.index];
-                if (!item) return null;
-                return (
-                  <div
-                    key={virtualRow.key}
-                    data-index={virtualRow.index}
-                    // Skip live measure mid-scroll — see measureWhileScrolling.
-                    ref={
-                      measureWhileScrolling
-                        ? virtualizer.measureElement
-                        : undefined
-                    }
-                    className="w-full"
-                  >
-                    {renderTranscriptItem(item)}
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
+              height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
+              width: "100%",
+            }}
+          >
+            {firstVirtualRow ? (
+              <div
+                className="absolute left-0 top-0 w-full"
+                style={{
+                  transform: `translateY(${firstVirtualRow.start}px)`,
+                }}
+              >
+                {virtualRows.map((virtualRow) => {
+                  const item = virtualRenderItems[virtualRow.index];
+                  if (!item) return null;
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      // Skip live measure mid-scroll — keep measuring while streaming.
+                      ref={
+                        shouldMeasureVirtualRows
+                          ? virtualizer.measureElement
+                          : undefined
+                      }
+                      className="w-full"
+                    >
+                      {renderTranscriptItem(item)}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
           {detachedTailRenderItem
             ? renderTranscriptItem(detachedTailRenderItem)
@@ -4158,9 +4260,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         </>
       ) : (
         <div>
-          {renderItems.map((item) => (
+          {/*
+            Prefer normal flow until the virtualizer has a real scroll window.
+            Otherwise estimate-only totalSize creates a tall empty shell.
+          */}
+          {(shouldVirtualize ? virtualRenderItems : renderItems).map((item) => (
             <div key={item.id}>{renderTranscriptItem(item)}</div>
           ))}
+          {shouldVirtualize && detachedTailRenderItem
+            ? renderTranscriptItem(detachedTailRenderItem)
+            : null}
         </div>
       )}
     </div>

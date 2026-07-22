@@ -16,13 +16,23 @@ export type AsyncStorage = {
   removeItem(key: string): Promise<void>;
 };
 
+export type PlatformNotifyOptions = {
+  /** Show even when the app window is focused (default: false). */
+  force?: boolean;
+};
+
 export type Platform = {
   platform: "web" | "desktop";
   os?: "macos" | "windows" | "linux";
   version?: string;
   openLink(url: string): void;
   restart(): Promise<void>;
-  notify(title: string, description?: string, href?: string): Promise<void>;
+  notify(
+    title: string,
+    description?: string,
+    href?: string,
+    options?: PlatformNotifyOptions,
+  ): Promise<void>;
   storage?: (name?: string) => SyncStorage | AsyncStorage;
   checkUpdate?: () => Promise<{ updateAvailable: boolean; version?: string }>;
   update?: () => Promise<void>;
@@ -88,7 +98,7 @@ export function createDefaultPlatform(): Platform {
 
       window.location.reload();
     },
-    notify: async (title, description, href) => {
+    notify: async (title, description, href, options) => {
       if (!("Notification" in window)) return;
 
       const permission =
@@ -99,7 +109,7 @@ export function createDefaultPlatform(): Platform {
       if (permission !== "granted") return;
 
       const inView = document.visibilityState === "visible" && document.hasFocus();
-      if (inView) return;
+      if (inView && options?.force !== true) return;
 
       await Promise.resolve()
         .then(() => {

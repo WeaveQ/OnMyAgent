@@ -261,7 +261,9 @@ describe("expert marketplace UI contract", () => {
     expect(assistantPage).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
-    expect(expertPage).toContain("activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    // Build pending first, activate, open draft (+ 新任务 clears pending), re-activate.
+    expect(expertPage).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
+    expect(expertPage).toContain("activateDraftAgent(pendingWithStart)");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {

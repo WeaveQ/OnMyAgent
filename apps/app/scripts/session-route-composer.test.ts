@@ -440,9 +440,12 @@ describe("session route composer", () => {
 
     expect(uploaded).toHaveLength(1);
     expect(uploaded[0]?.path).toContain("session-uploads/");
+    // Must stay text-only for non-native MIME (no file parts → model reject).
     expect(parts).toHaveLength(1);
     expect(parts[0]).toMatchObject({ type: "text" });
     expect(parts[0]?.text).toContain("report.pdf (application/pdf)");
-    expect(parts[0]?.text).toContain("/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf");
+    expect(parts[0]?.text).toContain(
+      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf",
+    );
   });
 });
