@@ -100,7 +100,7 @@ describe("output-limit recovery", () => {
       "utf8",
     );
     const transcriptSource = await readFile(
-      new URL("../src/react-app/domains/session/surface/message-list.tsx", import.meta.url),
+      new URL("../src/react-app/domains/session/surface/message-list/message-block-row.tsx", import.meta.url),
       "utf8",
     );
     const fixtureSource = await readFile(
