@@ -23,7 +23,11 @@ describe("ar-collector expert contract", () => {
       "skills/ar-collection/references/onmyagent-automations.md",
     );
     const readme = readExpertFile("README.md");
+    const expertManifest = readExpertFile(".expert-plugin/plugin.json");
+    const onMyAgentManifest = readExpertFile(".onmyagent-plugin/plugin.json");
 
+    expect(onMyAgentManifest).toBe(expertManifest);
+    expect(JSON.parse(expertManifest).version).toBe("1.1.0");
     expect(agent).toContain("ar-ledger.json");
     expect(agent).toContain("定时任务");
     expect(agent).toContain("build_ar_artifacts.py");
@@ -57,7 +61,7 @@ describe("ar-collector expert contract", () => {
               amountInvoiced: 1000,
               amountPaid: 0,
               amountOpen: 1000,
-              dueDate: "2026-07-14",
+              dueDate: "2026-08-14",
               status: "overdue",
               owner: "A",
               nextNode: "+7",
@@ -89,12 +93,22 @@ describe("ar-collector expert contract", () => {
       expect(
         exportJson.files.some((f) => f.endsWith("ar-daily-board.json")),
       ).toBe(true);
+      expect(
+        exportJson.files.some((f) => f.endsWith("ar-Acme-FP-1-next.json")),
+      ).toBe(true);
       const proposal = readFileSync(
         join(outputDir, "automations/proposals/ar-daily-board.json"),
         "utf8",
       );
       expect(proposal).toContain('"scene": "office"');
       expect(proposal).toContain("应收催收");
+      const invoiceProposal = readFileSync(
+        join(outputDir, "automations/proposals/ar-Acme-FP-1-next.json"),
+        "utf8",
+      );
+      expect(invoiceProposal).toContain('"mode": "once"');
+      expect(invoiceProposal).toContain('"invoiceNo": "FP-1"');
+      expect(invoiceProposal).toContain("不自动发送");
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }
