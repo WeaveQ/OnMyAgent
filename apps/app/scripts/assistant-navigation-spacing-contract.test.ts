@@ -15,9 +15,10 @@ describe("assistant navigation spacing contract", () => {
     );
 
     expect(source).toContain('data-assistant-primary-actions="true"');
-    expect(source).toContain('className="grid gap-0.5"');
+    // Room between new-task and automation so the rail doesn't feel stacked.
+    expect(source).toContain('className="grid gap-1.5"');
     expect(source).toContain('size="sidebar"');
-    expect(source).toContain('className="space-y-0 pb-1 pt-3"');
+    expect(source).toContain('className="space-y-0 pb-2.5 pt-3.5"');
     // XOR highlight: new task only when draft home; automation only when rail active.
     // Never force permanent muted fill on both rows.
     expect(source).toContain(
@@ -41,15 +42,15 @@ describe("assistant navigation spacing contract", () => {
       "utf8",
     );
 
-    // Track group density + NavTab size tab (theme-system: track uses tab, not free-float filter).
-    expect(source).toContain('density="filter"');
+    // Free-float pill tabs (bare density) with a little gap so 办公/代码 aren't cramped.
+    expect(source).toContain('density="bare"');
     expect(source).toContain('size="tab"');
     expect(source).toContain('shape="tab"');
-    expect(source).toContain('className="h-10 w-full max-w-none"');
+    expect(source).toContain('className="h-9 w-full max-w-none gap-1"');
     expect(source).toContain(
-      "relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3 text-sm",
+      "relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3.5 text-sm",
     );
-    expect(source).toContain("justify-center mac:titlebar-no-drag");
+    expect(source).toContain("mb-3.5 flex w-full justify-center mac:titlebar-no-drag");
     expect(source).not.toMatch(/size="filter"/);
   });
 
