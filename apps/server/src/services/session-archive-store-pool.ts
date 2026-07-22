@@ -34,6 +34,9 @@ function poolKey(dbPath: string, readOnly: boolean) {
  * Long-lived archive store pool: same dbPath reuses one SQLite handle while
  * refs > 0 (and briefly after release until idle TTL). Prevents SSE poll ticks
  * from open/close thrashing.
+ *
+ * Concurrent acquire of the same key shares a single in-flight open Promise so
+ * two SSE connections cannot double-open and overwrite the map entry.
  */
 export function createSessionArchiveStorePool(options?: {
   idleTtlMs?: number;
@@ -42,6 +45,8 @@ export function createSessionArchiveStorePool(options?: {
   const idleTtlMs = Math.max(0, options?.idleTtlMs ?? 60_000);
   const open = options?.open ?? openSessionArchiveStore;
   const entries = new Map<string, PoolEntry>();
+  /** In-flight open promises keyed by poolKey — join concurrent acquirers. */
+  const opening = new Map<string, Promise<PoolEntry>>();
   let openCount = 0;
 
   const clearIdle = (entry: PoolEntry) => {
@@ -71,13 +76,39 @@ export function createSessionArchiveStorePool(options?: {
         existing.refs += 1;
         return existing.store;
       }
-      openCount += 1;
-      const store = await open({
-        dbPath: input.dbPath,
-        readOnly,
-      });
-      entries.set(key, { store, refs: 1, idleTimer: null });
-      return store;
+
+      let inflight = opening.get(key);
+      if (!inflight) {
+        openCount += 1;
+        inflight = (async () => {
+          const store = await open({
+            dbPath: input.dbPath,
+            readOnly,
+          });
+          // If an entry appeared while we awaited (should not with single-flight),
+          // prefer the map entry and close the extra handle.
+          const raced = entries.get(key);
+          if (raced) {
+            try {
+              store.close();
+            } catch {
+              // ignore
+            }
+            return raced;
+          }
+          const entry: PoolEntry = { store, refs: 0, idleTimer: null };
+          entries.set(key, entry);
+          return entry;
+        })().finally(() => {
+          opening.delete(key);
+        });
+        opening.set(key, inflight);
+      }
+
+      const entry = await inflight;
+      clearIdle(entry);
+      entry.refs += 1;
+      return entry.store;
     },
 
     release(input) {
@@ -104,6 +135,7 @@ export function createSessionArchiveStorePool(options?: {
       for (const [key, entry] of [...entries.entries()]) {
         dropEntry(key, entry);
       }
+      opening.clear();
     },
 
     stats() {
