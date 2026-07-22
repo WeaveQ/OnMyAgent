@@ -11,7 +11,7 @@ apps/
   desktop/      Electron shell：main.mjs（composition）+ runtime.mjs + desktop-command-router.mjs + `electron/desktop-handlers/*` 域 IPC handlers；sidecar 管理与打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / skills / expert-marketplace、architecture-info、application-menu、startup-flags、Computer Use、Code workspace actions、browser-runtime、UI control bridge、lightweight GitHub Releases updater 均为独立模块
     resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
-  server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE 事件流；server.ts 只保留 composition root + OpenCode/配置共享 helper，路由已按 system/dev-ui/runtime/integration/workspace/file/session/import-export/blueprint 等模块注册
+  server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE；archive store pool + change-bus（见 Server Archive Runtime）；server.ts 为 composition root + OpenCode/配置 helper，路由按 system/dev-ui/runtime/workspace/file/session/import-export/blueprint 等模块注册
     src/        运行时代码：core/routes/services/workspace 分层，根目录只保留入口与编排文件
     tests/      单元/集成测试
     e2e/        HTTP/API 端到端测试
@@ -20,6 +20,7 @@ apps/
 packages/
   types/        共享类型与 Zod schema：server API / Desktop IPC（含 `DesktopCommandMap`）/ desktop-policies / restrictions / inference；health/status/runtime 响应类型也在此包
   ui/           Paper shader 视觉组件：仅 React 导出（`@onmyagent/ui/react`）；Solid 已移除
+  artifact-runtime/ 文档/表格/演示等 artifact 运行时（CJS helpers，供预览路径）
   handsfree/    macOS-only Computer Use：Swift AX + Appshot + JS CUA runner（Windows/Linux 不打包 helper）
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
 ```
@@ -35,11 +36,11 @@ apps/app/src/react-app/
   kernel/          Zustand store + platform/sdk/server provider
   shell/           路由 + boot + layout + command-palette（只编排，不深链 domain 子路径）
   infra/           React-only 运行时基建（如 QueryClient）
-  capabilities/    跨域复用的应用能力（artifact、model selection、session identity）
+  capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ model-selection / session-identity
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
-    session/       会话运行时：composer/surface/sync/sidebar（主轨底栏 channels+devices）/artifacts/browser/voice/goal；expert/skills marketplace
-    local-agents/  ACP / 本地 agent 编辑、卡片、agent-management
+    session/       **OpenCode 主轨**会话：composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/voice/goal；expert/skills marketplace
+    local-agents/  **Personal 辅轨**：ACP / 本地 agent 编辑、卡片、agent-management、personal host
     messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
@@ -49,7 +50,7 @@ apps/app/src/react-app/
     plugins/       skills catalog / plugins / connectors pages
     shell-feedback/ reload banner、toast、右上角通知
     shared/        跨域 infra only（env / extension / desktop-config / server-store）
-  shell/session-route/  会话宿主 folder facade（index 薄导出 + render/intent/composer 模块）
+  shell/session-route/  会话宿主 facade（薄编排：hooks + bags 组装 surface；业务在 domains/session）
 apps/app/src/components/ui/  shadcn/ui atoms + FilterChip/SegmentedTabGroup（见 DESIGN.md）
 apps/app/src/app/lib/        兼容层：desktop.ts、onmyagent-server.ts、opencode.ts
 apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索引：只供 UI 列表与搜索
@@ -81,9 +82,83 @@ app(React) ← opencode.ts(SDK) ← opencode binary
 app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommandMap）
 ```
 
+## Dual Runtime Boundary（OpenCode vs Personal Local Agent）
+
+产品内存在两套会话相关运行时。**主辅关系固定，不因 UI 共用而模糊。**
+
+| | **OpenCode（主）** | **Personal Local Agent（辅）** |
+| --- | --- | --- |
+| 定位 | 软件运行底层与主会话真相源 | 桌面侧便利入口：把本机 CLI/ACP agent 接到同一产品 UI |
+| 典型用户价值 | 工作区会话、server API、archive、SSE、分析、主聊天 | 在 OnMyAgent 内使用 Claude Code / Codex / Hermes / OpenClaw / 自定义 CLI 等 |
+| 宿主进程 | server sidecar + OpenCode binary（及 orchestrator 编排） | Electron main 内 `personal-agent-runtime` kernel |
+| UI 域 | `domains/session` | `domains/local-agents` |
+| 传输 | HTTP `onmyagent-server` + OpenCode SDK / SSE | Desktop IPC `localAgents` |
+| 状态归属 | server session + session-archive（SQLite 等） | personal conversation store / run 状态（desktop 侧） |
+| 是否主引擎 | **是** | **否**——不替代 OpenCode，不作为产品主会话底座 |
+
+### 一句话
+
+**OpenCode = 主运行时；Personal = 本机 CLI agent 的统一 harness（适配层），不是第二套主引擎。**
+
+### 共享合同（可以共用）
+
+- UI 时间线形状：`react-app/capabilities/conversation/` 把两边消息映射到同一套 conversation items（展示层复用，不是存储合并）。
+- 产品级 session / agent 身份展示可走中立 capability；**写路径仍按归属表分流**。
+- Personal 侧 adapter 事件合同：`personal-agent-runtime/contract.mjs`（仅 Personal run 流）。
+- Desktop 公共类型：`@onmyagent/types` 中 IPC / server schema（按域使用，不混写语义）。
+
+### 禁止交叉写 / 禁止混用（硬边界）
+
+1. **Personal 不得**直接打开、写入或 dispose OpenCode / server 的 session-archive、主会话 SQLite 热路径。
+2. **OpenCode / server 生命周期**不得把 Personal conversation store 当作主会话真相源；Personal run 结束也不应「顺便」写主 archive，除非未来有**显式、单向、有主的**导出合同（默认无）。
+3. **同一用户意图**不得对同一逻辑会话同时挂两套热写路径（一边 HTTP session stream，一边 personal run 写同一 archive 行）。
+4. **Renderer 禁止** import `personal-agent-runtime/**` 或 adapter 实现；只经 `desktop.ts` IPC 与 `onmyagent-server` HTTP。
+5. **Adapter 只做协议翻译**（CLI/ACP ↔ contract 事件）；kernel 管 run/conversation/approval；sidecar `createRuntimeManager` 管 OpenCode/server 进程——三层不要互相越权改对方 store。
+6. **注销 / dispose**：OpenCode client、archive pool、Personal runtime 各自 teardown；一边失败不得留下另一边半开写句柄。
+7. **新增能力默认落主轨**：工作区主聊天、归档分析、SSE 推送优化优先 OpenCode/server；仅当需求是「接某个本机 CLI agent」时才加 Personal adapter / `local-agents` UI。
+
+### 决策启发式（改代码前）
+
+- 改的是主会话、archive、SSE、workspace 会话 API？→ **OpenCode / server**。
+- 改的是本机 Claude/Codex/… 进程、ACP、local agent 卡片、personal 通道发消息？→ **Personal**。
+- 两边 UI 看起来像同一个聊天？→ 只共享 **conversation capability 展示**，不共享写存储。
+- 不确定谁写？→ **默认 OpenCode 主轨**；Personal 只读或独立 store，直到有书面合同。
+
+实现细节与 adapter 列表见 **Runtime Adapter**；主轨 archive 热路径见 **Server Archive Runtime**。
+
+## Server Archive Runtime（主轨热路径）
+
+OpenCode 主会话的归档/分析/SSE 落在 `apps/server`，**不是** Personal runtime 的一部分。
+
+### 模块分工（`apps/server/src/services/`）
+
+| 模块 | 职责 |
+| --- | --- |
+| `session-archive.ts` (+ schema/sql/parser/sync/…) | SQLite archive 实现与同步逻辑（大文件，继续拆分中） |
+| `session-archive-store-pool.ts` | **长期 handle 池**：同 `dbPath` 复用、ref-count、idle TTL、**single-flight** 并发 open |
+| `archive-change-bus.ts` | 按 `dbPath` 的轻量变更总线；mutation 后 `notifyArchiveDbChanged` |
+| `archive-sse-policy.ts` | SSE 轮询/推送策略（与 pool 长连接配合，避免每 tick open/close） |
+| `session-archive-analytics.ts` + `analytics-cache-policy.ts` | 分析读模型与 TTL；过期应 **整表失效** 而非半新半旧 |
+| `opencode-client-pool.ts` | workspace 级 OpenCode client 复用（与 archive pool 类似意图） |
+| `session-archive-lifecycle.ts` | 生命周期辅助；**现状**：仍有路径 **裸调** `openSessionArchiveStore`（未走 pool）— 收敛目标见下 |
+
+HTTP 入口：`routes/workspace-session-archive-routes.ts`（列表/同步/SSE/analytics 等）应优先 `defaultSessionArchiveStorePool.acquire` / `release`，mutation 后 `notifyArchiveDbChanged`。
+
+### 热路径约定
+
+1. **读/SSE/HTTP archive 路由**：只经 store pool，禁止每次请求 `open` + 立即 `dispose` 打 thrash。
+2. **写/同步完成后**：调用 change-bus，让已连接 SSE 推送，而不是只靠慢轮询。
+3. **Analytics cache**：TTL 到期整 cache 重建（`ensureFresh` 全量 reset 语义），禁止 scope 混用导致部分 stale。
+4. **收敛目标（未完成）**：lifecycle / 其它旁路 **全部** 改走 pool 或显式「一次性 short-lived open」辅助，并在 PR 说明；新增代码不得再引入第二套 bare open 习惯路径。
+5. **OpenCode client**：workspace 代理优先 `opencode-client-pool`；logout/dispose 与 pool `disposeAll` 对齐，避免半开 client。
+
+### 与双运行时边界的关系
+
+Archive pool / change-bus / analytics **仅服务 OpenCode 主轨**。Personal conversation store 不进这些模块；Personal 也不得直接 `openSessionArchiveStore`。
+
 ## Runtime Adapter (multi-agent harness)
 
-OpenCode 仍是产品 / server 的主会话底座；桌面端在此之上另托管 **Personal Local Agent** 多 agent harness，使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 domain handlers（`desktop-handlers/local-agents.mjs` 等）与 `main.mjs` 组合层暴露 IPC——**renderer 不直接 import adapters**。
+在上一节主辅边界下，桌面端托管 **Personal Local Agent** 多 agent harness：使 Claude / Codex / Hermes / OpenClaw / OpenCode ACP / Remote ACP / custom CLI 等本地 agent 走同一套 run 事件合同与 UI 路径。实现集中在 `apps/desktop/electron/personal-agent-runtime/`，由 `runtime.mjs` 的 `createDesktopPersonalRuntimeServices` 组装，经 domain handlers（`desktop-handlers/local-agents.mjs` 等）与 `main.mjs` 组合层暴露 IPC——**renderer 不直接 import adapters**。Personal **不是** OpenCode 的替代实现。
 
 ### Adapter contract
 
@@ -177,6 +252,10 @@ pnpm check:boundaries
 `scripts/checks/baselines/forbidden-types.json`。新增会立即失败；旧违规修完后运行
 `node scripts/checks/check-forbidden-types.mjs --write` 缩小基线，`--list` 打印全部
 发现。这条规则来自 AGENTS.md 的"不用 `any`、类型断言 `as`"硬性禁止。
+
+`pnpm check:file-size` 是**文件体量基线门禁**（`scripts/checks/baselines/file-size.json`）：
+已登记大文件只允许缩减、禁止无说明膨胀。新增大文件应先拆分或显式刷新 baseline；
+与 god-file 治理（`server.ts`、`session-archive.ts`、`session-surface.tsx`、`main.mjs` 等）配套。
 
 当前检查覆盖：
 
@@ -312,12 +391,16 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 1. 已开始：server API contract 迁入 `@onmyagent/types/server`，server 旧 `types.ts` 只保留兼容 re-export。
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
-3. 下一步：继续压缩 `server.ts` 中 OpenCode/client/config 共享 helper，条件成熟后迁入专门 service 模块，但保持路由 composition root 不承载业务路由实现。
-4. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
-5. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。
+3. **已完成一轮（主轨 perf）**：archive **store pool** + SSE 长连接 + **change-bus** 推送钩子 + analytics TTL 全量失效 + OpenCode client pool；见 **Server Archive Runtime**。残留：lifecycle 等路径仍裸 open；mutation→notify 覆盖面需按路由审计补齐。
+4. **已落文档**：双运行时主辅（OpenCode 主 / Personal 辅）见 **Dual Runtime Boundary**；实现层收敛（统一 open API、禁交叉写）仍按该节执行。
+5. 下一步：继续压缩 `server.ts` / `session-archive.ts` 等 god-file 与 OpenCode/client/config helper；保持 composition root 不承载业务路由。`pnpm check:file-size` 防回胀。
+6. 进行中：session **host-thin**（`shell/session-route` 只编排 hooks/bags，`domains/session` 持业务）；与 Personal UI 解耦保持 barrel 边界。
+7. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
+8. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。
 
 ## Personal Local Agent Runtime
 
+- **主辅**：Personal 是辅轨（本机 CLI harness），不是主会话引擎；主辅与禁止交叉写见上文 **Dual Runtime Boundary**。
 - UI 实现主目录：`apps/app/src/react-app/domains/local-agents/`（management / cards / ACP hooks / messages）。
 - 会话宿主页保留兼容入口，但跨域调用必须通过 `local-agents` 一级 barrel 与 kernel 契约；文件级 `allowedDomainImports` 已清零（见上文 Package Boundaries），新跨域边只走 public barrel。
 - Desktop harness / adapter 分层见上文 **Runtime Adapter (multi-agent harness)**；本段只记 UI 域边界。

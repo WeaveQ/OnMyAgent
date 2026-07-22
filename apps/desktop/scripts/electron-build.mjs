@@ -66,8 +66,15 @@ run(pnpmCmd, ["--filter", "onmyagent-server", "build"], repoRoot);
 // ONMYAGENT_ELECTRON_BUILD tells Vite to emit relative asset paths so
 // index.html resolves /assets/* correctly when loaded via file:// from
 // inside the packaged .app bundle.
+// Raise V8 heap for vite production builds — GHA macos-14 runners have
+// OOM'd mid-bundle (SIGABRT) under default ~2–4GB Node limits.
+const nodeHeap =
+  process.env.NODE_OPTIONS && process.env.NODE_OPTIONS.includes("max-old-space-size")
+    ? process.env.NODE_OPTIONS
+    : [process.env.NODE_OPTIONS, "--max-old-space-size=8192"].filter(Boolean).join(" ");
 run(pnpmCmd, ["--filter", "@onmyagent/app", "build"], repoRoot, {
   ONMYAGENT_ELECTRON_BUILD: "1",
+  NODE_OPTIONS: nodeHeap,
 });
 // Copy constants.json next to server dist so the packaged asar can resolve it.
 // Also patch the compiled import path so it works from both dev and packaged layouts.

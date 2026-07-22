@@ -8,7 +8,7 @@ import type {
   SessionSurfaceMarketplaceBag,
   SessionSurfaceModelBag,
   SessionSurfacePermissionBag,
-} from "../../domains/session/surface/session-surface-types";
+} from "../../domains/session";
 import type {
   CollaborationGoalRuntime,
   CollaborationPlanRuntime,
