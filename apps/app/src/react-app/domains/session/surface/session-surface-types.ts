@@ -170,10 +170,32 @@ export function flattenSessionSurfaceProps(
   };
 }
 
+/**
+ * Flat props assembled by the session route (no per-workspace identity —
+ * SessionPage injects client/workspaceId/sessionId/opencodeBaseUrl/token).
+ */
+export type SessionSurfaceAssemblyFlat = Omit<
+  SessionSurfaceFlatProps,
+  | "client"
+  | "workspaceId"
+  | "sessionId"
+  | "opencodeBaseUrl"
+  | "onmyagentToken"
+>;
+
+export type SessionSurfaceAssemblyProps = Omit<
+  SessionSurfaceProps,
+  | "client"
+  | "workspaceId"
+  | "sessionId"
+  | "opencodeBaseUrl"
+  | "onmyagentToken"
+>;
+
 /** Group a flat surface props object (legacy assembly) into domain bags. */
 export function bagSessionSurfaceProps(
-  flat: SessionSurfaceFlatProps,
-): SessionSurfaceProps {
+  flat: SessionSurfaceAssemblyFlat,
+): SessionSurfaceAssemblyProps {
   const {
     modelLabel,
     onModelClick,

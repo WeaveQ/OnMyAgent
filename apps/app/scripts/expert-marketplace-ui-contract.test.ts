@@ -191,6 +191,12 @@ describe("expert marketplace UI contract", () => {
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
+    const summonHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
+    );
+    const myExpertsHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-my-expert-packages.ts",
+    );
     const storePage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
     );
@@ -214,15 +220,18 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("onOpenAgents={openExpertMarket}");
     expect(expertPage).toContain("activeTab={storeActiveTab}");
     expect(expertPage).toContain("onSummonMarketplaceExpert={handleStartMarketplaceExpert}");
+    // Install + my-experts list live in shared hooks (expert still installs on summon path).
     expect(expertPage).toContain("installSummonedMarketplaceExpert(expert)");
-    expect(assistantPage).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(assistantPage).toContain("useSummonMarketplaceExpert");
+    expect(summonHook).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(myExpertsHook).toContain('listExpertPackages("my-experts")');
+    expect(expertPage).toContain("useMyExpertPackages");
     expect(installHelper).toContain('expert.source !== "builtin"');
     expect(installHelper).toContain('marketplace: "experts"');
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
     expect(expertPage).not.toContain("agentEditRequest");
     expect(expertPage).not.toContain("onOpenAgentSettings={");
     expect(expertPage).not.toContain("<ExpertMarketplaceDialog");
-    expect(expertPage).toContain('listExpertPackages("my-experts")');
     expect(pendingAgent).toContain('const source = expert.source === "mine" ? "mine" : "builtin"');
     expect(pendingAgent).toContain('avatarOptionId: "marketplace-expert"');
     expect(pendingAgent).toContain("systemPrompt: expert.systemPrompt");
@@ -256,9 +265,15 @@ describe("expert marketplace UI contract", () => {
   test("marketplace summon opens a fresh expert draft before agent activation", () => {
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const summonHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
+    );
 
-    expect(assistantPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
-    expect(assistantPage).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    // Assistant summon path: shared hook creates task + pending agent, then switches mode.
+    expect(assistantPage).toContain("useSummonMarketplaceExpert");
+    expect(summonHook).toContain("onCreateTaskInWorkspace(selectedWorkspaceId)");
+    expect(summonHook).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    expect(summonHook).toContain('onNavigateToMode("expert")');
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
     // Build pending first, activate, open draft (+ 新任务 clears pending), re-activate.
@@ -476,7 +491,9 @@ describe("expert marketplace UI contract", () => {
   test("keeps built-in package installation delayed until a real session exists", () => {
     const sessionRoute = [
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/page-view.tsx"),
+      // Assembly lives in impl; thin surface-props-hook.ts only re-exports.
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook.ts"),
+      readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts"),
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/intent.ts"),
     ].join("\n");
     const agentContext = readWorkspaceFile("apps/app/src/react-app/shell/session-route/agent-context.ts");
