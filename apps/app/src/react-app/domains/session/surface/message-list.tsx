@@ -642,7 +642,12 @@ function attachmentsForParts(parts: TranscriptPart[]) {
       filename?: string;
       mime?: string;
     };
-    const attachment = {
+    const attachment: {
+      url: string;
+      filename: string;
+      mime: string;
+      relativePath?: string;
+    } = {
       url: record.url ?? "",
       filename: record.filename ?? "attachment",
       mime: record.mime ?? "application/octet-stream",
