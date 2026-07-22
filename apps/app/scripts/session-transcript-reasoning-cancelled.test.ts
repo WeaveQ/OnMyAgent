@@ -1,11 +1,32 @@
 import { describe, expect, test } from "bun:test";
 
+const messageListSurfaceDir = new URL(
+  "../src/react-app/domains/session/surface/",
+  import.meta.url,
+);
+const messageListSourceFiles = [
+  "message-list.tsx",
+  "message-list/chrome.tsx",
+  "message-list/reasoning.tsx",
+  "message-list/dividers.ts",
+  "message-list/step-row.tsx",
+  "message-list/steps-container.tsx",
+  "message-list/process-fold-ui.tsx",
+  "message-list/turn-content.tsx",
+] as const;
+
+async function readMessageListSources() {
+  const parts = await Promise.all(
+    messageListSourceFiles.map((relativePath) =>
+      Bun.file(new URL(relativePath, messageListSurfaceDir)).text(),
+    ),
+  );
+  return parts.join("\n");
+}
+
 describe("session transcript WorkBuddy reasoning and cancellation states", () => {
   test("renders reasoning as a collapsed streaming-aware Markdown disclosure", async () => {
-    const source = await Bun.file(new URL(
-      "../src/react-app/domains/session/surface/message-list.tsx",
-      import.meta.url,
-    )).text();
+    const source = await readMessageListSources();
 
     expect(source).toContain("function TranscriptReasoning");
     expect(source).toContain("const [collapsed, setCollapsed] = useState(true)");
@@ -20,10 +41,7 @@ describe("session transcript WorkBuddy reasoning and cancellation states", () =>
   });
 
   test("marks only the trailing active reasoning part as streaming", async () => {
-    const source = await Bun.file(new URL(
-      "../src/react-app/domains/session/surface/message-list.tsx",
-      import.meta.url,
-    )).text();
+    const source = await readMessageListSources();
 
     expect(source).toContain("isTrailingMessageContent");
     expect(source).toContain("isLastPartInGroup");
@@ -31,10 +49,7 @@ describe("session transcript WorkBuddy reasoning and cancellation states", () =>
   });
 
   test("places the cancellation indicator after the final assistant content", async () => {
-    const source = await Bun.file(new URL(
-      "../src/react-app/domains/session/surface/message-list.tsx",
-      import.meta.url,
-    )).text();
+    const source = await readMessageListSources();
 
     expect(source).toContain('data-cancelled-indicator="true"');
     expect(source).toContain("function TranscriptCancelledIndicator");
