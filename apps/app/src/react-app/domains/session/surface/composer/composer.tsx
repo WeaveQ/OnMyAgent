@@ -1026,17 +1026,19 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
-  const hasBottomAccessory = Boolean(props.bottomAccessory);
+  const homeLayout = Boolean(props.homeLayout);
+  // Home / expert-empty: fold workspace+permission into the primary toolbar so
+  // the card stays one compact unit (no tall empty middle + sparse under-bar).
+  const inlineToolbarAccessory = homeLayout && Boolean(props.bottomAccessory);
+  const underCardAccessory = Boolean(props.bottomAccessory) && !inlineToolbarAccessory;
   // When workspace/permission bar sits under the card, share the outer silhouette:
   // full width + square joint (no top corners on the bar, no bottom corners on the card).
   const panelRoundedClass =
     mentionOpen || slashOpen
       ? "rounded-t-[18px] border-t-transparent"
-      : hasBottomAccessory
+      : underCardAccessory
         ? "rounded-t-xl rounded-b-none"
         : "rounded-xl";
-
-  const homeLayout = Boolean(props.homeLayout);
 
   return (
     <div
@@ -1065,7 +1067,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       >
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
-          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
+          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
@@ -1209,8 +1211,10 @@ export function ReactSessionComposer(props: ComposerProps) {
                   ? "px-3.5 pb-1.5 pt-2"
                   : "px-4 pb-2 pt-2"
                 : homeLayout
-                  ? // Same tight empty height as assistant in-session composer.
-                    "px-3.5 pb-1.5 pt-2.5"
+                  ? // Filled draft: tighter top so one-line prompts sit close to the toolbar.
+                    props.draft.trim()
+                      ? "px-3.5 pb-1.5 pt-2"
+                      : "px-3.5 pb-1.5 pt-2.5"
                   : "px-4 pb-2 pt-3"
             }
           >
@@ -1405,6 +1409,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     />
                   ) : null}
                 </div>
+                {inlineToolbarAccessory ? (
+                  <div className="flex min-w-0 shrink items-center">
+                    {props.bottomAccessory}
+                  </div>
+                ) : null}
                 {shouldShowCollaborationChip && selectedModeOption ? (
                   <Button
                     type="button"
@@ -1499,8 +1508,8 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           </div>
         </div>
-        {/* Secondary chrome: full-width bar flush under card, square top corners. */}
-        {props.bottomAccessory ? (
+        {/* Secondary chrome under the card (in-session only). Home folds this into the toolbar. */}
+        {underCardAccessory ? (
           <div
             className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
               props.showOuterBorder ? " border border-t-0 border-dls-border shadow-sm" : ""

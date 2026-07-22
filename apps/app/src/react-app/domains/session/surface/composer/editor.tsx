@@ -778,8 +778,9 @@ export function LexicalPromptEditor(props: EditorProps) {
         - min-h holds the editor to a single-line look until the user starts typing.
         - max-h caps the composer — long pastes / multi-paragraph drafts scroll
           inside the editor instead of pushing the transcript out of view.
-        - compact (home / expert empty): match the in-session assistant height —
-          short empty card, less whitespace under one line of placeholder.
+        - compact (home / expert empty): short empty card; once draft has text,
+          drop the large min-height so one-line prompts don't leave a tall gap
+          above the toolbar.
       */}
       <div className="relative">
         <PlainTextPlugin
@@ -787,7 +788,9 @@ export function LexicalPromptEditor(props: EditorProps) {
             <ContentEditable
               className={
                 props.compact
-                  ? "min-h-14 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+                  ? props.value.trim()
+                    ? "min-h-6 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+                    : "min-h-10 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
                   : "min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
               }
               aria-placeholder={props.placeholder}

@@ -37,7 +37,16 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(mode).toContain("expertEmptyComposer");
     expect(mode).toContain("personalAssistantDraftHome");
     const editor = read("src/react-app/domains/session/surface/composer/editor.tsx");
-    expect(editor).toMatch(/props\.compact[\s\S]*min-h-14/);
+    // Compact empty uses a short min-height; filled draft drops to min-h-6.
+    expect(editor).toMatch(/props\.compact[\s\S]*min-h-10/);
+    expect(editor).toContain('props.value.trim()');
+    expect(editor).toContain('"min-h-6 max-h-72');
+    const composer = read("src/react-app/domains/session/surface/composer/composer.tsx");
+    expect(composer).toContain("inlineToolbarAccessory");
+    expect(composer).toContain("underCardAccessory");
+    const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
+    expect(layout).toContain("homeComposerLayout");
+    expect(layout).toContain("max-w-2xl");
   });
 
   test("files panel is tree-first until a file is selected", () => {
