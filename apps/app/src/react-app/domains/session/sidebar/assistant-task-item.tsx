@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactElement,
@@ -57,6 +58,57 @@ export const TASK_CONTEXT_MENU_CLASS =
 
 export const TASK_CONTEXT_MENU_SEPARATOR_CLASS =
   "my-1 h-px bg-dls-border/80";
+
+/** Matches `min-w-[11.5rem]` on TASK_CONTEXT_MENU_CLASS. */
+export const TASK_CONTEXT_MENU_WIDTH = 184;
+
+/**
+ * Place a fixed context menu relative to an anchor.
+ * Prefer below; flip above when the remaining viewport space under the
+ * anchor is shorter than the menu (and shorter than space above).
+ */
+export function positionTaskContextMenu(
+  anchor: Pick<DOMRect, "top" | "bottom" | "left" | "right">,
+  options?: {
+    width?: number;
+    /** Approximate menu height before measure; default covers ~5 rows. */
+    estimatedHeight?: number;
+    gap?: number;
+    margin?: number;
+  },
+): { left: number; top: number } {
+  const width = options?.width ?? TASK_CONTEXT_MENU_WIDTH;
+  const height = options?.estimatedHeight ?? 220;
+  const gap = options?.gap ?? 4;
+  const margin = options?.margin ?? 8;
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1280;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
+
+  let left = anchor.right - width;
+  left = Math.min(
+    Math.max(margin, left),
+    Math.max(margin, viewportWidth - width - margin),
+  );
+
+  const spaceBelow = viewportHeight - anchor.bottom - margin;
+  const spaceAbove = anchor.top - margin;
+  // Flip up when below cannot fit and above has more room (or enough room).
+  const openBelow =
+    spaceBelow >= height || (spaceBelow >= spaceAbove && spaceBelow >= 96);
+
+  let top = openBelow
+    ? anchor.bottom + gap
+    : anchor.top - gap - height;
+
+  top = Math.min(
+    Math.max(margin, top),
+    Math.max(margin, viewportHeight - height - margin),
+  );
+
+  return { left, top };
+}
 
 /** Quiet outline row — icon + label, soft hover wash (matches reference). */
 export const TASK_CONTEXT_MENU_ITEM_CLASS =
@@ -128,6 +180,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
   const unread = Boolean(props.unread) && !props.selected;
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{
     left: number;
     top: number;
@@ -142,6 +195,19 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
       window.removeEventListener("click", close);
       window.removeEventListener("blur", close);
     };
+  }, [menuOpen]);
+
+  // After paint, re-place using real menu size so near-bottom rows flip up.
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const anchor = anchorRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchor, {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 220,
+      }),
+    );
   }, [menuOpen]);
 
   const singleLine = props.singleLine === true;
@@ -247,8 +313,11 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
             onClick={(event) => {
               event.stopPropagation();
               if (anchorRef.current) {
-                const rect = anchorRef.current.getBoundingClientRect();
-                setMenuPosition({ left: rect.right - 176, top: rect.bottom + 4 });
+                setMenuPosition(
+                  positionTaskContextMenu(
+                    anchorRef.current.getBoundingClientRect(),
+                  ),
+                );
               }
               setMenuOpen((value) => !value);
             }}
@@ -310,6 +379,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
 
       {menuOpen && menuPosition ? (
         <div
+          ref={menuRef}
           className={TASK_CONTEXT_MENU_CLASS}
           data-task-context-menu="true"
           style={{ left: menuPosition.left, top: menuPosition.top }}

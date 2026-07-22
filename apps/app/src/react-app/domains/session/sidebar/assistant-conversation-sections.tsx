@@ -1,6 +1,8 @@
 /** @jsxImportSource react */
 import {
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent,
@@ -52,7 +54,10 @@ import {
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_CONTEXT_MENU_SEPARATOR_CLASS,
+  TASK_CONTEXT_MENU_WIDTH,
   TASK_ROW_ACTION_CLASS,
+  TASK_ROW_ARCHIVE_CHIP_CLASS,
+  positionTaskContextMenu,
 } from "./assistant-task-item";
 import {
   resolveUnreadAgentIdForSession,
@@ -98,7 +103,15 @@ type AssistantConversationSectionsProps = {
   workspaceId: string;
   selectedSessionId: string | null;
   sessionStatusById?: Record<string, string>;
+  /** Unpinned scheduled groups for the Schedules section. */
   automationGroups: AssistantAutomationGroup<AgentConversationGroup>[];
+  /**
+   * All scheduled groups (incl. globally pinned) — used by the pin strip and
+   * local-pin lookup. Defaults to automationGroups when omitted.
+   */
+  automationGroupsAll?: AssistantAutomationGroup<AgentConversationGroup>[];
+  /** automationId → local pin order inside that scheduled group. */
+  automationLocalPinsById?: Record<string, string[]>;
   /** Built once in the panel — pin / space / recent rules. */
   listModel: AssistantListModel;
   expandedDirectories: string[];
@@ -109,6 +122,7 @@ type AssistantConversationSectionsProps = {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onTogglePinned: (sessionId: string) => void;
   onToggleFolderPinned?: (directory: string) => void;
+  onToggleAutomationGroupPinned?: (groupId: string) => void;
   onReorderGlobalPins?: (fromIndex: number, toIndex: number) => void;
   onReorderSpaceFolders?: (orderedDirectories: string[]) => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
@@ -119,6 +133,14 @@ type AssistantConversationSectionsProps = {
   onRemoveSpaceDirectory?: (directory: string) => void;
   onArchiveSpaceDirectory?: (directory: string) => void;
   onCreateTaskInDirectory?: (directory: string) => void;
+  /** Soft-archive every run under a scheduled-task group. */
+  onArchiveAutomationGroup?: (groupId: string) => void;
+  /** Confirm + permanently delete every run under a scheduled-task group. */
+  onDeleteAutomationGroup?: (target: {
+    groupId: string;
+    title: string;
+    sessionIds: string[];
+  }) => void;
 };
 
 function assistantDirectoryName(directory: string) {
@@ -588,6 +610,7 @@ function SpaceDirectoryRow(props: {
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{
     left: number;
     top: number;
@@ -602,6 +625,18 @@ function SpaceDirectoryRow(props: {
       window.removeEventListener("click", close);
       window.removeEventListener("blur", close);
     };
+  }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const anchor = anchorRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchor, {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 200,
+      }),
+    );
   }, [menuOpen]);
 
   const titleWithCount =
@@ -640,11 +675,12 @@ function SpaceDirectoryRow(props: {
                 onClick={(event) => {
                   event.stopPropagation();
                   if (anchorRef.current) {
-                    const rect = anchorRef.current.getBoundingClientRect();
-                    setMenuPosition({
-                      left: rect.right - 176,
-                      top: rect.bottom + 4,
-                    });
+                    setMenuPosition(
+                      positionTaskContextMenu(
+                        anchorRef.current.getBoundingClientRect(),
+                        { estimatedHeight: 200 },
+                      ),
+                    );
                   }
                   setMenuOpen((value) => !value);
                 }}
@@ -668,11 +704,28 @@ function SpaceDirectoryRow(props: {
                 </button>
               </IconHoverTip>
             ) : null}
+            {props.onArchiveDirectory ? (
+              <IconHoverTip label={t("session.archive_space")}>
+                <button
+                  type="button"
+                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.archive_space")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onArchiveDirectory?.(props.directory);
+                  }}
+                >
+                  <Archive strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
           </div>
         }
       />
       {menuOpen && menuPosition ? (
         <div
+          ref={menuRef}
           className={TASK_CONTEXT_MENU_CLASS}
           data-task-context-menu="true"
           style={{ left: menuPosition.left, top: menuPosition.top }}
@@ -737,6 +790,209 @@ function SpaceDirectoryRow(props: {
               >
                 <Trash2 strokeWidth={1.75} />
                 {t("session.remove_from_space_list")}
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** Scheduled-task group row — clock icon + ⋯ / pin / archive actions. */
+function AutomationGroupRow(props: {
+  title: string;
+  groupId: string;
+  expanded: boolean;
+  pinned?: boolean;
+  onToggle: () => void;
+  onTogglePinned?: (groupId: string) => void;
+  onArchive?: (groupId: string) => void;
+  onDelete?: (groupId: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const hasMenu =
+    Boolean(props.onTogglePinned) ||
+    Boolean(props.onArchive) ||
+    Boolean(props.onDelete);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("click", close);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const anchor = anchorRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchor, {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 180,
+      }),
+    );
+  }, [menuOpen]);
+
+  return (
+    <>
+      <FolderRowShell
+        title={props.title}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+        className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
+        icon={
+          <CalendarClock
+            className="size-3.5 shrink-0 text-dls-text/55"
+            strokeWidth={1.6}
+          />
+        }
+        trailing={
+          <div
+            className={cn(
+              "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
+              menuOpen && "opacity-100",
+            )}
+          >
+            {hasMenu ? (
+              <IconHoverTip label={t("session.task_actions")}>
+                <button
+                  ref={anchorRef}
+                  type="button"
+                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.task_actions")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (anchorRef.current) {
+                      setMenuPosition(
+                        positionTaskContextMenu(
+                          anchorRef.current.getBoundingClientRect(),
+                          { estimatedHeight: 180 },
+                        ),
+                      );
+                    }
+                    setMenuOpen((value) => !value);
+                  }}
+                >
+                  <MoreHorizontal strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
+            {props.onTogglePinned ? (
+              <IconHoverTip
+                label={props.pinned ? t("session.unpin") : t("session.pin")}
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    TASK_ROW_ACTION_CLASS,
+                    props.pinned
+                      ? "text-dls-accent hover:text-dls-accent"
+                      : "text-dls-text/50",
+                  )}
+                  aria-label={
+                    props.pinned ? t("session.unpin") : t("session.pin")
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onTogglePinned?.(props.groupId);
+                  }}
+                >
+                  {props.pinned ? (
+                    <PinOff strokeWidth={1.75} />
+                  ) : (
+                    <Pin strokeWidth={1.75} />
+                  )}
+                </button>
+              </IconHoverTip>
+            ) : null}
+            {props.onArchive ? (
+              <IconHoverTip label={t("session.archive_task")}>
+                <button
+                  type="button"
+                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.archive_task")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onArchive?.(props.groupId);
+                  }}
+                >
+                  <Archive strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
+          </div>
+        }
+      />
+      {menuOpen && menuPosition ? (
+        <div
+          ref={menuRef}
+          className={TASK_CONTEXT_MENU_CLASS}
+          data-task-context-menu="true"
+          style={{ left: menuPosition.left, top: menuPosition.top }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {props.onTogglePinned ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onTogglePinned?.(props.groupId);
+              }}
+            >
+              {props.pinned ? (
+                <PinOff strokeWidth={1.75} />
+              ) : (
+                <Pin strokeWidth={1.75} />
+              )}
+              {props.pinned ? t("session.unpin") : t("session.pin")}
+            </button>
+          ) : null}
+          {props.onArchive ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onArchive?.(props.groupId);
+              }}
+            >
+              <Archive strokeWidth={1.75} />
+              {t("session.archive_task")}
+            </button>
+          ) : null}
+          {props.onDelete ? (
+            <>
+              {props.onArchive || props.onTogglePinned ? (
+                <div
+                  className={TASK_CONTEXT_MENU_SEPARATOR_CLASS}
+                  role="separator"
+                />
+              ) : null}
+              <button
+                type="button"
+                className={TASK_CONTEXT_MENU_ITEM_CLASS}
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onDelete?.(props.groupId);
+                }}
+              >
+                <Trash2 strokeWidth={1.75} />
+                {t("session.delete_task")}
               </button>
             </>
           ) : null}
@@ -815,11 +1071,18 @@ function pinOwnsSession(
   selectedSessionId: string | null,
   groupsBySessionId: Map<string, AgentConversationGroup>,
   spaceItemsByDirectory: Map<string, AgentConversationGroup[]>,
+  automationItemsById: Map<string, AgentConversationGroup[]>,
 ): boolean {
   if (!selectedSessionId) return false;
   if (pin.kind === "session") {
     const group = groupsBySessionId.get(pin.id);
     return group ? assistantTaskSelected(group, selectedSessionId) : false;
+  }
+  if (pin.kind === "automation") {
+    return groupIncludesSession(
+      automationItemsById.get(pin.id) ?? [],
+      selectedSessionId,
+    );
   }
   return groupIncludesSession(
     spaceItemsByDirectory.get(pin.id) ?? [],
@@ -874,6 +1137,27 @@ export function AssistantConversationSections(
     spaceLocalPinsByDirectory,
   } = props.listModel;
 
+  const automationGroupsAll =
+    props.automationGroupsAll ?? props.automationGroups;
+  const automationLocalPinsById = props.automationLocalPinsById ?? {};
+  const automationItemsById = useMemo(() => {
+    const map = new Map<string, AgentConversationGroup[]>();
+    for (const group of automationGroupsAll) {
+      map.set(group.id, group.items);
+    }
+    return map;
+  }, [automationGroupsAll]);
+  const automationGroupById = useMemo(() => {
+    const map = new Map<
+      string,
+      AssistantAutomationGroup<AgentConversationGroup>
+    >();
+    for (const group of automationGroupsAll) {
+      map.set(group.id, group);
+    }
+    return map;
+  }, [automationGroupsAll]);
+
   const pinnedCount = globalPins.length;
   const recentCount = recentGroups.length;
   const spacesCount = spaceFolders.reduce(
@@ -910,6 +1194,7 @@ export function AssistantConversationSections(
           selected,
           groupsBySessionId,
           spaceItemsByDirectory,
+          automationItemsById,
         ),
       )
     ) {
@@ -936,7 +1221,7 @@ export function AssistantConversationSections(
     }
     if (
       groupIncludesSession(
-        props.automationGroups.flatMap((group) => group.items),
+        automationGroupsAll.flatMap((group) => group.items),
         selected,
       )
     ) {
@@ -945,9 +1230,10 @@ export function AssistantConversationSections(
       );
     }
   }, [
+    automationGroupsAll,
+    automationItemsById,
     globalPins,
     groupsBySessionId,
-    props.automationGroups,
     props.selectedSessionId,
     recentGroups,
     spaceFolders,
@@ -1070,6 +1356,78 @@ export function AssistantConversationSections(
             onOpenFolder={props.onOpenFolder}
             onSaveToSpace={props.onSaveToSpace}
           />
+        </div>
+      );
+    }
+
+    if (pin.kind === "automation") {
+      const autoGroup = automationGroupById.get(pin.id);
+      if (!autoGroup) return null;
+      const groupLabel = t("automation.session_group_title", {
+        title: autoGroup.title,
+      });
+      const expandedAuto =
+        props.expandedAutomationDirectories.includes(pin.id);
+      return (
+        <div
+          key={`pin-automation:${pin.id}`}
+          className={cn(
+            "relative flex flex-col gap-0.5",
+            props.onReorderGlobalPins && "cursor-grab active:cursor-grabbing",
+            isDragging && "opacity-40",
+          )}
+          {...dragProps}
+        >
+          <AutomationGroupRow
+            title={groupLabel}
+            groupId={pin.id}
+            expanded={expandedAuto}
+            pinned
+            onToggle={() =>
+              props.onExpandedAutomationDirectoriesChange((current) =>
+                current.includes(pin.id)
+                  ? current.filter((item) => item !== pin.id)
+                  : [...current, pin.id],
+              )
+            }
+            onTogglePinned={props.onToggleAutomationGroupPinned}
+            onArchive={props.onArchiveAutomationGroup}
+            onDelete={
+              props.onDeleteAutomationGroup
+                ? () =>
+                    props.onDeleteAutomationGroup?.({
+                      groupId: pin.id,
+                      title: autoGroup.title,
+                      sessionIds: autoGroup.items.map(
+                        (item) => item.latestSession.id,
+                      ),
+                    })
+                : undefined
+            }
+          />
+          {expandedAuto ? (
+            <FolderChildren>
+              <AssistantTaskRows
+                groups={autoGroup.items}
+                workspaceId={props.workspaceId}
+                selectedSessionId={props.selectedSessionId}
+                sessionStatusById={props.sessionStatusById}
+                singleLine
+                pinnable
+                pinnedSessionIds={
+                  new Set(automationLocalPinsById[pin.id] ?? [])
+                }
+                folderPathBySessionId={folderPathBySessionId}
+                onOpenSession={props.onOpenSession}
+                onPrefetchSession={props.onPrefetchSession}
+                onTogglePinned={props.onTogglePinned}
+                onRenameSession={props.onRenameSession}
+                onArchiveSession={props.onArchiveSession}
+                onDeleteSession={props.onDeleteSession}
+                onOpenFolder={props.onOpenFolder}
+              />
+            </FolderChildren>
+          ) : null}
         </div>
       );
     }
@@ -1394,8 +1752,9 @@ export function AssistantConversationSections(
                   });
                   return (
                     <div key={group.id} className="flex flex-col gap-0.5">
-                      <FolderRowShell
+                      <AutomationGroupRow
                         title={groupLabel}
+                        groupId={group.id}
                         expanded={expandedAuto}
                         onToggle={() =>
                           props.onExpandedAutomationDirectoriesChange(
@@ -1405,11 +1764,19 @@ export function AssistantConversationSections(
                                 : [...current, group.id],
                           )
                         }
-                        icon={
-                          <CalendarClock
-                            className="size-3.5 shrink-0 text-dls-text/55"
-                            strokeWidth={1.6}
-                          />
+                        onTogglePinned={props.onToggleAutomationGroupPinned}
+                        onArchive={props.onArchiveAutomationGroup}
+                        onDelete={
+                          props.onDeleteAutomationGroup
+                            ? () =>
+                                props.onDeleteAutomationGroup?.({
+                                  groupId: group.id,
+                                  title: group.title,
+                                  sessionIds: group.items.map(
+                                    (item) => item.latestSession.id,
+                                  ),
+                                })
+                            : undefined
                         }
                       />
                       {expandedAuto ? (
@@ -1432,7 +1799,12 @@ export function AssistantConversationSections(
                                   selectedSessionId={props.selectedSessionId}
                                   sessionStatusById={props.sessionStatusById}
                                   singleLine
-                                  pinnable={false}
+                                  pinnable
+                                  pinnedSessionIds={
+                                    new Set(
+                                      automationLocalPinsById[group.id] ?? [],
+                                    )
+                                  }
                                   folderPathBySessionId={folderPathBySessionId}
                                   onOpenSession={props.onOpenSession}
                                   onPrefetchSession={props.onPrefetchSession}
@@ -1441,7 +1813,8 @@ export function AssistantConversationSections(
                                   onArchiveSession={props.onArchiveSession}
                                   onDeleteSession={props.onDeleteSession}
                                   onOpenFolder={props.onOpenFolder}
-                                  onSaveToSpace={props.onSaveToSpace}
+                                  // Scheduled runs stay in automation history —
+                                  // do not offer "save to space" from this list.
                                 />
                                 <FolderTaskShowMore
                                   total={items.length}
