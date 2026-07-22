@@ -128,6 +128,7 @@ async function listSkillsInDir(dir: string, scope: SkillScope): Promise<SkillIte
 export type ListSkillsOptions = {
   artifactSkillIds?: ReadonlySet<string>;
   effectiveArtifactSkillIds: ReadonlySet<string>;
+  artifactSkills?: ReadonlyArray<{ name: string; path: string }>;
 };
 
 export async function listSkills(
@@ -136,6 +137,13 @@ export async function listSkills(
   options?: ListSkillsOptions,
 ): Promise<SkillItem[]> {
   const items: SkillItem[] = [];
+
+  if (options?.artifactSkills) {
+    for (const skill of options.artifactSkills) {
+      const item = await parseSkillEntry(skill.path, skill.name, "built-in");
+      if (item) items.push(item);
+    }
+  }
 
   const bundledDir = bundledSkillsDir();
   if (bundledDir) {
@@ -159,13 +167,12 @@ export async function listSkills(
   }
 
   const seen = new Set<string>();
+  const artifactPaths = new Set(options?.artifactSkills?.map((skill) => skill.path));
   return items.filter((item) => {
     if (
       item.scope === "built-in" &&
-      options !== undefined &&
-      (options.artifactSkillIds === undefined ||
-        options.artifactSkillIds.has(item.name)) &&
-      !options.effectiveArtifactSkillIds.has(item.name)
+      options?.artifactSkillIds?.has(item.name) === true &&
+      !artifactPaths.has(item.path)
     ) {
       return false;
     }

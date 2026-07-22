@@ -25,6 +25,7 @@ export const ARTIFACT_PLUGIN_SKILL_IDS = Object.freeze([
   "documents",
   "pdf",
   "spreadsheets",
+  // Reserved so the retired legacy skill cannot reappear through fallback materialization.
   "excel-live-control",
 ]);
 const artifactPluginAppManifestSchema = z.object({

@@ -10,7 +10,7 @@
     "mimeTypes": ["application/pdf"]
   },
   "runtime": {
-    "entry": "runtime/artifact_runtime.py",
-    "requiredTools": ["python", "poppler"]
+    "entry": "skills/pdf/runtime/artifact_runtime.py",
+    "requiredTools": ["python"]
   }
 }

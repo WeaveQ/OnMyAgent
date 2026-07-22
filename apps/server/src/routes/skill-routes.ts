@@ -246,15 +246,32 @@ async function loadArtifactSkillOptions(config: ServerConfig) {
     artifactPluginEnablementPath(config.configPath),
   );
   return {
-    artifactSkillIds: new Set(
-      catalog.items.flatMap((plugin) =>
+    artifactSkillIds: new Set([
+      ...catalog.items.flatMap((plugin) =>
         plugin.runtime.skills.map((skill) => skill.id),
       ),
-    ),
+      "excel-live-control",
+    ]),
     effectiveArtifactSkillIds: resolveEffectiveArtifactSkills(
       catalog,
       enablement,
     ),
+    artifactSkills: catalog.items.flatMap((plugin) => {
+      const pluginState = enablement.plugins[plugin.manifest.name];
+      const skillsRoot = plugin.manifest.skills;
+      if (pluginState?.enabled === false || skillsRoot === undefined) {
+        return [];
+      }
+      return plugin.runtime.skills
+        .filter(
+          (skill) =>
+            (pluginState?.skills[skill.id] ?? skill.defaultEnabled) === true,
+        )
+        .map((skill) => ({
+          name: skill.id,
+          path: join(plugin.root, skillsRoot, skill.id, "SKILL.md"),
+        }));
+    }),
   };
 }
 

@@ -1110,6 +1110,9 @@ export function AutomationPage(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
+  /** When set, open the edit dialog for this automation after list load. */
+  focusAutomationId?: string | null;
+  onFocusAutomationConsumed?: () => void;
 }) {
   const workspace = useWorkspace();
   const local = useLocal();
@@ -1212,6 +1215,25 @@ export function AutomationPage(props: {
     const timer = window.setInterval(refreshAutomations, running.length > 0 ? 2_000 : 15_000);
     return () => window.clearInterval(timer);
   }, [props.client, props.workspaceId, running.length]);
+
+  useEffect(() => {
+    const focusId = props.focusAutomationId?.trim();
+    if (!focusId || loading || busy) return;
+    const item = automations.find((entry) => entry.id === focusId) ?? null;
+    if (!item) return;
+    setDialogMode("edit");
+    setEditingAutomationId(item.id);
+    setForm(formStateFromAutomation(item, local.prefs.defaultModel ?? null));
+    setDialogOpen(true);
+    props.onFocusAutomationConsumed?.();
+  }, [
+    automations,
+    busy,
+    loading,
+    local.prefs.defaultModel,
+    props.focusAutomationId,
+    props.onFocusAutomationConsumed,
+  ]);
 
   const editingItem = editingAutomationId
     ? visibleAutomations.find((item) => item.id === editingAutomationId) ?? null

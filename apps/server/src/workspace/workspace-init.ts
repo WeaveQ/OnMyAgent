@@ -4,6 +4,7 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { ensureDir, exists } from "../core/utils.js";
 import { ApiError } from "../core/errors.js";
 import { isBrowserAutomationEnabled } from "../services/browser-plugin-enablement.js";
+import { buildArtifactPluginGuidance } from "../services/artifact-plugin-guidance.js";
 import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
 import {
   visualDesignSpecToolSource,
@@ -372,6 +373,7 @@ function resolveAgentTemplate(): string {
 async function ensureOnMyAgentAgent(
   workspaceRoot: string,
   browserEnabled: boolean,
+  artifactPluginGuidance: string | undefined,
 ): Promise<boolean> {
   const agentsDir = join(workspaceRoot, ".opencode", "agents");
   const agentPath = join(agentsDir, `${DEFAULT_OPENCODE_AGENT}.md`);
@@ -388,6 +390,9 @@ async function ensureOnMyAgentAgent(
         initial = `${initial.slice(0, startIdx).trimEnd()}\n\n${initial.slice(endIdx + end.length).trimStart()}`;
         if (!initial.endsWith("\n")) initial = `${initial}\n`;
       }
+    }
+    if (artifactPluginGuidance) {
+      initial = `${initial.trimEnd()}\n\n<!-- ${APP_NAME}_FILE_CONNECTORS_START -->\n${artifactPluginGuidance}\n<!-- ${APP_NAME}_FILE_CONNECTORS_END -->\n`;
     }
     await writeFile(agentPath, initial, "utf8");
     return true;
@@ -491,6 +496,29 @@ async function ensureOnMyAgentAgent(
     }
   } else if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
     current = `${current.slice(0, browserAutoStartIdx).trimEnd()}\n\n${current.slice(browserAutoEndIdx + browserAutoEnd.length).trimStart()}`;
+    changed = true;
+  }
+
+  const fileConnectorsStart = `<!-- ${APP_NAME}_FILE_CONNECTORS_START -->`;
+  const fileConnectorsEnd = `<!-- ${APP_NAME}_FILE_CONNECTORS_END -->`;
+  const fileConnectorsStartIdx = current.indexOf(fileConnectorsStart);
+  const fileConnectorsEndIdx = current.indexOf(fileConnectorsEnd);
+  const fileConnectorsBlock = artifactPluginGuidance
+    ? `${fileConnectorsStart}\n${artifactPluginGuidance}\n${fileConnectorsEnd}`
+    : undefined;
+  if (fileConnectorsBlock) {
+    if (fileConnectorsStartIdx >= 0 && fileConnectorsEndIdx > fileConnectorsStartIdx) {
+      const patched = `${current.slice(0, fileConnectorsStartIdx)}${fileConnectorsBlock}${current.slice(fileConnectorsEndIdx + fileConnectorsEnd.length)}`;
+      if (patched !== current) {
+        current = patched;
+        changed = true;
+      }
+    } else {
+      current = `${current.trimEnd()}\n\n${fileConnectorsBlock}\n`;
+      changed = true;
+    }
+  } else if (fileConnectorsStartIdx >= 0 && fileConnectorsEndIdx > fileConnectorsStartIdx) {
+    current = `${current.slice(0, fileConnectorsStartIdx).trimEnd()}\n\n${current.slice(fileConnectorsEndIdx + fileConnectorsEnd.length).trimStart()}`;
     changed = true;
   }
 
@@ -623,9 +651,16 @@ export async function ensureWorkspaceFiles(
   }
   await ensureDir(workspaceRoot);
   const browserEnabled = await isBrowserAutomationEnabled();
+  const artifactPluginGuidance = await buildArtifactPluginGuidance();
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureOnMyAgentAgent(workspaceRoot, browserEnabled)) {
+  if (
+    await ensureOnMyAgentAgent(
+      workspaceRoot,
+      browserEnabled,
+      artifactPluginGuidance,
+    )
+  ) {
     reloadReasons.add("agents");
   }
   if (await retireLegacyBrowserPrompts(workspaceRoot)) reloadReasons.add("agents");
