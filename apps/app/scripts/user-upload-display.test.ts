@@ -31,5 +31,7 @@ describe("user-upload-display", () => {
   test("file url helpers round-trip absolute paths", () => {
     expect(fileUrlFromAbsolutePath("/tmp/a.xlsx")).toBe("file:///tmp/a.xlsx");
     expect(absolutePathFromFileUrl("file:///tmp/a.xlsx")).toBe("/tmp/a.xlsx");
+    // Plain absolute paths pass through for desktop reveal.
+    expect(absolutePathFromFileUrl("/tmp/a.xlsx")).toBe("/tmp/a.xlsx");
   });
 });
