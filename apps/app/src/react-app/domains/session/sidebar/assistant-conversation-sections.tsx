@@ -220,15 +220,16 @@ function AssistantTaskRows(props: {
   onSaveToSpace?: (sessionId: string) => void;
 }) {
   // Subscribe so task unread dots update when stream activity / focus changes.
-  const sessionUnreadByWorkspace = useExpertUnreadStore(
-    (state) => state.sessionUnreadByWorkspace,
+  // Narrow subscribe: only re-render when this workspace's unread slices change.
+  const workspaceSessionUnread = useExpertUnreadStore(
+    (state) => state.sessionUnreadByWorkspace[props.workspaceId],
   );
-  const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
-  const focused = useExpertUnreadStore((state) => state.focused);
+  const workspaceAgentUnread = useExpertUnreadStore(
+    (state) => state.byWorkspace[props.workspaceId],
+  );
   const isSessionUnread = useExpertUnreadStore((state) => state.isSessionUnread);
-  void sessionUnreadByWorkspace;
-  void byWorkspace;
-  void focused;
+  void workspaceSessionUnread;
+  void workspaceAgentUnread;
 
   return (
     <>

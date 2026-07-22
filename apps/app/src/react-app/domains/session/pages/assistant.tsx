@@ -24,9 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { ProviderAuthModal } from "../../connections";
-import { RenameSessionModal } from "../modals/rename-session-modal";
 import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../workspace";
@@ -55,10 +53,6 @@ import { ConversationHistoryPopover } from "../sidebar/conversation-history-popo
 import { SessionHistorySearchChrome } from "./session-history-search-chrome";
 import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { InfiniteCanvasPanel, createCanvasSessionKey } from "../infinite-canvas";
-import {
-  expertMarketplaceCategoryLabel,
-  normalizeExpertMarketplaceCategoryId,
-} from "../expert-marketplace/categories";
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
@@ -91,7 +85,6 @@ import {
   GLOBAL_VOICE_SIDE_PANEL_KEY,
   hiddenAccessibleTargetsStorageKey,
   readHiddenAccessibleTargetIds,
-  sessionTitleForId,
   writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
   readAssistantSelectionMemory,
@@ -101,7 +94,6 @@ import {
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
 import {
-  KeepAlivePane,
   useVisitedRailViews,
 } from "../sidebar/keep-alive-pane";
 import {
@@ -111,6 +103,10 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import {
+  SessionPageMainColumn,
+  SessionRailKeepAliveStack,
+} from "./session-page-shell";
 import {
   BillingPage,
   DevicesPage,
@@ -139,10 +135,19 @@ import {
   isTrackableAccessibleTarget,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
+import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
+import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
+
+type AssistantGroupDeleteTarget = {
+  kind: "automation";
+  title: string;
+  sessionIds: string[];
+};
 
 export function AssistantPage(props: AssistantPageProps) {
   const { showToast } = useStatusToasts();
@@ -179,14 +184,12 @@ export function AssistantPage(props: AssistantPageProps) {
   );
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
-  const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
-  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
-    "list" | "config"
-  >("list");
-  const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
-    setCustomConnectorInitialView(view);
-    setCustomConnectorOpen(true);
-  }, []);
+  const {
+    customConnectorOpen,
+    setCustomConnectorOpen,
+    customConnectorInitialView,
+    openCustomConnector,
+  } = useCustomConnectorDialog();
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
@@ -482,17 +485,6 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   }, [props.selectedSessionId]);
 
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameTitle, setRenameTitle] = useState("");
-  const [renameBusy, setRenameBusy] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [sessionActionId, setSessionActionId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<
-    | { kind: "session"; sessionId: string }
-    | { kind: "automation"; title: string; sessionIds: string[] }
-    | null
-  >(null);
   /** Header find bar (expands in chrome like in-chat search). */
   const [historySearchOpen, setHistorySearchOpen] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -814,11 +806,86 @@ export function AssistantPage(props: AssistantPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
-  const sessionActionTitle = useMemo(
-    () =>
-      sessionTitleForId(props.sidebar.workspaceSessionGroups, sessionActionId),
-    [props.sidebar.workspaceSessionGroups, sessionActionId],
+  const executeAssistantDelete = useCallback(
+    async (
+      target:
+        | { kind: "session"; sessionId: string }
+        | AssistantGroupDeleteTarget,
+    ) => {
+      if (!props.onDeleteSession) return;
+      if (target.kind === "session") {
+        permanentlyRemoveAssistantArchivedTask(
+          props.selectedWorkspaceId,
+          target.sessionId,
+        );
+        await props.onDeleteSession(target.sessionId);
+        return;
+      }
+      for (const sessionId of target.sessionIds) {
+        permanentlyRemoveAssistantArchivedTask(
+          props.selectedWorkspaceId,
+          sessionId,
+        );
+        await props.onDeleteSession(sessionId);
+      }
+    },
+    [props.onDeleteSession, props.selectedWorkspaceId],
   );
+
+  const {
+    renameOpen,
+    renameTitle,
+    setRenameTitle,
+    renameBusy,
+    canSaveRename,
+    deleteOpen,
+    deleteBusy,
+    deleteTarget,
+    sessionActionTitle,
+    openRenameModal,
+    openDeleteModal,
+    openDeleteGroupModal,
+    submitRename,
+    confirmDelete,
+    closeDeleteModal,
+    closeRenameModal,
+  } = useSessionTaskRenameDelete<AssistantGroupDeleteTarget>({
+    selectedSessionId: props.selectedSessionId,
+    workspaceSessionGroups: props.sidebar.workspaceSessionGroups,
+    onRenameSession: props.onRenameSession,
+    onDeleteSession: props.onDeleteSession,
+    executeDelete: executeAssistantDelete,
+    requireGroupSessionIds: true,
+  });
+
+  const openDeleteAutomationGroupModal = useCallback(
+    (target: { groupId: string; title: string; sessionIds: string[] }) => {
+      openDeleteGroupModal({
+        kind: "automation",
+        title: target.title.trim(),
+        sessionIds: target.sessionIds,
+      });
+    },
+    [openDeleteGroupModal],
+  );
+
+  const assistantDeleteTitle = t("session.delete_task_title");
+  const assistantDeleteMessage =
+    deleteTarget?.kind === "automation"
+      ? deleteTarget.title
+        ? t("session.delete_named_task_message", {
+            title: deleteTarget.title,
+          })
+        : t("session.delete_task_generic")
+      : sessionActionTitle.trim()
+        ? t("session.delete_named_task_message", {
+            title: sessionActionTitle.trim(),
+          })
+        : t("session.delete_task_generic");
+  const assistantDeleteConfirmLabel = deleteBusy
+    ? t("session.deleting")
+    : t("session.delete_task");
+
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
   const showStartupSkeleton =
@@ -941,93 +1008,6 @@ export function AssistantPage(props: AssistantPageProps) {
     return () => window.clearTimeout(id);
   }, [showSessionLoadingState]);
 
-  useEffect(() => {
-    setRenameOpen(false);
-    setDeleteOpen(false);
-    setRenameBusy(false);
-    setDeleteBusy(false);
-    setSessionActionId(null);
-    setDeleteTarget(null);
-  }, [props.selectedSessionId]);
-
-  const openRenameModal = (sessionId: string, title: string) => {
-    if (!props.onRenameSession) return;
-    setSessionActionId(sessionId);
-    setRenameTitle(title);
-    setRenameOpen(true);
-  };
-
-  const openDeleteModal = (sessionId: string) => {
-    if (!props.onDeleteSession) return;
-    setSessionActionId(sessionId);
-    setDeleteTarget({ kind: "session", sessionId });
-    setDeleteOpen(true);
-  };
-
-  const openDeleteAutomationGroupModal = (target: {
-    groupId: string;
-    title: string;
-    sessionIds: string[];
-  }) => {
-    if (!props.onDeleteSession) return;
-    const sessionIds = target.sessionIds.filter(
-      (id) => id.trim() && !id.startsWith("draft:"),
-    );
-    if (sessionIds.length === 0) return;
-    setSessionActionId(null);
-    setDeleteTarget({
-      kind: "automation",
-      title: target.title.trim(),
-      sessionIds,
-    });
-    setDeleteOpen(true);
-  };
-
-  const submitRename = async () => {
-    const sessionId = sessionActionId;
-    const nextTitle = renameTitle.trim();
-    if (
-      !sessionId ||
-      !props.onRenameSession ||
-      !nextTitle ||
-      nextTitle === sessionActionTitle.trim()
-    )
-      return;
-    setRenameBusy(true);
-    try {
-      await props.onRenameSession(sessionId, nextTitle);
-      setRenameOpen(false);
-    } finally {
-      setRenameBusy(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget || !props.onDeleteSession) return;
-    setDeleteBusy(true);
-    try {
-      if (deleteTarget.kind === "session") {
-        permanentlyRemoveAssistantArchivedTask(
-          props.selectedWorkspaceId,
-          deleteTarget.sessionId,
-        );
-        await props.onDeleteSession(deleteTarget.sessionId);
-      } else {
-        for (const sessionId of deleteTarget.sessionIds) {
-          permanentlyRemoveAssistantArchivedTask(
-            props.selectedWorkspaceId,
-            sessionId,
-          );
-          await props.onDeleteSession(sessionId);
-        }
-      }
-      setDeleteOpen(false);
-      setDeleteTarget(null);
-    } finally {
-      setDeleteBusy(false);
-    }
-  };
-
   const historySearchShortcut = formatShortcut(["Mod", "F"]);
   const historyMatchLabel =
     historySearchQuery.trim() && historyMatchCount > 0
@@ -1096,7 +1076,7 @@ export function AssistantPage(props: AssistantPageProps) {
               props.onNavigateToMode("expert");
               return;
             }
-            // Returning to assistant must NOT force a new task — restore last selection.
+            // Returning to 助理 must NOT force a new task — restore last selection.
             writeRailView("assistant", props.selectedWorkspaceId, view);
             if (view === "assistant") {
               setAgentPanelCollapsed(false);
@@ -1218,28 +1198,19 @@ export function AssistantPage(props: AssistantPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className={cn(
-                  "flex h-full min-w-0 flex-col overflow-hidden",
-                  // Local agent paints its own list/content chrome; avoid stacking
-                  // extra bg-dls-background under the list (was washing out sidebar).
-                  activeSidebarView === "localAgent"
-                    ? "bg-transparent"
-                    : "bg-dls-background",
-                  sidePanelVisibleOnSession ? "border-r-0" : "border-r border-dls-border",
-                )}>
-                  <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div
-                      className={cn(
-                        "relative min-w-0 flex-1 overflow-hidden",
-                        activeSidebarView === "localAgent"
-                          ? "bg-transparent"
-                          : "bg-dls-background mac:bg-dls-background",
-                      )}
-                    >
-                      <KeepAlivePane
-                        active={activeSidebarView === "store"}
-                        mounted={visitedRailViews.has("store")}
-                      >
+                <SessionPageMainColumn
+                  activeSidebarView={activeSidebarView}
+                  sidePanelBorderOpen={sidePanelVisibleOnSession}
+                >
+                  <SessionRailKeepAliveStack
+                    activeSidebarView={activeSidebarView}
+                    visitedRailViews={visitedRailViews}
+                    isPrimarySessionView={isPrimarySessionView}
+                    primarySessionActive={
+                      isPrimarySessionView && !showDelayedSessionLoadingState
+                    }
+                    panes={{
+                      store: (
                         <StorePage
                           workspaceId={props.selectedWorkspaceId}
                           workspaceRoot={props.selectedWorkspaceRoot}
@@ -1251,12 +1222,8 @@ export function AssistantPage(props: AssistantPageProps) {
                           onCreateExpert={handleCreateExpert}
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "localAgent"}
-                        mounted={visitedRailViews.has("localAgent")}
-                      >
+                      ),
+                      localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
                           onResumeConsumed={() => setPendingArchiveResume(null)}
@@ -1280,12 +1247,8 @@ export function AssistantPage(props: AssistantPageProps) {
                             setActiveSidebarView("agentManagement");
                           }}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "agentManagement"}
-                        mounted={visitedRailViews.has("agentManagement")}
-                      >
+                      ),
+                      agentManagement: (
                         <AgentManagementPage
                           workspaceRoot={props.selectedWorkspaceRoot}
                           intent={agentManagementPageIntent}
@@ -1305,12 +1268,8 @@ export function AssistantPage(props: AssistantPageProps) {
                             />
                           )}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "files"}
-                        mounted={visitedRailViews.has("files")}
-                      >
+                      ),
+                      files: (
                         <WorkspaceFilesPage
                           client={props.onmyagentServerClient}
                           workspaceId={
@@ -1320,36 +1279,16 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
                         />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "projects"}
-                        mounted={visitedRailViews.has("projects")}
-                      >
-                        <ProjectsComingSoonPage />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "devices"}
-                        mounted={visitedRailViews.has("devices")}
-                      >
-                        <DevicesPage />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "channels"}
-                        mounted={visitedRailViews.has("channels")}
-                      >
+                      ),
+                      projects: <ProjectsComingSoonPage />,
+                      devices: <DevicesPage />,
+                      channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      </KeepAlivePane>
-
-                      <KeepAlivePane
-                        active={activeSidebarView === "billing"}
-                        mounted={visitedRailViews.has("billing")}
-                      >
-                        <BillingPage />
-                      </KeepAlivePane>
-
+                      ),
+                      billing: <BillingPage />,
+                    }}
+                    middle={
+                      <>
                       {activeSidebarView === "scheduledTasks" ? (
                         <AutomationPage
                           scene={assistantCategoryId}
@@ -1435,14 +1374,10 @@ export function AssistantPage(props: AssistantPageProps) {
                           </div>
                         </div>
                       ) : null}
-
-                      {canRenderReactSurface ? (
-                        <KeepAlivePane
-                          active={
-                            isPrimarySessionView && !showDelayedSessionLoadingState
-                          }
-                          mounted
-                        >
+                      </>
+                    }
+                    primarySession={
+                      canRenderReactSurface ? (
                           <SessionSurface
                             key={renderedSessionId}
                             {...props.surface!}
@@ -1495,10 +1430,10 @@ export function AssistantPage(props: AssistantPageProps) {
                             }}
                             onOpenCustomConnector={() => openCustomConnector("config")}
                           />
-                        </KeepAlivePane>
-                      ) : null}
-
-                      {isPrimarySessionView &&
+                      ) : null
+                    }
+                    afterPrimary={
+                      isPrimarySessionView &&
                       !showDelayedSessionLoadingState &&
                       !canRenderReactSurface &&
                       !showStartupSkeleton ? (
@@ -1608,10 +1543,11 @@ export function AssistantPage(props: AssistantPageProps) {
                             </div>
                           ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </main>
+                      ) : null
+                    }
+                  />
+                </SessionPageMainColumn>
+
               </ResizablePanel>
               {sidePanelVisibleOnSession ? (
                 <>
@@ -1681,54 +1617,24 @@ export function AssistantPage(props: AssistantPageProps) {
         <ProviderAuthModal {...props.providerAuthModal} />
       ) : null}
 
-      {props.onRenameSession ? (
-        <RenameSessionModal
-          open={renameOpen}
-          title={renameTitle}
-          busy={renameBusy}
-          canSave={
-            renameTitle.trim().length > 0 &&
-            renameTitle.trim() !== sessionActionTitle.trim()
-          }
-          onClose={() => {
-            if (!renameBusy) setRenameOpen(false);
-          }}
-          onSave={() => void submitRename()}
-          onTitleChange={setRenameTitle}
-        />
-      ) : null}
-
-      {props.onDeleteSession ? (
-        <ConfirmModal
-          open={deleteOpen}
-          title={t("session.delete_task_title")}
-          message={
-            deleteTarget?.kind === "automation"
-              ? deleteTarget.title
-                ? t("session.delete_named_task_message", {
-                    title: deleteTarget.title,
-                  })
-                : t("session.delete_task_generic")
-              : sessionActionTitle.trim()
-                ? t("session.delete_named_task_message", {
-                    title: sessionActionTitle.trim(),
-                  })
-                : t("session.delete_task_generic")
-          }
-          confirmLabel={
-            deleteBusy ? t("session.deleting") : t("session.delete_task")
-          }
-          cancelLabel={t("common.cancel")}
-          variant="danger"
-          onConfirm={() => void confirmDelete()}
-          onCancel={() => {
-            if (!deleteBusy) {
-              setDeleteOpen(false);
-              setDeleteTarget(null);
-            }
-          }}
-        />
-      ) : null}
+      <SessionTaskRenameDeleteModals
+        canRename={Boolean(props.onRenameSession)}
+        renameOpen={renameOpen}
+        renameTitle={renameTitle}
+        renameBusy={renameBusy}
+        canSaveRename={canSaveRename}
+        onRenameClose={closeRenameModal}
+        onRenameSave={() => void submitRename()}
+        onRenameTitleChange={setRenameTitle}
+        showDelete={Boolean(props.onDeleteSession)}
+        deleteOpen={deleteOpen}
+        deleteBusy={deleteBusy}
+        deleteTitle={assistantDeleteTitle}
+        deleteMessage={assistantDeleteMessage}
+        deleteConfirmLabel={assistantDeleteConfirmLabel}
+        onDeleteConfirm={() => void confirmDelete()}
+        onDeleteCancel={closeDeleteModal}
+      />
 
       {props.shareWorkspaceModal ? (
         <ShareWorkspaceModal {...props.shareWorkspaceModal} />

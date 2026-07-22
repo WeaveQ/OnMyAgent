@@ -66,11 +66,9 @@ import {
   collaborationModeOptions,
   FLUSH_PROMPT_EVENT,
   FOCUS_PROMPT_EVENT,
-  MAX_ATTACHMENT_BYTES,
   parseClipboardUriList,
   formatBytes,
   isImageAttachment,
-  compressImageFile,
   toReactMcpStatus,
   mcpServerDescription,
   COMPOSER_CONTAIN_STYLE,
@@ -78,6 +76,13 @@ import {
   extensionIconTileClassName,
   pluginSlashCommandName,
 } from "./composer-helpers";
+import {
+  fileFromAppshotPayload,
+  formatAttachmentSuccessDisplayName,
+  formatOversizeAttachmentName,
+  parseAppshotPayload,
+  processAttachmentFiles,
+} from "./attachments";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
 import {
@@ -85,84 +90,10 @@ import {
   sortWithPinnedFirst,
   writePinnedSkillIds,
 } from "./pinned-skills";
-
-/** Client platform for Appshot naming / availability (Electron + browser). */
-function detectClientPlatform(): "macos" | "windows" | "linux" | "unknown" {
-  if (typeof navigator === "undefined") return "unknown";
-  const ua = navigator.userAgent ?? "";
-  const platform = navigator.platform ?? "";
-  if (/Mac|Macintosh|Darwin/i.test(platform) || /Mac OS X|Macintosh/i.test(ua)) {
-    return "macos";
-  }
-  if (/Win/i.test(platform) || /Windows/i.test(ua)) return "windows";
-  if (/Linux/i.test(platform) || /Linux/i.test(ua)) return "linux";
-  return "unknown";
-}
-
-/** Reject Swift debug dumps / control junk so notice + chips stay readable. */
-function isSafeAttachmentDisplayName(name: string): boolean {
-  const value = name.trim();
-  if (!value || value.length > 96) return false;
-  if (/JoinedSequence|ArraySlice|ContiguousArray|_base|_separator|Array</i.test(value)) {
-    return false;
-  }
-  // No control chars / newlines; allow normal unicode file names.
-  if (/[\u0000-\u001f\u007f]/.test(value)) return false;
-  return !value.includes("\n") && !value.includes("\r");
-}
-
-/**
- * Cross-platform Appshot basename.
- * - macOS: strips Swift JoinedSequence dumps from the native helper
- * - Windows: strips reserved device names and illegal path characters
- * - Linux / fallback: same safe basename rules
- */
-function sanitizeAppshotFileName(
-  raw: string,
-  platform: "macos" | "windows" | "linux" | "unknown" = detectClientPlatform(),
-): string {
-  const value = raw.trim().replace(/\\/g, "/");
-  const base = value.includes("/") ? value.slice(value.lastIndexOf("/") + 1) : value;
-  let candidate = base
-    .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "-")
-    .replace(/\.+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const reservedWin =
-    platform === "windows" &&
-    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(candidate);
-
-  const looksBad =
-    !candidate ||
-    !isSafeAttachmentDisplayName(candidate) ||
-    reservedWin ||
-    !/^Appshot[-_\w. ()]+\.(jpe?g|png|webp)$/i.test(candidate);
-
-  if (!looksBad) {
-    return candidate.replace(/\.jpeg$/i, ".jpg");
-  }
-
-  const stamp = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const stampText = [
-    stamp.getFullYear(),
-    pad(stamp.getMonth() + 1),
-    pad(stamp.getDate()),
-    "-",
-    pad(stamp.getHours()),
-    pad(stamp.getMinutes()),
-    pad(stamp.getSeconds()),
-  ].join("");
-  return `Appshot-${stampText}.jpg`;
-}
-
-/** Native Appshot helper is macOS-only today (Swift HandsFree). */
-function isAppshotCaptureSupported(): boolean {
-  if (typeof window === "undefined") return false;
-  if (!window.__ONMYAGENT_ELECTRON__?.computerUse) return false;
-  return detectClientPlatform() === "macos";
-}
+import {
+  detectClientPlatform,
+  isAppshotCaptureSupported,
+} from "./appshot";
 
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
@@ -966,28 +897,15 @@ export function ReactSessionComposer(props: ComposerProps) {
       return;
     }
 
-    const accepted: File[] = [];
-    const oversize: string[] = [];
-
-    for (const original of inputFiles) {
-      const processed = original.type.startsWith("image/") ? await compressImageFile(original) : original;
-      if (processed.size > MAX_ATTACHMENT_BYTES) {
-        oversize.push(processed.name || original.name);
-        continue;
-      }
-      accepted.push(processed);
-    }
+    const { accepted, oversizeNames } = await processAttachmentFiles(inputFiles);
 
     if (accepted.length) {
       props.onAttachFiles(accepted);
       // Compact composer notice — never dump long/corrupted native names into the card.
       if (accepted.length === 1) {
-        const name = accepted[0]?.name?.trim() || "";
-        const displayName = isSafeAttachmentDisplayName(name)
-          ? name.length > 40
-            ? `${name.slice(0, 37)}…`
-            : name
-          : null;
+        const displayName = formatAttachmentSuccessDisplayName(
+          accepted[0]?.name?.trim() || "",
+        );
         props.onNotice({
           title: t("composer.upload_success_title"),
           description: displayName
@@ -1004,40 +922,27 @@ export function ReactSessionComposer(props: ComposerProps) {
       }
     }
 
-    if (oversize.length) {
+    if (oversizeNames.length) {
       props.onNotice({
         title:
-          oversize.length === 1
+          oversizeNames.length === 1
             ? t("composer.file_exceeds_limit", {
-                name: isSafeAttachmentDisplayName(oversize[0] ?? "")
-                  ? oversize[0]
-                  : t("composer.file_kind"),
+                name: formatOversizeAttachmentName(
+                  oversizeNames[0] ?? "",
+                  t("composer.file_kind"),
+                ),
               })
-            : `${oversize.length} files exceed the 8MB limit.`,
+            : `${oversizeNames.length} files exceed the 8MB limit.`,
         tone: "warning",
       });
     }
-
   };
 
   const attachAppshot = async (payload: unknown) => {
-    if (typeof payload !== "object" || payload === null) return;
-    if (!("name" in payload) || typeof payload.name !== "string") return;
-    if (!("mimeType" in payload) || typeof payload.mimeType !== "string") return;
-    if (!("data" in payload) || typeof payload.data !== "string") return;
+    const parsed = parseAppshotPayload(payload);
+    if (!parsed) return;
     // Guard against native bugs that stringify Swift String as JoinedSequence debug text.
-    const safeName = sanitizeAppshotFileName(payload.name);
-    const binary = atob(payload.data);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    await addAttachments([
-      new File([bytes], safeName, {
-        type: payload.mimeType,
-        lastModified: Date.now(),
-      }),
-    ]);
+    await addAttachments([fileFromAppshotPayload(parsed)]);
     // Dedicated short notice — no filename dump (attachment chip already shows it).
     props.onNotice({
       title: t("composer.appshot_success"),

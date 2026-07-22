@@ -1,14 +1,11 @@
 /** @jsxImportSource react */
 import {
-  cloneElement,
-  isValidElement,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import type { ReactElement, ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
@@ -24,27 +21,20 @@ import {
   type CloudImportedPlugin,
 } from "../../../../app/cloud/import-state";
 import type {
-  OnMyAgentServerClient,
   OnMyAgentSessionSnapshot,
 } from "../../../../app/lib/onmyagent-server";
 import type {
   ComposerAttachment,
-  ComposerAccessMode,
   ComposerCollaborationMode,
   ComposerDraft,
   ComposerPart,
   CollaborationGoalRuntime,
-  CollaborationPlanRuntime,
   McpServerEntry,
   McpStatusMap,
-  ModelRef,
-  PendingPermission,
-  PendingQuestion,
   SkillCard,
   TodoItem,
 } from "../../../../app/types";
-import { DevProfiler, publishInspectorSlice, recordInspectorEvent, useReactRenderWatchdog } from "../../../shell";
-import { ReactSessionComposer } from "./composer/composer";
+import { publishInspectorSlice, recordInspectorEvent, useReactRenderWatchdog } from "../../../shell";
 import {
   deriveAssistantActivity,
   getAssistantActivityPhaseLabel,
@@ -57,13 +47,11 @@ import {
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 
 import type { ReactComposerNotice } from "./composer/notice";
-import { SessionDebugPanel } from "./debug-panel";
 import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
 } from "./session-render-state";
 import {
-  SessionTranscript,
   type SessionTranscriptDivider,
 } from "./message-list";
 import { useLocal } from "../../../kernel/local-provider";
@@ -73,18 +61,8 @@ import {
   useSessionActivityStore,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
-import { usePendingAgentStore } from "../../agents";
-import type { PendingAgentContext } from "../../agents";
-import { AgentPromptSuggestions } from "../../agents";
-import { buildPendingAgentFromRecord } from "../../agents";
-import {
-  readCustomAgentIdForSession,
-  useAgentRegistryStore,
-} from "../../agents";
 import {
   deriveOpenTargets,
-  selectAutoOpenTarget,
-  type OpenTarget,
 } from "../artifacts/open-target";
 import {
   seedSessionState,
@@ -102,7 +80,6 @@ import {
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
   shouldShowSessionActivity,
-  settleGoalRuntimeAfterRun,
   summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
@@ -113,7 +90,6 @@ import {
   getComposerPasteParts,
   useComposerStateStore,
 } from "./composer-state-store";
-import { cn } from "@/lib/utils";
 import {
   PERSONAL_ASSISTANT_CATEGORIES,
   ONMYAGENT_ASSISTANT_AVATAR,
@@ -129,15 +105,11 @@ import {
   transcriptToText,
 } from "./session-surface-model";
 import {
-  createComposerAttachments,
   parseSessionError,
   readSnapshotSessionError,
   revokeAttachmentPreview,
   type SessionError,
 } from "./session-surface-support";
-import {
-  planTextFromMessages,
-} from "./plan-goal/plan-parse";
 import {
   filterCompactionMessages,
   messageActivityFingerprint,
@@ -145,22 +117,19 @@ import {
 import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
+import { useSessionSurfaceCollaboration } from "./session-surface-collaboration";
+import { useSessionSurfacePendingAgent } from "./session-surface-pending-agent";
+import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
+import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
+import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
+import { SessionSurfaceView } from "./session-surface-view";
 import {
   AssistantNoVisibleOutputCard,
   AssistantStatusSpacer,
   AssistantWaitingCard,
   OutputLimitContinueCard,
 } from "./chrome/assistant-status";
-import {
-  SessionSurfaceBody,
-  SessionSurfaceComposerColumn,
-  SessionSurfaceTranscriptPane,
-} from "./session-surface-layout";
 import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
-import {
-  SessionSurfaceSwitchingBadge,
-  SessionSurfaceTranscriptContent,
-} from "./session-surface-transcript-content";
 import {
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
@@ -168,7 +137,6 @@ import {
   createSessionInterruptionNotice,
   goalElapsedMs,
   isGoalIntentRuntime,
-  normalizedTodoItems,
   removeRecordKey,
   shouldRecordSessionInterruption,
   transcriptNoticeLabel,
@@ -180,18 +148,10 @@ import {
 } from "./chrome/personal-assistant";
 
 import {
-  ASSISTANT_RECOVERY_HINT_MS,
-  ASSISTANT_STALL_NOTICE_MS,
   EMPTY_TRANSCRIPT,
   IDLE_STATUS,
   MAX_TRANSCRIPT_NOTICES_PER_SESSION,
 } from "./session-surface-constants";
-import {
-  SessionDraftWorkspaceAccessory,
-  SessionSurfaceDraftHome,
-  SessionSurfaceExpertEmpty,
-  SessionSurfaceHeader,
-} from "./session-surface-chrome";
 import {
   renderSessionComposerAccessories,
   applyGoalWaitingReason,
@@ -247,12 +207,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
   );
   const [showFolderRequiredBubble, setShowFolderRequiredBubble] =
     useState(false);
-  const [accessMode, setAccessMode] = useState<ComposerAccessMode>("default");
-  const [collaborationMode, setCollaborationMode] =
-    useState<ComposerCollaborationMode>({
-      planning: false,
-      pursueGoal: false,
-    });
   const [dismissedPlanBySessionId, setDismissedPlanBySessionId] =
     useState<Record<string, boolean>>({});
   const [dismissedGoalBySessionId, setDismissedGoalBySessionId] =
@@ -261,51 +215,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
     dismissedPlanBySessionId[props.sessionId] === true;
   const goalDismissedForSession =
     dismissedGoalBySessionId[props.sessionId] === true;
-  const [officeCollaborationMode, setOfficeCollaborationMode] =
-    useState<ComposerCollaborationMode>({
-      kind: "craft",
-      planning: false,
-      pursueGoal: false,
-    });
-  const effectiveAccessMode = props.sessionAccessMode ?? accessMode;
-  const baseCollaborationMode =
-    assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
-      ? officeCollaborationMode
-      : collaborationMode;
-  const effectiveCollaborationMode =
-    props.sessionCollaborationMode ?? baseCollaborationMode;
-  const updateAccessMode = useCallback(
-    (nextMode: ComposerAccessMode) => {
-      setAccessMode(nextMode);
-      props.onSessionAccessModeChange?.(nextMode);
-    },
-    [props.onSessionAccessModeChange],
-  );
-  const updateCollaborationMode = useCallback(
-    (nextMode: ComposerCollaborationMode) => {
-      if (nextMode.planning || nextMode.kind === "plan") {
-        props.onGoalRuntimeChange?.(null);
-      } else if (
-        nextMode.pursueGoal === true &&
-        nextMode.kind !== "craft"
-      ) {
-        props.onPlanRuntimeChange?.(null);
-      }
-      if (assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office") {
-        setOfficeCollaborationMode(nextMode);
-      } else {
-        setCollaborationMode(nextMode);
-      }
-      props.onSessionCollaborationModeChange?.(nextMode);
-    },
-    [
-      assistantFeatureCategoryId,
-      assistantOfficeFeaturesActive,
-      props.onGoalRuntimeChange,
-      props.onPlanRuntimeChange,
-      props.onSessionCollaborationModeChange,
-    ],
-  );
+  const {
+    effectiveAccessMode,
+    effectiveCollaborationMode,
+    updateAccessMode,
+    updateCollaborationMode,
+  } = useSessionSurfaceCollaboration({
+    sessionAccessMode: props.sessionAccessMode,
+    onSessionAccessModeChange: props.onSessionAccessModeChange,
+    sessionCollaborationMode: props.sessionCollaborationMode,
+    onSessionCollaborationModeChange: props.onSessionCollaborationModeChange,
+    onPlanRuntimeChange: props.onPlanRuntimeChange,
+    onGoalRuntimeChange: props.onGoalRuntimeChange,
+    assistantOfficeFeaturesActive,
+    assistantFeatureCategoryId,
+  });
   const attachments = useComposerStateStore((state) =>
     getComposerAttachments(state, props.sessionId),
   );
@@ -349,8 +273,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     props.draftOnly,
     props.personalAssistantHome,
   ]);
-  const pendingAgent = usePendingAgentStore((state) => state.agent);
-
   useEffect(() => {
     if (!props.personalAssistantHome) return;
     props.onPersonalAssistantCategoryActive?.(assistantCategoryId);
@@ -362,65 +284,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setAssistantScenarioId(null);
   }, [assistantScenarioId, draft]);
 
-  // Subscribe to the global registry store so we re-run the restore effect
-  // after a hard reload (when the registry wasn't available on first mount).
-  const registry = useAgentRegistryStore((state) => state.registry);
-
-  // Restore the pending agent when a session is re-opened: read the cached
-  // custom agent ID for this session from localStorage, look it up in the
-  // global registry store, and rebuild a PendingAgentContext so the welcome
-  // card and transcript avatar render correctly.
-  useEffect(() => {
-    if (props.personalAssistantHome) return;
-    if (!props.sessionId || !registry) return;
-    const current = usePendingAgentStore.getState().agent;
-    // Already have the right agent for this session — nothing to do.
-    if (current && current.boundSessionId === props.sessionId) {
-      return;
-    }
-    const agentId = readCustomAgentIdForSession(props.sessionId);
-    if (!agentId) return;
-    // The current pending agent either doesn't match this session's agent
-    // (navigation to a different agent) — overwrite with the correct agent.
-    // This also fixes the "+ 新会话 -> switch agent" case where the pending
-    // agent was set by handleCreateCurrentAgentSession (unbound) and the user
-    // then navigated away to a different agent's session.
-    if (current && current.id === agentId) {
-      // Same agent, just bind it to this session (e.g. sending first message
-      // in a draft navigates here) — keep other fields.
-      usePendingAgentStore.getState().setAgent({
-        ...current,
-        boundSessionId: props.sessionId,
-      });
-      return;
-    }
-    // Different agent — look in BOTH custom agents AND templates to restore.
-    const agent =
-      registry.agents.find((a) => a.id === agentId) ??
-      registry.templates.find((t) => t.id === agentId);
-    if (!agent) return;
-    const restored = buildPendingAgentFromRecord(agent, registry);
-    if (restored) {
-      usePendingAgentStore.getState().setAgent({
-        ...restored,
-        boundSessionId: props.sessionId,
-      });
-    }
-  }, [props.sessionId, registry]);
-
-  // Only use the pending agent if it's either unbound (draft-only state,
-  // session doesn't exist yet) or bound to the session we're currently
-  // viewing. This keeps the agent avatar/system prompt from bleeding into
-  // unrelated sessions the user navigates to later.
-  const effectiveAgent = props.personalAssistantHome
-    ? null
-    : props.agentContext
-      ? props.agentContext
-    : pendingAgent &&
-        (!pendingAgent.boundSessionId ||
-          pendingAgent.boundSessionId === props.sessionId)
-      ? pendingAgent
-      : null;
+  const { effectiveAgent } = useSessionSurfacePendingAgent({
+    personalAssistantHome: props.personalAssistantHome,
+    sessionId: props.sessionId,
+    agentContext: props.agentContext,
+  });
   const [notice, setNotice] = useState<ReactComposerNotice | null>(null);
   const [error, setError] = useState<SessionError | null>(null);
   const [dismissedErrorMessage, setDismissedErrorMessage] = useState<string | null>(null);
@@ -444,13 +312,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [toolImportedPlugins, setToolImportedPlugins] = useState<
     CloudImportedPlugin[]
   >([]);
-  const [verifiedOpenTargets, setVerifiedOpenTargets] = useState<OpenTarget[]>(
-    [],
-  );
   const composerShellRef = useRef<HTMLDivElement>(null);
   const hydratedKeyRef = useRef<string | null>(null);
-  const autoOpenedTargetRef = useRef<string | null>(null);
-  const initializedAutoOpenSessionRef = useRef<string | null>(null);
   const opencodeClient = useMemo(
     () =>
       createClient(props.opencodeBaseUrl, undefined, {
@@ -531,9 +394,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
-    autoOpenedTargetRef.current = null;
-    initializedAutoOpenSessionRef.current = null;
-    setVerifiedOpenTargets([]);
   }, [props.sessionId]);
 
   useEffect(() => {
@@ -823,66 +683,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
     sessionActivityStatus,
     updateLatestTranscriptNotice,
   ]);
-  useEffect(() => {
-    const runtime = props.planRuntime;
-    if (!runtime || runtime.status !== "drafting" || chatStreaming) return;
-    const planText = planTextFromMessages(
-      renderedMessages.slice(runtime.messageBaseline),
-    );
-    if (!planText) return;
-    props.onPlanRuntimeChange?.({
-      ...runtime,
-      status: "awaiting_approval",
-      planText,
-    });
-  }, [
+  useSessionSurfacePlanGoalEffects({
     chatStreaming,
-    props.onPlanRuntimeChange,
-    props.planRuntime,
     renderedMessages,
-  ]);
-  useEffect(() => {
-    const runtime = props.goalRuntime;
-    if (
-      !isGoalIntentRuntime(runtime) ||
-      runtime.status !== "running" ||
-      chatStreaming
-    ) {
-      return;
-    }
-    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
-    const runText = planTextFromMessages(renderedMessages.slice(baseline));
-    props.onGoalRuntimeChange?.(settleGoalRuntimeAfterRun({
-      runtime,
-      todos: normalizedTodoItems(props.todos),
-      runText,
-      now: Date.now(),
-    }));
-  }, [
-    chatStreaming,
-    props.goalRuntime,
-    props.onGoalRuntimeChange,
-    props.todos,
-    renderedMessages,
-  ]);
-  useEffect(() => {
-    const runtime = props.planRuntime;
-    if (!runtime || runtime.status !== "executing" || chatStreaming) return;
-    const executionBaseline = runtime.executionBaseline ?? runtime.messageBaseline;
-    const executionText = planTextFromMessages(
-      renderedMessages.slice(executionBaseline),
-    );
-    if (!executionText) return;
-    props.onPlanRuntimeChange?.({
-      ...runtime,
-      status: "completed",
-    });
-  }, [
-    chatStreaming,
-    props.onPlanRuntimeChange,
-    props.planRuntime,
-    renderedMessages,
-  ]);
+    planRuntime: props.planRuntime,
+    goalRuntime: props.goalRuntime,
+    todos: props.todos,
+    onPlanRuntimeChange: props.onPlanRuntimeChange,
+    onGoalRuntimeChange: props.onGoalRuntimeChange,
+  });
   const snapshotSessionError = useMemo(
     () => readSnapshotSessionError(snapshot),
     [snapshot],
@@ -900,7 +709,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
         .join("|"),
     [openTargets],
   );
-  const autoOpenTarget = selectAutoOpenTarget(verifiedOpenTargets);
+  const { verifiedOpenTargets } = useSessionSurfaceOpenTargets({
+    sessionId: props.sessionId,
+    workspaceId: props.workspaceId,
+    client: props.client,
+    openTargets,
+    openTargetsFingerprint,
+    chatStreaming,
+    onOpenTarget: props.onOpenTarget,
+    onOpenTargetsChange: props.onOpenTargetsChange,
+  });
   const pendingSessionLoad =
     !props.draftOnly &&
     !snapshot &&
@@ -957,25 +775,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     () => messageActivityFingerprint(renderedMessages),
     [renderedMessages],
   );
-  const [activityPulseAt, setActivityPulseAt] = useState(Date.now());
-  // Stall / recovery flags via one-shot timers — NOT a 1s setInterval.
-  // The old interval re-rendered SessionSurface (+ memo-busted transcript)
-  // every second while the assistant was active, which felt like "scroll is
-  // fine for a few seconds then suddenly janks" once a tick landed mid-gesture.
-  const [showStalledActivityNotice, setShowStalledActivityNotice] =
-    useState(false);
-  const [shouldInjectStallRecovery, setShouldInjectStallRecovery] =
-    useState(false);
-  useEffect(() => {
-    setActivityPulseAt(Date.now());
-    setShowStalledActivityNotice(false);
-    setShouldInjectStallRecovery(false);
-  }, [
-    activityFingerprint,
-    effectiveActivityStatus,
-    liveStatus.type,
-    props.sessionId,
-  ]);
   const activityVisible = shouldShowSessionActivity({
     chatStreaming,
     activityStatus: effectiveActivityStatus,
@@ -990,38 +789,14 @@ export function SessionSurface(props: SessionSurfaceProps) {
           notice.runKey === storedSessionRunKey,
       ),
   });
-  useEffect(() => {
-    if (!activityVisible || effectiveActivityStatus === "compacting") {
-      setShowStalledActivityNotice(false);
-      setShouldInjectStallRecovery(false);
-      return;
-    }
-    const elapsed = Date.now() - activityPulseAt;
-    const stallDelay = Math.max(0, ASSISTANT_STALL_NOTICE_MS - elapsed);
-    const recoveryDelay = Math.max(0, ASSISTANT_RECOVERY_HINT_MS - elapsed);
-    let stallTimer: number | undefined;
-    let recoveryTimer: number | undefined;
-    if (stallDelay === 0) {
-      setShowStalledActivityNotice(true);
-    } else {
-      stallTimer = window.setTimeout(
-        () => setShowStalledActivityNotice(true),
-        stallDelay,
-      );
-    }
-    if (recoveryDelay === 0) {
-      setShouldInjectStallRecovery(true);
-    } else {
-      recoveryTimer = window.setTimeout(
-        () => setShouldInjectStallRecovery(true),
-        recoveryDelay,
-      );
-    }
-    return () => {
-      if (stallTimer !== undefined) window.clearTimeout(stallTimer);
-      if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
-    };
-  }, [activityPulseAt, activityVisible, effectiveActivityStatus]);
+  const { showStalledActivityNotice, shouldInjectStallRecovery } =
+    useSessionSurfaceActivityStall({
+      sessionId: props.sessionId,
+      activityFingerprint,
+      effectiveActivityStatus,
+      liveStatusType: liveStatus.type,
+      activityVisible,
+    });
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
@@ -1115,63 +890,6 @@ export function SessionSurface(props: SessionSurfaceProps) {
     noVisibleAssistantOutputBaseline,
     hasSnapshot: Boolean(snapshot),
   });
-
-  useEffect(() => {
-    if (!autoOpenTarget || chatStreaming) return;
-    if (autoOpenedTargetRef.current === autoOpenTarget.id) return;
-    autoOpenedTargetRef.current = autoOpenTarget.id;
-    props.onOpenTarget?.(autoOpenTarget, { auto: true });
-  }, [autoOpenTarget, chatStreaming, props.onOpenTarget]);
-
-  useEffect(() => {
-    let cancelled = false;
-    function initializeAutoOpenState(targets: OpenTarget[]) {
-      if (initializedAutoOpenSessionRef.current === props.sessionId) return;
-      initializedAutoOpenSessionRef.current = props.sessionId;
-      autoOpenedTargetRef.current = selectAutoOpenTarget(targets)?.id ?? null;
-    }
-
-    async function verifyTargets() {
-      if (!openTargets.length) {
-        initializeAutoOpenState([]);
-        setVerifiedOpenTargets([]);
-        return;
-      }
-      try {
-        const response = await props.client.resolveArtifacts(
-          props.workspaceId,
-          openTargets,
-        );
-        if (!cancelled) {
-          const nextTargets = response.items as OpenTarget[];
-          initializeAutoOpenState(nextTargets);
-          setVerifiedOpenTargets(nextTargets);
-        }
-      } catch {
-        if (!cancelled) {
-          const nextTargets = openTargets.map((target) => ({
-            ...target,
-            exists: target.kind === "url",
-          }));
-          initializeAutoOpenState(nextTargets);
-          setVerifiedOpenTargets(nextTargets);
-        }
-      }
-    }
-    void verifyTargets();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    openTargetsFingerprint,
-    props.client,
-    props.sessionId,
-    props.workspaceId,
-  ]);
-
-  useEffect(() => {
-    props.onOpenTargetsChange?.(verifiedOpenTargets);
-  }, [props.onOpenTargetsChange, verifiedOpenTargets]);
 
   useEffect(() => {
     if (!pendingSessionLoad) {
@@ -2081,259 +1799,152 @@ export function SessionSurface(props: SessionSurfaceProps) {
       />
     ) : null;
 
-  // When the multi-session tab strip is expanded it owns the bottom rule;
-  // hide the header border so expert chrome does not draw two lines.
-  const [sessionTabsExpanded, setSessionTabsExpanded] = useState(
-    () => Boolean(props.conversationTabs),
-  );
-  useEffect(() => {
-    if (!props.conversationTabs) setSessionTabsExpanded(false);
-  }, [props.conversationTabs]);
-  const conversationTabsNode = useMemo(() => {
-    if (!props.conversationTabs || !isValidElement(props.conversationTabs)) {
-      return props.conversationTabs ?? null;
-    }
-    return cloneElement(
-      props.conversationTabs as ReactElement<{
-        onExpandedChange?: (expanded: boolean) => void;
-      }>,
-      { onExpandedChange: setSessionTabsExpanded },
-    );
-  }, [props.conversationTabs]);
-
   return (
-    <DevProfiler id="SessionSurface">
-      <div className="flex h-full min-h-0 flex-col">
-        {/* New-task / draft home: no top agent chrome — hero + composer own the canvas.
-            Once a session has messages (or is loading), pin the header at the top. */}
-        {!personalAssistantDraftHome ? (
-          <SessionSurfaceHeader
-            agent={chatHeaderAgent}
-            codeSceneToolbar={codeSceneToolbar}
-            personalAssistantHome={props.personalAssistantHome}
-            onOpenAgentSettings={props.onOpenAgentSettings}
-            headerActions={props.headerActions}
-            showBottomBorder={!sessionTabsExpanded}
-          />
-        ) : null}
-        {!personalAssistantDraftHome ? conversationTabsNode : null}
-        <SessionSurfaceSwitchingBadge
-          visible={model.transitionState === "switching" && showDelayedLoading}
-          fromCache={model.renderSource === "cache"}
-        />
-
-        {/* Body: draft home centers title+composer; chat fills remaining height. */}
-        <SessionSurfaceBody personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}>
-        <SessionSurfaceTranscriptPane
-          hidden={Boolean(personalAssistantDraftHome)}
-          sessionId={props.sessionId}
-          scrollRef={scrollRef}
-          contentRef={contentRef}
-          showJumpToLatest={!personalAssistantDraftHome}
-          onWheel={(event) => {
-            sessionScroll.markWheelGesture(event.deltaY, event.target);
-          }}
-          onTouchStart={(event) => {
-            sessionScroll.markScrollGesture(event.target);
-          }}
-          onTouchMove={(event) => {
-            sessionScroll.markScrollGesture(event.target);
-          }}
-          onPointerDown={(event) => {
-            if (event.target !== event.currentTarget) return;
-            sessionScroll.markScrollGesture(event.currentTarget);
-          }}
-          onScroll={sessionScroll.handleScroll}
-          onJumpToLatest={() => {
-            sessionScroll.jumpToLatest("auto");
-          }}
-        >
-          <SessionSurfaceTranscriptContent
-            showDelayedLoading={showDelayedLoading}
-            pendingSessionLoad={pendingSessionLoad}
-            snapshotQueryError={snapshotQuery.isError}
-            snapshotErrorMessage={
-              snapshotQuery.error instanceof Error
-                ? snapshotQuery.error.message
-                : "Failed to load session."
-            }
-            visibleTranscriptError={visibleTranscriptError}
-            hasSnapshot={Boolean(snapshot)}
-            hasTranscriptContent={hasTranscriptContent}
-            activityIdle={effectiveActivityStatus === "idle"}
-            draftOnly={props.draftOnly}
-            snapshotEmpty={Boolean(snapshot && snapshot.messages.length === 0)}
-            personalAssistantHome={props.personalAssistantHome}
-            expertEmpty={
-              effectiveAgent ? (
-                <SessionSurfaceExpertEmpty
-                  agent={{
-                    name: effectiveAgent.name,
-                    description: effectiveAgent.description,
-                    avatar: effectiveAgent.avatar,
-                  }}
-                  promptSuggestions={
-                    <AgentPromptSuggestions
-                      agentId={effectiveAgent.id}
-                      quickPrompts={effectiveAgent.quickPrompts}
-                      onSelect={(prompt) => void typeComposerText(prompt)}
-                      className="shrink-0"
-                    />
-                  }
-                />
-              ) : null
-            }
-            waitingLabel={getAssistantActivityPhaseLabel(assistantActivity)}
-            onDismissError={handleDismissError}
-            onChangeModel={props.onChangeModel}
-            onOpenModelPicker={props.onModelClick}
-            transcript={
-              <SessionTranscript
-                messages={renderedMessages}
-                isStreaming={chatStreaming}
-                developerMode={props.developerMode}
-                showThinking={showThinking}
-                dividers={interruptionDividers}
-                scrollElement={resolveTranscriptScrollElement}
-                onRevertToMessage={props.onRevertToMessage}
-                onForkAtMessage={props.onForkAtMessage}
-                openTargets={verifiedOpenTargets}
-                onOpenTarget={props.onOpenTarget}
-                workspaceRoot={props.workspaceRoot}
-                footer={assistantStatusFooter}
-                assistantAvatar={chatHeaderAgent}
-                searchHighlightQuery={searchQuery || undefined}
-                searchMatchMessageIds={
-                  searchQuery ? searchMatchIdSet : undefined
-                }
-                activeSearchMessageId={activeSearchMessageId}
-                setScrollToMessageById={(handler) => {
-                  scrollToMessageByIdRef.current = handler;
-                }}
-              />
-            }
-          />
-        </SessionSurfaceTranscriptPane>
-
-        <SessionSurfaceComposerColumn
-          personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}
-          homeComposerLayout={Boolean(homeComposerLayout)}
-          floatingToolbar={
-            personalAssistantDraftHome ? codeSceneToolbar : null
-          }
-          draftHome={
-            personalAssistantDraftHome ? (
-              <SessionSurfaceDraftHome
-                categoryId={assistantCategoryId}
-                title={assistantDraftHomeTitle}
-                subtitle={assistantDraftHomeSubtitle}
-              />
-            ) : null
-          }
-          composerShellRef={composerShellRef}
-        >
-          <DevProfiler id="SessionComposer">
-            <ReactSessionComposer
-              draft={draft}
-              mentions={mentions}
-              scenarioTags={assistantScenarioTags}
-              promptTemplates={personalizedPromptTemplates}
-              onSelectPromptTemplate={selectAssistantPromptTemplate}
-              onDraftChange={handleComposerDraftChange}
-              onSend={handleSend}
-              onStop={handleAbort}
-              busy={chatStreaming}
-              disabled={
-                model.transitionState !== "idle" &&
-                model.transitionState !== "failed"
-              }
-              modelUnavailable={Boolean(props.modelUnavailable)}
-              accessMode={effectiveAccessMode}
-              onAccessModeChange={updateAccessMode}
-              collaborationMode={effectiveCollaborationMode}
-              onCollaborationModeChange={updateCollaborationMode}
-              collaborationModeVariant={
-                assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
-                  ? "office"
-                  : "legacy"
-              }
-              modelPickerOpen={props.modelPickerOpen}
-              selectedModel={props.selectedModel}
-              onModelPickerOpenChange={props.onModelPickerOpenChange}
-              onModelChange={props.onModelChange}
-              attachments={attachments}
-              onAttachFiles={handleAttachFiles}
-              onRemoveAttachment={handleRemoveAttachment}
-              attachmentsEnabled={props.attachmentsEnabled}
-              attachmentsDisabledReason={props.attachmentsDisabledReason}
-              modelVariantLabel={props.modelVariantLabel}
-              modelVariant={props.modelVariant}
-              modelBehaviorOptions={props.modelBehaviorOptions}
-              onModelVariantChange={props.onModelVariantChange}
-              agentLabel={props.agentLabel}
-              selectedAgent={props.selectedAgent}
-              listAgents={props.listAgents}
-              onSelectAgent={props.onSelectAgent}
-              listCommands={props.listCommands}
-              listSkills={listSkills}
-              skills={toolSkills}
-              listMcp={listMcp}
-              mcpServers={toolMcpServers}
-              mcpStatus={toolMcpStatus}
-              mcpStatuses={toolMcpStatuses}
-              listImportedPlugins={listImportedPlugins}
-              importedPlugins={toolImportedPlugins}
-              onOpenSettingsSection={props.onOpenSettingsSection}
-              onOpenSkillsMarketplace={props.onOpenSkillsMarketplace}
-              onOpenConnectorsMarketplace={props.onOpenConnectorsMarketplace}
-              onOpenCustomConnector={props.onOpenCustomConnector}
-              recentFiles={props.recentFiles}
-              searchFiles={props.searchFiles}
-              onInsertMention={handleInsertMention}
-              notice={notice}
-              onNotice={setNotice}
-              onPasteText={handlePasteText}
-              onUnsupportedFileLinks={handleUnsupportedFileLinks}
-              pastedText={pasteParts}
-              onExpandPastedText={handleExpandPastedText}
-              onRevealPastedText={handleRevealPastedText}
-              onRemovePastedText={handleRemovePastedText}
-              isRemoteWorkspace={props.isRemoteWorkspace}
-              isSandboxWorkspace={props.isSandboxWorkspace}
-              onUploadInboxFiles={
-                props.onUploadInboxFiles ?? handleUploadInboxFiles
-              }
-              showOuterBorder={composerOuterBorderVisible}
-              compactTopSpacing={Boolean(composerAccessory)}
-              homeLayout={homeComposerLayout}
-              topAccessory={composerAccessory}
-              hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
-              bottomAccessory={
-                draftWorkspaceAccessoryActive ? (
-                  <SessionDraftWorkspaceAccessory
-                    draftWorkspaceDirectory={props.draftWorkspaceDirectory}
-                    ownerWorkspaceId={props.draftWorkspaceOwnerId}
-                    assistantFeatureCategoryId={assistantFeatureCategoryId}
-                    showFolderRequiredBubble={showFolderRequiredBubble}
-                    onDismissFolderRequiredBubble={() => setShowFolderRequiredBubble(false)}
-                    onSelectDraftWorkspace={props.onSelectDraftWorkspace}
-                    onCreateDraftWorkspace={props.onCreateDraftWorkspace}
-                    onPickDraftWorkspace={props.onPickDraftWorkspace}
-                    onClearDraftWorkspace={props.onClearDraftWorkspace}
-                    accessMode={effectiveAccessMode}
-                    onAccessModeChange={updateAccessMode}
-                  />
-                ) : undefined
-              }
-            />
-          </DevProfiler>
-        </SessionSurfaceComposerColumn>
-        </SessionSurfaceBody>
-        {/* Error display moved inline into the session conversation area */}
-        {props.developerMode ? (
-          <SessionDebugPanel model={model} snapshot={snapshot} />
-        ) : null}
-      </div>
-    </DevProfiler>
+    <SessionSurfaceView
+      personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}
+      homeComposerLayout={Boolean(homeComposerLayout)}
+      composerOuterBorderVisible={Boolean(composerOuterBorderVisible)}
+      draftWorkspaceAccessoryActive={Boolean(draftWorkspaceAccessoryActive)}
+      conversationTabs={props.conversationTabs}
+      chatHeaderAgent={chatHeaderAgent}
+      codeSceneToolbar={codeSceneToolbar}
+      personalAssistantHome={props.personalAssistantHome}
+      onOpenAgentSettings={props.onOpenAgentSettings}
+      headerActions={props.headerActions}
+      transitionState={model.transitionState}
+      renderSource={model.renderSource}
+      showDelayedLoading={showDelayedLoading}
+      pendingSessionLoad={pendingSessionLoad}
+      snapshotQueryError={snapshotQuery.isError}
+      snapshotErrorMessage={
+        snapshotQuery.error instanceof Error
+          ? snapshotQuery.error.message
+          : "Failed to load session."
+      }
+      snapshot={snapshot}
+      model={model}
+      developerMode={props.developerMode}
+      sessionId={props.sessionId}
+      scrollRef={scrollRef}
+      contentRef={contentRef}
+      onWheel={(event) => {
+        sessionScroll.markWheelGesture(event.deltaY, event.target);
+      }}
+      onTouchStart={(event) => {
+        sessionScroll.markScrollGesture(event.target);
+      }}
+      onTouchMove={(event) => {
+        sessionScroll.markScrollGesture(event.target);
+      }}
+      onPointerDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        sessionScroll.markScrollGesture(event.currentTarget);
+      }}
+      onScroll={sessionScroll.handleScroll}
+      onJumpToLatest={() => {
+        sessionScroll.jumpToLatest("auto");
+      }}
+      visibleTranscriptError={visibleTranscriptError}
+      hasTranscriptContent={hasTranscriptContent}
+      activityIdle={effectiveActivityStatus === "idle"}
+      draftOnly={props.draftOnly}
+      effectiveAgent={effectiveAgent}
+      typeComposerText={typeComposerText}
+      assistantActivity={assistantActivity}
+      onDismissError={handleDismissError}
+      onChangeModel={props.onChangeModel}
+      onOpenModelPicker={props.onModelClick}
+      renderedMessages={renderedMessages}
+      chatStreaming={chatStreaming}
+      showThinking={showThinking}
+      interruptionDividers={interruptionDividers}
+      resolveTranscriptScrollElement={resolveTranscriptScrollElement}
+      onRevertToMessage={props.onRevertToMessage}
+      onForkAtMessage={props.onForkAtMessage}
+      verifiedOpenTargets={verifiedOpenTargets}
+      onOpenTarget={props.onOpenTarget}
+      workspaceRoot={props.workspaceRoot}
+      assistantStatusFooter={assistantStatusFooter}
+      searchQuery={searchQuery}
+      searchMatchIdSet={searchMatchIdSet}
+      activeSearchMessageId={activeSearchMessageId}
+      scrollToMessageByIdRef={scrollToMessageByIdRef}
+      assistantCategoryId={assistantCategoryId}
+      assistantDraftHomeTitle={assistantDraftHomeTitle}
+      assistantDraftHomeSubtitle={assistantDraftHomeSubtitle}
+      composerShellRef={composerShellRef}
+      draft={draft}
+      mentions={mentions}
+      assistantScenarioTags={assistantScenarioTags}
+      personalizedPromptTemplates={personalizedPromptTemplates}
+      onSelectPromptTemplate={selectAssistantPromptTemplate}
+      onDraftChange={handleComposerDraftChange}
+      onSend={handleSend}
+      onStop={handleAbort}
+      modelUnavailable={Boolean(props.modelUnavailable)}
+      effectiveAccessMode={effectiveAccessMode}
+      onAccessModeChange={updateAccessMode}
+      effectiveCollaborationMode={effectiveCollaborationMode}
+      onCollaborationModeChange={updateCollaborationMode}
+      collaborationModeVariant={
+        assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
+          ? "office"
+          : "legacy"
+      }
+      modelPickerOpen={props.modelPickerOpen}
+      selectedModel={props.selectedModel}
+      onModelPickerOpenChange={props.onModelPickerOpenChange}
+      onModelChange={props.onModelChange}
+      attachments={attachments}
+      onAttachFiles={handleAttachFiles}
+      onRemoveAttachment={handleRemoveAttachment}
+      attachmentsEnabled={props.attachmentsEnabled}
+      attachmentsDisabledReason={props.attachmentsDisabledReason}
+      modelVariantLabel={props.modelVariantLabel}
+      modelVariant={props.modelVariant}
+      modelBehaviorOptions={props.modelBehaviorOptions}
+      onModelVariantChange={props.onModelVariantChange}
+      agentLabel={props.agentLabel}
+      selectedAgent={props.selectedAgent}
+      listAgents={props.listAgents}
+      onSelectAgent={props.onSelectAgent}
+      listCommands={props.listCommands}
+      listSkills={listSkills}
+      skills={toolSkills}
+      listMcp={listMcp}
+      mcpServers={toolMcpServers}
+      mcpStatus={toolMcpStatus}
+      mcpStatuses={toolMcpStatuses}
+      listImportedPlugins={listImportedPlugins}
+      importedPlugins={toolImportedPlugins}
+      onOpenSettingsSection={props.onOpenSettingsSection}
+      onOpenSkillsMarketplace={props.onOpenSkillsMarketplace}
+      onOpenConnectorsMarketplace={props.onOpenConnectorsMarketplace}
+      onOpenCustomConnector={props.onOpenCustomConnector}
+      recentFiles={props.recentFiles}
+      searchFiles={props.searchFiles}
+      onInsertMention={handleInsertMention}
+      notice={notice}
+      onNotice={setNotice}
+      onPasteText={handlePasteText}
+      onUnsupportedFileLinks={handleUnsupportedFileLinks}
+      pastedText={pasteParts}
+      onExpandPastedText={handleExpandPastedText}
+      onRevealPastedText={handleRevealPastedText}
+      onRemovePastedText={handleRemovePastedText}
+      isRemoteWorkspace={props.isRemoteWorkspace}
+      isSandboxWorkspace={props.isSandboxWorkspace}
+      onUploadInboxFiles={props.onUploadInboxFiles ?? handleUploadInboxFiles}
+      composerAccessory={composerAccessory}
+      draftWorkspaceDirectory={props.draftWorkspaceDirectory}
+      draftWorkspaceOwnerId={props.draftWorkspaceOwnerId}
+      assistantFeatureCategoryId={assistantFeatureCategoryId}
+      showFolderRequiredBubble={showFolderRequiredBubble}
+      onDismissFolderRequiredBubble={() => setShowFolderRequiredBubble(false)}
+      onSelectDraftWorkspace={props.onSelectDraftWorkspace}
+      onCreateDraftWorkspace={props.onCreateDraftWorkspace}
+      onPickDraftWorkspace={props.onPickDraftWorkspace}
+      onClearDraftWorkspace={props.onClearDraftWorkspace}
+    />
   );
 }

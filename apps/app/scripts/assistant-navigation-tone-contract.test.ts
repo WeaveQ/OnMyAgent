@@ -117,23 +117,45 @@ describe("assistant navigation tone contract", () => {
   });
 
   test("keeps draft prompt templates inside the composer add menu", () => {
-    const surface = readFileSync(
+    const host = readFileSync(
       join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
       "utf8",
     );
+    const view = readFileSync(
+      join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface-view.tsx"),
+      "utf8",
+    );
+    const surface = [host, view].join("\n");
 
-    expect(surface).toContain("promptTemplates={personalizedPromptTemplates}");
+    expect(host).toContain("export function SessionSurface");
+    expect(surface).toMatch(
+      /promptTemplates=\{(?:props\.)?personalizedPromptTemplates\}/,
+    );
     expect(surface).toContain("personalizeAssistantScenariosForMenu");
-    expect(surface).toContain("onSelectPromptTemplate={selectAssistantPromptTemplate}");
+    expect(surface).toMatch(
+      /onSelectPromptTemplate=\{(?:props\.)?(?:onSelectPromptTemplate|selectAssistantPromptTemplate)\}/,
+    );
     expect(surface).not.toContain("<PersonalAssistantAccessory");
     expect(surface).not.toContain('<div className="mb-4 w-full max-w-5xl">');
   });
 
   test("limits the light composer border to assistant and expert draft homes", () => {
-    const surface = readFileSync(
+    const host = readFileSync(
       join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface.tsx"),
       "utf8",
     );
+    const view = readFileSync(
+      join(repoRoot, "apps/app/src/react-app/domains/session/surface/session-surface-view.tsx"),
+      "utf8",
+    );
+    const layoutMode = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/session/surface/session-surface-layout-mode.ts",
+      ),
+      "utf8",
+    );
+    const surface = [host, view, layoutMode].join("\n");
 
     expect(surface).toContain("const personalAssistantDraftHome =");
     expect(surface).toContain("const expertDraftHome =");

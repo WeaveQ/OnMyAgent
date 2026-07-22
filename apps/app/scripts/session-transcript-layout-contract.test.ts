@@ -1,13 +1,51 @@
 import { describe, expect, test } from "bun:test";
 
-const messageListPath = new URL(
-  "../src/react-app/domains/session/surface/message-list.tsx",
+const messageListSurfaceDir = new URL(
+  "../src/react-app/domains/session/surface/",
   import.meta.url,
 );
+const messageListSourceFiles = [
+  // MessageBlockRow must precede SessionTranscriptInner so slice(MessageBlockRow↔Inner) works.
+  "message-list/message-block-row.tsx",
+  "message-list.tsx",
+  "message-list/chrome.tsx",
+  "message-list/reasoning.tsx",
+  "message-list/tool-activity-icon.tsx",
+  "message-list/skill-text.tsx",
+  "message-list/file-card.tsx",
+  "message-list/dividers.ts",
+  "message-list/process-fold.ts",
+  "message-list/process-fold-ui.tsx",
+  "message-list/step-row.tsx",
+  "message-list/steps-container.tsx",
+  "message-list/turn-content.tsx",
+] as const;
+
+async function readMessageListSources() {
+  const parts = await Promise.all(
+    messageListSourceFiles.map((relativePath) =>
+      Bun.file(new URL(relativePath, messageListSurfaceDir)).text(),
+    ),
+  );
+  return parts.join("\n");
+}
+
 const sessionSurfacePath = new URL(
   "../src/react-app/domains/session/surface/session-surface.tsx",
   import.meta.url,
 );
+const sessionSurfaceViewPath = new URL(
+  "../src/react-app/domains/session/surface/session-surface-view.tsx",
+  import.meta.url,
+);
+
+async function readSessionSurfaceSources() {
+  const [host, view] = await Promise.all([
+    Bun.file(sessionSurfacePath).text(),
+    Bun.file(sessionSurfaceViewPath).text(),
+  ]);
+  return [host, view].join("\n");
+}
 const appStylesPath = new URL("../src/app/index.css", import.meta.url);
 const assistantStatusPath = new URL(
   "../src/react-app/domains/session/surface/chrome/assistant-status.tsx",
@@ -36,7 +74,7 @@ const visualFixturePath = new URL(
 
 describe("session transcript layout contract", () => {
   test("keeps the WorkBuddy semantic tool icon registry instead of a permanent loader", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
 
     for (const category of [
       "skill",
@@ -62,7 +100,7 @@ describe("session transcript layout contract", () => {
   });
 
   test("scopes reasoning shimmer to the latest streaming message owner", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
 
     expect(messageList).toContain(
       "const processRunning = running && items.some",
@@ -75,7 +113,7 @@ describe("session transcript layout contract", () => {
 
   test("keeps a singleton semantic tool on its own disclosure depth", async () => {
     const visualFixture = await Bun.file(visualFixturePath).text();
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
 
     expect(visualFixture).toContain('sceneParam === "semantic-singleton-tool"');
     expect(visualFixture).toContain("semanticSingletonToolMessages");
@@ -95,7 +133,7 @@ describe("session transcript layout contract", () => {
   });
 
   test("keeps WorkBuddy geometry scoped to the root transcript", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
     const appStyles = await Bun.file(appStylesPath).text();
 
     expect(messageList).toContain("computeTranscriptMaxContentWidth");
@@ -123,7 +161,7 @@ describe("session transcript layout contract", () => {
   });
 
   test("renders one assistant identity per modeled turn without user chrome", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
 
     expect(messageList).toContain("buildTranscriptTurns");
     expect(messageList).toContain("turnPresentationByBlockKey");
@@ -140,16 +178,19 @@ describe("session transcript layout contract", () => {
   });
 
   test("uses the active header identity and leaves composer coupling out", async () => {
-    const sessionSurface = await Bun.file(sessionSurfacePath).text();
+    const sessionSurface = await readSessionSurfaceSources();
 
-    expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
+    expect(sessionSurface).toContain("export function SessionSurface");
+    expect(sessionSurface).toMatch(
+      /assistantAvatar=\{(?:props\.)?chatHeaderAgent\}/,
+    );
     expect(sessionSurface).not.toContain("assistantAvatarOverride");
   });
 
   test("routes office, code, and selected experts through one shared root surface", async () => {
     const [sessionPage, sessionSurface] = await Promise.all([
       Bun.file(sessionPagePath).text(),
-      Bun.file(sessionSurfacePath).text(),
+      readSessionSurfaceSources(),
     ]);
 
     expect(sessionPage.match(/<SessionSurface/g)?.length).toBe(1);
@@ -157,11 +198,13 @@ describe("session transcript layout contract", () => {
     expect(sessionPage).toContain('activeAssistantCategoryId === "code"');
     expect(sessionPage).toContain("agentPanel.activeSidebarView");
     expect(sessionSurface).toContain("<SessionTranscript");
-    expect(sessionSurface).toContain("assistantAvatar={chatHeaderAgent}");
+    expect(sessionSurface).toMatch(
+      /assistantAvatar=\{(?:props\.)?chatHeaderAgent\}/,
+    );
   });
 
   test("keeps final output visible while folding execution details", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
     const appStyles = await Bun.file(appStylesPath).text();
 
     expect(messageList).toContain("function TranscriptTurnStatus");
@@ -207,8 +250,8 @@ describe("session transcript layout contract", () => {
 
   test("virtualizes root transcripts by turn and reserves the active viewport", async () => {
     const [messageList, sessionSurface] = await Promise.all([
-      Bun.file(messageListPath).text(),
-      Bun.file(sessionSurfacePath).text(),
+      readMessageListSources(),
+      readSessionSurfaceSources(),
     ]);
 
     expect(messageList).toContain("groupTranscriptRenderItems");
@@ -234,13 +277,15 @@ describe("session transcript layout contract", () => {
     ).text();
     expect(virtualWindow).toContain("return undefined");
     expect(messageList).not.toContain("updateViewport(entry.contentRect.width, entry.contentRect.height)");
-    expect(sessionSurface).toContain("scrollElement={resolveTranscriptScrollElement}");
+    expect(sessionSurface).toMatch(
+      /scrollElement=\{(?:props\.)?resolveTranscriptScrollElement\}/,
+    );
     expect(messageList).toContain('data-transcript-turn-active={isActiveTurn ? "true" : undefined}');
     expect(messageList).toContain('id: `block:${blockKey}`, turnId: null, blocks: [block]');
   });
 
   test("matches WorkBuddy loading shimmer and rotating tip timing", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
     const assistantStatus = await Bun.file(assistantStatusPath).text();
     const appStyles = await Bun.file(appStylesPath).text();
 
@@ -278,7 +323,7 @@ describe("session transcript layout contract", () => {
 
   test("keeps live activity below root content without a streaming block cursor", async () => {
     const [messageList, markdown] = await Promise.all([
-      Bun.file(messageListPath).text(),
+      readMessageListSources(),
       Bun.file(markdownPath).text(),
     ]);
 
@@ -293,9 +338,18 @@ describe("session transcript layout contract", () => {
   });
 
   test("matches WorkBuddy history skeleton pairs and compact latest control", async () => {
-    const [assistantStatus, sessionSurface, scrollToLatest] = await Promise.all([
+    const transcriptContentPath = new URL(
+      "../src/react-app/domains/session/surface/session-surface-transcript-content.tsx",
+      import.meta.url,
+    );
+    const sessionSurfaceLayoutPath = new URL(
+      "../src/react-app/domains/session/surface/session-surface-layout.tsx",
+      import.meta.url,
+    );
+    const [assistantStatus, transcriptContent, surfaceLayout, scrollToLatest] = await Promise.all([
       Bun.file(assistantStatusPath).text(),
-      Bun.file(sessionSurfacePath).text(),
+      Bun.file(transcriptContentPath).text(),
+      Bun.file(sessionSurfaceLayoutPath).text(),
       Bun.file(transcriptScrollToLatestPath).text(),
     ]);
 
@@ -303,16 +357,10 @@ describe("session transcript layout contract", () => {
     expect(assistantStatus).toContain("Array.from({ length: pairCount }");
     expect(assistantStatus).toContain('className="flex justify-end px-4 py-8"');
     expect(assistantStatus).toContain('className="mb-3 flex items-center gap-2.5"');
-    const transcriptContent = await Bun.file(
-      new URL(
-        "../src/react-app/domains/session/surface/session-surface-transcript-content.tsx",
-        import.meta.url,
-      ),
-    ).text();
     expect(transcriptContent).toContain("<TranscriptHistorySkeleton pairCount={3} />");
-    expect(sessionSurface).toContain('label={t("session.jump_to_latest")}');
+    expect(surfaceLayout).toContain('label={t("session.jump_to_latest")}');
     expect(scrollToLatest).toContain("aria-label={props.label}");
-    expect(scrollToLatest).toContain('<ChevronDown className="size-4" />');
+    expect(scrollToLatest).toContain('<ChevronsDown className="size-4" strokeWidth={2.25} aria-hidden="true" />');
     expect(scrollToLatest).not.toContain(
       'rounded-full border border-dls-border bg-dls-surface p-1',
     );
@@ -331,7 +379,7 @@ describe("session transcript layout contract", () => {
   });
 
   test("localizes WorkBuddy tool details and openable artifact actions", async () => {
-    const messageList = await Bun.file(messageListPath).text();
+    const messageList = await readMessageListSources();
 
     expect(messageList).toContain('t("session.tool_request")');
     expect(messageList).toContain('t("session.tool_result")');
