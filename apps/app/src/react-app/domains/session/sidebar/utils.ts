@@ -15,14 +15,23 @@ export type SessionTreeState = {
   streamingIds: Set<string>;
 };
 
+/**
+ * True when the sidebar should show busy chrome (dots / activity label).
+ * Accepts both raw server run types (`busy`/`retry`) and session-activity
+ * store statuses (`thinking`/`responding`/`retrying`/`compacting`/…).
+ * Missing `retrying` previously hid 重试中 on expert list rows while the
+ * main surface already showed it.
+ */
 export const isStreamingSessionStatus = (status: string | undefined) =>
   status === "running" ||
   status === "busy" ||
   status === "retry" ||
+  status === "retrying" ||
   status === "streaming" ||
   status === "thinking" ||
   status === "responding" ||
-  status === "waiting";
+  status === "waiting" ||
+  status === "compacting";
 
 /**
  * Priority for multi-session aggregate (higher wins).
@@ -34,7 +43,9 @@ const SESSION_ACTIVITY_PRIORITY: Record<string, number> = {
   thinking: 40,
   busy: 40,
   running: 40,
+  compacting: 35,
   retry: 30,
+  retrying: 30,
   waiting: 20,
 };
 
@@ -44,11 +55,14 @@ export function expertActivityLabel(status: string | undefined): string | null {
   if (status === "responding" || status === "streaming") {
     return t("session.expert_status_responding");
   }
-  if (status === "retry") {
+  if (status === "retry" || status === "retrying") {
     return t("session.expert_status_retrying");
   }
   if (status === "waiting") {
     return t("session.expert_status_waiting");
+  }
+  if (status === "compacting") {
+    return t("session.assistant_compacting");
   }
   return t("session.expert_status_thinking");
 }
