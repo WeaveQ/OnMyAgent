@@ -599,22 +599,9 @@ export async function draftToParts(
   }
 
   if (uploadedFiles.length > 0) {
-    // Structured file parts so the transcript can render attachment chips.
-    // Keep the instruction text for the model (display layer strips it).
-    for (const file of uploadedFiles) {
-      const absolute = file.absolutePath.trim();
-      if (!absolute) continue;
-      parts.push({
-        type: "file",
-        mime: file.mimeType || "application/octet-stream",
-        url: absolute.startsWith("file://")
-          ? absolute
-          : /^[a-zA-Z]:[\\/]/.test(absolute)
-            ? `file:///${absolute.replace(/\\/g, "/")}`
-            : `file://${absolute}`,
-        filename: file.name,
-      });
-    }
+    // Only text for the model — office/pdf MIME as file parts is rejected
+    // ("file part media type ... functionality not supported"). Transcript
+    // chips are recovered by parsing this block in the display layer.
     parts.push({
       type: "text",
       text: [

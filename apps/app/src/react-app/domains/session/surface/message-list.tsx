@@ -108,6 +108,7 @@ import {
 } from "./transcript/render-items";
 import { activeTurnReserveStyle } from "./message-list/virtual-window";
 import {
+  absolutePathFromFileUrl,
   fileUrlFromAbsolutePath,
   isUserUploadInstructionText,
   parseUserUploadInstructionBlock,
@@ -608,13 +609,29 @@ function toLegacyPart(
 function isAttachmentPart(part: TranscriptPart) {
   if (part.type !== "file") return false;
   const url = (part as { url?: string }).url;
-  // Include data:/http(s):/file: so session-upload docs render as chips.
   return typeof url === "string" && url.trim().length > 0;
+}
+
+/**
+ * Native image attachments use data:/http(s) file parts.
+ * Session-uploaded docs (pdf/docx/xlsx) must NOT be model file parts (runtime
+ * rejects those MIME types); chips come only from the upload-instruction text.
+ */
+function isNativeDisplayFilePart(part: TranscriptPart) {
+  if (!isAttachmentPart(part)) return false;
+  const record = part as { url?: string; mime?: string };
+  const url = record.url?.trim() ?? "";
+  const mime = record.mime ?? "application/octet-stream";
+  if (url.startsWith("data:") || /^https?:/i.test(url)) return true;
+  if (mime.startsWith("image/")) return true;
+  // Local file:// office/docs are recovered from upload text, not file parts.
+  if (url.startsWith("file://")) return false;
+  return true;
 }
 
 function attachmentsForParts(parts: TranscriptPart[]) {
   const fromFileParts = parts.flatMap((part) => {
-    if (!isAttachmentPart(part)) return [];
+    if (!isNativeDisplayFilePart(part)) return [];
     const record = part as {
       url?: string;
       filename?: string;
@@ -628,7 +645,7 @@ function attachmentsForParts(parts: TranscriptPart[]) {
     return attachment.url ? [attachment] : [];
   });
 
-  // Historical messages only have the model instruction text — recover chips.
+  // Model-facing upload dump → chips (and strip the dump from the bubble).
   const fromUploadText = parts.flatMap((part) => {
     if (part.type !== "text") return [];
     const { files } = parseUserUploadInstructionBlock(partToText(part));
@@ -641,8 +658,9 @@ function attachmentsForParts(parts: TranscriptPart[]) {
 
   const seen = new Set<string>();
   const merged: Array<{ url: string; filename: string; mime: string }> = [];
-  for (const item of [...fromFileParts, ...fromUploadText]) {
-    const key = `${item.filename}|${item.url}`;
+  for (const item of [...fromUploadText, ...fromFileParts]) {
+    const abs = absolutePathFromFileUrl(item.url) || item.url;
+    const key = `${item.filename}|${abs}`;
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(item);
@@ -3572,6 +3590,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         return;
       }
       const attachments = attachmentsForParts(renderableParts);
+      // File parts render as chips only; never as raw text rows.
       const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
       // Strip model-only upload path dump from user bubbles (chips carry the files).
       const visibleParts = isUser
