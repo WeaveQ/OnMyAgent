@@ -37,16 +37,19 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(mode).toContain("expertEmptyComposer");
     expect(mode).toContain("personalAssistantDraftHome");
     const editor = read("src/react-app/domains/session/surface/composer/editor.tsx");
-    // Compact empty uses a short min-height; filled draft drops to min-h-6.
-    expect(editor).toMatch(/props\.compact[\s\S]*min-h-10/);
-    expect(editor).toContain('props.value.trim()');
-    expect(editor).toContain('"min-h-6 max-h-72');
+    // Home empty and in-session share the same editor min-height.
+    expect(editor).toContain("min-h-16 max-h-72");
     const composer = read("src/react-app/domains/session/surface/composer/composer.tsx");
     expect(composer).toContain("inlineToolbarAccessory");
     expect(composer).toContain("underCardAccessory");
+    // Same content column as in-session (not max-w-2xl).
+    expect(composer).toContain("max-w-[1120px]");
+    expect(composer).toContain("px-4 md:px-8");
     const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
     expect(layout).toContain("homeComposerLayout");
-    expect(layout).toContain("max-w-2xl");
+    // Brand title may still use max-w-2xl; composer shell must not.
+    expect(layout).toMatch(/personalAssistantDraftHome[\s\S]*max-w-2xl/);
+    expect(layout).not.toMatch(/homeComposerLayout &&\s*\n?\s*"mx-auto flex w-full max-w-2xl/);
   });
 
   test("files panel is tree-first until a file is selected", () => {

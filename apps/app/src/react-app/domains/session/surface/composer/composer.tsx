@@ -1040,13 +1040,18 @@ export function ReactSessionComposer(props: ComposerProps) {
         ? "rounded-t-xl rounded-b-none"
         : "rounded-xl";
 
+  // Same shell size for home empty and in-session: 1120 content column + side padding.
+  const shellPadClass = `px-4 md:px-8 ${
+    props.compactTopSpacing ? "pt-0" : "pt-3"
+  } ${homeLayout ? "pb-3" : "pb-5"}`;
+
   return (
     <div
       ref={rootRef}
       className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
         homeLayout
-          ? "bg-transparent px-0 pb-0 pt-0"
-          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`
+          ? `bg-transparent ${shellPadClass}`
+          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`
       }`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
@@ -1058,13 +1063,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       }}
     >
       {/* Same max-w as session transcript column (session-surface contentRef). */}
-      <div
-        className={
-          homeLayout
-            ? "mx-auto w-full max-w-none"
-            : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */
-        }
-      >
+      <div className="mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div
           className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
@@ -1207,15 +1206,8 @@ export function ReactSessionComposer(props: ComposerProps) {
           <div
             className={
               props.attachments.length > 0
-                ? homeLayout
-                  ? "px-3.5 pb-1.5 pt-2"
-                  : "px-4 pb-2 pt-2"
-                : homeLayout
-                  ? // Filled draft: tighter top so one-line prompts sit close to the toolbar.
-                    props.draft.trim()
-                      ? "px-3.5 pb-1.5 pt-2"
-                      : "px-3.5 pb-1.5 pt-2.5"
-                  : "px-4 pb-2 pt-3"
+                ? "px-4 pb-2 pt-2"
+                : "px-4 pb-2 pt-3"
             }
           >
             {/* Editor */}
@@ -1307,13 +1299,7 @@ export function ReactSessionComposer(props: ComposerProps) {
             />
 
             {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div
-              className={
-                homeLayout
-                  ? "mt-1 flex items-center justify-between gap-1.5"
-                  : "mt-2 flex items-end justify-between gap-1.5"
-              }
-            >
+            <div className="mt-2 flex items-end justify-between gap-1.5">
               <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {

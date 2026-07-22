@@ -110,20 +110,33 @@ export function SessionSurfaceComposerColumn(props: {
           {props.floatingToolbar}
         </div>
       ) : null}
-      {/* Home / expert-empty: max-w-2xl so composer matches prompt cards / brand title. */}
+      {/*
+        Brand hero stays max-w-2xl on assistant draft home.
+        Composer width matches in-session (max-w-[1120px] inside the composer host)
+        so expert empty and chat use the same input bar size.
+      */}
       <div
         className={cn(
-          (props.personalAssistantDraftHome || props.homeComposerLayout) &&
-            "mx-auto flex w-full max-w-2xl shrink-0 flex-col items-stretch",
+          "flex w-full shrink-0 flex-col items-stretch",
+          props.personalAssistantDraftHome && "items-center",
         )}
       >
-        {props.draftHome}
+        {props.draftHome ? (
+          <div
+            className={cn(
+              props.personalAssistantDraftHome &&
+                "w-full max-w-2xl",
+            )}
+          >
+            {props.draftHome}
+          </div>
+        ) : null}
         <div
           ref={props.composerShellRef}
           className={cn(
-            "shrink-0 px-0 pb-2 pt-2",
+            "w-full shrink-0 px-0 pb-2 pt-2",
             (props.personalAssistantDraftHome || props.homeComposerLayout) &&
-              "w-full pb-0 pt-0",
+              "pb-0 pt-0",
           )}
         >
           {props.children}
