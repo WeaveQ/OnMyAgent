@@ -5,11 +5,7 @@ import {
   Check,
   ChevronDown,
   Copy,
-  GitFork,
-  MessageSquareWarning,
-  MoreHorizontal,
   RotateCcw,
-  Share2,
   Square,
   ThumbsDown,
   ThumbsUp,
@@ -18,19 +14,10 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { buildFeedbackUrl } from "../../../../../app/lib/feedback";
-import { usePlatform } from "../../../../kernel/platform";
 import { readTranscriptMessageMetadata } from "../../sync/message-metadata";
 import {
   formatTranscriptDuration,
@@ -153,34 +140,6 @@ export function TranscriptSpeechButton(props: { text: string }) {
       onClick={toggleSpeech}
     >
       {speaking ? <Square size={16} /> : <Volume2 size={16} />}
-    </Button>
-  );
-}
-
-export function TranscriptShareButton(props: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  if (!props.text.trim()) return null;
-
-  const share = async () => {
-    if (navigator.share) {
-      await navigator.share({ text: props.text }).catch(() => undefined);
-      return;
-    }
-    await navigator.clipboard.writeText(props.text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2_000);
-  };
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      title={t("session.transcript_share")}
-      aria-label={t("session.transcript_share")}
-      onClick={() => void share()}
-    >
-      {copied ? <Check size={16} /> : <Share2 size={16} />}
     </Button>
   );
 }
@@ -323,52 +282,6 @@ export function TranscriptFeedbackControls(props: { messageId: string }) {
   );
 }
 
-export function TranscriptMoreMenu(props: {
-  requestId: string;
-  actionMessageId: string | null;
-  onForkAtMessage?: (messageId: string) => void;
-}) {
-  const platform = usePlatform();
-  const onForkAtMessage = props.onForkAtMessage;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            title={t("session.transcript_more")}
-            aria-label={t("session.transcript_more")}
-          >
-            <MoreHorizontal size={14} />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="start" className="w-52">
-        {props.actionMessageId && onForkAtMessage ? (
-          <DropdownMenuItem onClick={() => onForkAtMessage(props.actionMessageId ?? "")}>
-            <GitFork />
-            {t("session.fork_message")}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          onClick={() => platform.openLink(buildFeedbackUrl({ entrypoint: "transcript-message" }))}
-        >
-          <MessageSquareWarning />
-          {t("session.support_feedback")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(props.requestId)}>
-          <Copy />
-          {t("session.transcript_copy_request_id")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 export function transcriptTurnStatusLabel(state: TranscriptTurnPresentation["state"]) {
   switch (state) {
     case "pending":
@@ -487,6 +400,7 @@ export function TranscriptCancelledIndicator(props: {
 
 export function TranscriptTurnActions(props: {
   presentation: TranscriptBlockTurnPresentation;
+  /** Kept for call-site compatibility; fork UI is not rendered. */
   onForkAtMessage?: (messageId: string) => void;
 }) {
   if (
@@ -518,14 +432,6 @@ export function TranscriptTurnActions(props: {
       {props.presentation.copyText ? (
         <TranscriptSpeechButton text={props.presentation.copyText} />
       ) : null}
-      {props.presentation.copyText ? (
-        <TranscriptShareButton text={props.presentation.copyText} />
-      ) : null}
-      <TranscriptMoreMenu
-        requestId={props.presentation.requestId}
-        actionMessageId={actionMessageId}
-        onForkAtMessage={props.onForkAtMessage}
-      />
       {inputTokens && cacheTokens && outputTokens ? (
         <span
           aria-label={t("session.transcript_token_usage_label", {
