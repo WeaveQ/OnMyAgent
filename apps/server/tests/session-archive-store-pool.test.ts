@@ -78,4 +78,37 @@ describe("session-archive store pool (shipped)", () => {
     expect(pool.stats().liveEntries).toBe(0);
     pool.disposeAll();
   });
+
+  test("concurrent Promise.all acquire of same dbPath opens once and tracks refs", async () => {
+    let opens = 0;
+    let openGate: (() => void) | null = null;
+    const gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+    const pool = createSessionArchiveStorePool({
+      idleTtlMs: 60_000,
+      open: async (input) => {
+        opens += 1;
+        await gate;
+        return fakeStore(input.dbPath);
+      },
+    });
+
+    const pendingA = pool.acquire({ dbPath: "/tmp/concurrent.sqlite" });
+    const pendingB = pool.acquire({ dbPath: "/tmp/concurrent.sqlite" });
+    // Both waits share one in-flight open before it resolves.
+    openGate?.();
+    const [a, b] = await Promise.all([pendingA, pendingB]);
+    expect(a).toBe(b);
+    expect(opens).toBe(1);
+    expect(pool.stats().openCount).toBe(1);
+    expect(pool.stats().totalRefs).toBe(2);
+    expect(pool.stats().liveEntries).toBe(1);
+
+    pool.release({ dbPath: "/tmp/concurrent.sqlite" });
+    expect(pool.stats().totalRefs).toBe(1);
+    pool.release({ dbPath: "/tmp/concurrent.sqlite" });
+    expect(pool.stats().totalRefs).toBe(0);
+    pool.disposeAll();
+  });
 });
