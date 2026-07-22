@@ -233,7 +233,6 @@ _check_tool() {
 
 _check_tool "gs"        "PDF compression (Ghostscript)"
 _check_tool "tesseract" "OCR engine"
-_check_tool "soffice"   "LibreOffice"
 
 # ── 6. 清理 SKILL.md 初始化段落 ──────────────────────────────
 SKILL_DIR="$(cd "$SCRIPTS_DIR/.." && pwd)"

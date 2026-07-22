@@ -112,7 +112,7 @@ This is an EDIT task. Unpack → fix broken `<f>` nodes → pack. Preserve all o
 
 ## VALIDATE — Check formulas (read `references/validate.md` first)
 
-Run `formula_check.py` for static validation. Use `libreoffice_recalc.py` for dynamic recalculation when available.
+Run `formula_check.py` for static validation. Preserve formulas with empty cached values and disclose that an Excel-compatible application must recalculate them when opened.
 
 ## Financial Color Standard
 

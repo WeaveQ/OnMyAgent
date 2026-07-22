@@ -60,6 +60,10 @@ describe("open target classification", () => {
     expect(classifyOpenTarget("report.md", "file")).toBe("markdown");
     expect(classifyOpenTarget("customers.csv", "file")).toBe("sheet");
     expect(classifyOpenTarget("forecast.xlsx", "file")).toBe("sheet");
+    expect(classifyOpenTarget("contract.docx", "file")).toBe("document");
+    expect(classifyOpenTarget("briefing.pptx", "file")).toBe("presentation");
+    expect(classifyOpenTarget("manual.pdf", "file")).toBe("pdf");
+    expect(classifyOpenTarget("invoice.ofd", "file")).toBe("pdf");
     expect(classifyOpenTarget("diagram.svg", "file")).toBe("image");
     expect(classifyOpenTarget("dist/index.html", "file")).toBe("html");
     expect(classifyOpenTarget("http://localhost:5173", "url")).toBe("browser");
@@ -67,7 +71,7 @@ describe("open target classification", () => {
 });
 
 describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
-  it("allows text, markdown, html, browser, and tabular csv/tsv only", () => {
+  it("allows existing text, markdown, html, browser, and tabular csv/tsv previews", () => {
     expect(canPreviewOpenTargetInline(fileTarget("notes.md"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("app.ts"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("data.csv"))).toBe(true);
@@ -81,12 +85,33 @@ describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
     ).toBe(true);
   });
 
-  it("refuses Office binaries, media, and generic external dumps", () => {
-    expect(canPreviewOpenTargetInline(fileTarget("ledger.xlsx"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("deck.pptx"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("doc.docx"))).toBe(false);
+  it("previews Office and PDF files without treating unrelated binaries as documents", () => {
+    for (const path of [
+      "doc.doc",
+      "doc.docx",
+      "doc.docm",
+      "doc.dotx",
+      "doc.rtf",
+      "doc.odt",
+      "ledger.xls",
+      "ledger.xlsx",
+      "ledger.xlsm",
+      "ledger.xlsb",
+      "ledger.ods",
+      "deck.ppt",
+      "deck.pptx",
+      "deck.pptm",
+      "deck.ppsx",
+      "deck.potx",
+      "deck.odp",
+      "manual.pdf",
+      "invoice.ofd",
+    ]) {
+      expect(canPreviewOpenTargetInline(fileTarget(path))).toBe(true);
+    }
     expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("manual.pdf"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("archive.zip"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("program.exe"))).toBe(false);
   });
 });
 

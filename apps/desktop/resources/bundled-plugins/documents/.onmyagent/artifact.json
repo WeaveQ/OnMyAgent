@@ -12,7 +12,7 @@
     ]
   },
   "runtime": {
-    "entry": "skills/documents/runtime/artifact_runtime.py",
-    "requiredTools": ["python", "libreoffice"]
+    "entry": "skills/documents/runtime/artifact_runtime.cjs",
+    "requiredTools": ["node"]
   }
 }
