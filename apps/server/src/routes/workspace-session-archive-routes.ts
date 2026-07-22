@@ -12,7 +12,6 @@ import {
 } from "@onmyagent/types/session-archive";
 import { ApiError } from "../core/errors.js";
 import type { SessionArchiveStore } from "../services/session-archive.js";
-import { openSessionArchiveStore } from "../services/session-archive.js";
 import { getSessionArchiveLifecycleStatus } from "../services/session-archive-lifecycle.js";
 import {
   resolveSessionArchiveRuntimePaths,
@@ -21,8 +20,12 @@ import {
   type SessionArchiveSourceRoot,
   type SessionArchiveSyncMode,
 } from "../services/session-archive-sync.js";
-import { defaultSessionArchiveStorePool } from "../services/session-archive-store-pool.js";
+import {
+  defaultSessionArchiveStorePool,
+  withSessionArchiveStore,
+} from "../services/session-archive-store-pool.js";
 import { resolveArchiveSsePollMs } from "../services/archive-sse-policy.js";
+import { notifyArchiveDbChanged, subscribeArchiveDbChanges } from "../services/archive-change-bus.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import pkg from "../../package.json" with { type: "json" };
 
@@ -79,6 +82,7 @@ function scheduleSessionArchiveAutoSync(input: {
       job.status = "completed";
       job.finished_at = new Date().toISOString();
       job.stats = stats;
+      notifyArchiveDbChanged(input.paths.dbPath);
       return stats;
     })
     .catch((error: unknown) => {
@@ -110,24 +114,18 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
 
   const withResolvedWorkspaceArchiveStore = async (
     ctx: RequestContext,
-    callback: (store: SessionArchiveStore, workspace: WorkspaceInfo, dbPath: string) => Response,
+    callback: (store: SessionArchiveStore, workspace: WorkspaceInfo, dbPath: string) => Response | Promise<Response>,
   ): Promise<Response> => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const dbPath = resolveArchivePaths(workspace).dbPath;
-    const store = await openSessionArchiveStore({ dbPath });
-    try {
-      return callback(store, workspace, dbPath);
-    } finally {
-      store.close();
-    }
+    return withSessionArchiveStore({ dbPath }, async (store) => callback(store, workspace, dbPath));
   };
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const paths = resolveArchivePaths(workspace);
     scheduleSessionArchiveAutoSync({ workspace, paths, sourceRoots });
-    const store = await openSessionArchiveStore({ dbPath: paths.dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: paths.dbPath }, async (store) => {
       return systemJsonResponse(store.listSessions({
         cursor: ctx.url.searchParams.get("cursor")?.trim() || undefined,
         start: parseOptionalNonNegativeInteger(ctx.url.searchParams.get("start"), "start"),
@@ -156,9 +154,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         starred: parseOptionalBoolean(ctx.url.searchParams.get("starred")),
         termination: parseSessionListTermination(ctx.url.searchParams.get("termination")),
       }));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions/:sessionId", "client", async (ctx) => {
@@ -446,12 +442,9 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "GET", "/workspace/:id/session-archive/usage/summary", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const filter = parseUsageFilter(ctx);
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       return systemJsonResponse(store.getUsageSummary(filter));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/usage/comparison", "client", async (ctx) => {
@@ -605,17 +598,14 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "POST", "/workspace/:id/session-archive/insights/generate", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = await ctx.request.json().catch(() => null);
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       const insight = store.generateInsight(payload);
       return sseResponse([
         sseEvent("status", { phase: "generating" }),
         sseEvent("log", { stream: "stdout", line: "generated local archive insight" }),
         sseEvent("done", insight),
       ]);
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/search", "client", async (ctx) => {
@@ -624,8 +614,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     if (!query) {
       throw new ApiError(400, "invalid_query", "q is required");
     }
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       return systemJsonResponse(store.search({
         query,
         cursor: parseOptionalNonNegativeInteger(ctx.url.searchParams.get("cursor"), "cursor"),
@@ -654,9 +643,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         starred: parseOptionalBoolean(ctx.url.searchParams.get("starred")),
         termination: parseSessionListTermination(ctx.url.searchParams.get("termination")),
       }));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/search/content", "client", async (ctx) => {
@@ -665,8 +652,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     if (!pattern) {
       throw new ApiError(400, "invalid_query", "pattern is required");
     }
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       return systemJsonResponse(store.searchContent({
         pattern,
         mode: parseContentSearchMode(ctx.url.searchParams.get("mode")),
@@ -677,9 +663,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         project: ctx.url.searchParams.get("project")?.trim() || undefined,
         agent: ctx.url.searchParams.get("agent")?.trim() || undefined,
       }));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/sessions/upload", "client", async (ctx) => {
@@ -833,12 +817,9 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     if (job?.stats) {
       return systemJsonResponse(syncJobResponse(job, paths.dbPath));
     }
-    const store = await openSessionArchiveStore({ dbPath: paths.dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: paths.dbPath }, async (store) => {
       return systemJsonResponse({ ok: true, status: "idle", stats: store.stats(), dbPath: paths.dbPath });
-    } finally {
-      store.close();
-    }
+    });
   });
 }
 
@@ -863,26 +844,16 @@ function syncJobResponse(job: SessionArchiveSyncJob, dbPath: string) {
 async function withArchiveStore(
   dbPath: string,
   ctx: RequestContext,
-  callback: (store: SessionArchiveStore, sessionId: string) => Response,
+  callback: (store: SessionArchiveStore, sessionId: string) => Response | Promise<Response>,
 ): Promise<Response> {
-  const store = await openSessionArchiveStore({ dbPath });
-  try {
-    return callback(store, readSessionId(ctx));
-  } finally {
-    store.close();
-  }
+  return withSessionArchiveStore({ dbPath }, async (store) => callback(store, readSessionId(ctx)));
 }
 
 async function withWorkspaceArchiveStore(
   dbPath: string,
-  callback: (store: SessionArchiveStore) => Response,
+  callback: (store: SessionArchiveStore) => Response | Promise<Response>,
 ): Promise<Response> {
-  const store = await openSessionArchiveStore({ dbPath });
-  try {
-    return callback(store);
-  } finally {
-    store.close();
-  }
+  return withSessionArchiveStore({ dbPath }, async (store) => callback(store));
 }
 
 function ensureSession(store: SessionArchiveStore, sessionId: string) {
@@ -1105,6 +1076,7 @@ function persistentSessionArchiveWatchResponse(input: {
     start(controller) {
       let timer: ReturnType<typeof setInterval> | null = null;
       let closed = false;
+      let unsubscribe: (() => void) | null = null;
       const send = (event: string, data: unknown) => {
         if (closed) return;
         controller.enqueue(encoder.encode(sseEvent(event, data)));
@@ -1114,6 +1086,7 @@ function persistentSessionArchiveWatchResponse(input: {
         if (closed) return;
         closed = true;
         if (timer) clearInterval(timer);
+        unsubscribe?.();
         defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
         controller.close();
       };
@@ -1128,9 +1101,8 @@ function persistentSessionArchiveWatchResponse(input: {
       send("heartbeat", new Date().toISOString());
       if (closeIfDone()) return;
 
-      // Reuse the acquired store for every tick — no open/close per interval.
-      timer = setInterval(() => {
-        if (input.signal.aborted) {
+      const pushIfChanged = () => {
+        if (closed || input.signal.aborted) {
           close();
           return;
         }
@@ -1145,7 +1117,12 @@ function persistentSessionArchiveWatchResponse(input: {
           send("heartbeat", new Date().toISOString());
         }
         closeIfDone();
-      }, input.pollMs);
+      };
+
+      // Change-driven push (sync/notify) + long-interval poll fallback.
+      // Store is connection-scoped — never open/close SQLite inside the timer.
+      unsubscribe = subscribeArchiveDbChanges(input.dbPath, pushIfChanged);
+      timer = setInterval(pushIfChanged, input.pollMs);
 
       input.signal.addEventListener("abort", () => {
         close();
@@ -1178,6 +1155,7 @@ function persistentSessionArchiveEventsResponse(input: {
     start(controller) {
       let timer: ReturnType<typeof setInterval> | null = null;
       let closed = false;
+      let unsubscribe: (() => void) | null = null;
       const send = (event: string, data: unknown) => {
         if (closed) return;
         controller.enqueue(encoder.encode(sseEvent(event, data)));
@@ -1187,6 +1165,7 @@ function persistentSessionArchiveEventsResponse(input: {
         if (closed) return;
         closed = true;
         if (timer) clearInterval(timer);
+        unsubscribe?.();
         defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
         controller.close();
       };
@@ -1201,8 +1180,8 @@ function persistentSessionArchiveEventsResponse(input: {
       send("heartbeat", new Date().toISOString());
       if (closeIfDone()) return;
 
-      timer = setInterval(() => {
-        if (input.signal.aborted) {
+      const pushIfChanged = () => {
+        if (closed || input.signal.aborted) {
           close();
           return;
         }
@@ -1215,7 +1194,10 @@ function persistentSessionArchiveEventsResponse(input: {
           send("heartbeat", new Date().toISOString());
         }
         closeIfDone();
-      }, input.pollMs);
+      };
+
+      unsubscribe = subscribeArchiveDbChanges(input.dbPath, pushIfChanged);
+      timer = setInterval(pushIfChanged, input.pollMs);
 
       input.signal.addEventListener("abort", () => {
         close();

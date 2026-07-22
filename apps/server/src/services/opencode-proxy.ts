@@ -135,6 +135,10 @@ export function normalizeOpencodeDirectory(directory: string): string {
   return directory;
 }
 
+/**
+ * Build a fresh OpenCode SDK client (no pooling). Prefer
+ * `getWorkspaceOpencodeClient` on hot paths.
+ */
 export function createWorkspaceOpencodeClient(
   config: ServerConfig,
   workspace: WorkspaceInfo,
@@ -155,6 +159,7 @@ export function createWorkspaceOpencodeClient(
       : {}),
   });
 }
+
 
 export function unwrapOpencodeResult<T, E>(
   result: OpencodeClientResult<T, E>,
