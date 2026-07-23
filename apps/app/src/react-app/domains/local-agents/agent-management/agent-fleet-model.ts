@@ -13,7 +13,11 @@ import {
   type AgentOwnership,
 } from "./agent-card-model";
 
-/** Product + common catalog keys that auto-enter the fleet when installed. */
+/**
+ * Historical product + common keys (docs / skill matrix order).
+ * R3 option 2: ANY installed catalog agent auto-enters the fleet — not only this set.
+ * Keep the list for skill-sidebar product ordering and backward-compatible helpers.
+ */
 export const AUTO_MANAGE_AGENT_KEYS = [
   "opencode",
   "claude",
@@ -28,6 +32,7 @@ const AUTO_MANAGE_KEY_SET = new Set<string>(AUTO_MANAGE_AGENT_KEYS);
 
 export type FleetBucket = "managed" | "discover" | "extension";
 
+/** @deprecated Prefer isAgentInstalled + catalog ownership (option 2 auto-adopt all installed). */
 export function isAutoManageKey(idOrProvider: string | null | undefined): boolean {
   const key = String(idOrProvider ?? "").trim().toLowerCase();
   return key.length > 0 && AUTO_MANAGE_KEY_SET.has(key);
@@ -53,23 +58,21 @@ export function isManagedFleetMember(
 ): boolean {
   const ownership = agentOwnership(agent);
   if (ownership === "extension") return false;
-  // 未安装 never stays in 「我的智能体」— only 「可添加」.
-  // Offline (installed but unhealthy) remains managed.
+  // R1/R4: missing install never stays in Mine — only Available to add.
+  // R2: Offline (installed but unhealthy) remains managed.
   if (!isAgentInstalled(agent, health)) return false;
   // User-owned store agents stay in the fleet while installed (incl. offline).
   if (ownership === "mine") return true;
   // Built-in product agents: installed ⇒ managed (no extra click).
   if (ownership === "product") return true;
-  // Catalog: installed + auto-manage key ⇒ treat as fleet (auto-adopt persists).
-  if (ownership === "catalog") {
-    return agentKeys(agent).some((key) => isAutoManageKey(key));
-  }
+  // R3 option 2: any installed catalog draft is fleet (auto-adopt persists to store).
+  if (ownership === "catalog") return true;
   return false;
 }
 
 /**
- * Rows for 「可添加」: not yet in the fleet (includes missing install targets
- * and store agents whose binary was removed).
+ * Rows for Available to add: not yet in the fleet (includes missing install
+ * targets and store agents whose binary was removed).
  */
 export function isDiscoverCandidate(
   agent: AgentManagementAgent,
@@ -81,15 +84,14 @@ export function isDiscoverCandidate(
 
 /**
  * Persist catalog agent into custom-agents store (idempotent create).
- * Only auto-manage keys that are installed and still catalog drafts.
+ * R3 option 2: every installed catalog draft is auto-adopted (WorkBuddy, Qoder, …).
  */
 export function shouldAutoAdoptToStore(
   agent: AgentManagementAgent,
   health?: AgentManagementHealthResult | null,
 ): boolean {
   if (agentOwnership(agent) !== "catalog") return false;
-  if (!isAgentInstalled(agent, health)) return false;
-  return agentKeys(agent).some((key) => isAutoManageKey(key));
+  return isAgentInstalled(agent, health);
 }
 
 export function fleetBucketOf(

@@ -8,6 +8,9 @@ import {
   filterSkillsByInventoryScope,
   isAgentsSkillsPoolSkill,
   isFleetRelatedSkill,
+  skillPrimaryPathForMatrix,
+  skillSourceSummaryForMatrix,
+  skillSourcesForMatrix,
 } from "../src/react-app/domains/local-agents/agent-management/skill-inventory-scope";
 
 function skill(partial: Partial<AgentManagementSkill> & Pick<AgentManagementSkill, "name" | "path">): AgentManagementSkill {
@@ -135,5 +138,28 @@ describe("skill inventory scope", () => {
       agents: ["unknown"],
     });
     expect(isFleetRelatedSkill(unknownOnly, fleet)).toBe(false);
+  });
+
+  test("source summary matches matrix columns only (not full-disk scan labels)", () => {
+    const multi = skill({
+      name: "arkcli-auth",
+      path: "/Users/me/.opencode/skills/arkcli-auth",
+      agents: ["claude", "gemini", "kiro", "qwen", "opencode", "grok"],
+      sources: [
+        { agent: "claude", label: "Claude Code", scope: "global", root: "/c", path: "/c/arkcli-auth", managedByStudioSwitch: false, kind: "skill", pluginName: null },
+        { agent: "gemini", label: "Gemini CLI", scope: "global", root: "/g", path: "/g/arkcli-auth", managedByStudioSwitch: false, kind: "skill", pluginName: null },
+        { agent: "kiro", label: "Kiro CLI", scope: "global", root: "/k", path: "/k/arkcli-auth", managedByStudioSwitch: false, kind: "skill", pluginName: null },
+        { agent: "qwen", label: "Qwen Code CLI", scope: "global", root: "/q", path: "/q/arkcli-auth", managedByStudioSwitch: false, kind: "skill", pluginName: null },
+        { agent: "opencode", label: "OpenCode CLI", scope: "global", root: "/o", path: "/o/arkcli-auth", managedByStudioSwitch: false, kind: "skill", pluginName: null },
+        { agent: "grok", label: "Grok Build", scope: "custom", root: "/x", path: "/x/arkcli-auth", managedByStudioSwitch: false, kind: "skill", pluginName: null },
+      ],
+      scopeLabel: "many",
+    });
+    const matrix = ["opencode", "grok"];
+    expect(skillSourceSummaryForMatrix(multi, matrix)).toBe("OpenCode CLI · Grok Build");
+    expect(skillSourceSummaryForMatrix(multi, matrix)).not.toContain("Claude");
+    expect(skillSourceSummaryForMatrix(multi, matrix)).not.toContain("Gemini");
+    expect(skillPrimaryPathForMatrix(multi, matrix)).toBe("/o/arkcli-auth");
+    expect(skillSourcesForMatrix(multi, matrix).map((s) => s.agent)).toEqual(["opencode", "grok"]);
   });
 });

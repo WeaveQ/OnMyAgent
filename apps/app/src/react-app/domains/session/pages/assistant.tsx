@@ -171,6 +171,12 @@ export function AssistantPage(props: AssistantPageProps) {
     useState<OnMyAgentPrimaryView>(() =>
       readRailView("assistant", props.selectedWorkspaceId, "assistant"),
     );
+  // Workspace switch: restore this mode's last rail page.
+  useEffect(() => {
+    setActiveSidebarView(
+      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
+    );
+  }, [props.selectedWorkspaceId]);
   const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
