@@ -134,10 +134,7 @@ jobs:
             fi
           fi
           prerelease="${INPUT_PRERELEASE:-false}"
-          notarize="${INPUT_NOTARIZE:-}"
-          if [ -z "$notarize" ]; then
-            notarize="${DEFAULT_NOTARIZE:-true}"
-          fi
+          notarize="false"
 
           build_electron="${INPUT_BUILD_ELECTRON:-}"
           if [ -z "$build_electron" ]; then
@@ -332,12 +329,11 @@ jobs:
 
           echo "NOTARY_KEY_PATH=$NOTARY_KEY_PATH" >> "$GITHUB_ENV"
 
-      - name: Reject unnotarized macOS Electron release
+      - name: Warn about unnotarized macOS Electron release
         if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && needs.resolve-release.outputs.draft != 'true' && needs.resolve-release.outputs.prerelease != 'true'
         shell: bash
         run: |
-          echo "macOS Electron release assets must be notarized. Re-run with notarize=true or set MACOS_NOTARIZE=true." >&2
-          exit 1
+          echo "Building an unnotarized macOS release (notarize hardcoded false). Gatekeeper will block this app on macOS." >&2
 
       - name: Warn about unnotarized preview macOS Electron release
         if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && (needs.resolve-release.outputs.draft == 'true' || needs.resolve-release.outputs.prerelease == 'true')
