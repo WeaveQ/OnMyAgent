@@ -70,7 +70,7 @@ Sites such as Xiaohongshu use **toggle** controls. A second click undoes the fir
 
 ## Confirm dialogs
 
-In-app browser **clicks do not show desktop confirmation dialogs** (including 发送 / submit). Upload/download may still ask. Prefer normal locator clicks for comments and form submit.
+In-app browser actions **do not show desktop confirmation dialogs** (clicks, 发送/submit, upload, download). Prefer normal locator clicks for comments and form submit.
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
