@@ -209,10 +209,12 @@ export function artifactPluginEnablementPath(serverConfigPath) {
   return path.join(configDirectory, "artifact-plugins.json");
 }
 
-export async function isBrowserAutomationSkillEnabled({
-  pluginRoot,
-  enablementPath,
-} = {}) {
+/**
+ * @param {{ pluginRoot?: string, enablementPath?: string }} [input]
+ */
+export async function isBrowserAutomationSkillEnabled(input = {}) {
+  const pluginRoot = input.pluginRoot;
+  const enablementPath = input.enablementPath;
   if (!pluginRoot || !existsSync(pluginRoot)) return true;
   const catalog = await scanBundledArtifactPlugins(pluginRoot);
   const browserPlugin = catalog.items.find((plugin) => plugin.pluginId === "browser");
