@@ -1,0 +1,48 @@
+# Enforce English PR title, description, and commit subjects (no CJK).
+# Product UI copy remains multi-language via i18n — this is collab metadata only.
+name: PR English
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-english:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Collect commit subjects
+        id: commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          SUBJECTS=$(git log --format=%s "${BASE_SHA}..${HEAD_SHA}" | sed '/^$/d' || true)
+          {
+            echo "subjects<<EOF"
+            printf '%s\n' "$SUBJECTS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check PR title, body, and commits are English
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_COMMITS: ${{ steps.commits.outputs.subjects }}
+        run: node scripts/checks/pr-english.mjs
