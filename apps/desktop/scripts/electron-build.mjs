@@ -44,9 +44,20 @@ run(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--outdir", 
 run(nodeCmd, [resolve(__dirname, "prepare-runtimes.mjs"), "--outdir", electronRuntimeDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], desktopRoot);
 rmSync(electronArtifactRuntimeDir, { recursive: true, force: true });
+// Prefer offline store after root `pnpm install`, but allow network when the
+// offline metadata mirror is incomplete (seen on GHA as ERR_PNPM_NO_OFFLINE_META
+// for exceljs during Release App packaging).
 run(
   pnpmCmd,
-  ["--offline", "--filter", "@onmyagent/artifact-runtime", "deploy", "--legacy", "--prod", electronArtifactRuntimeDir],
+  [
+    "--prefer-offline",
+    "--filter",
+    "@onmyagent/artifact-runtime",
+    "deploy",
+    "--legacy",
+    "--prod",
+    electronArtifactRuntimeDir,
+  ],
   repoRoot,
 );
 // pnpm's legacy deploy includes a workspace self-link that points back into the
