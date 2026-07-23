@@ -46,8 +46,12 @@ export {
   humanizeArchiveTitle,
 } from "./session-archive-helpers";
 
-const PAGE_LIMIT = 2000;
-const MESSAGE_LIMIT = 500;
+/** First-screen page size — never mount thousands of list rows at once. */
+const PAGE_LIMIT = 50;
+/** Transcript window; full history can be expanded later if needed. */
+const MESSAGE_LIMIT = 120;
+const SEARCH_DEBOUNCE_MS = 280;
+const SSE_LIST_REFRESH_DEBOUNCE_MS = 1_500;
 
 type Props = {
   client: OnMyAgentServerClient | null;
@@ -63,12 +67,27 @@ type ArchiveSyncSummary = {
   warnings: string[];
 };
 
+/** Merge pages by id (newer page rows win for the same id). Exported for unit tests. */
+export function mergeArchiveSessionPages(
+  existing: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+  incoming: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+): OnMyAgentSessionArchiveSession[] {
+  const map = new Map<string, OnMyAgentSessionArchiveSession>();
+  for (const row of existing) map.set(row.id, row);
+  for (const row of incoming) map.set(row.id, row);
+  return Array.from(map.values());
+}
+
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sessions, setSessions] = useState<OnMyAgentSessionArchiveSession[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [listTotal, setListTotal] = useState(0);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<OnMyAgentSessionArchiveMessagesResponse["messages"]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,8 +95,9 @@ export function SessionArchivePage(props: Props) {
   const [agentCounts, setAgentCounts] = useState<Array<{ agent: string; count: number }>>([]);
   const [agentFilter, setAgentFilter] = useState<string | null>(null); // null = 全部
   const [lastSyncSummary, setLastSyncSummary] = useState<ArchiveSyncSummary | null>(null);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const trimmedQuery = query.trim();
+  const trimmedQuery = debouncedQuery.trim();
   const refreshList = useCallback(() => setListTick((tick) => tick + 1), []);
 
   // Guard so SSE-driven refreshes never disturb the transcript pane the user
@@ -85,28 +105,55 @@ export function SessionArchivePage(props: Props) {
   // selection, not when the list ticks.
   const lastLoadedSessionRef = useRef<string | null>(null);
   const initialSyncDoneRef = useRef(false);
+  const sseRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadSessionList = useCallback(async () => {
-    if (!props.client || !props.workspaceId.trim()) return;
-    setLoadingList(true);
-    setError(null);
-    try {
-      const page = await props.client.listSessionArchiveSessions(props.workspaceId, {
-        limit: PAGE_LIMIT,
-        search: trimmedQuery || undefined,
-      });
-      setSessions(page.sessions);
-      setAgentCounts(page.agent_counts ?? []);
-      setSelectedSessionId((current) => {
-        if (current && page.sessions.some((s) => s.id === current)) return current;
-        return page.sessions[0]?.id ?? null;
-      });
-    } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setLoadingList(false);
-    }
-  }, [props.client, props.workspaceId, trimmedQuery]);
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  const loadSessionList = useCallback(
+    async (options?: { cursor?: string; append?: boolean }) => {
+      if (!props.client || !props.workspaceId.trim()) return;
+      const append = Boolean(options?.append && options.cursor);
+      if (append) setLoadingMore(true);
+      else setLoadingList(true);
+      setError(null);
+      try {
+        const page = await props.client.listSessionArchiveSessions(props.workspaceId, {
+          limit: PAGE_LIMIT,
+          search: trimmedQuery || undefined,
+          agent: agentFilter || undefined,
+          cursor: options?.cursor,
+        });
+        setSessions((prev) =>
+          append ? mergeArchiveSessionPages(prev, page.sessions) : page.sessions,
+        );
+        setNextCursor(page.next_cursor?.trim() || null);
+        setListTotal(typeof page.total === "number" ? page.total : page.sessions.length);
+        // agent_counts are global (server ignores agent filter for counts).
+        if (!append || (page.agent_counts?.length ?? 0) > 0) {
+          setAgentCounts(page.agent_counts ?? []);
+        }
+        setSelectedSessionId((current) => {
+          if (append) return current;
+          if (current && page.sessions.some((s) => s.id === current)) return current;
+          return page.sessions[0]?.id ?? null;
+        });
+      } catch (cause: unknown) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setLoadingList(false);
+        setLoadingMore(false);
+      }
+    },
+    [props.client, props.workspaceId, trimmedQuery, agentFilter],
+  );
+
+  const loadMoreSessions = useCallback(() => {
+    if (!nextCursor || loadingList || loadingMore) return;
+    void loadSessionList({ cursor: nextCursor, append: true });
+  }, [nextCursor, loadingList, loadingMore, loadSessionList]);
 
   const runArchiveSync = useCallback(
     async (mode: "incremental" | "resync" = "resync") => {
@@ -136,6 +183,7 @@ export function SessionArchivePage(props: Props) {
             window.setTimeout(resolve, 200);
           });
         }
+        // Refresh first page only (cheap) after sync.
         await loadSessionList();
       } catch (cause: unknown) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -146,13 +194,13 @@ export function SessionArchivePage(props: Props) {
     [props.client, props.workspaceId, loadSessionList],
   );
 
+  // Paint first page immediately — do not block on full archive sync.
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
     void loadSessionList();
-  }, [props.client, props.workspaceId, trimmedQuery, listTick, loadSessionList]);
+  }, [props.client, props.workspaceId, trimmedQuery, agentFilter, listTick, loadSessionList]);
 
-  // First visit: run a real archive sync so Windows cold starts actually index
-  // local agent histories instead of only re-reading an empty SQLite cache.
+  // Background incremental sync after first paint (cold start indexing).
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
     if (initialSyncDoneRef.current) return;
@@ -193,8 +241,15 @@ export function SessionArchivePage(props: Props) {
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
     const controller = new AbortController();
+    const scheduleRefresh = () => {
+      if (sseRefreshTimerRef.current) clearTimeout(sseRefreshTimerRef.current);
+      sseRefreshTimerRef.current = setTimeout(() => {
+        sseRefreshTimerRef.current = null;
+        refreshList();
+      }, SSE_LIST_REFRESH_DEBOUNCE_MS);
+    };
     props.client
-      .openSessionArchiveEventsStream(props.workspaceId, { pollMs: 5000, signal: controller.signal })
+      .openSessionArchiveEventsStream(props.workspaceId, { pollMs: 15_000, signal: controller.signal })
       .then(async (response) => {
         const body = response.body;
         if (!body) return;
@@ -203,7 +258,7 @@ export function SessionArchivePage(props: Props) {
           while (true) {
             const { done } = await reader.read();
             if (done) break;
-            refreshList();
+            scheduleRefresh();
           }
         } finally {
           reader.releaseLock();
@@ -212,6 +267,7 @@ export function SessionArchivePage(props: Props) {
       .catch(() => {});
     return () => {
       controller.abort();
+      if (sseRefreshTimerRef.current) clearTimeout(sseRefreshTimerRef.current);
     };
   }, [props.client, props.workspaceId, refreshList]);
 
@@ -251,29 +307,31 @@ export function SessionArchivePage(props: Props) {
   }, [props.client, props.workspaceId, selectedSessionId, refreshList]);
 
   const resumeRequest = useMemo(() => buildResumeRequest(selectedSession), [selectedSession]);
+  /** Chip total: prefer server agent_counts sum; filter uses that agent's count. */
   const totalKnown = useMemo(() => {
-    return groups.reduce((sum, g) => {
-      const total = (g as { totalCount?: number }).totalCount;
-      return sum + (typeof total === "number" ? total : g.sessions.length);
-    }, 0);
-  }, [groups]);
+    if (agentFilter) {
+      const hit = agentCounts.find((entry) => entry.agent === agentFilter);
+      return hit?.count ?? listTotal;
+    }
+    if (agentCounts.length > 0) {
+      return agentCounts.reduce((sum, entry) => sum + entry.count, 0);
+    }
+    return listTotal;
+  }, [agentCounts, agentFilter, listTotal]);
   const handleResume = useCallback(() => {
     if (!resumeRequest || !props.onResume) return;
     props.onResume(resumeRequest);
   }, [props, resumeRequest]);
   const canResume = Boolean(resumeRequest && props.onResume);
 
+  // Server already filters by agent when agentFilter is set — sort loaded page only.
   const flatSessions = useMemo(() => {
-    const source = agentFilter
-      ? groups.filter((g) => g.agent === agentFilter)
-      : groups;
-    const rows = source.flatMap((g) => g.sessions);
-    return rows.sort((a, b) => {
+    return [...sessions].sort((a, b) => {
       const at = a.file_mtime ?? 0;
       const bt = b.file_mtime ?? 0;
       return bt - at;
     });
-  }, [groups, agentFilter]);
+  }, [sessions]);
 
   const roleLabel = useCallback((role: string) => {
     if (role === "user") return t("session_archive.role_user");
@@ -378,7 +436,16 @@ export function SessionArchivePage(props: Props) {
       {/* Master–detail */}
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-80 shrink-0 flex-col border-r border-dls-border/60 bg-dls-surface/40">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div
+            ref={listScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto"
+            onScroll={(event) => {
+              const el = event.currentTarget;
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+                loadMoreSessions();
+              }
+            }}
+          >
             {loadingList && flatSessions.length === 0 ? (
               <div className="flex items-center gap-2 px-4 py-8 text-xs text-dls-secondary">
                 <LoadingSpinner size="sm" />
@@ -489,6 +556,30 @@ export function SessionArchivePage(props: Props) {
                 );
               })}
             </ul>
+            {nextCursor ? (
+              <div className="flex justify-center px-3 pb-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMore || loadingList}
+                  onClick={() => loadMoreSessions()}
+                  className="w-full"
+                >
+                  {loadingMore ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      {t("session_archive.loading_more")}
+                    </>
+                  ) : (
+                    `${t("session_archive.load_more")} · ${t("session_archive.loaded_count", undefined, {
+                      loaded: flatSessions.length,
+                      total: totalKnown,
+                    })}`
+                  )}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </aside>
 
