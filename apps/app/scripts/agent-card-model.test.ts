@@ -1,63 +1,32 @@
 import { describe, expect, it } from "bun:test";
-import {
-  formatAgentVersionDisplay,
-  agentVersionLabel,
-} from "../src/react-app/domains/local-agents/agent-management/agent-card-model";
-import type { AgentManagementAgent } from "../src/app/lib/desktop";
+import { agentDisplayStatus } from "../src/react-app/domains/local-agents/agent-management/agent-card-model";
 
-function agent(overrides: Partial<AgentManagementAgent> & { id: string }): AgentManagementAgent {
-  return {
-    id: overrides.id,
-    name: overrides.name ?? overrides.id,
-    provider: overrides.provider ?? "custom",
-    version: overrides.version ?? null,
-    executablePath: overrides.executablePath ?? null,
-  } as AgentManagementAgent;
-}
-
-describe("formatAgentVersionDisplay", () => {
-  it("extracts compact semver from long product strings", () => {
-    expect(formatAgentVersionDisplay("Hermes Agent v0.13.0 (2026.5.7)")).toBe("v0.13.0");
-    expect(formatAgentVersionDisplay("Hermes Agent 0.13.0 (2026.5.7)")).toBe("v0.13.0");
+describe("agentDisplayStatus R1/R2", () => {
+  it("maps missing status to missing", () => {
+    expect(agentDisplayStatus({ status: "missing" })).toBe("missing");
   });
 
-  it("normalizes bare semver with a v prefix", () => {
-    expect(formatAgentVersionDisplay("1.17.8")).toBe("v1.17.8");
-    expect(formatAgentVersionDisplay("v2.0.1")).toBe("v2.0.1");
-  });
-
-  it("keeps short prerelease tags", () => {
-    expect(formatAgentVersionDisplay("1.0.0-beta.1")).toBe("v1.0.0-beta.1");
-  });
-
-  it("returns null for empty input", () => {
-    expect(formatAgentVersionDisplay("")).toBeNull();
-    expect(formatAgentVersionDisplay(null)).toBeNull();
-  });
-});
-
-describe("agentVersionLabel", () => {
-  it("uses formatted version when present", () => {
+  it("maps offline + missing_binary errorInfo to missing", () => {
     expect(
-      agentVersionLabel(agent({ id: "hermes", version: "Hermes Agent v0.13.0 (2026.5.7)" })),
-    ).toBe("v0.13.0");
+      agentDisplayStatus({
+        status: "offline",
+        error: "spawn claude ENOENT",
+        errorInfo: { code: "missing_binary" },
+      }),
+    ).toBe("missing");
   });
 
-  it("skips executable basename that only repeats agent id", () => {
+  it("keeps offline ACP failures as offline (installed)", () => {
     expect(
-      agentVersionLabel(agent({ id: "claude", name: "Claude Code", executablePath: "/usr/bin/claude" })),
-    ).toBeNull();
+      agentDisplayStatus({
+        status: "offline",
+        error: "ACP handshake failed: session/new",
+      }),
+    ).toBe("offline");
   });
 
-  it("keeps path basename when it looks like a version", () => {
-    expect(
-      agentVersionLabel(agent({ id: "tool", name: "Tool", executablePath: "/opt/tool-1.2.3" })),
-    ).toBe("v1.2.3");
-  });
-
-  it("extracts semver from grok-style version banners", () => {
-    expect(
-      agentVersionLabel(agent({ id: "grok", name: "Grok Build", version: "grok 0.2.106 (bde89716f679)" })),
-    ).toBe("v0.2.106");
+  it("keeps online and needs_auth", () => {
+    expect(agentDisplayStatus({ status: "online" })).toBe("online");
+    expect(agentDisplayStatus({ status: "needs_auth" })).toBe("needs_auth");
   });
 });

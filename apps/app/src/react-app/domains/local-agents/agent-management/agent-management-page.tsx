@@ -826,8 +826,9 @@ export function AgentManagementPage(props: {
       <header
         className={cn(
           shellChrome.pageHeaderSimple,
-          // Keep the whole header interactive; metrics + refresh sit under the macOS drag strip.
-          "justify-between gap-3 border-b-0 mac:titlebar-no-drag",
+          // Empty header gutter is a window drag region on macOS (frameless).
+          // Tabs / metrics / refresh opt out via titlebar-no-drag so they stay clickable.
+          "justify-between gap-3 border-b-0 mac:titlebar-drag",
         )}
       >
         <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
@@ -852,10 +853,7 @@ export function AgentManagementPage(props: {
             },
           )}
         </SegmentedTabGroup>
-        {/*
-          mac:titlebar-no-drag: top 28px is a global Electron drag strip on macOS;
-          interactive chrome here must opt out or clicks (esp. far-right refresh) are swallowed.
-        */}
+        {/* Interactive cluster: must stay no-drag so refresh/metrics receive clicks. */}
         <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 mac:titlebar-no-drag">
           {activePanel === "agents" ? (
             <>
