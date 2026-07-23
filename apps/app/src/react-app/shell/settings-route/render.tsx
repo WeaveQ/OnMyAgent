@@ -1132,7 +1132,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const loadOpenCodeManagedProviders = useCallback(async () => {
     if (!selectedWorkspaceRoot) return [];
     try {
-      const snapshot = await agentManagementSnapshot({ workspaceRoot: selectedWorkspaceRoot });
+      const snapshot = await agentManagementSnapshot({
+        workspaceRoot: selectedWorkspaceRoot,
+        domains: ["core"],
+        includeModels: false,
+      });
       return snapshot.providers.byAgent.opencode;
     } catch (error) {
       console.warn("[settings] failed to load OpenCode managed providers", error);
