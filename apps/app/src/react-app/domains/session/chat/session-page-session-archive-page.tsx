@@ -25,6 +25,7 @@ import {
   groupSessionsByAgent,
   buildResumeRequest,
   humanizeArchiveTitle,
+  shortProjectLabel,
 } from "./session-archive-helpers";
 
 // Pure helpers + the `SessionArchiveResumeRequest` type live in
@@ -44,6 +45,7 @@ export {
   groupSessionsByAgent,
   buildResumeRequest,
   humanizeArchiveTitle,
+  shortProjectLabel,
 } from "./session-archive-helpers";
 
 /** First-screen page size — never mount thousands of list rows at once. */
@@ -397,6 +399,7 @@ export function SessionArchivePage(props: Props) {
               selected={!agentFilter}
               onClick={() => setAgentFilter(null)}
               label={t("session_archive.agent_filter_all")}
+              className="rounded-md"
             />
             {groups.map((g) => {
               const count =
@@ -409,6 +412,7 @@ export function SessionArchivePage(props: Props) {
                   onClick={() =>
                     setAgentFilter(g.agent === agentFilter ? null : g.agent)
                   }
+                  className="rounded-md"
                   label={
                     <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
                       <AgentBrandIcon
@@ -505,7 +509,7 @@ export function SessionArchivePage(props: Props) {
                       onClick={() => setSelectedSessionId(session.id)}
                       aria-current={active ? "true" : undefined}
                       className={cn(
-                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
+                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
                         active
                           ? "bg-dls-list-selected text-dls-text shadow-none"
                           : "text-dls-text hover:bg-dls-list-hover/50",
@@ -777,12 +781,4 @@ function formatCompactCount(count: number): string {
   if (!Number.isFinite(count) || count < 1000) return String(count);
   if (count < 10_000) return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return `${Math.round(count / 1000)}k`;
-}
-
-function shortProjectLabel(project: string | null | undefined): string | null {
-  if (!project) return null;
-  const normalized = project.replace(/\\/g, "/").replace(/\/+$/, "");
-  const parts = normalized.split("/").filter(Boolean);
-  if (parts.length === 0) return project;
-  return parts[parts.length - 1] ?? project;
 }
