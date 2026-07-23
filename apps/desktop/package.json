@@ -1,7 +1,7 @@
 {
   "name": "@onmyagent/desktop",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "OnMyAgent — local control plane for your AI agents",
   "author": {
     "name": "OnMyAgent Contributors"
