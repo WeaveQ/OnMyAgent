@@ -137,6 +137,7 @@ type SessionTranscriptProps = {
   onForkAtMessage?: (messageId: string) => void;
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   workspaceRoot?: string;
   /**
    * When set, renders this identity once at the start of each visible
@@ -854,6 +855,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
           : undefined}
         verifiedCodePaths={verifiedMarkdownCodePaths}
         onOpenCodePath={onOpenMarkdownCodePath}
+        onDownloadCodePath={props.onDownloadCodePath}
         onOpenTarget={props.onOpenTarget}
         workspaceRoot={props.workspaceRoot}
         assistantAvatar={props.assistantAvatar}

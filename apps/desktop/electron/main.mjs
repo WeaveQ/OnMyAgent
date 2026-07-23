@@ -1643,6 +1643,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
+  BrowserWindow,
 });
 
 async function dispatchDesktopCommand(event, command, ...args) {

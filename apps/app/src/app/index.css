@@ -1297,15 +1297,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     font-size: 14px;
   }
 
-  .session-inline-visual-source {
-    max-height: 320px;
-    overflow: auto;
-    background: var(--session-content-table-header, var(--dls-surface-muted));
-    padding: 12px;
-    color: var(--dls-text-secondary);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.5;
+  .session-inline-visual-export-region {
+    min-width: 0;
+    background: var(--dls-surface);
   }
 
   .session-inline-visual-body {

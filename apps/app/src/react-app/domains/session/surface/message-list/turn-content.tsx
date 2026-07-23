@@ -25,6 +25,7 @@ export function WorkBuddyTurnContent(props: {
   expandedStepIds: Set<string>;
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
   onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   highlightQuery?: string;
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
 }) {
@@ -139,7 +140,7 @@ export function WorkBuddyTurnContent(props: {
         <InlineVisual
           key={segment.id}
           visual={segment.visual}
-          onOpenCodePath={props.onOpenCodePath}
+          onDownloadCodePath={props.onDownloadCodePath}
         />
       );
     }
@@ -166,7 +167,7 @@ export function WorkBuddyTurnContent(props: {
                   <InlineVisual
                     key={`${segment.id}:widget:${index}`}
                     visual={bodySegment.visual}
-                    onOpenCodePath={props.onOpenCodePath}
+                    onDownloadCodePath={props.onDownloadCodePath}
                   />
                 )
               : bodySegment.text.trim()
@@ -214,7 +215,7 @@ export function WorkBuddyTurnContent(props: {
                   <InlineVisual
                     key={`${segment.id}:widget:${index}`}
                     visual={bodySegment.visual}
-                    onOpenCodePath={props.onOpenCodePath}
+                    onDownloadCodePath={props.onDownloadCodePath}
                   />
                 )
               : bodySegment.text.trim()
@@ -256,7 +257,7 @@ export function WorkBuddyTurnContent(props: {
             <InlineVisual
               key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
               visual={visual}
-              onOpenCodePath={props.onOpenCodePath}
+              onDownloadCodePath={props.onDownloadCodePath}
             />
           ))
         : null}
