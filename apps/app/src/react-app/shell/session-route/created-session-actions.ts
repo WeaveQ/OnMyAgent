@@ -8,11 +8,20 @@ export function activateCreatedSessionRoute(input: {
   setLegacySelectedWorkspaceId: (workspaceId: string) => void;
   suppressRestoreSessionRef: { current: boolean };
   writeActiveWorkspaceId: (workspaceId: string | null) => void;
-  writeLastSessionFor: (workspaceId: string, sessionId: string) => void;
+  writeLastSessionFor: (
+    workspaceId: string,
+    sessionId: string,
+    mode?: "assistant" | "expert",
+  ) => void;
+  pageMode?: "assistant" | "expert";
 }) {
   input.setLegacySelectedWorkspaceId(input.selectedWorkspaceId);
   input.writeActiveWorkspaceId(input.selectedWorkspaceId || null);
-  input.writeLastSessionFor(input.selectedWorkspaceId, input.sessionId);
+  input.writeLastSessionFor(
+    input.selectedWorkspaceId,
+    input.sessionId,
+    input.pageMode,
+  );
   input.rememberPendingCreatedSession(input.selectedWorkspaceId, input.sessionId);
   input.suppressRestoreSessionRef.current = true;
   input.navigateToWorkspaceSession(input.selectedWorkspaceId, input.sessionId);

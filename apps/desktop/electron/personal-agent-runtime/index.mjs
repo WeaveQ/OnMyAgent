@@ -10,7 +10,12 @@ import { createOpenClawAdapter } from "./adapters/openclaw.mjs";
 import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
-import { personalAgentAvailableMetadataList, personalAgentMetadataList, personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
+import {
+  normalizeAgentStatus,
+  personalAgentAvailableMetadataList,
+  personalAgentMetadataList,
+  personalAgentMetadataFromAgent,
+} from "./agent-metadata.mjs";
 import {
   detectAvailableLocalAgents,
   discoverableAgentDrafts,
@@ -1606,10 +1611,22 @@ export function createPersonalAgentRuntime(options) {
           }
         }))
       : agents;
+    // R1: coerce missing_binary / not-installed signals to status "missing"
+    // before the management UI partitions 我的 vs 可添加.
+    const normalizedAgents = hydratedAgents.map((agent) => {
+      const status = normalizeAgentStatus(agent);
+      if (status === agent?.status) return agent;
+      const installed = status === "online" || status === "offline" || status === "needs_auth";
+      const capability =
+        agent?.capability && typeof agent.capability === "object"
+          ? { ...agent.capability, installed }
+          : agent?.capability;
+      return { ...agent, status, capability };
+    });
     return {
       ...result,
-      agents: hydratedAgents,
-      metadata: personalAgentMetadataList(hydratedAgents),
+      agents: normalizedAgents,
+      metadata: personalAgentMetadataList(normalizedAgents),
     };
   }
 

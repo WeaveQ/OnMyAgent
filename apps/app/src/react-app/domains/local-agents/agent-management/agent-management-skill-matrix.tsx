@@ -19,6 +19,11 @@ import {
   STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
 } from "./agent-management-skill-model";
 import type { SkillInventoryScope } from "./skill-inventory-scope";
+import {
+  skillPrimaryPathForMatrix,
+  skillSourceSummaryForMatrix,
+  skillSourcesForMatrix,
+} from "./skill-inventory-scope";
 import { AgentBrandIcon, agentBrandIconTileClass } from "../agent-brand-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
@@ -416,10 +421,9 @@ function SkillMatrixRow(props: {
   onSkillAction: (skill: AgentManagementSkill, agent: AgentManagementSkillAgent, action: "enable" | "disable" | "open" | "import") => void;
   onOpenDetail: (skill: AgentManagementSkill) => void;
 }) {
-  const sourceLabels = Array.from(new Set(props.skill.sources.map((source) => source.label)));
-  const sourceSummary =
-    sourceLabels.length > 0 ? sourceLabels.join(" · ") : props.skill.scopeLabel;
-  const pathSummary = props.skill.sources[0]?.path ?? props.skill.path;
+  // Align subtitle with matrix columns (not the full-disk multi-agent scan).
+  const sourceSummary = skillSourceSummaryForMatrix(props.skill, props.matrixAgents);
+  const pathSummary = skillPrimaryPathForMatrix(props.skill, props.matrixAgents);
   const title =
     props.skill.displayNameZh || props.skill.displayNameEn || props.skill.name;
   const sourceKind =
@@ -623,6 +627,7 @@ function SkillMatrixDrawer(props: {
     "claude";
   const importBusy = props.busyKey === `${skill.path}:${importAgent}:import`;
   const unavailable = props.unavailableAgents ?? EMPTY_UNAVAILABLE_AGENTS;
+  const visibleSources = skillSourcesForMatrix(skill, props.matrixAgents);
   const copyPath = useCallback(async (path: string) => {
     try { await navigator.clipboard.writeText(path); } catch (_) { /* ignore */ }
   }, []);
@@ -684,9 +689,9 @@ function SkillMatrixDrawer(props: {
         </section>
 
         <section className="mb-4">
-          <div className="mb-1.5 text-xs font-medium text-dls-secondary">{t("skills.matrix_sources", { count: skill.sources.length })}</div>
+          <div className="mb-1.5 text-xs font-medium text-dls-secondary">{t("skills.matrix_sources", { count: visibleSources.length })}</div>
           <ul className="space-y-1.5">
-            {skill.sources.map((source, index) => (
+            {visibleSources.map((source, index) => (
               <li key={`${source.agent}:${source.path}:${index}`} className="rounded-lg border border-dls-border bg-dls-surface px-2.5 py-2">
                 <div className="flex items-center gap-1.5 text-xs">
                   <AgentBrandIcon id={source.agent} provider={source.agent} size="xs" alt={source.label} />
