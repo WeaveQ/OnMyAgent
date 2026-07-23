@@ -11,7 +11,7 @@ import { AutomationCreateResultCard } from "./automation-create-result-card";
 import {
   automationProposalsFingerprint,
   createAutomationsFromPayloads,
-  loadAutomationProposals,
+  loadNewAutomationProposals,
 } from "./apply-automation-proposals";
 import {
   applyAutomationOfferAnswer,
@@ -127,7 +127,7 @@ export function useSessionAutomationOffer(input: {
       return;
     }
     try {
-      const loaded = await loadAutomationProposals({
+      const loaded = await loadNewAutomationProposals({
         client: input.client,
         workspaceId,
         catalogRoot: input.catalogRoot,
@@ -136,6 +136,10 @@ export function useSessionAutomationOffer(input: {
         includeWorkspaceRoot: false,
       });
       if (loaded.proposals.length === 0 || input.selectedSessionId?.trim() !== scopeKey) {
+        if (loaded.proposals.length === 0 && flowRef.current.phase === "idle") {
+          offeredFingerprintRef.current = "all-existing";
+          offerScopeRef.current = scopeKey;
+        }
         return;
       }
       const fingerprint = automationProposalsFingerprint(loaded.proposals);
