@@ -69,13 +69,6 @@ function createKernel(options) {
       else request.reject(new Error(response.error));
     }
   });
-  // Avoid unhandled 'error' when writing after the worker already exited.
-  child.stdin.on("error", () => {
-    dead = true;
-  });
-  child.on("error", () => {
-    dead = true;
-  });
   child.on("exit", () => {
     dead = true;
     for (const request of pending.values()) {
@@ -90,34 +83,17 @@ function createKernel(options) {
     requestId += 1;
     const id = requestId;
     return new Promise((resolve, reject) => {
-      if (dead || child.killed || child.exitCode !== null) {
-        dead = true;
+      if (dead) {
         reject(new Error("node kernel exited"));
         return;
       }
       const timer = setTimeout(() => {
         pending.delete(id);
-        // Mark dead before SIGKILL so concurrent writers do not race on stdin.
-        dead = true;
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          // ignore
-        }
+        child.kill("SIGKILL");
         reject(new Error(`node kernel timed out after ${options.timeoutMs}ms`));
       }, options.timeoutMs);
       pending.set(id, { resolve, reject, timer });
-      try {
-        const ok = child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
-        if (ok === false) {
-          // Backpressure is fine; still track the request until response/timeout.
-        }
-      } catch (error) {
-        pending.delete(id);
-        clearTimeout(timer);
-        dead = true;
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
+      child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
     });
   };
   return {
@@ -167,26 +143,11 @@ export function createNodeKernelManager(options = {}) {
   };
 
   return {
-    async evaluate(sessionId, code) {
+    evaluate(sessionId, code) {
       if (typeof code !== "string" || !code.trim()) {
-        throw new TypeError("node kernel code is required");
+        return Promise.reject(new TypeError("node kernel code is required"));
       }
-      // One automatic retry when a dead/timed-out worker is still briefly
-      // referenced (exit handler race). Second failure surfaces to the caller.
-      try {
-        return await kernelFor(sessionId).evaluate(code);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!/node kernel (exited|timed out)/i.test(message) && error?.code !== "EPIPE") {
-          throw error;
-        }
-        const stale = kernels.get(sessionId);
-        if (stale) {
-          kernels.delete(sessionId);
-          void stale.stop();
-        }
-        return kernelFor(sessionId).evaluate(code);
-      }
+      return kernelFor(sessionId).evaluate(code);
     },
     configureBrowserSession(sessionId, context) {
       return kernelFor(sessionId).configureBrowser(context);
