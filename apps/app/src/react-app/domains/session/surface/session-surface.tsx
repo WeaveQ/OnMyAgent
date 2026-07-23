@@ -1844,7 +1844,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       interruptionDividers={interruptionDividers}
       resolveTranscriptScrollElement={resolveTranscriptScrollElement}
       onRevertToMessage={props.onRevertToMessage}
-      onForkAtMessage={props.onForkAtMessage}
       verifiedOpenTargets={verifiedOpenTargets}
       onOpenTarget={props.onOpenTarget}
       workspaceRoot={props.workspaceRoot}

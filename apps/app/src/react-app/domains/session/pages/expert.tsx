@@ -112,11 +112,6 @@ import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import {
-  buildAgentConversationGroups,
-  ensureAgentSessionGroupVisible,
-  ensureAgentSessionsVisible,
-  ensureSelectedAgentSessionGroupVisible,
-  ensureSelectedAgentSessionVisible,
   AgentConversationPanel,
   AgentSessionTabs,
   SidebarPaneCollapseToggle,
@@ -169,29 +164,22 @@ import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
 import { useSessionHostSidePanel } from "./use-session-host-side-panel";
+import {
+  buildCurrentAgentSessions,
+  buildDraftAgentGroups,
+  buildExpertSidebarSessionGroups,
+  buildExpertWorkspaceSessions,
+  buildAgentConversationGroups,
+  computeHasAnyExpertConversation,
+  listVisibleExpertAgentSessions,
+  resolveActiveAgentContext,
+  resolveActiveConversationGroup,
+  selectRawWorkspaceSessions,
+} from "./expert-conversation-model";
+import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
-import {
-  automationProposalsFingerprint,
-  createAutomationsFromPayloads,
-  loadAutomationProposals,
-} from "../artifacts/apply-automation-proposals";
-import { AutomationCreateResultCard } from "../artifacts/automation-create-result-card";
-import { writeAutomationFocus } from "../artifacts/automation-focus-memory";
-import {
-  applyAutomationOfferAnswer,
-  buildAutomationOfferQuestion,
-  buildCreatePayloadsFromDrafts,
-  createIdleAutomationOfferFlow,
-  finalizeAutomationCreateResult,
-  isHostAutomationQuestionId,
-  startAutomationOfferFlow,
-  toHostPendingQuestion,
-  type AutomationOfferFlowState,
-  type AutomationOfferLabels,
-} from "../artifacts/expert-automation-offer-flow";
-import { isStreamingSessionStatus } from "../sidebar/utils";
 
 const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
@@ -263,28 +251,25 @@ export function ExpertPage(props: ExpertPageProps) {
     draftSessionActive && draftAgentId
       ? `draft:${props.selectedWorkspaceId}:${draftAgentId}`
       : null;
-  const rawWorkspaceSessions = useMemo(() => {
-    const group = props.sidebar.workspaceSessionGroups.find(
-      (item) => item.workspace.id === props.sidebar.selectedWorkspaceId,
-    );
-    return group?.sessions ?? [];
-  }, [props.sidebar.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
-  const visibleAgentSessions = useMemo(
+  const rawWorkspaceSessions = useMemo(
     () =>
-      readCustomAgentSessionEntries().filter((entry) =>
-        isExpertSession(entry.sessionId),
+      selectRawWorkspaceSessions(
+        props.sidebar.workspaceSessionGroups,
+        props.sidebar.selectedWorkspaceId,
       ),
+    [props.sidebar.selectedWorkspaceId, props.sidebar.workspaceSessionGroups],
+  );
+  const visibleAgentSessions = useMemo(
+    () => listVisibleExpertAgentSessions(),
     [props.selectedSessionId, props.sidebar.workspaceSessionGroups],
   );
   const workspaceSessions = useMemo(
     () =>
-      ensureAgentSessionsVisible({
-        sessions: ensureSelectedAgentSessionVisible({
-          sessions: rawWorkspaceSessions,
-          selectedSessionId: props.selectedSessionId,
-          selectedAgentId: currentConversationAgentId,
-        }),
-        agentSessions: visibleAgentSessions,
+      buildExpertWorkspaceSessions({
+        rawWorkspaceSessions,
+        selectedSessionId: props.selectedSessionId,
+        currentConversationAgentId,
+        visibleAgentSessions,
       }),
     [
       currentConversationAgentId,
@@ -295,15 +280,12 @@ export function ExpertPage(props: ExpertPageProps) {
   );
   const sidebarWorkspaceSessionGroups = useMemo(
     () =>
-      ensureAgentSessionGroupVisible({
-        groups: ensureSelectedAgentSessionGroupVisible({
-          groups: props.sidebar.workspaceSessionGroups,
-          selectedWorkspaceId: props.sidebar.selectedWorkspaceId,
-          selectedSessionId: props.selectedSessionId,
-          selectedAgentId: currentConversationAgentId,
-        }),
+      buildExpertSidebarSessionGroups({
+        groups: props.sidebar.workspaceSessionGroups,
         selectedWorkspaceId: props.sidebar.selectedWorkspaceId,
-        agentSessions: visibleAgentSessions,
+        selectedSessionId: props.selectedSessionId,
+        currentConversationAgentId,
+        visibleAgentSessions,
       }),
     [
       currentConversationAgentId,
@@ -317,158 +299,67 @@ export function ExpertPage(props: ExpertPageProps) {
     () => buildAgentConversationGroups(workspaceSessions, registry),
     [registry, workspaceSessions],
   );
-  const draftAgentGroups = useMemo<AgentConversationGroup[]>(() => {
-    return Object.values(draftAgentContexts).flatMap((agent) => {
-      if (agent.boundSessionId) return [];
-      const draftSession: SidebarSessionItem = {
-        id: `draft:${props.selectedWorkspaceId}:${agent.id}`,
-        title: agent.name,
-        time: agent.conversationStartId
-          ? {
-              created: agent.conversationStartId,
-              updated: agent.conversationStartId,
-            }
-          : undefined,
-      };
-      return [
-        {
-          key: `draft-agent:${agent.id}`,
-          agentId: agent.id,
-          name: agent.name,
-          description:
-            agent.description.trim() || t("session.cmd_new_session_title"),
-          avatarUrl: agent.avatar.avatarUrl,
-          avatarBackground:
-            agent.avatar.avatarBackground ?? "var(--ow-primary-light)",
-          sessions: [draftSession],
-          latestSession: draftSession,
-        },
-      ];
-    });
-  }, [draftAgentContexts, props.selectedWorkspaceId]);
+  const draftAgentGroups = useMemo(
+    () => buildDraftAgentGroups(draftAgentContexts, props.selectedWorkspaceId),
+    [draftAgentContexts, props.selectedWorkspaceId],
+  );
   const draftAgentGroup = useMemo(
     () =>
       draftAgentGroups.find((group) => group.agentId === draftAgentId) ?? null,
     [draftAgentGroups, draftAgentId],
   );
   const hasAnyExpertConversation = useMemo(
-    () =>
-      workspaceSessions.some(
-        (session) =>
-          isExpertSession(session.id) &&
-          Boolean(readCustomAgentIdForSession(session.id)),
-      ),
+    () => computeHasAnyExpertConversation(workspaceSessions),
     [workspaceSessions],
   );
-  const currentAgentSessions = useMemo(() => {
-    let sessions: SidebarSessionItem[];
-    if (!activeConversationAgentId) {
-      sessions = workspaceSessions.filter(
-        (session) =>
-          session.id === props.selectedSessionId &&
-          isExpertSession(session.id),
-      );
-    } else {
-      sessions = workspaceSessions.filter(
-        (session) =>
-          readCustomAgentIdForSession(session.id) ===
-            activeConversationAgentId &&
-          isExpertSession(session.id),
-      );
-    }
-    if (draftSessionActive) {
-      return [
-        {
-          id: activeDraftSessionId ?? `draft:${props.selectedWorkspaceId}`,
-          title: t("session.cmd_new_session_title"),
-        } as SidebarSessionItem,
-        ...sessions,
-      ];
-    }
-    return sessions;
-  }, [
-    currentConversationAgentId,
-    activeConversationAgentId,
-    props.selectedSessionId,
-    props.selectedWorkspaceId,
-    workspaceSessions,
-    draftSessionActive,
-    activeDraftSessionId,
-  ]);
-  const activeConversationGroup = useMemo(() => {
-    if (!activeConversationAgentId) return null;
-    const activeDraftGroup = draftAgentGroups.find(
-      (group) => group.agentId === activeConversationAgentId,
-    );
-    if (activeDraftGroup) return activeDraftGroup;
-    return (
-      conversationGroups.find(
-        (group) => group.agentId === activeConversationAgentId,
-      ) ?? null
-    );
-  }, [activeConversationAgentId, conversationGroups, draftAgentGroups]);
+  const currentAgentSessions = useMemo(
+    () =>
+      buildCurrentAgentSessions({
+        workspaceSessions,
+        activeConversationAgentId,
+        selectedSessionId: props.selectedSessionId,
+        selectedWorkspaceId: props.selectedWorkspaceId,
+        draftSessionActive,
+        activeDraftSessionId,
+      }),
+    [
+      activeConversationAgentId,
+      activeDraftSessionId,
+      draftSessionActive,
+      props.selectedSessionId,
+      props.selectedWorkspaceId,
+      workspaceSessions,
+    ],
+  );
+  const activeConversationGroup = useMemo(
+    () =>
+      resolveActiveConversationGroup({
+        activeConversationAgentId,
+        draftAgentGroups,
+        conversationGroups,
+      }),
+    [activeConversationAgentId, conversationGroups, draftAgentGroups],
+  );
   const activeExpertFeatureCategoryId = expertFeatureCategoryForAgent(
     activeConversationAgentId,
   );
-  const activeAgentContext = useMemo<PendingAgentContext | null>(() => {
-    if (!activeConversationAgentId) return null;
-    const draftContext = draftAgentContexts[activeConversationAgentId];
-    if (draftContext) return draftContext;
-    if (pendingAgent?.id === activeConversationAgentId) return pendingAgent;
-    const registryAgent = registry
-      ? (registry.agents.find((item) => item.id === activeConversationAgentId) ??
-        registry.templates.find((item) => item.id === activeConversationAgentId))
-      : null;
-    const restoredAgent =
-      registryAgent && registry
-        ? buildPendingAgentFromRecord(registryAgent, registry)
-        : null;
-    if (restoredAgent) return restoredAgent;
-    const marketplaceExpert = findBuiltinMarketplaceExpertById(
+  const activeAgentContext = useMemo(
+    () =>
+      resolveActiveAgentContext({
+        activeConversationAgentId,
+        draftAgentContexts,
+        pendingAgent,
+        registry,
+        activeConversationGroup,
+      }),
+    [
       activeConversationAgentId,
-    );
-    if (marketplaceExpert) {
-      return {
-        id: marketplaceExpert.id,
-        name: marketplaceExpert.displayName,
-        description: marketplaceExpert.description,
-        avatar: {
-          avatarStyle: "robot",
-          avatarOptionId: "marketplace-expert",
-          customAvatarDataUrl: null,
-          avatarUrl: marketplaceExpert.avatarUrl,
-          avatarBackground: "var(--ow-primary-light)",
-        },
-        systemPrompt: marketplaceExpert.systemPrompt,
-        quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
-        marketplaceExpert: {
-          source: "builtin",
-          packageName: marketplaceExpert.packageName,
-          packagePath: marketplaceExpert.packagePath,
-        },
-      };
-    }
-    if (!activeConversationGroup) return null;
-    return {
-      id: activeConversationAgentId,
-      name: activeConversationGroup.name,
-      description: activeConversationGroup.description,
-      avatar: {
-        avatarStyle: "robot",
-        avatarOptionId: "marketplace-expert",
-        customAvatarDataUrl: null,
-        avatarUrl: activeConversationGroup.avatarUrl,
-        avatarBackground: activeConversationGroup.avatarBackground,
-      },
-      systemPrompt: activeConversationGroup.description,
-    };
-  }, [
-    activeConversationAgentId,
-    activeConversationGroup,
-    draftAgentContexts,
-    pendingAgent,
-    registry,
-  ]);
+      activeConversationGroup,
+      draftAgentContexts,
+      pendingAgent,
+      registry,
+    ],
+  );
 
   const sidePanelScopeId =
     activeSidebarView === "localAgent"
@@ -905,353 +796,29 @@ export function ExpertPage(props: ExpertPageProps) {
     registry,
   ]);
 
-  const [automationOfferFlow, setAutomationOfferFlow] =
-    useState<AutomationOfferFlowState>(() => createIdleAutomationOfferFlow());
-  const offeredAutomationFingerprintRef = useRef("");
-  const automationOfferScopeRef = useRef("");
-  const wasExpertSessionBusyRef = useRef(false);
-  const automationOfferFlowRef = useRef(automationOfferFlow);
-  automationOfferFlowRef.current = automationOfferFlow;
-
-  const automationOfferScopeKey =
-    props.selectedSessionId?.trim() ||
-    (draftSessionActive && draftAgentId
-      ? `draft:${draftAgentId}`
-      : "");
-
-  const automationOfferLabels = useMemo<AutomationOfferLabels>(
-    () => ({
-      offerHeader: t("session.automation_offer_header"),
-      offerQuestion: (count, titles) =>
-        t("session.automation_offer_question", { count, titles }),
-      optAutoCreate: t("session.automation_opt_auto_create"),
-      optAutoCreateDesc: t("session.automation_opt_auto_create_desc"),
-      optSkip: t("session.automation_opt_skip"),
-      optSkipDesc: t("session.automation_opt_skip_desc"),
-      requiredHeader: t("session.automation_required_header"),
-      requiredTitleQuestion: (task) =>
-        t("session.automation_required_title_q", { task }),
-      requiredPromptQuestion: (task) =>
-        t("session.automation_required_prompt_q", { task }),
-      requiredTimeQuestion: (task) =>
-        t("session.automation_required_time_q", { task }),
-      optionalHeader: t("session.automation_optional_header"),
-      optionalQuestion: t("session.automation_optional_question"),
-      optOptionalYes: t("session.automation_opt_optional_yes"),
-      optOptionalYesDesc: t("session.automation_opt_optional_yes_desc"),
-      optOptionalNo: t("session.automation_opt_optional_no"),
-      optOptionalNoDesc: t("session.automation_opt_optional_no_desc"),
-      optionalTimezoneQuestion: t("session.automation_optional_timezone_q"),
-      confirmHeader: t("session.automation_confirm_header"),
-      confirmQuestion: (count, summary) =>
-        t("session.automation_confirm_question", { count, summary }),
-      optConfirm: t("session.automation_opt_confirm"),
-      optConfirmDesc: t("session.automation_opt_confirm_desc"),
-      optCancel: t("session.automation_opt_cancel"),
-      optCancelDesc: t("session.automation_opt_cancel_desc"),
-      customAnswerLabel: t("question_modal.custom_answer_label"),
-    }),
-    [],
-  );
-
-  const resolveAutomationSessionDirectory = useCallback(() => {
-    const selectedSession =
-      rawWorkspaceSessions.find(
-        (session) => session.id === props.selectedSessionId,
-      ) ??
-      currentAgentSessions.find(
-        (session) => session.id === props.selectedSessionId,
-      ) ??
-      null;
-    return {
-      sessionDirectory: selectedSession?.directory ?? null,
-      workspaceId:
-        props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim(),
-    };
-  }, [
-    currentAgentSessions,
-    props.runtimeWorkspaceId,
-    props.selectedSessionId,
-    props.selectedWorkspaceId,
-    rawWorkspaceSessions,
-  ]);
-
-  const clearAutomationOffer = useCallback(() => {
-    offeredAutomationFingerprintRef.current = "";
-    automationOfferScopeRef.current = "";
-    wasExpertSessionBusyRef.current = false;
-    setAutomationOfferFlow(createIdleAutomationOfferFlow());
-  }, []);
-
-  // Isolate offer UI to the session/agent that produced it.
-  useEffect(() => {
-    if (!automationOfferScopeKey) {
-      clearAutomationOffer();
-      return;
-    }
-    if (
-      automationOfferScopeRef.current &&
-      automationOfferScopeRef.current !== automationOfferScopeKey
-    ) {
-      clearAutomationOffer();
-    }
-  }, [automationOfferScopeKey, clearAutomationOffer]);
-
-  const scanAutomationProposals = useCallback(async () => {
-    const client = props.onmyagentServerClient;
-    const { workspaceId, sessionDirectory } = resolveAutomationSessionDirectory();
-    if (!client || !workspaceId) return;
-    // Never offer on a different expert's empty home / draft without a real session.
-    if (!props.selectedSessionId?.trim() || !sessionDirectory?.trim()) return;
-    if (props.activeQuestion) return;
-    const scopeKey = props.selectedSessionId.trim();
-    const currentPhase = automationOfferFlowRef.current.phase;
-    if (
-      currentPhase !== "idle" &&
-      currentPhase !== "dismissed" &&
-      currentPhase !== "result" &&
-      automationOfferScopeRef.current === scopeKey
-    ) {
-      return;
-    }
-    try {
-      const loaded = await loadAutomationProposals({
-        client,
-        workspaceId,
-        catalogRoot: codeWorkspaceCatalogRoot,
-        sessionRoot: props.selectedWorkspaceRoot,
-        sessionDirectory,
-        // Session-only: do not pull another expert's workspace-global proposals.
-        includeWorkspaceRoot: false,
-      });
-      if (loaded.proposals.length === 0) return;
-      // Scope may have changed while the scan was in flight.
-      if (props.selectedSessionId?.trim() !== scopeKey) return;
-      const fingerprint = automationProposalsFingerprint(loaded.proposals);
-      if (
-        fingerprint === offeredAutomationFingerprintRef.current &&
-        automationOfferScopeRef.current === scopeKey
-      ) {
-        return;
-      }
-      offeredAutomationFingerprintRef.current = fingerprint;
-      automationOfferScopeRef.current = scopeKey;
-      setAutomationOfferFlow(
-        startAutomationOfferFlow({
-          proposals: loaded.proposals,
-          fingerprint,
-        }),
-      );
-    } catch {
-      // Silent: proposal scan is best-effort after a turn.
-    }
-  }, [
-    codeWorkspaceCatalogRoot,
-    props.activeQuestion,
-    props.onmyagentServerClient,
-    props.selectedSessionId,
-    props.selectedWorkspaceRoot,
-    resolveAutomationSessionDirectory,
-  ]);
-
-  const activeExpertSessionId =
-    draftSessionActive
-      ? activeDraftSessionId
-      : props.selectedSessionId;
-  const expertSessionBusy = isStreamingSessionStatus(
-    activeExpertSessionId
-      ? props.sidebar.sessionStatusById?.[activeExpertSessionId]
-      : undefined,
-  );
-
-  useEffect(() => {
-    if (expertSessionBusy) {
-      wasExpertSessionBusyRef.current = true;
-      return;
-    }
-    if (!wasExpertSessionBusyRef.current) return;
-    wasExpertSessionBusyRef.current = false;
-    void scanAutomationProposals();
-  }, [expertSessionBusy, scanAutomationProposals]);
-
-  // Also offer when files panel discovers proposal paths (export may finish after idle).
-  useEffect(() => {
-    if (!props.selectedSessionId?.trim()) return;
-    const hasProposalTarget = openTargets.some((target) =>
-      target.value.replace(/\\/g, "/").includes("automations/proposals/"),
-    );
-    if (!hasProposalTarget || expertSessionBusy) return;
-    void scanAutomationProposals();
-  }, [expertSessionBusy, openTargets, props.selectedSessionId, scanAutomationProposals]);
-
-  const runAutomationCreate = useCallback(
-    async (flow: AutomationOfferFlowState) => {
-      const client = props.onmyagentServerClient;
-      const { workspaceId } = resolveAutomationSessionDirectory();
-      if (!client || !workspaceId) {
-        setAutomationOfferFlow((current) => ({
-          ...current,
-          busy: false,
-          phase: "dismissed",
-        }));
-        return;
-      }
-      const items = buildCreatePayloadsFromDrafts(flow.drafts);
-      if (items.length === 0) {
-        showToast({
-          tone: "warning",
-          title: t("session.automation_configure_empty"),
-        });
-        setAutomationOfferFlow((current) => ({
-          ...current,
-          busy: false,
-          phase: "dismissed",
-        }));
-        return;
-      }
-      try {
-        const result = await createAutomationsFromPayloads({
-          client,
-          workspaceId,
-          items,
-        });
-        if (result.created.length > 0) {
-          showToast({
-            tone: "success",
-            title: t("session.automation_proposals_created", {
-              count: result.created.length,
-              titles: result.created.map((item) => item.title).join(", "),
-            }),
-          });
-        } else if (result.errors.length > 0) {
-          showToast({
-            tone: "error",
-            title: t("session.automation_proposals_create_failed", {
-              message: result.errors[0]?.message ?? "unknown",
-            }),
-          });
-        } else if (result.skipped.length > 0) {
-          showToast({
-            tone: "info",
-            title: t("session.automation_proposals_all_skipped", {
-              count: result.skipped.length,
-            }),
-          });
-        }
-        setAutomationOfferFlow(
-          finalizeAutomationCreateResult({
-            state: flow,
-            result,
-            drafts: flow.drafts,
-          }),
-        );
-      } catch (error) {
-        showToast({
-          tone: "error",
-          title: t("session.automation_proposals_create_failed", {
-            message: error instanceof Error ? error.message : String(error),
-          }),
-        });
-        setAutomationOfferFlow((current) => ({
-          ...current,
-          busy: false,
-          phase: "confirm",
-        }));
-      }
-    },
-    [props.onmyagentServerClient, resolveAutomationSessionDirectory, showToast],
-  );
-
-  const handleHostAutomationAnswer = useCallback(
-    (answers: string[][]) => {
-      const decided = applyAutomationOfferAnswer({
-        state: automationOfferFlowRef.current,
-        answers,
-        labels: automationOfferLabels,
-      });
-      if (decided.kind === "create") {
-        setAutomationOfferFlow(decided.state);
-        void runAutomationCreate(decided.state);
-        return;
-      }
-      setAutomationOfferFlow(decided.state);
-    },
-    [automationOfferLabels, runAutomationCreate],
-  );
-
-  const hostAutomationQuestion = useMemo(() => {
-    // Only inject the offer into the session that owns it (never another expert's draft home).
-    const scope = props.selectedSessionId?.trim() ?? "";
-    if (!scope || scope !== automationOfferScopeRef.current) return null;
-    if (
-      automationOfferFlow.phase === "idle" ||
-      automationOfferFlow.phase === "dismissed"
-    ) {
-      return null;
-    }
-    const question = buildAutomationOfferQuestion(
-      automationOfferFlow,
-      automationOfferLabels,
-    );
-    if (!question) return null;
-    return toHostPendingQuestion({ sessionId: scope, question });
-  }, [
+  const {
     automationOfferFlow,
-    automationOfferLabels,
-    props.selectedSessionId,
-  ]);
-
-  const effectiveActiveQuestion =
-    !props.activeQuestion && hostAutomationQuestion
-      ? hostAutomationQuestion
-      : props.activeQuestion;
-
-  const effectiveRespondQuestion = useCallback(
-    (requestID: string, answers: string[][]) => {
-      if (isHostAutomationQuestionId(requestID)) {
-        handleHostAutomationAnswer(answers);
-        return;
-      }
-      props.respondQuestion?.(requestID, answers);
-    },
-    [handleHostAutomationAnswer, props.respondQuestion],
-  );
-
-  const openCreatedAutomation = useCallback(
-    (row: { id: string; scene: "office" | "code" }) => {
-      const workspaceId = props.selectedWorkspaceId.trim();
-      if (!workspaceId) return;
-      writeAutomationFocus({
-        workspaceId,
-        automationId: row.id,
-        scene: row.scene,
-      });
-      writeAssistantCategoryMemory(workspaceId, row.scene);
-      writeAssistantSelectionMemory(workspaceId, row.scene, {
-        kind: "automation",
-      });
-      writeRailView("assistant", workspaceId, "scheduledTasks");
-      props.onNavigateToMode("assistant");
-    },
-    [props.onNavigateToMode, props.selectedWorkspaceId],
-  );
-
-  const automationResultAccessory =
-    automationOfferFlow.phase === "result" &&
-    automationOfferFlow.resultRows.length > 0 &&
-    props.selectedSessionId?.trim() === automationOfferScopeRef.current ? (
-      <AutomationCreateResultCard
-        rows={automationOfferFlow.resultRows}
-        onView={(row) => openCreatedAutomation(row)}
-        onDismiss={() =>
-          setAutomationOfferFlow((current) => ({
-            ...current,
-            phase: "dismissed",
-            resultRows: [],
-          }))
-        }
-      />
-    ) : null;
+    effectiveActiveQuestion,
+    effectiveRespondQuestion,
+    automationResultAccessory,
+  } = useExpertAutomationOffer({
+    onmyagentServerClient: props.onmyagentServerClient,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    selectedWorkspaceRoot: props.selectedWorkspaceRoot,
+    runtimeWorkspaceId: props.runtimeWorkspaceId,
+    selectedSessionId: props.selectedSessionId,
+    draftSessionActive,
+    draftAgentId,
+    activeDraftSessionId,
+    codeWorkspaceCatalogRoot,
+    rawWorkspaceSessions,
+    currentAgentSessions,
+    openTargets,
+    activeQuestion: props.activeQuestion,
+    respondQuestion: props.respondQuestion,
+    sessionStatusById: props.sidebar.sessionStatusById,
+    onNavigateToMode: props.onNavigateToMode,
+  });
 
   const wrappedOnSendDraft = useCallback(
     async (draft: ComposerDraft) => {

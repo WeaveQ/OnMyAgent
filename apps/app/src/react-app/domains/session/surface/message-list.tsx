@@ -130,8 +130,6 @@ type SessionTranscriptProps = {
   variant?: "default" | "nested";
   /** Revert to this message (undo everything after it). */
   onRevertToMessage?: (messageId: string) => void;
-  /** Fork the conversation at this message into a new session. */
-  onForkAtMessage?: (messageId: string) => void;
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
   workspaceRoot?: string;
@@ -842,7 +840,6 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         )}
         latestAssistantMessageId={latestAssistantMessageId}
         onRevertToMessage={props.onRevertToMessage}
-        onForkAtMessage={props.onForkAtMessage}
         turnOpenTargets={turnPresentation
           ? turnOpenTargetsByTurnId.get(turnPresentation.turnId)
           : undefined}

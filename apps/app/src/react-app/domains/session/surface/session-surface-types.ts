@@ -127,7 +127,6 @@ export type SessionSurfaceProps = {
       ) => void | Promise<unknown>)
     | null;
   onRevertToMessage?: (messageId: string) => void;
-  onForkAtMessage?: (messageId: string) => void;
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
   onOpenTargetsChange?: (targets: OpenTarget[]) => void;
   personalAssistantHome?: boolean;
