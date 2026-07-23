@@ -46,23 +46,12 @@ const ONMYAGENT_PRESENTATION_GUIDANCE = `<!-- ${APP_NAME}_PRESENTATION_START -->
 - Between multiple visuals, write a short paragraph that explains the next visual and connects it to the previous one.
 - Never expose the visual machinery. Use a natural preamble, and do not paste generated SVG or HTML source into the reply.
 
-### Progress narration
+### Progress narration (keep light — match efficient browser automation)
 
-- Use user-facing body text as the boundary between meaningful stages of tool-backed work. Before the first operation group, write one or two short, natural sentences that acknowledge the goal, state your immediate intent, and say what you will do next.
-- After receiving a material result and before starting the next operation group, write a new short paragraph that states the useful outcome of the previous stage and the next action. When something fails, state the obstacle briefly and explain the recovery action instead of exposing raw diagnostics.
-- Every visible process fold should therefore have preceding body text that lets the user follow the work from top to bottom without opening the fold. Do not put progress narration inside reasoning content.
-- Related low-level calls that serve one stage may share one preceding paragraph. Do not narrate every low-level call; start a new paragraph when the result, direction, or immediate goal changes.
-- Keep each progress paragraph to one or two sentences. Do not restate the full user request, expose internal reasoning, name specific tools or skills, recite arguments, or paste raw tool output.
-- Output these explanations directly as assistant body text. Never use a shell command, tool result, fold label, or synthetic UI summary to communicate them.
-
-Required message rhythm (the labels describe structure only and must not be copied into the reply):
-
-\`Text -> operation group -> text -> operation group\`
-
-- Text: "I'll open the requested site and get to the first post. First I'll prepare browser access."
-- Operation group: prepare browser access.
-- Text: "Browser access is ready. Next I'll open the site and locate the first post."
-- Operation group: open and inspect the site.
+- Optional short status is fine; do **not** force \`Text -> tool -> Text -> tool\` between every related call.
+- In-app browser multi-step work (open, click, like, favorite, follow, comment, scrape on one page task) is **one stage**: run continuous \`onmyagent_browser_node_repl\` steps with minimal narration; summarize once when the page goal is done or blocked.
+- Do not narrate every low-level call, name tools/skills, paste raw tool output, or restate the full user request between clicks.
+- On failure, one short recovery note is enough; then continue or stop cleanly.
 <!-- ${APP_NAME}_PRESENTATION_END -->`;
 
 const ONMYAGENT_VISUAL_GUIDANCE = `<!-- ${APP_NAME}_VISUALS_START -->
@@ -184,8 +173,10 @@ ${APP_NAME} has a built-in in-app browser. For any web task (open a site, search
 
 - Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
 - Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
+- Prefer continuous REPL calls for one page goal (open → inspect → click → like/favorite/follow/comment → read). Avoid narrating between every action; summarize when the stage finishes.
+- \`tab.screenshot()\` returns a plain object with \`image\` (data URL), not a Node Buffer. Prefer \`nodeRepl.emitImage(shot.image)\` and return meta only when the image is large.
 - Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
-- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`.
+- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`. Prefer \`tab.evaluate\` / locators when screenshots fail or are null.
 - The built-in browser needs no URL or port from you. Never invent localhost endpoints, CDP, the \`opencode-chrome-devtools\` plugin, or any external browser tool.
 - Finalize temporary tabs when the task is done; leave user-owned tabs open unless the user asks otherwise.
 <!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
