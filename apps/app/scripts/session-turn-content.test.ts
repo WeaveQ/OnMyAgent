@@ -335,6 +335,38 @@ describe("WorkBuddy turn content presentation", () => {
     });
   });
 
+  test("renders an inlineWidget directly from completed command output", () => {
+    const widgetCode = '<section data-command-widget>waybill</section>';
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("generate-waybill", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "generate-waybill-1",
+        state: "output-available",
+        input: { command: "python3 generate_waybill.py --mode preview" },
+        output: JSON.stringify({
+          ok: true,
+          inlineWidget: {
+            title: "当前物流单三联预览",
+            widget_code: widgetCode,
+            artifactCopies: [],
+          },
+        }),
+      }]),
+    ]));
+
+    const widget = presentation?.segments.find((segment) => segment.kind === "widget");
+    expect(widget).toEqual(expect.objectContaining({
+      kind: "widget",
+      visual: expect.objectContaining({
+        title: "当前物流单三联预览",
+        html: widgetCode,
+        status: "completed",
+      }),
+    }));
+    expect(presentation?.segments.some((segment) => segment.kind === "process")).toBe(false);
+  });
+
   test("preserves WorkBuddy widget loading messages while the tool is running", () => {
     const turn = {
       ...completedTurn([
@@ -947,6 +979,38 @@ describe("WorkBuddy turn content presentation", () => {
       ? body.item.bodySegments?.find((segment) => segment.kind === "widget")?.visual
       : undefined;
     expect(visual?.artifactCopies).toEqual(artifactCopies);
+  });
+
+  test("preserves a copy mapping when only one export format was generated", () => {
+    const artifactCopies = [{
+      key: "yellow",
+      label: "三联发货单位（黄）",
+      pdf: "物流单_三联.pdf",
+      xlsx: "",
+    }];
+    const turn = completedTurn([
+      assistant("pdf-only-export", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "bash-pdf-only",
+        state: "output-available",
+        input: { command: "generate --formats pdf" },
+        output: JSON.stringify({
+          inlineWidget: {
+            title: "物流单三联预览",
+            widget_code: "<div>waybill</div>",
+            artifactCopies,
+          },
+        }),
+      }]),
+    ]);
+
+    const visual = buildTurnContentPresentation(turn)?.segments.find(
+      (segment) => segment.kind === "widget",
+    );
+    expect(visual?.kind === "widget" ? visual.visual.artifactCopies : null).toEqual(
+      artifactCopies,
+    );
   });
 
   test("keeps a fenced widget renderer active for a single assistant body", () => {
