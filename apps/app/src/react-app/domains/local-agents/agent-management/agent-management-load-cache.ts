@@ -201,3 +201,74 @@ export function coreReadyForAgentsPanel(
   // Fresh core OR any core ever loaded (stale still paints via cache-first).
   return Boolean(loaded?.core) || isDomainFresh(loaded, "core", now, ttlMs);
 }
+
+/**
+ * Domains from `needed` that are not already in flight.
+ * Overlapping concurrent loads must gate per-domain so a late mcp response
+ * does not start a second core fetch, and vice versa.
+ */
+export function domainsNotInFlight(
+  needed: readonly ManagementLoadDomain[],
+  inFlight: ReadonlySet<ManagementLoadDomain> | readonly ManagementLoadDomain[],
+): ManagementLoadDomain[] {
+  const flying =
+    inFlight instanceof Set
+      ? inFlight
+      : new Set<ManagementLoadDomain>(inFlight);
+  return needed.filter((domain) => !flying.has(domain));
+}
+
+/** Immutable-style add of domains to an in-flight set. */
+export function addInFlightDomains(
+  inFlight: ReadonlySet<ManagementLoadDomain> | readonly ManagementLoadDomain[],
+  domains: readonly ManagementLoadDomain[],
+): Set<ManagementLoadDomain> {
+  const next = new Set<ManagementLoadDomain>(
+    inFlight instanceof Set ? inFlight : inFlight,
+  );
+  for (const domain of domains) next.add(domain);
+  return next;
+}
+
+/** Immutable-style remove of domains from an in-flight set. */
+export function removeInFlightDomains(
+  inFlight: ReadonlySet<ManagementLoadDomain> | readonly ManagementLoadDomain[],
+  domains: readonly ManagementLoadDomain[],
+): Set<ManagementLoadDomain> {
+  const next = new Set<ManagementLoadDomain>(
+    inFlight instanceof Set ? inFlight : inFlight,
+  );
+  for (const domain of domains) next.delete(domain);
+  return next;
+}
+
+/**
+ * Apply a partial domain response onto the *latest* known snapshot.
+ * Callers must pass the current cache entry (re-read after await), not a
+ * start-of-request snapshot, so concurrent domain loads cannot wipe each other.
+ */
+export function applyPartialDomainSnapshotToLatest<T extends DomainSnapshotFields>(
+  latest: T | null | undefined,
+  partial: T,
+  loadedDomains?: readonly ManagementLoadDomain[] | null,
+): T {
+  let merged = mergeManagementDomainSnapshot(latest, partial, loadedDomains);
+  const loaded =
+    normalizeManagementDomains(partial.loadedDomains) ??
+    normalizeManagementDomains(loadedDomains) ??
+    [];
+  if (
+    loaded.includes("skills") &&
+    Array.isArray(merged.agents) &&
+    Array.isArray(merged.skills)
+  ) {
+    merged = {
+      ...merged,
+      agents: applySkillCountsToAgents(
+        merged.agents as Array<{ id?: string; provider?: string; skillCount?: number }>,
+        merged.skills as Array<{ agents?: string[] }>,
+      ),
+    } as T;
+  }
+  return merged;
+}
