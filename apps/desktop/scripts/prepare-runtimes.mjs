@@ -226,6 +226,18 @@ async function acquireArchive(url, fileName, sha256) {
   return cachedArchive;
 }
 
+/**
+ * GNU/bsdtar on Windows treats `D:\foo` as remote host `D`. Prefer MSYS-style
+ * `/d/foo` so `.tar.gz` extraction works in GitHub Actions windows-2022.
+ */
+function toTarLocalPath(filePath) {
+  if (process.platform !== "win32") return filePath;
+  const resolved = resolve(filePath);
+  const match = resolved.match(/^([A-Za-z]):[\\/](.*)$/);
+  if (!match) return resolved.replace(/\\/g, "/");
+  return `/${match[1].toLowerCase()}/${match[2].replace(/\\/g, "/")}`;
+}
+
 function extract(archive, destination) {
   mkdirSync(destination, { recursive: true });
   if (archive.endsWith(".zip")) {
@@ -241,7 +253,13 @@ function extract(archive, destination) {
     if (result.status !== 0) throw new Error(`Failed to extract ${archive}`);
     return;
   }
-  const result = spawnSync("tar", ["-xzf", archive, "-C", destination], {
+  const archivePath = toTarLocalPath(archive);
+  const destinationPath = toTarLocalPath(destination);
+  const tarArgs =
+    process.platform === "win32"
+      ? ["--force-local", "-xzf", archivePath, "-C", destinationPath]
+      : ["-xzf", archivePath, "-C", destinationPath];
+  const result = spawnSync("tar", tarArgs, {
     stdio: "inherit",
   });
   if (result.status !== 0) throw new Error(`Failed to extract ${archive}`);
