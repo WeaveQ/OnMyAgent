@@ -1222,7 +1222,11 @@ export function AgentManagementPage(props: {
               totalSkills={skillScopeCounts.all}
               search={skillSearch}
               onSearchChange={setSkillSearch}
-              loading={Boolean(domainLoading.skills) || !readCachedAgentManagerDomains(cacheKey).skills}
+              loading={
+                snapshotPending
+                || Boolean(domainLoading.skills)
+                || !readCachedAgentManagerDomains(cacheKey).skills
+              }
               busyKey={skillActionKey}
               onSkillAction={runSkillAction}
               columnFilter={skillColumnFilter}
@@ -1235,7 +1239,6 @@ export function AgentManagementPage(props: {
               inventoryScope={skillInventoryScope}
               onInventoryScopeChange={setSkillInventoryScope}
               scopeCounts={skillScopeCounts}
-              loading={snapshotPending}
             />
           )}
         </div>
