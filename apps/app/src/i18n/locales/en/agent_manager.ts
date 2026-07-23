@@ -92,6 +92,8 @@ export default {
   "agent_manager.provider_suffix": "{name} provider",
   "agent_manager.current_provider": "Current: {name}",
   "agent_manager.no_current_provider": "No current provider selected",
+  "agent_manager.provider_no_healthy_agents":
+    "No healthy agents available. Install or start an agent under Local first.",
   "agent_manager.skill_management": "Skills",
   "agent_manager.skills_desc":
     "Skill sources, agent ownership, and sync switches",
