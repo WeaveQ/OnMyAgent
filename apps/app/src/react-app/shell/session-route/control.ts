@@ -163,7 +163,7 @@ export function resolveSessionRouteModeSwitchPath(input: {
 
   const sessions = input.sessionsByWorkspaceId[workspaceId] ?? [];
 
-  // Returning to 助理: restore last assistant session (or first assistant), not a blank draft.
+  // Returning to assistant: restore last assistant session (or first assistant), not a blank draft.
   if (input.targetMode === "assistant") {
     const remembered = input.readLastSessionFor(workspaceId, "assistant");
     if (
@@ -182,7 +182,7 @@ export function resolveSessionRouteModeSwitchPath(input: {
       : workspaceAssistantRoute(workspaceId);
   }
 
-  // Returning to 专家: restore last expert session (or first expert), not empty home when possible.
+  // Returning to expert: restore last expert session (or first expert), not empty home when possible.
   const remembered = input.readLastSessionFor(workspaceId, "expert");
   if (
     remembered &&

@@ -58,7 +58,7 @@ export function isManagedFleetMember(
 ): boolean {
   const ownership = agentOwnership(agent);
   if (ownership === "extension") return false;
-  // R1/R4: 未安装 never stays in 「我的智能体」— only 「可添加」.
+  // R1/R4: missing install never stays in Mine — only Available to add.
   // R2: Offline (installed but unhealthy) remains managed.
   if (!isAgentInstalled(agent, health)) return false;
   // User-owned store agents stay in the fleet while installed (incl. offline).
@@ -71,8 +71,8 @@ export function isManagedFleetMember(
 }
 
 /**
- * Rows for 「可添加」: not yet in the fleet (includes missing install targets
- * and store agents whose binary was removed).
+ * Rows for Available to add: not yet in the fleet (includes missing install
+ * targets and store agents whose binary was removed).
  */
 export function isDiscoverCandidate(
   agent: AgentManagementAgent,
