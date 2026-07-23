@@ -2356,6 +2356,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
+                        automationSourceSessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}
                         initialKind={
                           activeSidePanel === "review"
@@ -2369,6 +2370,7 @@ export function ExpertPage(props: ExpertPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           activeExpertFeatureCategoryId === "office"
                             ? ["review", "terminal"]

@@ -5,6 +5,7 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import {
   ChevronRight,
+  Clock3,
   ClipboardCheck,
   Folder,
   FolderOpen,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 
 import type {
+  OnMyAgentAutomationTaskItem,
   OnMyAgentServerClient,
   OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../../app/lib/onmyagent-server";
@@ -45,6 +47,8 @@ import {
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -80,8 +84,9 @@ import {
 import { BrowserPanel } from "../browser/browser-panel";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
+import { automationsForSourceSession } from "../artifacts/session-automation-panel-model";
 
-type ToolKind = "review" | "terminal" | "browser" | "files";
+type ToolKind = "review" | "terminal" | "browser" | "files" | "automations";
 
 type ToolTab = {
   id: string;
@@ -149,6 +154,7 @@ const toolItems: Array<{
   { kind: "terminal", labelKey: "session.code_side_panel_terminal", icon: SquareTerminal },
   { kind: "browser", labelKey: "session.code_side_panel_browser", icon: Globe },
   { kind: "files", labelKey: "session.code_side_panel_files", icon: Folder },
+  { kind: "automations", labelKey: "session.code_side_panel_automations", icon: Clock3 },
 ];
 
 function toolIcon(kind: ToolKind) {
@@ -896,6 +902,107 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
   );
 }
 
+function SessionAutomationsPanel(props: {
+  client: OnMyAgentServerClient | null;
+  workspaceId: string | null;
+  sessionId: string | null;
+  onViewAutomation?: (task: OnMyAgentAutomationTaskItem) => void;
+}) {
+  const [items, setItems] = useState<OnMyAgentAutomationTaskItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    const client = props.client;
+    const workspaceId = props.workspaceId?.trim() ?? "";
+    const sessionId = props.sessionId?.trim() ?? "";
+    if (!client || !workspaceId || !sessionId) {
+      setItems([]);
+      setLoading(false);
+      setLoadFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async (initial: boolean) => {
+      if (initial) setLoading(true);
+      try {
+        const result = await client.listAutomations(workspaceId);
+        if (cancelled) return;
+        setItems(automationsForSourceSession(result.items, sessionId));
+        setLoadFailed(false);
+      } catch {
+        if (!cancelled) setLoadFailed(true);
+      } finally {
+        if (!cancelled && initial) setLoading(false);
+      }
+    };
+
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [props.client, props.sessionId, props.workspaceId]);
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <LoadingSpinner size="default" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto p-3">
+      {loadFailed ? (
+        <NoticeBox tone="error" className="mb-3">
+          {t("session.current_session_automations_load_failed")}
+        </NoticeBox>
+      ) : null}
+      {items.length === 0 ? (
+        <EmptyStateBox size="comfortable" tone="muted">
+          <div className="space-y-1 text-center">
+            <p className="font-medium text-dls-text">
+              {t("session.current_session_automations_empty")}
+            </p>
+            <p>{t("session.current_session_automations_empty_desc")}</p>
+          </div>
+        </EmptyStateBox>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-start gap-3 rounded-lg border border-dls-border bg-dls-surface p-3"
+            >
+              <Clock3 className="mt-0.5 size-4 shrink-0 text-dls-secondary" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-dls-text">
+                  {item.title}
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
+                  {item.prompt}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => props.onViewAutomation?.(item)}
+              >
+                {t("session.automation_result_view")}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CodeWorkspaceSidePanel(props: {
   workspacePath: string | null;
   workspaceCatalogRoot: string;
@@ -905,9 +1012,11 @@ export function CodeWorkspaceSidePanel(props: {
   focusToken?: number | null;
   workspaceId: string | null;
   sessionId: string | null;
+  automationSourceSessionId?: string | null;
   client: OnMyAgentServerClient | null;
   initialKind?: ToolKind | null;
   onClose: () => void;
+  onViewAutomation?: (task: OnMyAgentAutomationTaskItem) => void;
   hiddenKinds?: ToolKind[];
 }) {
   const cacheKey = workspacePanelCacheKey(props.sessionId, props.workspaceId);
@@ -1121,16 +1230,28 @@ export function CodeWorkspaceSidePanel(props: {
         />
       );
     }
+    if (activeTab.kind === "automations") {
+      return (
+        <SessionAutomationsPanel
+          client={props.client}
+          workspaceId={props.workspaceId}
+          sessionId={props.automationSourceSessionId ?? props.sessionId}
+          onViewAutomation={props.onViewAutomation}
+        />
+      );
+    }
     return null;
   }, [
     activeTab,
     props.client,
+    props.automationSourceSessionId,
     props.sessionId,
     props.workspaceCatalogRoot,
     props.fileRoot,
     props.fileTargets,
     props.focusPath,
     props.focusToken,
+    props.onViewAutomation,
     props.workspaceId,
     props.workspacePath,
   ]);
