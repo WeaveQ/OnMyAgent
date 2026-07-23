@@ -1040,6 +1040,8 @@ export function AgentManagementPage(props: {
             <>
               <AgentManagementProviderPanel
                 snapshot={snapshot}
+                agents={snapshot?.agents ?? []}
+                healthResults={healthResults}
                 loading={snapshotPending}
                 busyKey={providerActionKey}
                 selectedApp={providerApp}

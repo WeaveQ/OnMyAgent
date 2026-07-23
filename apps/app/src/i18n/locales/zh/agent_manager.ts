@@ -91,6 +91,7 @@ export default {
   "agent_manager.provider_suffix": "{name} 模型服务商",
   "agent_manager.current_provider": "当前：{name}",
   "agent_manager.no_current_provider": "未选择当前模型服务商",
+  "agent_manager.provider_no_healthy_agents": "暂无健康可用的 Agent，请先在「本地」安装并启动。",
   "agent_manager.skills_desc": "技能来源、Agent 归属与同步开关",
   "agent_manager.title": "Agent 管理",
   "agent_manager.written": "已写入",
