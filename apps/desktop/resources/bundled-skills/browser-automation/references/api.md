@@ -39,10 +39,24 @@ await tab.reload()
 await tab.close()
 await tab.url()
 await tab.title()
-await tab.screenshot() // default: jpeg, maxWidth 960, quality 55
+await tab.screenshot() // default: jpeg, maxWidth 800, quality 45
 await tab.screenshot({ maxWidth: 800, format: "jpeg", quality: 50 })
+// Hybrid DOM + vision orientation (preferred before acting on complex pages):
+const sense = await tab.sense() // { shot, nodes[{ref,label,role,center,centerImage}], scale via shot }
+nodeRepl.emitImage(sense.shot.image)
 await tab.markDeliverable()
 await tab.markHandoff()
+```
+
+### Hybrid sense (DOM + screenshot)
+
+```js
+const sense = await tab.sense({ maxNodes: 40, maxWidth: 800, quality: 45 })
+// sense.nodes: distilled interactive DOM with page + image-space centers
+// sense.shot.image: data URL for vision; scaleX/scaleY map image ↔ page
+// Prefer: locator / dom_cua.click(ref) from nodes
+// Fallback: tab.cua.click(node.center)  // page coords
+// Vision-only pixel guess is last resort after re-sense
 ```
 
 Prefer **`tab.title()` / `tab.url()` / `tab.screenshot()` / `tab.goto(url)`**.  
