@@ -681,15 +681,32 @@ export function buildTurnContentPresentation(
     renderItems.push(item);
   }
 
+  const fencedWidgetHtml = new Set(
+    renderItems.flatMap((item) =>
+      item.bodySegments?.flatMap((segment) =>
+        segment.kind === "widget" && segment.visual.html.trim()
+          ? [segment.visual.html.trim()]
+          : []
+      ) ?? []
+    ),
+  );
+  const visibleRenderItems = renderItems.filter((item) => {
+    const widget = widgetFromToolPart(item);
+    return !widget || !fencedWidgetHtml.has(widget.html.trim());
+  });
+  const visibleHoistedItems = hoistedItems.filter(
+    (widget) => !fencedWidgetHtml.has(widget.html.trim()),
+  );
+
   const locale = options.locale ?? "en";
-  const publicRenderItems = renderItems.filter((item, index) => {
+  const publicRenderItems = visibleRenderItems.filter((item, index) => {
     if (
       item.part.type !== "text" ||
       !isWrongLanguageProgressNarration(item.part.text, locale)
     ) {
       return true;
     }
-    return !renderItems.slice(index + 1).some((laterItem) => (
+    return !visibleRenderItems.slice(index + 1).some((laterItem) => (
       isTranscriptToolPart(laterItem.part) || widgetFromToolPart(laterItem) !== null
     ));
   });
@@ -708,7 +725,7 @@ export function buildTurnContentPresentation(
   if (
     processItems.length === 0 &&
     publicRenderItems.length <= 1 &&
-    hoistedItems.length === 0 &&
+    visibleHoistedItems.length === 0 &&
     !hasInlineWidget &&
     !removedCancellationSentinel
   ) {
@@ -733,6 +750,6 @@ export function buildTurnContentPresentation(
     segments: buildExpandedSegments(publicRenderItems),
     collapsedSegments: buildCollapsedSegments(publicRenderItems),
     processItems,
-    hoistedItems,
+    hoistedItems: visibleHoistedItems,
   };
 }
