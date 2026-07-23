@@ -107,6 +107,10 @@ export function ModelSelectView({
       modelID: option.modelID,
     }),
   );
+  // Never fall back to raw modelIDs (e.g. "big-pickle") when the option is
+  // not in the connected catalog — empty picker would still look "selected".
+  const displayLabel =
+    selectedOption?.title ?? t("session.default_model");
 
   const groups = React.useMemo(() => groupByProvider(options), [options]);
 
@@ -134,12 +138,10 @@ export function ModelSelectView({
         disabled={disabled}
         aria-label={t("settings.model_change")}
         aria-keyshortcuts="Meta+Alt+/"
-        title={selectedOption?.title ?? value.modelID ?? t("session.default_model")}
+        title={displayLabel}
         className="flex h-7 max-w-36 shrink min-w-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
       >
-        <span className="min-w-0 truncate">
-          {selectedOption?.title ?? value.modelID ?? t("session.default_model")}
-        </span>
+        <span className="min-w-0 truncate">{displayLabel}</span>
         <ChevronDown className="size-3.5 shrink-0" />
       </PopoverTrigger>
       <PopoverContent
