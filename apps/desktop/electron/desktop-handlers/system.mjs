@@ -2,6 +2,10 @@
  * system domain IPC handlers for the Electron desktop bridge.
  * Factories receive services/helpers constructed in main.mjs.
  */
+import {
+  createVisualSnapshotPdf,
+  exportVisualSnapshot,
+} from "../visual-snapshot-export.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "userAgentRegistryRead",
@@ -28,6 +32,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "pickDirectory",
   "pickFile",
   "saveFile",
+  "exportVisualSnapshot",
   "updaterEnvironment",
   "setWindowDecorations",
   "__openPath",
@@ -78,6 +83,7 @@ export function createSystemDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
+  BrowserWindow,
 } = {}) {
   return {
   userAgentRegistryRead: async (event, args) => {
@@ -256,6 +262,13 @@ export function createSystemDomainHandlers({
     });
     return result.canceled ? null : (result.filePath ?? null);
   },
+
+  exportVisualSnapshot: async (event, args) => exportVisualSnapshot(args[0], {
+    sourceWindow: activeWindowFromEvent(event),
+    dialog,
+    writeFile,
+    createPdf: (image, rect) => createVisualSnapshotPdf({ BrowserWindow, image, rect }),
+  }),
 
   updaterEnvironment: async (event, args) => {
     const executablePath = app.isPackaged

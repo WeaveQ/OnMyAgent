@@ -29,6 +29,7 @@ const commandGroups = /** @type {const} */ ({
     "checkSystemPermissions", "openSystemPermissionSettings",
     "getDesktopBootstrapConfig", "debugDesktopBootstrapConfig",
     "setDesktopBootstrapConfig", "pickDirectory", "pickFile", "saveFile",
+    "exportVisualSnapshot",
     "updaterEnvironment", "setWindowDecorations", "__openPath",
     "__revealItemInDir", "__fetch", "__homeDir", "__joinPath",
     "__setZoomFactor", "__setNativeTheme", "__setApplicationMenuVisible",

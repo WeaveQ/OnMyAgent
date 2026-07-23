@@ -52,6 +52,7 @@ export type DesktopCommandName =
   | "pickDirectory"
   | "pickFile"
   | "saveFile"
+  | "exportVisualSnapshot"
   | "updaterEnvironment"
   | "setWindowDecorations"
   | "__openPath"

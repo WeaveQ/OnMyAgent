@@ -124,6 +124,7 @@ export type SessionSurfaceViewProps = {
   onForkAtMessage?: (messageId: string) => void;
   verifiedOpenTargets: OpenTarget[];
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   workspaceRoot: string;
   assistantStatusFooter: ReactNode;
   searchQuery: string;
@@ -344,6 +345,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                 onForkAtMessage={props.onForkAtMessage}
                 openTargets={props.verifiedOpenTargets}
                 onOpenTarget={props.onOpenTarget}
+                onDownloadCodePath={props.onDownloadCodePath}
                 workspaceRoot={props.workspaceRoot}
                 footer={props.assistantStatusFooter}
                 assistantAvatar={props.chatHeaderAgent}
