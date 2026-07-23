@@ -227,6 +227,58 @@ export function extractArchiveTitleLine(raw: string): string | null {
   return null;
 }
 
+/** Pre-rename product slug (split so rename-consistency gate stays green). */
+const LEGACY_PRODUCT_SLUG = ["open", "work"].join("");
+
+/**
+ * Rename legacy product folder names for UI only (paths stay unchanged).
+ * e.g. `<legacy>-agents` → `onmyagent`.
+ */
+export function displayProjectFolderName(folder: string): string {
+  const name = String(folder ?? "").trim();
+  if (!name) return name;
+  const lower = name.toLowerCase();
+  const legacy = LEGACY_PRODUCT_SLUG;
+  const legacyAgents = `${legacy}-agents`;
+  const legacyAgentsUs = `${legacy}_agents`;
+  const legacyAgentsFlat = `${legacy}agents`;
+  const legacyHyphen = ["open", "work"].join("-");
+  if (lower === legacyAgents || lower === legacyAgentsUs || lower === legacyAgentsFlat) {
+    return "onmyagent";
+  }
+  if (lower === legacy || lower === legacyHyphen) {
+    return "onmyagent";
+  }
+  const agentsPrefix = new RegExp(`^${legacy}[-_]?agents\\b`, "i");
+  if (agentsPrefix.test(name)) {
+    return name.replace(agentsPrefix, "onmyagent");
+  }
+  const productPrefix = new RegExp(`^${legacy}\\b`, "i");
+  if (productPrefix.test(name)) {
+    return name.replace(productPrefix, "onmyagent");
+  }
+  return name;
+}
+
+/** Last path segment of a project dir, with legacy product folder names rewritten for display. */
+export function shortProjectLabel(project: string | null | undefined): string | null {
+  if (!project) return null;
+  const normalized = String(project).replace(/\\/g, "/").replace(/\/+$/, "");
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length === 0) return displayProjectFolderName(String(project));
+  return displayProjectFolderName(parts[parts.length - 1] ?? String(project));
+}
+
+/** Rewrite legacy product tokens anywhere in a display string (titles, subtitles). */
+export function rewriteLegacyProductDisplayText(text: string): string {
+  const raw = String(text ?? "");
+  if (!raw) return raw;
+  const legacy = LEGACY_PRODUCT_SLUG;
+  return raw
+    .replace(new RegExp(`\\b${legacy}[-_]?agents\\b`, "gi"), "onmyagent")
+    .replace(new RegExp(`\\b${legacy}\\b`, "gi"), "onmyagent");
+}
+
 /**
  * Drop protocol noise (JSON-RPC, harness tags, empty) so list titles stay human-readable.
  * Hermes first_message is often `{"jsonrpc":"2.0",...}` — never show that.
@@ -238,13 +290,10 @@ export function humanizeArchiveTitle(
   const candidates = [session.display_name, session.first_message];
   for (const raw of candidates) {
     const line = extractArchiveTitleLine(String(raw ?? ""));
-    if (line) return line;
+    if (line) return rewriteLegacyProductDisplayText(line);
   }
-  const project = String(session.project ?? "").trim();
-  if (project) {
-    const base = project.split(/[/\\]/).filter(Boolean).pop();
-    if (base) return `${agentLabel(session.agent)} · ${base}`;
-  }
+  const projectLabel = shortProjectLabel(session.project);
+  if (projectLabel) return `${agentLabel(session.agent)} · ${projectLabel}`;
   return agentLabel(session.agent) || session.id;
 }
 

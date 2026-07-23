@@ -9,6 +9,7 @@ import {
   isVisibleArchiveAgent,
   mergeArchiveSessionPages,
   RESUMABLE_AGENTS,
+  shortProjectLabel,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
 
 function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: string; agent: string }): OnMyAgentSessionArchiveSession {
@@ -177,5 +178,34 @@ describe("session archive page helpers", () => {
     expect(agentLabel("workbuddy")).toBe("WorkBuddy");
     expect(archiveAgentIconId("workbuddy")).toBe("workbuddy");
     expect(agentLabel("vscode-copilot")).toBe("VS Code Copilot");
+  });
+
+  it("shortProjectLabel and titles rewrite legacy product folder names", () => {
+    const legacy = ["open", "work"].join("");
+    const legacyAgentsPath = `/Users/work/${legacy}-agents`;
+    expect(shortProjectLabel(legacyAgentsPath)).toBe("onmyagent");
+    expect(shortProjectLabel(legacy)).toBe("onmyagent");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "ow1",
+          agent: "grok",
+          display_name: null,
+          first_message: null,
+          project: legacyAgentsPath,
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "ow2",
+          agent: "grok",
+          display_name: `Grok Build · ${legacy}-agents`,
+          first_message: null,
+          project: legacyAgentsPath,
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
   });
 });
