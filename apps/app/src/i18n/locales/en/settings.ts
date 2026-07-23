@@ -166,6 +166,7 @@ export default {
   "settings.group_global": "Global",
   "settings.group_workspace": "Workspace",
   "settings.group_archived": "Archive",
+  "settings.group_data": "Data",
   "settings.tab_archived_tasks": "Archive management",
   "settings.tab_description_archived_tasks":
     "Manage session archive policy and restore or permanently delete archived tasks",
@@ -435,7 +436,8 @@ export default {
   "settings.reset_confirm_button": "Reset & Restart",
   "settings.reset_confirmation_hint": `Type {resetWord} to confirm. ${APP_NAME} will restart`,
   "settings.reset_confirmation_label": "Confirmation",
-  "settings.reset_confirmation_placeholder": "Type RESET",
+  "settings.reset_confirmation_placeholder": "Type: I confirm reset",
+  "settings.reset_confirmation_word": "I confirm reset",
   "settings.reset_onboarding": "Reset onboarding",
   "settings.reset_onboarding_description": `Clears ${APP_NAME} preferences and restarts the app`,
   "settings.reset_onboarding_title": "Reset onboarding",
@@ -444,7 +446,7 @@ export default {
   "settings.reset_onmyagent_desc_prod": `With dev mode active, it only clears the isolated engine dev state inside ${APP_NAME}-dev-data.`,
   "settings.reset_onmyagent_title": `Reset ${APP_NAME} + engine state`,
   "settings.reset_requires_confirm":
-    "Requires typing RESET and will restart the app.",
+    "Requires typing “I confirm reset” and will restart the app.",
   "settings.reset_startup": "Reset default startup mode",
   "settings.reset_startup_pref": "Reset startup preference",
   "settings.reset_stop_active_runs": "Stop active runs before resetting.",
@@ -476,7 +478,7 @@ export default {
   "settings.tools_section_desc":
     "Probes and binary pickers for diagnosing local execution",
   "settings.recovery_section_title": "Reset & recovery",
-  "settings.recovery_section_desc": `Roll back state without quitting ${APP_NAME}`,
+  "settings.recovery_section_desc": `Reset onboarding or clear local ${APP_NAME} data. The app restarts after confirmation.`,
   "settings.danger_section_title": "Danger zone",
   "settings.danger_section_desc":
     "Irreversible actions. Use only when you understand the consequences",
@@ -670,7 +672,7 @@ export default {
   "settings.tab_description_environment":
     "Manage local environment and secrets",
   "settings.tab_description_recovery":
-    "Fix migrations, reset workspaces, and recover local settings",
+    "Reset onboarding or clear local app data",
   "settings.tab_description_skills":
     "Browse, edit, and install skills",
   "settings.tab_description_updates":

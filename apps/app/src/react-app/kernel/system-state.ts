@@ -197,7 +197,7 @@ export function useSystemState(
       options.setError(t("system.stop_active_runs_before_reset"));
       return;
     }
-    if (resetModalText.trim().toUpperCase() !== "RESET") return;
+    if (resetModalText.trim() !== t("settings.reset_confirmation_word")) return;
 
     setResetModalBusy(true);
     options.setError(null);

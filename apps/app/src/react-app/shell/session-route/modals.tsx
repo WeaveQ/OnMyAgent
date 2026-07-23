@@ -238,7 +238,7 @@ export function SessionRouteModals(props: SessionRouteModalsProps) {
         }}
         onOpenSettings={() => {
           setModelPickerOpen(false);
-          handleOpenSettings("/settings/general");
+          handleOpenSettings("/settings/ai");
         }}
         onClose={() => {
           setModelPickerOpen(false);
