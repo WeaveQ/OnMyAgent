@@ -79,7 +79,10 @@ import {
   writeAutomationFocus,
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
-import { WorkspaceFilesPage } from "../../workspace";
+import {
+  WorkspaceFilesPage,
+  resolveToolWorkspaceFileRoot,
+} from "../../workspace";
 import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
   AgentConversationPanel,
@@ -176,6 +179,12 @@ export function AssistantPage(props: AssistantPageProps) {
     useState<OnMyAgentPrimaryView>(() =>
       readRailView("assistant", props.selectedWorkspaceId, "assistant"),
     );
+  // Workspace switch: restore this mode's last rail page.
+  useEffect(() => {
+    setActiveSidebarView(
+      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
+    );
+  }, [props.selectedWorkspaceId]);
   const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
@@ -1162,6 +1171,13 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          fileRoot={resolveToolWorkspaceFileRoot({
+                            draftWorkspaceDirectory:
+                              props.surface?.draftWorkspace
+                                ?.draftWorkspaceDirectory,
+                            sessionFileRoot: props.selectedSessionFileRoot,
+                            workspaceRoot: props.selectedWorkspaceRoot,
+                          })}
                           onOpenArtifact={openTarget}
                           onEditError={() => showToast({
                             tone: "error",

@@ -7,6 +7,7 @@ import {
   groupSessionsByAgent,
   humanizeArchiveTitle,
   isVisibleArchiveAgent,
+  mergeArchiveSessionPages,
   RESUMABLE_AGENTS,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
 
@@ -26,6 +27,20 @@ function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: stri
 }
 
 describe("session archive page helpers", () => {
+  it("merges archive pages without duplicate ids (later wins)", () => {
+    const first = [
+      session({ id: "a", agent: "grok", message_count: 1 }),
+      session({ id: "b", agent: "grok", message_count: 2 }),
+    ];
+    const second = [
+      session({ id: "b", agent: "grok", message_count: 9 }),
+      session({ id: "c", agent: "opencode", message_count: 3 }),
+    ];
+    const merged = mergeArchiveSessionPages(first, second);
+    expect(merged.map((row) => row.id).sort()).toEqual(["a", "b", "c"]);
+    expect(merged.find((row) => row.id === "b")?.message_count).toBe(9);
+  });
+
   it("groups sessions by agent and sorts by size desc", () => {
     const groups = groupSessionsByAgent([
       session({ id: "a1", agent: "codex" }),
@@ -85,6 +100,55 @@ describe("session archive page helpers", () => {
         }),
       ),
     ).toBe("Hermes · sample-project");
+  });
+
+  it("humanizeArchiveTitle prefers user_query over harness tags", () => {
+    const first_message = [
+      "<user_info>",
+      "OS Version: macos",
+      "Shell: /bin/zsh",
+      "</user_info>",
+      "",
+      "<user_query>",
+      "全部优化掉",
+      "</user_query>",
+    ].join("\n");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g1",
+          agent: "grok",
+          display_name: null,
+          first_message,
+          project: "/Users/work",
+        }),
+      ),
+    ).toBe("全部优化掉");
+  });
+
+  it("humanizeArchiveTitle skips bare system-reminder / user_info tag lines", () => {
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g2",
+          agent: "grok",
+          display_name: null,
+          first_message: "<system-reminder>\nnoise\n</system-reminder>\n\nPlease fix the flaky test",
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("Please fix the flaky test");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g3",
+          agent: "grok",
+          display_name: "<user_info>",
+          first_message: null,
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
   });
 
   it("agentLabel returns friendly name or agent id", () => {

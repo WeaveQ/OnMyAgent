@@ -253,7 +253,8 @@ describe("session route control", () => {
         currentMode: "assistant",
         findFirstSessionIdMatching: () => "ses_first_expert",
         isExpertSession: (id) => id.startsWith("expert"),
-        readLastSessionFor: () => "expert_remembered",
+        readLastSessionFor: (_ws, mode) =>
+          mode === "expert" ? "expert_remembered" : null,
         sessionListOwnsSession: owns,
         sessionsByWorkspaceId: { ws_a: [session("expert_remembered"), session("ses_first_expert")] },
         targetMode: "expert",
@@ -262,19 +263,60 @@ describe("session route control", () => {
     ).toBe("/workspace/ws_a/session/expert_remembered");
   });
 
-  test("switches to assistant mode at workspace draft route instead of remembered session", () => {
+  test("switches to assistant mode restoring remembered assistant session", () => {
     expect(
       resolveSessionRouteModeSwitchPath({
         currentMode: "expert",
-        findFirstSessionIdMatching: () => "assistant_first",
+        findFirstSessionIdMatching: (sessions, predicate) =>
+          sessions.find((item) => predicate(item.id))?.id ?? null,
         isExpertSession: (id) => id.startsWith("expert"),
-        readLastSessionFor: () => "assistant_remembered",
+        readLastSessionFor: (_ws, mode) =>
+          mode === "assistant" ? "assistant_remembered" : "expert_other",
         sessionListOwnsSession: owns,
-        sessionsByWorkspaceId: { ws_a: [session("assistant_remembered"), session("assistant_first")] },
+        sessionsByWorkspaceId: {
+          ws_a: [session("assistant_remembered"), session("assistant_first"), session("expert_1")],
+        },
         targetMode: "assistant",
         workspaceId: "ws_a",
       }),
-    ).toBe("/workspace/ws_a/assistant");
+    ).toBe("/workspace/ws_a/assistant/assistant_remembered");
+  });
+
+  test("assistant mode switch falls back to first non-expert session when memory empty", () => {
+    expect(
+      resolveSessionRouteModeSwitchPath({
+        currentMode: "expert",
+        findFirstSessionIdMatching: (sessions, predicate) =>
+          sessions.find((item) => predicate(item.id))?.id ?? null,
+        isExpertSession: (id) => id.startsWith("expert"),
+        readLastSessionFor: () => null,
+        sessionListOwnsSession: owns,
+        sessionsByWorkspaceId: {
+          ws_a: [session("expert_1"), session("assistant_first")],
+        },
+        targetMode: "assistant",
+        workspaceId: "ws_a",
+      }),
+    ).toBe("/workspace/ws_a/assistant/assistant_first");
+  });
+
+  test("mode-scoped memory: expert switch ignores last assistant session id", () => {
+    expect(
+      resolveSessionRouteModeSwitchPath({
+        currentMode: "assistant",
+        findFirstSessionIdMatching: () => "expert_first",
+        isExpertSession: (id) => id.startsWith("expert"),
+        // Legacy single-slot would return assistant id; mode-scoped returns expert.
+        readLastSessionFor: (_ws, mode) =>
+          mode === "expert" ? "expert_remembered" : "assistant_remembered",
+        sessionListOwnsSession: owns,
+        sessionsByWorkspaceId: {
+          ws_a: [session("expert_remembered"), session("expert_first"), session("assistant_remembered")],
+        },
+        targetMode: "expert",
+        workspaceId: "ws_a",
+      }),
+    ).toBe("/workspace/ws_a/session/expert_remembered");
   });
 
   test("selects remembered workspace session only when known and mode-compatible", () => {

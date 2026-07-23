@@ -17,5 +17,8 @@
 	<!-- Voice Mode microphone prompt (also NSMicrophoneUsageDescription in extendInfo). -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
+	<!-- System Settings → Privacy → Automation (Apple Events to Calendar / Reminders / Notes). -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
 </dict>
 </plist>

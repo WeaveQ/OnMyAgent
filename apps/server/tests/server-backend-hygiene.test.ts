@@ -47,18 +47,26 @@ describe("backend hygiene structural", () => {
   });
 
   test("archive SSE does not open+close store on every tick", () => {
-    const source = readFileSync(
+    const routes = readFileSync(
       join(serverRoot, "src/routes/workspace-session-archive-routes.ts"),
       "utf8",
     );
-    expect(source).toContain("defaultSessionArchiveStorePool");
-    expect(source).toContain("resolveArchiveSsePollMs");
-    // Acquire once per connection; ticks use input.store (no open/close per interval).
-    expect(source).toContain("defaultSessionArchiveStorePool.acquire({ dbPath })");
-    expect(source).toContain("const session = input.store.getSession(input.sessionId)");
-    expect(source).toContain("const stats = input.store.stats()");
+    const sse = readFileSync(
+      join(serverRoot, "src/routes/workspace-session-archive-sse.ts"),
+      "utf8",
+    );
+    // Composition root: acquire once per connection; poll policy from routes.
+    expect(routes).toContain("defaultSessionArchiveStorePool");
+    expect(routes).toContain("resolveArchiveSsePollMs");
+    expect(routes).toContain("defaultSessionArchiveStorePool.acquire({ dbPath })");
+    expect(routes).toContain("workspace-session-archive-sse");
+    // SSE body (extracted): ticks use connection-scoped input.store (no open/close per interval).
+    expect(sse).toContain("const session = input.store.getSession(input.sessionId)");
+    expect(sse).toContain("const stats = input.store.stats()");
+    expect(sse).toContain("archiveSessionWatchVersion");
+    expect(sse).toContain("archiveStatsVersion");
     // Old pattern: open inside setInterval then store.close()
-    expect(source).not.toMatch(
+    expect(routes + "\n" + sse).not.toMatch(
       /setInterval\(async \(\) => \{[\s\S]{0,200}openSessionArchiveStore/,
     );
   });

@@ -18,8 +18,8 @@ describe("create-automation bundled skill contract", () => {
     const assistant = await read(
       "apps/app/src/react-app/domains/session/pages/assistant.tsx",
     );
-    const expert = await read(
-      "apps/app/src/react-app/domains/session/pages/expert.tsx",
+    const expertOffer = await read(
+      "apps/app/src/react-app/domains/session/pages/use-expert-automation-offer.tsx",
     );
 
     expect(skill).toContain("automations/proposals/<descriptive-slug>.json");
@@ -29,7 +29,9 @@ describe("create-automation bundled skill contract", () => {
     expect(schema).toContain('"mode": "once"');
     expect(schema).toContain("Do not write `sourceSessionId`, `workspaceDirectory`");
     expect(assistant).toContain("useSessionAutomationOffer({");
-    expect(expert).toContain("loadAutomationProposals({");
-    expect(expert).toContain("createAutomationsFromPayloads({");
+    expect(expertOffer).toContain("loadAutomationProposals({");
+    expect(expertOffer).toContain("createAutomationsFromPayloads({");
+    expect(expertOffer).toContain("defaultWorkspaceDirectory: sessionDirectory");
+    expect(expertOffer).toContain("sourceSessionId: input.selectedSessionId");
   });
 });

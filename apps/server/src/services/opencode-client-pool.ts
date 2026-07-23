@@ -15,6 +15,8 @@ export type OpencodeClientPool = {
   ) => ReturnType<typeof createWorkspaceOpencodeClient>;
   size: () => number;
   clear: () => void;
+  /** Drop all cache entries for a workspace id (any directory override). */
+  clearWorkspace: (workspaceId: string) => void;
 };
 
 /**
@@ -65,6 +67,14 @@ export function createOpencodeClientPool(options?: {
     clear() {
       cache.clear();
     },
+    clearWorkspace(workspaceId: string) {
+      const id = workspaceId.trim();
+      if (!id) return;
+      const prefix = `${id}::`;
+      for (const key of [...cache.keys()]) {
+        if (key.startsWith(prefix)) cache.delete(key);
+      }
+    },
   };
 }
 
@@ -77,4 +87,10 @@ export function getWorkspaceOpencodeClient(
   directoryOverride?: string,
 ) {
   return defaultOpencodeClientPool.get(config, workspace, directoryOverride);
+}
+
+/** Invalidate pooled clients for a workspace after logout / dispose. */
+export function clearWorkspaceOpencodeClients(workspace: WorkspaceInfo | string) {
+  const id = typeof workspace === "string" ? workspace : workspace.id;
+  defaultOpencodeClientPool.clearWorkspace(id);
 }

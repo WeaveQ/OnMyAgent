@@ -854,8 +854,9 @@ export type {
   ChannelSession,
 } from "./desktop-messaging";
 
-export const agentManagementSnapshot = (input: { workspaceRoot: string }) =>
-  invokeDesktopCommand("agentManagementSnapshot", input);
+export const agentManagementSnapshot = (
+  input: import("./desktop-types").AgentManagementSnapshotInput,
+) => invokeDesktopCommand("agentManagementSnapshot", input);
 
 export const agentManagementProviderAction = (
   input: AgentManagementProviderActionInput,

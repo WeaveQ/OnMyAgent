@@ -210,25 +210,36 @@ export async function logoutMcpAuth(
   workspace: WorkspaceInfo,
   name: string,
 ): Promise<void> {
-  try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace);
-    unwrapOpencodeResult(
-      await opencode.mcp.disconnect({ name }),
-      `/mcp/${encodeURIComponent(name)}/disconnect`,
-    );
-  } catch {
-    // ignore
-  }
+  // Lazy import avoids ESM cycle: pool factory imports createWorkspaceOpencodeClient from this module.
+  const {
+    getWorkspaceOpencodeClient,
+    clearWorkspaceOpencodeClients,
+  } = await import("./opencode-client-pool.js");
 
   try {
-    const opencode = createWorkspaceOpencodeClient(config, workspace);
-    unwrapOpencodeResult(
-      await opencode.mcp.auth.remove({ name }),
-      `/mcp/${encodeURIComponent(name)}/auth`,
-    );
-  } catch (error) {
-    if (isMissingMcpAuthError(error)) return;
-    throw error;
+    try {
+      const opencode = getWorkspaceOpencodeClient(config, workspace);
+      unwrapOpencodeResult(
+        await opencode.mcp.disconnect({ name }),
+        `/mcp/${encodeURIComponent(name)}/disconnect`,
+      );
+    } catch {
+      // ignore disconnect failures; still attempt auth remove
+    }
+
+    try {
+      const opencode = getWorkspaceOpencodeClient(config, workspace);
+      unwrapOpencodeResult(
+        await opencode.mcp.auth.remove({ name }),
+        `/mcp/${encodeURIComponent(name)}/auth`,
+      );
+    } catch (error) {
+      if (isMissingMcpAuthError(error)) return;
+      throw error;
+    }
+  } finally {
+    // Drop pooled clients so a later acquire cannot reuse post-logout state.
+    clearWorkspaceOpencodeClients(workspace);
   }
 }
 

@@ -53,11 +53,13 @@ function agent(overrides: AgentFixture): AgentManagementAgent {
 }
 
 describe("AUTO_MANAGE_AGENT_KEYS", () => {
-  it("covers the common product + gemini set from the IA plan", () => {
+  it("still lists product skill-order keys (legacy helper; option 2 adopts all installed catalog)", () => {
     for (const key of ["opencode", "claude", "codex", "hermes", "openclaw", "gemini"]) {
       expect(isAutoManageKey(key)).toBe(true);
       expect(AUTO_MANAGE_AGENT_KEYS.includes(key as (typeof AUTO_MANAGE_AGENT_KEYS)[number])).toBe(true);
     }
+    // Keys outside the historical set remain non-autoManageKey, but can still
+    // enter the fleet when installed (see isManagedFleetMember option 2).
     expect(isAutoManageKey("snow")).toBe(false);
     expect(isAutoManageKey("trae")).toBe(false);
   });
@@ -112,7 +114,7 @@ describe("isManagedFleetMember", () => {
     expect(isDiscoverCandidate(offline)).toBe(false);
   });
 
-  it("treats installed auto-manage catalog drafts as fleet members", () => {
+  it("treats installed catalog drafts as fleet members (option 2)", () => {
     const gemini = agent({
       id: "gemini",
       provider: "custom",
@@ -123,30 +125,52 @@ describe("isManagedFleetMember", () => {
     expect(shouldAutoAdoptToStore(gemini)).toBe(true);
   });
 
-  it("keeps non-auto catalog drafts in discover even when installed", () => {
+  it("R3 option 2: any installed catalog (e.g. snow/workbuddy) enters fleet + auto-adopt", () => {
     const snow = agent({
       id: "snow",
       provider: "custom",
       status: "online",
       discoverable: true,
     });
-    expect(isManagedFleetMember(snow)).toBe(false);
-    expect(isDiscoverCandidate(snow)).toBe(true);
-    expect(shouldAutoAdoptToStore(snow)).toBe(false);
+    expect(isManagedFleetMember(snow)).toBe(true);
+    expect(isDiscoverCandidate(snow)).toBe(false);
+    expect(shouldAutoAdoptToStore(snow)).toBe(true);
+
+    const workbuddy = agent({
+      id: "workbuddy",
+      provider: "custom",
+      status: "online",
+      discoverable: true,
+    });
+    expect(isManagedFleetMember(workbuddy)).toBe(true);
+    expect(shouldAutoAdoptToStore(workbuddy)).toBe(true);
   });
 
-  it("treats offline (installed, probe failed) auto-manage catalog as fleet", () => {
+  it("keeps offline installed (ACP fail) catalog in fleet", () => {
     const claude = agent({
       id: "claude",
       provider: "custom",
       status: "offline",
-      error: "spawn claude ENOENT",
+      error: "ACP handshake failed",
       discoverable: true,
     });
-    // Must NOT reclassify offline+ENOENT-looking errors as missing.
     expect(isManagedFleetMember(claude)).toBe(true);
     expect(isDiscoverCandidate(claude)).toBe(false);
     expect(shouldAutoAdoptToStore(claude)).toBe(true);
+  });
+
+  it("R1: missing_binary / not-installed stays out of fleet (discover only)", () => {
+    const claude = agent({
+      id: "claude",
+      provider: "claude",
+      status: "offline",
+      error: "spawn claude ENOENT",
+      errorInfo: { code: "missing_binary", message: "spawn claude ENOENT" },
+      discoverable: false,
+    });
+    // agentDisplayStatus maps missing_binary → missing → not managed
+    expect(isManagedFleetMember(claude)).toBe(false);
+    expect(isDiscoverCandidate(claude)).toBe(true);
   });
 
   it("never auto-adopts missing catalog drafts", () => {
@@ -187,7 +211,8 @@ describe("isSkillAgentConfigTarget", () => {
     ];
     expect(isSkillAgentConfigTarget("opencode", agents)).toBe(true);
     expect(isSkillAgentConfigTarget("claude", agents)).toBe(false);
-    expect(isSkillAgentConfigTarget("snow", agents)).toBe(false);
+    // Option 2: installed catalog drafts are fleet members (online ⇒ skill matrix target).
+    expect(isSkillAgentConfigTarget("snow", agents)).toBe(true);
     expect(isSkillAgentConfigTarget("hermes", agents)).toBe(false);
     // Host product skill root is always a matrix target (no fleet row required).
     expect(isSkillAgentConfigTarget("onmyagent", agents)).toBe(true);
@@ -317,12 +342,13 @@ describe("isSkillAgentConfigTarget", () => {
     ).toEqual(["opencode", "hermes", "grok", "mimo"]);
   });
 
-  it("runtime picker only includes fleet members, not bare catalog", () => {
+  it("runtime picker only includes store/product fleet, not bare catalog drafts", () => {
     expect(
       isRuntimeFleetPickerAgent(
         agent({ id: "opencode", provider: "opencode", status: "online" }),
       ),
     ).toBe(true);
+    // Catalog rows stay out of the runtime picker until auto-adopt persists them as mine.
     expect(
       isRuntimeFleetPickerAgent(
         agent({ id: "snow", provider: "custom", status: "online", discoverable: true }),
