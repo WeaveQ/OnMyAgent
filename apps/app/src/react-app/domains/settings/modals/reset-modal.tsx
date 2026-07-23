@@ -14,7 +14,15 @@ import { LabeledInput } from "../../../design-system/labeled-input";
 import { t } from "@/i18n";
 
 const RESET_CONFIRM_PLACEHOLDER = "{resetWord}";
-const RESET_CONFIRM_WORD = "RESET";
+
+/** Localized phrase the user must type to confirm a destructive reset. */
+export function getResetConfirmationWord() {
+  return t("settings.reset_confirmation_word");
+}
+
+export function matchesResetConfirmation(text: string) {
+  return text.trim() === getResetConfirmationWord();
+}
 
 export type ResetModalProps = {
   open: boolean;
@@ -29,6 +37,7 @@ export type ResetModalProps = {
 };
 
 export function ResetModal(props: ResetModalProps) {
+  const confirmWord = getResetConfirmationWord();
   const resetConfirmationHint = () => {
     const template = t("settings.reset_confirmation_hint");
     const parts = template.split(RESET_CONFIRM_PLACEHOLDER);
@@ -37,7 +46,7 @@ export function ResetModal(props: ResetModalProps) {
     return (
       <>
         {beforeReset}
-        <span className="font-mono">{RESET_CONFIRM_WORD}</span>
+        <span className="font-medium text-dls-text">{confirmWord}</span>
         {afterReset}
       </>
     );

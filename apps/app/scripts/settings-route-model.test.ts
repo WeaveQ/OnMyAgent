@@ -186,7 +186,7 @@ describe("settings route workspace model", () => {
       redirectPath: "general",
     });
     expect(parseSettingsPath("/settings/den")).toEqual({ tab: "general", redirectPath: "general" });
-    expect(parseSettingsPath("/settings/recovery")).toEqual({ tab: "general", redirectPath: "general" });
+    expect(parseSettingsPath("/settings/recovery")).toEqual({ tab: "recovery", redirectPath: null });
     expect(parseSettingsPath("/settings/advanced")).toEqual({ tab: "general", redirectPath: "general" });
     expect(parseSettingsPath("/settings/skills")).toEqual({ tab: "general", redirectPath: "general" });
     expect(parseSettingsPath("/settings/cloud-workers")).toEqual({ tab: "general", redirectPath: "general" });

@@ -1,5 +1,11 @@
 // graphify OpenCode plugin
 // Injects a knowledge graph reminder before bash tool calls when the graph exists.
+//
+// NOTE: Do NOT add the bare npm package name "graphify" to opencode.json plugin[].
+// That resolves to an unrelated jQuery RGG library (exports a constructor Object),
+// which crashes OpenCode plugin load with:
+//   TypeError: fn is not a function ... is an instance of Object
+//   at src/plugin/index.ts
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -20,3 +26,6 @@ export const GraphifyPlugin = async ({ directory }) => {
     },
   };
 };
+
+// OpenCode plugin loader expects a default export that is a factory function.
+export default GraphifyPlugin;

@@ -249,6 +249,7 @@ export type SettingsTab =
   | "memory"
   | "conversation-memory"
   | "archived-tasks"
+  | "recovery"
   | "debug";
 
 export type WorkspacePreset = "starter" | "automation" | "minimal";

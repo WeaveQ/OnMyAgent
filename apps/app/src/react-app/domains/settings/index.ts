@@ -12,6 +12,7 @@ export type { SystemAuthorizationsViewProps } from "./pages/system-authorization
 export type { CloudMarketplacesViewProps } from "./pages/cloud-marketplaces-view";
 export type { CloudProvidersViewProps } from "./pages/cloud-providers-view";
 export type { DebugViewProps } from "./pages/debug-view";
+export type { RecoveryViewProps } from "./pages/recovery-view";
 export type { EnvironmentViewProps } from "./pages/environment-view";
 export type { ArchivedTasksViewProps } from "./pages/archived-tasks-view";
 export type {
@@ -32,6 +33,7 @@ export {
   loadCloudProvidersView,
   loadConversationMemoryView,
   loadDebugView,
+  loadRecoveryView,
   loadEnvironmentView,
   loadGeneralSettingsView,
   loadMemoryView,
@@ -100,6 +102,7 @@ export type {
 } from "./extension-registry";
 
 export { useDebugViewModel } from "./state/debug-view-model";
+export { useRecoveryViewModel } from "./state/recovery-view-model";
 export { useMessagingViewProps } from "./state/messaging-view-state";
 export { useElectronUpdaterState } from "./state/electron-updater-state";
 export type { SettingsUpdateStatus } from "./state/electron-updater-state";
