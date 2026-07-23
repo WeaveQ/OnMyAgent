@@ -11,39 +11,36 @@ test("safety policy blocks unsafe navigation schemes and embedded credentials", 
   }
 });
 
-test("safety policy requires approval for consequential actions from every engine", async () => {
+test("safety policy does not prompt for clicks including 发送/submit labels", async () => {
   const approvals = [];
   const policy = createBrowserSafetyPolicy({
     requestApproval: async (request) => { approvals.push(request); return true; },
   });
 
-  for (const engine of ["locator", "dom-cua", "coordinate-cua"]) {
-    await policy.authorize({
-      kind: "click",
-      engine,
-      pageUrl: "https://shop.example/checkout",
-      label: "Place order",
-    });
+  for (const label of ["Place order", "发送", "Delete account", "submit"]) {
+    for (const engine of ["locator", "dom-cua", "coordinate-cua"]) {
+      const result = await policy.authorize({
+        kind: "click",
+        engine,
+        pageUrl: "https://shop.example/checkout",
+        label,
+      });
+      assert.equal(result.allowed, true);
+      assert.equal(result.approval, false);
+    }
   }
 
-  // Same click label is granted once per browser session after the first Allow.
-  assert.equal(approvals.length, 1);
-  assert.equal(approvals[0].risk, "destructive");
-
-  await policy.authorize({
-    kind: "click",
-    engine: "locator",
-    label: "发送",
-  });
-  assert.equal(approvals.length, 2);
-  assert.match(String(approvals[1].action.label), /发送/);
+  assert.equal(approvals.length, 0);
 });
 
-test("denied approval prevents the action", async () => {
+test("denied approval prevents upload/download only", async () => {
   const policy = createBrowserSafetyPolicy({ requestApproval: async () => false });
 
+  // Clicks never prompt / never deny via approval.
+  await policy.authorize({ kind: "click", engine: "locator", label: "Delete account" });
+
   await assert.rejects(
-    policy.authorize({ kind: "click", engine: "locator", label: "Delete account" }),
+    policy.authorize({ kind: "upload", path: "/tmp/secret.pdf" }),
     /approval denied/i,
   );
 });

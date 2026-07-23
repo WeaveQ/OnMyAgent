@@ -125,7 +125,7 @@ const t = String(await tab.playwright.locator("h1").textContent() ?? "").slice(0
 // NEVER: await el.textContent().catch(...).slice(...)  // TypeError
 ```
 
-Clicks on labels matching `发送|提交|删除|publish|submit|…` require a one-time desktop **Allow** confirmation (session-cached per label).
+Clicks (including 发送 / submit) do **not** show a desktop confirmation dialog.
 
 ### Toggle buttons (like / favorite / follow)
 
