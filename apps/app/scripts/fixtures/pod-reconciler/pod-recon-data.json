@@ -1,0 +1,51 @@
+{
+  "asOfDate": "2026-07-23",
+  "period": "2026-07",
+  "counterparty": "华南承运车队",
+  "currency": "CNY",
+  "varianceThreshold": 50,
+  "largeVarianceThreshold": 2000,
+  "settlementRule": "original_required",
+  "records": [
+    {
+      "waybillNo": "WB-001",
+      "route": "深圳→东莞",
+      "driverName": "张师傅",
+      "dueDate": "2026-07-18",
+      "podStatus": "original",
+      "podHolder": "已归档",
+      "fees": { "freight": 1800, "emptyRun": 0, "waiting": 0, "unloading": 0, "fuelSubsidy": 0, "informationFee": 0, "penalty": 0, "other": 0 },
+      "counterpartyAmount": 1800
+    },
+    {
+      "waybillNo": "WB-002",
+      "route": "广州→佛山",
+      "driverName": "李师傅",
+      "dueDate": "2026-07-10",
+      "podStatus": "missing",
+      "podHolder": "司机",
+      "fees": { "freight": 1200, "emptyRun": 0, "waiting": 0, "unloading": 0, "fuelSubsidy": 0, "informationFee": 0, "penalty": 0, "other": 0 },
+      "counterpartyAmount": 1300,
+      "varianceReasonCode": "WAITING_FEE",
+      "notes": "对方多列等候费100，待签字证明"
+    },
+    {
+      "waybillNo": "WB-003",
+      "route": "东莞→惠州",
+      "driverName": "王师傅",
+      "dueDate": "2026-07-21",
+      "podStatus": "electronic",
+      "podHolder": "客服",
+      "fees": { "freight": 2500, "emptyRun": 0, "waiting": 0, "unloading": 0, "fuelSubsidy": 0, "informationFee": 0, "penalty": 0, "other": 0 },
+      "counterpartyAmount": 5001,
+      "varianceReasonCode": "DUPLICATE_LINE",
+      "notes": "疑似重复请款，需对方提供明细"
+    },
+    {
+      "waybillNo": "",
+      "podStatus": "photo",
+      "fees": { "freight": 600 },
+      "counterpartyAmount": 600
+    }
+  ]
+}

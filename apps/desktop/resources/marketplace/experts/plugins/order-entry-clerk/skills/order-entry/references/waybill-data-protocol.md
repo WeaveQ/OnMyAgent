@@ -11,7 +11,7 @@
 | `.process/export-fingerprint` | 最近一次成功导出时的数据指纹（内部） |
 | `*.pdf` / `*.xlsx` | 结果产物：用户确认并选择格式后直接写在会话根目录 |
 
-会话工作区本身已按专家/会话隔离，**禁止再套一层 `output/` 目录**。过程产物与结果产物不得混放。预览链接使用 `preview:.process/实际文件名.html`；结果产物使用 `artifact:实际文件名.ext`。
+会话工作区本身已按专家/会话隔离，**禁止再套一层 `output/` 目录**。过程产物与结果产物不得混放。过程 HTML 由客户端从命令结果直接展示，不向用户输出预览链接；结果产物使用 `artifact:实际文件名.ext`。
 
 ## 状态机
 
@@ -153,7 +153,7 @@ python3 <Skill根目录>/scripts/generate_waybill.py \
   --write-input
 ```
 
-数据指纹变化时，脚本会删除该单号下已有 PDF/XLSX，避免结果产物继续展示旧数据。回复用户时只给简短确认 + `show_widget`，禁止粘贴补丁原文。
+数据指纹变化时，脚本会删除该单号下已有 PDF/XLSX，避免结果产物继续展示旧数据。客户端会直接展示命令结果中的预览；回复用户时只给简短确认，禁止粘贴补丁原文或重复输出预览 JSON。
 
 ## 导出格式选择
 
@@ -185,7 +185,7 @@ python3 <Skill根目录>/scripts/generate_waybill.py --input waybill-data.json -
 - **preview**：只写白/红/黄三个 HTML 到 `.process/`，不启动浏览器，不写 PDF/XLSX；`artifactCopies` 为空。
 - **export**：在用户选定 `--formats` 后，才为三联生成 PDF 与/或 XLSX 到会话根目录（与 `waybill-data.json` 同级，不进 `output/`）。PDF 单页横向、不分页。
 
-每轮回复把完整 `inlineWidget` 原样放入 `show_widget` 围栏；再用三个 `preview:.process/...` 提供各联放大入口。退出码非 0 或任一返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。
+每次生成命令保留完整 `inlineWidget` 工具结果，客户端会直接渲染；回复正文禁止重复输出 `show_widget` 围栏、`preview:` 链接或“放大查看”按钮。退出码非 0 或任一返回文件不存在时，必须原样说明失败原因，不得回复“已生成”。
 
 ## 结果产物呈现规范（防自由发挥）
 

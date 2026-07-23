@@ -7,9 +7,10 @@ import argparse
 import csv
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 def text(value: Any) -> str:
@@ -226,6 +227,66 @@ def write_daily_proposal(path: Path) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def slug(value: str) -> str:
+    cleaned = re.sub(r"[^\w\-]+", "-", value, flags=re.UNICODE).strip("-")
+    return cleaned[:48] or "item"
+
+
+def next_expiry_reminder(
+    vehicle: dict[str, Any],
+    as_of: date,
+) -> tuple[date, str, date, str] | None:
+    not_before = max(as_of, date.today())
+    candidates: list[tuple[date, str, date, str]] = []
+    for label, expire, _days, _level in collect_items(vehicle, as_of):
+        if expire is None:
+            continue
+        for offset, node in ((30, "D-30"), (15, "D-15"), (7, "D-7"), (0, "到期日")):
+            reminder_date = expire - timedelta(days=offset)
+            if reminder_date >= not_before:
+                candidates.append((reminder_date, label, expire, node))
+    return min(candidates, key=lambda item: (item[0], item[1])) if candidates else None
+
+
+def write_vehicle_proposals(
+    proposal_dir: Path,
+    vehicles: list[dict[str, Any]],
+    as_of: date,
+) -> list[Path]:
+    proposal_dir.mkdir(parents=True, exist_ok=True)
+    timezone = ZoneInfo("Asia/Shanghai")
+    paths: list[Path] = []
+    for vehicle in vehicles:
+        reminder = next_expiry_reminder(vehicle, as_of)
+        if reminder is None:
+            continue
+        reminder_date, doc_label, expire, node = reminder
+        plate = text(vehicle.get("plate")) or "未登记车辆"
+        driver = text(vehicle.get("driverName")) or "未登记司机"
+        when = datetime.combine(reminder_date, time(hour=9), timezone)
+        payload = {
+            "scene": "office",
+            "title": f"挂靠车管·{plate}·{doc_label}·{node}",
+            "prompt": (
+                f"你是挂靠车管作业专家。读取 fleet-ledger.json，只复核车辆 {plate}、司机 {driver} "
+                f"的 {doc_label}（台账到期日 {expire.isoformat()}）；若仍未更新，生成对内催办与资料补齐话术，"
+                "提醒负责人确认。禁止编造日期，禁止自动停运、清退或发送外部消息。"
+            ),
+            "schedule": {
+                "mode": "once",
+                "day": "daily",
+                "time": "09:00",
+                "onceAt": int(when.timestamp() * 1000),
+                "timezone": "Asia/Shanghai",
+            },
+            "enabled": True,
+        }
+        path = proposal_dir / f"fleet-{slug(plate)}-{slug(doc_label)}-next.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        paths.append(path)
+    return paths
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, type=Path)
@@ -253,7 +314,13 @@ def main() -> None:
         write_csv(csv_path, vehicles, as_of)
         write_chase_scripts(scripts_path, vehicles, as_of)
         write_daily_proposal(proposal)
-        files.extend([str(csv_path), str(scripts_path), str(proposal)])
+        vehicle_proposals = write_vehicle_proposals(proposal.parent, vehicles, as_of)
+        files.extend([
+            str(csv_path),
+            str(scripts_path),
+            str(proposal),
+            *[str(path) for path in vehicle_proposals],
+        ])
 
     print(json.dumps({
         "ok": True,

@@ -179,6 +179,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
             expandedStepIds={props.expandedStepIds}
             onExpandedStepIdsChange={props.onExpandedStepIdsChange}
             onOpenCodePath={props.onOpenCodePath}
+            onDownloadCodePath={props.onDownloadCodePath}
             highlightQuery={hasSearchMatch ? props.searchHighlightQuery : undefined}
             verifiedCodePaths={props.verifiedCodePaths}
           />

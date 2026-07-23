@@ -65,3 +65,19 @@ export function setComposerDraftAfterNewTask(workspaceId: string, draft: string)
     window.requestAnimationFrame(apply);
   });
 }
+
+export function setExpertComposerDraftAfterNewTask(
+  workspaceId: string,
+  agentId: string,
+  draft: string,
+) {
+  const sessionId = `draft:${workspaceId}:${agentId}`;
+  const apply = () => {
+    useComposerStateStore.getState().setDraft(sessionId, draft);
+  };
+  apply();
+  window.setTimeout(apply, 0);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(apply);
+  });
+}

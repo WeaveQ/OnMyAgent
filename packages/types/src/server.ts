@@ -286,6 +286,7 @@ export interface AutomationTaskItem {
   scene: AutomationScene;
   title: string;
   prompt: string;
+  sourceSessionId?: string;
   workspaceDirectory?: string;
   model?: AutomationModelRef;
   agent?: AutomationAgentSelection;
@@ -305,6 +306,7 @@ export interface AutomationTaskInput {
   scene: AutomationScene;
   title: string;
   prompt: string;
+  sourceSessionId?: string | null;
   workspaceDirectory?: string | null;
   model?: AutomationModelRef | null;
   agent?: AutomationAgentSelection | null;

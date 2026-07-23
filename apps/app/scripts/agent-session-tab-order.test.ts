@@ -56,4 +56,13 @@ describe("mergeStableSessionTabOrder", () => {
     ]);
     expect(next).toEqual(["newest", "mid", "oldest"]);
   });
+
+  test("sorts first-seen sessions by creation time even when the parent is selected-first", () => {
+    const next = mergeStableSessionTabOrder([], [
+      { id: "selected-old", time: { created: 10 } },
+      { id: "newest", time: { created: 30 } },
+      { id: "middle", time: { created: 20 } },
+    ]);
+    expect(next).toEqual(["newest", "middle", "selected-old"]);
+  });
 });

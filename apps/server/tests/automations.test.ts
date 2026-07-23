@@ -39,11 +39,14 @@ describe("automations", () => {
 
   test("creates and persists workspace automation tasks", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "onmyagent-automations-"));
+    const taskWorkspace = join(workspace, "customer-follow-up");
 
     const task = await createAutomation(workspace, {
       scene: "office",
       title: "Daily report",
       prompt: "Summarize today's work.",
+      workspaceDirectory: taskWorkspace,
+      sourceSessionId: "ses_source_daily_report",
       schedule: { mode: "weekly", day: "daily", time: "09:00" },
     });
 
@@ -60,10 +63,13 @@ describe("automations", () => {
       scene: "office",
       title: "Daily report",
       prompt: "Summarize today's work.",
+      workspaceDirectory: taskWorkspace,
+      sourceSessionId: "ses_source_daily_report",
     });
 
     const raw = await readFile(automationStorePath(workspace), "utf8");
     expect(JSON.parse(raw).items[0].id).toBe(task.id);
+    expect(JSON.parse(raw).items[0].sourceSessionId).toBe("ses_source_daily_report");
   });
 
   test("updates enabled state and records run summary", async () => {

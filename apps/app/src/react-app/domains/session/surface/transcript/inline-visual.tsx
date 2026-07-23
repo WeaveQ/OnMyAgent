@@ -1,21 +1,26 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { Check, CircleAlert, Code2, MoreHorizontal } from "lucide-react";
+import { Check, CircleAlert, FileImage, FileText, MoreHorizontal, Sheet } from "lucide-react";
 
+import { invokeDesktopCommand } from "../../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { ArtifactIcon } from "../../../../capabilities/artifacts/artifact-icon";
+import { useStatusToasts } from "../../../shell-feedback";
 
+import {
+  resolveVisualArtifactExport,
+  visualExportFileName,
+  type VisualSnapshotExportFormat,
+} from "./inline-visual-export";
 import type { TurnWidgetItem } from "./turn-content";
 
 const COMPLETE_DOCUMENT_PATTERN = /<!doctype|<\/?(?:html|head|body)(?:\s|>)/i;
@@ -205,9 +210,11 @@ function SandboxedVisual(props: {
 export function InlineVisual(props: {
   visual: TurnWidgetItem;
   className?: string;
-  onOpenCodePath?: (path: string, mode?: "preview" | "reveal") => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
 }) {
-  const [showSource, setShowSource] = useState(false);
+  const { showToast } = useStatusToasts();
+  const exportRegionRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
   const [loadingIndex, setLoadingIndex] = useState(0);
   const [selectedCopyKey, setSelectedCopyKey] = useState(
     () => props.visual.artifactCopies[0]?.key ?? "white",
@@ -230,6 +237,93 @@ export function InlineVisual(props: {
   const selectedCopy = props.visual.artifactCopies.find(
     (copy) => copy.key === selectedCopyKey,
   ) ?? props.visual.artifactCopies[0];
+  const selectedCopyKeyValue = selectedCopy?.key ?? selectedCopyKey;
+
+  const exportArtifact = useCallback(async (path: string) => {
+    if (!props.onDownloadCodePath) throw new Error("Workspace download is unavailable.");
+    await props.onDownloadCodePath(path);
+    showToast({
+      title: t("session.visual_export_saved", {
+        name: path.split(/[\\/]/).at(-1) ?? path,
+      }),
+      tone: "success",
+    });
+  }, [props.onDownloadCodePath, showToast]);
+
+  const exportSnapshot = useCallback(async (format: VisualSnapshotExportFormat) => {
+    if (!window.__ONMYAGENT_ELECTRON__?.invokeDesktop) {
+      showToast({ title: t("session.visual_export_desktop_only"), tone: "info" });
+      return;
+    }
+    const region = exportRegionRef.current;
+    if (!region) throw new Error("Preview region is unavailable.");
+    const rect = region.getBoundingClientRect();
+    const result = await invokeDesktopCommand("exportVisualSnapshot", {
+      format,
+      rect: {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      },
+      defaultPath: visualExportFileName(
+        props.visual.title,
+        format,
+        t("session.visual_export_default_name"),
+      ),
+    });
+    if (result.status === "saved" && result.path) {
+      showToast({
+        title: t("session.visual_export_saved", {
+          name: result.path.split(/[\\/]/).at(-1) ?? result.path,
+        }),
+        tone: "success",
+      });
+    }
+  }, [props.visual.title, showToast]);
+
+  const handleExport = useCallback(async (format: "png" | "pdf" | "xlsx") => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (format === "xlsx") {
+        const path = resolveVisualArtifactExport(
+          props.visual.artifactCopies,
+          selectedCopyKeyValue,
+          "xlsx",
+        );
+        if (!path) {
+          showToast({ title: t("session.visual_export_excel_unavailable"), tone: "info" });
+          return;
+        }
+        await exportArtifact(path);
+        return;
+      }
+      if (format === "pdf") {
+        const path = resolveVisualArtifactExport(
+          props.visual.artifactCopies,
+          selectedCopyKeyValue,
+          "pdf",
+        );
+        if (path) {
+          await exportArtifact(path);
+          return;
+        }
+      }
+      await exportSnapshot(format);
+    } catch {
+      showToast({ title: t("session.visual_export_failed"), tone: "error" });
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    exportArtifact,
+    exportSnapshot,
+    exporting,
+    props.visual.artifactCopies,
+    selectedCopyKeyValue,
+    showToast,
+  ]);
 
   useEffect(() => {
     setSelectedCopyKey(props.visual.artifactCopies[0]?.key ?? "white");
@@ -297,60 +391,45 @@ export function InlineVisual(props: {
             }
           />
           <DropdownMenuContent align="end">
-            {selectedCopy && props.onOpenCodePath ? (
-              <>
-                {selectedCopy.pdf.trim() ? (
-                  <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.pdf, "reveal")}>
-                    <ArtifactIcon name={selectedCopy.pdf} className="size-4" />
-                    {t("session.visual_reveal_pdf")}
-                  </DropdownMenuItem>
-                ) : null}
-                {selectedCopy.xlsx.trim() ? (
-                  <DropdownMenuItem onSelect={() => props.onOpenCodePath?.(selectedCopy.xlsx, "reveal")}>
-                    <ArtifactIcon name={selectedCopy.xlsx} className="size-4" />
-                    {t("session.visual_reveal_excel")}
-                  </DropdownMenuItem>
-                ) : null}
-                {(selectedCopy.pdf.trim() || selectedCopy.xlsx.trim()) ? (
-                  <DropdownMenuSeparator />
-                ) : null}
-              </>
-            ) : null}
-            <DropdownMenuItem onSelect={() => setShowSource((current) => !current)}>
-              <Code2 className="size-4" />
-              {showSource
-                ? t("session.visual_hide_source")
-                : t("session.visual_show_source")}
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExport("png")}>
+              <FileImage className="size-4" />
+              {t("session.visual_export_image")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExport("pdf")}>
+              <FileText className="size-4" />
+              {t("session.visual_export_pdf")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExport("xlsx")}>
+              <Sheet className="size-4" />
+              {t("session.visual_export_excel")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu> : null}
       </header>
 
-      {props.visual.status === "failed" ? (
-        <div className="session-inline-visual-error" role="alert">
-          {props.visual.errorText || t("session.visual_failed")}
-        </div>
-      ) : showSource ? (
-        <pre className="session-inline-visual-source">
-          {props.visual.html}
-        </pre>
-      ) : props.visual.status === "completed" && sandboxedHtml ? (
-        <SandboxedVisual
-          source={props.visual.html}
-          title={props.visual.title ?? t("session.visual_details")}
-          onArtifactCopyChange={setSelectedCopyKey}
-        />
-      ) : sanitized.valid ? (
-        <div
-          className="session-inline-visual-body"
-          // DOMPurify removes scripts, event handlers, unsafe URLs and active embeds.
-          dangerouslySetInnerHTML={{ __html: sanitized.html }}
-        />
-      ) : (
-        <div className="session-inline-visual-invalid" role="alert">
-          {t("session.visual_invalid")}
-        </div>
-      )}
+      <div ref={exportRegionRef} className="session-inline-visual-export-region">
+        {props.visual.status === "failed" ? (
+          <div className="session-inline-visual-error" role="alert">
+            {props.visual.errorText || t("session.visual_failed")}
+          </div>
+        ) : props.visual.status === "completed" && sandboxedHtml ? (
+          <SandboxedVisual
+            source={props.visual.html}
+            title={props.visual.title ?? t("session.visual_details")}
+            onArtifactCopyChange={setSelectedCopyKey}
+          />
+        ) : sanitized.valid ? (
+          <div
+            className="session-inline-visual-body"
+            // DOMPurify removes scripts, event handlers, unsafe URLs and active embeds.
+            dangerouslySetInnerHTML={{ __html: sanitized.html }}
+          />
+        ) : (
+          <div className="session-inline-visual-invalid" role="alert">
+            {t("session.visual_invalid")}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

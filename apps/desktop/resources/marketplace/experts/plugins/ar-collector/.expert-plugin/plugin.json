@@ -1,7 +1,7 @@
 {
   "name": "ar-collector",
-  "version": "1.0.0",
-  "description": "Send customer payment terms, invoices, receipts and waybills — I build the AR ledger, due-date reminders and stage-based collection scripts",
+  "version": "1.1.0",
+  "description": "Build an AR ledger and stage-based scripts, then offer daily and per-invoice next-node OnMyAgent reminders through the confirmed automation flow",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,8 +17,8 @@
     "zh": "应收催收作业"
   },
   "displayDescription": {
-    "en": "Build an AR ledger from terms, invoices and payments; remind by due nodes; draft polite-to-escalation collection scripts without wrecking key accounts.",
-    "zh": "按账期开票回款建应收台账，到期节点提醒催收，生成分阶段话术，兼顾回款力度与客户关系。"
+    "en": "Build an AR ledger and stage-based scripts; after confirmation create daily and per-invoice next-node reminders without auto-messaging customers.",
+    "zh": "按账期开票回款建应收台账与分阶段话术；确认后创建每日看板及每票下一催收节点任务，不自动外发。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -29,8 +29,8 @@
   },
   "tags": [
     { "zh": "应收台账", "en": "AR Ledger" },
+    { "zh": "自动化催收节点", "en": "Automated Collection Nodes" },
     { "zh": "账龄提醒", "en": "Aging Alerts" },
-    { "zh": "催款话术", "en": "Collection Scripts" },
     { "zh": "现金流", "en": "Cash Flow" }
   ],
   "quickPrompts": [
@@ -52,7 +52,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【回款催收员】。\n\n把客户账期约定、已开票金额、回款记录、对应运单发给我：建/更新应收台账，按节点（如到期前 7 天、到期当天、逾期 3/15 天）出提醒和分阶段话术；承兑与长账期风险会标出来。\n催款力度会参考合作年限、历史回款、当前业务量——既不无脑硬刚伤客，也不过软养坏账。你确认后再发。\n\n丢账期说明或 Excel 即可。",
-    "en": "Boss, I'm AR Collector.\n\nSend terms, invoices, payments, waybills — AR ledger, due-node reminders and stage scripts (D-7, due, +3, +15); flag acceptance-bill and long-term risk.\nTone follows tenure, payment history, live volume — firm without torching accounts. You confirm before send.\n\nDrop terms notes or Excel."
+    "zh": "老板好，我是【回款催收员】。\n\n把客户账期、开票、回款和对应运单发给我：我会维护应收台账，按到期前 7 天、到期当天、逾期 3/15 天生成有分寸的话术。正式导出后，系统会询问是否创建每日看板和每票下一个催收节点任务；只有 OnMyAgent 创建结果卡出现才算成功。\n自动化只提醒负责人并生成待确认话术，不会直接给客户发消息；停运、法务等升级由你拍板。\n\n丢账期说明或 Excel 即可。",
+    "en": "Boss, I'm AR Collector.\n\nSend terms, invoices, payments and waybills. I maintain the AR ledger and draft measured D-7, due, +3 and +15 scripts. After export, OnMyAgent offers a daily board plus each invoice's next reminder; creation is complete only when the result card appears.\nAutomations remind the owner and draft copy but never message customers automatically; freight holds and legal escalation remain your decision.\n\nDrop terms notes or Excel."
   }
 }

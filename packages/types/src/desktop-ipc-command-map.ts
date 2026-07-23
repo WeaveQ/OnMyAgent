@@ -351,6 +351,14 @@ type TypedDesktopCommandMap = {
     [{ title?: string; defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }?],
     string | null
   >;
+  exportVisualSnapshot: DesktopCommandContract<
+    [{
+      format: "png" | "pdf";
+      rect: { x: number; y: number; width: number; height: number };
+      defaultPath: string;
+    }],
+    { status: "saved" | "cancelled"; path: string | null }
+  >;
   updaterEnvironment: DesktopCommandContract<[], UpdaterEnvironment>;
   setWindowDecorations: DesktopCommandContract<[{ enabled: boolean }], void>;
   __openPath: DesktopCommandContract<[string], string | null>;

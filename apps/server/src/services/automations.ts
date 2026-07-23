@@ -15,6 +15,16 @@ import type {
 } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
 import { exists, shortId } from "../core/utils.js";
+import {
+  compactEffectiveRange,
+  effectiveDateEndAt,
+  effectiveDateStartAt,
+  nextRunAt,
+  parseAutomationScheduleTime,
+  parseTime,
+} from "./automation-next-run.js";
+
+export { nextRunAt } from "./automation-next-run.js";
 
 type AutomationStoreFile = {
   version: 1;
@@ -23,9 +33,10 @@ type AutomationStoreFile = {
 
 type NormalizedAutomationInput = Omit<
   AutomationTaskInput,
-  "effectiveRange" | "workspaceDirectory" | "model" | "agent" | "accessMode"
+  "effectiveRange" | "sourceSessionId" | "workspaceDirectory" | "model" | "agent" | "accessMode"
 > & {
   effectiveRange: AutomationEffectiveRange;
+  sourceSessionId?: string;
   workspaceDirectory?: string;
   model?: AutomationModelRef;
   agent?: AutomationAgentSelection;
@@ -127,6 +138,7 @@ export async function updateAutomation(
       scene: input.scene ?? current.scene,
       title: input.title ?? current.title,
       prompt: input.prompt ?? current.prompt,
+      sourceSessionId: "sourceSessionId" in input ? input.sourceSessionId : current.sourceSessionId,
       workspaceDirectory: "workspaceDirectory" in input ? input.workspaceDirectory : current.workspaceDirectory,
       model: "model" in input ? input.model : current.model,
       agent: "agent" in input ? input.agent : current.agent,
@@ -428,90 +440,6 @@ export async function recordOverlappingAutomationSkips(
   });
 }
 
-export function nextRunAt(
-  schedule: AutomationSchedule,
-  from = Date.now(),
-  effectiveRange: AutomationEffectiveRange = {},
-): number | null {
-  const [hour, minute] = parseTime(schedule.time);
-  const startAt = effectiveDateStartAt(effectiveRange.startDate);
-  const endAt = effectiveDateEndAt(effectiveRange.endDate);
-  const base = startAt != null && from < startAt ? startAt : from;
-  if (endAt != null && base > endAt) return null;
-  if (schedule.mode === "interval") {
-    const intervalMinutes = schedule.intervalMinutes ?? 60;
-    const intervalMs = intervalMinutes * 60 * 1000;
-    let intervalNext = base + intervalMs;
-    const weekdays = schedule.weekdays ?? [];
-    const possibleWeeklyOccurrences = 10_080 / greatestCommonDivisor(intervalMinutes, 10_080);
-    let checkedOccurrences = 0;
-    while (
-      weekdays.length > 0 &&
-      !weekdays.includes(normalizedWeekday(intervalNext)) &&
-      checkedOccurrences < possibleWeeklyOccurrences
-    ) {
-      intervalNext += intervalMs;
-      checkedOccurrences += 1;
-    }
-    if (
-      weekdays.length > 0 &&
-      !weekdays.includes(normalizedWeekday(intervalNext))
-    ) return null;
-    return endAt != null && intervalNext > endAt ? null : intervalNext;
-  }
-  if (schedule.mode === "once" && schedule.onceAt != null) {
-    if (schedule.onceAt <= from) return null;
-    if (startAt != null && schedule.onceAt < startAt) return null;
-    return endAt != null && schedule.onceAt > endAt ? null : schedule.onceAt;
-  }
-
-  const next = nextCycleOccurrence(schedule.day, base, hour, minute);
-  let timestamp = next.getTime();
-  if (schedule.mode === "once") {
-    return endAt != null && timestamp > endAt ? null : timestamp;
-  }
-  return endAt != null && timestamp > endAt ? null : timestamp;
-}
-
-function nextCycleOccurrence(
-  cycle: AutomationSchedule["day"],
-  base: number,
-  hour: number,
-  minute: number,
-) {
-  const candidate = new Date(base);
-  candidate.setHours(hour, minute, 0, 0);
-  if (candidate.getTime() > base) return candidate;
-
-  if (cycle === "daily") {
-    candidate.setDate(candidate.getDate() + 1);
-    return candidate;
-  }
-  if (cycle === "weekly" || cycle === "biweekly") {
-    candidate.setDate(candidate.getDate() + (cycle === "weekly" ? 7 : 14));
-    return candidate;
-  }
-  if (cycle === "monthly") {
-    const targetDay = candidate.getDate();
-    candidate.setDate(1);
-    candidate.setMonth(candidate.getMonth() + 1);
-    candidate.setDate(Math.min(targetDay, daysInMonth(candidate.getFullYear(), candidate.getMonth())));
-    return candidate;
-  }
-
-  const targetMonth = candidate.getMonth();
-  const targetDay = candidate.getDate();
-  candidate.setDate(1);
-  candidate.setFullYear(candidate.getFullYear() + 1);
-  candidate.setMonth(targetMonth);
-  candidate.setDate(Math.min(targetDay, daysInMonth(candidate.getFullYear(), targetMonth)));
-  return candidate;
-}
-
-function daysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-
 function refreshDueAutomationSchedules(store: AutomationStoreFile, now: number): boolean {
   let changed = false;
   for (const entry of store.items) {
@@ -553,17 +481,6 @@ function findAutomationTaskOrThrow(store: AutomationStoreFile, id: string): Auto
   return item;
 }
 
-function greatestCommonDivisor(left: number, right: number): number {
-  let a = left;
-  let b = right;
-  while (b !== 0) {
-    const remainder = a % b;
-    a = b;
-    b = remainder;
-  }
-  return a;
-}
-
 function normalizeAutomationInput(input: unknown): NormalizedAutomationInput {
   if (!isRecord(input)) {
     throw new ApiError(400, "invalid_automation", "Automation input is required");
@@ -581,6 +498,7 @@ function normalizeAutomationInput(input: unknown): NormalizedAutomationInput {
     scene,
     title,
     prompt,
+    sourceSessionId: normalizeOptionalString(input.sourceSessionId),
     workspaceDirectory: normalizeOptionalAbsolutePath(input.workspaceDirectory),
     model: normalizeAutomationModel(input.model),
     agent: normalizeAutomationAgent(input.agent),
@@ -694,6 +612,14 @@ function normalizeOptionalBoolean(value: unknown): boolean | undefined {
   throw new ApiError(400, "invalid_automation_enabled", "Automation enabled must be a boolean");
 }
 
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") {
+    throw new ApiError(400, "invalid_automation_source_session", "Automation source session must be a string");
+  }
+  return value.trim() || undefined;
+}
+
 function normalizeOptionalAbsolutePath(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") {
@@ -779,70 +705,6 @@ function normalizeOptionalDate(value: unknown, code: string): string | undefined
   return trimmed;
 }
 
-function parseTime(value: string): [number, number] {
-  const parsed = parseAutomationScheduleTime(value);
-  if (!parsed) {
-    throw new ApiError(400, "invalid_automation_schedule", "Automation schedule time must be HH:mm");
-  }
-  return parsed;
-}
-
-function parseAutomationScheduleTime(value: string): [number, number] | null {
-  const match = value.match(/^(\d{2}):(\d{2})$/);
-  if (!match) {
-    return null;
-  }
-  const hour = Number.parseInt(match[1], 10);
-  const minute = Number.parseInt(match[2], 10);
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    return null;
-  }
-  return [hour, minute];
-}
-
-function effectiveDateStartAt(value?: string): number | null {
-  if (!value) return null;
-  const parsed = parseEffectiveDate(value);
-  if (!parsed) return null;
-  const [year, month, day] = parsed;
-  return new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
-}
-
-function effectiveDateEndAt(value?: string): number | null {
-  if (!value) return null;
-  const parsed = parseEffectiveDate(value);
-  if (!parsed) return null;
-  const [year, month, day] = parsed;
-  return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
-}
-
-function parseEffectiveDate(value: string): [number, number, number] | null {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const year = Number.parseInt(match[1], 10);
-  const month = Number.parseInt(match[2], 10);
-  const day = Number.parseInt(match[3], 10);
-  const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-  return [year, month, day];
-}
-
-function compactEffectiveRange(
-  startDate: string | undefined,
-  endDate: string | undefined,
-): AutomationEffectiveRange {
-  return {
-    ...(startDate ? { startDate } : {}),
-    ...(endDate ? { endDate } : {}),
-  };
-}
-
 async function readAutomationStore(workspaceRoot: string): Promise<AutomationStoreFile> {
   const path = automationStorePath(workspaceRoot);
   if (!(await exists(path))) {
@@ -917,6 +779,9 @@ function readAutomationTaskItem(value: unknown): AutomationTaskItem[] {
     scene: record.scene,
     title: record.title,
     prompt: record.prompt,
+    ...(typeof record.sourceSessionId === "string" && record.sourceSessionId.trim()
+      ? { sourceSessionId: record.sourceSessionId.trim() }
+      : {}),
     ...(readAutomationWorkspaceDirectory(record.workspaceDirectory)
       ? { workspaceDirectory: readAutomationWorkspaceDirectory(record.workspaceDirectory) }
       : {}),
@@ -1063,11 +928,6 @@ function readAutomationRunSummary(value: unknown): AutomationRunSummary | null {
     outputDirectory: value.outputDirectory,
     error: value.error,
   };
-}
-
-function normalizedWeekday(timestamp: number): number {
-  const day = new Date(timestamp).getDay();
-  return day === 0 ? 7 : day;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
