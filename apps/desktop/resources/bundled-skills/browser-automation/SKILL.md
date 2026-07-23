@@ -38,16 +38,28 @@ Once a browser connection is established, reuse it across later turns. A tab bin
 1. Get the default Browser (or `get("iab")` when the user names the in-app browser).
 2. Prefer `browser.tabs.new({ url })` for a fast direct open when the target URL is known.
 3. Observe before acting. Prefer role, label, text, placeholder, or test-id locators.
-4. Perform the smallest safe action and verify the resulting state.
+4. Prefer continuous REPL for one page goal. Scope selectors to the active detail surface (modal/note), not leftover feed cards underneath.
 5. Use DOM-CUA when semantic locators are insufficient; coordinate CUA only as a last resort.
 6. Finalize temporary Tabs when the task is complete. Leave user-owned Tabs open unless the user requests otherwise.
+
+## Toggle actions (like / favorite / follow / star)
+
+Sites such as Xiaohongshu use **toggle** controls. A second click undoes the first.
+
+- **Read desired state first.** If already active (`like-active`, collected/active class, text `已关注` / `Following`, aria-pressed=true), **do not click** — report already done.
+- **Click at most once per intent.** After a successful `click` / JS click returns, treat the action as done when: return is ok, desired class/text appears, or count increases. **Never click again to “verify”.**
+- Prefer the control **inside the open note/detail container**. Global `.like-wrapper` / `.collect-wrapper` may match feed cards under a modal — wrong node → false “not liked” → re-click toggles off.
+- When the locator is covered, one JS `element.click()` is fine; still only once. If state is ambiguous, **read attributes/text once** and stop; do not hammer the button.
+- Batch like + favorite + follow + comment in few REPL calls; summarize once at the end.
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
 globalThis.tab ??= await browser.tabs.new({ url: "https://www.baidu.com" })
 await tab.playwright.getByRole("textbox").fill("query")
 await tab.playwright.getByRole("button", { name: "百度一下" }).click()
-await tab.screenshot()
+// screenshot is a plain object { image, width, height }, not a Buffer
+const shot = await tab.screenshot()
+nodeRepl.emitImage(shot.image)
 ```
 
 ## Documentation

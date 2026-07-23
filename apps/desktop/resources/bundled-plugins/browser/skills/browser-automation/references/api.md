@@ -119,6 +119,26 @@ tab.playwright.frameLocator(frameSelector)
 
 Locators support `click`, `fill`, `type`, `press`, `hover`, `check`, `uncheck`, `setChecked`, `selectOption`, `textContent`, `innerText`, `getAttribute`, `evaluate`, `count`, `isVisible`, `isEnabled`, `waitFor`, `all`, `first`, `last`, `nth`, and nested `locator` / `getBy*`.
 
+### Toggle buttons (like / favorite / follow)
+
+```js
+// 1) Read state in the DETAIL surface only (not the feed under a modal)
+const state = await tab.playwright.evaluate(() => {
+  const root = document.querySelector(".note-container") || document.querySelector("#noteContainer") || document.body
+  const like = root.querySelector(".like-wrapper, [class*='like']")
+  const collect = root.querySelector(".collect-wrapper, [class*='collect']")
+  const follow = root.querySelector("button, [class*='follow']")
+  return {
+    likeActive: Boolean(like?.className?.toString().includes("like-active") || like?.className?.toString().includes("active")),
+    collectActive: Boolean(collect?.className?.toString().includes("active")),
+    followText: (follow?.textContent || "").trim(),
+  }
+})
+// 2) Click only if not already on; never click again to verify (second click undoes)
+if (!state.likeActive) await tab.playwright.locator(".note-container .like-wrapper").click()
+// 3) Optional single read-back; if still ambiguous, stop — do not re-click
+```
+
 ## Playwright evaluate + snapshot
 
 Read-only page/element evaluation and structured observation:

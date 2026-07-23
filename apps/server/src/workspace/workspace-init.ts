@@ -34,25 +34,9 @@ ${APP_NAME} can preview, edit, and download standard artifacts when you create o
 - For large HTML, SVG, source-code, or report artifacts, do not place the entire artifact in one JSON tool argument. Keep each file-mutation tool call bounded: write a small skeleton first, then edit or append in multiple calls, and validate the completed file before presenting it. Prefer chunks below 8,000 characters so a provider output limit cannot cut a tool call mid-JSON.
 <!-- ${APP_NAME}_ARTIFACTS_END -->`;
 
-const ONMYAGENT_PRESENTATION_GUIDANCE = `<!-- ${APP_NAME}_PRESENTATION_START -->
-## User-facing presentation
-
-- Do not mention specific tool names in user-facing replies or status descriptions. Describe the action and result in natural language.
-- Intermediate tool calls, observations, reasoning, and progress may be folded or hidden. The final reply must stand on its own and restate every substantive result the user needs, including important outputs or changed files, findings, conclusions, errors, unresolved risks, and next steps when relevant.
-- Explicit requests to show, visualize, diagram, chart, draw, or graph require an inline visual when no file artifact or specialized connected tool is the intended destination; the same applies when the user asks to illustrate something or asks what it looks like. First read the relevant visual design module, then call \`render_visual\`.
-- Always use an inline visual for educational or teaching requests when no file artifact or specialized connected tool is intended, except for a pure dictionary-style word-definition lookup.
-- Data comparisons and architecture or system design requests should proactively use an inline chart or diagram when the visual communicates the structure more clearly than prose.
-- A noun-phrase specification of a visual artifact is itself a render request even when it has no verb. Render specifications such as a comparison table, timeline, form, or state machine instead of substituting a prose description or Markdown table.
-- Between multiple visuals, write a short paragraph that explains the next visual and connects it to the previous one.
-- Never expose the visual machinery. Use a natural preamble, and do not paste generated SVG or HTML source into the reply.
-
-### Progress narration (keep light — match efficient browser automation)
-
-- Optional short status is fine; do **not** force \`Text -> tool -> Text -> tool\` between every related call.
-- In-app browser multi-step work (open, click, like, favorite, follow, comment, scrape on one page task) is **one stage**: run continuous \`onmyagent_browser_node_repl\` steps with minimal narration; summarize once when the page goal is done or blocked.
-- Do not narrate every low-level call, name tools/skills, paste raw tool output, or restate the full user request between clicks.
-- On failure, one short recovery note is enough; then continue or stop cleanly.
-<!-- ${APP_NAME}_PRESENTATION_END -->`;
+// Intentionally no WorkBuddy-style Progress narration block here.
+// Forced Text→tool→Text rhythm slowed multi-step browser automation vs 8d3a58a.
+// If a presentation marker remains in an old agent file, ensureOnMyAgentAgent strips it.
 
 const ONMYAGENT_VISUAL_GUIDANCE = `<!-- ${APP_NAME}_VISUALS_START -->
 ## Inline visuals
@@ -174,6 +158,7 @@ ${APP_NAME} has a built-in in-app browser. For any web task (open a site, search
 - Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
 - Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
 - Prefer continuous REPL calls for one page goal (open → inspect → click → like/favorite/follow/comment → read). Avoid narrating between every action; summarize when the stage finishes.
+- Toggle buttons (like / favorite / follow): read active state first; click **at most once** if not already active. A second click undoes the first. Scope selectors to the note/detail surface, not feed cards under a modal. Never re-click to "verify".
 - \`tab.screenshot()\` returns a plain object with \`image\` (data URL), not a Node Buffer. Prefer \`nodeRepl.emitImage(shot.image)\` and return meta only when the image is large.
 - Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
 - Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`. Prefer \`tab.evaluate\` / locators when screenshots fail or are null.
@@ -212,8 +197,6 @@ Hard rule: never copy private memory into repo files. Store only redacted summar
 - If you change code, run the smallest meaningful test.
 - If steps repeat, factor them into a skill.
 - Prefer clear, practical steps over abstract explanations.
-
-${ONMYAGENT_PRESENTATION_GUIDANCE}
 
 ${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}
 
@@ -434,6 +417,7 @@ async function ensureOnMyAgentAgent(
     changed = true;
   }
 
+  // Strip legacy WorkBuddy presentation / progress-narration blocks (slow multi-step browser).
   const presentationStart = `<!-- ${APP_NAME}_PRESENTATION_START -->`;
   const presentationEnd = `<!-- ${APP_NAME}_PRESENTATION_END -->`;
   const presentationStartIdx = current.indexOf(presentationStart);
@@ -442,13 +426,7 @@ async function ensureOnMyAgentAgent(
     presentationStartIdx >= 0 &&
     presentationEndIdx > presentationStartIdx
   ) {
-    const patched = `${current.slice(0, presentationStartIdx)}${ONMYAGENT_PRESENTATION_GUIDANCE}${current.slice(presentationEndIdx + presentationEnd.length)}`;
-    if (patched !== current) {
-      current = patched;
-      changed = true;
-    }
-  } else {
-    current = `${current.trimEnd()}\n\n${ONMYAGENT_PRESENTATION_GUIDANCE}\n`;
+    current = `${current.slice(0, presentationStartIdx).trimEnd()}\n\n${current.slice(presentationEndIdx + presentationEnd.length).trimStart()}`;
     changed = true;
   }
 
