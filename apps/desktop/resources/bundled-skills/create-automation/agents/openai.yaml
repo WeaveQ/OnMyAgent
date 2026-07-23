@@ -1,0 +1,4 @@
+interface:
+  display_name: "创建自动化任务"
+  short_description: "准确创建并配置 OnMyAgent 定时或单次自动化任务"
+  default_prompt: "使用 $create-automation 根据当前会话需求创建一个自动化任务。"

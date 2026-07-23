@@ -74,7 +74,11 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
 import { AutomationPage, MessagingChannelsPage } from "../../messaging";
-import { consumeAutomationFocus } from "../artifacts/automation-focus-memory";
+import {
+  consumeAutomationFocus,
+  writeAutomationFocus,
+} from "../artifacts/automation-focus-memory";
+import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
 import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
@@ -145,6 +149,7 @@ import { useSessionHostSidePanel } from "./use-session-host-side-panel";
 import { useSummonMarketplaceExpert } from "./use-summon-marketplace-expert";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
+import { isStreamingSessionStatus } from "../sidebar/utils";
 
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
@@ -288,6 +293,54 @@ export function AssistantPage(props: AssistantPageProps) {
       props.sidebar.workspaceSessionGroups,
     ],
   );
+
+  const selectedAssistantSessionDirectory =
+    assistantWorkspaceSessions.find(
+      (session) => session.id === props.selectedSessionId,
+    )?.directory ?? null;
+
+  const openCreatedAutomation = useCallback(
+    (row: { id: string; scene: "office" | "code" }) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!workspaceId) return;
+      writeAutomationFocus({
+        workspaceId,
+        automationId: row.id,
+        scene: row.scene,
+      });
+      setAssistantCategoryAndRemember(row.scene);
+      writeAssistantSelectionMemory(workspaceId, row.scene, {
+        kind: "automation",
+      });
+      openScheduledTasksView();
+    },
+    [
+      openScheduledTasksView,
+      props.selectedWorkspaceId,
+      setAssistantCategoryAndRemember,
+    ],
+  );
+
+  const automationOffer = useSessionAutomationOffer({
+    client: props.onmyagentServerClient,
+    workspaceId:
+      props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim(),
+    catalogRoot: codeWorkspaceCatalogRoot,
+    sessionRoot: props.selectedWorkspaceRoot,
+    selectedSessionId: props.selectedSessionId,
+    sessionDirectory: selectedAssistantSessionDirectory,
+    selectedModel: props.surface?.model.selectedModel,
+    activeQuestion: props.activeQuestion,
+    questionReplyBusy: props.questionReplyBusy,
+    respondQuestion: props.respondQuestion,
+    sessionBusy: isStreamingSessionStatus(
+      props.selectedSessionId
+        ? props.sidebar.sessionStatusById?.[props.selectedSessionId]
+        : undefined,
+    ),
+    openTargets,
+    onViewCreatedAutomation: openCreatedAutomation,
+  });
 
   const openAssistantNewTask = useCallback(
     (categoryId: AssistantCategoryId) => {
@@ -1237,10 +1290,14 @@ export function AssistantPage(props: AssistantPageProps) {
                               respondPermission: props.respondPermission,
                               autoApprovedPermissionNoticeId:
                                 props.autoApprovedPermissionNoticeId,
-                              activeQuestion: props.activeQuestion,
-                              questionReplyBusy: props.questionReplyBusy,
-                              respondQuestion: props.respondQuestion,
+                              activeQuestion: automationOffer.activeQuestion,
+                              questionReplyBusy:
+                                automationOffer.questionReplyBusy,
+                              respondQuestion: automationOffer.respondQuestion,
                             }}
+                            extraComposerAccessory={
+                              automationOffer.resultAccessory
+                            }
                             safeStringify={props.safeStringify}
                             userIdentity={{
                               name:
