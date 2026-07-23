@@ -105,15 +105,15 @@ const mbtiOptions = [
 const mbtiSelectItems = mbtiOptions.map((value) => ({ label: value, value }));
 
 const welcomeTextClass = {
-  progress: "shrink-0 text-xs font-medium tabular-nums text-dls-secondary",
-  accessTitle: "text-sm font-medium text-dls-text",
-  accessDescription: "mt-1 text-sm text-dls-secondary",
+  progress: "shrink-0 text-sm font-medium tabular-nums text-dls-secondary",
+  accessTitle: "text-base font-medium text-dls-text",
+  accessDescription: "mt-1 text-sm leading-6 text-dls-secondary",
   heroTitle: "mt-8 inline-flex items-center gap-1 text-3xl font-medium tracking-tight text-dls-text",
-  heroDescription: "mt-4 max-w-2xl text-sm leading-6 text-dls-secondary",
-  pageTitle: "text-xl font-medium text-dls-text",
-  pageDescription: "mt-2 text-sm leading-6 text-dls-secondary",
-  sectionTitle: "text-base font-medium text-dls-text",
-  sectionLabel: "mb-3 text-sm font-medium text-dls-secondary",
+  heroDescription: "mt-4 max-w-2xl text-base leading-7 text-dls-secondary",
+  pageTitle: "text-2xl font-medium text-dls-text",
+  pageDescription: "mt-2 text-base leading-7 text-dls-secondary",
+  sectionTitle: "text-lg font-medium text-dls-text",
+  sectionLabel: "mb-3.5 text-base font-medium text-dls-secondary",
   selectedLabel: "text-sm font-medium text-dls-text",
   selectedPath: "min-w-0 truncate text-sm text-dls-secondary",
 };
@@ -133,13 +133,15 @@ const welcomeLayoutClass = {
   profileFooter: "flex items-center justify-between gap-3",
   footerActions: "flex gap-3",
   profileScroll: "h-full px-8 pb-8 pt-8",
-  profileContent: "mx-auto flex max-w-4xl flex-col gap-7",
-  profileSection: "grid gap-5 pb-5 last:pb-0",
+  profileContent: "mx-auto flex max-w-4xl flex-col gap-9",
+  profileSection: "grid gap-6 pb-6 last:pb-0",
   profileGrid: "grid gap-5 md:grid-cols-3",
-  profileInput: "mt-2 h-10 rounded-lg text-sm",
-  mbtiTrigger: "mt-2 h-10 w-full rounded-lg border-dls-border bg-dls-surface px-3 text-sm text-dls-text data-[size=default]:h-10",
+  profileInput: "mt-2 h-11 rounded-lg text-base",
+  mbtiTrigger: "mt-2 h-11 w-full rounded-lg border-dls-border bg-dls-surface px-3 text-base text-dls-text data-[size=default]:h-11",
   mbtiContent: "rounded-xl border border-dls-border bg-dls-surface text-dls-text",
-  mbtiItem: "rounded-lg text-sm",
+  mbtiItem: "rounded-lg text-base",
+  chipRow: "flex flex-wrap gap-3",
+  roleGrid: "grid gap-3 md:grid-cols-3",
 };
 
 function folderNameFromPath(path: string) {
@@ -661,12 +663,12 @@ export function WelcomeRoute() {
             <h2 className={welcomeTextClass.sectionTitle}>
               {t("welcome.about_you")}
             </h2>
-            <div className="mt-6 flex flex-col gap-6">
+            <div className="mt-7 flex flex-col gap-7">
               <div>
                 <div className={welcomeTextClass.sectionLabel}>
                   {t("welcome.role")}
                 </div>
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className={welcomeLayoutClass.roleGrid}>
                   {roleOptions.map((role) => (
                     <ToggleChip
                       key={role.value}
@@ -681,7 +683,7 @@ export function WelcomeRoute() {
                 <div className={welcomeTextClass.sectionLabel}>
                   {t("welcome.industry")}
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className={welcomeLayoutClass.chipRow}>
                   {industryOptions.map((industry) => (
                     <ToggleChip
                       key={industry.value}
@@ -699,12 +701,12 @@ export function WelcomeRoute() {
             <h2 className={welcomeTextClass.sectionTitle}>
               {t("welcome.work_habits")}
             </h2>
-            <div className="mt-6 flex flex-col gap-6">
+            <div className="mt-7 flex flex-col gap-7">
               <div>
                 <div className={welcomeTextClass.sectionLabel}>
                   {t("welcome.common_tools")}
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className={welcomeLayoutClass.chipRow}>
                   {toolOptions.map((tool) => (
                     <ToggleChip
                       key={tool.value}
@@ -719,7 +721,7 @@ export function WelcomeRoute() {
                 <div className={welcomeTextClass.sectionLabel}>
                   {t("welcome.frequent_tasks")}
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className={welcomeLayoutClass.chipRow}>
                   {taskOptions.map((task) => (
                     <ToggleChip
                       key={task.value}

@@ -126,12 +126,14 @@ export const mbtiSelectItems = mbtiOptions.map((value) => ({
 /**
  * Soft filter / multi-select chip (image-1 style):
  * selected = solid elevated pill; idle = plain label, no border.
+ * Defaults to chipLg for welcome/onboarding readability.
  */
 export function ToggleChip(props: {
   label: string;
   selected: boolean;
   onClick: () => void;
   className?: string;
+  size?: "chip" | "chipLg";
 }) {
   return (
     <FilterChip
@@ -139,13 +141,14 @@ export function ToggleChip(props: {
       selected={props.selected}
       onClick={props.onClick}
       className={props.className}
+      size={props.size ?? "chipLg"}
     />
   );
 }
 
 export function FieldLabel(props: { children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium leading-4 text-dls-secondary">
+    <label className="flex flex-col gap-1.5 text-sm font-medium leading-5 text-dls-secondary">
       {props.children}
     </label>
   );
