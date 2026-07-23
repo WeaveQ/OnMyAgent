@@ -1,9 +1,9 @@
 /**
- * Selectable spaces for the composer "选择工作空间" picker.
+ * Selectable spaces for the composer workspace picker.
  *
- * Source of truth is the left sidebar 「空间」 section: only directories that
+ * Source of truth is the left-sidebar Spaces section: only directories that
  * already have session bindings (non-automation). Recent/local picks must NOT
- * appear in the picker until they show up under 空间.
+ * appear in the picker until they show up under Spaces.
  */
 import { workspaceDisplayName } from "../../local-agents";
 
@@ -17,7 +17,7 @@ export type KnownSpaceAutomationRecord = {
   outputDirectory: string;
 };
 
-/** Legacy automation folder prefix (「自动化任务-…」). */
+/** Legacy automation folder prefix (CJK product label via unicode escapes). */
 const LEGACY_AUTOMATION_DIR_PREFIX = "\u81EA\u52A8\u5316\u4EFB\u52A1-";
 
 export function isAssistantAutomationDirectory(
