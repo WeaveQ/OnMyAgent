@@ -23,9 +23,10 @@ type AutomationStoreFile = {
 
 type NormalizedAutomationInput = Omit<
   AutomationTaskInput,
-  "effectiveRange" | "workspaceDirectory" | "model" | "agent" | "accessMode"
+  "effectiveRange" | "sourceSessionId" | "workspaceDirectory" | "model" | "agent" | "accessMode"
 > & {
   effectiveRange: AutomationEffectiveRange;
+  sourceSessionId?: string;
   workspaceDirectory?: string;
   model?: AutomationModelRef;
   agent?: AutomationAgentSelection;
@@ -127,6 +128,7 @@ export async function updateAutomation(
       scene: input.scene ?? current.scene,
       title: input.title ?? current.title,
       prompt: input.prompt ?? current.prompt,
+      sourceSessionId: "sourceSessionId" in input ? input.sourceSessionId : current.sourceSessionId,
       workspaceDirectory: "workspaceDirectory" in input ? input.workspaceDirectory : current.workspaceDirectory,
       model: "model" in input ? input.model : current.model,
       agent: "agent" in input ? input.agent : current.agent,
@@ -581,6 +583,7 @@ function normalizeAutomationInput(input: unknown): NormalizedAutomationInput {
     scene,
     title,
     prompt,
+    sourceSessionId: normalizeOptionalString(input.sourceSessionId),
     workspaceDirectory: normalizeOptionalAbsolutePath(input.workspaceDirectory),
     model: normalizeAutomationModel(input.model),
     agent: normalizeAutomationAgent(input.agent),
@@ -692,6 +695,14 @@ function normalizeOptionalBoolean(value: unknown): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value === "boolean") return value;
   throw new ApiError(400, "invalid_automation_enabled", "Automation enabled must be a boolean");
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") {
+    throw new ApiError(400, "invalid_automation_source_session", "Automation source session must be a string");
+  }
+  return value.trim() || undefined;
 }
 
 function normalizeOptionalAbsolutePath(value: unknown): string | undefined {
@@ -917,6 +928,9 @@ function readAutomationTaskItem(value: unknown): AutomationTaskItem[] {
     scene: record.scene,
     title: record.title,
     prompt: record.prompt,
+    ...(typeof record.sourceSessionId === "string" && record.sourceSessionId.trim()
+      ? { sourceSessionId: record.sourceSessionId.trim() }
+      : {}),
     ...(readAutomationWorkspaceDirectory(record.workspaceDirectory)
       ? { workspaceDirectory: readAutomationWorkspaceDirectory(record.workspaceDirectory) }
       : {}),
