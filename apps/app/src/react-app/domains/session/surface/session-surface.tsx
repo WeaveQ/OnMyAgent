@@ -1770,18 +1770,20 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
           avatarUrl: null,
           avatarBackground: null,
         };
+  // Code toolbar (打开位置 / git) is for an active code session — not the empty
+  // "新建任务" draft home (draftOnly), where only the open-location chip would show.
   const codeSceneToolbar =
-    assistantCodeFeaturesActive && assistantFeatureCategoryId === "code" ? (
-      <CodeSceneToolbar
-        sessionId={props.sessionId}
-        draftOnly={props.draftOnly ?? false}
-        workspacePath={
-          props.draftOnly
-            ? (props.draftWorkspaceDirectory?.trim() || props.workspaceRoot || null)
-            : props.workspaceRoot
-        }
-      />
-    ) : null;
+    assistantCodeFeaturesActive &&
+    assistantFeatureCategoryId === "code" &&
+    !(props.draftOnly ?? false)
+      ? (
+          <CodeSceneToolbar
+            sessionId={props.sessionId}
+            draftOnly={false}
+            workspacePath={props.workspaceRoot}
+          />
+        )
+      : null;
 
   return (
     <SessionSurfaceView
