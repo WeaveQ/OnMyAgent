@@ -1116,7 +1116,8 @@ export function ExpertPage(props: ExpertPageProps) {
   const runAutomationCreate = useCallback(
     async (flow: AutomationOfferFlowState) => {
       const client = props.onmyagentServerClient;
-      const { workspaceId } = resolveAutomationSessionDirectory();
+      const { workspaceId, sessionDirectory } =
+        resolveAutomationSessionDirectory();
       if (!client || !workspaceId) {
         setAutomationOfferFlow((current) => ({
           ...current,
@@ -1144,6 +1145,8 @@ export function ExpertPage(props: ExpertPageProps) {
           workspaceId,
           items,
           defaultModel: props.surface?.model.selectedModel,
+          defaultWorkspaceDirectory: sessionDirectory,
+          sourceSessionId: props.selectedSessionId,
         });
         if (result.created.length > 0) {
           showToast({

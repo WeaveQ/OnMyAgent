@@ -334,6 +334,48 @@ describe("createAutomationsFromPayloads", () => {
       { providerID: "anthropic", modelID: "claude-sonnet-4" },
     ]);
   });
+
+  test("binds created tasks to the trusted source session and its selected folder", async () => {
+    const createdPayloads: Array<{
+      workspaceDirectory?: string | null;
+      sourceSessionId?: string | null;
+    }> = [];
+    const client: Pick<
+      AutomationProposalClient,
+      "listAutomations" | "createAutomation"
+    > = {
+      listAutomations: async () => ({ items: [] }),
+      createAutomation: async (_id, payload) => {
+        createdPayloads.push(payload);
+        return { item: { id: payload.title, title: payload.title } };
+      },
+    };
+    const payload = parseAutomationProposalPayload({
+      scene: "office",
+      title: "Trusted context",
+      prompt: "run",
+      workspaceDirectory: "/untrusted/proposal/path",
+      sourceSessionId: "ses_untrusted",
+      schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+    });
+    expect(payload).not.toBeNull();
+    if (!payload) return;
+
+    await createAutomationsFromPayloads({
+      client,
+      workspaceId: "ws",
+      defaultWorkspaceDirectory: "/Users/me/customer-a",
+      sourceSessionId: "ses_customer_a",
+      items: [{ path: "trusted.json", payload }],
+    });
+
+    expect(createdPayloads).toEqual([
+      expect.objectContaining({
+        workspaceDirectory: "/Users/me/customer-a",
+        sourceSessionId: "ses_customer_a",
+      }),
+    ]);
+  });
 });
 
 describe("applyAutomationProposals", () => {
