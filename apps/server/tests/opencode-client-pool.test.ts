@@ -37,4 +37,31 @@ describe("opencode client pool (shipped)", () => {
     pool.clear();
     expect(pool.size()).toBe(0);
   });
+
+  test("clearWorkspace drops only that workspace's entries", () => {
+    let creates = 0;
+    const pool = createOpencodeClientPool({
+      maxEntries: 8,
+      create: (_config, ws, dir) => {
+        creates += 1;
+        return { id: `${ws.id}:${dir ?? ws.path}`, n: creates } as never;
+      },
+    });
+
+    pool.get(config, workspace("w1"), "/a");
+    pool.get(config, workspace("w1"), "/b");
+    pool.get(config, workspace("w2"), "/c");
+    expect(pool.size()).toBe(3);
+
+    pool.clearWorkspace("w1");
+    expect(pool.size()).toBe(1);
+    // surviving entry is w2
+    const surviving = pool.get(config, workspace("w2"), "/c");
+    expect((surviving as { n: number }).n).toBe(3);
+    expect(creates).toBe(3);
+
+    // next w1 acquire creates fresh client
+    pool.get(config, workspace("w1"), "/a");
+    expect(creates).toBe(4);
+  });
 });
