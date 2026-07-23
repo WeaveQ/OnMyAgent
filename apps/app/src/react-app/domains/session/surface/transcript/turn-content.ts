@@ -117,8 +117,9 @@ function artifactCopies(value: unknown): TurnWidgetArtifactCopy[] {
     if (
       typeof key !== "string" || !key.trim() ||
       typeof label !== "string" || !label.trim() ||
-      typeof pdf !== "string" || !pdf.trim() ||
-      typeof xlsx !== "string" || !xlsx.trim()
+      typeof pdf !== "string" ||
+      typeof xlsx !== "string" ||
+      (!pdf.trim() && !xlsx.trim())
     ) return [];
     return [{
       key: key.trim(),
@@ -251,15 +252,29 @@ function parseWidgetResultPayload(value: unknown): WidgetPayload | null {
   return extractWidgetPayload(value);
 }
 
+function isInlineWidgetCommandResult(toolName: string, value: unknown) {
+  if (!/bash|shell|command|exec|terminal|repl/.test(toolName)) return false;
+  try {
+    const serialized = typeof value === "string" ? value : JSON.stringify(value);
+    return /["']inline_?widget["']\s*:/i.test(serialized);
+  } catch {
+    return false;
+  }
+}
+
 function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
   const part = item.part;
   if (part.type !== "dynamic-tool") return null;
   const toolName = part.toolName.trim().toLowerCase();
-  if (!WIDGET_TOOL_NAMES.has(toolName)) return null;
   const outputPayload = part.state === "output-available"
     ? parseWidgetResultPayload(part.output)
     : null;
-  const inputPayload = parseWidgetPayload(part.input);
+  const widgetTool = WIDGET_TOOL_NAMES.has(toolName);
+  const inlineWidgetCommand = part.state === "output-available" &&
+    isInlineWidgetCommandResult(toolName, part.output) &&
+    Boolean(outputPayload?.html);
+  if (!widgetTool && !inlineWidgetCommand) return null;
+  const inputPayload = widgetTool ? parseWidgetPayload(part.input) : null;
   const payload = outputPayload ?? inputPayload;
   if (!payload && part.state === "output-available") return null;
   const inputMessages = inputPayload?.loadingMessages ?? [];
