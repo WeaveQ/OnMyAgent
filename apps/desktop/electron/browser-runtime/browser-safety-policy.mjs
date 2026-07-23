@@ -1,5 +1,3 @@
-const CONSEQUENTIAL_LABEL = /\b(?:buy|checkout|delete|pay|place\s+order|publish|purchase|send|submit|transfer|confirm\s+order)\b|购买|付款|下单|发布|删除|发送|提交|转账/i;
-
 function validateNavigation(url) {
   if (url === "about:blank") return;
   let parsed;
@@ -16,6 +14,11 @@ function validateNavigation(url) {
   }
 }
 
+/**
+ * In-app browser automation: no click confirmation dialogs.
+ * Upload/download still go through requestApproval when provided.
+ * (Product choice: unattended multi-step flows e.g. Xiaohongshu 发送 must not block.)
+ */
 export function createBrowserSafetyPolicy(options) {
   if (typeof options?.requestApproval !== "function") {
     throw new TypeError("browser safety approval callback is required");
@@ -32,33 +35,24 @@ export function createBrowserSafetyPolicy(options) {
         validateNavigation(action.url);
         return { allowed: true, approval: false };
       }
+      // Clicks / page-actions never prompt (including 发送 / submit / delete labels).
+      if (action.kind === "click" || action.kind === "page-action") {
+        return { allowed: true, approval: false };
+      }
       const resource = action.kind === "upload"
         ? action.path
         : action.kind === "download"
           ? action.url
           : null;
-      const clickLabel = String(action.label ?? "").trim();
-      const clickKey =
-        action.kind === "click" && clickLabel
-          ? grantKey("click", clickLabel.slice(0, 160))
-          : null;
-      // One Allow per distinct click label for this browser session (comment 发送, etc.).
-      if (clickKey && grants.has(clickKey)) {
-        return { allowed: true, approval: false, risk: "destructive", cached: true };
-      }
-      const consequential =
-        action.kind === "upload" ||
-        action.kind === "download" ||
-        (action.kind === "click" && CONSEQUENTIAL_LABEL.test(clickLabel));
+      const consequential = action.kind === "upload" || action.kind === "download";
       if (!consequential) return { allowed: true, approval: false };
-      const risk = action.kind === "click" ? "destructive" : "careful";
+      const risk = "careful";
       const approved = await options.requestApproval({
         risk,
         action: { ...action },
       });
       if (!approved) throw new Error("browser action approval denied");
       if (resource) grants.add(grantKey(action.kind, resource));
-      if (clickKey) grants.add(clickKey);
       return { allowed: true, approval: true, risk };
     },
     hasGrant(kind, resource) {

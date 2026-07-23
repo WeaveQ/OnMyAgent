@@ -68,12 +68,9 @@ Sites such as Xiaohongshu use **toggle** controls. A second click undoes the fir
 - When the locator is covered, one JS `element.click()` is fine; still only once. If state is ambiguous, **read attributes/text once** and stop; do not hammer the button.
 - Batch like + favorite + follow + comment in few REPL calls; summarize once at the end.
 
-## Confirm dialogs (发送 / submit)
+## Confirm dialogs
 
-Locator/DOM-CUA **clicks** whose visible label matches sensitive words (`发送`, `submit`, `delete`, …) open a **desktop confirmation** dialog. That is intentional safety, not a crash.
-
-- Prefer locator click for 发送 so the user can Allow once; the same label is remembered for the browser session after Allow.
-- `tab.playwright.evaluate(() => el.click())` may bypass that dialog — do not use evaluate solely to dodge approval for real send/submit actions.
+In-app browser **clicks do not show desktop confirmation dialogs** (including 发送 / submit). Upload/download may still ask. Prefer normal locator clicks for comments and form submit.
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
