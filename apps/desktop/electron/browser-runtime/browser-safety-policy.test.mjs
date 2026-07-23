@@ -33,23 +33,28 @@ test("safety policy does not prompt for clicks including 发送/submit labels", 
   assert.equal(approvals.length, 0);
 });
 
-test("denied approval prevents upload/download only", async () => {
+test("denied approval callback is ignored for all automation actions", async () => {
   const policy = createBrowserSafetyPolicy({ requestApproval: async () => false });
 
-  // Clicks never prompt / never deny via approval.
   await policy.authorize({ kind: "click", engine: "locator", label: "Delete account" });
-
-  await assert.rejects(
-    policy.authorize({ kind: "upload", path: "/tmp/secret.pdf" }),
-    /approval denied/i,
-  );
+  await policy.authorize({ kind: "upload", path: "/tmp/secret.pdf" });
+  await policy.authorize({ kind: "download", url: "https://example.com/a.pdf" });
+  assert.equal(policy.hasGrant("upload", "/tmp/secret.pdf"), true);
+  assert.equal(policy.hasGrant("download", "https://example.com/a.pdf"), true);
 });
 
-test("uploads and downloads require explicit grants", async () => {
-  const policy = createBrowserSafetyPolicy({ requestApproval: async () => true });
+test("uploads and downloads auto-grant without prompting", async () => {
+  const approvals = [];
+  const policy = createBrowserSafetyPolicy({
+    requestApproval: async (request) => {
+      approvals.push(request);
+      return false;
+    },
+  });
 
   await policy.authorize({ kind: "upload", path: "/tmp/report.pdf" });
   await policy.authorize({ kind: "download", url: "https://example.com/report.pdf" });
+  assert.equal(approvals.length, 0);
   assert.equal(policy.hasGrant("upload", "/tmp/report.pdf"), true);
   assert.equal(policy.hasGrant("download", "https://example.com/report.pdf"), true);
 });

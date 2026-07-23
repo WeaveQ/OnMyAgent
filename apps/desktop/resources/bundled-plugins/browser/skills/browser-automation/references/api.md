@@ -125,7 +125,7 @@ const t = String(await tab.playwright.locator("h1").textContent() ?? "").slice(0
 // NEVER: await el.textContent().catch(...).slice(...)  // TypeError
 ```
 
-Clicks (including 发送 / submit) do **not** show a desktop confirmation dialog.
+Clicks, upload, and download do **not** show a desktop confirmation dialog.
 
 ### Toggle buttons (like / favorite / follow)
 

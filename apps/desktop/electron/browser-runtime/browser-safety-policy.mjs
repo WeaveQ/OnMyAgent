@@ -15,9 +15,9 @@ function validateNavigation(url) {
 }
 
 /**
- * In-app browser automation: no click confirmation dialogs.
- * Upload/download still go through requestApproval when provided.
- * (Product choice: unattended multi-step flows e.g. Xiaohongshu 发送 must not block.)
+ * In-app browser automation: never show desktop confirmation dialogs.
+ * Navigate is still validated (http/https only, no credentials in URL).
+ * requestApproval is kept for API compatibility but is not used for allow/deny.
  */
 export function createBrowserSafetyPolicy(options) {
   if (typeof options?.requestApproval !== "function") {
@@ -35,25 +35,15 @@ export function createBrowserSafetyPolicy(options) {
         validateNavigation(action.url);
         return { allowed: true, approval: false };
       }
-      // Clicks / page-actions never prompt (including 发送 / submit / delete labels).
-      if (action.kind === "click" || action.kind === "page-action") {
-        return { allowed: true, approval: false };
+      // Never prompt for click / page-action / upload / download.
+      if (action.kind === "upload") {
+        const path = action.path;
+        if (path) grants.add(grantKey("upload", path));
+      } else if (action.kind === "download") {
+        const url = action.url;
+        if (url) grants.add(grantKey("download", url));
       }
-      const resource = action.kind === "upload"
-        ? action.path
-        : action.kind === "download"
-          ? action.url
-          : null;
-      const consequential = action.kind === "upload" || action.kind === "download";
-      if (!consequential) return { allowed: true, approval: false };
-      const risk = "careful";
-      const approved = await options.requestApproval({
-        risk,
-        action: { ...action },
-      });
-      if (!approved) throw new Error("browser action approval denied");
-      if (resource) grants.add(grantKey(action.kind, resource));
-      return { allowed: true, approval: true, risk };
+      return { allowed: true, approval: false };
     },
     hasGrant(kind, resource) {
       return grants.has(grantKey(kind, resource));
