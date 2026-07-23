@@ -36,6 +36,19 @@ describe("session transcript rich markdown", () => {
     expect(truncated).toContain(`${"x".repeat(200)}…[7 chars omitted]`);
   });
 
+  test("hides internal waybill-patch fences from user-visible markdown", () => {
+    const text = preprocessSessionMarkdown([
+      "我已在预览中保存字段修改。",
+      "",
+      "```waybill-patch",
+      "{\"shipper.phone\":\"138\"}",
+      "```",
+    ].join("\n"));
+    expect(text).toContain("我已在预览中保存字段修改。");
+    expect(text).not.toContain("waybill-patch");
+    expect(text).not.toContain("shipper.phone");
+  });
+
   test("uses WorkBuddy table surface hierarchy", () => {
     const html = renderSessionMarkdownHtml([
       "| Dimension | Score |",
@@ -52,11 +65,13 @@ describe("session transcript rich markdown", () => {
 
   test("renders local artifact links as actions without visible paths", () => {
     const html = renderSessionMarkdownHtml(
-      "| 文件 | 操作 |\n| --- | --- |\n| Excel 运单 | [打开产物](artifact:output/运单_WX-001.xlsx) |",
+      "| 文件 | 操作 |\n| --- | --- |\n| Excel 运单 | [查看](artifact:output/运单_WX-001.xlsx) |",
     );
 
     expect(html).toContain('data-markdown-file-path="output/运单_WX-001.xlsx"');
-    expect(html).toContain(">打开产物</a>");
+    expect(html).toContain('data-markdown-open-mode="preview"');
+    expect(html).toContain('data-markdown-link-source="artifact"');
+    expect(html).toContain(">查看</a>");
     expect(html).not.toContain(">./output/运单_WX-001.xlsx<");
   });
 
@@ -68,6 +83,16 @@ describe("session transcript rich markdown", () => {
     expect(html).toContain('data-markdown-file-path="output/物流单_WX-001_一联-白色存根_最终版.pdf"');
     expect(html).toContain('data-markdown-open-mode="reveal"');
     expect(html).not.toContain('target="_blank"');
+  });
+
+  test("treats reveal: links as folder reveal actions", () => {
+    const html = renderSessionMarkdownHtml(
+      "[在文件夹中显示](reveal:output/运单_WX-001.xlsx)",
+    );
+
+    expect(html).toContain('data-markdown-file-path="output/运单_WX-001.xlsx"');
+    expect(html).toContain('data-markdown-open-mode="reveal"');
+    expect(html).toContain('data-markdown-link-source="reveal"');
   });
 
   test("does not open unsupported link schemes in a new app window", () => {

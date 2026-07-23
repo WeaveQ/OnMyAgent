@@ -80,7 +80,12 @@ export function resolveSessionRouteRestoreNavigation(input: {
   firstSessionIdForPageMode: (workspaceId: string) => string | null;
   legacySelectedWorkspaceId: string;
   loading: boolean;
-  readLastSessionFor: (workspaceId: string) => string | null;
+  /** Prefer mode-scoped: readLastSessionFor(workspaceId, pageMode). */
+  pageMode?: "assistant" | "expert";
+  readLastSessionFor: (
+    workspaceId: string,
+    mode?: "assistant" | "expert",
+  ) => string | null;
   routeWorkspaceId: string;
   selectedSessionId: string | null;
   selectedWorkspaceId: string;
@@ -108,23 +113,18 @@ export function resolveSessionRouteRestoreNavigation(input: {
     return { type: "workspace", workspaceId: input.selectedWorkspaceId, sessionId: input.selectedSessionId };
   }
   if (input.selectedSessionId) {
-    const sessions = input.sessionsByWorkspaceId[input.selectedWorkspaceId] ?? [];
-    const selectedSessionKnownInWorkspace = input.sessionListOwnsSession({
-      sessions,
-      sessionId: input.selectedSessionId,
-    });
-    if (selectedSessionKnownInWorkspace && !input.sessionMatchesPageMode(input.selectedSessionId)) {
-      return {
-        type: "workspace",
-        workspaceId: input.selectedWorkspaceId,
-        sessionId: input.firstSessionIdForPageMode(input.selectedWorkspaceId),
-      };
-    }
+    // Keep the user's selected session. Never steal focus to "first task" when
+    // isAssistantSession/isExpertSession lags (e.g. race after create, or
+    // force-new without start intent). That jump felt like "chatting on #3
+    // then suddenly on #1".
     return { type: "reset-suppression" };
   }
   if (!input.selectedWorkspaceId) return { type: "none" };
   if (input.suppressRestoreSession) return { type: "none" };
-  const remembered = input.readLastSessionFor(input.selectedWorkspaceId);
+  const remembered = input.readLastSessionFor(
+    input.selectedWorkspaceId,
+    input.pageMode,
+  );
   if (!remembered) return { type: "none" };
   const sessions = input.sessionsByWorkspaceId[input.selectedWorkspaceId] ?? [];
   if (!input.sessionListOwnsSession({ sessions, sessionId: remembered })) return { type: "none" };
@@ -147,7 +147,11 @@ export function resolveSessionRouteModeSwitchPath(input: {
     predicate: (sessionId: string) => boolean,
   ) => string | null;
   isExpertSession: (sessionId: string) => boolean;
-  readLastSessionFor: (workspaceId: string) => string | null;
+  /** Prefer mode-scoped memory: readLastSessionFor(workspaceId, mode). */
+  readLastSessionFor: (
+    workspaceId: string,
+    mode?: "assistant" | "expert",
+  ) => string | null;
   sessionListOwnsSession: (input: { sessionId: string; sessions: SidebarSessionItem[] }) => boolean;
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
   targetMode: "assistant" | "expert";
@@ -156,18 +160,38 @@ export function resolveSessionRouteModeSwitchPath(input: {
   if (input.targetMode === input.currentMode) return null;
   const workspaceId = input.workspaceId.trim();
   if (!workspaceId) return input.targetMode === "assistant" ? "/assistant" : "/session";
-  if (input.targetMode === "assistant") return workspaceAssistantRoute(workspaceId);
 
-  const remembered = input.readLastSessionFor(workspaceId);
-  const expertSessions = input.sessionsByWorkspaceId[workspaceId] ?? [];
+  const sessions = input.sessionsByWorkspaceId[workspaceId] ?? [];
+
+  // Returning to assistant: restore last assistant session (or first assistant), not a blank draft.
+  if (input.targetMode === "assistant") {
+    const remembered = input.readLastSessionFor(workspaceId, "assistant");
+    if (
+      remembered &&
+      input.sessionListOwnsSession({ sessions, sessionId: remembered }) &&
+      !input.isExpertSession(remembered)
+    ) {
+      return workspaceAssistantRoute(workspaceId, remembered);
+    }
+    const firstAssistantId = input.findFirstSessionIdMatching(
+      sessions,
+      (sessionId) => !input.isExpertSession(sessionId),
+    );
+    return firstAssistantId
+      ? workspaceAssistantRoute(workspaceId, firstAssistantId)
+      : workspaceAssistantRoute(workspaceId);
+  }
+
+  // Returning to expert: restore last expert session (or first expert), not empty home when possible.
+  const remembered = input.readLastSessionFor(workspaceId, "expert");
   if (
     remembered &&
-    input.sessionListOwnsSession({ sessions: expertSessions, sessionId: remembered }) &&
+    input.sessionListOwnsSession({ sessions, sessionId: remembered }) &&
     input.isExpertSession(remembered)
   ) {
     return workspaceSessionRoute(workspaceId, remembered);
   }
-  const firstExpertId = input.findFirstSessionIdMatching(expertSessions, input.isExpertSession);
+  const firstExpertId = input.findFirstSessionIdMatching(sessions, input.isExpertSession);
   return firstExpertId
     ? workspaceSessionRoute(workspaceId, firstExpertId)
     : workspaceSessionRoute(workspaceId);
@@ -175,13 +199,17 @@ export function resolveSessionRouteModeSwitchPath(input: {
 
 export function resolveWorkspaceSelectionSessionTarget(input: {
   firstSessionIdForPageMode: (workspaceId: string) => string | null;
-  readLastSessionFor: (workspaceId: string) => string | null;
+  pageMode?: "assistant" | "expert";
+  readLastSessionFor: (
+    workspaceId: string,
+    mode?: "assistant" | "expert",
+  ) => string | null;
   selectedSessionId: string | null;
   sessionMatchesPageMode: (sessionId: string) => boolean;
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
   workspaceId: string;
 }) {
-  const remembered = input.readLastSessionFor(input.workspaceId);
+  const remembered = input.readLastSessionFor(input.workspaceId, input.pageMode);
   if (remembered && remembered !== input.selectedSessionId) {
     const known = input.sessionsByWorkspaceId[input.workspaceId];
     if (

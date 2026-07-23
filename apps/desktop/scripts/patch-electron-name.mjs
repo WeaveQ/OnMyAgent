@@ -57,7 +57,7 @@ async function main() {
   }
 
   const original = await readFile(plistPath, "utf8");
-  const patched = original
+  let patched = original
     .replace(
       /(<key>CFBundleDisplayName<\/key>\s*<string>)([^<]+)(<\/string>)/,
       (_m, pre, _val, post) => `${pre}${APP_NAME}${post}`,
@@ -66,6 +66,18 @@ async function main() {
       /(<key>CFBundleName<\/key>\s*<string>)([^<]+)(<\/string>)/,
       (_m, pre, _val, post) => `${pre}${APP_NAME}${post}`,
     );
+
+  // Privacy → Automation prompts need NSAppleEventsUsageDescription on the
+  // host .app (dev uses Electron.app). Without it, AE requests fail silently
+  // and the process never appears in System Settings → Automation.
+  const appleEventsUsage =
+    "OnMyAgent sends commands to other apps (for example Calendar, Reminders, and Notes) when you ask your agent to automate them.";
+  if (!patched.includes("NSAppleEventsUsageDescription")) {
+    patched = patched.replace(
+      "</dict>\n</plist>",
+      `	<key>NSAppleEventsUsageDescription</key>\n	<string>${appleEventsUsage}</string>\n</dict>\n</plist>`,
+    );
+  }
 
   if (patched === original) {
     console.log(
@@ -81,7 +93,7 @@ async function main() {
     // not fatal — macOS accepts XML plists too
   }
   console.log(
-    `[patch-electron-name] Patched menu bar name → "${APP_NAME}".`,
+    `[patch-electron-name] Patched menu bar name → "${APP_NAME}" (+ Apple Events usage).`,
   );
 }
 

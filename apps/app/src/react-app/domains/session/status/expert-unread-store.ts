@@ -1,11 +1,14 @@
 /** @jsxImportSource react */
 /**
- * Local unread cursors for expert (agent) conversation list + session tabs.
- * WeChat-style red dots; no server sync.
+ * Local unread cursors for expert conversation list, session tabs, and
+ * assistant task rows. Blue unread dots; no server sync.
  *
  * Count rules (one assistant turn = at most +1):
  * - Stream tokens within the same session run never bump the count.
  * - A new run (new runKey) or a different session under the same expert can +1.
+ *
+ * Pure assistant sessions (no expert agentId) use scope key
+ * `assistant-session:<sessionId>` so task-list red dots still work.
  *
  * Manual “标为未读”:
  * - Sets agent-level badge (visible even while that expert is open).
@@ -249,6 +252,19 @@ export function resolveAgentIdForSession(sessionId: string): string | null {
   return null;
 }
 
+/**
+ * Unread scope key for a session.
+ * Experts share a real agentId across sessions; pure assistant tasks have no
+ * agent binding, so each session is its own scope (`assistant-session:<id>`).
+ */
+export function resolveUnreadAgentIdForSession(
+  sessionId: string,
+): string | null {
+  const id = normalizeId(sessionId);
+  if (!id || id.startsWith("draft:")) return null;
+  return resolveAgentIdForSession(id) ?? `assistant-session:${id}`;
+}
+
 function isUnreadRecord(record: ExpertUnreadRecord | undefined): boolean {
   if (!record) return false;
   return record.lastAssistantAt > record.lastReadAt && record.unreadCount > 0;
@@ -395,7 +411,9 @@ export const useExpertUnreadStore = create<ExpertUnreadStore>((set, get) => ({
   },
 
   noteAssistantActivityForSession: (workspaceId, sessionId, at = Date.now()) => {
-    const agentId = resolveAgentIdForSession(sessionId);
+    // Pure assistant sessions have no expert agentId — still track unread so
+    // the task list can show a blue unread dot after a reply finishes.
+    const agentId = resolveUnreadAgentIdForSession(sessionId);
     if (!agentId) return;
     const runKey =
       useSessionActivityStore.getState().getRunIdentity(workspaceId, sessionId)

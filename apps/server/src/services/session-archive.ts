@@ -964,10 +964,10 @@ export function createSessionArchiveStore(
       running: !session.ended_at,
     };
   }
-
   const usageApi = createSessionArchiveUsageApi({ db, getSession });
   const analyticsApi = createSessionArchiveAnalyticsApi({
     db,
+    cacheScope: dbPath,
     listAllMessages,
     usageRows: usageApi.usageRows,
   });

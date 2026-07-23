@@ -246,7 +246,13 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
 
     listWorkspaceFiles: async (
       workspaceId: string,
-      options?: { includeDirs?: boolean; limit?: number; prefix?: string; root?: string },
+      options?: {
+        includeDirs?: boolean;
+        limit?: number;
+        prefix?: string;
+        root?: string;
+        shallow?: boolean;
+      },
     ) => {
       const id = workspaceId.trim();
       if (!id) throw new Error("workspaceId is required");
@@ -283,6 +289,7 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
           const params = new URLSearchParams();
           params.set("includeDirs", options?.includeDirs === false ? "false" : "true");
           params.set("limit", String(pageLimit));
+          if (options?.shallow) params.set("shallow", "true");
           if (options?.prefix?.trim()) params.set("prefix", options.prefix.trim());
           if (after) params.set("after", after);
 
@@ -291,7 +298,7 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
           >(
             baseUrl,
             `/files/sessions/${encodeURIComponent(sessionId)}/catalog/snapshot?${params.toString()}`,
-            { token, hostToken },
+            { token, hostToken, timeoutMs: timeouts.sessionRead },
           );
           items.push(...snapshot.items);
           total = snapshot.total;

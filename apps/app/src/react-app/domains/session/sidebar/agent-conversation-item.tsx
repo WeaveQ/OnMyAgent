@@ -6,18 +6,20 @@ import { Mail, MailOpen, MoreHorizontal, Pin, PinOff, Trash2 } from "lucide-reac
 import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
-import { expertActivityLabel } from "./utils";
 import {
   formatConversationTime,
   type AgentConversationGroup,
   type TaskStatusIndicator,
 } from "./conversation-model";
 import { ExpertStatusDots } from "./expert-status-dots";
+import { resolveTaskRowTrailingStatus } from "./task-row-trailing-status";
 import {
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_CONTEXT_MENU_SEPARATOR_CLASS,
+  TASK_CONTEXT_MENU_WIDTH,
   TASK_ROW_ACTION_CLASS,
+  positionTaskContextMenu,
 } from "./assistant-task-item";
 
 /** Match local-agent list row typography (`localAgentTextClass` / list subtitle). */
@@ -32,18 +34,7 @@ const agentConversationTextClass = {
 };
 
 /** Keep fixed menus fully on-screen (4 rows + separator ≈ 200px). */
-const EXPERT_MENU_WIDTH = 184;
 const EXPERT_MENU_HEIGHT = 200;
-
-function clampMenuPosition(left: number, top: number) {
-  if (typeof window === "undefined") return { left, top };
-  const maxLeft = Math.max(8, window.innerWidth - EXPERT_MENU_WIDTH - 8);
-  const maxTop = Math.max(8, window.innerHeight - EXPERT_MENU_HEIGHT - 8);
-  return {
-    left: Math.min(Math.max(8, left), maxLeft),
-    top: Math.min(Math.max(8, top), maxTop),
-  };
-}
 
 function ExpertMenuItem(props: {
   onClick: () => void;
@@ -67,7 +58,7 @@ export function AgentConversationItem(props: {
   selected: boolean;
   status?: string;
   taskStatusVariant: TaskStatusIndicator["variant"];
-  /** WeChat-style unread for this expert (hidden while selected). */
+  /** Unread badge for this expert (hidden while selected). */
   unread?: boolean;
   /** Raw unread for menu mark-read / mark-unread (ignores selected focus). */
   unreadRecord?: boolean;
@@ -95,7 +86,13 @@ export function AgentConversationItem(props: {
   const summaryTime = formatConversationTime(
     latestSession.time?.updated ?? latestSession.time?.created,
   );
-  const activityLabel = expertActivityLabel(props.status);
+  // Trailing uses shared busy/time rules; unread is title weight for experts.
+  const trailing = resolveTaskRowTrailingStatus({
+    status: props.status,
+    selected: props.selected,
+    unread: false,
+    timeLabel: summaryTime,
+  });
   // Manual 标为未读 keeps the badge while the expert is still open.
   const unread = Boolean(props.unread);
   const unreadRecord = Boolean(props.unreadRecord);
@@ -146,15 +143,35 @@ export function AgentConversationItem(props: {
     };
   }, [menuOpen]);
 
-  const openMenuAt = (left: number, top: number) => {
-    setMenuPosition(clampMenuPosition(left, top));
+  const openMenuAt = (clientX: number, clientY: number) => {
+    // Synthetic anchor at cursor so flip/clamp still apply.
+    setMenuPosition(
+      positionTaskContextMenu(
+        {
+          top: clientY,
+          bottom: clientY,
+          left: clientX,
+          right: clientX,
+        },
+        {
+          width: TASK_CONTEXT_MENU_WIDTH,
+          estimatedHeight: EXPERT_MENU_HEIGHT,
+        },
+      ),
+    );
     setMenuOpen(true);
   };
 
   const openMenuFromButton = () => {
     const rect = moreRef.current?.getBoundingClientRect();
     if (!rect) return;
-    openMenuAt(rect.right - EXPERT_MENU_WIDTH, rect.bottom + 4);
+    setMenuPosition(
+      positionTaskContextMenu(rect, {
+        width: TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: EXPERT_MENU_HEIGHT,
+      }),
+    );
+    setMenuOpen(true);
   };
 
   const handleDeleteExpert = () => {
@@ -307,7 +324,7 @@ export function AgentConversationItem(props: {
             <span
               className={cn(
                 "absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1",
-                "border-2 border-dls-sidebar bg-dls-status-danger text-2xs font-semibold leading-none text-white",
+                "border-2 border-dls-sidebar bg-dls-accent text-2xs font-semibold leading-none text-white",
                 props.selected && "border-dls-list-selected",
               )}
               aria-label={t("session.expert_unread_count", {
@@ -343,18 +360,17 @@ export function AgentConversationItem(props: {
             >
               {props.group.name}
             </div>
-            {/* Busy / time — sits flush right; swaps for ··· on hover. */}
-            {activityLabel ? (
+            {/* Busy: three-dot pulse (incl. selected active task). Idle: time. */}
+            {trailing.kind === "busy" ? (
               <span
                 className={cn(
-                  agentConversationTextClass.activity,
-                  "ms-auto",
+                  "ms-auto inline-flex items-center text-dls-accent",
                   hasMenu && !menuOpen && "group-hover:hidden",
                   menuOpen && "hidden",
                 )}
-                aria-live="polite"
+                title={trailing.activityLabel ?? undefined}
+                aria-label={trailing.activityLabel ?? undefined}
               >
-                <span>{activityLabel}</span>
                 <ExpertStatusDots />
               </span>
             ) : (
@@ -366,7 +382,7 @@ export function AgentConversationItem(props: {
                   menuOpen && "hidden",
                 )}
               >
-                {summaryTime}
+                {trailing.timeLabel}
               </div>
             )}
           </div>

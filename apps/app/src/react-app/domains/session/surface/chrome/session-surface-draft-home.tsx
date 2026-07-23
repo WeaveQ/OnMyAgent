@@ -12,8 +12,8 @@ export function SessionSurfaceDraftHome(props: {
   subtitle?: string;
 }) {
   return (
-    // Brand hero above composer; outer shell handles upper-centered placement.
-    // Generous title→composer gap so the card sits clear of the hero.
+    // Brand hero above composer; body padding handles vertical placement.
+    // Comfortable title→composer gap under the taller hero input card.
     <div className="mb-8 flex w-full flex-col items-center text-center">
       <div className="flex items-center gap-3 text-dls-text">
         <AssistantDraftHomeMark categoryId={props.categoryId} />

@@ -32,9 +32,9 @@
       header { position: relative; min-height: 98px; text-align: center; }
       h1 { margin: 0; font-size: 32px; letter-spacing: .18em; font-weight: 800; }
       .subtitle { margin-top: 6px; font-size: 15px; }
-      .serial { position: absolute; top: 4px; right: 0; color: #a24c64; font: 22px/1.2 ui-monospace, monospace; letter-spacing: .08em; }
-      .status { position: absolute; top: 37px; right: 0; font-size: 12px; color: #7c2d12; }
-      .copy-name { position: absolute; top: 56px; right: 0; font-size: 12px; font-weight: 700; color: #6b3847; }
+      .serial { position: absolute; top: 4px; right: 0; color: #a24c64; font: 700 12px/1.2 ui-monospace, monospace; letter-spacing: .04em; }
+      .status { position: absolute; top: 24px; right: 0; font-size: 12px; color: #7c2d12; }
+      .copy-name { position: absolute; top: 42px; right: 0; font-size: 12px; font-weight: 700; color: #6b3847; }
       .route-line { display: grid; grid-template-columns: 1fr 280px; gap: 24px; margin-top: 10px; text-align: left; font-size: 16px; }
       .field-line { display: inline-block; min-width: 90px; padding: 0 5px 2px; border-bottom: 1px solid #4f4a55; }
       .missing { color: #8a5a12; background: #fff4d8; font-weight: 700; }
@@ -58,9 +58,36 @@
       footer { margin-top: 6px; font-size: 12px; line-height: 1.55; }
       footer strong { font-size: 16px; }
       @media print {
-        @page { size: A4 landscape; margin: 8mm; }
-        body { padding: 0; background: #fff; }
-        .sheet { width: 100%; border: 0; }
+        @page { size: A4 landscape; margin: 0; }
+        html, body {
+          width: 297mm;
+          height: 210mm;
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+          background: #fff;
+        }
+        .sheet {
+          width: 297mm;
+          height: 210mm;
+          max-width: 297mm;
+          max-height: 210mm;
+          margin: 0;
+          padding: 6mm 8mm;
+          border: 0;
+          box-sizing: border-box;
+          overflow: hidden;
+          page-break-after: avoid;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        .sheet * { page-break-inside: avoid; break-inside: avoid; }
+        header { min-height: auto; }
+        h1 { font-size: 26px; }
+        th, td { height: auto; padding: 3px 5px; font-size: 12px; }
+        .signatures td { height: 64px; }
+        .sign-date { margin-top: 28px; }
+        footer { margin-top: 2px; font-size: 11px; }
       }
     </style>
   </head>

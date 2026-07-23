@@ -102,7 +102,7 @@ function useTransientScrollbars() {
         element.classList.remove(className);
         timeoutMap.delete(element);
         timeoutIds.delete(timeout);
-      }, 900);
+      }, 1000);
       timeoutMap.set(element, timeout);
       timeoutIds.add(timeout);
     };
@@ -196,11 +196,11 @@ function DenSigninGate({ children }: DenSigninGateProps) {
           navigate("/onboarding", { replace: true });
         } else if (attempts < 10) {
           // Org not selected yet — retry (max ~5 seconds)
-          setTimeout(check, 500);
+          setTimeout(check, 200);
         }
       };
       // First check after a short delay for the auth to settle
-      setTimeout(check, 500);
+      setTimeout(check, 200);
     };
     window.addEventListener(denSessionUpdatedEvent, handler);
     return () => window.removeEventListener(denSessionUpdatedEvent, handler);

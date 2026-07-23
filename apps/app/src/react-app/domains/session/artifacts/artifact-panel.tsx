@@ -18,6 +18,7 @@ import { formatFileSize } from "@/lib/utils";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { ArtifactIcon } from "./artifact-icon";
 import type { BinaryData, Data, OpenTarget, TextData } from "./open-target";
+import { resolveArtifactAbsolutePath } from "./open-target";
 import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
 
 import { t } from "../../../../i18n";
@@ -47,10 +48,7 @@ type ArtifactQueryState =
 type SaveArtifactInput = Data & { baseUpdatedAt: number | null };
 
 function absoluteWorkspacePath(root: string, path: string) {
-  const cleanRoot = root.trim().replace(/[/\\]+$/, "");
-  const cleanPath = path.trim().replace(/^\.\//, "");
-  
-  return cleanRoot ? `${cleanRoot}/${cleanPath}` : cleanPath;
+  return resolveArtifactAbsolutePath(path, root) ?? path.trim();
 }
 
 function isTextContent(target: OpenTarget): boolean {
@@ -59,6 +57,8 @@ function isTextContent(target: OpenTarget): boolean {
 
 function inferContentType(target: OpenTarget): string | undefined {
   if (target.preview === "pdf") return "application/pdf";
+  if (target.preview === "audio") return "audio/mpeg";
+  if (target.preview === "video") return "video/mp4";
   if (target.preview === "image") {
     const ext = target.value.toLowerCase().split(".").pop() ?? "";
     if (ext === "png") return "image/png";
@@ -267,7 +267,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
                       title={`${item.value}${item.exists === false ? " (missing)" : ""}`}
                       onClick={() => onSelectTarget?.(item)}
                     >
-                      <ArtifactIcon type={item.preview} />
+                      <ArtifactIcon type={item.preview} name={item.name || item.value} />
                       <span className="truncate">{item.name}{item.exists === false ? " · missing" : ""}</span>
                     </PanelTab>
                     {item.kind === "file" ? (
@@ -416,7 +416,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           <HTMLPreview type="text" title={target.name} content={data.data} />
         ) : target.preview === "image" && data?.kind === "binary" && binaryObjectUrl ? (
           <ImagePreview src={binaryObjectUrl} alt={target.name} />
-        ) : data?.kind === "binary" && binaryObjectUrl && (target.preview === "pdf" || target.preview === "html") ? (
+        ) : data?.kind === "binary" && binaryObjectUrl && (["pdf", "html", "audio", "video"].includes(target.preview)) ? (
           <HTMLPreview type="binary" title={target.name} url={binaryObjectUrl} />
         ) : data?.kind === "text" ? (
           <PlainText content={data.data} />

@@ -50,6 +50,13 @@ afterEach(() => {
   Reflect.deleteProperty(globalThis, "localStorage");
 });
 
+function readPage(name: string) {
+  return readFileSync(
+    join(import.meta.dir, `../src/react-app/domains/session/pages/${name}`),
+    "utf8",
+  );
+}
+
 describe("rail navigation memory", () => {
   test("persists rail view per mode and workspace", () => {
     expect(readRailView("assistant", "ws-1", "assistant")).toBe("assistant");
@@ -79,30 +86,30 @@ describe("rail navigation memory", () => {
 });
 
 describe("rail keep-alive contract", () => {
-  test("assistant and expert keep secondary rail pages mounted", () => {
-    const assistant = readFileSync(
-      join(import.meta.dir, "../src/react-app/domains/session/pages/assistant.tsx"),
-      "utf8",
-    );
-    const expert = readFileSync(
-      join(import.meta.dir, "../src/react-app/domains/session/pages/expert.tsx"),
-      "utf8",
-    );
+  test("assistant and expert keep secondary rail pages mounted via shared shell", () => {
+    const shell = readPage("session-page-shell.tsx");
+    const assistant = readPage("assistant.tsx") + "\n" + shell;
+    const expert = readPage("expert.tsx") + "\n" + shell;
     for (const source of [assistant, expert]) {
       expect(source).toContain("KeepAlivePane");
       expect(source).toContain("useVisitedRailViews");
       expect(source).toContain("writeRailView");
-      expect(source).toContain('mounted={visitedRailViews.has("localAgent")}');
-      expect(source).toContain('mounted={visitedRailViews.has("files")}');
-      expect(source).toContain('mounted={visitedRailViews.has("agentManagement")}');
-      expect(source).toContain('mounted={visitedRailViews.has("store")}');
+      expect(source).toContain("SessionRailKeepAliveStack");
+      expect(source).toContain("SessionPageMainColumn");
+      expect(source).toContain('mounted={props.visitedRailViews.has("localAgent")}');
+      expect(source).toContain('mounted={props.visitedRailViews.has("files")}');
+      expect(source).toContain(
+        'mounted={props.visitedRailViews.has("agentManagement")}',
+      );
+      expect(source).toContain('mounted={props.visitedRailViews.has("store")}');
     }
     expect(assistant).toContain("writeAssistantCategoryMemory");
     expect(assistant).toContain("readAssistantCategoryMemory");
     // Expert rail return must not create a task
-    const expertRail = expert.slice(
-      expert.indexOf("onOpenView={(view) => {"),
-      expert.indexOf("onOpenAccountSettings="),
+    const expertHost = readPage("expert.tsx");
+    const expertRail = expertHost.slice(
+      expertHost.indexOf("onOpenView={(view) => {"),
+      expertHost.indexOf("onOpenAccountSettings="),
     );
     expect(expertRail).not.toContain("onCreateTaskInWorkspace");
   });
@@ -132,21 +139,23 @@ describe("rail keep-alive contract", () => {
   });
 
   test("assistant and expert hide SessionSurface under secondary rails", () => {
-    const assistant = readFileSync(
-      join(import.meta.dir, "../src/react-app/domains/session/pages/assistant.tsx"),
-      "utf8",
-    );
-    const expert = readFileSync(
-      join(import.meta.dir, "../src/react-app/domains/session/pages/expert.tsx"),
-      "utf8",
-    );
-    for (const source of [assistant, expert]) {
-      expect(source).toContain("isPrimarySessionRailView");
-      expect(source).toContain("isPrimarySessionView");
-      // SessionSurface must live inside KeepAlivePane gated by primary view
-      expect(source).toMatch(
-        /KeepAlivePane[\s\S]*?active=\{\s*isPrimarySessionView[\s\S]*?SessionSurface/,
+    const shell = readPage("session-page-shell.tsx");
+    const assistantHost = readPage("assistant.tsx");
+    const expertHost = readPage("expert.tsx");
+    for (const host of [assistantHost, expertHost]) {
+      expect(host).toContain("isPrimarySessionRailView");
+      expect(host).toContain("isPrimarySessionView");
+      // Hosts gate primary keep-alive with primary rail + delayed loading.
+      expect(host).toMatch(
+        /primarySessionActive=\{\s*isPrimarySessionView\s*&&/,
       );
+      expect(host).toContain("SessionSurface");
+      expect(host).toContain("SessionRailKeepAliveStack");
     }
+    // Shared shell wraps primary SessionSurface in KeepAlivePane.
+    expect(shell).toMatch(
+      /KeepAlivePane[\s\S]*?active=\{\s*props\.primarySessionActive/,
+    );
+    expect(shell).toContain("primarySession");
   });
 });

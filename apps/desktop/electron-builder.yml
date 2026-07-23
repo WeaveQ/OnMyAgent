@@ -29,6 +29,12 @@ extraResources:
     to: browser
   - from: resources/runtimes
     to: runtimes
+    filter:
+      - "**/node/**"
+      - "**/python/**"
+      - "**/versions.json"
+  - from: resources/artifact-runtime
+    to: artifact-runtime
   # Window / tray icon fallback in packaged app (desktop-paths resolveAppIconPath).
   - from: resources/icons
     to: icons
@@ -56,10 +62,18 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
+  # Sign only native code inside large resource trees. The containing app,
+  # helper app, or framework signature still seals every skipped resource.
+  signIgnore:
+    - '/Contents/Frameworks/.*/Resources/'
+    - '/Contents/Resources/(?:app-dist|artifact-runtime|browser|bundled-plugins|bundled-skills|marketplace)/'
+    - '/Contents/Resources/runtimes/[^/]+/python/(?!bin/python(?:3(?:[.][0-9]+)?)?$)(?!.*[.](?:so|dylib)$).*'
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSMicrophoneUsageDescription: OnMyAgent uses the microphone when you start Voice Mode so you can speak commands to your agent.
+    # Required for Privacy → Automation entries / prompts (Hardened Runtime + AE).
+    NSAppleEventsUsageDescription: OnMyAgent sends commands to other apps (for example Calendar, Reminders, and Notes) when you ask your agent to automate them.
   extraResources:
     - from: resources/sidecars
       to: sidecars

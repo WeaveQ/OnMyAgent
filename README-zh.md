@@ -59,7 +59,8 @@ OnMyAgent 不是：
 |------|----------|-------------------|
 | Codex | Coding Agent runtime | 作为本地 Worker 被管理 |
 | Claude Code | Coding Agent CLI | 作为本地 Worker 被管理 |
-| OpenCode | 开源 Coding Agent runtime | 作为核心兼容 runtime |
+| OpenCode | 开源 Coding Agent runtime | **主运行时 / 主会话底座**（server、archive、SSE） |
+| Personal Local Agent | 本机 CLI/ACP harness（Claude Code、Codex 等） | **辅轨**：桌面统一接入，不替代 OpenCode |
 | MCP servers | 外部工具连接器 | 在 OnMyAgent 中统一配置、检查和控制 |
 | Skills | 可复用 Agent 能力 | 在工作台中安装、组织和调用 |
 | ChatGPT / LibreChat | 聊天界面 | 不同品类：OnMyAgent 是本地控制平面，不是聊天克隆 |
@@ -195,6 +196,8 @@ packages/onmyagent-ui-mcp 让 Agent 检查/控制 UI 的 MCP server
 
 运行时，桌面应用可以启动本地 host stack，连接已有 OpenCode server，或接入远程 worker。UI 通过 OpenCode SDK 和 OnMyAgent 本地 API 与 Agent 后端通信。
 
+**双运行时主辅：** OpenCode 是产品主会话与 server 真相源；Personal Local Agent 是桌面侧本机 CLI agent 的统一 harness（辅轨）。展示层可共用 conversation timeline，存储与热写路径不交叉。细则见 `docs/Architecture.md` 的 **Dual Runtime Boundary** 与 **Server Archive Runtime**。
+
 更详细的架构说明见 `docs/Architecture.md`。
 
 ## MCP UI 控制
@@ -224,8 +227,8 @@ pnpm check:security
 
 ### 当前已具备
 
-- 本地 Agent registry 和 provider switching，覆盖 Codex、Claude Code、OpenCode 及兼容 runtime。
-- 面向本地 Agent 工作的会话、任务、自动化、产物、日志、权限和审批界面。
+- OpenCode 主轨会话、任务、自动化、产物、日志、权限和审批界面（server + archive）。
+- 本地 Agent registry 与 provider switching（Personal 辅轨：Codex、Claude Code 等 CLI/ACP）。
 - 桌面端 Skill、MCP、Provider、模型、Memory、软件环境和工作区管理。
 - 面向 Personal Agent 工作流的本地消息通道，包括 Weixin 和 Feishu 桌面集成路径。
 - UI control bridge，以及可用于桌面端和 headless 开发的本地 server/orchestrator runtime。

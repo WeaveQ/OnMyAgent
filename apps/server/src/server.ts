@@ -22,6 +22,7 @@ import type {
 import { ApprovalService } from "./services/approvals.js";
 import { repairCommands } from "./services/commands.js";
 import { ApiError, formatError } from "./core/errors.js";
+import { ensureWritable, requireClientScope, scopeRank } from "./core/server-scope.js";
 import { readJsoncFile } from "./core/jsonc.js";
 import { ReloadEventStore } from "./services/events.js";
 import { startReloadWatchers } from "./reload-watcher.js";
@@ -96,12 +97,12 @@ import {
   parseWorkspaceMount,
   parseWorkspaceOpencodeMount,
   assertOpencodeProxyAllowed,
-  createWorkspaceOpencodeClient,
   unwrapOpencodeResult,
   logoutMcpAuth,
   proxyOpencodeRequest,
   resolveOpencodeDirectory,
 } from "./services/opencode-proxy.js";
+import { getWorkspaceOpencodeClient } from "./services/opencode-client-pool.js";
 import {
   listWorkspaceSessions,
   readWorkspaceSession,
@@ -819,30 +820,6 @@ async function isAuthorizedRoot(
   return false;
 }
 
-function ensureWritable(config: ServerConfig): void {
-  if (config.readOnly) {
-    throw new ApiError(403, "read_only", "Server is read-only");
-  }
-}
-
-function scopeRank(scope: TokenScope): number {
-  if (scope === "viewer") return 1;
-  if (scope === "collaborator") return 2;
-  return 3;
-}
-
-function requireClientScope(ctx: RequestContext, required: TokenScope): void {
-  const scope = ctx.actor?.scope;
-  if (!scope) {
-    throw new ApiError(401, "unauthorized", "Missing token scope");
-  }
-  if (scopeRank(scope) < scopeRank(required)) {
-    throw new ApiError(403, "forbidden", "Insufficient token scope", {
-      required,
-      scope,
-    });
-  }
-}
 
 type OnMyAgentServerConfigFile = Record<string, unknown> & {
   workspaces?: Array<Record<string, unknown>>;
@@ -1080,7 +1057,7 @@ async function materializeBlueprintSessions(
     sessionId: string;
     title: string;
   }> = [];
-  const opencode = createWorkspaceOpencodeClient(config, workspace);
+  const opencode = getWorkspaceOpencodeClient(config, workspace);
   for (const template of templates) {
     const result = unwrapOpencodeResult(
       await opencode.session.create({ title: template.title }),

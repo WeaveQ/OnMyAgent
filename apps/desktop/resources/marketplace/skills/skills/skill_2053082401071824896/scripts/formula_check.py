@@ -20,7 +20,7 @@ What it checks:
 
 Checks NOT performed (require dynamic recalculation):
 - Runtime errors that only appear after formulas execute (#DIV/0! on empty denominator, etc.)
-  -> Use libreoffice_recalc.py + re-run formula_check.py for dynamic validation
+  -> Open in an Excel-compatible application when calculated cache values are required
 
 Exit code:
     0 — no errors found

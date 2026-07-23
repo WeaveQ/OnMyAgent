@@ -17,9 +17,14 @@ describe("right side panel toggle contract", () => {
     const surfaceHeader = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/chrome/session-surface-header.tsx",
     );
-    const surface = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
-    );
+    const surface = [
+      readWorkspaceFile(
+        "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
+      ),
+      readWorkspaceFile(
+        "apps/app/src/react-app/domains/session/surface/session-surface-view.tsx",
+      ),
+    ].join("\n");
     const sessionPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/chat/session-page.tsx",
     );
@@ -37,6 +42,7 @@ describe("right side panel toggle contract", () => {
     expect(surfaceHeader).toContain(
       'showBottomBorder && "border-b border-dls-mist"',
     );
+    expect(surface).toContain("export function SessionSurface");
     expect(surface).toContain("showBottomBorder={!sessionTabsExpanded}");
     expect(surfaceHeader).not.toContain(
       'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',

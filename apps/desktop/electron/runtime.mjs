@@ -402,7 +402,11 @@ export function createRuntimeManager({
   ].filter(Boolean).find((candidate) => existsSync(candidate)) ?? null;
   const runtimeBinDirs = runtimeRoot
     ? process.platform === "win32"
-      ? [path.join(runtimeRoot, "bin"), path.join(runtimeRoot, "node"), path.join(runtimeRoot, "python")]
+      ? [
+          path.join(runtimeRoot, "bin"),
+          path.join(runtimeRoot, "node"),
+          path.join(runtimeRoot, "python"),
+        ]
       : [
           path.join(runtimeRoot, "bin"),
           path.join(runtimeRoot, "node", "bin"),
@@ -418,6 +422,19 @@ export function createRuntimeManager({
     process.env.PATH = nextPath;
     process.env.Path = nextPath;
     process.env.path = nextPath;
+  }
+  const artifactRuntimeRoot = [
+    process.resourcesPath
+      ? path.join(process.resourcesPath, "artifact-runtime")
+      : null,
+    path.resolve(desktopRoot, "..", "..", "packages", "artifact-runtime"),
+  ].filter(Boolean).find((candidate) => existsSync(candidate)) ?? null;
+  if (artifactRuntimeRoot) {
+    process.env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT = artifactRuntimeRoot;
+    const nodeModules = path.join(artifactRuntimeRoot, "node_modules");
+    process.env.NODE_PATH = [nodeModules, process.env.NODE_PATH]
+      .filter(Boolean)
+      .join(path.delimiter);
   }
 
   function resolveLocalOpencodeConfigDir() {

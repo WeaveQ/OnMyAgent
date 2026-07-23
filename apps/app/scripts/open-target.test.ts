@@ -6,6 +6,8 @@ import {
   classifyOpenTarget,
   deriveOpenTargets,
   isCollectibleArtifactTarget,
+  resolveArtifactAbsolutePath,
+  resolveArtifactRevealCandidates,
   selectAutoOpenTarget,
   shouldAutoOpenTarget,
   type OpenTarget,
@@ -16,6 +18,7 @@ import {
   filterHiddenFromTree,
   shouldHideEntry,
 } from "../src/react-app/capabilities/artifacts/workspace-file-tree";
+import { workspaceFileOpenTarget } from "../src/react-app/capabilities/artifacts/workspace-file-open-target";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {
   return { id, role, parts: [{ type: "text", text, state: "done" }] };
@@ -58,6 +61,12 @@ describe("open target classification", () => {
     expect(classifyOpenTarget("report.md", "file")).toBe("markdown");
     expect(classifyOpenTarget("customers.csv", "file")).toBe("sheet");
     expect(classifyOpenTarget("forecast.xlsx", "file")).toBe("sheet");
+    expect(classifyOpenTarget("contract.docx", "file")).toBe("document");
+    expect(classifyOpenTarget("briefing.pptx", "file")).toBe("presentation");
+    expect(classifyOpenTarget("manual.pdf", "file")).toBe("pdf");
+    expect(classifyOpenTarget("meeting.mp3", "file")).toBe("audio");
+    expect(classifyOpenTarget("demo.mp4", "file")).toBe("video");
+    expect(classifyOpenTarget("invoice.ofd", "file")).toBe("pdf");
     expect(classifyOpenTarget("diagram.svg", "file")).toBe("image");
     expect(classifyOpenTarget("dist/index.html", "file")).toBe("html");
     expect(classifyOpenTarget("http://localhost:5173", "url")).toBe("browser");
@@ -65,9 +74,15 @@ describe("open target classification", () => {
 });
 
 describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
-  it("allows text, markdown, html, browser, and tabular csv/tsv only", () => {
+  it("allows text, markdown, html, images, browser targets, and tabular csv/tsv previews", () => {
     expect(canPreviewOpenTargetInline(fileTarget("notes.md"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("app.ts"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("data.json"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("script.py"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("page.html"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("meeting.mp3"))).toBe(true);
+    expect(canPreviewOpenTargetInline(fileTarget("demo.mp4"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("data.csv"))).toBe(true);
     expect(canPreviewOpenTargetInline(fileTarget("rows.tsv"))).toBe(true);
     expect(
@@ -79,12 +94,48 @@ describe("canPreviewOpenTargetInline (shared workspace preview policy)", () => {
     ).toBe(true);
   });
 
-  it("refuses Office binaries, media, and generic external dumps", () => {
-    expect(canPreviewOpenTargetInline(fileTarget("ledger.xlsx"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("deck.pptx"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("doc.docx"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("photo.png"))).toBe(false);
-    expect(canPreviewOpenTargetInline(fileTarget("manual.pdf"))).toBe(false);
+  it("previews Office and PDF files without treating unrelated binaries as documents", () => {
+    for (const path of [
+      "doc.doc",
+      "doc.docx",
+      "doc.docm",
+      "doc.dotx",
+      "doc.rtf",
+      "doc.odt",
+      "ledger.xls",
+      "ledger.xlsx",
+      "ledger.xlsm",
+      "ledger.xlsb",
+      "ledger.ods",
+      "deck.ppt",
+      "deck.pptx",
+      "deck.pptm",
+      "deck.ppsx",
+      "deck.potx",
+      "deck.odp",
+      "manual.pdf",
+      "invoice.ofd",
+    ]) {
+      expect(canPreviewOpenTargetInline(fileTarget(path))).toBe(true);
+    }
+    expect(canPreviewOpenTargetInline(fileTarget("archive.zip"))).toBe(false);
+    expect(canPreviewOpenTargetInline(fileTarget("program.exe"))).toBe(false);
+  });
+});
+
+describe("workspace file preview targets", () => {
+  it("keeps local HTML in the My Files preview surface", () => {
+    const target = workspaceFileOpenTarget({
+      fileRoot: "/workspace",
+      path: "site/index.html",
+      name: "index.html",
+      size: 128,
+      mtimeMs: 42,
+    });
+
+    expect(target.kind).toBe("file");
+    expect(target.preview).toBe("html");
+    expect(target.value).toBe("site/index.html");
   });
 });
 
@@ -350,5 +401,50 @@ describe("deriveOpenTargets", () => {
       ),
     ]);
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
+  });
+});
+
+describe("resolveArtifactAbsolutePath", () => {
+  it("returns absolute paths unchanged", () => {
+    expect(resolveArtifactAbsolutePath("/tmp/out/a.pdf", "/ws")).toBe("/tmp/out/a.pdf");
+    expect(resolveArtifactAbsolutePath("C:\\Work\\a.pdf", "D:\\ws")).toBe("C:\\Work\\a.pdf");
+  });
+
+  it("joins session-relative paths under the session directory root", () => {
+    expect(
+      resolveArtifactAbsolutePath(
+        "output/物流单.pdf",
+        "/Users/me/ws/order-entry-clerk/abc123",
+      ),
+    ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+  });
+
+  it("joins catalog-relative paths under the workspace catalog root", () => {
+    expect(
+      resolveArtifactAbsolutePath(
+        "order-entry-clerk/abc123/output/物流单.pdf",
+        "/Users/me/ws",
+      ),
+    ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+  });
+
+  it("dedupes when session root is joined with catalog-relative values", () => {
+    // Common failure mode: surface.workspaceRoot is the isolated session dir,
+    // while resolveArtifacts returns paths relative to the workspace catalog.
+    expect(
+      resolveArtifactAbsolutePath(
+        "order-entry-clerk/abc123/output/物流单.pdf",
+        "/Users/me/ws/order-entry-clerk/abc123",
+      ),
+    ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+  });
+
+  it("builds reveal candidates preferring verified catalog-relative values", () => {
+    const candidates = resolveArtifactRevealCandidates("output/物流单.pdf", {
+      workspaceRoot: "/Users/me/ws/order-entry-clerk/abc123",
+      verifiedValue: "order-entry-clerk/abc123/output/物流单.pdf",
+    });
+    expect(candidates[0]).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
+    expect(candidates).toContain("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
   });
 });

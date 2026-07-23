@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -23,10 +24,33 @@ from xml.sax.saxutils import escape as xml_escape
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TEMPLATE = SKILL_ROOT / "assets" / "logistics-waybill-template.html"
+PROCESS_DIR_NAME = ".process"
+FINGERPRINT_NAME = "export-fingerprint"
 COPY_VARIANTS = (
-    {"key": "white", "label": "一联存根（白）", "fileLabel": "一联-白色存根", "color": "FFF8F7FB"},
-    {"key": "red", "label": "二联收货单位（红）", "fileLabel": "二联-红色收货单位", "color": "FFF8E5E9"},
-    {"key": "yellow", "label": "三联发货单位（黄）", "fileLabel": "三联-黄色发货单位", "color": "FFFFF4BF"},
+    {
+        "key": "white",
+        "label": "一联存根（白）",
+        "tabTitle": "存根联",
+        "tabMeta": "一联 · 白",
+        "fileLabel": "一联-白色存根",
+        "color": "FFF8F7FB",
+    },
+    {
+        "key": "red",
+        "label": "二联收货单位（红）",
+        "tabTitle": "收货联",
+        "tabMeta": "二联 · 红",
+        "fileLabel": "二联-红色收货单位",
+        "color": "FFF8E5E9",
+    },
+    {
+        "key": "yellow",
+        "label": "三联发货单位（黄）",
+        "tabTitle": "发货联",
+        "tabMeta": "三联 · 黄",
+        "fileLabel": "三联-黄色发货单位",
+        "color": "FFFFF4BF",
+    },
 )
 CUSTOMER_REQUIRED = (
     "document.number", "document.date", "route.origin", "route.destination",
@@ -53,10 +77,85 @@ FIELD_LABELS = {
     "payment.amount": "金额", "payment.amountUppercase": "金额大写",
     "handover": "提货方式", "remarks": "备注",
 }
+EDITABLE_FIELDS = (
+    "document.number", "document.date", "route.origin", "route.destination",
+    "shipper.name", "shipper.contact", "shipper.phone",
+    "consignee.name", "consignee.contact", "consignee.phone",
+    "cargo.name", "cargo.quantity", "cargo.packaging", "cargo.weightOrVolume",
+    "cargo.declaredValue", "cargo.insuranceFee", "cargo.codAmount",
+    "vehicle.plate", "vehicle.driverAddress", "vehicle.licenseNumber",
+    "vehicle.driverName", "vehicle.driverPhone",
+    "payment.amountUppercase", "payment.amount", "carrier.address", "carrier.phone",
+    "remarks",
+)
+PRINT_FIT_CSS = """
+@media print {
+  @page { size: A4 landscape; margin: 0 !important; }
+  html, body {
+    width: 297mm !important;
+    height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+  }
+  .sheet {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 6mm 8mm !important;
+    border: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .sheet * { page-break-inside: avoid !important; break-inside: avoid !important; }
+  header { min-height: auto !important; }
+  h1 { font-size: 26px !important; }
+  th, td { height: auto !important; min-height: 0 !important; padding: 3px 5px !important; font-size: 12px !important; }
+  .goods-row td { height: auto !important; }
+  .signatures td { height: 64px !important; }
+  .sign-date { margin-top: 28px !important; }
+  .copies { top: 140px !important; }
+  footer { margin-top: 2px !important; font-size: 11px !important; }
+}
+"""
+FIELD_PATTERN = re.compile(
+    r'<(?P<tag>span|strong|td|div)\b(?P<attrs>[^>]*\bdata-field="(?P<field>[^"]+)"[^>]*)>(?P<body>.*?)</(?P=tag)>',
+    re.DOTALL,
+)
+MAIN_PATTERN = re.compile(r"(<main\b[\s\S]*?</main>)", re.IGNORECASE)
+STYLE_PATTERN = re.compile(r"<style>([\s\S]*?)</style>", re.IGNORECASE)
+PRINT_MEDIA_PATTERN = re.compile(r"@media\s+print\s*\{(?:[^{}]|\{[^{}]*\})*\}", re.IGNORECASE)
+MISSING_TOKEN_PATTERN = re.compile(r"\s*\bmissing\b")
+CLASS_TRIM_PATTERN = re.compile(r'class="\s+')
+EMPTY_CLASS_PATTERN = re.compile(r'\s+class=""')
+_TEMPLATE_CACHE: dict[str, tuple[float, str]] = {}
 
 
 class WaybillError(Exception):
     pass
+
+
+def read_template(path: Path) -> str:
+    key = str(path.resolve())
+    try:
+        mtime = path.stat().st_mtime
+    except OSError as error:
+        raise WaybillError(f"无法读取模板：{path}") from error
+    cached = _TEMPLATE_CACHE.get(key)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    content = path.read_text(encoding="utf-8")
+    _TEMPLATE_CACHE[key] = (mtime, content)
+    return content
 
 
 def get_value(data: dict[str, Any], path: str) -> Any:
@@ -66,6 +165,18 @@ def get_value(data: dict[str, Any], path: str) -> Any:
             return ""
         value = value.get(part, "")
     return value
+
+
+def set_value(data: dict[str, Any], path: str, value: Any) -> None:
+    parts = path.split(".")
+    cursor: Any = data
+    for part in parts[:-1]:
+        nested = cursor.get(part)
+        if not isinstance(nested, dict):
+            nested = {}
+            cursor[part] = nested
+        cursor = nested
+    cursor[parts[-1]] = value
 
 
 def text_value(value: Any) -> str:
@@ -133,17 +244,106 @@ def cargo_summary(data: dict[str, Any], key: str) -> str:
     return "；".join(part for part in parts if part)
 
 
-def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
-    remarks = [text_value(data.get("remarks"))]
-    mapping = (
+def apply_patch(data: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    for path, value in patch.items():
+        path_text = text_value(path)
+        if not path_text or path_text in {"document.status", "copy.label"}:
+            continue
+        if path_text.startswith("cargo[") and "]." in path_text:
+            match = re.fullmatch(r"cargo\[(\d+)\]\.([A-Za-z]+)", path_text)
+            if not match:
+                continue
+            index = int(match.group(1)) - 1
+            key = match.group(2)
+            rows = cargo_rows(data)
+            while len(rows) <= index:
+                rows.append({})
+            rows[index][key] = text_value(value)
+            data["cargo"] = rows
+            continue
+        if path_text.startswith("cargo."):
+            key = path_text.split(".", 1)[1]
+            rows = cargo_rows(data) or [{}]
+            if key == "weightOrVolume":
+                rendered = text_value(value)
+                if "/" in rendered:
+                    weight, volume = [part.strip() for part in rendered.split("/", 1)]
+                    rows[0]["weight"] = weight
+                    rows[0]["volume"] = volume
+                else:
+                    rows[0]["weight"] = rendered
+                    rows[0]["volume"] = ""
+            else:
+                rows[0][key] = text_value(value)
+            data["cargo"] = rows
+            continue
+        if path_text in FIELD_LABELS or path_text in {"vehicleRequirement", "handover", "remarks"}:
+            set_value(data, path_text, text_value(value))
+    data["userConfirmed"] = False
+    return data
+
+
+def business_fingerprint(data: dict[str, Any]) -> str:
+    payload = {
+        key: value
+        for key, value in data.items()
+        if key not in {"fieldMeta", "exportMeta"}
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def compact_schedule_token(label: str, value: str) -> str:
+    """Short display tokens for the remarks cell (template has no dedicated timeline cells)."""
+    text = text_value(value)
+    if not text:
+        return ""
+    # Prefer compact Chinese labels so the remarks cell stays readable.
+    short_label = {
+        "计划提货": "提货",
+        "要求到达": "到达",
+        "车型要求": "车型",
+    }.get(label, label)
+    compact = (
+        text.replace("计划提货", "")
+        .replace("要求到达", "")
+        .replace("车型要求", "")
+        .replace("（带尾板车辆）", "")
+        .replace("带尾板车辆", "")
+        .strip(" ：:")
+    )
+    return f"{short_label}{compact}" if compact else ""
+
+
+def compose_remarks_display(data: dict[str, Any]) -> str:
+    """
+    Build the printable remarks cell:
+    - agent `remarks` first (expected already short)
+    - then compact timeline / vehicle from dedicated fields (never re-dump long prose)
+    """
+    core = text_value(data.get("remarks"))
+    # Soft cap: keep operational notes dominant; do not re-expand long agent prose here.
+    if len(core) > 60:
+        core = core[:57].rstrip("；;，, ") + "…"
+    parts: list[str] = [core] if core else []
+    joined = core
+    for label, raw in (
         ("计划提货", get_value(data, "timeline.pickup")),
         ("要求到达", get_value(data, "timeline.delivery")),
         ("车型要求", data.get("vehicleRequirement", "")),
-    )
-    for label, value in mapping:
-        rendered = text_value(value)
-        if rendered and f"{label}：" not in remarks[0]:
-            remarks.append(f"{label}：{rendered}")
+    ):
+        token = compact_schedule_token(label, text_value(raw))
+        if not token:
+            continue
+        # Skip if agent already mentioned the same facet.
+        if any(key in joined for key in (label, token[:2], token)):
+            continue
+        parts.append(token)
+        joined = "；".join(parts)
+    return "；".join(part for part in parts if part)
+
+
+def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
     values = {path: text_value(get_value(data, path)) for path in FIELD_LABELS}
     values.update({
         "document.status": status_label(state),
@@ -154,38 +354,62 @@ def template_values(data: dict[str, Any], state: str) -> dict[str, str]:
         "cargo.declaredValue": cargo_summary(data, "declaredValue"),
         "cargo.insuranceFee": cargo_summary(data, "insuranceFee"),
         "cargo.codAmount": cargo_summary(data, "codAmount"),
-        "remarks": "；".join(part for part in remarks if part),
+        "remarks": compose_remarks_display(data),
     })
     return values
 
 
-def fill_html(template: str, values: dict[str, str], state: str, data: dict[str, Any]) -> str:
+def fill_html(
+    template: str,
+    values: dict[str, str],
+    state: str,
+    data: dict[str, Any],
+    *,
+    inject_print_css: bool = False,
+) -> str:
+    """Fill business values into the HTML template.
+
+    Preview only needs on-screen HTML. Print/PDF CSS is injected only when
+    exporting PDF so process-preview stays small and cheap.
+    """
     rendered = template.replace('data-status="草稿·待确认"', f'data-status="{html.escape(status_label(state))}"')
-    for field, value in values.items():
-        pattern = re.compile(rf'(<(?P<tag>span|strong|td|div)\b(?P<attrs>[^>]*\bdata-field="{re.escape(field)}"[^>]*)>)(?P<body>.*?)(</(?P=tag)>)', re.DOTALL)
-        match = pattern.search(rendered)
-        if not match:
-            continue
+
+    def replace_field(match: re.Match[str]) -> str:
+        field = match.group("field")
+        if field not in values and field != "copy.label":
+            return match.group(0)
+        if field == "copy.label":
+            return match.group(0)
+        value = values.get(field, "")
         attrs = match.group("attrs")
         shown = value or ("待补充" if "missing" in attrs or field in CUSTOMER_REQUIRED else "—")
         if value:
-            attrs = re.sub(r'\s*\bmissing\b', "", attrs)
-            attrs = re.sub(r'class="\s+', 'class="', attrs)
+            attrs = MISSING_TOKEN_PATTERN.sub("", attrs)
+            attrs = CLASS_TRIM_PATTERN.sub('class="', attrs)
+            attrs = EMPTY_CLASS_PATTERN.sub("", attrs)
         elif "missing" not in attrs and field in CUSTOMER_REQUIRED:
             attrs = f'{attrs} class="missing"' if "class=" not in attrs else attrs.replace('class="', 'class="missing ')
-        replacement = f'<{match.group("tag")}{attrs}>{html.escape(shown)}</{match.group("tag")}>'
-        rendered = rendered[:match.start()] + replacement + rendered[match.end():]
+        return f'<{match.group("tag")}{attrs}>{html.escape(shown)}</{match.group("tag")}>'
+
+    rendered = FIELD_PATTERN.sub(replace_field, rendered)
+    payment_method = text_value(get_value(data, "payment.method"))
+    handover = text_value(data.get("handover"))
     selected_checks = {
-        "payment.collect": text_value(get_value(data, "payment.method")) == "到付",
-        "payment.prepaid": text_value(get_value(data, "payment.method")) in ("已付", "现付"),
-        "payment.receipt": text_value(get_value(data, "payment.method")) in ("回付", "回单付"),
-        "payment.unpaid": text_value(get_value(data, "payment.method")) == "欠付",
-        "handover.pickup": text_value(data.get("handover")) == "自提",
-        "handover.delivery": text_value(data.get("handover")) in ("送货", "送货上门"),
+        "payment.collect": payment_method == "到付",
+        "payment.prepaid": payment_method in ("已付", "现付"),
+        "payment.receipt": payment_method in ("回付", "回单付"),
+        "payment.unpaid": payment_method == "欠付",
+        "handover.pickup": handover == "自提",
+        "handover.delivery": handover in ("送货", "送货上门"),
     }
     for check, selected in selected_checks.items():
         if selected:
-            rendered = rendered.replace(f'class="box" data-check="{check}"', f'class="box" data-check="{check}" style="background:#28242f"')
+            rendered = rendered.replace(
+                f'class="box" data-check="{check}"',
+                f'class="box" data-check="{check}" style="background:#28242f"',
+            )
+    if inject_print_css and "</style>" in rendered and PRINT_FIT_CSS not in rendered:
+        rendered = rendered.replace("</style>", f"{PRINT_FIT_CSS}</style>", 1)
     return rendered
 
 
@@ -204,42 +428,172 @@ def apply_copy_variant(rendered_html: str, variant: dict[str, str]) -> str:
     return rendered.replace("物流运输协议（草稿）", f'物流运输协议 · {variant["label"]}')
 
 
-def inline_widget_fragment(rendered_copies: list[tuple[dict[str, str], str]]) -> str:
-    if len(rendered_copies) != len(COPY_VARIANTS):
-        raise WaybillError("会话内预览必须包含完整三联")
-    style = re.search(r"<style>([\s\S]*?)</style>", rendered_copies[0][1], re.IGNORECASE)
+def copy_label_map() -> dict[str, str]:
+    return {variant["key"]: variant["label"] for variant in COPY_VARIANTS}
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Single-sheet preview: one filled HTML, tabs only flip data-copy + label/background.
+    ~3x smaller payload than embedding three full sheets (faster stream + render).
+    """
+    style = STYLE_PATTERN.search(preview_html)
     if not style:
         raise WaybillError("模板无法提取会话内预览样式")
+    main = MAIN_PATTERN.search(preview_html)
+    if not main:
+        raise WaybillError("模板无法提取预览主单据片段")
+    # Screen preview does not need @media print rules; strip them to shrink widget payload.
+    screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
     tabs: list[str] = []
-    panels: list[str] = []
-    for index, (variant, rendered_html) in enumerate(rendered_copies):
-        main = re.search(r"(<main\b[\s\S]*?</main>)", rendered_html, re.IGNORECASE)
-        if not main:
-            raise WaybillError(f'模板无法提取{variant["label"]}预览片段')
+    for index, variant in enumerate(COPY_VARIANTS):
         selected = "true" if index == 0 else "false"
-        hidden = "" if index == 0 else " hidden"
         tabs.append(
-            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}">{variant["label"]}</button>'
+            f'<button type="button" role="tab" aria-selected="{selected}" data-copy-tab="{variant["key"]}" '
+            f'aria-label="{variant["label"]}">'
+            f'<span class="swatch" aria-hidden="true"></span>'
+            f'<span class="tab-copy">'
+            f'<span class="tab-title">{variant["tabTitle"]}</span>'
+            f'<span class="tab-meta">{variant["tabMeta"]}</span>'
+            f"</span></button>"
         )
-        panels.append(
-            f'<div role="tabpanel" data-copy-panel="{variant["key"]}"{hidden}>{main.group(1)}</div>'
-        )
+    labels_json = json.dumps(copy_label_map(), ensure_ascii=False)
     widget_style = """
-.waybill-copy-preview{width:100%;overflow:hidden;color:#28242f}
-.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}
-.waybill-copy-tabs button{appearance:none;border:1px solid #b8b1bd;border-radius:8px;background:#f1eff3;color:#4b4650;padding:8px 6px;font:600 13px/1.2 system-ui,sans-serif;cursor:pointer}
-.waybill-copy-tabs button[aria-selected="true"]{border-color:#675b69;background:#514752;color:#fff}
-.waybill-copy-preview [role="tabpanel"][hidden]{display:none}
+.waybill-copy-preview{width:100%;overflow:hidden;color:#0f172a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.waybill-copy-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0 0 14px;padding:4px;border-radius:10px;background:#f4f4f5;border:1px solid #e5e7eb}
+.waybill-copy-tabs button{appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;border:0;border-radius:8px;background:transparent;color:#64748b;padding:8px 10px;cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+.waybill-copy-tabs button:hover{color:#0f172a;background:rgba(255,255,255,.65)}
+.waybill-copy-tabs button:focus-visible{outline:2px solid #005dff;outline-offset:1px}
+.waybill-copy-tabs button[aria-selected="true"]{color:#0f172a;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.06),0 0 0 1px rgba(15,23,42,.04)}
+.waybill-copy-tabs .swatch{flex:0 0 auto;width:14px;height:18px;border-radius:3px;border:1px solid rgba(15,23,42,.12);box-shadow:inset 0 -1px 0 rgba(15,23,42,.06)}
+.waybill-copy-tabs button[data-copy-tab="white"] .swatch{background:linear-gradient(180deg,#fbfafc 0%,#f1eef4 100%)}
+.waybill-copy-tabs button[data-copy-tab="red"] .swatch{background:linear-gradient(180deg,#fdf0f2 0%,#f5d0d6 100%);border-color:rgba(180,80,100,.22)}
+.waybill-copy-tabs button[data-copy-tab="yellow"] .swatch{background:linear-gradient(180deg,#fff8d9 0%,#f5e4a0 100%);border-color:rgba(180,140,20,.22)}
+.waybill-copy-tabs .tab-copy{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;text-align:left}
+.waybill-copy-tabs .tab-title{font:600 13px/1.2 system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.waybill-copy-tabs .tab-meta{font:500 11px/1.2 system-ui,sans-serif;color:#94a3b8;white-space:nowrap}
+.waybill-copy-tabs button[aria-selected="true"] .tab-meta{color:#64748b}
 .waybill-copy-preview .sheet{width:1040px;max-width:100%;transform-origin:top left;color:#28242f;opacity:1!important;filter:none!important}
+.waybill-edit-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.waybill-edit-bar button{appearance:none;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#0f172a;padding:6px 12px;font:600 12px/1.2 system-ui,sans-serif;cursor:pointer}
+.waybill-edit-bar button:hover{background:#f4f4f5;border-color:#cbd5e1}
+.waybill-edit-bar button[data-active="true"]{border-color:#005dff;background:#eaf2ff;color:#004ed6}
+.waybill-edit-bar .hint{font:12px/1.4 system-ui,sans-serif;color:#64748b}
+.waybill-edit-bar .hint[data-tone="ok"]{color:#0f766e}
+.waybill-copy-preview[data-editing="true"] [data-field]{outline:1px dashed #d19a2a;cursor:text;min-width:1.5em}
+.waybill-copy-preview[data-editing="true"] [data-field="document.status"],
+.waybill-copy-preview[data-editing="true"] [data-field="copy.label"]{outline:none;cursor:default}
 """
+    script = f"""<script>(()=>{{
+const root=document.currentScript.closest('[data-waybill-copy-preview]');
+if(!root)return;
+const labels={labels_json};
+const editable=new Set({json.dumps(list(EDITABLE_FIELDS), ensure_ascii=False)});
+const tabs=[...root.querySelectorAll('[data-copy-tab]')];
+const sheet=root.querySelector('.sheet');
+const editBtn=root.querySelector('[data-edit-toggle]');
+const saveBtn=root.querySelector('[data-edit-save]');
+const hint=root.querySelector('[data-edit-hint]');
+const select=key=>{{
+  if(!sheet||!labels[key])return;
+  tabs.forEach(item=>item.setAttribute('aria-selected',String(item.getAttribute('data-copy-tab')===key)));
+  sheet.setAttribute('data-copy',key);
+  const copyLabel=sheet.querySelector('[data-field="copy.label"]');
+  if(copyLabel)copyLabel.textContent=labels[key];
+  parent.postMessage({{type:'onmyagent:waybill-copy',key}},'*');
+}};
+tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.getAttribute('data-copy-tab'))));
+const setHint=(text,tone)=>{{
+  if(!hint)return;
+  hint.textContent=text;
+  if(tone)hint.setAttribute('data-tone',tone);
+  else hint.removeAttribute('data-tone');
+}};
+const setEditing=on=>{{
+  root.dataset.editing=on?'true':'false';
+  if(editBtn){{
+    editBtn.hidden=false;
+    editBtn.dataset.active=on?'true':'false';
+    editBtn.textContent=on?'取消编辑':'编辑字段';
+  }}
+  if(saveBtn)saveBtn.hidden=!on;
+  setHint(on?'点击字段直接修改，改完点「保存修改」':'可点「编辑字段」手动改值');
+  root.querySelectorAll('[data-field]').forEach(node=>{{
+    const field=node.getAttribute('data-field')||'';
+    const canEdit=on&&editable.has(field);
+    node.contentEditable=canEdit?'true':'false';
+    if(canEdit)node.spellcheck=false;
+  }});
+}};
+const normalizeFieldValue=raw=>{{
+  let value=String(raw??'').replace(/[\\u200b\\u200c\\u200d\\ufeff]/g,'').trim();
+  // Exact placeholders only — partial edits like "待补" must be kept as-is.
+  if(value==='待补充'||value==='—'||value==='-'||value==='－')value='';
+  return value;
+}};
+const collect=()=>{{
+  const patch={{}};
+  root.querySelectorAll('[data-field]').forEach(node=>{{
+    const field=node.getAttribute('data-field')||'';
+    if(!editable.has(field))return;
+    patch[field]=normalizeFieldValue(node.innerText||'');
+  }});
+  return patch;
+}};
+const applyPatchToAll=patch=>{{
+  root.querySelectorAll('[data-field]').forEach(node=>{{
+    const field=node.getAttribute('data-field')||'';
+    if(!(field in patch))return;
+    const value=normalizeFieldValue(patch[field]);
+    // Keep typed text (e.g. partial "待补"). Empty → visual placeholder only.
+    const isVehicle=field.indexOf('vehicle.')===0;
+    const display=value?value:(isVehicle?'—':'待补充');
+    node.textContent=display;
+    if(value)node.classList.remove('missing');
+    else if(!isVehicle)node.classList.add('missing');
+    else node.classList.remove('missing');
+  }});
+}};
+editBtn&&editBtn.addEventListener('click',()=>{{
+  const next=root.dataset.editing!=='true';
+  setEditing(next);
+}});
+saveBtn&&saveBtn.addEventListener('click',()=>{{
+  const patch=collect();
+  applyPatchToAll(patch);
+  // Stay on the live preview DOM. Host persists waybill-data.json; do not ask
+  // the agent to regenerate show_widget (that would wipe in-progress edits).
+  setEditing(false);
+  setHint('已保存到预览，可继续点「编辑字段」修改','ok');
+  parent.postMessage({{type:'onmyagent:waybill-fields',patch}},'*');
+}});
+setEditing(false);
+select('white');
+}})()</script>"""
     return (
-        f"<style>{style.group(1)}{widget_style}</style>"
-        '<section class="waybill-copy-preview" data-waybill-copy-preview>'
-        f'<div class="waybill-copy-tabs" role="tablist" aria-label="物流单三联预览">{"".join(tabs)}</div>'
-        f'{"".join(panels)}'
-        """<script>(()=>{const root=document.currentScript.closest('[data-waybill-copy-preview]');if(!root)return;const tabs=[...root.querySelectorAll('[data-copy-tab]')];const panels=[...root.querySelectorAll('[data-copy-panel]')];const select=key=>{tabs.forEach(item=>item.setAttribute('aria-selected',String(item.getAttribute('data-copy-tab')===key)));panels.forEach(panel=>{panel.hidden=panel.getAttribute('data-copy-panel')!==key});parent.postMessage({type:'onmyagent:waybill-copy',key},'*')};tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.getAttribute('data-copy-tab'))));select('white')})()</script>"""
+        f"<style>{screen_css}{widget_style}</style>"
+        '<section class="waybill-copy-preview" data-waybill-copy-preview data-editing="false">'
+        '<div class="waybill-edit-bar">'
+        '<button type="button" data-edit-toggle>编辑字段</button>'
+        '<button type="button" data-edit-save hidden>保存修改</button>'
+        '<span class="hint" data-edit-hint>可点「编辑字段」手动改值</span>'
+        "</div>"
+        f'<div class="waybill-copy-tabs" role="tablist" aria-label="联次切换">{"".join(tabs)}</div>'
+        f'<div role="tabpanel" data-copy-panel="live">{main.group(1)}</div>'
+        f"{script}"
         "</section>"
     )
+
+
+def cleanup_legacy_multi_preview_html(preview_dir: Path, number: str) -> None:
+    """Remove older per-copy preview files after switching to single-HTML preview."""
+    for variant in COPY_VARIANTS:
+        legacy = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
+        if legacy.is_file():
+            try:
+                legacy.unlink()
+            except OSError:
+                pass
 
 
 def safe_name(value: str) -> str:
@@ -392,6 +746,8 @@ def write_xlsx(path: Path, data: dict[str, Any], state: str, variant: dict[str, 
         "docProps/app.xml": '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>OnMyAgent 物流单专家</Application></Properties>''',
         "docProps/core.xml": f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>物流单 {xml_escape(text_value(get_value(data, "document.number")))}</dc:title><dc:creator>OnMyAgent 物流单专家</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">{datetime.now(timezone.utc).isoformat()}</dcterms:created></cp:coreProperties>''',
     }
+    if path.exists():
+        path.unlink()
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, content in files.items():
             archive.writestr(name, content)
@@ -411,52 +767,128 @@ def find_chrome() -> str | None:
     return next((candidate for candidate in candidates if Path(candidate).is_file()), None)
 
 
-def write_pdf(html_path: Path, pdf_path: Path) -> None:
+def write_pdfs(jobs: list[tuple[Path, Path]]) -> None:
+    if not jobs:
+        return
     chrome = find_chrome()
     if not chrome:
         raise WaybillError("未找到 Chrome/Chromium/Edge，无法从 HTML 同源导出 PDF")
     with tempfile.TemporaryDirectory(prefix="waybill-chrome-") as profile:
-        command = [chrome, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", f"--user-data-dir={profile}", f"--print-to-pdf={pdf_path}", html_path.resolve().as_uri()]
-        if hasattr(os, "geteuid") and os.geteuid() == 0:
-            command.insert(1, "--no-sandbox")
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=os.name != "nt",
-        )
-        deadline = time.monotonic() + 45
-        previous_size = -1
-        stable_checks = 0
-        try:
-            while time.monotonic() < deadline:
-                if pdf_path.is_file():
-                    current_size = pdf_path.stat().st_size
-                    stable_checks = stable_checks + 1 if current_size > 0 and current_size == previous_size else 0
-                    previous_size = current_size
-                    if stable_checks >= 3:
-                        break
-                if process.poll() is not None and not pdf_path.is_file():
-                    raise WaybillError(f"PDF 导出失败：浏览器退出码 {process.returncode}")
-                time.sleep(0.2)
-            else:
-                raise WaybillError("PDF 导出超时：浏览器未在 45 秒内生成稳定文件")
-        finally:
-            if process.poll() is None:
-                if os.name == "nt":
-                    process.terminate()
+        for html_path, pdf_path in jobs:
+            if pdf_path.exists():
+                pdf_path.unlink()
+            command = [
+                chrome,
+                "--headless=new",
+                "--disable-gpu",
+                "--no-pdf-header-footer",
+                "--hide-scrollbars",
+                "--run-all-compositor-stages-before-draw",
+                "--virtual-time-budget=5000",
+                f"--user-data-dir={profile}",
+                f"--print-to-pdf={pdf_path}",
+                html_path.resolve().as_uri(),
+            ]
+            if hasattr(os, "geteuid") and os.geteuid() == 0:
+                command.insert(1, "--no-sandbox")
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=os.name != "nt",
+            )
+            deadline = time.monotonic() + 45
+            previous_size = -1
+            stable_checks = 0
+            try:
+                while time.monotonic() < deadline:
+                    if pdf_path.is_file():
+                        current_size = pdf_path.stat().st_size
+                        stable_checks = stable_checks + 1 if current_size > 0 and current_size == previous_size else 0
+                        previous_size = current_size
+                        if stable_checks >= 2:
+                            break
+                    if process.poll() is not None and not pdf_path.is_file():
+                        raise WaybillError(f"PDF 导出失败：浏览器退出码 {process.returncode}")
+                    time.sleep(0.1)
                 else:
-                    os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
+                    raise WaybillError("PDF 导出超时：浏览器未在 45 秒内生成稳定文件")
+            finally:
+                if process.poll() is None:
                     if os.name == "nt":
-                        process.kill()
+                        process.terminate()
                     else:
-                        os.killpg(process.pid, signal.SIGKILL)
-                    process.wait(timeout=3)
-    if not pdf_path.is_file() or pdf_path.stat().st_size == 0:
-        raise WaybillError("PDF 导出失败：浏览器未生成文件")
+                        os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        if os.name == "nt":
+                            process.kill()
+                        else:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        process.wait(timeout=2)
+            if not pdf_path.is_file() or pdf_path.stat().st_size == 0:
+                raise WaybillError("PDF 导出失败：浏览器未生成文件")
+
+
+def write_text_if_changed(path: Path, content: str) -> bool:
+    if path.is_file():
+        try:
+            if path.read_text(encoding="utf-8") == content:
+                return False
+        except OSError:
+            pass
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def parse_formats(raw: str) -> set[str]:
+    tokens = {token.strip().lower() for token in raw.replace("，", ",").split(",") if token.strip()}
+    if not tokens or tokens == {"none"} or tokens == {"skip"}:
+        return set()
+    if "all" in tokens:
+        return {"pdf", "xlsx"}
+    allowed = {"pdf", "xlsx"}
+    unknown = tokens - allowed
+    if unknown:
+        raise WaybillError(f"不支持的导出格式：{', '.join(sorted(unknown))}；可选 pdf / xlsx / all / none")
+    return tokens
+
+
+def process_dir(output_dir: Path) -> Path:
+    path = output_dir / PROCESS_DIR_NAME
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def cleanup_result_exports(output_dir: Path, number: str) -> list[str]:
+    removed: list[str] = []
+    for path in output_dir.glob(f"物流单_{number}_*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in {".pdf", ".xlsx"}:
+            continue
+        path.unlink()
+        removed.append(str(path))
+    fingerprint = process_dir(output_dir) / FINGERPRINT_NAME
+    if fingerprint.exists():
+        fingerprint.unlink()
+        removed.append(str(fingerprint))
+    return removed
+
+
+def read_fingerprint(output_dir: Path) -> str:
+    path = process_dir(output_dir) / FINGERPRINT_NAME
+    if not path.is_file():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def write_fingerprint(output_dir: Path, fingerprint: str) -> None:
+    (process_dir(output_dir) / FINGERPRINT_NAME).write_text(fingerprint, encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -465,6 +897,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--mode", choices=("preview", "export"), default="preview")
+    parser.add_argument(
+        "--formats",
+        default="pdf,xlsx",
+        help="export only: pdf / xlsx / pdf,xlsx / all / none",
+    )
+    parser.add_argument("--patch", type=Path, help="JSON object of field path -> value to merge before generate")
+    parser.add_argument("--write-input", action="store_true", help="Write merged/patched data back to --input")
+    parser.add_argument(
+        "--invalidate-exports",
+        action="store_true",
+        help="Delete existing result PDF/XLSX for this document number before preview",
+    )
     return parser.parse_args()
 
 
@@ -474,47 +918,97 @@ def main() -> int:
         data = json.loads(args.input.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise WaybillError("输入 JSON 顶层必须是对象")
-        template = args.template.read_text(encoding="utf-8")
+        if args.patch:
+            patch_raw = json.loads(args.patch.read_text(encoding="utf-8"))
+            if not isinstance(patch_raw, dict):
+                raise WaybillError("--patch 必须是 JSON 对象")
+            data = apply_patch(data, patch_raw)
+        if args.write_input or args.patch:
+            args.input.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        template = read_template(args.template)
         state, blockers = document_state(data)
         args.output_dir.mkdir(parents=True, exist_ok=True)
+        preview_dir = process_dir(args.output_dir)
         number = safe_name(text_value(get_value(data, "document.number")))
-        base_html = fill_html(template, template_values(data, state), state, data)
-        rendered_copies: list[tuple[dict[str, str], str]] = []
-        generated: list[str] = []
+        fingerprint = business_fingerprint(data)
+        removed: list[str] = []
+        previous = read_fingerprint(args.output_dir)
+        # Preview never generates PDF/XLSX. It only invalidates stale result files when data changed.
+        if args.invalidate_exports or (previous and previous != fingerprint):
+            removed = cleanup_result_exports(args.output_dir, number)
+
+        formats = parse_formats(args.formats) if args.mode == "export" else set()
+        # Preview path: HTML process artifacts only (no browser, no PDF, no Excel).
+        need_print_css = args.mode == "export" and "pdf" in formats
+        base_html = fill_html(
+            template,
+            template_values(data, state),
+            state,
+            data,
+            inject_print_css=need_print_css,
+        )
+        # Single live preview HTML (tabs switch paper color client-side).
+        preview_html = apply_copy_variant(base_html, COPY_VARIANTS[0])
+        preview_path = preview_dir / f"物流单_{number}_当前预览.html"
+        write_text_if_changed(preview_path, preview_html)
+        cleanup_legacy_multi_preview_html(preview_dir, number)
+        generated: list[str] = [str(preview_path)]
         artifact_copies: list[dict[str, str]] = []
-        html_paths: list[tuple[dict[str, str], Path]] = []
-        for variant in COPY_VARIANTS:
-            rendered_html = apply_copy_variant(base_html, variant)
-            html_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_当前预览.html'
-            html_path.write_text(rendered_html, encoding="utf-8")
-            rendered_copies.append((variant, rendered_html))
-            html_paths.append((variant, html_path))
-            generated.append(str(html_path))
+
         if args.mode == "export":
             if state not in ("pending_dispatch", "final"):
-                raise WaybillError(f"当前状态 {state} 不允许导出，请先补齐并确认信息；阻塞项：{', '.join(blockers) or 'userConfirmed'}")
+                raise WaybillError(
+                    f"当前状态 {state} 不允许导出，请先补齐并确认信息；阻塞项：{', '.join(blockers) or 'userConfirmed'}"
+                )
+            if not formats:
+                raise WaybillError("未选择导出格式。请使用 --formats pdf / xlsx / pdf,xlsx，或先不生成结果产物")
+            # Always delete previous result artifacts for this number so stale PDFs cannot remain.
+            removed.extend(cleanup_result_exports(args.output_dir, number))
             edition = "待派车确认稿" if state == "pending_dispatch" else "最终版"
-            for variant, html_path in html_paths:
+            pdf_jobs: list[tuple[Path, Path]] = []
+            # Export still materializes three colored copies for print/PDF/Excel.
+            for variant in COPY_VARIANTS:
+                rendered_html = apply_copy_variant(base_html, variant)
+                export_html_path = preview_dir / f'物流单_{number}_{variant["fileLabel"]}_导出稿.html'
+                write_text_if_changed(export_html_path, rendered_html)
                 xlsx_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.xlsx'
                 pdf_path = args.output_dir / f'物流单_{number}_{variant["fileLabel"]}_{edition}.pdf'
-                write_xlsx(xlsx_path, data, state, variant)
-                write_pdf(html_path, pdf_path)
-                generated.extend((str(pdf_path), str(xlsx_path)))
-                artifact_copies.append({
+                copy_info = {
                     "key": variant["key"],
                     "label": variant["label"],
-                    "pdf": str(pdf_path),
-                    "xlsx": str(xlsx_path),
-                })
+                    "pdf": str(pdf_path) if "pdf" in formats else "",
+                    "xlsx": str(xlsx_path) if "xlsx" in formats else "",
+                }
+                if "xlsx" in formats:
+                    write_xlsx(xlsx_path, data, state, variant)
+                    generated.append(str(xlsx_path))
+                if "pdf" in formats:
+                    pdf_jobs.append((export_html_path, pdf_path))
+                    generated.append(str(pdf_path))
+                if copy_info["pdf"] or copy_info["xlsx"]:
+                    artifact_copies.append(copy_info)
+            write_pdfs(pdf_jobs)
+            for _, pdf_path in pdf_jobs:
+                if not pdf_path.is_file():
+                    raise WaybillError(f"PDF 未生成：{pdf_path}")
+            write_fingerprint(args.output_dir, fingerprint)
+
+        title = "物流单三联最终预览" if state == "final" and args.mode == "export" else "当前物流单三联预览"
+        if args.mode == "export" and state == "pending_dispatch":
+            title = "物流单三联待派车确认稿"
         print(json.dumps({
             "ok": True,
             "state": state,
             "label": status_label(state),
             "blockers": blockers,
+            "formats": sorted(formats),
+            "processDir": str(preview_dir),
+            "removed": removed,
             "files": generated,
             "inlineWidget": {
-                "title": "物流单三联最终预览" if state == "final" and args.mode == "export" else "当前物流单三联预览",
-                "widget_code": inline_widget_fragment(rendered_copies),
+                "title": title,
+                "widget_code": inline_widget_fragment(preview_html),
                 "artifactCopies": artifact_copies,
             },
         }, ensure_ascii=False))

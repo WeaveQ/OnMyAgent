@@ -767,7 +767,7 @@ export default {
   "settings.permission_authorize": "去授权",
   "settings.permission_authorized": "已授权",
   "settings.permission_automation_desc":
-    "允许向其他 App 发送指令，例如管理日历、提醒事项和备忘录",
+    "允许向其他 App 发送指令，例如管理日历、提醒事项和备忘录。点「去设置」会先触发系统授权弹窗，应用才会出现在「隐私与安全性 → 自动化」列表中",
   "settings.permission_automation_label": "自动化",
   "settings.permission_checking": "检查中",
   "settings.permission_refresh": "刷新",

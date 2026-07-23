@@ -191,6 +191,12 @@ describe("expert marketplace UI contract", () => {
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
+    const summonHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
+    );
+    const myExpertsHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-my-expert-packages.ts",
+    );
     const storePage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
     );
@@ -214,15 +220,18 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("onOpenAgents={openExpertMarket}");
     expect(expertPage).toContain("activeTab={storeActiveTab}");
     expect(expertPage).toContain("onSummonMarketplaceExpert={handleStartMarketplaceExpert}");
+    // Install + my-experts list live in shared hooks (expert still installs on summon path).
     expect(expertPage).toContain("installSummonedMarketplaceExpert(expert)");
-    expect(assistantPage).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(assistantPage).toContain("useSummonMarketplaceExpert");
+    expect(summonHook).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(myExpertsHook).toContain('listExpertPackages("my-experts")');
+    expect(expertPage).toContain("useMyExpertPackages");
     expect(installHelper).toContain('expert.source !== "builtin"');
     expect(installHelper).toContain('marketplace: "experts"');
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
     expect(expertPage).not.toContain("agentEditRequest");
     expect(expertPage).not.toContain("onOpenAgentSettings={");
     expect(expertPage).not.toContain("<ExpertMarketplaceDialog");
-    expect(expertPage).toContain('listExpertPackages("my-experts")');
     expect(pendingAgent).toContain('const source = expert.source === "mine" ? "mine" : "builtin"');
     expect(pendingAgent).toContain('avatarOptionId: "marketplace-expert"');
     expect(pendingAgent).toContain("systemPrompt: expert.systemPrompt");
@@ -256,12 +265,20 @@ describe("expert marketplace UI contract", () => {
   test("marketplace summon opens a fresh expert draft before agent activation", () => {
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const summonHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
+    );
 
-    expect(assistantPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
-    expect(assistantPage).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    // Assistant summon path: shared hook creates task + pending agent, then switches mode.
+    expect(assistantPage).toContain("useSummonMarketplaceExpert");
+    expect(summonHook).toContain("onCreateTaskInWorkspace(selectedWorkspaceId)");
+    expect(summonHook).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    expect(summonHook).toContain('onNavigateToMode("expert")');
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
-    expect(expertPage).toContain("activateDraftAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    // Build pending first, activate, open draft (+ 新任务 clears pending), re-activate.
+    expect(expertPage).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
+    expect(expertPage).toContain("activateDraftAgent(pendingWithStart)");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {
@@ -302,31 +319,48 @@ describe("expert marketplace UI contract", () => {
 
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const conversationModel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
+    );
     const surface = readWorkspaceFile("apps/app/src/react-app/domains/session/surface/session-surface.tsx");
+    const pendingAgent = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface-pending-agent.ts",
+    );
     const surfaceTypes = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/session-surface-types.ts",
     );
+    const surfaceSources = [surface, pendingAgent].join("\n");
+    const expertHost = [expertPage, conversationModel].join("\n");
 
-    expect(expertPage).toContain("const activeAgentContext = useMemo<PendingAgentContext | null>");
-    expect(expertPage).toContain("findBuiltinMarketplaceExpertById(");
-    expect(expertPage).toContain("activeAgentContext?.id ??");
+    // Active agent identity resolves via pure conversation model (wired from ExpertPage).
+    expect(expertPage).toContain("resolveActiveAgentContext");
+    expect(expertPage).toContain("const activeAgentContext = useMemo");
+    expect(conversationModel).toContain("export function resolveActiveAgentContext");
+    expect(conversationModel).toContain("findBuiltinMarketplaceExpertById(");
+    expect(expertHost).toContain("activeAgentContext?.id ??");
     expect(expertPage).toContain("agentContext={activeAgentContext}");
     expect(expertPage).toContain("assistantFeatureCategoryId={activeExpertFeatureCategoryId}");
     expect(expertPage).not.toContain("DEFAULT_AGENT_TEMPLATE_ID");
     // SessionSurfaceProps lives in session-surface-types (folder extract).
     expect(surfaceTypes).toContain("agentContext?: PendingAgentContext | null");
     expect(surface).toContain('export type { SessionSurfaceProps } from "./session-surface-types"');
-    expect(surface).toContain(": props.agentContext");
-    expect(surface).toContain("assistantFeatureCategoryId");
+    expect(surface).toContain("export function SessionSurface");
+    expect(surfaceSources).toContain(": props.agentContext");
+    expect(surfaceSources).toContain("assistantFeatureCategoryId");
   });
 
   test("expert draft tabs keep multiple unsent experts selectable", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const conversationModel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
+    );
     const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
     const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx");
+    const expertHost = [expertPage, conversationModel].join("\n");
 
     expect(expertPage).toContain("draftAgentContexts");
-    expect(expertPage).toContain("`draft:${props.selectedWorkspaceId}:${agent.id}`");
+    expect(conversationModel).toContain("export function buildDraftAgentGroups");
+    expect(expertHost).toContain("`draft:${selectedWorkspaceId}:${agent.id}`");
     expect(expertPage).toContain("onOpenDraftSession={handleOpenDraftSession}");
     expect(expertPage).toContain("draftAgentGroups={draftAgentGroups}");
     expect(expertPage).toContain("selectedAgentId={activeConversationAgentId}");
@@ -410,7 +444,8 @@ describe("expert marketplace UI contract", () => {
 
     expect(tabs).toContain("const [pendingSessionId, setPendingSessionId]");
     expect(tabs).toContain("const activeSessionId = pendingSessionId ?? props.selectedSessionId");
-    expect(tabs).toContain("tabRefs.current[activeSessionId]?.scrollIntoView");
+    expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
+    expect(tabs).toContain("mergeStableSessionTabOrder");
     expect(tabs).toContain("window.setTimeout");
     expect(tabs).toContain("setPendingSessionId(session.id)");
     expect(tabs).toContain("const active = session.id === activeSessionId");
@@ -439,7 +474,7 @@ describe("expert marketplace UI contract", () => {
     expect(tabs).not.toContain("rounded-full border-dls-border bg-dls-surface");
   });
 
-  test("assistant automation session rows do not expose pinning", () => {
+  test("assistant automation session rows support local pinning under scheduled groups", () => {
     const sections = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx");
     const taskItem = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/assistant-task-item.tsx");
 
@@ -447,7 +482,9 @@ describe("expert marketplace UI contract", () => {
     expect(taskItem).toContain("const pinnable = props.pinnable ?? true");
     // Pin control only when pinnable and a toggle handler is provided.
     expect(taskItem).toContain("{pinnable && props.onTogglePinned ? (");
-    expect(sections).toContain("pinnable={false}");
+    // Scheduled-group runs are locally pinnable (feature/schedule pins).
+    expect(sections).toContain("automationLocalPinsById");
+    expect(sections).toMatch(/pinnable\s*\n\s*pinnedSessionIds=\{/);
   });
 
   test("session route cleans local expert and assistant indexes after deletion", () => {
@@ -466,7 +503,9 @@ describe("expert marketplace UI contract", () => {
   test("keeps built-in package installation delayed until a real session exists", () => {
     const sessionRoute = [
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/page-view.tsx"),
+      // Assembly lives in impl; thin surface-props-hook.ts only re-exports.
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook.ts"),
+      readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts"),
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/intent.ts"),
     ].join("\n");
     const agentContext = readWorkspaceFile("apps/app/src/react-app/shell/session-route/agent-context.ts");
@@ -475,10 +514,11 @@ describe("expert marketplace UI contract", () => {
     expect(sessionRoute).toContain('marketplaceExpert.source !== "builtin"');
     expect(sessionRoute).toContain("installExpertPackage({");
     expect(sessionRoute).toContain("bindPendingAgentToSession({");
+    expect(sessionRoute).toContain("sessionId: newSession.id");
     expect(sessionRoute).toContain("writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id)");
     expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     expect(sessionRoute).toContain("await installMarketplaceExpertAfterSessionCreated");
-    expect(sessionRoute).toContain("boundSessionId: newSession.id");
+    // Binding goes through helper; agent-context stamps boundSessionId from sessionId.
     expect(agentContext).toContain("boundSessionId: input.sessionId");
   });
 
@@ -489,7 +529,9 @@ describe("expert marketplace UI contract", () => {
     const store = readWorkspaceFile("apps/app/src/react-app/domains/agents/agent-registry-store.ts");
     const model = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/conversation-model.ts");
 
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, pendingAgentSnapshot)");
+    // After create, resolvePendingAgentForPrompt may inherit; bind uses agentToBind.
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, agentToBind)");
+    expect(sessionRoute).toContain("resolvePendingAgentForPrompt");
     expect(store).toContain("onmyagent:customAgentSnapshotBySessionId");
     expect(store).toContain("export function readSessionAgentSnapshot");
     expect(store).toContain("export function writeSessionAgentSnapshot");

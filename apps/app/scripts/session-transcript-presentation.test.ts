@@ -8,14 +8,17 @@ import {
 } from "../src/react-app/domains/session/surface/transcript-presentation";
 
 describe("session transcript presentation", () => {
-  test("matches WorkBuddy responsive content widths", () => {
-    expect(computeTranscriptMaxContentWidth(900)).toBe(DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH);
-    expect(computeTranscriptMaxContentWidth(1_200)).toBe(832);
-    expect(computeTranscriptMaxContentWidth(1_280)).toBe(832);
-    expect(computeTranscriptMaxContentWidth(1_600)).toBe(1_040);
-    expect(computeTranscriptMaxContentWidth(2_000)).toBe(1_200);
-    expect(computeTranscriptMaxContentWidth(2_400)).toBe(1_320);
-    expect(computeTranscriptMaxContentWidth(3_000)).toBe(1_400);
+  test("matches composer content column width (1120)", () => {
+    expect(DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH).toBe(1120);
+    // < md: px-4 gutters (32 total).
+    expect(computeTranscriptMaxContentWidth(400)).toBe(368);
+    // md+ (768+): px-8 gutters (64 total), capped at 1120.
+    expect(computeTranscriptMaxContentWidth(900)).toBe(836);
+    expect(computeTranscriptMaxContentWidth(1_200)).toBe(1_120);
+    expect(computeTranscriptMaxContentWidth(1_280)).toBe(1_120);
+    expect(computeTranscriptMaxContentWidth(1_600)).toBe(1_120);
+    expect(computeTranscriptMaxContentWidth(2_000)).toBe(1_120);
+    expect(computeTranscriptMaxContentWidth(3_000)).toBe(1_120);
   });
 
   test("matches WorkBuddy duration floors and units", () => {

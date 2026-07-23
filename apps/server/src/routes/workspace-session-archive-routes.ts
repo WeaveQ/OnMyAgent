@@ -12,7 +12,6 @@ import {
 } from "@onmyagent/types/session-archive";
 import { ApiError } from "../core/errors.js";
 import type { SessionArchiveStore } from "../services/session-archive.js";
-import { openSessionArchiveStore } from "../services/session-archive.js";
 import { getSessionArchiveLifecycleStatus } from "../services/session-archive-lifecycle.js";
 import {
   resolveSessionArchiveRuntimePaths,
@@ -21,6 +20,18 @@ import {
   type SessionArchiveSourceRoot,
   type SessionArchiveSyncMode,
 } from "../services/session-archive-sync.js";
+import {
+  defaultSessionArchiveStorePool,
+  withSessionArchiveStore,
+} from "../services/session-archive-store-pool.js";
+import { resolveArchiveSsePollMs } from "../services/archive-sse-policy.js";
+import { notifyArchiveDbChanged } from "../services/archive-change-bus.js";
+import {
+  persistentSessionArchiveEventsResponse,
+  persistentSessionArchiveWatchResponse,
+  sseEvent,
+  sseResponse,
+} from "./workspace-session-archive-sse.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import pkg from "../../package.json" with { type: "json" };
 
@@ -77,6 +88,7 @@ function scheduleSessionArchiveAutoSync(input: {
       job.status = "completed";
       job.finished_at = new Date().toISOString();
       job.stats = stats;
+      notifyArchiveDbChanged(input.paths.dbPath);
       return stats;
     })
     .catch((error: unknown) => {
@@ -108,24 +120,18 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
 
   const withResolvedWorkspaceArchiveStore = async (
     ctx: RequestContext,
-    callback: (store: SessionArchiveStore, workspace: WorkspaceInfo, dbPath: string) => Response,
+    callback: (store: SessionArchiveStore, workspace: WorkspaceInfo, dbPath: string) => Response | Promise<Response>,
   ): Promise<Response> => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const dbPath = resolveArchivePaths(workspace).dbPath;
-    const store = await openSessionArchiveStore({ dbPath });
-    try {
-      return callback(store, workspace, dbPath);
-    } finally {
-      store.close();
-    }
+    return withSessionArchiveStore({ dbPath }, async (store) => callback(store, workspace, dbPath));
   };
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const paths = resolveArchivePaths(workspace);
     scheduleSessionArchiveAutoSync({ workspace, paths, sourceRoots });
-    const store = await openSessionArchiveStore({ dbPath: paths.dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: paths.dbPath }, async (store) => {
       return systemJsonResponse(store.listSessions({
         cursor: ctx.url.searchParams.get("cursor")?.trim() || undefined,
         start: parseOptionalNonNegativeInteger(ctx.url.searchParams.get("start"), "start"),
@@ -154,9 +160,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         starred: parseOptionalBoolean(ctx.url.searchParams.get("starred")),
         termination: parseSessionListTermination(ctx.url.searchParams.get("termination")),
       }));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions/:sessionId", "client", async (ctx) => {
@@ -398,41 +402,55 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const dbPath = resolveArchivePaths(workspace).dbPath;
     const sessionId = readSessionId(ctx);
-    const pollMs = parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms") ?? 1500;
+    const pollMs = resolveArchiveSsePollMs(
+      parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms"),
+    );
     const maxEvents = parseOptionalPositiveInteger(ctx.url.searchParams.get("max_events"), "max_events") ?? 0;
-    const store = await openSessionArchiveStore({ dbPath });
-    try {
-      const session = store.getSession(sessionId);
-      const timing = store.getTiming(sessionId);
-      if (!session || !timing) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
-      return persistentSessionArchiveWatchResponse({ dbPath, sessionId, session, timing, pollMs, maxEvents, signal: ctx.request.signal });
-    } finally {
-      store.close();
+    // Acquire for the SSE connection lifetime (released on abort/close).
+    const store = await defaultSessionArchiveStorePool.acquire({ dbPath });
+    const session = store.getSession(sessionId);
+    const timing = store.getTiming(sessionId);
+    if (!session || !timing) {
+      defaultSessionArchiveStorePool.release({ dbPath });
+      throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
     }
+    return persistentSessionArchiveWatchResponse({
+      store,
+      dbPath,
+      sessionId,
+      session,
+      timing,
+      pollMs,
+      maxEvents,
+      signal: ctx.request.signal,
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/events", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const dbPath = resolveArchivePaths(workspace).dbPath;
-    const pollMs = parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms") ?? 2500;
+    const pollMs = resolveArchiveSsePollMs(
+      parseOptionalPositiveInteger(ctx.url.searchParams.get("poll_ms"), "poll_ms"),
+    );
     const maxEvents = parseOptionalPositiveInteger(ctx.url.searchParams.get("max_events"), "max_events") ?? 0;
-    const store = await openSessionArchiveStore({ dbPath });
-    try {
-      return persistentSessionArchiveEventsResponse({ dbPath, workspaceId: workspace.id, stats: store.stats(), pollMs, maxEvents, signal: ctx.request.signal });
-    } finally {
-      store.close();
-    }
+    const store = await defaultSessionArchiveStorePool.acquire({ dbPath });
+    return persistentSessionArchiveEventsResponse({
+      store,
+      dbPath,
+      workspaceId: workspace.id,
+      stats: store.stats(),
+      pollMs,
+      maxEvents,
+      signal: ctx.request.signal,
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/usage/summary", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const filter = parseUsageFilter(ctx);
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       return systemJsonResponse(store.getUsageSummary(filter));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/usage/comparison", "client", async (ctx) => {
@@ -586,17 +604,14 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "POST", "/workspace/:id/session-archive/insights/generate", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = await ctx.request.json().catch(() => null);
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       const insight = store.generateInsight(payload);
       return sseResponse([
         sseEvent("status", { phase: "generating" }),
         sseEvent("log", { stream: "stdout", line: "generated local archive insight" }),
         sseEvent("done", insight),
       ]);
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/search", "client", async (ctx) => {
@@ -605,8 +620,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     if (!query) {
       throw new ApiError(400, "invalid_query", "q is required");
     }
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       return systemJsonResponse(store.search({
         query,
         cursor: parseOptionalNonNegativeInteger(ctx.url.searchParams.get("cursor"), "cursor"),
@@ -635,9 +649,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         starred: parseOptionalBoolean(ctx.url.searchParams.get("starred")),
         termination: parseSessionListTermination(ctx.url.searchParams.get("termination")),
       }));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/search/content", "client", async (ctx) => {
@@ -646,8 +658,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     if (!pattern) {
       throw new ApiError(400, "invalid_query", "pattern is required");
     }
-    const store = await openSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
       return systemJsonResponse(store.searchContent({
         pattern,
         mode: parseContentSearchMode(ctx.url.searchParams.get("mode")),
@@ -658,9 +669,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         project: ctx.url.searchParams.get("project")?.trim() || undefined,
         agent: ctx.url.searchParams.get("agent")?.trim() || undefined,
       }));
-    } finally {
-      store.close();
-    }
+    });
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/sessions/upload", "client", async (ctx) => {
@@ -814,12 +823,9 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     if (job?.stats) {
       return systemJsonResponse(syncJobResponse(job, paths.dbPath));
     }
-    const store = await openSessionArchiveStore({ dbPath: paths.dbPath });
-    try {
+    return withSessionArchiveStore({ dbPath: paths.dbPath }, async (store) => {
       return systemJsonResponse({ ok: true, status: "idle", stats: store.stats(), dbPath: paths.dbPath });
-    } finally {
-      store.close();
-    }
+    });
   });
 }
 
@@ -844,26 +850,16 @@ function syncJobResponse(job: SessionArchiveSyncJob, dbPath: string) {
 async function withArchiveStore(
   dbPath: string,
   ctx: RequestContext,
-  callback: (store: SessionArchiveStore, sessionId: string) => Response,
+  callback: (store: SessionArchiveStore, sessionId: string) => Response | Promise<Response>,
 ): Promise<Response> {
-  const store = await openSessionArchiveStore({ dbPath });
-  try {
-    return callback(store, readSessionId(ctx));
-  } finally {
-    store.close();
-  }
+  return withSessionArchiveStore({ dbPath }, async (store) => callback(store, readSessionId(ctx)));
 }
 
 async function withWorkspaceArchiveStore(
   dbPath: string,
-  callback: (store: SessionArchiveStore) => Response,
+  callback: (store: SessionArchiveStore) => Response | Promise<Response>,
 ): Promise<Response> {
-  const store = await openSessionArchiveStore({ dbPath });
-  try {
-    return callback(store);
-  } finally {
-    store.close();
-  }
+  return withSessionArchiveStore({ dbPath }, async (store) => callback(store));
 }
 
 function ensureSession(store: SessionArchiveStore, sessionId: string) {
@@ -1051,165 +1047,4 @@ async function readJsonBody(ctx: RequestContext, fallback?: Record<string, unkno
 function objectBody(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value));
-}
-
-function sseEvent(event: string, data: unknown): string {
-  const value = typeof data === "string" ? data : JSON.stringify(data);
-  return `event: ${event}\ndata: ${value}\n\n`;
-}
-
-function sseResponse(events: string[]): Response {
-  return new Response(events.join(""), {
-    status: 200,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
-}
-
-function persistentSessionArchiveWatchResponse(input: {
-  dbPath: string;
-  sessionId: string;
-  session: unknown;
-  timing: unknown;
-  pollMs: number;
-  maxEvents: number;
-  signal: AbortSignal;
-}): Response {
-  const encoder = new TextEncoder();
-  let sent = 0;
-  let lastVersion = JSON.stringify({ session: input.session, timing: input.timing });
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      let timer: ReturnType<typeof setInterval> | null = null;
-      let closed = false;
-      const send = (event: string, data: unknown) => {
-        if (closed) return;
-        controller.enqueue(encoder.encode(sseEvent(event, data)));
-        sent += 1;
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        if (timer) clearInterval(timer);
-        controller.close();
-      };
-      const closeIfDone = () => {
-        if (input.maxEvents > 0 && sent >= input.maxEvents) {
-          close();
-          return true;
-        }
-        return false;
-      };
-      send("session.timing", input.timing);
-      send("heartbeat", new Date().toISOString());
-      if (closeIfDone()) return;
-      timer = setInterval(async () => {
-        if (input.signal.aborted) {
-          close();
-          return;
-        }
-        const store = await openSessionArchiveStore({ dbPath: input.dbPath });
-        try {
-          const session = store.getSession(input.sessionId);
-          const timing = store.getTiming(input.sessionId);
-          const version = JSON.stringify({ session, timing });
-          if (session && timing && version !== lastVersion) {
-            lastVersion = version;
-            send("session.timing", timing);
-            send("session_updated", { session_id: input.sessionId, session });
-          } else {
-            send("heartbeat", new Date().toISOString());
-          }
-          closeIfDone();
-        } finally {
-          store.close();
-        }
-      }, input.pollMs);
-      input.signal.addEventListener("abort", () => {
-        close();
-      }, { once: true });
-    },
-  });
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
-}
-
-function persistentSessionArchiveEventsResponse(input: {
-  dbPath: string;
-  workspaceId: string;
-  stats: unknown;
-  pollMs: number;
-  maxEvents: number;
-  signal: AbortSignal;
-}): Response {
-  const encoder = new TextEncoder();
-  let sent = 0;
-  let lastVersion = JSON.stringify(input.stats);
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      let timer: ReturnType<typeof setInterval> | null = null;
-      let closed = false;
-      const send = (event: string, data: unknown) => {
-        if (closed) return;
-        controller.enqueue(encoder.encode(sseEvent(event, data)));
-        sent += 1;
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        if (timer) clearInterval(timer);
-        controller.close();
-      };
-      const closeIfDone = () => {
-        if (input.maxEvents > 0 && sent >= input.maxEvents) {
-          close();
-          return true;
-        }
-        return false;
-      };
-      send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats: input.stats });
-      send("heartbeat", new Date().toISOString());
-      if (closeIfDone()) return;
-      timer = setInterval(async () => {
-        if (input.signal.aborted) {
-          close();
-          return;
-        }
-        const store = await openSessionArchiveStore({ dbPath: input.dbPath });
-        try {
-          const stats = store.stats();
-          const version = JSON.stringify(stats);
-          if (version !== lastVersion) {
-            lastVersion = version;
-            send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats });
-          } else {
-            send("heartbeat", new Date().toISOString());
-          }
-          closeIfDone();
-        } finally {
-          store.close();
-        }
-      }, input.pollMs);
-      input.signal.addEventListener("abort", () => {
-        close();
-      }, { once: true });
-    },
-  });
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
 }

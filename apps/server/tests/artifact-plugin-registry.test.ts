@@ -52,7 +52,7 @@ const documentsRuntime: ArtifactPluginRuntimeConfig = {
   },
   runtime: {
     entry: "runtime/artifact_runtime.py",
-    requiredTools: ["python", "libreoffice"],
+    requiredTools: ["node"],
   },
 };
 
@@ -213,10 +213,10 @@ test("loads the bundled artifact plugin packages", async () => {
       ["browser-automation"],
       ["documents"],
       ["pdf"],
-      ["spreadsheets", "excel-live-control"],
+      ["spreadsheets"],
     ],
   );
-  assert.equal(catalog.items[3]?.manifest.apps, "./.app.json");
+  assert.equal(catalog.items[3]?.manifest.apps, undefined);
 });
 
 test("rejects manifest and companion files that resolve outside the plugin root", async () => {

@@ -1,38 +1,44 @@
 ---
 name: spreadsheets
-description: Use when a user asks to create, read, clean, analyze, calculate, convert, or edit XLSX, XLS, CSV, or TSV files through the bundled Spreadsheets artifact plugin.
+description: Create, edit, analyze, and verify local XLSX, XLS, CSV, and TSV files with the bundled JavaScript artifact runtime. Use for formulas, charts, formatting, cleanup, reconciliation, and tabular analysis.
 ---
 
 # Spreadsheets
 
-## Overview
+Work only with standalone local files. Do not claim control of a live Excel session or hand off to Google Sheets. Use only the bundled Node.js libraries; do not install or invoke external spreadsheet engines.
 
-Use the plugin runtime as the sole authority for spreadsheet file operations. Do not infer installed workbook libraries or office applications from the file extension.
+## Required workflow
 
-## Runtime contract
+1. Treat the reported base directory as the skill root. Run `node runtime/artifact_runtime.cjs doctor` before the first operation.
+2. Inspect inputs with `node runtime/artifact_runtime.cjs inspect <path>` before modifying them.
+3. Use `exceljs` for modern XLSX structure, formulas, styles, tables, charts, comments, validation, conditional formatting, print settings, and named ranges.
+4. Use `xlsx` for CSV/TSV and legacy XLS import/export. Prefer saving edited legacy workbooks as `.xlsx` and disclose the conversion.
+5. Write task scripts as CommonJS (`.cjs`) so bundled dependencies resolve without installing packages into the user's workspace.
+6. Preserve formulas and cached results when possible. Never replace a requested formula model with unexplained hard-coded numbers.
+7. Open the result in OnMyAgent's file preview and inspect every relevant sheet, merged range, table, chart, width, number format, and frozen pane.
+8. Finish with `node runtime/artifact_runtime.cjs verify <output>` and report the exact output path.
 
-1. Resolve the plugin root as two directories above this `SKILL.md`.
-2. Run `python3 <plugin-root>/runtime/artifact_runtime.py --capabilities` before promising a spreadsheet result.
-3. Parse the JSON response and inspect `status` and `capabilities`.
-4. Continue only if the requested read, write, conversion, calculation, or verification operation is advertised.
-5. On `not_implemented`, stop. Relay the runtime message and state that no spreadsheet file was created or changed.
+## Formula boundary
 
-Do not invent workbook-writing, formula-recalculation, rendering, or CSV conversion commands absent from the runtime contract.
+OnMyAgent preserves and writes formulas but does not pretend to be a complete Excel-compatible calculation engine. Without a native spreadsheet calculation engine, volatile functions, external links, Power Query, data models, macros, and some advanced formulas cannot be recalculated with full fidelity. When formulas lack cached values:
 
-## Quick reference
+- keep the formula intact;
+- calculate only formulas whose semantics are explicitly implemented in the task script;
+- disclose any cells that require recalculation when later opened in Excel-compatible software;
+- never fabricate cached results.
 
-| Runtime result | Action |
-| --- | --- |
-| `not_implemented` | Report the limitation; claim no workbook output |
-| Needed operation absent | Explain that the operation is unavailable |
-| Needed operation present | Follow only the returned runtime contract |
+## Quality contract
 
-## Example
+- Preserve existing styles and formulas unless the user asks for redesign.
+- Use typed dates/numbers, appropriate number formats, frozen headers, filters, restrained colors, readable widths, and clear units.
+- Charts must have truthful scales, titles, labels, and source ranges.
+- CSV/TSV output must preserve delimiter, encoding, quoting, headers, and row shape; these formats cannot retain workbook styles or formulas.
 
-For “Convert this CSV to XLSX with formulas,” query capabilities first. With `{"status":"not_implemented","capabilities":[]}`, explain that conversion and formula writing are unavailable and no XLSX exists.
+## Runtime commands
 
-## Common mistakes
+- `--capabilities` or `capabilities`: machine-readable operations.
+- `doctor`: bundled JavaScript dependency health.
+- `inspect <file>`: workbook, sheet, formula, and error summary.
+- `verify <file>`: structural, formula-error, and cached-value checks.
 
-- Assuming Python workbook packages or LibreOffice are callable.
-- Claiming formulas were recalculated or a workbook was rendered without runtime evidence.
-- Relying on package resources that the runtime has not advertised.
+Visual rendering belongs to the OnMyAgent preview surface. The artifact runtime does not expose external recalculation or PDF-conversion commands.

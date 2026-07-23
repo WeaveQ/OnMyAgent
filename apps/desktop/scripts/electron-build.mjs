@@ -9,6 +9,15 @@ const repoRoot = resolve(desktopRoot, "../..");
 const electronSidecarDir = resolve(desktopRoot, "resources", "sidecars");
 const electronRuntimeDir = resolve(desktopRoot, "resources", "runtimes");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
+const electronArtifactRuntimeDir = resolve(desktopRoot, "resources", "artifact-runtime");
+const artifactRuntimeWorkspaceLink = resolve(
+  electronArtifactRuntimeDir,
+  "node_modules",
+  ".pnpm",
+  "node_modules",
+  "@onmyagent",
+  "artifact-runtime",
+);
 const electronRoot = resolve(desktopRoot, "electron");
 const packagedServerRoot = resolve(desktopRoot, "server");
 
@@ -34,6 +43,16 @@ function run(command, args, cwd, env) {
 run(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--outdir", electronSidecarDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-runtimes.mjs"), "--outdir", electronRuntimeDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], desktopRoot);
+rmSync(electronArtifactRuntimeDir, { recursive: true, force: true });
+run(
+  pnpmCmd,
+  ["--offline", "--filter", "@onmyagent/artifact-runtime", "deploy", "--legacy", "--prod", electronArtifactRuntimeDir],
+  repoRoot,
+);
+// pnpm's legacy deploy includes a workspace self-link that points back into the
+// source checkout. It is unnecessary at runtime and becomes broken after
+// electron-builder copies resources into the application bundle for signing.
+rmSync(artifactRuntimeWorkspaceLink, { recursive: true, force: true });
 // Built-in skills are curated directly in resources/bundled-skills and are
 // packaged read-only. Workspace-local .opencode/skills is development-only and
 // must not implicitly change the shipped desktop bundle.
@@ -59,8 +78,15 @@ run(pnpmCmd, ["--filter", "onmyagent-server", "build"], repoRoot);
 // ONMYAGENT_ELECTRON_BUILD tells Vite to emit relative asset paths so
 // index.html resolves /assets/* correctly when loaded via file:// from
 // inside the packaged .app bundle.
+// Raise V8 heap for vite production builds — GHA macos-14 runners have
+// OOM'd mid-bundle (SIGABRT) under default ~2–4GB Node limits.
+const nodeHeap =
+  process.env.NODE_OPTIONS && process.env.NODE_OPTIONS.includes("max-old-space-size")
+    ? process.env.NODE_OPTIONS
+    : [process.env.NODE_OPTIONS, "--max-old-space-size=8192"].filter(Boolean).join(" ");
 run(pnpmCmd, ["--filter", "@onmyagent/app", "build"], repoRoot, {
   ONMYAGENT_ELECTRON_BUILD: "1",
+  NODE_OPTIONS: nodeHeap,
 });
 // Copy constants.json next to server dist so the packaged asar can resolve it.
 // Also patch the compiled import path so it works from both dev and packaged layouts.

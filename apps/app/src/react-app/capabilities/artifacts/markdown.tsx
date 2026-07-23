@@ -30,6 +30,7 @@ import {
   renderMarkdownMath,
 } from "./markdown-math";
 import { applyTextHighlights } from "./text-highlights";
+import { shouldRunMarkdownHeavyEnhance } from "./markdown-stream-policy";
 
 const MARKDOWN_COPY_LABEL_TOKEN = "__ONMYAGENT_MARKDOWN_COPY_LABEL__";
 
@@ -219,9 +220,19 @@ function createEmojiAliases() {
 
 const emojiAliases = createEmojiAliases();
 
+/** Strip internal waybill-patch fences so users never see raw JSON dumps. */
+export function stripInternalWaybillPatchFences(markdown: string) {
+  return markdown
+    .replace(/```waybill-patch\s*\n[\s\S]*?```/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function preprocessSessionMarkdown(markdown: string) {
   const repeatLimit = 200;
-  const truncated = markdown.replace(/(.)\1{200,}/g, (match, character: string) => (
+  const withoutInternalPatches = stripInternalWaybillPatchFences(markdown);
+  const truncated = withoutInternalPatches.replace(/(.)\1{200,}/g, (match, character: string) => (
     `${character.repeat(repeatLimit)}…${t("session.markdown_chars_omitted", { count: match.length - repeatLimit })}`
   ));
   return normalizeMarkdownMathDelimiters(truncated);
@@ -285,10 +296,18 @@ const baseMarkedOptions = {
     },
     link({ href, title, tokens }) {
       const explicitOpenMode: MarkdownCodePathOpenMode | null = href.startsWith("preview:")
+        || href.startsWith("artifact:")
         ? "preview"
-        : href.startsWith("artifact:")
+        : href.startsWith("reveal:")
           ? "reveal"
           : null;
+      const linkSource = href.startsWith("preview:")
+        ? "preview"
+        : href.startsWith("artifact:")
+          ? "artifact"
+          : href.startsWith("reveal:")
+            ? "reveal"
+            : null;
       const explicitPath = explicitOpenMode
         ? decodedLocalHref(href.slice(href.indexOf(":") + 1))
         : "";
@@ -299,7 +318,8 @@ const baseMarkedOptions = {
       const openMode = explicitOpenMode ?? (filePath ? "reveal" : null);
       if (filePath) {
         const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
-        return `<a href="#" data-markdown-file-path="${escapeAttribute(filePath.path)}" data-markdown-open-mode="${openMode}"${titleAttr} class="inline-flex h-8 items-center justify-center rounded-lg border border-dls-border bg-dls-surface px-3 text-sm font-medium text-dls-text no-underline transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus">${this.parser.parseInline(tokens)}</a>`;
+        const sourceAttr = linkSource ? ` data-markdown-link-source="${linkSource}"` : "";
+        return `<a href="#" data-markdown-file-path="${escapeAttribute(filePath.path)}" data-markdown-open-mode="${openMode}"${sourceAttr}${titleAttr} class="inline-flex h-8 items-center justify-center rounded-lg border border-dls-border bg-dls-surface px-3 text-sm font-medium text-dls-text no-underline transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus">${this.parser.parseInline(tokens)}</a>`;
       }
       const safeHrefValue = safeHref(href);
       const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
@@ -417,22 +437,24 @@ function MarkdownBlockInner(props: {
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    // Skip KaTeX while streaming — re-run once idle (same as shiki path).
+    if (!root || !shouldRunMarkdownHeavyEnhance(props.streaming)) return;
     void renderMarkdownMath(root).catch(() => undefined);
-  }, [html]);
+  }, [html, props.streaming]);
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    // Skip Mermaid bind/render while streaming — keep cheap sync HTML only.
+    if (!root || !shouldRunMarkdownHeavyEnhance(props.streaming)) return;
     return setupMarkdownMermaid(root, {
-      streaming: props.streaming === true,
+      streaming: false,
       labels: mermaidLabels,
     });
   }, [html, mermaidLabels, props.streaming]);
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || props.streaming) return;
+    if (!root || !shouldRunMarkdownHeavyEnhance(props.streaming)) return;
     let cancelled = false;
     let renderGeneration = 0;
 
@@ -545,15 +567,24 @@ function MarkdownBlockInner(props: {
     });
     root.querySelectorAll<HTMLAnchorElement>("a[data-markdown-file-path]").forEach((fileLink) => {
       const rawPath = fileLink.dataset.markdownFilePath ?? "";
+      const openMode = fileLink.dataset.markdownOpenMode === "reveal" ? "reveal" : "preview";
+      const linkSource = fileLink.dataset.markdownLinkSource ?? "";
       const resolvedPath = resolveVerifiedCodePath(props.verifiedCodePaths ?? [], rawPath);
-      if (!resolvedPath) {
+      if (!resolvedPath && openMode === "preview" && linkSource !== "artifact") {
         fileLink.setAttribute("aria-disabled", "true");
         fileLink.classList.add("pointer-events-none", "opacity-50");
         return;
       }
-      fileLink.dataset.markdownCodePath = resolvedPath;
-      fileLink.title = t("files.open_in_folder");
+      fileLink.dataset.markdownCodePath = resolvedPath ?? rawPath;
+      fileLink.title = openMode === "preview"
+        ? t("files.view_in_panel")
+        : t("files.open_in_folder");
+      if (linkSource === "artifact") {
+        fileLink.textContent = t("files.view_in_panel");
+      }
       fileLink.removeAttribute("target");
+      fileLink.removeAttribute("aria-disabled");
+      fileLink.classList.remove("pointer-events-none", "opacity-50");
     });
     const resetTimers = new Set<number>();
     const handleClick = (event: MouseEvent) => {

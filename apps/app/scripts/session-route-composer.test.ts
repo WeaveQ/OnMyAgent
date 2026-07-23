@@ -24,7 +24,8 @@ import {
   sanitizeUploadFilename,
   updateDefaultModelPrefs,
 } from "../src/react-app/shell/session-route/composer";
-import type { ComposerAttachment, ComposerDraft } from "../src/app/types";
+import { shouldForceNewSessionOnIdle } from "../src/react-app/shell/session-route/auto-new-session";
+import type { ComposerAttachment, ComposerDraft, SidebarSessionItem } from "../src/app/types";
 import { setLocale } from "../src/i18n";
 
 function draft(input: Partial<ComposerDraft>): ComposerDraft {
@@ -191,12 +192,13 @@ describe("session route composer", () => {
     ).toEqual({
       needsNewSession: false,
       initialSessionId: "ses_1",
+      // Existing session: draft workspace is ignored for binding.
       explicitAssistantWorkspace: "",
       taskWorkspaceRoot: "/tmp/session",
     });
   });
 
-  test("uses picked draft workspace for new expert sessions without assistant workspace registration", () => {
+  test("binds picked draft workspace for new expert sessions so the side panel scopes to it", () => {
     expect(
       resolveDraftSendPlan({
         selectedSessionId: "ses_existing",
@@ -208,9 +210,64 @@ describe("session route composer", () => {
     ).toEqual({
       needsNewSession: true,
       initialSessionId: null,
-      explicitAssistantWorkspace: "",
+      explicitAssistantWorkspace: "/tmp/expert-code",
       taskWorkspaceRoot: "/tmp/expert-code",
     });
+  });
+
+  test("force-new from a space-bound assistant session inherits the space directory", () => {
+    expect(
+      resolveDraftSendPlan({
+        selectedSessionId: "ses_space",
+        forceNewSession: true,
+        pageMode: "assistant",
+        assistantDraftWorkspaceRoot: "",
+        sessionWorkspaceRoot: "/tmp/workspace-root",
+        inheritAssistantWorkspaceDirectory: " /tmp/spaces/test1 ",
+      }),
+    ).toEqual({
+      needsNewSession: true,
+      initialSessionId: null,
+      explicitAssistantWorkspace: "/tmp/spaces/test1",
+      taskWorkspaceRoot: "/tmp/spaces/test1",
+    });
+
+    // Explicit draft folder still wins over inheritance.
+    expect(
+      resolveDraftSendPlan({
+        selectedSessionId: "ses_space",
+        forceNewSession: true,
+        pageMode: "assistant",
+        assistantDraftWorkspaceRoot: "/tmp/spaces/other",
+        sessionWorkspaceRoot: "/tmp/workspace-root",
+        inheritAssistantWorkspaceDirectory: "/tmp/spaces/test1",
+      }).explicitAssistantWorkspace,
+    ).toBe("/tmp/spaces/other");
+  });
+
+  test("idle auto-new does not fire while the selected session is busy", () => {
+    const sessions: SidebarSessionItem[] = [
+      {
+        id: "ses_space",
+        title: "询问模型身份",
+        version: "0",
+        time: { created: 1, updated: 1 },
+      },
+    ];
+    const staleIdle = {
+      enabled: true,
+      idleHours: 1,
+      selectedSessionId: "ses_space",
+      sessions,
+      // 2h after last listed update → would otherwise force-new
+      nowMs: 1 + 2 * 60 * 60 * 1000,
+    };
+    expect(shouldForceNewSessionOnIdle({ ...staleIdle, sessionBusy: true })).toBe(
+      false,
+    );
+    expect(shouldForceNewSessionOnIdle({ ...staleIdle, sessionBusy: false })).toBe(
+      true,
+    );
   });
 
   test("detects sendable draft content from resolved text or attachments", () => {
@@ -383,9 +440,12 @@ describe("session route composer", () => {
 
     expect(uploaded).toHaveLength(1);
     expect(uploaded[0]?.path).toContain("session-uploads/");
+    // Must stay text-only for non-native MIME (no file parts → model reject).
     expect(parts).toHaveLength(1);
     expect(parts[0]).toMatchObject({ type: "text" });
     expect(parts[0]?.text).toContain("report.pdf (application/pdf)");
-    expect(parts[0]?.text).toContain("/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf");
+    expect(parts[0]?.text).toContain(
+      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf",
+    );
   });
 });

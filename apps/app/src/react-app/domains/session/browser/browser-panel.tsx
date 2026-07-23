@@ -20,6 +20,10 @@ import {
 } from "./use-browser-state";
 import { BROWSER_HOME_URL } from "./open-in-app-browser";
 import { filterTabsForSession } from "./session-browser-tabs";
+import {
+  shouldRunBrowserBoundsRaf,
+  shouldStartBrowserBoundsLoop,
+} from "./browser-bounds-raf";
 
 type BrowserPanelProps = {
   onClose: () => void;
@@ -288,12 +292,26 @@ export function EmbeddedBrowserViewport({
 
     const watchBounds = () => {
       syncBounds();
+      // Stop when inactive/unmounted; restart when this effect re-runs with
+      // active=true (effect deps include `active`).
+      if (
+        !shouldRunBrowserBoundsRaf({
+          disposed,
+          active: activeRef.current,
+        })
+      ) {
+        boundsFrameRef.current = null;
+        return;
+      }
       boundsFrameRef.current = window.requestAnimationFrame(watchBounds);
     };
 
     // Immediate sync (no await hide) so first paint attaches the native view.
     syncBounds();
-    boundsFrameRef.current = window.requestAnimationFrame(watchBounds);
+    // Restart loop when active flips false→true (deps: [active]).
+    if (shouldStartBrowserBoundsLoop(activeRef.current)) {
+      boundsFrameRef.current = window.requestAnimationFrame(watchBounds);
+    }
 
     const observer = new ResizeObserver(() => {
       syncBounds();
@@ -320,7 +338,8 @@ export function EmbeddedBrowserViewport({
       lastBoundsRef.current = null;
       void disposed;
     };
-  }, []);
+    // Re-run when `active` changes so inactive mount + later activate restarts rAF.
+  }, [active]);
 
   return <div ref={contentRef} className={className ?? "min-h-0 flex-1 overflow-hidden"} />;
 }

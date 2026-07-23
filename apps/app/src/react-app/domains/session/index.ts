@@ -1,4 +1,18 @@
 export type { OpenTarget, OpenTargetKind, OpenTargetPreview } from "./artifacts/open-target";
+
+export {
+  bagSessionSurfaceProps,
+  flattenSessionSurfaceProps,
+} from "./surface/session-surface-types";
+export type {
+  SessionSurfaceProps,
+  SessionSurfaceFlatProps,
+  SessionSurfaceModelBag,
+  SessionSurfaceCollaborationBag,
+  SessionSurfacePermissionBag,
+  SessionSurfaceMarketplaceBag,
+  SessionSurfaceDraftWorkspaceBag,
+} from "./surface/session-surface-types";
 export {
   classifyOpenTarget,
   deriveOpenTargets,
@@ -39,6 +53,7 @@ export {
 export type { SessionActivityStatus } from "./status/session-activity-store";
 export {
   resolveAgentIdForSession,
+  resolveUnreadAgentIdForSession,
   useExpertUnreadStore,
 } from "./status/expert-unread-store";
 export type { ExpertUnreadRecord } from "./status/expert-unread-store";
@@ -53,6 +68,17 @@ export {
   writeAssistantSessionWorkspace,
 } from "./sync/assistant-session-workspaces";
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";
+export {
+  buildIsolatedExpertSessionDirectory,
+  createExpertSessionKey,
+  isSameDirectory,
+  joinWorkspacePath,
+  materializeExpertSessionDirectory,
+  resolveExpertSessionDirectoryMarker,
+  resolveSelectedSessionFileRoot,
+  sanitizePathSegment,
+  shouldIsolateExpertSessionDirectory,
+} from "./sync/expert-session-directory";
 export {
   clearSessionDraft,
   getSessionDraft,

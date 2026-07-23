@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { isSupportedWorkspaceTextFilePath, normalizeWorkspaceRelativePath } from "../src/server.js";
+import { contentKindForPath, contentTypeForPath } from "../src/workspace/path-utils.js";
 
 describe("normalizeWorkspaceRelativePath", () => {
   test("accepts a plain workspace-relative path", () => {
@@ -48,6 +49,15 @@ describe("isSupportedWorkspaceTextFilePath", () => {
     expect(isSupportedWorkspaceTextFilePath("config/app.yaml")).toBe(true);
     expect(isSupportedWorkspaceTextFilePath("styles/app.css")).toBe(true);
     expect(isSupportedWorkspaceTextFilePath("dist/index.html")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("scripts/report.py")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/main.rs")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/main.go")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/Main.java")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("scripts/build.sh")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("queries/report.sql")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("config/app.ini")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("src/App.vue")).toBe(true);
+    expect(isSupportedWorkspaceTextFilePath("schema/query.graphql")).toBe(true);
   });
 
   test("keeps accepting OpenCode config/plugin text file extensions", () => {
@@ -58,5 +68,17 @@ describe("isSupportedWorkspaceTextFilePath", () => {
 
   test("rejects unsupported binary-like extensions", () => {
     expect(isSupportedWorkspaceTextFilePath(".opencode/plugins/cloud.bin")).toBe(false);
+  });
+});
+
+describe("workspace media metadata", () => {
+  test("serves MP3 and MP4 with browser-playable content types", () => {
+    expect(contentTypeForPath("recordings/meeting.mp3")).toBe("audio/mpeg");
+    expect(contentTypeForPath("videos/demo.mp4")).toBe("video/mp4");
+  });
+
+  test("keeps media files outside the text-reading path", () => {
+    expect(contentKindForPath("recordings/meeting.mp3")).toBe("binary");
+    expect(contentKindForPath("videos/demo.mp4")).toBe("binary");
   });
 });

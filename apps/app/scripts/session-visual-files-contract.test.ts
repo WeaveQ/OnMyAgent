@@ -13,9 +13,11 @@ describe("session visual and file contracts", () => {
     const markdown = readWorkspaceFile(
       "apps/app/src/react-app/capabilities/artifacts/markdown.tsx",
     );
-    const messageList = readWorkspaceFile(
+    const messageList = [
       "apps/app/src/react-app/domains/session/surface/message-list.tsx",
-    );
+      "apps/app/src/react-app/domains/session/surface/message-list/styles.ts",
+      "apps/app/src/react-app/domains/session/surface/message-list/file-card.tsx",
+    ].map(readWorkspaceFile).join("\n");
 
     expect(markdown).not.toContain("bg-dls-hover p-2 text-left");
     expect(markdown).toContain("rounded-xl border border-dls-mist bg-dls-surface-muted");
@@ -58,7 +60,7 @@ describe("session visual and file contracts", () => {
     }
   });
 
-  test("workspace files page previews file content and routes browser targets through open artifacts", () => {
+  test("workspace files page preserves text, HTML, image, and Office preview branches", () => {
     const filesPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
@@ -74,10 +76,13 @@ describe("session visual and file contracts", () => {
 
     expect(filesPage).toContain("workspaceFileOpenTarget");
     expect(filesPage).toContain("readWorkspaceFile(props.workspaceId, selectedTarget.value)");
-    expect(filesPage).toContain('selectedTarget.preview === "browser"');
+    expect(filesPage).toContain("downloadWorkspaceFile(props.workspaceId, selectedTarget.value)");
     expect(filesPage).toContain("props.onOpenArtifact?.(target)");
     expect(filesPage).toContain("MarkdownPreview content={state.content}");
+    expect(filesPage).toContain('<HTMLPreview type="text"');
+    expect(filesPage).toContain("<ImagePreview");
     expect(filesPage).toContain("PlainText content={state.content}");
+    expect(filesPage).toContain("<OfficeFilePreview");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");
@@ -94,7 +99,11 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain('t("session.open_artifact")');
     expect(sidePanel).toContain('t("files.preview_unsupported")');
     expect(sidePanel).toContain('targetPreview === "external"');
-    expect(sidePanel).toContain('targetPreview === "pdf"');
+    expect(sidePanel).toContain("usesLocalFileRenderer");
+    expect(sidePanel).toContain('preview === "audio"');
+    expect(sidePanel).toContain('preview === "video"');
+    expect(sidePanel).toContain("canEditArtifactTarget");
+    expect(sidePanel).toContain("<OfficeFilePreview");
     expect(sidePanel).toContain('targetPreview === "image"');
     expect(sidePanel).toContain('targetPreview === "html"');
     expect(sidePanel).toContain('<HTMLPreview className="min-h-0 flex-1" type="text"');
@@ -103,5 +112,29 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain("client.deleteWorkspaceFile(");
     expect(sidePanel).toContain("<ConfirmModal");
     expect(sidePanel).not.toContain("Only supported text artifact files can be read inline");
+  });
+
+  test("every filename-bearing app surface uses the shared type-aware file icon", () => {
+    const expectedUsageByFile = new Map<string, string>([
+      ["apps/app/src/react-app/domains/workspace/workspace-files-page.tsx", "name={props.node.name}"],
+      ["apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx", "name={props.node.name}"],
+      ["apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx", "name={item.name || item.value}"],
+      ["apps/app/src/react-app/domains/session/surface/message-list/file-card.tsx", "name={title}"],
+      ["apps/app/src/react-app/domains/session/surface/message-list/message-block-row.tsx", "name={props.target.name || props.target.value}"],
+      ["apps/app/src/react-app/domains/session/surface/transcript-resource-chip.tsx", "name={label}"],
+      ["apps/app/src/react-app/domains/session/surface/composer/composer.tsx", "name={attachment.name}"],
+      ["apps/app/src/react-app/domains/session/surface/composer/slash-mention-menus.tsx", "name={item.value || item.label}"],
+      ["apps/app/src/react-app/domains/local-agents/local-agent-draft-composer.tsx", "name={entry.name}"],
+      ["apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx", "name={target.name || target.value}"],
+      ["apps/app/src/react-app/domains/local-agents/messages/message-file-changes.tsx", "name={entry.fileName || entry.filePath}"],
+      ["apps/app/src/react-app/domains/session/surface/specialized-tool-details.tsx", "name={item.fileName || item.path}"],
+      ["apps/app/src/react-app/shell/command-palette.tsx", "name={target.name || target.value}"],
+    ]);
+
+    for (const [path, filenameBinding] of expectedUsageByFile) {
+      const source = readWorkspaceFile(path);
+      expect(source).toContain("ArtifactIcon");
+      expect(source).toContain(filenameBinding);
+    }
   });
 });

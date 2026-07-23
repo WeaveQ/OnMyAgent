@@ -80,6 +80,7 @@ export type SessionComposerAccessoriesProps = {
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;
   respondQuestion?: (requestID: string, answers: string[][]) => void;
+  extraComposerAccessory?: ReactNode;
   activePermission?: PendingPermission | null;
   activePermissionNeedsApproval: boolean;
   permissionReplyBusy?: boolean;
@@ -204,7 +205,8 @@ export function renderSessionComposerAccessories(
       goalAccessory ||
       goalPreviewAccessory ||
       questionAccessory ||
-      permissionAccessory
+      permissionAccessory ||
+      props.extraComposerAccessory
     )
   ) {
     return null;
@@ -214,6 +216,7 @@ export function renderSessionComposerAccessories(
     <div>
       {permissionAccessory}
       {questionAccessory}
+      {props.extraComposerAccessory}
       {planOrTodoAccessory}
       {goalAccessory}
       {goalPreviewAccessory}

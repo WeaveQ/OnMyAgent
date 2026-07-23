@@ -13,6 +13,7 @@ import {
   Folder,
   FolderOpen,
   MoreHorizontal,
+  Pencil,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -47,18 +48,35 @@ import {
 import { cn } from "@/lib/utils";
 import { shellChrome, typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
-import { revealDesktopItemInDir } from "../../../app/lib/desktop";
+import {
+  listCodeWorkspaceFiles,
+  revealDesktopItemInDir,
+} from "../../../app/lib/desktop";
 import type {
   OnMyAgentServerClient,
   OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../app/lib/onmyagent-server";
+import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import { OfficeFilePreview } from "../../capabilities/artifacts/office-file-preview";
+import {
+  canEditArtifactTarget,
+  openArtifactForEditing,
+} from "../../capabilities/artifacts/open-artifact-for-editing";
 import {
   canPreviewOpenTargetInline,
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
-import { MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "../../capabilities/artifacts/preview";
+import {
+  HTMLPreview,
+  ImagePreview,
+  MarkdownPreview,
+  PlainText,
+  PreviewError,
+  PreviewLoading,
+  PreviewUnavailable,
+} from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 import {
   buildWorkspaceFileTree,
@@ -73,8 +91,15 @@ import {
 
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
-    // Same secondary tone as file icons — no warning/orange folder hue.
-    return <Folder className="size-4 shrink-0 text-dls-secondary" />;
+    // Folders stay neutral; use primary text at partial opacity so dark mode
+    // does not wash them out like pure secondary strokes on muted panels.
+    return (
+      <Folder
+        className="size-4 shrink-0 text-dls-text/75"
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
+    );
   }
   const target = workspaceFileOpenTarget({
     fileRoot: props.fileRoot || "/",
@@ -232,13 +257,22 @@ type FilePreviewState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; content: string }
+  | { status: "binary"; url: string }
+  | {
+      status: "local";
+      filePath: string;
+      revision: number;
+    }
   | { status: "external" }
   | { status: "browser" }
   | { status: "error"; message: string };
 
 function canPreviewWorkspaceFileInline(target: OpenTarget) {
-  // Shared policy with side-panel file tree (no Office / binary dump).
   return canPreviewOpenTargetInline(target);
+}
+
+function usesLocalFileRenderer(target: OpenTarget) {
+  return canEditArtifactTarget(target) || target.preview === "audio" || target.preview === "video";
 }
 
 function filterWorkspaceFileTree(
@@ -273,10 +307,11 @@ function FilePreviewDrawer(props: {
   copied: boolean;
   onClose: () => void;
   onCopyPath: () => void;
+  onEdit?: () => void;
   onOpenInFolder?: () => void;
   onOpenExternally?: () => void;
 }) {
-  const { open, file, target, state, copied, onClose, onCopyPath, onOpenInFolder, onOpenExternally } = props;
+  const { open, file, target, state, copied, onClose, onCopyPath, onEdit, onOpenInFolder, onOpenExternally } = props;
 
   if (typeof document === "undefined") return null;
 
@@ -308,7 +343,7 @@ function FilePreviewDrawer(props: {
         {file && target ? (
           <>
             <header className="flex items-start gap-3 border-b border-dls-border px-5 py-4">
-              <ArtifactIcon type={target.preview} className="mt-0.5 size-5 shrink-0 text-dls-secondary" />
+              <ArtifactIcon type={target.preview} name={file.name} className="mt-0.5 size-5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
                   {file.name}
@@ -338,6 +373,18 @@ function FilePreviewDrawer(props: {
             </header>
 
             <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
+              {onEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onEdit}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <Pencil data-icon="inline-start" className="size-3.5" aria-hidden="true" />
+                  {t("files.edit_file")}
+                </Button>
+              ) : null}
               {onOpenExternally ? (
                 <Button
                   type="button"
@@ -379,10 +426,20 @@ function FilePreviewDrawer(props: {
                 <PreviewLoading />
               ) : state.status === "error" ? (
                 <PreviewError message={state.message} />
+              ) : state.status === "local" ? (
+                <OfficeFilePreview
+                  filePath={state.filePath}
+                  name={file.name}
+                  revision={state.revision}
+                />
               ) : state.status === "ready" && target.preview === "markdown" ? (
                 <MarkdownPreview content={state.content} />
+              ) : state.status === "ready" && target.preview === "html" ? (
+                <HTMLPreview type="text" title={file.name} content={state.content} />
               ) : state.status === "ready" ? (
                 <PlainText content={state.content} />
+              ) : state.status === "binary" && target.preview === "image" ? (
+                <ImagePreview src={state.url} alt={file.name} />
               ) : state.status === "browser" ? (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {t("files.preview_opened_in_browser")}
@@ -448,6 +505,7 @@ export function WorkspaceFilesPage(props: {
   workspaceRoot: string;
   fileRoot?: string | null;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
+  onEditError?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>(
@@ -485,7 +543,7 @@ export function WorkspaceFilesPage(props: {
   }, [fileRoot, selectedFile]);
 
   useEffect(() => {
-    if (!props.client || !props.workspaceId.trim() || !fileRoot.trim()) {
+    if (!fileRoot.trim()) {
       setEntries([]);
       setError(null);
       setLoading(false);
@@ -495,26 +553,56 @@ export function WorkspaceFilesPage(props: {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void props.client
-      .listWorkspaceFiles(props.workspaceId, {
+
+    const finishRefreshFlash = () => {
+      if (!manualRefreshRef.current) return;
+      manualRefreshRef.current = false;
+      setRefreshDone(true);
+      if (refreshDoneTimerRef.current != null) {
+        window.clearTimeout(refreshDoneTimerRef.current);
+      }
+      refreshDoneTimerRef.current = window.setTimeout(() => {
+        setRefreshDone(false);
+        refreshDoneTimerRef.current = null;
+      }, 1400);
+    };
+
+    const directoryPrefix = currentDirectoryPath.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+
+    const load = async (): Promise<OnMyAgentWorkspaceFileCatalogEntry[]> => {
+      if (isElectronRuntime()) {
+        const result = await listCodeWorkspaceFiles({
+          workspacePath: fileRoot,
+          ...(directoryPrefix ? { relativePath: directoryPrefix } : {}),
+        });
+        return result.items.map((item) => ({
+          path: item.path,
+          kind: item.kind,
+          size: item.size,
+          mtimeMs: item.mtimeMs,
+          revision: "",
+        }));
+      }
+
+      if (!props.client || !props.workspaceId.trim()) {
+        throw new Error(t("files.load_failed"));
+      }
+
+      const catalog = await props.client.listWorkspaceFiles(props.workspaceId, {
         includeDirs: true,
-        limit: 5000,
+        limit: 10_000,
+        shallow: true,
+        ...(directoryPrefix ? { prefix: directoryPrefix } : {}),
         ...(hasScopedFileRoot ? { root: fileRoot } : {}),
-      })
-      .then((catalog) => {
+      });
+      return catalog.items;
+    };
+
+    void load()
+      .then((items) => {
         if (cancelled) return;
-        setEntries(catalog.items);
-        if (manualRefreshRef.current) {
-          manualRefreshRef.current = false;
-          setRefreshDone(true);
-          if (refreshDoneTimerRef.current != null) {
-            window.clearTimeout(refreshDoneTimerRef.current);
-          }
-          refreshDoneTimerRef.current = window.setTimeout(() => {
-            setRefreshDone(false);
-            refreshDoneTimerRef.current = null;
-          }, 1400);
-        }
+        setEntries(items);
+        finishRefreshFlash();
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -530,7 +618,14 @@ export function WorkspaceFilesPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
+  }, [
+    currentDirectoryPath,
+    fileRoot,
+    hasScopedFileRoot,
+    props.client,
+    props.workspaceId,
+    refreshKey,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -568,10 +663,47 @@ export function WorkspaceFilesPage(props: {
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
-    void props.client
-      .readWorkspaceFile(props.workspaceId, selectedTarget.value)
-      .then((result) => {
-        if (!cancelled) setPreviewState({ status: "ready", content: result.content });
+
+    if (selectedTarget.preview === "image") {
+      let objectUrl: string | null = null;
+      void props.client
+        .downloadWorkspaceFile(props.workspaceId, selectedTarget.value)
+        .then((result) => {
+          if (cancelled) return;
+          objectUrl = URL.createObjectURL(new Blob([result.data], {
+            type: result.contentType ?? "application/octet-stream",
+          }));
+          setPreviewState({ status: "binary", url: objectUrl });
+        })
+        .catch((previewError: unknown) => {
+          if (cancelled) return;
+          setPreviewState({
+            status: "error",
+            message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
+          });
+        });
+
+      return () => {
+        cancelled = true;
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      };
+    }
+
+    const previewRequest = usesLocalFileRenderer(selectedTarget)
+      ? Promise.resolve({
+          status: "local" as const,
+          filePath: selectedFile?.path.startsWith("/")
+            ? selectedFile.path
+            : `${fileRoot.replace(/[/\\]+$/, "")}/${selectedFile?.path.replace(/^[/\\]+/, "") ?? ""}`,
+          revision: selectedTarget.updatedAt ?? Date.now(),
+        })
+      : props.client
+          .readWorkspaceFile(props.workspaceId, selectedTarget.value)
+          .then((result) => ({ status: "ready" as const, content: result.content }));
+
+    void previewRequest
+      .then((state) => {
+        if (!cancelled) setPreviewState(state);
       })
       .catch((previewError: unknown) => {
         if (cancelled) return;
@@ -584,7 +716,7 @@ export function WorkspaceFilesPage(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.client, props.workspaceId, selectedTarget]);
+  }, [fileRoot, props.client, props.workspaceId, selectedFile, selectedTarget]);
 
   const visibleFileTree = useMemo(() => {
     const tree = filterHiddenFromTree(
@@ -626,6 +758,17 @@ export function WorkspaceFilesPage(props: {
       }
     },
     [fileRoot],
+  );
+
+  const handleEditFile = useCallback(
+    async (filePath: string) => {
+      try {
+        await openArtifactForEditing(filePath);
+      } catch {
+        props.onEditError?.();
+      }
+    },
+    [props.onEditError],
   );
 
   const handleDeleteFile = useCallback((file: FileNode) => {
@@ -755,9 +898,11 @@ export function WorkspaceFilesPage(props: {
                 disabled={
                   loading ||
                   refreshDone ||
-                  !props.client ||
-                  !props.workspaceId.trim() ||
-                  !fileRoot.trim()
+                  !fileRoot.trim() ||
+                  (
+                    !isElectronRuntime()
+                    && (!props.client || !props.workspaceId.trim())
+                  )
                 }
                 onClick={() => {
                   manualRefreshRef.current = true;
@@ -1015,6 +1160,11 @@ export function WorkspaceFilesPage(props: {
               copied={copiedPath}
               onClose={closePreview}
               onCopyPath={handleCopyPath}
+              onEdit={
+                selectedTarget && previewState.status === "local" && canEditArtifactTarget(selectedTarget)
+                  ? () => void handleEditFile(previewState.filePath)
+                  : undefined
+              }
               onOpenInFolder={selectedFile ? () => handleOpenFile(selectedFile.path) : undefined}
               onOpenExternally={
                 selectedTarget && selectedFile
