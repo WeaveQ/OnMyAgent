@@ -1662,10 +1662,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     visibleGoalRuntime,
     activeGoalWaitingReason,
   );
-  const visibleTodos = incomingHasTodos
-    ? incomingTodos
-    : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
-  const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
+  const visibleTodos = incomingTodos;
+  const hasVisibleTodos = visibleTodos.some(
+    (todo) => todo.content.trim() && todo.status !== "completed",
+  );
   const runPolicy = resolveSessionRunPolicy({
     accessMode: effectiveAccessMode,
     collaborationMode: effectiveCollaborationMode,

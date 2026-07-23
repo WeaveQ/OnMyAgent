@@ -133,7 +133,7 @@ export function renderSessionComposerAccessories(
       }}
     />
   ) : props.hasVisibleTodos ? (
-    <TodoPanel todos={props.visibleTodos} />
+    <TodoPanel todos={props.visibleTodos} onClear={props.onClearSessionProgress} />
   ) : null;
 
   const goalAccessory = props.visibleGoalRuntimeForUi ? (
@@ -185,6 +185,14 @@ export function renderSessionComposerAccessories(
       onReply={(answers) => {
         if (props.activeQuestion) {
           props.respondQuestion?.(props.activeQuestion.id, answers);
+        }
+      }}
+      onDismiss={() => {
+        if (props.activeQuestion) {
+          const emptyAnswers = props.activeQuestion.questions.map(
+            () => [] as string[],
+          );
+          props.respondQuestion?.(props.activeQuestion.id, emptyAnswers);
         }
       }}
     />

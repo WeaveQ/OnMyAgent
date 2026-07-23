@@ -946,11 +946,7 @@ export function SessionRouteRender() {
   useEffect(() => {
     writeSessionTodos(lastVisibleTodosBySessionId);
   }, [lastVisibleTodosBySessionId]);
-  const visibleTodos = useMemo(() => {
-    if (todosHaveContent) return todos;
-    if (!selectedSessionId) return todos;
-    return lastVisibleTodosBySessionId[selectedSessionId] ?? todos;
-  }, [lastVisibleTodosBySessionId, selectedSessionId, todos, todosHaveContent]);
+  const visibleTodos = useMemo(() => todos, [todos]);
   useEffect(() => {
     if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
     let cancelled = false;

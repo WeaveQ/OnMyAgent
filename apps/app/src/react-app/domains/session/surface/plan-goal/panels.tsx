@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useState } from "react";
-import { Check, Minimize2 } from "lucide-react";
+import { Check, Minimize2, Trash2 } from "lucide-react";
 
 import type { CollaborationPlanRuntime, TodoItem } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
@@ -13,7 +13,7 @@ import { extractPlanDetailSections, resolvePlanStepItems } from "./plan-parse";
 import { sessionSurfaceStateClass } from "../surface-styles";
 import { AssistantWaitingCard } from "../chrome/assistant-status";
 
-export function TodoPanel(props: { todos: TodoItem[] }) {
+export function TodoPanel(props: { todos: TodoItem[]; onClear?: () => void }) {
   const [pinnedExpanded, setPinnedExpanded] = useState(false);
   const todos = props.todos.filter((todo) => todo.content.trim());
   const completedTodos = todos.filter(
@@ -61,6 +61,18 @@ export function TodoPanel(props: { todos: TodoItem[] }) {
             className={`text-dls-secondary transition-transform ${expanded ? "" : "rotate-180"}`}
           />
         </Button>
+        {props.onClear ? (
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="text-dls-secondary hover:text-dls-text"
+            onClick={props.onClear}
+            aria-label={t("session.goal_runtime_clear")}
+          >
+            <Trash2 size={12} />
+          </Button>
+        ) : null}
       </div>
       {expanded ? (
         <div className="max-h-60 space-y-2.5 overflow-auto px-4 pb-3">
