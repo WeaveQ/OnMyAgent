@@ -910,6 +910,7 @@ export default {
   "session.expand_all_automations": "展開所有定時任務",
   "session.collapse_all_automations": "收起所有定時任務",
   "session.archive_task": "歸檔",
+  "session.archive_task_done": "已歸檔任務",
   "session.delete_task": "刪除任務",
   "session.delete_task_title": "刪除任務？",
   "session.delete_named_task_message": "這將永久刪除「{title}」及其消息。",

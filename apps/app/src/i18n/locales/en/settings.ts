@@ -167,7 +167,7 @@ export default {
   "settings.group_workspace": "Workspace",
   "settings.group_archived": "Archive",
   "settings.group_data": "Data",
-  "settings.tab_archived_tasks": "Archive management",
+  "settings.tab_archived_tasks": "Archive",
   "settings.tab_description_archived_tasks":
     "Manage session archive policy and restore or permanently delete archived tasks",
   "settings.archived_tasks_list_title": "Archived tasks",
@@ -708,7 +708,7 @@ export default {
   "settings.extensions_card_description":
     "MCPs, skills, plugins, and integrations",
   "settings.tab_general": "Overview",
-  "settings.tab_recovery": "Recovery",
+  "settings.tab_recovery": "Reset",
   "settings.tab_recovery_description": "Reset onboarding and clear data",
   "settings.tab_memory": "Preferences",
   "settings.tab_description_memory":

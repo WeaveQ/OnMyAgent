@@ -942,6 +942,7 @@ export default {
   "session.expand_all_automations": "Expand all scheduled tasks",
   "session.collapse_all_automations": "Collapse all scheduled tasks",
   "session.archive_task": "Archive",
+  "session.archive_task_done": "Task archived",
   "session.delete_task": "Delete task",
   "session.delete_task_title": "Delete task?",
   "session.delete_named_task_message": "This permanently deletes “{title}” and its messages.",

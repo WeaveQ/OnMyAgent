@@ -912,6 +912,7 @@ export default {
   "session.archive_space": "归档",
   "session.archive_space_done": "已归档该空间下的任务",
   "session.archive_task": "归档",
+  "session.archive_task_done": "已归档任务",
   "session.delete_task": "删除任务",
   "session.delete_task_title": "删除任务？",
   "session.delete_named_task_message": "这将永久删除「{title}」及其消息。",

@@ -82,6 +82,12 @@ export type SessionPageProps = {
     workspaceType?: WorkspaceInfo["workspaceType"];
   };
   selectedWorkspaceRoot: string;
+  /**
+   * OnMyAgent-selected workspace folder path (registry `workspace.path`).
+   * Used by the Files rail so the list does not follow session/tool directories.
+   * When omitted, falls back to `selectedWorkspaceRoot`.
+   */
+  workspaceFilesRoot?: string | null;
   selectedSessionFileRoot?: string | null;
   selectedWorkspaceError?: string | null;
   runtimeWorkspaceId: string | null;

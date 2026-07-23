@@ -15,6 +15,7 @@ import {
   SESSION_CONTENT_MAX_WIDTH_CLASS,
   SESSION_CONTENT_X_PADDING_CLASS,
 } from "./surface-styles";
+import { resolveComposerColumnShellClass } from "./composer-shell-inset";
 
 /**
  * Isolated subscriber for sticky mode — only this chip re-renders when the
@@ -131,11 +132,11 @@ export function SessionSurfaceComposerColumn(props: {
         ) : null}
         <div
           ref={props.composerShellRef}
-          className={cn(
-            "w-full shrink-0 px-0 pb-2 pt-2",
-            (props.personalAssistantDraftHome || props.homeComposerLayout) &&
-              "pb-0 pt-0",
-          )}
+          className={resolveComposerColumnShellClass({
+            // Home may collapse top air under the hero; bottom always matches chat.
+            collapseTopSpacing:
+              props.personalAssistantDraftHome || props.homeComposerLayout,
+          })}
         >
           {props.children}
         </div>

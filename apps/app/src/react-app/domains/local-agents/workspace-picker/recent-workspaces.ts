@@ -7,7 +7,15 @@
 
 export const RECENT_WORKSPACES_KEY = "onmyagent.local-agent.recent-workspaces";
 export const WORKSPACE_OVERRIDE_KEY = "onmyagent.local-agent.workspace-override";
+/** Fired when the recent-workspace LRU list changes (composer ↔ sidebar sync). */
+export const recentWorkspacesChangedEvent =
+  "onmyagent:recent-workspaces-changed";
 const MAX_RECENT_WORKSPACES = 12;
+
+function dispatchRecentWorkspacesChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(recentWorkspacesChangedEvent));
+}
 
 function safeStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -55,6 +63,7 @@ export function addRecentWorkspace(path: string, storageKey: string = RECENT_WOR
       // storage may be full or blocked; recent list is best-effort
     }
   }
+  dispatchRecentWorkspacesChanged();
   return next;
 }
 
@@ -71,6 +80,7 @@ export function removeRecentWorkspace(path: string, storageKey: string = RECENT_
       // ignore
     }
   }
+  dispatchRecentWorkspacesChanged();
   return next;
 }
 

@@ -161,6 +161,21 @@ describe("buildAssistantListModel", () => {
     ).toEqual(["a1", "a2"]);
   });
 
+  test("does not invent empty space folders without session bindings", () => {
+    const free = group("free", 10);
+
+    const model = buildAssistantListModel({
+      groups: [free],
+      globalPins: [],
+      spaceLocalPinsByDirectory: {},
+      spaceFolderOrder: ["/tmp/empty-space"],
+      workspaceBySessionId: new Map(),
+    });
+
+    expect(model.spaceFolders).toEqual([]);
+    expect(model.recentGroups.map((g) => g.latestSession.id)).toEqual(["free"]);
+  });
+
   test("hides global pins that do not resolve in the current category groups", () => {
     const officeDir = "/tmp/office-project";
     const codeDir = "/tmp/code-project";

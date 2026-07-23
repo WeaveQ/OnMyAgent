@@ -87,6 +87,7 @@ import {
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
 import { mergeSlashCommandsWithSkills } from "./slash-command-merge";
+import { resolveComposerShellPadClass } from "../composer-shell-inset";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
@@ -1031,10 +1032,10 @@ export function ReactSessionComposer(props: ComposerProps) {
           : "rounded-xl";
 
   // Same width for hero home, expert empty, and in-session (1120 + side pad).
-  // Hero only grows height / padding / corner radius — not column width.
-  const shellPadClass = `px-4 md:px-8 ${
-    props.compactTopSpacing ? "pt-0" : "pt-3"
-  } ${homeLayout || heroHome ? "pb-3" : "pb-5"}`;
+  // Bottom inset matches in-session chat so draft-home is not flush to the edge.
+  const shellPadClass = resolveComposerShellPadClass({
+    compactTopSpacing: props.compactTopSpacing,
+  });
   const panelChromeClass = heroHome
     ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
     : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
