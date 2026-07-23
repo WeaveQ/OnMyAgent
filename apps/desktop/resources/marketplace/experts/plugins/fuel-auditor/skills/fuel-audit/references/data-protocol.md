@@ -1,6 +1,6 @@
 # 油费稽核数据协议
 
-会话根目录只维护一份 `fuel-audit-data.json`。过程看板写入 `.process/`，最终报告和 CSV 直接写在会话根目录；禁止再套 `output/`。
+会话根目录只维护一份 `fuel-audit-data.json`。过程预览 HTML 写入 `.process/`，最终 Excel/PDF 直接写在会话根目录；禁止再套 `output/`。
 
 ```json
 {
@@ -51,6 +51,6 @@ python3 <Skill根目录>/scripts/build_fuel_audit.py \
   --input fuel-audit-data.json --output-dir . --mode export
 ```
 
-- `preview`：刷新 `.process/fuel-audit-board.md` 与 `.process/fuel-high-risk.md`。
-- `export`：另生成油费稽核报告、单车油耗汇总 CSV、异常明细 CSV，以及 `automations/proposals/fuel-weekly-scan.json`。
+- `preview`：生成 `.process/fuel-preview.html`（经 `inlineWidget` 实时渲染，含 SVG 油耗对比图/风险分布图/异常详情）。
+- `export`：另生成油费稽查报告 Excel（单车油耗汇总异常标红 + 异常明细）、油费稽查报告 PDF（SVG 图表 + 异常详情），以及 `automations/proposals/fuel-weekly-scan.json`。
 - 自动化 proposal 只能由 OnMyAgent 现有确认流程创建；专家不得直接声称已建立定时任务。
