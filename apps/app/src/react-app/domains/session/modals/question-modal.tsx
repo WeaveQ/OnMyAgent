@@ -9,12 +9,26 @@ import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 
 export type QuestionPanelProps = {
-  /** Stable id for the pending request; reset only when this changes. */
+  /** Stable id for the pending request; combined with question text for reset. */
   requestId?: string;
   questions: QuestionInfo[];
   busy: boolean;
   onReply: (answers: string[][]) => void;
 };
+
+/** Stable key so host multi-step flows (fixed id) reset when copy changes. */
+export function buildQuestionPanelResetKey(
+  requestId: string | undefined,
+  questions: readonly QuestionInfo[],
+): string {
+  return [
+    requestId?.trim() ?? "",
+    String(questions.length),
+    questions
+      .map((item) => `${item.header ?? ""}|${item.question ?? ""}`)
+      .join(";"),
+  ].join("::");
+}
 
 type QuestionState = {
   currentIndex: number;
@@ -91,12 +105,7 @@ export function QuestionPanel(props: QuestionPanelProps) {
   const submittedRef = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
-  // Prefer requestId so re-seeded question objects do not wipe in-progress answers.
-  const resetKey =
-    props.requestId?.trim() ||
-    `count:${props.questions.length}:${props.questions
-      .map((item) => `${item.header ?? ""}|${item.question ?? ""}`)
-      .join(";")}`;
+  const resetKey = buildQuestionPanelResetKey(props.requestId, props.questions);
 
   useEffect(() => {
     submittedRef.current = false;
