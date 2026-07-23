@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   Check,
@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type {
+  AgentManagementAgent,
   AgentManagementFetchedModel,
   AgentManagementManagedProvider,
   AgentManagementProviderActionInput,
@@ -42,6 +43,8 @@ import type {
 import { agentManagementFetchModels, agentManagementProviderAction } from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
 import { AgentBrandIcon, type AgentBrandIconSize } from "../agent-brand-icon";
+import { visibleFleetConfigAgentKeys } from "./agent-fleet-model";
+import type { AgentManagementHealthResult } from "./agent-management-health";
 
 export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   opencode: "OpenCode CLI",
@@ -964,6 +967,9 @@ export function OpenCodeProviderConfigDialog(props: {
 
 export function AgentManagementProviderPanel(props: {
   snapshot: AgentManagementSnapshot | null;
+  /** Fleet agents used to filter the left sidebar to healthy/available only. */
+  agents?: ReadonlyArray<AgentManagementAgent>;
+  healthResults?: Readonly<Record<string, AgentManagementHealthResult | undefined>>;
   /** True while parent has no snapshot yet — never show empty inventory copy. */
   loading?: boolean;
   busyKey: string | null;
@@ -974,26 +980,67 @@ export function AgentManagementProviderPanel(props: {
   onProviderAction: (input: AgentManagementProviderActionInput, busyKey: string) => void;
 }) {
   const loading = Boolean(props.loading && !props.snapshot);
-  const providers = props.snapshot?.providers.byAgent[props.selectedApp] ?? [];
+  // Same healthy/available gate as skill matrix / MCP: hide missing, offline, needs_auth.
+  const visibleApps = useMemo(
+    () =>
+      visibleFleetConfigAgentKeys(
+        PROVIDER_APP_OPTIONS,
+        props.agents ?? props.snapshot?.agents ?? [],
+        props.healthResults,
+      ),
+    [props.agents, props.healthResults, props.snapshot?.agents],
+  );
+  const selectedApp = (
+    visibleApps.includes(props.selectedApp)
+      ? props.selectedApp
+      : (visibleApps[0] ?? props.selectedApp)
+  ) as AgentManagementProviderApp;
+
+  useEffect(() => {
+    if (visibleApps.length === 0) return;
+    if (!visibleApps.includes(props.selectedApp)) {
+      props.onSelectApp(visibleApps[0] as AgentManagementProviderApp);
+    }
+  }, [props.onSelectApp, props.selectedApp, visibleApps]);
+
+  const providers = props.snapshot?.providers.byAgent[selectedApp] ?? [];
   const activeProvider = providers.find((provider) => provider.isCurrent) ?? providers.find((provider) => provider.livePresent);
-  const appLabel = skillAgentLabel(props.selectedApp);
+  const appLabel = skillAgentLabel(selectedApp);
+  const visibleProviderCount = useMemo(
+    () =>
+      visibleApps.reduce(
+        (sum, app) => sum + (props.snapshot?.providers.byAgent[app]?.length ?? 0),
+        0,
+      ),
+    [props.snapshot?.providers.byAgent, visibleApps],
+  );
 
   return (
     <section className="grid h-full min-h-0 gap-4 lg:grid-cols-[232px_minmax(0,1fr)]">
-      {/* Agent runtime picker */}
+      {/* Agent runtime picker — healthy/available fleet only */}
       <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
         <div className="flex shrink-0 items-center justify-between border-b border-dls-border px-3 py-2.5">
           <span className="text-xs font-medium uppercase tracking-[0.06em] text-dls-secondary">
             Agent
           </span>
           <CountBadge size="dot" className="bg-dls-hover text-dls-secondary">
-            {props.snapshot?.providers.total ?? 0}
+            {visibleProviderCount}
           </CountBadge>
         </div>
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
-          {PROVIDER_APP_OPTIONS.map((app) => {
+          {loading && visibleApps.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 px-2 py-8 text-xs text-dls-secondary">
+              <LoadingSpinner size="sm" />
+              <span>{t("common.loading")}</span>
+            </div>
+          ) : visibleApps.length === 0 ? (
+            <EmptyStateBox size="compact" tone="surface" className="m-1 text-xs">
+              {t("agent_manager.provider_no_healthy_agents")}
+            </EmptyStateBox>
+          ) : (
+            visibleApps.map((app) => {
             const count = props.snapshot?.providers.byAgent[app]?.length ?? 0;
-            const selected = props.selectedApp === app;
+            const selected = selectedApp === app;
             return (
               <Tooltip key={app}>
                 <TooltipTrigger
@@ -1032,7 +1079,8 @@ export function AgentManagementProviderPanel(props: {
                 </TooltipContent>
               </Tooltip>
             );
-          })}
+          })
+          )}
         </div>
         {props.snapshot?.providers.databasePath ? (
           <div className="shrink-0 border-t border-dls-border px-3 py-2.5">
@@ -1053,7 +1101,7 @@ export function AgentManagementProviderPanel(props: {
       <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dls-border px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <ProviderBrandIcon appType={props.selectedApp} size="sm" />
+            <ProviderBrandIcon appType={selectedApp} size="sm" />
             <div className="min-w-0">
               <h3 className="truncate text-sm font-medium text-dls-text">
                 {t("agent_manager.provider_suffix", { name: appLabel })}
@@ -1069,15 +1117,15 @@ export function AgentManagementProviderPanel(props: {
             <Button
               size="sm"
               variant="outline"
-              disabled={props.busyKey === `provider:${props.selectedApp}:import`}
+              disabled={props.busyKey === `provider:${selectedApp}:import`}
               onClick={() =>
                 props.onProviderAction(
-                  { action: "importLive", appType: props.selectedApp },
-                  `provider:${props.selectedApp}:import`,
+                  { action: "importLive", appType: selectedApp },
+                  `provider:${selectedApp}:import`,
                 )
               }
             >
-              {props.busyKey === `provider:${props.selectedApp}:import` ? (
+              {props.busyKey === `provider:${selectedApp}:import` ? (
                 <LoadingSpinner size="sm" className="mr-1.5" />
               ) : (
                 <Download className="mr-1.5 size-3.5" />
@@ -1254,15 +1302,15 @@ export function AgentManagementProviderPanel(props: {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={props.busyKey === `provider:${props.selectedApp}:import`}
+                  disabled={props.busyKey === `provider:${selectedApp}:import`}
                   onClick={() =>
                     props.onProviderAction(
-                      { action: "importLive", appType: props.selectedApp },
-                      `provider:${props.selectedApp}:import`,
+                      { action: "importLive", appType: selectedApp },
+                      `provider:${selectedApp}:import`,
                     )
                   }
                 >
-                  {props.busyKey === `provider:${props.selectedApp}:import` ? (
+                  {props.busyKey === `provider:${selectedApp}:import` ? (
                     <LoadingSpinner size="sm" className="mr-1.5" />
                   ) : (
                     <Download className="mr-1.5 size-3.5" />
