@@ -51,5 +51,5 @@
 
 ## 产物
 
-- preview：`.process/pod-tracker.md`、`.process/reconciliation-draft.md`、`.process/variance-list.md`
-- export：`对账单_<period>.csv`、`差异清单_<period>.csv`、`催回单话术_<period>.md`
+- preview：`.process/recon-preview.html`（对账预览，经 `inlineWidget` 实时渲染）
+- export：`对账单_<period>.xlsx`（对账明细差异标红 + 汇总）、`对账单_<period>.pdf`（汇总/对账表/差异/超期）、`automations/proposals/pod-overdue-scan.json`（超期扫描提案，有超期时）
