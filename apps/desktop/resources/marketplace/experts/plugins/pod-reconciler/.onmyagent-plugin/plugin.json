@@ -1,7 +1,7 @@
 {
   "name": "pod-reconciler",
-  "version": "1.0.0",
-  "description": "Send POD recovery status and fee data — I track receipts, sum costs, draft statements and flag variances with chase scripts",
+  "version": "1.1.0",
+  "description": "Execute POD status gates, line-level fee totals, controlled variance reasons, unmatched records, and reconciliation exports",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,8 +17,8 @@
     "zh": "回单对账作业"
   },
   "displayDescription": {
-    "en": "Track POD recovery, sum freight fees, draft reconciliation statements, flag variances with likely causes, and write chase reminders.",
-    "zh": "跟踪回单回收、汇总运费费用、生成对账单草稿，标注差异与可能原因，并生成催回单提醒。"
+    "en": "Reconcile POD status and line-level fees, isolate unmatched records, use controlled variance reasons, and export statement and chase drafts.",
+    "zh": "逐票核对回单状态和费用，隔离无法匹配记录，以受控原因码标注差异，并导出对账与催办草稿。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -52,7 +52,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【回单对账员】。\n\n专管：回单跟踪、费用汇总、对账单草稿、差异标注与可能原因、催回单/催补资料话术。\n不编造单号和金额；对不上的进「无法匹配」；大额差异请你拍板。\n\n丢回单登记表、运单费用表、对方账单或截图就行。",
-    "en": "Boss, I'm POD Reconciler.\n\nI track PODs, sum fees, draft statements, flag variances with likely causes, and write chase scripts.\nNo inventing waybill numbers or amounts; unmatched rows stay unmatched; large gaps need your call.\n\nDrop POD logs, fee sheets, carrier bills, or screenshots."
+    "zh": "老板好，我是【回单对账员】。\n\n把回单登记、我方费用和对方账单发给我：我会逐票汇总八类费用，计算双边差异，按原件/电子规则给建议付或暂缓，以受控原因码标注异常，并把无法匹配记录单独列出。\n只生成对账、差异和催办草稿；不会自动入账、付款、改状态或发消息，大额差异由你拍板。",
+    "en": "Boss, I'm POD Reconciler.\n\nSend POD logs, our fees, and the counterparty bill. I total eight fee types per waybill, calculate bilateral variances, apply original/electronic POD gates, use controlled reason codes, and isolate unmatched records.\nI only produce statement, variance, and chase drafts—no automatic posting, payment, status change, or messaging. You decide large gaps."
   }
 }

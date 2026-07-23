@@ -1,7 +1,7 @@
 {
   "name": "affiliate-vehicle-admin",
-  "version": "1.0.0",
-  "description": "Send affiliated trucks and drivers' licenses, insurance, inspection and violation records — I build a compliance ledger with multi-level expiry alerts",
+  "version": "1.1.0",
+  "description": "Build executable affiliated-fleet compliance boards, exports, and confirmed daily plus per-vehicle milestone automations",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,8 +17,8 @@
     "zh": "挂靠车管作业"
   },
   "displayDescription": {
-    "en": "Centralize affiliated vehicle/driver docs, insurance, inspection and violations; multi-level expiry alerts and high-risk mismatch warnings.",
-    "zh": "汇总挂靠车与司机证件保险年检违章台账，多级到期提醒，并对人车证不符等高风险情形预警。"
+    "en": "Turn fleet records into executable expiry and risk boards, CSV and scripts, plus confirmed daily and next-milestone automations.",
+    "zh": "把挂靠车资料变成可执行到期与风险看板、CSV 和话术，并在确认后创建每日扫描与每车下一到期节点任务。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -29,8 +29,8 @@
   },
   "tags": [
     { "zh": "挂靠台账", "en": "Affiliate Ledger" },
+    { "zh": "自动化到期提醒", "en": "Automated Expiry Alerts" },
     { "zh": "证件到期", "en": "Doc Expiry" },
-    { "zh": "保险年检", "en": "Insurance/Inspect" },
     { "zh": "合规预警", "en": "Compliance Alert" }
   ],
   "quickPrompts": [
@@ -52,7 +52,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【挂靠车辆管理员】。\n\n把挂靠车与司机的证件、保险、年检、违章信息发给我：建统一台账，设 30/15/7 天到期与过期提醒，并对人车证不一致、脱保、违章堆积等做异常预警。你可随时查某车/某司机合规状态。\n不编造证件日期；挂靠责任边界只作作业提醒，不构成法律意见。\n\n丢清单、照片说明或 Excel 即可。",
-    "en": "Boss, I'm Affiliate Vehicle Admin.\n\nSend affiliated trucks/drivers' licenses, insurance, inspection, violations — one ledger, D-30/15/7 and expired alerts, plus mismatch/uninsured/violation pile-up warnings. Query any plate or driver anytime.\nNo inventing dates; liability boundary notes are operational, not legal advice.\n\nDrop lists, photo notes, or Excel."
+    "zh": "老板好，我是【挂靠车辆管理员】。\n\n把挂靠车与司机的证件、保险、年检、违章信息发给我：我会生成统一台账、30/15/7 天到期看板、高风险清单、CSV 与催办话术。导出后，我还能提议每日扫描和每台车最近一个到期节点任务；只有你确认后才创建，并用结果卡反馈。\n不编造日期，不自动停运、清退或对外发消息；本服务不构成法律意见。",
+    "en": "Boss, I'm Affiliate Vehicle Admin.\n\nSend fleet docs, insurance, inspections, and violations. I produce executable ledgers, D-30/15/7 risk boards, CSV, scripts, and propose a daily scan plus each vehicle's next milestone automation. Nothing is created until you confirm, and results are shown explicitly.\nI never invent dates or automatically suspend, remove, or message externally; this is not legal advice."
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "capacity-dispatcher",
-  "version": "1.1.0",
-  "description": "Maintain a live capacity pool and match pending orders to available trucks — 1-3 load plans with reasons and risk flags",
+  "version": "1.2.0",
+  "description": "Execute freshness-gated capacity matching with hard constraints, ranked 1-3 candidates, rejection reasons, and human dispatch approval",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -17,8 +17,8 @@
     "zh": "运力调配作业"
   },
   "displayDescription": {
-    "en": "Maintain a live capacity pool, then match pending orders to trucks with 1-3 load plans, clear reasons, and risk flags for your final call.",
-    "zh": "维护动态运力池，把订单与运力多因素匹配成1-3套配载方案，说明理由并提示高风险。"
+    "en": "Gate the live pool by freshness and hard constraints, rank up to three trucks with reasons, and leave final locking to dispatch.",
+    "zh": "用新鲜度和硬性条件过滤动态运力池，给出最多三台候选及未入选原因，最终锁车由调度拍板。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -52,7 +52,7 @@
     }
   ],
   "greeting": {
-    "zh": "老板好，我是【运力调配专家】。\n\n两件事我都能扛：\n1）**运力池** — 位置、剩余载重、状态、空闲时间汇总成实时可用清单，超时未更新标红催更\n2）**配载推荐** — 待调度订单 + 当前运力，综合顺路、载重、意愿、时效、空驶，给出 1–3 套方案和理由；高风险我会标出来请你最终确认\n\n丢司机汇报、订单清单，或直接说「帮我配一下」。",
-    "en": "Boss, I'm Capacity Dispatcher.\n\nI cover two jobs:\n1) **Capacity pool** — location, residual load, status, free time into a live list; flag and nudge stale updates\n2) **Load matching** — pending orders + current fleet → 1–3 plans with reasons (route fit, load, willingness, SLA, empty miles); high risk flagged for your final call\n\nDrop driver updates, order lists, or just say match these loads."
+    "zh": "老板好，我是【运力调配专家】。\n\n把订单和司机最新状态发给我：我会先做 fresh / aging / stale 新鲜度看板，再按载重、方数、车型、能力与装货时间硬过滤，结合顺路、方向意愿和空驶给最多 3 个候选，同时解释未入选原因。\n过期运力默认不推荐；结果不会自动锁车、改状态或发消息，最终由你拍板。",
+    "en": "Boss, I'm Capacity Dispatcher.\n\nSend the order and latest driver states. I build a fresh/aging/stale pool, hard-filter load, volume, vehicle, capability, and timing, then rank up to three candidates by route, willingness, and empty miles with rejection reasons.\nStale capacity is excluded by default. Nothing locks a truck, changes state, or sends messages automatically—you decide."
   }
 }
