@@ -17,27 +17,26 @@ description: 专线/零担询价与结构报价方法论。当需要根据线路
 6. **结构填表**：`references/quote-structure.md`；非用户成本数字标 `示意`。
 7. **底价与成交带**：有成本/历史价则汇总；无则公式 + 待填；附本票价格备忘便于沉淀。
 8. **话术**：`references/sales-scripts.md`（含运力紧张、老客户弹性、守底价）。
-9. **落盘实算**：按 `references/data-protocol.md` 维护 `quote-request.json`，先 preview：
+9. **逐轮生成三档预览 HTML**：按 `references/data-protocol.md` 维护 `quote-request.json`，每次收到信息后跑 preview：
    ```bash
    python3 <Skill根目录>/scripts/build_quote_artifacts.py --input quote-request.json --output-dir . --mode preview
    ```
-10. **人工核对后 export**：
+   preview 生成 `.process/quote-preview.html`（三档卡片：最快/平衡/最便宜，含价格、时效、毛利率、优劣势与推荐档位高亮）与底价保护看板 `.process/quote-floor-guard.md`。脚本按档位特征自动生成默认优劣势与推荐（默认推荐平衡档）；可在 `optionAdjustments.<档>.pros/cons` 与 `recommendation` 覆盖。客户端直接读取命令结果中的完整 `inlineWidget` JSON 并渲染，**禁止**把它放进 `show_widget` 围栏、禁止输出 `preview:` 链接、禁止把 HTML 源码或半截 JSON 贴进正文。每轮补全后重跑 preview 刷新。
+10. **导出前格式确认（必须）+ 导出**：用户确认报价后**不要**立刻 export。先用选择题请用户点选其一：生成 Excel 和 Word / 只生成 Excel / 只生成 Word / 先不生成。只有用户明确选择前三项之一后才运行：
     ```bash
     python3 <Skill根目录>/scripts/build_quote_artifacts.py --input quote-request.json --output-dir . --mode export
     ```
-    export 生成三档 Markdown/CSV 与砍价话术；底价保护看板在 `.process/quote-floor-guard.md`。
-11. **交付产物（强制表格）**：过程看板（`.process/`）不提供用户链接。结果 Markdown/CSV/话术必须用两列表格交付，不得自由发挥：
+    export 生成报价 Excel（`报价方案_<quoteId>.xlsx`，含「三档对比」与「成本明细」）与报价方案 Word（`报价方案对比_<quoteId>.docx`，含推荐结论/三档对比表/优劣势/砍价话术）。**HTML 只是过程预览，不作为结果产物**。数据指纹变化时 export 会清旧产物。
+11. **交付产物（强制表格）**：过程 HTML 不提供用户链接。结果 Excel/Word 必须用两列表格交付，不得自由发挥：
 
     ```markdown
     | 文件 | 操作 |
     | --- | --- |
-    | <脚本返回的实际文件名.md> | [查看](artifact:<实际文件名.md>) |
-    | <脚本返回的实际文件名.csv> | [查看](artifact:<实际文件名.csv>) |
-    | <脚本返回的实际文件名.md> | [查看](artifact:<实际文件名.md>) |
+    | <脚本返回的实际文件名.xlsx> | [查看](artifact:<实际文件名.xlsx>) |
+    | <脚本返回的实际文件名.docx> | [查看](artifact:<实际文件名.docx>) |
     ```
 
-    - 操作列文案固定为 **「查看」**（不要写「在文件夹中显示 / 下载 / 打开」）。
-    - 链接协议固定 `artifact:...`，点击 = 打开侧边栏「文件」并选中该文件进行预览。
+    - 操作列文案固定为 **「查看」**；链接协议固定 `artifact:...`，点击 = 打开侧边栏「文件」并预览。
     - 只列本次 `export` 真实生成的文件；用脚本返回的实际文件名，未生成不要造行。
     - 禁止把内部 JSON 当主产物；禁止普通相对链接 / `file://` / `sandbox:`。
 
@@ -50,7 +49,8 @@ description: 专线/零担询价与结构报价方法论。当需要根据线路
 - 历史合作价值/运力松紧 **仅在有依据时** 写入策略，禁止虚构客户等级。
 - 缺少任一成本字段时只输出结构和缺口，禁止生成貌似真实的报价金额。
 - 禁止自动向客户发送报价；最终档位、成交价与服务边界必须由用户拍板。
-- 结果产物（报价方案/砍价话术）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。
+- 过程 HTML（`.process/quote-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON。
+- 结果产物（报价 Excel/对比 Word）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。HTML 仅作过程预览，不作为结果产物。
 
 ## 参考资料
 
