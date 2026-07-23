@@ -145,6 +145,7 @@ describe("session route model options", () => {
   });
 
   test("detects selected model unavailability from restrictions and provider list", () => {
+    // After discovery, missing selection is unavailable (must pick a model).
     expect(
       isSelectedModelUnavailable({
         model: null,
@@ -152,7 +153,7 @@ describe("session route model options", () => {
         connectedProviderIds: [],
         providerListData: providerListData(),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isSelectedModelUnavailable({
         model: { providerID: "openai", modelID: "missing" },
@@ -179,7 +180,8 @@ describe("session route model options", () => {
         providerListData: providerListData(),
       }),
     ).toBe(true);
-    // Connected custom provider with empty models map should not block.
+    // Connected custom with empty models map is NOT pickable — matches the
+    // composer menu ("未找到模型") so ghost defaults show "模型已不可用" on load.
     expect(
       isSelectedModelUnavailable({
         model: { providerID: "ark", modelID: "ark-code-latest" },
@@ -198,7 +200,20 @@ describe("session route model options", () => {
           default: {},
         } as never,
       }),
-    ).toBe(false);
+    ).toBe(true);
+    // Default ghost (opencode/big-pickle) with no connected catalog → unavailable.
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "opencode", modelID: "big-pickle" },
+        checkRestriction: () => false,
+        connectedProviderIds: [],
+        providerListData: {
+          all: [],
+          connected: [],
+          default: {},
+        } as never,
+      }),
+    ).toBe(true);
     // Loading list should not mark unavailable.
     expect(
       isSelectedModelUnavailable({
