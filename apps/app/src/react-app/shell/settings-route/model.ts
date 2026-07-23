@@ -316,6 +316,92 @@ export function readNavigationSessionId(state: unknown): string | null {
   return typeof value === "string" ? value.trim() || null : null;
 }
 
+export function readNavigationPageMode(
+  state: unknown,
+): "assistant" | "expert" | null {
+  if (!state || typeof state !== "object") return null;
+  const value = (state as { pageMode?: unknown }).pageMode;
+  if (value === "assistant" || value === "expert") return value;
+  return null;
+}
+
+/** Exact shell path+search captured when opening settings. */
+export function readNavigationReturnTo(state: unknown): string | null {
+  if (!state || typeof state !== "object") return null;
+  const value = (state as { returnTo?: unknown }).returnTo;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  // Only allow in-app relative paths (no protocol / open redirect).
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  return trimmed;
+}
+
+/**
+ * Resolve where "Back to app" should land.
+ * Prefer exact returnTo; else rebuild from workspace + session + pageMode.
+ * Default pageMode is assistant (never hardcode expert-only session routes).
+ */
+export function resolveSettingsReturnPath(input: {
+  returnTo?: string | null;
+  workspaceId: string;
+  sessionId?: string | null;
+  pageMode?: "assistant" | "expert" | null;
+  workspaceAssistantRoute: (
+    workspaceId: string,
+    sessionId?: string | null,
+  ) => string;
+  workspaceSessionRoute: (
+    workspaceId: string,
+    sessionId?: string | null,
+  ) => string;
+}): string {
+  const exact = input.returnTo?.trim();
+  if (exact && exact.startsWith("/") && !exact.startsWith("//")) {
+    return exact;
+  }
+  const workspaceId = input.workspaceId.trim();
+  const mode = input.pageMode === "expert" ? "expert" : "assistant";
+  if (!workspaceId) {
+    return mode === "expert" ? "/session" : "/assistant";
+  }
+  return mode === "expert"
+    ? input.workspaceSessionRoute(workspaceId, input.sessionId)
+    : input.workspaceAssistantRoute(workspaceId, input.sessionId);
+}
+
+/**
+ * Prefer history.back when settings was opened from the shell (return state
+ * present) and the history stack has a previous entry. Tab switches use
+ * replace, so -1 lands on the pre-settings app surface.
+ */
+export function shouldPreferHistoryBackFromSettings(input: {
+  returnTo?: string | null;
+  pageMode?: "assistant" | "expert" | null;
+  sessionId?: string | null;
+  historyIndex?: number | null;
+}): boolean {
+  const hasReturnContext = Boolean(
+    input.returnTo?.trim() ||
+      input.pageMode === "assistant" ||
+      input.pageMode === "expert" ||
+      input.sessionId?.trim(),
+  );
+  if (!hasReturnContext) return false;
+  if (typeof input.historyIndex === "number") {
+    return input.historyIndex > 0;
+  }
+  // Unknown index: still prefer -1 when we captured return context from shell.
+  return true;
+}
+
+export function readHistoryIndexFromWindow(
+  historyState: unknown,
+): number | null {
+  if (!historyState || typeof historyState !== "object") return null;
+  const idx = (historyState as { idx?: unknown }).idx;
+  return typeof idx === "number" && Number.isFinite(idx) ? idx : null;
+}
+
 export function findSessionWorkspaceId(
   sessionId: string | null,
   entries: Array<{ workspaceId: string; sessions: SidebarSessionItem[] }>,

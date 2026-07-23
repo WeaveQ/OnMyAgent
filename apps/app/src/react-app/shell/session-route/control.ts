@@ -80,6 +80,11 @@ export function resolveSessionRouteRestoreNavigation(input: {
   firstSessionIdForPageMode: (workspaceId: string) => string | null;
   legacySelectedWorkspaceId: string;
   loading: boolean;
+  /**
+   * React Router navigationType. When "POP", last-session restore must not
+   * rewrite the URL (Back to draft/empty would otherwise be stolen).
+   */
+  navigationType?: string | null;
   /** Prefer mode-scoped: readLastSessionFor(workspaceId, pageMode). */
   pageMode?: "assistant" | "expert";
   readLastSessionFor: (
@@ -101,6 +106,7 @@ export function resolveSessionRouteRestoreNavigation(input: {
     input.workspaces.length > 0 &&
     !input.workspaces.some((workspace) => workspace.id === input.routeWorkspaceId)
   ) {
+    // Repair invalid workspace id (allowed even on POP — not last-session steal).
     const fallbackWorkspaceId = resolveFallbackWorkspaceId({
       preferredWorkspaceId: input.legacySelectedWorkspaceId,
       workspaces: input.workspaces,
@@ -121,6 +127,8 @@ export function resolveSessionRouteRestoreNavigation(input: {
   }
   if (!input.selectedWorkspaceId) return { type: "none" };
   if (input.suppressRestoreSession) return { type: "none" };
+  // Do not auto-restore last session on browser/history Back (POP).
+  if (input.navigationType === "POP") return { type: "none" };
   const remembered = input.readLastSessionFor(
     input.selectedWorkspaceId,
     input.pageMode,

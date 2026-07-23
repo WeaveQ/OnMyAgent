@@ -405,10 +405,49 @@ export function useControlAction(action: OnMyAgentControlAction | null | false |
   }, [actionId, registerAction]);
 }
 
+function settingsNavStateFromLocation(pathname: string, search: string) {
+  const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)\//);
+  const workspaceId = workspaceMatch
+    ? decodeURIComponent(workspaceMatch[1])
+    : "";
+  const sessionMatch = pathname.match(/\/(?:assistant|session)\/([^/]+)/);
+  const sessionId = sessionMatch ? decodeURIComponent(sessionMatch[1]) : null;
+  return {
+    workspaceId,
+    sessionId,
+    pageMode: (pathname.includes("/assistant")
+      ? "assistant"
+      : "expert") as "assistant" | "expert",
+    returnTo: `${pathname}${search}`,
+  };
+}
+
 export function OnMyAgentRouteControlActions() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const actions = useMemo<OnMyAgentControlAction[]>(() => [
+  const actions = useMemo<OnMyAgentControlAction[]>(() => {
+    const openSettingsTab = (tab: string) => {
+      if (location.pathname.includes("/settings")) {
+        navigate(
+          location.pathname.includes("/workspace/")
+            ? location.pathname.replace(/\/settings\/.*$/, `/settings/${tab}`)
+            : `/settings/${tab}`,
+          { replace: true, state: location.state },
+        );
+        return;
+      }
+      const state = settingsNavStateFromLocation(
+        location.pathname,
+        location.search,
+      );
+      const target = state.workspaceId
+        ? `/workspace/${encodeURIComponent(state.workspaceId)}/settings/${tab}`
+        : `/settings/${tab}`;
+      navigate(target, { state });
+    };
+
+    return [
     {
       id: "route.session",
       label: t("system.control_open_sessions"),
@@ -421,23 +460,24 @@ export function OnMyAgentRouteControlActions() {
       label: t("system.control_open_general_settings"),
       description: t("system.control_open_general_settings_desc"),
       sideEffect: "navigation",
-      execute: () => navigate("/settings/general"),
+      execute: () => openSettingsTab("general"),
     },
     {
       id: "route.settings.providers",
       label: t("system.control_open_provider_settings"),
       description: t("system.control_open_ai_settings_desc"),
       sideEffect: "navigation",
-      execute: () => navigate("/settings/ai"),
+      execute: () => openSettingsTab("ai"),
     },
     {
       id: "route.settings.authorized_folders",
       label: t("system.control_open_folders_settings"),
       description: t("system.control_open_folders_settings_desc"),
       sideEffect: "navigation",
-      execute: () => navigate("/settings/permissions"),
+      execute: () => openSettingsTab("permissions"),
     },
-  ], [navigate]);
+  ];
+  }, [location.pathname, location.search, location.state, navigate]);
 
   useControlAction(actions[0]);
   useControlAction(actions[1]);

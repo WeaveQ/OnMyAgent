@@ -769,17 +769,44 @@ export function normalizeSettingsRouteTab(route: string) {
   return route.replace(/^\/settings\/?/, "").replace(/^\/+|\/+$/g, "") || "general";
 }
 
+export type SettingsNavigationPageMode = "assistant" | "expert";
+
+export type SettingsNavigationState = {
+  workspaceId: string;
+  sessionId: string | null;
+  /** Shell mode the user left (assistant vs expert). Used by "Back to app". */
+  pageMode: SettingsNavigationPageMode;
+  /**
+   * Full pathname+search to restore (including rail `?view=`). Preferred over
+   * rebuilding from workspace/session/mode so Back to app is exact.
+   */
+  returnTo: string | null;
+};
+
 export function buildSettingsNavigationTarget(input: {
   route: string;
   workspaceId: string;
   activeWorkspaceId: string;
   selectedSessionId: string | null;
+  pageMode: SettingsNavigationPageMode;
+  /** Current shell location when opening settings (pathname + search). */
+  returnTo?: string | null;
   workspaceSettingsRoute: (workspaceId: string, tab: string) => string;
-}) {
-  const sessionId = input.workspaceId === input.activeWorkspaceId ? input.selectedSessionId : null;
+}): { target: string; state: SettingsNavigationState } {
+  const sessionId =
+    input.workspaceId === input.activeWorkspaceId ? input.selectedSessionId : null;
   const tab = normalizeSettingsRouteTab(input.route);
   const target = input.workspaceId
     ? input.workspaceSettingsRoute(input.workspaceId, tab)
     : input.route;
-  return { target, state: { workspaceId: input.workspaceId, sessionId } };
+  const returnTo = input.returnTo?.trim() || null;
+  return {
+    target,
+    state: {
+      workspaceId: input.workspaceId,
+      sessionId,
+      pageMode: input.pageMode,
+      returnTo,
+    },
+  };
 }

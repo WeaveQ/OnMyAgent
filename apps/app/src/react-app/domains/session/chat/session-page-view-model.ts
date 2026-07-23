@@ -8,6 +8,7 @@ import type { WorkspaceSessionGroup } from "../../../../app/types";
 import {
   getSidebarInitialLoading,
   sessionTitleForId,
+  shouldShowSessionStartupSkeleton,
   workspaceTaskStatus,
 } from "./session-page-model";
 import type { OnMyAgentPrimaryView } from "./session-page-sidebar-view-model";
@@ -50,12 +51,12 @@ export function buildSessionPageViewModel(input: BuildSessionPageViewModelInput)
   const messageCountVisible = input.selectedSessionId ? 1 : 0;
   const showWorkspaceSetupEmptyState =
     input.workspaceCount === 0 && !input.selectedSessionId;
-  const showStartupSkeleton =
-    !input.selectedSessionId &&
-    !input.clientConnected &&
-    input.startupPhase !== "sessionIndexReady" &&
-    input.startupPhase !== "firstSessionReady" &&
-    input.startupPhase !== "ready";
+  const showStartupSkeleton = shouldShowSessionStartupSkeleton({
+    selectedSessionId: input.selectedSessionId,
+    selectedWorkspaceId: input.selectedWorkspaceId,
+    clientConnected: input.clientConnected,
+    startupPhase: input.startupPhase,
+  });
   const selectedSessionId = input.selectedSessionId;
   const showSessionLoadingState =
     selectedSessionId !== null &&

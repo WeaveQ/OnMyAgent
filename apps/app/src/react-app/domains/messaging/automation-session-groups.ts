@@ -123,7 +123,16 @@ export function syncAutomationSessionRecords(
   if (typeof window === "undefined" || !workspaceId.trim()) return;
   const deletedSessionIds = readDeletedSessionIds(workspaceId);
   const existing = readAutomationSessionRecords(workspaceId);
-  const records = new Map(existing.map((record) => [record.sessionId, record]));
+  const liveAutomationIds = new Set(
+    automations.map((item) => item.id).filter((id) => id.trim()),
+  );
+  // Drop local grouping for automations that no longer exist (sidebar delete /
+  // automation page delete). Otherwise the "定时" folder keeps coming back.
+  const records = new Map(
+    existing
+      .filter((record) => liveAutomationIds.has(record.automationId))
+      .map((record) => [record.sessionId, record]),
+  );
 
   for (const automation of automations) {
     const running = automation.running;
