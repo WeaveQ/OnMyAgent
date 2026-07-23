@@ -319,6 +319,9 @@ describe("expert marketplace UI contract", () => {
 
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const conversationModel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
+    );
     const surface = readWorkspaceFile("apps/app/src/react-app/domains/session/surface/session-surface.tsx");
     const pendingAgent = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/session-surface-pending-agent.ts",
@@ -327,10 +330,14 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/surface/session-surface-types.ts",
     );
     const surfaceSources = [surface, pendingAgent].join("\n");
+    const expertHost = [expertPage, conversationModel].join("\n");
 
-    expect(expertPage).toContain("const activeAgentContext = useMemo<PendingAgentContext | null>");
-    expect(expertPage).toContain("findBuiltinMarketplaceExpertById(");
-    expect(expertPage).toContain("activeAgentContext?.id ??");
+    // Active agent identity resolves via pure conversation model (wired from ExpertPage).
+    expect(expertPage).toContain("resolveActiveAgentContext");
+    expect(expertPage).toContain("const activeAgentContext = useMemo");
+    expect(conversationModel).toContain("export function resolveActiveAgentContext");
+    expect(conversationModel).toContain("findBuiltinMarketplaceExpertById(");
+    expect(expertHost).toContain("activeAgentContext?.id ??");
     expect(expertPage).toContain("agentContext={activeAgentContext}");
     expect(expertPage).toContain("assistantFeatureCategoryId={activeExpertFeatureCategoryId}");
     expect(expertPage).not.toContain("DEFAULT_AGENT_TEMPLATE_ID");
@@ -344,11 +351,16 @@ describe("expert marketplace UI contract", () => {
 
   test("expert draft tabs keep multiple unsent experts selectable", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const conversationModel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
+    );
     const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
     const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx");
+    const expertHost = [expertPage, conversationModel].join("\n");
 
     expect(expertPage).toContain("draftAgentContexts");
-    expect(expertPage).toContain("`draft:${props.selectedWorkspaceId}:${agent.id}`");
+    expect(conversationModel).toContain("export function buildDraftAgentGroups");
+    expect(expertHost).toContain("`draft:${selectedWorkspaceId}:${agent.id}`");
     expect(expertPage).toContain("onOpenDraftSession={handleOpenDraftSession}");
     expect(expertPage).toContain("draftAgentGroups={draftAgentGroups}");
     expect(expertPage).toContain("selectedAgentId={activeConversationAgentId}");

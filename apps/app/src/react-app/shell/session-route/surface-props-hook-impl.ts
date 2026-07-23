@@ -10,7 +10,6 @@ import { pickDirectory } from "../../../app/lib/desktop";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import { buildOnMyAgentEnvRuntimeKey } from "../../../app/lib/onmyagent-env-runtime";
 import {
-  forkSession,
   listCommands,
   revertSession,
   shellInSession,
@@ -1002,31 +1001,6 @@ export function useSessionRouteSurfaceProps(
             void refreshRouteState();
           } catch (error) {
             console.warn("[revert] failed", error);
-          }
-        })();
-      },
-      onForkAtMessage: (messageId: string) => {
-        void (async () => {
-          if (!selectedSessionId) return;
-          try {
-            const forked = await forkSession(
-              opencodeClient,
-              selectedSessionId,
-              messageId,
-            );
-            writeLastSessionFor(selectedWorkspaceId, forked.id);
-            rememberPendingCreatedSession(selectedWorkspaceId, forked.id);
-            setSessionsByWorkspaceId((current) =>
-              insertSidebarSession({
-                current,
-                workspaceId: selectedWorkspaceId,
-                session: forked,
-              }),
-            );
-            navigateToWorkspaceSession(selectedWorkspaceId, forked.id);
-            void refreshRouteState();
-          } catch (error) {
-            console.warn("[fork] failed", error);
           }
         })();
       },

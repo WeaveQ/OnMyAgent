@@ -29,6 +29,8 @@ describe("frontend host thin modules", () => {
       "src/react-app/domains/session/pages/use-agent-panel-resize.ts",
       "src/react-app/domains/session/pages/use-session-host-side-panel.ts",
       "src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
+      "src/react-app/domains/session/pages/use-expert-automation-offer.tsx",
+      "src/react-app/domains/session/pages/expert-conversation-model.ts",
     ];
     for (const h of hooks) {
       expect(existsSync(join(root, h))).toBe(true);
@@ -39,9 +41,27 @@ describe("frontend host thin modules", () => {
     expect(expert).toContain("useSessionHostSidePanel");
     expect(expert).toContain("useMyExpertPackages");
     expect(expert).toContain("useAgentPanelResize");
+    expect(expert).toContain("useExpertAutomationOffer");
+    expect(expert).toContain("from \"./expert-conversation-model\"");
     expect(assistant).toContain("useSessionHostSidePanel");
     expect(assistant).toContain("useMyExpertPackages");
     expect(assistant).toContain("useSummonMarketplaceExpert");
+  });
+
+  test("dead onForkAtMessage prop drill is gone from session UI stack", () => {
+    const sources = [
+      "src/react-app/domains/session/surface/session-surface-types.ts",
+      "src/react-app/domains/session/surface/session-surface.tsx",
+      "src/react-app/domains/session/surface/session-surface-view.tsx",
+      "src/react-app/domains/session/surface/message-list.tsx",
+      "src/react-app/domains/session/surface/message-list/chrome.tsx",
+      "src/react-app/domains/session/surface/message-list/message-block-row.tsx",
+      "src/react-app/domains/session/surface/message-list/message-block-row-equality.ts",
+      "src/react-app/shell/session-route/surface-props-hook-impl.ts",
+    ];
+    for (const rel of sources) {
+      expect(read(rel)).not.toContain("onForkAtMessage");
+    }
   });
 
   test("host page line counts are below pre-optimization baseline", () => {
