@@ -41,6 +41,7 @@ import {
   assistantSessionWorkspacesChangedEvent,
   readAssistantSessionWorkspaces,
 } from "../../../../capabilities/session-identity/assistant-session-workspaces";
+import { formatExpertWorkspaceListLabel } from "../../../../capabilities/session-identity/expert-session-directory";
 import {
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
@@ -49,14 +50,8 @@ import {
 function draftWorkspaceLabel(path: string | null | undefined): string {
   const trimmed = path?.trim() ?? "";
   if (!trimmed) return "";
-  return (
-    trimmed
-      .replace(/\\/g, "/")
-      .replace(/\/+$/, "")
-      .split("/")
-      .filter(Boolean)
-      .pop() ?? trimmed
-  );
+  // Expert auto-folders: "Name · 2026-07-23 14:30" instead of raw hash.
+  return formatExpertWorkspaceListLabel(trimmed);
 }
 
 function sanitizeDraftSpaceName(raw: string): string {
@@ -174,7 +169,10 @@ export function SessionDraftWorkspaceAccessory(props: {
     if (!q) return knownWorkspaces;
     return knownWorkspaces.filter((path) => {
       const name = workspaceDisplayName(path).toLowerCase();
-      return name.includes(q) || path.toLowerCase().includes(q);
+      const label = formatExpertWorkspaceListLabel(path).toLowerCase();
+      return (
+        name.includes(q) || label.includes(q) || path.toLowerCase().includes(q)
+      );
     });
   }, [query, knownWorkspaces]);
 
@@ -361,7 +359,7 @@ export function SessionDraftWorkspaceAccessory(props: {
                     >
                       <Folder className="size-3.5 shrink-0 text-dls-secondary" />
                       <span className="min-w-0 flex-1 truncate">
-                        {workspaceDisplayName(path)}
+                        {formatExpertWorkspaceListLabel(path)}
                       </span>
                       {active ? (
                         <Check className="size-3.5 shrink-0 text-dls-secondary" />

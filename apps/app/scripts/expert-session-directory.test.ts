@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildIsolatedExpertSessionDirectory,
+  createExpertSessionKey,
+  formatExpertSessionStamp,
+  formatExpertWorkspaceListLabel,
   isSameDirectory,
   joinWorkspacePath,
   resolveExpertSessionDirectoryMarker,
@@ -16,16 +19,42 @@ describe("expert session directory isolation", () => {
     expect(sanitizePathSegment("...")).toBe("expert");
   });
 
+  test("creates readable name-date session keys for experts", () => {
+    const stamp = formatExpertSessionStamp(new Date("2026-07-23T14:30:52"));
+    expect(stamp).toBe("2026-07-23-143052");
+    const key = createExpertSessionKey("物流单专家");
+    expect(key.startsWith("物流单专家-")).toBe(true);
+    expect(key).toMatch(/^物流单专家-\d{4}-\d{2}-\d{2}-\d{6}$/);
+  });
+
+  test("formats list labels for new and legacy expert folders", () => {
+    expect(
+      formatExpertWorkspaceListLabel(
+        "/Users/me/Workspace/物流单专家/物流单专家-2026-07-23-143052",
+      ),
+    ).toBe("物流单专家 · 2026-07-23 14:30");
+    expect(
+      formatExpertWorkspaceListLabel(
+        "/Users/me/Workspace/物流单专家/e4fae6588c5f",
+      ),
+    ).toBe("物流单专家 · e4fae6");
+    expect(formatExpertWorkspaceListLabel("/Users/me/Projects/my-app")).toBe(
+      "my-app",
+    );
+  });
+
   test("builds AgentName/sessionKey under the workspace root", () => {
     const isolated = buildIsolatedExpertSessionDirectory({
       workspaceRoot: "/Users/me/Workspace",
       agentName: "物流单专家",
-      sessionKey: "abc123def456",
+      sessionKey: "物流单专家-2026-07-23-143052",
     });
-    expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家/abc123def456");
+    expect(isolated.directory).toBe(
+      "/Users/me/Workspace/物流单专家/物流单专家-2026-07-23-143052",
+    );
     expect(isolated.agentSegment).toBe("物流单专家");
     expect(isolated.markerRelativePath).toBe(
-      "物流单专家/abc123def456/onmyagent-session.json",
+      "物流单专家/物流单专家-2026-07-23-143052/onmyagent-session.json",
     );
     expect(isolated.markerContent).toContain("expert-session");
   });

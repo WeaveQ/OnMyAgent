@@ -2,8 +2,9 @@
  * Per-expert-session artifact directory helpers.
  *
  * When the user does not pick a folder for a new expert conversation, isolate
- * artifacts under: `{workspaceRoot}/{agentName}/{sessionKey}/`
- * so different experts and sessions never share the same dump folder.
+ * artifacts under: `{workspaceRoot}/{agentName}/{agentName-YYYY-MM-DD-HHmmss}/`
+ * so different experts and sessions never share the same dump folder, and the
+ * workspace picker can show a clean "Name · date" label (not a raw hash).
  */
 
 export function sanitizePathSegment(raw: string, fallback = "expert"): string {
@@ -20,11 +21,60 @@ export function sanitizePathSegment(raw: string, fallback = "expert"): string {
   return cleaned || fallback;
 }
 
-export function createExpertSessionKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+/** Local stamp: 2026-07-23-143052 (date + compact time for uniqueness). */
+export function formatExpertSessionStamp(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${y}-${mo}-${d}-${hh}${mm}${ss}`;
+}
+
+/**
+ * Folder segment for a new isolated expert session.
+ * Prefer `{agentName}-{YYYY-MM-DD-HHmmss}` so the picker last-segment is readable.
+ * When `agentName` is omitted, fall back to stamp only (legacy callers).
+ */
+export function createExpertSessionKey(agentName?: string): string {
+  const stamp = formatExpertSessionStamp();
+  const raw = agentName?.trim();
+  if (!raw) return stamp;
+  const name = sanitizePathSegment(raw, "expert").slice(0, 40);
+  return `${name}-${stamp}`;
+}
+
+/**
+ * Human label for the draft-workspace / spaces list.
+ * - New: `物流单专家-2026-07-23-143052` → `物流单专家 · 2026-07-23 14:30`
+ * - Legacy hash under agent folder: `…/物流单专家/e4fae6588c5f` → `物流单专家 · e4fae6`
+ * - Otherwise: last path segment
+ */
+export function formatExpertWorkspaceListLabel(path: string): string {
+  const segments = path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "")
+    .split("/")
+    .filter(Boolean);
+  const last = segments[segments.length - 1] ?? path.trim();
+  const parent = segments[segments.length - 2];
+
+  const namedStamp = last.match(/^(.+)-(\d{4}-\d{2}-\d{2})-(\d{6})$/);
+  if (namedStamp) {
+    const [, name, date, time] = namedStamp;
+    const hh = time.slice(0, 2);
+    const mm = time.slice(2, 4);
+    return `${name} · ${date} ${hh}:${mm}`;
   }
-  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+  // Legacy: 12-char hex session key under `{agentName}/`
+  if (parent && /^[a-f0-9]{12}$/i.test(last)) {
+    return `${parent} · ${last.slice(0, 6)}`;
+  }
+
+  return last;
 }
 
 export function joinWorkspacePath(root: string, ...parts: string[]): string {
@@ -78,8 +128,9 @@ export function buildIsolatedExpertSessionDirectory(input: {
   markerRelativePath: string;
   markerContent: string;
 } {
-  const sessionKey = input.sessionKey?.trim() || createExpertSessionKey();
   const agentSegment = sanitizePathSegment(input.agentName, "expert");
+  const sessionKey =
+    input.sessionKey?.trim() || createExpertSessionKey(agentSegment);
   const directory = joinWorkspacePath(input.workspaceRoot, agentSegment, sessionKey);
   const markerRelativePath = relativePosixPath(
     agentSegment,
