@@ -642,7 +642,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             // so the left-side agent panel renders the new agent immediately.
             setLegacySelectedWorkspaceId(workspaceId);
             writeActiveWorkspaceId(workspaceId || null);
-            writeLastSessionFor(workspaceId, newSession.id);
+            writeLastSessionFor(workspaceId, newSession.id, pageMode);
             rememberPendingCreatedSession(workspaceId, newSession.id);
             setSessionsByWorkspaceId((current) => {
               const next = insertSidebarSession({
@@ -710,6 +710,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               }
               const targetSessionId = resolveWorkspaceSelectionSessionTarget({
                 firstSessionIdForPageMode,
+                pageMode,
                 readLastSessionFor,
                 selectedSessionId,
                 sessionMatchesPageMode,
@@ -722,7 +723,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             onOpenSession: (workspaceId, sessionId) => {
               setLegacySelectedWorkspaceId(workspaceId);
               writeActiveWorkspaceId(workspaceId || null);
-              writeLastSessionFor(workspaceId, sessionId);
+              writeLastSessionFor(workspaceId, sessionId, pageMode);
               navigateToWorkspaceSession(workspaceId, sessionId);
             },
             onPrefetchSession: () => {},
@@ -756,7 +757,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                     mode: "prompt",
                   });
                   writeActiveWorkspaceId(workspaceId || null);
-                  writeLastSessionFor(workspaceId, session.id);
+                  writeLastSessionFor(workspaceId, session.id, pageMode);
                   rememberPendingCreatedSession(workspaceId, session.id);
                   setSessionsByWorkspaceId((current) =>
                     insertSidebarSession({

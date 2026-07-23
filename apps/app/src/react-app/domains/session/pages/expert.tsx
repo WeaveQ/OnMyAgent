@@ -204,6 +204,10 @@ export function ExpertPage(props: ExpertPageProps) {
     useState<OnMyAgentPrimaryView>(() =>
       readRailView("expert", props.selectedWorkspaceId, "chat"),
     );
+  // Workspace switch: restore this mode's last rail page (管理/本地/专家会话…).
+  useEffect(() => {
+    setActiveSidebarView(readRailView("expert", props.selectedWorkspaceId, "chat"));
+  }, [props.selectedWorkspaceId]);
   const visitedRailViews = useVisitedRailViews(
     activeSidebarView,
     props.selectedWorkspaceId,
