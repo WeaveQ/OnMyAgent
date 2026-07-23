@@ -128,11 +128,16 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
     },
   ];
 
-  const archivedCards: Array<{
+  const dataCards: Array<{
     tab: SettingsTab;
     title: string;
     desc: string;
   }> = [
+    {
+      tab: "recovery",
+      title: t("settings.tab_recovery"),
+      desc: t("settings.tab_recovery_description"),
+    },
     {
       tab: "archived-tasks",
       title: t("settings.tab_archived_tasks"),
@@ -175,16 +180,15 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
         </div>
       </OverviewSection>
 
-      <OverviewSection label={t("settings.group_archived")}>
+      <OverviewSection label={t("settings.group_data")}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {archivedCards.map((card) => (
+          {dataCards.map((card) => (
             <OverviewNavCard
               key={card.tab}
               icon={getSettingsTabIcon(card.tab)}
               title={card.title}
               desc={card.desc}
               onClick={() => props.onNavigateTab(card.tab)}
-              className="sm:col-span-2"
             />
           ))}
         </div>

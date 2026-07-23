@@ -283,6 +283,7 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "memory":
     case "conversation-memory":
     case "archived-tasks":
+    case "recovery":
     case "debug":
       return { tab: head, redirectPath: null };
     case "cloud-marketplaces":
@@ -290,7 +291,6 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
       return { tab: head, redirectPath: null };
     // Removed stub settings pages — keep old deep links from 404ing.
     case "advanced":
-    case "recovery":
     case "skills":
     case "cloud-workers":
     case "cloud-account":

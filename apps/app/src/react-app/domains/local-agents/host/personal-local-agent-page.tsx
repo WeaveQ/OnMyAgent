@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Search,
   Settings2,
-  UserPlus,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1414,91 +1413,68 @@ return (
               />
             </InputGroup>
 
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex min-w-0 items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setShowActiveRunsPanel(true)}
-                  className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                  title={t("local_agent.active_runs_title")}
-                  aria-label={t("local_agent.active_runs_title")}
-                  aria-expanded={showActiveRunsPanel}
-                >
-                  <Activity className="size-4" />
-                  {activeRuns.length ? (
-                    <CountBadge
-                      size="dot"
-                      className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface"
-                    >
-                      {activeRuns.length}
-                    </CountBadge>
-                  ) : null}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={!canCreateConversation}
-                  onClick={() => void createNewConversation()}
-                  className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
-                  title={t("local_agent.new_conversation")}
-                  aria-label={t("local_agent.new_conversation")}
-                  aria-busy={creatingConversation || undefined}
-                >
-                  {creatingConversation ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    <Plus className="size-4" />
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={refreshing}
-                  onClick={() => void refreshAgents({ notify: true })}
-                  className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
-                  title={t("local_agent.redetect")}
-                  aria-label={t("local_agent.redetect")}
-                >
-                  {refreshing ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                </Button>
-              </div>
-
-              {props.onOpenAgentManagement ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => props.onOpenAgentManagement?.("agents")}
-                    className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                    title={t("local_agent.add")}
-                    aria-label={t("local_agent.add")}
+            {/*
+              Runtime actions only (runs / new chat / redetect).
+              Agent install & management live in the bottom "管理 Agent" CTA —
+              the previous top UserPlus + Settings2 both opened the same page
+              and duplicated that footer entry.
+            */}
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setShowActiveRunsPanel(true)}
+                className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                title={t("local_agent.active_runs_title")}
+                aria-label={t("local_agent.active_runs_title")}
+                aria-expanded={showActiveRunsPanel}
+              >
+                <Activity className="size-4" />
+                {activeRuns.length ? (
+                  <CountBadge
+                    size="dot"
+                    className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface"
                   >
-                    <UserPlus className="size-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => props.onOpenAgentManagement?.("agents")}
-                    className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                    title={t("local_agent.manage_agents")}
-                    aria-label={t("local_agent.manage_agents")}
-                  >
-                    <Settings2 className="size-4" />
-                  </Button>
-                </div>
-              ) : null}
+                    {activeRuns.length}
+                  </CountBadge>
+                ) : null}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={!canCreateConversation}
+                onClick={() => void createNewConversation()}
+                className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
+                title={t("local_agent.new_conversation")}
+                aria-label={t("local_agent.new_conversation")}
+                aria-busy={creatingConversation || undefined}
+              >
+                {creatingConversation ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={refreshing}
+                onClick={() => void refreshAgents({ notify: true })}
+                className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
+                title={t("local_agent.redetect")}
+                aria-label={t("local_agent.redetect")}
+              >
+                {refreshing ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+              </Button>
             </div>
           </div>
 
