@@ -25,6 +25,7 @@ import {
   groupSessionsByAgent,
   buildResumeRequest,
   humanizeArchiveTitle,
+  shortProjectLabel,
 } from "./session-archive-helpers";
 
 // Pure helpers + the `SessionArchiveResumeRequest` type live in
@@ -44,6 +45,7 @@ export {
   groupSessionsByAgent,
   buildResumeRequest,
   humanizeArchiveTitle,
+  shortProjectLabel,
 } from "./session-archive-helpers";
 
 /** First-screen page size — never mount thousands of list rows at once. */
@@ -777,12 +779,4 @@ function formatCompactCount(count: number): string {
   if (!Number.isFinite(count) || count < 1000) return String(count);
   if (count < 10_000) return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return `${Math.round(count / 1000)}k`;
-}
-
-function shortProjectLabel(project: string | null | undefined): string | null {
-  if (!project) return null;
-  const normalized = project.replace(/\\/g, "/").replace(/\/+$/, "");
-  const parts = normalized.split("/").filter(Boolean);
-  if (parts.length === 0) return project;
-  return parts[parts.length - 1] ?? project;
 }
