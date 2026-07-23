@@ -171,6 +171,15 @@ function validateManifest(name, manifest) {
       }
     }
   }
+  // electron-builder Windows feed is `latest.yml` (not latest-win.yml).
+  if (name === "latest.yml") {
+    const hasWin = urls.some(
+      (url) => url.includes("win") || /\.exe$/i.test(url) || url.includes("-win-"),
+    );
+    if (!hasWin) {
+      throw new Error(`${name} is missing Windows installer artifacts.`);
+    }
+  }
   if (name === "latest-linux.yml" && urls.some((url) => url.includes("arm64"))) {
     throw new Error(`${name} should remain the Linux x64 feed; arm64 belongs in latest-linux-arm64.yml.`);
   }

@@ -41,7 +41,7 @@ on:
         type: boolean
         default: false
       build_electron:
-        description: "Build + publish Electron desktop artifacts (macOS only)"
+        description: "Build + publish Electron desktop artifacts (macOS arm64/x64 + Windows x64)"
         required: false
         type: boolean
         default: true
@@ -116,11 +116,12 @@ jobs:
           if [ -n "$RELEASE_BODY_INPUT" ]; then
             RELEASE_BODY="$RELEASE_BODY_INPUT"
           else
-            printf -v RELEASE_BODY '%s\n\nOnMyAgent %s desktop release.\n\n%s\n%s' \
+            printf -v RELEASE_BODY '%s\n\nOnMyAgent %s desktop release.\n\n%s\n%s\n%s' \
               "## What's new" \
               "$TAG" \
               "- Download the attached macOS installer for your Mac." \
-              "- Electron builds use the attached latest-mac.yml updater feed."
+              "- Download the attached Windows installer (NSIS / x64)." \
+              "- Electron updater feeds: latest-mac.yml (macOS) and latest.yml (Windows)."
           fi
 
           draft="${INPUT_DRAFT:-}"
@@ -249,6 +250,13 @@ jobs:
             artifact: electron-macos-x64
             electron_args: "--mac --x64"
             target_triple: x86_64-apple-darwin
+          # Stable Windows installer (NSIS x64). Same release tag as mac assets.
+          # Pin VS 2022: windows-latest can break node-gyp/native module detection.
+          - platform: windows-2022
+            os_type: windows
+            artifact: electron-windows-x64
+            electron_args: "--win --x64"
+            target_triple: x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout
@@ -371,6 +379,32 @@ jobs:
             ${{ matrix.electron_args }} \
             --publish never
 
+      # Windows NSIS installer. Authenticode is optional: when WIN_CSC_* / CSC_* are
+      # absent, ship unsigned NSIS so every release still gets a Windows asset.
+      - name: Package Electron (Windows x64 NSIS)
+        if: matrix.os_type == 'windows'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target_triple }}
+          NODE_OPTIONS: --max-old-space-size=8192
+          # Prefer Windows-specific certs when present (base64 pfx).
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK || secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD || secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CSC_LINK:-}" ]; then
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            echo "No Windows Authenticode cert configured; building unsigned NSIS."
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+            echo "Windows Authenticode cert present; signing enabled."
+          fi
+          node apps/desktop/scripts/patch-nsis-install-details.mjs
+          pnpm --dir apps/desktop exec electron-builder \
+            --config electron-builder.yml \
+            ${{ matrix.electron_args }} \
+            --publish never
+
       - name: Upload Electron release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -381,8 +415,11 @@ jobs:
           assets=(apps/desktop/dist-electron/onmyagent-*)
           if [ ${#assets[@]} -eq 0 ]; then
             echo "No Electron release assets found in apps/desktop/dist-electron" >&2
+            ls -la apps/desktop/dist-electron 2>/dev/null || true
             exit 1
           fi
+          printf 'Uploading %s assets to %s:\n' "${#assets[@]}" "$RELEASE_TAG"
+          printf '  %s\n' "${assets[@]}"
           gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Upload Electron updater manifest artifact
