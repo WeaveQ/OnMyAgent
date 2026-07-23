@@ -157,6 +157,7 @@ import {
   packageEntryToMarketplaceExpert,
   isTrackableAccessibleTarget,
   setComposerDraftAfterNewTask,
+  setExpertComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import {
   expertFeatureCategoryForAgent,
@@ -180,6 +181,7 @@ import {
   selectRawWorkspaceSessions,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
+import { resolveBoundExpertDraftSession } from "./expert-draft-session";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
@@ -593,6 +595,21 @@ export function ExpertPage(props: ExpertPageProps) {
     },
     [props.sidebar],
   );
+  useEffect(() => {
+    const createdSessionId = resolveBoundExpertDraftSession({
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+    });
+    if (!createdSessionId) return;
+    handleOpenExpertSession(props.selectedWorkspaceId, createdSessionId);
+  }, [
+    draftAgentId,
+    draftSessionActive,
+    handleOpenExpertSession,
+    pendingAgent,
+    props.selectedWorkspaceId,
+  ]);
   const handleStartAgentConversation = useCallback(
     (
       item: AgentCardItem,
@@ -693,7 +710,7 @@ export function ExpertPage(props: ExpertPageProps) {
   }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
   const handleStartMarketplaceExpert = useCallback(
-    (expert: ExpertMarketplaceEntry) => {
+    (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
@@ -703,6 +720,11 @@ export function ExpertPage(props: ExpertPageProps) {
           props.sidebar.selectedWorkspaceId,
           existingConversationGroup.latestSession.id,
         );
+        if (initialPrompt) {
+          useComposerStateStore
+            .getState()
+            .setDraft(existingConversationGroup.latestSession.id, initialPrompt);
+        }
         void installSummonedMarketplaceExpert(expert).catch((error) => {
           console.warn("[expert-marketplace] failed to install expert package", error);
         });
@@ -726,6 +748,13 @@ export function ExpertPage(props: ExpertPageProps) {
       openFreshExpertDraft();
       // Re-assert after create-task's synchronous setAgent(null).
       activateDraftAgent(pendingWithStart);
+      if (initialPrompt) {
+        setExpertComposerDraftAfterNewTask(
+          props.selectedWorkspaceId,
+          pendingWithStart.id,
+          initialPrompt,
+        );
+      }
       setActiveSidebarView("chat");
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn("[expert-marketplace] failed to install expert package", error);
@@ -808,12 +837,14 @@ export function ExpertPage(props: ExpertPageProps) {
     effectiveActiveQuestion,
     effectiveRespondQuestion,
     automationResultAccessory,
+    openCreatedAutomation,
   } = useExpertAutomationOffer({
     onmyagentServerClient: props.onmyagentServerClient,
     selectedWorkspaceId: props.selectedWorkspaceId,
     selectedWorkspaceRoot: props.selectedWorkspaceRoot,
     runtimeWorkspaceId: props.runtimeWorkspaceId,
     selectedSessionId: props.selectedSessionId,
+    selectedModel: props.surface?.model.selectedModel,
     draftSessionActive,
     draftAgentId,
     activeDraftSessionId,
@@ -1899,6 +1930,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
+                        automationSourceSessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}
                         initialKind={
                           activeSidePanel === "review"
@@ -1912,6 +1944,7 @@ export function ExpertPage(props: ExpertPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           activeExpertFeatureCategoryId === "office"
                             ? ["review", "terminal"]

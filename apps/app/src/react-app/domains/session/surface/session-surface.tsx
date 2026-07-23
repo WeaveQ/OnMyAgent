@@ -1782,8 +1782,32 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
             draftOnly={false}
             workspacePath={props.workspaceRoot}
           />
-        )
-      : null;
+         )
+       : null;
+  const downloadCodePath = useCallback(async (filePath: string) => {
+    const normalizedRoot = props.workspaceRoot.replace(/[\\/]+$/, "");
+    const normalizedPath = filePath.trim();
+    const relativePath = normalizedRoot && (
+      normalizedPath === normalizedRoot ||
+      normalizedPath.startsWith(`${normalizedRoot}/`) ||
+      normalizedPath.startsWith(`${normalizedRoot}\\`)
+    )
+      ? normalizedPath.slice(normalizedRoot.length).replace(/^[\\/]+/, "")
+      : normalizedPath.replace(/^\.\//, "");
+    const result = await props.client.downloadWorkspaceFile(
+      props.workspaceId,
+      relativePath,
+    );
+    const url = URL.createObjectURL(new Blob(
+      [result.data],
+      { type: result.contentType ?? "application/octet-stream" },
+    ));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = relativePath.split(/[\\/]/).at(-1) ?? "artifact";
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }, [props.client, props.workspaceId, props.workspaceRoot]);
 
   return (
     <SessionSurfaceView
@@ -1848,6 +1872,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onRevertToMessage={props.onRevertToMessage}
       verifiedOpenTargets={verifiedOpenTargets}
       onOpenTarget={props.onOpenTarget}
+      onDownloadCodePath={downloadCodePath}
       workspaceRoot={props.workspaceRoot}
       assistantStatusFooter={assistantStatusFooter}
       searchQuery={searchQuery}

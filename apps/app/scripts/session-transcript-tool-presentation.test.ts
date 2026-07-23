@@ -3,14 +3,14 @@ import { describe, expect, test } from "bun:test";
 import { buildTranscriptToolPresentation } from "../src/react-app/domains/session/surface/transcript/tool-presentation";
 
 describe("session transcript specialized tool presentation", () => {
-  test("extracts read path and line range", () => {
+  test("keeps read rows to one filename headline and a line range", () => {
     expect(buildTranscriptToolPresentation({
       toolName: "read_file",
       toolInput: { filePath: "src/app.ts", startLine: 12, endLine: 48 },
       toolOutput: { content: "..." },
     })).toMatchObject({
       family: "read",
-      secondary: "src/app.ts",
+      secondary: null,
       lineRange: "L12-48",
     });
   });

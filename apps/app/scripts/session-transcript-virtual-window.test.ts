@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   activeTurnReserveStyle,
   resolveVirtualItemKey,
+  resolveVirtualItemEstimate,
   selectVirtualRenderWindow,
   shouldVirtualizeTranscript,
   TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
@@ -79,5 +80,12 @@ describe("session transcript virtual window (shipped helpers)", () => {
         minHeightPx: 700,
       }),
     ).toBeUndefined();
+  });
+
+  test("reuses the measured detached-tail height when it becomes historical", () => {
+    const item = { id: "turn-previous" };
+    const measured = new Map([[item.id, 184]]);
+    expect(resolveVirtualItemEstimate(item, measured, () => 720)).toBe(184);
+    expect(resolveVirtualItemEstimate({ id: "unseen" }, measured, () => 320)).toBe(320);
   });
 });

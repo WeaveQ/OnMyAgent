@@ -171,6 +171,13 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain('t("session.create_expert")');
     expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
+    expect(dialog).toContain("max-h-[calc(100vh-48px)]");
+    expect(dialog).toContain("quickPrompts.slice(0, 2)");
+    expect(dialog).toContain("MARKETPLACE_DIALOG_EXIT_DURATION_MS = 200");
+    expect(dialog).toContain("}, MARKETPLACE_DIALOG_EXIT_DURATION_MS)");
+    expect(dialog).toContain(
+      "props.onSummonMarketplaceExpert(selectedExpert, prompt)",
+    );
     expect(dialog).not.toContain("MyExpertCard");
     expect(dialog).not.toContain("AgentRecord");
     expect(dialog).not.toContain("onSummonMyExpert");
@@ -273,12 +280,19 @@ describe("expert marketplace UI contract", () => {
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
     expect(summonHook).toContain("onCreateTaskInWorkspace(selectedWorkspaceId)");
     expect(summonHook).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    expect(summonHook).toContain(
+      "setExpertComposerDraftAfterNewTask(",
+    );
     expect(summonHook).toContain('onNavigateToMode("expert")');
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("openFreshExpertDraft();");
     // Build pending first, activate, open draft (+ 新任务 clears pending), re-activate.
     expect(expertPage).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
     expect(expertPage).toContain("activateDraftAgent(pendingWithStart)");
+    expect(expertPage).toContain(
+      ".setDraft(existingConversationGroup.latestSession.id, initialPrompt)",
+    );
+    expect(expertPage).toContain("setExpertComposerDraftAfterNewTask(");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {

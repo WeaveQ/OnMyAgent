@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { AutomationTaskInput } from "@onmyagent/types";
 
 import { t } from "../../../../i18n";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
@@ -48,6 +49,7 @@ export type UseExpertAutomationOfferInput = {
   selectedWorkspaceRoot: string;
   runtimeWorkspaceId: string | null;
   selectedSessionId: string | null;
+  selectedModel?: AutomationTaskInput["model"];
   draftSessionActive: boolean;
   draftAgentId: string | null;
   activeDraftSessionId: string | null;
@@ -66,6 +68,7 @@ export type UseExpertAutomationOfferResult = {
   effectiveActiveQuestion: PendingQuestion | null | undefined;
   effectiveRespondQuestion: (requestID: string, answers: string[][]) => void;
   automationResultAccessory: ReactNode;
+  openCreatedAutomation: (row: { id: string; scene: "office" | "code" }) => void;
 };
 
 export function useExpertAutomationOffer(
@@ -259,7 +262,8 @@ export function useExpertAutomationOffer(
   const runAutomationCreate = useCallback(
     async (flow: AutomationOfferFlowState) => {
       const client = input.onmyagentServerClient;
-      const { workspaceId } = resolveAutomationSessionDirectory();
+      const { workspaceId, sessionDirectory } =
+        resolveAutomationSessionDirectory();
       if (!client || !workspaceId) {
         setAutomationOfferFlow((current) => ({
           ...current,
@@ -286,6 +290,9 @@ export function useExpertAutomationOffer(
           client,
           workspaceId,
           items,
+          defaultModel: input.selectedModel,
+          defaultWorkspaceDirectory: sessionDirectory,
+          sourceSessionId: input.selectedSessionId,
         });
         if (result.created.length > 0) {
           showToast({
@@ -331,7 +338,13 @@ export function useExpertAutomationOffer(
         }));
       }
     },
-    [input.onmyagentServerClient, resolveAutomationSessionDirectory, showToast],
+    [
+      input.onmyagentServerClient,
+      input.selectedModel,
+      input.selectedSessionId,
+      resolveAutomationSessionDirectory,
+      showToast,
+    ],
   );
 
   const handleHostAutomationAnswer = useCallback(
@@ -430,5 +443,6 @@ export function useExpertAutomationOffer(
     effectiveActiveQuestion,
     effectiveRespondQuestion,
     automationResultAccessory,
+    openCreatedAutomation,
   };
 }
