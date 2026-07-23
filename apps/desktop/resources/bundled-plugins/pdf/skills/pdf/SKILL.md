@@ -1,38 +1,34 @@
 ---
 name: pdf
-description: Use when a user asks to create, read, merge, split, rotate, inspect, or edit PDF files through the bundled PDF artifact plugin.
+description: Read, create, merge, split, rotate, fill, and verify local PDF files with the bundled JavaScript artifact runtime. Use for PDF attachments, forms, reports, page operations, and layout inspection.
 ---
 
 # PDF
 
-## Overview
+Use only the bundled Node.js artifact runtime. Do not install or invoke external document engines, remote document services, or live PDF applications.
 
-Use the plugin runtime as the only authority for available PDF operations. General knowledge of PDF tools does not prove that those tools exist in this package.
+## Required workflow
 
-## Runtime contract
+1. Treat the reported base directory as the skill root. Run `node runtime/artifact_runtime.cjs doctor` before the first operation.
+2. Inspect every existing input with `node runtime/artifact_runtime.cjs inspect <input.pdf>` before transformation.
+3. Use `pdf-lib` for creation, page operations, metadata, forms, merge/split/rotate, and watermark workflows.
+4. Write task scripts as CommonJS (`.cjs`) so bundled dependencies resolve without workspace installation.
+5. Save to a new output path unless the user explicitly asks to replace the input.
+6. Open the final PDF through OnMyAgent's Chromium PDF preview and inspect every page at readable zoom.
+7. Finish with `node runtime/artifact_runtime.cjs verify <output.pdf>` and report exact paths and unresolved issues.
 
-1. Resolve the plugin root as two directories above this `SKILL.md`.
-2. Run `python3 <plugin-root>/runtime/artifact_runtime.py --capabilities` before committing to a PDF operation.
-3. Parse the JSON response and inspect `status` and `capabilities`.
-4. Continue only when the requested operation is advertised and the runtime permits execution.
-5. On `not_implemented`, stop and quote the runtime message. State that no PDF was created or changed.
+## Quality contract
 
-Do not invent merge, rotation, rendering, OCR, form, or extraction commands that the runtime has not advertised.
+- Preserve page boxes, rotation, bookmarks, links, metadata, form field names, and reading order unless intentionally changed.
+- For new PDFs, use deliberate page geometry, embedded fonts, consistent headers/footers, and sufficient contrast.
+- For forms, inspect the field structure before filling. Prefer real field values; disclose annotation fallbacks.
+- `pdf-lib` does not provide OCR or general-purpose paragraph reflow. Do not advertise either capability.
+- Never execute embedded JavaScript or launch actions from an input PDF.
+- Never claim visual verification from structural inspection alone; use the OnMyAgent preview.
 
-## Quick reference
+## Runtime commands
 
-| Runtime result | Action |
-| --- | --- |
-| `not_implemented` | Report the limitation and no output |
-| Operation missing | Explain that the requested PDF operation is unavailable |
-| Operation advertised | Use only the runtime contract it returns |
-
-## Example
-
-For “Merge and rotate these PDFs,” query capabilities. If the response is `{"status":"not_implemented","capabilities":[]}`, explain that merging and rotation are unavailable and do not claim an output file.
-
-## Common mistakes
-
-- Assuming a common PDF library or command is bundled.
-- Reporting page or layout verification without a successful runtime result.
-- Relying on package resources that the runtime has not advertised.
+- `--capabilities` or `capabilities`: machine-readable operations.
+- `doctor`: bundled JavaScript dependency health.
+- `inspect <pdf>`: page, metadata, encryption, and form summary.
+- `verify <pdf>`: structural checks.

@@ -703,18 +703,21 @@ export function SessionPage(props: SessionPageProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-dls-background mac:bg-dls-background">
-        <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <OnMyAgentRail
-            activeView={railActiveView}
-            account={props.account}
-            onOpenView={agentPanel.openSidebarView}
-            onOpenAccountSettings={props.onOpenAccountSettings}
-            onSignOut={props.onSignOut}
-            onOpenDevices={agentPanel.openDevicesView}
-            onOpenBilling={agentPanel.openBillingView}
-          />
-          <div className="relative flex min-h-0 flex-1 overflow-hidden mac:titlebar-no-drag">
+      {/*
+        Keep primary rail outside bg-dls-background so mac vibrancy can show
+        through the strip (WeChat). Background wash only covers list + content.
+      */}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <OnMyAgentRail
+          activeView={railActiveView}
+          account={props.account}
+          onOpenView={agentPanel.openSidebarView}
+          onOpenAccountSettings={props.onOpenAccountSettings}
+          onSignOut={props.onSignOut}
+          onOpenDevices={agentPanel.openDevicesView}
+          onOpenBilling={agentPanel.openBillingView}
+        />
+        <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background mac:titlebar-no-drag">
             {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
               <AgentConversationPanel
                 width={agentPanel.agentPanelWidth}
@@ -780,9 +783,23 @@ export function SessionPage(props: SessionPageProps) {
               className="min-h-0 flex-1"
             >
               <ResizablePanel minSize="360px" className="min-w-0">
-                <main className="flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border bg-dls-background">
+                <main
+                  className={cn(
+                    "flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border",
+                    agentPanel.activeSidebarView === "localAgent"
+                      ? "bg-transparent"
+                      : "bg-dls-background",
+                  )}
+                >
                   <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div className="relative min-w-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
+                    <div
+                      className={cn(
+                        "relative min-w-0 flex-1 overflow-hidden",
+                        agentPanel.activeSidebarView === "localAgent"
+                          ? "bg-transparent"
+                          : "bg-dls-background mac:bg-dls-background",
+                      )}
+                    >
                       {agentPanel.activeSidebarView === "agents" ? (
                         <props.renderAgentsPage
                           workspaceId={props.selectedWorkspaceId}
@@ -825,6 +842,12 @@ export function SessionPage(props: SessionPageProps) {
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
                           onOpenArtifact={openTarget}
+                          onEditError={() => showToast({
+                            tone: "error",
+                            title: t("files.edit_file_failed"),
+                            dismissLabel: t("common.dismiss"),
+                            durationMs: 0,
+                          })}
                         />
                       ) : null}
 
@@ -925,18 +948,25 @@ export function SessionPage(props: SessionPageProps) {
                           workspaceId={props.runtimeWorkspaceId!}
                           sessionId={pageView.renderedSessionId}
                           draftOnly={pageView.isDraftSession}
+                          surfaceVisible={
+                            pageView.isSessionSurfaceView &&
+                            !pageView.activePlaceholderView &&
+                            !showDelayedSessionLoadingState
+                          }
                           opencodeBaseUrl={pageView.reactSessionBaseUrl}
                           onmyagentToken={pageView.reactSessionToken}
                           todos={props.todos}
-                          activePermission={props.activePermission}
-                          permissionReplyBusy={props.permissionReplyBusy}
-                          respondPermission={props.respondPermission}
-                          autoApprovedPermissionNoticeId={
-                            props.autoApprovedPermissionNoticeId
-                          }
-                          activeQuestion={props.activeQuestion}
-                          questionReplyBusy={props.questionReplyBusy}
-                          respondQuestion={props.respondQuestion}
+                          permission={{
+                            ...props.surface!.permission,
+                            activePermission: props.activePermission,
+                            permissionReplyBusy: props.permissionReplyBusy,
+                            respondPermission: props.respondPermission,
+                            autoApprovedPermissionNoticeId:
+                              props.autoApprovedPermissionNoticeId,
+                            activeQuestion: props.activeQuestion,
+                            questionReplyBusy: props.questionReplyBusy,
+                            respondQuestion: props.respondQuestion,
+                          }}
                           safeStringify={props.safeStringify}
                           userIdentity={{
                             name:
@@ -950,15 +980,18 @@ export function SessionPage(props: SessionPageProps) {
                           headerActions={headerPanelControls}
                           onOpenTarget={openTarget}
                           onOpenTargetsChange={handleOpenTargetsChange}
-                          onOpenSkillsMarketplace={() => {
-                            setStoreActiveTab("skills");
-                            agentPanel.openSidebarView("store");
+                          marketplace={{
+                            ...props.surface!.marketplace,
+                            onOpenSkillsMarketplace: () => {
+                              setStoreActiveTab("skills");
+                              agentPanel.openSidebarView("store");
+                            },
+                            onOpenConnectorsMarketplace: () => {
+                              setStoreActiveTab("plugins");
+                              agentPanel.openSidebarView("store");
+                            },
+                            onOpenCustomConnector: () => openCustomConnector("config"),
                           }}
-                          onOpenConnectorsMarketplace={() => {
-                            setStoreActiveTab("plugins");
-                            agentPanel.openSidebarView("store");
-                          }}
-                          onOpenCustomConnector={() => openCustomConnector("config")}
                         />
                       ) : null}
 
@@ -1259,7 +1292,6 @@ export function SessionPage(props: SessionPageProps) {
             </ResizablePanelGroup>
           </div>
         </div>
-      </div>
 
       <Dialog open={agentPanel.agentsDialogOpen} onOpenChange={agentPanel.setAgentsDialogOpen}>
         <DialogContent className="flex h-[min(820px,calc(100vh-72px))] !w-[min(1280px,calc(100vw-96px))] !max-w-[min(1280px,calc(100vw-96px))] flex-col overflow-hidden rounded-xl bg-dls-background p-0 sm:!max-w-[min(1280px,calc(100vw-96px))]">

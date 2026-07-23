@@ -26,7 +26,13 @@ export function ReactSessionRuntime(props: ReactSessionRuntimeProps) {
       onSessionStatus: props.onSessionStatus,
     };
     const releaseWorkspace = ensureWorkspaceSessionSync(input);
-    const releaseSessions = trackWorkspaceSessionsSync(input, [props.sessionId, ...(props.activeSessionIds ?? [])]);
+    // Full message stream only for the focused session; other active ids are
+    // demoted (status via activity store still updates on the shared SSE).
+    const releaseSessions = trackWorkspaceSessionsSync(
+      input,
+      [props.sessionId, ...(props.activeSessionIds ?? [])],
+      { focusedSessionId: props.sessionId },
+    );
     return () => {
       releaseSessions();
       releaseWorkspace();

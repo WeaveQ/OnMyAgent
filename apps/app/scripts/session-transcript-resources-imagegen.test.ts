@@ -66,19 +66,14 @@ describe("session transcript WorkBuddy resources and image generation", () => {
   });
 
   test("routes image generation through its full card and user files through compact chips", async () => {
+    const surfaceDir = new URL("../src/react-app/domains/session/surface/", import.meta.url);
     const [messageList, specializedTools, resourceChip] = await Promise.all([
-      Bun.file(new URL(
-        "../src/react-app/domains/session/surface/message-list.tsx",
-        import.meta.url,
-      )).text(),
-      Bun.file(new URL(
-        "../src/react-app/domains/session/surface/specialized-tool-details.tsx",
-        import.meta.url,
-      )).text(),
-      Bun.file(new URL(
-        "../src/react-app/domains/session/surface/transcript-resource-chip.tsx",
-        import.meta.url,
-      )).text(),
+      Promise.all([
+        "message-list.tsx",
+        "message-list/step-row.tsx",
+      ].map((relativePath) => Bun.file(new URL(relativePath, surfaceDir)).text())).then((parts) => parts.join("\n")),
+      Bun.file(new URL("specialized-tool-details.tsx", surfaceDir)).text(),
+      Bun.file(new URL("transcript-resource-chip.tsx", surfaceDir)).text(),
     ]);
 
     expect(messageList).toContain("ImageGenerationToolCard");

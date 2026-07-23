@@ -69,10 +69,7 @@ import type {
   WorkspaceConnectionState,
   WorkspaceDisplay,
 } from "../../../app/types";
-import {
-  isDesktopRuntime,
-  normalizeDirectoryPath,
-} from "../../../app/utils";
+import { isDesktopRuntime } from "../../../app/utils";
 import { usePlatform } from "../../kernel/platform";
 import {
   useRemoteWorkspaceConnectionEditor,
@@ -100,6 +97,7 @@ import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagen
 import { useStatusToasts } from "../../domains/shell-feedback";
 import {
   readAssistantSessionWorkspace,
+  resolveSelectedSessionFileRoot,
   seedPermissionState,
   seedQuestionState,
   useSessionActivityStore,
@@ -132,7 +130,6 @@ export function SessionRouteRender() {
     local,
     sidebarAccount,
     setSidebarAccount,
-    localUserSignedIn,
     routeWorkspaceId,
     selectedSessionId,
     pageMode,
@@ -407,6 +404,28 @@ export function SessionRouteRender() {
     [selectedWorkspaceId, sessionsByWorkspaceIdRef],
   );
 
+  /** Keep list-row `status` in sync with SSE so seed + activeSessionIds don't lag. */
+  const handleRuntimeSessionStatus = useCallback(
+    (update: { sessionId: string; status: unknown }) => {
+      if (!selectedWorkspaceId) return;
+      const sessionId = update.sessionId?.trim() ?? "";
+      if (!sessionId) return;
+      setSessionsByWorkspaceId((current) => {
+        const list = current[selectedWorkspaceId] ?? [];
+        const index = list.findIndex((session) => session.id === sessionId);
+        if (index < 0) return current;
+        const prev = list[index];
+        if (prev.status === update.status) return current;
+        const nextList = [...list];
+        nextList[index] = { ...prev, status: update.status };
+        const next = { ...current, [selectedWorkspaceId]: nextList };
+        sessionsByWorkspaceIdRef.current = next;
+        return next;
+      });
+    },
+    [selectedWorkspaceId, sessionsByWorkspaceIdRef],
+  );
+
   useEffect(() => {
     const activeWorkspaceIds = new Set(
       workspaces.map((workspace) => workspace.id),
@@ -479,6 +498,7 @@ export function SessionRouteRender() {
       firstSessionIdForPageMode,
       legacySelectedWorkspaceId,
       loading,
+      pageMode,
       readLastSessionFor,
       routeWorkspaceId,
       selectedSessionId,
@@ -503,6 +523,7 @@ export function SessionRouteRender() {
     loading,
     legacySelectedWorkspaceId,
     navigateToWorkspaceSession,
+    pageMode,
     routeWorkspaceId,
     selectedSessionId,
     selectedWorkspaceId,
@@ -655,17 +676,11 @@ export function SessionRouteRender() {
     errorsByWorkspaceId,
     sessionsByWorkspaceId,
   });
-  const normalizedSelectedWorkspaceRoot =
-    normalizeDirectoryPath(selectedWorkspaceRoot);
-  const normalizedSessionDirectory = normalizeDirectoryPath(
-    selectedSessionDirectory ?? "",
-  );
-  const selectedSessionFileRoot =
-    selectedSessionWorkspace?.directory?.trim() ||
-    (normalizedSessionDirectory &&
-    normalizedSessionDirectory !== normalizedSelectedWorkspaceRoot
-      ? (selectedSessionDirectory?.trim() ?? "")
-      : "");
+  const selectedSessionFileRoot = resolveSelectedSessionFileRoot({
+    boundDirectory: selectedSessionWorkspace?.directory,
+    sessionDirectory: selectedSessionDirectory,
+    workspaceRoot: selectedWorkspaceRoot,
+  });
   // Single source of truth for the selected workspace's server URL/token/id.
   // For remote workspaces this is the worker that owns the workspace; for
   // local workspaces it's the user's local OnMyAgent server.
@@ -752,8 +767,10 @@ export function SessionRouteRender() {
       !providerListQuery.data &&
       (providerListQuery.isPending || providerListQuery.isFetching),
   });
-  const modelAvailabilityBlocksTask =
-    selectedModelUnavailable && !localUserSignedIn;
+  // Always surface the composer banner when the active model is not pickable
+  // (including the app default ghost opencode/big-pickle). Do not hide the
+  // banner for signed-in users — the model menu would still show "未找到模型".
+  const modelAvailabilityBlocksTask = selectedModelUnavailable;
   const canCreateTask = Boolean(
     opencodeClient &&
       selectedWorkspaceId &&
@@ -1021,6 +1038,7 @@ export function SessionRouteRender() {
     forceNewSessionOnNextSendRef,
     handleOpenSettings,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     listSlashCommands,
     local,
     localeSnapshot,
@@ -1227,6 +1245,7 @@ export function SessionRouteRender() {
       handleReorderWorkspaces={handleReorderWorkspaces}
       handleRevealWorkspace={handleRevealWorkspace}
       handleRuntimeSessionUpdated={handleRuntimeSessionUpdated}
+      handleRuntimeSessionStatus={handleRuntimeSessionStatus}
       handleSaveRenameWorkspace={handleSaveRenameWorkspace}
       handleSaveShareRemoteAccess={handleSaveShareRemoteAccess}
       handleShareWorkspace={handleShareWorkspace}

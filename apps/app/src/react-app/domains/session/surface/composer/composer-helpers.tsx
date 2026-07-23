@@ -238,6 +238,11 @@ export type ComposerProps = {
    * card aligns with the brand title, and use a denser editor/toolbar.
    */
   homeLayout?: boolean;
+  /**
+   * Assistant office/code “new task” hero: taller field + softer card under the
+   * brand title (width stays the same as in-session). Not expert empty / chat.
+   */
+  heroHome?: boolean;
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;

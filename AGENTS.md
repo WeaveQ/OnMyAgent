@@ -33,6 +33,13 @@ packages/onmyagent-ui-mcp UI 控制面 MCP server
 
 默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`；React 域细节只维护在 `apps/app/src/react-app/ARCHITECTURE.md`。
 
+### 双运行时主辅（硬事实）
+
+- **OpenCode** = 产品主运行时与主会话真相源（server / archive / SSE / `domains/session`）。
+- **Personal Local Agent** = 桌面辅轨：本机 CLI/ACP agent harness（`personal-agent-runtime` + `domains/local-agents`），**不是**第二套主引擎。
+- 可共享 conversation **展示**合同；**禁止**交叉写对方 store / archive。细则与决策启发式：`docs/Architecture.md` → **Dual Runtime Boundary**。
+- 主轨 archive 热路径：store pool + change-bus + SSE 策略（同文档 **Server Archive Runtime**）；新增代码勿绕过 pool 裸 open。
+
 ## 构建与启动
 
 ```bash
@@ -50,6 +57,7 @@ pnpm task check orchestrator # 低频专项检查入口：orchestrator 类型检
 pnpm task check design    # 低频专项检查入口：DESIGN.md YAML 与代码 token 漂移检测
 pnpm check:boundaries     # 架构边界 + shell-import-depth 门禁
 pnpm check:forbidden-types # any / as any / as unknown as 类型逃逸门禁
+pnpm check:file-size      # 大文件体量基线（只减不增）
 pnpm check:i18n:cjk       # renderer 层中日韩硬编码字符串门禁
 pnpm test:unit            # server + orchestrator 单元/集成测试
 pnpm test:api             # server HTTP/API e2e 测试

@@ -141,7 +141,7 @@ export function useBootOverlayVisible(): boolean {
 
   useEffect(() => {
     if (canHide) {
-      const handle = window.setTimeout(() => setVisible(false), 160);
+      const handle = window.setTimeout(() => setVisible(false), 200);
       return () => window.clearTimeout(handle);
     }
     setVisible(true);

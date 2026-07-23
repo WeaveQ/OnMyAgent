@@ -53,7 +53,7 @@ export function AssistantCategorySwitch(props: {
   ];
 
   return (
-    <div className="mb-2.5 flex w-full justify-center mac:titlebar-no-drag">
+    <div className="mb-3.5 flex w-full justify-center mac:titlebar-no-drag">
       {/*
         Same free-float pill as store 「专家」: density bare + shape tab (rounded-lg),
         inverted active fill — no track, so L/R radius stays uniform.
@@ -61,7 +61,7 @@ export function AssistantCategorySwitch(props: {
       <SegmentedTabGroup
         density="bare"
         role="tablist"
-        className="h-8 w-full max-w-none"
+        className="h-9 w-full max-w-none gap-1"
       >
         {items.map((item) => {
           const Icon = item.icon;
@@ -76,7 +76,7 @@ export function AssistantCategorySwitch(props: {
               active={active}
               size="tab"
               shape="tab"
-              className="relative z-10 h-8 min-h-8 min-w-0 flex-1 justify-center gap-1.5 px-3.5 text-sm"
+              className="relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3.5 text-sm"
             >
               <Icon className="size-3.5 shrink-0" />
               <span className="leading-none">{item.label}</span>

@@ -1,27 +1,31 @@
 /** @jsxImportSource react */
 import {
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
+  type DragEvent,
   type ReactElement,
   type ReactNode,
 } from "react";
 import {
+  Archive,
   CalendarClock,
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  ClipboardList,
   Folder,
   FolderOpen,
   Maximize2,
   MessageCirclePlus,
   Minimize2,
   MoreHorizontal,
+  Pin,
+  PinOff,
   Trash2,
 } from "lucide-react";
 
-import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -32,14 +36,35 @@ import {
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
-import type { AgentConversationGroup } from "./conversation-model";
+import type {
+  AgentConversationGroup,
+  AssistantGlobalPin,
+} from "./conversation-model";
 import type { AssistantAutomationGroup } from "./assistant-automation-groups";
+import type {
+  AssistantListModel,
+  AssistantSpaceFolder,
+} from "./assistant-list-model";
+import {
+  dropSlotToIndex,
+  reorderSpaceFolderDirectories,
+  resolveDropSlot,
+} from "./assistant-list-model";
 import {
   AssistantTaskItem,
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
+  TASK_CONTEXT_MENU_SEPARATOR_CLASS,
+  TASK_CONTEXT_MENU_WIDTH,
   TASK_ROW_ACTION_CLASS,
+  TASK_ROW_ARCHIVE_CHIP_CLASS,
+  positionTaskContextMenu,
 } from "./assistant-task-item";
+import {
+  resolveUnreadAgentIdForSession,
+  useExpertUnreadStore,
+} from "../status/expert-unread-store";
+import { pickAggregateSessionStatus } from "./utils";
 
 /** Floating row/section icon → short hover tip (native title is too slow in Electron). */
 function IconHoverTip(props: {
@@ -57,8 +82,9 @@ function IconHoverTip(props: {
   );
 }
 
-type SectionId = "pinned" | "tasks" | "spaces" | "automations";
-const ASSISTANT_TASK_PREVIEW_LIMIT = 20;
+type SectionId = "pinned" | "recent" | "spaces" | "automations";
+/** Recent list preview before "show more". */
+const RECENT_PREVIEW_LIMIT = 12;
 /** Per space/automation folder: show "show more" when children exceed this. */
 const FOLDER_TASK_PREVIEW_LIMIT = 5;
 
@@ -77,10 +103,18 @@ type AssistantConversationSectionsProps = {
   categoryId: AssistantCategoryId;
   workspaceId: string;
   selectedSessionId: string | null;
+  sessionStatusById?: Record<string, string>;
+  /** Unpinned scheduled groups for the Schedules section. */
   automationGroups: AssistantAutomationGroup<AgentConversationGroup>[];
-  pinnedGroups: AgentConversationGroup[];
-  taskGroups: AgentConversationGroup[];
-  spaceGroups: [string, AgentConversationGroup[]][];
+  /**
+   * All scheduled groups (incl. globally pinned) — used by the pin strip and
+   * local-pin lookup. Defaults to automationGroups when omitted.
+   */
+  automationGroupsAll?: AssistantAutomationGroup<AgentConversationGroup>[];
+  /** automationId → local pin order inside that scheduled group. */
+  automationLocalPinsById?: Record<string, string[]>;
+  /** Built once in the panel — pin / space / recent rules. */
+  listModel: AssistantListModel;
   expandedDirectories: string[];
   expandedAutomationDirectories: string[];
   onExpandedDirectoriesChange: (updater: (current: string[]) => string[]) => void;
@@ -88,17 +122,26 @@ type AssistantConversationSectionsProps = {
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onTogglePinned: (sessionId: string) => void;
+  onToggleFolderPinned?: (directory: string) => void;
+  onToggleAutomationGroupPinned?: (groupId: string) => void;
+  onReorderGlobalPins?: (fromIndex: number, toIndex: number) => void;
+  onReorderSpaceFolders?: (orderedDirectories: string[]) => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenFolder?: (path: string) => void;
   onSaveToSpace?: (sessionId: string) => void;
-  /** Unbind all tasks under this project folder from the space list. */
   onRemoveSpaceDirectory?: (directory: string) => void;
-  /** Start a new assistant task bound to this project folder. */
+  onArchiveSpaceDirectory?: (directory: string) => void;
   onCreateTaskInDirectory?: (directory: string) => void;
-  /** sessionId → bound folder path (for open-folder menu item). */
-  folderPathBySessionId?: ReadonlyMap<string, string>;
+  /** Soft-archive every run under a scheduled-task group. */
+  onArchiveAutomationGroup?: (groupId: string) => void;
+  /** Confirm + permanently delete every run under a scheduled-task group. */
+  onDeleteAutomationGroup?: (target: {
+    groupId: string;
+    title: string;
+    sessionIds: string[];
+  }) => void;
 };
 
 function assistantDirectoryName(directory: string) {
@@ -127,46 +170,27 @@ function groupIncludesSession(
   return groups.some((group) => assistantTaskSelected(group, selectedSessionId));
 }
 
-function groupedEntriesIncludeSession(
-  groups: [string, AgentConversationGroup[]][],
-  selectedSessionId: string | null,
-) {
-  if (!selectedSessionId) return false;
-  return groups.some(([, items]) => groupIncludesSession(items, selectedSessionId));
+/** Insertion slot from a drag-over event on a row (Codex-style half-row split). */
+function dropSlotFromEvent(
+  event: DragEvent,
+  rowIndex: number,
+  count: number,
+): number {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  return resolveDropSlot(event.clientY, rect.top, rect.height, rowIndex, count);
 }
 
-function takeVisibleGroups(
-  groups: AgentConversationGroup[],
-  remaining: { value: number },
-) {
-  if (remaining.value <= 0) return [];
-  const visible = groups.slice(0, remaining.value);
-  remaining.value -= visible.length;
-  return visible;
-}
-
-function AssistantListEmptyState(props: {
-  kind: SectionId;
-  title: string;
-  description: string;
-}) {
-  const icon = (() => {
-    if (props.kind === "spaces") return <FolderOpen className="size-5" />;
-    if (props.kind === "automations") return <CalendarClock className="size-5" />;
-    return <ClipboardList className="size-5" />;
-  })();
-
+/** Quiet one-line empty label — same chrome for tasks / spaces / schedules / recent. */
+function AssistantListEmptyState(props: { label: string }) {
   return (
-    <div className="mx-1 mt-1 flex flex-col items-center gap-2 rounded-xl border border-dls-border/60 bg-dls-surface/40 px-3 py-5 text-center">
-      <IconTile size="md" shape="lg" tone="neutral" className="bg-dls-surface text-dls-secondary">
-        {icon}
-      </IconTile>
-      <div className="space-y-1">
-        <div className="text-sm font-medium text-dls-text">{props.title}</div>
-        <p className="mx-auto max-w-48 text-xs leading-5 text-dls-secondary">
-          {props.description}
-        </p>
-      </div>
+    <div
+      className={cn(
+        LIST_ROW_CLASS,
+        "px-2 text-xs text-dls-secondary/70",
+      )}
+      data-assistant-list-empty="true"
+    >
+      <span className="truncate leading-none">{props.label}</span>
     </div>
   );
 }
@@ -175,7 +199,11 @@ function AssistantTaskRows(props: {
   groups: AgentConversationGroup[];
   workspaceId: string;
   selectedSessionId: string | null;
+  sessionStatusById?: Record<string, string>;
+  /** Force all rows pinned=true (global pin strip). */
   pinned?: boolean;
+  /** Per-session pin flags (space-local pins). */
+  pinnedSessionIds?: ReadonlySet<string>;
   pinnable?: boolean;
   typeIcon?: React.ReactNode;
   singleLine?: boolean;
@@ -191,70 +219,321 @@ function AssistantTaskRows(props: {
   onOpenFolder?: (path: string) => void;
   onSaveToSpace?: (sessionId: string) => void;
 }) {
+  // Subscribe so task unread dots update when stream activity / focus changes.
+  // Narrow subscribe: only re-render when this workspace's unread slices change.
+  const workspaceSessionUnread = useExpertUnreadStore(
+    (state) => state.sessionUnreadByWorkspace[props.workspaceId],
+  );
+  const workspaceAgentUnread = useExpertUnreadStore(
+    (state) => state.byWorkspace[props.workspaceId],
+  );
+  const isSessionUnread = useExpertUnreadStore((state) => state.isSessionUnread);
+  void workspaceSessionUnread;
+  void workspaceAgentUnread;
+
   return (
     <>
-      {props.groups.map((item) => (
-        <AssistantTaskItem
-          key={item.key}
-          group={item}
-          workspaceId={props.workspaceId}
-          selected={assistantTaskSelected(item, props.selectedSessionId)}
-          pinned={props.pinned}
-          pinnable={props.pinnable}
-          typeIcon={props.typeIcon}
-          singleLine={props.singleLine}
-          folderPath={
-            props.folderPathBySessionId?.get(item.latestSession.id) ??
-            props.folderPath ??
-            null
-          }
-          onOpenSession={props.onOpenSession}
-          onPrefetchSession={props.onPrefetchSession}
-          onTogglePinned={props.onTogglePinned}
-          onRenameSession={props.onRenameSession}
-          onArchiveSession={props.onArchiveSession}
-          onDeleteSession={props.onDeleteSession}
-          onOpenFolder={props.onOpenFolder}
-          onSaveToSpace={props.onSaveToSpace}
-        />
-      ))}
+      {props.groups.map((item) => {
+        const unread = item.sessions.some((session) =>
+          isSessionUnread(props.workspaceId, session.id),
+        );
+        const rowPinned =
+          props.pinned === true ||
+          Boolean(props.pinnedSessionIds?.has(item.latestSession.id));
+        return (
+          <AssistantTaskItem
+            key={item.key}
+            group={item}
+            workspaceId={props.workspaceId}
+            selected={assistantTaskSelected(item, props.selectedSessionId)}
+            status={pickAggregateSessionStatus(
+              item.sessions.map((session) => session.id),
+              props.sessionStatusById,
+            )}
+            unread={unread}
+            pinned={rowPinned}
+            pinnable={props.pinnable}
+            typeIcon={props.typeIcon}
+            singleLine={props.singleLine}
+            folderPath={
+              props.folderPathBySessionId?.get(item.latestSession.id) ??
+              props.folderPath ??
+              null
+            }
+            onOpenSession={props.onOpenSession}
+            onPrefetchSession={props.onPrefetchSession}
+            onTogglePinned={props.onTogglePinned}
+            onRenameSession={props.onRenameSession}
+            onArchiveSession={props.onArchiveSession}
+            onDeleteSession={props.onDeleteSession}
+            onOpenFolder={props.onOpenFolder}
+            // Already in a space folder — no "save to space" again.
+            onSaveToSpace={
+              props.folderPath?.trim() ? undefined : props.onSaveToSpace
+            }
+          />
+        );
+      })}
     </>
+  );
+}
+
+/**
+ * Codex-style drop indicator: blue circle + horizontal line between rows.
+ * `slot` is the insertion index (0 = before first, n = after last).
+ */
+function PinDropIndicator() {
+  return (
+    <div
+      className="pointer-events-none relative z-10 my-0.5 h-0 w-full"
+      aria-hidden
+    >
+      <div className="absolute inset-x-1 top-0 flex -translate-y-1/2 items-center">
+        <span className="size-2 shrink-0 rounded-full border-2 border-dls-accent bg-dls-background" />
+        <span className="h-0.5 min-w-0 flex-1 rounded-full bg-dls-accent" />
+      </div>
+    </div>
+  );
+}
+
+/** Codex-style drag reorder for space folders (same indicator as global pins). */
+function SpaceFolderDragList(props: {
+  folders: AssistantSpaceFolder[];
+  workspaceId: string;
+  selectedSessionId: string | null;
+  sessionStatusById?: Record<string, string>;
+  expandedDirectories: string[];
+  folderPathBySessionId?: ReadonlyMap<string, string>;
+  showAllByFolder: Record<string, boolean>;
+  /** Full space directory list (incl. globally pinned) for order persistence. */
+  allSpaceDirectories: string[];
+  onExpandedDirectoriesChange: (updater: (current: string[]) => string[]) => void;
+  onToggleFolderPinned?: (directory: string) => void;
+  onReorderSpaceFolders?: (orderedDirectories: string[]) => void;
+  onOpenFolder?: (path: string) => void;
+  onArchiveDirectory?: (directory: string) => void;
+  onRemoveFromList?: (directory: string) => void;
+  onCreateTask?: (directory: string) => void;
+  onOpenSession: (workspaceId: string, sessionId: string) => void;
+  onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
+  onTogglePinned: (sessionId: string) => void;
+  onRenameSession?: (sessionId: string, currentTitle: string) => void;
+  onArchiveSession?: (sessionId: string, title: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onSaveToSpace?: (sessionId: string) => void;
+  onToggleShowAllFolder: (folderKey: string) => void;
+}) {
+  const dragFromRef = useRef<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dropSlot, setDropSlot] = useState<number | null>(null);
+  const count = props.folders.length;
+  const canDrag = Boolean(props.onReorderSpaceFolders) && count > 1;
+
+  const clearDrag = () => {
+    dragFromRef.current = null;
+    setDragFrom(null);
+    setDropSlot(null);
+  };
+
+  const commitReorder = (from: number, slot: number) => {
+    if (!props.onReorderSpaceFolders) return;
+    const to = dropSlotToIndex(from, slot);
+    if (to === from) return;
+    // Shared pure path with global pins: visible subset + full storage merge
+    // (globally pinned folders keep relative slots in allSpaceDirectories).
+    const next = reorderSpaceFolderDirectories({
+      fullDirectories: props.allSpaceDirectories,
+      visibleDirectories: props.folders.map((folder) => folder.directory),
+      fromIndex: from,
+      toIndex: to,
+    });
+    props.onReorderSpaceFolders(next);
+  };
+
+  return (
+    <div
+      className="flex flex-col gap-0.5"
+      onDragLeave={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+        setDropSlot(null);
+      }}
+    >
+      {props.folders.map((folder, index) => {
+        const { directory, name, items, localPinnedSessionIds } = folder;
+        const expandedDir = props.expandedDirectories.includes(directory);
+        const localPins = new Set(localPinnedSessionIds);
+        const isDragging = dragFrom === index;
+        return (
+          <div key={directory}>
+            {dragFrom !== null && dropSlot === index ? <PinDropIndicator /> : null}
+            {/*
+              Drop target wraps the whole block; only the folder header is
+              draggable. Nested task rows must stay outside `draggable` so
+              Electron does not swallow open-session clicks.
+            */}
+            <div
+              className={cn(
+                "relative flex flex-col gap-0.5",
+                isDragging && "opacity-40",
+              )}
+              onDragOver={(event) => {
+                if (dragFromRef.current === null || !canDrag) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                const slot = dropSlotFromEvent(event, index, count);
+                setDropSlot((current) => (current === slot ? current : slot));
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const from = dragFromRef.current;
+                const slot =
+                  dropSlot ?? dropSlotFromEvent(event, index, count);
+                clearDrag();
+                if (from === null) return;
+                commitReorder(from, slot);
+              }}
+            >
+              <div
+                className={cn(
+                  canDrag && "cursor-grab active:cursor-grabbing",
+                )}
+                draggable={canDrag}
+                onDragStart={(event) => {
+                  if (!canDrag) return;
+                  const target = event.target;
+                  if (
+                    target instanceof Element &&
+                    target.closest(
+                      "button, a, input, textarea, [data-no-drag]",
+                    )
+                  ) {
+                    event.preventDefault();
+                    return;
+                  }
+                  dragFromRef.current = index;
+                  setDragFrom(index);
+                  try {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", directory);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                onDragEnd={() => clearDrag()}
+              >
+                <SpaceDirectoryRow
+                  name={name}
+                  directory={directory}
+                  expanded={expandedDir}
+                  sessionCount={items.length}
+                  onToggle={() =>
+                    props.onExpandedDirectoriesChange((current) =>
+                      current.includes(directory)
+                        ? current.filter((item) => item !== directory)
+                        : [...current, directory],
+                    )
+                  }
+                  onTogglePinned={props.onToggleFolderPinned}
+                  onOpenFolder={props.onOpenFolder}
+                  onArchiveDirectory={props.onArchiveDirectory}
+                  onRemoveFromList={props.onRemoveFromList}
+                  onCreateTask={props.onCreateTask}
+                />
+              </div>
+              {expandedDir ? (
+                <FolderChildren>
+                  {(() => {
+                    const showAll = props.showAllByFolder[directory] === true;
+                    const visibleItems =
+                      showAll || items.length <= FOLDER_TASK_PREVIEW_LIMIT
+                        ? items
+                        : items.slice(0, FOLDER_TASK_PREVIEW_LIMIT);
+                    return (
+                      <>
+                        <div data-no-drag>
+                          <AssistantTaskRows
+                            groups={visibleItems}
+                            workspaceId={props.workspaceId}
+                            selectedSessionId={props.selectedSessionId}
+                            sessionStatusById={props.sessionStatusById}
+                            singleLine
+                            pinnedSessionIds={localPins}
+                            folderPath={directory}
+                            folderPathBySessionId={props.folderPathBySessionId}
+                            onOpenSession={props.onOpenSession}
+                            onPrefetchSession={props.onPrefetchSession}
+                            onTogglePinned={props.onTogglePinned}
+                            onRenameSession={props.onRenameSession}
+                            onArchiveSession={props.onArchiveSession}
+                            onDeleteSession={props.onDeleteSession}
+                            onOpenFolder={props.onOpenFolder}
+                            onSaveToSpace={props.onSaveToSpace}
+                          />
+                        </div>
+                        <FolderTaskShowMore
+                          total={items.length}
+                          showAll={showAll}
+                          onToggle={() =>
+                            props.onToggleShowAllFolder(directory)
+                          }
+                        />
+                      </>
+                    );
+                  })()}
+                </FolderChildren>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+      {dragFrom !== null && dropSlot === count ? <PinDropIndicator /> : null}
+    </div>
   );
 }
 
 function SectionHeader(props: {
   label: string;
-  count: number;
+  count?: number;
   expanded: boolean;
   onToggle: () => void;
   /** Optional trailing control (e.g. expand-all for spaces). */
   trailing?: ReactNode;
+  /** Quieter label (no count) — WorkBuddy section chrome. */
+  quiet?: boolean;
 }) {
-  // WorkBuddy: `Spaces (10) v` — chevron next to title; optional trailing at row end.
+  // WorkBuddy: quiet section labels; optional (n); chevron after title.
   return (
     <div
-      className={cn(LIST_ROW_CLASS, "group/section gap-0.5 text-dls-secondary")}
+      className={cn(
+        LIST_ROW_CLASS,
+        "group/section gap-0.5 text-dls-secondary/80",
+      )}
       data-assistant-section-header="true"
     >
       <button
         type="button"
         onClick={props.onToggle}
-        className="flex h-full min-w-0 flex-1 items-center justify-start gap-1 overflow-hidden rounded-md text-left leading-none transition-colors hover:bg-dls-list-hover hover:text-dls-text"
+        className="flex h-full min-w-0 flex-1 items-center justify-start gap-1 overflow-hidden rounded-md text-left text-sm font-medium leading-none tracking-wide transition-colors hover:bg-dls-list-hover/70 hover:text-dls-secondary"
         aria-expanded={props.expanded}
       >
-        <span className="min-w-0 max-w-full truncate tracking-tight leading-none">
+        <span className="min-w-0 max-w-full truncate leading-none">
           {props.label}
-          <span className="tabular-nums"> ({props.count})</span>
+          {typeof props.count === "number" && !props.quiet ? (
+            <span className="tabular-nums font-normal opacity-80">
+              {" "}
+              ({props.count})
+            </span>
+          ) : null}
         </span>
         {props.expanded ? (
           <ChevronDown
-            className="size-3 shrink-0 opacity-50"
+            className="size-3 shrink-0 opacity-40"
             strokeWidth={2}
             aria-hidden
           />
         ) : (
           <ChevronRight
-            className="size-3 shrink-0 opacity-50"
+            className="size-3 shrink-0 opacity-40"
             strokeWidth={2}
             aria-hidden
           />
@@ -329,18 +608,23 @@ function FolderRowShell(props: {
   );
 }
 
-/** Space project row — folder + name + chevron + ⋯ menu (open / remove). */
+/** Space project row — folder + name + chevron + ⋯ menu. */
 function SpaceDirectoryRow(props: {
   name: string;
   directory: string;
   expanded: boolean;
+  pinned?: boolean;
+  sessionCount?: number;
   onToggle: () => void;
+  onTogglePinned?: (directory: string) => void;
   onOpenFolder?: (path: string) => void;
+  onArchiveDirectory?: (directory: string) => void;
   onRemoveFromList?: (directory: string) => void;
   onCreateTask?: (directory: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{
     left: number;
     top: number;
@@ -357,15 +641,32 @@ function SpaceDirectoryRow(props: {
     };
   }, [menuOpen]);
 
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const anchor = anchorRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchor, {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 200,
+      }),
+    );
+  }, [menuOpen]);
+
+  const titleWithCount =
+    typeof props.sessionCount === "number" && props.sessionCount > 0
+      ? `${props.name}`
+      : props.name;
+
   return (
     <>
       <FolderRowShell
-        title={props.name}
+        title={titleWithCount}
         tooltip={props.directory}
         expanded={props.expanded}
         onToggle={props.onToggle}
         data-assistant-space-directory="true"
-        className={menuOpen ? "bg-dls-list-hover text-dls-text" : undefined}
+        className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
         icon={
           <Folder
             className="size-3.5 shrink-0 text-dls-text/55"
@@ -374,6 +675,7 @@ function SpaceDirectoryRow(props: {
         }
         trailing={
           <div
+            data-no-drag
             className={cn(
               "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
               menuOpen && "opacity-100",
@@ -388,11 +690,12 @@ function SpaceDirectoryRow(props: {
                 onClick={(event) => {
                   event.stopPropagation();
                   if (anchorRef.current) {
-                    const rect = anchorRef.current.getBoundingClientRect();
-                    setMenuPosition({
-                      left: rect.right - 176,
-                      top: rect.bottom + 4,
-                    });
+                    setMenuPosition(
+                      positionTaskContextMenu(
+                        anchorRef.current.getBoundingClientRect(),
+                        { estimatedHeight: 200 },
+                      ),
+                    );
                   }
                   setMenuOpen((value) => !value);
                 }}
@@ -416,16 +719,50 @@ function SpaceDirectoryRow(props: {
                 </button>
               </IconHoverTip>
             ) : null}
+            {props.onArchiveDirectory ? (
+              <IconHoverTip label={t("session.archive_space")}>
+                <button
+                  type="button"
+                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.archive_space")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onArchiveDirectory?.(props.directory);
+                  }}
+                >
+                  <Archive strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
           </div>
         }
       />
       {menuOpen && menuPosition ? (
         <div
+          ref={menuRef}
           className={TASK_CONTEXT_MENU_CLASS}
           data-task-context-menu="true"
           style={{ left: menuPosition.left, top: menuPosition.top }}
           onClick={(event) => event.stopPropagation()}
         >
+          {props.onTogglePinned ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onTogglePinned?.(props.directory);
+              }}
+            >
+              {props.pinned ? (
+                <PinOff strokeWidth={1.75} />
+              ) : (
+                <Pin strokeWidth={1.75} />
+              )}
+              {props.pinned ? t("session.unpin") : t("session.pin")}
+            </button>
+          ) : null}
           {props.onOpenFolder ? (
             <button
               type="button"
@@ -439,18 +776,241 @@ function SpaceDirectoryRow(props: {
               {t("session.open_folder")}
             </button>
           ) : null}
-          {props.onRemoveFromList ? (
+          {props.onArchiveDirectory ? (
             <button
               type="button"
               className={TASK_CONTEXT_MENU_ITEM_CLASS}
               onClick={() => {
                 setMenuOpen(false);
-                props.onRemoveFromList?.(props.directory);
+                props.onArchiveDirectory?.(props.directory);
               }}
             >
-              <Trash2 strokeWidth={1.75} />
-              {t("session.remove_from_space_list")}
+              <Archive strokeWidth={1.75} />
+              {t("session.archive_space")}
             </button>
+          ) : null}
+          {props.onRemoveFromList ? (
+            <>
+              <div
+                className={TASK_CONTEXT_MENU_SEPARATOR_CLASS}
+                role="separator"
+              />
+              <button
+                type="button"
+                className={TASK_CONTEXT_MENU_ITEM_CLASS}
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onRemoveFromList?.(props.directory);
+                }}
+              >
+                <Trash2 strokeWidth={1.75} />
+                {t("session.remove_from_space_list")}
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** Scheduled-task group row — clock icon + ⋯ / pin / archive actions. */
+function AutomationGroupRow(props: {
+  title: string;
+  groupId: string;
+  expanded: boolean;
+  pinned?: boolean;
+  onToggle: () => void;
+  onTogglePinned?: (groupId: string) => void;
+  onArchive?: (groupId: string) => void;
+  onDelete?: (groupId: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const hasMenu =
+    Boolean(props.onTogglePinned) ||
+    Boolean(props.onArchive) ||
+    Boolean(props.onDelete);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("click", close);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const anchor = anchorRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchor, {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 180,
+      }),
+    );
+  }, [menuOpen]);
+
+  return (
+    <>
+      <FolderRowShell
+        title={props.title}
+        expanded={props.expanded}
+        onToggle={props.onToggle}
+        className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
+        icon={
+          <CalendarClock
+            className="size-3.5 shrink-0 text-dls-text/55"
+            strokeWidth={1.6}
+          />
+        }
+        trailing={
+          <div
+            data-no-drag
+            className={cn(
+              "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
+              menuOpen && "opacity-100",
+            )}
+          >
+            {hasMenu ? (
+              <IconHoverTip label={t("session.task_actions")}>
+                <button
+                  ref={anchorRef}
+                  type="button"
+                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.task_actions")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (anchorRef.current) {
+                      setMenuPosition(
+                        positionTaskContextMenu(
+                          anchorRef.current.getBoundingClientRect(),
+                          { estimatedHeight: 180 },
+                        ),
+                      );
+                    }
+                    setMenuOpen((value) => !value);
+                  }}
+                >
+                  <MoreHorizontal strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
+            {props.onTogglePinned ? (
+              <IconHoverTip
+                label={props.pinned ? t("session.unpin") : t("session.pin")}
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    TASK_ROW_ACTION_CLASS,
+                    props.pinned
+                      ? "text-dls-accent hover:text-dls-accent"
+                      : "text-dls-text/50",
+                  )}
+                  aria-label={
+                    props.pinned ? t("session.unpin") : t("session.pin")
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onTogglePinned?.(props.groupId);
+                  }}
+                >
+                  {props.pinned ? (
+                    <PinOff strokeWidth={1.75} />
+                  ) : (
+                    <Pin strokeWidth={1.75} />
+                  )}
+                </button>
+              </IconHoverTip>
+            ) : null}
+            {props.onArchive ? (
+              <IconHoverTip label={t("session.archive_task")}>
+                <button
+                  type="button"
+                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
+                  aria-label={t("session.archive_task")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onArchive?.(props.groupId);
+                  }}
+                >
+                  <Archive strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
+          </div>
+        }
+      />
+      {menuOpen && menuPosition ? (
+        <div
+          ref={menuRef}
+          className={TASK_CONTEXT_MENU_CLASS}
+          data-task-context-menu="true"
+          style={{ left: menuPosition.left, top: menuPosition.top }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {props.onTogglePinned ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onTogglePinned?.(props.groupId);
+              }}
+            >
+              {props.pinned ? (
+                <PinOff strokeWidth={1.75} />
+              ) : (
+                <Pin strokeWidth={1.75} />
+              )}
+              {props.pinned ? t("session.unpin") : t("session.pin")}
+            </button>
+          ) : null}
+          {props.onArchive ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onArchive?.(props.groupId);
+              }}
+            >
+              <Archive strokeWidth={1.75} />
+              {t("session.archive_task")}
+            </button>
+          ) : null}
+          {props.onDelete ? (
+            <>
+              {props.onArchive || props.onTogglePinned ? (
+                <div
+                  className={TASK_CONTEXT_MENU_SEPARATOR_CLASS}
+                  role="separator"
+                />
+              ) : null}
+              <button
+                type="button"
+                className={TASK_CONTEXT_MENU_ITEM_CLASS}
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onDelete?.(props.groupId);
+                }}
+              >
+                <Trash2 strokeWidth={1.75} />
+                {t("session.delete_task")}
+              </button>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -522,36 +1082,113 @@ function FolderChildren(props: { children: ReactNode }) {
   return <div className="ml-5 flex flex-col gap-0.5">{props.children}</div>;
 }
 
-export function AssistantConversationSections(props: AssistantConversationSectionsProps) {
-  // Tasks open by default so recent work is visible on enter; spaces /
-  // automations stay collapsed. Selection still forces its owning section open.
-  const [expandedSections, setExpandedSections] = useState<Record<SectionId, boolean>>({
+function pinOwnsSession(
+  pin: AssistantGlobalPin,
+  selectedSessionId: string | null,
+  groupsBySessionId: Map<string, AgentConversationGroup>,
+  spaceItemsByDirectory: Map<string, AgentConversationGroup[]>,
+  automationItemsById: Map<string, AgentConversationGroup[]>,
+): boolean {
+  if (!selectedSessionId) return false;
+  if (pin.kind === "session") {
+    const group = groupsBySessionId.get(pin.id);
+    return group ? assistantTaskSelected(group, selectedSessionId) : false;
+  }
+  if (pin.kind === "automation") {
+    return groupIncludesSession(
+      automationItemsById.get(pin.id) ?? [],
+      selectedSessionId,
+    );
+  }
+  return groupIncludesSession(
+    spaceItemsByDirectory.get(pin.id) ?? [],
+    selectedSessionId,
+  );
+}
+
+export function AssistantConversationSections(
+  props: AssistantConversationSectionsProps,
+) {
+  // Recent open by default; spaces open; automations collapsed.
+  // Selection still forces its owning section open.
+  const [expandedSections, setExpandedSections] = useState<
+    Record<SectionId, boolean>
+  >({
     pinned: true,
-    tasks: true,
-    spaces: false,
+    recent: true,
+    spaces: true,
     automations: false,
   });
-  const [showAllBySection, setShowAllBySection] = useState<Record<SectionId, boolean>>({
+  const [showAllBySection, setShowAllBySection] = useState<
+    Record<SectionId, boolean>
+  >({
     pinned: false,
-    tasks: false,
+    recent: false,
     spaces: false,
     automations: false,
   });
   /** Per space-folder / automation-group: expand beyond FOLDER_TASK_PREVIEW_LIMIT. */
-  const [showAllByFolder, setShowAllByFolder] = useState<Record<string, boolean>>({});
+  const [showAllByFolder, setShowAllByFolder] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  const pinnedCount = props.pinnedGroups.length;
-  const taskCount = props.taskGroups.length;
-  const spacesCount = props.spaceGroups.reduce(
-    (count, [, items]) => count + items.length,
+  const setFocusedAgent = useExpertUnreadStore((state) => state.setFocusedAgent);
+
+  // Keep unread cursor in sync with the open assistant task (clears blue dot).
+  useEffect(() => {
+    const sessionId = props.selectedSessionId?.trim() || null;
+    const scopeId = sessionId
+      ? resolveUnreadAgentIdForSession(sessionId)
+      : null;
+    setFocusedAgent(props.workspaceId, scopeId);
+  }, [props.selectedSessionId, props.workspaceId, setFocusedAgent]);
+
+  const {
+    globalPins,
+    groupsBySessionId,
+    spaceItemsByDirectory,
+    spaceFolders,
+    recentGroups,
+    folderPathBySessionId,
+    spaceLocalPinsByDirectory,
+    allSpaceDirectories,
+  } = props.listModel;
+
+  const automationGroupsAll =
+    props.automationGroupsAll ?? props.automationGroups;
+  const automationLocalPinsById = props.automationLocalPinsById ?? {};
+  const automationItemsById = useMemo(() => {
+    const map = new Map<string, AgentConversationGroup[]>();
+    for (const group of automationGroupsAll) {
+      map.set(group.id, group.items);
+    }
+    return map;
+  }, [automationGroupsAll]);
+  const automationGroupById = useMemo(() => {
+    const map = new Map<
+      string,
+      AssistantAutomationGroup<AgentConversationGroup>
+    >();
+    for (const group of automationGroupsAll) {
+      map.set(group.id, group);
+    }
+    return map;
+  }, [automationGroupsAll]);
+
+  const pinnedCount = globalPins.length;
+  const recentCount = recentGroups.length;
+  const spacesCount = spaceFolders.reduce(
+    (count, folder) => count + folder.items.length,
     0,
   );
-  const spaceDirectoryCount = props.spaceGroups.length;
+  const spaceDirectoryCount = spaceFolders.length;
   const allSpaceDirectoriesExpanded =
     spaceDirectoryCount > 0 &&
-    props.spaceGroups.every(([directory]) =>
-      props.expandedDirectories.includes(directory),
+    spaceFolders.every((folder) =>
+      props.expandedDirectories.includes(folder.directory),
     );
+  // allSpaceDirectories comes from listModel (spaceFolderOrder storage order),
+  // not Map.keys() discovery order — required for correct pin-slot merge.
   const automationsCount = props.automationGroups.reduce(
     (count, group) => count + group.items.length,
     0,
@@ -563,43 +1200,62 @@ export function AssistantConversationSections(props: AssistantConversationSectio
       props.expandedAutomationDirectories.includes(group.id),
     );
 
-  // Keep the section that owns the selected session expanded.
-  useEffect(() => {
-    if (groupIncludesSession(props.pinnedGroups, props.selectedSessionId)) {
-      setExpandedSections((current) =>
-        current.pinned ? current : { ...current, pinned: true },
-      );
-      return;
+  // Which top-level section owns the selected session (stable string key).
+  // Computed in render so the expand effect only depends on this primitive —
+  // unstable Map/array deps previously re-fired setExpandedSections every paint.
+  const selectedOwnerSection = useMemo((): SectionId | null => {
+    const selected = props.selectedSessionId;
+    if (!selected) return null;
+    if (
+      globalPins.some((pin) =>
+        pinOwnsSession(
+          pin,
+          selected,
+          groupsBySessionId,
+          spaceItemsByDirectory,
+          automationItemsById,
+        ),
+      )
+    ) {
+      return "pinned";
     }
-    if (groupIncludesSession(props.taskGroups, props.selectedSessionId)) {
-      setExpandedSections((current) =>
-        current.tasks ? current : { ...current, tasks: true },
-      );
-      return;
-    }
-    if (groupedEntriesIncludeSession(props.spaceGroups, props.selectedSessionId)) {
-      setExpandedSections((current) =>
-        current.spaces ? current : { ...current, spaces: true },
-      );
-      return;
+    if (groupIncludesSession(recentGroups, selected)) return "recent";
+    if (
+      spaceFolders.some((folder) =>
+        groupIncludesSession(folder.items, selected),
+      )
+    ) {
+      return "spaces";
     }
     if (
       groupIncludesSession(
-        props.automationGroups.flatMap((group) => group.items),
-        props.selectedSessionId,
+        automationGroupsAll.flatMap((group) => group.items),
+        selected,
       )
     ) {
-      setExpandedSections((current) =>
-        current.automations ? current : { ...current, automations: true },
-      );
+      return "automations";
     }
+    return null;
   }, [
-    props.automationGroups,
-    props.pinnedGroups,
+    automationGroupsAll,
+    automationItemsById,
+    globalPins,
+    groupsBySessionId,
     props.selectedSessionId,
-    props.spaceGroups,
-    props.taskGroups,
+    recentGroups,
+    spaceFolders,
+    spaceItemsByDirectory,
   ]);
+
+  // Keep the section that owns the selected session expanded.
+  useEffect(() => {
+    if (!selectedOwnerSection) return;
+    setExpandedSections((current) =>
+      current[selectedOwnerSection]
+        ? current
+        : { ...current, [selectedOwnerSection]: true },
+    );
+  }, [selectedOwnerSection]);
 
   const toggleSection = (id: SectionId) => {
     setExpandedSections((current) => ({ ...current, [id]: !current[id] }));
@@ -616,47 +1272,261 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     }));
   };
 
-  const pinnedRemaining = {
-    value: showAllBySection.pinned
-      ? Number.POSITIVE_INFINITY
-      : ASSISTANT_TASK_PREVIEW_LIMIT,
-  };
-  const visiblePinnedGroups = expandedSections.pinned
-    ? takeVisibleGroups(props.pinnedGroups, pinnedRemaining)
-    : [];
-  const pinnedOverflow = pinnedCount > ASSISTANT_TASK_PREVIEW_LIMIT;
+  const showAllRecent = showAllBySection.recent;
+  const visibleRecentGroups =
+    showAllRecent || recentGroups.length <= RECENT_PREVIEW_LIMIT
+      ? recentGroups
+      : recentGroups.slice(0, RECENT_PREVIEW_LIMIT);
+  const recentOverflow = recentGroups.length > RECENT_PREVIEW_LIMIT;
 
-  const taskRemaining = {
-    value: showAllBySection.tasks
-      ? Number.POSITIVE_INFINITY
-      : ASSISTANT_TASK_PREVIEW_LIMIT,
-  };
-  const visibleTaskGroups = expandedSections.tasks
-    ? takeVisibleGroups(props.taskGroups, taskRemaining)
-    : [];
-  const tasksOverflow = taskCount > ASSISTANT_TASK_PREVIEW_LIMIT;
+  // Codex-style pin reorder: drag the row itself (no grip dots) + blue insert line.
+  // Header/session surface is draggable; nested tasks under folders stay outside.
+  const dragPinFromRef = useRef<number | null>(null);
+  const [pinDragFrom, setPinDragFrom] = useState<number | null>(null);
+  const [pinDropSlot, setPinDropSlot] = useState<number | null>(null);
 
-  return (
-    <TooltipProvider delay={200}>
-    <div className="mt-1 flex flex-col gap-0.5 pt-1" data-assistant-task-list="true">
-      {/* Pinned tasks — WorkBuddy: pinned tasks (n) ∨ as its own section */}
-      {pinnedCount > 0 ? (
-        <div data-assistant-section="pinned" className="flex flex-col gap-0.5">
-          <SectionHeader
-            label={t("session.pinned_tasks_section")}
-            count={pinnedCount}
-            expanded={expandedSections.pinned}
-            onToggle={() => toggleSection("pinned")}
+  const clearPinDrag = () => {
+    dragPinFromRef.current = null;
+    setPinDragFrom(null);
+    setPinDropSlot(null);
+  };
+
+  const handlePinDragStart = (pinIndex: number, event: DragEvent) => {
+    if (!props.onReorderGlobalPins) return;
+    const target = event.target;
+    // Block action chips / menus / nested task lists. Title/open surface may
+    // start drag (expand control is a <button> and must still be allowed).
+    if (
+      target instanceof Element &&
+      target.closest("[data-no-drag], a, input, textarea")
+    ) {
+      event.preventDefault();
+      return;
+    }
+    dragPinFromRef.current = pinIndex;
+    setPinDragFrom(pinIndex);
+    try {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", String(pinIndex));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handlePinDragOver = (pinIndex: number, event: DragEvent) => {
+    if (dragPinFromRef.current === null || !props.onReorderGlobalPins) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const slot = dropSlotFromEvent(event, pinIndex, globalPins.length);
+    setPinDropSlot((current) => (current === slot ? current : slot));
+  };
+
+  const handlePinDrop = (pinIndex: number, event: DragEvent) => {
+    event.preventDefault();
+    const from = dragPinFromRef.current;
+    const slot =
+      pinDropSlot ?? dropSlotFromEvent(event, pinIndex, globalPins.length);
+    clearPinDrag();
+    if (from === null || !props.onReorderGlobalPins) return;
+    const to = dropSlotToIndex(from, slot);
+    if (to === from) return;
+    props.onReorderGlobalPins(from, to);
+  };
+
+  const canReorderPins = Boolean(props.onReorderGlobalPins);
+
+  /** Drop target + drag source props for a pin header/session surface. */
+  const pinDragSurfaceProps = (pinIndex: number) =>
+    canReorderPins
+      ? {
+          draggable: true as const,
+          className: "cursor-grab active:cursor-grabbing",
+          onDragStart: (event: DragEvent) =>
+            handlePinDragStart(pinIndex, event),
+          onDragEnd: () => clearPinDrag(),
+          onDragOver: (event: DragEvent) =>
+            handlePinDragOver(pinIndex, event),
+          onDrop: (event: DragEvent) => handlePinDrop(pinIndex, event),
+        }
+      : {
+          onDragOver: (event: DragEvent) =>
+            handlePinDragOver(pinIndex, event),
+          onDrop: (event: DragEvent) => handlePinDrop(pinIndex, event),
+        };
+
+  const renderPinRow = (pin: AssistantGlobalPin, pinIndex: number) => {
+    const isDragging = pinDragFrom === pinIndex;
+    const surface = pinDragSurfaceProps(pinIndex);
+
+    if (pin.kind === "session") {
+      const group = groupsBySessionId.get(pin.id);
+      if (!group) return null;
+      return (
+        <div
+          key={`pin-session:${pin.id}`}
+          className={cn(
+            "min-w-0",
+            surface.className,
+            isDragging && "opacity-40",
+          )}
+          draggable={surface.draggable}
+          onDragStart={surface.onDragStart}
+          onDragEnd={surface.onDragEnd}
+          onDragOver={surface.onDragOver}
+          onDrop={surface.onDrop}
+        >
+          <AssistantTaskRows
+            groups={[group]}
+            workspaceId={props.workspaceId}
+            selectedSessionId={props.selectedSessionId}
+            sessionStatusById={props.sessionStatusById}
+            pinned
+            singleLine
+            folderPathBySessionId={folderPathBySessionId}
+            onOpenSession={props.onOpenSession}
+            onPrefetchSession={props.onPrefetchSession}
+            onTogglePinned={props.onTogglePinned}
+            onRenameSession={props.onRenameSession}
+            onArchiveSession={props.onArchiveSession}
+            onDeleteSession={props.onDeleteSession}
+            onOpenFolder={props.onOpenFolder}
+            onSaveToSpace={props.onSaveToSpace}
           />
-          {expandedSections.pinned ? (
-            <div className="flex flex-col gap-0.5 pb-1">
+        </div>
+      );
+    }
+
+    if (pin.kind === "automation") {
+      const autoGroup = automationGroupById.get(pin.id);
+      if (!autoGroup) return null;
+      const groupLabel = t("automation.session_group_title", {
+        title: autoGroup.title,
+      });
+      const expandedAuto =
+        props.expandedAutomationDirectories.includes(pin.id);
+      return (
+        <div
+          key={`pin-automation:${pin.id}`}
+          className={cn("flex flex-col gap-0.5", isDragging && "opacity-40")}
+          onDragOver={surface.onDragOver}
+          onDrop={surface.onDrop}
+        >
+          {/*
+            Only the group header is draggable — nested run rows stay outside
+            so open-session clicks are not swallowed by HTML5 drag.
+          */}
+          <div
+            className={cn("min-w-0", surface.className)}
+            draggable={surface.draggable}
+            onDragStart={surface.onDragStart}
+            onDragEnd={surface.onDragEnd}
+          >
+            <AutomationGroupRow
+              title={groupLabel}
+              groupId={pin.id}
+              expanded={expandedAuto}
+              pinned
+              onToggle={() =>
+                props.onExpandedAutomationDirectoriesChange((current) =>
+                  current.includes(pin.id)
+                    ? current.filter((item) => item !== pin.id)
+                    : [...current, pin.id],
+                )
+              }
+              onTogglePinned={props.onToggleAutomationGroupPinned}
+              onArchive={props.onArchiveAutomationGroup}
+              onDelete={
+                props.onDeleteAutomationGroup
+                  ? () =>
+                      props.onDeleteAutomationGroup?.({
+                        groupId: pin.id,
+                        title: autoGroup.title,
+                        sessionIds: autoGroup.items.map(
+                          (item) => item.latestSession.id,
+                        ),
+                      })
+                  : undefined
+              }
+            />
+          </div>
+          {expandedAuto ? (
+            <FolderChildren>
+              <div data-no-drag>
+                <AssistantTaskRows
+                  groups={autoGroup.items}
+                  workspaceId={props.workspaceId}
+                  selectedSessionId={props.selectedSessionId}
+                  sessionStatusById={props.sessionStatusById}
+                  singleLine
+                  pinnable
+                  pinnedSessionIds={
+                    new Set(automationLocalPinsById[pin.id] ?? [])
+                  }
+                  folderPathBySessionId={folderPathBySessionId}
+                  onOpenSession={props.onOpenSession}
+                  onPrefetchSession={props.onPrefetchSession}
+                  onTogglePinned={props.onTogglePinned}
+                  onRenameSession={props.onRenameSession}
+                  onArchiveSession={props.onArchiveSession}
+                  onDeleteSession={props.onDeleteSession}
+                  onOpenFolder={props.onOpenFolder}
+                />
+              </div>
+            </FolderChildren>
+          ) : null}
+        </div>
+      );
+    }
+
+    const items = spaceItemsByDirectory.get(pin.id) ?? [];
+    const name = assistantDirectoryName(pin.id);
+    return (
+      <div
+        key={`pin-folder:${pin.id}`}
+        className={cn("flex flex-col gap-0.5", isDragging && "opacity-40")}
+        onDragOver={surface.onDragOver}
+        onDrop={surface.onDrop}
+      >
+        <div
+          className={cn("min-w-0", surface.className)}
+          draggable={surface.draggable}
+          onDragStart={surface.onDragStart}
+          onDragEnd={surface.onDragEnd}
+        >
+          <SpaceDirectoryRow
+            name={name}
+            directory={pin.id}
+            expanded={props.expandedDirectories.includes(pin.id)}
+            pinned
+            sessionCount={items.length}
+            onToggle={() =>
+              props.onExpandedDirectoriesChange((current) =>
+                current.includes(pin.id)
+                  ? current.filter((item) => item !== pin.id)
+                  : [...current, pin.id],
+              )
+            }
+            onTogglePinned={props.onToggleFolderPinned}
+            onOpenFolder={props.onOpenFolder}
+            onArchiveDirectory={props.onArchiveSpaceDirectory}
+            onRemoveFromList={props.onRemoveSpaceDirectory}
+            onCreateTask={props.onCreateTaskInDirectory}
+          />
+        </div>
+        {props.expandedDirectories.includes(pin.id) ? (
+          <FolderChildren>
+            <div data-no-drag>
               <AssistantTaskRows
-                groups={visiblePinnedGroups}
+                groups={items}
                 workspaceId={props.workspaceId}
                 selectedSessionId={props.selectedSessionId}
-                pinned
+                sessionStatusById={props.sessionStatusById}
                 singleLine
-                folderPathBySessionId={props.folderPathBySessionId}
+                pinnedSessionIds={
+                  new Set(spaceLocalPinsByDirectory[pin.id] ?? [])
+                }
+                folderPath={pin.id}
+                folderPathBySessionId={folderPathBySessionId}
                 onOpenSession={props.onOpenSession}
                 onPrefetchSession={props.onPrefetchSession}
                 onTogglePinned={props.onTogglePinned}
@@ -666,300 +1536,311 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                 onOpenFolder={props.onOpenFolder}
                 onSaveToSpace={props.onSaveToSpace}
               />
-              <SectionShowMore
-                overflow={pinnedOverflow}
-                showAll={showAllBySection.pinned}
-                hiddenCount={pinnedCount - ASSISTANT_TASK_PREVIEW_LIMIT}
-                onToggle={() => toggleShowAll("pinned")}
-              />
+            </div>
+          </FolderChildren>
+        ) : null}
+      </div>
+    );
+  };
+
+  const emptyTasksLabel =
+    props.categoryId === "code"
+      ? t("session.no_code_tasks")
+      : t("session.no_tasks");
+
+  return (
+    <TooltipProvider delay={200}>
+      <div
+        className="mt-1 flex flex-col gap-0.5 pt-1"
+        data-assistant-task-list="true"
+      >
+        {/* Global pins — sessions + folders; Codex-style drag insert line */}
+        {pinnedCount > 0 ? (
+          <div
+            data-assistant-section="pinned"
+            className="flex flex-col gap-0.5"
+          >
+            <SectionHeader
+              label={t("session.pinned_section")}
+              expanded={expandedSections.pinned}
+              onToggle={() => toggleSection("pinned")}
+              quiet
+            />
+            {expandedSections.pinned ? (
+              <div
+                className="flex flex-col gap-0.5 pb-1"
+                onDragLeave={(event) => {
+                  if (
+                    event.currentTarget.contains(event.relatedTarget as Node)
+                  ) {
+                    return;
+                  }
+                  setPinDropSlot(null);
+                }}
+              >
+                {globalPins.map((pin, pinIndex) => (
+                  <div key={`${pin.kind}:${pin.id}`}>
+                    {pinDragFrom !== null && pinDropSlot === pinIndex ? (
+                      <PinDropIndicator />
+                    ) : null}
+                    {renderPinRow(pin, pinIndex)}
+                  </div>
+                ))}
+                {pinDragFrom !== null && pinDropSlot === globalPins.length ? (
+                  <PinDropIndicator />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Recent — unpinned non-space sessions (single list; no separate tasks) */}
+        <div data-assistant-section="recent" className="flex flex-col gap-0.5">
+          <SectionHeader
+            label={t("session.recent_section")}
+            expanded={expandedSections.recent}
+            onToggle={() => toggleSection("recent")}
+            quiet
+          />
+          {expandedSections.recent ? (
+            <div className="flex flex-col gap-0.5 pb-1">
+              {recentCount === 0 ? (
+                <AssistantListEmptyState label={emptyTasksLabel} />
+              ) : (
+                <>
+                  <AssistantTaskRows
+                    groups={visibleRecentGroups}
+                    workspaceId={props.workspaceId}
+                    selectedSessionId={props.selectedSessionId}
+                    sessionStatusById={props.sessionStatusById}
+                    singleLine
+                    folderPathBySessionId={folderPathBySessionId}
+                    onOpenSession={props.onOpenSession}
+                    onPrefetchSession={props.onPrefetchSession}
+                    onTogglePinned={props.onTogglePinned}
+                    onRenameSession={props.onRenameSession}
+                    onArchiveSession={props.onArchiveSession}
+                    onDeleteSession={props.onDeleteSession}
+                    onOpenFolder={props.onOpenFolder}
+                    onSaveToSpace={props.onSaveToSpace}
+                  />
+                  <SectionShowMore
+                    overflow={recentOverflow}
+                    showAll={showAllRecent}
+                    hiddenCount={recentCount - RECENT_PREVIEW_LIMIT}
+                    onToggle={() => toggleShowAll("recent")}
+                  />
+                </>
+              )}
             </div>
           ) : null}
         </div>
-      ) : null}
 
-      {/* Tasks */}
-      <div data-assistant-section="tasks" className="flex flex-col gap-0.5">
-        <SectionHeader
-          label={t("session.task_filter_tasks")}
-          count={taskCount}
-          expanded={expandedSections.tasks}
-          onToggle={() => toggleSection("tasks")}
-        />
-        {expandedSections.tasks ? (
-          <div className="flex flex-col gap-0.5 pb-1">
-            {taskCount === 0 ? (
-              <AssistantListEmptyState
-                kind="tasks"
-                title={
-                  props.categoryId === "code"
-                    ? t("session.no_code_tasks")
-                    : t("session.no_tasks")
-                }
-                description={
-                  props.categoryId === "code"
-                    ? t("session.no_code_tasks_desc")
-                    : t("session.no_tasks_desc")
-                }
-              />
-            ) : (
-              <>
-                <AssistantTaskRows
-                  groups={visibleTaskGroups}
+        {/* Spaces — folders not in global pins */}
+        <div data-assistant-section="spaces" className="flex flex-col gap-0.5">
+          <SectionHeader
+            label={t("session.task_filter_space_tasks")}
+            expanded={expandedSections.spaces}
+            onToggle={() => toggleSection("spaces")}
+            quiet
+            trailing={
+              spacesCount > 0 || spaceDirectoryCount > 0 ? (
+                <IconHoverTip
+                  label={
+                    allSpaceDirectoriesExpanded
+                      ? t("session.collapse_all_spaces")
+                      : t("session.expand_all_spaces")
+                  }
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      TASK_ROW_ACTION_CLASS,
+                      "opacity-0 transition-opacity group-hover/section:opacity-100",
+                      expandedSections.spaces && "opacity-100",
+                    )}
+                    aria-label={
+                      allSpaceDirectoriesExpanded
+                        ? t("session.collapse_all_spaces")
+                        : t("session.expand_all_spaces")
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!expandedSections.spaces) {
+                        setExpandedSections((current) => ({
+                          ...current,
+                          spaces: true,
+                        }));
+                      }
+                      if (allSpaceDirectoriesExpanded) {
+                        props.onExpandedDirectoriesChange(() => []);
+                        return;
+                      }
+                      props.onExpandedDirectoriesChange(() =>
+                        spaceFolders.map((folder) => folder.directory),
+                      );
+                    }}
+                  >
+                    {allSpaceDirectoriesExpanded ? (
+                      <Minimize2 strokeWidth={1.75} />
+                    ) : (
+                      <Maximize2 strokeWidth={1.75} />
+                    )}
+                  </button>
+                </IconHoverTip>
+              ) : null
+            }
+          />
+          {expandedSections.spaces ? (
+            <div className="flex flex-col gap-0.5 pb-1">
+              {spaceDirectoryCount === 0 ? (
+                <AssistantListEmptyState label={t("session.no_space_tasks")} />
+              ) : (
+                <SpaceFolderDragList
+                  folders={spaceFolders}
                   workspaceId={props.workspaceId}
                   selectedSessionId={props.selectedSessionId}
-                  singleLine
-                  folderPathBySessionId={props.folderPathBySessionId}
+                  sessionStatusById={props.sessionStatusById}
+                  expandedDirectories={props.expandedDirectories}
+                  folderPathBySessionId={folderPathBySessionId}
+                  showAllByFolder={showAllByFolder}
+                  allSpaceDirectories={allSpaceDirectories}
+                  onExpandedDirectoriesChange={
+                    props.onExpandedDirectoriesChange
+                  }
+                  onToggleFolderPinned={props.onToggleFolderPinned}
+                  onReorderSpaceFolders={props.onReorderSpaceFolders}
+                  onOpenFolder={props.onOpenFolder}
+                  onArchiveDirectory={props.onArchiveSpaceDirectory}
+                  onRemoveFromList={props.onRemoveSpaceDirectory}
+                  onCreateTask={props.onCreateTaskInDirectory}
                   onOpenSession={props.onOpenSession}
                   onPrefetchSession={props.onPrefetchSession}
                   onTogglePinned={props.onTogglePinned}
                   onRenameSession={props.onRenameSession}
                   onArchiveSession={props.onArchiveSession}
                   onDeleteSession={props.onDeleteSession}
-                  onOpenFolder={props.onOpenFolder}
                   onSaveToSpace={props.onSaveToSpace}
+                  onToggleShowAllFolder={toggleShowAllFolder}
                 />
-                <SectionShowMore
-                  overflow={tasksOverflow}
-                  showAll={showAllBySection.tasks}
-                  hiddenCount={taskCount - ASSISTANT_TASK_PREVIEW_LIMIT}
-                  onToggle={() => toggleShowAll("tasks")}
-                />
-              </>
-            )}
-          </div>
-        ) : null}
-      </div>
+              )}
+            </div>
+          ) : null}
+        </div>
 
-      {/* Spaces — WorkBuddy: spaces (n) ∨ / 📁 name > + expand-all */}
-      <div data-assistant-section="spaces" className="flex flex-col gap-0.5">
-        <SectionHeader
-          label={t("session.task_filter_space_tasks")}
-          count={spacesCount}
-          expanded={expandedSections.spaces}
-          onToggle={() => toggleSection("spaces")}
-          trailing={
-            spacesCount > 0 ? (
-              <IconHoverTip
-                label={
-                  allSpaceDirectoriesExpanded
-                    ? t("session.collapse_all_spaces")
-                    : t("session.expand_all_spaces")
-                }
-              >
-                <button
-                  type="button"
-                  className={cn(
-                    TASK_ROW_ACTION_CLASS,
-                    "opacity-0 transition-opacity group-hover/section:opacity-100",
-                    expandedSections.spaces && "opacity-100",
-                  )}
-                  aria-label={
-                    allSpaceDirectoriesExpanded
-                      ? t("session.collapse_all_spaces")
-                      : t("session.expand_all_spaces")
-                  }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    // Ensure the Spaces section itself is open.
-                    if (!expandedSections.spaces) {
-                      setExpandedSections((current) => ({
-                        ...current,
-                        spaces: true,
-                      }));
-                    }
-                    if (allSpaceDirectoriesExpanded) {
-                      props.onExpandedDirectoriesChange(() => []);
-                      return;
-                    }
-                    const allDirs = props.spaceGroups.map(([directory]) => directory);
-                    props.onExpandedDirectoriesChange(() => allDirs);
-                  }}
-                >
-                  {allSpaceDirectoriesExpanded ? (
-                    <Minimize2 strokeWidth={1.75} />
-                  ) : (
-                    <Maximize2 strokeWidth={1.75} />
-                  )}
-                </button>
-              </IconHoverTip>
-            ) : null
-          }
-        />
-        {expandedSections.spaces ? (
-          <div className="flex flex-col gap-0.5 pb-1">
-            {spacesCount === 0 ? (
-              <AssistantListEmptyState
-                kind="spaces"
-                title={t("session.no_space_tasks")}
-                description={t("session.no_space_tasks_desc")}
-              />
-            ) : (
-              <>
-                {/* Full folder list; per-folder cap is FOLDER_TASK_PREVIEW_LIMIT. */}
-                {props.spaceGroups.map(([directory, items]) => {
-                  const expandedDir = props.expandedDirectories.includes(directory);
-                  const name = assistantDirectoryName(directory);
-                  return (
-                    <div key={directory} className="flex flex-col gap-0.5">
-                      <SpaceDirectoryRow
-                        name={name}
-                        directory={directory}
-                        expanded={expandedDir}
-                        onToggle={() =>
-                          props.onExpandedDirectoriesChange((current) =>
-                            current.includes(directory)
-                              ? current.filter((item) => item !== directory)
-                              : [...current, directory],
-                          )
-                        }
-                        onOpenFolder={props.onOpenFolder}
-                        onRemoveFromList={props.onRemoveSpaceDirectory}
-                        onCreateTask={props.onCreateTaskInDirectory}
-                      />
-                      {expandedDir ? (
-                        <FolderChildren>
-                          {(() => {
-                            const showAll = showAllByFolder[directory] === true;
-                            const visibleItems =
-                              showAll || items.length <= FOLDER_TASK_PREVIEW_LIMIT
-                                ? items
-                                : items.slice(0, FOLDER_TASK_PREVIEW_LIMIT);
-                            return (
-                              <>
-                                <AssistantTaskRows
-                                  groups={visibleItems}
-                                  workspaceId={props.workspaceId}
-                                  selectedSessionId={props.selectedSessionId}
-                                  singleLine
-                                  folderPath={directory}
-                                  folderPathBySessionId={props.folderPathBySessionId}
-                                  onOpenSession={props.onOpenSession}
-                                  onPrefetchSession={props.onPrefetchSession}
-                                  onTogglePinned={props.onTogglePinned}
-                                  onRenameSession={props.onRenameSession}
-                                  onArchiveSession={props.onArchiveSession}
-                                  onDeleteSession={props.onDeleteSession}
-                                  onOpenFolder={props.onOpenFolder}
-                                  onSaveToSpace={props.onSaveToSpace}
-                                />
-                                <FolderTaskShowMore
-                                  total={items.length}
-                                  showAll={showAll}
-                                  onToggle={() => toggleShowAllFolder(directory)}
-                                />
-                              </>
-                            );
-                          })()}
-                        </FolderChildren>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {/* Automations — same expand-all trailing as Spaces */}
-      <div data-assistant-section="automations" className="flex flex-col gap-0.5">
-        <SectionHeader
-          label={t("session.task_filter_automation_tasks")}
-          count={automationsCount}
-          expanded={expandedSections.automations}
-          onToggle={() => toggleSection("automations")}
-          trailing={
-            automationsCount > 0 ? (
-              <IconHoverTip
-                label={
-                  allAutomationGroupsExpanded
-                    ? t("session.collapse_all_automations")
-                    : t("session.expand_all_automations")
-                }
-              >
-                <button
-                  type="button"
-                  className={cn(
-                    TASK_ROW_ACTION_CLASS,
-                    "opacity-0 transition-opacity group-hover/section:opacity-100",
-                    expandedSections.automations && "opacity-100",
-                  )}
-                  aria-label={
+        {/* Schedules */}
+        <div
+          data-assistant-section="automations"
+          className="flex flex-col gap-0.5"
+        >
+          <SectionHeader
+            label={t("session.task_filter_automation_tasks")}
+            expanded={expandedSections.automations}
+            onToggle={() => toggleSection("automations")}
+            quiet
+            trailing={
+              automationsCount > 0 ? (
+                <IconHoverTip
+                  label={
                     allAutomationGroupsExpanded
                       ? t("session.collapse_all_automations")
                       : t("session.expand_all_automations")
                   }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    // Ensure the Automations section itself is open.
-                    if (!expandedSections.automations) {
-                      setExpandedSections((current) => ({
-                        ...current,
-                        automations: true,
-                      }));
-                    }
-                    if (allAutomationGroupsExpanded) {
-                      props.onExpandedAutomationDirectoriesChange(() => []);
-                      return;
-                    }
-                    const allIds = props.automationGroups.map((group) => group.id);
-                    props.onExpandedAutomationDirectoriesChange(() => allIds);
-                  }}
                 >
-                  {allAutomationGroupsExpanded ? (
-                    <Minimize2 strokeWidth={1.75} />
-                  ) : (
-                    <Maximize2 strokeWidth={1.75} />
-                  )}
-                </button>
-              </IconHoverTip>
-            ) : null
-          }
-        />
-        {expandedSections.automations ? (
-          <div className="flex flex-col gap-0.5 pb-1">
-            {automationsCount === 0 ? (
-              <AssistantListEmptyState
-                kind="automations"
-                title={t("session.no_automation_tasks")}
-                description={t("session.no_automation_tasks_desc")}
-              />
-            ) : (
-              <>
-                {props.automationGroups.map((group) => {
-                  const expandedAuto = props.expandedAutomationDirectories.includes(
-                    group.id,
-                  );
+                  <button
+                    type="button"
+                    className={cn(
+                      TASK_ROW_ACTION_CLASS,
+                      "opacity-0 transition-opacity group-hover/section:opacity-100",
+                      expandedSections.automations && "opacity-100",
+                    )}
+                    aria-label={
+                      allAutomationGroupsExpanded
+                        ? t("session.collapse_all_automations")
+                        : t("session.expand_all_automations")
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!expandedSections.automations) {
+                        setExpandedSections((current) => ({
+                          ...current,
+                          automations: true,
+                        }));
+                      }
+                      if (allAutomationGroupsExpanded) {
+                        props.onExpandedAutomationDirectoriesChange(() => []);
+                        return;
+                      }
+                      const allIds = props.automationGroups.map(
+                        (group) => group.id,
+                      );
+                      props.onExpandedAutomationDirectoriesChange(
+                        () => allIds,
+                      );
+                    }}
+                  >
+                    {allAutomationGroupsExpanded ? (
+                      <Minimize2 strokeWidth={1.75} />
+                    ) : (
+                      <Maximize2 strokeWidth={1.75} />
+                    )}
+                  </button>
+                </IconHoverTip>
+              ) : null
+            }
+          />
+          {expandedSections.automations ? (
+            <div className="flex flex-col gap-0.5 pb-1">
+              {automationsCount === 0 ? (
+                <AssistantListEmptyState
+                  label={t("session.no_automation_tasks")}
+                />
+              ) : (
+                props.automationGroups.map((group) => {
+                  const expandedAuto =
+                    props.expandedAutomationDirectories.includes(group.id);
                   const groupLabel = t("automation.session_group_title", {
                     title: group.title,
                   });
                   return (
                     <div key={group.id} className="flex flex-col gap-0.5">
-                      <FolderRowShell
+                      <AutomationGroupRow
                         title={groupLabel}
+                        groupId={group.id}
                         expanded={expandedAuto}
                         onToggle={() =>
-                          props.onExpandedAutomationDirectoriesChange((current) =>
-                            current.includes(group.id)
-                              ? current.filter((item) => item !== group.id)
-                              : [...current, group.id],
+                          props.onExpandedAutomationDirectoriesChange(
+                            (current) =>
+                              current.includes(group.id)
+                                ? current.filter((item) => item !== group.id)
+                                : [...current, group.id],
                           )
                         }
-                        icon={
-                          <CalendarClock
-                            className="size-3.5 shrink-0 text-dls-text/55"
-                            strokeWidth={1.6}
-                          />
+                        onTogglePinned={props.onToggleAutomationGroupPinned}
+                        onArchive={props.onArchiveAutomationGroup}
+                        onDelete={
+                          props.onDeleteAutomationGroup
+                            ? () =>
+                                props.onDeleteAutomationGroup?.({
+                                  groupId: group.id,
+                                  title: group.title,
+                                  sessionIds: group.items.map(
+                                    (item) => item.latestSession.id,
+                                  ),
+                                })
+                            : undefined
                         }
                       />
                       {expandedAuto ? (
                         <FolderChildren>
                           {(() => {
                             const folderKey = `auto:${group.id}`;
-                            const showAll = showAllByFolder[folderKey] === true;
+                            const showAll =
+                              showAllByFolder[folderKey] === true;
                             const items = group.items;
                             const visibleItems =
-                              showAll || items.length <= FOLDER_TASK_PREVIEW_LIMIT
+                              showAll ||
+                              items.length <= FOLDER_TASK_PREVIEW_LIMIT
                                 ? items
                                 : items.slice(0, FOLDER_TASK_PREVIEW_LIMIT);
                             return (
@@ -968,9 +1849,15 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                                   groups={visibleItems}
                                   workspaceId={props.workspaceId}
                                   selectedSessionId={props.selectedSessionId}
+                                  sessionStatusById={props.sessionStatusById}
                                   singleLine
-                                  pinnable={false}
-                                  folderPathBySessionId={props.folderPathBySessionId}
+                                  pinnable
+                                  pinnedSessionIds={
+                                    new Set(
+                                      automationLocalPinsById[group.id] ?? [],
+                                    )
+                                  }
+                                  folderPathBySessionId={folderPathBySessionId}
                                   onOpenSession={props.onOpenSession}
                                   onPrefetchSession={props.onPrefetchSession}
                                   onTogglePinned={props.onTogglePinned}
@@ -978,12 +1865,15 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                                   onArchiveSession={props.onArchiveSession}
                                   onDeleteSession={props.onDeleteSession}
                                   onOpenFolder={props.onOpenFolder}
-                                  onSaveToSpace={props.onSaveToSpace}
+                                  // Scheduled runs stay in automation history —
+                                  // do not offer "save to space" from this list.
                                 />
                                 <FolderTaskShowMore
                                   total={items.length}
                                   showAll={showAll}
-                                  onToggle={() => toggleShowAllFolder(folderKey)}
+                                  onToggle={() =>
+                                    toggleShowAllFolder(folderKey)
+                                  }
                                 />
                               </>
                             );
@@ -992,13 +1882,12 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                       ) : null}
                     </div>
                   );
-                })}
-              </>
-            )}
-          </div>
-        ) : null}
+                })
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }

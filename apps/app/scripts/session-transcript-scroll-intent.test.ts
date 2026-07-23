@@ -96,9 +96,13 @@ describe("session transcript scroll intent", () => {
   });
 
   test("wires WorkBuddy touch, scrollbar drag, resize cleanup, and retry activity", async () => {
-    const [surface, controller] = await Promise.all([
+    const [host, view, controller] = await Promise.all([
       Bun.file(new URL(
         "../src/react-app/domains/session/surface/session-surface.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/session-surface-view.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
@@ -106,12 +110,17 @@ describe("session transcript scroll intent", () => {
         import.meta.url,
       )).text(),
     ]);
+    const surface = [host, view].join("\n");
 
+    expect(host).toContain("export function SessionSurface");
     expect(surface).toContain("onTouchStart={(event) =>");
     expect(surface).toContain("onTouchMove={(event) =>");
     expect(surface).toContain("onPointerDown={(event) =>");
     expect(surface).toContain("event.target !== event.currentTarget");
-    expect(surface).toContain('liveStatus.type === "retry"');
+    // Stop button must not stay red after cancel while backend lags on idle.
+    expect(surface).toContain("stopHidesRemoteBusy");
+    expect(surface).toContain("storedSessionStopRequested");
+    expect(surface).toContain("remoteBusy && !stopHidesRemoteBusy");
     expect(controller).toContain("observer.observe(content)");
     expect(controller).toContain("mutationObserver.observe(content");
     expect(controller).toContain("const stickToMutatedGrowth");
@@ -129,9 +138,17 @@ describe("session transcript scroll intent", () => {
   });
 
   test("matches the WorkBuddy scroll-to-bottom affordance", async () => {
-    const [surface, controller, control, styles] = await Promise.all([
+    const [host, view, layout, controller, control, styles] = await Promise.all([
       Bun.file(new URL(
         "../src/react-app/domains/session/surface/session-surface.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/session-surface-view.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/session-surface-layout.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
@@ -144,18 +161,30 @@ describe("session transcript scroll intent", () => {
       )).text(),
       Bun.file(new URL("../src/app/index.css", import.meta.url)).text(),
     ]);
+    const surface = [host, view].join("\n");
 
     expect(surface).not.toContain("session.jump_to_start");
     expect(surface).not.toContain("jumpToStartOfMessage");
     expect(controller).not.toContain("jumpToStartOfMessage");
-    expect(surface).toContain("visible={!personalAssistantDraftHome && !sessionScroll.isAtBottom}");
+    // Jump control is hosted by the transcript layout shell and subscribes
+    // to sticky mode on its own so SessionSurface does not re-render on scroll.
+    expect(layout).toContain("TranscriptScrollToLatest");
+    expect(layout).toContain("TranscriptJumpToLatestChip");
+    expect(layout).toContain("props.enabled && !isAtBottom");
+    expect(layout).toContain("useSessionScrollStore");
+    expect(surface).not.toContain("sessionScroll.isAtBottom");
     expect(surface).toContain('sessionScroll.jumpToLatest("auto")');
+    expect(controller).toContain("isAtBottomRef");
     expect(control).toContain("session-workbuddy-scroll-to-bottom");
+    expect(control).toContain("ChevronsDown");
     expect(styles).toContain(".session-workbuddy-scroll-to-bottom");
-    expect(styles).toContain("width: 32px");
-    expect(styles).toContain("height: 32px");
+    expect(styles).toContain("width: 36px");
+    expect(styles).toContain("height: 36px");
     expect(styles).toContain("border-radius: 999px");
-    expect(styles).toContain("0 4px 12px rgb(0 0 0 / 4%)");
+    // Dark-mode legibility: hairline border + dual-tone elevation (not black-only soft shadow).
+    expect(styles).toContain("border: 1px solid var(--dls-border)");
+    expect(styles).toContain("0 1px 0 rgb(255 255 255 / 10%) inset");
+    expect(styles).toContain("0 4px 14px rgb(0 0 0 / 18%)");
   });
 
   test("keeps virtualization-library overscan semantics explicit", async () => {
@@ -166,7 +195,9 @@ describe("session transcript scroll intent", () => {
 
     expect(source).toContain("const VIRTUAL_OVERSCAN = 4");
     expect(source).toContain("overscan: VIRTUAL_OVERSCAN");
+    // TanStack Virtual attaches ResizeObserver via measureElement — do not require
+    // a raw `new ResizeObserver` in this file (avoids double observers + scroll jank).
     expect(source).toContain("virtualizer.measureElement");
-    expect(source).toContain("new ResizeObserver");
+    expect(source).toMatch(/measureElement[\s\S]{0,80}ResizeObserver|ResizeObserver[\s\S]{0,80}measureElement/);
   });
 });

@@ -57,7 +57,7 @@ def pack(source_dir: str, xlsx_path: str) -> None:
             print(f"  {b}", file=sys.stderr)
         print(
             "\nFix all XML errors before packing. "
-            "A malformed xlsx cannot be opened by Excel or LibreOffice.",
+            "A malformed xlsx cannot be opened by Excel-compatible applications.",
             file=sys.stderr,
         )
         sys.exit(1)

@@ -164,8 +164,6 @@ where gs >nul 2>nul
 if !errorlevel! EQU 0 (echo   [OK] gs - Ghostscript) else (echo   [--] gs - not found)
 where tesseract >nul 2>nul
 if !errorlevel! EQU 0 (echo   [OK] tesseract - OCR) else (echo   [--] tesseract - not found)
-where soffice >nul 2>nul
-if !errorlevel! EQU 0 (echo   [OK] soffice - LibreOffice) else (echo   [--] soffice - not found)
 
 REM --- 6. Remove SKILL.md setup section ---
 set "SKILL_MD=!SCRIPTS_DIR!\..\SKILL.md"

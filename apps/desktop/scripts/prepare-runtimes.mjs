@@ -3,6 +3,7 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -122,18 +123,31 @@ const pythonBinary = join(
   "python",
   process.platform === "win32" ? "python.exe" : "bin/python3",
 );
+const supportedRuntimeEntries = new Set(["node", "python", "versions.json"]);
+
+function pruneRetiredRuntimeEntries() {
+  if (!existsSync(targetRoot)) return;
+  for (const entry of readdirSync(targetRoot)) {
+    if (supportedRuntimeEntries.has(entry)) continue;
+    rmSync(join(targetRoot, entry), { recursive: true, force: true });
+  }
+}
+
 function executableWorks(binary) {
   if (!existsSync(binary)) return false;
   return spawnSync(binary, ["--version"], { encoding: "utf8" }).status === 0;
 }
 
-if (
-  existsSync(manifestPath) &&
-  JSON.stringify(JSON.parse(readFileSync(manifestPath, "utf8"))) ===
-    JSON.stringify(expectedManifest) &&
-  executableWorks(nodeBinary) &&
-  executableWorks(pythonBinary)
-) {
+pruneRetiredRuntimeEntries();
+
+const currentManifest = existsSync(manifestPath)
+  ? JSON.parse(readFileSync(manifestPath, "utf8"))
+  : null;
+const runtimeVersionsMatch = currentManifest !== null &&
+  Object.entries(expectedManifest).every(([key, value]) => currentManifest[key] === value);
+
+if (runtimeVersionsMatch && executableWorks(nodeBinary) && executableWorks(pythonBinary)) {
+  writeFileSync(manifestPath, `${JSON.stringify(expectedManifest, null, 2)}\n`);
   process.stdout.write(`[runtimes] ${target} already prepared\n`);
   process.exit(0);
 }
@@ -244,7 +258,6 @@ try {
     spec.pythonAsset,
     spec.pythonSha256,
   );
-
   const nodeExtract = join(workRoot, "node-extract");
   const pythonExtract = join(workRoot, "python-extract");
   extract(nodeArchive, nodeExtract);
@@ -265,7 +278,6 @@ try {
     chmodSync(join(stagedRoot, "node", "bin", "node"), 0o755);
     chmodSync(join(stagedRoot, "python", "bin", "python3"), 0o755);
   }
-
   writeFileSync(
     join(stagedRoot, "versions.json"),
     `${JSON.stringify(expectedManifest, null, 2)}\n`,

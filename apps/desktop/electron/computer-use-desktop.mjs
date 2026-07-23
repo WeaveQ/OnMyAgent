@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
   readFileSync,
@@ -700,6 +700,60 @@ function checkSystemPermissions() {
   };
 }
 
+/**
+ * macOS Privacy → Automation only lists processes that have already attempted
+ * to send Apple Events to another app. Opening the Settings pane alone never
+ * adds OnMyAgent. Probe Calendar / Reminders / Notes (not System Events —
+ * osascript is a first-party tool already allowed to talk to System Events,
+ * which made earlier "status" checks always look granted).
+ *
+ * On modern macOS the responsible parent (Electron / OnMyAgent) is usually
+ * what appears in the Automation list when a child osascript is spawned.
+ */
+function triggerAutomationPermissionPrompt() {
+  if (process.platform !== "darwin") return;
+  // Targets match settings.permission_automation_desc copy.
+  const probes = [
+    'tell application "Calendar" to get name',
+    'tell application "Reminders" to get name',
+    'tell application "Notes" to get name',
+  ];
+  for (const source of probes) {
+    try {
+      const result = spawnSync(
+        "osascript",
+        ["-e", source],
+        {
+          encoding: "utf8",
+          timeout: 12_000,
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      // -1743 / "not allowed" still registers the parent in Automation.
+      if (result.error) {
+        console.warn(
+          `[Automation] probe failed (${source}):`,
+          result.error.message,
+        );
+        continue;
+      }
+      const stderr = (result.stderr || "").trim();
+      if (stderr) {
+        console.log(`[Automation] probe response: ${stderr.slice(0, 200)}`);
+      } else {
+        console.log(`[Automation] probe ok: ${source}`);
+      }
+      // One successful registration attempt is enough to open Settings.
+      break;
+    } catch (error) {
+      console.warn(
+        `[Automation] probe threw:`,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+}
+
 function openSystemPermissionSettings(type) {
   if (process.platform !== "darwin") {
     return { success: true };
@@ -732,8 +786,23 @@ function openSystemPermissionSettings(type) {
     }
   }
 
+  // Accessibility: prompt via system API (false = read-only elsewhere).
+  if (type === "accessibility") {
+    try {
+      systemPreferences.isTrustedAccessibilityClient(true);
+    } catch (e) {
+      console.warn(`[Accessibility] prompt failed:`, e.message);
+    }
+  }
+
+  // Automation: must attempt Apple Events before Privacy_Automation shows us.
+  if (type === "automation") {
+    triggerAutomationPermissionPrompt();
+  }
+
   const appName = app.getName();
   const isDevMode = process.defaultApp || app.isPackaged === false;
+  const listName = isDevMode ? "Electron" : appName;
 
   const urlMap = {
     "full-disk-access": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
@@ -749,13 +818,20 @@ function openSystemPermissionSettings(type) {
 
   try {
     shell.openExternal(url);
-    const fdaHint = isDevMode
-      ? `开发模式提示：系统设置中应该找 "Electron"，而不是 "${appName}"。如果没有自动出现在列表中，请点击左下角的锁图标解锁，然后点击"+"按钮手动添加 Electron。`
-      : `如果应用没有自动出现在列表中，请点击左下角的锁图标解锁，然后点击"+"按钮手动添加 ${appName}`;
+    const listHint = isDevMode
+      ? `开发模式提示：系统设置中请找 “Electron”，而不是 “${appName}”。若列表仍没有，请先点系统弹窗里的“好/允许”，再返回本页刷新；也可点左下角锁后用“+”手动添加 Electron。`
+      : `若列表中没有 “${listName}”，请先处理系统弹出的授权对话框（允许控制日历/提醒/备忘录），再返回本页点刷新。仍没有时可解锁后用“+”手动添加 ${listName}。`;
+
+    const hint =
+      type === "full-disk-access" || type === "automation"
+        ? listHint
+        : type === "accessibility"
+          ? listHint
+          : null;
 
     return {
       success: true,
-      hint: type === "full-disk-access" ? fdaHint : null
+      hint,
     };
   } catch (e) {
     return { success: false, error: e.message };

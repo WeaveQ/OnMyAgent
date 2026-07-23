@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  activeTurnReserveStyle,
   resolveVirtualItemKey,
   selectVirtualRenderWindow,
   shouldVirtualizeTranscript,
@@ -59,5 +60,24 @@ describe("session transcript virtual window (shipped helpers)", () => {
     expect(resolveVirtualItemKey(items, 0)).toBe("turn:1");
     expect(resolveVirtualItemKey(items, 1)).toBe("turn:2");
     expect(resolveVirtualItemKey(items, 9)).toBe("item-9");
+  });
+
+  test("activeTurnReserveStyle does not invent blank viewport height", () => {
+    expect(
+      activeTurnReserveStyle({
+        isActiveTurn: true,
+        isNestedVariant: false,
+        isDetachedTail: true,
+        minHeightPx: 700,
+      }),
+    ).toBeUndefined();
+    expect(
+      activeTurnReserveStyle({
+        isActiveTurn: true,
+        isNestedVariant: false,
+        isDetachedTail: false,
+        minHeightPx: 700,
+      }),
+    ).toBeUndefined();
   });
 });

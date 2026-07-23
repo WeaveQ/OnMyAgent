@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, FileText, MessageCircle, Paperclip, Pin, PinOff, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X } from "lucide-react";
+import { AlertCircle, Camera, Check, ChevronRight, ClipboardList, MessageCircle, Paperclip, Pin, PinOff, Plus, Plug, Rocket, Search, Settings, Sparkles, Square, Target, Terminal, X } from "lucide-react";
 import { SkillGlyphIcon } from "../../../../design-system/skill-glyph-icon";
 import fuzzysort from "fuzzysort";
 import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "../../../../../app/constants";
@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { ArtifactIcon } from "../../artifacts/artifact-icon";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { ComposerAccessMode, ComposerAttachment, ComposerCollaborationMode, McpServerEntry, McpStatusMap, ModelRef, SkillCard, SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
@@ -38,6 +39,7 @@ import {
   collaborationModeOptionKeys,
   filterToolMenuItems,
   formatPluginObjectType,
+  matchComposerSlashQuery,
   pluginSkillFileSearchText,
   skillMenuDescription,
   type CollaborationModeOptionKey,
@@ -46,6 +48,7 @@ import {
   ReactComposerNotice,
   type ReactComposerNotice as ReactComposerNoticeData,
 } from "./notice";
+import { ImageAttachmentLightbox } from "../image-attachment-lightbox";
 import {
   type ComposerProps,
   type MentionItem,
@@ -64,11 +67,9 @@ import {
   collaborationModeOptions,
   FLUSH_PROMPT_EVENT,
   FOCUS_PROMPT_EVENT,
-  MAX_ATTACHMENT_BYTES,
   parseClipboardUriList,
   formatBytes,
   isImageAttachment,
-  compressImageFile,
   toReactMcpStatus,
   mcpServerDescription,
   COMPOSER_CONTAIN_STYLE,
@@ -76,91 +77,25 @@ import {
   extensionIconTileClassName,
   pluginSlashCommandName,
 } from "./composer-helpers";
+import {
+  fileFromAppshotPayload,
+  formatAttachmentSuccessDisplayName,
+  formatOversizeAttachmentName,
+  parseAppshotPayload,
+  processAttachmentFiles,
+} from "./attachments";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
+import { mergeSlashCommandsWithSkills } from "./slash-command-merge";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
   writePinnedSkillIds,
 } from "./pinned-skills";
-
-/** Client platform for Appshot naming / availability (Electron + browser). */
-function detectClientPlatform(): "macos" | "windows" | "linux" | "unknown" {
-  if (typeof navigator === "undefined") return "unknown";
-  const ua = navigator.userAgent ?? "";
-  const platform = navigator.platform ?? "";
-  if (/Mac|Macintosh|Darwin/i.test(platform) || /Mac OS X|Macintosh/i.test(ua)) {
-    return "macos";
-  }
-  if (/Win/i.test(platform) || /Windows/i.test(ua)) return "windows";
-  if (/Linux/i.test(platform) || /Linux/i.test(ua)) return "linux";
-  return "unknown";
-}
-
-/** Reject Swift debug dumps / control junk so notice + chips stay readable. */
-function isSafeAttachmentDisplayName(name: string): boolean {
-  const value = name.trim();
-  if (!value || value.length > 96) return false;
-  if (/JoinedSequence|ArraySlice|ContiguousArray|_base|_separator|Array</i.test(value)) {
-    return false;
-  }
-  // No control chars / newlines; allow normal unicode file names.
-  if (/[\u0000-\u001f\u007f]/.test(value)) return false;
-  return !value.includes("\n") && !value.includes("\r");
-}
-
-/**
- * Cross-platform Appshot basename.
- * - macOS: strips Swift JoinedSequence dumps from the native helper
- * - Windows: strips reserved device names and illegal path characters
- * - Linux / fallback: same safe basename rules
- */
-function sanitizeAppshotFileName(
-  raw: string,
-  platform: "macos" | "windows" | "linux" | "unknown" = detectClientPlatform(),
-): string {
-  const value = raw.trim().replace(/\\/g, "/");
-  const base = value.includes("/") ? value.slice(value.lastIndexOf("/") + 1) : value;
-  let candidate = base
-    .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "-")
-    .replace(/\.+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const reservedWin =
-    platform === "windows" &&
-    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(candidate);
-
-  const looksBad =
-    !candidate ||
-    !isSafeAttachmentDisplayName(candidate) ||
-    reservedWin ||
-    !/^Appshot[-_\w. ()]+\.(jpe?g|png|webp)$/i.test(candidate);
-
-  if (!looksBad) {
-    return candidate.replace(/\.jpeg$/i, ".jpg");
-  }
-
-  const stamp = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const stampText = [
-    stamp.getFullYear(),
-    pad(stamp.getMonth() + 1),
-    pad(stamp.getDate()),
-    "-",
-    pad(stamp.getHours()),
-    pad(stamp.getMinutes()),
-    pad(stamp.getSeconds()),
-  ].join("");
-  return `Appshot-${stampText}.jpg`;
-}
-
-/** Native Appshot helper is macOS-only today (Swift HandsFree). */
-function isAppshotCaptureSupported(): boolean {
-  if (typeof window === "undefined") return false;
-  if (!window.__ONMYAGENT_ELECTRON__?.computerUse) return false;
-  return detectClientPlatform() === "macos";
-}
+import {
+  detectClientPlatform,
+  isAppshotCaptureSupported,
+} from "./appshot";
 
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
@@ -210,6 +145,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [agentMenuIndex, setAgentMenuIndex] = useState(0);
   const agentItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [dropzoneActive, setDropzoneActive] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const toolMenuRef = useRef<HTMLDivElement | null>(null);
   const agentMenuRef = useRef<HTMLDivElement | null>(null);
   // IME composition guard: while an IME composition is active, we must not
@@ -219,17 +155,30 @@ export function ReactSessionComposer(props: ComposerProps) {
   const imeComposingRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef(props.draft);
+  // Live draft for slash/mention matching — updated in the same tick as editor
+  // onChange so the menu filters while typing even if parent store re-render lags.
+  const [liveDraft, setLiveDraft] = useState(props.draft);
   useEffect(() => {
+    setLiveDraft(props.draft);
     draftRef.current = props.draft;
   }, [props.draft]);
+
+  const handleDraftChange = useCallback(
+    (value: string) => {
+      draftRef.current = value;
+      setLiveDraft(value);
+      props.onDraftChange(value);
+    },
+    [props.onDraftChange],
+  );
 
   // Open slash menu whenever the caret-side draft ends with `/` or `/partial`.
   // Previous regex required the *entire* draft to be a slash token, so after a
   // skill chip (`/12306 `) a second `/` never opened the menu again.
-  const slashMatch = props.draft.match(/\/([^\s/]*)$/);
-  const slashOpenNext = Boolean(slashMatch);
-  const slashQuery = slashMatch?.[1] ?? "";
-  const mentionMatch = props.draft.match(/@([^\s@]*)$/);
+  const slashToken = matchComposerSlashQuery(liveDraft);
+  const slashOpenNext = slashToken.open;
+  const slashQuery = slashToken.query;
+  const mentionMatch = liveDraft.match(/@([^\s@]*)$/);
   const mentionOpenNext = Boolean(mentionMatch);
   const mentionQuery = mentionMatch?.[1] ?? "";
 
@@ -321,28 +270,13 @@ export function ReactSessionComposer(props: ComposerProps) {
           ? skillResult.value
           : [];
 
-      const byName = new Map<string, SlashCommandOption>();
-      for (const skill of skillCards) {
-        const name = String(skill.name ?? "").trim();
-        if (!name) continue;
-        byName.set(name, {
-          id: `skill:${name}`,
-          name,
-          description: skill.description ? String(skill.description) : undefined,
-          source: "skill",
-        });
-      }
-      for (const cmd of cmds) {
-        const name = String(cmd.name ?? "").trim();
-        if (!name) continue;
-        byName.set(name, cmd);
-      }
+      const merged = mergeSlashCommandsWithSkills(cmds, skillCards);
       // Preserve SkillCard.scope so OnMyAgent installs can sort ahead of the rest.
-      if (skillCards.length) {
-        setSkills(skillCards);
+      if (merged.skillsForState) {
+        setSkills(merged.skillsForState);
         setSkillsLoaded(true);
       }
-      return Array.from(byName.values());
+      return merged.commands;
     })()
       .then((next) => {
         if (commandsLoadVersionRef.current === version && next.length > 0) {
@@ -675,11 +609,14 @@ export function ReactSessionComposer(props: ComposerProps) {
   const slashFiltered = useMemo(() => {
     if (!slashOpen) return [];
     // Slash menu is skills/commands only — connectors live under + → connectors.
+    // Weight the name twice so `/obsidian` ranks the skill itself above long
+    // descriptions that only fuzzy-match a few letters.
     return slashQuery.trim()
       ? filterToolMenuItems(
           skillCatalogOrdered,
           slashQuery,
-          (item) => `${item.name} ${item.description ?? ""}`,
+          (item) =>
+            `${item.name} ${item.name} ${item.description ?? ""}`,
         )
       : skillCatalogOrdered;
   }, [skillCatalogOrdered, slashOpen, slashQuery]);
@@ -733,13 +670,14 @@ export function ReactSessionComposer(props: ComposerProps) {
 
   const applyCommandSelection = (command: SlashCommandOption) => {
     const insertion = `/${command.name} `;
-    const draft = props.draft;
-    // Replace only the trailing `/` or `/partial` so an existing skill chip is kept.
-    if (/\/[^\s/]*$/.test(draft)) {
-      props.onDraftChange(draft.replace(/\/[^\s/]*$/, insertion));
+    // Prefer live draft so chip insertion replaces the in-progress `/query`.
+    // Drop trailing newlines (Lexical multi-paragraph) so `/obsidian\n` still replaces.
+    const draft = liveDraft.replace(/[\n\r]+$/u, "");
+    if (/\/[^\s/]*$/u.test(draft)) {
+      handleDraftChange(draft.replace(/\/[^\s/]*$/u, insertion));
     } else {
-      const needsSpace = draft.length > 0 && !/\s$/.test(draft);
-      props.onDraftChange(`${draft}${needsSpace ? " " : ""}${insertion}`);
+      const needsSpace = draft.length > 0 && !/\s$/u.test(draft);
+      handleDraftChange(`${draft}${needsSpace ? " " : ""}${insertion}`);
     }
     setSlashOpen(false);
     setToolMenuOpen(false);
@@ -946,28 +884,15 @@ export function ReactSessionComposer(props: ComposerProps) {
       return;
     }
 
-    const accepted: File[] = [];
-    const oversize: string[] = [];
-
-    for (const original of inputFiles) {
-      const processed = original.type.startsWith("image/") ? await compressImageFile(original) : original;
-      if (processed.size > MAX_ATTACHMENT_BYTES) {
-        oversize.push(processed.name || original.name);
-        continue;
-      }
-      accepted.push(processed);
-    }
+    const { accepted, oversizeNames } = await processAttachmentFiles(inputFiles);
 
     if (accepted.length) {
       props.onAttachFiles(accepted);
       // Compact composer notice — never dump long/corrupted native names into the card.
       if (accepted.length === 1) {
-        const name = accepted[0]?.name?.trim() || "";
-        const displayName = isSafeAttachmentDisplayName(name)
-          ? name.length > 40
-            ? `${name.slice(0, 37)}…`
-            : name
-          : null;
+        const displayName = formatAttachmentSuccessDisplayName(
+          accepted[0]?.name?.trim() || "",
+        );
         props.onNotice({
           title: t("composer.upload_success_title"),
           description: displayName
@@ -984,40 +909,27 @@ export function ReactSessionComposer(props: ComposerProps) {
       }
     }
 
-    if (oversize.length) {
+    if (oversizeNames.length) {
       props.onNotice({
         title:
-          oversize.length === 1
+          oversizeNames.length === 1
             ? t("composer.file_exceeds_limit", {
-                name: isSafeAttachmentDisplayName(oversize[0] ?? "")
-                  ? oversize[0]
-                  : t("composer.file_kind"),
+                name: formatOversizeAttachmentName(
+                  oversizeNames[0] ?? "",
+                  t("composer.file_kind"),
+                ),
               })
-            : `${oversize.length} files exceed the 8MB limit.`,
+            : `${oversizeNames.length} files exceed the 8MB limit.`,
         tone: "warning",
       });
     }
-
   };
 
   const attachAppshot = async (payload: unknown) => {
-    if (typeof payload !== "object" || payload === null) return;
-    if (!("name" in payload) || typeof payload.name !== "string") return;
-    if (!("mimeType" in payload) || typeof payload.mimeType !== "string") return;
-    if (!("data" in payload) || typeof payload.data !== "string") return;
+    const parsed = parseAppshotPayload(payload);
+    if (!parsed) return;
     // Guard against native bugs that stringify Swift String as JoinedSequence debug text.
-    const safeName = sanitizeAppshotFileName(payload.name);
-    const binary = atob(payload.data);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    await addAttachments([
-      new File([bytes], safeName, {
-        type: payload.mimeType,
-        lastModified: Date.now(),
-      }),
-    ]);
+    await addAttachments([fileFromAppshotPayload(parsed)]);
     // Dedicated short notice — no filename dump (attachment chip already shows it).
     props.onNotice({
       title: t("composer.appshot_success"),
@@ -1101,25 +1013,47 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
-  const hasBottomAccessory = Boolean(props.bottomAccessory);
+  const homeLayout = Boolean(props.homeLayout);
+  const heroHome = Boolean(props.heroHome);
+  // Home / expert-empty: fold workspace+permission into the primary toolbar so
+  // the card stays one compact unit (no tall empty middle + sparse under-bar).
+  const inlineToolbarAccessory = homeLayout && Boolean(props.bottomAccessory);
+  const underCardAccessory = Boolean(props.bottomAccessory) && !inlineToolbarAccessory;
   // When workspace/permission bar sits under the card, share the outer silhouette:
   // full width + square joint (no top corners on the bar, no bottom corners on the card).
   const panelRoundedClass =
     mentionOpen || slashOpen
       ? "rounded-t-[18px] border-t-transparent"
-      : hasBottomAccessory
+      : underCardAccessory
         ? "rounded-t-xl rounded-b-none"
-        : "rounded-xl";
+        : heroHome
+          ? "rounded-2xl"
+          : "rounded-xl";
 
-  const homeLayout = Boolean(props.homeLayout);
+  // Same width for hero home, expert empty, and in-session (1120 + side pad).
+  // Hero only grows height / padding / corner radius — not column width.
+  const shellPadClass = `px-4 md:px-8 ${
+    props.compactTopSpacing ? "pt-0" : "pt-3"
+  } ${homeLayout || heroHome ? "pb-3" : "pb-5"}`;
+  const panelChromeClass = heroHome
+    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
+    : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
+  const editorPadClass =
+    props.attachments.length > 0
+      ? heroHome
+        ? "px-5 pb-2.5 pt-3"
+        : "px-4 pb-2 pt-2"
+      : heroHome
+        ? "px-5 pb-2.5 pt-4"
+        : "px-4 pb-2 pt-3";
 
   return (
     <div
       ref={rootRef}
       className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
-        homeLayout
-          ? "bg-transparent px-0 pb-0 pt-0"
-          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-4 md:px-8 pb-5 ${props.compactTopSpacing ? "pt-0" : "pt-3"}`
+        homeLayout || heroHome
+          ? `bg-transparent ${shellPadClass}`
+          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`
       }`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
@@ -1130,18 +1064,10 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      {/* Same max-w as session transcript column (session-surface contentRef). */}
-      <div
-        className={
-          homeLayout
-            ? "mx-auto w-full max-w-none"
-            : "mx-auto w-full max-w-[1120px]" /* SESSION_CONTENT_MAX_WIDTH_CLASS */
-        }
-      >
+      {/* Keep in sync with SESSION_CONTENT_MAX_WIDTH_CLASS / contentRef. */}
+      <div className="mx-auto w-full max-w-[1120px]">
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
-        <div
-          className={`relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${hasBottomAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`}
-        >
+        <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
 
@@ -1172,50 +1098,96 @@ export function ReactSessionComposer(props: ComposerProps) {
           {props.attachments.length > 0 ? (
             // Align with editor padding (px-4); keep chips compact so they don't fight the shell.
             <div className="flex flex-wrap gap-2 px-4 pt-3">
-              {props.attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
-                >
-                  {isImageAttachment(attachment) && attachment.previewUrl ? (
-                    <div className="size-8 shrink-0 overflow-hidden rounded-md bg-dls-surface">
-                      <img
-                        src={attachment.previewUrl}
-                        alt={attachment.name}
-                        decoding="async"
-                        className="size-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
-                      <FileText className="size-3.5" aria-hidden="true" />
-                    </div>
-                  )}
-                  <div className="min-w-0 max-w-[14rem]">
-                    <div className="truncate text-xs font-medium text-dls-text" title={attachment.name}>
-                      {attachment.name}
-                    </div>
-                    <div className="truncate text-2xs text-dls-secondary">
-                      {isImageAttachment(attachment) ? t("composer.image_kind") : t("composer.file_kind")}
-                      {" · "}
-                      {formatBytes(attachment.size)}
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="ml-0.5 size-5 shrink-0 rounded-full text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
-                    onClick={() => props.onRemoveAttachment(attachment.id)}
-                    title={t("action.remove")}
-                    aria-label={t("action.remove")}
+              {props.attachments.map((attachment) => {
+                const canPreviewImage =
+                  isImageAttachment(attachment) && Boolean(attachment.previewUrl);
+                return (
+                  <div
+                    key={attachment.id}
+                    className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
                   >
-                    <X className="size-3" />
-                  </Button>
-                </div>
-              ))}
+                    {canPreviewImage && attachment.previewUrl ? (
+                      <button
+                        type="button"
+                        className="size-8 shrink-0 cursor-zoom-in overflow-hidden rounded-md bg-dls-surface ring-offset-2 ring-offset-dls-surface-muted transition hover:ring-2 hover:ring-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent"
+                        onClick={() =>
+                          setImagePreview({
+                            src: attachment.previewUrl ?? "",
+                            alt: attachment.name,
+                          })
+                        }
+                        title={t("session.image_attachment_open", { name: attachment.name })}
+                        aria-label={t("session.image_attachment_open", { name: attachment.name })}
+                      >
+                        <img
+                          src={attachment.previewUrl}
+                          alt={attachment.name}
+                          decoding="async"
+                          className="size-full object-cover"
+                        />
+                      </button>
+                    ) : (
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
+                        <ArtifactIcon name={attachment.name} className="size-3.5" />
+                      </div>
+                    )}
+                    {canPreviewImage && attachment.previewUrl ? (
+                      <button
+                        type="button"
+                        className="min-w-0 max-w-[14rem] cursor-zoom-in rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent"
+                        onClick={() =>
+                          setImagePreview({
+                            src: attachment.previewUrl ?? "",
+                            alt: attachment.name,
+                          })
+                        }
+                        title={t("session.image_attachment_open", { name: attachment.name })}
+                      >
+                        <div className="truncate text-xs font-medium text-dls-text" title={attachment.name}>
+                          {attachment.name}
+                        </div>
+                        <div className="truncate text-2xs text-dls-secondary">
+                          {t("composer.image_kind")}
+                          {" · "}
+                          {formatBytes(attachment.size)}
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="min-w-0 max-w-[14rem]">
+                        <div className="truncate text-xs font-medium text-dls-text" title={attachment.name}>
+                          {attachment.name}
+                        </div>
+                        <div className="truncate text-2xs text-dls-secondary">
+                          {t("composer.file_kind")}
+                          {" · "}
+                          {formatBytes(attachment.size)}
+                        </div>
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="ml-0.5 size-5 shrink-0 rounded-full text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
+                      onClick={() => props.onRemoveAttachment(attachment.id)}
+                      title={t("action.remove")}
+                      aria-label={t("action.remove")}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
+          <ImageAttachmentLightbox
+            open={imagePreview !== null}
+            src={imagePreview?.src ?? null}
+            alt={imagePreview?.alt}
+            onOpenChange={(open) => {
+              if (!open) setImagePreview(null);
+            }}
+          />
 
           {/*
             Plain text pastes stay as text in the editor. We intentionally do
@@ -1231,27 +1203,17 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           ) : null}
 
-          <div
-            className={
-              props.attachments.length > 0
-                ? homeLayout
-                  ? "px-3.5 pb-1.5 pt-2"
-                  : "px-4 pb-2 pt-2"
-                : homeLayout
-                  ? // Same tight empty height as assistant in-session composer.
-                    "px-3.5 pb-1.5 pt-2.5"
-                  : "px-4 pb-2 pt-3"
-            }
-          >
+          <div className={editorPadClass}>
             {/* Editor */}
             <LexicalPromptEditor
               value={props.draft}
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}
               disabled={props.disabled}
-              compact={homeLayout}
+              compact={homeLayout && !heroHome}
+              hero={heroHome}
               placeholder={props.placeholder ?? t("composer.placeholder")}
-              onChange={props.onDraftChange}
+              onChange={handleDraftChange}
               onSubmit={props.onSend}
               onPaste={(event) => {
                 // Paste policy:
@@ -1332,13 +1294,7 @@ export function ReactSessionComposer(props: ComposerProps) {
             />
 
             {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div
-              className={
-                homeLayout
-                  ? "mt-1 flex items-center justify-between gap-1.5"
-                  : "mt-2 flex items-end justify-between gap-1.5"
-              }
-            >
+            <div className="mt-2 flex items-end justify-between gap-1.5">
               <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {
@@ -1434,6 +1390,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     />
                   ) : null}
                 </div>
+                {inlineToolbarAccessory ? (
+                  <div className="flex min-w-0 shrink items-center">
+                    {props.bottomAccessory}
+                  </div>
+                ) : null}
                 {shouldShowCollaborationChip && selectedModeOption ? (
                   <Button
                     type="button"
@@ -1528,8 +1489,8 @@ export function ReactSessionComposer(props: ComposerProps) {
             </div>
           </div>
         </div>
-        {/* Secondary chrome: full-width bar flush under card, square top corners. */}
-        {props.bottomAccessory ? (
+        {/* Secondary chrome under the card (in-session only). Home folds this into the toolbar. */}
+        {underCardAccessory ? (
           <div
             className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
               props.showOuterBorder ? " border border-t-0 border-dls-border shadow-sm" : ""

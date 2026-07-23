@@ -31,6 +31,7 @@ apps/desktop/resources/runtimes/
 apps/desktop/resources/runtime-downloads/*
 !apps/desktop/resources/runtime-downloads/README.md
 apps/desktop/resources/helpers/
+apps/desktop/resources/artifact-runtime/
 apps/desktop/server/
 
 # Local icon export / debug previews (do not commit)

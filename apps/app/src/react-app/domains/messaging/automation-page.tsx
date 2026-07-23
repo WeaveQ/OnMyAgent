@@ -31,7 +31,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FilterChip, MenuRowButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { MenuRowButton, NavTabButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1110,6 +1110,9 @@ export function AutomationPage(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
+  /** When set, open the edit dialog for this automation after list load. */
+  focusAutomationId?: string | null;
+  onFocusAutomationConsumed?: () => void;
 }) {
   const workspace = useWorkspace();
   const local = useLocal();
@@ -1212,6 +1215,25 @@ export function AutomationPage(props: {
     const timer = window.setInterval(refreshAutomations, running.length > 0 ? 2_000 : 15_000);
     return () => window.clearInterval(timer);
   }, [props.client, props.workspaceId, running.length]);
+
+  useEffect(() => {
+    const focusId = props.focusAutomationId?.trim();
+    if (!focusId || loading || busy) return;
+    const item = automations.find((entry) => entry.id === focusId) ?? null;
+    if (!item) return;
+    setDialogMode("edit");
+    setEditingAutomationId(item.id);
+    setForm(formStateFromAutomation(item, local.prefs.defaultModel ?? null));
+    setDialogOpen(true);
+    props.onFocusAutomationConsumed?.();
+  }, [
+    automations,
+    busy,
+    loading,
+    local.prefs.defaultModel,
+    props.focusAutomationId,
+    props.onFocusAutomationConsumed,
+  ]);
 
   const editingItem = editingAutomationId
     ? visibleAutomations.find((item) => item.id === editingAutomationId) ?? null
@@ -1355,7 +1377,7 @@ export function AutomationPage(props: {
     setError(null);
     setDialogOpen(false);
     setActiveStatusTab("running");
-    window.setTimeout(refreshAutomations, 300);
+    window.setTimeout(refreshAutomations, 200);
     window.setTimeout(refreshAutomations, 1_200);
     void props.client.runAutomation(props.workspaceId, item.id)
       .then((result) => {
@@ -1580,28 +1602,40 @@ export function AutomationPage(props: {
           </div>
         ) : (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center gap-0.5">
-              {automationStatusTabs.map((tab) => (
-                <FilterChip
-                  key={tab}
-                  type="button"
-                  selected={activeStatusTab === tab}
-                  onClick={() => setActiveStatusTab(tab)}
-                  label={
-                    <>
-                      {tab === "scheduled"
-                        ? t("automation.scheduled_section")
-                        : tab === "running"
-                          ? t("automation.running_section")
-                          : t("automation.completed_section")}
-                      <StatusBadge tone="neutral" size="tiny" shape="soft">
-                        {statusTabCounts[tab]}
-                      </StatusBadge>
-                    </>
-                  }
-                />
-              ))}
-            </div>
+            {/* Match files page My / Drive free-float inverted pills. */}
+            <SegmentedTabGroup density="bare">
+              {automationStatusTabs.map((tab) => {
+                const active = activeStatusTab === tab;
+                const label =
+                  tab === "scheduled"
+                    ? t("automation.scheduled_section")
+                    : tab === "running"
+                      ? t("automation.running_section")
+                      : t("automation.completed_section");
+                return (
+                  <NavTabButton
+                    key={tab}
+                    type="button"
+                    active={active}
+                    size="tab"
+                    shape="tab"
+                    aria-pressed={active}
+                    onClick={() => setActiveStatusTab(tab)}
+                  >
+                    <span>{label}</span>
+                    <span
+                      className={
+                        active
+                          ? "tabular-nums text-xs font-medium opacity-70"
+                          : "tabular-nums text-xs font-medium text-dls-secondary"
+                      }
+                    >
+                      {statusTabCounts[tab]}
+                    </span>
+                  </NavTabButton>
+                );
+              })}
+            </SegmentedTabGroup>
             <div className="space-y-1">
               {activeStatusTab === "scheduled"
                 ? scheduled.map((item) => (

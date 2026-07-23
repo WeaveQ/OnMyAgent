@@ -178,7 +178,7 @@ export function McpAuthModal(props: McpAuthModalProps) {
     while (Date.now() - startedAt < MCP_AUTH_DISCOVERY_TIMEOUT_MS) {
       const status = await fetchMcpStatus(slug);
       if (status) return status;
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
     }
     return null;
   };

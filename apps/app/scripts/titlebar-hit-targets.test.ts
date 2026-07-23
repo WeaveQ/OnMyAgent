@@ -16,8 +16,10 @@ describe("Electron titlebar hit targets", () => {
   });
 
   test("session and side-panel top toolbars keep interactive controls out of drag regions", () => {
+    // SessionSurface host delegates chrome; no-drag lives on header/layout shells.
     const requiredNoDragSources = [
-      "apps/app/src/react-app/domains/session/surface/session-surface.tsx",
+      "apps/app/src/react-app/domains/session/surface/chrome/session-surface-header.tsx",
+      "apps/app/src/react-app/domains/session/surface/session-surface-layout.tsx",
       "apps/app/src/react-app/domains/session/surface/code-scene-toolbar.tsx",
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
       "apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx",
@@ -30,3 +32,4 @@ describe("Electron titlebar hit targets", () => {
     }
   });
 });
+

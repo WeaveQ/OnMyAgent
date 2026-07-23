@@ -184,4 +184,9 @@ export default {
   "agent_manager.mcp.type_stdio": "stdio",
   "agent_manager.mcp.type_sse": "sse",
   "agent_manager.mcp.type_http": "http",
+  "agent_manager.conn_ok": "连接正常",
+  "agent_manager.conn_ok_models": "连接正常 · {count} 个模型可用",
+  "agent_manager.conn_needs_auth": "需要登录认证{detail}",
+  "agent_manager.conn_missing": "未安装{detail}",
+  "agent_manager.conn_failed": "连接失败{detail}",
 } as const;

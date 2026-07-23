@@ -71,7 +71,7 @@ A user may ask you to create, edit, or analyze the contents of an .xlsx file. Yo
 
 ## Important Requirements
 
-**LibreOffice Required for Formula Recalculation**: You can assume LibreOffice is installed for recalculating formula values using the `scripts/recalc.py` script. The script automatically configures LibreOffice on first run, including in sandboxed environments where Unix sockets are restricted (handled by `scripts/office/soffice.py`)
+Preserve formulas and cached values when possible. If calculated cache values are absent, disclose that the workbook must be opened in an Excel-compatible application to recalculate them.
 
 ## Reading and analyzing data
 
@@ -134,14 +134,10 @@ This applies to ALL calculations - totals, percentages, ratios, differences, etc
 2. **Create/Load**: Create new workbook or load existing file
 3. **Modify**: Add/edit data, formulas, and formatting
 4. **Save**: Write to file
-5. **Recalculate formulas (MANDATORY IF USING FORMULAS)**: Use the scripts/recalc.py script
-   ```bash
-   python scripts/recalc.py output.xlsx
-   ```
-6. **Verify and fix any errors**: 
-   - The script returns JSON with error details
-   - If `status` is `errors_found`, check `error_summary` for specific error types and locations
-   - Fix the identified errors and recalculate again
+5. **Verify formulas statically**: Inspect formulas and existing cached error values before delivery.
+6. **Verify and fix any errors**:
+   - Check formulas for invalid references and malformed expressions.
+   - Disclose formulas whose calculated cache values are absent.
    - Common errors to fix:
      - `#REF!`: Invalid cell references
      - `#DIV/0!`: Division by zero
@@ -204,25 +200,9 @@ new_sheet['A1'] = 'Data'
 wb.save('modified.xlsx')
 ```
 
-## Recalculating formulas
+## Formula cache boundary
 
-Excel files created or modified by openpyxl contain formulas as strings but not calculated values. Use the provided `scripts/recalc.py` script to recalculate formulas:
-
-```bash
-python scripts/recalc.py <excel_file> [timeout_seconds]
-```
-
-Example:
-```bash
-python scripts/recalc.py output.xlsx 30
-```
-
-The script:
-- Automatically sets up LibreOffice macro on first run
-- Recalculates all formulas in all sheets
-- Scans ALL cells for Excel errors (#REF!, #DIV/0!, etc.)
-- Returns JSON with detailed error locations and counts
-- Works on both Linux and macOS
+Excel files created or modified by openpyxl preserve formula expressions but do not calculate cached results. Validate formula references and error conditions statically, and tell the user that a native spreadsheet application may need to recalculate the workbook when it is next opened.
 
 ## Formula Verification Checklist
 
@@ -246,22 +226,6 @@ Quick checks to ensure formulas work correctly:
 - [ ] **Verify dependencies**: Check all cells referenced in formulas exist
 - [ ] **Test edge cases**: Include zero, negative, and very large values
 
-### Interpreting scripts/recalc.py Output
-The script returns JSON with error details:
-```json
-{
-  "status": "success",           // or "errors_found"
-  "total_errors": 0,              // Total error count
-  "total_formulas": 42,           // Number of formulas in file
-  "error_summary": {              // Only present if errors found
-    "#REF!": {
-      "count": 2,
-      "locations": ["Sheet1!B5", "Sheet1!C10"]
-    }
-  }
-}
-```
-
 ## Best Practices
 
 ### Library Selection
@@ -273,7 +237,7 @@ The script returns JSON with error details:
 - Use `data_only=True` to read calculated values: `load_workbook('file.xlsx', data_only=True)`
 - **Warning**: If opened with `data_only=True` and saved, formulas are replaced with values and permanently lost
 - For large files: Use `read_only=True` for reading or `write_only=True` for writing
-- Formulas are preserved but not evaluated - use scripts/recalc.py to update values
+- Formulas are preserved but not evaluated; disclose when cached values may be stale
 
 ### Working with pandas
 - Specify data types to avoid inference issues: `pd.read_excel('file.xlsx', dtype={'id': str})`

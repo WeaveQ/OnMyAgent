@@ -71,13 +71,21 @@ import {
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
+  buildIsolatedExpertSessionDirectory,
   dispatchAssistantSessionWorkspacesChanged,
+  materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
+  shouldIsolateExpertSessionDirectory,
+  writeAssistantSessionWorkspace,
 } from "../../domains/session";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
+import {
+  bindPendingAgentToSession,
+  resolvePendingAgentForPrompt,
+} from "./agent-context";
 import { SessionCloudAccountBridge } from "../session-cloud-account-bridge";
 import { WorkspaceProvider } from "../workspace-provider";
 import { SettingsSurface } from "../settings-route";
@@ -174,6 +182,10 @@ export type SessionRoutePageViewProps = {
   handleRuntimeSessionUpdated: (update: {
     sessionId: string;
     info: Record<string, unknown>;
+  }) => void;
+  handleRuntimeSessionStatus: (update: {
+    sessionId: string;
+    status: unknown;
   }) => void;
   handleSaveRenameWorkspace: () => Promise<void> | void;
   handleSaveShareRemoteAccess: (enabled: boolean) => Promise<void> | void;
@@ -299,6 +311,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     handleReorderWorkspaces,
     handleRevealWorkspace,
     handleRuntimeSessionUpdated,
+    handleRuntimeSessionStatus,
     handleSaveRenameWorkspace,
     handleSaveShareRemoteAccess,
     handleShareWorkspace,
@@ -401,6 +414,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             opencodeBaseUrl={opencodeBaseUrl}
             onmyagentToken={selectedWorkspaceServerToken}
             onSessionUpdated={handleRuntimeSessionUpdated}
+            onSessionStatus={handleRuntimeSessionStatus}
           />
         ) : null}
         <SessionPage
@@ -408,7 +422,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           agentManagementIntent={agentManagementIntent}
           onAgentManagementIntentConsumed={clearAgentManagementIntent}
           onNavigateToMode={(targetMode) => {
-            // Returning to 助理 must restore the last session/task selection —
+            // Returning to assistant must restore the last session/task selection —
             // do not suppress restore (WorkBuddy-style sidebar memory).
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
@@ -530,7 +544,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             forceNewSessionOnNextSendRef.current = true;
           }}
           onCreateFreshSessionForAgent={async (workspaceId) => {
-            // Called when the user clicks "+对话" on an agent that is NOT yet
+            // Called when the user clicks "+ conversation" on an agent that is NOT yet
             // present in the left-side agent list. We must create a real
             // session right now (so the new agent is visible on the left as
             // soon as we navigate to that session).
@@ -541,13 +555,46 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               id: string;
               title?: string;
               time?: unknown;
+              directory?: string;
             } | null = null;
+            const pendingAgentSnapshot =
+              usePendingAgentStore.getState().getAgent();
+            const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
+            const draftRoot =
+              surfaceProps?.draftWorkspace?.draftWorkspaceDirectory?.trim() || "";
+            let sessionDirectory = draftRoot || workspaceRoot || undefined;
+            let bindDirectory = draftRoot || "";
+            // Treat empty draft and "draft == workspace root" as no real folder pick.
+            // Only bind isolated path when materialize succeeds (opencode realPath).
+            if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
+              const isolated = buildIsolatedExpertSessionDirectory({
+                workspaceRoot,
+                agentName: pendingAgentSnapshot?.name?.trim() || "expert",
+              });
+              const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
+              const ensureWorkspaceId =
+                selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
+              const created = await materializeExpertSessionDirectory({
+                client: ensureClient,
+                workspaceId: ensureWorkspaceId,
+                workspaceRoot,
+                sessionDirectory: isolated.directory,
+              });
+              if (created) {
+                sessionDirectory = isolated.directory;
+                bindDirectory = isolated.directory;
+              } else {
+                sessionDirectory = workspaceRoot || undefined;
+                bindDirectory = "";
+              }
+            }
             try {
               newSession = unwrap(
                 await opencodeClient.session.create({
-                  directory: selectedWorkspaceRoot?.trim() || undefined,
+                  directory: sessionDirectory,
                 }),
               );
+              newSession.directory = sessionDirectory;
               useSessionActivityStore
                 .getState()
                 .startRun(workspaceId, newSession.id);
@@ -558,21 +605,35 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
 
             // Bind the pending agent to this new session (so it appears with
             // the agent avatar + system prompt when user sends first message).
-            const pendingAgentSnapshot =
-              usePendingAgentStore.getState().getAgent();
-            if (pendingAgentSnapshot) {
-              usePendingAgentStore.getState().setAgent({
-                ...pendingAgentSnapshot,
-                boundSessionId: newSession.id,
+            // If the store is empty (e.g. race after navigation), inherit from
+            // the session the user was viewing so we never land on the default agent.
+            const { pendingAgentSnapshot: agentToBind } =
+              resolvePendingAgentForPrompt({
+                currentAgent:
+                  usePendingAgentStore.getState().getAgent() ??
+                  pendingAgentSnapshot,
+                createdSession: true,
+                sessionId: newSession.id,
+                inheritFromSessionId: selectedSessionId,
               });
-              writeCustomAgentIdForSession(
-                newSession.id,
-                pendingAgentSnapshot.id,
+            if (agentToBind) {
+              usePendingAgentStore.getState().setAgent(
+                bindPendingAgentToSession({
+                  agent: agentToBind,
+                  sessionId: newSession.id,
+                }),
               );
-              writeSessionAgentSnapshot(newSession.id, pendingAgentSnapshot);
-              await installMarketplaceExpertAfterSessionCreated(
-                pendingAgentSnapshot,
-              );
+              writeCustomAgentIdForSession(newSession.id, agentToBind.id);
+              writeSessionAgentSnapshot(newSession.id, agentToBind);
+              await installMarketplaceExpertAfterSessionCreated(agentToBind);
+            }
+            if (bindDirectory) {
+              writeAssistantSessionWorkspace({
+                sessionId: newSession.id,
+                ownerWorkspaceId: workspaceId,
+                directory: bindDirectory,
+              });
+              dispatchAssistantSessionWorkspacesChanged(workspaceId);
             }
 
             addExpertSession(newSession.id);
@@ -581,7 +642,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             // so the left-side agent panel renders the new agent immediately.
             setLegacySelectedWorkspaceId(workspaceId);
             writeActiveWorkspaceId(workspaceId || null);
-            writeLastSessionFor(workspaceId, newSession.id);
+            writeLastSessionFor(workspaceId, newSession.id, pageMode);
             rememberPendingCreatedSession(workspaceId, newSession.id);
             setSessionsByWorkspaceId((current) => {
               const next = insertSidebarSession({
@@ -649,6 +710,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               }
               const targetSessionId = resolveWorkspaceSelectionSessionTarget({
                 firstSessionIdForPageMode,
+                pageMode,
                 readLastSessionFor,
                 selectedSessionId,
                 sessionMatchesPageMode,
@@ -661,7 +723,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             onOpenSession: (workspaceId, sessionId) => {
               setLegacySelectedWorkspaceId(workspaceId);
               writeActiveWorkspaceId(workspaceId || null);
-              writeLastSessionFor(workspaceId, sessionId);
+              writeLastSessionFor(workspaceId, sessionId, pageMode);
               navigateToWorkspaceSession(workspaceId, sessionId);
             },
             onPrefetchSession: () => {},
@@ -695,7 +757,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                     mode: "prompt",
                   });
                   writeActiveWorkspaceId(workspaceId || null);
-                  writeLastSessionFor(workspaceId, session.id);
+                  writeLastSessionFor(workspaceId, session.id, pageMode);
                   rememberPendingCreatedSession(workspaceId, session.id);
                   setSessionsByWorkspaceId((current) =>
                     insertSidebarSession({
