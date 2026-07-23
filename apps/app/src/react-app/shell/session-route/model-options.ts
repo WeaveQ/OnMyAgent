@@ -11,10 +11,7 @@ import type {
   ProviderListItem,
 } from "../../../app/types";
 import { t } from "../../../i18n";
-import {
-  getConnectedProviderItems,
-  isModelAvailableInConnectedProviders,
-} from "../../domains/connections";
+import { getConnectedProviderItems } from "../../domains/connections";
 
 export type ProviderModelCatalog = Record<
   string,
@@ -133,6 +130,34 @@ export function filterAllowedModelOptions(input: {
   });
 }
 
+/**
+ * True when the model is a real option in the composer picker (connected
+ * provider + concrete model entry). Empty model maps are NOT pickable — the
+ * picker shows "未找到模型" in that case, so the default ghost
+ * (opencode/big-pickle) must also surface as unavailable.
+ */
+export function isModelPickableInConnectedCatalog(
+  data: ProviderListResponse | null | undefined,
+  model: ModelRef | null | undefined,
+): boolean {
+  if (!model?.providerID || !model.modelID) return false;
+  const providerId = model.providerID.trim();
+  const modelId = model.modelID.trim();
+  if (!providerId || !modelId) return false;
+
+  for (const provider of getConnectedProviderItems(data)) {
+    if (provider.id !== providerId) continue;
+    const models = provider.models ?? {};
+    const keys = Object.keys(models);
+    // Empty catalog → nothing to pick (do not trust ghost defaults).
+    if (keys.length === 0) return false;
+    if (models[modelId]) return true;
+    const want = modelId.toLowerCase();
+    return keys.some((id) => id.toLowerCase() === want);
+  }
+  return false;
+}
+
 export function isSelectedModelUnavailable(input: {
   /** The model the composer is actually using (session override / agent / default). */
   model: ModelRef | null | undefined;
@@ -142,9 +167,14 @@ export function isSelectedModelUnavailable(input: {
   /** When true, do not mark unavailable — list is still loading. */
   providerListLoading?: boolean;
 }) {
-  const model = input.model;
-  if (!model?.providerID || !model.modelID) return false;
+  // Wait for first list so we don't flash red during boot.
   if (input.providerListLoading) return false;
+  if (!input.providerListData) return false;
+
+  const model = input.model;
+  // After discovery: missing selection is unusable (user must pick a model).
+  if (!model?.providerID || !model.modelID) return true;
+
   if (
     isDesktopProviderBlocked({
       providerId: model.providerID,
@@ -158,7 +188,7 @@ export function isSelectedModelUnavailable(input: {
     const knownConnected = new Set(
       [
         ...input.connectedProviderIds,
-        ...(input.providerListData?.connected ?? []).map((id) => String(id)),
+        ...(input.providerListData.connected ?? []).map((id) => String(id)),
       ]
         .map((id) => id.trim())
         .filter(Boolean),
@@ -169,9 +199,16 @@ export function isSelectedModelUnavailable(input: {
       return true;
     }
   }
-  // No list yet: don't flash "unavailable" before the first successful fetch.
-  if (!input.providerListData) return false;
-  return !isModelAvailableInConnectedProviders(input.providerListData, model);
+
+  // Align with what the composer model menu actually lists. Prefer pickable
+  // catalog over isModelAvailableInConnectedProviders (which still trusts
+  // connected providers with an empty models map during refresh).
+  if (isModelPickableInConnectedCatalog(input.providerListData, model)) {
+    return false;
+  }
+  // Zero pickable models → ghost default is unavailable (e.g. big-pickle with
+  // no provider connected). Non-empty catalog but missing selection → same.
+  return true;
 }
 
 /**
