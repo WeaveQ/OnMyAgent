@@ -11,7 +11,10 @@ describe("filter chip free-float contract", () => {
     expect(source).toContain("function FilterChip(");
     expect(source).toContain("FilterChip");
     expect(source).toContain('tone="chip"');
-    expect(source).toContain('size="chip"');
+    // Default compact strip size; optional chipLg for full-page multi-select (onboarding).
+    expect(source).toContain('size = "chip"');
+    expect(source).toContain("size={size}");
+    expect(source).toContain('chipLg: "h-9 min-h-9');
     expect(source).toContain('width="hug"');
   });
 
