@@ -145,10 +145,10 @@ describe("session archive page helpers", () => {
           agent: "grok",
           display_name: "<user_info>",
           first_message: null,
-          project: "/Users/work/openwork-agents",
+          project: "/Users/work/code/weaveq/onmyagent",
         }),
       ),
-    ).toBe("Grok Build · openwork-agents");
+    ).toBe("Grok Build · onmyagent");
   });
 
   it("agentLabel returns friendly name or agent id", () => {
