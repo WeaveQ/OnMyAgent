@@ -367,6 +367,41 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.segments.some((segment) => segment.kind === "process")).toBe(false);
   });
 
+  test("does not duplicate a legacy widget echoed after the command result", () => {
+    const payload = {
+      title: "当前物流单",
+      widget_code: "<div>same waybill</div>",
+      artifactCopies: [],
+    };
+    const turn = completedTurn([
+      assistant("command-widget", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "bash-legacy-widget",
+        state: "output-available",
+        input: { command: "generate preview" },
+        output: JSON.stringify({ inlineWidget: payload }),
+      }]),
+      assistant("legacy-body", [{
+        type: "text",
+        text: `预览已生成。\n\n\`\`\`show_widget\n${JSON.stringify(payload)}\n\`\`\``,
+      }]),
+    ]);
+
+    const presentation = buildTurnContentPresentation(turn);
+    const standaloneWidgets = presentation?.segments.filter(
+      (segment) => segment.kind === "widget",
+    ) ?? [];
+    const bodyWidgets = presentation?.segments.flatMap((segment) =>
+      segment.kind === "body"
+        ? segment.item.bodySegments?.filter((body) => body.kind === "widget") ?? []
+        : []
+    ) ?? [];
+    expect(standaloneWidgets).toHaveLength(0);
+    expect(bodyWidgets).toHaveLength(1);
+    expect(presentation?.hoistedItems).toHaveLength(0);
+  });
+
   test("preserves WorkBuddy widget loading messages while the tool is running", () => {
     const turn = {
       ...completedTurn([
