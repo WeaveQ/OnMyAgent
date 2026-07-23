@@ -1,6 +1,6 @@
 {
   "name": "onmyagent-orchestrator",
-  "version": "0.4.1",
+  "version": "0.4.3",
   "description": "OnMyAgent host orchestrator for opencode + OnMyAgent server",
   "private": true,
   "type": "module",
