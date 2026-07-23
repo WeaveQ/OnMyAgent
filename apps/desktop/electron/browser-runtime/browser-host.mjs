@@ -802,11 +802,5 @@ export function createBrowserHost(options) {
       destroyTab(tabId);
       return tabId;
     },
-    /** UI dismiss: close any tab (user/agent/claimed) from the panel chrome. */
-    forceCloseTab(tabId) {
-      registry.remove(tabId);
-      destroyTab(tabId);
-      return tabId;
-    },
   };
 }
