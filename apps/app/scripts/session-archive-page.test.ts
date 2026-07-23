@@ -184,7 +184,9 @@ describe("session archive page helpers", () => {
     const legacy = ["open", "work"].join("");
     const legacyAgentsPath = `/Users/work/${legacy}-agents`;
     expect(shortProjectLabel(legacyAgentsPath)).toBe("onmyagent");
+    expect(shortProjectLabel(`/Users/work/code/${legacy}-agents`)).toBe("onmyagent");
     expect(shortProjectLabel(legacy)).toBe("onmyagent");
+    expect(shortProjectLabel("/tmp/my-real-project")).toBe("my-real-project");
     expect(
       humanizeArchiveTitle(
         session({
