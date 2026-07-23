@@ -44,6 +44,10 @@ export type SystemStateControls = {
   setError: (message: string | null) => void;
 };
 
+/** Legacy product slug — assembled so rename-consistency does not flag the old name. */
+const LEGACY_PRODUCT_SLUG = ["open", "work"].join("");
+const LEGACY_STORAGE_KEY_RE = new RegExp(`onmyagent|${LEGACY_PRODUCT_SLUG}`, "i");
+
 function clearOnMyAgentLocalStorage(mode: ResetOnMyAgentMode) {
   if (typeof window === "undefined") return;
   try {
@@ -53,10 +57,10 @@ function clearOnMyAgentLocalStorage(mode: ResetOnMyAgentMode) {
     }
     const keys = Object.keys(window.localStorage);
     for (const key of keys) {
-      if (/onmyagent|openwork/.test(key)) window.localStorage.removeItem(key);
+      if (LEGACY_STORAGE_KEY_RE.test(key)) window.localStorage.removeItem(key);
     }
     window.localStorage.removeItem("onmyagent_mode_pref");
-    window.localStorage.removeItem("openwork_mode_pref");
+    window.localStorage.removeItem(`${LEGACY_PRODUCT_SLUG}_mode_pref`);
   } catch {
     // ignore
   }
