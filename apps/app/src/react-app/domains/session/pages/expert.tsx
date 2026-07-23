@@ -76,10 +76,9 @@ import {
 } from "../sidebar/keep-alive-pane";
 import {
   isPrimarySessionRailView,
-  readRailView,
   writeAssistantCategoryMemory,
-  writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import { useRailLocation } from "./use-rail-location";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
@@ -97,9 +96,11 @@ import {
 } from "../../agents";
 import { buildPendingAgentFromRecord } from "../../agents";
 import {
+  addExpertSession,
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
   useAgentRegistryStore,
+  writeCustomAgentIdForSession,
 } from "../../agents";
 import { isExpertSession } from "../../agents";
 import {
@@ -205,14 +206,10 @@ export type ExpertPageProps = SessionPageProps & {
 export function ExpertPage(props: ExpertPageProps) {
   const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
-  const [activeSidebarView, setActiveSidebarView] =
-    useState<OnMyAgentPrimaryView>(() =>
-      readRailView("expert", props.selectedWorkspaceId, "chat"),
-    );
-  // Workspace switch: restore this mode's last rail page (管理/本地/专家会话…).
-  useEffect(() => {
-    setActiveSidebarView(readRailView("expert", props.selectedWorkspaceId, "chat"));
-  }, [props.selectedWorkspaceId]);
+  const { activeSidebarView, openRailView } = useRailLocation({
+    mode: "expert",
+    workspaceId: props.selectedWorkspaceId,
+  });
   const visitedRailViews = useVisitedRailViews(
     activeSidebarView,
     props.selectedWorkspaceId,
@@ -419,14 +416,9 @@ export function ExpertPage(props: ExpertPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
-  const prevSessionIdRef = useRef(props.selectedSessionId);
-  useEffect(() => {
-    const prev = prevSessionIdRef.current;
-    prevSessionIdRef.current = props.selectedSessionId;
-    if (props.selectedSessionId?.trim() && prev?.trim()) {
-      setActiveSidebarView("chat");
-    }
-  }, [props.selectedSessionId]);
+  // Do NOT force openRailView("chat") when selectedSessionId changes.
+  // Opening a session navigates to a clean path (no ?view=). Forcing chat here
+  // steals history Back when POP lands on a secondary rail URL (?view=files etc).
 
   useEffect(() => {
     if (activeSidebarView !== "chat") return;
@@ -444,7 +436,6 @@ export function ExpertPage(props: ExpertPageProps) {
     const workspaceId = props.sidebar.selectedWorkspaceId?.trim();
     if (!workspaceId) return;
 
-    // Valid selection = expert session bound to a summoned agent (left list).
     const selectedId = props.selectedSessionId?.trim() ?? "";
     const selectedAgentId = selectedId
       ? readCustomAgentIdForSession(selectedId)
@@ -457,17 +448,21 @@ export function ExpertPage(props: ExpertPageProps) {
     );
     if (hasValidSummonedSelection) return;
 
-    // Prefer first summoned expert in the left list.
-    const firstSummonedSession = conversationGroups[0]?.latestSession;
-    if (firstSummonedSession?.id) {
-      props.sidebar.onOpenSession(workspaceId, firstSummonedSession.id);
+    // Critical: if the user already selected a session (or row click opened one),
+    // do NOT force-open conversationGroups[0] (sorted by recency, not list order).
+    // That bug made clicking "产品顾问" jump to another expert like "爆款选题".
+    if (selectedId) {
+      // Non-expert sessions (e.g. default agent) → empty expert home, not a random expert.
+      if (!isExpertSession(selectedId)) {
+        props.sidebar.onCreateTaskInWorkspace(workspaceId);
+      }
       return;
     }
 
-    // No summoned experts: leave non-expert sessions (e.g. 默认智能体) so the
-    // empty state can show instead of the default agent chat.
-    if (selectedId && !isExpertSession(selectedId)) {
-      props.sidebar.onCreateTaskInWorkspace(workspaceId);
+    // Cold open with no selection: open the most recently active expert once.
+    const firstSummonedSession = conversationGroups[0]?.latestSession;
+    if (firstSummonedSession?.id) {
+      props.sidebar.onOpenSession(workspaceId, firstSummonedSession.id);
     }
   }, [
     activeSidebarView,
@@ -573,27 +568,86 @@ export function ExpertPage(props: ExpertPageProps) {
       usePendingAgentStore.getState().setAgent(agent);
       setDraftAgentId(agent.id);
       setDraftSessionActive(true);
-      setActiveSidebarView("chat");
+      openRailView("chat");
     },
-    [],
+    [openRailView],
+  );
+  /** Resolve draft agent from in-memory draft map, registry, or marketplace. */
+  const resolveDraftAgentById = useCallback(
+    (agentId: string): PendingAgentContext | null => {
+      const id = agentId.trim();
+      if (!id) return null;
+      const cached = draftAgentContexts[id];
+      if (cached) return cached;
+      if (registry) {
+        const record =
+          registry.agents.find((item) => item.id === id) ??
+          registry.templates.find((item) => item.id === id);
+        if (record) return buildPendingAgentFromRecord(record, registry);
+      }
+      const marketplace = findBuiltinMarketplaceExpertById(id);
+      if (marketplace) {
+        return buildPendingAgentFromMarketplaceExpert(marketplace);
+      }
+      return null;
+    },
+    [draftAgentContexts, registry],
   );
   const handleOpenDraftSession = useCallback(
     (sessionId: string) => {
+      // draft:{workspaceId}:{agentId} — agentId may contain colons (rare).
       const agentId = sessionId.split(":").slice(2).join(":");
-      const agent = agentId ? draftAgentContexts[agentId] : null;
-      if (!agent) return;
-      activateDraftAgent(agent);
+      const agent = resolveDraftAgentById(agentId);
+      if (!agent) {
+        console.warn(
+          "[expert] open draft failed: unknown agent for",
+          sessionId,
+        );
+        return;
+      }
+      activateDraftAgent({
+        ...agent,
+        boundSessionId: undefined,
+        conversationStartId: agent.conversationStartId ?? Date.now(),
+        draftSource: "agent-selection",
+      });
     },
-    [activateDraftAgent, draftAgentContexts],
+    [activateDraftAgent, resolveDraftAgentById],
   );
   const handleOpenExpertSession = useCallback(
     (workspaceId: string, sessionId: string) => {
       setDraftSessionActive(false);
       setDraftAgentId(null);
-      setActiveSidebarView("chat");
+      // Prefer stored binding; fall back to the conversation row that owns this session.
+      let agentId = readCustomAgentIdForSession(sessionId);
+      if (!agentId) {
+        agentId =
+          conversationGroups.find((group) =>
+            group.sessions.some((session) => session.id === sessionId),
+          )?.agentId ?? null;
+        if (agentId) {
+          writeCustomAgentIdForSession(sessionId, agentId);
+          addExpertSession(sessionId);
+        }
+      }
+      if (agentId) {
+        const agent = resolveDraftAgentById(agentId);
+        if (agent) {
+          usePendingAgentStore.getState().setAgent({
+            ...agent,
+            boundSessionId: sessionId,
+            draftSource: "agent-selection",
+          });
+        } else {
+          usePendingAgentStore.getState().setAgent(null);
+        }
+      } else {
+        usePendingAgentStore.getState().setAgent(null);
+      }
+      openRailView("chat");
       props.sidebar.onOpenSession(workspaceId, sessionId);
     },
-    [props.sidebar],
+    [conversationGroups, openRailView, props.sidebar, resolveDraftAgentById],
   );
   useEffect(() => {
     const createdSessionId = resolveBoundExpertDraftSession({
@@ -678,7 +732,7 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const openExpertMarket = useCallback(() => {
     setStoreActiveTab("experts");
-    setActiveSidebarView("store");
+    openRailView("store");
   }, []);
   const openFreshExpertDraft = useCallback(() => {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
@@ -755,7 +809,7 @@ export function ExpertPage(props: ExpertPageProps) {
           initialPrompt,
         );
       }
-      setActiveSidebarView("chat");
+      openRailView("chat");
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn("[expert-marketplace] failed to install expert package", error);
       });
@@ -818,7 +872,7 @@ export function ExpertPage(props: ExpertPageProps) {
         props.onCreateFreshSessionForAgent(props.selectedWorkspaceId),
       );
     }
-    setActiveSidebarView("chat");
+    openRailView("chat");
   }, [
     activeAgentContext,
     activeConversationAgentId,
@@ -1431,9 +1485,8 @@ export function ExpertPage(props: ExpertPageProps) {
               props.onNavigateToMode("assistant");
               return;
             }
-            // Expert rail return must not create a task.
-            writeRailView("expert", props.selectedWorkspaceId, view);
-            setActiveSidebarView(view);
+            // Rail changes push history via ?view= (bookmark for cold start).
+            openRailView(view);
             if (view === "chat") {
               setAgentPanelCollapsed(false);
             }
@@ -1441,12 +1494,10 @@ export function ExpertPage(props: ExpertPageProps) {
           onOpenAccountSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenDevices={() => {
-            writeRailView("expert", props.selectedWorkspaceId, "devices");
-            setActiveSidebarView("devices");
+            openRailView("devices");
           }}
           onOpenBilling={() => {
-            writeRailView("expert", props.selectedWorkspaceId, "billing");
-            setActiveSidebarView("billing");
+            openRailView("billing");
           }}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
@@ -1582,7 +1633,7 @@ export function ExpertPage(props: ExpertPageProps) {
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                               onResume={(request) => {
                                 setPendingArchiveResume(request);
-                                setActiveSidebarView("localAgent");
+                                openRailView("localAgent");
                               }}
                             />
                           )}
@@ -1762,11 +1813,11 @@ export function ExpertPage(props: ExpertPageProps) {
                               ...props.surface!.marketplace,
                               onOpenSkillsMarketplace: () => {
                                 setStoreActiveTab("skills");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenConnectorsMarketplace: () => {
                                 setStoreActiveTab("plugins");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenCustomConnector: () => openCustomConnector("config"),
                             }}
