@@ -121,7 +121,6 @@ export type SessionSurfaceViewProps = {
   interruptionDividers: SessionTranscriptDivider[];
   resolveTranscriptScrollElement: () => HTMLElement | null | undefined;
   onRevertToMessage?: (messageId: string) => void;
-  onForkAtMessage?: (messageId: string) => void;
   verifiedOpenTargets: OpenTarget[];
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
   onDownloadCodePath?: (path: string) => Promise<void>;
@@ -342,7 +341,6 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                 dividers={props.interruptionDividers}
                 scrollElement={props.resolveTranscriptScrollElement}
                 onRevertToMessage={props.onRevertToMessage}
-                onForkAtMessage={props.onForkAtMessage}
                 openTargets={props.verifiedOpenTargets}
                 onOpenTarget={props.onOpenTarget}
                 onDownloadCodePath={props.onDownloadCodePath}

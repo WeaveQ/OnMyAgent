@@ -26,7 +26,10 @@ export default {
   "files.column_updated": "Updated",
   "files.current_workspace": "Current workspace",
   "files.description":
-    "Review files and task artifacts created by agents, then upload them to the cloud for cross-device sync.",
+    "Browse files under the tool workspace folder you selected. Agent outputs and uploads appear here; upload to the cloud for cross-device sync.",
+  "files.no_tool_folder": "No tool folder selected",
+  "files.no_tool_folder_hint":
+    "Pick a workspace folder in the composer (tool area) to list its files here.",
   "files.file_count": "{count} files",
   "files.file_actions": "Actions for {name}",
   "files.files_unit": "files",

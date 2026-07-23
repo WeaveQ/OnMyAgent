@@ -29,6 +29,7 @@ import type {
   AgentManagementSkillActionInput,
   AgentManagementSkillActionResult,
   AgentManagementSnapshot,
+  AgentManagementSnapshotInput,
   AppBuildInfo,
   BuiltinSkillPackageInstallInput,
   BuiltinSkillPackageInstallResult,
@@ -823,7 +824,7 @@ type TypedDesktopCommandMap = {
 
   // agent management
   agentManagementSnapshot: DesktopCommandContract<
-    [{ workspaceRoot: string }],
+    [AgentManagementSnapshotInput],
     AgentManagementSnapshot
   >;
   agentManagementProviderAction: DesktopCommandContract<

@@ -130,7 +130,6 @@ export function SessionRouteRender() {
     local,
     sidebarAccount,
     setSidebarAccount,
-    localUserSignedIn,
     routeWorkspaceId,
     selectedSessionId,
     pageMode,
@@ -499,6 +498,7 @@ export function SessionRouteRender() {
       firstSessionIdForPageMode,
       legacySelectedWorkspaceId,
       loading,
+      pageMode,
       readLastSessionFor,
       routeWorkspaceId,
       selectedSessionId,
@@ -523,6 +523,7 @@ export function SessionRouteRender() {
     loading,
     legacySelectedWorkspaceId,
     navigateToWorkspaceSession,
+    pageMode,
     routeWorkspaceId,
     selectedSessionId,
     selectedWorkspaceId,
@@ -766,8 +767,10 @@ export function SessionRouteRender() {
       !providerListQuery.data &&
       (providerListQuery.isPending || providerListQuery.isFetching),
   });
-  const modelAvailabilityBlocksTask =
-    selectedModelUnavailable && !localUserSignedIn;
+  // Always surface the composer banner when the active model is not pickable
+  // (including the app default ghost opencode/big-pickle). Do not hide the
+  // banner for signed-in users — the model menu would still show "未找到模型".
+  const modelAvailabilityBlocksTask = selectedModelUnavailable;
   const canCreateTask = Boolean(
     opencodeClient &&
       selectedWorkspaceId &&

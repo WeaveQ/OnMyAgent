@@ -767,7 +767,7 @@ export default {
   "settings.permission_authorize": "去授權",
   "settings.permission_authorized": "已授權",
   "settings.permission_automation_desc":
-    "允許向其他 App 發送指令，例如管理日曆、提醒事項和備忘錄",
+    "允許向其他 App 發送指令，例如管理日曆、提醒事項和備忘錄。點「去設置」會先觸發系統授權彈窗，應用才會出現在「隱私權與安全性 → 自動化」列表中",
   "settings.permission_automation_label": "自動化",
   "settings.permission_checking": "檢查中",
   "settings.permission_refresh": "重新整理",

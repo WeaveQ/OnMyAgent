@@ -36,18 +36,32 @@ describe("archive-change-bus (shipped)", () => {
 });
 
 describe("archive SSE change-bus wiring (structural)", () => {
-  test("routes subscribe and notify on sync complete; HTTP uses withSessionArchiveStore", () => {
-    const source = readFileSync(
+  test("routes notify on sync; SSE module subscribes; HTTP uses withSessionArchiveStore", () => {
+    const routes = readFileSync(
       join(serverRoot, "src/routes/workspace-session-archive-routes.ts"),
       "utf8",
     );
-    expect(source).toContain("subscribeArchiveDbChanges");
-    expect(source).toContain("notifyArchiveDbChanged");
-    expect(source).toContain("withSessionArchiveStore");
-    expect(source).not.toMatch(
+    const sse = readFileSync(
+      join(serverRoot, "src/routes/workspace-session-archive-sse.ts"),
+      "utf8",
+    );
+    expect(routes).toContain("notifyArchiveDbChanged");
+    expect(routes).toContain("withSessionArchiveStore");
+    expect(routes).toContain("workspace-session-archive-sse");
+    expect(sse).toContain("subscribeArchiveDbChanges");
+    expect(sse).toContain("archiveSessionWatchVersion");
+    expect(sse).toContain("archiveStatsVersion");
+    // Version keys must not be full-object JSON.stringify of session/timing
+    expect(sse).not.toMatch(
+      /JSON\.stringify\(\s*\{\s*session/,
+    );
+    expect(sse).not.toMatch(
+      /lastVersion\s*=\s*JSON\.stringify\(\s*(input\.)?stats/,
+    );
+    expect(routes).not.toMatch(
       /const store = await openSessionArchiveStore/,
     );
-    expect(source).not.toMatch(
+    expect(sse).not.toMatch(
       /setInterval\(async \(\) => \{[\s\S]{0,200}openSessionArchiveStore/,
     );
   });

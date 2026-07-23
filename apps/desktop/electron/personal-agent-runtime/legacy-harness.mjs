@@ -370,7 +370,9 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     const agent = normalizePersonalLocalAgent(agentInput);
     const providerSpec = PERSONAL_LOCAL_AGENT_PROVIDERS[agent.provider] ?? PERSONAL_LOCAL_AGENT_PROVIDERS.custom;
     let executablePath = await exec.resolveExecutable(agent.executablePath || providerSpec.executable || "");
-    if (!executablePath) return personalAgentStatus(agent, "offline", { error: "未配置可执行命令", errorCode: "missing_binary", minVersionOk: false });
+    // R1: missing binary / not on PATH → status "missing" (未安装), never "offline".
+    // Offline is reserved for installed-but-unhealthy (auth, ACP, version).
+    if (!executablePath) return personalAgentStatus(agent, "missing", { error: "未配置可执行命令", errorCode: "missing_binary", minVersionOk: false });
     let version = await exec.runCommandCapture(executablePath, providerSpec.versionArgs ?? ["--version"], { timeoutMs: 5000 });
     if (!version.ok && !executablePath.includes("/") && !executablePath.includes("\\")) {
       const resolved = await exec.resolveCommandFromLoginShell([executablePath]);
@@ -381,7 +383,7 @@ export function createPersonalAgentLegacyHarness(options = {}) {
       }
     }
     const checked = { ...agent, executablePath };
-    if (!version.ok) return personalAgentStatus(checked, "offline", { error: (version.stderr || version.stdout || "命令不可用").trim(), errorCode: "missing_binary", minVersionOk: false });
+    if (!version.ok) return personalAgentStatus(checked, "missing", { error: (version.stderr || version.stdout || "命令不可用").trim(), errorCode: "missing_binary", minVersionOk: false });
     if (checked.provider === "openclaw") {
       const detectedVersion = parseOpenClawVersionText(version.stdout || version.stderr);
       if (!detectedVersion || compareVersionTuple(detectedVersion, [2026, 5, 5]) < 0) {

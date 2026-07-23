@@ -86,6 +86,7 @@ import {
   formatWorkspaceFileTime,
   shouldHideEntry,
   workspaceFileBreadcrumbs,
+  workspaceNameFromRoot,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
 
@@ -499,10 +500,31 @@ function FilesListEmptyState(props: {
   );
 }
 
+/**
+ * Prefer the folder the user picked for the tool/composer workspace, then the
+ * active session directory, then the app workspace root.
+ */
+export function resolveToolWorkspaceFileRoot(input: {
+  draftWorkspaceDirectory?: string | null;
+  sessionFileRoot?: string | null;
+  workspaceRoot: string;
+}): string {
+  const draft = input.draftWorkspaceDirectory?.trim() ?? "";
+  if (draft) return draft;
+  const session = input.sessionFileRoot?.trim() ?? "";
+  if (session) return session;
+  return input.workspaceRoot.trim();
+}
+
 export function WorkspaceFilesPage(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
+  /**
+   * Directory to list. Prefer the tool-area folder the user selected
+   * (`draftWorkspaceDirectory` / session dir). When omitted, falls back to
+   * `workspaceRoot` (legacy full-workspace listing).
+   */
   fileRoot?: string | null;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
@@ -526,10 +548,23 @@ export function WorkspaceFilesPage(props: {
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
+  const workspaceRootNormalized = props.workspaceRoot.trim().replace(/[\\/]+$/, "");
   const fileRoot =
-    props.fileRoot === undefined ? props.workspaceRoot : props.fileRoot?.trim() ?? "";
+    props.fileRoot === undefined
+      ? props.workspaceRoot.trim()
+      : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
-  const requiresSessionFileRoot = props.fileRoot !== undefined;
+  // Scoped tool/session folder (not the app workspace vault root).
+  const toolFolderScoped =
+    hasScopedFileRoot &&
+    Boolean(fileRoot) &&
+    fileRoot.replace(/[\\/]+$/, "") !== workspaceRootNormalized;
+  const requiresSessionFileRoot = toolFolderScoped;
+  const breadcrumbRootLabel = useMemo(() => {
+    if (!fileRoot.trim()) return t("files.task_results");
+    if (!toolFolderScoped) return t("files.workspace");
+    return workspaceNameFromRoot(fileRoot);
+  }, [fileRoot, toolFolderScoped]);
 
   const selectedTarget = useMemo(() => {
     if (!selectedFile) return null;
@@ -1003,7 +1038,7 @@ export function WorkspaceFilesPage(props: {
                       )}
                       onClick={() => setCurrentDirectoryPath("")}
                     >
-                      {t("files.task_results")}
+                      {breadcrumbRootLabel}
                     </Button>
                     {breadcrumbs.map((item, index) => {
                       const isLast = index === breadcrumbs.length - 1;
