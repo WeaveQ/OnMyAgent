@@ -42,6 +42,22 @@ Once a browser connection is established, reuse it across later turns. A tab bin
 5. Use DOM-CUA when semantic locators are insufficient; coordinate CUA only as a last resort.
 6. Finalize temporary Tabs when the task is complete. Leave user-owned Tabs open unless the user requests otherwise.
 
+## Reading text (avoid TypeError)
+
+Locator readers are **async** and may return `null`. Always `await`, then coerce:
+
+```js
+// Correct
+const raw = await tab.playwright.locator(".title").textContent()
+const text = String(raw ?? "").trim().slice(0, 200)
+
+// Wrong — Promise has no .slice; null has no .slice
+// el.textContent().catch(() => "").slice(0, 50)
+// (await el.textContent()).slice(0, 50)  // still throws if null
+```
+
+Prefer `tab.playwright.evaluate(() => ...)` for multi-field page reads (returns plain JSON).
+
 ## Toggle actions (like / favorite / follow / star)
 
 Sites such as Xiaohongshu use **toggle** controls. A second click undoes the first.
@@ -51,6 +67,13 @@ Sites such as Xiaohongshu use **toggle** controls. A second click undoes the fir
 - Prefer the control **inside the open note/detail container**. Global `.like-wrapper` / `.collect-wrapper` may match feed cards under a modal — wrong node → false “not liked” → re-click toggles off.
 - When the locator is covered, one JS `element.click()` is fine; still only once. If state is ambiguous, **read attributes/text once** and stop; do not hammer the button.
 - Batch like + favorite + follow + comment in few REPL calls; summarize once at the end.
+
+## Confirm dialogs (发送 / submit)
+
+Locator/DOM-CUA **clicks** whose visible label matches sensitive words (`发送`, `submit`, `delete`, …) open a **desktop confirmation** dialog. That is intentional safety, not a crash.
+
+- Prefer locator click for 发送 so the user can Allow once; the same label is remembered for the browser session after Allow.
+- `tab.playwright.evaluate(() => el.click())` may bypass that dialog — do not use evaluate solely to dodge approval for real send/submit actions.
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
