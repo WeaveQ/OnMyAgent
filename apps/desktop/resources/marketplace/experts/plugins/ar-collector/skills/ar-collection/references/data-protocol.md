@@ -66,8 +66,8 @@ python3 <Skill根目录>/scripts/build_ar_artifacts.py \
   --mode preview
 ```
 
-- **preview**：只写 `.process/*.md`，不写结果表格/话术包。  
-- **export**：用户确认后生成 **Excel（风险行浅红底）** + CSV 侧车 + 话术包 + automation proposal 文件。
+- **preview**：生成 `.process/ar-preview.html`（经 `inlineWidget` 实时渲染），不写结果 Excel/PDF/话术包。
+- **export**：用户确认后生成 **Excel（风险/超期行浅红底）** + **PDF（看板+台账，Chrome headless）** + 话术包 + automation proposal 文件。
 
 ```bash
 python3 <Skill根目录>/scripts/build_ar_artifacts.py \
