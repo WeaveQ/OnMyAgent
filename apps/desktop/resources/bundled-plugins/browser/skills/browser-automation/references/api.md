@@ -119,6 +119,14 @@ tab.playwright.frameLocator(frameSelector)
 
 Locators support `click`, `fill`, `type`, `press`, `hover`, `check`, `uncheck`, `setChecked`, `selectOption`, `textContent`, `innerText`, `getAttribute`, `evaluate`, `count`, `isVisible`, `isEnabled`, `waitFor`, `all`, `first`, `last`, `nth`, and nested `locator` / `getBy*`.
 
+```js
+// textContent / innerText are async; may be null
+const t = String(await tab.playwright.locator("h1").textContent() ?? "").slice(0, 100)
+// NEVER: await el.textContent().catch(...).slice(...)  // TypeError
+```
+
+Clicks on labels matching `发送|提交|删除|publish|submit|…` require a one-time desktop **Allow** confirmation (session-cached per label).
+
 ### Toggle buttons (like / favorite / follow)
 
 ```js

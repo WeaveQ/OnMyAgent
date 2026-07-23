@@ -26,8 +26,17 @@ test("safety policy requires approval for consequential actions from every engin
     });
   }
 
-  assert.equal(approvals.length, 3);
-  assert.equal(approvals.every((request) => request.risk === "destructive"), true);
+  // Same click label is granted once per browser session after the first Allow.
+  assert.equal(approvals.length, 1);
+  assert.equal(approvals[0].risk, "destructive");
+
+  await policy.authorize({
+    kind: "click",
+    engine: "locator",
+    label: "发送",
+  });
+  assert.equal(approvals.length, 2);
+  assert.match(String(approvals[1].action.label), /发送/);
 });
 
 test("denied approval prevents the action", async () => {

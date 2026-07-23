@@ -37,10 +37,19 @@ export function createBrowserSafetyPolicy(options) {
         : action.kind === "download"
           ? action.url
           : null;
+      const clickLabel = String(action.label ?? "").trim();
+      const clickKey =
+        action.kind === "click" && clickLabel
+          ? grantKey("click", clickLabel.slice(0, 160))
+          : null;
+      // One Allow per distinct click label for this browser session (comment 发送, etc.).
+      if (clickKey && grants.has(clickKey)) {
+        return { allowed: true, approval: false, risk: "destructive", cached: true };
+      }
       const consequential =
         action.kind === "upload" ||
         action.kind === "download" ||
-        (action.kind === "click" && CONSEQUENTIAL_LABEL.test(action.label ?? ""));
+        (action.kind === "click" && CONSEQUENTIAL_LABEL.test(clickLabel));
       if (!consequential) return { allowed: true, approval: false };
       const risk = action.kind === "click" ? "destructive" : "careful";
       const approved = await options.requestApproval({
@@ -49,6 +58,7 @@ export function createBrowserSafetyPolicy(options) {
       });
       if (!approved) throw new Error("browser action approval denied");
       if (resource) grants.add(grantKey(action.kind, resource));
+      if (clickKey) grants.add(clickKey);
       return { allowed: true, approval: true, risk };
     },
     hasGrant(kind, resource) {
