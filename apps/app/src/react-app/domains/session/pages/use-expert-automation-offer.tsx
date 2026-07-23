@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { AutomationTaskInput } from "@onmyagent/types";
 
 import { t } from "../../../../i18n";
@@ -40,6 +41,7 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import { buildPathWithRailView } from "../navigation/app-location";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useStatusToasts } from "../../shell-feedback";
 
@@ -75,6 +77,8 @@ export function useExpertAutomationOffer(
   input: UseExpertAutomationOfferInput,
 ): UseExpertAutomationOfferResult {
   const { showToast } = useStatusToasts();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [automationOfferFlow, setAutomationOfferFlow] =
     useState<AutomationOfferFlowState>(() => createIdleAutomationOfferFlow());
@@ -415,10 +419,28 @@ export function useExpertAutomationOffer(
       writeAssistantSelectionMemory(workspaceId, row.scene, {
         kind: "automation",
       });
+      // Bookmark + history-backed rail URL so Back leaves scheduled tasks.
       writeRailView("assistant", workspaceId, "scheduledTasks");
+      if (location.pathname.includes("/assistant")) {
+        navigate(
+          buildPathWithRailView({
+            mode: "assistant",
+            pathname: location.pathname,
+            search: location.search,
+            view: "scheduledTasks",
+          }),
+        );
+        return;
+      }
       input.onNavigateToMode("assistant");
     },
-    [input.onNavigateToMode, input.selectedWorkspaceId],
+    [
+      input.onNavigateToMode,
+      input.selectedWorkspaceId,
+      location.pathname,
+      location.search,
+      navigate,
+    ],
   );
 
   const automationResultAccessory =

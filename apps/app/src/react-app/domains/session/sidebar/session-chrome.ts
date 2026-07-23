@@ -28,6 +28,7 @@ export {
   STARTUP_SKELETON_ROWS,
   isVoiceExtensionEnabled,
   sessionTitleForId,
+  shouldShowSessionStartupSkeleton,
 } from "./session-panel-model";
 
 export { AgentConversationPanel } from "./agent-conversation-panel";
