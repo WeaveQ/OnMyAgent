@@ -609,6 +609,7 @@ export function useSessionRouteSurfaceProps(
             setLegacySelectedWorkspaceId,
             writeActiveWorkspaceId,
             writeLastSessionFor,
+            pageMode,
             rememberPendingCreatedSession,
             suppressRestoreSessionRef,
             navigateToWorkspaceSession,
