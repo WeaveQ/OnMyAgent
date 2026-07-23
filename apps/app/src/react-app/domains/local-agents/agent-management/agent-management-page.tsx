@@ -51,6 +51,18 @@ import {
   type SkillInventoryScope,
 } from "./skill-inventory-scope";
 import {
+  applySkillCountsToAgents,
+  DEFAULT_MANAGEMENT_DOMAIN_TTL_MS,
+  domainsForAgentMutation,
+  domainsForPanel,
+  domainsForSkillMutation,
+  markDomainsFetched,
+  mergeManagementDomainSnapshot,
+  missingDomains,
+  type DomainFreshnessMap,
+  type ManagementLoadDomain,
+} from "./agent-management-load-cache";
+import {
   AgentManagementProviderModal,
   AgentManagementProviderPanel,
   AGENT_MANAGER_PROVIDER_LABELS,
@@ -77,7 +89,8 @@ type AgentManagementUiCache = {
 
 type AgentManagerSnapshotCacheEntry = {
   snapshot: AgentManagementSnapshot;
-  fetchedAt: number;
+  /** Per-domain freshness; independent TTL so skills/mcp can lag core. */
+  domains: DomainFreshnessMap;
 };
 
 const AGENT_MANAGER_PANEL_STORAGE_KEY = "onmyagent.agentManagement.activePanel";
@@ -85,7 +98,7 @@ const AGENT_MANAGER_PANEL_STORAGE_KEY = "onmyagent.agentManagement.activePanel";
 const AGENT_MANAGER_SNAPSHOT_CACHE = new Map<string, AgentManagerSnapshotCacheEntry>();
 const AGENT_MANAGER_UI_CACHE = new Map<string, AgentManagementUiCache>();
 /** Soft TTL: re-entry within this window reuses cache without network. After TTL, silent background revalidate. */
-const AGENT_MANAGER_SNAPSHOT_TTL_MS = 60_000;
+const AGENT_MANAGER_SNAPSHOT_TTL_MS = DEFAULT_MANAGEMENT_DOMAIN_TTL_MS;
 
 function agentManagerCacheKey(workspaceRoot: string) {
   return workspaceRoot.trim() || "__default_workspace__";
@@ -95,14 +108,21 @@ function readCachedAgentManagerSnapshot(cacheKey: string): AgentManagementSnapsh
   return AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey)?.snapshot ?? null;
 }
 
-function writeCachedAgentManagerSnapshot(cacheKey: string, snapshot: AgentManagementSnapshot) {
-  AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, { snapshot, fetchedAt: Date.now() });
+function readCachedAgentManagerDomains(cacheKey: string): DomainFreshnessMap {
+  return AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey)?.domains ?? {};
 }
 
-function isAgentManagerSnapshotCacheFresh(cacheKey: string, ttlMs = AGENT_MANAGER_SNAPSHOT_TTL_MS) {
-  const entry = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
-  if (!entry) return false;
-  return Date.now() - entry.fetchedAt < ttlMs;
+function writeCachedAgentManagerSnapshot(
+  cacheKey: string,
+  snapshot: AgentManagementSnapshot,
+  loadedDomains?: readonly ManagementLoadDomain[],
+) {
+  const previous = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
+  const domains = markDomainsFetched(
+    previous?.domains,
+    loadedDomains ?? (snapshot.loadedDomains as ManagementLoadDomain[] | undefined) ?? ["core", "skills", "mcp"],
+  );
+  AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, { snapshot, domains });
 }
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
@@ -253,32 +273,84 @@ export function AgentManagementPage(props: {
   const [selectedSkillKey, setSelectedSkillKey] = useState<string | null>(() => initialUi.selectedSkillKey);
   /** Default fleet: only skills tied to managed agents (not full-disk 155). */
   const [skillInventoryScope, setSkillInventoryScope] = useState<SkillInventoryScope>("fleet");
-  const refresh = useCallback(async (options?: { force?: boolean }) => {
-    const cached = readCachedAgentManagerSnapshot(cacheKey);
+  /** Per-domain loading (skills/mcp tabs can spin without blanking agents). */
+  const [domainLoading, setDomainLoading] = useState<Partial<Record<ManagementLoadDomain, boolean>>>({});
+  const refreshInFlightRef = useRef<string | null>(null);
 
-    // Cache-first: paint instantly on re-entry. Fresh cache skips network entirely.
-    if (cached && !options?.force) {
+  /**
+   * Load only the requested snapshot domains.
+   * Default path for 本地: core only (no skill scan / MCP).
+   */
+  const refresh = useCallback(async (options?: {
+    force?: boolean;
+    domains?: ManagementLoadDomain[];
+    /** When true, skip full-page loading even if no cache (domain tab fill). */
+    quiet?: boolean;
+  }) => {
+    const requested = options?.domains?.length
+      ? options.domains
+      : domainsForPanel(activePanel).length > 0
+        ? domainsForPanel(activePanel)
+        : (["core"] as ManagementLoadDomain[]);
+    // Archive has no snapshot domains; still allow explicit core refresh.
+    const needed = requested.length > 0 ? requested : (["core"] as ManagementLoadDomain[]);
+    const cached = readCachedAgentManagerSnapshot(cacheKey);
+    const domainState = readCachedAgentManagerDomains(cacheKey);
+
+    // Cache-first paint for anything we already have.
+    if (cached) {
       setSnapshot(cached);
       setError(null);
       setLoading(false);
-      if (isAgentManagerSnapshotCacheFresh(cacheKey)) {
-        return cached;
-      }
     }
 
-    // Have data → quiet background revalidate. No data → centered full loading.
-    if (cached || options?.force) {
-      setRefreshing(true);
-      if (!cached) setLoading(true);
-    } else {
-      setLoading(true);
+    const toFetch = options?.force
+      ? needed
+      : missingDomains(domainState, needed, Date.now(), AGENT_MANAGER_SNAPSHOT_TTL_MS);
+
+    if (toFetch.length === 0) {
+      return cached;
     }
+
+    const flightKey = `${cacheKey}:${toFetch.slice().sort().join(",")}`;
+    if (refreshInFlightRef.current === flightKey && !options?.force) {
+      return cached;
+    }
+    refreshInFlightRef.current = flightKey;
+
+    const hasCoreCache = Boolean(cached?.agents);
+    const needsBlockingCore = toFetch.includes("core") && !hasCoreCache && !options?.quiet;
+    if (needsBlockingCore) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+    setDomainLoading((current) => {
+      const next = { ...current };
+      for (const domain of toFetch) next[domain] = true;
+      return next;
+    });
     setError(null);
     try {
-      const nextSnapshot = await agentManagementSnapshot({ workspaceRoot: props.workspaceRoot });
-      writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot);
-      setSnapshot(nextSnapshot);
-      return nextSnapshot;
+      const partial = await agentManagementSnapshot({
+        workspaceRoot: props.workspaceRoot,
+        domains: toFetch,
+        // Management list stays light; model probes stay on Test Connection / fetch models.
+        includeModels: false,
+        includeDiscoverable: true,
+      });
+      const loaded = (partial.loadedDomains as ManagementLoadDomain[] | undefined) ?? toFetch;
+      let merged = mergeManagementDomainSnapshot(cached, partial, loaded);
+      // When skills arrive after core, refresh skillCount badges on agent cards.
+      if (loaded.includes("skills") && Array.isArray(merged.agents) && Array.isArray(merged.skills)) {
+        merged = {
+          ...merged,
+          agents: applySkillCountsToAgents(merged.agents, merged.skills),
+        };
+      }
+      writeCachedAgentManagerSnapshot(cacheKey, merged, loaded);
+      setSnapshot(merged);
+      return merged;
     } catch (loadError) {
       // Keep stale cache on screen when background revalidate fails.
       if (!cached) {
@@ -286,14 +358,32 @@ export function AgentManagementPage(props: {
       }
       return cached;
     } finally {
+      if (refreshInFlightRef.current === flightKey) {
+        refreshInFlightRef.current = null;
+      }
       setLoading(false);
       setRefreshing(false);
+      setDomainLoading((current) => {
+        const next = { ...current };
+        for (const domain of toFetch) next[domain] = false;
+        return next;
+      });
     }
-  }, [cacheKey, props.workspaceRoot]);
+  }, [activePanel, cacheKey, props.workspaceRoot]);
 
+  // Workspace entry + tab switch: load only missing domains for the active panel.
+  // agents/providers → core; skills → core+skills; mcp → mcp; archive → none.
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    const needed = domainsForPanel(activePanel);
+    if (needed.length === 0) {
+      // Archive: still ensure core is warm if we have no agents chrome cache.
+      if (!readCachedAgentManagerSnapshot(cacheKey)) {
+        void refresh({ domains: ["core"], quiet: true });
+      }
+      return;
+    }
+    void refresh({ domains: needed, quiet: Boolean(readCachedAgentManagerSnapshot(cacheKey)) });
+  }, [activePanel, cacheKey, props.workspaceRoot, refresh]);
 
   useEffect(() => {
     writeAgentManagementUi(cacheKey, {
@@ -420,7 +510,7 @@ export function AgentManagementPage(props: {
         id: payload.id,
         agent: payload.agent,
       });
-      await refresh({ force: true });
+      await refresh({ force: true, domains: domainsForAgentMutation() });
       setCustomFocusPending(true);
       showToast({
         tone: "success",
@@ -431,7 +521,7 @@ export function AgentManagementPage(props: {
       const raw = addError instanceof Error ? addError.message : String(addError);
       const already = /already exists/i.test(raw);
       if (already) {
-        await refresh({ force: true });
+        await refresh({ force: true, domains: domainsForAgentMutation() });
         setCustomFocusPending(true);
         showToast({
           tone: "success",
@@ -487,7 +577,8 @@ export function AgentManagementPage(props: {
       }
       autoAdoptInFlightRef.current = false;
       if (adoptedNames.length > 0) {
-        await refresh({ force: true });
+        // Agents-only refresh: do not rescan skills/mcp after auto-adopt.
+        await refresh({ force: true, domains: domainsForAgentMutation() });
         showToast({
           tone: "success",
           title: t("agent_manager.fleet_auto_adopt_title"),
@@ -527,7 +618,7 @@ export function AgentManagementPage(props: {
       } else {
         await personalLocalAgentCreateCustomAgent({ workspaceRoot: props.workspaceRoot, id: value.id, agent: agentInput });
       }
-      await refresh({ force: true });
+      await refresh({ force: true, domains: domainsForAgentMutation() });
       closeEditor();
     } catch (saveError) {
       setEditorError(saveError instanceof Error ? saveError.message : String(saveError));
@@ -539,7 +630,7 @@ export function AgentManagementPage(props: {
   const handleToggleCustomAgentEnabled = useCallback(async (agent: AgentManagementAgent, enabled: boolean) => {
     try {
       await personalLocalAgentUpdateCustomAgent({ workspaceRoot: props.workspaceRoot, id: agent.id, agent: { enabled } });
-      await refresh({ force: true });
+      await refresh({ force: true, domains: domainsForAgentMutation() });
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : String(toggleError));
     }
@@ -548,7 +639,7 @@ export function AgentManagementPage(props: {
   const handleDeleteCustomAgent = useCallback(async (agent: AgentManagementAgent) => {
     try {
       await personalLocalAgentDeleteCustomAgent({ workspaceRoot: props.workspaceRoot, id: agent.id });
-      await refresh({ force: true });
+      await refresh({ force: true, domains: domainsForAgentMutation() });
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
     }
@@ -604,7 +695,7 @@ export function AgentManagementPage(props: {
       setSnapshot((current) => {
         if (!current) return current;
         const nextSnapshot = { ...current, providers: result.providers };
-        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot);
+        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot, ["core"]);
         return nextSnapshot;
       });
       if (input.action === "save") {
@@ -689,7 +780,7 @@ export function AgentManagementPage(props: {
           error: result.error,
         },
       }));
-      await refresh({ force: true });
+      await refresh({ force: true, domains: domainsForAgentMutation() });
     } catch (connError) {
       const message = connError instanceof Error ? connError.message : String(connError);
       setHealthResults((current) => ({
@@ -726,7 +817,7 @@ export function AgentManagementPage(props: {
         description: skill.descriptionZh || skill.descriptionEn || skill.description,
         kind: skill.kind,
       });
-      if (action !== "open") await refresh({ force: true });
+      if (action !== "open") await refresh({ force: true, domains: domainsForSkillMutation() });
     } catch (skillError) {
       setError(skillError instanceof Error ? skillError.message : String(skillError));
     } finally {
@@ -745,7 +836,7 @@ export function AgentManagementPage(props: {
       setSnapshot((current) => {
         if (!current) return current;
         const nextSnapshot = { ...current, mcp: result.snapshot };
-        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot);
+        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot, ["mcp"]);
         return nextSnapshot;
       });
     } catch (mcpError) {
@@ -864,7 +955,11 @@ export function AgentManagementPage(props: {
               <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
               <AgentManagementMetric
                 label={t("agent_manager.recognized_skills")}
-                value={snapshot?.skills.length ?? 0}
+                value={
+                  readCachedAgentManagerDomains(cacheKey).skills
+                    ? (snapshot?.skills.length ?? 0)
+                    : "—"
+                }
               />
               <AgentManagementMetric
                 label={t("agent_manager.managed_providers")}
@@ -877,7 +972,13 @@ export function AgentManagementPage(props: {
             variant="ghost"
             size="icon-sm"
             disabled={loading || refreshing}
-            onClick={() => void refresh({ force: true })}
+            onClick={() => {
+              const domains = domainsForPanel(activePanel);
+              void refresh({
+                force: true,
+                domains: domains.length > 0 ? domains : ["core"],
+              });
+            }}
             title={t("common.refresh")}
             aria-label={t("common.refresh")}
             aria-busy={loading || refreshing || undefined}
@@ -947,7 +1048,7 @@ export function AgentManagementPage(props: {
           ) : activePanel === "mcp" ? (
             <AgentManagementMcpPanel
               snapshot={snapshot?.mcp ?? null}
-              loading={snapshotPending}
+              loading={Boolean(domainLoading.mcp) || !readCachedAgentManagerDomains(cacheKey).mcp}
               busyKey={mcpActionKey}
               onMcpAction={runMcpAction}
             />
@@ -1108,6 +1209,7 @@ export function AgentManagementPage(props: {
               totalSkills={skillScopeCounts.all}
               search={skillSearch}
               onSearchChange={setSkillSearch}
+              loading={Boolean(domainLoading.skills) || !readCachedAgentManagerDomains(cacheKey).skills}
               busyKey={skillActionKey}
               onSkillAction={runSkillAction}
               columnFilter={skillColumnFilter}
@@ -1155,7 +1257,7 @@ export function AgentManagementPage(props: {
           agent={repairAgent}
           workspaceRoot={props.workspaceRoot}
           onClose={() => setRepairAgent(null)}
-          onSaved={() => void refresh({ force: true })}
+          onSaved={() => void refresh({ force: true, domains: domainsForAgentMutation() })}
         />
       ) : null}
     </div>
