@@ -194,8 +194,12 @@ export function personalAgentCapability(provider, status, extra = {}) {
   const supportsPermissionAutoApprove = customAgent ? Boolean(customAgent.supportsPermissionAutoApprove) : base.supportsPermissionAutoApprove;
   const supportsApproval = customAgent ? Boolean(customAgent.supportsApproval) : (base.supportsApproval ?? false);
   const authRequired = customAgent ? Boolean(customAgent.authRequired) : Boolean(extra.authRequired);
+  // R1/R2: installed means the CLI is present — online, offline, or needs_auth.
+  // Only missing/unknown mean "not installed".
+  const installed =
+    status === "online" || status === "offline" || status === "needs_auth";
   return {
-    installed: status === "online",
+    installed,
     authenticated: extra.authenticated ?? "unknown",
     minVersionOk: extra.minVersionOk ?? status === "online",
     supportsStreaming,

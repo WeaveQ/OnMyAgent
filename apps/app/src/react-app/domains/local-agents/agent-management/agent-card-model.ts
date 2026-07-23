@@ -21,18 +21,20 @@ export type AgentPrimaryAction = "install" | "test";
 export type AgentSecondaryAction = "mine_controls" | "add_to_mine" | "repair" | "none";
 
 const MISSING_ERROR =
-  /enoent|command not found|no such file|spawn\s+\S+\s+enoent|\u672a\u914d\u7f6e|\u672a\u5b89\u88c5|not installed/i;
+  /enoent|command not found|no such file|spawn\s+\S+\s+enoent|\u672a\u914d\u7f6e|\u672a\u5b89\u88c5|not installed|命令不可用/i;
+/** ACP/handshake failures may mention spawn paths without meaning the CLI is gone. */
+const ACP_PROBE_NOISE =
+  /acp|handshake|session\/new|session\/load|initialize|json-rpc|protocol/i;
 
 /**
- * Status for badge + filters.
+ * Status for badge + filters (R1–R2).
  *
- * - 未安装: can show immediately (binary/path check only).
- * - 健康 / 需登录 / 离线 from ACP: only after the user runs 测试连接
- *   (health result). Listing-time probe failures must not paint the card red
- *   or “离线” before the user asks.
+ * - 未安装 (missing): binary not on PATH / not configured
+ * - 离线 (offline): installed but unhealthy (auth, ACP, version, …)
+ * - 健康 / 需登录: after list detect or user 测试连接
  */
 export function agentDisplayStatus(
-  agent: { status?: string | null; error?: string | null },
+  agent: { status?: string | null; error?: string | null; errorInfo?: { code?: string | null } | null; errorCode?: string | null; capability?: { installed?: boolean | null } | null },
   health?: AgentManagementHealthResult | null,
 ): AgentDisplayStatus {
   // User-initiated probe wins.
@@ -48,29 +50,43 @@ export function agentDisplayStatus(
   return installOnlyStatus(agent);
 }
 
+function looksLikeMissingBinary(agent: {
+  status?: string | null;
+  error?: string | null;
+  errorInfo?: { code?: string | null } | null;
+  errorCode?: string | null;
+  capability?: { installed?: boolean | null } | null;
+}): boolean {
+  const code = String(agent.errorInfo?.code ?? agent.errorCode ?? "").trim().toLowerCase();
+  if (code === "missing_binary") return true;
+  if (agent.capability?.installed === false) return true;
+  const err = String(agent.error ?? "");
+  if (!err) return false;
+  // Don't treat ACP handshake spawn noise as "not installed".
+  if (ACP_PROBE_NOISE.test(err)) return false;
+  return MISSING_ERROR.test(err);
+}
+
 /**
  * Install / probe status from listAgents (before or without user 测试连接).
  *
- * Trust explicit probe statuses from the desktop runtime:
- * - online / offline / needs_auth ⇒ binary exists (已安装)
- * - missing ⇒ 未安装
- *
- * Do NOT reclassify offline/online as missing just because the error text
- * contains "ENOENT" (ACP/handshake errors often mention spawn paths).
- * That bug kept Claude/Codex/Hermes in「可添加」as 离线 instead of「我的智能体」.
+ * R1: missing binary → missing (未安装), never leave as offline.
+ * R2: offline / needs_auth only when the CLI is present.
  */
 function installOnlyStatus(agent: {
   status?: string | null;
   error?: string | null;
+  errorInfo?: { code?: string | null } | null;
+  errorCode?: string | null;
+  capability?: { installed?: boolean | null } | null;
 }): AgentDisplayStatus {
   const raw = String(agent.status ?? "").trim().toLowerCase();
-  const err = String(agent.error ?? "");
   if (raw === "online") return "online";
   if (raw === "needs_auth") return "needs_auth";
+  if (raw === "missing" || looksLikeMissingBinary(agent)) return "missing";
   if (raw === "offline") return "offline";
-  if (raw === "missing") return "missing";
   // Unknown / empty status: fall back to error heuristics.
-  if (MISSING_ERROR.test(err)) return "missing";
+  if (looksLikeMissingBinary(agent)) return "missing";
   // Installed but calm: list-time optimism until user runs 测试连接.
   return "online";
 }
