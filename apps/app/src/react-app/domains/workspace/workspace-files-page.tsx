@@ -64,6 +64,7 @@ import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../../capabilities/artifacts/open-artifact-for-editing";
+import { ArtifactSpreadsheetEditor } from "../session/artifacts/artifact-spreadsheet-editor";
 import {
   canPreviewOpenTargetInline,
   type OpenTarget,
@@ -437,6 +438,16 @@ function FilePreviewDrawer(props: {
                 <MarkdownPreview content={state.content} />
               ) : state.status === "ready" && target.preview === "html" ? (
                 <HTMLPreview type="text" title={file.name} content={state.content} />
+              ) : state.status === "ready" &&
+                target.preview === "sheet" &&
+                /\.(csv|tsv)$/i.test(file.name) ? (
+                <ArtifactSpreadsheetEditor
+                  className="h-full min-h-0"
+                  name={file.name}
+                  content={{ kind: "text", data: state.content }}
+                  readOnly
+                  onSave={async () => {}}
+                />
               ) : state.status === "ready" ? (
                 <PlainText content={state.content} />
               ) : state.status === "binary" && target.preview === "image" ? (
