@@ -15,7 +15,7 @@ import { deriveGoalSummary } from "./session-route/composer";
 
 const ACTIVE_WORKSPACE_KEY = "onmyagent.react.activeWorkspace";
 const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
-/** Mode-scoped last session so 助理↔专家 each restore their own active page. */
+/** Mode-scoped last session so assistant/expert each restore their own page. */
 const SESSION_BY_WORKSPACE_MODE_KEY = "onmyagent.react.sessionByWorkspaceMode.v1";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
 
@@ -162,7 +162,7 @@ export function writeLastSessionFor(
     safeSet(SESSION_BY_WORKSPACE_KEY, JSON.stringify(map));
   }
 
-  // Mode-scoped map so 助理 and 专家 do not overwrite each other.
+  // Mode-scoped map so assistant and expert do not overwrite each other.
   if (!mode) return;
   const modeMap = readSessionByWorkspaceModeMap();
   const key = workspaceModeKey(wsId, mode);

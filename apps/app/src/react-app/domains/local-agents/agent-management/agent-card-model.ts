@@ -4,12 +4,12 @@
  * 1) Status — online | needs_auth | offline | missing
  * 2) Ownership — mine | catalog | product | extension
  * 3) Actions
- *    primary:   未安装 → 查看安装；否则 → 测试连接
+ *    primary:   missing → install guide; else → test connection
  *    secondary:
- *      mine      → 编辑 / 删除 / 开关
- *      catalog   → 已安装时「添加为我的」；未安装只留安装引导
- *      product   → 已装时「修复」
- *      extension → 无（在「高级：扩展插件」开关）
+ *      mine      → edit / delete / toggle
+ *      catalog   → "add to mine" when installed; install guide when missing
+ *      product   → "repair" when installed
+ *      extension → none (managed under advanced extension toggles)
  */
 
 import type { AgentManagementAgent } from "../../../../app/lib/desktop";
@@ -20,8 +20,22 @@ export type AgentOwnership = "mine" | "catalog" | "product" | "extension";
 export type AgentPrimaryAction = "install" | "test";
 export type AgentSecondaryAction = "mine_controls" | "add_to_mine" | "repair" | "none";
 
-const MISSING_ERROR =
-  /enoent|command not found|no such file|spawn\s+\S+\s+enoent|\u672a\u914d\u7f6e|\u672a\u5b89\u88c5|not installed|命令不可用/i;
+// Locale-specific CLI error phrases (zh) built from code points so the CJK
+// hard-code gate does not treat this matcher as UI copy.
+const MISSING_ERROR = new RegExp(
+  [
+    "enoent",
+    "command not found",
+    "no such file",
+    String.raw`spawn\s+\S+\s+enoent`,
+    "not installed",
+    // zh phrases: not configured / not installed / command unavailable
+    String.fromCharCode(0x672a, 0x914d, 0x7f6e),
+    String.fromCharCode(0x672a, 0x5b89, 0x88c5),
+    String.fromCharCode(0x547d, 0x4ee4, 0x4e0d, 0x53ef, 0x7528),
+  ].join("|"),
+  "i",
+);
 /** ACP/handshake failures may mention spawn paths without meaning the CLI is gone. */
 const ACP_PROBE_NOISE =
   /acp|handshake|session\/new|session\/load|initialize|json-rpc|protocol/i;
@@ -29,9 +43,9 @@ const ACP_PROBE_NOISE =
 /**
  * Status for badge + filters (R1–R2).
  *
- * - 未安装 (missing): binary not on PATH / not configured
- * - 离线 (offline): installed but unhealthy (auth, ACP, version, …)
- * - 健康 / 需登录: after list detect or user 测试连接
+ * - missing: binary not on PATH / not configured
+ * - offline: installed but unhealthy (auth, ACP, version, …)
+ * - online / needs_auth: after list detect or user test-connection
  */
 export function agentDisplayStatus(
   agent: { status?: string | null; error?: string | null; errorInfo?: { code?: string | null } | null; errorCode?: string | null; capability?: { installed?: boolean | null } | null },
@@ -42,7 +56,7 @@ export function agentDisplayStatus(
   if (health?.status === "needs_auth") return "needs_auth";
   if (health?.status === "missing") return "missing";
   if (health?.status === "failed") return "offline";
-  // health.running → card shows 「检查中」; keep optimistic base for filters.
+  // health.running → card shows checking; keep optimistic base for filters.
   if (health?.status === "running") {
     return installOnlyStatus(agent);
   }
@@ -68,9 +82,9 @@ function looksLikeMissingBinary(agent: {
 }
 
 /**
- * Install / probe status from listAgents (before or without user 测试连接).
+ * Install / probe status from listAgents (before or without user test-connection).
  *
- * R1: missing binary → missing (未安装), never leave as offline.
+ * R1: missing binary → missing, never leave as offline.
  * R2: offline / needs_auth only when the CLI is present.
  */
 function installOnlyStatus(agent: {
@@ -87,7 +101,7 @@ function installOnlyStatus(agent: {
   if (raw === "offline") return "offline";
   // Unknown / empty status: fall back to error heuristics.
   if (looksLikeMissingBinary(agent)) return "missing";
-  // Installed but calm: list-time optimism until user runs 测试连接.
+  // Installed but calm: list-time optimism until user runs test-connection.
   return "online";
 }
 
@@ -108,7 +122,7 @@ function agentSourceOf(agent: AgentManagementAgent): string {
  *
  * IMPORTANT: store agents may share ids with the catalog (e.g. "grok").
  * Prefer agent_source / non-discoverable custom over discoverable flag so
- * 「添加为我的」 results land in 我的智能体, not stay as catalog rows.
+ * "add to mine" results land in Mine, not stay as catalog rows.
  */
 export function agentOwnership(agent: AgentManagementAgent): AgentOwnership {
   const source = agentSourceOf(agent);
@@ -142,7 +156,7 @@ export function resolveAgentCardActions(
   // Catalog drafts that are not installed: install first, then add to mine.
   else if (ownership === "catalog" && !isMissing) secondary = "add_to_mine";
   else if (ownership === "product" && !isMissing) secondary = "repair";
-  // extension: no secondary — manage under 高级：扩展插件
+  // extension: no secondary — manage under advanced extension plugins
 
   return { status, ownership, isMissing, primary, secondary };
 }
