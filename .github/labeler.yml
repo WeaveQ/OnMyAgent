@@ -1,0 +1,48 @@
+# Path-based PR labels (actions/labeler). Labels must exist on the repo.
+# Keep this map small; titles (fix(app): …) remain the primary classification.
+
+app:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/app/**
+
+desktop:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/desktop/**
+
+server:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/server/**
+
+orchestrator:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/orchestrator/**
+
+packages:
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/**
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
+          - .github/labeler.yml
+          - .github/dependabot.yml
+          - scripts/checks/**
+
+i18n:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/app/src/i18n/**
+          - "**/locales/**"
+          - scripts/checks/check-i18n*.mjs
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - docs/**
