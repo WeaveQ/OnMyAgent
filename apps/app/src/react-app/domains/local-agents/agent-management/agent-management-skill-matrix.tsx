@@ -1,7 +1,8 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Copy, Download, FileText, FolderOpen, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,11 @@ function skillMatrixGridStyle(agentColCount: number) {
     gridTemplateColumns: `minmax(12rem,1fr) repeat(${n}, ${SKILL_MATRIX_AGENT_COL}) ${SKILL_MATRIX_ACTION_COL}`,
   } as const;
 }
+
+/** Estimated row height for virtual window (min-h-12 + meta line). */
+const SKILL_MATRIX_ROW_ESTIMATE_PX = 56;
+/** Extra rows above/below the viewport so fast scroll still feels dense. */
+const SKILL_MATRIX_VIRTUAL_OVERSCAN = 12;
 
 const SKILL_MATRIX_SKELETON_ROWS = 8;
 const SKILL_MATRIX_SKELETON_TITLE_WIDTHS = [
@@ -797,6 +803,40 @@ export function SkillMatrixPanel(props: {
     return props.skills.filter((skill) => props.columnFilter.every((agent) => skill.agents.includes(agent)));
   }, [props.skills, props.columnFilter]);
 
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * Only mount rows in/near the viewport. 50–150 skill rows × N agent cells
+   * was freezing the 技能 tab on open; virtual window keeps DOM ~O(visible).
+   */
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => listScrollRef.current,
+    estimateSize: () => SKILL_MATRIX_ROW_ESTIMATE_PX,
+    overscan: SKILL_MATRIX_VIRTUAL_OVERSCAN,
+    getItemKey: (index) => {
+      const skill = filtered[index];
+      return skill ? `${skill.path}/${skill.name}` : index;
+    },
+  });
+  const virtualRows = virtualizer.getVirtualItems();
+  // Scroll parent may not be measured on the first commit; fall back to a short
+  // non-virtual slice so the user still sees content immediately.
+  const useVirtualWindow = filtered.length > 0 && virtualRows.length > 0;
+  const fallbackSlice = useMemo(
+    () => (useVirtualWindow ? filtered : filtered.slice(0, 24)),
+    [filtered, useVirtualWindow],
+  );
+
+  // After layout, force a virtualizer measure so we leave the fallback path.
+  useEffect(() => {
+    if (filtered.length === 0) return;
+    const id = requestAnimationFrame(() => {
+      virtualizer.measure();
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-measure when list identity changes
+  }, [filtered.length, loading]);
+
   /** Scope/search/column reduced the list; distinct from a truly empty snapshot. */
   const hasActiveFilters =
     Boolean(props.search.trim()) ||
@@ -899,50 +939,93 @@ export function SkillMatrixPanel(props: {
         </div>
 
         {/*
-          Header + rows share one scrollport so agent install columns always match the
-          column icons above (separate header + body scroll was offset by the scrollbar).
+          Column header stays outside the virtual body so it does not re-mount on
+          scroll; both panes use scrollbar-gutter:stable so agent columns stay aligned.
         */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-          <div
-            className={cn(
-              "sticky top-0 z-10 grid items-stretch border-b bg-dls-surface-muted/95 text-xs font-medium text-dls-secondary backdrop-blur-sm",
-              SKILL_MATRIX_RULE,
-            )}
-            style={gridStyle}
-          >
-            <div className="flex items-center gap-1.5 self-center px-3 py-2">
-              <FileText className="size-3.5" />
-              <span>{t("skills.matrix_skill_source")}</span>
-            </div>
-            {matrixAgents.map((agent, index) => (
-              <SkillMatrixColumnHeader
-                key={agent}
-                agent={agent}
-                active={props.columnFilter.includes(agent)}
-                count={loading ? 0 : (props.countsByAgent[agent] ?? 0)}
-                unavailable={unavailable.has(agent)}
-                leadRule={index === 0}
-                onToggle={(event) => handleHeaderToggle(agent, event)}
-              />
-            ))}
-            <div aria-hidden="true" className={cn("border-l", SKILL_MATRIX_RULE)} />
+        <div
+          className={cn(
+            "grid shrink-0 items-stretch border-b bg-dls-surface-muted/95 text-xs font-medium text-dls-secondary [scrollbar-gutter:stable]",
+            SKILL_MATRIX_RULE,
+          )}
+          style={gridStyle}
+        >
+          <div className="flex items-center gap-1.5 self-center px-3 py-2">
+            <FileText className="size-3.5" />
+            <span>{t("skills.matrix_skill_source")}</span>
           </div>
+          {matrixAgents.map((agent, index) => (
+            <SkillMatrixColumnHeader
+              key={agent}
+              agent={agent}
+              active={props.columnFilter.includes(agent)}
+              count={loading ? 0 : (props.countsByAgent[agent] ?? 0)}
+              unavailable={unavailable.has(agent)}
+              leadRule={index === 0}
+              onToggle={(event) => handleHeaderToggle(agent, event)}
+            />
+          ))}
+          <div aria-hidden="true" className={cn("border-l", SKILL_MATRIX_RULE)} />
+        </div>
 
+        <div
+          ref={listScrollRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+        >
           {loading && filtered.length === 0 ? (
             <SkillMatrixSkeletonRows agentColCount={matrixAgents.length} />
           ) : filtered.length > 0 ? (
-            filtered.map((skill) => (
-              <SkillMatrixRow
-                key={`${skill.path}/${skill.name}`}
-                skill={skill}
-                busyKey={props.busyKey}
-                selected={props.selectedSkill?.path === skill.path && props.selectedSkill?.name === skill.name}
-                matrixAgents={matrixAgents}
-                unavailableAgents={unavailable}
-                onSkillAction={props.onSkillAction}
-                onOpenDetail={(item) => props.onSelectSkill(item)}
-              />
-            ))
+            useVirtualWindow ? (
+              <div
+                className="relative w-full"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualRows.map((virtualRow) => {
+                  const skill = filtered[virtualRow.index];
+                  if (!skill) return null;
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      ref={virtualizer.measureElement}
+                      className="absolute top-0 left-0 w-full"
+                      style={{
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <SkillMatrixRow
+                        skill={skill}
+                        busyKey={props.busyKey}
+                        selected={
+                          props.selectedSkill?.path === skill.path &&
+                          props.selectedSkill?.name === skill.name
+                        }
+                        matrixAgents={matrixAgents}
+                        unavailableAgents={unavailable}
+                        onSkillAction={props.onSkillAction}
+                        onOpenDetail={(item) => props.onSelectSkill(item)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              // Scroll parent not measured yet — paint a short non-virtual batch.
+              fallbackSlice.map((skill) => (
+                <SkillMatrixRow
+                  key={`${skill.path}/${skill.name}`}
+                  skill={skill}
+                  busyKey={props.busyKey}
+                  selected={
+                    props.selectedSkill?.path === skill.path &&
+                    props.selectedSkill?.name === skill.name
+                  }
+                  matrixAgents={matrixAgents}
+                  unavailableAgents={unavailable}
+                  onSkillAction={props.onSkillAction}
+                  onOpenDetail={(item) => props.onSelectSkill(item)}
+                />
+              ))
+            )
           ) : (
             <div className="px-4 py-12 text-center text-sm text-dls-secondary">
               <FileText className="mx-auto mb-2 size-8 opacity-40" />

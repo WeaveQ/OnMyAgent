@@ -2,7 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   "permission": "ask",
   "plugin": [
-    "graphify",
     ".opencode/plugins/graphify.js"
   ]
 }

@@ -306,9 +306,13 @@ export function resolveUsableDefaultModel(input: {
   }
 
   const catalogFirst = firstConnectedCatalogModel(input.providerListData);
-  // No models in the picker yet — do not invent a default.
+  // Discovery finished with an empty picker — never keep advertising a ghost
+  // default like opencode/big-pickle when the menu shows "未找到模型".
   if (!catalogFirst) {
-    return { model: current, changed: false };
+    if (!current?.providerID || !current.modelID) {
+      return { model: null, changed: false };
+    }
+    return { model: null, changed: true };
   }
 
   if (isModelInConnectedCatalog(input.providerListData, current) && current) {

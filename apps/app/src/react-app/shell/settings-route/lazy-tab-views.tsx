@@ -15,6 +15,7 @@ import {
   loadCloudProvidersView,
   loadConversationMemoryView,
   loadDebugView,
+  loadRecoveryView,
   loadEnvironmentView,
   loadGeneralSettingsView,
   loadMemoryView,
@@ -109,6 +110,10 @@ export const LazyUsageView = lazy(() =>
 
 export const LazyDebugView = lazy(() =>
   loadDebugView().then((module) => ({ default: module.DebugView })),
+);
+
+export const LazyRecoveryView = lazy(() =>
+  loadRecoveryView().then((module) => ({ default: module.RecoveryView })),
 );
 
 export const LazyArchivedTasksView = lazy(() =>

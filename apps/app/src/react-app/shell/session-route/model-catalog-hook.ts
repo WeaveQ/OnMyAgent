@@ -33,7 +33,10 @@ import { filterProviderList } from "../../../app/utils/providers";
 import type { DesktopAppRestrictionChecker } from "../../../app/cloud/desktop-app-restrictions";
 import { currentLocale, subscribeToLocale, t } from "../../../i18n";
 import type { LocalPreferences } from "../../kernel/local-provider";
-import { writeStoredDefaultModel } from "../../kernel/model-config";
+import {
+  clearStoredDefaultModel,
+  writeStoredDefaultModel,
+} from "../../kernel/model-config";
 import { getReactQueryClient } from "../../infra/query-client";
 import {
   ensureProviderListQuery,
@@ -156,14 +159,25 @@ export function useSessionRouteModelCatalog(input: Input) {
         connectedProviderIds: value.connected ?? [],
         providerListData: value,
       });
-      if (resolved.changed && resolved.model) {
-        writeStoredDefaultModel(resolved.model);
-        setPrefsRef.current((previous) => ({
-          ...previous,
-          defaultModel: resolved.model,
-        }));
-        currentDefault = resolved.model;
-        defaultModelRef.current = resolved.model;
+      if (resolved.changed) {
+        if (resolved.model) {
+          writeStoredDefaultModel(resolved.model);
+          setPrefsRef.current((previous) => ({
+            ...previous,
+            defaultModel: resolved.model,
+          }));
+          currentDefault = resolved.model;
+          defaultModelRef.current = resolved.model;
+        } else {
+          // Empty catalog: clear ghost defaults (e.g. opencode/big-pickle).
+          clearStoredDefaultModel();
+          setPrefsRef.current((previous) => ({
+            ...previous,
+            defaultModel: null,
+          }));
+          currentDefault = null;
+          defaultModelRef.current = null;
+        }
       } else if (resolved.model) {
         currentDefault = resolved.model;
       }
@@ -291,7 +305,26 @@ export function useSessionRouteModelCatalog(input: Input) {
       providerListData,
     });
     const healed = resolvedFromEffective.model;
-    if (!healed?.providerID || !healed.modelID) return;
+
+    // Empty catalog → clear ghost session override + global default.
+    if (!healed?.providerID || !healed.modelID) {
+      if (resolvedFromEffective.changed) {
+        setSessionModelOverrideById((current) => {
+          if (!(modelScopeSessionId in current)) return current;
+          const next = { ...current };
+          delete next[modelScopeSessionId];
+          return next;
+        });
+        if (local.prefs.defaultModel) {
+          clearStoredDefaultModel();
+          setPrefsRef.current((previous) => ({
+            ...previous,
+            defaultModel: null,
+          }));
+        }
+      }
+      return;
+    }
 
     const effectiveUnavailable = isSelectedModelUnavailable({
       model: effectiveModelRef,

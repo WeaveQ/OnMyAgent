@@ -255,6 +255,32 @@ describe("session route model options", () => {
       model: { providerID: "google", modelID: "gemini-3-pro-preview" },
       changed: false,
     });
+    // Loaded empty catalog → drop ghost defaults (e.g. big-pickle) so the
+    // composer does not claim a model when the menu is empty.
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: DEFAULT_MODEL,
+        checkRestriction: () => false,
+        connectedProviderIds: [],
+        providerListData: {
+          all: [],
+          connected: [],
+          default: {},
+        } as never,
+      }),
+    ).toEqual({ model: null, changed: true });
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: null,
+        checkRestriction: () => false,
+        connectedProviderIds: [],
+        providerListData: {
+          all: [],
+          connected: [],
+          default: {},
+        } as never,
+      }),
+    ).toEqual({ model: null, changed: false });
     // Last used still in connected catalog → keep.
     expect(
       resolveUsableDefaultModel({

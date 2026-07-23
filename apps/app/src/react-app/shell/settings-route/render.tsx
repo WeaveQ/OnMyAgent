@@ -37,6 +37,7 @@ import {
   useDenSession,
   useElectronUpdaterState,
   useMessagingViewProps,
+  useRecoveryViewModel,
   createExtensionsStore,
   useExtensionsStoreSnapshot,
   SettingsShell,
@@ -50,6 +51,7 @@ import {
   LazyCloudProvidersView,
   LazyConversationMemoryView,
   LazyDebugView,
+  LazyRecoveryView,
   LazyEnvironmentView,
   LazyGeneralSettingsView,
   LazyMemoryView,
@@ -641,6 +643,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     onmyagentServerSnapshot,
     runtimeWorkspaceId: selectedWorkspace?.id ?? null,
     selectedWorkspaceRoot,
+    setRouteError,
+  });
+  const recoveryViewProps = useRecoveryViewModel({
+    anyActiveRuns: activeReloadBlockingSessions.length > 0,
     setRouteError,
   });
   const onReleaseChannelChange = useCallback(
@@ -1648,6 +1654,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             />
           </SettingsTabSuspense>
         );
+      case "recovery":
+        return (
+          <SettingsTabSuspense>
+            <LazyRecoveryView {...recoveryViewProps} />
+          </SettingsTabSuspense>
+        );
       case "debug":
         return (
           <SettingsTabSuspense>
@@ -1829,7 +1841,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           setModelPickerOpen(false);
         }}
         onBehaviorChange={() => {}}
-        onOpenSettings={() => {}}
+        onOpenSettings={() => {
+          setModelPickerOpen(false);
+          handleOpenProviderAuth();
+        }}
         onClose={() => setModelPickerOpen(false)}
       />
     </>
