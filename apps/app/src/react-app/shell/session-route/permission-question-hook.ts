@@ -22,7 +22,7 @@ import {
   clearConsumedPermissionNotice,
   resolveAccessModePermissionReply,
 } from "./composer";
-import { describeRouteError } from "./model";
+import { describeRouteError, isQuestionNotFoundError } from "./model";
 import {
   requiredPermissionQueryKey,
   requiredQuestionQueryKey,
@@ -145,26 +145,77 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
     selectedSessionId,
   ]);
   const activeQuestion = pendingQuestions[0] ?? null;
+  const clearLocalQuestion = useCallback(
+    (requestID: string) => {
+      if (!selectedWorkspaceId || !selectedSessionId) return;
+      getReactQueryClient().setQueryData<PendingQuestion[]>(
+        requiredQuestionQueryKey(selectedWorkspaceId, selectedSessionId),
+        (current = []) =>
+          current.filter((question) => question.id !== requestID),
+      );
+    },
+    [selectedSessionId, selectedWorkspaceId],
+  );
   const respondQuestion = useCallback(
     async (requestID: string, answers: string[][]) => {
       if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
       if (questionReplyBusyRef.current) return;
       questionReplyBusyRef.current = true;
       setQuestionReplyBusy(true);
+      const directory = sessionWorkspaceRoot || undefined;
       try {
-        unwrap(
-          await opencodeClient.question.reply({
-            requestID,
-            answers,
-            directory: sessionWorkspaceRoot || undefined,
-          }),
-        );
-        getReactQueryClient().setQueryData<PendingQuestion[]>(
-          requiredQuestionQueryKey(selectedWorkspaceId, selectedSessionId),
-          (current = []) =>
-            current.filter((question) => question.id !== requestID),
-        );
+        try {
+          unwrap(
+            await opencodeClient.question.reply({
+              requestID,
+              answers,
+              directory,
+            }),
+          );
+        } catch (firstError) {
+          // Retry once without query directory (client header only) — some
+          // OpenCode instances key questions on the header project, and a
+          // mismatched query can 404 even when the request still exists.
+          if (!directory || !isQuestionNotFoundError(firstError)) {
+            throw firstError;
+          }
+          unwrap(
+            await opencodeClient.question.reply({
+              requestID,
+              answers,
+            }),
+          );
+        }
+        clearLocalQuestion(requestID);
       } catch (error) {
+        // Stale/expired question (session directory switch, double-submit,
+        // agent already continued). Drop local UI instead of blocking the user.
+        if (isQuestionNotFoundError(error)) {
+          clearLocalQuestion(requestID);
+          try {
+            const list = unwrap(
+              await opencodeClient.question.list({ directory }),
+            );
+            getReactQueryClient().setQueryData<PendingQuestion[]>(
+              requiredQuestionQueryKey(selectedWorkspaceId, selectedSessionId),
+              (current = []) => {
+                const receivedAtById = new Map(
+                  current.map((question) => [question.id, question.receivedAt]),
+                );
+                const now = Date.now();
+                return list
+                  .filter((question) => question.sessionID === selectedSessionId)
+                  .map((question) => ({
+                    ...question,
+                    receivedAt: receivedAtById.get(question.id) ?? now,
+                  }));
+              },
+            );
+          } catch {
+            // keep cleared local state
+          }
+          return;
+        }
         showToast({
           title: t("app.error_request_failed"),
           description: describeRouteError(error),
@@ -176,6 +227,7 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
       }
     },
     [
+      clearLocalQuestion,
       opencodeClient,
       selectedSessionId,
       selectedWorkspaceId,

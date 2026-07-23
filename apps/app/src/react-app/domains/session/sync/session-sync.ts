@@ -934,7 +934,7 @@ function applyEvent(
     return;
   }
 
-  if (event.type === "question.asked") {
+  if (event.type === "question.asked" || event.type === "question.v2.asked") {
     const question = event.properties as QuestionRequest;
     if (!question?.id || !question.sessionID) return;
     useSessionActivityStore
@@ -967,7 +967,12 @@ function applyEvent(
     return;
   }
 
-  if (event.type === "question.replied" || event.type === "question.rejected") {
+  if (
+    event.type === "question.replied" ||
+    event.type === "question.rejected" ||
+    event.type === "question.v2.replied" ||
+    event.type === "question.v2.rejected"
+  ) {
     const props = (event.properties ?? {}) as {
       sessionID?: string;
       requestID?: string;
