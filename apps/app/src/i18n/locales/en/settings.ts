@@ -837,7 +837,7 @@ export default {
   "settings.permission_authorize": "Authorize",
   "settings.permission_authorized": "Authorized",
   "settings.permission_automation_desc":
-    "Allow commands to other apps, such as Calendar, Reminders, and Notes",
+    "Allow commands to other apps, such as Calendar, Reminders, and Notes. “Go to settings” first triggers the system permission prompt so this app can appear under Privacy & Security → Automation",
   "settings.permission_automation_label": "Automation",
   "settings.permission_checking": "Checking",
   "settings.permission_refresh": "Refresh",
