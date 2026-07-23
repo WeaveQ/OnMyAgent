@@ -88,6 +88,7 @@ export { WorkspaceFootnote } from "./workspace-picker/workspace-footnote";
 export {
   addRecentWorkspace,
   getRecentWorkspaces,
+  recentWorkspacesChangedEvent,
   readWorkspaceOverride,
   writeWorkspaceOverride,
   workspaceDisplayName,

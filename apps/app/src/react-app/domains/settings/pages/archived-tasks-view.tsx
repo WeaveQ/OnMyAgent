@@ -68,6 +68,12 @@ export type ArchivedTasksViewProps = {
   workspaceId: string;
 };
 
+/**
+ * Shared horizontal inset for group chrome + task rows inside the surface card.
+ * Keep a single token so the folder icon lines up with task titles (no stray padding).
+ */
+const ARCHIVE_ROW_INSET = "px-3.5";
+
 type SourceFilter = ArchivedSourceFilter;
 type SortMode = ArchivedSortMode;
 
@@ -768,83 +774,95 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
               const groupBusy = busyId === `group:${group.key}`;
               return (
                 <section key={group.key} className="min-w-0">
-                  <header className="mb-2 flex min-h-8 items-center gap-2">
-                    <Folder
-                      className="size-3.5 shrink-0 text-dls-secondary"
-                      strokeWidth={1.75}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none text-dls-text">
-                      {group.label}
-                    </span>
-                    <span className="shrink-0 text-xs leading-none text-dls-secondary">
-                      {t("settings.archived_tasks_count", {
-                        count: group.items.length,
-                      })}
-                    </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="size-7 rounded-full text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
-                            aria-label={t(
-                              "settings.archived_tasks_project_menu",
-                            )}
-                            disabled={groupBusy}
-                          >
-                            <MoreHorizontal className="size-3.5" />
-                          </Button>
-                        }
+                  {/*
+                    Folder row lives inside the same card + ARCHIVE_ROW_INSET as
+                    task titles so left edges share one padding token (no outer
+                    header padding drift).
+                  */}
+                  <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
+                    <header
+                      className={cn(
+                        "flex min-h-10 items-center gap-2 border-b border-dls-border/70 bg-dls-surface-muted/40 py-2",
+                        ARCHIVE_ROW_INSET,
+                      )}
+                    >
+                      <Folder
+                        className="size-3.5 shrink-0 text-dls-secondary"
+                        strokeWidth={1.75}
+                        aria-hidden
                       />
-                      <DropdownMenuContent
-                        align="end"
-                        // Override default w-(--anchor-width) so the long
-                        // destructive label stays on one line (ref Image #2).
-                        className="w-auto min-w-max"
-                      >
-                        <DropdownMenuItem
-                          variant="destructive"
-                          disabled={groupBusy || group.items.length === 0}
-                          onClick={() => setPendingDeleteGroupKey(group.key)}
-                          className="whitespace-nowrap text-dls-danger focus:text-dls-danger"
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text">
+                        {group.label}
+                      </span>
+                      <span className="shrink-0 text-xs leading-none text-dls-secondary">
+                        {t("settings.archived_tasks_count", {
+                          count: group.items.length,
+                        })}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-7 rounded-full text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
+                              aria-label={t(
+                                "settings.archived_tasks_project_menu",
+                              )}
+                              disabled={groupBusy}
+                            >
+                              <MoreHorizontal className="size-3.5" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent
+                          align="end"
+                          // Override default w-(--anchor-width) so the long
+                          // destructive label stays on one line (ref Image #2).
+                          className="w-auto min-w-max"
                         >
-                          <Trash2 className="size-3.5 shrink-0 text-dls-danger" />
-                          <span className="text-dls-danger">
-                            {t("settings.archived_tasks_delete_project_all")}
-                          </span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </header>
-                  <ul className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                    {group.items.map((row, index) => (
-                      <ArchivedTaskRow
-                        key={`${row.kind}:${row.id}`}
-                        row={row}
-                        bordered={index > 0}
-                        busy={groupBusy || busyId === row.id}
-                        /** Project view: date only (folder is the group header). */
-                        meta={formatTime(row.updatedAt)}
-                        onDelete={() => {
-                          if (row.kind === "assistant") {
-                            void handleDeleteAssistant(row.id);
-                          } else {
-                            void handleDeleteTrash(row.id);
-                          }
-                        }}
-                        onRestore={() => {
-                          if (row.kind === "assistant") {
-                            handleRestoreAssistant(row.id);
-                          } else {
-                            void handleRestoreTrash(row.id);
-                          }
-                        }}
-                      />
-                    ))}
-                  </ul>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            disabled={groupBusy || group.items.length === 0}
+                            onClick={() => setPendingDeleteGroupKey(group.key)}
+                            className="whitespace-nowrap text-dls-danger focus:text-dls-danger"
+                          >
+                            <Trash2 className="size-3.5 shrink-0 text-dls-danger" />
+                            <span className="text-dls-danger">
+                              {t("settings.archived_tasks_delete_project_all")}
+                            </span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </header>
+                    <ul>
+                      {group.items.map((row, index) => (
+                        <ArchivedTaskRow
+                          key={`${row.kind}:${row.id}`}
+                          row={row}
+                          bordered={index > 0}
+                          busy={groupBusy || busyId === row.id}
+                          /** Project view: date only (folder is the group header). */
+                          meta={formatTime(row.updatedAt)}
+                          onDelete={() => {
+                            if (row.kind === "assistant") {
+                              void handleDeleteAssistant(row.id);
+                            } else {
+                              void handleDeleteTrash(row.id);
+                            }
+                          }}
+                          onRestore={() => {
+                            if (row.kind === "assistant") {
+                              handleRestoreAssistant(row.id);
+                            } else {
+                              void handleRestoreTrash(row.id);
+                            }
+                          }}
+                        />
+                      ))}
+                    </ul>
+                  </div>
                 </section>
               );
             })}
@@ -908,9 +926,6 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     </LayoutStack>
   );
 }
-
-/** Inset for task rows inside the rounded card (matches WorkBuddy archive). */
-const ARCHIVE_ROW_INSET = "px-3.5";
 
 function ArchivedTaskRow(props: {
   row: UnifiedRow;

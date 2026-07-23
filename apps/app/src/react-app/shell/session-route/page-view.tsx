@@ -449,6 +449,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               : { workspaceType: "local" }
           }
           selectedWorkspaceRoot={sessionWorkspaceRoot}
+          // True registry workspace path — Files rail must not use session-scoped root.
+          workspaceFilesRoot={selectedWorkspaceRoot}
           selectedSessionFileRoot={selectedSessionFileRoot}
           selectedWorkspaceError={selectedWorkspaceError}
           runtimeWorkspaceId={selectedWorkspaceEndpoint?.workspaceId || null}

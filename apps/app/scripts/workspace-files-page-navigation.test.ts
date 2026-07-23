@@ -40,7 +40,7 @@ describe("workspace files page navigation", () => {
     expect(source).toContain('shape="tab"');
     expect(source).toContain("<Cloud aria-hidden />");
     // List lives in a surface card; file rows use typed icons
-    expect(source).toContain("rounded-xl border border-dls-border bg-dls-surface");
+    expect(source).toContain("rounded-xl border border-dls-border bg-dls-surface-solid");
     expect(source).toContain("FileKindIcon");
     expect(source).toContain("max-w-6xl");
   });
