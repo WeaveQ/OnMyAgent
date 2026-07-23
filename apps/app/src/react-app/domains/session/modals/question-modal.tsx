@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import type { QuestionInfo } from "@opencode-ai/sdk/v2/client";
 import { Check, ChevronRight, HelpCircle } from "lucide-react";
 
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 
 export type QuestionPanelProps = {
+  /** Stable id for the pending request; reset only when this changes. */
+  requestId?: string;
   questions: QuestionInfo[];
   busy: boolean;
   onReply: (answers: string[][]) => void;
@@ -86,10 +88,20 @@ function questionReducer(state: QuestionState, action: QuestionAction): Question
 
 export function QuestionPanel(props: QuestionPanelProps) {
   const [state, dispatch] = useReducer(questionReducer, initialQuestionState);
+  const submittedRef = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  // Prefer requestId so re-seeded question objects do not wipe in-progress answers.
+  const resetKey =
+    props.requestId?.trim() ||
+    `count:${props.questions.length}:${props.questions
+      .map((item) => `${item.header ?? ""}|${item.question ?? ""}`)
+      .join(";")}`;
 
   useEffect(() => {
+    submittedRef.current = false;
     dispatch({ type: "reset", questionCount: props.questions.length });
-  }, [props.questions]);
+  }, [resetKey, props.questions.length]);
 
   const currentQuestion = props.questions[state.currentIndex];
   const options = currentQuestion?.options ?? [];
@@ -100,8 +112,14 @@ export function QuestionPanel(props: QuestionPanelProps) {
     return state.currentSelection.length > 0;
   })();
 
+  const commitReply = (answers: string[][]) => {
+    if (submittedRef.current || props.busy) return;
+    submittedRef.current = true;
+    props.onReply(answers);
+  };
+
   const handleNext = () => {
-    if (!canProceed || !currentQuestion) return;
+    if (!canProceed || !currentQuestion || submittedRef.current || props.busy) return;
     const nextAnswer = [...state.currentSelection];
     if (currentQuestion.custom && state.customInput.trim()) {
       nextAnswer.push(state.customInput.trim());
@@ -110,26 +128,30 @@ export function QuestionPanel(props: QuestionPanelProps) {
     newAnswers[state.currentIndex] = nextAnswer;
     if (isLastQuestion) {
       dispatch({ type: "setAnswers", answers: newAnswers });
-      props.onReply(newAnswers);
+      commitReply(newAnswers);
     } else {
       dispatch({ type: "advance", answers: newAnswers });
     }
   };
 
   const toggleOption = (option: string) => {
-    if (!currentQuestion || props.busy) return;
+    if (!currentQuestion || props.busy || submittedRef.current) return;
     if (currentQuestion.multiple) {
       dispatch({ type: "toggleMultipleOption", option });
       return;
     }
     dispatch({ type: "selectOption", option });
     if (!currentQuestion.custom) {
+      const questionIndex = state.currentIndex;
+      const last = questionIndex === props.questions.length - 1;
       setTimeout(() => {
-        const newAnswers = [...state.answers];
-        newAnswers[state.currentIndex] = [option];
-        if (isLastQuestion) {
+        if (submittedRef.current || props.busy) return;
+        const latest = stateRef.current;
+        const newAnswers = [...latest.answers];
+        newAnswers[questionIndex] = [option];
+        if (last) {
           dispatch({ type: "setAnswers", answers: newAnswers });
-          props.onReply(newAnswers);
+          commitReply(newAnswers);
         } else {
           dispatch({ type: "advance", answers: newAnswers });
         }

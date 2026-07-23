@@ -179,6 +179,7 @@ export function renderSessionComposerAccessories(
 
   const questionAccessory = props.activeQuestion ? (
     <QuestionPanel
+      requestId={props.activeQuestion.id}
       questions={props.activeQuestion.questions}
       busy={props.questionReplyBusy ?? false}
       onReply={(answers) => {
