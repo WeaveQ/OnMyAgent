@@ -7,6 +7,7 @@ import {
   groupSessionsByAgent,
   humanizeArchiveTitle,
   isVisibleArchiveAgent,
+  mergeArchiveSessionPages,
   RESUMABLE_AGENTS,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
 
@@ -26,6 +27,20 @@ function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: stri
 }
 
 describe("session archive page helpers", () => {
+  it("merges archive pages without duplicate ids (later wins)", () => {
+    const first = [
+      session({ id: "a", agent: "grok", message_count: 1 }),
+      session({ id: "b", agent: "grok", message_count: 2 }),
+    ];
+    const second = [
+      session({ id: "b", agent: "grok", message_count: 9 }),
+      session({ id: "c", agent: "opencode", message_count: 3 }),
+    ];
+    const merged = mergeArchiveSessionPages(first, second);
+    expect(merged.map((row) => row.id).sort()).toEqual(["a", "b", "c"]);
+    expect(merged.find((row) => row.id === "b")?.message_count).toBe(9);
+  });
+
   it("groups sessions by agent and sorts by size desc", () => {
     const groups = groupSessionsByAgent([
       session({ id: "a1", agent: "codex" }),
