@@ -39,10 +39,11 @@
     "validHours": 24
   },
   "optionAdjustments": {
-    "fastest": { "cost": 500, "hours": 36, "service": "优先直发" },
+    "fastest": { "cost": 500, "hours": 36, "service": "优先直发", "pros": ["时效最快"], "cons": ["价格最高"] },
     "balanced": { "cost": 0, "hours": 48, "service": "标准班次" },
     "cheapest": { "cost": -300, "hours": 72, "service": "可拼载候车" }
   },
+  "recommendation": { "key": "balanced", "reason": "兼顾价格与时效，毛利率健康" },
   "confirmedSurcharges": ["尾板费已含"],
   "pendingConditions": ["进仓预约等待时长待确认"]
 }
@@ -57,7 +58,12 @@
 - 金额统一保留两位小数，不能解析的值列入缺口而不是当作 0。
 - 缺少任何成本数字时只生成结构与缺口，不输出貌似真实的报价金额。
 
+## 优劣势与推荐
+
+- 每档优劣势由脚本按档位特征生成默认（最快=时效优/价格高；最便宜=价格低/时效慢；平衡=兼顾）；可在 `optionAdjustments.<档>.pros` / `cons`（字符串数组）覆盖。
+- 推荐档位由脚本默认为 `balanced`（兼顾价格与时效）；可在根级 `recommendation: { key, reason }` 覆盖。
+
 ## 产物
 
-- preview：`.process/quote-options.md`、`.process/quote-floor-guard.md`
-- export：`报价方案_<quoteId>.md`、`报价方案_<quoteId>.csv`、`砍价话术_<quoteId>.md`
+- preview：`.process/quote-preview.html`（三档卡片预览，经 `inlineWidget` 实时渲染）、`.process/quote-floor-guard.md`
+- export：`报价方案_<quoteId>.xlsx`（三档对比 + 成本明细）、`报价方案对比_<quoteId>.docx`（推荐结论/三档对比表/优劣势/砍价话术）
