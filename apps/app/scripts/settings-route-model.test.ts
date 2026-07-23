@@ -9,9 +9,14 @@ import {
   folderNameFromPath,
   mergeRouteWorkspaces,
   parseSettingsPath,
+  readHistoryIndexFromWindow,
+  readNavigationPageMode,
+  readNavigationReturnTo,
   readNavigationSessionId,
   readNavigationWorkspaceId,
   reconcileSelectedWorkspaceId,
+  resolveSettingsReturnPath,
+  shouldPreferHistoryBackFromSettings,
   resolveSettingsFallbackWorkspaceId,
   resolveSettingsPreferredWorkspaceId,
   resolveCreatedSettingsWorkspaceId,
@@ -205,6 +210,86 @@ describe("settings route workspace model", () => {
 
     expect(readNavigationWorkspaceId({ workspaceId: " ws_nav " })).toBe("ws_nav");
     expect(readNavigationSessionId({ sessionId: " ses_1 " })).toBe("ses_1");
+    expect(readNavigationPageMode({ pageMode: "assistant" })).toBe("assistant");
+    expect(readNavigationPageMode({ pageMode: "expert" })).toBe("expert");
+    expect(readNavigationPageMode({})).toBeNull();
+    expect(
+      readNavigationReturnTo({
+        returnTo: "/workspace/ws/assistant/ses_1?view=files",
+      }),
+    ).toBe("/workspace/ws/assistant/ses_1?view=files");
+    expect(readNavigationReturnTo({ returnTo: "https://evil.example/" })).toBeNull();
+    expect(
+      resolveSettingsReturnPath({
+        returnTo: "/workspace/ws_a/assistant/ses_a?view=files",
+        workspaceId: "ws_a",
+        sessionId: "ses_a",
+        pageMode: "expert",
+        workspaceAssistantRoute: (ws, ses) =>
+          ses ? `/workspace/${ws}/assistant/${ses}` : `/workspace/${ws}/assistant`,
+        workspaceSessionRoute: (ws, ses) =>
+          ses ? `/workspace/${ws}/session/${ses}` : `/workspace/${ws}/session`,
+      }),
+    ).toBe("/workspace/ws_a/assistant/ses_a?view=files");
+    expect(
+      resolveSettingsReturnPath({
+        returnTo: null,
+        workspaceId: "ws_a",
+        sessionId: "ses_a",
+        pageMode: "assistant",
+        workspaceAssistantRoute: (ws, ses) =>
+          ses ? `/workspace/${ws}/assistant/${ses}` : `/workspace/${ws}/assistant`,
+        workspaceSessionRoute: (ws, ses) =>
+          ses ? `/workspace/${ws}/session/${ses}` : `/workspace/${ws}/session`,
+      }),
+    ).toBe("/workspace/ws_a/assistant/ses_a");
+    expect(
+      resolveSettingsReturnPath({
+        returnTo: null,
+        workspaceId: "ws_a",
+        sessionId: "ses_e",
+        pageMode: "expert",
+        workspaceAssistantRoute: (ws, ses) =>
+          ses ? `/workspace/${ws}/assistant/${ses}` : `/workspace/${ws}/assistant`,
+        workspaceSessionRoute: (ws, ses) =>
+          ses ? `/workspace/${ws}/session/${ses}` : `/workspace/${ws}/session`,
+      }),
+    ).toBe("/workspace/ws_a/session/ses_e");
+    // Missing mode must not hardcode expert.
+    expect(
+      resolveSettingsReturnPath({
+        returnTo: null,
+        workspaceId: "ws_a",
+        sessionId: null,
+        pageMode: null,
+        workspaceAssistantRoute: (ws) => `/workspace/${ws}/assistant`,
+        workspaceSessionRoute: (ws) => `/workspace/${ws}/session`,
+      }),
+    ).toBe("/workspace/ws_a/assistant");
+    expect(
+      shouldPreferHistoryBackFromSettings({
+        returnTo: "/workspace/ws/assistant/s1",
+        pageMode: "assistant",
+        sessionId: "s1",
+        historyIndex: 2,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreferHistoryBackFromSettings({
+        returnTo: null,
+        pageMode: null,
+        sessionId: null,
+        historyIndex: 2,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreferHistoryBackFromSettings({
+        returnTo: "/workspace/ws/assistant",
+        historyIndex: 0,
+      }),
+    ).toBe(false);
+    expect(readHistoryIndexFromWindow({ idx: 3, usr: null, key: "x" })).toBe(3);
+    expect(readHistoryIndexFromWindow(null)).toBeNull();
     expect(
       resolveSettingsPreferredWorkspaceId({
         routeWorkspaceId: "ws_route",

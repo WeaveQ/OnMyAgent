@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useNavigationType } from "react-router-dom";
 
 import { createClient, unwrap } from "../../../app/lib/opencode";
 import {
@@ -137,7 +138,9 @@ export function SessionRouteRender() {
     clearAgentManagementIntent,
     handleSignOut,
     navigateToWorkspaceSession,
+    location,
   } = useSessionRouteNavigation();
+  const navigationType = useNavigationType();
   const platform = usePlatform();
   const { showToast } = useStatusToasts();
   const checkDesktopRestriction = useCheckDesktopRestriction();
@@ -498,6 +501,7 @@ export function SessionRouteRender() {
       firstSessionIdForPageMode,
       legacySelectedWorkspaceId,
       loading,
+      navigationType,
       pageMode,
       readLastSessionFor,
       routeWorkspaceId,
@@ -523,6 +527,7 @@ export function SessionRouteRender() {
     loading,
     legacySelectedWorkspaceId,
     navigateToWorkspaceSession,
+    navigationType,
     pageMode,
     routeWorkspaceId,
     selectedSessionId,
@@ -740,9 +745,11 @@ export function SessionRouteRender() {
     navigate,
     opencodeBaseUrl,
     opencodeClient,
+    pageMode,
     pendingAgentModel: pendingAgent?.model,
     providerListData: providerListQuery.data,
     recentProviderIds,
+    returnTo: `${location.pathname}${location.search}`,
     selectedSessionId,
     selectedWorkspaceEndpoint,
     selectedWorkspaceId,

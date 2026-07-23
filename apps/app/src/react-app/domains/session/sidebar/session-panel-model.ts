@@ -12,6 +12,31 @@ export const STARTUP_SKELETON_ROWS = [
   { id: "final", titleWidth: "36%", bodyWidth: "74%" },
 ];
 
+/**
+ * Full-page card skeleton is only for true cold boot (no workspace identity yet).
+ * After settings "Back to app" the route already has a workspace id while the
+ * engine reconnects — do not mask the draft home with a multi-second skeleton.
+ */
+export function shouldShowSessionStartupSkeleton(input: {
+  selectedSessionId: string | null | undefined;
+  selectedWorkspaceId: string | null | undefined;
+  clientConnected: boolean;
+  startupPhase: string | null | undefined;
+}): boolean {
+  if (input.selectedSessionId?.trim()) return false;
+  if (input.selectedWorkspaceId?.trim()) return false;
+  if (input.clientConnected) return false;
+  const phase = input.startupPhase ?? "";
+  if (
+    phase === "sessionIndexReady" ||
+    phase === "firstSessionReady" ||
+    phase === "ready"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export const GLOBAL_VOICE_SIDE_PANEL_KEY = "__onmyagent_voice__";
 
 export const AGENT_PANEL_MIN_WIDTH = 180;

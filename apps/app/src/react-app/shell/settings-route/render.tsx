@@ -111,9 +111,14 @@ import { normalizeSettingsProviderSource,
   isOnMyAgentCloudProvider,
   mapDesktopWorkspace,
   parseSettingsPath,
+  readHistoryIndexFromWindow,
+  readNavigationPageMode,
+  readNavigationReturnTo,
   readNavigationSessionId,
   readNavigationWorkspaceId,
   reconcileSelectedWorkspaceId,
+  resolveSettingsReturnPath,
+  shouldPreferHistoryBackFromSettings,
   resolveSettingsFallbackWorkspaceId,
   resolveSettingsPreferredWorkspaceId,
   settingsPathForRoute,
@@ -168,7 +173,11 @@ import {
   SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY,
   writeStoredBoolean,
 } from "./storage";
-import { workspaceSessionRoute, workspaceSettingsRoute } from "../workspace-routes";
+import {
+  workspaceAssistantRoute,
+  workspaceSessionRoute,
+  workspaceSettingsRoute,
+} from "../workspace-routes";
 import { getReactQueryClient } from "../../infra/query-client";
 import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../../domains/connections";
 import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "../new-providers-toast";
@@ -203,6 +212,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const route = props.embedded ? parseSettingsPath(`/settings/${embeddedPath}`) : parseSettingsPath(location.pathname);
   const navigationWorkspaceId = readNavigationWorkspaceId(location.state);
   const navigationSessionId = readNavigationSessionId(location.state);
+  const navigationPageMode = readNavigationPageMode(location.state);
+  const navigationReturnTo = readNavigationReturnTo(location.state);
 
   const [loading, setLoading] = useState(true);
   const [workspaces, setWorkspaces] = useState<RouteWorkspace[]>([]);
@@ -216,12 +227,57 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     redirectPath: route.redirectPath,
     setEmbeddedPath,
   });
+  // Tab switches replace (do not stack) and keep returnTo/pageMode in state.
   const navigateWorkspaceSettingsPath = useCallback(
     (path: string) => {
-      navigate(selectedWorkspaceId ? workspaceSettingsRoute(selectedWorkspaceId, path) : `/settings/${path}`);
+      navigate(
+        selectedWorkspaceId
+          ? workspaceSettingsRoute(selectedWorkspaceId, path)
+          : `/settings/${path}`,
+        { replace: true, state: location.state },
+      );
     },
-    [navigate, selectedWorkspaceId],
+    [location.state, navigate, selectedWorkspaceId],
   );
+  const handleCloseSettings = useCallback(() => {
+    if (props.onClose) {
+      props.onClose();
+      return;
+    }
+    // Prefer history.back: settings tabs replace, so -1 restores the exact
+    // pre-settings shell entry (mode + session + ?view=).
+    if (
+      shouldPreferHistoryBackFromSettings({
+        returnTo: navigationReturnTo,
+        pageMode: navigationPageMode,
+        sessionId: navigationSessionId,
+        historyIndex: readHistoryIndexFromWindow(
+          typeof window !== "undefined" ? window.history.state : null,
+        ),
+      })
+    ) {
+      navigate(-1);
+      return;
+    }
+    navigate(
+      resolveSettingsReturnPath({
+        returnTo: navigationReturnTo,
+        workspaceId: selectedWorkspaceId,
+        sessionId: navigationSessionId,
+        pageMode: navigationPageMode,
+        workspaceAssistantRoute,
+        workspaceSessionRoute,
+      }),
+      { replace: true },
+    );
+  }, [
+    navigationPageMode,
+    navigationReturnTo,
+    navigationSessionId,
+    navigate,
+    props.onClose,
+    selectedWorkspaceId,
+  ]);
   const navigateSettingsPath = useSettingsPathNavigator({
     embedded: props.embedded,
     navigatePath: navigateWorkspaceSettingsPath,
@@ -1685,7 +1741,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
         headerStatus={routeOnMyAgentStatus}
         busyHint={loading ? t("session.loading_detail") : busyLabel}
-        onClose={props.onClose ?? (() => navigate(selectedWorkspaceId ? workspaceSessionRoute(selectedWorkspaceId) : "/session"))}
+        onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
         compact={props.embedded}
         panelToolbarSlot={memoryToolbarSlot}

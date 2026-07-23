@@ -73,7 +73,11 @@ import {
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
-import { AutomationPage, MessagingChannelsPage } from "../../messaging";
+import {
+  AutomationPage,
+  MessagingChannelsPage,
+  syncAutomationSessionRecords,
+} from "../../messaging";
 import {
   consumeAutomationFocus,
   writeAutomationFocus,
@@ -88,6 +92,7 @@ import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
   STARTUP_SKELETON_ROWS,
+  shouldShowSessionStartupSkeleton,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
@@ -109,10 +114,9 @@ import {
 import {
   isPrimarySessionRailView,
   readAssistantCategoryMemory,
-  readRailView,
   writeAssistantCategoryMemory,
-  writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import { useRailLocation } from "./use-rail-location";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
@@ -160,6 +164,8 @@ const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 
 type AssistantGroupDeleteTarget = {
   kind: "automation";
+  /** Stable automation task id — required to remove the schedule itself. */
+  groupId: string;
   title: string;
   sessionIds: string[];
 };
@@ -175,16 +181,10 @@ export function AssistantPage(props: AssistantPageProps) {
   const onAgentManagementIntentConsumed =
     props.onAgentManagementIntentConsumed;
   const consumedAgentManagementIntentRef = useRef<string | null>(null);
-  const [activeSidebarView, setActiveSidebarView] =
-    useState<OnMyAgentPrimaryView>(() =>
-      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
-    );
-  // Workspace switch: restore this mode's last rail page.
-  useEffect(() => {
-    setActiveSidebarView(
-      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
-    );
-  }, [props.selectedWorkspaceId]);
+  const { activeSidebarView, openRailView } = useRailLocation({
+    mode: "assistant",
+    workspaceId: props.selectedWorkspaceId,
+  });
   const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
@@ -266,16 +266,14 @@ export function AssistantPage(props: AssistantPageProps) {
 
 
   const openAssistantSessionView = useCallback(() => {
-    writeRailView("assistant", props.selectedWorkspaceId, "assistant");
-    setActiveSidebarView("assistant");
-  }, [props.selectedWorkspaceId]);
+    openRailView("assistant");
+  }, [openRailView]);
 
   const [focusAutomationId, setFocusAutomationId] = useState<string | null>(null);
 
   const openScheduledTasksView = useCallback(() => {
-    writeRailView("assistant", props.selectedWorkspaceId, "scheduledTasks");
-    setActiveSidebarView("scheduledTasks");
-  }, [props.selectedWorkspaceId]);
+    openRailView("scheduledTasks");
+  }, [openRailView]);
 
   useEffect(() => {
     if (activeSidebarView !== "scheduledTasks") return;
@@ -459,14 +457,10 @@ export function AssistantPage(props: AssistantPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
-  const prevSessionIdRef = useRef(props.selectedSessionId);
-  useEffect(() => {
-    const prev = prevSessionIdRef.current;
-    prevSessionIdRef.current = props.selectedSessionId;
-    if (props.selectedSessionId?.trim() && prev !== props.selectedSessionId) {
-      setActiveSidebarView("assistant");
-    }
-  }, [props.selectedSessionId]);
+  // Do NOT force openRailView("assistant") when selectedSessionId changes.
+  // Session open already navigates to a clean path (no ?view=) so the primary
+  // rail wins for user clicks. Forcing primary here steals history Back: POP to
+  // /sessionA?view=files would immediately push a clean URL and leave files.
 
   /** Header find bar (expands in chrome like in-chat search). */
   const [historySearchOpen, setHistorySearchOpen] = useState(false);
@@ -715,6 +709,7 @@ export function AssistantPage(props: AssistantPageProps) {
         await props.onDeleteSession(target.sessionId);
         return;
       }
+      // 1) Delete every run session under the group (history rows).
       for (const sessionId of target.sessionIds) {
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
@@ -722,8 +717,36 @@ export function AssistantPage(props: AssistantPageProps) {
         );
         await props.onDeleteSession(sessionId);
       }
+      // 2) Delete the automation definition itself. Without this, the schedule
+      // keeps firing and the "定时" group reappears — feels like "删不掉".
+      const automationId = target.groupId.trim();
+      const client = props.onmyagentServerClient;
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId || !automationId) return;
+      try {
+        const result = await client.deleteAutomation(workspaceId, automationId);
+        syncAutomationSessionRecords(workspaceId, result.items ?? []);
+      } catch (error) {
+        console.warn(
+          "[assistant] failed to delete automation definition",
+          automationId,
+          error,
+        );
+        showToast({
+          tone: "error",
+          title: t("session.delete_task"),
+          description:
+            error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
     },
-    [props.onDeleteSession, props.selectedWorkspaceId],
+    [
+      props.onDeleteSession,
+      props.onmyagentServerClient,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
   );
 
   const {
@@ -756,6 +779,7 @@ export function AssistantPage(props: AssistantPageProps) {
     (target: { groupId: string; title: string; sessionIds: string[] }) => {
       openDeleteGroupModal({
         kind: "automation",
+        groupId: target.groupId.trim(),
         title: target.title.trim(),
         sessionIds: target.sessionIds,
       });
@@ -782,12 +806,12 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
-  const showStartupSkeleton =
-    !props.selectedSessionId &&
-    !props.clientConnected &&
-    props.startupPhase !== "sessionIndexReady" &&
-    props.startupPhase !== "firstSessionReady" &&
-    props.startupPhase !== "ready";
+  const showStartupSkeleton = shouldShowSessionStartupSkeleton({
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    clientConnected: props.clientConnected,
+    startupPhase: props.startupPhase,
+  });
   // Same as expert: draft home/new-session must not be masked by prior session loading.
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) &&
@@ -886,10 +910,10 @@ export function AssistantPage(props: AssistantPageProps) {
     consumedAgentManagementIntentRef.current = intent.key;
     if (intent.action === "createProvider") {
       setAgentManagementPageIntent(intent);
-      setActiveSidebarView("agentManagement");
+      openRailView("agentManagement");
       onAgentManagementIntentConsumed?.(intent.key);
     }
-  }, [agentManagementIntent, onAgentManagementIntentConsumed]);
+  }, [agentManagementIntent, onAgentManagementIntentConsumed, openRailView]);
 
   useEffect(() => {
     if (!showSessionLoadingState) {
@@ -970,24 +994,21 @@ export function AssistantPage(props: AssistantPageProps) {
               props.onNavigateToMode("expert");
               return;
             }
-            // Returning to 助理 must NOT force a new task — restore last selection.
-            writeRailView("assistant", props.selectedWorkspaceId, view);
+            // Rail changes push history via ?view= (bookmark still written for cold start).
             if (view === "assistant") {
               setAgentPanelCollapsed(false);
               openAssistantSessionView();
               return;
             }
-            setActiveSidebarView(view);
+            openRailView(view);
           }}
           onOpenAccountSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenDevices={() => {
-            writeRailView("assistant", props.selectedWorkspaceId, "devices");
-            setActiveSidebarView("devices");
+            openRailView("devices");
           }}
           onOpenBilling={() => {
-            writeRailView("assistant", props.selectedWorkspaceId, "billing");
-            setActiveSidebarView("billing");
+            openRailView("billing");
           }}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
@@ -1133,12 +1154,7 @@ export function AssistantPage(props: AssistantPageProps) {
                               action: "openPanel",
                               panel: panel ?? "skills",
                             });
-                            writeRailView(
-                              "assistant",
-                              props.selectedWorkspaceId,
-                              "agentManagement",
-                            );
-                            setActiveSidebarView("agentManagement");
+                            openRailView("agentManagement");
                           }}
                         />
                       ),
@@ -1152,12 +1168,7 @@ export function AssistantPage(props: AssistantPageProps) {
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                               onResume={(request) => {
                                 setPendingArchiveResume(request);
-                                writeRailView(
-                                  "assistant",
-                                  props.selectedWorkspaceId,
-                                  "localAgent",
-                                );
-                                setActiveSidebarView("localAgent");
+                                openRailView("localAgent");
                               }}
                             />
                           )}
@@ -1337,11 +1348,11 @@ export function AssistantPage(props: AssistantPageProps) {
                               ...props.surface!.marketplace,
                               onOpenSkillsMarketplace: () => {
                                 setStoreActiveTab("skills");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenConnectorsMarketplace: () => {
                                 setStoreActiveTab("plugins");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenCustomConnector: () => openCustomConnector("config"),
                             }}

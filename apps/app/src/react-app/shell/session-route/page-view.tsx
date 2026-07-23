@@ -422,8 +422,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           agentManagementIntent={agentManagementIntent}
           onAgentManagementIntentConsumed={clearAgentManagementIntent}
           onNavigateToMode={(targetMode) => {
-            // Returning to assistant must restore the last session/task selection —
-            // do not suppress restore (WorkBuddy-style sidebar memory).
+            // User mode switch must push history so Back can return to the prior mode.
+            // Session choice still uses mode-scoped last-session memory for the target path.
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
               findFirstSessionIdMatching,
@@ -434,7 +434,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               targetMode,
               workspaceId: selectedWorkspaceId,
             });
-            if (path) navigate(path, { replace: true });
+            if (path) navigate(path);
           }}
           selectedSessionId={selectedSessionId}
           selectedWorkspaceId={selectedWorkspaceId}

@@ -77,6 +77,10 @@ type Input = {
   pendingAgentModel: ModelRef | null | undefined;
   providerListData: ProviderListResponse | undefined;
   recentProviderIds: Set<string>;
+  /** Current shell mode so settings "Back to app" can return to the same side. */
+  pageMode: "assistant" | "expert";
+  /** Pathname+search when opening settings (restored by Back to app). */
+  returnTo: string;
   selectedSessionId: string | null;
   selectedWorkspaceEndpoint: ResolvedWorkspaceEndpoint | null;
   selectedWorkspaceId: string;
@@ -99,9 +103,11 @@ export function useSessionRouteModelCatalog(input: Input) {
     navigate,
     opencodeBaseUrl,
     opencodeClient,
+    pageMode,
     pendingAgentModel,
     providerListData,
     recentProviderIds,
+    returnTo,
     selectedSessionId,
     selectedWorkspaceEndpoint,
     selectedWorkspaceId,
@@ -495,12 +501,20 @@ export function useSessionRouteModelCatalog(input: Input) {
         workspaceId,
         activeWorkspaceId: sidebarActiveWorkspaceId,
         selectedSessionId,
+        pageMode,
+        returnTo,
         workspaceSettingsRoute,
       });
       writeActiveWorkspaceId(workspaceId || null);
       navigate(navigation.target, { state: navigation.state });
     },
-    [navigate, selectedSessionId, sidebarActiveWorkspaceId],
+    [
+      navigate,
+      pageMode,
+      returnTo,
+      selectedSessionId,
+      sidebarActiveWorkspaceId,
+    ],
   );
 
   return {
