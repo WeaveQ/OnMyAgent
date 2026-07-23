@@ -101,6 +101,8 @@ const segmentedTabButtonVariants = cva(
         comfortable: "px-4 py-1.5 text-sm font-medium",
         // Compact hug pill for category filters / memory multi-select.
         chip: "h-7 min-h-7 gap-1.5 px-3 text-xs font-medium",
+        // Onboarding / full-page multi-select: larger hit target + readable body text.
+        chipLg: "h-9 min-h-9 gap-2 px-4 text-sm font-medium",
       },
       width: {
         fill: "flex-1",
@@ -404,17 +406,20 @@ function FilterChip({
   className,
   selected = false,
   label,
+  size = "chip",
   ...props
 }: Omit<ButtonPrimitive.Props, "children"> & {
   selected?: boolean
   label: ReactNode
+  /** `chip` = compact filter strip; `chipLg` = onboarding / full-page multi-select. */
+  size?: "chip" | "chipLg"
 }) {
   return (
     <SegmentedTabButton
       type="button"
       active={selected}
       tone="chip"
-      size="chip"
+      size={size}
       width="hug"
       aria-pressed={selected}
       className={className}
