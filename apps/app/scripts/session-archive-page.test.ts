@@ -102,6 +102,55 @@ describe("session archive page helpers", () => {
     ).toBe("Hermes · sample-project");
   });
 
+  it("humanizeArchiveTitle prefers user_query over harness tags", () => {
+    const first_message = [
+      "<user_info>",
+      "OS Version: macos",
+      "Shell: /bin/zsh",
+      "</user_info>",
+      "",
+      "<user_query>",
+      "全部优化掉",
+      "</user_query>",
+    ].join("\n");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g1",
+          agent: "grok",
+          display_name: null,
+          first_message,
+          project: "/Users/work",
+        }),
+      ),
+    ).toBe("全部优化掉");
+  });
+
+  it("humanizeArchiveTitle skips bare system-reminder / user_info tag lines", () => {
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g2",
+          agent: "grok",
+          display_name: null,
+          first_message: "<system-reminder>\nnoise\n</system-reminder>\n\nPlease fix the flaky test",
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("Please fix the flaky test");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g3",
+          agent: "grok",
+          display_name: "<user_info>",
+          first_message: null,
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
+  });
+
   it("agentLabel returns friendly name or agent id", () => {
     expect(agentLabel("codex")).toBe("Codex");
     expect(agentLabel("mimocode")).toBe("MiMo Code");
