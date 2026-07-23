@@ -145,13 +145,18 @@ export function parseWorkspaceModelVariants(
   }
 }
 
-export function readStoredDefaultModel(): ModelRef {
-  if (typeof window === "undefined") return DEFAULT_MODEL;
+/**
+ * Read the persisted default model, or null when unset.
+ * Does **not** invent DEFAULT_MODEL (opencode/big-pickle) — that placeholder
+ * used to show in the composer even when no providers/models were connected.
+ */
+export function readStoredDefaultModel(): ModelRef | null {
+  if (typeof window === "undefined") return null;
   try {
     const stored = window.localStorage.getItem(MODEL_PREF_KEY);
-    return parseModelRef(stored) ?? DEFAULT_MODEL;
+    return parseModelRef(stored);
   } catch {
-    return DEFAULT_MODEL;
+    return null;
   }
 }
 
@@ -179,14 +184,20 @@ export function clearStoredDefaultModel(): void {
  * session/workspace model overrides from context/model-config.ts will be
  * ported incrementally as the session and settings surfaces migrate.
  */
-export function useDefaultModel(): [ModelRef, (next: ModelRef) => void] {
-  const [model, setModel] = useState<ModelRef>(() => readStoredDefaultModel());
+export function useDefaultModel(): [
+  ModelRef | null,
+  (next: ModelRef | null) => void,
+] {
+  const [model, setModel] = useState<ModelRef | null>(() =>
+    readStoredDefaultModel(),
+  );
 
   useEffect(() => {
-    writeStoredDefaultModel(model);
+    if (model) writeStoredDefaultModel(model);
+    else clearStoredDefaultModel();
   }, [model]);
 
-  const update = useCallback((next: ModelRef) => {
+  const update = useCallback((next: ModelRef | null) => {
     setModel(next);
   }, []);
 

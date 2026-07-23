@@ -20,5 +20,8 @@ describe("model select view", () => {
     expect(source).toContain("data-highlighted:bg-dls-list-hover");
     expect(source).toContain("{selected ? (");
     expect(source).toContain('<Check className="size-4 shrink-0 text-dls-accent" />');
+    // Ghost defaults (big-pickle) must not appear when the option is missing.
+    expect(source).toContain("selectedOption?.title ?? t(\"session.default_model\")");
+    expect(source).not.toContain("value.modelID ?? t(\"session.default_model\")");
   });
 });
