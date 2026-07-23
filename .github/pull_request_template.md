@@ -1,3 +1,9 @@
+<!--
+  Collaboration language: PR title, description, and commit subjects must be
+  English (CI: "PR English"). Product UI copy stays multi-language via i18n.
+  Chinese may appear only inside fenced code blocks if needed for repro.
+-->
+
 ## Summary
 -
 
