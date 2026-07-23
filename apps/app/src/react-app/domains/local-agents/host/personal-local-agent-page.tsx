@@ -1392,16 +1392,18 @@ return (
           {/*
             mac:titlebar-no-drag + z-10: top 28px is a global Electron drag strip
             on macOS; interactive chrome must opt out or clicks are swallowed.
+            Two rows: narrow list panes (~240px) crush search when 5 icon
+            buttons share one row with the field.
           */}
-          <div className="relative z-10 flex h-12 shrink-0 items-center gap-2.5 border-b border-dls-mist px-4 mac:titlebar-no-drag">
+          <div className="relative z-10 flex shrink-0 flex-col gap-2 border-b border-dls-mist px-3 pb-2.5 pt-2.5 mac:titlebar-no-drag">
             <InputGroup
               controlSize="sm"
               radius="md"
               tone="surfaceMuted"
-              className="min-w-0 flex-1 mac:titlebar-no-drag"
+              className="w-full min-w-0 mac:titlebar-no-drag"
             >
               <InputGroupAddon align="inline-start" inset="tight">
-                <Search className="size-4.5" />
+                <Search className="size-4" />
               </InputGroupAddon>
 
               <InputGroupInput
@@ -1412,84 +1414,92 @@ return (
               />
             </InputGroup>
 
-            <Button
-              type="button"
-              size="icon-sm"
-              onClick={() => setShowActiveRunsPanel(true)}
-              className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-              title={t("local_agent.active_runs_title")}
-              aria-label={t("local_agent.active_runs_title")}
-              aria-expanded={showActiveRunsPanel}
-            >
-              <Activity className="size-4.5" />
-              {activeRuns.length ? (
-                <CountBadge
-                  size="dot"
-                  className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface"
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex min-w-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setShowActiveRunsPanel(true)}
+                  className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                  title={t("local_agent.active_runs_title")}
+                  aria-label={t("local_agent.active_runs_title")}
+                  aria-expanded={showActiveRunsPanel}
                 >
-                  {activeRuns.length}
-                </CountBadge>
+                  <Activity className="size-4" />
+                  {activeRuns.length ? (
+                    <CountBadge
+                      size="dot"
+                      className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface"
+                    >
+                      {activeRuns.length}
+                    </CountBadge>
+                  ) : null}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={!canCreateConversation}
+                  onClick={() => void createNewConversation()}
+                  className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
+                  title={t("local_agent.new_conversation")}
+                  aria-label={t("local_agent.new_conversation")}
+                  aria-busy={creatingConversation || undefined}
+                >
+                  {creatingConversation ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={refreshing}
+                  onClick={() => void refreshAgents({ notify: true })}
+                  className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
+                  title={t("local_agent.redetect")}
+                  aria-label={t("local_agent.redetect")}
+                >
+                  {refreshing ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <RefreshCw className="size-4" />
+                  )}
+                </Button>
+              </div>
+
+              {props.onOpenAgentManagement ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => props.onOpenAgentManagement?.("agents")}
+                    className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                    title={t("local_agent.add")}
+                    aria-label={t("local_agent.add")}
+                  >
+                    <UserPlus className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => props.onOpenAgentManagement?.("agents")}
+                    className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                    title={t("local_agent.manage_agents")}
+                    aria-label={t("local_agent.manage_agents")}
+                  >
+                    <Settings2 className="size-4" />
+                  </Button>
+                </div>
               ) : null}
-            </Button>
-
-            <Button
-              type="button"
-              size="icon-sm"
-              disabled={!canCreateConversation}
-              onClick={() => void createNewConversation()}
-              className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
-              title={t("local_agent.new_conversation")}
-              aria-label={t("local_agent.new_conversation")}
-              aria-busy={creatingConversation || undefined}
-            >
-              {creatingConversation ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <Plus className="size-4.5" />
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              size="icon-sm"
-              disabled={refreshing}
-              onClick={() => void refreshAgents({ notify: true })}
-              className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
-              title={t("local_agent.redetect")}
-              aria-label={t("local_agent.redetect")}
-            >
-              {refreshing ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <RefreshCw className="size-4.5" />
-              )}
-            </Button>
-
-            {props.onOpenAgentManagement ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                onClick={() => props.onOpenAgentManagement?.("agents")}
-                className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                title={t("local_agent.add")}
-                aria-label={t("local_agent.add")}
-              >
-                <UserPlus className="size-4.5" />
-              </Button>
-            ) : null}
-
-            {props.onOpenAgentManagement ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                onClick={() => props.onOpenAgentManagement?.("agents")}
-                className="relative z-10 shrink-0 rounded-md border border-dls-border bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                title={t("local_agent.manage_agents")}
-                aria-label={t("local_agent.manage_agents")}
-              >
-                <Settings2 className="size-4.5" />
-              </Button>
-            ) : null}
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">

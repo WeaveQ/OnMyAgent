@@ -51,9 +51,9 @@ const PERSONAL_AGENT_CHAT_STATE_PREFIX = "onmyagent.personalLocalAgent.chatState
 const PERSONAL_AGENT_LIST_CACHE_PREFIX = "onmyagent.personalLocalAgent.agentList";
 const PERSONAL_AGENT_SIDEBAR_ORDER_PREFIX = "onmyagent.personalLocalAgent.sidebarOrder";
 const PERSONAL_AGENT_APPROVAL_MODE_PREFIX = "onmyagent.personalLocalAgent.approvalMode";
-export const LOCAL_AGENT_LIST_MIN_WIDTH = 180;
-export const LOCAL_AGENT_LIST_MAX_WIDTH = 320;
-export const LOCAL_AGENT_LIST_DEFAULT_WIDTH = 240;
+export const LOCAL_AGENT_LIST_MIN_WIDTH = 200;
+export const LOCAL_AGENT_LIST_MAX_WIDTH = 360;
+export const LOCAL_AGENT_LIST_DEFAULT_WIDTH = 280;
 export const OPENCODE_PREFERRED_MODEL = "ark-coding-openai/ark-code-latest";
 
 export const HEALTH_CHECK_PROMPT =
