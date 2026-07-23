@@ -1130,6 +1130,7 @@ export function ExpertPage(props: ExpertPageProps) {
           client,
           workspaceId,
           items,
+          defaultModel: props.surface?.model.selectedModel,
         });
         if (result.created.length > 0) {
           showToast({
@@ -1175,7 +1176,12 @@ export function ExpertPage(props: ExpertPageProps) {
         }));
       }
     },
-    [props.onmyagentServerClient, resolveAutomationSessionDirectory, showToast],
+    [
+      props.onmyagentServerClient,
+      props.surface?.model.selectedModel,
+      resolveAutomationSessionDirectory,
+      showToast,
+    ],
   );
 
   const handleHostAutomationAnswer = useCallback(

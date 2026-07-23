@@ -43,6 +43,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function automationModelRef(
+  value: unknown,
+): NonNullable<AutomationTaskInput["model"]> | null {
+  if (!isRecord(value)) return null;
+  const providerID =
+    typeof value.providerID === "string" ? value.providerID.trim() : "";
+  const modelID = typeof value.modelID === "string" ? value.modelID.trim() : "";
+  return providerID && modelID ? { providerID, modelID } : null;
+}
+
 export function parseAutomationProposalPayload(
   raw: unknown,
 ): AutomationTaskInput | null {
@@ -97,6 +107,8 @@ export function parseAutomationProposalPayload(
   if (raw.accessMode === "default" || raw.accessMode === "full") {
     payload.accessMode = raw.accessMode;
   }
+  const model = automationModelRef(raw.model);
+  if (model) payload.model = model;
   return payload;
 }
 
@@ -292,6 +304,7 @@ export async function createAutomationsFromPayloads(input: {
   client: Pick<AutomationProposalClient, "listAutomations" | "createAutomation">;
   workspaceId: string;
   items: Array<{ path: string; payload: AutomationTaskInput }>;
+  defaultModel?: AutomationTaskInput["model"];
 }): Promise<ApplyAutomationProposalsResult> {
   const result: ApplyAutomationProposalsResult = {
     created: [],
@@ -314,8 +327,10 @@ export async function createAutomationsFromPayloads(input: {
     existingTitles = new Set();
   }
 
+  const defaultModel = automationModelRef(input.defaultModel);
   for (const item of input.items) {
-    const payload = item.payload;
+    const model = automationModelRef(item.payload.model) ?? defaultModel;
+    const payload = model ? { ...item.payload, model } : item.payload;
     if (existingTitles.has(payload.title)) {
       result.skipped.push({
         title: payload.title,
@@ -349,6 +364,7 @@ export async function applyAutomationProposals(input: {
   catalogRoot: string;
   sessionRoot?: string | null;
   sessionDirectory?: string | null;
+  defaultModel?: AutomationTaskInput["model"];
 }): Promise<ApplyAutomationProposalsResult> {
   const loaded = await loadAutomationProposals(input);
   const result: ApplyAutomationProposalsResult = {
@@ -361,6 +377,7 @@ export async function applyAutomationProposals(input: {
     client: input.client,
     workspaceId: input.workspaceId,
     items: loaded.proposals,
+    defaultModel: input.defaultModel,
   });
   return {
     created: created.created,

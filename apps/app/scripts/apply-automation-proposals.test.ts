@@ -65,6 +65,10 @@ describe("parseAutomationProposalPayload", () => {
       scene: "office",
       title: "应收催收·每日看板",
       prompt: "read ar-ledger.json",
+      model: {
+        providerID: "openai",
+        modelID: "gpt-5.2",
+      },
       schedule: {
         mode: "interval",
         day: "daily",
@@ -77,6 +81,10 @@ describe("parseAutomationProposalPayload", () => {
     expect(payload?.title).toBe("应收催收·每日看板");
     expect(payload?.schedule.mode).toBe("interval");
     expect(payload?.schedule.intervalMinutes).toBe(1440);
+    expect(payload?.model).toEqual({
+      providerID: "openai",
+      modelID: "gpt-5.2",
+    });
   });
 
   test("rejects incomplete payloads", () => {
@@ -280,6 +288,51 @@ describe("createAutomationsFromPayloads", () => {
     });
     expect(result.created).toHaveLength(1);
     expect(created).toEqual(["T1"]);
+  });
+
+  test("inherits the source session model without replacing an explicit model", async () => {
+    const createdModels: Array<{ providerID: string; modelID: string } | null | undefined> = [];
+    const client: Pick<
+      AutomationProposalClient,
+      "listAutomations" | "createAutomation"
+    > = {
+      listAutomations: async () => ({ items: [] }),
+      createAutomation: async (_id, payload) => {
+        createdModels.push(payload.model);
+        return { item: { id: payload.title, title: payload.title } };
+      },
+    };
+    const inherited = parseAutomationProposalPayload({
+      scene: "office",
+      title: "Inherited",
+      prompt: "run",
+      schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+    });
+    const explicit = parseAutomationProposalPayload({
+      scene: "office",
+      title: "Explicit",
+      prompt: "run",
+      model: { providerID: "anthropic", modelID: "claude-sonnet-4" },
+      schedule: { mode: "interval", day: "daily", time: "10:00", intervalMinutes: 1440 },
+    });
+    expect(inherited).not.toBeNull();
+    expect(explicit).not.toBeNull();
+    if (!inherited || !explicit) return;
+
+    await createAutomationsFromPayloads({
+      client,
+      workspaceId: "ws",
+      defaultModel: { providerID: "openai", modelID: "gpt-5.2" },
+      items: [
+        { path: "inherited.json", payload: inherited },
+        { path: "explicit.json", payload: explicit },
+      ],
+    });
+
+    expect(createdModels).toEqual([
+      { providerID: "openai", modelID: "gpt-5.2" },
+      { providerID: "anthropic", modelID: "claude-sonnet-4" },
+    ]);
   });
 });
 
