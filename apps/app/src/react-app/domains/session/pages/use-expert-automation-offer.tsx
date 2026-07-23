@@ -41,7 +41,7 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
-import { buildPathWithRailView } from "../../../shell/session-route/app-location";
+import { buildPathWithRailView } from "../navigation/app-location";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useStatusToasts } from "../../shell-feedback";
 

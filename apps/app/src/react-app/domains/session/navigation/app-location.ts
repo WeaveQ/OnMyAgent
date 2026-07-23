@@ -5,8 +5,8 @@
  * History: user navigations push; bootstrap/repair may replace.
  * localStorage rail/session memory is cold-start only — not a back stack.
  */
-import type { OnMyAgentPrimaryView } from "../../domains/session/sidebar/main-rail";
-import { isPrimarySessionRailView } from "../../domains/session/sidebar/rail-navigation-memory";
+import type { OnMyAgentPrimaryView } from "../sidebar/main-rail";
+import { isPrimarySessionRailView } from "../sidebar/rail-navigation-memory";
 
 export type ShellMode = "assistant" | "expert";
 

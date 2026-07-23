@@ -11,7 +11,7 @@ import {
   shouldHydrateRailBookmarkIntoUrl,
   shouldReplaceHistory,
   shouldSkipSessionRestoreOnHistoryAction,
-} from "../src/react-app/shell/session-route/app-location";
+} from "../src/react-app/domains/session/navigation/app-location";
 import { resolveSessionRouteRestoreNavigation } from "../src/react-app/shell/session-route/control";
 import type { SidebarSessionItem } from "../src/app/types";
 

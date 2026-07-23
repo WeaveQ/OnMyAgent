@@ -18,7 +18,7 @@ import {
   defaultPrimaryRailView,
   resolveActiveRailView,
   shouldHydrateRailBookmarkIntoUrl,
-} from "../../../shell/session-route/app-location";
+} from "../navigation/app-location";
 
 export function useRailLocation(input: {
   mode: ShellMode;

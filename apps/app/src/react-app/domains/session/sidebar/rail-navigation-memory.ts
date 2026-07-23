@@ -2,7 +2,7 @@
  * Cold-start / bookmark memory for the primary rail and assistant category.
  *
  * This is NOT a back stack. Browser/Electron Back is driven by React Router
- * history and `?view=` (see session-route/app-location.ts). Only read these
+ * history and `?view=` (see navigation/app-location.ts). Only read these
  * helpers when the URL has no rail view (cold start or missing param); always
  * write them as a non-authoritative bookmark after the user changes rail.
  */
