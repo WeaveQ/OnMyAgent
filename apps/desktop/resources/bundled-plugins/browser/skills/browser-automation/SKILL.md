@@ -33,14 +33,23 @@ Aliases accepted by `agent.browsers.get()` for the in-app browser: `"in-app"`, `
 
 Once a browser connection is established, reuse it across later turns. A tab binding is separate from the browser binding. If a tab is missing, stale, or closed, create or claim a fresh tab from the existing browser binding. Never call `agent.browsers.get*` only to recover a tab.
 
-## Workflow
+## Hybrid control loop (DOM + vision) — required orientation
 
-1. Get the default Browser (or `get("iab")` when the user names the in-app browser).
-2. Prefer `browser.tabs.new({ url })` for a fast direct open when the target URL is known.
-3. Observe before acting. Prefer role, label, text, placeholder, or test-id locators.
-4. Prefer continuous REPL for one page goal. Scope selectors to the active detail surface (modal/note), not leftover feed cards underneath.
-5. Use DOM-CUA when semantic locators are insufficient; coordinate CUA only as a last resort.
-6. Finalize temporary Tabs when the task is complete. Leave user-owned Tabs open unless the user requests otherwise.
+Market-proven pattern (Browser Use / Stagehand-style): **DOM-primary, vision-assist**. Neither alone is enough on modal-heavy sites (e.g. Xiaohongshu).
+
+1. Get default Browser; open URL with `tabs.new({ url })` when known.
+2. **Orient with one hybrid call:**
+   ```js
+   const sense = await tab.sense() // DOM nodes + screenshot + scale
+   nodeRepl.emitImage(sense.shot.image)
+   // Use sense.nodes[].label / role / ref; keep sense.shot.scaleX/Y for any cua click
+   ```
+3. **Act with DOM first:** locators / `dom_cua.click(ref)` scoped to the active surface (detail modal, not feed under it).
+4. **Vision assist when DOM is wrong or ambiguous:** compare `sense.shot` to `nodes` (wrong card, covered target, icon-only control). Prefer re-`sense()` + better DOM; only then `tab.cua.click(node.center)` (page coords) or `imageX * scaleX`.
+5. Continuous REPL for one page goal; toggle buttons: read state → click at most once.
+6. Finalize temporary tabs when done.
+
+Do **not** dump full-page body text or all `.like-wrapper`s without scoping. Do **not** pure-vision click without a DOM candidate when nodes already list the control.
 
 ## Reading text (avoid TypeError)
 

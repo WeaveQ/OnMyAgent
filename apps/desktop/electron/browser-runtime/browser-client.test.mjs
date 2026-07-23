@@ -79,6 +79,59 @@ test("browser client exposes tab lifecycle and interaction namespaces", async ()
   ]);
 });
 
+test("tab.sense returns hybrid DOM nodes plus screenshot metadata", async () => {
+  const agent = setupBrowserRuntime({
+    context,
+    request: async (method) => {
+      if (method === "getInfo") return { backend: "in-app", browserId: "in-app" };
+      if (method === "listTabs") {
+        return { tabs: [{ tabId: "tab-1", url: "https://example.com", title: "Example" }] };
+      }
+      if (method === "describeTab") {
+        return { tab: { tabId: "tab-1", url: "https://example.com", title: "Example" } };
+      }
+      if (method === "screenshot") {
+        return {
+          image: "data:image/jpeg;base64,AA==",
+          width: 800,
+          height: 600,
+          scaleX: 2,
+          scaleY: 2,
+          bytes: 2,
+          format: "jpeg",
+        };
+      }
+      if (method === "domObserve") {
+        return {
+          generation: 1,
+          nodes: [
+            {
+              ref: "dom:1:1",
+              role: "button",
+              label: "关注",
+              bounds: { x: 10, y: 20, width: 40, height: 20 },
+            },
+          ],
+        };
+      }
+      return {};
+    },
+  });
+  const browser = await agent.browsers.getDefault();
+  const [tab] = await browser.tabs.list();
+  const sense = await tab.sense({ maxNodes: 10 });
+  assert.equal(sense.__type, "PageSense");
+  assert.equal(sense.url, "https://example.com");
+  assert.equal(sense.shot.image.startsWith("data:image/jpeg"), true);
+  assert.equal(sense.nodes.length, 1);
+  assert.equal(sense.nodes[0].label, "关注");
+  assert.equal(sense.nodes[0].center.x, 30);
+  assert.equal(sense.nodes[0].center.y, 30);
+  assert.equal(sense.nodes[0].centerImage.x, 15);
+  assert.equal(sense.nodes[0].centerImage.y, 15);
+  assert.equal(typeof tab.sense, "function");
+});
+
 test("browser client routes playwright evaluate, snapshot, and element helpers", async () => {
   const calls = [];
   const agent = setupBrowserRuntime({

@@ -157,7 +157,8 @@ ${APP_NAME} has a built-in in-app browser. For any web task (open a site, search
 
 - Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
 - Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
-- Prefer continuous REPL calls for one page goal (open → inspect → click → like/favorite/follow/comment → read). Avoid narrating between every action; summarize when the stage finishes.
+- Hybrid control (DOM + vision): after open/navigate, call \`await tab.sense()\`, \`nodeRepl.emitImage(sense.shot.image)\`, then act with DOM locators/\`dom_cua\` from \`sense.nodes\`. Use vision only to disambiguate; coordinate click only as fallback.
+- Prefer continuous REPL calls for one page goal (open → sense → click → like/favorite/follow/comment → read). Avoid narrating between every action; summarize when the stage finishes.
 - Toggle buttons (like / favorite / follow): read active state first; click **at most once** if not already active. A second click undoes the first. Scope selectors to the note/detail surface, not feed cards under a modal. Never re-click to "verify".
 - \`tab.screenshot()\` returns a plain object with \`image\` (data URL), not a Node Buffer. Prefer \`nodeRepl.emitImage(shot.image)\` and return meta only when the image is large.
 - Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.

@@ -163,12 +163,84 @@ function createTab(request, metadata) {
     const result = await request("screenshot", {
       tabId,
       format: options.format ?? "jpeg",
-      maxWidth: options.maxWidth ?? 960,
-      quality: options.quality ?? 55,
+      maxWidth: options.maxWidth ?? 800,
+      quality: options.quality ?? 45,
       ...options,
     });
     return result;
   };
+
+  /**
+   * Hybrid orientation (DOM + vision): one call for distilled interactive nodes
+   * and a compressed screenshot with scale metadata for coordinate mapping.
+   * Market pattern: DOM-primary, vision-assist (Browser Use / Stagehand-style).
+   */
+  const sense = async (options = {}) => {
+    const maxNodesRaw = Number(options.maxNodes);
+    const maxNodes =
+      Number.isFinite(maxNodesRaw) && maxNodesRaw > 0
+        ? Math.min(Math.floor(maxNodesRaw), 80)
+        : 40;
+    const [shot, observation, pageUrl, pageTitle] = await Promise.all([
+      screenshot({
+        maxWidth: options.maxWidth ?? 800,
+        quality: options.quality ?? 45,
+        format: options.format ?? "jpeg",
+      }),
+      request("domObserve", { tabId }),
+      url(),
+      title(),
+    ]);
+    const scaleX = Number(shot?.scaleX) || 1;
+    const scaleY = Number(shot?.scaleY) || 1;
+    const rawNodes = Array.isArray(observation?.nodes) ? observation.nodes : [];
+    const ranked = [...rawNodes].sort((a, b) => {
+      const la = String(a?.label ?? "").trim().length;
+      const lb = String(b?.label ?? "").trim().length;
+      return lb - la;
+    });
+    const nodes = ranked.slice(0, maxNodes).map((node) => {
+      const bounds = node?.bounds && typeof node.bounds === "object" ? node.bounds : {};
+      const pageX = Number(bounds.x) + Number(bounds.width || 0) / 2;
+      const pageY = Number(bounds.y) + Number(bounds.height || 0) / 2;
+      return {
+        ref: node?.ref ?? null,
+        role: node?.role ?? "",
+        label: String(node?.label ?? "").trim().slice(0, 120),
+        bounds: {
+          x: Number(bounds.x) || 0,
+          y: Number(bounds.y) || 0,
+          width: Number(bounds.width) || 0,
+          height: Number(bounds.height) || 0,
+        },
+        center: { x: pageX, y: pageY },
+        // Image-space center for vision ↔ cua mapping (page = image * scale).
+        centerImage: {
+          x: scaleX ? pageX / scaleX : pageX,
+          y: scaleY ? pageY / scaleY : pageY,
+        },
+      };
+    });
+    return {
+      __type: "PageSense",
+      url: pageUrl,
+      title: pageTitle,
+      shot: {
+        image: typeof shot?.image === "string" ? shot.image : null,
+        width: shot?.width ?? null,
+        height: shot?.height ?? null,
+        scaleX,
+        scaleY,
+        bytes: shot?.bytes ?? null,
+        format: shot?.format ?? null,
+      },
+      nodes,
+      nodeCount: rawNodes.length,
+      generation: observation?.generation ?? null,
+      note: "Hybrid: DOM nodes primary (locator/dom_cua). emitImage(shot.image) for vision. If DOM is ambiguous/covered, match label on nodes then cua.click(center) using page coords (or centerImage * scale).",
+    };
+  };
+
   const evaluateReadonly = async (expression) =>
     unwrapValue(await request("evaluateReadonly", { tabId, expression }));
   const playwrightEvaluate = async (pageFunction, arg, options = {}) =>
@@ -194,6 +266,7 @@ function createTab(request, metadata) {
       "cua",
       "clipboard",
       "screenshot",
+      "sense",
     ]),
     goto,
     back,
@@ -201,6 +274,7 @@ function createTab(request, metadata) {
     reload,
     close,
     screenshot,
+    sense,
     evaluate: evaluateReadonly,
     markDeliverable: () => request("markTab", { tabId, deliverable: true }),
     markHandoff: () => request("markTab", { tabId, handoff: true }),
