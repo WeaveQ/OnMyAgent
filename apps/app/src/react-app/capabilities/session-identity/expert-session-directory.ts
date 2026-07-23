@@ -2,9 +2,11 @@
  * Per-expert-session artifact directory helpers.
  *
  * When the user does not pick a folder for a new expert conversation, isolate
- * artifacts under: `{workspaceRoot}/{agentName}/{agentName-YYYY-MM-DD-HHmmss}/`
- * so different experts and sessions never share the same dump folder, and the
- * workspace picker can show a clean "Name · date" label (not a raw hash).
+ * artifacts under a simple two-level path:
+ *
+ *   `{workspaceRoot}/{agentName}/{YYYY-MM-DD_HHmmss}/`
+ *
+ * Picker label: `{agentName} / {YYYY-MM-DD HH:mm}` — no hashes.
  */
 
 export function sanitizePathSegment(raw: string, fallback = "expert"): string {
@@ -21,7 +23,10 @@ export function sanitizePathSegment(raw: string, fallback = "expert"): string {
   return cleaned || fallback;
 }
 
-/** Local stamp: 2026-07-23-143052 (date + compact time for uniqueness). */
+/**
+ * Time folder under the expert: `2026-07-23_143052`
+ * (date + underscore + compact time — unique per second, readable on disk).
+ */
 export function formatExpertSessionStamp(date: Date = new Date()): string {
   const y = date.getFullYear();
   const mo = String(date.getMonth() + 1).padStart(2, "0");
@@ -29,27 +34,49 @@ export function formatExpertSessionStamp(date: Date = new Date()): string {
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
   const ss = String(date.getSeconds()).padStart(2, "0");
-  return `${y}-${mo}-${d}-${hh}${mm}${ss}`;
+  return `${y}-${mo}-${d}_${hh}${mm}${ss}`;
+}
+
+/** True when a path segment is an expert time stamp folder. */
+export function isExpertSessionTimeStamp(segment: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}_\d{6}$/.test(segment.trim());
 }
 
 /**
- * Folder segment for a new isolated expert session.
- * Prefer `{agentName}-{YYYY-MM-DD-HHmmss}` so the picker last-segment is readable.
- * When `agentName` is omitted, fall back to stamp only (legacy callers).
+ * Session folder name under `{agentName}/` — time only (agent name is the parent).
+ * `agentName` is accepted for call-site compatibility but not embedded in the key.
  */
-export function createExpertSessionKey(agentName?: string): string {
-  const stamp = formatExpertSessionStamp();
-  const raw = agentName?.trim();
-  if (!raw) return stamp;
-  const name = sanitizePathSegment(raw, "expert").slice(0, 40);
-  return `${name}-${stamp}`;
+export function createExpertSessionKey(_agentName?: string): string {
+  void _agentName;
+  return formatExpertSessionStamp();
+}
+
+function formatTimeStampLabel(stamp: string): string | null {
+  // Current: 2026-07-23_143052
+  const current = stamp.match(/^(\d{4}-\d{2}-\d{2})_(\d{6})$/);
+  if (current) {
+    const [, date, time] = current;
+    return `${date} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
+  }
+  // Brief intermediate form: 2026-07-23-143052 (no underscore)
+  const dashed = stamp.match(/^(\d{4}-\d{2}-\d{2})-(\d{6})$/);
+  if (dashed) {
+    const [, date, time] = dashed;
+    return `${date} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
+  }
+  return null;
 }
 
 /**
  * Human label for the draft-workspace / spaces list.
- * - New: `物流单专家-2026-07-23-143052` → `物流单专家 · 2026-07-23 14:30`
- * - Legacy hash under agent folder: `…/物流单专家/e4fae6588c5f` → `物流单专家 · e4fae6`
- * - Otherwise: last path segment
+ *
+ * Design: `专家名 / 时间` only — never show opaque hashes.
+ *
+ * | Path | Label |
+ * | `{ws}/物流单专家/2026-07-23_143052` | `物流单专家 / 2026-07-23 14:30` |
+ * | `{ws}/物流单专家/物流单专家-2026-07-23-143052` | `物流单专家 / 2026-07-23 14:30` |
+ * | `{ws}/物流单专家/e4fae6588c5f` (legacy) | `物流单专家` |
+ * | normal project folder | last segment |
  */
 export function formatExpertWorkspaceListLabel(path: string): string {
   const segments = path
@@ -61,17 +88,22 @@ export function formatExpertWorkspaceListLabel(path: string): string {
   const last = segments[segments.length - 1] ?? path.trim();
   const parent = segments[segments.length - 2];
 
+  // Preferred: parent agent folder + time-only child
+  if (parent) {
+    const timeOnly = formatTimeStampLabel(last);
+    if (timeOnly) return `${parent} / ${timeOnly}`;
+  }
+
+  // Intermediate: name-stamp in one segment (previous iteration)
   const namedStamp = last.match(/^(.+)-(\d{4}-\d{2}-\d{2})-(\d{6})$/);
   if (namedStamp) {
     const [, name, date, time] = namedStamp;
-    const hh = time.slice(0, 2);
-    const mm = time.slice(2, 4);
-    return `${name} · ${date} ${hh}:${mm}`;
+    return `${name} / ${date} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
   }
 
-  // Legacy: 12-char hex session key under `{agentName}/`
+  // Legacy opaque hex under agent — show expert name only (no hash).
   if (parent && /^[a-f0-9]{12}$/i.test(last)) {
-    return `${parent} · ${last.slice(0, 6)}`;
+    return parent;
   }
 
   return last;
@@ -113,6 +145,8 @@ export const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
  * Build an isolated session directory under the workspace when the user did
  * not pick an explicit folder.
  *
+ * Layout: `{workspaceRoot}/{agentName}/{YYYY-MM-DD_HHmmss}/`
+ *
  * Callers must materialize the directory (write the marker file) before
  * binding the opencode session — opencode realPath fails if the path is missing.
  */
@@ -129,8 +163,8 @@ export function buildIsolatedExpertSessionDirectory(input: {
   markerContent: string;
 } {
   const agentSegment = sanitizePathSegment(input.agentName, "expert");
-  const sessionKey =
-    input.sessionKey?.trim() || createExpertSessionKey(agentSegment);
+  // Time-only child folder; agent name lives in the parent segment only.
+  const sessionKey = input.sessionKey?.trim() || createExpertSessionKey();
   const directory = joinWorkspacePath(input.workspaceRoot, agentSegment, sessionKey);
   const markerRelativePath = relativePosixPath(
     agentSegment,

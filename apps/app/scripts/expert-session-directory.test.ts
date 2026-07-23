@@ -4,6 +4,7 @@ import {
   createExpertSessionKey,
   formatExpertSessionStamp,
   formatExpertWorkspaceListLabel,
+  isExpertSessionTimeStamp,
   isSameDirectory,
   joinWorkspacePath,
   resolveExpertSessionDirectoryMarker,
@@ -19,42 +20,52 @@ describe("expert session directory isolation", () => {
     expect(sanitizePathSegment("...")).toBe("expert");
   });
 
-  test("creates readable name-date session keys for experts", () => {
+  test("creates time-only session keys (no hash, no embedded agent name)", () => {
     const stamp = formatExpertSessionStamp(new Date("2026-07-23T14:30:52"));
-    expect(stamp).toBe("2026-07-23-143052");
+    expect(stamp).toBe("2026-07-23_143052");
+    expect(isExpertSessionTimeStamp(stamp)).toBe(true);
+    // Agent name is ignored for the key — it is the parent folder only.
     const key = createExpertSessionKey("物流单专家");
-    expect(key.startsWith("物流单专家-")).toBe(true);
-    expect(key).toMatch(/^物流单专家-\d{4}-\d{2}-\d{2}-\d{6}$/);
+    expect(key).toMatch(/^\d{4}-\d{2}-\d{2}_\d{6}$/);
+    expect(key.includes("物流")).toBe(false);
   });
 
-  test("formats list labels for new and legacy expert folders", () => {
+  test("formats list labels as 专家名 / 时间 (never hash)", () => {
+    expect(
+      formatExpertWorkspaceListLabel(
+        "/Users/me/Workspace/物流单专家/2026-07-23_143052",
+      ),
+    ).toBe("物流单专家 / 2026-07-23 14:30");
+    // Intermediate name-stamp form still maps cleanly.
     expect(
       formatExpertWorkspaceListLabel(
         "/Users/me/Workspace/物流单专家/物流单专家-2026-07-23-143052",
       ),
-    ).toBe("物流单专家 · 2026-07-23 14:30");
+    ).toBe("物流单专家 / 2026-07-23 14:30");
+    // Legacy hex: show expert name only — do not surface the hash.
     expect(
       formatExpertWorkspaceListLabel(
         "/Users/me/Workspace/物流单专家/e4fae6588c5f",
       ),
-    ).toBe("物流单专家 · e4fae6");
+    ).toBe("物流单专家");
     expect(formatExpertWorkspaceListLabel("/Users/me/Projects/my-app")).toBe(
       "my-app",
     );
   });
 
-  test("builds AgentName/sessionKey under the workspace root", () => {
+  test("builds AgentName/time under the workspace root", () => {
     const isolated = buildIsolatedExpertSessionDirectory({
       workspaceRoot: "/Users/me/Workspace",
       agentName: "物流单专家",
-      sessionKey: "物流单专家-2026-07-23-143052",
+      sessionKey: "2026-07-23_143052",
     });
     expect(isolated.directory).toBe(
-      "/Users/me/Workspace/物流单专家/物流单专家-2026-07-23-143052",
+      "/Users/me/Workspace/物流单专家/2026-07-23_143052",
     );
     expect(isolated.agentSegment).toBe("物流单专家");
+    expect(isolated.sessionKey).toBe("2026-07-23_143052");
     expect(isolated.markerRelativePath).toBe(
-      "物流单专家/物流单专家-2026-07-23-143052/onmyagent-session.json",
+      "物流单专家/2026-07-23_143052/onmyagent-session.json",
     );
     expect(isolated.markerContent).toContain("expert-session");
   });
@@ -102,11 +113,11 @@ describe("expert session directory isolation", () => {
     ).toBe("/Users/me/Work");
     expect(
       resolveSelectedSessionFileRoot({
-        boundDirectory: "/Users/me/Work/物流单专家/abc",
+        boundDirectory: "/Users/me/Work/物流单专家/2026-07-23_143052",
         sessionDirectory: "/Users/me/Work",
         workspaceRoot: "/Users/me/Work",
       }),
-    ).toBe("/Users/me/Work/物流单专家/abc");
+    ).toBe("/Users/me/Work/物流单专家/2026-07-23_143052");
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "",
