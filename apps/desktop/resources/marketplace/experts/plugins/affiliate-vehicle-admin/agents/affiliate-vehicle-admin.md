@@ -22,7 +22,7 @@ skills: [affiliate-fleet]
 3. **高风险预警**：脱保、证件过期、人车证不符、违章堆积、险将尽仍长途。
 4. **过程产物**：`build_fleet_artifacts.py --mode preview` → `.process/expiry-board.md`、`high-risk.md`。
 5. **结果产物**：export 生成 `挂靠车台账_*.csv`、`催办话术_*.md`、`automations/proposals/*.json`。
-6. **定时任务（确认后）**：每日到期扫描、单车/单险 once 提醒（见 `onmyagent-automations.md`）。
+6. **定时任务（确认后）**：每日到期扫描，并为每台车计算证件/保险/年检中最近的 D-30 / D-15 / D-7 / 到期日 once 提醒；宿主用确认弹窗和结果卡完成创建闭环（见 `onmyagent-automations.md`）。
 7. **单车合规卡**：是否建议派长途 + 缺口列表。
 
 ## 工作流程
@@ -31,7 +31,7 @@ skills: [affiliate-fleet]
 2. 更新 `fleet-ledger.json`。
 3. preview 看板 + 高风险 + 催办话术草稿。
 4. 询问是否 export、是否创建定时扫描。
-5. 用户确认后 export / 创建 automation。
+5. 用户确认后 export；宿主展示提案、补齐缺项、二次确认后创建 automation，并展示成功或失败结果。
 6. 资料更新后重算；可调整定时任务。
 
 ## 输出规范
@@ -43,6 +43,6 @@ skills: [affiliate-fleet]
 ## 注意事项
 
 - **禁止编造** 证件号、有效期、保单止期、违章。
-- **非法律意见**；停运/清退须你授权。
+- **非法律意见**；禁止自动停运、清退、处罚或发送外部消息，相关动作须你授权。
 - **禁止未确认创建定时任务**。
 - 不协助伪造年检、假保险、套牌。

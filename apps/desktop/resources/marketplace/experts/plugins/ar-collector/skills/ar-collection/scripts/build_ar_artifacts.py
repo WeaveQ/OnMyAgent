@@ -7,9 +7,10 @@ import argparse
 import csv
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 def text(value: Any) -> str:
@@ -236,6 +237,68 @@ def write_daily_automation_proposal(path: Path) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def next_reminder(due: date, not_before: date) -> tuple[date, str] | None:
+    candidates = [
+        (due - timedelta(days=7), "到期前7天"),
+        (due, "到期日"),
+        (due + timedelta(days=3), "逾期3天"),
+        (due + timedelta(days=15), "逾期15天"),
+    ]
+    return next((item for item in candidates if item[0] >= not_before), None)
+
+
+def write_invoice_proposals(
+    proposal_dir: Path,
+    rows: list[dict[str, Any]],
+    as_of: date,
+) -> list[Path]:
+    proposal_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    not_before = max(as_of, date.today())
+    timezone = ZoneInfo("Asia/Shanghai")
+    for row in rows:
+        if text(row.get("status")) == "paid" or float(row.get("amountOpen") or 0) <= 0:
+            continue
+        due = parse_date(text(row.get("dueDate")))
+        if due is None:
+            continue
+        reminder = next_reminder(due, not_before)
+        if reminder is None:
+            continue
+        reminder_date, node = reminder
+        customer = text(row.get("customer")) or "客户"
+        invoice = text(row.get("invoiceNo")) or "未编号"
+        amount = text(row.get("amountOpen")) or "0"
+        when = datetime.combine(reminder_date, time(hour=9), timezone)
+        payload = {
+            "scene": "office",
+            "title": f"应收催收·{customer}·{invoice}·{node}",
+            "prompt": (
+                f"你是应收催收作业专家。读取 ar-ledger.json，只核对客户 {customer}、票号 {invoice} "
+                f"当前余额与回款状态；若仍未结清，按 {node} 阶段生成可转发但不自动发送的催收话术，"
+                "并提示负责人确认。禁止编造金额、承诺或付款状态。"
+            ),
+            "schedule": {
+                "mode": "once",
+                "day": "daily",
+                "time": "09:00",
+                "onceAt": int(when.timestamp() * 1000),
+                "timezone": "Asia/Shanghai",
+            },
+            "enabled": True,
+            "metadata": {
+                "customer": customer,
+                "invoiceNo": invoice,
+                "amountOpenAtProposal": amount,
+                "node": node,
+            },
+        }
+        path = proposal_dir / f"ar-{slug(customer)}-{slug(invoice)}-next.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        paths.append(path)
+    return paths
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, type=Path)
@@ -263,7 +326,13 @@ def main() -> None:
         write_csv(csv_path, rows, as_of)
         write_scripts_pack(scripts_path, rows, as_of)
         write_daily_automation_proposal(proposal_path)
-        files.extend([str(csv_path), str(scripts_path), str(proposal_path)])
+        invoice_proposals = write_invoice_proposals(proposal_path.parent, rows, as_of)
+        files.extend([
+            str(csv_path),
+            str(scripts_path),
+            str(proposal_path),
+            *[str(path) for path in invoice_proposals],
+        ])
 
     print(json.dumps({
         "ok": True,

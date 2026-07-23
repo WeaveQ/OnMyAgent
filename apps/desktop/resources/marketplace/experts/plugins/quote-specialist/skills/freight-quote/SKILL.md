@@ -17,6 +17,15 @@ description: 专线/零担询价与结构报价方法论。当需要根据线路
 6. **结构填表**：`references/quote-structure.md`；非用户成本数字标 `示意`。
 7. **底价与成交带**：有成本/历史价则汇总；无则公式 + 待填；附本票价格备忘便于沉淀。
 8. **话术**：`references/sales-scripts.md`（含运力紧张、老客户弹性、守底价）。
+9. **落盘实算**：按 `references/data-protocol.md` 维护 `quote-request.json`，先 preview：
+   ```bash
+   python3 <Skill根目录>/scripts/build_quote_artifacts.py --input quote-request.json --output-dir . --mode preview
+   ```
+10. **人工核对后 export**：
+    ```bash
+    python3 <Skill根目录>/scripts/build_quote_artifacts.py --input quote-request.json --output-dir . --mode export
+    ```
+    export 生成三档 Markdown/CSV 与砍价话术；底价保护看板在 `.process/quote-floor-guard.md`。
 
 ## 铁律
 
@@ -25,6 +34,8 @@ description: 专线/零担询价与结构报价方法论。当需要根据线路
 - 拒绝为明显超载、假吨方、无资质危化出违法建议。
 - 总价 = 分项之和；折扣写在成交带，不偷偷改表。
 - 历史合作价值/运力松紧 **仅在有依据时** 写入策略，禁止虚构客户等级。
+- 缺少任一成本字段时只输出结构和缺口，禁止生成貌似真实的报价金额。
+- 禁止自动向客户发送报价；最终档位、成交价与服务边界必须由用户拍板。
 
 ## 参考资料
 
@@ -34,3 +45,5 @@ description: 专线/零担询价与结构报价方法论。当需要根据线路
 - `references/three-options.md` — 三档方案定义与对比
 - `references/quote-structure.md` — 费用结构表与计费口径
 - `references/sales-scripts.md` — 报价与砍价话术
+- `references/data-protocol.md` — `quote-request.json` 字段、公式与产物协议
+- `scripts/build_quote_artifacts.py` — 可复现 preview/export 执行器

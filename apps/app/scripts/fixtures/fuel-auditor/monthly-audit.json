@@ -1,0 +1,56 @@
+{
+  "asOfDate": "2026-07-23",
+  "period": "2026 年 6 月",
+  "vehicles": [
+    {
+      "plate": "皖A·D8201",
+      "driver": "张师傅",
+      "vehicleType": "9.6 高栏",
+      "lane": "合肥-广州",
+      "tankCapacityLiters": 400,
+      "distanceKm": 1000,
+      "baseline": { "low": 24, "high": 28, "source": "same-lane-history" },
+      "fills": [
+        {
+          "at": "2026-06-12 08:20",
+          "station": "合肥东定点站",
+          "stationRegion": "合肥",
+          "vehicleRegionAtFill": "合肥",
+          "liters": 190,
+          "amount": 1450,
+          "isNetworkStation": true
+        },
+        {
+          "at": "2026-06-19 20:10",
+          "station": "南京北临时站",
+          "stationRegion": "南京",
+          "vehicleRegionAtFill": "芜湖",
+          "liters": 190,
+          "amount": 1400,
+          "isNetworkStation": false,
+          "distanceSincePreviousKm": 340
+        }
+      ]
+    },
+    {
+      "plate": "苏E·5T701",
+      "driver": "李师傅",
+      "vehicleType": "9.6 高栏",
+      "lane": "合肥-广州",
+      "tankCapacityLiters": 400,
+      "distanceKm": 1040,
+      "baseline": { "low": 24, "high": 28, "source": "same-lane-history" },
+      "fills": [
+        {
+          "at": "2026-06-13 09:00",
+          "station": "合肥东定点站",
+          "stationRegion": "合肥",
+          "vehicleRegionAtFill": "合肥",
+          "liters": 260,
+          "amount": 1980,
+          "isNetworkStation": true
+        }
+      ]
+    }
+  ]
+}

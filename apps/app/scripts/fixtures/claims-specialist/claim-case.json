@@ -1,0 +1,28 @@
+{
+  "caseId": "CLM-YD8899",
+  "asOfDate": "2026-07-23",
+  "incidentType": "damage",
+  "waybillNo": "YD8899",
+  "route": "广州→杭州",
+  "incidentTime": "2026-07-22T16:30:00+08:00",
+  "customerDemandAmount": 8000,
+  "facts": {
+    "packagingAtPickup": "外箱完好，交接单有签字",
+    "deliveryCondition": "外箱破损，仪器面板开裂",
+    "initialCause": "待查证"
+  },
+  "evidence": [
+    { "type": "waybill", "status": "available", "description": "电子运单" },
+    { "type": "timeline", "status": "weak", "description": "仅有装卸时间" },
+    { "type": "customer_demand", "status": "available", "description": "客户微信诉求截图" },
+    { "type": "delivery_photos", "status": "available", "description": "卸货照片3张" },
+    { "type": "loading_photos", "status": "missing", "description": "待司机补" },
+    { "type": "handover_record", "status": "available", "description": "交接单" },
+    { "type": "driver_statement", "status": "weak", "description": "只有口头说明" },
+    { "type": "value_proof", "status": "missing", "description": "待客户提供" }
+  ],
+  "progress": [
+    { "node": "立案", "status": "done", "owner": "客服", "nextDate": "2026-07-23", "notes": "已登记" },
+    { "node": "报案", "status": "pending", "owner": "理赔", "nextDate": "2026-07-24", "notes": "待保单号" }
+  ]
+}
