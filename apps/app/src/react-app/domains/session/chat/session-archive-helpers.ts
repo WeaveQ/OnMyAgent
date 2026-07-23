@@ -155,22 +155,90 @@ export function groupSessionsByAgent(
     .sort((a, b) => b.sessions.length - a.sessions.length);
 }
 
+/** Whole-line harness / protocol tags that must never appear as archive list titles. */
+const ARCHIVE_TITLE_HARNESS_TAG_LINE =
+  /^<\/?(?:user_info|user_query|user-request|system-reminder|system_reminder|available_skills|tool_call|function_call|INSTRUCTIONS|auto-slash-command|command-instruction|function_results|tool_result|mediaimage|img)(?:\s[^>]*)?\/?>$/i;
+
+/** Pure XML/HTML tag line (e.g. `<user_info>` or `</user_info>`). */
+const ARCHIVE_TITLE_PURE_TAG_LINE = /^<\/?[A-Za-z_][\w:.-]*(?:\s[^>]*)?\/?>$/;
+
+function truncateArchiveTitleLine(line: string): string {
+  const text = line.trim();
+  if (text.length <= 80) return text;
+  return `${text.slice(0, 77)}…`;
+}
+
 /**
- * Drop protocol noise (JSON-RPC, empty) so list titles stay human-readable.
+ * Pull a human-readable first line from raw archive title / first_message text.
+ * Prefer real user intent inside `<user_query>` / `<user-request>`; never surface
+ * harness shells like `<user_info>` or `<system-reminder>` as the list title.
+ */
+export function extractArchiveTitleLine(raw: string): string | null {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) {
+    return null;
+  }
+  if (text.startsWith("[") && text.length > 80) return null;
+
+  // Prefer explicit user intent wrappers (Grok / harness transcripts).
+  const wrapped =
+    text.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/i)?.[1]
+    ?? text.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i)?.[1];
+  if (wrapped?.trim()) {
+    const line = wrapped.trim().split(/\r?\n/).find((row) => row.trim().length > 0)?.trim();
+    if (line && line.length >= 1 && !ARCHIVE_TITLE_PURE_TAG_LINE.test(line)) {
+      return truncateArchiveTitleLine(line);
+    }
+  }
+
+  // Drop whole harness blocks (not just the open/close tags) so block body
+  // like "OS Version: …" never becomes the list title either.
+  const withoutHarnessBlocks = text
+    .replace(
+      /<(?:user_info|system-reminder|system_reminder|available_skills|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction)\b[^>]*>[\s\S]*?<\/(?:user_info|system-reminder|system_reminder|available_skills|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction)\s*>/gi,
+      "\n",
+    )
+    // Unclosed opening tags that are pure noise lines.
+    .replace(
+      /<\/?(?:user_info|system-reminder|system_reminder|available_skills|user_query|user-request|function_results|tool_result)\b[^>]*\/?>/gi,
+      "\n",
+    );
+
+  // Walk lines: skip pure tags and harness noise; take first meaningful prose.
+  for (const row of withoutHarnessBlocks.split(/\r?\n/)) {
+    const line = row.trim();
+    if (!line) continue;
+    if (ARCHIVE_TITLE_HARNESS_TAG_LINE.test(line) || ARCHIVE_TITLE_PURE_TAG_LINE.test(line)) {
+      continue;
+    }
+    if (line.startsWith("{") && (line.includes("jsonrpc") || line.includes('"method"'))) {
+      continue;
+    }
+    if (line.length >= 1) return truncateArchiveTitleLine(line);
+  }
+
+  // Last resort: strip all angle-bracket tags and take first remaining words.
+  const stripped = withoutHarnessBlocks
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (stripped.length >= 2) return truncateArchiveTitleLine(stripped);
+  return null;
+}
+
+/**
+ * Drop protocol noise (JSON-RPC, harness tags, empty) so list titles stay human-readable.
  * Hermes first_message is often `{"jsonrpc":"2.0",...}` — never show that.
+ * Grok first_message often starts with `<user_info>` — prefer `<user_query>` body.
  */
 export function humanizeArchiveTitle(
   session: Pick<OnMyAgentSessionArchiveSession, "display_name" | "first_message" | "id" | "project" | "agent">,
 ): string {
   const candidates = [session.display_name, session.first_message];
   for (const raw of candidates) {
-    const text = String(raw ?? "").trim();
-    if (!text) continue;
-    if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) continue;
-    if (text.startsWith("[") && text.length > 80) continue;
-    // Collapse whitespace; keep first line only.
-    const line = text.split(/\r?\n/)[0]?.trim() ?? text;
-    if (line.length >= 2) return line.length > 80 ? `${line.slice(0, 77)}…` : line;
+    const line = extractArchiveTitleLine(String(raw ?? ""));
+    if (line) return line;
   }
   const project = String(session.project ?? "").trim();
   if (project) {
