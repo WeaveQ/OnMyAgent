@@ -1486,8 +1486,11 @@ export function AssistantPage(props: AssistantPageProps) {
                         fileTargets={artifactFileTargets}
                         focusPath={artifactTarget?.value ?? null}
                         focusToken={artifactFocusToken}
-                        workspaceId={props.runtimeWorkspaceId}
+                        workspaceId={
+                          props.runtimeWorkspaceId ?? props.selectedWorkspaceId
+                        }
                         sessionId={browserSessionScopeId}
+                        automationSourceSessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}
                         initialKind={
                           activeSidePanel === "review"
@@ -1501,6 +1504,7 @@ export function AssistantPage(props: AssistantPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           assistantCategoryId === "office"
                             ? ["review", "terminal"]
