@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useReducer, useRef } from "react";
 import type { QuestionInfo } from "@opencode-ai/sdk/v2/client";
-import { Check, ChevronRight, HelpCircle } from "lucide-react";
+import { Check, ChevronRight, HelpCircle, Trash2 } from "lucide-react";
 
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export type QuestionPanelProps = {
   questions: QuestionInfo[];
   busy: boolean;
   onReply: (answers: string[][]) => void;
+  onDismiss?: () => void;
 };
 
 /** Stable key so host multi-step flows (fixed id) reset when copy changes. */
@@ -193,6 +194,19 @@ export function QuestionPanel(props: QuestionPanelProps) {
               {currentQuestion.question}
             </div>
           </div>
+          {props.onDismiss ? (
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className="mt-0.5 shrink-0 text-dls-secondary hover:text-dls-text"
+              onClick={props.onDismiss}
+              disabled={props.busy}
+              aria-label={t("session.goal_runtime_clear")}
+            >
+              <Trash2 size={12} />
+            </Button>
+          ) : null}
         </div>
       </div>
 
