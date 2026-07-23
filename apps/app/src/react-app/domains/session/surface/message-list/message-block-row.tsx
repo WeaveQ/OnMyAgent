@@ -191,10 +191,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
           ) : null}
         </div>
         <TranscriptCancelledIndicator presentation={turnPresentation} />
-        <TranscriptTurnActions
-          presentation={turnPresentation}
-          onForkAtMessage={props.onForkAtMessage}
-        />
+        <TranscriptTurnActions presentation={turnPresentation} />
       </div>
     );
   }
@@ -252,10 +249,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
         </div>
         <TranscriptCancelledIndicator presentation={turnPresentation} />
         {turnPresentation ? (
-          <TranscriptTurnActions
-            presentation={turnPresentation}
-            onForkAtMessage={props.onForkAtMessage}
-          />
+          <TranscriptTurnActions presentation={turnPresentation} />
         ) : null}
       </div>
     );
@@ -325,10 +319,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
         </div>
         <TranscriptCancelledIndicator presentation={turnPresentation} />
         {turnPresentation ? (
-          <TranscriptTurnActions
-            presentation={turnPresentation}
-            onForkAtMessage={props.onForkAtMessage}
-          />
+          <TranscriptTurnActions presentation={turnPresentation} />
         ) : null}
       </div>
     );
@@ -502,10 +493,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
       ) : null}
       <TranscriptCancelledIndicator presentation={turnPresentation} />
       {turnPresentation ? (
-        <TranscriptTurnActions
-          presentation={turnPresentation}
-          onForkAtMessage={props.onForkAtMessage}
-        />
+        <TranscriptTurnActions presentation={turnPresentation} />
       ) : null}
     </div>
   );

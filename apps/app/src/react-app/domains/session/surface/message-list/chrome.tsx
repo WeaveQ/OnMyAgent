@@ -400,8 +400,6 @@ export function TranscriptCancelledIndicator(props: {
 
 export function TranscriptTurnActions(props: {
   presentation: TranscriptBlockTurnPresentation;
-  /** Kept for call-site compatibility; fork UI is not rendered. */
-  onForkAtMessage?: (messageId: string) => void;
 }) {
   if (
     !props.presentation.isActionBlock ||
