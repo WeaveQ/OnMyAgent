@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build AR collection board / follow-up list / CSV / automation proposals from ar-ledger.json."""
+"""Build AR collection board / follow-up list / Excel+CSV / automation proposals from ar-ledger.json."""
 
 from __future__ import annotations
 
@@ -7,9 +7,11 @@ import argparse
 import csv
 import json
 import re
+import zipfile
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
+from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
 
@@ -156,30 +158,178 @@ def build_follow_ups(rows: list[dict[str, Any]], as_of: date) -> str:
     return "\n".join(lines)
 
 
+LEDGER_FIELDS = [
+    "customer",
+    "invoiceNo",
+    "amountInvoiced",
+    "amountPaid",
+    "amountOpen",
+    "dueDate",
+    "agingDays",
+    "status",
+    "nextNode",
+    "owner",
+    "riskFlags",
+]
+
+
+def row_risk_flags(row: dict[str, Any]) -> str:
+    risk = row.get("riskFlags")
+    if isinstance(risk, list):
+        return ",".join(text(item) for item in risk if text(item))
+    return text(risk)
+
+
+def row_has_risk(row: dict[str, Any], as_of: date) -> bool:
+    flags = row_risk_flags(row)
+    if flags:
+        return True
+    status = text(row.get("status")).lower()
+    if status in {"overdue", "chronic_late", "disputed"}:
+        return True
+    due = parse_date(text(row.get("dueDate")))
+    days = aging_days(due, as_of) if due else None
+    if days is not None and days > 15:
+        return True
+    return False
+
+
+def ledger_export_rows(rows: list[dict[str, Any]], as_of: date) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for row in rows:
+        due = parse_date(text(row.get("dueDate")))
+        out.append({
+            "customer": text(row.get("customer")),
+            "invoiceNo": text(row.get("invoiceNo")),
+            "amountInvoiced": text(row.get("amountInvoiced")),
+            "amountPaid": text(row.get("amountPaid")),
+            "amountOpen": text(row.get("amountOpen")),
+            "dueDate": due.isoformat() if due else text(row.get("dueDate")),
+            "agingDays": "" if aging_days(due, as_of) is None else str(aging_days(due, as_of)),
+            "status": text(row.get("status")),
+            "nextNode": text(row.get("nextNode")) or node_for_row(due, as_of),
+            "owner": text(row.get("owner")),
+            "riskFlags": row_risk_flags(row),
+            "_risk": "1" if row_has_risk(row, as_of) else "",
+        })
+    return out
+
+
 def write_csv(path: Path, rows: list[dict[str, Any]], as_of: date) -> None:
-    fields = [
-        "customer", "invoiceNo", "amountInvoiced", "amountPaid", "amountOpen",
-        "dueDate", "agingDays", "status", "nextNode", "owner", "riskFlags",
-    ]
+    export_rows = ledger_export_rows(rows, as_of)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=LEDGER_FIELDS, extrasaction="ignore")
         writer.writeheader()
-        for row in rows:
-            due = parse_date(text(row.get("dueDate")))
-            risk = row.get("riskFlags")
-            writer.writerow({
-                "customer": text(row.get("customer")),
-                "invoiceNo": text(row.get("invoiceNo")),
-                "amountInvoiced": text(row.get("amountInvoiced")),
-                "amountPaid": text(row.get("amountPaid")),
-                "amountOpen": text(row.get("amountOpen")),
-                "dueDate": due.isoformat() if due else text(row.get("dueDate")),
-                "agingDays": aging_days(due, as_of) if due else "",
-                "status": text(row.get("status")),
-                "nextNode": text(row.get("nextNode")) or node_for_row(due, as_of),
-                "owner": text(row.get("owner")),
-                "riskFlags": ",".join(risk) if isinstance(risk, list) else text(risk),
-            })
+        for row in export_rows:
+            writer.writerow(row)
+
+
+def _col_letter(index: int) -> str:
+    # 0 -> A
+    n = index + 1
+    letters = ""
+    while n:
+        n, rem = divmod(n - 1, 26)
+        letters = chr(65 + rem) + letters
+    return letters
+
+
+def write_xlsx(path: Path, rows: list[dict[str, Any]], as_of: date) -> None:
+    """Write a minimal .xlsx (stdlib only) with risk rows highlighted in red."""
+    export_rows = ledger_export_rows(rows, as_of)
+    headers = LEDGER_FIELDS
+
+    # style 0 = header, 1 = normal, 2 = risk (red fill)
+    sheet_rows: list[str] = []
+    # header
+    cells = []
+    for col, header in enumerate(headers):
+        ref = f"{_col_letter(col)}1"
+        cells.append(
+            f'<c r="{ref}" t="inlineStr" s="1"><is><t>{escape(header)}</t></is></c>'
+        )
+    sheet_rows.append(f'<row r="1">{"".join(cells)}</row>')
+
+    for r_idx, row in enumerate(export_rows, start=2):
+        style = "2" if row.get("_risk") else "0"
+        cells = []
+        for col, field in enumerate(headers):
+            ref = f"{_col_letter(col)}{r_idx}"
+            value = escape(row.get(field, "") or "")
+            cells.append(
+                f'<c r="{ref}" t="inlineStr" s="{style}"><is><t>{value}</t></is></c>'
+            )
+        sheet_rows.append(f'<row r="{r_idx}">{"".join(cells)}</row>')
+
+    sheet_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<sheetData>{"".join(sheet_rows)}</sheetData>'
+        "</worksheet>"
+    )
+
+    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="3">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="1"><border/></borders>
+  <cellStyleXfs count="1"><xf/></cellStyleXfs>
+  <cellXfs count="3">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>
+  </cellXfs>
+</styleSheet>
+"""
+
+    workbook_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="应收台账" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>
+"""
+
+    workbook_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>
+"""
+
+    root_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>
+"""
+
+    content_types = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>
+"""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", content_types)
+        zf.writestr("_rels/.rels", root_rels)
+        zf.writestr("xl/workbook.xml", workbook_xml)
+        zf.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
+        zf.writestr("xl/styles.xml", styles_xml)
+        zf.writestr("xl/worksheets/sheet1.xml", sheet_xml)
 
 
 def write_scripts_pack(path: Path, rows: list[dict[str, Any]], as_of: date) -> None:
@@ -320,14 +470,18 @@ def main() -> None:
     files = [str(board_path), str(follow_path)]
     if args.mode == "export":
         stamp = as_of.isoformat().replace("-", "")
+        # Default deliverable is Excel with risk rows in red; CSV kept as sidecar.
+        xlsx_path = args.output_dir / f"应收台账_{stamp}.xlsx"
         csv_path = args.output_dir / f"应收台账_{stamp}.csv"
         scripts_path = args.output_dir / f"催收话术_{stamp}.md"
         proposal_path = args.output_dir / "automations" / "proposals" / "ar-daily-board.json"
+        write_xlsx(xlsx_path, rows, as_of)
         write_csv(csv_path, rows, as_of)
         write_scripts_pack(scripts_path, rows, as_of)
         write_daily_automation_proposal(proposal_path)
         invoice_proposals = write_invoice_proposals(proposal_path.parent, rows, as_of)
         files.extend([
+            str(xlsx_path),
             str(csv_path),
             str(scripts_path),
             str(proposal_path),

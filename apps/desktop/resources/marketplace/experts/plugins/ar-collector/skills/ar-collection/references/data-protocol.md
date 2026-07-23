@@ -9,7 +9,8 @@
 | `ar-ledger.json` | 单一业务数据源（台账行、回款、跟进、节点） |
 | `.process/ar-board.md` | 过程产物：催收看板 Markdown（可覆盖） |
 | `.process/follow-ups.md` | 过程产物：今日/本周催收清单 |
-| `应收台账_*.csv` | 结果产物：台账导出（用户确认后） |
+| `应收台账_*.xlsx` | 结果产物：台账 Excel（默认；有风险行标红） |
+| `应收台账_*.csv` | 结果产物：台账 CSV 侧车（兼容导入） |
 | `催收话术_*.md` | 结果产物：分阶段话术包（用户确认后） |
 | `automations/proposals/*.json` | 定时任务草稿（用户确认前） |
 
@@ -46,7 +47,7 @@
 }
 ```
 
-字段含义见 `ar-ledger.md`。Agent **只维护本 JSON**；报表/CSV 由脚本从 JSON 生成，禁止手改 CSV 造成不一致。
+字段含义见 `ar-ledger.md`。Agent **只维护本 JSON**；报表/Excel/CSV 由脚本从 JSON 生成，禁止手改表格造成不一致。
 
 ## 状态机
 
@@ -54,7 +55,7 @@
 | --- | --- | --- |
 | `collecting` | 缺起算日/金额/客户等关键字段 | 草稿台账、追问清单 |
 | `ready` | 台账可算节点，用户未确认定时任务 | 看板、话术草稿、automation proposals |
-| `armed` | 用户确认创建/更新定时提醒 | 写入 automations proposals + 结果 CSV/话术包 |
+| `armed` | 用户确认创建/更新定时提醒 | 写入 automations proposals + 结果 Excel/CSV/话术包 |
 
 ## 生成命令
 
@@ -65,8 +66,8 @@ python3 <Skill根目录>/scripts/build_ar_artifacts.py \
   --mode preview
 ```
 
-- **preview**：只写 `.process/*.md`，不写结果 CSV/话术包。  
-- **export**：用户确认后生成 CSV + 话术包 +（可选）automation proposal 文件。
+- **preview**：只写 `.process/*.md`，不写结果表格/话术包。  
+- **export**：用户确认后生成 **Excel（风险行浅红底）** + CSV 侧车 + 话术包 + automation proposal 文件。
 
 ```bash
 python3 <Skill根目录>/scripts/build_ar_artifacts.py \
