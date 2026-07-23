@@ -180,7 +180,7 @@ describe("session archive page helpers", () => {
     expect(agentLabel("vscode-copilot")).toBe("VS Code Copilot");
   });
 
-  it("shortProjectLabel rewrites legacy product folder names for display", () => {
+  it("shortProjectLabel and titles rewrite legacy product folder names", () => {
     const legacy = ["open", "work"].join("");
     const legacyAgentsPath = `/Users/work/${legacy}-agents`;
     expect(shortProjectLabel(legacyAgentsPath)).toBe("onmyagent");
@@ -191,12 +191,23 @@ describe("session archive page helpers", () => {
       humanizeArchiveTitle(
         session({
           id: "ow1",
-          agent: "workbuddy",
+          agent: "grok",
           display_name: null,
           first_message: null,
           project: legacyAgentsPath,
         }),
       ),
-    ).toBe("WorkBuddy · onmyagent");
+    ).toBe("Grok Build · onmyagent");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "ow2",
+          agent: "grok",
+          display_name: `Grok Build · ${legacy}-agents`,
+          first_message: null,
+          project: legacyAgentsPath,
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
   });
 });

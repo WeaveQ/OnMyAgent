@@ -269,6 +269,16 @@ export function shortProjectLabel(project: string | null | undefined): string | 
   return displayProjectFolderName(parts[parts.length - 1] ?? String(project));
 }
 
+/** Rewrite legacy product tokens anywhere in a display string (titles, subtitles). */
+export function rewriteLegacyProductDisplayText(text: string): string {
+  const raw = String(text ?? "");
+  if (!raw) return raw;
+  const legacy = LEGACY_PRODUCT_SLUG;
+  return raw
+    .replace(new RegExp(`\\b${legacy}[-_]?agents\\b`, "gi"), "onmyagent")
+    .replace(new RegExp(`\\b${legacy}\\b`, "gi"), "onmyagent");
+}
+
 /**
  * Drop protocol noise (JSON-RPC, harness tags, empty) so list titles stay human-readable.
  * Hermes first_message is often `{"jsonrpc":"2.0",...}` — never show that.
@@ -280,7 +290,7 @@ export function humanizeArchiveTitle(
   const candidates = [session.display_name, session.first_message];
   for (const raw of candidates) {
     const line = extractArchiveTitleLine(String(raw ?? ""));
-    if (line) return line;
+    if (line) return rewriteLegacyProductDisplayText(line);
   }
   const projectLabel = shortProjectLabel(session.project);
   if (projectLabel) return `${agentLabel(session.agent)} · ${projectLabel}`;

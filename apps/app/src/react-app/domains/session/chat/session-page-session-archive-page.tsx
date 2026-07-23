@@ -399,6 +399,7 @@ export function SessionArchivePage(props: Props) {
               selected={!agentFilter}
               onClick={() => setAgentFilter(null)}
               label={t("session_archive.agent_filter_all")}
+              className="rounded-md"
             />
             {groups.map((g) => {
               const count =
@@ -411,6 +412,7 @@ export function SessionArchivePage(props: Props) {
                   onClick={() =>
                     setAgentFilter(g.agent === agentFilter ? null : g.agent)
                   }
+                  className="rounded-md"
                   label={
                     <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
                       <AgentBrandIcon
@@ -507,7 +509,7 @@ export function SessionArchivePage(props: Props) {
                       onClick={() => setSelectedSessionId(session.id)}
                       aria-current={active ? "true" : undefined}
                       className={cn(
-                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
+                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
                         active
                           ? "bg-dls-list-selected text-dls-text shadow-none"
                           : "text-dls-text hover:bg-dls-list-hover/50",
