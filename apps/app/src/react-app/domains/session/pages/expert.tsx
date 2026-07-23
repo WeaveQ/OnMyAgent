@@ -110,7 +110,10 @@ import {
 import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
-import { WorkspaceFilesPage } from "../../workspace";
+import {
+  WorkspaceFilesPage,
+  resolveToolWorkspaceFileRoot,
+} from "../../workspace";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -1562,6 +1565,13 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          fileRoot={resolveToolWorkspaceFileRoot({
+                            draftWorkspaceDirectory:
+                              props.surface?.draftWorkspace
+                                ?.draftWorkspaceDirectory,
+                            sessionFileRoot: props.selectedSessionFileRoot,
+                            workspaceRoot: props.selectedWorkspaceRoot,
+                          })}
                           onOpenArtifact={openTarget}
                           onEditError={() => showToast({
                             tone: "error",

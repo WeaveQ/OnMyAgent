@@ -75,7 +75,10 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import { AgentManagementPage } from "../../local-agents";
 import { AutomationPage, MessagingChannelsPage } from "../../messaging";
 import { consumeAutomationFocus } from "../artifacts/automation-focus-memory";
-import { WorkspaceFilesPage } from "../../workspace";
+import {
+  WorkspaceFilesPage,
+  resolveToolWorkspaceFileRoot,
+} from "../../workspace";
 import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
   AgentConversationPanel,
@@ -1115,6 +1118,13 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          fileRoot={resolveToolWorkspaceFileRoot({
+                            draftWorkspaceDirectory:
+                              props.surface?.draftWorkspace
+                                ?.draftWorkspaceDirectory,
+                            sessionFileRoot: props.selectedSessionFileRoot,
+                            workspaceRoot: props.selectedWorkspaceRoot,
+                          })}
                           onOpenArtifact={openTarget}
                           onEditError={() => showToast({
                             tone: "error",

@@ -109,7 +109,10 @@ import {
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
 import { MessagingChannelsPage } from "../../messaging";
-import { WorkspaceFilesPage } from "../../workspace";
+import {
+  WorkspaceFilesPage,
+  resolveToolWorkspaceFileRoot,
+} from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
@@ -841,6 +844,13 @@ export function SessionPage(props: SessionPageProps) {
                             props.selectedWorkspaceId
                           }
                           workspaceRoot={props.selectedWorkspaceRoot}
+                          fileRoot={resolveToolWorkspaceFileRoot({
+                            draftWorkspaceDirectory:
+                              props.surface?.draftWorkspace
+                                ?.draftWorkspaceDirectory,
+                            sessionFileRoot: props.selectedSessionFileRoot,
+                            workspaceRoot: props.selectedWorkspaceRoot,
+                          })}
                           onOpenArtifact={openTarget}
                           onEditError={() => showToast({
                             tone: "error",

@@ -1461,6 +1461,17 @@ export type AgentManagementAgent = PersonalLocalAgent & {
   skillCount: number;
 };
 
+export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp";
+
+export type AgentManagementSnapshotInput = {
+  workspaceRoot: string;
+  /** When set, only these domains are loaded. Omit for full legacy snapshot. */
+  domains?: AgentManagementSnapshotDomain[];
+  /** Default false for domain-aware loads; true for full legacy snapshot. */
+  includeModels?: boolean;
+  includeDiscoverable?: boolean;
+};
+
 export type AgentManagementSnapshot = {
   generatedAt: number;
   workspaceRoot: string;
@@ -1468,6 +1479,8 @@ export type AgentManagementSnapshot = {
   skills: AgentManagementSkill[];
   providers: AgentManagementProvidersSnapshot;
   mcp: AgentManagementMcpSnapshot;
+  /** Domains actually populated in this response (partial loads omit others). */
+  loadedDomains?: AgentManagementSnapshotDomain[];
 };
 
 
