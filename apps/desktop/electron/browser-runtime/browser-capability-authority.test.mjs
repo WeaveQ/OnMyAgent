@@ -62,13 +62,7 @@ test("capability tokens reject signature tampering", () => {
     peerIdentity: "sid:user",
   };
   const token = authority.issue(scope);
-  // Flip a character in the middle of the signature segment (not the last
-  // base64url char, which can decode to the same bytes and flake).
-  const [payload, signature] = token.split(".");
-  const mid = Math.floor(signature.length / 2);
-  const flipped =
-    signature[mid] === "A" ? "B" : signature[mid] === "B" ? "C" : "A";
-  const tampered = `${payload}.${signature.slice(0, mid)}${flipped}${signature.slice(mid + 1)}`;
+  const tampered = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
 
   assert.throws(() => authority.verify(tampered, scope), /signature/i);
 });

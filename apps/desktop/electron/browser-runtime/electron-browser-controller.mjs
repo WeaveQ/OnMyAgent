@@ -20,8 +20,7 @@ function defaultBundledPluginsRoot(dirname) {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0] ?? null;
 }
 
-// Product default for user-opened tabs (matches renderer BROWSER_HOME_URL).
-const DEFAULT_URL = "https://www.baidu.com";
+const DEFAULT_URL = "https://www.google.com";
 
 function normalizeUrl(input, fallback = DEFAULT_URL) {
   const value = typeof input === "string" && input.trim() ? input.trim() : fallback;
@@ -101,29 +100,10 @@ export function createElectronBrowserController(options) {
     return view;
   };
 
-  const isWindowAlive = (window) => {
-    if (!window) return false;
-    try {
-      // Electron throws "Object has been destroyed" if we touch a dead window.
-      if (typeof window.isDestroyed === "function" && window.isDestroyed()) {
-        return false;
-      }
-      return Boolean(window.contentView);
-    } catch {
-      return false;
-    }
-  };
-
   const detach = (view) => {
-    if (!view || !isWindowAlive(mainWindow)) return;
-    try {
-      const contentView = mainWindow.contentView;
-      const children = contentView?.children;
-      if (Array.isArray(children) && children.includes(view)) {
-        contentView.removeChildView(view);
-      }
-    } catch {
-      // Window or view already torn down during close — ignore.
+    if (!mainWindow || !view) return;
+    if (mainWindow.contentView.children.includes(view)) {
+      mainWindow.contentView.removeChildView(view);
     }
   };
 
@@ -264,7 +244,7 @@ export function createElectronBrowserController(options) {
     };
   }
 
-  function createBrowserTab(url = DEFAULT_URL, { select = true, sessionId = null } = {}) {
+  function createBrowserTab(url = "about:blank", { select = true, sessionId = null } = {}) {
     const tabId = `tab-${randomUUID()}`;
     const view = createView();
     const tab = originalRegisterUserTab(tabId, view, {
@@ -272,7 +252,7 @@ export function createElectronBrowserController(options) {
     });
     records.set(tabId, { tab, view, favicon: null });
     order.push(tabId);
-    void view.webContents.loadURL(normalizeUrl(url, DEFAULT_URL));
+    void view.webContents.loadURL(normalizeUrl(url, "about:blank"));
     if (select || !activeTabId) activeTabId = tabId;
     attachSelected();
     sendState();
@@ -291,14 +271,11 @@ export function createElectronBrowserController(options) {
     if (!tabId) return null;
     const record = records.get(tabId);
     if (!record) return null;
-    // User can dismiss any tab from the panel X (including agent/claimed).
-    // Agent-owned temporary lifecycle finalize still happens via turnEnded/sessionDeleted.
-    detach(record.view);
-    if (typeof host.forceCloseTab === "function") {
-      host.forceCloseTab(tabId);
-    } else {
-      host.closeUserTab(tabId);
+    if (host.describeTab(tabId).owner !== "user") {
+      throw new Error("Agent tabs must be finalized by their owning session");
     }
+    detach(record.view);
+    host.closeUserTab(tabId);
     records.delete(tabId);
     order = order.filter((id) => id !== tabId);
     if (activeTabId === tabId) activeTabId = order[0] ?? null;
@@ -354,15 +331,7 @@ export function createElectronBrowserController(options) {
     reload() { records.get(activeTabId)?.view.webContents.reload(); },
     openAllowedExternalUrl,
     showBrowserTabContextMenu(_tabId, _point) { return false; },
-    destroyBrowserView() {
-      // Safe during BrowserWindow "closed": detach no-ops if the window is gone.
-      for (const record of records.values()) detach(record.view);
-      records.clear();
-      order = [];
-      activeTabId = null;
-      visible = false;
-      bounds = null;
-    },
+    destroyBrowserView() { for (const record of records.values()) detach(record.view); visible = false; },
     async startRpc({ runtimeDir, instanceId = randomUUID() }) {
       if (rpcServer) return { ...rpcEnvironment };
       const bootstrap = randomBytes(32).toString("base64url");

@@ -1,5 +1,3 @@
-const CONSEQUENTIAL_LABEL = /\b(?:buy|checkout|delete|pay|place\s+order|publish|purchase|send|submit|transfer|confirm\s+order)\b|购买|付款|下单|发布|删除|发送|提交|转账/i;
-
 function validateNavigation(url) {
   if (url === "about:blank") return;
   let parsed;
@@ -16,6 +14,11 @@ function validateNavigation(url) {
   }
 }
 
+/**
+ * In-app browser automation: never show desktop confirmation dialogs.
+ * Navigate is still validated (http/https only, no credentials in URL).
+ * requestApproval is kept for API compatibility but is not used for allow/deny.
+ */
 export function createBrowserSafetyPolicy(options) {
   if (typeof options?.requestApproval !== "function") {
     throw new TypeError("browser safety approval callback is required");
@@ -32,24 +35,15 @@ export function createBrowserSafetyPolicy(options) {
         validateNavigation(action.url);
         return { allowed: true, approval: false };
       }
-      const resource = action.kind === "upload"
-        ? action.path
-        : action.kind === "download"
-          ? action.url
-          : null;
-      const consequential =
-        action.kind === "upload" ||
-        action.kind === "download" ||
-        (action.kind === "click" && CONSEQUENTIAL_LABEL.test(action.label ?? ""));
-      if (!consequential) return { allowed: true, approval: false };
-      const risk = action.kind === "click" ? "destructive" : "careful";
-      const approved = await options.requestApproval({
-        risk,
-        action: { ...action },
-      });
-      if (!approved) throw new Error("browser action approval denied");
-      if (resource) grants.add(grantKey(action.kind, resource));
-      return { allowed: true, approval: true, risk };
+      // Never prompt for click / page-action / upload / download.
+      if (action.kind === "upload") {
+        const path = action.path;
+        if (path) grants.add(grantKey("upload", path));
+      } else if (action.kind === "download") {
+        const url = action.url;
+        if (url) grants.add(grantKey("download", url));
+      }
+      return { allowed: true, approval: false };
     },
     hasGrant(kind, resource) {
       return grants.has(grantKey(kind, resource));
