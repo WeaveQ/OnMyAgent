@@ -1874,6 +1874,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onOpenTarget={props.onOpenTarget}
       onDownloadCodePath={downloadCodePath}
       workspaceRoot={props.workspaceRoot}
+      connectedProviderIds={props.connectedProviderIds}
       assistantStatusFooter={assistantStatusFooter}
       searchQuery={searchQuery}
       searchMatchIdSet={searchMatchIdSet}

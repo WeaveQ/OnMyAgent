@@ -33,7 +33,8 @@ export default {
   "session.no_expert_conversations": "No expert conversations yet",
   "session.no_matching_expert_conversations": "No matching expert conversations",
   "session.no_expert_conversations_title": "No expert conversations yet",
-  "session.no_expert_conversations_desc": "Use the agent button at the top of the left panel to choose an expert and start a conversation. It will appear here after the first message.",
+  "session.no_expert_conversations_desc": "Choose an expert to start a conversation. It will appear here after the first message.",
+  "session.no_expert_conversations_action": "Choose expert",
   "session.expert_marketplace_title": "Experts",
   "session.my_experts": "My experts",
   "session.search_experts_placeholder": "Search expert title or description",
@@ -176,6 +177,12 @@ export default {
   "session.transcript_revert_here": "Revert to this message",
   "session.transcript_token_usage": "Input {input} · cached {cache} · output {output} tokens",
   "session.transcript_token_usage_label": "Token usage: {input} input tokens, {cache} cached tokens, {output} output tokens",
+  "session.transcript_model_removed": "removed",
+  "session.transcript_model_removed_title":
+    "Model used when this message was sent. That provider is no longer in the current configuration and cannot be called again.",
+  "session.model_unavailable_after_removed_title": "Previous model is no longer available",
+  "session.model_unavailable_after_removed_desc":
+    "{model} is not available in the current configuration. Choose another model to continue.",
   "session.transcript_yesterday": "Yesterday",
   "session.expand_pasted_text": "Expand pasted text",
   "session.collapse_pasted_text": "Collapse pasted text",

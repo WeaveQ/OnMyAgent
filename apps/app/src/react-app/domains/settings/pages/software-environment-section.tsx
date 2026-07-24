@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, RefreshCw } from "lucide-react";
 
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
 import {
   SettingsBlock,
   SettingsBlockRow,
@@ -35,6 +36,14 @@ type SoftwareEnvStatus = {
 
 type InstallState = "idle" | "installing" | "installed" | "error";
 type StatusLoadState = "loading" | "ready" | "error";
+
+/**
+ * Session-level cache: checkSoftwareEnv probes the disk and can feel stuck
+ * every time Settings → Environment remounts. Fetch once, then only on
+ * manual refresh (or after install).
+ */
+let softwareEnvStatusCache: SoftwareEnvStatus | null = null;
+let softwareEnvStatusInflight: Promise<SoftwareEnvStatus> | null = null;
 
 function NodeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -108,10 +117,35 @@ const tools = [
   },
 ];
 
+async function fetchSoftwareEnvStatus(options?: {
+  force?: boolean;
+}): Promise<SoftwareEnvStatus> {
+  if (options?.force) {
+    softwareEnvStatusInflight = null;
+  } else if (softwareEnvStatusInflight) {
+    return softwareEnvStatusInflight;
+  }
+  softwareEnvStatusInflight = (async () => {
+    try {
+      const result =
+        (await desktopBridge.checkSoftwareEnv()) as SoftwareEnvStatus;
+      softwareEnvStatusCache = result;
+      return result;
+    } finally {
+      softwareEnvStatusInflight = null;
+    }
+  })();
+  return softwareEnvStatusInflight;
+}
+
 export function SoftwareEnvironmentSection() {
-  const [status, setStatus] = useState<SoftwareEnvStatus | null>(null);
-  const [statusLoadState, setStatusLoadState] =
-    useState<StatusLoadState>("loading");
+  const [status, setStatus] = useState<SoftwareEnvStatus | null>(
+    () => softwareEnvStatusCache,
+  );
+  const [statusLoadState, setStatusLoadState] = useState<StatusLoadState>(() =>
+    softwareEnvStatusCache ? "ready" : "loading",
+  );
+  const [refreshing, setRefreshing] = useState(false);
   const [installing, setInstalling] = useState<Record<string, InstallState>>(
     {},
   );
@@ -119,21 +153,44 @@ export function SoftwareEnvironmentSection() {
   const [installProgress, setInstallProgress] =
     useState<SoftwareEnvironmentProgress | null>(null);
   const installRequestIdRef = useRef("");
+  const didAutoLoadRef = useRef(false);
 
-  const checkStatus = useCallback(async () => {
-    setStatusLoadState("loading");
+  const checkStatus = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
+    if (!force && softwareEnvStatusCache) {
+      setStatus(softwareEnvStatusCache);
+      setStatusLoadState("ready");
+      return softwareEnvStatusCache;
+    }
+    const hasCache = Boolean(softwareEnvStatusCache);
+    // First load: show row spinners. Manual refresh: keep last status, spin the button.
+    if (!hasCache) setStatusLoadState("loading");
+    if (force && hasCache) setRefreshing(true);
     try {
-      const result =
-        (await desktopBridge.checkSoftwareEnv()) as SoftwareEnvStatus;
+      const result = await fetchSoftwareEnvStatus({ force });
       setStatus(result);
       setStatusLoadState("ready");
+      return result;
     } catch {
-      setStatus({ node: false, python: false, opencode: false });
-      setStatusLoadState("error");
+      if (!softwareEnvStatusCache) {
+        setStatus({ node: false, python: false, opencode: false });
+        setStatusLoadState("error");
+      }
+      return softwareEnvStatusCache;
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
+  // First entry in this process: load once. Later remounts reuse the cache.
   useEffect(() => {
+    if (didAutoLoadRef.current) return;
+    didAutoLoadRef.current = true;
+    if (softwareEnvStatusCache) {
+      setStatus(softwareEnvStatusCache);
+      setStatusLoadState("ready");
+      return;
+    }
     void checkStatus();
   }, [checkStatus]);
 
@@ -148,6 +205,10 @@ export function SoftwareEnvironmentSection() {
   if (!isDesktopRuntime()) {
     return null;
   }
+
+  const handleRefresh = () => {
+    void checkStatus({ force: true });
+  };
 
   const handleInstall = async (toolId: string) => {
     if (toolId !== "opencode") return;
@@ -169,7 +230,7 @@ export function SoftwareEnvironmentSection() {
       )) as { ok: boolean; message?: string };
       if (result.ok) {
         setInstalling((prev) => ({ ...prev, [toolId]: "installed" }));
-        await checkStatus();
+        await checkStatus({ force: true });
       } else {
         setInstalling((prev) => ({ ...prev, [toolId]: "error" }));
         setErrorMsg((prev) => ({
@@ -200,13 +261,34 @@ export function SoftwareEnvironmentSection() {
     return installing[toolId] ?? "idle";
   };
 
-  const isStatusLoading = statusLoadState === "loading";
-  const isStatusError = statusLoadState === "error";
+  const isStatusLoading = statusLoadState === "loading" && !status;
+  const isStatusError = statusLoadState === "error" && !status;
 
   return (
     <SettingsPageSection
       title={t("settings.software_env.title")}
       description={t("settings.software_env.description")}
+      actions={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isStatusLoading || refreshing}
+          title={t("settings.software_env.refresh")}
+          aria-label={t("settings.software_env.refresh")}
+        >
+          <RefreshCw
+            className={cn(
+              "mr-1.5 size-3.5",
+              (isStatusLoading || refreshing) && "animate-spin",
+            )}
+          />
+          {refreshing || isStatusLoading
+            ? t("settings.software_env.refreshing")
+            : t("settings.software_env.refresh")}
+        </Button>
+      }
     >
       <SettingsBlock>
         {tools.map((tool) => {
@@ -214,6 +296,7 @@ export function SoftwareEnvironmentSection() {
           const detail = status?.details?.[tool.id];
 
           const actions = (() => {
+            // Only block rows on the very first load (no cache yet).
             if (isStatusLoading) {
               return (
                 <span className="inline-flex items-center gap-1.5 text-sm text-dls-secondary">

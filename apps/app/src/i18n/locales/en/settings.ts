@@ -4,7 +4,7 @@ export default {
   "settings.audit_actor_host": "host",
   "settings.audit_actor_remote": "remote",
   "settings.api_keys_info":
-    "API keys are stored locally on this device. Environment-backed providers must be changed in the worker environment and then reloaded.",
+    "This list is currently available providers (not chat history). API keys are stored on this device. Environment-backed providers must be changed in the worker environment, then reloaded.",
   "settings.appearance_hint": "Match the system or force light/dark mode",
   "settings.appearance_title": "Appearance",
 
@@ -81,6 +81,11 @@ export default {
     "Configuration updated. Reload the engine if the change affects the runtime.",
   "settings.custom_provider_ready":
     "{name} is ready. You can use this model now.",
+  "settings.custom_provider_removed":
+    "{name} was removed from the current configuration. New chats cannot use it; past sessions keep their history.",
+  "settings.custom_provider_remove_failed": "Failed to remove the model provider.",
+  "settings.custom_provider_syncing":
+    "Applying configuration and refreshing the model list…",
   "settings.configure": "Configure",
   "settings.connect_provider": "Connect provider",
   "settings.connection": "Connection",
@@ -361,9 +366,12 @@ export default {
     "Choose the default chat model and reasoning mode",
   "settings.model_title": "Model",
   "settings.no_active_workspace": "No active local workspace.",
-  "settings.no_providers_connected": "No providers connected yet.",
+  "settings.no_providers_connected": "No providers available yet.",
+  "settings.providers_not_configured": "Not configured",
+  "settings.providers_empty_summary": "No model providers added yet",
   "settings.connect_provider_empty_hint":
-    "Use “Connect model provider” above to add one.",
+    "Use “Custom model provider configuration” above for a compatible API, or “Connect model provider” to sign in to a hosted service.",
+  "settings.provider_model_count": "{count} models",
   "settings.no_audit_entries": "No audit entries yet.",
   "settings.no_custom_path_set": "No custom path set",
   "settings.personalization_title": "Personality",
@@ -704,6 +712,8 @@ export default {
   "settings.software_env.description_col": "Description",
   "settings.software_env.status": "Status",
   "settings.software_env.loading": "Loading…",
+  "settings.software_env.refresh": "Refresh status",
+  "settings.software_env.refreshing": "Refreshing…",
   "settings.software_env.status_unavailable": "Status unavailable. Please retry later.",
   "settings.software_env.install": "Install",
   "settings.software_env.installing": "Installing…",
@@ -918,7 +928,8 @@ export default {
   "settings.provider_edit_confirm_desc": "Saving writes to the OpenCode config. Reload the engine for changes to take effect.",
   "settings.provider_edit_confirm_button": "Save changes",
   "settings.provider_delete_confirm_title": "Delete this model provider?",
-  "settings.provider_delete_confirm_desc": "This removes the provider from the OpenCode config. This cannot be undone. Reload the engine for changes to take effect.",
+  "settings.provider_delete_confirm_desc":
+    "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
   "settings.provider_more_actions": "More actions",
   "settings.provider_reload_required_title": "Engine reload required",
   "settings.provider_reload_required_desc":

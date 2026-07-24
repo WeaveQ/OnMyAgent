@@ -299,12 +299,52 @@ function codexCatalogRowsFromSettings(settings: Record<string, unknown>, fallbac
   }));
 }
 
+/**
+ * Resolve model rows for re-edit prefill.
+ * Prefer settingsConfig.models (live opencode.json truth) over provider.models,
+ * which can lag after "add model → save" when inventory rows are partially stale.
+ */
+export function modelsFromProviderSettings(
+  provider: AgentManagementManagedProvider,
+): AgentManagementManagedProvider["models"] {
+  const settings = provider.settingsConfig ?? {};
+
+  // OpenCode: settingsConfig.models is authoritative when present.
+  if (provider.appType === "opencode" && isRecordStringUnknown(settings.models)) {
+    const fromSettings = Object.entries(settings.models).map(([id, value]) => {
+      const row = isRecordStringUnknown(value) ? value : {};
+      const limit = isRecordStringUnknown(row.limit) ? row.limit : {};
+      return {
+        id,
+        name: String(row.name ?? id),
+        ...(limit.context != null ? { contextWindow: limit.context as number | string } : {}),
+        ...(limit.output != null ? { outputTokenLimit: limit.output as number | string } : {}),
+      };
+    });
+    if (fromSettings.length > 0) return fromSettings;
+  }
+
+  if (Array.isArray(settings.models) && settings.models.length > 0) {
+    return settings.models
+      .map((item) => {
+        if (!isRecordStringUnknown(item)) return null;
+        const id = String(item.id ?? item.model ?? item.name ?? "").trim();
+        if (!id) return null;
+        return { id, name: String(item.name ?? id) };
+      })
+      .filter((row): row is { id: string; name: string } => Boolean(row));
+  }
+
+  return Array.isArray(provider.models) ? provider.models : [];
+}
+
 export function providerDraftFromProvider(provider: AgentManagementManagedProvider): ProviderDraft {
   const settings = provider.settingsConfig ?? {};
   const options = isRecordStringUnknown(settings.options) ? settings.options : {};
   const env = isRecordStringUnknown(settings.env) ? settings.env : {};
   const codexAuth = isRecordStringUnknown(settings.auth) ? settings.auth : {};
   const codexConfig = typeof settings.config === "string" ? settings.config : "";
+  const modelList = modelsFromProviderSettings(provider);
   const baseUrl =
     provider.appType === "codex"
       ? extractCodexBaseUrlFromToml(codexConfig)
@@ -317,16 +357,16 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
       : "apiKey" in options
       ? String(options.apiKey ?? "")
       : String(settings.apiKey ?? settings.api_key ?? env.ANTHROPIC_AUTH_TOKEN ?? "");
-  const fallbackClaudeModel = String(env.ANTHROPIC_MODEL ?? env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? provider.models[0]?.id ?? "");
+  const fallbackClaudeModel = String(env.ANTHROPIC_MODEL ?? env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? modelList[0]?.id ?? "");
   return {
     editingId: provider.id,
     id: provider.id,
     name: provider.name,
     baseUrl,
     apiKey,
-    models: provider.models.map((model) => model.id).join("\n"),
-    modelRows: provider.models.length
-      ? provider.models.map((model) => createProviderModelDraftRow({
+    models: modelList.map((model) => model.id).join("\n"),
+    modelRows: modelList.length
+      ? modelList.map((model) => createProviderModelDraftRow({
         id: model.id,
         name: model.name || model.id,
         contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
@@ -343,7 +383,7 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
     claudeOpusName: String(env.ANTHROPIC_DEFAULT_OPUS_MODEL_NAME ?? env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? fallbackClaudeModel),
     claudeFableModel: String(env.ANTHROPIC_DEFAULT_FABLE_MODEL ?? env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? fallbackClaudeModel),
     claudeFableName: String(env.ANTHROPIC_DEFAULT_FABLE_MODEL_NAME ?? env.ANTHROPIC_DEFAULT_FABLE_MODEL ?? env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? fallbackClaudeModel),
-    codexCatalogRows: codexCatalogRowsFromSettings(settings, provider.models),
+    codexCatalogRows: codexCatalogRowsFromSettings(settings, modelList),
     settingsJson: JSON.stringify(provider.settingsConfig ?? {}, null, 2),
   };
 }
@@ -1084,42 +1124,66 @@ export type OpenCodeProviderSavedResult = {
   providerName: string;
   modelId: string | null;
   defaultModel: { providerID: string; modelID: string } | null;
+  /** Fresh OpenCode inventory from the save response (live-first snapshot). */
+  opencodeProviders?: AgentManagementManagedProvider[];
 };
 
 export function OpenCodeProviderConfigDialog(props: {
   workspaceRoot: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When set, open as re-edit and prefill the first-entered fields. */
+  initialProvider?: AgentManagementManagedProvider | null;
   onSaved?: (result: OpenCodeProviderSavedResult) => void | Promise<void>;
 }) {
-  const { open, onOpenChange, onSaved, workspaceRoot } = props;
+  const { open, onOpenChange, onSaved, workspaceRoot, initialProvider = null } = props;
   const [draft, setDraft] = useState<ProviderDraft>(() => defaultProviderDraft("opencode"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Seed draft only when the dialog opens (or switches provider), not when a
+  // background inventory refresh replaces initialProvider with a new object.
+  const seededForOpenKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    setDraft(defaultProviderDraft("opencode"));
+    if (!open) {
+      seededForOpenKeyRef.current = null;
+      return;
+    }
+    const key =
+      initialProvider && initialProvider.appType === "opencode"
+        ? `edit:${initialProvider.id}`
+        : "create";
+    if (seededForOpenKeyRef.current === key) return;
+    seededForOpenKeyRef.current = key;
+    setDraft(
+      initialProvider && initialProvider.appType === "opencode"
+        ? providerDraftFromProvider(initialProvider)
+        : defaultProviderDraft("opencode"),
+    );
     setError(null);
-  }, [open]);
+  }, [open, initialProvider]);
 
   const submit = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setError(null);
+    const isEdit = Boolean(draft.editingId);
     try {
+      // Form fields are the source of truth. Never re-send the settingsJson
+      // snapshot from open — it freezes the pre-edit model list and makes
+      // "add model → save → re-open" show the old catalog.
       const result = await agentManagementProviderAction({
         action: "save",
         appType: "opencode",
         syncLive: true,
-        setDefault: true,
+        // Create = fill-and-use; re-edit keeps the current default model selection.
+        setDefault: !isEdit,
         workspaceRoot,
         provider: {
-          id: draft.id,
+          id: draft.editingId || draft.id,
           name: draft.name,
-          settingsConfig: draft.settingsJson.trim() ? draft.settingsJson : undefined,
           simple: {
-            id: draft.id,
+            id: draft.editingId || draft.id,
             name: draft.name,
             baseUrl: draft.baseUrl,
             apiKey: draft.apiKey,
@@ -1137,7 +1201,7 @@ export function OpenCodeProviderConfigDialog(props: {
           },
         },
       });
-      const providerId = String(result?.providerId ?? draft.id).trim() || draft.id;
+      const providerId = String(result?.providerId ?? draft.editingId ?? draft.id).trim() || draft.id;
       const modelId =
         typeof result?.defaultModelId === "string" && result.defaultModelId.trim()
           ? result.defaultModelId.trim()
@@ -1150,16 +1214,20 @@ export function OpenCodeProviderConfigDialog(props: {
               providerID: result.defaultModel.providerID,
               modelID: result.defaultModel.modelID,
             }
-          : modelId
+          : !isEdit && modelId
             ? { providerID: providerId, modelID: modelId }
             : null;
       setDraft(defaultProviderDraft("opencode"));
       onOpenChange(false);
+      const opencodeProviders = Array.isArray(result?.providers?.byAgent?.opencode)
+        ? (result.providers.byAgent.opencode as AgentManagementManagedProvider[])
+        : undefined;
       await onSaved?.({
         providerId,
         providerName: draft.name.trim() || providerId,
         modelId,
         defaultModel,
+        opencodeProviders,
       });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : String(saveError));

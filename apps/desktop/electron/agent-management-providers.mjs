@@ -290,9 +290,26 @@ export function createAgentManagementProviders(options = {}) {
 
   function mergeProviderSimpleFields(appType, settingsConfig, simple = {}) {
     if (!settingsConfig || typeof settingsConfig !== "object" || Array.isArray(settingsConfig)) return settingsConfig;
-    if (!["claude", "codex"].includes(appType)) return settingsConfig;
     const base = structuredCloneJson(settingsConfig);
     const generated = buildProviderSettingsConfig(appType, simple);
+    // Form fields are the source of truth on re-edit; keep extra advanced-JSON keys.
+    if (appType === "opencode") {
+      const baseOptions = base.options && typeof base.options === "object" && !Array.isArray(base.options) ? base.options : {};
+      const generatedOptions =
+        generated.options && typeof generated.options === "object" && !Array.isArray(generated.options)
+          ? generated.options
+          : {};
+      return {
+        ...base,
+        ...generated,
+        options: { ...baseOptions, ...generatedOptions },
+        models: generated.models,
+        name: generated.name || base.name,
+      };
+    }
+    if (appType === "openclaw" || appType === "hermes") {
+      return { ...base, ...generated };
+    }
     if (appType === "claude") {
       base.env = { ...(base.env && typeof base.env === "object" ? base.env : {}), ...(generated.env ?? {}) };
       return base;
@@ -683,7 +700,12 @@ export function createAgentManagementProviders(options = {}) {
         provider.limitMonthlyUsd,
         provider.providerType,
       );
-      return { ...provider, createdAt, sortIndex };
+      return {
+        ...provider,
+        createdAt,
+        sortIndex,
+        models: extractAgentManagementProviderModels(provider.appType, provider.settingsConfig),
+      };
     });
   }
 
@@ -1056,10 +1078,51 @@ export function createAgentManagementProviders(options = {}) {
       };
       if (byAgent[provider.appType]) byAgent[provider.appType].push(enriched);
     }
+
+    // Surface live providers for additive apps so Settings can list/edit/delete
+    // them even when they were never imported into the studio-switch DB.
+    // When a DB row already exists, prefer live settingsConfig so re-edit
+    // shows the first-entered values currently written to opencode.json etc.
+    for (const appType of AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS) {
+      const list = byAgent[appType] ?? [];
+      const byId = new Map(list.map((item) => [item.id, item]));
+      const liveProviders = await readLiveProvidersForImport(appType).catch(() => []);
+      for (const raw of liveProviders) {
+        if (!raw?.id) continue;
+        const existing = byId.get(raw.id);
+        if (existing) {
+          const liveSettings =
+            raw.settingsConfig && typeof raw.settingsConfig === "object" && !Array.isArray(raw.settingsConfig)
+              ? raw.settingsConfig
+              : null;
+          if (liveSettings) {
+            existing.settingsConfig = liveSettings;
+            existing.models = extractAgentManagementProviderModels(appType, liveSettings);
+            if (raw.name) existing.name = String(raw.name);
+          }
+          existing.livePresent = true;
+          existing.meta = { ...(existing.meta ?? {}), live_config_managed: true };
+          continue;
+        }
+        const provider = normalizeAgentManagementProviderPayload(appType, raw);
+        provider.meta = { ...(provider.meta ?? {}), live_config_managed: true };
+        const enriched = {
+          ...provider,
+          // normalize() does not attach models — extract for re-edit prefill.
+          models: extractAgentManagementProviderModels(appType, provider.settingsConfig),
+          livePresent: true,
+          configPath: agentManagementConfigPath(appType),
+        };
+        list.push(enriched);
+        byId.set(provider.id, enriched);
+      }
+    }
+
+    const total = Object.values(byAgent).reduce((sum, list) => sum + list.length, 0);
     return {
       databasePath: studioSwitchDatabasePath(),
       byAgent,
-      total: providers.length,
+      total,
     };
   }
 
@@ -1090,7 +1153,12 @@ export function createAgentManagementProviders(options = {}) {
           switchDefault: input?.switchDefault === true,
         });
       }
-      const defaultModelId = saved.models?.[0]?.id ?? null;
+      const savedModels =
+        Array.isArray(saved.models) && saved.models.length
+          ? saved.models
+          : extractAgentManagementProviderModels(appType, saved.settingsConfig);
+      const defaultModelId = savedModels[0]?.id ?? null;
+      const shouldSetDefault = input?.setDefault !== false;
       return {
         ok: true,
         action,
@@ -1098,7 +1166,7 @@ export function createAgentManagementProviders(options = {}) {
         providerId: saved.id,
         defaultModelId,
         defaultModel:
-          appType === "opencode" && defaultModelId
+          appType === "opencode" && defaultModelId && shouldSetDefault
             ? { providerID: saved.id, modelID: defaultModelId }
             : null,
         providers: await readAgentManagementProvidersSnapshot(),
