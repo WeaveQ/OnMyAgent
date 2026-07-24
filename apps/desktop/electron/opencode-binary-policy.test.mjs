@@ -59,7 +59,7 @@ describe("chooseOpencodeBinary", () => {
     assert.equal(decision.notice, null);
   });
 
-  it("uses local when version is at least the bundled pin", () => {
+  it("uses local only when version is strictly newer than the bundled pin", () => {
     const decision = chooseOpencodeBinary({
       localPath: "/usr/local/bin/opencode",
       localVersion: "1.18.0",
@@ -69,6 +69,19 @@ describe("chooseOpencodeBinary", () => {
     assert.equal(decision.path, "/usr/local/bin/opencode");
     assert.equal(decision.source, "local");
     assert.equal(decision.reason, "local-compatible");
+    assert.equal(decision.notice, null);
+  });
+
+  it("prefers bundled when local version equals the pin", () => {
+    const decision = chooseOpencodeBinary({
+      localPath: "/usr/local/bin/opencode",
+      localVersion: "1.17.8",
+      bundledPath: "/app/sidecars/opencode",
+      bundledVersion: "v1.17.8",
+    });
+    assert.equal(decision.path, "/app/sidecars/opencode");
+    assert.equal(decision.source, "bundled");
+    assert.equal(decision.reason, "bundled-only");
     assert.equal(decision.notice, null);
   });
 

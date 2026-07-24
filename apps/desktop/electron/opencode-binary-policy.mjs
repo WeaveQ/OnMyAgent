@@ -113,23 +113,36 @@ export function chooseOpencodeBinary(input = {}) {
   }
 
   if (localPath && bundledPath) {
-    if (localVersion && bundledVersion && isVersionAtLeast(localVersion, bundledVersion)) {
-      return {
-        path: localPath,
-        source: "local",
-        reason: "local-compatible",
-        notice: null,
-        localVersion,
-        bundledVersion,
-      };
-    }
-
     if (localVersion && bundledVersion) {
+      const comparison = compareVersions(localVersion, bundledVersion);
+      // Prefer product-bundled when versions are equal for stable plugin
+      // contracts; only prefer a machine-local install when it is strictly newer.
+      if (comparison !== null && comparison > 0) {
+        return {
+          path: localPath,
+          source: "local",
+          reason: "local-compatible",
+          notice: null,
+          localVersion,
+          bundledVersion,
+        };
+      }
+      if (comparison !== null && comparison < 0) {
+        return {
+          path: bundledPath,
+          source: "bundled",
+          reason: "local-too-old",
+          notice: `本机 OpenCode ${localVersion} 低于产品要求 ${bundledVersion}，已改用内置版本。`,
+          localVersion,
+          bundledVersion,
+        };
+      }
+      // Equal or unparsable comparison with both versions present: product default.
       return {
         path: bundledPath,
         source: "bundled",
-        reason: "local-too-old",
-        notice: `本机 OpenCode ${localVersion} 低于产品要求 ${bundledVersion}，已改用内置版本。`,
+        reason: "bundled-only",
+        notice: null,
         localVersion,
         bundledVersion,
       };
