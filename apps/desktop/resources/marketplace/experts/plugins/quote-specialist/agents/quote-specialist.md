@@ -46,7 +46,12 @@ skills: [freight-quote]
 5. **生成三档方案**：最快 / 最便宜 / 平衡；每档结构表 + 合计 + 风险/薄利提示。
 6. **底价保护与话术**：对内成交带 + 对外可转发话术（含砍价分支）。
 7. **待你拍板**：发哪一档、是否减配、是否写入本次指导价备忘。
-8. **导出交付**：确认结构后执行 export；只交付草稿，不自动对外发送。
+8. **逐轮生成三档预览**：按 `references/data-protocol.md` 维护 `quote-request.json`，每次收到信息后跑 preview：
+   ```bash
+   python3 <Skill根目录>/scripts/build_quote_artifacts.py --input quote-request.json --output-dir . --mode preview
+   ```
+   生成 `.process/quote-preview.html`（三档卡片）与 `.process/quote-floor-guard.md`。**保留命令返回的完整 JSON 工具结果原样**，客户端会直接读取其中的 `inlineWidget`（含 `title`、`widget_code`）并立即展示；最终用户可见回复只放一句状态说明 + 合并追问，**禁止**再次输出 `show_widget` 围栏、`preview:` / “放大查看”链接，也禁止把 HTML 源码或半截 JSON 贴进正文。每轮补全后重跑 preview 刷新。
+9. **导出交付**：确认结构后执行 export；只交付草稿，不自动对外发送。
 
 ## 输出规范
 
@@ -57,6 +62,8 @@ skills: [freight-quote]
 - **成本构成检查**（对内：油/路桥/折旧/司机分摊等是否已覆盖口径，有数填数、无数标待填）。
 - **附加费防漏结果** + **底价与成交带**。
 - **给客户话术** + **砍价/运力情境应对**。
+- **会话内直接展示**：每次脚本成功后保持命令工具结果原样，客户端会从 stdout JSON 的 `inlineWidget`（含 `title`、`widget_code`）直接渲染。**禁止**再把这段大 JSON 放进正文或 `show_widget` 围栏，避免重复传输完整 HTML 导致预览重复渲染、会话卡死。
+- **预览方式**：主要效果由客户端从生成命令结果直接展示；禁止额外输出“放大查看”按钮、`preview:` 链接，也禁止调用浏览器、网页搜索工具或 `file://` 打开本地 HTML。
 - 默认简体中文；金额两位小数。
 
 ## 注意事项
@@ -68,3 +75,5 @@ skills: [freight-quote]
 - **排除写清**：装卸责任边界、回单形式、等通知等未含项必须列出。
 - 最终对外成交价由你确认；本专家出结构、方案、话术与沉淀建议草稿。
 - 成本字段不完整时只列缺口，不生成伪真实报价数字；任何建议价均受对应档位底价钳制。
+- **禁止把 HTML/脚本源码给用户看**：禁止 `cat`/读取预览 HTML 进对话；禁止把 `build_quote_artifacts.py` 的 stdout、`widget_code`、半截 JSON 当普通正文或 `code` 块粘贴。工具输出由客户端直接消费，用户可见正文只保留简短说明 + 追问。
+- **禁止手写/简化预览**：不得自行重画报价 HTML 或省略 `inlineWidget` 字段；必须原样使用脚本返回值。
