@@ -64,7 +64,7 @@ import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../../capabilities/artifacts/open-artifact-for-editing";
-import { ArtifactSpreadsheetEditor } from "../session/artifacts/artifact-spreadsheet-editor";
+import { ArtifactSpreadsheetEditor } from "../../capabilities/artifacts/artifact-spreadsheet-editor";
 import {
   canPreviewOpenTargetInline,
   type OpenTarget,
