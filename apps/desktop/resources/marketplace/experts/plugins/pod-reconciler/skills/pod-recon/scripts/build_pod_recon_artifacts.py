@@ -275,6 +275,26 @@ def _overdue_list_html(rows) -> str:
     return f'<div class="section-title">超期回单（{len(late)} 票，需催收）</div><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
 
 
+STYLE_PATTERN = re.compile(r"<style>([\s\S]*?)</style>", re.IGNORECASE)
+RECON_PREVIEW_PATTERN = re.compile(r'(<section\s+class="recon-preview">[\s\S]*?</section>)', re.IGNORECASE)
+PRINT_MEDIA_PATTERN = re.compile(r"@media\s+print\s*\{(?:[^{}]|\{[^{}]*\})*\}", re.IGNORECASE)
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Inline widget fragment: extract <style> and the main recon-preview <section>,
+    strip @media print rules to shrink payload. Mirrors order-entry/quote-specialist/
+    warehouse-manager inline_widget_fragment handling so the host receives a trimmed
+    fragment instead of the raw preview HTML.
+    """
+    style = STYLE_PATTERN.search(preview_html)
+    section = RECON_PREVIEW_PATTERN.search(preview_html)
+    if not style or not section:
+        return preview_html
+    screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
+    return f"<style>{screen_css}</style>{section.group(1)}"
+
+
 def recon_preview_html(data, rows, unmatched, t) -> str:
     period = text(data.get("period")) or "未设账期"
     counterparty = text(data.get("counterparty")) or "待确认"
@@ -514,7 +534,7 @@ def main() -> None:
     payload: dict[str, Any] = {
         "ok": True, "mode": args.mode, "period": text(data.get("period")),
         "rows": rows, "unmatched": unmatched, "totals": t, "files": files,
-        "inlineWidget": {"title": "回单对账预览", "widget_code": preview_html},
+        "inlineWidget": {"title": "回单对账预览", "widget_code": inline_widget_fragment(preview_html)},
     }
     if args.mode == "export":
         period = safe_name(text(data.get("period")))
