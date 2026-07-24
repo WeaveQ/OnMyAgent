@@ -25,7 +25,10 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
-import { chooseOpencodeBinary } from "./opencode-binary-policy.mjs";
+import {
+  chooseOpencodeBinary,
+  chooseProductRuntimeBinary,
+} from "./opencode-binary-policy.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -902,6 +905,80 @@ export function createRuntimeManager({
     return null;
   }
 
+  function envForcedRuntimeBinaryPath(tool) {
+    const keys =
+      tool === "node"
+        ? ["ONMYAGENT_NODE_BIN", "NODE_BINARY"]
+        : tool === "python"
+          ? ["ONMYAGENT_PYTHON_BIN", "PYTHON_BINARY"]
+          : [];
+    for (const key of keys) {
+      const value = process.env[key]?.trim();
+      if (value && existsSync(value)) return value;
+    }
+    return null;
+  }
+
+  function findPathRuntimeBinary(tool) {
+    const names =
+      tool === "node"
+        ? process.platform === "win32"
+          ? ["node.exe"]
+          : ["node"]
+        : tool === "python"
+          ? process.platform === "win32"
+            ? ["python.exe", "python3.exe"]
+            : ["python3", "python"]
+          : [];
+    // Search the original process PATH without our runtimeBinDirs prepend so
+    // we can tell "true machine local" from product-bundled copies.
+    const rawPath = process.env.PATH ?? process.env.Path ?? process.env.path ?? "";
+    const pathEntries = rawPath.split(path.delimiter).filter(Boolean);
+    const bundledDirs = new Set(runtimeBinDirs.map((dir) => path.resolve(dir)));
+    for (const entry of pathEntries) {
+      if (bundledDirs.has(path.resolve(entry))) continue;
+      for (const name of names) {
+        const candidate = path.join(entry, name);
+        if (existsSync(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Product-owned Node / Python: bundled wins whenever present.
+   */
+  function resolveProductRuntimeBinaryDecision(tool) {
+    const toolLabel = tool === "node" ? "Node" : tool === "python" ? "Python" : tool;
+    const bundledPath = bundledRuntimeBinary(tool);
+    const bundledExists = bundledPath && existsSync(bundledPath) ? bundledPath : null;
+    const envForcedPath = envForcedRuntimeBinaryPath(tool);
+    const localPath = envForcedPath || bundledExists ? null : findPathRuntimeBinary(tool);
+
+    const decision = chooseProductRuntimeBinary({
+      toolLabel,
+      envForcedPath,
+      localPath,
+      bundledPath: bundledExists,
+      bundledVersion: bundledExists ? probeVersion(bundledExists) : null,
+      localVersion: localPath || envForcedPath ? probeVersion(localPath ?? envForcedPath) : null,
+    });
+
+    if (decision.notice) {
+      console.warn(`[runtime] ${toolLabel} binary policy: ${decision.notice}`);
+    }
+
+    if (!decision.path) return null;
+    return {
+      path: decision.path,
+      source: decision.source,
+      reason: decision.reason,
+      notice: decision.notice,
+      localVersion: decision.localVersion,
+      bundledVersion: decision.bundledVersion,
+    };
+  }
+
   function probeVersion(binary) {
     if (!binary || !existsSync(binary)) return null;
     const result = spawnSync(binary, ["--version"], {
@@ -1082,7 +1159,8 @@ export function createRuntimeManager({
 
     return {
       found: true,
-      inPath: resolved.source === "path",
+      // "local" covers PATH / homebrew / ~/.opencode discoveries.
+      inPath: resolved.source === "local",
       resolvedPath: resolved.path,
       resolvedSource: resolved.source,
       version: versionResult.stdout?.trim() || versionResult.stderr?.trim() || null,
@@ -1740,35 +1818,51 @@ export function createRuntimeManager({
   }
 
   function softwareEnvironmentInfo() {
-    const bundledOpencode = resolveBundledBinaryInfo("opencode");
-    const nodePath = bundledRuntimeBinary("node");
-    const pythonPath = bundledRuntimeBinary("python");
-    const nodeVersion = probeVersion(nodePath);
-    const pythonVersion = probeVersion(pythonPath);
-    const opencodeVersion = probeVersion(bundledOpencode?.path);
-    const opencodeInstalled = Boolean(opencodeVersion);
+    const node = resolveProductRuntimeBinaryDecision("node");
+    const python = resolveProductRuntimeBinaryDecision("python");
+    const opencode = resolveOpencodeBinaryDecision(null);
+    const nodeInstalled = Boolean(node?.path && (node.bundledVersion || node.localVersion || probeVersion(node.path)));
+    const pythonInstalled = Boolean(
+      python?.path && (python.bundledVersion || python.localVersion || probeVersion(python.path)),
+    );
+    const opencodeInstalled = Boolean(
+      opencode?.path && (opencode.bundledVersion || opencode.localVersion || probeVersion(opencode.path)),
+    );
     return {
-      node: Boolean(nodeVersion),
-      python: Boolean(pythonVersion),
+      node: nodeInstalled,
+      python: pythonInstalled,
       opencode: opencodeInstalled,
       details: {
         node: {
-          installed: Boolean(nodeVersion),
-          bundled: true,
-          path: nodePath,
-          version: nodeVersion,
+          installed: nodeInstalled,
+          bundled: node?.source === "bundled",
+          path: node?.path ?? null,
+          version: node?.bundledVersion ?? node?.localVersion ?? (node?.path ? probeVersion(node.path) : null),
+          source: node?.source ?? null,
+          reason: node?.reason ?? null,
+          notice: node?.notice ?? null,
         },
         python: {
-          installed: Boolean(pythonVersion),
-          bundled: true,
-          path: pythonPath,
-          version: pythonVersion,
+          installed: pythonInstalled,
+          bundled: python?.source === "bundled",
+          path: python?.path ?? null,
+          version:
+            python?.bundledVersion ?? python?.localVersion ?? (python?.path ? probeVersion(python.path) : null),
+          source: python?.source ?? null,
+          reason: python?.reason ?? null,
+          notice: python?.notice ?? null,
         },
         opencode: {
           installed: opencodeInstalled,
-          bundled: true,
-          path: bundledOpencode?.path ?? null,
-          version: opencodeVersion,
+          bundled: opencode?.source === "bundled",
+          path: opencode?.path ?? null,
+          version:
+            opencode?.bundledVersion ??
+            opencode?.localVersion ??
+            (opencode?.path ? probeVersion(opencode.path) : null),
+          source: opencode?.source ?? null,
+          reason: opencode?.reason ?? null,
+          notice: opencode?.notice ?? null,
         },
       },
     };
