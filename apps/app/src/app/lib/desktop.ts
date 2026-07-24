@@ -188,6 +188,7 @@ declare global {
             releaseDate?: string | null;
             releaseNotes?: unknown;
             reason?: string | null;
+            releaseUrl?: string | null;
           }) => void,
         ) => () => void;
       };

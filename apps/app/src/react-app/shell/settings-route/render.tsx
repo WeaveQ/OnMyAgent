@@ -20,7 +20,6 @@ import type {
 } from "../../../app/types";
 import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../../app/utils";
 import { t } from "../../../i18n";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "../../domains/connections";
 import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../../domains/shared";
@@ -123,7 +122,6 @@ import { normalizeSettingsProviderSource,
   resolveSettingsPreferredWorkspaceId,
   settingsPathForRoute,
   buildSettingsSessionMaps,
-  settingsMemoryHasChanges,
   toSessionGroups,
   updateSettingsWorkspaceConnectionOverrides,
   workspaceLabel,
@@ -344,26 +342,17 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setConversationMemoryDraft(local.prefs.conversationMemory);
   }, [local.prefs.conversationMemory]);
 
-  const [memorySaved, setMemorySaved] = useState(false);
-
-  const profileHasChanges = useMemo(
-    () =>
-      settingsMemoryHasChanges({
-        draft: memoryDraft,
-        saved: local.prefs.onboardingProfile,
-      }),
-    [memoryDraft, local.prefs.onboardingProfile],
+  // 偏好: tone / custom instructions / profile all auto-persist (no page Save).
+  const persistMemoryDraft = useCallback(
+    (draft: OnboardingProfile) => {
+      setMemoryDraft(draft);
+      local.setPrefs((previous) => ({
+        ...previous,
+        onboardingProfile: { ...draft, updatedAt: Date.now() },
+      }));
+    },
+    [local],
   );
-
-  const handleProfileSave = useCallback(() => {
-    if (!memoryDraft) return;
-    local.setPrefs((previous) => ({
-      ...previous,
-      onboardingProfile: { ...memoryDraft, updatedAt: Date.now() },
-    }));
-    setMemorySaved(true);
-    setTimeout(() => setMemorySaved(false), 2000);
-  }, [local, memoryDraft]);
 
   const persistConversationMemory = useCallback(
     (next: typeof conversationMemoryDraft) => {
@@ -375,21 +364,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     },
     [local],
   );
-
-  // Profile (偏好) keeps an explicit save; conversation memory auto-persists.
-  const memoryToolbarSlot =
-    route.tab === "memory" ? (
-      <div className="flex items-center justify-end">
-        <Button
-          type="button"
-          size="lg"
-          disabled={!profileHasChanges && !memorySaved}
-          onClick={handleProfileSave}
-        >
-          {memorySaved ? t("settings.memory_saved") : t("settings.memory_save")}
-        </Button>
-      </div>
-    ) : undefined;
 
   const emptyWorkspaceDisplay = useMemo<WorkspaceDisplay>(
     () => ({
@@ -1560,11 +1534,14 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 skipped: false,
                 updatedAt: 0,
               }}
-              onDraftChange={setMemoryDraft}
+              onDraftChange={persistMemoryDraft}
               busy={busy}
               responseTone={local.prefs.responseTone}
               onResponseToneChange={(responseTone) => {
-                local.setPrefs((previous) => ({ ...previous, responseTone }));
+                local.setPrefs((previous) => ({
+                  ...previous,
+                  responseTone,
+                }));
               }}
               customInstructions={local.prefs.customInstructions}
               onCustomInstructionsChange={(customInstructions) => {
@@ -1742,7 +1719,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
         compact={props.embedded}
-        panelToolbarSlot={memoryToolbarSlot}
+        panelToolbarSlot={undefined}
       >
         {settingsView}
       </SettingsShell>
