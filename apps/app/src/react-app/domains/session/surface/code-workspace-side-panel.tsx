@@ -75,7 +75,7 @@ import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../artifacts/open-artifact-for-editing";
-import { ArtifactSpreadsheetEditor } from "../artifacts/artifact-spreadsheet-editor";
+import { ArtifactSpreadsheetEditor } from "../../../capabilities/artifacts/artifact-spreadsheet-editor";
 import { useStatusToasts } from "../../shell-feedback";
 import {
   buildWorkspaceFileTree,
