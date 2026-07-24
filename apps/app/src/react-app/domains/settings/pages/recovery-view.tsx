@@ -76,7 +76,9 @@ export function RecoveryView(props: RecoveryViewProps) {
           />
         </SettingsBlock>
 
-        <p className="text-xs text-dls-secondary">{t("settings.reset_requires_confirm")}</p>
+        <p className="text-xs text-dls-secondary">
+          {t("settings.reset_requires_confirm_app_data_only")}
+        </p>
         {props.status ? <SettingsNotice tone="info">{props.status}</SettingsNotice> : null}
         {props.error ? <SettingsNotice tone="error">{props.error}</SettingsNotice> : null}
       </SettingsPageSection>

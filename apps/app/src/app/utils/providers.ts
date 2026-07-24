@@ -2,6 +2,22 @@ import type { ProviderListResponse } from "@opencode-ai/sdk/v2/client";
 
 const PINNED_PROVIDER_ORDER = ["opencode", "openai", "anthropic"] as const;
 
+/** Free tier: OpenCode Zen zero-cost entries, or name/id containing "free". */
+export function isProviderModelFree(input: {
+  providerId: string;
+  modelId: string;
+  model?: { name?: string; cost?: { input?: number; output?: number } } | null;
+}): boolean {
+  const name = `${input.model?.name ?? ""} ${input.modelId}`.toLowerCase();
+  if (/\bfree\b/.test(name)) return true;
+  if (input.providerId.trim().toLowerCase() !== "opencode") return false;
+  const cost = input.model?.cost;
+  if (!cost || typeof cost.input !== "number" || typeof cost.output !== "number") {
+    return false;
+  }
+  return cost.input === 0 && cost.output === 0;
+}
+
 export const providerPriorityRank = (id: string) => {
   const normalized = id.trim().toLowerCase();
   const index = PINNED_PROVIDER_ORDER.indexOf(
