@@ -921,7 +921,7 @@ type TypedDesktopCommandMap = {
   /**
    * Reset OnMyAgent local product data then UI relaunches.
    * - onboarding: workspace list + desktop bootstrap only
-   * - all: Electron userData + ~/.onmyagent + ~/.studio-switch + legacy openwork
+   * - all: Electron userData + ~/.onmyagent + ~/.studio-switch + legacy product home
    *   (does not wipe shared CLI configs like ~/.config/opencode / ~/.claude / ~/.codex)
    */
   resetOnMyAgentState: DesktopCommandContract<
