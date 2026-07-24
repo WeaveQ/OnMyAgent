@@ -981,7 +981,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       (typeof error === "string" ? readString(error) : null);
 
     const generic = raw && /^unknown\s+error$/i.test(raw);
+    const isPluginHookMismatch =
+      typeof raw === "string" &&
+      (/fn\d+\s+is not a function/i.test(raw) ||
+        (/is not a function/i.test(raw) && /plugin\/index\.ts/i.test(raw)));
     const heading = (() => {
+      if (isPluginHookMismatch) {
+        return t("providers.plugin_hook_mismatch");
+      }
       if (status === 401 || status === 403) return t("providers.auth_failed");
       if (status === 429) return t("providers.rate_limit_exceeded");
       if (provider) return t("providers.provider_error", { provider });
@@ -989,6 +996,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     })();
 
     const lines = [heading];
+    if (isPluginHookMismatch) {
+      lines.push(t("providers.plugin_hook_mismatch_hint"));
+    }
     if (raw && !generic && raw !== heading) lines.push(raw);
     if (status && !heading.includes(String(status))) lines.push(`Status: ${status}`);
     if (provider && !heading.includes(provider)) lines.push(`Provider: ${provider}`);

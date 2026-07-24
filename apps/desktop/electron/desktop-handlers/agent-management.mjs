@@ -23,17 +23,20 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "agentManagementMcpAction",
 ]);
 
-const ALL_DOMAINS = Object.freeze(["core", "skills", "mcp"]);
+const ALL_DOMAINS = Object.freeze(["core", "skills", "mcp", "providers"]);
 
 /**
  * @param {unknown} input
- * @returns {null | Array<"core"|"skills"|"mcp">}
+ * @returns {null | Array<"core"|"skills"|"mcp"|"providers">}
  */
 function normalizeDomains(input) {
   if (!Array.isArray(input) || input.length === 0) return null;
   const out = [];
   for (const item of input) {
-    if ((item === "core" || item === "skills" || item === "mcp") && !out.includes(item)) {
+    if (
+      (item === "core" || item === "skills" || item === "mcp" || item === "providers") &&
+      !out.includes(item)
+    ) {
       out.push(item);
     }
   }
@@ -125,7 +128,7 @@ export function createAgentManagementDomainHandlers({
   /**
    * @param {{
    *   workspaceRoot?: string,
-   *   domains?: Array<"core"|"skills"|"mcp">,
+   *   domains?: Array<"core"|"skills"|"mcp"|"providers">,
    *   includeModels?: boolean,
    *   includeDiscoverable?: boolean,
    * }} [input]
@@ -139,6 +142,8 @@ export function createAgentManagementDomainHandlers({
     const wantCore = !domains || domains.includes("core");
     const wantSkills = !domains || domains.includes("skills");
     const wantMcp = !domains || domains.includes("mcp");
+    // Settings AI custom-provider inventory: providers only, no fleet agent scan.
+    const wantProvidersOnly = Boolean(domains?.includes("providers")) && !wantCore;
 
     // Domain-aware clients default to light listAgents (no model probe).
     // Legacy full snapshot keeps includeModels true unless explicitly false.
@@ -155,8 +160,13 @@ export function createAgentManagementDomainHandlers({
     let mcp = emptyMcpSnapshot();
     /** @type {any[]} */
     let managedSkills = [];
-    /** @type {Array<"core"|"skills"|"mcp">} */
+    /** @type {Array<"core"|"skills"|"mcp"|"providers">} */
     const loadedDomains = [];
+
+    if (wantProvidersOnly) {
+      providers = await readAgentManagementProvidersSnapshot();
+      loadedDomains.push("providers");
+    }
 
     // Skills need fleetAgents; listAgents is required for core and/or skills.
     if (wantCore || wantSkills) {

@@ -1461,7 +1461,7 @@ export type AgentManagementAgent = PersonalLocalAgent & {
   skillCount: number;
 };
 
-export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp";
+export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp" | "providers";
 
 export type AgentManagementSnapshotInput = {
   workspaceRoot: string;
@@ -1486,7 +1486,19 @@ export type AgentManagementSnapshot = {
 
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }
-  | { action: "save"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string; syncLive?: boolean; provider: Omit<Partial<AgentManagementManagedProvider>, "settingsConfig"> & { settingsConfig?: Record<string, unknown> | string; simple?: Record<string, unknown> } }
+  | {
+      action: "save";
+      appType: AgentManagementManagedProvider["appType"];
+      workspaceRoot?: string;
+      syncLive?: boolean;
+      /** When true (default for OpenCode), also set opencode.json model to the first catalog entry. */
+      setDefault?: boolean;
+      switchDefault?: boolean;
+      provider: Omit<Partial<AgentManagementManagedProvider>, "settingsConfig"> & {
+        settingsConfig?: Record<string, unknown> | string;
+        simple?: Record<string, unknown>;
+      };
+    }
   | { action: "delete" | "switch" | "syncLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string; providerId: string };
 
 export type AgentManagementProviderActionResult = {
@@ -1494,6 +1506,8 @@ export type AgentManagementProviderActionResult = {
   action: string;
   appType: AgentManagementManagedProvider["appType"];
   providerId?: string;
+  defaultModelId?: string | null;
+  defaultModel?: { providerID: string; modelID: string } | null;
   imported?: number;
   providers: AgentManagementProvidersSnapshot;
 };

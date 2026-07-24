@@ -31,7 +31,13 @@ export const localAgentLayoutClass = {
   // Avatar plate lives in AgentBrandIcon (dark: white). Status dot still shared.
   agentStatusDot: "absolute -right-0.5 bottom-0 size-2.5 rounded-full border-2",
   // Header / composer sit on the main canvas as lifted surface strips.
-  header: "shrink-0 border-b border-dls-border bg-dls-surface mac:titlebar-drag",
+  // Outer header is a mac drag region; only interactive controls opt out via titlebar-no-drag.
+  // relative: scheduled-tasks popover anchors under the clock control.
+  header: "relative z-20 shrink-0 border-b border-dls-border bg-dls-surface mac:titlebar-drag",
+  /** Top chrome row: leave empty flex space draggable (do not wrap the whole row in no-drag). */
+  headerRow: "flex h-12 items-center gap-3 px-4",
+  headerIdentity: "flex min-w-0 max-w-[min(40%,14rem)] items-center gap-2.5",
+  headerActions: "relative z-10 flex min-w-0 shrink-0 items-center gap-1.5 mac:titlebar-no-drag",
   pageContent: "mx-auto flex w-full min-w-0 max-w-[1120px] flex-col gap-5",
   chatPanel: "mx-auto w-full min-w-0 max-w-[1120px] rounded-xl border border-dls-border bg-dls-surface p-2",
   chatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border px-4 py-3 text-sm leading-6",
@@ -65,6 +71,9 @@ function isGenericCustomLabel(value: string) {
  * Secondary line under the agent name in the local-agent list.
  * Prefer a compact binary version (same formatting as management cards).
  * Never show the collapsed "Custom" marker as if it were a version.
+ *
+ * Returns "" when online but there is nothing useful to show — the green
+ * status dot already signals connected; "已连接" was redundant noise.
  */
 export function agentSubtitle(agent: PersonalLocalAgent) {
   if (agent.status !== "online") return agent.error || t("common.unavailable");
@@ -81,7 +90,7 @@ export function agentSubtitle(agent: PersonalLocalAgent) {
     const cleaned = mode.replace(/\s*ACP session\s*/i, "").trim();
     if (cleaned && !isGenericCustomLabel(cleaned)) return cleaned;
   }
-  return t("config.status_connected");
+  return "";
 }
 
 export function lastRunForAgent(messages: ChatMessage[] | undefined) {

@@ -31,5 +31,26 @@ describe("Electron titlebar hit targets", () => {
       expect(readWorkspaceFile(path), path).toContain("mac:titlebar-no-drag");
     }
   });
+
+  test("local agent chrome keeps a drag region and opts interactive chips out", () => {
+    const helpers = readWorkspaceFile(
+      "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page-helpers.ts",
+    );
+    const page = readWorkspaceFile(
+      "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
+    );
+    const statusRail = readWorkspaceFile(
+      "apps/app/src/react-app/domains/local-agents/local-agent-status-rail.tsx",
+    );
+
+    expect(helpers).toContain("mac:titlebar-drag");
+    expect(helpers).toContain("headerActions");
+    expect(helpers).toContain("mac:titlebar-no-drag");
+    // Whole header row must not be no-drag (would block window move).
+    expect(page).not.toMatch(/headerRow[\s\S]{0,80}titlebar-no-drag/);
+    expect(page).toContain("localAgentLayoutClass.headerActions");
+    expect(statusRail).toContain("mac:titlebar-drag");
+    expect(statusRail).toContain("mac:titlebar-no-drag");
+  });
 });
 

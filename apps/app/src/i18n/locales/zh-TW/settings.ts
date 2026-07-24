@@ -2,7 +2,7 @@ import { APP_NAME } from "../brand";
 
 export default {
   "settings.api_keys_info":
-    "API 密鑰存儲在本機本地。環境變量型模型服務商需在工作區環境中修改後重新加載。",
+    "此處為目前可用的模型服務商（不是歷史對話）。API 密鑰保存在本機。環境變量型服務商需在工作區環境中修改後重新加載。",
   "settings.appearance_hint": "匹配系統或強制淺色/深色模式",
   "settings.appearance_title": "外觀",
 
@@ -587,6 +587,8 @@ export default {
   "settings.software_env.description_col": "說明",
   "settings.software_env.status": "安裝狀態",
   "settings.software_env.loading": "載入中…",
+  "settings.software_env.refresh": "重新整理狀態",
+  "settings.software_env.refreshing": "重新整理中…",
   "settings.software_env.status_unavailable": "狀態載入失敗，請稍後重試",
   "settings.software_env.install": "安裝",
   "settings.software_env.installing": "安裝中…",
@@ -725,6 +727,11 @@ export default {
   "settings.cap_write_only": "只寫",
   "settings.config_updated":
     "配置已更新。如果更改會影響運行時，請重新加載引擎。",
+  "settings.custom_provider_ready": "{name} 已就緒，可直接使用。",
+  "settings.custom_provider_removed":
+    "已從目前配置移除 {name}。之後的新對話無法再使用；歷史會話記錄會保留。",
+  "settings.custom_provider_remove_failed": "刪除模型服務商失敗。",
+  "settings.custom_provider_syncing": "正在套用配置並刷新模型列表…",
   "settings.debug_base_url": "基礎 URL：{url}",
   "settings.debug_connect_url": "連接 URL：{url}",
   "settings.debug_deeplink_unavailable": "調試深度鏈接暫不可用。",
@@ -742,8 +749,12 @@ export default {
   "settings.default_label": "默認",
   "settings.exa_unavailable": "此設置頁暫不支持配置 Exa 網頁搜索。",
   "settings.model_behavior_unavailable": "模型行為配置暫不可用。",
-  "settings.no_providers_connected": "尚未連接模型服務商。",
-  "settings.connect_provider_empty_hint": "點擊右上角「連接模型服務商」開始添加。",
+  "settings.no_providers_connected": "暫無可用的模型服務商。",
+  "settings.providers_not_configured": "未配置",
+  "settings.providers_empty_summary": "還沒有新增模型服務商",
+  "settings.connect_provider_empty_hint":
+    "使用右上角「自訂模型服務商配置」新增相容 API，或「連接模型服務商」登入官方服務。",
+  "settings.provider_model_count": "{count} 個模型",
   "settings.open_deeplink_failed": "打開深度鏈接失敗",
   "settings.opencode_engine_sidecar": "智能體引擎",
   "settings.restart_succeeded_template": "已重啟 {service}。",
@@ -844,7 +855,8 @@ export default {
   "settings.provider_edit_confirm_desc": "儲存將寫入 OpenCode 設定，需重新載入引擎後生效。",
   "settings.provider_edit_confirm_button": "儲存修改",
   "settings.provider_delete_confirm_title": "刪除此模型服務商？",
-  "settings.provider_delete_confirm_desc": "此操作將從 OpenCode 設定移除該服務商，無法復原，需重新載入引擎後生效。",
+  "settings.provider_delete_confirm_desc":
+    "確定刪除「{name}」嗎？將從目前配置移除，之後新對話無法使用；歷史會話記錄會保留。",
   "settings.provider_more_actions": "更多操作",
   "settings.provider_reload_required_title": "需要重新載入引擎",
   "settings.provider_reload_required_desc":

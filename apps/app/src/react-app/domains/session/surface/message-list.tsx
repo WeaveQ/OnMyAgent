@@ -35,6 +35,7 @@ import {
 import {
   MESSAGE_LIST_CONTAIN_STYLE,
 } from "./message-list/styles";
+import { ConnectedProviderIdsProvider } from "./message-list/connected-providers-context";
 import type {
   MessageBlockItem,
   SessionTranscriptDivider,
@@ -137,6 +138,11 @@ type SessionTranscriptProps = {
   onOpenTarget?: (target: OpenTarget) => void;
   onDownloadCodePath?: (path: string) => Promise<void>;
   workspaceRoot?: string;
+  /**
+   * Live connected OpenCode provider IDs. Used only to badge historical model
+   * labels as "removed" when the provider is no longer available.
+   */
+  connectedProviderIds?: readonly string[] | null;
   /**
    * When set, renders this identity once at the start of each visible
    * assistant turn. The root transcript always supplies the active identity.
@@ -915,6 +921,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   };
 
   return (
+    <ConnectedProviderIdsProvider providerIds={props.connectedProviderIds}>
     <div
       className={cn("pb-0", !isNestedVariant && "session-transcript-root mx-auto w-full")}
       style={transcriptStyle}
@@ -984,6 +991,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         </div>
       )}
     </div>
+    </ConnectedProviderIdsProvider>
   );
 }
 

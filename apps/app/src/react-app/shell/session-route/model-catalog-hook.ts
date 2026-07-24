@@ -26,7 +26,6 @@ import type {
   SlashCommandOption,
 } from "../../../app/types";
 import {
-  formatModelRef,
   resolveModelDisplayName,
 } from "../../../app/utils";
 import { filterProviderList } from "../../../app/utils/providers";
@@ -35,7 +34,6 @@ import { currentLocale, subscribeToLocale, t } from "../../../i18n";
 import type { LocalPreferences } from "../../kernel/local-provider";
 import {
   clearStoredDefaultModel,
-  writeStoredDefaultModel,
 } from "../../kernel/model-config";
 import { getReactQueryClient } from "../../infra/query-client";
 import {
@@ -49,17 +47,22 @@ import {
   buildConnectedModelOptions,
   buildProviderModelCatalog,
   filterAllowedModelOptions,
+  isModelPickableInConnectedCatalog,
   isSelectedModelUnavailable,
   resolveModelVariantState,
-  resolveProviderDefaultModel,
   resolveUsableDefaultModel,
-  shouldPromptProviderDefaultModel,
   type ProviderModelCatalog,
 } from "./model-options";
 import { emptyModelBehaviorOptions } from "./state";
 import { readWindowSeenProviderIds } from "./storage";
 import { refreshCreatedSessionSnapshotWithRetries } from "./sessions";
 import { workspaceSettingsRoute } from "../workspace-routes";
+
+/**
+ * Session-scoped dedupe for "previous model unavailable" toasts.
+ * Lives outside the hook so remounts / soft reloads do not re-spam the same model.
+ */
+const toastedUnavailableModelKeys = new Set<string>();
 
 type Input = {
   checkDesktopRestriction: DesktopAppRestrictionChecker;
@@ -71,6 +74,8 @@ type Input = {
   };
   modelOptions: ModelOption[];
   modelPickerOpen: boolean;
+  /** Compact composer model menu — must refresh options the same way as the full picker. */
+  compactModelPickerOpen?: boolean;
   navigate: NavigateFunction;
   opencodeBaseUrl: string;
   opencodeClient: Client | null;
@@ -100,6 +105,7 @@ export function useSessionRouteModelCatalog(input: Input) {
     setSessionModelOverrideById,
     modelOptions,
     modelPickerOpen,
+    compactModelPickerOpen = false,
     navigate,
     opencodeBaseUrl,
     opencodeClient,
@@ -124,8 +130,6 @@ export function useSessionRouteModelCatalog(input: Input) {
   setPrefsRef.current = local.setPrefs;
   const checkRestrictionRef = useRef(checkDesktopRestriction);
   checkRestrictionRef.current = checkDesktopRestriction;
-  /** Avoid re-toasting the same OpenCode suggestion on every provider refresh. */
-  const promptedProviderDefaultKeyRef = useRef<string | null>(null);
 
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<
@@ -156,8 +160,10 @@ export function useSessionRouteModelCatalog(input: Input) {
       setProviderConnectedIds(value.connected ?? []);
       setProviderDefaults(value.default ?? {});
 
-      // Keep last-used default when still connected; if missing/stale, fall
-      // back to a usable model (never leave the composer empty).
+      // Keep the user's last-used default even if it became unavailable.
+      // Do not auto-switch to another model — the composer shows
+      // "模型已不可用" and the user picks a new one.
+      // Only clear when discovery finishes with an empty catalog.
       let currentDefault = defaultModelRef.current;
       const resolved = resolveUsableDefaultModel({
         currentDefault,
@@ -165,63 +171,16 @@ export function useSessionRouteModelCatalog(input: Input) {
         connectedProviderIds: value.connected ?? [],
         providerListData: value,
       });
-      if (resolved.changed) {
-        if (resolved.model) {
-          writeStoredDefaultModel(resolved.model);
-          setPrefsRef.current((previous) => ({
-            ...previous,
-            defaultModel: resolved.model,
-          }));
-          currentDefault = resolved.model;
-          defaultModelRef.current = resolved.model;
-        } else {
-          // Empty catalog: clear ghost defaults (e.g. opencode/big-pickle).
-          clearStoredDefaultModel();
-          setPrefsRef.current((previous) => ({
-            ...previous,
-            defaultModel: null,
-          }));
-          currentDefault = null;
-          defaultModelRef.current = null;
-        }
-      } else if (resolved.model) {
+      if (resolved.changed && !resolved.model) {
+        clearStoredDefaultModel();
+        setPrefsRef.current((previous) => ({
+          ...previous,
+          defaultModel: null,
+        }));
+        currentDefault = null;
+        defaultModelRef.current = null;
+      } else if (!resolved.changed && resolved.model) {
         currentDefault = resolved.model;
-      }
-
-      // Non-blocking hint only while still on the app placeholder default —
-      // not when we just healed a stale selection with a real fallback.
-      const suggested = resolveProviderDefaultModel({
-        defaults: value.default,
-      });
-      if (
-        shouldPromptProviderDefaultModel({
-          suggested,
-          currentDefault,
-        }) &&
-        suggested
-      ) {
-        const key = formatModelRef(suggested);
-        if (promptedProviderDefaultKeyRef.current !== key) {
-          promptedProviderDefaultKeyRef.current = key;
-          const modelLabel =
-            resolveModelDisplayName(suggested.modelID) || key;
-          showToast({
-            tone: "info",
-            title: t("model_picker.provider_default_available_title"),
-            description: t("model_picker.provider_default_available_desc", {
-              model: modelLabel,
-            }),
-            actionLabel: t("model_picker.provider_default_apply"),
-            durationMs: 8000,
-            onAction: () => {
-              writeStoredDefaultModel(suggested);
-              setPrefsRef.current((previous) => ({
-                ...previous,
-                defaultModel: suggested,
-              }));
-            },
-          });
-        }
       }
 
       // New-provider detection is handled globally by the provider auth
@@ -272,7 +231,6 @@ export function useSessionRouteModelCatalog(input: Input) {
     opencodeBaseUrl,
     opencodeClient,
     sessionWorkspaceRoot,
-    showToast,
   ]);
 
   const modelScopeSessionId =
@@ -292,101 +250,67 @@ export function useSessionRouteModelCatalog(input: Input) {
     currentLocale,
   );
 
-  // Heal ghost selections (e.g. OpenCode-suggested gpt-5-nano) that are not
-  // in the connected catalog so the composer never sticks on "模型已不可用".
+  // When the active model is no longer available (e.g. provider removed from
+  // config), do NOT auto-switch. Composer shows "模型已不可用"; toast once per
+  // model key for the app session so soft reloads / remounts do not spam.
   const effectiveModelKey = effectiveModelRef
-    ? `${effectiveModelRef.providerID}:${effectiveModelRef.modelID}`
+    ? `${effectiveModelRef.providerID}/${effectiveModelRef.modelID}`
     : "";
   const connectedProviderKey = providerConnectedIds.join(",");
-  const defaultModelKey = local.prefs.defaultModel
-    ? `${local.prefs.defaultModel.providerID}:${local.prefs.defaultModel.modelID}`
-    : "";
   useEffect(() => {
     if (!providerListData) return;
+
+    const connectedIds = new Set(
+      [
+        ...providerConnectedIds,
+        ...(providerListData.connected ?? []).map((id) => String(id)),
+      ]
+        .map((id) => id.trim())
+        .filter(Boolean),
+    );
+    // Soft dispose / engine reload often reports zero connected providers for a
+    // beat. That is not "model removed" — skip toast and do not re-arm.
+    if (connectedIds.size === 0) return;
+
     const restriction = checkRestrictionRef.current;
-    const resolvedFromEffective = resolveUsableDefaultModel({
-      currentDefault: effectiveModelRef,
-      checkRestriction: restriction,
-      connectedProviderIds: providerConnectedIds,
-      providerListData,
-    });
-    const healed = resolvedFromEffective.model;
-
-    // Empty catalog → clear ghost session override + global default.
-    if (!healed?.providerID || !healed.modelID) {
-      if (resolvedFromEffective.changed) {
-        setSessionModelOverrideById((current) => {
-          if (!(modelScopeSessionId in current)) return current;
-          const next = { ...current };
-          delete next[modelScopeSessionId];
-          return next;
-        });
-        if (local.prefs.defaultModel) {
-          clearStoredDefaultModel();
-          setPrefsRef.current((previous) => ({
-            ...previous,
-            defaultModel: null,
-          }));
-        }
-      }
-      return;
-    }
-
     const effectiveUnavailable = isSelectedModelUnavailable({
       model: effectiveModelRef,
       checkRestriction: restriction,
       connectedProviderIds: providerConnectedIds,
       providerListData,
     });
-    const defaultUnavailable = isSelectedModelUnavailable({
-      model: local.prefs.defaultModel,
-      checkRestriction: restriction,
-      connectedProviderIds: providerConnectedIds,
-      providerListData,
-    });
 
-    // Scope the active composer model when the effective selection is a ghost.
-    if (effectiveUnavailable && resolvedFromEffective.changed) {
-      setSessionModelOverrideById((current) => {
-        const existing = current[modelScopeSessionId];
-        if (
-          existing?.providerID === healed.providerID &&
-          existing?.modelID === healed.modelID
-        ) {
-          return current;
-        }
-        return {
-          ...current,
-          [modelScopeSessionId]: healed,
-        };
-      });
-    }
+    if (!effectiveModelKey) return;
 
-    // Always repair a ghost global default so new drafts don't re-flash red.
-    if (defaultUnavailable) {
-      const prefsDefault = local.prefs.defaultModel;
+    if (!effectiveUnavailable) {
+      // Only re-arm when the model is genuinely pickable again (not a flicker).
       if (
-        !prefsDefault ||
-        prefsDefault.providerID !== healed.providerID ||
-        prefsDefault.modelID !== healed.modelID
+        isModelPickableInConnectedCatalog(providerListData, effectiveModelRef)
       ) {
-        writeStoredDefaultModel(healed);
-        setPrefsRef.current((previous) => ({
-          ...previous,
-          defaultModel: healed,
-        }));
+        toastedUnavailableModelKeys.delete(effectiveModelKey);
       }
+      return;
     }
-    // Keys intentionally stabilize object-identity churn for model/provider sets.
+
+    if (toastedUnavailableModelKeys.has(effectiveModelKey)) return;
+    toastedUnavailableModelKeys.add(effectiveModelKey);
+
+    const modelLabel =
+      resolveModelDisplayName(effectiveModelRef!.modelID) || effectiveModelKey;
+    showToast({
+      tone: "warning",
+      title: t("session.model_unavailable_after_removed_title"),
+      description: t("session.model_unavailable_after_removed_desc", {
+        model: modelLabel,
+      }),
+      durationMs: 7000,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     connectedProviderKey,
-    defaultModelKey,
     effectiveModelKey,
-    modelScopeSessionId,
     pendingAgentModel,
     providerListData,
-    setSessionModelOverrideById,
   ]);
 
   // Prefetch the full provider catalog once so `getModelBehaviorSummary` has
@@ -417,10 +341,28 @@ export function useSessionRouteModelCatalog(input: Input) {
       ],
     );
 
-  // Load the picker list lazily the first time the modal opens. Uses the
-  // cached catalog when available, otherwise re-fetches.
+  // Keep composer/full picker options in sync whenever the connected provider
+  // catalog changes (e.g. custom provider deleted in Settings). Without this,
+  // modelOptions can retain deleted providers until a full page reload.
   useEffect(() => {
-    if (!modelPickerOpen || !opencodeClient) return;
+    if (!providerListData) {
+      setModelOptions([]);
+      return;
+    }
+    setModelOptions(
+      buildConnectedModelOptions({
+        data: providerListData,
+        seenProviderIds: readWindowSeenProviderIds(),
+        recentProviderIds,
+      }),
+    );
+  }, [providerListData, recentProviderIds, setModelOptions]);
+
+  // When either the compact or full model menu opens, force a fresh provider
+  // list so we never show providers that were just removed.
+  useEffect(() => {
+    const pickerOpen = modelPickerOpen || compactModelPickerOpen;
+    if (!pickerOpen || !opencodeClient) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -428,6 +370,7 @@ export function useSessionRouteModelCatalog(input: Input) {
           client: opencodeClient,
           baseUrl: opencodeBaseUrl,
           directory: sessionWorkspaceRoot || undefined,
+          force: true,
         });
         if (cancelled || !data?.all) return;
         setModelOptions(
@@ -445,6 +388,7 @@ export function useSessionRouteModelCatalog(input: Input) {
       cancelled = true;
     };
   }, [
+    compactModelPickerOpen,
     modelPickerOpen,
     opencodeBaseUrl,
     opencodeClient,

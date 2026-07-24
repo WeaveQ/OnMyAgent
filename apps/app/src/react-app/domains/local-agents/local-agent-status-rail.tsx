@@ -75,152 +75,159 @@ export function LocalAgentStatusRail(props: LocalAgentStatusRailProps) {
 
   const openPopover = (key: PopoverKey) => setOpen((prev) => (prev === key ? null : key));
 
+  const chipClass = (active: boolean, warning = false) =>
+    cn(
+      // titlebar-no-drag: parent rail is a window drag region on macOS.
+      "mac:titlebar-no-drag flex h-7 items-center gap-1.5 rounded-md px-2.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text",
+      active && "bg-dls-hover text-dls-text",
+      warning && "text-dls-warning",
+    );
+
   if (!workspaceRoot) {
     return (
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-dls-border bg-dls-surface-muted px-4 text-xs text-dls-secondary mac:titlebar-no-drag">
-        <AlertCircle className="size-3.5" />
-        <span>{t("local_agent.status_rail_workspace_missing")}</span>
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-dls-border bg-dls-surface-muted px-4 text-xs text-dls-secondary mac:titlebar-drag">
+        <span className="mac:titlebar-no-drag inline-flex items-center gap-2">
+          <AlertCircle className="size-3.5" />
+          <span>{t("local_agent.status_rail_workspace_missing")}</span>
+        </span>
       </div>
     );
   }
 
   return (
     <div
-      className="flex h-8 min-w-0 shrink-0 items-center gap-1 overflow-x-hidden border-b border-dls-border bg-dls-surface-muted px-3 text-xs mac:titlebar-no-drag"
+      className="flex h-9 min-w-0 shrink-0 items-center gap-1.5 overflow-x-hidden border-b border-dls-border bg-dls-surface-muted px-4 text-xs mac:titlebar-drag"
       data-testid="local-agent-status-rail"
     >
-      <Popover open={open === "skill"} onOpenChange={(next) => setOpen(next ? "skill" : null)}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              onClick={() => openPopover("skill")}
-              className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text",
-                open === "skill" && "bg-dls-hover text-dls-text",
-              )}
-              data-testid="local-agent-status-rail-skill"
-            >
-              <Sparkles className="size-3.5" />
-              <span>{t("local_agent.status_rail_skills")}</span>
-              <CountBadge>{skillCount}</CountBadge>
-            </button>
-          }
-        />
-        <PopoverContent align="start" className="w-72">
-          <StatusPopoverBody
-            title={t("local_agent.status_rail_skills")}
-            hint={t("local_agent.status_rail_skills_hint")}
-            emptyLabel={t("local_agent.status_rail_empty")}
-            onManage={() => {
-              setOpen(null);
-              onOpenManagement();
-            }}
-            items={
-              data
-                ? data.skill.skills.map((skill) => ({
-                    key: skill.indexFile,
-                    primary: skill.name,
-                    secondary: shorten(skill.id),
-                  }))
-                : []
+      <div className="flex min-w-0 shrink-0 items-center gap-1">
+        <Popover open={open === "skill"} onOpenChange={(next) => setOpen(next ? "skill" : null)}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                onClick={() => openPopover("skill")}
+                className={chipClass(open === "skill")}
+                data-testid="local-agent-status-rail-skill"
+              >
+                <Sparkles className="size-3.5" />
+                <span>{t("local_agent.status_rail_skills")}</span>
+                <CountBadge>{skillCount}</CountBadge>
+              </button>
             }
           />
-        </PopoverContent>
-      </Popover>
+          <PopoverContent align="start" className="w-72">
+            <StatusPopoverBody
+              title={t("local_agent.status_rail_skills")}
+              hint={t("local_agent.status_rail_skills_hint")}
+              emptyLabel={t("local_agent.status_rail_empty")}
+              onManage={() => {
+                setOpen(null);
+                onOpenManagement();
+              }}
+              items={
+                data
+                  ? data.skill.skills.map((skill) => ({
+                      key: skill.indexFile,
+                      primary: skill.name,
+                      secondary: shorten(skill.id),
+                    }))
+                  : []
+              }
+            />
+          </PopoverContent>
+        </Popover>
 
-      <Popover open={open === "mcp"} onOpenChange={(next) => setOpen(next ? "mcp" : null)}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              onClick={() => openPopover("mcp")}
-              className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text",
-                open === "mcp" && "bg-dls-hover text-dls-text",
-              )}
-              data-testid="local-agent-status-rail-mcp"
-            >
-              <Server className="size-3.5" />
-              <span>{t("local_agent.status_rail_mcp")}</span>
-              <CountBadge>{mcpCount}</CountBadge>
-            </button>
-          }
-        />
-        <PopoverContent align="start" className="w-72">
-          <StatusPopoverBody
-            title={t("local_agent.status_rail_mcp")}
-            hint={t("local_agent.status_rail_skills_hint")}
-            emptyLabel={t("local_agent.status_rail_mcp_no_conn")}
-            onManage={() => {
-              setOpen(null);
-              onOpenManagement();
-            }}
-            items={
-              data
-                ? data.mcp.servers.map((server) => ({
-                    key: `${server.name}:${server.sourceFile ?? ""}`,
-                    primary: server.name,
-                    secondary: [
-                      server.transport ?? null,
-                      server.connected ? t("local_agent.status_rail_mcp_connected") : t("local_agent.status_rail_mcp_config_only"),
-                      server.toolCount ? `${server.toolCount} tools` : null,
-                    ]
-                      .filter((piece): piece is string => Boolean(piece))
-                      .join(" · "),
-                  }))
-                : []
+        <Popover open={open === "mcp"} onOpenChange={(next) => setOpen(next ? "mcp" : null)}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                onClick={() => openPopover("mcp")}
+                className={chipClass(open === "mcp")}
+                data-testid="local-agent-status-rail-mcp"
+              >
+                <Server className="size-3.5" />
+                <span>{t("local_agent.status_rail_mcp")}</span>
+                <CountBadge>{mcpCount}</CountBadge>
+              </button>
             }
-            sourceErrors={data?.mcp.sourceErrors ?? []}
           />
-        </PopoverContent>
-      </Popover>
+          <PopoverContent align="start" className="w-72">
+            <StatusPopoverBody
+              title={t("local_agent.status_rail_mcp")}
+              hint={t("local_agent.status_rail_skills_hint")}
+              emptyLabel={t("local_agent.status_rail_mcp_no_conn")}
+              onManage={() => {
+                setOpen(null);
+                onOpenManagement();
+              }}
+              items={
+                data
+                  ? data.mcp.servers.map((server) => ({
+                      key: `${server.name}:${server.sourceFile ?? ""}`,
+                      primary: server.name,
+                      secondary: [
+                        server.transport ?? null,
+                        server.connected ? t("local_agent.status_rail_mcp_connected") : t("local_agent.status_rail_mcp_config_only"),
+                        server.toolCount ? `${server.toolCount} tools` : null,
+                      ]
+                        .filter((piece): piece is string => Boolean(piece))
+                        .join(" · "),
+                    }))
+                  : []
+              }
+              sourceErrors={data?.mcp.sourceErrors ?? []}
+            />
+          </PopoverContent>
+        </Popover>
 
-      <Popover open={open === "permission"} onOpenChange={(next) => setOpen(next ? "permission" : null)}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              onClick={() => openPopover("permission")}
-              className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text",
-                open === "permission" && "bg-dls-hover text-dls-text",
-                permissionPending > 0 && "text-dls-warning",
+        <Popover open={open === "permission"} onOpenChange={(next) => setOpen(next ? "permission" : null)}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                onClick={() => openPopover("permission")}
+                className={chipClass(open === "permission", permissionPending > 0)}
+                data-testid="local-agent-status-rail-permission"
+              >
+                <Key className="size-3.5" />
+                <span>{t("local_agent.status_rail_permissions")}</span>
+                <CountBadge>{permissionTotal}</CountBadge>
+              </button>
+            }
+          />
+          <PopoverContent align="start" className="w-80">
+            <div className="flex flex-col gap-2 p-3">
+              <div className="text-xs font-medium text-dls-text">{t("local_agent.status_rail_permissions")}</div>
+              {data ? (
+                <div className="flex flex-col gap-1 text-xs text-dls-secondary">
+                  <div>{t("local_agent.status_rail_permission_pending")}: {data.permission.pending}</div>
+                  <div>{t("local_agent.status_rail_permission_approved")}: {data.permission.approved}</div>
+                  <div>{t("local_agent.status_rail_permission_denied")}: {data.permission.denied}</div>
+                  <div>{t("local_agent.status_rail_permission_remembered")}: {data.permission.remembered}</div>
+                </div>
+              ) : (
+                <div className="text-xs text-dls-secondary">{t("local_agent.status_rail_empty")}</div>
               )}
-              data-testid="local-agent-status-rail-permission"
-            >
-              <Key className="size-3.5" />
-              <span>{t("local_agent.status_rail_permissions")}</span>
-              <CountBadge>{permissionTotal}</CountBadge>
-            </button>
-          }
-        />
-        <PopoverContent align="start" className="w-80">
-          <div className="flex flex-col gap-2 p-3">
-            <div className="text-xs font-medium text-dls-text">{t("local_agent.status_rail_permissions")}</div>
-            {data ? (
-              <div className="flex flex-col gap-1 text-xs text-dls-secondary">
-                <div>{t("local_agent.status_rail_permission_pending")}: {data.permission.pending}</div>
-                <div>{t("local_agent.status_rail_permission_approved")}: {data.permission.approved}</div>
-                <div>{t("local_agent.status_rail_permission_denied")}: {data.permission.denied}</div>
-                <div>{t("local_agent.status_rail_permission_remembered")}: {data.permission.remembered}</div>
-              </div>
-            ) : (
-              <div className="text-xs text-dls-secondary">{t("local_agent.status_rail_empty")}</div>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
 
-      <div className="mx-1 h-3 w-px shrink-0 bg-dls-border" aria-hidden />
+      {/* Mid strip stays draggable for window move on frameless macOS. */}
+      <div className="min-h-full min-w-4 flex-1" aria-hidden />
 
-      <div className="flex min-w-0 items-center gap-1.5 text-dls-secondary" data-testid="local-agent-status-rail-workspace">
+      <div
+        className="mac:titlebar-no-drag flex min-w-0 max-w-[min(42%,20rem)] items-center gap-1.5 text-dls-secondary"
+        data-testid="local-agent-status-rail-workspace"
+        title={workspaceRoot}
+      >
         <Folder className="size-3.5 shrink-0" />
-        <span className="truncate">{shorten(workspaceRoot, 60)}</span>
+        <span className="truncate">{shorten(workspaceRoot, 40)}</span>
       </div>
 
       {state.kind === "error" ? (
-        <div className="ml-auto flex items-center gap-1 text-dls-danger" data-testid="local-agent-status-rail-error">
+        <div className="mac:titlebar-no-drag ml-1 flex shrink-0 items-center gap-1 text-dls-danger" data-testid="local-agent-status-rail-error">
           <AlertCircle className="size-3.5" />
           <span>{t("local_agent.status_rail_load_failed")}</span>
         </div>

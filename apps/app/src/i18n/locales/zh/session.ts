@@ -30,7 +30,8 @@ export default {
   "session.no_expert_conversations": "还未产生专家会话",
   "session.no_matching_expert_conversations": "没有匹配的专家会话",
   "session.no_expert_conversations_title": "暂无专家会话",
-  "session.no_expert_conversations_desc": "点击左侧上方的智能体按钮，选择一个专家开始对话；产生会话后会在这里继续。",
+  "session.no_expert_conversations_desc": "先选择一位专家开始对话；产生会话后会在这里继续。",
+  "session.no_expert_conversations_action": "选择专家",
   "session.expert_marketplace_title": "专家",
   "session.my_experts": "我的专家",
   "session.search_experts_placeholder": "搜索专家职称或描述",
@@ -171,6 +172,12 @@ export default {
   "session.transcript_revert_here": "还原到此消息",
   "session.transcript_token_usage": "输入 {input} · 缓存 {cache} · 输出 {output} tokens",
   "session.transcript_token_usage_label": "Token 消耗：输入 {input} tokens，缓存 {cache} tokens，输出 {output} tokens",
+  "session.transcript_model_removed": "已移除",
+  "session.transcript_model_removed_title":
+    "此消息发送时使用的模型。该服务商已从当前配置中移除，无法继续调用。",
+  "session.model_unavailable_after_removed_title": "原模型已不可用",
+  "session.model_unavailable_after_removed_desc":
+    "{model} 已不在当前配置中，请自行选择其他模型后继续。",
   "session.transcript_yesterday": "昨天",
   "session.expand_pasted_text": "展开粘贴文本",
   "session.collapse_pasted_text": "收起粘贴文本",

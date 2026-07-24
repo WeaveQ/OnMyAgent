@@ -290,9 +290,26 @@ export function createAgentManagementProviders(options = {}) {
 
   function mergeProviderSimpleFields(appType, settingsConfig, simple = {}) {
     if (!settingsConfig || typeof settingsConfig !== "object" || Array.isArray(settingsConfig)) return settingsConfig;
-    if (!["claude", "codex"].includes(appType)) return settingsConfig;
     const base = structuredCloneJson(settingsConfig);
     const generated = buildProviderSettingsConfig(appType, simple);
+    // Form fields are the source of truth on re-edit; keep extra advanced-JSON keys.
+    if (appType === "opencode") {
+      const baseOptions = base.options && typeof base.options === "object" && !Array.isArray(base.options) ? base.options : {};
+      const generatedOptions =
+        generated.options && typeof generated.options === "object" && !Array.isArray(generated.options)
+          ? generated.options
+          : {};
+      return {
+        ...base,
+        ...generated,
+        options: { ...baseOptions, ...generatedOptions },
+        models: generated.models,
+        name: generated.name || base.name,
+      };
+    }
+    if (appType === "openclaw" || appType === "hermes") {
+      return { ...base, ...generated };
+    }
     if (appType === "claude") {
       base.env = { ...(base.env && typeof base.env === "object" ? base.env : {}), ...(generated.env ?? {}) };
       return base;
@@ -683,7 +700,12 @@ export function createAgentManagementProviders(options = {}) {
         provider.limitMonthlyUsd,
         provider.providerType,
       );
-      return { ...provider, createdAt, sortIndex };
+      return {
+        ...provider,
+        createdAt,
+        sortIndex,
+        models: extractAgentManagementProviderModels(provider.appType, provider.settingsConfig),
+      };
     });
   }
 
@@ -717,12 +739,23 @@ export function createAgentManagementProviders(options = {}) {
     return (await readJsonLikeFile(configPath)) ?? {};
   }
 
-  async function writeOpenCodeProviderLive(provider) {
+  async function writeOpenCodeProviderLive(provider, options = {}) {
     const configPath = agentManagementConfigPath("opencode");
     const config = await readAgentManagementJsonConfig("opencode");
     const providerMap = config.provider && typeof config.provider === "object" ? config.provider : {};
     providerMap[provider.id] = provider.settingsConfig;
     config.provider = providerMap;
+    // Product expectation: fill in a custom provider → it becomes usable immediately.
+    // Default the engine model to the first catalog entry unless the caller opts out.
+    if (options.setDefault !== false || options.switchDefault === true) {
+      const modelId =
+        provider.models?.[0]?.id ||
+        extractAgentManagementProviderModels("opencode", provider.settingsConfig)[0]?.id ||
+        null;
+      if (modelId) {
+        config.model = `${provider.id}/${modelId}`;
+      }
+    }
     await writeJsonFileAtomic(configPath, config);
   }
 
@@ -905,7 +938,7 @@ export function createAgentManagementProviders(options = {}) {
   }
 
   async function writeAgentManagementProviderLive(provider, options = {}) {
-    if (provider.appType === "opencode") return writeOpenCodeProviderLive(provider);
+    if (provider.appType === "opencode") return writeOpenCodeProviderLive(provider, options);
     if (provider.appType === "openclaw") return writeOpenClawProviderLive(provider);
     if (provider.appType === "hermes") {
       await writeHermesProviderLive(provider);
@@ -1045,10 +1078,51 @@ export function createAgentManagementProviders(options = {}) {
       };
       if (byAgent[provider.appType]) byAgent[provider.appType].push(enriched);
     }
+
+    // Surface live providers for additive apps so Settings can list/edit/delete
+    // them even when they were never imported into the studio-switch DB.
+    // When a DB row already exists, prefer live settingsConfig so re-edit
+    // shows the first-entered values currently written to opencode.json etc.
+    for (const appType of AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS) {
+      const list = byAgent[appType] ?? [];
+      const byId = new Map(list.map((item) => [item.id, item]));
+      const liveProviders = await readLiveProvidersForImport(appType).catch(() => []);
+      for (const raw of liveProviders) {
+        if (!raw?.id) continue;
+        const existing = byId.get(raw.id);
+        if (existing) {
+          const liveSettings =
+            raw.settingsConfig && typeof raw.settingsConfig === "object" && !Array.isArray(raw.settingsConfig)
+              ? raw.settingsConfig
+              : null;
+          if (liveSettings) {
+            existing.settingsConfig = liveSettings;
+            existing.models = extractAgentManagementProviderModels(appType, liveSettings);
+            if (raw.name) existing.name = String(raw.name);
+          }
+          existing.livePresent = true;
+          existing.meta = { ...(existing.meta ?? {}), live_config_managed: true };
+          continue;
+        }
+        const provider = normalizeAgentManagementProviderPayload(appType, raw);
+        provider.meta = { ...(provider.meta ?? {}), live_config_managed: true };
+        const enriched = {
+          ...provider,
+          // normalize() does not attach models — extract for re-edit prefill.
+          models: extractAgentManagementProviderModels(appType, provider.settingsConfig),
+          livePresent: true,
+          configPath: agentManagementConfigPath(appType),
+        };
+        list.push(enriched);
+        byId.set(provider.id, enriched);
+      }
+    }
+
+    const total = Object.values(byAgent).reduce((sum, list) => sum + list.length, 0);
     return {
       databasePath: studioSwitchDatabasePath(),
       byAgent,
-      total: providers.length,
+      total,
     };
   }
 
@@ -1073,9 +1147,30 @@ export function createAgentManagementProviders(options = {}) {
       const provider = normalizeAgentManagementProviderPayload(appType, input?.provider ?? input);
       const saved = saveStudioSwitchProvider(provider);
       if (input?.syncLive !== false && AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
-        await writeAgentManagementProviderLive(saved);
+        // OpenCode: setDefault so "save custom model" is immediately selectable/usable.
+        await writeAgentManagementProviderLive(saved, {
+          setDefault: input?.setDefault !== false,
+          switchDefault: input?.switchDefault === true,
+        });
       }
-      return { ok: true, action, appType, providerId: saved.id, providers: await readAgentManagementProvidersSnapshot() };
+      const savedModels =
+        Array.isArray(saved.models) && saved.models.length
+          ? saved.models
+          : extractAgentManagementProviderModels(appType, saved.settingsConfig);
+      const defaultModelId = savedModels[0]?.id ?? null;
+      const shouldSetDefault = input?.setDefault !== false;
+      return {
+        ok: true,
+        action,
+        appType,
+        providerId: saved.id,
+        defaultModelId,
+        defaultModel:
+          appType === "opencode" && defaultModelId && shouldSetDefault
+            ? { providerID: saved.id, modelID: defaultModelId }
+            : null,
+        providers: await readAgentManagementProvidersSnapshot(),
+      };
     }
 
     const providerId = sanitizeProviderKey(input?.providerId ?? input?.id ?? input?.provider?.id);

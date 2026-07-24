@@ -81,6 +81,8 @@ export type SessionSurfaceProps = {
   workspaceId: string;
   workspaceRoot: string;
   sessionId: string;
+  /** Live connected provider IDs for historical transcript model badges. */
+  connectedProviderIds?: readonly string[] | null;
   draftOnly?: boolean;
   /**
    * False while the host keep-alive pane is hidden (other rail pages).

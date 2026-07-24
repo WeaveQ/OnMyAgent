@@ -400,6 +400,7 @@ export default {
   "local_agent.workspace_temporary_notice": "Temporary conversation. Pick a project to bind CWD.",
   "local_agent.workspace_locked_notice": "Bound to {name}. New conversations respect this project.",
   "local_agent.workspace_locked_hint": "This conversation is locked to its folder. Start a new conversation to switch project.",
+  "local_agent.workspace_locked_hint_short": "Folder locked · new chat to switch",
   "local_agent.extensions_title": "Extensions",
   "local_agent.extensions_count": "{count} loaded",
   "local_agent.extensions_empty": "No extensions installed. Drop a folder with onmyagent-extension.json into the extensions directory.",

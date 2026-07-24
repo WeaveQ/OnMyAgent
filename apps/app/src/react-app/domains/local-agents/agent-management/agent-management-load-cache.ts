@@ -3,7 +3,7 @@
  * Keep free of React / Electron so unit tests can run under bun.
  */
 
-export type ManagementLoadDomain = "core" | "skills" | "mcp";
+export type ManagementLoadDomain = "core" | "skills" | "mcp" | "providers";
 
 export type AgentManagementPanelId =
   | "providers"
@@ -28,6 +28,7 @@ export const MANAGEMENT_LOAD_DOMAINS: readonly ManagementLoadDomain[] = [
   "core",
   "skills",
   "mcp",
+  "providers",
 ] as const;
 
 export const DEFAULT_MANAGEMENT_DOMAIN_TTL_MS = 60_000;
@@ -69,7 +70,12 @@ export function normalizeManagementDomains(
   if (!Array.isArray(input) || input.length === 0) return null;
   const out: ManagementLoadDomain[] = [];
   for (const item of input) {
-    if (item === "core" || item === "skills" || item === "mcp") {
+    if (
+      item === "core" ||
+      item === "skills" ||
+      item === "mcp" ||
+      item === "providers"
+    ) {
       if (!out.includes(item)) out.push(item);
     }
   }
@@ -140,6 +146,10 @@ export function mergeManagementDomainSnapshot<T extends DomainSnapshotFields>(
 
   if (loaded.includes("core")) {
     if (Array.isArray(partial.agents)) next.agents = partial.agents;
+    if (partial.providers != null) next.providers = partial.providers;
+  }
+  // providers-only: inventory without fleet scan (settings AI custom providers).
+  if (loaded.includes("providers") && !loaded.includes("core")) {
     if (partial.providers != null) next.providers = partial.providers;
   }
   if (loaded.includes("skills") && Array.isArray(partial.skills)) {
