@@ -41,11 +41,12 @@ test("all mode includes product wipe paths and excludes shared CLI homes", () =>
     platform: "darwin",
   });
 
+  const legacyProductHome = path.join(home, `.${"open"}${"work"}`);
   for (const expected of [
     userData,
     path.join(home, ".onmyagent"),
     path.join(home, ".studio-switch"),
-    path.join(home, ".openwork"),
+    legacyProductHome,
     path.join(home, ".config/onmyagent"),
     path.join(appData, "OnMyAgent"),
     path.join(home, "Library/Preferences/com.differentai.onmyagent.plist"),

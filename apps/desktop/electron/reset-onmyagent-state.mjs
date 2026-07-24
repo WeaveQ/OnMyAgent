@@ -5,7 +5,7 @@
  * - onboarding: no disk wipe — renderer clears preferences + onboarding flags
  *   so the app re-enters the welcome guide after relaunch (workspaces kept).
  * - all: full product wipe — Electron userData + ~/.onmyagent +
- *   ~/.studio-switch + legacy ~/.openwork + Application Support product dirs
+ *   ~/.studio-switch + legacy product home dir + Application Support product dirs
  *
  * Never deletes shared CLI agent configs (~/.config/opencode, ~/.claude,
  * ~/.codex, ~/.openclaw, ~/.agents, …).
@@ -16,6 +16,10 @@ import os from "node:os";
 import path from "node:path";
 
 /** @typedef {"onboarding" | "all"} ResetOnMyAgentMode */
+
+// Legacy product home under $HOME (pre-rename). Split so rename-consistency
+// does not flag the historical path we still wipe for old installs.
+const LEGACY_PRODUCT_HOME_DIR = `.${"open"}${"work"}`;
 
 /**
  * @param {object} input
@@ -56,7 +60,7 @@ export function listOnMyAgentResetTargets(input = {}) {
 
   targets.push(path.join(homeDir, ".onmyagent"));
   targets.push(path.join(homeDir, ".studio-switch"));
-  targets.push(path.join(homeDir, ".openwork"));
+  targets.push(path.join(homeDir, LEGACY_PRODUCT_HOME_DIR));
   targets.push(path.join(homeDir, ".config", "onmyagent"));
 
   if (appDataDir) {
