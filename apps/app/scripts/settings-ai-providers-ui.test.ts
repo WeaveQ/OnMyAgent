@@ -174,7 +174,7 @@ describe("settings AI view wiring (structural)", () => {
     );
   });
 
-  test("AI tab Suspense falls back to providers skeleton", () => {
+  test("AI tab Suspense falls back to providers skeleton via settings barrel", () => {
     const lazyTabs = readFileSync(
       path.join(
         import.meta.dir,
@@ -184,6 +184,8 @@ describe("settings AI view wiring (structural)", () => {
     );
     expect(lazyTabs).toContain("SettingsAiTabSuspense");
     expect(lazyTabs).toContain("AiSettingsProvidersSkeleton");
-    expect(lazyTabs).toContain("ai-providers-skeleton");
+    // Shell must import skeleton from the domain barrel, not a deep page path.
+    expect(lazyTabs).toContain('from "../../domains/settings"');
+    expect(lazyTabs).not.toContain("pages/ai-providers-skeleton");
   });
 });
