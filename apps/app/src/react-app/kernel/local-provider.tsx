@@ -15,6 +15,8 @@ import { coerceReleaseChannel } from "../../app/lib/release-channels";
 import type { ModelRef, ReleaseChannel, SettingsTab, View } from "../../app/types";
 import { canonicalizeProfileOptionValues } from "../domains/shared";
 import { readStoredDefaultModel } from "./model-config";
+import type { ResponseToneId } from "./response-tone";
+import { normalizeResponseTone } from "./response-tone";
 
 export type LocalUIState = {
   view: View;
@@ -134,7 +136,7 @@ export function normalizeConversationMemory(
 
 export type LocalPreferences = {
   showThinking: boolean;
-  responseTone: "friendly" | "business";
+  responseTone: ResponseToneId;
   customInstructions: string;
   modelVariant: string | null;
   defaultModel: ModelRef | null;
@@ -187,7 +189,7 @@ export const DEFAULT_SHOW_THINKING = true;
 export const INITIAL_UI: LocalUIState = { view: "session", tab: "general" };
 const INITIAL_PREFS: LocalPreferences = {
   showThinking: DEFAULT_SHOW_THINKING,
-  responseTone: "business",
+  responseTone: "pragmatic",
   customInstructions: "",
   modelVariant: null,
   defaultModel: null,
@@ -242,6 +244,7 @@ export function LocalProvider({ children }: LocalProviderProps) {
         ...INITIAL_PREFS.featureFlags,
         ...(persisted.featureFlags ?? {}),
       },
+      responseTone: normalizeResponseTone(persisted.responseTone),
       onboardingProfile: normalizeOnboardingProfile(persisted.onboardingProfile),
       conversationMemory: normalizeConversationMemory(persisted.conversationMemory),
       autoNewSessionOnIdle: Boolean(persisted.autoNewSessionOnIdle),

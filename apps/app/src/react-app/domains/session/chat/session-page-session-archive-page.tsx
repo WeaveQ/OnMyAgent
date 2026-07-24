@@ -20,6 +20,9 @@ import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
 import {
   agentLabel,
   archiveAgentIconId,
+  archiveSessionPreviewLine,
+  cleanArchiveMessageContent,
+  isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   groupSessionsByAgent,
   buildResumeRequest,
@@ -38,6 +41,9 @@ export type {
 export {
   agentLabel,
   archiveAgentIconId,
+  archiveSessionPreviewLine,
+  cleanArchiveMessageContent,
+  isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   VISIBLE_AGENTS,
   RESUMABLE_AGENTS,
@@ -45,6 +51,7 @@ export {
   buildResumeRequest,
   humanizeArchiveTitle,
   shortProjectLabel,
+  extractArchiveTitleLine,
 } from "./session-archive-helpers";
 
 /** First-screen page size — never mount thousands of list rows at once. */
@@ -473,7 +480,7 @@ export function SessionArchivePage(props: Props) {
               {flatSessions.map((session) => {
                 const active = session.id === selectedSessionId;
                 const title = sessionTitle(session);
-                const project = shortProjectLabel(session.project);
+                const preview = archiveSessionPreviewLine(session);
                 const timeLabel = session.file_mtime
                   ? formatRelativeTime(session.file_mtime)
                   : null;
@@ -508,22 +515,12 @@ export function SessionArchivePage(props: Props) {
                             </span>
                           ) : null}
                         </span>
-                        <span className="flex min-w-0 items-center gap-1.5 text-2xs leading-4 text-dls-secondary">
-                          <span className="shrink-0">
-                            {agentLabel(session.agent)}
+                        {/* Preview = first user question; message count right-aligned. */}
+                        <span className="flex min-w-0 items-center gap-2 text-2xs leading-4 text-dls-secondary">
+                          <span className="min-w-0 flex-1 truncate">
+                            {preview ?? agentLabel(session.agent)}
                           </span>
-                          {project ? (
-                            <>
-                              <span className="opacity-40" aria-hidden="true">
-                                ·
-                              </span>
-                              <span className="min-w-0 truncate">{project}</span>
-                            </>
-                          ) : null}
-                          <span className="opacity-40" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className="shrink-0 tabular-nums">
+                          <span className="shrink-0 tabular-nums text-right">
                             {t("session_archive.message_count", {
                               count: session.message_count,
                             })}
@@ -711,45 +708,6 @@ export function SessionArchivePage(props: Props) {
       </div>
     </div>
   );
-}
-
-/**
- * Prefer human payload inside harness wrappers; strip protocol tags so the
- * transcript does not look like a raw XML dump.
- */
-function cleanArchiveMessageContent(content: string): string {
-  const raw = String(content ?? "").trim();
-  if (!raw) return "";
-  const userRequest = raw.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i);
-  if (userRequest?.[1]?.trim()) return userRequest[1].trim();
-  const stripped = raw
-    .replace(/<\/?(?:auto-slash-command|command-instruction|user-request|INSTRUCTIONS)[^>]*>/gi, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return stripped || raw;
-}
-
-/** Drop empty / pure tool-noise lines so the transcript stays readable. */
-function isNoisyArchiveMessage(message: {
-  role: string;
-  content: string;
-}): boolean {
-  const text = String(message.content ?? "").trim();
-  if (!text) return true;
-  if (message.role === "tool") {
-    // Keep short tool summaries; drop giant dumps.
-    if (text.length > 600) return true;
-  }
-  // JSON-RPC / protocol blobs
-  if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) {
-    return true;
-  }
-  // Bare harness shells: mostly tags/punctuation after cleanArchiveMessageContent.
-  if (message.role === "system" && text.length > 400) {
-    const letters = text.replace(/[^A-Za-z0-9]/g, "");
-    if (letters.length < 12) return true;
-  }
-  return false;
 }
 
 function formatCompactCount(count: number): string {

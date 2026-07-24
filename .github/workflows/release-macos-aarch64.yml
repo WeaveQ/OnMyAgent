@@ -367,11 +367,13 @@ jobs:
             ${{ matrix.electron_args }} \
             --publish never
 
-      # Preview / prerelease: sign with Development (or any) cert when present, never notarize.
-      # Users may still need Privacy & Security → Open Anyway / xattr -cr.
-      # Without cert secrets, fall back to unsigned (CSC_IDENTITY_AUTO_DISCOVERY=false).
-      - name: Package Electron (macOS, signed preview without notarization)
-        if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && (needs.resolve-release.outputs.draft == 'true' || needs.resolve-release.outputs.prerelease == 'true') && env.HAS_APPLE_CODESIGN_CERT == 'true'
+      # When notarize is off: still package for stable AND draft/prerelease.
+      # (Previously only draft/prerelease ran here — stable + notarize=false produced
+      # zero dist-electron assets and failed upload.)
+      # Sign with cert when present; otherwise unsigned. Gatekeeper may still block
+      # unnotarized apps (Privacy & Security → Open Anyway / xattr -cr).
+      - name: Package Electron (macOS, signed without notarization)
+        if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && env.HAS_APPLE_CODESIGN_CERT == 'true'
         env:
           CSC_LINK: ${{ secrets.APPLE_CODESIGN_CERT_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CODESIGN_CERT_PASSWORD }}
@@ -379,19 +381,19 @@ jobs:
           MACOS_NOTARIZE: "false"
         run: |
           set -euo pipefail
-          echo "Signing macOS preview with APPLE_CODESIGN_CERT_* (notarization disabled)."
+          echo "Signing macOS build with APPLE_CODESIGN_CERT_* (notarization disabled)."
           pnpm --dir apps/desktop exec electron-builder \
             --config electron-builder.yml \
             ${{ matrix.electron_args }} \
             --publish never
 
-      - name: Package Electron (macOS, unsigned preview)
-        if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && (needs.resolve-release.outputs.draft == 'true' || needs.resolve-release.outputs.prerelease == 'true') && env.HAS_APPLE_CODESIGN_CERT != 'true'
+      - name: Package Electron (macOS, unsigned without notarization)
+        if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && env.HAS_APPLE_CODESIGN_CERT != 'true'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
           set -euo pipefail
-          echo "No APPLE_CODESIGN_CERT_* secrets; building unsigned macOS preview."
+          echo "No APPLE_CODESIGN_CERT_* secrets; building unsigned macOS app."
           pnpm --dir apps/desktop exec electron-builder \
             --config electron-builder.yml \
             ${{ matrix.electron_args }} \
