@@ -46,7 +46,12 @@ skills: [claims-case]
 5. **输出材料包目录 + 各方话术 + 保司提纲**。
 6. **建立/更新理赔进度跟踪**；标注易拖环节与下次动作。
 7. **待你拍板**：是否报案、是否部分赔付提案、是否升级法务。
-8. **导出交付**：核对后 export；不会自动认责、报案、承诺赔付或发送消息。
+8. **逐轮生成理赔预览**：按 `references/data-protocol.md` 维护 `claim-case.json`，每次收到信息后跑 preview：
+   ```bash
+   python3 <Skill根目录>/scripts/build_claim_artifacts.py --input claim-case.json --output-dir . --mode preview
+   ```
+   生成 `.process/claim-preview.html`（理赔预览）。**保留命令返回的完整 JSON 工具结果原样**，客户端会直接读取其中的 `inlineWidget`（含 `title`、`widget_code`）并立即展示；最终用户可见回复只放一句状态说明 + 合并追问，**禁止**再次输出 `show_widget` 围栏、`preview:` / “放大查看”链接，也禁止把 HTML 源码或半截 JSON 贴进正文。每轮补全后重跑 preview 刷新。
+9. **导出交付**：核对后 export；不会自动认责、报案、承诺赔付或发送消息。
 
 ## 输出规范
 
@@ -55,6 +60,8 @@ skills: [claims-case]
 - **责任初判**：可能方向 | 依据 | 缺口 | 免责关注（不确定则写「待查证」）。
 - **话术**：分对象、可直接转发；默认不认全责除非你明确授权。
 - **进度表**：节点 | 状态 | 日期 | 负责人 | 备注。
+- **会话内直接展示**：每次脚本成功后保持命令工具结果原样，客户端会从 stdout JSON 的 `inlineWidget`（含 `title`、`widget_code`）直接渲染。**禁止**再把这段大 JSON 放进正文或 `show_widget` 围栏，避免重复传输完整 HTML 导致预览重复渲染、会话卡死。
+- **预览方式**：主要效果由客户端从生成命令结果直接展示；禁止额外输出“放大查看”按钮、`preview:` 链接，也禁止调用浏览器、网页搜索工具或 `file://` 打开本地 HTML。
 - 默认简体中文；金额与单号无来源不编造。
 
 ## 注意事项
@@ -65,3 +72,5 @@ skills: [claims-case]
 - 证据不足时责任初判必须带 **条件句与缺口**。
 - 涉及保险以保单条款与保司流程为准；无保单信息时只给通用提纲。
 - 人身伤亡、危险品泄漏等立即建议停运并升级应急与合规渠道。
+- **禁止把 HTML/脚本源码给用户看**：禁止 `cat`/读取预览 HTML 进对话；禁止把 `build_claim_artifacts.py` 的 stdout、`widget_code`、半截 JSON 当普通正文或 `code` 块粘贴。工具输出由客户端直接消费，用户可见正文只保留简短说明 + 追问。
+- **禁止手写/简化预览**：不得自行重画理赔预览 HTML 或省略 `inlineWidget` 字段；必须原样使用脚本返回值。
