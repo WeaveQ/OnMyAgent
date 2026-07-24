@@ -398,8 +398,74 @@ describe("WorkBuddy turn content presentation", () => {
         : []
     ) ?? [];
     expect(standaloneWidgets).toHaveLength(0);
-    expect(bodyWidgets).toHaveLength(1);
-    expect(presentation?.hoistedItems).toHaveLength(0);
+    expect(bodyWidgets).toHaveLength(0);
+    expect(presentation?.hoistedItems).toHaveLength(1);
+  });
+
+  test("collapses same-title command widgets re-run with evolving data to the latest", () => {
+    const firstHtml = '<section class="wh-preview">库存 2 条</section>';
+    const latestHtml = '<section class="wh-preview">库存 5 条</section>';
+    const turn = completedTurn([
+      assistant("preview-1", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "preview-1",
+        state: "output-available",
+        input: { command: "python3 build_warehouse_artifacts.py --mode preview" },
+        output: JSON.stringify({
+          ok: true,
+          inlineWidget: { title: "仓储库存看板预览", widget_code: firstHtml, artifactCopies: [] },
+        }),
+      }]),
+      assistant("preview-2", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "preview-2",
+        state: "output-available",
+        input: { command: "python3 build_warehouse_artifacts.py --mode preview" },
+        output: JSON.stringify({
+          ok: true,
+          inlineWidget: { title: "仓储库存看板预览", widget_code: latestHtml, artifactCopies: [] },
+        }),
+      }]),
+      assistant("final", [{ type: "text", text: "已更新台账，最新库存看板如下。" }]),
+    ]);
+
+    const presentation = buildTurnContentPresentation(turn);
+
+    expect(presentation?.hoistedItems).toHaveLength(1);
+    expect(presentation?.hoistedItems[0]?.title).toBe("仓储库存看板预览");
+    expect(presentation?.hoistedItems[0]?.html).toBe(latestHtml);
+  });
+
+  test("keeps distinct command widgets that carry different titles", () => {
+    const turn = completedTurn([
+      assistant("preview", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "preview",
+        state: "output-available",
+        input: { command: "python3 build.py --mode preview" },
+        output: JSON.stringify({
+          ok: true,
+          inlineWidget: { title: "库存看板", widget_code: "<div>a</div>", artifactCopies: [] },
+        }),
+      }]),
+      assistant("report", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "report",
+        state: "output-available",
+        input: { command: "python3 build.py --mode report" },
+        output: JSON.stringify({
+          ok: true,
+          inlineWidget: { title: "异常报告", widget_code: "<div>b</div>", artifactCopies: [] },
+        }),
+      }]),
+      assistant("final", [{ type: "text", text: "完成。" }]),
+    ]);
+
+    expect(buildTurnContentPresentation(turn)?.hoistedItems).toHaveLength(2);
   });
 
   test("preserves WorkBuddy widget loading messages while the tool is running", () => {

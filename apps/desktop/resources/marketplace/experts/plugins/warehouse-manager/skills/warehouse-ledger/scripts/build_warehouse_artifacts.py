@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -16,6 +17,26 @@ from datetime import date, datetime
 from html import escape
 from pathlib import Path
 from typing import Any
+
+
+STYLE_PATTERN = re.compile(r"<style>([\s\S]*?)</style>", re.IGNORECASE)
+WH_PREVIEW_PATTERN = re.compile(r'(<section\s+class="wh-preview">[\s\S]*?</section>)', re.IGNORECASE)
+PRINT_MEDIA_PATTERN = re.compile(r"@media\s+print\s*\{(?:[^{}]|\{[^{}]*\})*\}", re.IGNORECASE)
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Inline widget fragment: extract <style> and the main wh-preview <section>,
+    strip @media print rules to shrink payload. Mirrors order-entry/quote-specialist
+    inline_widget_fragment handling so the host receives a trimmed fragment
+    instead of the raw preview HTML.
+    """
+    style = STYLE_PATTERN.search(preview_html)
+    section = WH_PREVIEW_PATTERN.search(preview_html)
+    if not style or not section:
+        return preview_html
+    screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
+    return f"<style>{screen_css}</style>{section.group(1)}"
 
 
 def text(value: Any) -> str:
@@ -371,7 +392,7 @@ def main() -> None:
         "movementCount": len(movements),
         "balanceCount": len(balances),
         "files": files,
-        "inlineWidget": {"title": "仓储库存看板预览", "widget_code": preview_html},
+        "inlineWidget": {"title": "仓储库存看板预览", "widget_code": inline_widget_fragment(preview_html)},
     }
 
     if args.mode == "export":
