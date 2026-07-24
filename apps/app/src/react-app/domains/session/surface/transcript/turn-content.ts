@@ -709,11 +709,13 @@ export function buildTurnContentPresentation(
       }
       return item;
     });
-  // 同 turn 内多个命令 widget 若 html 相同（preview/export 重复跑），只保留最新一个，避免预览重复展示。
+  // 同 turn 内多次 preview/export 重跑产生的同类 widget 只保留最新一个：
+  // 按 title 去重（兼容数据逐轮变化导致 html 不同的情况），无 title 时回退按 html 去重。
   const visibleHoistedItems = Array.from(
     hoistedItems
       .reduce<Map<string, TurnWidgetItem>>((map, widget) => {
-        map.set(widget.html.trim(), widget);
+        const dedupKey = widget.title?.trim() || widget.html.trim();
+        map.set(dedupKey, widget);
         return map;
       }, new Map())
       .values(),
