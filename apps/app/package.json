@@ -61,7 +61,7 @@
     "jsonc-parser": "^3.2.1",
     "katex": "^0.17.0",
     "lexical": "^0.35.0",
-    "lucide-react": "^0.577.0",
+    "lucide-react": "^1.25.0",
     "marked": "^17.0.1",
     "marked-emoji": "^2.0.3",
     "mermaid": "^11.16.0",
