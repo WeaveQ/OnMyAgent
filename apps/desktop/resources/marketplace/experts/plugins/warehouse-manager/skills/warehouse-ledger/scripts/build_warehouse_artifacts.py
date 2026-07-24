@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Build warehouse stock snapshot, anomaly list, brief, CSVs, automation proposals."""
+"""Build warehouse ledger preview (HTML inlineWidget) and Excel/PDF export with automation proposals."""
 
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 import shutil
@@ -58,132 +57,6 @@ def dwell_days(inbound: date | None, as_of: date) -> int | None:
     if inbound is None:
         return None
     return (as_of - inbound).days
-
-
-def build_snapshot(balances: list[dict[str, Any]], as_of: date, dwell_alert: int) -> str:
-    lines = [
-        f"# Stock snapshot ({as_of.isoformat()})",
-        "",
-        "| Waybill | SKU | Bin | Qty | Unit | Inbound | Dwell | Status |",
-        "| --- | --- | --- | ---: | --- | --- | ---: | --- |",
-    ]
-    for row in balances:
-        inbound = parse_date(text(row.get("inboundDate")))
-        dwell = dwell_days(inbound, as_of)
-        status = text(row.get("status")) or "in_stock"
-        if dwell is not None and dwell >= dwell_alert and status == "in_stock":
-            status = f"dwell>={dwell_alert}d"
-        lines.append(
-            "| {wb} | {sku} | {bin_} | {qty} | {unit} | {inbound} | {dwell} | {status} |".format(
-                wb=text(row.get("waybill")) or "-",
-                sku=text(row.get("sku")) or "-",
-                bin_=text(row.get("bin")) or "-",
-                qty=text(row.get("qty")) or "0",
-                unit=text(row.get("unit")) or "-",
-                inbound=inbound.isoformat() if inbound else text(row.get("inboundDate")) or "-",
-                dwell="" if dwell is None else dwell,
-                status=status,
-            )
-        )
-    lines.append("")
-    return "\n".join(lines)
-
-
-def build_anomalies(
-    balances: list[dict[str, Any]],
-    anomalies: list[dict[str, Any]],
-    as_of: date,
-    dwell_alert: int,
-) -> str:
-    lines = [f"# Anomalies ({as_of.isoformat()})", ""]
-    derived = 0
-    for row in balances:
-        qty = float(text(row.get("qty")) or 0)
-        if qty < 0:
-            derived += 1
-            lines.append(
-                f"- **negative_stock** {text(row.get('waybill'))} bin={text(row.get('bin'))} qty={qty}"
-            )
-        inbound = parse_date(text(row.get("inboundDate")))
-        dwell = dwell_days(inbound, as_of)
-        if dwell is not None and dwell >= dwell_alert and text(row.get("status")) in {"", "in_stock"}:
-            derived += 1
-            lines.append(
-                f"- **overstay** {text(row.get('waybill'))} dwell={dwell}d bin={text(row.get('bin'))}"
-            )
-    for item in anomalies:
-        if not isinstance(item, dict):
-            continue
-        derived += 1
-        lines.append(
-            f"- **{text(item.get('type')) or 'anomaly'}** {text(item.get('object')) or '-'} "
-            f"book={text(item.get('book'))} physical={text(item.get('physical'))} "
-            f"note={text(item.get('note')) or '-'}"
-        )
-    if derived == 0:
-        lines.append("- (none)")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def build_brief(
-    movements: list[dict[str, Any]],
-    balances: list[dict[str, Any]],
-    as_of: date,
-    dwell_alert: int,
-) -> str:
-    counts = {"in": 0, "out": 0, "transfer": 0, "count_gain": 0, "count_loss": 0, "adjust": 0}
-    for move in movements:
-        if not isinstance(move, dict):
-            continue
-        key = text(move.get("type")) or "adjust"
-        counts[key] = counts.get(key, 0) + 1
-    overstay = 0
-    for row in balances:
-        inbound = parse_date(text(row.get("inboundDate")))
-        dwell = dwell_days(inbound, as_of)
-        if dwell is not None and dwell >= dwell_alert:
-            overstay += 1
-    lines = [
-        f"# Daily brief ({as_of.isoformat()})",
-        "",
-        f"- movements in/out/transfer: {counts.get('in', 0)}/{counts.get('out', 0)}/{counts.get('transfer', 0)}",
-        f"- count gain/loss/adjust: {counts.get('count_gain', 0)}/{counts.get('count_loss', 0)}/{counts.get('adjust', 0)}",
-        f"- balance lines: {len(balances)}",
-        f"- overstay (>={dwell_alert}d): {overstay}",
-        "",
-    ]
-    return "\n".join(lines)
-
-
-def write_balance_csv(path: Path, balances: list[dict[str, Any]], as_of: date) -> None:
-    fields = ["waybill", "sku", "bin", "qty", "unit", "inboundDate", "dwellDays", "status"]
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
-        writer.writeheader()
-        for row in balances:
-            inbound = parse_date(text(row.get("inboundDate")))
-            writer.writerow({
-                "waybill": text(row.get("waybill")),
-                "sku": text(row.get("sku")),
-                "bin": text(row.get("bin")),
-                "qty": text(row.get("qty")),
-                "unit": text(row.get("unit")),
-                "inboundDate": inbound.isoformat() if inbound else text(row.get("inboundDate")),
-                "dwellDays": dwell_days(inbound, as_of) if inbound else "",
-                "status": text(row.get("status")),
-            })
-
-
-def write_movement_csv(path: Path, movements: list[dict[str, Any]]) -> None:
-    fields = ["time", "type", "waybill", "sku", "qtyDelta", "unit", "bin", "operator", "note"]
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
-        writer.writeheader()
-        for move in movements:
-            if not isinstance(move, dict):
-                continue
-            writer.writerow({key: text(move.get(key)) for key in fields})
 
 
 def write_daily_proposal(path: Path) -> None:

@@ -1,6 +1,6 @@
 ---
 name: warehouse-ledger
-description: 网点仓库存台账方法论。登记入/出/移/盘到 warehouse-ledger.json，扫描异常与滞留，生成简报与 CSV，用户确认后创建 OnMyAgent 每日库存定时任务。
+description: 网点仓库存台账方法论。登记入/出/移/盘到 warehouse-ledger.json，扫描异常与滞留，生成库存看板预览与 Excel/PDF，用户确认后创建 OnMyAgent 每日库存定时任务。
 ---
 
 # 仓储台账技能（Warehouse Ledger）
