@@ -27,6 +27,26 @@ def text(value: Any) -> str:
     return str(value).strip()
 
 
+STYLE_PATTERN = re.compile(r"<style>([\s\S]*?)</style>", re.IGNORECASE)
+AR_SECTION_PATTERN = re.compile(r'(<section\s+class="ar-preview">[\s\S]*?</section>)', re.IGNORECASE)
+PRINT_MEDIA_PATTERN = re.compile(r"@media\s+print\s*\{(?:[^{}]|\{[^{}]*\})*\}", re.IGNORECASE)
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Inline widget fragment: extract <style> and the main ar-preview <section>,
+    strip @media print rules to shrink payload. Mirrors order-entry's
+    inline_widget_fragment handling so the host receives a trimmed fragment
+    instead of the raw preview HTML.
+    """
+    style = STYLE_PATTERN.search(preview_html)
+    section = AR_SECTION_PATTERN.search(preview_html)
+    if not style or not section:
+        return preview_html
+    screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
+    return f"<style>{screen_css}</style>{section.group(1)}"
+
+
 def parse_date(value: str) -> date | None:
     raw = text(value)
     if not raw:
@@ -658,7 +678,7 @@ def main() -> None:
         "asOfDate": as_of.isoformat(),
         "rowCount": len(rows),
         "files": files,
-        "inlineWidget": {"title": "应收催收看板预览", "widget_code": preview_html},
+        "inlineWidget": {"title": "应收催收看板预览", "widget_code": inline_widget_fragment(preview_html)},
     }
 
     if args.mode == "export":
