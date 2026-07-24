@@ -536,6 +536,44 @@ describe("session-archive parser initial slice", () => {
     }
   });
 
+  test("Grok first_message prefers user_query over standalone user_info row", async () => {
+    const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-parser-"));
+    try {
+      const sessionDir = join(root, "%2FUsers%2Fwork", "019f-session-query");
+      await mkdir(sessionDir, { recursive: true });
+      const path = join(sessionDir, "chat_history.jsonl");
+      await writeFile(path, [
+        JSON.stringify({
+          type: "user",
+          content: [{
+            type: "text",
+            text: "<user_info>\nOS Version: macos\nShell: /bin/zsh\nWorkspace Path: /Users/work\n</user_info>",
+          }],
+        }),
+        JSON.stringify({
+          type: "user",
+          content: [{
+            type: "text",
+            text: "\n\n<system-reminder>\nAs you answer the user's questions, you can use the following context...\n</system-reminder>\n",
+          }],
+        }),
+        JSON.stringify({
+          type: "user",
+          content: [{ type: "text", text: "<user_query>\n就是我在输入中的时候 点发送\n</user_query>" }],
+        }),
+        JSON.stringify({
+          type: "assistant",
+          content: [{ type: "text", text: "ok" }],
+        }),
+      ].join("\n"));
+
+      const result = await sessionArchiveParserForAgent("grok")?.parseFile(path);
+      expect(result?.session.first_message).toBe("就是我在输入中的时候 点发送");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("discovers and parses WorkBuddy project JSONL", async () => {
     const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-parser-"));
     try {

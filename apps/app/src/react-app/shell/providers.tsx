@@ -10,6 +10,7 @@ import { LocalProvider } from "../kernel/local-provider";
 import { ServerProvider } from "../kernel/server-provider";
 import { AgentReadyDesktopNotificationMonitor } from "./agent-ready-desktop-notification-monitor";
 import { AutomationRunDesktopNotificationMonitor } from "./automation-run-desktop-notification-monitor";
+import { UpdateAvailableNoticeMonitor } from "./update-available-notice-monitor";
 import { ArchitectureMismatchGate } from "./architecture-mismatch-gate";
 import { BootStateProvider } from "./boot-state";
 import { DesktopRuntimeBoot } from "./desktop-runtime-boot";
@@ -71,6 +72,7 @@ export function AppProviders({ children }: AppProvidersProps) {
                   <StatusToastsProvider>
                     <AgentReadyDesktopNotificationMonitor />
                     <AutomationRunDesktopNotificationMonitor />
+                    <UpdateAvailableNoticeMonitor />
                     <ReloadCoordinatorProvider>{children}</ReloadCoordinatorProvider>
                   </StatusToastsProvider>
                 </LocalProvider>

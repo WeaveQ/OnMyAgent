@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - main
+    # labeled: re-run when `ci:windows` is applied to force the host gate.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches:
       - main
@@ -17,12 +19,14 @@ env:
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
-  # Path filter: skip expensive windows-2022 job when PR only touches unrelated areas.
+  # Path filter / label: skip expensive windows-2022 when PR is unrelated.
+  # Force with PR label `ci:windows` (Phase A Windows gate).
   changes:
     name: Detect Windows-relevant paths
     runs-on: ubuntu-latest
     outputs:
       windows: ${{ steps.filter.outputs.windows }}
+      reason: ${{ steps.filter.outputs.reason }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,6 +38,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # PR label override — run Windows host gate even when paths do not match.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            labels_json='${{ toJson(github.event.pull_request.labels.*.name) }}'
+            if printf '%s' "$labels_json" | grep -Fq '"ci:windows"'; then
+              echo "windows=true" >> "$GITHUB_OUTPUT"
+              echo "reason=label-ci-windows" >> "$GITHUB_OUTPUT"
+              echo "Forced by PR label ci:windows"
+              exit 0
+            fi
+          fi
+
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
           else
@@ -46,7 +62,9 @@ jobs:
             fi
           fi
           mapfile -t files < <(git diff --name-only "$BASE" "${{ github.sha }}" || git diff --name-only "$BASE" HEAD)
-          pattern='^(apps/desktop/|apps/orchestrator/|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
+          # Phase A: desktop/orchestrator + session-archive / workspace roots / desktop bridge
+          # (paths that commonly regress on win32). Avoid whole apps/app/** to keep cost down.
+          pattern='^(apps/desktop/|apps/orchestrator/|apps/server/src/services/session-archive|apps/server/src/env-file\.ts|apps/server/tests/session-archive|apps/app/src/react-app/domains/workspace/|apps/app/src/react-app/domains/session/chat/session-archive|apps/app/src/app/lib/desktop\.ts|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
           # Avoid `printf | head` / `grep -q` under pipefail: early consumer close
           # yields SIGPIPE and fails the job on large merges.
           matched=false
@@ -75,6 +93,11 @@ jobs:
 
   checks:
     name: Checks (${{ matrix.os }})
+    # Skip full Checks when the only trigger is adding/removing a PR label
+    # (label re-runs only need Detect + optional windows-compat).
+    if: >
+      github.event_name != 'pull_request' ||
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled')
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -139,7 +162,7 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm test:windows-runtime
 
-  # Real Windows host gate. Skipped when PR has no desktop/windows-related paths.
+  # Real Windows host gate. Skipped when paths miss and no `ci:windows` label.
   # Desktop typecheck lives only in Checks (pnpm check) — TS is OS-agnostic.
   windows-compat:
     name: Windows compat (windows-2022)
@@ -201,6 +224,9 @@ jobs:
 
   tests:
     name: ${{ matrix.test.name }} (${{ matrix.os }})
+    if: >
+      github.event_name != 'pull_request' ||
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled')
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -359,13 +385,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          event="${{ github.event_name }}"
+          action="${{ github.event.action }}"
           checks="${{ needs.checks.result }}"
           windows="${{ needs.windows-compat.result }}"
           tests="${{ needs.tests.result }}"
-          # windows-compat may be skipped when no Windows-relevant paths changed.
+          # windows-compat may be skipped when no Windows-relevant paths / label.
           windows_ok=0
           if [ "$windows" = "success" ] || [ "$windows" = "skipped" ]; then
             windows_ok=1
+          fi
+          # Label-only re-run: Checks/tests intentionally skipped; only gate Windows host.
+          if [ "$event" = "pull_request" ] && { [ "$action" = "labeled" ] || [ "$action" = "unlabeled" ]; }; then
+            if [ "$windows_ok" != "1" ]; then
+              echo "label-rerun windows-compat=$windows" >&2
+              exit 1
+            fi
+            echo "label-rerun ok windows-compat=$windows reason=${{ needs.changes.outputs.reason }}"
+            exit 0
           fi
           if [ "$checks" != "success" ] || [ "$windows_ok" != "1" ] || [ "$tests" != "success" ]; then
             echo "checks=$checks windows-compat=$windows tests=$tests" >&2
