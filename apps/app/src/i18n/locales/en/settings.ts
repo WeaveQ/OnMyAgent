@@ -79,6 +79,8 @@ export default {
   "settings.clear": "Clear",
   "settings.config_updated":
     "Configuration updated. Reload the engine if the change affects the runtime.",
+  "settings.custom_provider_ready":
+    "{name} is ready. You can use this model now.",
   "settings.configure": "Configure",
   "settings.connect_provider": "Connect provider",
   "settings.connection": "Connection",

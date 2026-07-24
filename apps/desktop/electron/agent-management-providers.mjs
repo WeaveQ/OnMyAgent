@@ -717,12 +717,23 @@ export function createAgentManagementProviders(options = {}) {
     return (await readJsonLikeFile(configPath)) ?? {};
   }
 
-  async function writeOpenCodeProviderLive(provider) {
+  async function writeOpenCodeProviderLive(provider, options = {}) {
     const configPath = agentManagementConfigPath("opencode");
     const config = await readAgentManagementJsonConfig("opencode");
     const providerMap = config.provider && typeof config.provider === "object" ? config.provider : {};
     providerMap[provider.id] = provider.settingsConfig;
     config.provider = providerMap;
+    // Product expectation: fill in a custom provider → it becomes usable immediately.
+    // Default the engine model to the first catalog entry unless the caller opts out.
+    if (options.setDefault !== false || options.switchDefault === true) {
+      const modelId =
+        provider.models?.[0]?.id ||
+        extractAgentManagementProviderModels("opencode", provider.settingsConfig)[0]?.id ||
+        null;
+      if (modelId) {
+        config.model = `${provider.id}/${modelId}`;
+      }
+    }
     await writeJsonFileAtomic(configPath, config);
   }
 
@@ -905,7 +916,7 @@ export function createAgentManagementProviders(options = {}) {
   }
 
   async function writeAgentManagementProviderLive(provider, options = {}) {
-    if (provider.appType === "opencode") return writeOpenCodeProviderLive(provider);
+    if (provider.appType === "opencode") return writeOpenCodeProviderLive(provider, options);
     if (provider.appType === "openclaw") return writeOpenClawProviderLive(provider);
     if (provider.appType === "hermes") {
       await writeHermesProviderLive(provider);
@@ -1073,9 +1084,25 @@ export function createAgentManagementProviders(options = {}) {
       const provider = normalizeAgentManagementProviderPayload(appType, input?.provider ?? input);
       const saved = saveStudioSwitchProvider(provider);
       if (input?.syncLive !== false && AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
-        await writeAgentManagementProviderLive(saved);
+        // OpenCode: setDefault so "save custom model" is immediately selectable/usable.
+        await writeAgentManagementProviderLive(saved, {
+          setDefault: input?.setDefault !== false,
+          switchDefault: input?.switchDefault === true,
+        });
       }
-      return { ok: true, action, appType, providerId: saved.id, providers: await readAgentManagementProvidersSnapshot() };
+      const defaultModelId = saved.models?.[0]?.id ?? null;
+      return {
+        ok: true,
+        action,
+        appType,
+        providerId: saved.id,
+        defaultModelId,
+        defaultModel:
+          appType === "opencode" && defaultModelId
+            ? { providerID: saved.id, modelID: defaultModelId }
+            : null,
+        providers: await readAgentManagementProvidersSnapshot(),
+      };
     }
 
     const providerId = sanitizeProviderKey(input?.providerId ?? input?.id ?? input?.provider?.id);

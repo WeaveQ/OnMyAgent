@@ -1079,11 +1079,18 @@ export function AgentManagementProviderModal(props: {
   );
 }
 
+export type OpenCodeProviderSavedResult = {
+  providerId: string;
+  providerName: string;
+  modelId: string | null;
+  defaultModel: { providerID: string; modelID: string } | null;
+};
+
 export function OpenCodeProviderConfigDialog(props: {
   workspaceRoot: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved?: () => void | Promise<void>;
+  onSaved?: (result: OpenCodeProviderSavedResult) => void | Promise<void>;
 }) {
   const { open, onOpenChange, onSaved, workspaceRoot } = props;
   const [draft, setDraft] = useState<ProviderDraft>(() => defaultProviderDraft("opencode"));
@@ -1101,10 +1108,11 @@ export function OpenCodeProviderConfigDialog(props: {
     setBusy(true);
     setError(null);
     try {
-      await agentManagementProviderAction({
+      const result = await agentManagementProviderAction({
         action: "save",
         appType: "opencode",
         syncLive: true,
+        setDefault: true,
         workspaceRoot,
         provider: {
           id: draft.id,
@@ -1129,9 +1137,30 @@ export function OpenCodeProviderConfigDialog(props: {
           },
         },
       });
+      const providerId = String(result?.providerId ?? draft.id).trim() || draft.id;
+      const modelId =
+        typeof result?.defaultModelId === "string" && result.defaultModelId.trim()
+          ? result.defaultModelId.trim()
+          : draft.modelRows.find((row) => row.id.trim())?.id.trim() || null;
+      const defaultModel =
+        result?.defaultModel &&
+        typeof result.defaultModel.providerID === "string" &&
+        typeof result.defaultModel.modelID === "string"
+          ? {
+              providerID: result.defaultModel.providerID,
+              modelID: result.defaultModel.modelID,
+            }
+          : modelId
+            ? { providerID: providerId, modelID: modelId }
+            : null;
       setDraft(defaultProviderDraft("opencode"));
       onOpenChange(false);
-      await onSaved?.();
+      await onSaved?.({
+        providerId,
+        providerName: draft.name.trim() || providerId,
+        modelId,
+        defaultModel,
+      });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : String(saveError));
     } finally {

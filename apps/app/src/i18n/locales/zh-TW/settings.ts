@@ -725,6 +725,7 @@ export default {
   "settings.cap_write_only": "只寫",
   "settings.config_updated":
     "配置已更新。如果更改會影響運行時，請重新加載引擎。",
+  "settings.custom_provider_ready": "{name} 已就緒，可直接使用。",
   "settings.debug_base_url": "基礎 URL：{url}",
   "settings.debug_connect_url": "連接 URL：{url}",
   "settings.debug_deeplink_unavailable": "調試深度鏈接暫不可用。",
