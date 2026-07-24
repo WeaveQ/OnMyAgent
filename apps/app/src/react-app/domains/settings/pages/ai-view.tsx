@@ -215,9 +215,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
               const rowBusy =
                 syncBusy || props.providerActionBusyId === provider.id;
-              const modelCountKnown =
+              const modelCount =
                 typeof provider.modelCount === "number" &&
-                provider.modelCount > 0;
+                provider.modelCount > 0
+                  ? provider.modelCount
+                  : null;
 
               return (
                 <SettingsBlockRow
@@ -256,10 +258,10 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       <span className="font-mono text-dls-secondary">
                         {provider.id}
                       </span>
-                      {modelCountKnown ? (
+                      {modelCount !== null ? (
                         <span className="text-dls-secondary">
                           {t("settings.provider_model_count", {
-                            count: provider.modelCount,
+                            count: modelCount,
                           })}
                         </span>
                       ) : inventorySyncing ? (
