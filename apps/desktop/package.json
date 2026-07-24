@@ -20,7 +20,7 @@
     "package:nsis": "node ./scripts/patch-nsis-install-details.mjs && pnpm exec electron-builder --config electron-builder.yml --win --x64 --publish never",
     "electron": "pnpm exec electron ./electron/main.mjs",
     "check:electron": "node ./scripts/check-electron-bridge.mjs",
-    "test:runtime": "node --test ./scripts/prepare-sidecar-policy.test.mjs ./scripts/vite-deps-integrity.test.mjs ./scripts/runtime-archive.test.mjs ./electron/desktop-command-contract.test.mjs ./electron/desktop-handlers/domain-smoke.test.mjs ./electron/browser-runtime/*.test.mjs && pnpm check:electron",
+    "test:runtime": "node --test ./scripts/prepare-sidecar-policy.test.mjs ./scripts/vite-deps-integrity.test.mjs ./scripts/runtime-archive.test.mjs ./electron/opencode-binary-policy.test.mjs ./electron/desktop-command-contract.test.mjs ./electron/desktop-handlers/domain-smoke.test.mjs ./electron/browser-runtime/*.test.mjs && pnpm check:electron",
     "test:vite-deps-integrity": "node --test ./scripts/vite-deps-integrity.test.mjs",
     "test:windows-runtime": "node ../../scripts/dev/windows-runtime-test.mjs",
     "test:browser-smoke": "electron ./scripts/browser-runtime-smoke.mjs",

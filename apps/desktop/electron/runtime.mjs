@@ -25,6 +25,7 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
+import { chooseOpencodeBinary } from "./opencode-binary-policy.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -765,13 +766,17 @@ export function createRuntimeManager({
     return env;
   }
 
+  function envForcedOpencodeBinaryPath() {
+    for (const key of ["OPENCODE_BIN", "ONMYAGENT_OPENCODE_BIN", "ONMYAGENT_LOCAL_OPENCODE_BIN"]) {
+      const value = process.env[key]?.trim();
+      if (value && existsSync(value)) return value;
+    }
+    return null;
+  }
+
   function localOpencodeBinaryCandidates() {
     const binaryName = process.platform === "win32" ? "opencode.exe" : "opencode";
-    const candidates = [
-      process.env.OPENCODE_BIN?.trim(),
-      process.env.ONMYAGENT_OPENCODE_BIN?.trim(),
-      process.env.ONMYAGENT_LOCAL_OPENCODE_BIN?.trim(),
-    ];
+    const candidates = [];
 
     const pathEntries = (enrichedPath([], process.env.PATH) ?? "")
       .split(path.delimiter)
@@ -800,13 +805,54 @@ export function createRuntimeManager({
     return [...new Set(candidates.filter(Boolean))];
   }
 
+  function findExistingLocalOpencodeBinary() {
+    for (const candidate of localOpencodeBinaryCandidates()) {
+      if (existsSync(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve OpenCode with product-owned version gate:
+   * bundled by default; local only when version >= bundled pin.
+   */
+  function resolveOpencodeBinaryDecision(opencodeBinPath) {
+    const explicitPath = typeof opencodeBinPath === "string" ? opencodeBinPath.trim() : "";
+    const envForcedPath = explicitPath ? null : envForcedOpencodeBinaryPath();
+    const bundled = resolveBundledBinaryInfo("opencode");
+    const localPath = explicitPath || envForcedPath ? null : findExistingLocalOpencodeBinary();
+
+    const decision = chooseOpencodeBinary({
+      explicitPath: explicitPath || null,
+      envForcedPath,
+      localPath,
+      localVersion: localPath || envForcedPath ? probeVersion(localPath ?? envForcedPath) : null,
+      bundledPath: bundled?.path ?? null,
+      bundledVersion: bundled?.path ? probeVersion(bundled.path) : null,
+    });
+
+    if (decision.notice) {
+      console.warn(`[runtime] OpenCode binary policy: ${decision.notice}`);
+    } else if (decision.path) {
+      console.info(
+        `[runtime] OpenCode binary policy: using ${decision.source} (${decision.reason}) -> ${decision.path}`,
+      );
+    }
+
+    if (!decision.path) return null;
+    return {
+      path: decision.path,
+      source: decision.source,
+      reason: decision.reason,
+      notice: decision.notice,
+      localVersion: decision.localVersion,
+      bundledVersion: decision.bundledVersion,
+    };
+  }
+
   function resolveBinaryInfo(baseName, extraPaths = []) {
     if (baseName === "opencode") {
-      for (const candidate of localOpencodeBinaryCandidates()) {
-        if (existsSync(candidate)) {
-          return { path: candidate, source: "local" };
-        }
-      }
+      return resolveOpencodeBinaryDecision(null);
     }
 
     for (const directory of [...sidecarDirs, ...extraPaths]) {
@@ -871,8 +917,7 @@ export function createRuntimeManager({
   }
 
   function resolveOpencodeBinary(opencodeBinPath) {
-    const explicitPath = typeof opencodeBinPath === "string" ? opencodeBinPath.trim() : "";
-    return explicitPath ? { path: explicitPath, source: "custom" } : resolveBinaryInfo("opencode");
+    return resolveOpencodeBinaryDecision(opencodeBinPath);
   }
 
   function resolveDockerCandidates() {
