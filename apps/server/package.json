@@ -1,6 +1,6 @@
 {
   "name": "onmyagent-server",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Filesystem-backed API for OnMyAgent remote clients",
   "type": "module",
   "bin": {
@@ -52,7 +52,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^1.17.8",
+    "@opencode-ai/sdk": "1.17.20",
     "@onmyagent/types": "workspace:*",
     "better-sqlite3": "^11.10.0",
     "jsonc-parser": "^3.2.1",

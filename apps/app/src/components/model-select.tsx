@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/command";
 import { t } from "@/i18n";
 import { MenuRowButton } from "@/components/ui/action-row";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 function getProviderDisplayName(providerId: string) {
   return providerId
@@ -193,6 +194,16 @@ export function ModelSelectView({
                               getProviderDisplayName(option.providerID)}
                           </span>
                         </span>
+                        {option.isFree ? (
+                          <StatusBadge
+                            shape="soft"
+                            size="tiny"
+                            tone="success"
+                            className="shrink-0"
+                          >
+                            {t("model_picker.free")}
+                          </StatusBadge>
+                        ) : null}
                         {selected ? (
                           <Check className="size-4 shrink-0 text-dls-accent" />
                         ) : null}

@@ -22,4 +22,5 @@ export default {
   "model_picker.provider_default_available_desc":
     `${APP_NAME} suggests {model}. You can adopt it as your default — we won’t change your preference automatically.`,
   "model_picker.provider_default_apply": "Use default",
+  "model_picker.free": "Free",
 } as const;

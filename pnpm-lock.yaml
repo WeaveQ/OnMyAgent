@@ -107,8 +107,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@opencode-ai/sdk':
-        specifier: ^1.17.8
-        version: 1.17.8
+        specifier: 1.17.20
+        version: 1.17.20
       '@paper-design/shaders-react':
         specifier: 0.0.72
         version: 0.0.72(@types/react@19.2.17)(react@19.2.4)
@@ -161,8 +161,8 @@ importers:
         specifier: ^0.35.0
         version: 0.35.0
       lucide-react:
-        specifier: ^0.577.0
-        version: 0.577.0(react@19.2.4)
+        specifier: ^1.25.0
+        version: 1.25.0(react@19.2.4)
       marked:
         specifier: ^17.0.1
         version: 17.0.1
@@ -246,8 +246,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@opencode-ai/sdk':
-        specifier: ^1.17.8
-        version: 1.17.8
+        specifier: 1.17.20
+        version: 1.17.20
       better-sqlite3:
         specifier: ^11.10.0
         version: 11.10.0
@@ -292,8 +292,8 @@ importers:
   apps/orchestrator:
     dependencies:
       '@opencode-ai/sdk':
-        specifier: ^1.17.8
-        version: 1.17.8
+        specifier: 1.17.20
+        version: 1.17.20
       '@opentui/core':
         specifier: 0.1.77
         version: 0.1.77(stage-js@1.0.0-alpha.17)(typescript@5.9.3)(web-tree-sitter@0.25.10)
@@ -301,7 +301,7 @@ importers:
         specifier: 0.1.77
         version: 0.1.77(solid-js@1.9.9)(stage-js@1.0.0-alpha.17)(typescript@5.9.3)(web-tree-sitter@0.25.10)
       onmyagent-server:
-        specifier: 0.4.5
+        specifier: 0.4.6
         version: link:../server
       solid-js:
         specifier: 1.9.9
@@ -338,8 +338,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@opencode-ai/sdk':
-        specifier: ^1.17.8
-        version: 1.17.8
+        specifier: 1.17.20
+        version: 1.17.20
       better-sqlite3:
         specifier: ^11.10.0
         version: 11.10.0
@@ -1750,8 +1750,8 @@ packages:
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
 
-  '@opencode-ai/sdk@1.17.8':
-    resolution: {integrity: sha512-6MKmsj2ujZyL44jy+12dpwWYDYKPS9fUr+0wVQxaIlPYQ/eAt8T8T3QrybplJ5ZtHfZUX+esXZ02x2UYYm7oEw==}
+  '@opencode-ai/sdk@1.17.20':
+    resolution: {integrity: sha512-Urb7Tp4mvJmyckNI/N79uEpWzZOyn4lE5LVPDVidXZ8BIlw6kxx2ctTPRYPJDF8HLPWGCZ7pCpHcmWgQCYyiNQ==}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -5476,8 +5476,8 @@ packages:
     resolution: {integrity: sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==}
     engines: {node: '>=12'}
 
-  lucide-react@0.577.0:
-    resolution: {integrity: sha512-4LjoFv2eEPwYDPg/CUdBJQSDfPyzXCRrVW1X7jrx/trgxnxkHFjnVZINbzvzxjN70dxychOfg+FTYwBiS3pQ5A==}
+  lucide-react@1.25.0:
+    resolution: {integrity: sha512-/mdJTRbiwcLOQ1NZZK1amZF9rIZyvO18D6r9TngE6TG1NmqHgFuT4eE7Xrkm9UsXMbBJD1NlfwHVltCDWHrOTw==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -8896,7 +8896,7 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
-  '@opencode-ai/sdk@1.17.8':
+  '@opencode-ai/sdk@1.17.20':
     dependencies:
       cross-spawn: 7.0.6
 
@@ -12906,7 +12906,7 @@ snapshots:
 
   lru-cache@7.18.3: {}
 
-  lucide-react@0.577.0(react@19.2.4):
+  lucide-react@1.25.0(react@19.2.4):
     dependencies:
       react: 19.2.4
 

@@ -1,6 +1,6 @@
 {
   "name": "onmyagent-orchestrator",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "OnMyAgent host orchestrator for opencode + OnMyAgent server",
   "private": true,
   "type": "module",
@@ -46,10 +46,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^1.17.8",
+    "@opencode-ai/sdk": "1.17.20",
     "@opentui/core": "0.1.77",
     "@opentui/solid": "0.1.77",
-    "onmyagent-server": "0.4.5",
+    "onmyagent-server": "0.4.6",
     "solid-js": "1.9.9"
   },
   "devDependencies": {

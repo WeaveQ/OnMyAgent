@@ -8,6 +8,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { OwDotTicker } from "../dot-ticker";
 import { t } from "../../../i18n";
 import {
+  AiSettingsProvidersSkeleton,
   loadAiSettingsView,
   loadArchivedTasksView,
   loadAuthorizedFoldersPanel,
@@ -54,6 +55,15 @@ export function SettingsTabSuspense(props: { children: ReactNode }) {
   );
 }
 
+/** AI / models tab: list-shaped skeleton instead of a centered spinner. */
+export function SettingsAiTabSuspense(props: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<AiSettingsProvidersSkeleton />}>
+      {props.children}
+    </Suspense>
+  );
+}
+
 export const LazyGeneralSettingsView = lazy(() =>
   loadGeneralSettingsView().then((module) => ({
     default: module.GeneralSettingsView,
@@ -87,6 +97,9 @@ export const LazyAuthorizedFoldersPanel = lazy(() =>
     default: module.AuthorizedFoldersPanel,
   })),
 );
+
+// Prefetch on module evaluate so Settings → 模型 first open skips the chunk wait.
+void loadAiSettingsView();
 
 export const LazyAiSettingsView = lazy(() =>
   loadAiSettingsView().then((module) => ({

@@ -58,16 +58,21 @@ export default {
   "welcome.showcase_heading_line1": "Your computer,",
   "welcome.showcase_heading_line2": "but it works for you.",
   "welcome.about_you": "About you",
+  "welcome.about_you_hint": "Pick one role and one industry (optional).",
   "welcome.assistant_name": "Name your personal assistant",
   "welcome.choose_workspace_body":
     "Choose the workspace OnMyAgent should use. Files created by OnMyAgent will be saved in this folder.",
   "welcome.choose_workspace_title": "Choose a workspace",
   "welcome.common_tools": "Tools you use",
+  "welcome.common_tools_hint": "Collaboration and productivity apps you open often.",
   "welcome.create_workspace_failed": "Failed to create the workspace.",
   "welcome.frequent_tasks": "Things you often do",
+  "welcome.frequent_tasks_hint": "Suggestions and automations lean on these scenarios.",
   "welcome.get_acquainted": "Let's get acquainted",
+  "welcome.get_acquainted_hint": "Name is required; everything else is optional and editable later in Settings.",
   "welcome.hello_prefix": "Hi, I'm",
   "welcome.industry": "Industry",
+  "welcome.industry_hint": "Single choice. Helps match examples and automations.",
   "welcome.intro":
     "Your AI workspace. Complete three quick steps to start working smarter.",
   "welcome.local_workspace_body":
@@ -75,10 +80,14 @@ export default {
   "welcome.local_workspace_label": "Local workspace:",
   "welcome.local_workspace_title": "Local workspace",
   "welcome.no_folder_selected": "No folder selected",
+  "welcome.profile_body":
+    "Share a bit of work context so the assistant matches how you talk and what you do.",
+  "welcome.profile_title": "Personalize your profile",
   "welcome.remote_workspace_body":
     "Connect to a self-hosted OnMyAgent workspace with a URL and access token.",
   "welcome.remote_workspace_title": "Connect a remote workspace",
   "welcome.role": "Role",
+  "welcome.role_hint": "Single choice. Choose your main job focus.",
   "welcome.select_workspace_failed": "Failed to select a workspace.",
   "welcome.shared_workspace_body":
     "Browse cloud workspaces shared by your organization and connect in one step.",
@@ -87,6 +96,8 @@ export default {
   "welcome.skip_all": "Skip all",
   "welcome.start_setup": "Start setup",
   "welcome.work_habits": "Work habits",
+  "welcome.work_habits_hint": "Pick tools and frequent tasks, then finish to open the workspace.",
   "welcome.your_name": "Your name",
   "welcome.your_name_placeholder": "Enter your name",
+  "welcome.your_name_required": "Name is required to finish",
 } as const;

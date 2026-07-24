@@ -21,6 +21,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ import {
   taskOptions,
   ToggleChip,
   FieldLabel,
+  ChipGroupLabel,
   normalizeProfileOptionValues,
 } from "../domains/settings";
 import { t } from "../../i18n";
@@ -112,8 +114,9 @@ const welcomeTextClass = {
   heroDescription: "mt-4 max-w-2xl text-base leading-7 text-dls-secondary",
   pageTitle: "text-2xl font-medium text-dls-text",
   pageDescription: "mt-2 text-base leading-7 text-dls-secondary",
-  sectionTitle: "text-lg font-medium text-dls-text",
-  sectionLabel: "mb-3.5 text-base font-medium text-dls-secondary",
+  sectionTitle: "text-base font-semibold tracking-tight text-dls-text",
+  sectionHint: "mt-1 text-sm leading-6 text-dls-secondary",
+  sectionLabel: "mb-3 text-sm font-medium text-dls-text",
   selectedLabel: "text-sm font-medium text-dls-text",
   selectedPath: "min-w-0 truncate text-sm text-dls-secondary",
 };
@@ -132,16 +135,26 @@ const welcomeLayoutClass = {
   refreshButton: "shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-accent",
   profileFooter: "flex items-center justify-between gap-3",
   footerActions: "flex gap-3",
-  profileScroll: "h-full px-8 pb-8 pt-8",
-  profileContent: "mx-auto flex max-w-4xl flex-col gap-9",
-  profileSection: "grid gap-6 pb-6 last:pb-0",
-  profileGrid: "grid gap-5 md:grid-cols-3",
-  profileInput: "mt-2 h-11 rounded-lg text-base",
-  mbtiTrigger: "mt-2 h-11 w-full rounded-lg border-dls-border bg-dls-surface px-3 text-base text-dls-text data-[size=default]:h-11",
+  // Match header/footer: outer max-w-5xl + px-8 (same track as progress bar).
+  profileScroll: "h-full",
+  profileContent:
+    "relative z-10 mx-auto flex min-h-[calc(100dvh-11rem)] w-full max-w-5xl flex-col gap-4 px-8 pb-6 pt-4",
+  profileIntro: "shrink-0",
+  profileCard:
+    "gap-0 border border-dls-border/70 bg-dls-surface px-5 py-5 shadow-none ring-0 sm:px-6 sm:py-5",
+  // Stretch remaining viewport so the lower cards are not floating in empty space.
+  profileCardStretch: "flex min-h-0 flex-1 flex-col",
+  profileCardHeader: "mb-4 shrink-0 border-b border-dls-border/50 pb-3",
+  profileCardBody: "flex min-h-0 flex-1 flex-col gap-5",
+  profileGroup: "min-w-0",
+  profileGrid: "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
+  profileInput: "mt-2 h-11 rounded-lg border-dls-border bg-dls-background text-base",
+  mbtiTrigger:
+    "mt-2 h-11 w-full rounded-lg border-dls-border bg-dls-background px-3 text-base text-dls-text data-[size=default]:h-11",
   mbtiContent: "rounded-xl border border-dls-border bg-dls-surface text-dls-text",
   mbtiItem: "rounded-lg text-base",
-  chipRow: "flex flex-wrap gap-3",
-  roleGrid: "grid gap-3 md:grid-cols-3",
+  chipRow: "flex flex-wrap gap-2",
+  roleGrid: "flex flex-wrap gap-2",
 };
 
 function folderNameFromPath(path: string) {
@@ -306,10 +319,11 @@ export function WelcomeRoute() {
     setProfile((current) => ({ ...current, [key]: value }));
   };
 
-  const toggleListValue = (
-    key: "roles" | "industries" | "tools" | "tasks",
-    value: string,
-  ) => {
+  const profileValueSelected = (values: string[], value: string) =>
+    normalizeProfileOptionValues(values).includes(value);
+
+  /** Multi-select for tools / tasks. */
+  const toggleListValue = (key: "tools" | "tasks", value: string) => {
     setProfile((current) => {
       const values = current[key];
       const next = values.includes(value)
@@ -319,8 +333,21 @@ export function WelcomeRoute() {
     });
   };
 
-  const profileValueSelected = (values: string[], value: string) =>
-    normalizeProfileOptionValues(values).includes(value);
+  /** Single-select for role / industry (store as 0–1 item arrays for profile shape). */
+  const selectSingleListValue = (
+    key: "roles" | "industries",
+    value: string,
+  ) => {
+    setProfile((current) => {
+      // Clicking the active item clears it; otherwise replace with the new single choice.
+      if (profileValueSelected(current[key], value)) {
+        return { ...current, [key]: [] };
+      }
+      return { ...current, [key]: [value] };
+    });
+  };
+
+  const profileNameValid = profile.userName.trim().length > 0;
 
   const pickWorkspaceFolder = useCallback(async () => {
     if (!isDesktopRuntime() || pickingFolder) return;
@@ -408,6 +435,8 @@ export function WelcomeRoute() {
 
   const finishOnboarding = useCallback(
     (skipped: boolean) => {
+      // Completing (not skip) requires a display name.
+      if (!skipped && !profile.userName.trim()) return;
       local.setPrefs((previous) => ({
         ...previous,
         hasCompletedOnboarding: true,
@@ -599,6 +628,10 @@ export function WelcomeRoute() {
             <Button
               type="button"
               size="lg"
+              disabled={!profileNameValid}
+              title={
+                profileNameValid ? undefined : t("welcome.your_name_required")
+              }
               onClick={() => finishOnboarding(false)}
             >
               {t("settings.done")}
@@ -610,21 +643,47 @@ export function WelcomeRoute() {
     >
       <ScrollArea className={welcomeLayoutClass.profileScroll}>
         <div className={welcomeLayoutClass.profileContent}>
-          <section className={welcomeLayoutClass.profileSection}>
-            <h2 className={welcomeTextClass.sectionTitle}>
-              {t("welcome.get_acquainted")}
-            </h2>
+          <div className={welcomeLayoutClass.profileIntro}>
+            <h1 className={welcomeTextClass.pageTitle}>
+              {t("welcome.profile_title")}
+            </h1>
+            <p className={welcomeTextClass.pageDescription}>
+              {t("welcome.profile_body")}
+            </p>
+          </div>
+
+          <Card className={cn(welcomeLayoutClass.profileCard, "shrink-0")}>
+            <div className={welcomeLayoutClass.profileCardHeader}>
+              <h2 className={welcomeTextClass.sectionTitle}>
+                {t("welcome.get_acquainted")}
+              </h2>
+              <p className={welcomeTextClass.sectionHint}>
+                {t("welcome.get_acquainted_hint")}
+              </p>
+            </div>
             <div className={welcomeLayoutClass.profileGrid}>
               <FieldLabel>
-                {t("welcome.your_name")}
+                <span className="inline-flex items-center gap-1">
+                  {t("welcome.your_name")}
+                  <span className="text-dls-danger" aria-hidden="true">
+                    *
+                  </span>
+                </span>
                 <Input
                   value={profile.userName}
+                  required
+                  aria-required
                   onChange={(event) =>
                     updateProfile("userName", event.currentTarget.value)
                   }
                   placeholder={t("welcome.your_name_placeholder")}
                   className={welcomeLayoutClass.profileInput}
                 />
+                {!profileNameValid ? (
+                  <span className="text-xs font-normal text-dls-secondary">
+                    {t("welcome.your_name_required")}
+                  </span>
+                ) : null}
               </FieldLabel>
               <FieldLabel>
                 {t("welcome.assistant_name")}
@@ -657,59 +716,82 @@ export function WelcomeRoute() {
                 </Select>
               </FieldLabel>
             </div>
-          </section>
+          </Card>
 
-          <section className={welcomeLayoutClass.profileSection}>
-            <h2 className={welcomeTextClass.sectionTitle}>
-              {t("welcome.about_you")}
-            </h2>
-            <div className="mt-7 flex flex-col gap-7">
-              <div>
-                <div className={welcomeTextClass.sectionLabel}>
+          <Card
+            className={cn(
+              welcomeLayoutClass.profileCard,
+              welcomeLayoutClass.profileCardStretch,
+            )}
+          >
+            <div className={welcomeLayoutClass.profileCardHeader}>
+              <h2 className={welcomeTextClass.sectionTitle}>
+                {t("welcome.about_you")}
+              </h2>
+              <p className={welcomeTextClass.sectionHint}>
+                {t("welcome.about_you_hint")}
+              </p>
+            </div>
+            <div className={welcomeLayoutClass.profileCardBody}>
+              <div className={welcomeLayoutClass.profileGroup}>
+                <ChipGroupLabel hint={t("welcome.role_hint")}>
                   {t("welcome.role")}
-                </div>
-                <div className={welcomeLayoutClass.roleGrid}>
+                </ChipGroupLabel>
+                <div className={welcomeLayoutClass.roleGrid} role="radiogroup" aria-label={t("welcome.role")}>
                   {roleOptions.map((role) => (
                     <ToggleChip
                       key={role.value}
+                      surface="soft"
                       label={role.label}
                       selected={profileValueSelected(profile.roles, role.value)}
-                      onClick={() => toggleListValue("roles", role.value)}
+                      onClick={() => selectSingleListValue("roles", role.value)}
                     />
                   ))}
                 </div>
               </div>
-              <div>
-                <div className={welcomeTextClass.sectionLabel}>
+              <div className={welcomeLayoutClass.profileGroup}>
+                <ChipGroupLabel hint={t("welcome.industry_hint")}>
                   {t("welcome.industry")}
-                </div>
-                <div className={welcomeLayoutClass.chipRow}>
+                </ChipGroupLabel>
+                <div className={welcomeLayoutClass.chipRow} role="radiogroup" aria-label={t("welcome.industry")}>
                   {industryOptions.map((industry) => (
                     <ToggleChip
                       key={industry.value}
+                      surface="soft"
                       label={industry.label}
                       selected={profileValueSelected(profile.industries, industry.value)}
-                      onClick={() => toggleListValue("industries", industry.value)}
+                      onClick={() => selectSingleListValue("industries", industry.value)}
                     />
                   ))}
                 </div>
               </div>
             </div>
-          </section>
+          </Card>
 
-          <section className={welcomeLayoutClass.profileSection}>
-            <h2 className={welcomeTextClass.sectionTitle}>
-              {t("welcome.work_habits")}
-            </h2>
-            <div className="mt-7 flex flex-col gap-7">
-              <div>
-                <div className={welcomeTextClass.sectionLabel}>
+          <Card
+            className={cn(
+              welcomeLayoutClass.profileCard,
+              welcomeLayoutClass.profileCardStretch,
+            )}
+          >
+            <div className={welcomeLayoutClass.profileCardHeader}>
+              <h2 className={welcomeTextClass.sectionTitle}>
+                {t("welcome.work_habits")}
+              </h2>
+              <p className={welcomeTextClass.sectionHint}>
+                {t("welcome.work_habits_hint")}
+              </p>
+            </div>
+            <div className={welcomeLayoutClass.profileCardBody}>
+              <div className={welcomeLayoutClass.profileGroup}>
+                <ChipGroupLabel hint={t("welcome.common_tools_hint")}>
                   {t("welcome.common_tools")}
-                </div>
+                </ChipGroupLabel>
                 <div className={welcomeLayoutClass.chipRow}>
                   {toolOptions.map((tool) => (
                     <ToggleChip
                       key={tool.value}
+                      surface="soft"
                       label={tool.label}
                       selected={profileValueSelected(profile.tools, tool.value)}
                       onClick={() => toggleListValue("tools", tool.value)}
@@ -717,14 +799,15 @@ export function WelcomeRoute() {
                   ))}
                 </div>
               </div>
-              <div>
-                <div className={welcomeTextClass.sectionLabel}>
+              <div className={welcomeLayoutClass.profileGroup}>
+                <ChipGroupLabel hint={t("welcome.frequent_tasks_hint")}>
                   {t("welcome.frequent_tasks")}
-                </div>
+                </ChipGroupLabel>
                 <div className={welcomeLayoutClass.chipRow}>
                   {taskOptions.map((task) => (
                     <ToggleChip
                       key={task.value}
+                      surface="soft"
                       label={task.label}
                       selected={profileValueSelected(profile.tasks, task.value)}
                       onClick={() => toggleListValue("tasks", task.value)}
@@ -733,7 +816,7 @@ export function WelcomeRoute() {
                 </div>
               </div>
             </div>
-          </section>
+          </Card>
         </div>
       </ScrollArea>
     </OnboardingShell>
