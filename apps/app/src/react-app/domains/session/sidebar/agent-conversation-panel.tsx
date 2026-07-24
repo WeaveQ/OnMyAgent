@@ -782,8 +782,8 @@ export function AgentConversationPanel(props: {
     [props.selectedWorkspaceId],
   );
 
-  const handleArchiveAssistantSession = useCallback(
-    (sessionId: string, title: string) => {
+  const archiveAssistantSessionCore = useCallback(
+    (sessionId: string, title: string, options?: { silent?: boolean }) => {
       archiveAssistantTask(props.selectedWorkspaceId, {
         sessionId,
         title,
@@ -810,29 +810,35 @@ export function AgentConversationPanel(props: {
           }
           return { ...current, [automationId]: nextIds };
         });
-        return;
-      }
-      const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
-      if (spaceDir) {
-        setSpaceLocalPinsByDirectory((current) => {
-          const prev = current[spaceDir] ?? [];
-          if (!prev.includes(sessionId)) return current;
-          const nextIds = prev.filter((id) => id !== sessionId);
-          writeAssistantSpaceLocalPins(
-            props.selectedWorkspaceId,
-            spaceDir,
-            nextIds,
-          );
-          return { ...current, [spaceDir]: nextIds };
-        });
       } else {
-        setAssistantGlobalPins((current) => {
-          const next = current.filter(
-            (pin) => !(pin.kind === "session" && pin.id === sessionId),
-          );
-          if (next.length === current.length) return current;
-          writeAssistantGlobalPins(props.selectedWorkspaceId, next);
-          return next;
+        const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
+        if (spaceDir) {
+          setSpaceLocalPinsByDirectory((current) => {
+            const prev = current[spaceDir] ?? [];
+            if (!prev.includes(sessionId)) return current;
+            const nextIds = prev.filter((id) => id !== sessionId);
+            writeAssistantSpaceLocalPins(
+              props.selectedWorkspaceId,
+              spaceDir,
+              nextIds,
+            );
+            return { ...current, [spaceDir]: nextIds };
+          });
+        } else {
+          setAssistantGlobalPins((current) => {
+            const next = current.filter(
+              (pin) => !(pin.kind === "session" && pin.id === sessionId),
+            );
+            if (next.length === current.length) return current;
+            writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+            return next;
+          });
+        }
+      }
+      if (!options?.silent) {
+        showToast({
+          tone: "success",
+          title: t("session.archive_task_done"),
         });
       }
     },
@@ -841,7 +847,15 @@ export function AgentConversationPanel(props: {
       folderPathBySessionId,
       props.assistantCategoryId,
       props.selectedWorkspaceId,
+      showToast,
     ],
+  );
+
+  const handleArchiveAssistantSession = useCallback(
+    (sessionId: string, title: string) => {
+      archiveAssistantSessionCore(sessionId, title);
+    },
+    [archiveAssistantSessionCore],
   );
 
   const handleOpenFolder = useCallback((path: string) => {
@@ -947,9 +961,10 @@ export function AgentConversationPanel(props: {
       const group = automationGroupsAll.find((item) => item.id === groupId);
       if (!group || group.items.length === 0) return;
       for (const item of group.items) {
-        handleArchiveAssistantSession(
+        archiveAssistantSessionCore(
           item.latestSession.id,
           item.description,
+          { silent: true },
         );
       }
       // Drop group from global pins + clear local pin order.
@@ -977,8 +992,8 @@ export function AgentConversationPanel(props: {
       });
     },
     [
+      archiveAssistantSessionCore,
       automationGroupsAll,
-      handleArchiveAssistantSession,
       props.selectedWorkspaceId,
       showToast,
     ],

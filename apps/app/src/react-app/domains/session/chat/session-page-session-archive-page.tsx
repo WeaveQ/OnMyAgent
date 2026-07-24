@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { CountBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
 import {
@@ -358,8 +357,8 @@ export function SessionArchivePage(props: Props) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-dls-background">
-      {/* Toolbar */}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 px-4 py-2.5">
+      {/* Toolbar flush with content gutter (no extra horizontal inset). */}
+      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 py-2.5">
         <div className="flex items-center gap-2">
           <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
@@ -373,34 +372,10 @@ export function SessionArchivePage(props: Props) {
               className="text-sm text-dls-text placeholder:text-dls-secondary/70"
             />
           </InputGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() => {
-              void runArchiveSync("resync");
-            }}
-            disabled={loadingList || syncing}
-            aria-label={t("session_archive.sync")}
-            title={t("session_archive.sync")}
-            className="shrink-0"
-          >
-            <RefreshCw className={cn("size-3.5", (loadingList || syncing) && "animate-spin")} />
-          </Button>
-          <CountBadge size="dot" className="shrink-0 tabular-nums">
-            {t("session_archive.agent_group_count", { count: totalKnown })}
-          </CountBadge>
         </div>
 
         {groups.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            <FilterChip
-              type="button"
-              selected={!agentFilter}
-              onClick={() => setAgentFilter(null)}
-              label={t("session_archive.agent_filter_all")}
-              className="rounded-md"
-            />
             {groups.map((g) => {
               const count =
                 (g as { totalCount?: number }).totalCount ?? g.sessions.length;

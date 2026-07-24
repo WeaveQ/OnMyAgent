@@ -255,6 +255,7 @@ export function buildAssistantListModel(input: {
   }
 
   // Group every space-bound session by directory (current category only).
+  // Source of truth for 「空间」: only folders that already have tasks.
   const spaceItemsByDirectory = new Map<string, AgentConversationGroup[]>();
   for (const group of input.groups) {
     const dir = folderPathBySessionId.get(group.latestSession.id);
