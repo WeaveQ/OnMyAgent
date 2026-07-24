@@ -28,6 +28,24 @@ export function createExpertSessionKey(): string {
   return Date.now().toString();
 }
 
+/**
+ * True for auto-isolated expert session dirs:
+ * `{workspaceRoot}/{agentName-agentId}/{Date.now()}/`
+ *
+ * Used to keep these out of the composer "选择工作空间" picker — they are
+ * session artifact roots, not user-named spaces.
+ */
+export function isIsolatedExpertSessionDirectory(path: string): boolean {
+  const trimmed = path.trim().replace(/[\\/]+$/, "");
+  if (!trimmed) return false;
+  const parts = trimmed.replace(/\\/g, "/").split("/").filter(Boolean);
+  // Need at least agentSegment + timestamp under some root.
+  if (parts.length < 2) return false;
+  const base = parts[parts.length - 1] ?? "";
+  // createExpertSessionKey() is Date.now() ms (10–16 digits covers past/near future).
+  return /^\d{10,16}$/.test(base);
+}
+
 export function joinWorkspacePath(root: string, ...parts: string[]): string {
   const base = root.replace(/[\\/]+$/, "");
   const sep = root.includes("\\") ? "\\" : "/";

@@ -8,6 +8,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { OwDotTicker } from "../dot-ticker";
 import { t } from "../../../i18n";
 import {
+  AiSettingsProvidersSkeleton,
   loadAiSettingsView,
   loadArchivedTasksView,
   loadAuthorizedFoldersPanel,
@@ -24,9 +25,6 @@ import {
   loadUpdatesView,
   loadUsageView,
 } from "../../domains/settings";
-// Skeleton is a light static import so AI-tab Suspense can match list chrome
-// without pulling the full AiSettingsView chunk into the host bundle.
-import { AiSettingsProvidersSkeleton } from "../../domains/settings/pages/ai-providers-skeleton";
 
 const tabFallbackClass = {
   shell: "flex min-h-[12rem] w-full items-center justify-center py-10",

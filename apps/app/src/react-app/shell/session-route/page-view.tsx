@@ -38,11 +38,11 @@ import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
 import {
   SessionPage,
+  resetRailBookmarkToPrimary,
   type PageMode,
   type SessionAgentManagementIntent,
+  type SessionPageSurfaceProps,
 } from "../../domains/session";
-import { resetRailBookmarkToPrimary } from "../../domains/session/pages/use-rail-location";
-import type { SessionPageSurfaceProps } from "../../domains/session";
 
 import { loadAgentsPage } from "../../domains/agents";
 

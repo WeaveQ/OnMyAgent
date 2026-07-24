@@ -1,5 +1,7 @@
 // Page components are intentionally not static re-exports: shell hosts load
 // them through `lazy-pages` factories so Settings host can stay thin.
+// Exception: the AI list skeleton is light and used as Suspense fallback from shell.
+export { AiSettingsProvidersSkeleton } from "./pages/ai-providers-skeleton";
 export type {
   AiSettingsConnectedProvider,
   AiSettingsViewProps,

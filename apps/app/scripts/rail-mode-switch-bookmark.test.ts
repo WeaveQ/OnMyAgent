@@ -101,6 +101,11 @@ describe("rail mode switch bookmark (files → expert → assistant)", () => {
     );
     expect(src).toContain("resetRailBookmarkToPrimary");
     expect(src).toContain("onNavigateToMode");
+    // Shell must use the session barrel, not a deep pages/ import.
+    expect(src).toMatch(
+      /resetRailBookmarkToPrimary[\s\S]*from ["']\.\.\/\.\.\/domains\/session["']/,
+    );
+    expect(src).not.toContain("pages/use-rail-location");
   });
 
   test("use-rail-location hydrates via session-scoped keys not only component ref", () => {

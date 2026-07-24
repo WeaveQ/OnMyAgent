@@ -4,7 +4,11 @@
  * Source of truth is the left-sidebar Spaces section: only directories that
  * already have session bindings (non-automation). Recent/local picks must NOT
  * appear in the picker until they show up under Spaces.
+ *
+ * Expert auto-isolation dirs (`…/{agent}/{timestamp}/`) are also excluded —
+ * those are session artifact roots, not user-named spaces.
  */
+import { isIsolatedExpertSessionDirectory } from "../../../capabilities/session-identity/expert-session-directory";
 import { workspaceDisplayName } from "../../local-agents";
 
 export type KnownSpaceSessionBinding = {
@@ -35,7 +39,8 @@ export function isAssistantAutomationDirectory(
 
 /**
  * Directories selectable in the composer picker = left-sidebar space folders.
- * Built only from session→directory bindings (excluding automation sessions/dirs).
+ * Built only from session→directory bindings (excluding automation sessions/dirs
+ * and expert auto-created isolation directories).
  * Does not include recent-workspace LRU picks.
  */
 export function listSelectableAssistantSpaceDirectories(input: {
@@ -61,7 +66,8 @@ export function listSelectableAssistantSpaceDirectories(input: {
     if (
       !next ||
       seen.has(next) ||
-      isAssistantAutomationDirectory(next, automationDirs)
+      isAssistantAutomationDirectory(next, automationDirs) ||
+      isIsolatedExpertSessionDirectory(next)
     ) {
       continue;
     }

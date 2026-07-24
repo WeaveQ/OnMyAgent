@@ -31,6 +31,8 @@ export {
   type SessionAgentManagementIntent,
   type SessionPageSurfaceProps,
 } from "./pages";
+/** Mode-switch helper used by shell page-view to clear secondary rail bookmarks. */
+export { resetRailBookmarkToPrimary } from "./pages/use-rail-location";
 export {
   MAX_SESSIONS_PREVIEW,
   buildSessionTreeState,
