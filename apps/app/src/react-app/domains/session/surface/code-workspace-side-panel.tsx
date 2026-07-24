@@ -75,6 +75,7 @@ import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../artifacts/open-artifact-for-editing";
+import { ArtifactSpreadsheetEditor } from "../../../capabilities/artifacts/artifact-spreadsheet-editor";
 import { useStatusToasts } from "../../shell-feedback";
 import {
   buildWorkspaceFileTree,
@@ -196,6 +197,7 @@ type WorkspaceFilePreview =
   | { kind: "loading" }
   | { kind: "unsupported" }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
+  | { kind: "sheet"; content: string; name: string }
   | { kind: "local"; filePath: string; name: string }
   | { kind: "binary"; url: string; name: string };
 
@@ -514,6 +516,17 @@ function WorkspaceFilesPanel(props: {
           if (!client || !workspaceId) return;
           result = await client.readWorkspaceFile(workspaceId, requestPath);
         }
+        if (
+          targetPreview === "sheet" &&
+          /\.(csv|tsv)$/i.test(targetName)
+        ) {
+          setPreview({
+            kind: "sheet",
+            content: result.content,
+            name: targetName,
+          });
+          return;
+        }
         const format = targetPreview === "markdown"
           ? "markdown"
           : targetPreview === "html"
@@ -722,6 +735,14 @@ function WorkspaceFilesPanel(props: {
           <MarkdownPreview className="min-h-0 flex-1" content={preview.content} />
         ) : preview.kind === "text" && preview.format === "html" ? (
           <HTMLPreview className="min-h-0 flex-1" type="text" title={selectedPath ?? ""} content={preview.content} />
+        ) : preview.kind === "sheet" ? (
+          <ArtifactSpreadsheetEditor
+            className="min-h-0 flex-1"
+            name={preview.name}
+            content={{ kind: "text", data: preview.content }}
+            readOnly
+            onSave={async () => {}}
+          />
         ) : preview.kind === "text" ? (
           <PlainText className="min-h-0 flex-1" content={preview.content} />
         ) : (

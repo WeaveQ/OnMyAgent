@@ -75,7 +75,11 @@ export function shouldShowGoalRuntime(input: {
   goalRuntime: CollaborationGoalRuntime | null;
   dismissed: boolean;
 }) {
-  return !input.dismissed && input.goalRuntime?.source === "goal_intent";
+  return (
+    !input.dismissed &&
+    input.goalRuntime?.source === "goal_intent" &&
+    input.goalRuntime.status !== "completed"
+  );
 }
 
 export function shouldShowGoalPreview(input: {

@@ -7,9 +7,9 @@
 | 路径 | 用途 |
 | --- | --- |
 | `fleet-ledger.json` | 单一数据源：车辆/司机/证件/保险/年检/违章 |
-| `.process/expiry-board.md` | 到期分级看板 |
-| `.process/high-risk.md` | 高风险清单 |
-| `挂靠车台账_*.csv` | 结果：台账导出 |
+| `.process/fleet-preview.html` | 过程：合规看板预览（经 `inlineWidget` 渲染） |
+| `挂靠车台账_*.xlsx` | 结果：台账汇总（到期标红）+ 到期详情 |
+| `挂靠车台账_*.pdf` | 结果：看板+台账+高风险（Chrome headless） |
 | `催办话术_*.md` | 结果：对司机/车主催补证话术 |
 | `automations/proposals/*.json` | 定时任务草稿 |
 

@@ -44,7 +44,12 @@
 - aging 允许进入候选但必须显式风险提示；缺少关键事实不得靠默认值凑方案。
 - 结果是调度建议草稿，不得自动锁车、改运力状态或对司机/客户发送消息。
 
+## 优劣势与推荐
+
+- 每候选优势 = 硬性通过后的匹配理由（`reasons`：新鲜度/起点贴合/方向意愿/吨方能力），风险 = `risks`（aging/空驶未知等）；脚本自动生成。
+- 推荐方案 = 综合分最高的候选（首选）；可在 `order.recommendation: { plate, reason }` 覆盖。
+
 ## 产物
 
-- preview：`.process/capacity-board.md`、`.process/dispatch-options.md`、`.process/rejected-capacity.md`
-- export：`运力调配方案_<orderId>.md`、`运力候选_<orderId>.csv`、`司机确认话术_<orderId>.md`
+- preview：`.process/dispatch-preview.html`（配载方案卡片预览，经 `inlineWidget` 实时渲染）、`.process/capacity-board.md`、`.process/rejected-capacity.md`
+- export：`运力调配方案_<orderId>.xlsx`（候选方案 + 订单信息）、`运力调配方案对比_<orderId>.docx`（推荐结论/候选对比表/优劣势/司机确认话术/未入选运力）

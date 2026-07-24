@@ -6,10 +6,13 @@ import {
   automationProposalsFingerprint,
   buildAutomationPayloadFromDraft,
   createAutomationsFromPayloads,
+  filterNewAutomationProposals,
   isAutomationCreateConfirmText,
   knownAutomationProposalPaths,
+  loadNewAutomationProposals,
   parseAutomationProposalPayload,
   type AutomationProposalClient,
+  type LoadedAutomationProposal,
 } from "../src/react-app/domains/session/artifacts/apply-automation-proposals";
 import {
   applyAutomationOfferAnswer,
@@ -430,5 +433,59 @@ describe("applyAutomationProposals", () => {
       },
     ]);
     expect(created).toEqual(["挂靠车管·每日到期扫描"]);
+  });
+});
+
+describe("filterNewAutomationProposals", () => {
+  test("drops proposals whose title already exists", () => {
+    const proposals: LoadedAutomationProposal[] = [
+      {
+        path: "a.json",
+        payload: parseAutomationProposalPayload({
+          scene: "office",
+          title: "应收催收·每日看板",
+          prompt: "p",
+          schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+        })!,
+      },
+      {
+        path: "b.json",
+        payload: parseAutomationProposalPayload({
+          scene: "office",
+          title: "新任务",
+          prompt: "p",
+          schedule: { mode: "interval", day: "daily", time: "10:00", intervalMinutes: 1440 },
+        })!,
+      },
+    ];
+    const next = filterNewAutomationProposals(proposals, ["应收催收·每日看板"]);
+    expect(next.map((item) => item.payload.title)).toEqual(["新任务"]);
+  });
+
+  test("loadNewAutomationProposals returns empty when all titles exist", async () => {
+    const payload = {
+      scene: "office",
+      title: "应收催收·每日看板",
+      prompt: "p",
+      schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+    };
+    const client: Pick<
+      AutomationProposalClient,
+      "listWorkspaceFiles" | "readWorkspaceFile" | "listAutomations"
+    > = {
+      listWorkspaceFiles: async () => ({
+        items: [{ path: "automations/proposals/ar-daily-board.json", kind: "file" }],
+      }),
+      readWorkspaceFile: async () => ({ content: JSON.stringify(payload) }),
+      listAutomations: async () => ({
+        items: [{ id: "1", title: "应收催收·每日看板" }],
+      }),
+    };
+    const loaded = await loadNewAutomationProposals({
+      client,
+      workspaceId: "ws_1",
+      catalogRoot: "/ws",
+    });
+    expect(loaded.proposals).toEqual([]);
   });
 });

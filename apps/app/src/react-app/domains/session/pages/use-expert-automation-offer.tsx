@@ -20,7 +20,7 @@ import type { OpenTarget } from "../artifacts/open-target";
 import {
   automationProposalsFingerprint,
   createAutomationsFromPayloads,
-  loadAutomationProposals,
+  loadNewAutomationProposals,
 } from "../artifacts/apply-automation-proposals";
 import { AutomationCreateResultCard } from "../artifacts/automation-create-result-card";
 import { writeAutomationFocus } from "../artifacts/automation-focus-memory";
@@ -190,7 +190,8 @@ export function useExpertAutomationOffer(
       return;
     }
     try {
-      const loaded = await loadAutomationProposals({
+      // Skip titles already created — proposal JSON stays on disk after create.
+      const loaded = await loadNewAutomationProposals({
         client,
         workspaceId,
         catalogRoot: input.codeWorkspaceCatalogRoot,
@@ -199,7 +200,15 @@ export function useExpertAutomationOffer(
         // Session-only: do not pull another expert's workspace-global proposals.
         includeWorkspaceRoot: false,
       });
-      if (loaded.proposals.length === 0) return;
+      if (loaded.proposals.length === 0) {
+        // All proposals already exist (or none found): mark fingerprint so we
+        // do not keep re-scanning into an offer for the same files.
+        if (automationOfferFlowRef.current.phase === "idle") {
+          offeredAutomationFingerprintRef.current = "all-existing";
+          automationOfferScopeRef.current = scopeKey;
+        }
+        return;
+      }
       // Scope may have changed while the scan was in flight.
       if (input.selectedSessionId?.trim() !== scopeKey) return;
       const fingerprint = automationProposalsFingerprint(loaded.proposals);

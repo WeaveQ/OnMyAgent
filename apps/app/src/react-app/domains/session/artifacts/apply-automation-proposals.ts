@@ -277,6 +277,52 @@ export function automationProposalsFingerprint(
     .join("|");
 }
 
+/**
+ * Drop proposals whose title already exists as a workspace automation.
+ * Prevents re-offering after create when proposal JSON files remain on disk
+ * and the user leaves/returns (in-memory offered fingerprint is gone).
+ */
+export function filterNewAutomationProposals(
+  proposals: readonly LoadedAutomationProposal[],
+  existingTitles: readonly string[],
+): LoadedAutomationProposal[] {
+  const existing = new Set(
+    existingTitles.map((title) => title.trim()).filter(Boolean),
+  );
+  if (existing.size === 0) return [...proposals];
+  return proposals.filter((item) => !existing.has(item.payload.title.trim()));
+}
+
+/** Load proposals then drop titles that already have an automation task. */
+export async function loadNewAutomationProposals(input: {
+  client: Pick<
+    AutomationProposalClient,
+    "listWorkspaceFiles" | "readWorkspaceFile" | "listAutomations"
+  >;
+  workspaceId: string;
+  catalogRoot: string;
+  sessionRoot?: string | null;
+  sessionDirectory?: string | null;
+  includeWorkspaceRoot?: boolean;
+}): Promise<{
+  proposals: LoadedAutomationProposal[];
+  errors: Array<{ path: string; message: string }>;
+}> {
+  const loaded = await loadAutomationProposals(input);
+  if (loaded.proposals.length === 0) return loaded;
+  let existingTitles: string[] = [];
+  try {
+    const listed = await input.client.listAutomations(input.workspaceId.trim());
+    existingTitles = listed.items.map((item) => item.title);
+  } catch {
+    existingTitles = [];
+  }
+  return {
+    proposals: filterNewAutomationProposals(loaded.proposals, existingTitles),
+    errors: loaded.errors,
+  };
+}
+
 export function buildAutomationPayloadFromDraft(input: {
   base: AutomationTaskInput;
   title: string;
