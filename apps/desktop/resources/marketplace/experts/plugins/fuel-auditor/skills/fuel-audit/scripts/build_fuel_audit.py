@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -17,6 +18,26 @@ from datetime import date, datetime
 from html import escape
 from pathlib import Path
 from typing import Any
+
+
+STYLE_PATTERN = re.compile(r"<style>([\s\S]*?)</style>", re.IGNORECASE)
+FUEL_SECTION_PATTERN = re.compile(r'(<section\s+class="fuel-preview">[\s\S]*?</section>)', re.IGNORECASE)
+PRINT_MEDIA_PATTERN = re.compile(r"@media\s+print\s*\{(?:[^{}]|\{[^{}]*\})*\}", re.IGNORECASE)
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Inline widget fragment: extract <style> and the main fuel-preview <section>,
+    strip @media print rules to shrink payload. Mirrors order-entry's
+    inline_widget_fragment handling so the host receives a trimmed fragment
+    instead of the raw preview HTML.
+    """
+    style = STYLE_PATTERN.search(preview_html)
+    section = FUEL_SECTION_PATTERN.search(preview_html)
+    if not style or not section:
+        return preview_html
+    screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
+    return f"<style>{screen_css}</style>{section.group(1)}"
 
 
 def text(value: Any) -> str:
@@ -609,17 +630,23 @@ def main() -> None:
         "anomalyCount": sum(len(item["anomalies"]) for item in results),
         "highRiskVehicles": [item["plate"] for item in results if item["severity"] in {"severe", "warning"}],
         "files": files,
-        "inlineWidget": {"title": "油费稽核看板预览", "widget_code": preview_html},
+        "inlineWidget": {"title": "油费稽核看板预览", "widget_code": inline_widget_fragment(preview_html)},
     }
 
     if args.mode == "export":
         stamp = as_of.isoformat().replace("-", "")
         xlsx_path = args.output_dir / f"油费稽查报告_{stamp}.xlsx"
         pdf_path = args.output_dir / f"油费稽查报告_{stamp}.pdf"
+        summary_csv_path = args.output_dir / f"单车油耗汇总_{stamp}.csv"
+        anomaly_csv_path = args.output_dir / f"异常明细_{stamp}.csv"
         proposal_path = args.output_dir / "automations" / "proposals" / "fuel-weekly-scan.json"
         write_xlsx(xlsx_path, results)
+        write_summary_csv(summary_csv_path, results)
+        write_anomaly_csv(anomaly_csv_path, results)
         write_weekly_proposal(proposal_path)
         files.append(str(xlsx_path))
+        files.append(str(summary_csv_path))
+        files.append(str(anomaly_csv_path))
         report_html = _report_html(source, results, as_of, period)
         html_tmp = process_dir / f"report_{stamp}.html"
         html_tmp.write_text(report_html, encoding="utf-8")

@@ -37,7 +37,6 @@ import {
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
-  readSessionAgentSnapshot,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
@@ -461,12 +460,10 @@ export function useSessionRouteSurfaceProps(
           );
           if (isolate && workspaceRootForSession) {
             const pendingForDir = usePendingAgentStore.getState().getAgent();
-            const agentName =
-              pendingForDir?.name?.trim() ||
-              (selectedSessionId
-                ? readSessionAgentSnapshot(selectedSessionId)?.name?.trim()
-                : undefined) ||
-              "expert";
+            // New session: use the pending agent name. Never fall back to the
+            // previously selected session's agent snapshot - that belongs to a
+            // different expert and would create artifacts in the wrong directory.
+            const agentName = pendingForDir?.name?.trim() || "expert";
             const isolated = buildIsolatedExpertSessionDirectory({
               workspaceRoot: workspaceRootForSession,
               agentName,
