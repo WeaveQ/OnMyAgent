@@ -470,7 +470,19 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       return false;
     }
 
-    await onmyagentClient.reloadEngine(workspaceId);
+    // Desktop: full managed-server restart so OpenCode binary is re-resolved
+    // (soft /instance/dispose keeps a stale PATH binary forever). Remote/web
+    // keeps the lighter OpenCode instance dispose path.
+    if (isDesktopRuntime()) {
+      const restarted = await restartOnMyAgentServerAndRefresh({
+        reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
+        refreshRouteState,
+      });
+      if (!restarted) return false;
+    } else {
+      await onmyagentClient.reloadEngine(workspaceId);
+    }
+
     await refreshProviderListQueries(getReactQueryClient());
 
     try {
@@ -484,7 +496,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     void pollMcpServersAfterReloadRef.current?.();
 
     return true;
-  }, [onmyagentClient, selectedWorkspaceId]);
+  }, [
+    onmyagentClient,
+    onmyagentServerStore.reconnectOnMyAgentServer,
+    refreshRouteState,
+    selectedWorkspaceId,
+  ]);
 
   useEffect(() => {
     return reloadCoordinator.registerWorkspaceReloadControls({

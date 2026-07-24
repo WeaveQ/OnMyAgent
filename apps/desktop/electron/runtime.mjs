@@ -1812,9 +1812,20 @@ export function createRuntimeManager({
 
   async function onmyagentServerRestart(options = {}) {
     const workspacePaths = prioritizeWorkspacePaths(engineState.projectDir, await listLocalWorkspacePaths());
-    const shouldManageOpencode = Boolean(
+    const wasManagingOpencode = Boolean(
       onmyagentServerState.managedOpencodeBinPath || engineState.opencodeBinPath,
     );
+    const shouldManageOpencode =
+      options.manageOpencode === true ||
+      (options.manageOpencode !== false && wasManagingOpencode);
+    // Always re-resolve the OpenCode binary on restart. Reusing the previous
+    // managed path as opencodeBinPath treats it as an explicit override and can
+    // permanently pin a stale PATH install (e.g. /usr/local 1.14.x) after the
+    // product pin moves to a newer bundled binary.
+    const explicitOverride =
+      typeof options.opencodeBinPath === "string" && options.opencodeBinPath.trim()
+        ? options.opencodeBinPath.trim()
+        : null;
     return startOnMyAgentServer({
       workspacePaths,
       opencodeBaseUrl: shouldManageOpencode ? null : engineState.baseUrl,
@@ -1822,7 +1833,7 @@ export function createRuntimeManager({
       opencodePassword: shouldManageOpencode ? null : engineState.opencodePassword,
       remoteAccessEnabled: options.remoteAccessEnabled === true,
       manageOpencode: shouldManageOpencode,
-      opencodeBinPath: engineState.opencodeBinPath ?? onmyagentServerState.managedOpencodeBinPath,
+      opencodeBinPath: explicitOverride,
     });
   }
 
