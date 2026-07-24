@@ -1461,7 +1461,7 @@ export type AgentManagementAgent = PersonalLocalAgent & {
   skillCount: number;
 };
 
-export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp";
+export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp" | "providers";
 
 export type AgentManagementSnapshotInput = {
   workspaceRoot: string;
