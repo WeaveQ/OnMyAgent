@@ -463,38 +463,43 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     [sessionsByWorkspaceId],
   );
 
-  const reloadWorkspaceEngineFromUi = useCallback(async () => {
-    const workspaceId = routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+  /**
+   * Apply engine config so a newly saved provider/model is usable immediately.
+   * Prefer soft OpenCode instance dispose (fast); fall back to full desktop
+   * managed-server restart when soft reload fails (stale binary / plugin mess).
+   */
+  const applyEngineConfigForProviders = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
     if (!onmyagentClient || !workspaceId) {
-      setRouteError(t("app.error_connect_first"));
       return false;
     }
 
-    // Desktop: full managed-server restart so OpenCode binary is re-resolved
-    // (soft /instance/dispose keeps a stale PATH binary forever). Remote/web
-    // keeps the lighter OpenCode instance dispose path.
-    if (isDesktopRuntime()) {
-      const restarted = await restartOnMyAgentServerAndRefresh({
+    let softOk = false;
+    try {
+      await onmyagentClient.reloadEngine(workspaceId);
+      softOk = true;
+    } catch {
+      softOk = false;
+    }
+
+    if (!softOk && isDesktopRuntime()) {
+      const hardOk = await restartOnMyAgentServerAndRefresh({
         reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
         refreshRouteState,
       });
-      if (!restarted) return false;
-    } else {
-      await onmyagentClient.reloadEngine(workspaceId);
+      if (!hardOk) return false;
+    } else if (!softOk) {
+      return false;
     }
 
-    await refreshProviderListQueries(getReactQueryClient());
-
+    await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
     try {
       window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
     } catch {
-      // ignore browser event dispatch failures
+      // ignore
     }
-
-    // OpenCode reconnects MCPs async after dispose — the store polls until
-    // statuses settle so users don't have to collapse/expand the card.
     void pollMcpServersAfterReloadRef.current?.();
-
     return true;
   }, [
     onmyagentClient,
@@ -502,6 +507,16 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     refreshRouteState,
     selectedWorkspaceId,
   ]);
+
+  const reloadWorkspaceEngineFromUi = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      setRouteError(t("app.error_connect_first"));
+      return false;
+    }
+    return applyEngineConfigForProviders();
+  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId]);
 
   useEffect(() => {
     return reloadCoordinator.registerWorkspaceReloadControls({
@@ -1745,38 +1760,55 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         open={openCodeProviderConfigOpen}
         workspaceRoot={selectedWorkspaceRoot}
         onOpenChange={setOpenCodeProviderConfigOpen}
-        onSaved={async () => {
-          // syncLive already rewrote opencode.json. Soft provider-list refresh
-          // alone leaves the session composer on a stale catalog until manual
-          // engine reload — mirror installLocalProvider: reload engine, then
-          // force both settings auth store + React Query provider lists.
-          setConfigActionStatus(t("settings.config_updated"));
+        onSaved={async (saved) => {
+          // Product path: fill form → write opencode.json → apply engine → use model.
+          // 1) Prefer the new model in UI prefs immediately.
+          if (saved.defaultModel?.providerID && saved.defaultModel.modelID) {
+            local.setPrefs((previous) => ({
+              ...previous,
+              defaultModel: {
+                providerID: saved.defaultModel!.providerID,
+                modelID: saved.defaultModel!.modelID,
+              },
+              modelVariant: null,
+            }));
+          }
+
           try {
             const managedProviders = await loadOpenCodeManagedProviders();
             setOpenCodeManagedProviders(managedProviders);
           } catch {
-            // Managed inventory is best-effort; engine reload still matters.
+            // best-effort inventory
           }
-          let reloaded = false;
+
+          // 2) Soft dispose first; hard restart only if needed.
+          let applied = false;
           try {
-            reloaded = await reloadWorkspaceEngineFromUi();
+            applied = await applyEngineConfigForProviders();
           } catch {
-            reloaded = false;
+            applied = false;
           }
-          if (!reloaded) {
+
+          // 3) Refresh catalogs so composer / settings see the provider.
+          await providerAuthStore.refreshProviders({ dispose: true }).catch(() => null);
+          await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+
+          if (applied) {
+            reloadCoordinator.clearReloadRequired();
+            const modelLabel = saved.modelId
+              ? `${saved.providerName} / ${saved.modelId}`
+              : saved.providerName;
+            setConfigActionStatus(
+              t("settings.custom_provider_ready", { name: modelLabel }),
+            );
+          } else {
             reloadCoordinator.markReloadRequired("config", {
               type: "config",
               name: "opencode.json",
               action: "updated",
             });
+            setConfigActionStatus(t("settings.config_updated"));
           }
-          await providerAuthStore
-            .refreshProviders({ dispose: true })
-            .catch(() => null);
-          // Belt-and-suspenders if reload path skipped query invalidation.
-          await refreshProviderListQueries(getReactQueryClient()).catch(
-            () => null,
-          );
         }}
       />
 
