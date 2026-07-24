@@ -690,12 +690,33 @@ export function buildTurnContentPresentation(
       ) ?? []
     ),
   );
-  const visibleRenderItems = renderItems.filter((item) => {
-    const widget = widgetFromToolPart(item);
-    return !widget || !fencedWidgetHtml.has(widget.html.trim());
-  });
-  const visibleHoistedItems = hoistedItems.filter(
-    (widget) => !fencedWidgetHtml.has(widget.html.trim()),
+  const visibleRenderItems = renderItems
+    .filter((item) => {
+      const widget = widgetFromToolPart(item);
+      return !widget || !fencedWidgetHtml.has(widget.html.trim());
+    })
+    .map((item) => {
+      // 命令结果 inlineWidget 已作为权威 widget 渲染（hoistedItems）；
+      // 正文里的 show_widget 围栏多为专家误贴的重复，移除其 widget 段避免预览重复展示。
+      if (
+        hoistedItems.length > 0 &&
+        item.bodySegments?.some((segment) => segment.kind === "widget")
+      ) {
+        const filtered = item.bodySegments.filter(
+          (segment) => segment.kind !== "widget",
+        );
+        return { ...item, bodySegments: filtered.length > 0 ? filtered : undefined };
+      }
+      return item;
+    });
+  // 同 turn 内多个命令 widget 若 html 相同（preview/export 重复跑），只保留最新一个，避免预览重复展示。
+  const visibleHoistedItems = Array.from(
+    hoistedItems
+      .reduce<Map<string, TurnWidgetItem>>((map, widget) => {
+        map.set(widget.html.trim(), widget);
+        return map;
+      }, new Map())
+      .values(),
   );
 
   const locale = options.locale ?? "en";

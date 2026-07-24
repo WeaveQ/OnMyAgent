@@ -29,7 +29,7 @@ describe("create-automation bundled skill contract", () => {
     expect(schema).toContain('"mode": "once"');
     expect(schema).toContain("Do not write `sourceSessionId`, `workspaceDirectory`");
     expect(assistant).toContain("useSessionAutomationOffer({");
-    expect(expertOffer).toContain("loadAutomationProposals({");
+    expect(expertOffer).toContain("loadNewAutomationProposals({");
     expect(expertOffer).toContain("createAutomationsFromPayloads({");
     expect(expertOffer).toContain("defaultWorkspaceDirectory: sessionDirectory");
     expect(expertOffer).toContain("sourceSessionId: input.selectedSessionId");

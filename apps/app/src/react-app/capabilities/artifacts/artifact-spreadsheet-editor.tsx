@@ -14,6 +14,8 @@ type ArtifactSpreadsheetEditorProps = {
   name: string;
   content: Data;
   saving?: boolean;
+  /** Preview-only: hide row/column/save chrome; cells stay readable. */
+  readOnly?: boolean;
   onSave: (payload: Data) => void | Promise<void>;
 };
 
@@ -87,6 +89,7 @@ function useSpreadsheet({ name, content, onSave }: UseSpreadsheetProps) {
 export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps) {
   const { rows, error, isLoading, updateCell, addRow, addColumn, discard, isDirty, save, isSaving } = useSpreadsheet(props);
   const saving = props.saving || isSaving;
+  const readOnly = props.readOnly === true;
 
   if (isLoading) {
     return (
@@ -106,19 +109,21 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", props.className)}>
-      <div className="flex shrink-0 items-center gap-2 px-3 py-2 border-b border-dls-border">
-        <Button variant="ghost" size="xs" onClick={addRow}>
-          <Plus data-icon="inline-start" className="size-3" />
-          Row
-        </Button>
-        <Button variant="ghost" size="xs" onClick={addColumn}>
-          <Plus data-icon="inline-start" className="size-3" />
-          Column
-        </Button>
-        <div className="min-w-0 flex-1" />
-        <Button variant="ghost" size="xs" onClick={discard} disabled={!isDirty || saving}>Discard</Button>
-        <Button variant="default" size="xs" onClick={() => save()} disabled={!isDirty || saving}>{saving ? "Saving" : "Save"}</Button>
-      </div>
+      {readOnly ? null : (
+        <div className="flex shrink-0 items-center gap-2 px-3 py-2 border-b border-dls-border">
+          <Button variant="ghost" size="xs" onClick={addRow}>
+            <Plus data-icon="inline-start" className="size-3" />
+            Row
+          </Button>
+          <Button variant="ghost" size="xs" onClick={addColumn}>
+            <Plus data-icon="inline-start" className="size-3" />
+            Column
+          </Button>
+          <div className="min-w-0 flex-1" />
+          <Button variant="ghost" size="xs" onClick={discard} disabled={!isDirty || saving}>Discard</Button>
+          <Button variant="default" size="xs" onClick={() => save()} disabled={!isDirty || saving}>{saving ? "Saving" : "Save"}</Button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-xs">
           <tbody>
@@ -126,11 +131,17 @@ export function ArtifactSpreadsheetEditor(props: ArtifactSpreadsheetEditorProps)
               <tr key={rowIndex}>
                 {row.map((cell, columnIndex) => (
                   <td key={columnIndex} className="border-b not-first:border-l border-dls-border p-0 align-top">
-                    <input
-                      className="h-8 w-full min-w-[120px] bg-transparent px-2 text-dls-text outline-none focus:bg-dls-surface-muted/50"
-                      value={cell}
-                      onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)}
-                    />
+                    {readOnly ? (
+                      <div className="h-8 min-w-[120px] px-2 leading-8 text-dls-text whitespace-nowrap">
+                        {cell}
+                      </div>
+                    ) : (
+                      <input
+                        className="h-8 w-full min-w-[120px] bg-transparent px-2 text-dls-text outline-none focus:bg-dls-surface-muted/50"
+                        value={cell}
+                        onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)}
+                      />
+                    )}
                   </td>
                 ))}
               </tr>

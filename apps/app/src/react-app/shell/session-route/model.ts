@@ -142,6 +142,32 @@ export function describeRouteError(error: unknown) {
     : t("app.unknown_error");
 }
 
+/** OpenCode returned 404 for a stale/expired question request id. */
+export function isQuestionNotFoundError(error: unknown): boolean {
+  if (!error) return false;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : (() => {
+            try {
+              return JSON.stringify(error);
+            } catch {
+              return String(error);
+            }
+          })();
+  if (/QuestionNotFoundError/i.test(message)) return true;
+  if (/question request not found/i.test(message)) return true;
+  if (/request not found:\s*que_/i.test(message)) return true;
+  if (typeof error === "object" && error !== null) {
+    const record = error as { _tag?: unknown; name?: unknown };
+    if (record._tag === "QuestionNotFoundError") return true;
+    if (record.name === "QuestionNotFoundError") return true;
+  }
+  return false;
+}
+
 export function buildWorkspaceBootstrapErrorEvent(input: {
   error: unknown;
   route: string;

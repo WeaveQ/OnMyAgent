@@ -26,7 +26,7 @@ const ArtifactTextEditor = lazy(() =>
   import("./artifact-text-editor").then((module) => ({ default: module.ArtifactTextEditor })),
 );
 const ArtifactSpreadsheetEditor = lazy(() =>
-  import("./artifact-spreadsheet-editor").then((module) => ({ default: module.ArtifactSpreadsheetEditor })),
+  import("../../../capabilities/artifacts/artifact-spreadsheet-editor").then((module) => ({ default: module.ArtifactSpreadsheetEditor })),
 );
 
 type ArtifactPanelProps = {
