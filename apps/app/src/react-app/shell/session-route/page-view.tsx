@@ -41,6 +41,7 @@ import {
   type PageMode,
   type SessionAgentManagementIntent,
 } from "../../domains/session";
+import { resetRailBookmarkToPrimary } from "../../domains/session/pages/use-rail-location";
 import type { SessionPageSurfaceProps } from "../../domains/session";
 
 import { loadAgentsPage } from "../../domains/agents";
@@ -424,6 +425,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           onNavigateToMode={(targetMode) => {
             // User mode switch must push history so Back can return to the prior mode.
             // Session choice still uses mode-scoped last-session memory for the target path.
+            // Clear secondary rail bookmarks (files/store/…) for the *target* mode so
+            // remounting Assistant/Expert does not re-open 文件 after 助理↔专家.
+            if (selectedWorkspaceId) {
+              resetRailBookmarkToPrimary(targetMode, selectedWorkspaceId);
+            }
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
               findFirstSessionIdMatching,

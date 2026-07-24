@@ -8,9 +8,9 @@ import {
   CircleAlert,
   Code2,
   FileDiff,
+  FolderGit2,
   FolderOpen,
   GitBranch,
-  Github,
   Laptop,
   Monitor,
   Radio,
@@ -465,7 +465,7 @@ export function CodeSceneToolbar(props: {
                 onClick={() => setCommitOpen(true)}
               />
               <CodeEnvironmentButton
-                icon={Github}
+                icon={FolderGit2}
                 label={
                   environment.snapshot?.githubCli.statusLabel ??
                   t("session.code_toolbar_github_cli_unavailable")

@@ -39,6 +39,7 @@ import { t } from "../../../../i18n";
 import type { DebugViewProps } from "../pages/debug-view";
 import type { ReleaseChannel } from "../../../../app/types";
 import type { OnMyAgentServerStore, OnMyAgentServerStoreSnapshot } from "../../shared";
+import { clearLocalStorageForOnMyAgentReset } from "../../../kernel/reset-local-storage";
 
 const STARTUP_PREFERENCE_KEY = "onmyagent.startupPreference";
 const ENGINE_SOURCE_KEY = "onmyagent.engineSource";
@@ -46,13 +47,6 @@ const ENGINE_CUSTOM_BIN_KEY = "onmyagent.engineCustomBinPath";
 const OPENCODE_ENABLE_EXA_KEY = "onmyagent.opencodeEnableExa";
 
 type ResetModalMode = "onboarding" | "all";
-
-const ONBOARDING_LOCAL_STORAGE_KEYS = [
-  "onmyagent.acknowledgedProviders",
-  "onmyagent.orgOnboardingSeen",
-  "onmyagent.reloadAfterOrgOnboarding",
-  "onmyagent.seenProviderIds",
-];
 
 type UseDebugViewModelOptions = {
   developerMode: boolean;
@@ -91,24 +85,7 @@ function clearStoredString(key: string): void {
 }
 
 function clearOnMyAgentLocalStorageForReset(mode: ResetModalMode): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (mode === "all") {
-      window.localStorage.clear();
-      return;
-    }
-    for (const key of ONBOARDING_LOCAL_STORAGE_KEYS) {
-      window.localStorage.removeItem(key);
-    }
-    const raw = window.localStorage.getItem("onmyagent.preferences");
-    if (raw) {
-      const prefs = JSON.parse(raw);
-      prefs.hasCompletedOnboarding = false;
-      window.localStorage.setItem("onmyagent.preferences", JSON.stringify(prefs));
-    }
-  } catch {
-    // ignore persistence failures
-  }
+  clearLocalStorageForOnMyAgentReset(mode);
 }
 
 function downloadTextAsFile(filename: string, content: string, mimeType: string) {

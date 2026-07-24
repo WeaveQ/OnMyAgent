@@ -257,12 +257,16 @@ function startOfWeek(value: string) {
   return dateOnly(new Date(date.getTime() - day * DAY_MS));
 }
 
+/** Trailing activity window shown in the heatmap (~26 weeks). */
+export const TOKEN_ACTIVITY_LOOKBACK_DAYS = 181;
+
 function buildWeeklyColumns(
   daily: PersonalUsageDailyTotal[],
   today: string,
 ): Array<{ weekStart: string; weeklyValue: number; cells: TokenActivityCell[] }> {
   const valueByDate = new Map(daily.map((entry) => [entry.date, entry.tokens]));
-  const firstDate = shiftDate(today, -364);
+  // Last ~6 months (inclusive of today), aligned to week starts.
+  const firstDate = shiftDate(today, -TOKEN_ACTIVITY_LOOKBACK_DAYS);
   const startSunday = startOfWeek(firstDate);
   const endSunday = startOfWeek(today);
   const weeks: string[] = [];
@@ -293,7 +297,8 @@ export function monthLabelColumns(
   const formatter = new Intl.DateTimeFormat(locale, { month: "short" });
   const end = parseDateOnly(today);
   const labels: Array<{ label: string; columnIndex: number }> = [];
-  for (let offset = -11; offset <= 0; offset += 1) {
+  // Six calendar months covering the lookback window.
+  for (let offset = -5; offset <= 0; offset += 1) {
     const firstDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + offset, 1));
     const dateStr = dateOnly(firstDay);
     const columnIndex = columns.findIndex((column) => {
@@ -390,9 +395,9 @@ export function formatTaskDuration(minutes: number) {
 }
 
 /**
- * @deprecated Prefer the full trailing-year series from `buildTokenActivitySeries`.
- * Kept for unit tests / call-site compatibility. Leading empty weeks are part of
- * the year view and should not be trimmed in the personal usage UI.
+ * Drop long leading empty weeks so the heatmap does not leave a large empty
+ * gutter on the left when usage only began recently. Keeps one empty week of
+ * context before first activity; if all empty, keep a short trailing window.
  */
 export function trimLeadingEmptyActivityColumns(
   columns: TokenActivityColumn[],
