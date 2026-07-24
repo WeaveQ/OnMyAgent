@@ -16,18 +16,29 @@ describe("expert session directory isolation", () => {
     expect(sanitizePathSegment("...")).toBe("expert");
   });
 
-  test("builds AgentName/sessionKey under the workspace root", () => {
+  test("builds AgentName-agentId/sessionKey under the workspace root", () => {
     const isolated = buildIsolatedExpertSessionDirectory({
       workspaceRoot: "/Users/me/Workspace",
       agentName: "物流单专家",
-      sessionKey: "abc123def456",
+      agentId: "order-entry-clerk",
+      sessionKey: "1753456789000",
     });
-    expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家/abc123def456");
-    expect(isolated.agentSegment).toBe("物流单专家");
+    expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家-order-entry-clerk/1753456789000");
+    expect(isolated.agentSegment).toBe("物流单专家-order-entry-clerk");
     expect(isolated.markerRelativePath).toBe(
-      "物流单专家/abc123def456/onmyagent-session.json",
+      "物流单专家-order-entry-clerk/1753456789000/onmyagent-session.json",
     );
     expect(isolated.markerContent).toContain("expert-session");
+  });
+
+  test("builds AgentName-only segment when agentId is missing", () => {
+    const isolated = buildIsolatedExpertSessionDirectory({
+      workspaceRoot: "/Users/me/Workspace",
+      agentName: "油费稽核员",
+      sessionKey: "1753456789000",
+    });
+    expect(isolated.agentSegment).toBe("油费稽核员");
+    expect(isolated.directory).toBe("/Users/me/Workspace/油费稽核员/1753456789000");
   });
 
   test("resolves marker payload for an existing absolute session directory", () => {
@@ -63,7 +74,8 @@ describe("expert session directory isolation", () => {
     expect(shouldIsolateExpertSessionDirectory("", "/tmp/x")).toBe(false);
   });
 
-  test("session file root follows the folder selected for the session", () => {
+  test("session file root prefers session record directory over localStorage binding", () => {
+    // Both equal -> returns the directory.
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work",
@@ -71,20 +83,23 @@ describe("expert session directory isolation", () => {
         workspaceRoot: "/Users/me/Work/",
       }),
     ).toBe("/Users/me/Work");
+    // sessionDirectory (session record) wins over boundDirectory (localStorage).
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work/物流单专家/abc",
-        sessionDirectory: "/Users/me/Work",
+        sessionDirectory: "/Users/me/Work/orders",
+        workspaceRoot: "/Users/me/Work",
+      }),
+    ).toBe("/Users/me/Work/orders");
+    // No session directory -> falls back to boundDirectory (legacy sessions).
+    expect(
+      resolveSelectedSessionFileRoot({
+        boundDirectory: "/Users/me/Work/物流单专家/abc",
+        sessionDirectory: null,
         workspaceRoot: "/Users/me/Work",
       }),
     ).toBe("/Users/me/Work/物流单专家/abc");
-    expect(
-      resolveSelectedSessionFileRoot({
-        boundDirectory: "",
-        sessionDirectory: "/Users/me/Work/sub",
-        workspaceRoot: "/Users/me/Work",
-      }),
-    ).toBe("/Users/me/Work/sub");
+    // No session directory, no binding -> empty.
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: null,
