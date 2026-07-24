@@ -58,6 +58,7 @@ import {
   LazySystemAuthorizationsView,
   LazyUpdatesView,
   LazyUsageView,
+  SettingsAiTabSuspense,
   SettingsTabSuspense,
 } from "./lazy-tab-views";
 import { usePlatform } from "../../kernel/platform";
@@ -73,7 +74,6 @@ import {
   type WorkspaceList,
 } from "../../../app/lib/desktop";
 import { readLocalAuthUser } from "../../../app/lib/local-auth";
-import { isBlockedProvider } from "../../../app/cloud/blocked-providers";
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import {
   useCheckDesktopRestriction,
@@ -88,6 +88,7 @@ import {
   resolveProviderDisplayName,
   safeStringify,
 } from "../../../app/utils";
+import { isProviderModelFree } from "../../../app/utils/providers";
 import {
   CreateRemoteWorkspaceModal,
   CreateWorkspaceModal,
@@ -614,18 +615,25 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       });
       return;
     }
-
+    // Official provider list requires a live OpenCode client; avoid a red
+    // "load failed / not connected" flash when the runtime is down.
+    if (!routeStateRef.current.activeClient) {
+      setProviderActionError(t("settings.connect_provider_runtime_required_short"));
+      return;
+    }
+    setProviderActionError(null);
     void providerAuthStore.openProviderAuthModal();
   }, [checkDesktopRestriction, providerAuthStore, restrictionNotice]);
 
   useEffect(() => {
     if (!activeClient || !selectedWorkspaceId) return;
+    // Org policy: only force-disable Zen when blocked. When allowed, do not
+    // re-enable it — users may have disconnected free OpenCode Zen themselves.
+    const zenBlocked = checkDesktopRestriction({ restriction: "allowZenModel" });
+    if (!zenBlocked) return;
 
     void providerAuthStore
-      .ensureProjectProviderDisabledState(
-        "opencode",
-        checkDesktopRestriction({ restriction: "allowZenModel" }),
-      )
+      .ensureProjectProviderDisabledState("opencode", true)
       .catch((error) => {
         console.warn("[desktop-app-restrictions] failed to sync Zen restriction", error);
       });
@@ -695,6 +703,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   useEffect(() => {
     setActiveClient(opencodeClient);
+    // Clear connect-time errors once the workspace runtime is available again.
+    if (opencodeClient) setProviderActionError(null);
   }, [opencodeClient]);
 
   useEffect(() => {
@@ -759,7 +769,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               behaviorLabel: t("settings.default_label"),
               behaviorDescription: "",
               behaviorValue: null,
-              isFree: false,
+              isFree: isProviderModelFree({
+                providerId: provider.id,
+                modelId: id,
+                model,
+              }),
               isConnected: true,
               isRecommended: isNew,
               source: /^lpr_/i.test(provider.id) ? "cloud" as const : undefined,
@@ -1219,14 +1233,19 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     [loadOpenCodeManagedProviders, opencodeManagedProviders, providerActionBusyId],
   );
 
+  // Drop inventory only when the workspace changes — keep it across tab switches
+  // so re-opening 模型 is instant after the first load.
   useEffect(() => {
-    if (route.tab !== "ai" || !selectedWorkspaceRoot) {
-      setOpenCodeManagedProviders([]);
-      setOpenCodeInventoryReady(false);
-      return;
-    }
-    let cancelled = false;
+    setOpenCodeManagedProviders([]);
     setOpenCodeInventoryReady(false);
+  }, [selectedWorkspaceRoot]);
+
+  // Prefetch custom OpenCode inventory as soon as settings has a workspace, not
+  // only when the AI tab is selected (first visit felt slow waiting on IPC).
+  useEffect(() => {
+    if (!selectedWorkspaceRoot || !activeClient) return;
+    if (opencodeInventoryReady) return;
+    let cancelled = false;
     void loadOpenCodeManagedProviders()
       .then((providers) => {
         if (cancelled) return;
@@ -1238,7 +1257,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     return () => {
       cancelled = true;
     };
-  }, [loadOpenCodeManagedProviders, route.tab, selectedWorkspaceRoot]);
+  }, [
+    activeClient,
+    loadOpenCodeManagedProviders,
+    opencodeInventoryReady,
+    selectedWorkspaceRoot,
+  ]);
 
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
   const workspaceOptions = workspaces.map((workspace) => ({
@@ -1265,15 +1289,33 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const providerConnectedIdSet = new Set(providerConnectedIds);
   const connectedProvidersById = new Map<string, AiSettingsConnectedProvider>();
   for (const provider of providers) {
-    if (!providerConnectedIdSet.has(provider.id) || isBlockedProvider(provider.id)) continue;
+    if (
+      !providerConnectedIdSet.has(provider.id) ||
+      isDesktopProviderBlocked({
+        providerId: provider.id,
+        checkRestriction: checkDesktopRestriction,
+      })
+    ) {
+      continue;
+    }
+    const modelCount = Object.keys(provider.models ?? {}).length;
     connectedProvidersById.set(provider.id, {
       id: provider.id,
       name: provider.name ?? provider.id,
       source: normalizeSettingsProviderSource(provider.source),
+      ...(modelCount > 0 ? { modelCount } : {}),
     });
   }
   for (const provider of opencodeManagedProviders) {
-    if (!provider.livePresent || isBlockedProvider(provider.id)) continue;
+    if (
+      !provider.livePresent ||
+      isDesktopProviderBlocked({
+        providerId: provider.id,
+        checkRestriction: checkDesktopRestriction,
+      })
+    ) {
+      continue;
+    }
     const modelCount = countOpenCodeProviderModels(provider);
     connectedProvidersById.set(provider.id, {
       id: provider.id,
@@ -1284,10 +1326,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     });
   }
   const connectedProviders = [...connectedProvidersById.values()];
-  // Avoid flashing "已断开" while discovery is in flight; empty finished → 未配置.
-  const providersDiscovering =
-    Boolean(activeClient) &&
-    (!providerListHydrated || (route.tab === "ai" && !opencodeInventoryReady));
+  // Only wait for the OpenCode provider.list snapshot. Agent-management inventory
+  // (custom OpenCode providers) merges in the background so first paint is not
+  // blocked on desktop IPC / studio-switch reads.
+  const providersDiscovering = Boolean(activeClient) && !providerListHydrated;
   const providersUiPhase = resolveAiProvidersUiPhase({
     discovering: providersDiscovering,
     providerCount: connectedProviders.length,
@@ -1617,7 +1659,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         );
       case "ai":
         return (
-          <SettingsTabSuspense>
+          <SettingsAiTabSuspense>
             <LazyAiSettingsView
               busy={busy}
               providerAuthBusy={providerAuthSnapshot.providerAuthBusy}
@@ -1626,20 +1668,42 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               providerSummary={providerSummary}
               providerConnected={connectedProviders.length > 0}
               connectedProviders={connectedProviders}
-              disconnectingProviderId={null}
+              disconnectingProviderId={providerActionBusyId}
               providerConnectError={providerAuthSnapshot.providerAuthError}
               providerDisconnectStatus={null}
               providerDisconnectError={providerActionError}
               providerActionBusyId={providerActionBusyId}
               providerSyncBusy={providerSyncBusy}
+              runtimeConnected={Boolean(activeClient)}
+              providersLoading={providersDiscovering}
+              inventorySyncing={
+                Boolean(activeClient) &&
+                providerListHydrated &&
+                !opencodeInventoryReady
+              }
               onOpenProviderAuth={handleOpenProviderAuth}
               onOpenOpencodeConfig={handleOpenCustomProviderConfig}
               onDisconnectProvider={async (providerId) => {
-                await providerAuthStore.disconnectProvider(providerId);
+                setProviderActionBusyId(providerId);
+                setProviderActionError(null);
+                try {
+                  await providerAuthStore.disconnectProvider(providerId);
+                } catch (error) {
+                  setProviderActionError(
+                    error instanceof Error
+                      ? error.message
+                      : t("providers.disconnect_failed"),
+                  );
+                } finally {
+                  setProviderActionBusyId(null);
+                }
               }}
               canDisconnectProvider={(provider) => {
                 // OpenCode custom providers use edit/delete, not disconnect.
                 if (provider.managedBy === "opencode") return false;
+                // Built-in free OpenCode Zen: disconnect disables it in workspace
+                // config (it has no OAuth/API credentials to revoke).
+                if (provider.id === "opencode") return true;
                 // Env / config / custom entries are not "disconnectable" OAuth rows;
                 // showing Unplug here reads as a false "disconnected" status.
                 if (
@@ -1649,9 +1713,14 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 ) {
                   return false;
                 }
-                // Wait until OpenCode inventory is ready so custom providers are
-                // not briefly mis-tagged as disconnectable before managedBy is set.
-                if (!opencodeInventoryReady) return false;
+                // If inventory is still loading, treat as not managed-by-opencode yet
+                // only when the id is not already tagged; otherwise allow disconnect.
+                if (!opencodeInventoryReady) {
+                  // Avoid flashing Unplug on rows that will become edit/delete once
+                  // inventory merges (custom OpenCode providers appear in SDK list
+                  // before managedBy is set).
+                  return false;
+                }
                 return true;
               }}
               canEditProvider={(provider) => provider.managedBy === "opencode"}
@@ -1722,7 +1791,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 />
               }
             />
-          </SettingsTabSuspense>
+          </SettingsAiTabSuspense>
         );
       case "memory":
         return (

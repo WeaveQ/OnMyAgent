@@ -3,6 +3,11 @@
  * Factories receive services/helpers constructed in main.mjs.
  */
 
+import {
+  normalizeResetMode,
+  resetOnMyAgentLocalData,
+} from "../reset-onmyagent-state.mjs";
+
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "engineStart",
   "runtimeBootstrap",
@@ -48,7 +53,43 @@ export function createRuntimeDomainHandlers({
   __dirname,
   workspaceStatePath,
   desktopBootstrapPath,
+  os,
 } = {}) {
+  /**
+   * @param {unknown[]} args
+   */
+  async function resetOnMyAgentStateHandler(args) {
+    const mode = normalizeResetMode(args?.[0]);
+    const homeDir =
+      typeof os?.homedir === "function" ? os.homedir() : undefined;
+    const userDataDir =
+      typeof app?.getPath === "function" ? app.getPath("userData") : "";
+    const appDataDir =
+      typeof app?.getPath === "function" ? app.getPath("appData") : "";
+    const bootstrap =
+      typeof desktopBootstrapPath === "function"
+        ? desktopBootstrapPath()
+        : desktopBootstrapPath;
+
+    return resetOnMyAgentLocalData({
+      mode,
+      homeDir,
+      userDataDir,
+      appDataDir,
+      desktopBootstrapPath: bootstrap,
+      platform: process.platform,
+      remove: async (target) => {
+        // Prefer injected rm for tests; force recursive for dirs.
+        if (typeof rm === "function") {
+          await rm(target, { recursive: true, force: true });
+          return;
+        }
+        const { rm: nodeRm } = await import("node:fs/promises");
+        await nodeRm(target, { recursive: true, force: true });
+      },
+    });
+  }
+
   return {
   engineStart: async (event, args) => {
     const projectDir = String(args[0] ?? "").trim();
@@ -189,15 +230,12 @@ export function createRuntimeDomainHandlers({
   },
 
   // shared: resetOpenworkState, resetOnMyAgentState
+  // mode: "onboarding" (default) | "all" — see reset-onmyagent-state.mjs
   resetOpenworkState: async (event, args) => {
-    await rm(workspaceStatePath(), { force: true });
-    await rm(desktopBootstrapPath(), { force: true });
-    return undefined;
+    return resetOnMyAgentStateHandler(args);
   },
   resetOnMyAgentState: async (event, args) => {
-    await rm(workspaceStatePath(), { force: true });
-    await rm(desktopBootstrapPath(), { force: true });
-    return undefined;
+    return resetOnMyAgentStateHandler(args);
   },
 
   };

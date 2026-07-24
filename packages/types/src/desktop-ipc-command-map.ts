@@ -913,8 +913,21 @@ type TypedDesktopCommandMap = {
   sandboxDebugProbe: DesktopCommandContract<[], SandboxDebugProbeResult>;
   onmyagentServerInfo: DesktopCommandContract<[], OnMyAgentServerInfo>;
   onmyagentServerRestart: DesktopCommandContract<[], OnMyAgentServerInfo>;
-  resetOpenworkState: DesktopCommandContract<[], CacheResetResult>;
-  resetOnMyAgentState: DesktopCommandContract<[], CacheResetResult>;
+  /** @deprecated alias — same as resetOnMyAgentState */
+  resetOpenworkState: DesktopCommandContract<
+    [("onboarding" | "all")?],
+    CacheResetResult
+  >;
+  /**
+   * Reset OnMyAgent local product data then UI relaunches.
+   * - onboarding: workspace list + desktop bootstrap only
+   * - all: Electron userData + ~/.onmyagent + ~/.studio-switch + legacy product home
+   *   (does not wipe shared CLI configs like ~/.config/opencode / ~/.claude / ~/.codex)
+   */
+  resetOnMyAgentState: DesktopCommandContract<
+    [("onboarding" | "all")?],
+    CacheResetResult
+  >;
 
   // skills
   importSkill: DesktopCommandContract<

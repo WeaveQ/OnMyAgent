@@ -1,7 +1,7 @@
 {
   "name": "@onmyagent/desktop",
   "private": true,
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "OnMyAgent — local control plane for your AI agents",
   "author": {
     "name": "OnMyAgent Contributors"
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@onmyagent/types": "workspace:*",
-    "@opencode-ai/sdk": "^1.17.8",
+    "@opencode-ai/sdk": "1.17.20",
     "better-sqlite3": "^11.10.0",
     "dijkstrajs": "^1.0.1",
     "discord.js": "^14.16.3",

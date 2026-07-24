@@ -29,10 +29,13 @@ import { AgentBrandIcon, agentBrandIconTileClass } from "../agent-brand-icon";
 
 type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
 
-// Skill name | agent enable columns | actions (download + folder)
+// Skill name | agent enable columns | actions (import + open folder)
 // Fixed tracks must match header + row exactly (no extra padding on either side).
-const SKILL_MATRIX_AGENT_COL = "44px";
-const SKILL_MATRIX_ACTION_COL = "52px";
+// Agent: icon-xs cell hit target (24px) + breathing room for centering.
+// Actions: two icon-xs (24+24) + gap-0.5 + border-l — 52px was too tight and
+// overflowed into the last agent column (column misalignment).
+const SKILL_MATRIX_AGENT_COL = "48px";
+const SKILL_MATRIX_ACTION_COL = "64px";
 /** Hairline rules — avoid stacked full-opacity borders looking "thick". */
 const SKILL_MATRIX_RULE = "border-dls-border/25";
 
@@ -108,10 +111,10 @@ function SkillMatrixSkeletonRows(props: { agentColCount: number }) {
               <Skeleton className="size-5 rounded-md" />
             </SkillMatrixAgentTrack>
           ))}
-          <div className={cn("flex items-center justify-center gap-0.5 border-l px-1", SKILL_MATRIX_RULE)}>
-            <Skeleton className="size-5 rounded-md" />
-            <Skeleton className="size-5 rounded-md" />
-          </div>
+          <SkillMatrixActionTrack>
+            <Skeleton className="size-6 rounded-md" />
+            <Skeleton className="size-6 rounded-md" />
+          </SkillMatrixActionTrack>
         </div>
       ))}
     </div>
@@ -132,8 +135,30 @@ function SkillMatrixAgentTrack(props: {
   return (
     <div
       className={cn(
-        "flex h-full w-full min-w-0 items-center justify-center self-stretch",
+        // Fixed track: box-border so border-l does not grow past the grid column
+        // and push subsequent agent columns off-center vs the header.
+        "box-border flex h-full w-full min-w-0 max-w-full items-center justify-center self-stretch overflow-hidden",
         props.leadRule && `border-l ${SKILL_MATRIX_RULE}`,
+        props.className,
+      )}
+    >
+      {props.children}
+    </div>
+  );
+}
+
+/** Action column track — same structure for header spacer and body buttons. */
+function SkillMatrixActionTrack(props: {
+  children?: ReactNode;
+  className?: string;
+  "aria-hidden"?: boolean | "true" | "false";
+}) {
+  return (
+    <div
+      aria-hidden={props["aria-hidden"]}
+      className={cn(
+        "box-border flex h-full w-full min-w-0 max-w-full items-center justify-center gap-0.5 self-stretch overflow-hidden border-l px-0.5",
+        SKILL_MATRIX_RULE,
         props.className,
       )}
     >
@@ -246,6 +271,8 @@ function SkillMatrixCell(props: {
             onClick={interactive ? props.onClick : undefined}
             interactive={interactive}
             className={cn(
+              // Fill the agent track (same as header) so + / ✓ sit on the column centerline.
+              "h-full w-full min-w-0",
               // Quiet cell hover — avoid bright wash behind empty + glyphs.
               interactive && props.state === "available" && "hover:bg-transparent",
               interactive && props.state !== "available" && "hover:bg-dls-hover",
@@ -289,6 +316,8 @@ function SkillMatrixColumnHeader(props: {
               interactive={!unavailable}
               disabled={unavailable}
               className={cn(
+                // Full track width + fixed header height; icon stacks above count on one axis.
+                "h-11 w-full min-w-0 max-w-full flex-col gap-0.5 overflow-hidden px-0",
                 unavailable
                   ? "cursor-not-allowed opacity-40"
                   : props.active
@@ -309,7 +338,9 @@ function SkillMatrixColumnHeader(props: {
             >
               {/* Same plate as local-agent list (muted / dark white), smaller xs tile. */}
               <AgentBrandIcon id={props.agent} provider={props.agent} size="xs" alt={label} />
-              <span className="tabular-nums leading-none opacity-80">{props.count}</span>
+              <span className="max-w-full truncate tabular-nums leading-none opacity-80">
+                {props.count}
+              </span>
             </MatrixButton>
           }
         />
@@ -549,12 +580,10 @@ function SkillMatrixRow(props: {
         );
       })}
 
-      <div
-        className={cn(
-          "flex shrink-0 items-center justify-end gap-0.5 self-center border-l pr-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
-          SKILL_MATRIX_RULE,
-        )}
+      <SkillMatrixActionTrack
+        className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
       >
+        {/* Always two slots so column width never shifts when import is hidden. */}
         {!props.skill.managedByStudioSwitch ? (
           <Tooltip>
             <TooltipTrigger
@@ -564,7 +593,7 @@ function SkillMatrixRow(props: {
                   size="icon-xs"
                   type="button"
                   disabled={importBusy}
-                  className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-default disabled:opacity-60"
+                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:cursor-default disabled:opacity-60"
                   onClick={(event) => {
                     event.stopPropagation();
                     props.onSkillAction(props.skill, importAgent, "import");
@@ -579,7 +608,9 @@ function SkillMatrixRow(props: {
               <span>{t("skills.matrix_import_managed")}</span>
             </TooltipContent>
           </Tooltip>
-        ) : null}
+        ) : (
+          <span className="size-6 shrink-0" aria-hidden />
+        )}
         <Tooltip>
           <TooltipTrigger
             render={
@@ -587,7 +618,7 @@ function SkillMatrixRow(props: {
                 variant="ghost"
                 size="icon-xs"
                 type="button"
-                className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                 onClick={(event) => {
                   event.stopPropagation();
                   props.onSkillAction(
@@ -606,7 +637,7 @@ function SkillMatrixRow(props: {
             <span>{t("skills.matrix_open_folder")}</span>
           </TooltipContent>
         </Tooltip>
-      </div>
+      </SkillMatrixActionTrack>
     </div>
   );
 }
@@ -939,38 +970,41 @@ export function SkillMatrixPanel(props: {
         </div>
 
         {/*
-          Column header stays outside the virtual body so it does not re-mount on
-          scroll; both panes use scrollbar-gutter:stable so agent columns stay aligned.
+          Header + rows share one scroll container with a sticky header so agent
+          columns cannot drift from scrollbar width differences.
         */}
         <div
-          className={cn(
-            "grid shrink-0 items-stretch border-b bg-dls-surface-muted/95 text-xs font-medium text-dls-secondary [scrollbar-gutter:stable]",
-            SKILL_MATRIX_RULE,
-          )}
-          style={gridStyle}
-        >
-          <div className="flex items-center gap-1.5 self-center px-3 py-2">
-            <FileText className="size-3.5" />
-            <span>{t("skills.matrix_skill_source")}</span>
-          </div>
-          {matrixAgents.map((agent, index) => (
-            <SkillMatrixColumnHeader
-              key={agent}
-              agent={agent}
-              active={props.columnFilter.includes(agent)}
-              count={loading ? 0 : (props.countsByAgent[agent] ?? 0)}
-              unavailable={unavailable.has(agent)}
-              leadRule={index === 0}
-              onToggle={(event) => handleHeaderToggle(agent, event)}
-            />
-          ))}
-          <div aria-hidden="true" className={cn("border-l", SKILL_MATRIX_RULE)} />
-        </div>
-
-        <div
           ref={listScrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         >
+          <div
+            className={cn(
+              "sticky top-0 z-10 grid items-stretch border-b bg-dls-surface-muted text-xs font-medium text-dls-secondary",
+              SKILL_MATRIX_RULE,
+            )}
+            style={gridStyle}
+          >
+            <div className="flex items-center gap-1.5 self-center px-3 py-2">
+              <FileText className="size-3.5" />
+              <span>{t("skills.matrix_skill_source")}</span>
+            </div>
+            {matrixAgents.map((agent, index) => (
+              <SkillMatrixColumnHeader
+                key={agent}
+                agent={agent}
+                active={props.columnFilter.includes(agent)}
+                count={loading ? 0 : (props.countsByAgent[agent] ?? 0)}
+                unavailable={unavailable.has(agent)}
+                leadRule={index === 0}
+                onToggle={(event) => handleHeaderToggle(agent, event)}
+              />
+            ))}
+            <SkillMatrixActionTrack aria-hidden>
+              <span className="size-6 shrink-0" />
+              <span className="size-6 shrink-0" />
+            </SkillMatrixActionTrack>
+          </div>
+
           {loading && filtered.length === 0 ? (
             <SkillMatrixSkeletonRows agentColCount={matrixAgents.length} />
           ) : filtered.length > 0 ? (

@@ -11,8 +11,8 @@ import {
 
 describe("parseVersionTokens", () => {
   it("parses pinned and CLI-style versions", () => {
-    assert.deepEqual(parseVersionTokens("v1.17.8"), [1, 17, 8]);
-    assert.deepEqual(parseVersionTokens("1.17.8"), [1, 17, 8]);
+    assert.deepEqual(parseVersionTokens("v1.17.20"), [1, 17, 20]);
+    assert.deepEqual(parseVersionTokens("1.17.20"), [1, 17, 20]);
     assert.deepEqual(parseVersionTokens("opencode 1.16.0"), [1, 16, 0]);
     assert.equal(parseVersionTokens(""), null);
     assert.equal(parseVersionTokens("not-a-version"), null);
@@ -21,12 +21,12 @@ describe("parseVersionTokens", () => {
 
 describe("compareVersions / isVersionAtLeast", () => {
   it("compares major.minor.patch numerically", () => {
-    assert.equal(compareVersions("v1.17.8", "1.17.8"), 0);
-    assert.equal(compareVersions("1.18.0", "1.17.8"), 1);
-    assert.equal(compareVersions("1.16.9", "1.17.8"), -1);
-    assert.equal(isVersionAtLeast("1.17.8", "v1.17.8"), true);
-    assert.equal(isVersionAtLeast("1.17.7", "1.17.8"), false);
-    assert.equal(isVersionAtLeast("unknown", "1.17.8"), false);
+    assert.equal(compareVersions("v1.17.20", "1.17.20"), 0);
+    assert.equal(compareVersions("1.18.0", "1.17.20"), 1);
+    assert.equal(compareVersions("1.16.9", "1.17.20"), -1);
+    assert.equal(isVersionAtLeast("1.17.20", "v1.17.20"), true);
+    assert.equal(isVersionAtLeast("1.17.7", "1.17.20"), false);
+    assert.equal(isVersionAtLeast("unknown", "1.17.20"), false);
   });
 });
 
@@ -37,7 +37,7 @@ describe("chooseOpencodeBinary", () => {
       localPath: "/usr/local/bin/opencode",
       localVersion: "1.0.0",
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/custom/opencode");
     assert.equal(decision.source, "custom");
@@ -51,7 +51,7 @@ describe("chooseOpencodeBinary", () => {
       localPath: "/opt/old/opencode",
       localVersion: "1.0.0",
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/opt/old/opencode");
     assert.equal(decision.source, "local");
@@ -64,7 +64,7 @@ describe("chooseOpencodeBinary", () => {
       localPath: "/usr/local/bin/opencode",
       localVersion: "1.18.0",
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/usr/local/bin/opencode");
     assert.equal(decision.source, "local");
@@ -75,9 +75,9 @@ describe("chooseOpencodeBinary", () => {
   it("prefers bundled when local version equals the pin", () => {
     const decision = chooseOpencodeBinary({
       localPath: "/usr/local/bin/opencode",
-      localVersion: "1.17.8",
+      localVersion: "1.17.20",
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/app/sidecars/opencode");
     assert.equal(decision.source, "bundled");
@@ -90,14 +90,14 @@ describe("chooseOpencodeBinary", () => {
       localPath: "/usr/local/bin/opencode",
       localVersion: "1.10.0",
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/app/sidecars/opencode");
     assert.equal(decision.source, "bundled");
     assert.equal(decision.reason, "local-too-old");
     assert.match(decision.notice, /低于产品要求/);
     assert.match(decision.notice, /1\.10\.0/);
-    assert.match(decision.notice, /1\.17\.8/);
+    assert.match(decision.notice, /1\.17\.20/);
   });
 
   it("falls back to bundled when local version is unknown", () => {
@@ -105,7 +105,7 @@ describe("chooseOpencodeBinary", () => {
       localPath: "/usr/local/bin/opencode",
       localVersion: null,
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/app/sidecars/opencode");
     assert.equal(decision.source, "bundled");
@@ -116,7 +116,7 @@ describe("chooseOpencodeBinary", () => {
   it("uses bundled when only bundled exists", () => {
     const decision = chooseOpencodeBinary({
       bundledPath: "/app/sidecars/opencode",
-      bundledVersion: "v1.17.8",
+      bundledVersion: "v1.17.20",
     });
     assert.equal(decision.path, "/app/sidecars/opencode");
     assert.equal(decision.source, "bundled");

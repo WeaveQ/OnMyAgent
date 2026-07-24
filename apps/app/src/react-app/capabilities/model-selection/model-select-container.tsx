@@ -9,6 +9,7 @@ import { ModelSelectView } from "@/components/model-select";
 import { t } from "@/i18n";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { useCheckDesktopRestriction } from "@/react-app/domains/shared";
+import { isProviderModelFree } from "@/app/utils/providers";
 import { getConnectedProviderItems, useProviderListQuery } from "@/react-app/domains/connections";
 import { readHiddenModels } from "./hidden-models-store";
 import { openModelPickerEvent, useWorkspace } from "@/react-app/shell";
@@ -87,7 +88,11 @@ function useModelOptions(open: boolean): ModelOption[] {
           behaviorLabel: t("settings.default_label"),
           behaviorDescription: "",
           behaviorValue: null,
-          isFree: false,
+          isFree: isProviderModelFree({
+            providerId: provider.id,
+            modelId: id,
+            model,
+          }),
           isConnected: true,
         })),
       );
