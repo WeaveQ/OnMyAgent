@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   chooseOpencodeBinary,
+  chooseProductRuntimeBinary,
   compareVersions,
   isVersionAtLeast,
   parseVersionTokens,
@@ -126,5 +127,50 @@ describe("chooseOpencodeBinary", () => {
     assert.equal(decision.path, null);
     assert.equal(decision.source, null);
     assert.equal(decision.reason, "missing");
+  });
+});
+
+describe("chooseProductRuntimeBinary", () => {
+  it("always prefers bundled over local when both exist", () => {
+    const decision = chooseProductRuntimeBinary({
+      toolLabel: "Node",
+      localPath: "/usr/local/bin/node",
+      localVersion: "v22.0.0",
+      bundledPath: "/app/runtimes/node",
+      bundledVersion: "v24.16.0",
+    });
+    assert.equal(decision.path, "/app/runtimes/node");
+    assert.equal(decision.source, "bundled");
+    assert.equal(decision.reason, "bundled-only");
+    assert.equal(decision.notice, null);
+  });
+
+  it("falls back to local with notice when bundled is missing", () => {
+    const decision = chooseProductRuntimeBinary({
+      toolLabel: "Python",
+      localPath: "/usr/bin/python3",
+      localVersion: "3.11.0",
+    });
+    assert.equal(decision.path, "/usr/bin/python3");
+    assert.equal(decision.source, "local");
+    assert.equal(decision.reason, "local-only");
+    assert.match(decision.notice, /Python/);
+  });
+
+  it("honors explicit and env overrides", () => {
+    assert.equal(
+      chooseProductRuntimeBinary({
+        explicitPath: "/custom/node",
+        bundledPath: "/app/node",
+      }).reason,
+      "explicit",
+    );
+    assert.equal(
+      chooseProductRuntimeBinary({
+        envForcedPath: "/env/node",
+        bundledPath: "/app/node",
+      }).reason,
+      "explicit-env",
+    );
   });
 });

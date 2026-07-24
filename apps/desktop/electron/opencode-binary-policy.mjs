@@ -1,13 +1,15 @@
 /**
- * OpenCode binary selection policy for the desktop runtime.
+ * Product runtime binary selection policy (OpenCode / Node / Python).
  *
- * Product rule:
- * - Prefer the product-bundled OpenCode by default.
- * - Use a machine-local OpenCode only when its version is known and
- *   at least as new as the bundled pin.
- * - Fall back to bundled with a user-facing notice when local is too old
- *   or its version cannot be determined.
+ * Shared product rule:
+ * - Prefer product-bundled binaries by default (never silent PATH wins).
  * - Explicit overrides (API path / env force) always win.
+ *
+ * OpenCode additionally allows a machine-local binary when its version is
+ * known and at least as new as the bundled pin; otherwise fall back to
+ * bundled with a notice.
+ *
+ * Node / Python stay strictly product-owned: use bundled whenever present.
  */
 
 /**
@@ -161,6 +163,104 @@ export function chooseOpencodeBinary(input = {}) {
       source: "local",
       reason: "local-only",
       notice: null,
+      localVersion,
+      bundledVersion,
+    };
+  }
+
+  return {
+    path: null,
+    source: null,
+    reason: "missing",
+    notice: null,
+    localVersion,
+    bundledVersion,
+  };
+}
+
+/**
+ * @typedef {"explicit" | "explicit-env" | "bundled-only" | "local-only" | "missing"} ProductRuntimeBinaryReason
+ */
+
+/**
+ * Choose Node / Python style product-owned runtime binaries.
+ * Bundled always wins when present; local is only a last resort.
+ *
+ * @param {{
+ *   toolLabel?: string,
+ *   explicitPath?: string | null,
+ *   envForcedPath?: string | null,
+ *   localPath?: string | null,
+ *   bundledPath?: string | null,
+ *   bundledVersion?: string | null,
+ *   localVersion?: string | null,
+ * }} input
+ * @returns {{
+ *   path: string | null,
+ *   source: "custom" | "local" | "bundled" | null,
+ *   reason: ProductRuntimeBinaryReason,
+ *   notice: string | null,
+ *   localVersion: string | null,
+ *   bundledVersion: string | null,
+ * }}
+ */
+export function chooseProductRuntimeBinary(input = {}) {
+  const toolLabel =
+    typeof input.toolLabel === "string" && input.toolLabel.trim()
+      ? input.toolLabel.trim()
+      : "runtime";
+  const explicitPath = typeof input.explicitPath === "string" ? input.explicitPath.trim() : "";
+  const envForcedPath = typeof input.envForcedPath === "string" ? input.envForcedPath.trim() : "";
+  const localPath = typeof input.localPath === "string" ? input.localPath.trim() : "";
+  const bundledPath = typeof input.bundledPath === "string" ? input.bundledPath.trim() : "";
+  const localVersion =
+    typeof input.localVersion === "string" && input.localVersion.trim()
+      ? input.localVersion.trim()
+      : null;
+  const bundledVersion =
+    typeof input.bundledVersion === "string" && input.bundledVersion.trim()
+      ? input.bundledVersion.trim()
+      : null;
+
+  if (explicitPath) {
+    return {
+      path: explicitPath,
+      source: "custom",
+      reason: "explicit",
+      notice: null,
+      localVersion,
+      bundledVersion,
+    };
+  }
+
+  if (envForcedPath) {
+    return {
+      path: envForcedPath,
+      source: "local",
+      reason: "explicit-env",
+      notice: null,
+      localVersion,
+      bundledVersion,
+    };
+  }
+
+  if (bundledPath) {
+    return {
+      path: bundledPath,
+      source: "bundled",
+      reason: "bundled-only",
+      notice: null,
+      localVersion,
+      bundledVersion,
+    };
+  }
+
+  if (localPath) {
+    return {
+      path: localPath,
+      source: "local",
+      reason: "local-only",
+      notice: `未找到产品内置 ${toolLabel}，临时使用本机路径：${localPath}`,
       localVersion,
       bundledVersion,
     };
