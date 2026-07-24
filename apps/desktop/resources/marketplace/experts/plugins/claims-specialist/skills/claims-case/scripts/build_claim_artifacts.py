@@ -141,6 +141,26 @@ def _evidence_tag(status: str) -> str:
     return f'<span class="tag {escape(status)}">{escape({"available":"已提供","weak":"弱证据","missing":"缺失"}.get(status, status))}</span>'
 
 
+STYLE_PATTERN = re.compile(r"<style>([\s\S]*?)</style>", re.IGNORECASE)
+CLAIM_PREVIEW_PATTERN = re.compile(r'(<section\s+class="claim-preview">[\s\S]*?</section>)', re.IGNORECASE)
+PRINT_MEDIA_PATTERN = re.compile(r"@media\s+print\s*\{(?:[^{}]|\{[^{}]*\})*\}", re.IGNORECASE)
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Inline widget fragment: extract <style> and the main claim-preview <section>,
+    strip @media print rules to shrink payload. Mirrors order-entry/quote-specialist/
+    warehouse-manager/pod-reconciler inline_widget_fragment handling so the host
+    receives a trimmed fragment instead of the raw preview HTML.
+    """
+    style = STYLE_PATTERN.search(preview_html)
+    section = CLAIM_PREVIEW_PATTERN.search(preview_html)
+    if not style or not section:
+        return preview_html
+    screen_css = PRINT_MEDIA_PATTERN.sub("", style.group(1))
+    return f"<style>{screen_css}</style>{section.group(1)}"
+
+
 def claims_preview_html(data: dict[str, Any], rows: list[dict[str, str]]) -> str:
     available = sum(1 for r in rows if r["status"] == "available")
     score = round(available / len(rows) * 100) if rows else 0
@@ -359,7 +379,7 @@ def main() -> None:
         "evidence": rows,
         "missing": [r["type"] for r in rows if r["status"] != "available"],
         "files": files,
-        "inlineWidget": {"title": "理赔案件预览", "widget_code": preview_html},
+        "inlineWidget": {"title": "理赔案件预览", "widget_code": inline_widget_fragment(preview_html)},
     }
 
     if args.mode == "export":
