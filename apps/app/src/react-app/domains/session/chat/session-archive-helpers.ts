@@ -169,6 +169,71 @@ function truncateArchiveTitleLine(line: string): string {
 }
 
 /**
+ * Prefer human payload inside harness wrappers; strip protocol tags so the
+ * transcript / list preview does not look like a raw XML dump.
+ */
+export function cleanArchiveMessageContent(content: string): string {
+  const raw = String(content ?? "").trim();
+  if (!raw) return "";
+
+  // Prefer explicit user intent wrappers (Grok / harness transcripts).
+  const wrapped =
+    raw.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/i)?.[1]
+    ?? raw.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i)?.[1];
+  if (wrapped?.trim()) {
+    return wrapped.trim().replace(/\n{3,}/g, "\n\n");
+  }
+
+  // Drop whole harness blocks (body included) so e.g. user_info never shows.
+  const withoutHarnessBlocks = raw
+    .replace(
+      /<(?:user_info|system-reminder|system_reminder|available_skills|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction|agent_info|environment_details)\b[^>]*>[\s\S]*?<\/(?:user_info|system-reminder|system_reminder|available_skills|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction|agent_info|environment_details)\s*>/gi,
+      "\n",
+    )
+    .replace(
+      /<\/?(?:user_info|system-reminder|system_reminder|available_skills|user_query|user-request|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction|agent_info|environment_details|thinking|antml:thinking)\b[^>]*\/?>/gi,
+      "\n",
+    )
+    // Any leftover bare XML-ish tags on their own line.
+    .replace(/^\s*<\/?[A-Za-z_][\w:.-]*(?:\s[^>]*)?\/?>\s*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return withoutHarnessBlocks || "";
+}
+
+/** Drop empty / pure tool-noise / harness-only lines so the transcript stays readable. */
+export function isNoisyArchiveMessage(message: {
+  role: string;
+  content: string;
+}): boolean {
+  const text = String(message.content ?? "").trim();
+  if (!text) return true;
+  if (message.role === "system") {
+    // System harness rarely useful in archive UI.
+    if (text.length > 200) return true;
+    if (/^(OS Version|Shell|Workspace Path|Today's date|Note:)/im.test(text)) {
+      return true;
+    }
+  }
+  if (message.role === "tool") {
+    // Keep short tool summaries; drop giant dumps.
+    if (text.length > 600) return true;
+  }
+  // JSON-RPC / protocol blobs
+  if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) {
+    return true;
+  }
+  // Bare harness shells: mostly tags/punctuation after cleaning.
+  const letters = text.replace(/[^A-Za-z0-9\u4e00-\u9fff]/g, "");
+  if (letters.length < 2 && /[<>{}[\]]/.test(text)) return true;
+  if (ARCHIVE_TITLE_HARNESS_TAG_LINE.test(text) || ARCHIVE_TITLE_PURE_TAG_LINE.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Pull a human-readable first line from raw archive title / first_message text.
  * Prefer real user intent inside `<user_query>` / `<user-request>`; never surface
  * harness shells like `<user_info>` or `<system-reminder>` as the list title.
@@ -181,32 +246,11 @@ export function extractArchiveTitleLine(raw: string): string | null {
   }
   if (text.startsWith("[") && text.length > 80) return null;
 
-  // Prefer explicit user intent wrappers (Grok / harness transcripts).
-  const wrapped =
-    text.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/i)?.[1]
-    ?? text.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i)?.[1];
-  if (wrapped?.trim()) {
-    const line = wrapped.trim().split(/\r?\n/).find((row) => row.trim().length > 0)?.trim();
-    if (line && line.length >= 1 && !ARCHIVE_TITLE_PURE_TAG_LINE.test(line)) {
-      return truncateArchiveTitleLine(line);
-    }
-  }
+  const cleaned = cleanArchiveMessageContent(text);
+  if (!cleaned) return null;
 
-  // Drop whole harness blocks (not just the open/close tags) so block body
-  // like "OS Version: …" never becomes the list title either.
-  const withoutHarnessBlocks = text
-    .replace(
-      /<(?:user_info|system-reminder|system_reminder|available_skills|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction)\b[^>]*>[\s\S]*?<\/(?:user_info|system-reminder|system_reminder|available_skills|function_results|tool_result|INSTRUCTIONS|auto-slash-command|command-instruction)\s*>/gi,
-      "\n",
-    )
-    // Unclosed opening tags that are pure noise lines.
-    .replace(
-      /<\/?(?:user_info|system-reminder|system_reminder|available_skills|user_query|user-request|function_results|tool_result)\b[^>]*\/?>/gi,
-      "\n",
-    );
-
-  // Walk lines: skip pure tags and harness noise; take first meaningful prose.
-  for (const row of withoutHarnessBlocks.split(/\r?\n/)) {
+  // Prefer first non-empty prose line from cleaned content.
+  for (const row of cleaned.split(/\r?\n/)) {
     const line = row.trim();
     if (!line) continue;
     if (ARCHIVE_TITLE_HARNESS_TAG_LINE.test(line) || ARCHIVE_TITLE_PURE_TAG_LINE.test(line)) {
@@ -215,15 +259,31 @@ export function extractArchiveTitleLine(raw: string): string | null {
     if (line.startsWith("{") && (line.includes("jsonrpc") || line.includes('"method"'))) {
       continue;
     }
+    // Grok user_info leftovers after partial strip — not a real question.
+    if (/^(OS Version|Shell|Workspace Path|Today's date|Note:)\b/i.test(line)) {
+      continue;
+    }
     if (line.length >= 1) return truncateArchiveTitleLine(line);
   }
 
-  // Last resort: strip all angle-bracket tags and take first remaining words.
-  const stripped = withoutHarnessBlocks
+  // Last resort: strip remaining angle-bracket tags and take first words.
+  const stripped = cleaned
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (stripped.length >= 2) return truncateArchiveTitleLine(stripped);
+  return null;
+}
+
+/**
+ * List-row subtitle: first user question from `first_message` only.
+ * Do not fall back to display_name (often "Agent · project").
+ */
+export function archiveSessionPreviewLine(
+  session: Pick<OnMyAgentSessionArchiveSession, "first_message">,
+): string | null {
+  const line = extractArchiveTitleLine(String(session.first_message ?? ""));
+  if (line) return rewriteLegacyProductDisplayText(line);
   return null;
 }
 

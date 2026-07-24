@@ -46,6 +46,10 @@ describe("personal usage UI contract", () => {
     expect(page).toContain('"daily"');
     expect(page).toContain('"weekly"');
     expect(page).toContain('"cumulative"');
+    // Metrics wrap on mid-width settings panes instead of clipping Chinese labels.
+    expect(page).toContain("grid-cols-2 sm:grid-cols-3 lg:grid-cols-5");
+    expect(page).not.toContain("min-w-3xl grid-cols-5");
+    expect(page).not.toContain("mt-0.5 truncate text-sm text-dls-secondary");
     // Codex parity keeps fixed cells and mode-specific whole-column hover.
     expect(page).toContain("buildTokenActivitySeries");
     expect(page).not.toContain("trimLeadingEmptyActivityColumns");
@@ -62,6 +66,8 @@ describe("personal usage UI contract", () => {
     expect(page).toContain("return null");
     expect(page).toContain('props.mode === "daily"');
     expect(page).toContain("size-3 shrink-0 rounded-xs");
+    expect(page).toContain("min-w-max");
+    expect(page).toContain("overflow-x-auto");
     expect(page).not.toContain("weekCellForMode");
     expect(page).not.toContain("aspect-square");
     expect(page).toContain("rounded-xs");

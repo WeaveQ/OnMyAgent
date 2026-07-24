@@ -3,9 +3,12 @@ import type { OnMyAgentSessionArchiveSession } from "../src/app/lib/onmyagent-se
 import {
   agentLabel,
   archiveAgentIconId,
+  archiveSessionPreviewLine,
   buildResumeRequest,
+  cleanArchiveMessageContent,
   groupSessionsByAgent,
   humanizeArchiveTitle,
+  isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   mergeArchiveSessionPages,
   RESUMABLE_AGENTS,
@@ -125,6 +128,50 @@ describe("session archive page helpers", () => {
         }),
       ),
     ).toBe("全部优化掉");
+  });
+
+  it("cleanArchiveMessageContent strips user_info and keeps user_query body", () => {
+    const raw = [
+      "<user_info>",
+      "OS Version: macos",
+      "</user_info>",
+      "",
+      "<user_query>",
+      "红框的去掉",
+      "</user_query>",
+    ].join("\n");
+    expect(cleanArchiveMessageContent(raw)).toBe("红框的去掉");
+    expect(isNoisyArchiveMessage({ role: "user", content: cleanArchiveMessageContent(raw) })).toBe(
+      false,
+    );
+    expect(
+      isNoisyArchiveMessage({
+        role: "system",
+        content: "OS Version: macos\nShell: /bin/zsh\nWorkspace Path: /Users/work",
+      }),
+    ).toBe(true);
+  });
+
+  it("archiveSessionPreviewLine uses first user question, not agent project label", () => {
+    const first_message = [
+      "<user_info>",
+      "OS Version: macos",
+      "</user_info>",
+      "<user_query>",
+      "帮我启动桌面端",
+      "</user_query>",
+    ].join("\n");
+    expect(
+      archiveSessionPreviewLine(
+        session({
+          id: "p1",
+          agent: "grok",
+          display_name: "Grok Build · onmyagent",
+          first_message,
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("帮我启动桌面端");
   });
 
   it("humanizeArchiveTitle skips bare system-reminder / user_info tag lines", () => {

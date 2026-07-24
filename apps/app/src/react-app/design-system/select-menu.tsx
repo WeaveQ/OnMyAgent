@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 export type SelectMenuOption = {
   value: string;
   label: string;
+  /** Optional secondary line under the label (tone menus, rich pickers). */
+  description?: string;
 };
 
 type SelectMenuProps = {
@@ -32,6 +34,8 @@ type SelectMenuProps = {
   onOpen?: () => void;
   /** Root class — use e.g. `w-auto max-w-[14rem]` in flex toolbars. Default `w-full`. */
   className?: string;
+  /** Minimum panel width (useful when options have descriptions). */
+  panelMinWidth?: number;
 };
 
 type PanelRect = {
@@ -51,20 +55,21 @@ const triggerClasses = {
 
 const optionRowClasses = {
   default:
-    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover",
+    "flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover",
   compact:
-    "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs text-dls-text transition-colors hover:bg-dls-hover",
+    "flex w-full items-start gap-2 px-2 py-1.5 text-left text-xs text-dls-text transition-colors hover:bg-dls-hover",
 };
 
 const PANEL_GAP = 6;
-const PANEL_MAX_HEIGHT = 288; // 18rem
+const PANEL_MAX_HEIGHT = 360;
 const VIEWPORT_PAD = 8;
 
 function computePanelRect(
   trigger: DOMRect,
   preferred: "bottom" | "top" | "auto",
+  minWidth: number,
 ): PanelRect {
-  const width = Math.max(trigger.width, 140);
+  const width = Math.max(trigger.width, minWidth);
   const spaceBelow = window.innerHeight - trigger.bottom - VIEWPORT_PAD;
   const spaceAbove = trigger.top - VIEWPORT_PAD;
 
@@ -101,6 +106,11 @@ export function SelectMenu(props: SelectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const size = props.size ?? "default";
   const placement = props.placement ?? "auto";
+  const hasDescriptions = props.options.some((opt) =>
+    Boolean(opt.description?.trim()),
+  );
+  const panelMinWidth =
+    props.panelMinWidth ?? (hasDescriptions ? 280 : 140);
 
   const displayLabel = useMemo(() => {
     const match = props.options.find((o) => o.value === props.value);
@@ -113,7 +123,7 @@ export function SelectMenu(props: SelectMenuProps) {
   const updatePanelPosition = useEffectEvent(() => {
     const trigger = rootRef.current?.getBoundingClientRect();
     if (!trigger) return;
-    setPanelRect(computePanelRect(trigger, placement));
+    setPanelRect(computePanelRect(trigger, placement, panelMinWidth));
   });
 
   useLayoutEffect(() => {
@@ -122,7 +132,7 @@ export function SelectMenu(props: SelectMenuProps) {
       return;
     }
     updatePanelPosition();
-  }, [open, props.options.length, placement]);
+  }, [open, props.options.length, placement, panelMinWidth]);
 
   useEffect(() => {
     if (!open) return;
@@ -181,6 +191,7 @@ export function SelectMenu(props: SelectMenuProps) {
           >
             {props.options.map((opt) => {
               const selected = opt.value === props.value;
+              const description = opt.description?.trim() ?? "";
               return (
                 <button
                   key={opt.value}
@@ -191,29 +202,38 @@ export function SelectMenu(props: SelectMenuProps) {
                     optionRowClasses[size],
                     "w-full border-0 outline-none focus-visible:bg-dls-hover",
                     selected
-                      ? "bg-dls-list-selected text-dls-text"
+                      ? "bg-dls-accent/15 text-dls-text"
                       : "bg-transparent text-dls-text hover:bg-dls-hover",
                   )}
-                  style={
-                    selected
-                      ? { backgroundColor: "var(--dls-list-selected)" }
-                      : undefined
-                  }
                   onClick={() => {
                     props.onChange(opt.value);
                     close();
                   }}
                 >
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {opt.label}
+                  <span className="min-w-0 flex-1 text-left">
+                    <span
+                      className={cn(
+                        "block font-medium leading-5",
+                        selected ? "text-dls-text" : "text-dls-text",
+                      )}
+                    >
+                      {opt.label}
+                    </span>
+                    {description ? (
+                      <span className="mt-0.5 block text-xs font-normal leading-4 text-dls-secondary">
+                        {description}
+                      </span>
+                    ) : null}
                   </span>
                   {selected ? (
                     <Check
                       size={16}
-                      className="shrink-0 text-dls-accent"
+                      className="mt-0.5 shrink-0 text-dls-accent"
                       aria-hidden
                     />
-                  ) : null}
+                  ) : (
+                    <span className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  )}
                 </button>
               );
             })}
