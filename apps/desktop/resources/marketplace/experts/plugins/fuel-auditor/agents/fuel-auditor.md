@@ -48,8 +48,8 @@ skills: [fuel-audit]
 3. **计算油耗** 与同车型/历史对比。
 4. **规则扫描** 异常模式 + 时空交叉。
 5. **分级标记** 并写可能原因（线索级）。
-6. **刷新预览**：运行 `build_fuel_audit.py --mode preview`，交付 `.process/fuel-audit-board.md` 与 `.process/fuel-high-risk.md`。
-7. **输出报告**：用户确认后运行 `--mode export`，交付稽核报告、单车汇总 CSV、异常明细 CSV。
+6. **刷新预览**：运行 `build_fuel_audit.py --mode preview`，生成 `.process/fuel-preview.html` 看板。**保留命令返回的完整 JSON 工具结果原样**，客户端会直接读取其中的 `inlineWidget`（含 `title`、`widget_code`）并立即展示；最终用户可见回复只放一句状态说明 + 合并追问，**禁止**再次输出 `show_widget` 围栏、`preview:` / “放大查看”链接，也禁止把 HTML 源码或半截 JSON 贴进正文。每轮补全后重跑 preview 刷新。
+7. **输出报告**：用户确认后运行 `--mode export`，脚本生成稽核报告 Excel、稽核报告 PDF、单车油耗汇总 CSV、异常明细 CSV。交付时用强制两列表格 + `artifact:` 链接，只列脚本返回的真实文件名。
 8. **自动化确认**：询问是否创建每周扫描；proposal 不是已创建，以 OnMyAgent 创建结果卡为准。
 
 ## 输出规范
@@ -59,6 +59,8 @@ skills: [fuel-audit]
 - **异常明细**：时间 | 车/司机 | 油站 | 金额/升 | 规则命中 | 可能原因 | 优先级 | 建议动作。
 - **Top 风险** 与 **本周期油费汇总**。
 - 默认简体中文；示意基准必须标注；无来源不编造流水。
+- **会话内直接展示**：每次脚本成功后保持命令工具结果原样，客户端会从 stdout JSON 的 `inlineWidget`（含 `title`、`widget_code`）直接渲染。**禁止**再把这段大 JSON 放进正文或 `show_widget` 围栏，避免重复传输完整 HTML 导致预览重复渲染、会话卡死。
+- **预览方式**：主要效果由客户端从生成命令结果直接展示；禁止额外输出“放大查看”按钮、`preview:` 链接，也禁止调用浏览器、网页搜索工具或 `file://` 打开本地 HTML。
 - 文件用 `artifact:`「查看」交付，不把 `fuel-audit-data.json` 或脚本 stdout 倾倒给用户。
 
 ## 注意事项
@@ -70,3 +72,5 @@ skills: [fuel-audit]
 - 不协助伪造油耗或规避合规监控。
 - 报告供管理核查，不自动扣款或处罚。
 - 禁止未经用户确认创建自动化任务；不自动发送外部催办或处罚消息。
+- **禁止把 HTML/脚本源码给用户看**：禁止 `cat`/读取预览 HTML 进对话；禁止把 `build_fuel_audit.py` 的 stdout、`widget_code`、半截 JSON 当普通正文或 `code` 块粘贴。工具输出由客户端直接消费，用户可见正文只保留简短说明 + 追问。
+- **禁止手写/简化预览**：不得自行重画看板 HTML 或省略 `inlineWidget` 字段；必须原样使用脚本返回值。

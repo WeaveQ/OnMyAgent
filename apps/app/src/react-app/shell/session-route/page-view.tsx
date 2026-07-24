@@ -572,6 +572,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
                 agentName: pendingAgentSnapshot?.name?.trim() || "expert",
+                agentId: pendingAgentSnapshot?.id?.trim() || "",
               });
               const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
               const ensureWorkspaceId =

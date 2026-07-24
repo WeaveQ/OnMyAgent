@@ -124,7 +124,7 @@ describe("right side panel toggle contract", () => {
     for (const source of [assistant, expert]) {
       expect(source).toContain("SessionHistorySearchChrome");
       expect(source).toContain("sidePanelOpen={sidePanelOpen}");
-      expect(source).toContain("headerActions={headerPanelControls}");
+      expect(source).toMatch(/headerActions=\{[^}]*headerPanelControls\}/);
     }
   });
 

@@ -7,11 +7,9 @@
 | 路径 | 用途 |
 | --- | --- |
 | `warehouse-ledger.json` | 单一数据源：流水 + 账面 + 异常 |
-| `.process/stock-snapshot.md` | 账面快照 |
-| `.process/anomaly-list.md` | 异常清单 |
-| `.process/daily-brief.md` | 日简报草稿 |
-| `库存台账_*.csv` | 结果：账面导出 |
-| `库存流水_*.csv` | 结果：变动流水 |
+| `.process/warehouse-preview.html` | 过程：库存看板预览（经 `inlineWidget` 渲染） |
+| `库存台账_*.xlsx` | 结果：库存台账（滞留/负库存标红）+ 流水 |
+| `库存台账_*.pdf` | 结果：看板+台账+异常（Chrome headless） |
 | `automations/proposals/*.json` | 定时任务草稿 |
 
 ## `warehouse-ledger.json` 最小结构

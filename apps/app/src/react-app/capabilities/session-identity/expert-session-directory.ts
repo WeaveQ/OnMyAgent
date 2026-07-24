@@ -2,8 +2,10 @@
  * Per-expert-session artifact directory helpers.
  *
  * When the user does not pick a folder for a new expert conversation, isolate
- * artifacts under: `{workspaceRoot}/{agentName}/{sessionKey}/`
+ * artifacts under: `{workspaceRoot}/{agentName-agentId}/{timestamp}/`
  * so different experts and sessions never share the same dump folder.
+ * The agentName-agentId segment is stable across sessions for the same expert;
+ * the timestamp is deterministic at send time (no UUID generation race).
  */
 
 export function sanitizePathSegment(raw: string, fallback = "expert"): string {
@@ -21,10 +23,9 @@ export function sanitizePathSegment(raw: string, fallback = "expert"): string {
 }
 
 export function createExpertSessionKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-  }
-  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  // Use a timestamp so the key is deterministic and always available -
+  // no UUID generation race that could leave the directory name empty.
+  return Date.now().toString();
 }
 
 export function joinWorkspacePath(root: string, ...parts: string[]): string {
@@ -63,12 +64,17 @@ export const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
  * Build an isolated session directory under the workspace when the user did
  * not pick an explicit folder.
  *
+ * Structure: `{workspaceRoot}/{agentName-agentId}/{timestamp}/`
+ * - agentName-agentId: stable per expert, reused across sessions
+ * - timestamp: deterministic at send time, no UUID race
+ *
  * Callers must materialize the directory (write the marker file) before
- * binding the opencode session — opencode realPath fails if the path is missing.
+ * binding the opencode session - opencode realPath fails if the path is missing.
  */
 export function buildIsolatedExpertSessionDirectory(input: {
   workspaceRoot: string;
   agentName: string;
+  agentId?: string;
   sessionKey?: string;
 }): {
   sessionKey: string;
@@ -79,7 +85,14 @@ export function buildIsolatedExpertSessionDirectory(input: {
   markerContent: string;
 } {
   const sessionKey = input.sessionKey?.trim() || createExpertSessionKey();
-  const agentSegment = sanitizePathSegment(input.agentName, "expert");
+  const nameSegment = sanitizePathSegment(input.agentName, "expert");
+  const idSegment = input.agentId?.trim()
+    ? sanitizePathSegment(input.agentId, "")
+    : "";
+  // {agentName}-{agentId} e.g. "油费稽核员-fuel-auditor"
+  const agentSegment = idSegment
+    ? `${nameSegment}-${idSegment}`
+    : nameSegment;
   const directory = joinWorkspacePath(input.workspaceRoot, agentSegment, sessionKey);
   const markerRelativePath = relativePosixPath(
     agentSegment,
@@ -114,10 +127,10 @@ export function shouldIsolateExpertSessionDirectory(
 }
 
 /**
- * Side-panel file root for a session. An explicitly bound directory wins,
- * including the workspace root: the folder selected when creating the session
- * is the scope the user expects to browse. Transcript artifacts are only used
- * when the session has no directory information at all.
+ * Side-panel file root for a session. The session's own directory (stored in
+ * the session record by the server at create time) is the primary source.
+ * The localStorage boundDirectory is a fallback for legacy sessions created
+ * before the directory was persisted to the session record.
  */
 export function resolveSelectedSessionFileRoot(input: {
   boundDirectory?: string | null;
@@ -125,8 +138,8 @@ export function resolveSelectedSessionFileRoot(input: {
   workspaceRoot: string;
 }): string {
   const candidates = [
-    input.boundDirectory?.trim() ?? "",
     input.sessionDirectory?.trim() ?? "",
+    input.boundDirectory?.trim() ?? "",
   ].filter(Boolean);
   return candidates[0] ?? "";
 }
