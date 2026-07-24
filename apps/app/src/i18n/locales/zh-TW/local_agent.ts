@@ -386,6 +386,7 @@ export default {
   "local_agent.workspace_temporary_notice": "臨時對話，選擇專案即可綁定 CWD。",
   "local_agent.workspace_locked_notice": "已綁定 {name}，新對話預設沿用此專案。",
   "local_agent.workspace_locked_hint": "該對話已鎖定目錄，新建對話可切換專案。",
+  "local_agent.workspace_locked_hint_short": "對話已鎖定，新建可換目錄",
   "local_agent.extensions_title": "擴充功能",
   "local_agent.extensions_count": "已載入 {count} 個",
   "local_agent.extensions_empty": "尚未安裝擴充功能。將包含 onmyagent-extension.json 的資料夾放入 extensions 目錄即可。",

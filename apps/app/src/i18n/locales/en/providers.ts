@@ -9,6 +9,10 @@ export default {
   "providers.disconnect_failed": "Failed to disconnect provider",
   "providers.disconnected_prefix": "Disconnected",
   "providers.load_failed": "Failed to load providers",
+  "providers.plugin_hook_mismatch":
+    "OpenCode plugin hooks failed (version/plugin mismatch)",
+  "providers.plugin_hook_mismatch_hint":
+    "Reload the engine so OnMyAgent can use the product-bundled OpenCode. Also align @opencode-ai/plugin with the OpenCode version (or temporarily disable third-party plugins such as oh-my-openagent), then try again.",
   "providers.no_oauth_prefix": "No OAuth flow available for",
   "providers.no_providers_available": "No providers available",
   "providers.not_connected": "Not connected to a server",

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   PanelRight,
+  Plus,
   Search,
   X,
   Zap,
@@ -1673,6 +1674,16 @@ export function ExpertPage(props: ExpertPageProps) {
                             <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">
                               {t("session.no_expert_conversations_desc")}
                             </p>
+                            <Button
+                              type="button"
+                              size="default"
+                              className="mt-5 gap-1.5"
+                              onClick={openExpertMarket}
+                              data-testid="expert-empty-open-market"
+                            >
+                              <Plus className="size-4" strokeWidth={2} />
+                              {t("session.no_expert_conversations_action")}
+                            </Button>
                           </div>
                         </div>
                       ) : null}
