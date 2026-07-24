@@ -26,37 +26,41 @@ export type HeartbeatDraft = {
 };
 
 export const heartbeatClass = {
-  overlay: "border-t border-dls-border bg-dls-background px-5 py-3 mac:titlebar-no-drag",
-  panel: "max-h-96 overflow-y-auto rounded-lg border border-dls-border bg-dls-surface p-3 text-xs text-dls-text",
-  grid: "grid gap-3 md:grid-cols-2 xl:grid-cols-4",
-  item: "rounded-lg border border-dls-border bg-dls-surface px-3 py-2.5",
-  meta: "mt-1 flex flex-wrap gap-2 text-xs text-dls-secondary",
+  /**
+   * Floating panel under the header clock control — does not expand the
+   * document chrome (previously sat between header row and status rail).
+   */
+  overlay:
+    "absolute right-3 top-full z-40 mt-1.5 w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(72vh,34rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-[0_12px_40px_rgba(0,0,0,0.28)] mac:titlebar-no-drag",
+  panel: "flex max-h-[min(72vh,34rem)] flex-col text-xs text-dls-text",
+  panelBody: "min-h-0 flex-1 space-y-3 overflow-y-auto p-3.5",
+  grid: "grid gap-2.5 sm:grid-cols-2",
+  item: "rounded-lg border border-dls-border bg-dls-surface-muted/40 px-3 py-2.5",
+  meta: "mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-xs text-dls-secondary",
   runs: "mt-2 w-full rounded-lg border border-dls-border bg-dls-surface-muted p-2",
   runItem: "rounded-md border border-dls-border bg-dls-surface px-2 py-1.5",
 };
 
 function ScheduleSection(props: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-dls-border bg-dls-surface p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="rounded-lg border border-dls-border/80 bg-dls-surface-muted/25 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-xs font-semibold text-dls-text">{props.title}</div>
-          {props.description ? <div className="mt-1 text-xs leading-5 text-dls-secondary">{props.description}</div> : null}
+          {props.description ? <div className="mt-0.5 text-xs leading-5 text-dls-secondary">{props.description}</div> : null}
         </div>
         {props.actions ? <div className="flex shrink-0 flex-wrap gap-2">{props.actions}</div> : null}
       </div>
-      <div className="mt-3">{props.children}</div>
+      <div className="mt-2.5">{props.children}</div>
     </section>
   );
 }
 
-function ScheduleMetric(props: { label: string; value: string; tone?: StatusBadgeTone }) {
+function ScheduleStat(props: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-dls-border bg-dls-surface px-3 py-2">
-      <div className="text-xs text-dls-secondary">{props.label}</div>
-      <div className="mt-1 flex items-center gap-2">
-        {props.tone ? <StatusBadge tone={props.tone} shape="pill" size="tiny">{props.value}</StatusBadge> : <span className="truncate text-sm font-medium text-dls-text">{props.value}</span>}
-      </div>
+    <div className="flex min-w-0 items-baseline gap-1.5 rounded-md bg-dls-surface-muted/50 px-2 py-1.5">
+      <span className="shrink-0 text-xs text-dls-secondary">{props.label}</span>
+      <span className="min-w-0 truncate text-xs font-medium tabular-nums text-dls-text">{props.value}</span>
     </div>
   );
 }
@@ -166,7 +170,6 @@ export function HeartbeatPanel(props: {
 }) {
   const createBusy = props.busyId === "create";
   const selectedDraftConversation = props.conversations.find((conversation) => conversation.id === props.draft.conversationId) ?? props.conversation;
-  const titleTrimmed = props.draft.title.trim();
   const promptTrimmed = props.draft.prompt.trim();
   const intervalValue = Number(props.draft.intervalMinutes);
   const intervalInvalid = !Number.isFinite(intervalValue) || intervalValue < 5;
@@ -187,145 +190,169 @@ export function HeartbeatPanel(props: {
   const createDisabled = createBusy || Boolean(createDisabledReason);
   return (
     <section className={heartbeatClass.panel}>
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex shrink-0 items-start gap-2 border-b border-dls-border/70 px-3.5 py-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
-            <Clock3 className="size-4" />{t("local_agent.heartbeat_title")}
+            <Clock3 className="size-4 shrink-0 text-dls-secondary" />
+            <span className="truncate">{t("local_agent.heartbeat_title")}</span>
             <CountBadge size="dot" className="bg-dls-accent/10 text-dls-accent">{props.jobs.length}</CountBadge>
           </div>
-          <div className="mt-1 text-xs leading-5 text-dls-secondary">
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
             {t("local_agent.heartbeat_desc", {
               agent: props.agent.name,
-              conversation: selectedDraftConversation ? conversationTitle(selectedDraftConversation) : t("local_agent.default_conversation"),
+              conversation: selectedDraftConversation
+                ? conversationTitle(selectedDraftConversation)
+                : t("local_agent.default_conversation"),
             })}
-          </div>
+          </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" onClick={props.onRefresh}>
-            <RefreshCw className="mr-1.5 size-3.5" />{t("common.refresh")}
+        <div className="flex shrink-0 items-center gap-1">
+          <Button variant="ghost" size="icon-sm" onClick={props.onRefresh} title={t("common.refresh")} aria-label={t("common.refresh")}>
+            <RefreshCw className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon-sm" onClick={props.onClose} title={t("common.close")} aria-label={t("common.close")}>
+          <Button variant="ghost" size="icon-sm" onClick={props.onClose} title={t("common.close")} aria-label={t("common.close")}>
             <X className="size-3.5" />
           </Button>
         </div>
       </div>
 
-      <div className="mb-3 grid gap-2 md:grid-cols-4">
-        <ScheduleMetric label={t("local_agent.heartbeat_title")} value={String(props.jobs.length)} />
-        <ScheduleMetric label={t("common.on")} value={String(enabledJobs)} tone={enabledJobs ? "accent" : "neutral"} />
-        <ScheduleMetric label={t("local_agent.status_running")} value={String(runningJobs)} tone={runningJobs ? "accent" : "neutral"} />
-        <ScheduleMetric label={t("local_agent.heartbeat_last", { time: "" }).trim()} value={latestRun ? shortDateTime(latestRun.run.finishedAt ?? latestRun.run.startedAt) : "--"} />
-      </div>
+      <div className={heartbeatClass.panelBody}>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <ScheduleStat label={t("local_agent.heartbeat_title")} value={String(props.jobs.length)} />
+          <ScheduleStat label={t("common.on")} value={String(enabledJobs)} />
+          <ScheduleStat label={t("local_agent.status_running")} value={String(runningJobs)} />
+          <ScheduleStat
+            label={t("local_agent.heartbeat_last", { time: "" }).replace(/[:：]\s*$/, "").trim()}
+            value={latestRun ? shortDateTime(latestRun.run.finishedAt ?? latestRun.run.startedAt) : "--"}
+          />
+        </div>
 
-      <ScheduleSection title={t("local_agent.heartbeat_create")} description={createDisabledReason ?? t("local_agent.heartbeat_create_ready")}>
-        <div className={heartbeatClass.grid}>
-          <label className="min-w-0 space-y-1">
-            <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_name_placeholder")}</span>
-            <InputGroup>
-              <InputGroupInput
-                value={props.draft.title}
-                onChange={(event) => props.onDraftChange({ ...props.draft, title: event.target.value })}
-                placeholder={t("local_agent.heartbeat_name_placeholder")}
+        <ScheduleSection
+          title={t("local_agent.heartbeat_create")}
+          description={createDisabledReason ?? t("local_agent.heartbeat_create_ready")}
+        >
+          <div className={heartbeatClass.grid}>
+            <label className="min-w-0 space-y-1">
+              <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_name_placeholder")}</span>
+              <InputGroup>
+                <InputGroupInput
+                  value={props.draft.title}
+                  onChange={(event) => props.onDraftChange({ ...props.draft, title: event.target.value })}
+                  placeholder={t("local_agent.heartbeat_name_placeholder")}
+                />
+              </InputGroup>
+            </label>
+            <label className="min-w-0 space-y-1">
+              <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_session")}</span>
+              <SelectMenu
+                size="compact"
+                ariaLabel={t("local_agent.heartbeat_session")}
+                options={props.conversations.length
+                  ? props.conversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) }))
+                  : [{ value: "", label: t("local_agent.loading_conversations") }]}
+                value={props.draft.conversationId}
+                onChange={(value) => props.onDraftChange({ ...props.draft, conversationId: value })}
+                disabled={!props.conversations.length}
               />
-            </InputGroup>
-          </label>
-          <label className="min-w-0 space-y-1">
-            <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_session")}</span>
-            <SelectMenu
-              size="compact"
-              ariaLabel={t("local_agent.heartbeat_session")}
-              options={props.conversations.length
-                ? props.conversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) }))
-                : [{ value: "", label: t("local_agent.loading_conversations") }]}
-              value={props.draft.conversationId}
-              onChange={(value) => props.onDraftChange({ ...props.draft, conversationId: value })}
-              disabled={!props.conversations.length}
+            </label>
+            <label className="min-w-0 space-y-1 sm:col-span-2">
+              <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_interval")}</span>
+              <InputGroup>
+                <InputGroupInput
+                  type="number"
+                  min={5}
+                  value={props.draft.intervalMinutes}
+                  onChange={(event) => props.onDraftChange({ ...props.draft, intervalMinutes: event.target.value })}
+                />
+                <InputGroupAddon>{t("local_agent.heartbeat_minutes")}</InputGroupAddon>
+              </InputGroup>
+              {intervalInvalid ? (
+                <span className="text-xs text-dls-status-danger">{t("local_agent.heartbeat_interval_invalid")}</span>
+              ) : null}
+            </label>
+          </div>
+          <label className="mt-2.5 block space-y-1">
+            <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_prompt_label")}</span>
+            <Textarea
+              rows={3}
+              className="min-h-[4.5rem] resize-none bg-dls-surface"
+              value={props.draft.prompt}
+              onChange={(event) => props.onDraftChange({ ...props.draft, prompt: event.target.value })}
+              placeholder={t("local_agent.heartbeat_prompt_placeholder")}
             />
           </label>
-          <label className="min-w-0 space-y-1">
-            <span className="block text-xs font-medium text-dls-secondary">{t("local_agent.heartbeat_interval")}</span>
-            <InputGroup>
-              <InputGroupInput
-                type="number"
-                min={5}
-                value={props.draft.intervalMinutes}
-                onChange={(event) => props.onDraftChange({ ...props.draft, intervalMinutes: event.target.value })}
-              />
-              <InputGroupAddon>{t("local_agent.heartbeat_minutes")}</InputGroupAddon>
-            </InputGroup>
-          </label>
-          <Button size="sm" onClick={props.onCreate} disabled={createDisabled} title={createDisabledReason ?? undefined}>
+          <Button
+            size="sm"
+            className="mt-2.5 w-full"
+            onClick={props.onCreate}
+            disabled={createDisabled}
+            title={createDisabledReason ?? undefined}
+          >
             {createBusy ? <LoadingSpinner size="sm" className="mr-1.5" /> : <Plus className="mr-1.5 size-3.5" />}
             {t("local_agent.heartbeat_create")}
           </Button>
-        </div>
-        <div className="mt-3 grid gap-1 text-xs text-dls-secondary md:grid-cols-4">
-          <span>{titleTrimmed ? t("local_agent.heartbeat_title_ready") : t("local_agent.heartbeat_title_optional")}</span>
-          <span>{props.conversations.length ? t("local_agent.heartbeat_session_ready") : t("local_agent.loading_conversations")}</span>
-          <span className={intervalInvalid ? "text-dls-status-danger" : undefined}>{intervalInvalid ? t("local_agent.heartbeat_interval_invalid") : t("local_agent.heartbeat_interval_ready")}</span>
-          <span className={createDisabledReason ? "text-dls-secondary" : "text-dls-status-success-fg"}>{createDisabledReason ?? t("local_agent.heartbeat_create_ready")}</span>
-        </div>
-        <label className="mt-3 block space-y-1.5">
-          <span className="block text-xs font-semibold text-dls-text">{t("local_agent.heartbeat_prompt_label")}</span>
-          <span className="block text-xs leading-5 text-dls-secondary">{t("local_agent.heartbeat_prompt_help")}</span>
-          <Textarea
-            rows={3}
-            className="min-h-20 resize-none bg-dls-surface"
-            value={props.draft.prompt}
-            onChange={(event) => props.onDraftChange({ ...props.draft, prompt: event.target.value })}
-            placeholder={t("local_agent.heartbeat_prompt_placeholder")}
-          />
-        </label>
-      </ScheduleSection>
+        </ScheduleSection>
 
-      {props.error ? <NoticeBox tone="error" className="mt-2">{props.error}</NoticeBox> : null}
+        {props.error ? <NoticeBox tone="error">{props.error}</NoticeBox> : null}
 
-      <ScheduleSection title={t("session.tasks_count", { count: props.jobs.length })} description={props.jobs.length ? t("local_agent.heartbeat_next", { time: shortDateTime(props.jobs[0]?.nextRunAt) }) : t("local_agent.heartbeat_empty")}>
-      <div className="grid gap-2">
-        {props.jobs.length ? props.jobs.map((job) => {
-          const busy = props.busyId === job.id;
-          const lastStatus = job.running ? "running" : job.lastRun?.status ?? null;
-          return (
-            <div key={job.id} className={heartbeatClass.item}>
-              <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="truncate font-medium">{job.title}</span>
-                    <StatusBadge tone={job.enabled ? "accent" : "neutral"} shape="pill" size="tiny">{job.enabled ? t("common.on") : t("common.off")}</StatusBadge>
-                    {lastStatus ? <StatusBadge tone={heartbeatStatusTone(lastStatus)} shape="pill" size="tiny">{heartbeatStatusLabel(lastStatus)}</StatusBadge> : null}
+        <ScheduleSection
+          title={t("session.tasks_count", { count: props.jobs.length })}
+          description={
+            props.jobs.length
+              ? t("local_agent.heartbeat_next", { time: shortDateTime(props.jobs[0]?.nextRunAt) })
+              : t("local_agent.heartbeat_empty")
+          }
+        >
+          <div className="grid gap-2">
+            {props.jobs.length ? props.jobs.map((job) => {
+              const busy = props.busyId === job.id;
+              const lastStatus = job.running ? "running" : job.lastRun?.status ?? null;
+              return (
+                <div key={job.id} className={heartbeatClass.item}>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-dls-text">{job.title}</span>
+                      <StatusBadge tone={job.enabled ? "accent" : "neutral"} shape="pill" size="tiny">
+                        {job.enabled ? t("common.on") : t("common.off")}
+                      </StatusBadge>
+                      {lastStatus ? (
+                        <StatusBadge tone={heartbeatStatusTone(lastStatus)} shape="pill" size="tiny">
+                          {heartbeatStatusLabel(lastStatus)}
+                        </StatusBadge>
+                      ) : null}
+                    </div>
+                    <div className={heartbeatClass.meta}>
+                      <span>{t("local_agent.heartbeat_every", { minutes: job.schedule.intervalMinutes })}</span>
+                      <span>{t("local_agent.heartbeat_next", { time: shortDateTime(job.nextRunAt) })}</span>
+                      <span>{t("local_agent.heartbeat_last", { time: shortDateTime(job.lastRun?.finishedAt ?? job.lastRun?.startedAt) })}</span>
+                      {job.conversationId ? (
+                        <span>{t("local_agent.heartbeat_session_bound", {
+                          session: conversationTitle(props.conversations.find((conversation) => conversation.id === job.conversationId) ?? null),
+                        })}</span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button variant="outline" size="sm" onClick={() => props.onRunNow(job)} disabled={busy || Boolean(job.running)}>
+                        {busy ? <LoadingSpinner size="sm" className="mr-1" /> : <Play className="mr-1 size-3.5" />}
+                        {t("local_agent.heartbeat_run_now")}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => props.onToggleEnabled(job, !job.enabled)} disabled={busy}>
+                        {job.enabled ? t("local_agent.heartbeat_pause") : t("local_agent.heartbeat_resume")}
+                      </Button>
+                      <ScheduledTaskDeleteButton job={job} busy={busy} onDelete={props.onDelete} />
+                    </div>
                   </div>
-                  <div className={heartbeatClass.meta}>
-                    <span>{t("local_agent.heartbeat_every", { minutes: job.schedule.intervalMinutes })}</span>
-                    <span>{t("local_agent.heartbeat_next", { time: shortDateTime(job.nextRunAt) })}</span>
-                    <span>{t("local_agent.heartbeat_last", { time: shortDateTime(job.lastRun?.finishedAt ?? job.lastRun?.startedAt) })}</span>
-                    {job.conversationId ? (
-                      <span>{t("local_agent.heartbeat_session_bound", {
-                        session: conversationTitle(props.conversations.find((conversation) => conversation.id === job.conversationId) ?? null),
-                      })}</span>
-                    ) : null}
-                  </div>
+                  <ScheduledTaskRunHistory job={job} />
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                  <Button variant="outline" size="sm" onClick={() => props.onRunNow(job)} disabled={busy || Boolean(job.running)}>
-                    {busy ? <LoadingSpinner size="sm" className="mr-1" /> : <Play className="mr-1 size-3.5" />}
-                    {t("local_agent.heartbeat_run_now")}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => props.onToggleEnabled(job, !job.enabled)} disabled={busy}>
-                    {job.enabled ? t("local_agent.heartbeat_pause") : t("local_agent.heartbeat_resume")}
-                  </Button>
-                  <ScheduledTaskDeleteButton job={job} busy={busy} onDelete={props.onDelete} />
-                </div>
-              </div>
-              <ScheduledTaskRunHistory job={job} />
-            </div>
-          );
-        }) : (
-          <EmptyStateBox size="compact" className="text-center text-xs">
-            {t("local_agent.heartbeat_empty")}
-          </EmptyStateBox>
-        )}
+              );
+            }) : (
+              <EmptyStateBox size="compact" className="text-center text-xs">
+                {t("local_agent.heartbeat_empty")}
+              </EmptyStateBox>
+            )}
+          </div>
+        </ScheduleSection>
       </div>
-      </ScheduleSection>
     </section>
   );
 }

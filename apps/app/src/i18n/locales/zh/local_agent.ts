@@ -396,6 +396,7 @@ export default {
   "local_agent.workspace_temporary_notice": "临时会话，选择项目即可绑定 CWD。",
   "local_agent.workspace_locked_notice": "已绑定 {name}，新会话默认沿用该项目。",
   "local_agent.workspace_locked_hint": "该会话已锁定目录，新建会话可切换项目。",
+  "local_agent.workspace_locked_hint_short": "会话已锁定，新建可换目录",
   "local_agent.extensions_title": "扩展",
   "local_agent.extensions_count": "已加载 {count} 个",
   "local_agent.extensions_empty": "尚未安装扩展。将包含 onmyagent-extension.json 的目录放入 extensions 目录即可。",

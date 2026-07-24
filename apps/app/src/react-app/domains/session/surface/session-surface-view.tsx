@@ -94,6 +94,8 @@ export type SessionSurfaceViewProps = {
 
   // Transcript
   sessionId: string;
+  /** Live connected provider IDs for historical model "removed" badges. */
+  connectedProviderIds?: readonly string[] | null;
   scrollRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
   onWheel: (event: { deltaY: number; target: EventTarget }) => void;
@@ -345,6 +347,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                 onOpenTarget={props.onOpenTarget}
                 onDownloadCodePath={props.onDownloadCodePath}
                 workspaceRoot={props.workspaceRoot}
+                connectedProviderIds={props.connectedProviderIds}
                 footer={props.assistantStatusFooter}
                 assistantAvatar={props.chatHeaderAgent}
                 searchHighlightQuery={props.searchQuery || undefined}

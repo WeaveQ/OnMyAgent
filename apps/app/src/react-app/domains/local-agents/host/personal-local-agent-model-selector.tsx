@@ -33,7 +33,7 @@ export function PersonalLocalAgentModelSelector({
   const { showToast } = useStatusToasts();
   const loadingModels = Boolean(agent?.status === "online" && acpModelInfo.options.length === 0);
   return (
-    <div className="min-w-[160px] max-w-[220px]">
+    <div className="mac:titlebar-no-drag min-w-[160px] max-w-[220px]">
       <SelectMenu
         size="compact"
         ariaLabel={modelSelectorLabel(agent)}
