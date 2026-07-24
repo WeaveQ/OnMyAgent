@@ -1414,10 +1414,9 @@ return (
             </InputGroup>
 
             {/*
-              Runtime actions only (runs / new chat / redetect).
-              Agent install & management live in the bottom "管理 Agent" CTA —
-              the previous top UserPlus + Settings2 both opened the same page
-              and duplicated that footer entry.
+              List chrome: runs / redetect / manage.
+              New conversation lives only next to the conversation picker in the
+              main header — avoid a second + in this narrow list toolbar.
             */}
             <div className="flex items-center gap-1">
               <Button
@@ -1445,24 +1444,6 @@ return (
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                disabled={!canCreateConversation}
-                onClick={() => void createNewConversation()}
-                className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
-                title={t("local_agent.new_conversation")}
-                aria-label={t("local_agent.new_conversation")}
-                aria-busy={creatingConversation || undefined}
-              >
-                {creatingConversation ? (
-                  <LoadingSpinner size="sm" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
                 disabled={refreshing}
                 onClick={() => void refreshAgents({ notify: true })}
                 className="relative z-10 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-70 mac:titlebar-no-drag"
@@ -1475,6 +1456,22 @@ return (
                   <RefreshCw className="size-4" />
                 )}
               </Button>
+
+              {props.onOpenAgentManagement ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="relative z-10 ml-auto h-8 shrink-0 gap-1.5 px-2 text-xs font-normal text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                  onClick={() => props.onOpenAgentManagement?.("agents")}
+                  title={t("local_agent.manage_agents")}
+                  aria-label={t("local_agent.manage_agents")}
+                  data-testid="local-agent-manage-agents"
+                >
+                  <Settings2 className="size-3.5 shrink-0" />
+                  <span className="truncate">{t("local_agent.manage_agents")}</span>
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -1560,14 +1557,20 @@ return (
                           </div>
                         </div>
 
-                        <div className="mt-1 min-w-0 truncate text-xs leading-5 text-dls-secondary">
-                          {hasActiveRun
+                        {(() => {
+                          const subtitle = hasActiveRun
                             ? t("local_agent.background_run_aria")
                             : agent.status === "online"
                               ? agentSubtitle(agent)
                               : agent.error ||
-                                t("local_agent.check_install_or_login")}
-                        </div>
+                                t("local_agent.check_install_or_login");
+                          if (!subtitle) return null;
+                          return (
+                            <div className="mt-1 min-w-0 truncate text-xs leading-5 text-dls-secondary">
+                              {subtitle}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </SessionRowButton>
                   );
@@ -1589,22 +1592,6 @@ return (
               </div>
             )}
           </div>
-
-          {/* Bottom of agent list — fill empty chrome (screenshot arrow). */}
-          {props.onOpenAgentManagement ? (
-            <div className="shrink-0 border-t border-dls-border/70 px-3 py-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-full justify-start gap-2 px-2 text-xs font-normal text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
-                onClick={() => props.onOpenAgentManagement?.("agents")}
-              >
-                <Settings2 className="size-3.5 shrink-0" />
-                <span className="truncate">{t("local_agent.manage_agents")}</span>
-              </Button>
-            </div>
-          ) : null}
         </>
       )}
     </aside>
@@ -1646,120 +1633,167 @@ return (
       }}
     />
 
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-dls-background">
-   <header className={localAgentLayoutClass.header}>
-  <div className="flex h-12 items-center gap-2 px-4 mac:titlebar-no-drag">
-    {isChannelView ? (
-      <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
-        <MessageSquare className="size-4" />
-      </div>
-    ) : selectedAgent ? (
-      <AgentBrandIcon
-        id={selectedAgent.id}
-        provider={selectedAgent.provider}
-        size="sm"
-        alt={selectedAgent.name}
-        badge={
-          <span
-            className={cn(
-              "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-dls-surface",
-              selectedAgent.status === "online" ? "bg-dls-online" : "bg-dls-secondary",
+    {/*
+      Do not set overflow-x-hidden on this column: it forces overflow-y to auto
+      and clips the scheduled-tasks popover that hangs below the header.
+      Horizontal clipping stays on the message scroller below.
+    */}
+    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-dls-background">
+      <header className={localAgentLayoutClass.header}>
+        {/*
+          Header is a macOS drag region. Do NOT put titlebar-no-drag on the whole
+          row — leave the flex-1 mid gap draggable so the window can move.
+          Interactive controls opt out via headerActions / Button defaults.
+        */}
+        <div className={localAgentLayoutClass.headerRow}>
+          <div className={localAgentLayoutClass.headerIdentity}>
+            {isChannelView ? (
+              <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
+                <MessageSquare className="size-4" />
+              </div>
+            ) : selectedAgent ? (
+              <AgentBrandIcon
+                id={selectedAgent.id}
+                provider={selectedAgent.provider}
+                size="sm"
+                alt={selectedAgent.name}
+                badge={
+                  <span
+                    className={cn(
+                      "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-dls-surface",
+                      selectedAgent.status === "online" ? "bg-dls-online" : "bg-dls-secondary",
+                    )}
+                    aria-hidden
+                  />
+                }
+              />
+            ) : (
+              <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
+                <UserRound className="size-4" />
+              </div>
             )}
-            aria-hidden
-          />
-        }
-      />
-    ) : (
-      <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dls-border bg-dls-surface-muted text-dls-accent">
-        <UserRound className="size-4" />
-      </div>
-    )}
-    <div className="min-w-0 truncate text-sm font-medium text-dls-text">
-      {selectedAgent?.name}
-    </div>
-    <div className="mx-2 h-4 w-px shrink-0 bg-dls-mist" aria-hidden />
-    <div className="min-w-0 flex-1">
-      <SelectMenu
-        size="compact"
-        ariaLabel={t("local_agent.conversation")}
-        options={selectedConversations.length ? selectedConversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) })) : [{ value: "", label: t("local_agent.loading_conversations") }]}
-        value={selectedConversationId ?? ""}
-        onChange={(value) => {
-          if (!selectedAgent || !value) return;
-          if (isChannelView) {
-            setSelectedChannelConversationId(value);
-            return;
-          }
-          setSelectedConversationIdByAgent((current) => ({ ...current, [selectedAgent.id]: value }));
-        }}
-        disabled={!selectedAgent || running || Boolean(selectedAgent && !isChannelView && loadingConversationsByAgent[selectedAgent.id])}
-      />
-    </div>
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={() => void createNewConversation()}
-      disabled={!canCreateConversation}
-      title={t("local_agent.new_conversation")}
-      aria-label={t("local_agent.new_conversation")}
-      aria-busy={creatingConversation || undefined}
-    >
-      {creatingConversation ? <LoadingSpinner size="default" /> : <Plus className="size-4" />}
-    </Button>
-    {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
-      <PersonalLocalAgentModelSelector
-        agent={selectedAgent}
-        selectedModel={selectedModel}
-        onModelChange={setSelectedModel}
+            <div className="min-w-0 truncate text-sm font-medium text-dls-text">
+              {selectedAgent?.name}
+            </div>
+          </div>
+
+          {/* Window drag handle — absorbs leftover width between identity and actions. */}
+          <div className="min-h-full min-w-3 flex-1" aria-hidden />
+
+          <div className={localAgentLayoutClass.headerActions}>
+            {/*
+              Conversation picker + new-session as one control (split pill).
+              A free-standing ghost + between two dropdowns looked orphaned.
+            */}
+            <div
+              className={cn(
+                "flex h-8 min-w-0 max-w-[min(18rem,42vw)] items-stretch overflow-hidden rounded-lg border border-dls-border bg-dls-surface",
+                (!selectedAgent || running) && "opacity-60",
+              )}
+              data-testid="local-agent-conversation-control"
+            >
+              <div className="min-w-0 flex-1">
+                <SelectMenu
+                  size="compact"
+                  className={cn(
+                    "h-full w-full min-w-0",
+                    // Flatten SelectMenu trigger into the split pill (outer border owns the chrome).
+                    "[&>button]:!h-full [&>button]:!min-h-0 [&>button]:!rounded-none [&>button]:!border-0",
+                    "[&>button]:!bg-transparent [&>button]:!px-2.5 [&>button]:!py-0 [&>button]:!shadow-none",
+                    "[&>button]:hover:!border-transparent [&>button]:hover:!bg-dls-hover/60",
+                    "[&>button]:focus-visible:!ring-0 [&>button]:focus-visible:!ring-offset-0",
+                  )}
+                  ariaLabel={t("local_agent.conversation")}
+                  options={selectedConversations.length ? selectedConversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) })) : [{ value: "", label: t("local_agent.loading_conversations") }]}
+                  value={selectedConversationId ?? ""}
+                  onChange={(value) => {
+                    if (!selectedAgent || !value) return;
+                    if (isChannelView) {
+                      setSelectedChannelConversationId(value);
+                      return;
+                    }
+                    setSelectedConversationIdByAgent((current) => ({ ...current, [selectedAgent.id]: value }));
+                  }}
+                  disabled={!selectedAgent || running || Boolean(selectedAgent && !isChannelView && loadingConversationsByAgent[selectedAgent.id])}
+                />
+              </div>
+              <div className="w-px shrink-0 self-stretch bg-dls-border" aria-hidden />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="h-auto w-8 shrink-0 rounded-none border-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-50"
+                onClick={() => void createNewConversation()}
+                disabled={!canCreateConversation}
+                title={t("local_agent.new_conversation")}
+                aria-label={t("local_agent.new_conversation")}
+                aria-busy={creatingConversation || undefined}
+                data-testid="local-agent-new-conversation"
+              >
+                {creatingConversation ? <LoadingSpinner size="sm" /> : <Plus className="size-3.5" strokeWidth={2} />}
+              </Button>
+            </div>
+            {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
+              <PersonalLocalAgentModelSelector
+                agent={selectedAgent}
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+                workspaceRoot={effectiveWorkspaceRoot}
+                disabled={!selectedAgent || running}
+                acpModelInfo={selectedAcpModelInfo}
+              />
+            ) : null}
+            <Button
+              ref={scheduledTasksButtonRef}
+              variant="ghost"
+              size="icon-sm"
+              className="relative"
+              onClick={() => setShowScheduledTasks((open) => !open)}
+              disabled={!selectedAgent}
+              data-testid="local-agent-scheduled-tasks-button"
+              aria-expanded={showScheduledTasks}
+              title={t("local_agent.heartbeat_title")}
+              aria-label={t("local_agent.heartbeat_title")}
+            >
+              <Clock3 className="size-4" />
+              {selectedHeartbeatJobs.length ? (
+                <CountBadge size="dot" className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface">
+                  {selectedHeartbeatJobs.length}
+                </CountBadge>
+              ) : null}
+            </Button>
+          </div>
+        </div>
+        {showScheduledTasks && selectedAgent ? (
+          <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">
+            <HeartbeatPanel
+              agent={selectedAgent}
+              jobs={selectedHeartbeatJobs}
+              draft={heartbeatDraft}
+              conversations={selectedConversations}
+              conversation={selectedConversation}
+              busyId={heartbeatBusy}
+              error={heartbeatError}
+              onDraftChange={setHeartbeatDraft}
+              onCreate={() => void createHeartbeat()}
+              onRefresh={() => void loadHeartbeats()}
+              onRunNow={(job) => void runHeartbeatNow(job)}
+              onToggleEnabled={(job, enabled) => void updateHeartbeatEnabled(job, enabled)}
+              onDelete={(job) => void deleteHeartbeat(job)}
+              onClose={() => setShowScheduledTasks(false)}
+            />
+          </div>
+        ) : null}
+      </header>
+      <LocalAgentStatusRail
         workspaceRoot={effectiveWorkspaceRoot}
-        disabled={!selectedAgent || running}
-        acpModelInfo={selectedAcpModelInfo}
+        agent={selectedAgent ?? null}
+        conversationId={selectedConversationId ?? null}
+        onOpenManagement={() => props.onOpenAgentManagement?.("skills")}
       />
-    ) : null}
-    <Button
-      ref={scheduledTasksButtonRef}
-      variant="ghost"
-      size="icon-sm"
-      className="relative"
-      onClick={() => setShowScheduledTasks((open) => !open)}
-      disabled={!selectedAgent}
-      data-testid="local-agent-scheduled-tasks-button"
-      aria-expanded={showScheduledTasks}
-      title={t("local_agent.heartbeat_title")}
-      aria-label={t("local_agent.heartbeat_title")}
-    >
-      <Clock3 className="size-4" />
-      {selectedHeartbeatJobs.length ? (
-        <CountBadge size="dot" className="absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-dls-accent text-dls-surface">
-          {selectedHeartbeatJobs.length}
-        </CountBadge>
-      ) : null}
-    </Button>
-  </div>
-  {showScheduledTasks && selectedAgent ? (
-    <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">
-      <HeartbeatPanel
-        agent={selectedAgent}
-        jobs={selectedHeartbeatJobs}
-        draft={heartbeatDraft}
-        conversations={selectedConversations}
-        conversation={selectedConversation}
-        busyId={heartbeatBusy}
-        error={heartbeatError}
-        onDraftChange={setHeartbeatDraft}
-        onCreate={() => void createHeartbeat()}
-        onRefresh={() => void loadHeartbeats()}
-        onRunNow={(job) => void runHeartbeatNow(job)}
-        onToggleEnabled={(job, enabled) => void updateHeartbeatEnabled(job, enabled)}
-        onDelete={(job) => void deleteHeartbeat(job)}
-        onClose={() => setShowScheduledTasks(false)}
-      />
-    </div>
-  ) : null}
-</header><LocalAgentStatusRail workspaceRoot={effectiveWorkspaceRoot} agent={selectedAgent ?? null} conversationId={selectedConversationId ?? null} onOpenManagement={() => props.onOpenAgentManagement?.("skills")} />
       <div
         ref={scrollRef}
-        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6"
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-8"
         onScroll={(event) => {
           if (programmaticScrollRef.current) return;
           const el = event.currentTarget;
@@ -1783,8 +1817,8 @@ return (
           {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null}
         </div>
       </div>
-      {/* Match session workbench composer: soft shell + flush bottom chrome. */}
-      <footer className="min-w-0 shrink-0 overflow-x-hidden bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent px-6 pb-5 pt-2">
+      {/* Solid footer plate — avoid gradient glass that washes out the composer. */}
+      <footer className="mac:titlebar-no-drag min-w-0 shrink-0 px-6 pb-5 pt-2">
         <div className="mx-auto w-full min-w-0 max-w-[1120px]">
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
@@ -1809,8 +1843,8 @@ return (
               </>
             }
             bottomAccessory={
-              <div className="flex min-w-0 w-full max-w-full items-center gap-1 overflow-hidden">
-                <div className="min-w-0 flex-1 overflow-hidden">
+              <div className="flex min-w-0 w-full max-w-full items-center gap-2">
+                <div className="min-w-0 flex-1">
                   <WorkspaceFootnote
                     density="compact"
                     workspaceRoot={displayWorkspaceRoot}
@@ -1824,13 +1858,22 @@ return (
                 </div>
                 <SelectMenu
                   size="compact"
-                  className="w-auto max-w-[12rem] shrink-0"
+                  className={cn(
+                    "w-auto min-w-[9.5rem] max-w-[14rem] shrink-0",
+                    // Opaque trigger in the composer footer strip.
+                    "[&>button]:!border-dls-border [&>button]:!bg-dls-surface-solid [&>button]:!text-dls-text",
+                    "[&>button]:hover:!bg-dls-hover",
+                  )}
                   value={approvalMode}
                   onChange={(value) => setApprovalMode(value as PersonalLocalAgentApprovalMode)}
                   disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
                   ariaLabel={t("local_agent.approval_aria")}
                   placement="top"
-                  options={APPROVAL_MODE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
+                  panelMinWidth={180}
+                  options={APPROVAL_MODE_OPTIONS.map((option) => ({
+                    value: option.id,
+                    label: option.label,
+                  }))}
                 />
               </div>
             }

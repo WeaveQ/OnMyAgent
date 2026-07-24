@@ -1458,7 +1458,7 @@ export type AgentManagementAgent = PersonalLocalAgent & {
 };
 
 /** Selective snapshot domains for lazy management loads. */
-export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp";
+export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp" | "providers";
 
 export type AgentManagementSnapshotInput = {
   workspaceRoot: string;
@@ -1491,6 +1491,10 @@ export type AgentManagementProviderActionResult = {
   action: string;
   appType: AgentManagementManagedProvider["appType"];
   providerId?: string;
+  /** Default model id chosen for this provider after save (OpenCode etc.). */
+  defaultModelId?: string | null;
+  /** Canonical default model ref applied after save. */
+  defaultModel?: { providerID: string; modelID: string } | null;
   imported?: number;
   providers: AgentManagementProvidersSnapshot;
 };

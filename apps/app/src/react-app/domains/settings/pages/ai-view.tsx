@@ -1,16 +1,17 @@
 /** @jsxImportSource react */
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { FileCode, MoreHorizontal, Pencil, Trash2, Unplug } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { FileCode, Pencil, Trash2, Unplug } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import { t } from "@/i18n";
+import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { ProviderIcon } from "../../../design-system/provider-icon";
 import {
   SettingsBlock,
@@ -25,6 +26,8 @@ export type AiSettingsConnectedProvider = {
   name: string;
   source?: "env" | "api" | "config" | "custom";
   managedBy?: "opencode";
+  /** Model count for OpenCode-managed rows (from live inventory). */
+  modelCount?: number;
 };
 
 export type AiSettingsViewProps = {
@@ -54,6 +57,11 @@ export type AiSettingsViewProps = {
   canDeleteProvider?: (provider: AiSettingsConnectedProvider) => boolean;
   /** Provider id currently being edited/deleted (disables its row actions). */
   providerActionBusyId?: string | null;
+  /**
+   * True while a save/delete is applying engine config and refreshing the
+   * provider catalog (the short "cache" window after write succeeds).
+   */
+  providerSyncBusy?: boolean;
 };
 
 function providerSourceLabel(source?: AiSettingsConnectedProvider["source"]) {
@@ -77,10 +85,16 @@ function providerStatusTone(
     lower.includes("\u9519\u8BEF")
   )
     return "warning";
+  // "未配置" / not configured / loading — calm neutral, not danger.
   return "neutral";
 }
 
 export function AiSettingsView(props: AiSettingsViewProps) {
+  const syncBusy = props.providerSyncBusy === true;
+  const actionsDisabled = props.busy || syncBusy;
+  const [pendingDelete, setPendingDelete] =
+    useState<AiSettingsConnectedProvider | null>(null);
+
   return (
     <LayoutStack>
       <div className="flex w-full max-w-3xl flex-col gap-3">
@@ -103,16 +117,20 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               variant="outline"
               size="sm"
               onClick={() => void props.onOpenOpencodeConfig?.()}
-              disabled={props.busy}
+              disabled={actionsDisabled}
             >
-              <FileCode className="size-3.5" />
+              {syncBusy ? (
+                <LoadingSpinner size="sm" className="size-3.5" />
+              ) : (
+                <FileCode className="size-3.5" />
+              )}
               {t("settings.custom_provider_config")}
             </Button>
             <Button
               type="button"
               size="sm"
               onClick={() => void props.onOpenProviderAuth()}
-              disabled={props.busy || props.providerAuthBusy}
+              disabled={actionsDisabled || props.providerAuthBusy}
             >
               {props.providerAuthBusy
                 ? t("settings.loading_providers")
@@ -121,12 +139,22 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           </div>
         </div>
 
+        {syncBusy ? (
+          <SettingsNotice>
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="sm" className="size-3.5 shrink-0" />
+              {t("settings.custom_provider_syncing")}
+            </span>
+          </SettingsNotice>
+        ) : null}
+
         <SettingsBlock>
           {props.connectedProviders.length > 0 ? (
             props.connectedProviders.map((provider) => {
               const sourceLabel = providerSourceLabel(provider.source);
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
-              const rowBusy = props.providerActionBusyId === provider.id;
+              const rowBusy =
+                syncBusy || props.providerActionBusyId === provider.id;
 
               return (
                 <SettingsBlockRow
@@ -156,73 +184,115 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                     </span>
                   }
                   description={
-                    <span className="font-mono text-xs">{provider.id}</span>
+                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                      <span className="font-mono text-dls-secondary">
+                        {provider.id}
+                      </span>
+                      {typeof provider.modelCount === "number" &&
+                      provider.modelCount > 0 ? (
+                        <span className="text-dls-secondary">
+                          {t("settings.provider_model_count", {
+                            count: provider.modelCount,
+                          })}
+                        </span>
+                      ) : null}
+                    </span>
                   }
                   actions={
                     !isCloud ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={t("settings.provider_more_actions")}
-                            >
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end" className="w-44">
-                          {props.canEditProvider?.(provider) ? (
-                            <>
-                              <DropdownMenuItem
-                                disabled={props.busy || rowBusy}
-                                onClick={() => props.onEditProvider?.(provider)}
-                              >
-                                <Pencil />
-                                {t("agent_manager.provider_modal.edit_provider")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                variant="destructive"
-                                disabled={
-                                  props.busy ||
-                                  rowBusy ||
-                                  props.canDeleteProvider?.(provider) === false
-                                }
-                                onClick={() =>
-                                  props.onDeleteProvider?.(provider)
-                                }
-                              >
-                                <Trash2 />
-                                {t(
-                                  "agent_manager.provider_modal.delete_provider",
-                                )}
-                              </DropdownMenuItem>
-                            </>
-                          ) : (
-                            <DropdownMenuItem
-                              variant="destructive"
-                              disabled={
-                                props.busy ||
-                                props.providerAuthBusy ||
-                                props.disconnectingProviderId !== null ||
-                                !props.canDisconnectProvider(provider)
-                              }
-                              onClick={() =>
-                                void props.onDisconnectProvider(provider.id)
-                              }
-                            >
-                              <Unplug />
+                      <div className="inline-flex items-center gap-0.5">
+                        {props.canEditProvider?.(provider) ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={(
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="text-dls-secondary"
+                                  disabled={props.busy || rowBusy}
+                                  onClick={() =>
+                                    props.onEditProvider?.(provider)
+                                  }
+                                  aria-label={t(
+                                    "agent_manager.provider_modal.edit_provider",
+                                  )}
+                                >
+                                  <Pencil aria-hidden="true" />
+                                </Button>
+                              )}
+                            />
+                            <TooltipContent>
+                              {t("agent_manager.provider_modal.edit_provider")}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                        {props.canDeleteProvider?.(provider) ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={(
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="text-dls-secondary hover:text-dls-danger"
+                                  disabled={props.busy || rowBusy}
+                                  onClick={() => setPendingDelete(provider)}
+                                  aria-label={t(
+                                    "agent_manager.provider_modal.delete_provider",
+                                  )}
+                                >
+                                  <Trash2 aria-hidden="true" />
+                                </Button>
+                              )}
+                            />
+                            <TooltipContent>
+                              {t(
+                                "agent_manager.provider_modal.delete_provider",
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                        {/* Only real disconnectable (e.g. OAuth/API) rows — never a
+                            status-looking Unplug on custom/env/OpenCode entries. */}
+                        {!props.canEditProvider?.(provider) &&
+                        !props.canDeleteProvider?.(provider) &&
+                        props.canDisconnectProvider(provider) ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={(
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="text-dls-secondary hover:text-dls-danger"
+                                  disabled={
+                                    props.busy ||
+                                    props.providerAuthBusy ||
+                                    props.disconnectingProviderId !== null
+                                  }
+                                  onClick={() =>
+                                    void props.onDisconnectProvider(provider.id)
+                                  }
+                                  aria-label={
+                                    props.disconnectingProviderId ===
+                                    provider.id
+                                      ? t("settings.disconnecting")
+                                      : t("settings.disconnect")
+                                  }
+                                >
+                                  <Unplug aria-hidden="true" />
+                                </Button>
+                              )}
+                            />
+                            <TooltipContent>
                               {props.disconnectingProviderId === provider.id
                                 ? t("settings.disconnecting")
-                                : props.canDisconnectProvider(provider)
-                                  ? t("settings.disconnect")
-                                  : t("settings.managed_by_env")}
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                                : t("settings.disconnect")}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
                     ) : undefined
                   }
                 />
@@ -236,17 +306,10 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           )}
         </SettingsBlock>
 
-        <p className="text-xs leading-5 text-dls-secondary">
-          {t("settings.api_keys_info")}
-        </p>
-
         {props.providerConnectError ? (
           <SettingsNotice tone="error">
             {props.providerConnectError}
           </SettingsNotice>
-        ) : null}
-        {props.providerDisconnectStatus ? (
-          <SettingsNotice>{props.providerDisconnectStatus}</SettingsNotice>
         ) : null}
         {props.providerDisconnectError ? (
           <SettingsNotice tone="error">
@@ -256,6 +319,23 @@ export function AiSettingsView(props: AiSettingsViewProps) {
       </div>
 
       {props.cloudProvidersView}
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("settings.provider_delete_confirm_title")}
+        message={t("settings.provider_delete_confirm_desc", {
+          name: pendingDelete?.name || pendingDelete?.id || "",
+        })}
+        confirmLabel={t("agent_manager.provider_modal.delete_provider")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => {
+          const target = pendingDelete;
+          setPendingDelete(null);
+          if (target) props.onDeleteProvider?.(target);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </LayoutStack>
   );
 }

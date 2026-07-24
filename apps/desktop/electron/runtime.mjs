@@ -25,7 +25,13 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
-import { chooseOpencodeBinary } from "./opencode-binary-policy.mjs";
+import {
+  chooseOpencodeBinary,
+  chooseProductRuntimeBinary,
+  compareVersions,
+  isVersionAtLeast,
+  parseVersionTokens,
+} from "./opencode-binary-policy.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -505,9 +511,58 @@ export function createRuntimeManager({
     return dirs;
   }
 
+  /**
+   * Keep @opencode-ai/plugin package pin aligned with the product OpenCode
+   * version. A lagging pin (e.g. 1.14.x plugin against 1.17.x runtime) is a
+   * common root cause of "fn3 is not a function" during provider load.
+   */
+  async function ensureOpencodePluginPackagePin(configDir, opencodeVersion) {
+    const pin = parseVersionTokens(opencodeVersion);
+    if (!pin || !configDir) return;
+    const packagePath = path.join(configDir, "package.json");
+    /** @type {{ dependencies?: Record<string, string>, [key: string]: unknown }} */
+    let pkg = { dependencies: {} };
+    try {
+      if (existsSync(packagePath)) {
+        const parsed = JSON.parse(await readFile(packagePath, "utf8"));
+        if (parsed && typeof parsed === "object") pkg = parsed;
+      }
+    } catch {
+      pkg = { dependencies: {} };
+    }
+    if (!pkg.dependencies || typeof pkg.dependencies !== "object" || Array.isArray(pkg.dependencies)) {
+      pkg.dependencies = {};
+    }
+    const current = String(pkg.dependencies["@opencode-ai/plugin"] ?? "").trim();
+    const desired = String(opencodeVersion).replace(/^v/i, "").trim();
+    if (!desired) return;
+    if (current && isVersionAtLeast(current, desired) && compareVersions(current, desired) === 0) {
+      return;
+    }
+    if (current && isVersionAtLeast(current, desired)) {
+      // Newer pin than product is allowed (forward compatible plugins).
+      return;
+    }
+    pkg.dependencies["@opencode-ai/plugin"] = desired;
+    await writeFile(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+    console.warn(
+      `[runtime] Aligned ${packagePath} @opencode-ai/plugin ${current || "(missing)"} -> ${desired}. Reinstall plugins if provider load still fails (fn3).`,
+    );
+  }
+
   async function prepareOnMyAgentOpencodeConfigDir(configDir) {
     const skillsDir = path.join(configDir, "skills");
     await mkdir(skillsDir, { recursive: true });
+
+    try {
+      const opencodeDecision = resolveOpencodeBinaryDecision(null);
+      const version = opencodeDecision?.bundledVersion || opencodeDecision?.localVersion;
+      if (version) {
+        await ensureOpencodePluginPackagePin(configDir, version);
+      }
+    } catch (error) {
+      console.warn("[runtime] Failed to align @opencode-ai/plugin pin:", error);
+    }
 
     const artifactSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS);
     const pluginRoot = bundledPluginsRootPath();
@@ -805,30 +860,79 @@ export function createRuntimeManager({
     return [...new Set(candidates.filter(Boolean))];
   }
 
-  function findExistingLocalOpencodeBinary() {
+  /**
+   * Scan machine-local OpenCode installs and pick the newest one that meets
+   * the bundled pin. Avoids PATH order traps (e.g. stale /usr/local 1.14.x
+   * before Homebrew 1.17.x) that reintroduce plugin hook failures.
+   */
+  function findBestLocalOpencodeBinary(bundledPath, bundledVersion) {
+    /** @type {{ path: string, version: string | null } | null} */
+    let bestCompatible = null;
+    /** @type {{ path: string, version: string | null } | null} */
+    let firstExisting = null;
+    const bundledResolved = bundledPath ? path.resolve(bundledPath) : null;
+
     for (const candidate of localOpencodeBinaryCandidates()) {
-      if (existsSync(candidate)) return candidate;
+      if (!existsSync(candidate)) continue;
+      // Never treat the product sidecar itself as a "local" install.
+      if (bundledResolved && path.resolve(candidate) === bundledResolved) continue;
+      // Skip arch-suffixed sidecar copies that may appear via PATH.
+      if (candidate.includes(`${path.sep}resources${path.sep}sidecars${path.sep}`)) continue;
+
+      const version = probeVersion(candidate);
+      if (!firstExisting) firstExisting = { path: candidate, version };
+
+      if (!version) continue;
+      if (bundledVersion && !isVersionAtLeast(version, bundledVersion)) continue;
+
+      if (
+        !bestCompatible ||
+        !bestCompatible.version ||
+        (compareVersions(version, bestCompatible.version) ?? -1) > 0
+      ) {
+        bestCompatible = { path: candidate, version };
+      }
     }
-    return null;
+
+    return { bestCompatible, firstExisting };
   }
 
   /**
    * Resolve OpenCode with product-owned version gate:
-   * bundled by default; local only when version >= bundled pin.
+   * bundled by default; local only when a compatible version is found.
    */
   function resolveOpencodeBinaryDecision(opencodeBinPath) {
     const explicitPath = typeof opencodeBinPath === "string" ? opencodeBinPath.trim() : "";
     const envForcedPath = explicitPath ? null : envForcedOpencodeBinaryPath();
     const bundled = resolveBundledBinaryInfo("opencode");
-    const localPath = explicitPath || envForcedPath ? null : findExistingLocalOpencodeBinary();
+    const bundledVersion = bundled?.path ? probeVersion(bundled.path) : null;
+
+    let localPath = null;
+    let localVersion = null;
+    if (!explicitPath && !envForcedPath) {
+      const { bestCompatible, firstExisting } = findBestLocalOpencodeBinary(
+        bundled?.path ?? null,
+        bundledVersion,
+      );
+      if (bestCompatible) {
+        localPath = bestCompatible.path;
+        localVersion = bestCompatible.version;
+      } else if (firstExisting) {
+        // Feed an incompatible/unknown local into the policy so notices fire.
+        localPath = firstExisting.path;
+        localVersion = firstExisting.version;
+      }
+    } else if (envForcedPath) {
+      localVersion = probeVersion(envForcedPath);
+    }
 
     const decision = chooseOpencodeBinary({
       explicitPath: explicitPath || null,
       envForcedPath,
       localPath,
-      localVersion: localPath || envForcedPath ? probeVersion(localPath ?? envForcedPath) : null,
+      localVersion,
       bundledPath: bundled?.path ?? null,
-      bundledVersion: bundled?.path ? probeVersion(bundled.path) : null,
+      bundledVersion,
     });
 
     if (decision.notice) {
@@ -900,6 +1004,80 @@ export function createRuntimeManager({
       return path.join(runtimeRoot, "python", process.platform === "win32" ? "python.exe" : "bin/python3");
     }
     return null;
+  }
+
+  function envForcedRuntimeBinaryPath(tool) {
+    const keys =
+      tool === "node"
+        ? ["ONMYAGENT_NODE_BIN", "NODE_BINARY"]
+        : tool === "python"
+          ? ["ONMYAGENT_PYTHON_BIN", "PYTHON_BINARY"]
+          : [];
+    for (const key of keys) {
+      const value = process.env[key]?.trim();
+      if (value && existsSync(value)) return value;
+    }
+    return null;
+  }
+
+  function findPathRuntimeBinary(tool) {
+    const names =
+      tool === "node"
+        ? process.platform === "win32"
+          ? ["node.exe"]
+          : ["node"]
+        : tool === "python"
+          ? process.platform === "win32"
+            ? ["python.exe", "python3.exe"]
+            : ["python3", "python"]
+          : [];
+    // Search the original process PATH without our runtimeBinDirs prepend so
+    // we can tell "true machine local" from product-bundled copies.
+    const rawPath = process.env.PATH ?? process.env.Path ?? process.env.path ?? "";
+    const pathEntries = rawPath.split(path.delimiter).filter(Boolean);
+    const bundledDirs = new Set(runtimeBinDirs.map((dir) => path.resolve(dir)));
+    for (const entry of pathEntries) {
+      if (bundledDirs.has(path.resolve(entry))) continue;
+      for (const name of names) {
+        const candidate = path.join(entry, name);
+        if (existsSync(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Product-owned Node / Python: bundled wins whenever present.
+   */
+  function resolveProductRuntimeBinaryDecision(tool) {
+    const toolLabel = tool === "node" ? "Node" : tool === "python" ? "Python" : tool;
+    const bundledPath = bundledRuntimeBinary(tool);
+    const bundledExists = bundledPath && existsSync(bundledPath) ? bundledPath : null;
+    const envForcedPath = envForcedRuntimeBinaryPath(tool);
+    const localPath = envForcedPath || bundledExists ? null : findPathRuntimeBinary(tool);
+
+    const decision = chooseProductRuntimeBinary({
+      toolLabel,
+      envForcedPath,
+      localPath,
+      bundledPath: bundledExists,
+      bundledVersion: bundledExists ? probeVersion(bundledExists) : null,
+      localVersion: localPath || envForcedPath ? probeVersion(localPath ?? envForcedPath) : null,
+    });
+
+    if (decision.notice) {
+      console.warn(`[runtime] ${toolLabel} binary policy: ${decision.notice}`);
+    }
+
+    if (!decision.path) return null;
+    return {
+      path: decision.path,
+      source: decision.source,
+      reason: decision.reason,
+      notice: decision.notice,
+      localVersion: decision.localVersion,
+      bundledVersion: decision.bundledVersion,
+    };
   }
 
   function probeVersion(binary) {
@@ -1082,7 +1260,8 @@ export function createRuntimeManager({
 
     return {
       found: true,
-      inPath: resolved.source === "path",
+      // "local" covers PATH / homebrew / ~/.opencode discoveries.
+      inPath: resolved.source === "local",
       resolvedPath: resolved.path,
       resolvedSource: resolved.source,
       version: versionResult.stdout?.trim() || versionResult.stderr?.trim() || null,
@@ -1633,9 +1812,20 @@ export function createRuntimeManager({
 
   async function onmyagentServerRestart(options = {}) {
     const workspacePaths = prioritizeWorkspacePaths(engineState.projectDir, await listLocalWorkspacePaths());
-    const shouldManageOpencode = Boolean(
+    const wasManagingOpencode = Boolean(
       onmyagentServerState.managedOpencodeBinPath || engineState.opencodeBinPath,
     );
+    const shouldManageOpencode =
+      options.manageOpencode === true ||
+      (options.manageOpencode !== false && wasManagingOpencode);
+    // Always re-resolve the OpenCode binary on restart. Reusing the previous
+    // managed path as opencodeBinPath treats it as an explicit override and can
+    // permanently pin a stale PATH install (e.g. /usr/local 1.14.x) after the
+    // product pin moves to a newer bundled binary.
+    const explicitOverride =
+      typeof options.opencodeBinPath === "string" && options.opencodeBinPath.trim()
+        ? options.opencodeBinPath.trim()
+        : null;
     return startOnMyAgentServer({
       workspacePaths,
       opencodeBaseUrl: shouldManageOpencode ? null : engineState.baseUrl,
@@ -1643,7 +1833,7 @@ export function createRuntimeManager({
       opencodePassword: shouldManageOpencode ? null : engineState.opencodePassword,
       remoteAccessEnabled: options.remoteAccessEnabled === true,
       manageOpencode: shouldManageOpencode,
-      opencodeBinPath: engineState.opencodeBinPath ?? onmyagentServerState.managedOpencodeBinPath,
+      opencodeBinPath: explicitOverride,
     });
   }
 
@@ -1740,35 +1930,51 @@ export function createRuntimeManager({
   }
 
   function softwareEnvironmentInfo() {
-    const bundledOpencode = resolveBundledBinaryInfo("opencode");
-    const nodePath = bundledRuntimeBinary("node");
-    const pythonPath = bundledRuntimeBinary("python");
-    const nodeVersion = probeVersion(nodePath);
-    const pythonVersion = probeVersion(pythonPath);
-    const opencodeVersion = probeVersion(bundledOpencode?.path);
-    const opencodeInstalled = Boolean(opencodeVersion);
+    const node = resolveProductRuntimeBinaryDecision("node");
+    const python = resolveProductRuntimeBinaryDecision("python");
+    const opencode = resolveOpencodeBinaryDecision(null);
+    const nodeInstalled = Boolean(node?.path && (node.bundledVersion || node.localVersion || probeVersion(node.path)));
+    const pythonInstalled = Boolean(
+      python?.path && (python.bundledVersion || python.localVersion || probeVersion(python.path)),
+    );
+    const opencodeInstalled = Boolean(
+      opencode?.path && (opencode.bundledVersion || opencode.localVersion || probeVersion(opencode.path)),
+    );
     return {
-      node: Boolean(nodeVersion),
-      python: Boolean(pythonVersion),
+      node: nodeInstalled,
+      python: pythonInstalled,
       opencode: opencodeInstalled,
       details: {
         node: {
-          installed: Boolean(nodeVersion),
-          bundled: true,
-          path: nodePath,
-          version: nodeVersion,
+          installed: nodeInstalled,
+          bundled: node?.source === "bundled",
+          path: node?.path ?? null,
+          version: node?.bundledVersion ?? node?.localVersion ?? (node?.path ? probeVersion(node.path) : null),
+          source: node?.source ?? null,
+          reason: node?.reason ?? null,
+          notice: node?.notice ?? null,
         },
         python: {
-          installed: Boolean(pythonVersion),
-          bundled: true,
-          path: pythonPath,
-          version: pythonVersion,
+          installed: pythonInstalled,
+          bundled: python?.source === "bundled",
+          path: python?.path ?? null,
+          version:
+            python?.bundledVersion ?? python?.localVersion ?? (python?.path ? probeVersion(python.path) : null),
+          source: python?.source ?? null,
+          reason: python?.reason ?? null,
+          notice: python?.notice ?? null,
         },
         opencode: {
           installed: opencodeInstalled,
-          bundled: true,
-          path: bundledOpencode?.path ?? null,
-          version: opencodeVersion,
+          bundled: opencode?.source === "bundled",
+          path: opencode?.path ?? null,
+          version:
+            opencode?.bundledVersion ??
+            opencode?.localVersion ??
+            (opencode?.path ? probeVersion(opencode.path) : null),
+          source: opencode?.source ?? null,
+          reason: opencode?.reason ?? null,
+          notice: opencode?.notice ?? null,
         },
       },
     };

@@ -36,6 +36,7 @@ import {
   type TranscriptFeedbackValue,
 } from "./feedback";
 import { messageToText } from "./parts";
+import { useConnectedProviderIds } from "./connected-providers-context";
 
 /**
  * Simple avatar badge rendered at the leading edge of every assistant
@@ -401,6 +402,7 @@ export function TranscriptCancelledIndicator(props: {
 export function TranscriptTurnActions(props: {
   presentation: TranscriptBlockTurnPresentation;
 }) {
+  const connectedProviderIds = useConnectedProviderIds();
   if (
     !props.presentation.isActionBlock ||
     props.presentation.state === "pending" ||
@@ -420,6 +422,14 @@ export function TranscriptTurnActions(props: {
     yesterdayLabel: t("session.transcript_yesterday"),
   });
   const model = props.presentation.modelId;
+  const providerId = props.presentation.providerId;
+  // Only mark removed when we know the live connected set; null = unknown (do not badge).
+  const modelRemoved = Boolean(
+    model &&
+      providerId &&
+      connectedProviderIds &&
+      !connectedProviderIds.has(providerId),
+  );
 
   return (
     <div className="session-transcript-turn-actions">
@@ -445,7 +455,21 @@ export function TranscriptTurnActions(props: {
           })}
         </span>
       ) : null}
-      {model ? <span>{model}</span> : null}
+      {model ? (
+        <span
+          className={modelRemoved ? "inline-flex items-center gap-1 text-dls-secondary" : undefined}
+          title={
+            modelRemoved ? t("session.transcript_model_removed_title") : undefined
+          }
+        >
+          <span>{model}</span>
+          {modelRemoved ? (
+            <span className="text-[11px] text-dls-secondary opacity-80">
+              · {t("session.transcript_model_removed")}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
       {timestamp ? <span>{timestamp}</span> : null}
     </div>
   );

@@ -11,11 +11,12 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { Folder, Paperclip, Quote, SlashSquare, X } from "lucide-react";
+import { Folder, Paperclip, Plus, Quote, SlashSquare, X } from "lucide-react";
 
 import { ContextUsageIndicator } from "./context-usage-indicator";
 
 import { Button } from "@/components/ui/button";
+import { MenuRowButton } from "@/components/ui/action-row";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -190,6 +191,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
 }) {
   const [value, setValue] = useState(props.initialDraft);
   const [slashOpen, setSlashOpen] = useState(false);
+  const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const [attachments, setAttachments] = useState<LocalAgentAttachment[]>([]);
   const [quotes, setQuotes] = useState<LocalAgentQuoteChip[]>([]);
@@ -200,8 +202,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const [uploading, setUploading] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const toolMenuRef = useRef<HTMLDivElement | null>(null);
   const composingRef = useRef(false);
   const dragCounterRef = useRef(0);
+  const fileInputId = `local-agent-file-input-${props.draftKey}`;
 
   const slashQuery = value.startsWith("/") && !/\s/.test(value) ? value.toLowerCase() : "";
   // Show all live commands from the ACP wrapper (codex-acp publishes 8 builtins
@@ -261,6 +265,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
 
   const selectSlashCommand = useCallback((command: LocalAgentSlashCommand) => {
     setSlashOpen(false);
+    setToolMenuOpen(false);
     if (command.source === "builtin") {
       setValue("");
       props.onDraftCommit(props.draftKey, "");
@@ -272,6 +277,30 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     props.onDraftCommit(props.draftKey, nextValue);
     textareaRef.current?.focus();
   }, [props]);
+
+  const openFilePicker = useCallback(() => {
+    setToolMenuOpen(false);
+    document.getElementById(fileInputId)?.click();
+  }, [fileInputId]);
+
+  useEffect(() => {
+    if (!toolMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (toolMenuRef.current?.contains(target)) return;
+      setToolMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setToolMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [toolMenuOpen]);
 
   const insertMention = useCallback((entry: LocalAgentComposerFileEntry) => {
     if (!atState.active) return;
@@ -406,6 +435,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     if (composingRef.current) return;
     if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape") {
+      if (toolMenuOpen) { event.preventDefault(); setToolMenuOpen(false); return; }
       if (slashOpen) { event.preventDefault(); setSlashOpen(false); return; }
       if (atState.active) { event.preventDefault(); setAtState({ active: false, query: "", start: -1, end: -1 }); return; }
     }
@@ -427,12 +457,14 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
       event.preventDefault();
       submit();
     }
-  }, [atState, insertMention, mentionFiles, mentionIndex, selectSlashCommand, slashOpen, submit, visibleSlashCommands]);
+  }, [atState, insertMention, mentionFiles, mentionIndex, selectSlashCommand, slashOpen, submit, toolMenuOpen, visibleSlashCommands]);
 
   const handleChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const nextValue = event.target.value;
     setValue(nextValue);
-    setSlashOpen(nextValue.startsWith("/") && !/\s/.test(nextValue));
+    const slashActive = nextValue.startsWith("/") && !/\s/.test(nextValue);
+    setSlashOpen(slashActive);
+    if (slashActive) setToolMenuOpen(false);
     const caret = event.target.selectionStart ?? nextValue.length;
     const at = findAtQuery(nextValue, caret);
     setAtState(at);
@@ -447,20 +479,25 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   return (
     // One outer silhouette so focus never paints a blue top half + gray footer.
     // Keep overflow visible so slash/mention menus can escape upward.
+    // Always solid surface — glass-mixed tokens make the composer look hollow
+    // and grey out controls on mac vibrancy.
     <div
       className={cn(
-        "w-full min-w-0 max-w-full rounded-xl border bg-dls-surface-solid transition-[border-color,box-shadow]",
+        // overflow visible: slash/mention menus open upward past the shell.
+        "mac:titlebar-no-drag w-full min-w-0 max-w-full rounded-xl border bg-dls-surface-solid shadow-sm transition-[border-color,box-shadow]",
         dragActive
-          ? "border-dls-accent/60 shadow-sm"
+          ? "border-dls-accent/60"
           : focused
-            ? "border-dls-border shadow-sm"
+            ? "border-dls-border-strong"
             : "border-dls-border",
       )}
       data-local-agent-composer-shell="true"
     >
     <div
       className={cn(
-        "relative min-w-0 max-w-full overflow-x-hidden overflow-y-visible bg-dls-surface-solid",
+        // No overflow-x-hidden here: with overflow-y visible CSS forces y→auto and
+        // clips the upward slash/mention menus (button looked "unclickable").
+        "relative min-w-0 max-w-full overflow-visible bg-dls-surface-solid",
         hasFooter ? "rounded-t-xl" : "rounded-xl",
       )}
       data-local-agent-composer-root="true"
@@ -476,7 +513,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
       ) : null}
       {slashOpen ? (
         <div
-          className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface p-2"
+          className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface-solid p-2 shadow-lg"
           data-testid="local-agent-slash-menu"
         >
           {visibleSlashCommands.length ? (
@@ -512,7 +549,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
       ) : null}
       {atState.active && mentionFiles.length ? (
         <div
-          className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface p-2"
+          className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface-solid p-2 shadow-lg"
           data-testid="local-agent-mention-menu"
         >
           <div className="grid gap-1">
@@ -611,7 +648,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
           ) : null}
         </div>
       ) : null}
-      <div className="px-4 pt-3 pb-2">
+      <div className="px-3.5 pt-3 pb-2.5">
         <div className="relative">
           <div
             aria-hidden
@@ -624,7 +661,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
           <Textarea
             ref={textareaRef}
             rows={2}
-            className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-sm leading-6 shadow-none focus-visible:ring-0"
+            className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-sm leading-6 text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent"
             style={{
               color: mentionSpans.length ? "transparent" : undefined,
               caretColor: "var(--dls-text, currentColor)",
@@ -644,47 +681,102 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             disabled={props.disabled || props.submitting}
           />
         </div>
+        {/* Match home composer action row: + menu left, send right. */}
         <div className="mt-2 flex items-end justify-between gap-1.5">
           <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
             <input
               type="file"
               multiple
               className="hidden"
-              id={`local-agent-file-input-${props.draftKey}`}
+              id={fileInputId}
               onChange={(event) => {
                 const files = Array.from(event.currentTarget.files ?? []);
                 if (files.length) void handleFiles(files);
                 event.currentTarget.value = "";
               }}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-md text-dls-secondary hover:bg-dls-hover"
-              onClick={() => document.getElementById(`local-agent-file-input-${props.draftKey}`)?.click()}
-              title={t("composer.attach_files")}
-              aria-label={t("composer.attach_files")}
-              disabled={props.disabled}
-            >
-              <Paperclip size={16} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-md text-dls-secondary hover:bg-dls-hover"
-              onClick={() => {
-                setSlashOpen((open) => !open);
-                textareaRef.current?.focus();
-              }}
-              aria-expanded={slashOpen}
-              title={t("local_agent.slash_menu_title")}
-              aria-label={t("local_agent.slash_menu_title")}
-              disabled={props.disabled || props.slashCommands.length === 0}
-            >
-              <SlashSquare size={16} />
-            </Button>
+            <div ref={toolMenuRef} className="relative -ml-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "size-8 shrink-0 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                  toolMenuOpen && "bg-dls-surface-muted text-dls-text",
+                )}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setSlashOpen(false);
+                  setToolMenuOpen((open) => !open);
+                }}
+                aria-expanded={toolMenuOpen}
+                aria-haspopup="menu"
+                title={t("composer.quick_actions")}
+                aria-label={t("composer.quick_actions")}
+                disabled={props.disabled}
+                data-testid="local-agent-tool-menu-button"
+              >
+                <Plus
+                  size={16}
+                  className={cn(
+                    "transition-transform duration-200 ease-out",
+                    toolMenuOpen ? "rotate-45" : "rotate-0",
+                  )}
+                />
+              </Button>
+              {toolMenuOpen ? (
+                <div
+                  className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 shadow-lg"
+                  style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
+                  role="menu"
+                  data-testid="local-agent-tool-menu"
+                >
+                  <MenuRowButton
+                    type="button"
+                    align="center"
+                    density="compact"
+                    className="justify-start gap-2 text-dls-text hover:text-dls-text"
+                    onClick={openFilePicker}
+                  >
+                    <Paperclip className="size-3.5 shrink-0 text-dls-text" />
+                    <span className="truncate text-sm leading-5">{t("composer.add_file")}</span>
+                  </MenuRowButton>
+                  {props.slashCommands.length > 0 ? (
+                    <>
+                      <div className="my-1 h-px bg-dls-border/80" role="separator" />
+                      <div className="px-2 py-1 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
+                        {t("local_agent.slash_menu_title")}
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {props.slashCommands.map((command) => (
+                          <MenuRowButton
+                            key={`${command.source}:${command.name}`}
+                            type="button"
+                            align="start"
+                            density="compact"
+                            className="w-full justify-start gap-2 text-dls-text hover:text-dls-text"
+                            onClick={() => selectSlashCommand(command)}
+                            data-testid={`local-agent-tool-slash-${command.name.replace(/^\//, "")}`}
+                          >
+                            <SlashSquare className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
+                            <span className="min-w-0 flex-1 text-left">
+                              <span className="block truncate text-sm font-medium leading-5">
+                                {command.name}
+                              </span>
+                              {command.description ? (
+                                <span className="block truncate text-xs leading-4 text-dls-secondary">
+                                  {command.description}
+                                </span>
+                              ) : null}
+                            </span>
+                          </MenuRowButton>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
             {props.toolbarLeft}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -703,7 +795,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     </div>
     {props.bottomAccessory ? (
       <div
-        className="relative z-10 mt-0 flex min-h-9 w-full min-w-0 max-w-full items-center gap-0.5 overflow-x-hidden rounded-b-xl border-t border-dls-border bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary"
+        className="relative z-10 mt-0 flex min-h-10 w-full min-w-0 max-w-full items-center gap-1.5 overflow-visible rounded-b-xl border-t border-dls-border bg-dls-surface-muted/80 px-2 py-1 text-xs font-normal leading-none text-dls-secondary"
         data-local-agent-composer-footer="true"
       >
         {props.bottomAccessory}

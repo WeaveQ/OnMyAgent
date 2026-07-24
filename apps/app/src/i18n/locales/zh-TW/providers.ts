@@ -9,6 +9,9 @@ export default {
   "providers.disconnect_failed": "斷開模型服務商失敗",
   "providers.disconnected_prefix": "已斷開",
   "providers.load_failed": "加載模型服務商失敗",
+  "providers.plugin_hook_mismatch": "OpenCode 外掛鉤子失敗（版本/外掛不相容）",
+  "providers.plugin_hook_mismatch_hint":
+    "請先重載引擎，讓 OnMyAgent 使用產品內建 OpenCode。同時將 @opencode-ai/plugin 與 OpenCode 版本對齊（或暫時關閉 oh-my-openagent 等第三方外掛），然後再試。",
   "providers.no_oauth_prefix": "沒有可用的OAuth流程：",
   "providers.no_providers_available": "沒有可用的模型服務商",
   "providers.not_connected": "未連接到服務器",

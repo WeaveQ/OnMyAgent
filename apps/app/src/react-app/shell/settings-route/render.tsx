@@ -64,6 +64,7 @@ import { usePlatform } from "../../kernel/platform";
 import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
+  agentManagementProviderAction,
   agentManagementSnapshot,
   onmyagentServerInfo,
   pickDirectory,
@@ -99,7 +100,12 @@ import { ShareWorkspaceModal } from "../../domains/workspace";
 import { ModelPickerModal, workspaceSwatchColor } from "../../domains/session";
 import type { ModelOption, ModelRef } from "../../../app/types";
 import { recordInspectorEvent } from "../app-inspector";
-import { normalizeSettingsProviderSource,
+import {
+  aiProvidersStatusI18nKey,
+  aiProvidersSummaryI18nKey,
+  countOpenCodeProviderModels,
+  normalizeSettingsProviderSource,
+  resolveAiProvidersUiPhase,
   describeRouteError,
   describeWorkspaceCreateError,
   buildSettingsRefreshErrorEvent,
@@ -300,6 +306,17 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providerConnectedIds, setProviderConnectedIds] = useState<string[]>([]);
   const [opencodeManagedProviders, setOpenCodeManagedProviders] = useState<AgentManagementManagedProvider[]>([]);
   const [openCodeProviderConfigOpen, setOpenCodeProviderConfigOpen] = useState(false);
+  const [editingOpenCodeProvider, setEditingOpenCodeProvider] =
+    useState<AgentManagementManagedProvider | null>(null);
+  const [providerActionBusyId, setProviderActionBusyId] = useState<string | null>(null);
+  /** True while post-save/delete apply + catalog refresh is in flight. */
+  const [providerSyncBusy, setProviderSyncBusy] = useState(false);
+  /** Error message for AI provider save/delete only (not success banners). */
+  const [providerActionError, setProviderActionError] = useState<string | null>(null);
+  /** False until the first provider list refresh for this client finishes. */
+  const [providerListHydrated, setProviderListHydrated] = useState(false);
+  /** False until OpenCode live inventory has been loaded for the AI tab. */
+  const [opencodeInventoryReady, setOpenCodeInventoryReady] = useState(false);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [developerMode, setDeveloperMode] = useState(() => readStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, false));
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
@@ -463,49 +480,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     [sessionsByWorkspaceId],
   );
 
-  const reloadWorkspaceEngineFromUi = useCallback(async () => {
-    const workspaceId = routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
-    if (!onmyagentClient || !workspaceId) {
-      setRouteError(t("app.error_connect_first"));
-      return false;
-    }
-
-    await onmyagentClient.reloadEngine(workspaceId);
-    await refreshProviderListQueries(getReactQueryClient());
-
-    try {
-      window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
-    } catch {
-      // ignore browser event dispatch failures
-    }
-
-    // OpenCode reconnects MCPs async after dispose — the store polls until
-    // statuses settle so users don't have to collapse/expand the card.
-    void pollMcpServersAfterReloadRef.current?.();
-
-    return true;
-  }, [onmyagentClient, selectedWorkspaceId]);
-
-  useEffect(() => {
-    return reloadCoordinator.registerWorkspaceReloadControls({
-      canReloadWorkspaceEngine: () => Boolean(onmyagentClient && (selectedWorkspace?.id || selectedWorkspaceId)),
-      reloadWorkspaceEngine: reloadWorkspaceEngineFromUi,
-      activeSessions: () => activeReloadBlockingSessions,
-      stopSession: async (sessionId) => {
-        if (!activeClient) return;
-        await abortSessionSafe(activeClient, sessionId);
-      },
-    });
-  }, [
-    activeClient,
-    activeReloadBlockingSessions,
-    onmyagentClient,
-    reloadCoordinator,
-    reloadWorkspaceEngineFromUi,
-    selectedWorkspace?.id,
-    selectedWorkspaceId,
-  ]);
-
   const onmyagentServerStore = useMemo(
     () =>
       createOnMyAgentServerStore({
@@ -628,6 +602,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const handleOpenCustomProviderConfig = useCallback(() => {
     setConfigActionStatus(null);
+    setEditingOpenCodeProvider(null);
     setOpenCodeProviderConfigOpen(true);
   }, []);
 
@@ -1158,18 +1133,30 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       setProviderDefaults({});
       setProviderConnectedIds([]);
       setDisabledProviders([]);
+      setProviderListHydrated(false);
       return;
     }
-    void providerAuthStore.refreshProviders();
+    let cancelled = false;
+    setProviderListHydrated(false);
+    void providerAuthStore
+      .refreshProviders()
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setProviderListHydrated(true);
+      });
     void connectionsStore.refreshMcpServers();
+    return () => {
+      cancelled = true;
+    };
   }, [activeClient, connectionsStore, providerAuthStore, selectedWorkspace?.id]);
 
   const loadOpenCodeManagedProviders = useCallback(async () => {
     if (!selectedWorkspaceRoot) return [];
     try {
+      // providers-only: skip listAgents / usage (those made the edit modal lag).
       const snapshot = await agentManagementSnapshot({
         workspaceRoot: selectedWorkspaceRoot,
-        domains: ["core"],
+        domains: ["providers"],
         includeModels: false,
       });
       return snapshot.providers.byAgent.opencode;
@@ -1179,16 +1166,75 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     }
   }, [selectedWorkspaceRoot]);
 
+  const handleEditOpenCodeProvider = useCallback(
+    (provider: AiSettingsConnectedProvider) => {
+      if (provider.managedBy !== "opencode") return;
+      setProviderActionError(null);
+      const fallback: AgentManagementManagedProvider = {
+        id: provider.id,
+        appType: "opencode",
+        name: provider.name || provider.id,
+        settingsConfig: {},
+        isCurrent: false,
+        inFailoverQueue: false,
+        liveManaged: true,
+        livePresent: true,
+        configPath: "",
+        models: [],
+      };
+      // Prefer in-memory inventory for instant open. After save, inventory is
+      // updated from the save response (opencodeProviders), so re-edit is fresh
+      // without awaiting IPC. Background refresh only updates the list for later.
+      const cached =
+        opencodeManagedProviders.find((item) => item.id === provider.id) ?? null;
+
+      if (cached) {
+        setEditingOpenCodeProvider(cached);
+        setOpenCodeProviderConfigOpen(true);
+        void loadOpenCodeManagedProviders().then((providers) => {
+          setOpenCodeManagedProviders(providers);
+        });
+        return;
+      }
+
+      // Cold path: inventory not ready yet (rare right after tab open).
+      if (providerActionBusyId) return;
+      setProviderActionBusyId(provider.id);
+      void loadOpenCodeManagedProviders()
+        .then((providers) => {
+          setOpenCodeManagedProviders(providers);
+          setEditingOpenCodeProvider(
+            providers.find((item) => item.id === provider.id) ?? fallback,
+          );
+          setOpenCodeProviderConfigOpen(true);
+        })
+        .catch(() => {
+          setEditingOpenCodeProvider(fallback);
+          setOpenCodeProviderConfigOpen(true);
+        })
+        .finally(() => {
+          setProviderActionBusyId(null);
+        });
+    },
+    [loadOpenCodeManagedProviders, opencodeManagedProviders, providerActionBusyId],
+  );
+
   useEffect(() => {
     if (route.tab !== "ai" || !selectedWorkspaceRoot) {
       setOpenCodeManagedProviders([]);
+      setOpenCodeInventoryReady(false);
       return;
     }
     let cancelled = false;
-    void loadOpenCodeManagedProviders().then((providers) => {
-      if (cancelled) return;
-      setOpenCodeManagedProviders(providers);
-    });
+    setOpenCodeInventoryReady(false);
+    void loadOpenCodeManagedProviders()
+      .then((providers) => {
+        if (cancelled) return;
+        setOpenCodeManagedProviders(providers);
+      })
+      .finally(() => {
+        if (!cancelled) setOpenCodeInventoryReady(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -1228,21 +1274,35 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }
   for (const provider of opencodeManagedProviders) {
     if (!provider.livePresent || isBlockedProvider(provider.id)) continue;
+    const modelCount = countOpenCodeProviderModels(provider);
     connectedProvidersById.set(provider.id, {
       id: provider.id,
       name: provider.name || provider.id,
       source: "custom",
       managedBy: "opencode",
+      ...(modelCount > 0 ? { modelCount } : {}),
     });
   }
   const connectedProviders = [...connectedProvidersById.values()];
-  const providerStatusLabel = connectedProviders.length > 0 ? t("status.connected") : t("status.disconnected_label");
-  const providerStatusStyle = connectedProviders.length > 0
-    ? "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg"
-    : "bg-dls-active text-dls-secondary border-dls-mist";
-  const providerSummary = connectedProviders.length > 0
-    ? t("status.providers_connected", { count: connectedProviders.length })
-    : t("settings.no_providers_connected");
+  // Avoid flashing "已断开" while discovery is in flight; empty finished → 未配置.
+  const providersDiscovering =
+    Boolean(activeClient) &&
+    (!providerListHydrated || (route.tab === "ai" && !opencodeInventoryReady));
+  const providersUiPhase = resolveAiProvidersUiPhase({
+    discovering: providersDiscovering,
+    providerCount: connectedProviders.length,
+  });
+  const providerStatusLabel = t(aiProvidersStatusI18nKey(providersUiPhase));
+  const providerStatusStyle =
+    providersUiPhase === "ready"
+      ? "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg"
+      : "bg-dls-active text-dls-secondary border-dls-mist";
+  const providerSummary =
+    providersUiPhase === "ready"
+      ? t(aiProvidersSummaryI18nKey(providersUiPhase), {
+          count: connectedProviders.length,
+        })
+      : t(aiProvidersSummaryI18nKey(providersUiPhase));
   const routeOnMyAgentStatus = onmyagentClient ? "connected" : "disconnected";
   const notFoundRouteError = !loading && routeWorkspaceId && !selectedWorkspace
     ? t("workspace_list.not_found_route_error")
@@ -1403,6 +1463,84 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     });
   }, [onmyagentServerStore, refreshRouteState]);
 
+  /**
+   * Apply engine config so a newly saved provider/model is usable immediately.
+   * Prefer soft OpenCode instance dispose (fast); fall back to full desktop
+   * managed-server restart when soft reload fails (stale binary / plugin mess).
+   * Declared after onmyagentServerStore + refreshRouteState to avoid TDZ crashes
+   * when opening Settings.
+   */
+  const applyEngineConfigForProviders = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      return false;
+    }
+
+    let softOk = false;
+    try {
+      await onmyagentClient.reloadEngine(workspaceId);
+      softOk = true;
+    } catch {
+      softOk = false;
+    }
+
+    if (!softOk && isDesktopRuntime()) {
+      const hardOk = await restartOnMyAgentServerAndRefresh({
+        reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
+        refreshRouteState,
+      });
+      if (!hardOk) return false;
+    } else if (!softOk) {
+      return false;
+    }
+
+    await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+    try {
+      window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
+    } catch {
+      // ignore
+    }
+    void pollMcpServersAfterReloadRef.current?.();
+    return true;
+  }, [
+    onmyagentClient,
+    onmyagentServerStore.reconnectOnMyAgentServer,
+    refreshRouteState,
+    selectedWorkspaceId,
+  ]);
+
+  const reloadWorkspaceEngineFromUi = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      setRouteError(t("app.error_connect_first"));
+      return false;
+    }
+    return applyEngineConfigForProviders();
+  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId]);
+
+  useEffect(() => {
+    return reloadCoordinator.registerWorkspaceReloadControls({
+      canReloadWorkspaceEngine: () =>
+        Boolean(onmyagentClient && (selectedWorkspace?.id || selectedWorkspaceId)),
+      reloadWorkspaceEngine: reloadWorkspaceEngineFromUi,
+      activeSessions: () => activeReloadBlockingSessions,
+      stopSession: async (sessionId) => {
+        if (!activeClient) return;
+        await abortSessionSafe(activeClient, sessionId);
+      },
+    });
+  }, [
+    activeClient,
+    activeReloadBlockingSessions,
+    onmyagentClient,
+    reloadCoordinator,
+    reloadWorkspaceEngineFromUi,
+    selectedWorkspace?.id,
+    selectedWorkspaceId,
+  ]);
+
   const handleRestartMessagingWorker = handleRestartOnMyAgentServerAndRefresh;
 
   const messagingViewProps = useMessagingViewProps({
@@ -1490,14 +1628,83 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               connectedProviders={connectedProviders}
               disconnectingProviderId={null}
               providerConnectError={providerAuthSnapshot.providerAuthError}
-              providerDisconnectStatus={configActionStatus}
-              providerDisconnectError={null}
+              providerDisconnectStatus={null}
+              providerDisconnectError={providerActionError}
+              providerActionBusyId={providerActionBusyId}
+              providerSyncBusy={providerSyncBusy}
               onOpenProviderAuth={handleOpenProviderAuth}
               onOpenOpencodeConfig={handleOpenCustomProviderConfig}
               onDisconnectProvider={async (providerId) => {
                 await providerAuthStore.disconnectProvider(providerId);
               }}
-              canDisconnectProvider={(provider) => provider.managedBy !== "opencode"}
+              canDisconnectProvider={(provider) => {
+                // OpenCode custom providers use edit/delete, not disconnect.
+                if (provider.managedBy === "opencode") return false;
+                // Env / config / custom entries are not "disconnectable" OAuth rows;
+                // showing Unplug here reads as a false "disconnected" status.
+                if (
+                  provider.source === "env" ||
+                  provider.source === "config" ||
+                  provider.source === "custom"
+                ) {
+                  return false;
+                }
+                // Wait until OpenCode inventory is ready so custom providers are
+                // not briefly mis-tagged as disconnectable before managedBy is set.
+                if (!opencodeInventoryReady) return false;
+                return true;
+              }}
+              canEditProvider={(provider) => provider.managedBy === "opencode"}
+              onEditProvider={handleEditOpenCodeProvider}
+              canDeleteProvider={(provider) => provider.managedBy === "opencode"}
+              onDeleteProvider={async (provider) => {
+                if (providerActionBusyId || providerSyncBusy) return;
+                setProviderActionBusyId(provider.id);
+                setProviderSyncBusy(true);
+                setProviderActionError(null);
+                try {
+                  await agentManagementProviderAction({
+                    action: "delete",
+                    appType: "opencode",
+                    providerId: provider.id,
+                    workspaceRoot: selectedWorkspaceRoot,
+                  });
+                  // Drop from local inventory immediately for snappy UI.
+                  setOpenCodeManagedProviders((current) =>
+                    current.filter((item) => item.id !== provider.id),
+                  );
+                  // Clear default model if it pointed at the deleted provider.
+                  if (local.prefs.defaultModel?.providerID === provider.id) {
+                    local.setPrefs((previous) => ({
+                      ...previous,
+                      defaultModel: null,
+                      modelVariant: null,
+                    }));
+                  }
+                  // Apply engine so OpenCode drops the provider without a manual reload.
+                  const applied = await applyEngineConfigForProviders().catch(() => false);
+                  await providerAuthStore.refreshProviders({ dispose: true }).catch(() => null);
+                  await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+                  const managed = await loadOpenCodeManagedProviders();
+                  setOpenCodeManagedProviders(managed);
+                  if (applied) {
+                    reloadCoordinator.clearReloadRequired();
+                  } else {
+                    reloadCoordinator.markReloadRequired("config", {
+                      type: "config",
+                      name: "opencode.json",
+                      action: "updated",
+                    });
+                  }
+                } catch (error) {
+                  setProviderActionError(
+                    error instanceof Error ? error.message : t("settings.custom_provider_remove_failed"),
+                  );
+                } finally {
+                  setProviderActionBusyId(null);
+                  setProviderSyncBusy(false);
+                }
+              }}
               cloudProviderIds={new Set(
                 Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
               )}
@@ -1727,39 +1934,70 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       <OpenCodeProviderConfigDialog
         open={openCodeProviderConfigOpen}
         workspaceRoot={selectedWorkspaceRoot}
-        onOpenChange={setOpenCodeProviderConfigOpen}
-        onSaved={async () => {
-          // syncLive already rewrote opencode.json. Soft provider-list refresh
-          // alone leaves the session composer on a stale catalog until manual
-          // engine reload — mirror installLocalProvider: reload engine, then
-          // force both settings auth store + React Query provider lists.
-          setConfigActionStatus(t("settings.config_updated"));
+        initialProvider={editingOpenCodeProvider}
+        onOpenChange={(open) => {
+          setOpenCodeProviderConfigOpen(open);
+          if (!open) setEditingOpenCodeProvider(null);
+        }}
+        onSaved={async (saved) => {
+          setEditingOpenCodeProvider(null);
+          setProviderSyncBusy(true);
+          setProviderActionError(null);
           try {
-            const managedProviders = await loadOpenCodeManagedProviders();
-            setOpenCodeManagedProviders(managedProviders);
-          } catch {
-            // Managed inventory is best-effort; engine reload still matters.
+            // Product path: fill form → write opencode.json → apply engine → use model.
+            // 1) Prefer the new model in UI prefs immediately (create / fill-and-use only).
+            if (saved.defaultModel?.providerID && saved.defaultModel.modelID) {
+              local.setPrefs((previous) => ({
+                ...previous,
+                defaultModel: {
+                  providerID: saved.defaultModel!.providerID,
+                  modelID: saved.defaultModel!.modelID,
+                },
+                modelVariant: null,
+              }));
+            }
+
+            // Prefer save-response inventory (already live-merged) so re-edit
+            // immediately sees added models without racing a second snapshot.
+            if (saved.opencodeProviders && saved.opencodeProviders.length > 0) {
+              setOpenCodeManagedProviders(saved.opencodeProviders);
+            } else {
+              try {
+                const managedProviders = await loadOpenCodeManagedProviders();
+                setOpenCodeManagedProviders(managedProviders);
+              } catch {
+                // best-effort inventory
+              }
+            }
+
+            // 2) Soft dispose first; hard restart only if needed.
+            let applied = false;
+            try {
+              applied = await applyEngineConfigForProviders();
+            } catch {
+              applied = false;
+            }
+
+            // 3) Refresh catalogs so composer / settings see the provider.
+            await providerAuthStore.refreshProviders({ dispose: true }).catch(() => null);
+            await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+
+            if (applied) {
+              reloadCoordinator.clearReloadRequired();
+            } else {
+              reloadCoordinator.markReloadRequired("config", {
+                type: "config",
+                name: "opencode.json",
+                action: "updated",
+              });
+            }
+          } catch (error) {
+            setProviderActionError(
+              error instanceof Error ? error.message : String(error),
+            );
+          } finally {
+            setProviderSyncBusy(false);
           }
-          let reloaded = false;
-          try {
-            reloaded = await reloadWorkspaceEngineFromUi();
-          } catch {
-            reloaded = false;
-          }
-          if (!reloaded) {
-            reloadCoordinator.markReloadRequired("config", {
-              type: "config",
-              name: "opencode.json",
-              action: "updated",
-            });
-          }
-          await providerAuthStore
-            .refreshProviders({ dispose: true })
-            .catch(() => null);
-          // Belt-and-suspenders if reload path skipped query invalidation.
-          await refreshProviderListQueries(getReactQueryClient()).catch(
-            () => null,
-          );
         }}
       />
 

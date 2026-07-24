@@ -30,6 +30,11 @@ import {
   type AgentManagementSnapshot,
 } from "../../../../app/lib/desktop";
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
+import {
+  AGENT_CARD_GRID,
+  AgentManagementExtensionSkeleton,
+  AgentManagementFleetSkeleton,
+} from "./agent-management-fleet-skeleton";
 import { InlineAgentEditor, type InlineAgentEditorValue } from "../inline-agent-editor";
 import { AgentManagementRepairDialog } from "../agent-management-repair-dialog";
 import { ExtensionListPanel } from "../extension-list-panel";
@@ -963,20 +968,33 @@ export function AgentManagementPage(props: {
             <>
               <AgentManagementMetric
                 label={t("agent_manager.online_agents")}
-                value={`${onlineAgents} / ${snapshot?.agents.length ?? 0}`}
+                value={
+                  snapshotPending
+                    ? t("agent_manager.metric_pending")
+                    : `${onlineAgents} / ${snapshot?.agents.length ?? 0}`
+                }
               />
-              <AgentManagementMetric label={t("agent_manager.local_runs")} value={totalRuns} />
+              <AgentManagementMetric
+                label={t("agent_manager.local_runs")}
+                value={snapshotPending ? t("agent_manager.metric_pending") : totalRuns}
+              />
               <AgentManagementMetric
                 label={t("agent_manager.recognized_skills")}
                 value={
-                  readCachedAgentManagerDomains(cacheKey).skills
-                    ? (snapshot?.skills.length ?? 0)
-                    : "—"
+                  snapshotPending
+                    ? t("agent_manager.metric_pending")
+                    : readCachedAgentManagerDomains(cacheKey).skills
+                      ? (snapshot?.skills.length ?? 0)
+                      : t("agent_manager.metric_pending")
                 }
               />
               <AgentManagementMetric
                 label={t("agent_manager.managed_providers")}
-                value={managedProviderTotal}
+                value={
+                  snapshotPending
+                    ? t("agent_manager.metric_pending")
+                    : managedProviderTotal
+                }
               />
             </>
           ) : null}
@@ -1077,14 +1095,22 @@ export function AgentManagementPage(props: {
                       <Bot className="size-4 text-dls-secondary" />
                       <h3 className="text-sm font-medium">{t("agent_manager.fleet_title")}</h3>
                       <span className="text-xs tabular-nums text-dls-secondary">
-                        {snapshotPending ? "…" : filteredManagedAgents.length}
+                        {snapshotPending
+                          ? t("agent_manager.metric_pending")
+                          : filteredManagedAgents.length}
                         {!snapshotPending && agentFilter !== "all" ? ` / ${managedAgents.length}` : ""}
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-dls-secondary">{t("agent_manager.fleet_desc")}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex flex-wrap items-center gap-0.5">
+                    <div
+                      className={cn(
+                        "flex flex-wrap items-center gap-0.5",
+                        snapshotPending && "pointer-events-none opacity-50",
+                      )}
+                      aria-disabled={snapshotPending || undefined}
+                    >
                       <FilterChip
                         selected={agentFilter === "all"}
                         onClick={() => setAgentFilter("all")}
@@ -1118,13 +1144,13 @@ export function AgentManagementPage(props: {
                   </div>
                 </div>
                 {snapshotPending ? (
-                  <div
-                    className="flex min-h-32 items-center justify-center gap-2 text-sm text-dls-secondary"
-                    role="status"
-                    aria-label={t("common.loading")}
-                  >
-                    <LoadingSpinner />
-                    <span>{t("common.loading")}</span>
+                  <div className="space-y-2">
+                    <p className="text-xs text-dls-secondary">{t("agent_manager.fleet_loading")}</p>
+                    <AgentManagementFleetSkeleton
+                      count={4}
+                      label={t("agent_manager.fleet_loading")}
+                      testId="agent-management-fleet-skeleton"
+                    />
                   </div>
                 ) : managedAgents.length === 0 ? (
                   <EmptyStateBox size="spacious" tone="surface" className="text-sm">
@@ -1135,7 +1161,7 @@ export function AgentManagementPage(props: {
                     {t("agent_manager.fleet_filter_empty")}
                   </EmptyStateBox>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  <div className={AGENT_CARD_GRID}>
                     {filteredManagedAgents.map((agent) => {
                       const ownership = agentOwnership(agent);
                       const isMine = ownership === "mine";
@@ -1169,11 +1195,12 @@ export function AgentManagementPage(props: {
                     className="flex min-w-0 items-center gap-2 text-left"
                     onClick={() => setDiscoverOpen((open) => !open)}
                     aria-expanded={discoverOpen}
+                    disabled={snapshotPending}
                   >
                     <Cpu className="size-4 shrink-0 text-dls-secondary" />
                     <h3 className="text-sm font-medium text-dls-text">{t("agent_manager.discover_title")}</h3>
                     <span className="text-xs tabular-nums text-dls-secondary">
-                      {snapshotPending ? "…" : discoverAgents.length}
+                      {snapshotPending ? t("agent_manager.metric_pending") : discoverAgents.length}
                     </span>
                     <span className="text-xs text-dls-secondary">
                       {discoverOpen ? t("agent_manager.discover_collapse") : t("agent_manager.discover_expand")}
@@ -1182,22 +1209,23 @@ export function AgentManagementPage(props: {
                 </div>
                 {discoverOpen ? (
                   <>
-                    <p className="text-xs text-dls-secondary">{t("agent_manager.discover_desc")}</p>
+                    <p className="text-xs text-dls-secondary">
+                      {snapshotPending
+                        ? t("agent_manager.discover_loading")
+                        : t("agent_manager.discover_desc")}
+                    </p>
                     {snapshotPending ? (
-                      <div
-                        className="flex min-h-24 items-center justify-center gap-2 text-sm text-dls-secondary"
-                        role="status"
-                        aria-label={t("common.loading")}
-                      >
-                        <LoadingSpinner />
-                        <span>{t("common.loading")}</span>
-                      </div>
+                      <AgentManagementFleetSkeleton
+                        count={5}
+                        label={t("agent_manager.discover_loading")}
+                        testId="agent-management-discover-skeleton"
+                      />
                     ) : discoverAgents.length === 0 ? (
                       <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                         {t("agent_manager.discover_empty")}
                       </EmptyStateBox>
                     ) : (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                      <div className={AGENT_CARD_GRID}>
                         {discoverAgents.map((agent) => (
                           <AgentManagementAgentCard
                             key={agent.id}
@@ -1216,7 +1244,13 @@ export function AgentManagementPage(props: {
                 ) : null}
               </div>
 
-              <ExtensionListPanel />
+              {/* Hold extensions until core list paints so the page does not flash
+                  a finished extensions strip under empty fleet spinners. */}
+              {snapshotPending ? (
+                <AgentManagementExtensionSkeleton label={t("agent_manager.extensions_loading")} />
+              ) : (
+                <ExtensionListPanel />
+              )}
             </section>
           ) : (
             <SkillMatrixPanel
