@@ -22,4 +22,5 @@ export default {
   "model_picker.provider_default_available_desc":
     `${APP_NAME} 建议使用 {model}，可一键设为默认（不会自动覆盖当前选择）。`,
   "model_picker.provider_default_apply": "设为默认",
+  "model_picker.free": "免费",
 } as const;

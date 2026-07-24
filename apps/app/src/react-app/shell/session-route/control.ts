@@ -140,12 +140,18 @@ export function resolveSessionRouteRestoreNavigation(input: {
   return { type: "workspace", workspaceId: input.selectedWorkspaceId, sessionId: remembered };
 }
 
+/**
+ * Send the user back to the welcome / onboarding guide when they have not
+ * finished (or have reset) onboarding. Workspace count is intentionally
+ * ignored so "重置入门" re-opens the guide even if workspaces already exist.
+ */
 export function shouldRedirectSessionRouteToWelcome(input: {
   hasCompletedOnboarding: boolean;
   loading: boolean;
-  workspaceCount: number;
+  /** @deprecated kept for call-site compat; not used in the decision */
+  workspaceCount?: number;
 }) {
-  return !input.loading && input.workspaceCount === 0 && !input.hasCompletedOnboarding;
+  return !input.loading && !input.hasCompletedOnboarding;
 }
 
 export function resolveSessionRouteModeSwitchPath(input: {

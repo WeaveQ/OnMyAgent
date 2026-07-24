@@ -9,6 +9,7 @@
  * - Spaces: folders not in *visible* global pins; sessions inside sorted by local pins.
  * - Recent: unpinned non-space sessions by recency.
  */
+import { isIsolatedExpertSessionDirectory } from "../../../capabilities/session-identity/expert-session-directory";
 import { filterGroupsExcludingArchived } from "../../shared";
 import {
   groupAssistantAutomationItems,
@@ -256,10 +257,12 @@ export function buildAssistantListModel(input: {
 
   // Group every space-bound session by directory (current category only).
   // Source of truth for 「空间」: only folders that already have tasks.
+  // Expert auto-isolation dirs (…/{agent}/{timestamp}/) are session artifact
+  // roots — keep them out of Spaces so they do not look like user spaces.
   const spaceItemsByDirectory = new Map<string, AgentConversationGroup[]>();
   for (const group of input.groups) {
     const dir = folderPathBySessionId.get(group.latestSession.id);
-    if (!dir) continue;
+    if (!dir || isIsolatedExpertSessionDirectory(dir)) continue;
     const list = spaceItemsByDirectory.get(dir) ?? [];
     list.push(group);
     spaceItemsByDirectory.set(dir, list);

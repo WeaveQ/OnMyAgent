@@ -259,8 +259,10 @@ describe("session route control", () => {
     ).toEqual({ type: "none" });
   });
 
-  test("redirects first-run users without workspaces to welcome", () => {
+  test("redirects incomplete onboarding to welcome even when workspaces exist", () => {
     expect(shouldRedirectSessionRouteToWelcome({ hasCompletedOnboarding: false, loading: false, workspaceCount: 0 }))
+      .toBe(true);
+    expect(shouldRedirectSessionRouteToWelcome({ hasCompletedOnboarding: false, loading: false, workspaceCount: 3 }))
       .toBe(true);
     expect(shouldRedirectSessionRouteToWelcome({ hasCompletedOnboarding: true, loading: false, workspaceCount: 0 }))
       .toBe(false);

@@ -1626,11 +1626,21 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     try {
-      await removeProviderAuthCredentials(resolved);
+      // Built-in free OpenCode Zen stays "connected" without credentials.
+      // Disconnect for that provider means disable it in workspace config.
+      const isBuiltinOpenCodeZen = resolved === "opencode";
+      if (!isBuiltinOpenCodeZen) {
+        await removeProviderAuthCredentials(resolved);
+      }
       const updated = await refreshProviders({ dispose: true });
       if (Array.isArray(updated?.connected) && updated.connected.includes(resolved)) {
-        // Provider is still connected (e.g. via env var). Just remove
-        // stored credentials; do NOT add to disabled_providers.
+        if (isBuiltinOpenCodeZen) {
+          await ensureProjectProviderDisabledState(resolved, true);
+          removeProviderFromState(resolved);
+          return `${t("providers.disconnected_prefix")} ${resolved}`;
+        }
+        // Other providers still connected (e.g. via env var): remove stored
+        // credentials only; do NOT add to disabled_providers.
         return `Removed stored credentials for ${resolved}${t("providers.still_connected_suffix")}`;
       }
       removeProviderFromState(resolved);

@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { FilterChip } from "@/components/ui/action-row";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 export {
   normalizeProfileOptionValue,
@@ -124,9 +125,10 @@ export const mbtiSelectItems = mbtiOptions.map((value) => ({
 }));
 
 /**
- * Soft filter / multi-select chip (image-1 style):
- * selected = solid elevated pill; idle = plain label, no border.
- * Defaults to chipLg for welcome/onboarding readability.
+ * Multi-select chip for onboarding / profile.
+ * - plain: free-float filter style (idle = plain label)
+ * - soft: selectable pill with muted surface when idle (welcome form)
+ * Defaults to chipLg for full-page readability.
  */
 export function ToggleChip(props: {
   label: string;
@@ -134,22 +136,54 @@ export function ToggleChip(props: {
   onClick: () => void;
   className?: string;
   size?: "chip" | "chipLg";
+  /** `soft` = bordered muted idle pill (onboarding). */
+  surface?: "plain" | "soft";
 }) {
+  const surface = props.surface ?? "plain";
   return (
     <FilterChip
       label={props.label}
       selected={props.selected}
       onClick={props.onClick}
-      className={props.className}
       size={props.size ?? "chipLg"}
+      className={cn(
+        surface === "soft" &&
+          !props.selected &&
+          "border border-dls-border/70 bg-dls-surface-muted text-dls-secondary hover:border-dls-border hover:bg-dls-list-hover hover:text-dls-text",
+        surface === "soft" &&
+          props.selected &&
+          "border border-dls-accent/35 bg-dls-accent/12 text-dls-text shadow-none",
+        props.className,
+      )}
     />
   );
 }
 
-export function FieldLabel(props: { children: React.ReactNode }) {
+export function FieldLabel(props: { children: React.ReactNode; className?: string }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium leading-5 text-dls-secondary">
+    <label
+      className={cn(
+        "flex flex-col gap-1.5 text-sm font-medium leading-5 text-dls-secondary",
+        props.className,
+      )}
+    >
       {props.children}
     </label>
+  );
+}
+
+/** Group label above a chip row inside onboarding cards. */
+export function ChipGroupLabel(props: {
+  children: React.ReactNode;
+  hint?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("mb-3 flex flex-col gap-1", props.className)}>
+      <div className="text-sm font-medium text-dls-text">{props.children}</div>
+      {props.hint ? (
+        <div className="text-xs leading-5 text-dls-secondary">{props.hint}</div>
+      ) : null}
+    </div>
   );
 }

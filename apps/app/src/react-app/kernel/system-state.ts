@@ -12,6 +12,7 @@ import {
   safeStringify,
 } from "../../app/utils";
 import { t } from "../../i18n";
+import { clearLocalStorageForOnMyAgentReset } from "./reset-local-storage";
 
 export type ReloadState = {
   reloadPending: boolean;
@@ -43,28 +44,6 @@ export type SystemStateControls = {
   confirmReset: () => Promise<void>;
   setError: (message: string | null) => void;
 };
-
-/** Legacy product slug — assembled so rename-consistency does not flag the old name. */
-const LEGACY_PRODUCT_SLUG = ["open", "work"].join("");
-const LEGACY_STORAGE_KEY_RE = new RegExp(`onmyagent|${LEGACY_PRODUCT_SLUG}`, "i");
-
-function clearOnMyAgentLocalStorage(mode: ResetOnMyAgentMode) {
-  if (typeof window === "undefined") return;
-  try {
-    if (mode === "all") {
-      window.localStorage.clear();
-      return;
-    }
-    const keys = Object.keys(window.localStorage);
-    for (const key of keys) {
-      if (LEGACY_STORAGE_KEY_RE.test(key)) window.localStorage.removeItem(key);
-    }
-    window.localStorage.removeItem("onmyagent_mode_pref");
-    window.localStorage.removeItem(`${LEGACY_PRODUCT_SLUG}_mode_pref`);
-  } catch {
-    // ignore
-  }
-}
 
 type UseSystemStateOptions = {
   hasActiveRuns: () => boolean;
@@ -201,7 +180,13 @@ export function useSystemState(
       options.setError(t("system.stop_active_runs_before_reset"));
       return;
     }
-    if (resetModalText.trim() !== t("settings.reset_confirmation_word")) return;
+    // Onboarding re-entry: no typed confirmation. Full wipe still requires the phrase.
+    if (
+      resetModalMode !== "onboarding" &&
+      resetModalText.trim() !== t("settings.reset_confirmation_word")
+    ) {
+      return;
+    }
 
     setResetModalBusy(true);
     options.setError(null);
@@ -210,7 +195,7 @@ export function useSystemState(
       if (isDesktopRuntime()) {
         await resetOnMyAgentState(resetModalMode);
       }
-      clearOnMyAgentLocalStorage(resetModalMode);
+      clearLocalStorageForOnMyAgentReset(resetModalMode);
       if (isDesktopRuntime()) {
         await relaunchDesktopApp();
       } else {

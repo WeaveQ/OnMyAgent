@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Chrome, RefreshCw, ShieldCheck, SquareMousePointer } from "lucide-react";
+import { Globe, RefreshCw, ShieldCheck, SquareMousePointer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,7 +85,7 @@ export function BrowserConfig() {
         ready={ready}
       />
       <CapabilityCard
-        icon={Chrome}
+        icon={Globe}
         title={t("settings.browser.chrome_title")}
         description={t("settings.browser.chrome_description")}
         status={t("settings.browser.local_package")}

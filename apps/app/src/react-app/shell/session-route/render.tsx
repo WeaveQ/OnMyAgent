@@ -537,9 +537,8 @@ export function SessionRouteRender() {
     workspaces,
   ]);
 
-  // Redirect to /welcome when no workspaces exist and the user hasn't
-  // completed onboarding. This fires after the initial route refresh so
-  // `loading` is false and we know for sure there are zero workspaces.
+  // Redirect to /welcome when onboarding is incomplete (including after
+  // Settings → 重置入门). Workspaces may already exist; guide still re-runs.
   useEffect(() => {
     if (
       !shouldRedirectSessionRouteToWelcome({

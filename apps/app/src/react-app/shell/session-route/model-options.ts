@@ -10,8 +10,11 @@ import type {
   ModelRef,
   ProviderListItem,
 } from "../../../app/types";
+import { isProviderModelFree } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
 import { getConnectedProviderItems } from "../../domains/connections";
+
+export { isProviderModelFree };
 
 export type ProviderModelCatalog = Record<
   string,
@@ -97,7 +100,11 @@ export function buildConnectedModelOptions(input: {
         behaviorLabel: t("settings.default_label"),
         behaviorDescription: "",
         behaviorValue: null,
-        isFree: false,
+        isFree: isProviderModelFree({
+          providerId: provider.id,
+          modelId: id,
+          model,
+        }),
         isConnected: true,
         isRecommended: isNew,
         source: /^lpr_/i.test(provider.id) ? "cloud" : undefined,
