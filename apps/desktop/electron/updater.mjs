@@ -15,19 +15,27 @@ const DEFAULT_RELEASES_LATEST_API =
   "https://api.github.com/repos/WeaveQ/OnMyAgent/releases/latest";
 const RELEASES_HTML_URL =
   "https://github.com/WeaveQ/OnMyAgent/releases/latest";
+/** Same cadence for packaged + unpackaged (dev) builds. */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
-const INITIAL_CHECK_DELAY_MS = 30 * 1000; // 30s
+const INITIAL_CHECK_DELAY_MS = 30 * 1000; // ~30s after app ready
 /** Slightly generous: api.github.com is often slow or filtered. */
 const FETCH_TIMEOUT_MS = 15 * 1000;
 const FETCH_RETRY_COUNT = 1;
 const FETCH_RETRY_DELAY_MS = 1_200;
 /**
- * Dev builds skip background polling by default (manual Check still works).
- * Set ONMYAGENT_UPDATE_CHECK_IN_DEV=1 to force background checks while unpackaged.
+ * Unpackaged (dev) background polling is ON by default — same 30s / 6h as
+ * packaged. Opt out with ONMYAGENT_UPDATE_CHECK_IN_DEV=0|false|off.
+ * Available updates surface via OS notify + home toast (onAvailable).
  */
-const UPDATE_CHECK_IN_DEV =
-  process.env.ONMYAGENT_UPDATE_CHECK_IN_DEV === "1" ||
-  process.env.ONMYAGENT_UPDATE_CHECK_IN_DEV === "true";
+const UPDATE_CHECK_IN_DEV_ENV = String(
+  process.env.ONMYAGENT_UPDATE_CHECK_IN_DEV ?? "",
+)
+  .trim()
+  .toLowerCase();
+const UPDATE_CHECK_IN_DEV_DISABLED =
+  UPDATE_CHECK_IN_DEV_ENV === "0" ||
+  UPDATE_CHECK_IN_DEV_ENV === "false" ||
+  UPDATE_CHECK_IN_DEV_ENV === "off";
 /** Optional mirror / override for the latest-release JSON endpoint. */
 const RELEASES_LATEST_API_OVERRIDE = String(
   process.env.ONMYAGENT_UPDATE_API ?? "",
@@ -405,12 +413,12 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, Notification, 
 
   function scheduleAutoChecks() {
     if (scheduledInitial || intervalHandle) return;
-    // Unpackaged dev: skip background noise unless explicitly enabled.
-    if (!app.isPackaged && !UPDATE_CHECK_IN_DEV) {
+    // Unpackaged: poll by default (same cadence as packaged); opt-out via env.
+    if (!app.isPackaged && UPDATE_CHECK_IN_DEV_DISABLED) {
       return;
     }
-    // Background poller owns OS notifications (silent: false).
-    // Renderer manual checks use silent: true to avoid double toasts.
+    // Background poller: emit renderer event always; OS notify when silent:false.
+    // Renderer also shows a home-page status toast via onAvailable.
     // Failures are soft (no OS notification on network error).
     scheduledInitial = setTimeout(() => {
       scheduledInitial = null;

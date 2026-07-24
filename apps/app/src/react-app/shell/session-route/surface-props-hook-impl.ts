@@ -62,6 +62,10 @@ import {
 import { getReactQueryClient } from "../../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "../onboarding-profile";
 import {
+  buildCustomInstructionsSystemPrompt,
+  buildResponseToneSystemPrompt,
+} from "../../kernel/response-tone";
+import {
   applySessionAccessMode,
   applySessionScopedValue,
   buildAccessModeSystemPrompt,
@@ -885,6 +889,9 @@ export function useSessionRouteSurfaceProps(
             local.prefs.onboardingProfile,
             local.prefs.conversationMemory,
           ) ||
+            undefined,
+          buildResponseToneSystemPrompt(local.prefs.responseTone) || undefined,
+          buildCustomInstructionsSystemPrompt(local.prefs.customInstructions) ||
             undefined,
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||

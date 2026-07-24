@@ -173,11 +173,12 @@ function activityTooltip(props: {
 
 function Metric(props: { label: string; value: string }) {
   return (
-    <div className="min-w-0 px-2 py-2.5 text-center">
-      <div className="truncate text-base font-medium tabular-nums text-dls-text">
+    <div className="min-w-0 px-2.5 py-3 text-center sm:px-3">
+      {/* No truncate: settings pane is often narrower than 5 labels in a row. */}
+      <div className="text-base font-medium tabular-nums tracking-tight text-dls-text sm:text-lg">
         {props.value}
       </div>
-      <div className="mt-0.5 truncate text-sm text-dls-secondary">
+      <div className="mt-1 text-xs leading-snug text-dls-secondary sm:text-sm">
         {props.label}
       </div>
     </div>
@@ -203,7 +204,8 @@ function ActivityGrid(props: {
       aria-label={t("session.usage_activity_grid_label")}
       onMouseLeave={() => setHovered(null)}
     >
-      <div className="flex justify-end gap-1 overflow-hidden">
+      {/* min-w-max + parent overflow-x-auto: full year stays readable without clipping. */}
+      <div className="flex min-w-max justify-end gap-1">
         {props.columns.map((column) => (
           <div
             key={column.weekStart}
@@ -383,16 +385,19 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
               </NoticeBox>
             ) : null}
 
-            <div className="mt-12 overflow-x-auto pb-1">
-              <section
-                aria-label={t("session.usage_summary_label")}
-                className="grid min-w-3xl grid-cols-5 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-dls-border"
-              >
-                {metrics.map((metric) => (
-                  <Metric key={metric.label} {...metric} />
-                ))}
-              </section>
-            </div>
+            <section
+              aria-label={t("session.usage_summary_label")}
+              className={cn(
+                "mt-12 grid gap-px overflow-hidden rounded-xl border border-dls-border bg-dls-border",
+                // Settings content is often mid-width: wrap before clipping Chinese labels.
+                "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
+                "[&>*]:bg-dls-surface-solid",
+              )}
+            >
+              {metrics.map((metric) => (
+                <Metric key={metric.label} {...metric} />
+              ))}
+            </section>
 
             <section data-token-activity="true" className="mt-10">
               <div className="flex items-center justify-between gap-3">
@@ -426,24 +431,27 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   {t("session.usage_empty")}
                 </EmptyStateBox>
               ) : (
-                <div className="mt-3 overflow-hidden pb-2">
-                  <ActivityGrid
-                    columns={activity}
-                    mode={activityMode}
-                    today={today}
-                  />
-                  <div className="relative mt-2 h-5" aria-hidden="true">
-                    {monthLabels.map(({ label, columnIndex }) => (
-                      <span
-                        key={`${label}-${columnIndex}`}
-                        className="absolute top-0 text-sm text-dls-secondary"
-                        style={{
-                          left: `${(columnIndex / Math.max(activity.length, 1)) * 100}%`,
-                        }}
-                      >
-                        {label}
-                      </span>
-                    ))}
+                <div className="mt-3 overflow-x-auto pb-2">
+                  {/* w-max keeps heatmap + month labels one scrollable unit. */}
+                  <div className="inline-flex w-max min-w-full flex-col">
+                    <ActivityGrid
+                      columns={activity}
+                      mode={activityMode}
+                      today={today}
+                    />
+                    <div className="relative mt-2 h-5 w-full" aria-hidden="true">
+                      {monthLabels.map(({ label, columnIndex }) => (
+                        <span
+                          key={`${label}-${columnIndex}`}
+                          className="absolute top-0 whitespace-nowrap text-sm text-dls-secondary"
+                          style={{
+                            left: `${(columnIndex / Math.max(activity.length, 1)) * 100}%`,
+                          }}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

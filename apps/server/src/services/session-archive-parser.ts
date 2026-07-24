@@ -717,13 +717,15 @@ function buildParseResult(input: {
   const lastMessage = visibleMessages[visibleMessages.length - 1] ?? input.messages[input.messages.length - 1];
   const startedAt = validIsoTimestamp(firstMessage?.timestamp ?? "") || sourceMtimeIso || null;
   const endedAt = validIsoTimestamp(lastMessage?.timestamp ?? "") || startedAt;
-  const first = visibleMessages.find((message) => message.role === "user" && isSessionArchiveTitleCandidate(message.content));
+  // Prefer a human title preview (e.g. Grok `<user_query>`), not harness dumps.
+  // Grok often emits a standalone `<user_info>` user row first — never store that.
+  const first_message = pickSessionArchiveFirstMessagePreview(visibleMessages);
   const session: SessionArchiveSession = {
     id: input.id,
     project: input.options.project || input.project || projectFromCwd(input.cwd) || projectFromPath(input.path),
     machine: input.options.machine || "local",
     agent: input.agent,
-    first_message: first?.content.slice(0, 300) ?? null,
+    first_message,
     display_name: input.displayName?.trim() || undefined,
     started_at: startedAt,
     ended_at: endedAt,
@@ -787,10 +789,67 @@ function tokenCost(usage: Record<string, number | boolean>): number | null {
 }
 
 function isSessionArchiveTitleCandidate(content: string): boolean {
+  return pickSessionArchiveTitlePreview(content) != null;
+}
+
+/**
+ * Human list-title / first_message body from a single user message.
+ * Prefer `<user_query>` / `<user-request>`; reject pure env / system-reminder dumps.
+ */
+function pickSessionArchiveTitlePreview(content: string): string | null {
   const trimmed = content.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith("# AGENTS.md instructions") && trimmed.includes("<INSTRUCTIONS>")) return false;
-  return true;
+  if (!trimmed) return null;
+  if (trimmed.startsWith("# AGENTS.md instructions") && trimmed.includes("<INSTRUCTIONS>")) {
+    return null;
+  }
+
+  const wrapped =
+    trimmed.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/i)?.[1]?.trim()
+    ?? trimmed.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i)?.[1]?.trim();
+  if (wrapped) {
+    const line = wrapped.split(/\r?\n/).find((row) => row.trim().length > 0)?.trim();
+    if (line) return line.slice(0, 300);
+  }
+
+  // Pure `<user_info>…</user_info>` (common Grok first row) — not a title.
+  const withoutUserInfo = trimmed
+    .replace(/<user_info\b[^>]*>[\s\S]*?<\/user_info\s*>/gi, "\n")
+    .trim();
+  if (!withoutUserInfo) return null;
+
+  // Long system-reminder skill dumps.
+  if (withoutUserInfo.includes("<system-reminder>") && withoutUserInfo.length > 200) {
+    return null;
+  }
+
+  // Remaining prose after dropping known harness blocks.
+  const cleaned = withoutUserInfo
+    .replace(
+      /<(?:system-reminder|system_reminder|available_skills|INSTRUCTIONS|auto-slash-command|command-instruction)\b[^>]*>[\s\S]*?<\/(?:system-reminder|system_reminder|available_skills|INSTRUCTIONS|auto-slash-command|command-instruction)\s*>/gi,
+      "\n",
+    )
+    .replace(/<\/?(?:user_info|user_query|user-request|system-reminder|system_reminder)\b[^>]*\/?>/gi, "\n")
+    .replace(/^\s*<\/?[A-Za-z_][\w:.-]*(?:\s[^>]*)?\/?>\s*$/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length < 2) return null;
+  // Skip env-info only lines if they still look like metadata.
+  if (/^(OS Version|Shell|Workspace Path|Today's date)\b/i.test(cleaned) && cleaned.length < 120) {
+    return null;
+  }
+  return cleaned.slice(0, 300);
+}
+
+/** Walk user messages and return the first usable human preview for `first_message`. */
+function pickSessionArchiveFirstMessagePreview(
+  messages: ReadonlyArray<Pick<SessionArchiveMessage, "role" | "content" | "is_system">>,
+): string | null {
+  for (const message of messages) {
+    if (message.role !== "user" || message.is_system) continue;
+    const preview = pickSessionArchiveTitlePreview(message.content);
+    if (preview) return preview;
+  }
+  return null;
 }
 
 async function lookupCodexThreadName(sessionPath: string, sessionId: string): Promise<string> {
