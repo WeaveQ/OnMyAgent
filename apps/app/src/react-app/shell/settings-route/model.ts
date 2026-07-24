@@ -531,3 +531,54 @@ export function normalizeSettingsProviderSource(
   return undefined;
 }
 
+/** UI phase for Settings → Models header chrome (status + summary). */
+export type AiProvidersUiPhase = "loading" | "empty" | "ready";
+
+/**
+ * Resolve list header phase. Empty finished state is "empty" (not-configured),
+ * never the disconnected badge used for failed connections.
+ */
+export function resolveAiProvidersUiPhase(input: {
+  discovering: boolean;
+  providerCount: number;
+}): AiProvidersUiPhase {
+  if (input.discovering) return "loading";
+  if (input.providerCount > 0) return "ready";
+  return "empty";
+}
+
+/** i18n key for the status badge next to the provider summary. */
+export function aiProvidersStatusI18nKey(phase: AiProvidersUiPhase): string {
+  if (phase === "loading") return "settings.loading_providers";
+  if (phase === "ready") return "status.connected";
+  return "settings.providers_not_configured";
+}
+
+/** i18n key for the short summary line (not the empty-block body). */
+export function aiProvidersSummaryI18nKey(phase: AiProvidersUiPhase): string {
+  if (phase === "loading") return "settings.loading_providers";
+  if (phase === "ready") return "status.providers_connected";
+  return "settings.providers_empty_summary";
+}
+
+/**
+ * Model count for OpenCode-managed inventory rows.
+ * Prefer explicit models[]; fall back to settingsConfig.models keys (live JSON).
+ */
+export function countOpenCodeProviderModels(provider: {
+  models?: ReadonlyArray<{ id?: string } | string> | null;
+  settingsConfig?: Record<string, unknown> | null;
+}): number {
+  if (Array.isArray(provider.models) && provider.models.length > 0) {
+    return provider.models.length;
+  }
+  const settings = provider.settingsConfig;
+  if (!settings || typeof settings !== "object") return 0;
+  const models = settings.models;
+  if (models && typeof models === "object" && !Array.isArray(models)) {
+    return Object.keys(models).length;
+  }
+  if (Array.isArray(models)) return models.length;
+  return 0;
+}
+

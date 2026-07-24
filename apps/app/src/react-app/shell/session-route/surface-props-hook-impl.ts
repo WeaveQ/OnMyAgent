@@ -156,6 +156,7 @@ export type SessionRouteSurfacePropsInput = {
   opencodeBaseUrl: string;
   opencodeClient: Client | null;
   pageMode: PageMode;
+  providerConnectedIds: string[];
   refreshCreatedSessionSnapshot: (sessionId: string, directory: string) => void;
   refreshRouteState: () => Promise<void> | void;
   rememberPendingCreatedSession: (workspaceId: string, sessionId: string) => void;
@@ -228,6 +229,7 @@ export function useSessionRouteSurfaceProps(
     opencodeBaseUrl,
     opencodeClient,
     pageMode,
+    providerConnectedIds,
     refreshCreatedSessionSnapshot,
     refreshRouteState,
     rememberPendingCreatedSession,
@@ -318,6 +320,7 @@ export function useSessionRouteSurfaceProps(
     // local server with the local `rem_*` id.
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
+      connectedProviderIds: providerConnectedIds,
       developerMode: false,
       modelLabel,
       onModelClick: () => {
@@ -1096,6 +1099,7 @@ export function useSessionRouteSurfaceProps(
     opencodeBaseUrl,
     opencodeClient,
     pageMode,
+    providerConnectedIds,
     refreshCreatedSessionSnapshot,
     selectedAgent,
     selectedSessionId,

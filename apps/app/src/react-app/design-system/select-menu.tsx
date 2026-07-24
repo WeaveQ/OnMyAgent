@@ -39,7 +39,10 @@ type SelectMenuProps = {
 };
 
 type PanelRect = {
-  top: number;
+  /** Distance from viewport top (bottom placement). */
+  top: number | null;
+  /** Distance from viewport bottom (top placement) — panel grows upward from trigger. */
+  bottom: number | null;
   left: number;
   width: number;
   maxHeight: number;
@@ -91,12 +94,27 @@ function computePanelRect(
   left = Math.min(left, window.innerWidth - width - VIEWPORT_PAD);
   left = Math.max(VIEWPORT_PAD, left);
 
-  const top =
-    placement === "bottom"
-      ? trigger.bottom + PANEL_GAP
-      : Math.max(VIEWPORT_PAD, trigger.top - PANEL_GAP - maxHeight);
-
-  return { top, left, width, maxHeight, placement };
+  // Bottom-open: top edge just under trigger.
+  // Top-open: CSS `bottom` so panel sits snug above trigger (do NOT subtract
+  // maxHeight — that left a huge empty gap when content is short).
+  if (placement === "bottom") {
+    return {
+      top: trigger.bottom + PANEL_GAP,
+      bottom: null,
+      left,
+      width,
+      maxHeight,
+      placement,
+    };
+  }
+  return {
+    top: null,
+    bottom: Math.max(VIEWPORT_PAD, window.innerHeight - trigger.top + PANEL_GAP),
+    left,
+    width,
+    maxHeight,
+    placement,
+  };
 }
 
 export function SelectMenu(props: SelectMenuProps) {
@@ -179,14 +197,17 @@ export function SelectMenu(props: SelectMenuProps) {
             role="listbox"
             // Solid opaque surface + isolation so glass/backdrop parents never
             // show through option rows (avoids "穿透" of underlying controls).
-            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1"
+            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1 shadow-lg"
             style={{
-              top: panelRect.top,
+              top: panelRect.top ?? "auto",
+              bottom: panelRect.bottom ?? "auto",
               left: panelRect.left,
               width: Math.max(panelRect.width, 160),
               maxHeight: panelRect.maxHeight,
-              backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
-              color: "var(--dls-text-primary)",
+              // Hard solid fill (var alone can still glass-mix under mac vibrancy).
+              backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
+              color: "var(--dls-text-primary, #f8fafc)",
+              opacity: 1,
             }}
           >
             {props.options.map((opt) => {
@@ -202,8 +223,8 @@ export function SelectMenu(props: SelectMenuProps) {
                     optionRowClasses[size],
                     "w-full border-0 outline-none focus-visible:bg-dls-hover",
                     selected
-                      ? "bg-dls-accent/15 text-dls-text"
-                      : "bg-transparent text-dls-text hover:bg-dls-hover",
+                      ? "bg-dls-list-selected text-dls-text"
+                      : "bg-dls-surface-solid text-dls-text hover:bg-dls-hover",
                   )}
                   onClick={() => {
                     props.onChange(opt.value);

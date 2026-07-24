@@ -41,7 +41,16 @@ export async function createManagedOpencodeServer(options: {
   const username = randomSecret();
   const password = randomSecret();
   const args = ["serve", "--hostname", hostname, "--port", String(port), "--cors", "*"];
-  const child: ChildProcess = spawn(options.bin?.trim() || "opencode", args, {
+  // Never fall back to a bare "opencode" PATH lookup: that silently picks
+  // stale global installs (e.g. /usr/local npm 1.14.x) and breaks plugins
+  // with "fn3 is not a function" against product-bundled pins.
+  const bin = options.bin?.trim();
+  if (!bin) {
+    throw new Error(
+      "Managed OpenCode binary path is required. Pass opencodeBin from the product runtime resolver; do not rely on PATH.",
+    );
+  }
+  const child: ChildProcess = spawn(bin, args, {
     cwd: options.cwd,
     env: {
       ...process.env,
