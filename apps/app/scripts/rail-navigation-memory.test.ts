@@ -93,7 +93,8 @@ describe("rail keep-alive contract", () => {
     for (const source of [assistant, expert]) {
       expect(source).toContain("KeepAlivePane");
       expect(source).toContain("useVisitedRailViews");
-      expect(source).toContain("writeRailView");
+      // Rail bookmark writes live in useRailLocation (openRailView), not the page hosts.
+      expect(source).toContain("useRailLocation");
       expect(source).toContain("SessionRailKeepAliveStack");
       expect(source).toContain("SessionPageMainColumn");
       expect(source).toContain('mounted={props.visitedRailViews.has("localAgent")}');
@@ -103,6 +104,14 @@ describe("rail keep-alive contract", () => {
       );
       expect(source).toContain('mounted={props.visitedRailViews.has("store")}');
     }
+    const railLocation = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/use-rail-location.ts",
+      ),
+      "utf8",
+    );
+    expect(railLocation).toContain("writeRailView");
     expect(assistant).toContain("writeAssistantCategoryMemory");
     expect(assistant).toContain("readAssistantCategoryMemory");
     // Expert rail return must not create a task

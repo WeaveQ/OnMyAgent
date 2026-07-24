@@ -20,13 +20,19 @@ import {
   SettingsStatusBadge,
 } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
+import { AiSettingsProvidersSkeleton } from "./ai-providers-skeleton";
+
+export { AiSettingsProvidersSkeleton } from "./ai-providers-skeleton";
 
 export type AiSettingsConnectedProvider = {
   id: string;
   name: string;
   source?: "env" | "api" | "config" | "custom";
   managedBy?: "opencode";
-  /** Model count for OpenCode-managed rows (from live inventory). */
+  /**
+   * Model count when known. Omit / undefined while still resolving so the row
+   * can paint without waiting on catalog size.
+   */
   modelCount?: number;
 };
 
@@ -62,6 +68,20 @@ export type AiSettingsViewProps = {
    * provider catalog (the short "cache" window after write succeeds).
    */
   providerSyncBusy?: boolean;
+  /**
+   * True when the workspace OpenCode client is available. Official provider
+   * connect needs this; custom OpenCode config can still be edited offline.
+   */
+  runtimeConnected?: boolean;
+  /**
+   * Waiting on OpenCode provider.list (first paint of the connected list).
+   * Shows list skeletons instead of a bare empty state.
+   */
+  providersLoading?: boolean;
+  /**
+   * List is shown; custom OpenCode inventory is still merging in the background.
+   */
+  inventorySyncing?: boolean;
 };
 
 function providerSourceLabel(source?: AiSettingsConnectedProvider["source"]) {
@@ -91,9 +111,21 @@ function providerStatusTone(
 
 export function AiSettingsView(props: AiSettingsViewProps) {
   const syncBusy = props.providerSyncBusy === true;
+  const providersLoading = props.providersLoading === true;
+  const inventorySyncing = props.inventorySyncing === true;
   const actionsDisabled = props.busy || syncBusy;
+  const runtimeConnected = props.runtimeConnected !== false;
+  // Custom config stays available while the list is still hydrating.
+  const connectDisabled =
+    actionsDisabled || props.providerAuthBusy || !runtimeConnected;
   const [pendingDelete, setPendingDelete] =
     useState<AiSettingsConnectedProvider | null>(null);
+  const showListSkeleton =
+    providersLoading && props.connectedProviders.length === 0;
+
+  if (showListSkeleton) {
+    return <AiSettingsProvidersSkeleton />;
+  }
 
   return (
     <LayoutStack>
@@ -117,7 +149,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               variant="outline"
               size="sm"
               onClick={() => void props.onOpenOpencodeConfig?.()}
-              disabled={actionsDisabled}
+              disabled={props.busy}
             >
               {syncBusy ? (
                 <LoadingSpinner size="sm" className="size-3.5" />
@@ -126,16 +158,29 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               )}
               {t("settings.custom_provider_config")}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void props.onOpenProviderAuth()}
-              disabled={actionsDisabled || props.providerAuthBusy}
-            >
-              {props.providerAuthBusy
-                ? t("settings.loading_providers")
-                : t("settings.connect_provider")}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={(
+                  <span className="inline-flex">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void props.onOpenProviderAuth()}
+                      disabled={connectDisabled}
+                    >
+                      {props.providerAuthBusy
+                        ? t("settings.loading_providers_list")
+                        : t("settings.connect_provider")}
+                    </Button>
+                  </span>
+                )}
+              />
+              {!runtimeConnected ? (
+                <TooltipContent className="max-w-xs">
+                  {t("settings.connect_provider_runtime_required")}
+                </TooltipContent>
+              ) : null}
+            </Tooltip>
           </div>
         </div>
 
@@ -148,6 +193,21 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           </SettingsNotice>
         ) : null}
 
+        {inventorySyncing && !syncBusy ? (
+          <SettingsNotice>
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="sm" className="size-3.5 shrink-0" />
+              {t("settings.loading_providers_inventory")}
+            </span>
+          </SettingsNotice>
+        ) : null}
+
+        {!runtimeConnected && !syncBusy ? (
+          <SettingsNotice tone="warning">
+            {t("settings.connect_provider_runtime_required_short")}
+          </SettingsNotice>
+        ) : null}
+
         <SettingsBlock>
           {props.connectedProviders.length > 0 ? (
             props.connectedProviders.map((provider) => {
@@ -155,6 +215,9 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
               const rowBusy =
                 syncBusy || props.providerActionBusyId === provider.id;
+              const modelCountKnown =
+                typeof provider.modelCount === "number" &&
+                provider.modelCount > 0;
 
               return (
                 <SettingsBlockRow
@@ -170,6 +233,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       {isCloud ? (
                         <StatusBadge size="tiny" tone="accent">
                           Cloud
+                        </StatusBadge>
+                      ) : null}
+                      {provider.id === "opencode" ? (
+                        <StatusBadge size="tiny" tone="success">
+                          {t("model_picker.free")}
                         </StatusBadge>
                       ) : null}
                       {provider.managedBy === "opencode" ? (
@@ -188,12 +256,15 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       <span className="font-mono text-dls-secondary">
                         {provider.id}
                       </span>
-                      {typeof provider.modelCount === "number" &&
-                      provider.modelCount > 0 ? (
+                      {modelCountKnown ? (
                         <span className="text-dls-secondary">
                           {t("settings.provider_model_count", {
                             count: provider.modelCount,
                           })}
+                        </span>
+                      ) : inventorySyncing ? (
+                        <span className="text-dls-secondary/70">
+                          {t("settings.provider_model_count_pending")}
                         </span>
                       ) : null}
                     </span>
@@ -301,12 +372,18 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           ) : (
             <SettingsBlockRow
               title={t("settings.no_providers_connected")}
-              description={t("settings.connect_provider_empty_hint")}
+              description={
+                runtimeConnected
+                  ? t("settings.connect_provider_empty_hint")
+                  : t("settings.connect_provider_runtime_required")
+              }
             />
           )}
         </SettingsBlock>
 
-        {props.providerConnectError ? (
+        {/* Only show connect failures when runtime is up; offline is already
+            explained by the warning notice / disabled button. */}
+        {runtimeConnected && props.providerConnectError ? (
           <SettingsNotice tone="error">
             {props.providerConnectError}
           </SettingsNotice>

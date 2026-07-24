@@ -134,8 +134,11 @@ describe("personal usage model", () => {
 
     const dailySeries = buildTokenActivitySeries(daily, "daily", "2026-07-16");
     expect(dailySeries.length).toBeGreaterThan(0);
+    // ~6 months → about 26–28 week columns (not a full year of 53).
+    expect(dailySeries.length).toBeGreaterThanOrEqual(24);
+    expect(dailySeries.length).toBeLessThanOrEqual(30);
     const totalCells = dailySeries.reduce((sum, column) => sum + column.cells.length, 0);
-    expect(totalCells).toBe(371);
+    expect(totalCells).toBe(dailySeries.length * 7);
     const lastColumn = dailySeries.at(-1);
     expect(lastColumn?.cells.at(4)).toMatchObject({ date: "2026-07-16", value: 30, level: 4 });
 

@@ -1587,6 +1587,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   engineDoctor,
   readFile,
   rm,
+  os,
   __dirname,
   workspaceStatePath,
   desktopBootstrapPath,

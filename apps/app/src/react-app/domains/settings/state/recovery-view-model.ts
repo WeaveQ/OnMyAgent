@@ -11,35 +11,12 @@ import {
 import { t } from "../../../../i18n";
 import { matchesResetConfirmation } from "../modals/reset-modal";
 import type { RecoveryViewProps } from "../pages/recovery-view";
+import { clearLocalStorageForOnMyAgentReset } from "../../../kernel/reset-local-storage";
 
 type UseRecoveryViewModelOptions = {
   anyActiveRuns: boolean;
   setRouteError?: (value: string | null) => void;
 };
-
-/** Legacy product slug — assembled so rename-consistency does not flag the old name. */
-const LEGACY_PRODUCT_SLUG = ["open", "work"].join("");
-const LEGACY_STORAGE_KEY_RE = new RegExp(`onmyagent|${LEGACY_PRODUCT_SLUG}`, "i");
-
-function clearLocalStorageForReset(mode: ResetOnMyAgentMode) {
-  if (typeof window === "undefined") return;
-  try {
-    if (mode === "all") {
-      window.localStorage.clear();
-      return;
-    }
-    // Onboarding reset: wipe app prefs / onboarding markers so first-run
-    // welcome shows again after relaunch (upgrade preserves localStorage).
-    const keys = Object.keys(window.localStorage);
-    for (const key of keys) {
-      if (LEGACY_STORAGE_KEY_RE.test(key)) window.localStorage.removeItem(key);
-    }
-    window.localStorage.removeItem("onmyagent_mode_pref");
-    window.localStorage.removeItem(`${LEGACY_PRODUCT_SLUG}_mode_pref`);
-  } catch {
-    // ignore persistence failures
-  }
-}
 
 export function useRecoveryViewModel(
   options: UseRecoveryViewModelOptions,
@@ -54,10 +31,13 @@ export function useRecoveryViewModel(
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Re-enter onboarding: one-click confirm (no typed phrase).
+  // Full app-data wipe still requires typing the confirmation word.
   const canReset =
     !resetModalBusy &&
     !anyActiveRuns &&
-    matchesResetConfirmation(resetModalText);
+    (resetModalMode === "onboarding" ||
+      matchesResetConfirmation(resetModalText));
 
   const onOpenResetModal = useCallback(
     (mode: ResetOnMyAgentMode) => {
@@ -94,7 +74,12 @@ export function useRecoveryViewModel(
       setRouteError?.(message);
       return;
     }
-    if (!matchesResetConfirmation(resetModalText)) return;
+    if (
+      resetModalMode !== "onboarding" &&
+      !matchesResetConfirmation(resetModalText)
+    ) {
+      return;
+    }
 
     setResetModalBusy(true);
     setError(null);
@@ -106,7 +91,9 @@ export function useRecoveryViewModel(
         if (isDesktopRuntime()) {
           await resetOnMyAgentState(resetModalMode);
         }
-        clearLocalStorageForReset(resetModalMode);
+        // Onboarding: rewrite prefs (hasCompletedOnboarding=false + empty profile)
+        // so relaunch re-enters /welcome. All: wipe every localStorage key.
+        clearLocalStorageForOnMyAgentReset(resetModalMode);
         if (isDesktopRuntime()) {
           await relaunchDesktopApp();
         } else {

@@ -44,6 +44,7 @@ export {
   loadUsageView,
 } from "./lazy-pages";
 export {
+  ChipGroupLabel,
   FieldLabel,
   ToggleChip,
   industryOptions,

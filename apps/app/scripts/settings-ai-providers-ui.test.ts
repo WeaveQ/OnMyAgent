@@ -71,6 +71,9 @@ describe("ai providers chrome i18n keys", () => {
       expect(src).toContain("settings.providers_not_configured");
       expect(src).toContain("settings.providers_empty_summary");
       expect(src).toContain("settings.provider_model_count");
+      expect(src).toContain("settings.provider_model_count_pending");
+      expect(src).toContain("settings.loading_providers_list");
+      expect(src).toContain("settings.loading_providers_inventory");
       expect(src).toContain("settings.connect_provider_empty_hint");
       // Dual-path empty hint must mention custom config path, not only connect.
       if (locale === "en") {
@@ -129,8 +132,26 @@ describe("settings AI view wiring (structural)", () => {
       "utf8",
     );
     expect(aiView).toContain("settings.provider_model_count");
+    expect(aiView).toContain("settings.provider_model_count_pending");
+    expect(aiView).toContain("settings.loading_providers_list");
+    expect(aiView).toContain("settings.loading_providers_inventory");
     expect(aiView).toContain("settings.connect_provider_empty_hint");
     expect(aiView).toContain("modelCount");
+    expect(aiView).toContain("providersLoading");
+    expect(aiView).toContain("inventorySyncing");
+    expect(aiView).toContain("AiSettingsProvidersSkeleton");
+  });
+
+  test("ai-providers skeleton is a standalone light module", () => {
+    const skeleton = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/settings/pages/ai-providers-skeleton.tsx",
+      ),
+      "utf8",
+    );
+    expect(skeleton).toContain("export function AiSettingsProvidersSkeleton");
+    expect(skeleton).toContain("settings.loading_providers_list");
   });
 
   test("settings-route uses phase helpers and never empty→disconnected_label", () => {
@@ -144,9 +165,25 @@ describe("settings AI view wiring (structural)", () => {
     expect(route).toContain("resolveAiProvidersUiPhase");
     expect(route).toContain("aiProvidersStatusI18nKey");
     expect(route).toContain("countOpenCodeProviderModels");
+    expect(route).toContain("providersLoading={providersDiscovering}");
+    expect(route).toContain("inventorySyncing=");
+    expect(route).toContain("SettingsAiTabSuspense");
     // Empty branch must not hard-code disconnected for finished empty list.
     expect(route).not.toMatch(
       /providerCount:\s*connectedProviders\.length[\s\S]{0,200}status\.disconnected_label/,
     );
+  });
+
+  test("AI tab Suspense falls back to providers skeleton", () => {
+    const lazyTabs = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/shell/settings-route/lazy-tab-views.tsx",
+      ),
+      "utf8",
+    );
+    expect(lazyTabs).toContain("SettingsAiTabSuspense");
+    expect(lazyTabs).toContain("AiSettingsProvidersSkeleton");
+    expect(lazyTabs).toContain("ai-providers-skeleton");
   });
 });

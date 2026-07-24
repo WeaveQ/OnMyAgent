@@ -15,6 +15,7 @@ import {
   formatPersonalTokenCount,
   formatTaskDuration,
   monthLabelColumns,
+  trimLeadingEmptyActivityColumns,
   type PersonalUsageClient,
   type TokenActivityCell,
   type TokenActivityColumn,
@@ -49,14 +50,12 @@ const weeklyCellClass = {
     "bg-[color-mix(in_srgb,var(--profile-usage-accent)_78%,transparent)] group-hover:bg-[var(--profile-usage-accent)] group-hover:ring-1 group-hover:ring-[color-mix(in_srgb,var(--profile-usage-accent)_55%,transparent)]",
 };
 
-function usageActivityModeLabel(mode: TokenActivityMode): string {
+function usageActivityModeLabel(mode: Exclude<TokenActivityMode, "cumulative">): string {
   switch (mode) {
     case "daily":
       return t("session.usage_daily");
     case "weekly":
       return t("session.usage_weekly");
-    case "cumulative":
-      return t("session.usage_cumulative");
   }
 }
 
@@ -100,6 +99,18 @@ function formatDuration(minutes: number) {
   const duration = formatTaskDuration(minutes);
   if (duration.hours === 0) {
     return t("session.usage_duration_minutes", { minutes: duration.minutes });
+  }
+  // Multi-day: "36天 21小时" — shorter than "885小时6分钟" and avoids mid-unit wrap.
+  const days = Math.floor(duration.hours / 24);
+  const remHours = duration.hours % 24;
+  if (days >= 1) {
+    if (remHours === 0) {
+      return t("session.usage_duration_days", { days });
+    }
+    return t("session.usage_duration_days_hours", { days, hours: remHours });
+  }
+  if (duration.minutes === 0) {
+    return t("session.usage_duration_hours", { hours: duration.hours });
   }
   return t("session.usage_duration_hours_minutes", duration);
 }
@@ -157,28 +168,21 @@ function activityTooltip(props: {
       tokens: formatLocalizedTokenCount(props.cell.value),
     });
   }
-  if (props.mode === "weekly") {
-    const date = formatActivityDate(props.column.weekStart, "weekly");
-    return t("session.usage_weekly_tooltip", {
-      date,
-      tokens: formatLocalizedTokenCount(props.column.weeklyValue),
-    });
-  }
   const date = formatActivityDate(props.column.weekStart, "weekly");
-  return t("session.usage_cumulative_tooltip", {
+  return t("session.usage_weekly_tooltip", {
     date,
-    tokens: formatLocalizedTokenCount(props.column.cumulativeValue),
+    tokens: formatLocalizedTokenCount(props.column.weeklyValue),
   });
 }
 
 function Metric(props: { label: string; value: string }) {
   return (
-    <div className="min-w-0 px-2.5 py-3 text-center sm:px-3">
-      {/* No truncate: settings pane is often narrower than 5 labels in a row. */}
-      <div className="text-base font-medium tabular-nums tracking-tight text-dls-text sm:text-lg">
+    <div className="flex min-h-20 min-w-0 flex-col items-center justify-center gap-1.5 px-3 py-4 text-center sm:min-h-24 sm:px-4 sm:py-5">
+      {/* Keep units intact; allow wrap only between segments on very narrow cells. */}
+      <div className="max-w-full text-sm font-medium leading-snug tracking-tight text-dls-text break-keep sm:text-base sm:leading-tight">
         {props.value}
       </div>
-      <div className="mt-1 text-xs leading-snug text-dls-secondary sm:text-sm">
+      <div className="max-w-full text-xs leading-snug text-dls-secondary sm:text-sm">
         {props.label}
       </div>
     </div>
@@ -197,19 +201,34 @@ function ActivityGrid(props: {
     y: number;
   } | null>(null);
 
+  // Stretch columns when few weeks remain after trimming empty leading weeks,
+  // so the heatmap fills the card instead of leaving a huge empty left gutter.
+  const stretchColumns = props.columns.length > 0 && props.columns.length < 40;
+
   return (
     <div
-      className="relative [--profile-usage-accent:#339cff] dark:[--profile-usage-accent:#99ceff]"
+      className="relative w-full [--profile-usage-accent:#339cff] dark:[--profile-usage-accent:#99ceff]"
       role="grid"
       aria-label={t("session.usage_activity_grid_label")}
       onMouseLeave={() => setHovered(null)}
     >
-      {/* min-w-max + parent overflow-x-auto: full year stays readable without clipping. */}
-      <div className="flex min-w-max justify-end gap-1">
+      {/*
+        Leading empty weeks are trimmed in the page; start from the left and
+        either hug content (scroll when full year) or stretch to fill.
+      */}
+      <div
+        className={cn(
+          "flex gap-1",
+          stretchColumns ? "w-full" : "min-w-max",
+        )}
+      >
         {props.columns.map((column) => (
           <div
             key={column.weekStart}
-            className="group flex shrink-0 flex-col gap-1"
+            className={cn(
+              "group flex flex-col gap-1",
+              stretchColumns ? "min-w-0 flex-1" : "shrink-0",
+            )}
           >
             {column.cells.map((cell, index) => {
               if (props.mode === "daily" && cell.date > props.today) {
@@ -225,9 +244,11 @@ function ActivityGrid(props: {
                   role="gridcell"
                   tabIndex={keyboardTarget ? 0 : -1}
                   className={cn(
-                    "size-3 shrink-0 rounded-xs",
-                    "transition-colors outline-none",
+                    "rounded-xs transition-colors outline-none",
                     "focus-visible:ring-2 focus-visible:ring-dls-accent",
+                    stretchColumns
+                      ? "aspect-square w-full min-h-3 max-h-4"
+                      : "size-3 shrink-0",
                     props.mode === "daily"
                       ? activityLevelClass[cell.level]
                       : cell.level > 0
@@ -283,11 +304,12 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
     () => resolveProfileIdentity(props.identity),
     [props.identity],
   );
-  // Full trailing-year window (~53 weeks). Do not trim leading empty weeks —
-  // that left a blank gap on the left and only a short right-aligned strip.
+  // Last ~6 months; still trim any leading empty weeks inside that window.
   const activity = useMemo(
     () =>
-      buildTokenActivitySeries(usage.summary.daily, activityMode, today),
+      trimLeadingEmptyActivityColumns(
+        buildTokenActivitySeries(usage.summary.daily, activityMode, today),
+      ),
     [activityMode, today, usage.summary.daily],
   );
   const monthLabels = useMemo(
@@ -389,8 +411,8 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
               aria-label={t("session.usage_summary_label")}
               className={cn(
                 "mt-12 grid gap-px overflow-hidden rounded-xl border border-dls-border bg-dls-border",
-                // Settings content is often mid-width: wrap before clipping Chinese labels.
-                "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
+                // Mid-width settings panes: wrap early so 5 Chinese labels are not crushed.
+                "grid-cols-2 sm:grid-cols-3 xl:grid-cols-5",
                 "[&>*]:bg-dls-surface-solid",
               )}
             >
@@ -409,7 +431,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   role="tablist"
                   aria-label={t("session.usage_activity_mode_label")}
                 >
-                  {(["daily", "weekly", "cumulative"] as const).map((mode) => (
+                  {(["daily", "weekly"] as const).map((mode) => (
                     <NavTabButton
                       key={mode}
                       type="button"
@@ -431,9 +453,8 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   {t("session.usage_empty")}
                 </EmptyStateBox>
               ) : (
-                <div className="mt-3 overflow-x-auto pb-2">
-                  {/* w-max keeps heatmap + month labels one scrollable unit. */}
-                  <div className="inline-flex w-max min-w-full flex-col">
+                <div className="mt-3 w-full overflow-x-auto pb-2">
+                  <div className="flex w-full min-w-0 flex-col">
                     <ActivityGrid
                       columns={activity}
                       mode={activityMode}

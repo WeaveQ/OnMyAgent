@@ -88,6 +88,10 @@ export default {
     "Applying configuration and refreshing the model list…",
   "settings.configure": "Configure",
   "settings.connect_provider": "Connect provider",
+  "settings.connect_provider_runtime_required":
+    "Connect a workspace runtime first (open a chat from the main app and wait for the engine). Official provider sign-in needs a live connection.",
+  "settings.connect_provider_runtime_required_short":
+    "Runtime not connected — cannot load the official provider list",
   "settings.connection": "Connection",
   "settings.connection_failed": "Connection failed",
   "settings.connection_title": "Connection",
@@ -354,6 +358,10 @@ export default {
   "settings.last_stderr": "Last stderr",
   "settings.last_stdout": "Last stdout",
   "settings.loading_providers": "Loading providers...",
+  "settings.loading_providers_list": "Loading providers…",
+  "settings.loading_providers_inventory":
+    "Syncing custom providers in the background…",
+  "settings.provider_model_count_pending": "Models…",
   "settings.managed_by_env": "Managed by env",
   "settings.managed_by_opencode": "Managed by the local engine",
   "settings.model": "Model",
@@ -452,9 +460,9 @@ export default {
   "settings.report_issue": "Report an issue",
   "settings.reset": "Reset",
   "settings.reset_app_data": "Reset app data",
-  "settings.reset_app_data_description": `More aggressive. Clears ${APP_NAME} cache + app data`,
+  "settings.reset_app_data_description": `Full wipe of ${APP_NAME} on this device: app data, ~/.onmyagent, agent-management catalog (~/.studio-switch), and local preferences. Does not delete Claude/Codex/OpenCode CLI configs.`,
   "settings.reset_app_data_title": "Reset app data",
-  "settings.reset_app_data_warning": `Clears ${APP_NAME} cache and app data on this device.`,
+  "settings.reset_app_data_warning": `Deletes ${APP_NAME} Electron data, ~/.onmyagent, ~/.studio-switch, and preferences. Shared CLI agent configs (~/.claude, ~/.codex, ~/.config/opencode) are kept.`,
   "settings.reset_button": "Reset",
   "settings.reset_cancel": "Cancel",
   "settings.reset_config_defaults": "Reset to defaults",
@@ -464,14 +472,19 @@ export default {
   "settings.reset_confirmation_placeholder": "Type: I confirm reset",
   "settings.reset_confirmation_word": "I confirm reset",
   "settings.reset_onboarding": "Reset onboarding",
-  "settings.reset_onboarding_description": `Clears ${APP_NAME} preferences and restarts the app`,
+  "settings.reset_onboarding_confirm_button": "Re-enter setup",
+  "settings.reset_onboarding_confirm_desc":
+    "This clears preferences and profile, then restarts into the setup guide.",
+  "settings.reset_onboarding_description": `Clear preferences and profile, then re-open the setup guide (workspaces kept)`,
   "settings.reset_onboarding_title": "Reset onboarding",
-  "settings.reset_onboarding_warning": `Clears ${APP_NAME} local preferences and workspace onboarding markers.`,
+  "settings.reset_onboarding_warning": `Clears preferences, onboarding profile, and completion flags. After restart you will go through the guide again. Workspaces and shared CLI configs are kept.`,
   "settings.reset_onmyagent_desc_dev": `With dev mode active, it only clears the isolated engine dev state inside ${APP_NAME}-dev-data.`,
   "settings.reset_onmyagent_desc_prod": `With dev mode active, it only clears the isolated engine dev state inside ${APP_NAME}-dev-data.`,
   "settings.reset_onmyagent_title": `Reset ${APP_NAME} + engine state`,
   "settings.reset_requires_confirm":
     "Requires typing “I confirm reset” and will restart the app.",
+  "settings.reset_requires_confirm_app_data_only":
+    "“Reset app data” requires typing the confirmation phrase; “Reset onboarding” only needs a confirm click.",
   "settings.reset_startup": "Reset default startup mode",
   "settings.reset_startup_pref": "Reset startup preference",
   "settings.reset_stop_active_runs": "Stop active runs before resetting.",
@@ -645,13 +658,13 @@ export default {
   "settings.environment.delete_variable": "Delete {key}",
   "settings.environment.deleting": "Deleting…",
   "settings.environment.description":
-    "Save API keys and tokens for local agents, skills, and MCP servers. Secrets stay on this device; changes become available after you apply them",
+    "API keys for this device only. Apply changes to take effect.",
   "settings.environment.edit_title": "Edit environment variable",
   "settings.environment.empty_body":
-    "Add keys like ANTHROPIC_API_KEY, GOOGLE_API_KEY, ELEVENLABS_API_KEY, or GITHUB_TOKEN for services your agents and MCP servers need.",
+    "e.g. ANTHROPIC_API_KEY, GITHUB_TOKEN",
   "settings.environment.empty_title": "No environment variables yet",
   "settings.environment.empty_value": "(empty)",
-  "settings.environment.footer_hint": `${APP_NAME}_ / OPENCODE_ are reserved; existing environment variables win`,
+  "settings.environment.footer_hint": `ONMYAGENT_ / OPENCODE_ are reserved`,
   "settings.environment.override_hint": `Existing environment variables take precedence over saved values`,
   "settings.environment.hide": "Hide",
   "settings.environment.hide_value": "Hide value for {key}",
@@ -728,7 +741,7 @@ export default {
     "JavaScript runtime built on Chrome V8, for server-side development",
   "settings.software_env.python_desc":
     "General-purpose language for scripting, automation, and data processing",
-  "settings.software_env.runtime_name": "Agent runtime",
+  "settings.software_env.runtime_name": "OpenCode",
   "settings.software_env.opencode_desc":
     "Local agent runtime used by OnMyAgent to run tasks",
   "settings.tab_extensions": "Extensions",

@@ -306,6 +306,11 @@ function ModelOptionRow(props: {
           <div className={["text-sm flex items-center justify-between gap-2", active ? "font-medium text-dls-text" : "text-current"].join(" ")}>
             <span className="truncate">{opt.title}</span>
             <span className="flex shrink-0 items-center gap-1.5">
+              {opt.isFree ? (
+                <StatusBadge shape="soft" size="tiny" tone="success">
+                  {t("model_picker.free")}
+                </StatusBadge>
+              ) : null}
               {opt.source === "cloud" ? (
                 <StatusBadge shape="soft" size="tiny" tone="accent">
                   Cloud

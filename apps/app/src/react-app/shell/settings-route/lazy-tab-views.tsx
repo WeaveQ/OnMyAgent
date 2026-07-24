@@ -24,6 +24,9 @@ import {
   loadUpdatesView,
   loadUsageView,
 } from "../../domains/settings";
+// Skeleton is a light static import so AI-tab Suspense can match list chrome
+// without pulling the full AiSettingsView chunk into the host bundle.
+import { AiSettingsProvidersSkeleton } from "../../domains/settings/pages/ai-providers-skeleton";
 
 const tabFallbackClass = {
   shell: "flex min-h-[12rem] w-full items-center justify-center py-10",
@@ -49,6 +52,15 @@ export function SettingsTabSuspense(props: { children: ReactNode }) {
         </div>
       }
     >
+      {props.children}
+    </Suspense>
+  );
+}
+
+/** AI / models tab: list-shaped skeleton instead of a centered spinner. */
+export function SettingsAiTabSuspense(props: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<AiSettingsProvidersSkeleton />}>
       {props.children}
     </Suspense>
   );
@@ -87,6 +99,9 @@ export const LazyAuthorizedFoldersPanel = lazy(() =>
     default: module.AuthorizedFoldersPanel,
   })),
 );
+
+// Prefetch on module evaluate so Settings → 模型 first open skips the chunk wait.
+void loadAiSettingsView();
 
 export const LazyAiSettingsView = lazy(() =>
   loadAiSettingsView().then((module) => ({

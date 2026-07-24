@@ -37,6 +37,7 @@ export type ResetModalProps = {
 };
 
 export function ResetModal(props: ResetModalProps) {
+  const isOnboarding = props.mode === "onboarding";
   const confirmWord = getResetConfirmationWord();
   const resetConfirmationHint = () => {
     const template = t("settings.reset_confirmation_hint");
@@ -62,18 +63,20 @@ export function ResetModal(props: ResetModalProps) {
       <AlertDialogContent className="w-full max-w-xl overflow-hidden sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {props.mode === "onboarding"
+            {isOnboarding
               ? t("settings.reset_onboarding_title")
               : t("settings.reset_app_data_title")}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {resetConfirmationHint()}
+            {isOnboarding
+              ? t("settings.reset_onboarding_confirm_desc")
+              : resetConfirmationHint()}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
           <div className="mt-6 space-y-4">
             <NoticeBox>
-              {props.mode === "onboarding"
+              {isOnboarding
                 ? t("settings.reset_onboarding_warning")
                 : t("settings.reset_app_data_warning")}
             </NoticeBox>
@@ -84,14 +87,17 @@ export function ResetModal(props: ResetModalProps) {
               </div>
             ) : null}
 
-            <LabeledInput
-              disabled={props.busy}
-              label={t("settings.reset_confirmation_label")}
-              onChange={(event) => props.onTextChange(event.currentTarget.value)}
-              placeholder={t("settings.reset_confirmation_placeholder")}
-              type="text"
-              value={props.text}
-            />
+            {/* Full app-data wipe still requires typing the confirmation phrase. */}
+            {!isOnboarding ? (
+              <LabeledInput
+                disabled={props.busy}
+                label={t("settings.reset_confirmation_label")}
+                onChange={(event) => props.onTextChange(event.currentTarget.value)}
+                placeholder={t("settings.reset_confirmation_placeholder")}
+                type="text"
+                value={props.text}
+              />
+            ) : null}
           </div>
 
           <AlertDialogFooter>
@@ -99,11 +105,13 @@ export function ResetModal(props: ResetModalProps) {
               {t("settings.reset_cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
+              variant={isOnboarding ? "default" : "destructive"}
               onClick={props.onConfirm}
               disabled={!props.canReset}
             >
-              {t("settings.reset_confirm_button")}
+              {isOnboarding
+                ? t("settings.reset_onboarding_confirm_button")
+                : t("settings.reset_confirm_button")}
             </AlertDialogAction>
           </AlertDialogFooter>
       </AlertDialogContent>
