@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -93,11 +92,10 @@ import {
 
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
-    // Folders stay neutral; use primary text at partial opacity so dark mode
-    // does not wash them out like pure secondary strokes on muted panels.
+    // Solid primary stroke — name column must not look washed / translucent.
     return (
       <Folder
-        className="size-4 shrink-0 text-dls-text/75"
+        className="size-4 shrink-0 text-dls-text opacity-100"
         strokeWidth={1.75}
         aria-hidden="true"
       />
@@ -512,8 +510,8 @@ function FilesListEmptyState(props: {
 }
 
 /**
- * Prefer the folder the user picked for the tool/composer workspace, then the
- * active session directory, then the app workspace root.
+ * Legacy helper for tool/session-scoped roots. The Files rail no longer uses
+ * this — it always lists the OnMyAgent-selected workspace folder.
  */
 export function resolveToolWorkspaceFileRoot(input: {
   draftWorkspaceDirectory?: string | null;
@@ -532,9 +530,9 @@ export function WorkspaceFilesPage(props: {
   workspaceId: string;
   workspaceRoot: string;
   /**
-   * Directory to list. Prefer the tool-area folder the user selected
-   * (`draftWorkspaceDirectory` / session dir). When omitted, falls back to
-   * `workspaceRoot` (legacy full-workspace listing).
+   * Directory to list. Callers should pass the OnMyAgent-selected workspace
+   * folder (`workspaceRoot`) so the list does not follow session/tool context.
+   * When omitted, falls back to `workspaceRoot`.
    */
   fileRoot?: string | null;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
@@ -921,8 +919,12 @@ export function WorkspaceFilesPage(props: {
         </SegmentedTabGroup>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
-        <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
+      {/*
+        Fixed chrome (title / breadcrumb / table header); only the file rows scroll.
+        Outer must be overflow-hidden so the whole page does not scroll as one unit.
+      */}
+      <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
           {activeTab === "cloud" ? (
             <CloudDriveEmptyState />
           ) : (
@@ -932,7 +934,7 @@ export function WorkspaceFilesPage(props: {
               <h1 className={typeScale.pageTitle}>
                 {t("files.title")}
               </h1>
-              <p className={cn(typeScale.pageSubtitle, "mt-1")}>
+              <p className={cn(typeScale.pageSubtitle, "mt-1 truncate")}>
                 {t("files.description")}
               </p>
             </div>
@@ -1020,8 +1022,7 @@ export function WorkspaceFilesPage(props: {
             </div>
           </div>
 
-          <div className="relative min-h-0 flex-1">
-            <div className="h-full min-h-0 overflow-auto">
+          <div className="relative flex min-h-0 flex-1 flex-col">
               {loading && entries.length === 0 ? (
                 <div className="flex h-full min-h-48 items-center justify-center text-sm text-dls-secondary">
                   {t("files.loading")}
@@ -1031,11 +1032,11 @@ export function WorkspaceFilesPage(props: {
                   {error}
                 </div>
               ) : (
-                <div className="flex min-h-0 flex-col gap-3 pb-4">
+                <div className="flex min-h-0 flex-1 flex-col gap-3">
                   <nav
                     data-workspace-file-breadcrumb="true"
                     aria-label={t("files.breadcrumb_label")}
-                    className="flex min-h-8 flex-wrap items-center gap-0.5 rounded-lg border border-dls-border/70 bg-dls-surface-muted/40 px-2 py-1 text-sm text-dls-secondary"
+                    className="flex min-h-8 shrink-0 flex-wrap items-center gap-0.5 rounded-lg border border-dls-border/70 bg-dls-surface-muted/40 px-2 py-1 text-sm text-dls-secondary"
                   >
                     <Button
                       type="button"
@@ -1075,23 +1076,44 @@ export function WorkspaceFilesPage(props: {
                     })}
                   </nav>
                   {currentDirectory.children.length > 0 ? (
-                    <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
-                      <Table>
-                        <TableHeader>
+                    /*
+                      Scroll only file rows. Use a raw <table> (not Table wrapper)
+                      so sticky thead is not trapped by Table's overflow-x-auto shell.
+                      Sticky header + name column must use solid surfaces — glass
+                      tokens (dls-surface*) are translucent and let row text bleed through.
+                    */
+                    <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
+                      <table className="w-full caption-bottom text-sm">
+                        <TableHeader className="sticky top-0 z-10">
                           <TableRow className="hover:bg-transparent">
-                            <TableHead className="h-10 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                            <TableHead
+                              className="h-10 border-b border-dls-border bg-dls-surface-solid text-xs font-medium text-dls-secondary"
+                              style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
+                            >
                               {t("files.column_name")}
                             </TableHead>
-                            <TableHead className="h-10 w-28 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                            <TableHead
+                              className="h-10 w-28 border-b border-dls-border bg-dls-surface-solid text-xs font-medium text-dls-secondary"
+                              style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
+                            >
                               {t("files.column_type")}
                             </TableHead>
-                            <TableHead className="h-10 w-40 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                            <TableHead
+                              className="h-10 w-40 border-b border-dls-border bg-dls-surface-solid text-xs font-medium text-dls-secondary"
+                              style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
+                            >
                               {t("files.column_updated")}
                             </TableHead>
-                            <TableHead className="h-10 w-24 bg-dls-surface-muted/50 text-xs font-medium text-dls-secondary">
+                            <TableHead
+                              className="h-10 w-24 border-b border-dls-border bg-dls-surface-solid text-xs font-medium text-dls-secondary"
+                              style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
+                            >
                               {t("files.column_size")}
                             </TableHead>
-                            <TableHead className="h-10 w-12 bg-dls-surface-muted/50">
+                            <TableHead
+                              className="h-10 w-12 border-b border-dls-border bg-dls-surface-solid"
+                              style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
+                            >
                               <span className="sr-only">
                                 {t("files.column_actions")}
                               </span>
@@ -1130,7 +1152,13 @@ export function WorkspaceFilesPage(props: {
                             <TableCell className="py-2">
                               <span className="flex min-w-0 items-center gap-2.5">
                                 <FileKindIcon node={node} fileRoot={fileRoot} />
-                                <span className="truncate text-sm text-dls-text">
+                                <span
+                                  className="truncate text-sm font-medium"
+                                  style={{
+                                    color: "var(--dls-text-primary)",
+                                    opacity: 1,
+                                  }}
+                                >
                                   {node.name}
                                 </span>
                                 {node.kind === "dir" ? (
@@ -1185,10 +1213,10 @@ export function WorkspaceFilesPage(props: {
                           </TableRow>
                           ))}
                         </TableBody>
-                      </Table>
+                      </table>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-dls-border bg-dls-surface/50">
+                    <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dashed border-dls-border bg-dls-surface/50">
                       <FilesListEmptyState
                         filtered={typeFilter !== "all" || Boolean(query.trim())}
                         sessionScoped={requiresSessionFileRoot}
@@ -1197,7 +1225,6 @@ export function WorkspaceFilesPage(props: {
                   )}
                 </div>
               )}
-            </div>
             <FilePreviewDrawer
               open={Boolean(selectedFile && selectedTarget)}
               file={selectedFile}

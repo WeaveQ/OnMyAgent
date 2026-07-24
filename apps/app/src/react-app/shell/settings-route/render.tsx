@@ -162,7 +162,6 @@ import {
 } from "./remote-workspace-actions";
 import { abortSessionSafe } from "../../../app/lib/opencode-session";
 import { useReloadCoordinator } from "../reload-coordinator";
-import { buildFeedbackUrl } from "../../../app/lib/feedback";
 import { getDenInferenceUrl } from "../../../app/lib/den";
 import { readActiveWorkspaceId, writeActiveWorkspaceId } from "../session-memory";
 import {
@@ -1468,7 +1467,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             <LazyGeneralSettingsView
               onNavigateTab={(tab) => navigateSettingsPath(tab)}
               developerMode={developerMode}
-              onSendFeedback={() => platform.openLink(buildFeedbackUrl({ entrypoint: "settings" }))}
               onReportIssue={() => platform.openLink("https://github.com/WeaveQ/onmyagent/issues/new?template=bug.yml")}
             />
           </SettingsTabSuspense>
@@ -1754,10 +1752,37 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         workspaceRoot={selectedWorkspaceRoot}
         onOpenChange={setOpenCodeProviderConfigOpen}
         onSaved={async () => {
+          // syncLive already rewrote opencode.json. Soft provider-list refresh
+          // alone leaves the session composer on a stale catalog until manual
+          // engine reload — mirror installLocalProvider: reload engine, then
+          // force both settings auth store + React Query provider lists.
           setConfigActionStatus(t("settings.config_updated"));
-          const managedProviders = await loadOpenCodeManagedProviders();
-          setOpenCodeManagedProviders(managedProviders);
-          await providerAuthStore.refreshProviders();
+          try {
+            const managedProviders = await loadOpenCodeManagedProviders();
+            setOpenCodeManagedProviders(managedProviders);
+          } catch {
+            // Managed inventory is best-effort; engine reload still matters.
+          }
+          let reloaded = false;
+          try {
+            reloaded = await reloadWorkspaceEngineFromUi();
+          } catch {
+            reloaded = false;
+          }
+          if (!reloaded) {
+            reloadCoordinator.markReloadRequired("config", {
+              type: "config",
+              name: "opencode.json",
+              action: "updated",
+            });
+          }
+          await providerAuthStore
+            .refreshProviders({ dispose: true })
+            .catch(() => null);
+          // Belt-and-suspenders if reload path skipped query invalidation.
+          await refreshProviderListQueries(getReactQueryClient()).catch(
+            () => null,
+          );
         }}
       />
 

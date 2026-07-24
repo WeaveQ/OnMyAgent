@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   LifeBuoy,
-  MessageCircle,
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
@@ -25,7 +24,6 @@ const settingsOverviewTextClass = {
 export type GeneralSettingsViewProps = {
   onNavigateTab: (tab: SettingsTab) => void;
   developerMode: boolean;
-  onSendFeedback: () => void;
   onReportIssue: () => void;
 };
 
@@ -196,34 +194,25 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
 
       <OverviewSection label={t("settings.help_title")}>
         <SettingsSurfaceCard size="compact" tone="surface" className="p-4">
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <LifeBuoy size={14} className="shrink-0 text-dls-secondary" />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <LifeBuoy size={14} className="shrink-0 text-dls-secondary" />
+              <div className="min-w-0">
                 <div className={settingsOverviewTextClass.cardTitle}>
                   {t("settings.feedback_title")}
                 </div>
+                <p
+                  className={cn(
+                    "mt-0.5 max-w-[52ch]",
+                    settingsOverviewTextClass.cardDescription,
+                    "line-clamp-2",
+                  )}
+                >
+                  {t("settings.feedback_desc")}
+                </p>
               </div>
-              <p
-                className={cn(
-                  "mt-1.5 max-w-[52ch]",
-                  settingsOverviewTextClass.cardDescription,
-                  "line-clamp-none",
-                )}
-              >
-                {t("settings.feedback_desc")}
-              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={props.onSendFeedback}
-              >
-                <MessageCircle size={12} />
-                {t("settings.send_feedback")}
-                <ArrowUpRight size={12} />
-              </Button>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"

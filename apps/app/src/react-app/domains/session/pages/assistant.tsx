@@ -83,10 +83,7 @@ import {
   writeAutomationFocus,
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
-import {
-  WorkspaceFilesPage,
-  resolveToolWorkspaceFileRoot,
-} from "../../workspace";
+import { WorkspaceFilesPage } from "../../workspace";
 import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
   AgentConversationPanel,
@@ -1181,14 +1178,15 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.runtimeWorkspaceId ??
                             props.selectedWorkspaceId
                           }
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          fileRoot={resolveToolWorkspaceFileRoot({
-                            draftWorkspaceDirectory:
-                              props.surface?.draftWorkspace
-                                ?.draftWorkspaceDirectory,
-                            sessionFileRoot: props.selectedSessionFileRoot,
-                            workspaceRoot: props.selectedWorkspaceRoot,
-                          })}
+                          workspaceRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
+                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
+                          fileRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
                           onOpenArtifact={openTarget}
                           onEditError={() => showToast({
                             tone: "error",

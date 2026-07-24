@@ -34,7 +34,6 @@ import type { ComposerAccessMode } from "../../../../../app/types";
 import type { AssistantCategoryId } from "../personal-assistant-config";
 import {
   addRecentWorkspace,
-  getRecentWorkspaces,
   workspaceDisplayName,
 } from "../../../local-agents";
 import {
@@ -45,6 +44,7 @@ import {
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
 } from "../../../messaging";
+import { listSelectableAssistantSpaceDirectories } from "../../sidebar/known-assistant-spaces";
 
 function draftWorkspaceLabel(path: string | null | undefined): string {
   const trimmed = path?.trim() ?? "";
@@ -116,57 +116,20 @@ export function SessionDraftWorkspaceAccessory(props: {
   }, []);
 
   /**
-   * Only sidebar Spaces directories — exclude automation output folders.
-   * (Automation also writes assistantSessionWorkspaces; those must not appear here.)
-   * Recent picks are included only when they are not automation dirs (covers
-   * newly created spaces that do not yet have a session).
+   * Only directories that already appear under left sidebar 「空间」
+   * (session-bound spaces). Recent-only picks are not selectable here.
+   * Create / open-local remain available below the list.
    */
   const knownWorkspaces = useMemo(() => {
     void listTick;
-    const automationRecords = ownerWorkspaceId
-      ? readAutomationSessionRecords(ownerWorkspaceId)
-      : [];
-    const automationSessionIds = new Set(
-      automationRecords.map((record) => record.sessionId),
-    );
-    const automationDirs = new Set(
-      automationRecords
-        .map((record) => record.outputDirectory.trim())
-        .filter(Boolean),
-    );
-    // Legacy automation folders: same prefix as automation-page LEGACY_AUTOMATION_GROUP_PREFIX.
-    const LEGACY_AUTOMATION_DIR_PREFIX = "\u81EA\u52A8\u5316\u4EFB\u52A1-";
-    const isAutomationDir = (path: string) => {
-      const next = path.trim();
-      if (!next || automationDirs.has(next)) return true;
-      const base = workspaceDisplayName(next);
-      return base.startsWith(LEGACY_AUTOMATION_DIR_PREFIX) || /^automation[-_]/i.test(base);
-    };
-
-    const seen = new Set<string>();
-    const out: string[] = [];
-    const push = (path: string) => {
-      const next = path.trim();
-      if (!next || seen.has(next) || isAutomationDir(next)) return;
-      seen.add(next);
-      out.push(next);
-    };
-
-    for (const record of readAssistantSessionWorkspaces(
-      ownerWorkspaceId || undefined,
-    )) {
-      if (automationSessionIds.has(record.sessionId)) continue;
-      push(record.directory);
-    }
-    // Only keep recent picks that are already known space dirs — do not re-add
-    // automation leftovers that landed in localStorage recent list.
-    for (const path of getRecentWorkspaces()) {
-      if (isAutomationDir(path)) continue;
-      // Prefer paths already in space set; still allow recent non-auto picks
-      // so a freshly created space (no session yet) remains visible.
-      push(path);
-    }
-    return out;
+    return listSelectableAssistantSpaceDirectories({
+      sessionBindings: readAssistantSessionWorkspaces(
+        ownerWorkspaceId || undefined,
+      ),
+      automationRecords: ownerWorkspaceId
+        ? readAutomationSessionRecords(ownerWorkspaceId)
+        : [],
+    });
   }, [listTick, ownerWorkspaceId]);
 
   const filtered = useMemo(() => {

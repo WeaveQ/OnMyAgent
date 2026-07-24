@@ -109,10 +109,7 @@ import {
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
 import { MessagingChannelsPage } from "../../messaging";
-import {
-  WorkspaceFilesPage,
-  resolveToolWorkspaceFileRoot,
-} from "../../workspace";
+import { WorkspaceFilesPage } from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
@@ -310,6 +307,12 @@ export type SessionPageProps = {
     workspaceType?: WorkspaceInfo["workspaceType"];
   };
   selectedWorkspaceRoot: string;
+  /**
+   * OnMyAgent-selected workspace folder path (registry `workspace.path`).
+   * Used by the Files rail so the list does not follow session/tool directories.
+   * When omitted, falls back to `selectedWorkspaceRoot`.
+   */
+  workspaceFilesRoot?: string | null;
   selectedSessionFileRoot?: string | null;
   selectedWorkspaceError?: string | null;
   runtimeWorkspaceId: string | null;
@@ -843,14 +846,15 @@ export function SessionPage(props: SessionPageProps) {
                             props.runtimeWorkspaceId ??
                             props.selectedWorkspaceId
                           }
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          fileRoot={resolveToolWorkspaceFileRoot({
-                            draftWorkspaceDirectory:
-                              props.surface?.draftWorkspace
-                                ?.draftWorkspaceDirectory,
-                            sessionFileRoot: props.selectedSessionFileRoot,
-                            workspaceRoot: props.selectedWorkspaceRoot,
-                          })}
+                          workspaceRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
+                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
+                          fileRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
                           onOpenArtifact={openTarget}
                           onEditError={() => showToast({
                             tone: "error",

@@ -184,7 +184,7 @@ export default {
   "settings.group_workspace": "工作区",
   "settings.group_archived": "归档",
   "settings.group_data": "数据",
-  "settings.tab_archived_tasks": "归档管理",
+  "settings.tab_archived_tasks": "归档",
   "settings.tab_description_archived_tasks":
     "管理会话归档策略，以及已归档任务的恢复与删除",
   "settings.archived_tasks_list_title": "已归档任务",
@@ -592,7 +592,7 @@ export default {
   "settings.tab_extensions": "扩展",
   "settings.extensions_card_description": "MCP、技能、插件和连接器",
   "settings.tab_general": "总览",
-  "settings.tab_recovery": "重置与恢复",
+  "settings.tab_recovery": "重置",
   "settings.tab_recovery_description": "重置首次引导或清除本地数据",
   "settings.tab_memory": "偏好",
   "settings.tab_description_memory": "语气、自定义指令与个人信息、职业角色",
