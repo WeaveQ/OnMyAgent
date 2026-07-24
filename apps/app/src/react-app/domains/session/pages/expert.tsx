@@ -1744,7 +1744,7 @@ export function ExpertPage(props: ExpertPageProps) {
                                 props.account?.email ||
                                 t("session.current_user"),
                             }}
-                            headerActions={headerPanelControls}
+                            headerActions={draftSessionActive ? null : headerPanelControls}
                             conversationTabs={conversationTabs}
                             searchQuery={historySearchOpen ? historySearchQuery : ""}
                             searchActiveMatchIndex={historyActiveMatch}

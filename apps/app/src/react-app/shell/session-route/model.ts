@@ -444,9 +444,12 @@ export function buildSelectedWorkspaceRouteState(input: {
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
 }) {
   const selectedWorkspaceRoot = input.selectedWorkspace?.path?.trim() || "";
+  // Session record directory (persisted by the server at create time) is the
+  // primary source. localStorage assistantSessionWorkspace is a fallback for
+  // legacy sessions created before directory was stored in the session record.
   const sessionWorkspaceRoot =
-    input.selectedSessionWorkspaceDirectory.trim() ||
     input.selectedSessionDirectory?.trim() ||
+    input.selectedSessionWorkspaceDirectory.trim() ||
     selectedWorkspaceRoot;
   const selectedWorkspaceIsLoading = input.retryingWorkspaceIds.includes(
     input.selectedWorkspaceId,

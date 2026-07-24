@@ -32,7 +32,7 @@
 
 ## 产物
 
-- preview：`.process/evidence-checklist.md`、`.process/liability-draft.md`、`.process/claim-progress.md`
-- export：`理赔材料包_<caseId>.md`、`客户沟通话术_<caseId>.md`、`保司报案提纲_<caseId>.md`、`理赔进度_<caseId>.csv`
+- preview：`.process/claim-preview.html`（理赔预览，经 `inlineWidget` 实时渲染）
+- export：`理赔材料_<caseId>.xlsx`（证据完备度缺失标红 + 进度）、`理赔材料_<caseId>.pdf`（证据/责任/进度，Chrome headless）
 
 所有责任表述均为作业级初判，必须保留条件句与缺口。脚本不得自动认责、报案、承诺赔付或发送外部消息。
