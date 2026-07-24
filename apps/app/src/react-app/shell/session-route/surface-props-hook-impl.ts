@@ -444,11 +444,21 @@ export function useSessionRouteSurfaceProps(
         forceNewSessionOnNextSendRef.current = false;
         let { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
 
+        // Expert new-session: force taskWorkspaceRoot to the workspace root.
+        // sessionWorkspaceRoot may still point at the previous expert's session
+        // directory (URL navigate is async), which would cause shouldIsolate to
+        // return false and reuse the wrong expert's directory (directory cross-
+        // contamination). The user-picked folder (explicitAssistantWorkspace)
+        // is preserved and takes precedence.
+        if (pageMode === "expert" && sendPlan.needsNewSession && !explicitAssistantWorkspace.trim()) {
+          taskWorkspaceRoot = selectedWorkspace?.path?.trim() || taskWorkspaceRoot;
+        }
+
         // Expert sessions without a user-picked folder get an isolated artifact
-        // directory: {workspace}/{agentName}/{sessionKey}/ so sessions never mix outputs.
-        // Draft/folder equal to the workspace root still isolates — otherwise the
-        // files panel would scan the entire project tree.
-        // Always use the true workspace path as root — never sessionWorkspaceRoot,
+        // directory: {workspace}/{agentName-agentId}/{timestamp}/ so sessions
+        // never mix outputs. Draft/folder equal to the workspace root still
+        // isolates - otherwise the files panel would scan the entire project tree.
+        // Always use the true workspace path as root - never sessionWorkspaceRoot,
         // which may already be an isolated subdir (breaks relative marker writes).
         const workspaceRootForSession = selectedWorkspace?.path?.trim() || "";
         const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
@@ -463,13 +473,15 @@ export function useSessionRouteSurfaceProps(
           );
           if (isolate && workspaceRootForSession) {
             const pendingForDir = usePendingAgentStore.getState().getAgent();
-            // New session: use the pending agent name. Never fall back to the
-            // previously selected session's agent snapshot - that belongs to a
-            // different expert and would create artifacts in the wrong directory.
+            // New session: use the pending agent name + id. Never fall back to
+            // the previously selected session's agent snapshot - that belongs
+            // to a different expert and would create artifacts in the wrong dir.
             const agentName = pendingForDir?.name?.trim() || "expert";
+            const agentId = pendingForDir?.id?.trim() || "";
             const isolated = buildIsolatedExpertSessionDirectory({
               workspaceRoot: workspaceRootForSession,
               agentName,
+              agentId,
             });
             // Only bind the isolated path when the directory is actually created.
             // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
