@@ -463,81 +463,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     [sessionsByWorkspaceId],
   );
 
-  /**
-   * Apply engine config so a newly saved provider/model is usable immediately.
-   * Prefer soft OpenCode instance dispose (fast); fall back to full desktop
-   * managed-server restart when soft reload fails (stale binary / plugin mess).
-   */
-  const applyEngineConfigForProviders = useCallback(async () => {
-    const workspaceId =
-      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
-    if (!onmyagentClient || !workspaceId) {
-      return false;
-    }
-
-    let softOk = false;
-    try {
-      await onmyagentClient.reloadEngine(workspaceId);
-      softOk = true;
-    } catch {
-      softOk = false;
-    }
-
-    if (!softOk && isDesktopRuntime()) {
-      const hardOk = await restartOnMyAgentServerAndRefresh({
-        reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
-        refreshRouteState,
-      });
-      if (!hardOk) return false;
-    } else if (!softOk) {
-      return false;
-    }
-
-    await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
-    try {
-      window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
-    } catch {
-      // ignore
-    }
-    void pollMcpServersAfterReloadRef.current?.();
-    return true;
-  }, [
-    onmyagentClient,
-    onmyagentServerStore.reconnectOnMyAgentServer,
-    refreshRouteState,
-    selectedWorkspaceId,
-  ]);
-
-  const reloadWorkspaceEngineFromUi = useCallback(async () => {
-    const workspaceId =
-      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
-    if (!onmyagentClient || !workspaceId) {
-      setRouteError(t("app.error_connect_first"));
-      return false;
-    }
-    return applyEngineConfigForProviders();
-  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId]);
-
-  useEffect(() => {
-    return reloadCoordinator.registerWorkspaceReloadControls({
-      canReloadWorkspaceEngine: () => Boolean(onmyagentClient && (selectedWorkspace?.id || selectedWorkspaceId)),
-      reloadWorkspaceEngine: reloadWorkspaceEngineFromUi,
-      activeSessions: () => activeReloadBlockingSessions,
-      stopSession: async (sessionId) => {
-        if (!activeClient) return;
-        await abortSessionSafe(activeClient, sessionId);
-      },
-    });
-  }, [
-    activeClient,
-    activeReloadBlockingSessions,
-    onmyagentClient,
-    reloadCoordinator,
-    reloadWorkspaceEngineFromUi,
-    selectedWorkspace?.id,
-    selectedWorkspaceId,
-  ]);
-
   const onmyagentServerStore = useMemo(
     () =>
       createOnMyAgentServerStore({
@@ -1434,6 +1359,84 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       refreshRouteState,
     });
   }, [onmyagentServerStore, refreshRouteState]);
+
+  /**
+   * Apply engine config so a newly saved provider/model is usable immediately.
+   * Prefer soft OpenCode instance dispose (fast); fall back to full desktop
+   * managed-server restart when soft reload fails (stale binary / plugin mess).
+   * Declared after onmyagentServerStore + refreshRouteState to avoid TDZ crashes
+   * when opening Settings.
+   */
+  const applyEngineConfigForProviders = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      return false;
+    }
+
+    let softOk = false;
+    try {
+      await onmyagentClient.reloadEngine(workspaceId);
+      softOk = true;
+    } catch {
+      softOk = false;
+    }
+
+    if (!softOk && isDesktopRuntime()) {
+      const hardOk = await restartOnMyAgentServerAndRefresh({
+        reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
+        refreshRouteState,
+      });
+      if (!hardOk) return false;
+    } else if (!softOk) {
+      return false;
+    }
+
+    await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+    try {
+      window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
+    } catch {
+      // ignore
+    }
+    void pollMcpServersAfterReloadRef.current?.();
+    return true;
+  }, [
+    onmyagentClient,
+    onmyagentServerStore.reconnectOnMyAgentServer,
+    refreshRouteState,
+    selectedWorkspaceId,
+  ]);
+
+  const reloadWorkspaceEngineFromUi = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      setRouteError(t("app.error_connect_first"));
+      return false;
+    }
+    return applyEngineConfigForProviders();
+  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId]);
+
+  useEffect(() => {
+    return reloadCoordinator.registerWorkspaceReloadControls({
+      canReloadWorkspaceEngine: () =>
+        Boolean(onmyagentClient && (selectedWorkspace?.id || selectedWorkspaceId)),
+      reloadWorkspaceEngine: reloadWorkspaceEngineFromUi,
+      activeSessions: () => activeReloadBlockingSessions,
+      stopSession: async (sessionId) => {
+        if (!activeClient) return;
+        await abortSessionSafe(activeClient, sessionId);
+      },
+    });
+  }, [
+    activeClient,
+    activeReloadBlockingSessions,
+    onmyagentClient,
+    reloadCoordinator,
+    reloadWorkspaceEngineFromUi,
+    selectedWorkspace?.id,
+    selectedWorkspaceId,
+  ]);
 
   const handleRestartMessagingWorker = handleRestartOnMyAgentServerAndRefresh;
 
