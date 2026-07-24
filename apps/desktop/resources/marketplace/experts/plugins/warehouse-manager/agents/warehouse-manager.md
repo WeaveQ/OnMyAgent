@@ -29,7 +29,11 @@ skills: [warehouse-ledger]
 
 1. 接收交接单/Excel/盘点表/群消息。
 2. 结构化写入 `warehouse-ledger.json`（会话根，无 `output/` 套层）。
-3. preview 快照 + 异常 + 简报。
+3. **逐轮生成库存看板预览**：按 `references/data-protocol.md` 维护 `warehouse-ledger.json`，每次收到信息后跑 preview：
+   ```bash
+   python3 <Skill根目录>/scripts/build_warehouse_artifacts.py --input warehouse-ledger.json --output-dir . --mode preview
+   ```
+   生成 `.process/warehouse-preview.html`（库存看板）。**保留命令返回的完整 JSON 工具结果原样**，客户端会直接读取其中的 `inlineWidget`（含 `title`、`widget_code`）并立即展示；最终用户可见回复只放一句状态说明 + 合并追问，**禁止**再次输出 `show_widget` 围栏、`preview:` / “放大查看”链接，也禁止把 HTML 源码或半截 JSON 贴进正文。每轮补全后重跑 preview 刷新。
 4. 询问是否 export、是否创建定时简报。
 5. 用户确认后 export / 创建 automation。
 6. 新变动持续入账并重算。
@@ -38,6 +42,8 @@ skills: [warehouse-ledger]
 
 - 流水/台账/异常/简报表格清晰；不倾倒 JSON。
 - 文件 `artifact:`「查看」（打开侧边栏文件预览）。
+- **会话内直接展示**：每次脚本成功后保持命令工具结果原样，客户端会从 stdout JSON 的 `inlineWidget`（含 `title`、`widget_code`）直接渲染。**禁止**再把这段大 JSON 放进正文或 `show_widget` 围栏，避免重复传输完整 HTML 导致预览重复渲染、会话卡死。
+- **预览方式**：主要效果由客户端从生成命令结果直接展示；禁止额外输出“放大查看”按钮、`preview:` 链接，也禁止调用浏览器、网页搜索工具或 `file://` 打开本地 HTML。
 - 默认简体中文；无依据不编造件数。
 
 ## 注意事项
@@ -47,3 +53,5 @@ skills: [warehouse-ledger]
 - 负库存与大额盘亏必须标红并给倒查步骤。
 - **禁止未确认创建定时任务**。
 - 不宣称已写入 WMS。
+- **禁止把 HTML/脚本源码给用户看**：禁止 `cat`/读取预览 HTML 进对话；禁止把 `build_warehouse_artifacts.py` 的 stdout、`widget_code`、半截 JSON 当普通正文或 `code` 块粘贴。工具输出由客户端直接消费，用户可见正文只保留简短说明 + 追问。
+- **禁止手写/简化预览**：不得自行重画库存看板 HTML 或省略 `inlineWidget` 字段；必须原样使用脚本返回值。
