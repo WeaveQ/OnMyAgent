@@ -48,6 +48,13 @@ describe("archive SSE change-bus wiring (structural)", () => {
     expect(routes).toContain("notifyArchiveDbChanged");
     expect(routes).toContain("withSessionArchiveStore");
     expect(routes).toContain("workspace-session-archive-sse");
+    // Explicit POST /sync and auto-sync both notify.
+    expect(routes).toMatch(
+      /mode: parseSyncMode[\s\S]*?notifyArchiveDbChanged\(paths\.dbPath\)/,
+    );
+    // Mutation helpers accept notify flag; write paths pass { notify: true }.
+    expect(routes).toContain("options?.notify");
+    expect(routes).toContain("{ notify: true }");
     expect(sse).toContain("subscribeArchiveDbChanges");
     expect(sse).toContain("archiveSessionWatchVersion");
     expect(sse).toContain("archiveStatsVersion");
