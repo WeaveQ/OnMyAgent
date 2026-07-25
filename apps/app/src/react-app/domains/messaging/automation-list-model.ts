@@ -33,7 +33,7 @@ export type CompletedRunEntry<T extends AutomationListTask = AutomationListTask>
 export type DayGroupedRuns<T extends AutomationListTask = AutomationListTask> = {
   /** Stable key for React lists (YYYY-MM-DD local). */
   dayKey: string;
-  /** Display label resolved by the UI (caller may re-label "今天/昨天"). */
+  /** Display label resolved by the UI (caller may re-label today/yesterday). */
   dayLabel: string;
   entries: CompletedRunEntry<T>[];
 };

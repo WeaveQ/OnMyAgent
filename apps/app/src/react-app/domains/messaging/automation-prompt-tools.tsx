@@ -14,7 +14,33 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
-import { mergeSlashCommandsWithSkills } from "../session/surface/composer/slash-command-merge";
+
+/** Local merge (same rules as session slash menu) — keep messaging free of session imports. */
+function mergeSlashCommandsWithSkills(
+  cmds: SlashCommandOption[],
+  skillCards: SkillCard[],
+): { commands: SlashCommandOption[]; skillsForState: SkillCard[] | null } {
+  const byName = new Map<string, SlashCommandOption>();
+  for (const skill of skillCards) {
+    const name = String(skill.name ?? "").trim();
+    if (!name) continue;
+    byName.set(name, {
+      id: `skill:${name}`,
+      name,
+      description: skill.description ? String(skill.description) : undefined,
+      source: "skill",
+    });
+  }
+  for (const cmd of cmds) {
+    const name = String(cmd.name ?? "").trim();
+    if (!name) continue;
+    byName.set(name, cmd);
+  }
+  return {
+    commands: Array.from(byName.values()),
+    skillsForState: skillCards.length ? skillCards : null,
+  };
+}
 
 export function appendAutomationPromptText(prompt: string, text: string) {
   const trimmed = prompt.trimEnd();
@@ -59,7 +85,7 @@ export function buildAutomationSkillCatalog(input: {
 }): Array<{ name: string; description?: string; path?: string }> {
   const ocCmds: SlashCommandOption[] = input.openCodeCommands
     .filter((item) => item.source !== "mcp")
-    .map((item) => ({
+    .map((item): SlashCommandOption => ({
       id: item.id ?? `cmd:${item.name}`,
       name: String(item.name ?? "").trim(),
       description: item.description ? String(item.description) : undefined,
