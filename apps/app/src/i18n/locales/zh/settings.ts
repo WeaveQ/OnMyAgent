@@ -357,7 +357,8 @@ export default {
   "settings.last_error": "最后错误",
   "settings.last_stderr": "最后stderr",
   "settings.last_stdout": "最后stdout",
-  "settings.loading_providers": "正在加载模型服务商…",
+  // Prefer system.load_settings_ai; keep aliases aligned.
+  "settings.loading_providers": "正在加载服务商…",
   "settings.loading_providers_list": "正在加载服务商…",
   "settings.loading_providers_inventory": "正在后台同步自定义服务商…",
   "settings.provider_model_count_pending": "模型…",

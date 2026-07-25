@@ -208,9 +208,9 @@ export function AppRoot() {
           <DenSigninGate>
             <Suspense
               fallback={
-                // Shared full-screen surface; generic open copy (route-specific
-                // messages report via useLoadScope once the chunk mounts).
-                <RouteChunkFallback messageKey="system.boot_preparing_workspace" />
+                // Shared full-screen surface; not boot copy ("Starting…") so
+                // opening Settings mid-session does not feel like a relaunch.
+                <RouteChunkFallback messageKey="system.load_opening" />
               }
             >
               <Routes>

@@ -37,7 +37,7 @@ export function LoadingOverlay() {
         <div className={errorClass.wrap}>
           <div>{error}</div>
           <div className={errorClass.secondary}>
-            Download the latest version manually here:{" "}
+            {t("system.boot_download_latest_hint")}{" "}
             <a
               href={RELEASES_URL}
               target="_blank"

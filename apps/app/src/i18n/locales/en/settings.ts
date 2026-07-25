@@ -357,7 +357,8 @@ export default {
   "settings.last_error": "Last error",
   "settings.last_stderr": "Last stderr",
   "settings.last_stdout": "Last stdout",
-  "settings.loading_providers": "Loading providers...",
+  // Prefer system.load_settings_ai for new UI; these stay as aliases.
+  "settings.loading_providers": "Loading providers…",
   "settings.loading_providers_list": "Loading providers…",
   "settings.loading_providers_inventory":
     "Syncing custom providers in the background…",

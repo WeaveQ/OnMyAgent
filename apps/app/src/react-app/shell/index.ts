@@ -5,7 +5,15 @@
 // the historical ones into `scripts/checks/baselines/domain-shell-depth.json`
 // (only shrink, never grow).
 export * from "./app-inspector";
-export * from "./boot-state";
+export {
+  BootStateProvider,
+  bootPhaseMessage,
+  useBootOverlayVisible,
+  useBootState,
+  userFacingBootError,
+  type BootPhaseId,
+  type BootStateSnapshot,
+} from "./boot-state";
 export * from "./route-load-registry";
 export {
   LoadSurface,
