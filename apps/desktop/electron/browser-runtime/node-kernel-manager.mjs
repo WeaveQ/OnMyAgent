@@ -3,6 +3,13 @@ import { fileURLToPath } from "node:url";
 
 const workerPath = fileURLToPath(new URL("./node-kernel-worker.mjs", import.meta.url));
 
+/** @param {unknown} error */
+function nodeErrorCode(error) {
+  if (!error || typeof error !== "object") return "";
+  const code = /** @type {{ code?: unknown }} */ (error).code;
+  return typeof code === "string" ? code : "";
+}
+
 function createKernel(options) {
   const child = spawn(
     options.nodePath,
@@ -89,7 +96,8 @@ function createKernel(options) {
   // Dead/killed workers can still surface EPIPE on stdin before "exit" runs.
   // Without a listener the error becomes uncaught and flakes CI on Linux.
   child.stdin.on("error", (error) => {
-    if (error && (error.code === "EPIPE" || error.code === "ERR_STREAM_DESTROYED")) {
+    const code = nodeErrorCode(error);
+    if (code === "EPIPE" || code === "ERR_STREAM_DESTROYED") {
       failPending(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
       return;
     }
@@ -125,8 +133,9 @@ function createKernel(options) {
         pending.delete(id);
         clearTimeout(timer);
         dead = true;
+        const code = nodeErrorCode(error);
         reject(
-          error?.code === "EPIPE" || error?.code === "ERR_STREAM_DESTROYED"
+          code === "EPIPE" || code === "ERR_STREAM_DESTROYED"
             ? new Error("node kernel exited")
             : error instanceof Error
               ? error
