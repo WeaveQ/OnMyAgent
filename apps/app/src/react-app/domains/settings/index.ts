@@ -107,12 +107,22 @@ export type {
 export { useDebugViewModel } from "./state/debug-view-model";
 export { useRecoveryViewModel } from "./state/recovery-view-model";
 export {
+  invalidateOpenCodeManagedProvidersCache,
   loadOpenCodeManagedProvidersForWorkspace,
+  peekOpenCodeManagedProvidersCache,
   resetOpenCodeInventoryInflightForTests,
+  seedOpenCodeManagedProvidersCache,
   useAiProvidersController,
   type AiProvidersController,
   type AiProvidersControllerInput,
+  type LoadOpenCodeManagedProvidersOptions,
 } from "./state/ai-providers-controller";
+export {
+  prewarmProvidersForWorkspace,
+  prewarmWorkspaceProviders,
+  type PrewarmProvidersForWorkspaceInput,
+  type PrewarmWorkspaceProvidersInput,
+} from "./state/providers-prewarm";
 export { useMessagingViewProps } from "./state/messaging-view-state";
 export { useElectronUpdaterState } from "./state/electron-updater-state";
 export type { SettingsUpdateStatus } from "./state/electron-updater-state";

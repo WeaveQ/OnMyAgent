@@ -14,7 +14,9 @@ describe("ai providers controller contract", () => {
       "utf8",
     );
     expect(controller).toContain("inventoryInflight");
+    expect(controller).toContain("inventoryCache");
     expect(controller).toContain("loadOpenCodeManagedProvidersForWorkspace");
+    expect(controller).toContain("peekOpenCodeManagedProvidersCache");
     expect(controller).toContain("mergeConnectedProviders");
     expect(controller).toContain("export function useAiProvidersController");
 
@@ -23,8 +25,35 @@ describe("ai providers controller contract", () => {
       "utf8",
     );
     expect(route).toContain("useAiProvidersController");
+    expect(route).toContain("prewarmWorkspaceProviders");
     // Host must not re-implement dual for-loops merge.
     expect(route).not.toMatch(/connectedProvidersById\.set/);
     expect(route).not.toContain("agentManagementSnapshot({");
+  });
+
+  test("session and welcome routes prewarm providers before Models tab", () => {
+    const prewarm = readFileSync(
+      path.join(
+        root,
+        "src/react-app/domains/settings/state/providers-prewarm.ts",
+      ),
+      "utf8",
+    );
+    expect(prewarm).toContain("export async function prewarmWorkspaceProviders");
+    expect(prewarm).toContain("export async function prewarmProvidersForWorkspace");
+    expect(prewarm).toContain("ensureProviderListQuery");
+    expect(prewarm).toContain("loadOpenCodeManagedProvidersForWorkspace");
+
+    const session = readFileSync(
+      path.join(root, "src/react-app/shell/session-route/render.tsx"),
+      "utf8",
+    );
+    expect(session).toContain("prewarmWorkspaceProviders");
+
+    const welcome = readFileSync(
+      path.join(root, "src/react-app/shell/welcome-route.tsx"),
+      "utf8",
+    );
+    expect(welcome).toContain("prewarmProvidersForWorkspace");
   });
 });

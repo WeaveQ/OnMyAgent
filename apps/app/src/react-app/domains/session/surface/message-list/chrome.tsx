@@ -464,7 +464,7 @@ export function TranscriptTurnActions(props: {
         >
           <span>{model}</span>
           {modelRemoved ? (
-            <span className="text-[11px] text-dls-secondary opacity-80">
+            <span className="text-2xs text-dls-secondary opacity-80">
               · {t("session.transcript_model_removed")}
             </span>
           ) : null}

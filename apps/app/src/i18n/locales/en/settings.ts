@@ -450,6 +450,7 @@ export default {
   "settings.provider_source_config": "Config",
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
+  "settings.provider_badge_cloud": "Cloud",
   "settings.providers_desc": "Connect model and tool services",
   "settings.providers_title": "Models",
   "settings.providers_dialog_title": "Model providers",
