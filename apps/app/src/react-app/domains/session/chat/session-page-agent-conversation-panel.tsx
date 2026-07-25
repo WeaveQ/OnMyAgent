@@ -15,6 +15,8 @@ import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { ExpertStatusDots } from "../sidebar/expert-status-dots";
 import { resolveTaskRowTrailingStatus } from "../sidebar/task-row-trailing-status";
+import { useDeferredSidebarPreviews } from "../sidebar/use-deferred-sidebar-previews";
+import { SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT } from "../sync/session-poll-policy";
 
 import { snapshotConversationSummary } from "./session-page-conversation-model";
 import type { TaskStatusIndicator } from "./session-page-model";
@@ -76,6 +78,11 @@ export function AgentConversationPanel(props: {
           .includes(normalizedQuery),
       )
     : sessions;
+  const { previewSessionIds } = useDeferredSidebarPreviews({
+    enabled: Boolean(props.client),
+    sessions: filteredSessions,
+    selectedSessionId: props.selectedSessionId,
+  });
   const snapshotQueries = useQueries({
     queries: filteredSessions.map((session) => ({
       queryKey: [
@@ -83,7 +90,7 @@ export function AgentConversationPanel(props: {
         props.selectedWorkspaceId,
         session.id,
       ],
-      enabled: Boolean(props.client),
+      enabled: Boolean(props.client) && previewSessionIds.has(session.id),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
@@ -91,11 +98,12 @@ export function AgentConversationPanel(props: {
           await client.getSessionSnapshot(
             props.selectedWorkspaceId,
             session.id,
-            { limit: 16 },
+            { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
           )
         ).item;
       },
-      staleTime: 2_000,
+      staleTime: 30_000,
+      retry: false,
     })),
   });
   const snapshotBySessionId = useMemo(() => {

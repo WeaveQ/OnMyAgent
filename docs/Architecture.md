@@ -141,7 +141,7 @@ OpenCode 主会话的归档/分析/SSE 落在 `apps/server`，**不是** Persona
 | `archive-sse-policy.ts` | SSE 轮询/推送策略（与 pool 长连接配合，避免每 tick open/close） |
 | `session-archive-analytics.ts` + `analytics-cache-policy.ts` | 分析读模型与 TTL；过期应 **整表失效** 而非半新半旧 |
 | `opencode-client-pool.ts` | workspace 级 OpenCode client 复用（与 archive pool 类似意图） |
-| `session-archive-lifecycle.ts` | 生命周期辅助；**现状**：仍有路径 **裸调** `openSessionArchiveStore`（未走 pool）— 收敛目标见下 |
+| `session-archive-lifecycle.ts` | 生命周期 status 探针；经 `withSessionArchiveStore` / pool acquire-release（不再裸 open） |
 
 HTTP 入口：`routes/workspace-session-archive-routes.ts`（列表/同步/SSE/analytics 等）应优先 `defaultSessionArchiveStorePool.acquire` / `release`，mutation 后 `notifyArchiveDbChanged`。
 
@@ -150,7 +150,7 @@ HTTP 入口：`routes/workspace-session-archive-routes.ts`（列表/同步/SSE/a
 1. **读/SSE/HTTP archive 路由**：只经 store pool，禁止每次请求 `open` + 立即 `dispose` 打 thrash。
 2. **写/同步完成后**：调用 change-bus，让已连接 SSE 推送，而不是只靠慢轮询。
 3. **Analytics cache**：TTL 到期整 cache 重建（`ensureFresh` 全量 reset 语义），禁止 scope 混用导致部分 stale。
-4. **收敛目标（未完成）**：lifecycle / 其它旁路 **全部** 改走 pool 或显式「一次性 short-lived open」辅助，并在 PR 说明；新增代码不得再引入第二套 bare open 习惯路径。
+4. **收敛目标**：lifecycle 已走 pool；新增代码不得再引入第二套 bare open 习惯路径（仅 pool 内部可调用 `openSessionArchiveStore`）。
 5. **OpenCode client**：workspace 代理优先 `opencode-client-pool`；logout/dispose 与 pool `disposeAll` 对齐，避免半开 client。
 
 ### 与双运行时边界的关系
@@ -392,7 +392,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 1. 已开始：server API contract 迁入 `@onmyagent/types/server`，server 旧 `types.ts` 只保留兼容 re-export。
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
-3. **已完成一轮（主轨 perf）**：archive **store pool** + SSE 长连接 + **change-bus** 推送钩子 + analytics TTL 全量失效 + OpenCode client pool；见 **Server Archive Runtime**。残留：lifecycle 等路径仍裸 open；mutation→notify 覆盖面需按路由审计补齐。
+3. **已完成一轮（主轨 perf）**：archive **store pool** + SSE 长连接 + **change-bus** 推送钩子 + analytics TTL 全量失效 + OpenCode client pool；见 **Server Archive Runtime**。**lifecycle 已改走 pool**；HTTP 写路径（rename/trash/star/pin/import/config/POST sync 等）在成功后 `notifyArchiveDbChanged`。
 4. **已落文档**：双运行时主辅（OpenCode 主 / Personal 辅）见 **Dual Runtime Boundary**；实现层收敛（统一 open API、禁交叉写）仍按该节执行。
 5. 下一步：继续压缩 `server.ts` / `session-archive.ts` 等 god-file 与 OpenCode/client/config helper；保持 composition root 不承载业务路由。`pnpm check:file-size` 防回胀。
 6. 进行中：session **host-thin**（`shell/session-route` 只编排 hooks/bags，`domains/session` 持业务）；与 Personal UI 解耦保持 barrel 边界。

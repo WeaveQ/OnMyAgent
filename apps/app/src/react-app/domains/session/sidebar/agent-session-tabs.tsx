@@ -288,6 +288,8 @@ export function AgentSessionTabs(props: {
     return stable;
   }, [props.sessions, stableOrderIds]);
 
+  // Tabs only need titles on cold start. Full snapshots are owned by the
+  // focused session surface — N× tab snapshots used to thrash OpenCode on boot.
   const snapshotQueries = useQueries({
     queries: orderedSessions.map((session) => ({
       queryKey: [
@@ -295,7 +297,7 @@ export function AgentSessionTabs(props: {
         props.workspaceId,
         session.id,
       ],
-      enabled: Boolean(props.client) && !session.id.startsWith("draft:"),
+      enabled: false,
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
@@ -305,7 +307,7 @@ export function AgentSessionTabs(props: {
           })
         ).item;
       },
-      staleTime: 5_000,
+      staleTime: 30_000,
     })),
   });
 
