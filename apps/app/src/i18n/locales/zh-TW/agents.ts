@@ -214,4 +214,11 @@ export default {
   "agents.help_background": "更詳細的個人與項目背景，幫助它更準確地理解你的需求。",
   "agents.help_agent_memory": "寫給智能體自己的長期設定：角色定位、要一直遵守的準則、經驗總結等。每次對話都會帶上。",
   "agents.help_user_memory": "關於你本人的長期信息：身份、偏好、常用項目、技術棧等。每次對話都會帶上。",
+  "agents.coming_soon_desc": "開發中，敬請期待",
+  "agents.delete_confirm": "確定要刪除智能體「{name}」嗎？此操作不可撤銷。",
+  "agents.deleted_title": "已刪除智能體：{name}",
+  "agents.created_title": "已創建智能體：{name}",
+  "agents.updated_agent_title": "已更新智能體：{name}",
+  "agents.updated_template_title": "已更新模板：{name}",
+  "agents.config_written_desc": "配置已寫入 {path}",
 } as const;
