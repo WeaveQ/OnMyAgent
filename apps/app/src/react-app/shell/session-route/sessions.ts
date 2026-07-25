@@ -7,7 +7,7 @@ import { isExpertSession } from "../../domains/agents";
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
-} from "../../domains/session/sync/sidebar-load-policy";
+} from "../../domains/session";
 import type { RouteWorkspace } from "./model";
 import { getSessionStatus, isActiveSessionStatus } from "./state";
 import type { SessionOption as PaletteSessionOption } from "../command-palette";
