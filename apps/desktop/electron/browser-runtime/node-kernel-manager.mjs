@@ -37,28 +37,36 @@ function createKernel(options) {
       if (!line) continue;
       const response = JSON.parse(line);
       if (response.kind === "browser-request") {
+        const writeBrowserResponse = (payload) => {
+          if (dead || child.stdin.destroyed) return;
+          try {
+            child.stdin.write(`${JSON.stringify(payload)}\n`);
+          } catch {
+            // Worker already gone; ignore.
+          }
+        };
         if (typeof options.browserRequest !== "function") {
-          child.stdin.write(`${JSON.stringify({
+          writeBrowserResponse({
             kind: "browser-response",
             browserRequestId: response.browserRequestId,
             ok: false,
             error: "browser runtime is not configured",
-          })}\n`);
+          });
           continue;
         }
         void options.browserRequest(response.method, response.params, response.context)
-          .then((result) => child.stdin.write(`${JSON.stringify({
+          .then((result) => writeBrowserResponse({
             kind: "browser-response",
             browserRequestId: response.browserRequestId,
             ok: true,
             result,
-          })}\n`))
-          .catch((error) => child.stdin.write(`${JSON.stringify({
+          }))
+          .catch((error) => writeBrowserResponse({
             kind: "browser-response",
             browserRequestId: response.browserRequestId,
             ok: false,
             error: error instanceof Error ? error.message : String(error),
-          })}\n`));
+          }));
         continue;
       }
       const request = pending.get(response.id);
@@ -69,13 +77,27 @@ function createKernel(options) {
       else request.reject(new Error(response.error));
     }
   });
-  child.on("exit", () => {
+  const failPending = (error) => {
     dead = true;
     for (const request of pending.values()) {
       clearTimeout(request.timer);
-      request.reject(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
+      request.reject(error);
     }
     pending.clear();
+  };
+
+  // Dead/killed workers can still surface EPIPE on stdin before "exit" runs.
+  // Without a listener the error becomes uncaught and flakes CI on Linux.
+  child.stdin.on("error", (error) => {
+    if (error && (error.code === "EPIPE" || error.code === "ERR_STREAM_DESTROYED")) {
+      failPending(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
+      return;
+    }
+    failPending(error instanceof Error ? error : new Error(String(error)));
+  });
+
+  child.on("exit", () => {
+    failPending(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
   });
 
   let requestId = 0;
@@ -83,17 +105,34 @@ function createKernel(options) {
     requestId += 1;
     const id = requestId;
     return new Promise((resolve, reject) => {
-      if (dead) {
+      if (dead || child.killed || child.exitCode !== null || child.stdin.destroyed) {
         reject(new Error("node kernel exited"));
         return;
       }
       const timer = setTimeout(() => {
         pending.delete(id);
-        child.kill("SIGKILL");
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // already dead
+        }
         reject(new Error(`node kernel timed out after ${options.timeoutMs}ms`));
       }, options.timeoutMs);
       pending.set(id, { resolve, reject, timer });
-      child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
+      try {
+        child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
+      } catch (error) {
+        pending.delete(id);
+        clearTimeout(timer);
+        dead = true;
+        reject(
+          error?.code === "EPIPE" || error?.code === "ERR_STREAM_DESTROYED"
+            ? new Error("node kernel exited")
+            : error instanceof Error
+              ? error
+              : new Error(String(error)),
+        );
+      }
     });
   };
   return {
