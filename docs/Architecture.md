@@ -33,8 +33,8 @@ packages/
 
 ```text
 apps/app/src/react-app/
-  kernel/          Zustand store + platform/sdk/server provider
-  shell/           路由 + boot + layout + command-palette（只编排，不深链 domain 子路径）
+  kernel/          Zustand store + platform/sdk/server provider + user-error 产品错误模板
+  shell/           路由 + progressive boot + route-load-registry + layout + command-palette（只编排，不深链 domain 子路径）
   infra/           React-only 运行时基建（如 QueryClient）
   capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ model-selection / session-identity
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
@@ -44,13 +44,14 @@ apps/app/src/react-app/
     messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
-    settings/      设置 shell + pages + state stores（含全局 Updates）
-    connections/   MCP + provider auth（canonical）
+    settings/      设置 shell + pages + state stores（含全局 Updates、AI providers controller）
+    connections/   MCP + provider auth（canonical；含 merge-connected-providers）
     cloud/         Den auth + restrictions + org onboarding
     plugins/       skills catalog / plugins / connectors pages
     shell-feedback/ reload banner、toast、右上角通知
     shared/        跨域 infra only（env / extension / desktop-config / server-store）
   shell/session-route/  会话宿主 facade（薄编排：hooks + bags 组装 surface；业务在 domains/session）
+  shell/settings-route/ 设置宿主 facade；首载与软刷新分 scope，错误条接 user-error 恢复动作
 apps/app/src/components/ui/  shadcn/ui atoms + FilterChip/SegmentedTabGroup（见 DESIGN.md）
 apps/app/src/app/lib/        兼容层：desktop.ts、onmyagent-server.ts、opencode.ts
 apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索引：只供 UI 列表与搜索
@@ -397,6 +398,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 6. 进行中：session **host-thin**（`shell/session-route` 只编排 hooks/bags，`domains/session` 持业务）；与 Personal UI 解耦保持 barrel 边界。
 7. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
 8. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。
+9. **已完成一轮（shell 冷启动 / 加载 UX）**：`route-load-registry` + `LoadSurface` 统一 boot/route 加载文案；progressive boot（壳可画即收全屏遮罩）；侧栏会话标题 localStorage 缓存；`kernel/user-error` 主失败路径模板 + 设置错误条恢复动作；settings AI 列表 skeleton / `useAiProvidersController` + `mergeConnectedProviders`。细节见 `apps/app/src/react-app/ARCHITECTURE.md` **Shell load / boot**。
 
 ## Personal Local Agent Runtime
 

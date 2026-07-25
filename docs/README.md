@@ -15,11 +15,14 @@ docs/
   design/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
+    2026-07-22-external-office-edit-refresh.md  ← feature design note (dated)
     preview.html / preview-dark.html / preview.css
   windows-compat.md         ← Windows preflight, NSIS, macOS-only gaps (Computer Use / Appshot)
+  windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
+  x-project-bp/             ← product/strategy notes (not engineering SoT)
 ```
 
-Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, …
+Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, …
 
 ## Read by role
 
@@ -43,7 +46,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Commands (`dev` / `task` / checks) | root `package.json`, `scripts/cli/*`, summarized in `Architecture.md` |
 | Monorepo & package boundaries | `Architecture.md` |
 | Dual runtime (OpenCode 主 / Personal 辅) + archive 热路径 | `Architecture.md` → **Dual Runtime Boundary**, **Server Archive Runtime** |
-| React domains | `apps/app/src/react-app/ARCHITECTURE.md` + `domains/*/README.md` |
+| React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |
+| Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
 | Visual tokens / components | `../DESIGN.md` |
 | Design philosophy only | `design/theme-system.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
