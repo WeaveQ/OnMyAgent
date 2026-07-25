@@ -9,7 +9,7 @@ import {
   type ComputerUseActivityPhase,
   type ComputerUsePermissionState,
 } from "./computer-use-activity-notifications";
-import type { AppStatusToastInput } from "./status-toasts";
+import type { AppStatusToastInput } from "./status-toast-types";
 
 type ComputerUseStatusMonitorProps = {
   showToast: (input: AppStatusToastInput) => string;

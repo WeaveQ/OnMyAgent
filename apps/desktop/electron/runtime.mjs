@@ -33,10 +33,25 @@ import {
   parseVersionTokens,
 } from "./opencode-binary-policy.mjs";
 
+import {
+  DIRECT_RUNTIME,
+  ORCHESTRATOR_RUNTIME,
+  nowMs,
+  createEngineState,
+  snapshotEngineState,
+  createOnMyAgentServerState,
+  snapshotOnMyAgentServerState,
+  assertOnMyAgentServerReady,
+  createOrchestratorState,
+  selectLanAddress,
+  buildConnectUrls,
+} from "./runtime-engine-state.mjs";
+
+export { snapshotOnMyAgentServerState, DIRECT_RUNTIME, ORCHESTRATOR_RUNTIME } from "./runtime-engine-state.mjs";
+
+
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
-const DIRECT_RUNTIME = "direct";
-const ORCHESTRATOR_RUNTIME = "onmyagent-orchestrator";
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
@@ -206,70 +221,7 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
   };
 }
 
-function nowMs() {
-  return Date.now();
-}
-
-function createEngineState() {
-  return {
-    child: null,
-    childExited: true,
-    runtime: DIRECT_RUNTIME,
-    projectDir: null,
-    hostname: null,
-    port: null,
-    baseUrl: null,
-    opencodeUsername: null,
-    opencodePassword: null,
-    opencodeBinPath: null,
-    opencodeBinSource: null,
-    lastStdout: null,
-    lastStderr: null,
-  };
-}
-
-function snapshotEngineState(state) {
-  const child = state.childExited ? null : state.child;
-  return {
-    running: Boolean(child && child.exitCode === null && !child.killed),
-    runtime: state.runtime,
-    baseUrl: state.baseUrl,
-    projectDir: state.projectDir,
-    hostname: state.hostname,
-    port: state.port,
-    opencodeUsername: state.opencodeUsername,
-    opencodePassword: state.opencodePassword,
-    opencodeBinPath: state.opencodeBinPath,
-    opencodeBinSource: state.opencodeBinSource,
-    pid: child?.pid ?? null,
-    lastStdout: state.lastStdout,
-    lastStderr: state.lastStderr,
-  };
-}
-
-function createOnMyAgentServerState() {
-  return {
-    child: null,
-    childExited: true,
-    inProcess: false,
-    remoteAccessEnabled: false,
-    host: null,
-    port: null,
-    baseUrl: null,
-    connectUrl: null,
-    mdnsUrl: null,
-    lanUrl: null,
-    clientToken: null,
-    ownerToken: null,
-    hostToken: null,
-    managedOpencodeBinPath: null,
-    managedOpencodeBinSource: null,
-    lastStdout: null,
-    lastStderr: null,
-  };
-}
-
-export function snapshotOnMyAgentServerState(state, options = {}) {
+) {
   const child = state.childExited ? null : state.child;
   const reachable = options.reachable !== false;
   const running = reachable && (state.inProcess || Boolean(child && child.exitCode === null && !child.killed));
@@ -293,31 +245,6 @@ export function snapshotOnMyAgentServerState(state, options = {}) {
   };
 }
 
-function assertOnMyAgentServerReady(snapshot) {
-  if (!snapshot?.running) {
-    throw new Error("OnMyAgent server did not stay running after startup.");
-  }
-  if (!snapshot.baseUrl) {
-    throw new Error("OnMyAgent server did not report a base URL after startup.");
-  }
-  if (!snapshot.ownerToken && !snapshot.clientToken) {
-    throw new Error("OnMyAgent server did not report an access token after startup.");
-  }
-  return snapshot;
-}
-
-function createOrchestratorState() {
-  return {
-    child: null,
-    childExited: true,
-    dataDir: null,
-    baseUrl: null,
-    daemonPort: null,
-    lastStdout: null,
-    lastStderr: null,
-  };
-}
-
 async function fileExists(targetPath) {
   try {
     await readFile(targetPath);
@@ -334,30 +261,6 @@ async function readJsonFile(targetPath, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function selectLanAddress() {
-  const interfaces = os.networkInterfaces();
-  for (const entries of Object.values(interfaces)) {
-    for (const entry of entries ?? []) {
-      if (entry && entry.family === "IPv4" && entry.internal === false) {
-        return entry.address;
-      }
-    }
-  }
-  return null;
-}
-
-function buildConnectUrls(port) {
-  const hostname = os.hostname().trim();
-  const mdnsUrl = hostname ? `http://${hostname.replace(/\.local$/i, "")}.local:${port}` : null;
-  const lan = selectLanAddress();
-  const lanUrl = lan ? `http://${lan}:${port}` : null;
-  return {
-    connectUrl: lanUrl ?? mdnsUrl,
-    mdnsUrl,
-    lanUrl,
-  };
 }
 
 import {

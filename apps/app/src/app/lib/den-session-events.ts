@@ -1,4 +1,4 @@
-import type { DenSettings, DenUser } from "./den";
+import type { DenSettings, DenUser } from "./den-types";
 
 export const denSessionUpdatedEvent = "onmyagent-den-session-updated";
 export const denSettingsChangedEvent = "onmyagent-den-settings-changed";
