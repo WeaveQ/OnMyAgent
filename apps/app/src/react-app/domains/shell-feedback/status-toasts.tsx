@@ -12,22 +12,17 @@ import {
 
 import { StatusToast } from "./status-toast";
 import { ComputerUseStatusMonitor } from "./computer-use-status-monitor";
+import type {
+  AppStatusToast,
+  AppStatusToastInput,
+  AppStatusToastTone,
+} from "./status-toast-types";
 
-export type AppStatusToastTone = "success" | "info" | "warning" | "error";
-
-export type AppStatusToastInput = {
-  title: string;
-  description?: string | null;
-  tone?: AppStatusToastTone;
-  actionLabel?: string;
-  onAction?: () => void;
-  dismissLabel?: string;
-  durationMs?: number;
-};
-
-export type AppStatusToast = AppStatusToastInput & {
-  id: string;
-};
+export type {
+  AppStatusToast,
+  AppStatusToastInput,
+  AppStatusToastTone,
+} from "./status-toast-types";
 
 export type StatusToastsStore = {
   toasts: AppStatusToast[];

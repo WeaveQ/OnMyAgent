@@ -425,22 +425,14 @@ export type AppSidebarProps = {
   onOpenBilling?: () => void;
 };
 
-export type SidebarAccountInfo = {
-  name: string;
-  email?: string | null;
-};
-
-export type SidebarPrimaryView =
-  | "chat"
-  | "billing"
-  | "usage"
-  | "agents"
-  | "skills"
-  | "connectors"
-  | "devices"
-  | "scheduledTasks"
-  | "channels"
-  | "personalAssistant";
+export type {
+  SidebarAccountInfo,
+  SidebarPrimaryView,
+} from "./app-sidebar-types";
+import type {
+  SidebarAccountInfo,
+  SidebarPrimaryView,
+} from "./app-sidebar-types";
 
 type SidebarMenuConfig = {
   id: SidebarPrimaryView;

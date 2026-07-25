@@ -13,7 +13,7 @@ import {
 import { THINKING_PREF_KEY } from "../../app/constants";
 import { coerceReleaseChannel } from "../../app/lib/release-channels";
 import type { ModelRef, ReleaseChannel, SettingsTab, View } from "../../app/types";
-import { canonicalizeProfileOptionValues } from "../domains/shared";
+import { canonicalizeProfileOptionValues } from "../domains/shared/personalization/profile-option-aliases";
 import { readStoredDefaultModel } from "./model-config";
 import type { ResponseToneId } from "./response-tone";
 import { normalizeResponseTone } from "./response-tone";
