@@ -40,8 +40,18 @@ import {
   createExtensionsStore,
   useExtensionsStoreSnapshot,
   SettingsShell,
+  useAiProvidersController,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
+import { userErrorFromRaw } from "../../kernel/user-error";
+import { useShellInteractiveLoad } from "../use-shell-interactive-load";
+import { useFacingRouteError } from "./facing-route-error";
+import { canDisconnectProviderRow } from "./provider-disconnect-policy";
+import {
+  deleteOpenCodeManagedProvider,
+  disconnectSettingsProvider,
+} from "./provider-list-actions";
+import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
   LazyAiSettingsView,
   LazyArchivedTasksView,
@@ -65,8 +75,6 @@ import { usePlatform } from "../../kernel/platform";
 import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
-  agentManagementProviderAction,
-  agentManagementSnapshot,
   onmyagentServerInfo,
   pickDirectory,
   resolveWorkspaceListSelectedId,
@@ -83,7 +91,6 @@ import {
 } from "../../domains/cloud";
 import {
   isDesktopRuntime,
-  isElectronRuntime,
   resolveModelDisplayName,
   resolveProviderDisplayName,
   safeStringify,
@@ -104,8 +111,6 @@ import { recordInspectorEvent } from "../app-inspector";
 import {
   aiProvidersStatusI18nKey,
   aiProvidersSummaryI18nKey,
-  countOpenCodeProviderModels,
-  normalizeSettingsProviderSource,
   resolveAiProvidersUiPhase,
   describeRouteError,
   describeWorkspaceCreateError,
@@ -183,7 +188,11 @@ import {
   workspaceSettingsRoute,
 } from "../workspace-routes";
 import { getReactQueryClient } from "../../infra/query-client";
-import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../../domains/connections";
+import {
+  ensureProviderListQuery,
+  getConnectedProviderItems,
+  refreshProviderListQueries,
+} from "../../domains/connections";
 import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "../new-providers-toast";
 
 const ROUTE_ONMYAGENT_CAPABILITIES: OnMyAgentServerCapabilities = {
@@ -293,7 +302,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const {
+    routeError,
+    routeErrorAction,
+    setFacingRouteError,
+    clearFacingRouteError,
+  } = useFacingRouteError();
   const { workspacesRef } = useSettingsWorkspaceRefs(workspaces);
   const refreshInFlightRef = useRef(false);
   const reconnectAttemptedWorkspaceIdRef = useRef("");
@@ -305,7 +319,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<Record<string, string>>({});
   const [providerConnectedIds, setProviderConnectedIds] = useState<string[]>([]);
-  const [opencodeManagedProviders, setOpenCodeManagedProviders] = useState<AgentManagementManagedProvider[]>([]);
   const [openCodeProviderConfigOpen, setOpenCodeProviderConfigOpen] = useState(false);
   const [editingOpenCodeProvider, setEditingOpenCodeProvider] =
     useState<AgentManagementManagedProvider | null>(null);
@@ -314,10 +327,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providerSyncBusy, setProviderSyncBusy] = useState(false);
   /** Error message for AI provider save/delete only (not success banners). */
   const [providerActionError, setProviderActionError] = useState<string | null>(null);
-  /** False until the first provider list refresh for this client finishes. */
-  const [providerListHydrated, setProviderListHydrated] = useState(false);
-  /** False until OpenCode live inventory has been loaded for the AI tab. */
-  const [opencodeInventoryReady, setOpenCodeInventoryReady] = useState(false);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [developerMode, setDeveloperMode] = useState(() => readStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, false));
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
@@ -566,7 +575,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         setBusy,
         setBusyLabel,
         setBusyStartedAt: () => {},
-        setError: setRouteError,
+        setError: setFacingRouteError,
         markReloadRequired: reloadCoordinator.markReloadRequired,
       }),
     [onmyagentServerStore, reloadCoordinator.markReloadRequired],
@@ -655,11 +664,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     onmyagentServerSnapshot,
     runtimeWorkspaceId: selectedWorkspace?.id ?? null,
     selectedWorkspaceRoot,
-    setRouteError,
+    setRouteError: setFacingRouteError,
   });
   const recoveryViewProps = useRecoveryViewModel({
     anyActiveRuns: activeReloadBlockingSessions.length > 0,
-    setRouteError,
+    setRouteError: setFacingRouteError,
   });
   const onReleaseChannelChange = useCallback(
     (next: "stable" | "alpha") => {
@@ -673,7 +682,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     updateAutoCheck,
     updateAutoDownload,
     desktopConfig: desktopConfig.config,
-    setError: setRouteError,
+    setError: setFacingRouteError,
   });
 
   const workspaceSessionGroups = useMemo(
@@ -782,17 +791,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         }
         setModelOptions(options);
       } catch (error) {
-        setRouteError(
-          error instanceof Error
-            ? error.message
-            : t("app.unknown_error"),
+        setFacingRouteError(
+          error instanceof Error ? error.message : t("app.unknown_error"),
         );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [modelPickerOpen, opencodeBaseUrl, opencodeClient, selectedWorkspaceRoot]);
+  }, [
+    modelPickerOpen,
+    opencodeBaseUrl,
+    opencodeClient,
+    selectedWorkspaceRoot,
+    setFacingRouteError,
+  ]);
 
   useEffect(() => {
     local.setUi((previous) => ({ ...previous, view: "settings", tab: route.tab }));
@@ -812,11 +825,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [updateAutoDownload]);
 
   const { markRouteReady: markBootRouteReady } = useBootState();
+  const { shellInteractive } = useShellInteractiveLoad({
+    loading,
+    firstLoadScope: "route-settings",
+  });
   const refreshRouteState = useMemo(() => async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
     setLoading(true);
-    setRouteError(null);
+    clearFacingRouteError();
     let desktopList: WorkspaceList | null = null;
     let desktopWorkspaces = workspacesRef.current;
     try {
@@ -906,7 +923,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           preservedWorkspaceCount: desktopWorkspaces.length,
         }),
       );
-      setRouteError(message);
+      setFacingRouteError(message);
       if (desktopWorkspaces.length > 0) {
         setWorkspaces(desktopWorkspaces);
         setLegacySelectedWorkspaceId((current) => {
@@ -1041,9 +1058,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       allWorkspaces: workspaces,
     }).catch((error) => {
       const message = error instanceof Error ? error.message : describeRouteError(error);
-      setRouteError(message);
+      setFacingRouteError(message);
     });
-  }, [loading, onmyagentClient, selectedWorkspace, workspaces]);
+  }, [loading, onmyagentClient, selectedWorkspace, setFacingRouteError, workspaces]);
 
   useEffect(() => {
     void refreshRouteState();
@@ -1141,44 +1158,48 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot,
   ]);
 
+  const isProviderBlocked = useCallback(
+    (providerId: string) =>
+      isDesktopProviderBlocked({
+        providerId,
+        checkRestriction: checkDesktopRestriction,
+      }),
+    [checkDesktopRestriction],
+  );
+
+  const aiProviders = useAiProvidersController({
+    activeClient: Boolean(activeClient),
+    selectedWorkspaceRoot,
+    selectedWorkspaceId: selectedWorkspace?.id,
+    sdkProviders: providers,
+    connectedIds: providerConnectedIds,
+    isBlocked: isProviderBlocked,
+    refreshSdkProviders: () => providerAuthStore.refreshProviders(),
+    refreshMcpServers: () => {
+      void connectionsStore.refreshMcpServers();
+    },
+  });
+
+  const {
+    connectedProviders,
+    providerListHydrated,
+    opencodeInventoryReady,
+    opencodeManagedProviders,
+    setOpenCodeManagedProviders,
+    providersDiscovering,
+    inventorySyncing,
+    loadOpenCodeManagedProviders,
+    findManagedProvider,
+  } = aiProviders;
+
   useEffect(() => {
     if (!activeClient) {
       setProviders([]);
       setProviderDefaults({});
       setProviderConnectedIds([]);
       setDisabledProviders([]);
-      setProviderListHydrated(false);
-      return;
     }
-    let cancelled = false;
-    setProviderListHydrated(false);
-    void providerAuthStore
-      .refreshProviders()
-      .catch(() => null)
-      .finally(() => {
-        if (!cancelled) setProviderListHydrated(true);
-      });
-    void connectionsStore.refreshMcpServers();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeClient, connectionsStore, providerAuthStore, selectedWorkspace?.id]);
-
-  const loadOpenCodeManagedProviders = useCallback(async () => {
-    if (!selectedWorkspaceRoot) return [];
-    try {
-      // providers-only: skip listAgents / usage (those made the edit modal lag).
-      const snapshot = await agentManagementSnapshot({
-        workspaceRoot: selectedWorkspaceRoot,
-        domains: ["providers"],
-        includeModels: false,
-      });
-      return snapshot.providers.byAgent.opencode;
-    } catch (error) {
-      console.warn("[settings] failed to load OpenCode managed providers", error);
-      return [];
-    }
-  }, [selectedWorkspaceRoot]);
+  }, [activeClient]);
 
   const handleEditOpenCodeProvider = useCallback(
     (provider: AiSettingsConnectedProvider) => {
@@ -1199,14 +1220,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       // Prefer in-memory inventory for instant open. After save, inventory is
       // updated from the save response (opencodeProviders), so re-edit is fresh
       // without awaiting IPC. Background refresh only updates the list for later.
-      const cached =
-        opencodeManagedProviders.find((item) => item.id === provider.id) ?? null;
+      const cached = findManagedProvider(provider.id);
 
       if (cached) {
         setEditingOpenCodeProvider(cached);
         setOpenCodeProviderConfigOpen(true);
-        void loadOpenCodeManagedProviders().then((providers) => {
-          setOpenCodeManagedProviders(providers);
+        void loadOpenCodeManagedProviders().then((next) => {
+          setOpenCodeManagedProviders(next);
         });
         return;
       }
@@ -1215,10 +1235,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       if (providerActionBusyId) return;
       setProviderActionBusyId(provider.id);
       void loadOpenCodeManagedProviders()
-        .then((providers) => {
-          setOpenCodeManagedProviders(providers);
+        .then((next) => {
+          setOpenCodeManagedProviders(next);
           setEditingOpenCodeProvider(
-            providers.find((item) => item.id === provider.id) ?? fallback,
+            next.find((item) => item.id === provider.id) ?? fallback,
           );
           setOpenCodeProviderConfigOpen(true);
         })
@@ -1230,39 +1250,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           setProviderActionBusyId(null);
         });
     },
-    [loadOpenCodeManagedProviders, opencodeManagedProviders, providerActionBusyId],
+    [
+      findManagedProvider,
+      loadOpenCodeManagedProviders,
+      providerActionBusyId,
+      setOpenCodeManagedProviders,
+    ],
   );
-
-  // Drop inventory only when the workspace changes — keep it across tab switches
-  // so re-opening 模型 is instant after the first load.
-  useEffect(() => {
-    setOpenCodeManagedProviders([]);
-    setOpenCodeInventoryReady(false);
-  }, [selectedWorkspaceRoot]);
-
-  // Prefetch custom OpenCode inventory as soon as settings has a workspace, not
-  // only when the AI tab is selected (first visit felt slow waiting on IPC).
-  useEffect(() => {
-    if (!selectedWorkspaceRoot || !activeClient) return;
-    if (opencodeInventoryReady) return;
-    let cancelled = false;
-    void loadOpenCodeManagedProviders()
-      .then((providers) => {
-        if (cancelled) return;
-        setOpenCodeManagedProviders(providers);
-      })
-      .finally(() => {
-        if (!cancelled) setOpenCodeInventoryReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activeClient,
-    loadOpenCodeManagedProviders,
-    opencodeInventoryReady,
-    selectedWorkspaceRoot,
-  ]);
 
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
   const workspaceOptions = workspaces.map((workspace) => ({
@@ -1286,50 +1280,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     ? `${local.prefs.defaultModel.providerID}/${local.prefs.defaultModel.modelID}`
     : t("settings.default_label");
   const defaultModelVariantLabel = local.prefs.modelVariant ?? t("settings.default_label");
-  const providerConnectedIdSet = new Set(providerConnectedIds);
-  const connectedProvidersById = new Map<string, AiSettingsConnectedProvider>();
-  for (const provider of providers) {
-    if (
-      !providerConnectedIdSet.has(provider.id) ||
-      isDesktopProviderBlocked({
-        providerId: provider.id,
-        checkRestriction: checkDesktopRestriction,
-      })
-    ) {
-      continue;
-    }
-    const modelCount = Object.keys(provider.models ?? {}).length;
-    connectedProvidersById.set(provider.id, {
-      id: provider.id,
-      name: provider.name ?? provider.id,
-      source: normalizeSettingsProviderSource(provider.source),
-      ...(modelCount > 0 ? { modelCount } : {}),
-    });
-  }
-  for (const provider of opencodeManagedProviders) {
-    if (
-      !provider.livePresent ||
-      isDesktopProviderBlocked({
-        providerId: provider.id,
-        checkRestriction: checkDesktopRestriction,
-      })
-    ) {
-      continue;
-    }
-    const modelCount = countOpenCodeProviderModels(provider);
-    connectedProvidersById.set(provider.id, {
-      id: provider.id,
-      name: provider.name || provider.id,
-      source: "custom",
-      managedBy: "opencode",
-      ...(modelCount > 0 ? { modelCount } : {}),
-    });
-  }
-  const connectedProviders = [...connectedProvidersById.values()];
-  // Only wait for the OpenCode provider.list snapshot. Agent-management inventory
-  // (custom OpenCode providers) merges in the background so first paint is not
-  // blocked on desktop IPC / studio-switch reads.
-  const providersDiscovering = Boolean(activeClient) && !providerListHydrated;
+  // Inventory merges in the background so first paint is not blocked on desktop IPC.
   const providersUiPhase = resolveAiProvidersUiPhase({
     discovering: providersDiscovering,
     providerCount: connectedProviders.length,
@@ -1556,11 +1507,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const workspaceId =
       routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
     if (!onmyagentClient || !workspaceId) {
-      setRouteError(t("app.error_connect_first"));
+      setFacingRouteError(null, "not_connected");
       return false;
     }
     return applyEngineConfigForProviders();
-  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId]);
+  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId, setFacingRouteError]);
 
   useEffect(() => {
     return reloadCoordinator.registerWorkspaceReloadControls({
@@ -1669,110 +1620,59 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               providerConnected={connectedProviders.length > 0}
               connectedProviders={connectedProviders}
               disconnectingProviderId={providerActionBusyId}
-              providerConnectError={providerAuthSnapshot.providerAuthError}
+              providerConnectError={
+                providerAuthSnapshot.providerAuthError
+                  ? userErrorFromRaw(providerAuthSnapshot.providerAuthError)
+                  : null
+              }
               providerDisconnectStatus={null}
               providerDisconnectError={providerActionError}
               providerActionBusyId={providerActionBusyId}
               providerSyncBusy={providerSyncBusy}
               runtimeConnected={Boolean(activeClient)}
               providersLoading={providersDiscovering}
-              inventorySyncing={
-                Boolean(activeClient) &&
-                providerListHydrated &&
-                !opencodeInventoryReady
-              }
+              inventorySyncing={inventorySyncing}
               onOpenProviderAuth={handleOpenProviderAuth}
               onOpenOpencodeConfig={handleOpenCustomProviderConfig}
-              onDisconnectProvider={async (providerId) => {
-                setProviderActionBusyId(providerId);
-                setProviderActionError(null);
-                try {
-                  await providerAuthStore.disconnectProvider(providerId);
-                } catch (error) {
-                  setProviderActionError(
-                    error instanceof Error
-                      ? error.message
-                      : t("providers.disconnect_failed"),
-                  );
-                } finally {
-                  setProviderActionBusyId(null);
-                }
-              }}
-              canDisconnectProvider={(provider) => {
-                // OpenCode custom providers use edit/delete, not disconnect.
-                if (provider.managedBy === "opencode") return false;
-                // Built-in free OpenCode Zen: disconnect disables it in workspace
-                // config (it has no OAuth/API credentials to revoke).
-                if (provider.id === "opencode") return true;
-                // Env / config / custom entries are not "disconnectable" OAuth rows;
-                // showing Unplug here reads as a false "disconnected" status.
-                if (
-                  provider.source === "env" ||
-                  provider.source === "config" ||
-                  provider.source === "custom"
-                ) {
-                  return false;
-                }
-                // If inventory is still loading, treat as not managed-by-opencode yet
-                // only when the id is not already tagged; otherwise allow disconnect.
-                if (!opencodeInventoryReady) {
-                  // Avoid flashing Unplug on rows that will become edit/delete once
-                  // inventory merges (custom OpenCode providers appear in SDK list
-                  // before managedBy is set).
-                  return false;
-                }
-                return true;
-              }}
+              onDisconnectProvider={(providerId) =>
+                disconnectSettingsProvider({
+                  providerId,
+                  disconnectProvider: (id) =>
+                    providerAuthStore.disconnectProvider(id),
+                  setBusyId: setProviderActionBusyId,
+                  setError: setProviderActionError,
+                })
+              }
+              canDisconnectProvider={(provider) =>
+                canDisconnectProviderRow({
+                  provider,
+                  opencodeInventoryReady,
+                })
+              }
               canEditProvider={(provider) => provider.managedBy === "opencode"}
               onEditProvider={handleEditOpenCodeProvider}
               canDeleteProvider={(provider) => provider.managedBy === "opencode"}
               onDeleteProvider={async (provider) => {
                 if (providerActionBusyId || providerSyncBusy) return;
-                setProviderActionBusyId(provider.id);
-                setProviderSyncBusy(true);
-                setProviderActionError(null);
-                try {
-                  await agentManagementProviderAction({
-                    action: "delete",
-                    appType: "opencode",
-                    providerId: provider.id,
-                    workspaceRoot: selectedWorkspaceRoot,
-                  });
-                  // Drop from local inventory immediately for snappy UI.
-                  setOpenCodeManagedProviders((current) =>
-                    current.filter((item) => item.id !== provider.id),
-                  );
-                  // Clear default model if it pointed at the deleted provider.
-                  if (local.prefs.defaultModel?.providerID === provider.id) {
-                    local.setPrefs((previous) => ({
-                      ...previous,
-                      defaultModel: null,
-                      modelVariant: null,
-                    }));
-                  }
-                  // Apply engine so OpenCode drops the provider without a manual reload.
-                  const applied = await applyEngineConfigForProviders().catch(() => false);
-                  await providerAuthStore.refreshProviders({ dispose: true }).catch(() => null);
-                  await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
-                  const managed = await loadOpenCodeManagedProviders();
-                  setOpenCodeManagedProviders(managed);
-                  if (applied) {
-                    reloadCoordinator.clearReloadRequired();
-                  } else {
-                    reloadCoordinator.markReloadRequired("config", {
-                      type: "config",
-                      name: "opencode.json",
-                      action: "updated",
-                    });
-                  }
-                } catch (error) {
-                  setProviderActionError(
-                    error instanceof Error ? error.message : t("settings.custom_provider_remove_failed"),
-                  );
-                } finally {
-                  setProviderActionBusyId(null);
-                  setProviderSyncBusy(false);
-                }
+                await deleteOpenCodeManagedProvider({
+                  providerId: provider.id,
+                  workspaceRoot: selectedWorkspaceRoot,
+                  defaultModelProviderId:
+                    local.prefs.defaultModel?.providerID ?? null,
+                  setBusyId: setProviderActionBusyId,
+                  setSyncBusy: setProviderSyncBusy,
+                  setError: setProviderActionError,
+                  setOpenCodeManagedProviders,
+                  setPrefs: local.setPrefs,
+                  applyEngineConfigForProviders,
+                  refreshProviders: (opts) =>
+                    providerAuthStore.refreshProviders(opts),
+                  loadOpenCodeManagedProviders,
+                  clearReloadRequired: () =>
+                    reloadCoordinator.clearReloadRequired(),
+                  markReloadRequired: (kind, detail) =>
+                    reloadCoordinator.markReloadRequired(kind, detail),
+                });
               }}
               cloudProviderIds={new Set(
                 Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
@@ -1991,9 +1891,22 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onSelectWorkspace={handleSelectSettingsWorkspace}
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
         headerStatus={routeOnMyAgentStatus}
-        busyHint={loading ? t("session.loading_detail") : busyLabel}
+        busyHint={
+          loading && !shellInteractive
+            ? t("system.load_settings_route")
+            : busyLabel
+        }
         onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
+        errorSlot={
+          routeError ? (
+            <SettingsRouteErrorSlot
+              action={routeErrorAction}
+              onRetry={() => void refreshRouteState()}
+              onOpenAiSettings={() => navigateSettingsPath("ai")}
+            />
+          ) : null
+        }
         compact={props.embedded}
         panelToolbarSlot={undefined}
       >
@@ -2062,7 +1975,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             }
           } catch (error) {
             setProviderActionError(
-              error instanceof Error ? error.message : String(error),
+              userErrorFromRaw(
+                error instanceof Error ? error.message : String(error),
+              ),
             );
           } finally {
             setProviderSyncBusy(false);

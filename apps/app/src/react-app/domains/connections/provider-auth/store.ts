@@ -33,6 +33,12 @@ import {
 } from "../../../../app/utils/providers";
 import { getReactQueryClient } from "../../../infra/query-client";
 import { ensureProviderListQuery } from "../../connections/provider-list-query";
+import {
+  disabledProvidersListsEqual,
+  isBuiltinOpenCodeZenProvider,
+  nextDisabledProvidersList,
+  normalizeDisabledProviders,
+} from "./disabled-and-disconnect";
 import type { OnMyAgentServerStore } from "../../shared";
 import {
   denSessionUpdatedEvent,
@@ -506,18 +512,6 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     return true;
   };
 
-  const normalizeDisabledProviders = (value: unknown) =>
-    Array.isArray(value)
-      ? [
-          ...new Set(
-            value
-              .filter((entry): entry is string => typeof entry === "string")
-              .map((entry) => entry.trim())
-              .filter(Boolean),
-          ),
-        ]
-      : [];
-
   const formatConfigWithProviderDisabledState = (
     raw: string,
     providerId: string,
@@ -529,9 +523,11 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
     const parsed = parse(updated) as Record<string, unknown> | undefined;
     const currentDisabled = normalizeDisabledProviders(parsed?.disabled_providers);
-    const nextDisabled = disabled
-      ? [...currentDisabled.filter((entry) => entry !== resolvedProviderId), resolvedProviderId]
-      : currentDisabled.filter((entry) => entry !== resolvedProviderId);
+    const nextDisabled = nextDisabledProvidersList(
+      currentDisabled,
+      resolvedProviderId,
+      disabled,
+    );
 
     const disabledEdits = modify(
       updated,
@@ -553,14 +549,13 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     const currentDisabled = normalizeDisabledProviders(options.disabledProviders());
-    const nextDisabled = disabled
-      ? [...currentDisabled.filter((entry) => entry !== resolvedProviderId), resolvedProviderId]
-      : currentDisabled.filter((entry) => entry !== resolvedProviderId);
+    const nextDisabled = nextDisabledProvidersList(
+      currentDisabled,
+      resolvedProviderId,
+      disabled,
+    );
 
-    if (
-      nextDisabled.length === currentDisabled.length &&
-      nextDisabled.every((entry, index) => entry === currentDisabled[index])
-    ) {
+    if (disabledProvidersListsEqual(currentDisabled, nextDisabled)) {
       return false;
     }
 
@@ -1628,7 +1623,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     try {
       // Built-in free OpenCode Zen stays "connected" without credentials.
       // Disconnect for that provider means disable it in workspace config.
-      const isBuiltinOpenCodeZen = resolved === "opencode";
+      const isBuiltinOpenCodeZen = isBuiltinOpenCodeZenProvider(resolved);
       if (!isBuiltinOpenCodeZen) {
         await removeProviderAuthCredentials(resolved);
       }

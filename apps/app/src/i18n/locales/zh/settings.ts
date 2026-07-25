@@ -357,7 +357,8 @@ export default {
   "settings.last_error": "最后错误",
   "settings.last_stderr": "最后stderr",
   "settings.last_stdout": "最后stdout",
-  "settings.loading_providers": "正在加载模型服务商…",
+  // Prefer system.load_settings_ai; keep aliases aligned.
+  "settings.loading_providers": "正在加载服务商…",
   "settings.loading_providers_list": "正在加载服务商…",
   "settings.loading_providers_inventory": "正在后台同步自定义服务商…",
   "settings.provider_model_count_pending": "模型…",
@@ -761,6 +762,15 @@ export default {
   "settings.providers_empty_summary": "还没有添加模型服务商",
   "settings.connect_provider_empty_hint":
     "使用右上角「自定义模型服务商配置」添加兼容 API，或「连接模型服务商」登录官方服务。",
+  "settings.providers_empty_title": "先添加一个模型服务商",
+  "settings.providers_empty_body":
+    "可以连接官方服务，或通过自定义配置添加兼容 API。至少有一个可用服务商后，再设置默认对话模型。",
+  "settings.providers_empty_cta_connect": "连接模型服务商",
+  "settings.providers_empty_cta_custom": "自定义配置",
+  "settings.providers_empty_runtime_title": "工作区服务未在线",
+  "settings.providers_empty_runtime_body":
+    "自定义配置仍可编辑。连接官方服务商需要本地工作区服务在运行。",
+  "settings.provider_error_retry": "再试一次",
   "settings.provider_model_count": "{count} 个模型",
   "settings.open_deeplink_failed": "打开深度链接失败",
   "settings.opencode_engine_sidecar": "智能体引擎",
@@ -859,14 +869,15 @@ export default {
   "settings.browser.tabs": "标签页 {value}",
   "settings.browser.agent_tabs": "智能体标签页 {value}",
   "settings.provider_edit_confirm_title": "保存对该模型服务商的修改？",
-  "settings.provider_edit_confirm_desc": "保存将写入 OpenCode 配置，需重新加载引擎后生效。",
+  "settings.provider_edit_confirm_desc":
+    "保存将更新此工作区的模型配置，重新加载后生效。",
   "settings.provider_edit_confirm_button": "保存修改",
   "settings.provider_delete_confirm_title": "删除该模型服务商？",
   "settings.provider_delete_confirm_desc":
     "确定删除「{name}」吗？将从当前配置移除，之后新对话无法使用；历史会话记录会保留。",
   "settings.provider_more_actions": "更多操作",
-  "settings.provider_reload_required_title": "需要刷新引擎",
+  "settings.provider_reload_required_title": "需要重新加载以应用变更",
   "settings.provider_reload_required_desc":
-    "新增或修改模型服务商需要刷新引擎（不用重启 App）以使修改立刻生效，请点击立刻刷新按钮。",
-  "settings.provider_reload_now": "立刻刷新",
+    "新增或修改模型服务商后，需要快速重新加载（不用重启应用）才会在新对话中生效。请点击立即重新加载。",
+  "settings.provider_reload_now": "立即重新加载",
 } as const;

@@ -5,8 +5,7 @@
  */
 import { lazy, Suspense, type ReactNode } from "react";
 
-import { OwDotTicker } from "../dot-ticker";
-import { t } from "../../../i18n";
+import { LoadSurface } from "../load-surface";
 import {
   AiSettingsProvidersSkeleton,
   loadAiSettingsView,
@@ -26,28 +25,14 @@ import {
   loadUsageView,
 } from "../../domains/settings";
 
-const tabFallbackClass = {
-  shell: "flex min-h-[12rem] w-full items-center justify-center py-10",
-  message: "mt-3 text-xs leading-5 text-dls-secondary",
-};
-
 export function SettingsTabSuspense(props: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <div
-          className={tabFallbackClass.shell}
-          aria-live="polite"
-          aria-busy="true"
-          role="status"
-        >
-          <div className="flex flex-col items-center">
-            <OwDotTicker size="sm" />
-            <div className={tabFallbackClass.message}>
-              {t("system.boot_preparing_workspace")}
-            </div>
-          </div>
-        </div>
+        <LoadSurface
+          variant="inset"
+          messageKey="system.load_settings_tab"
+        />
       }
     >
       {props.children}

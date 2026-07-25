@@ -398,9 +398,7 @@ export function useSessionRouteSurfaceProps(
         const text = resolveDraftText(draft);
         if (!draftHasSendableContent(draft)) return;
         if (modelAvailabilityBlocksTask)
-          throw new Error(
-            "Selected model is unavailable. Choose another model before sending.",
-          );
+          throw new Error(t("session.model_unavailable_send_blocked"));
         const planningMode = isComposerPlanningMode(draft.collaborationMode);
 
         // Honor the "click +新会话 then send" flow: if the user activated

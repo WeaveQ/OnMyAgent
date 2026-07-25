@@ -235,9 +235,9 @@ pnpm check:security
 
 ### 下一步重点
 
-- 持续拆分低频设置页、Skill 页面和语法高亮模块，降低冷启动成本。
+- 继续降低冷启动成本（低频设置 / Skill / 高亮 chunk 懒加载）；progressive boot 与统一加载层已能更快首屏可交互。
 - 在具备凭证和 callback 权限时，补齐 Feishu 与 Weixin 的真实外部通道 E2E 验证。
-- 继续拆分 desktop 主进程和 session/settings composition root。
+- 继续拆分 desktop 主进程，并进一步瘦 session 宿主表面（message-list 拆分、更深 runtime hooks）。
 - 完善工作详情视图、审计轨迹和更安全的审批策略预设。
 - 准备团队 Worker 协作层：共享工作区、团队权限、组织审计、Skill Packs 和企业部署选项。
 

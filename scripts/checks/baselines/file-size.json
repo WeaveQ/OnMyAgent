@@ -4,6 +4,9 @@
     "apps/server/src/toy-ui.ts": 1582,
     "apps/server/src/services/session-archive.ts": 2038,
     "apps/server/src/services/automations.ts": 1075,
-    "apps/server/src/routes/workspace-session-archive-routes.ts": 1215
+    "apps/server/src/routes/workspace-session-archive-routes.ts": 1215,
+    "apps/app/src/react-app/shell/settings-route/render.tsx": 2159,
+    "apps/app/src/react-app/domains/connections/provider-auth/store.ts": 1881,
+    "apps/app/src/react-app/shell/session-route/render.tsx": 1334
   }
 }

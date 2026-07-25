@@ -11,15 +11,22 @@ export {
 } from "../../../app/lib/access-mode";
 import { t, type Language } from "../../../i18n";
 
-export type SettingsSection = "commands" | "skills" | "mcps" | "plugins";
+export type SettingsSection =
+  | "ai"
+  | "commands"
+  | "skills"
+  | "mcps"
+  | "plugins";
 
 /**
  * Map tool-menu "open settings" intents to settings routes.
  * MCP / connectors no longer live under Settings → Extensions (removed).
  * Skills & connectors use marketplace side panel from Composer; these routes
  * are only last-resort deep links and intentionally avoid dead extension pages.
+ * "ai" deep-links model/provider settings when the selected model is unavailable.
  */
 export function routeForSettingsSection(section: SettingsSection) {
+  if (section === "ai") return "/settings/ai";
   if (section === "skills") return "/settings/general";
   // mcps / plugins: custom MCP dialog + store connectors; never /settings/extensions*
   if (section === "mcps" || section === "plugins") return "/settings/general";
