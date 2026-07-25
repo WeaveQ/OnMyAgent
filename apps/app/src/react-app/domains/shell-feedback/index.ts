@@ -6,11 +6,13 @@ export {
   StatusToastsViewport,
   statusToastDurationForTone,
   useStatusToasts,
-  type AppStatusToast,
-  type AppStatusToastInput,
-  type AppStatusToastTone,
   type StatusToastsStore,
 } from "./status-toasts";
+export type {
+  AppStatusToast,
+  AppStatusToastInput,
+  AppStatusToastTone,
+} from "./status-toast-types";
 export type { StatusToastProps } from "./status-toast";
 export {
   buildAgentReadyNotificationBody,

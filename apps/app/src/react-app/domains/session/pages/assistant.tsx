@@ -63,7 +63,7 @@ import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type {
   SessionAgentManagementIntent,
   SessionPageProps,
-} from "./index";
+} from "./session-page-types";
 
 import {
   addAssistantSession,

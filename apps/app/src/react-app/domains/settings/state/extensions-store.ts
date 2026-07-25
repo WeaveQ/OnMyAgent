@@ -66,12 +66,16 @@ import {
 import { createExtensionsWorkspaceConfigGateway } from "./extensions-store-workspace-config";
 import { createExtensionsWorkspaceWriter } from "./extensions-store-workspace-writer";
 import {
+  applySetStateAction,
   buildCloudSkillImportPlan,
   buildCloudSkillImportRecord,
   buildCloudSkillHubImportRecord,
   buildExtensionsCloudOrgRefreshContext,
   buildExtensionsHubSkillsLoadKey,
   buildExtensionsWorkspaceContextKey,
+  canUseOnMyAgentCapability,
+  resolveOnMyAgentGateway,
+  formatSkillPath,
   hubRepoKey,
   isRecord,
   mapSkillCard,
@@ -93,6 +97,7 @@ import {
 import { persistStoredHubRepos, readStoredHubRepos } from "./extensions-store-storage";
 import {
   buildExtensionsStoreSnapshot,
+  createInitialExtensionsMutableState,
   type ExtensionsStoreMutableState,
   type ExtensionsStoreSnapshot,
 } from "./extensions-store-snapshot";
@@ -164,36 +169,10 @@ export function createExtensionsStore(options: {
   let cloudOrgSkillHubsLoadKey = "";
   let cloudOrgMarketplacesLoadKey = "";
 
-  let state: MutableState = {
-    skillsContextKey: "",
-    pluginsContextKey: "",
-    hubSkillsContextKey: "",
-    cloudOrgSkillsContextKey: "",
-    skills: [],
-    skillsStatus: null,
-    hubSkills: [],
-    hubSkillsStatus: null,
-    cloudOrgSkills: [],
-    cloudOrgSkillsStatus: null,
-    importedCloudSkills: {},
-    cloudOrgSkillHubs: [],
-    cloudOrgSkillHubsStatus: null,
-    importedCloudSkillHubs: {},
-    cloudOrgMarketplaces: [],
-    cloudOrgMarketplacesStatus: null,
-    importedCloudPlugins: {},
+  let state: MutableState = createInitialExtensionsMutableState({
     hubRepo: DEFAULT_HUB_REPO,
     hubRepos: [DEFAULT_HUB_REPO],
-    pluginScope: "project",
-    pluginConfig: null,
-    pluginConfigPath: null,
-    pluginList: [],
-    pluginInput: "",
-    pluginStatus: null,
-    activePluginGuide: null,
-    sidebarPluginList: [],
-    sidebarPluginStatus: null,
-  };
+  });
 
   const emitChange = () => {
     for (const listener of listeners) listener();
@@ -248,10 +227,7 @@ export function createExtensionsStore(options: {
     mutateState((current) => ({ ...current, [key]: value }));
   };
 
-  const applyStateAction = <T,>(current: T, next: SetStateAction<T>) =>
-    typeof next === "function" ? (next as (value: T) => T)(current) : next;
-
-  const formatSkillPath = (location: string) => location.replace(/[/\\]SKILL\.md$/i, "");
+  const applyStateAction = applySetStateAction;
 
   const workspaceConfigGateway = createExtensionsWorkspaceConfigGateway({
     onmyagentServerConnection: getOnMyAgentServerSnapshot,
@@ -414,10 +390,13 @@ export function createExtensionsStore(options: {
     const loadKey = buildExtensionsHubSkillsLoadKey({ repo, workspaceRoot: root });
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.hub?.skills?.read;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: options.runtimeWorkspaceId(),
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.hub?.skills?.read,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
     if (shouldResetExtensionsLoadedForKey(hubSkillsLoadKey, loadKey)) {
       hubSkillsLoaded = false;
@@ -443,8 +422,8 @@ export function createExtensionsStore(options: {
         return;
       }
 
-      if (canUseOnMyAgentServer) {
-        const response = await onmyagentClient.listHubSkills({
+      if (onmyagentGateway.ok) {
+        const response = await onmyagentGateway.client.listHubSkills({
           repo: {
             owner: repo.owner,
             repo: repo.repo,
@@ -921,11 +900,13 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.hub?.skills?.install;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.hub?.skills?.install,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
     if (!canUseOnMyAgentServer) {
       if (isRemoteWorkspace) return { ok: false, message: t("skills.onmyagent_server_unavailable") };
@@ -937,8 +918,9 @@ export function createExtensionsStore(options: {
     setStateField("skillsStatus", null);
 
     try {
+      if (!onmyagentGateway.ok) return { ok: false, message: t("skills.hub_install_requires_server") };
       const repoOverride: OnMyAgentHubRepo = { owner: repo.owner, repo: repo.repo, ref: repo.ref };
-      const result = await onmyagentClient.installHubSkill(onmyagentWorkspaceId, trimmed, { repo: repoOverride });
+      const result = await onmyagentGateway.client.installHubSkill(onmyagentGateway.workspaceId, trimmed, { repo: repoOverride });
       await refreshHubSkillImports();
       if (!result?.ok) return { ok: false, message: t("skills.install_failed") };
       return { ok: true, message: `Installed ${trimmed}.` };
@@ -1047,11 +1029,13 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.skills?.read;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.skills?.read,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
     if (!root) {
       mutateState((current) => ({
@@ -1062,7 +1046,7 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (canUseOnMyAgentServer) {
+    if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
       if (shouldResetExtensionsLoadedForKey(skillsRoot, root)) skillsLoaded = false;
       if (shouldSkipExtensionsRefresh({ force: optionsOverride?.force, loaded: skillsLoaded })) return;
       if (refreshSkillsInFlight) return;
@@ -1071,7 +1055,7 @@ export function createExtensionsStore(options: {
       refreshSkillsAborted = false;
       try {
         setStateField("skillsStatus", null);
-        const response = await onmyagentClient.listSkills(onmyagentWorkspaceId, { includeGlobal: isLocalWorkspace });
+        const response = await onmyagentGateway.client.listSkills(onmyagentWorkspaceId, { includeGlobal: isLocalWorkspace });
         if (refreshSkillsAborted) return;
         const next: SkillCard[] = Array.isArray(response.items)
           ? response.items.map((entry) => mapSkillCard(entry, root))
@@ -1196,11 +1180,13 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.plugins?.read;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.plugins?.read,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
     if (refreshPluginsInFlight) return;
     refreshPluginsInFlight = true;
@@ -1231,7 +1217,8 @@ export function createExtensionsStore(options: {
       try {
         mutateState((current) => ({ ...current, pluginStatus: null, sidebarPluginStatus: null }));
         if (refreshPluginsAborted) return;
-        const result = await onmyagentClient.listPlugins(onmyagentWorkspaceId, { includeGlobal: false });
+        if (!onmyagentGateway.ok) return;
+        const result = await onmyagentGateway.client.listPlugins(onmyagentGateway.workspaceId, { includeGlobal: false });
         if (refreshPluginsAborted) return;
         const projectItems = result.items.filter((item) => item.scope === "project");
         const list = toProjectPluginListEntries(projectItems);
@@ -1367,11 +1354,13 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.plugins?.write;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.plugins?.write,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
     if (!pluginName) {
       if (isManualInput) setStateField("pluginStatus", t("skills.enter_plugin_name"));
@@ -1383,10 +1372,10 @@ export function createExtensionsStore(options: {
       return;
     }
 
-    if (snapshot.pluginScope === "project" && canUseOnMyAgentServer) {
+    if (snapshot.pluginScope === "project" && onmyagentGateway.ok) {
       try {
         setStateField("pluginStatus", null);
-        await onmyagentClient.addPlugin(onmyagentWorkspaceId, pluginName);
+        await onmyagentGateway.client.addPlugin(onmyagentGateway.workspaceId, pluginName);
         options.markReloadRequired?.("plugins", { type: "plugin", name: triggerName, action: "added" });
         if (isManualInput) setStateField("pluginInput", "");
         await refreshPlugins("project");
@@ -1461,21 +1450,23 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.plugins?.write;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.plugins?.write,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
     if (snapshot.pluginScope !== "project" && !isLocalWorkspace) {
       setStateField("pluginStatus", "Global plugins are only available for local workers.");
       return;
     }
 
-    if (snapshot.pluginScope === "project" && canUseOnMyAgentServer) {
+    if (snapshot.pluginScope === "project" && onmyagentGateway.ok) {
       try {
         setStateField("pluginStatus", null);
-        await onmyagentClient.removePlugin(onmyagentWorkspaceId, name);
+        await onmyagentGateway.client.removePlugin(onmyagentGateway.workspaceId, name);
         options.markReloadRequired?.("plugins", { type: "plugin", name: triggerName, action: "removed" });
         await refreshPlugins("project");
       } catch (error) {
@@ -1574,18 +1565,20 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.skills?.write;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.skills?.write,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
-    if (canUseOnMyAgentServer) {
+    if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
       options.setBusy(true);
       options.setError(null);
       setStateField("skillsStatus", t("skills.installing_skill_creator"));
       try {
-        await onmyagentClient.upsertSkill(onmyagentWorkspaceId, { name: "skill-creator", content: skillCreatorTemplate });
+        await onmyagentGateway.client.upsertSkill(onmyagentWorkspaceId, { name: "skill-creator", content: skillCreatorTemplate });
         const message = t("skills.skill_creator_installed");
         setStateField("skillsStatus", message);
         options.markReloadRequired?.("skills", { type: "skill", name: "skill-creator", action: "added" });
@@ -1725,16 +1718,18 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.skills?.read;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.skills?.read,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
-    if (canUseOnMyAgentServer) {
+    if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
       try {
         setStateField("skillsStatus", null);
-        const result = await onmyagentClient.getSkill(onmyagentWorkspaceId, trimmed, { includeGlobal: isLocalWorkspace });
+        const result = await onmyagentGateway.client.getSkill(onmyagentWorkspaceId, trimmed, { includeGlobal: isLocalWorkspace });
         return { name: result.item.name, path: result.item.path, content: result.content };
       } catch (error) {
         setStateField("skillsStatus", error instanceof Error ? error.message : t("skills.failed_to_load"));
@@ -1783,18 +1778,20 @@ export function createExtensionsStore(options: {
     const onmyagentSnapshot = getOnMyAgentServerSnapshot();
     const onmyagentClient = onmyagentSnapshot.onmyagentServerClient;
     const onmyagentWorkspaceId = options.runtimeWorkspaceId();
-    const canUseOnMyAgentServer =
-      onmyagentSnapshot.onmyagentServerStatus === "connected" &&
-      onmyagentClient &&
-      onmyagentWorkspaceId &&
-      onmyagentSnapshot.onmyagentServerCapabilities?.skills?.write;
+    const onmyagentGateway = resolveOnMyAgentGateway({
+      status: onmyagentSnapshot.onmyagentServerStatus,
+      client: onmyagentClient,
+      workspaceId: onmyagentWorkspaceId,
+      capability: onmyagentSnapshot.onmyagentServerCapabilities?.skills?.write,
+    });
+    const canUseOnMyAgentServer = onmyagentGateway.ok;
 
-    if (canUseOnMyAgentServer) {
+    if (canUseOnMyAgentServer && onmyagentClient && onmyagentWorkspaceId) {
       options.setBusy(true);
       options.setError(null);
       setStateField("skillsStatus", null);
       try {
-        await onmyagentClient.upsertSkill(onmyagentWorkspaceId, {
+        await onmyagentGateway.client.upsertSkill(onmyagentWorkspaceId, {
           name: trimmed,
           content: input.content,
           description: input.description,

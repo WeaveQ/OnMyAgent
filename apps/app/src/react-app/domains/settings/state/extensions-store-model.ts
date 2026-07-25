@@ -655,3 +655,54 @@ export function pluginMcpConfigsFromPayload(
 
   return [...configs.values()];
 }
+
+
+/** Strip trailing SKILL.md from a skill location for display. */
+export function formatSkillPath(location: string): string {
+  return location.replace(/[/\\]SKILL\.md$/i, "");
+}
+
+/** React-style setState action apply without React types. */
+export function applySetStateAction<T>(
+  current: T,
+  next: T | ((current: T) => T),
+): T {
+  return typeof next === "function" ? (next as (c: T) => T)(current) : next;
+}
+
+/**
+ * Whether OnMyAgent server gateway can perform a skill/plugin/hub action.
+ * Pure predicate — store only supplies the snapshot fields.
+ */
+export function canUseOnMyAgentCapability(input: {
+  status: string | null | undefined;
+  hasClient: boolean;
+  workspaceId: string | null | undefined;
+  capability: boolean | null | undefined;
+}): boolean {
+  return (
+    input.status === "connected" &&
+    input.hasClient &&
+    Boolean(input.workspaceId?.trim()) &&
+    Boolean(input.capability)
+  );
+}
+
+/** Type-narrowing gateway check — preferred at store call sites. */
+export function resolveOnMyAgentGateway<TClient>(input: {
+  status: string | null | undefined;
+  client: TClient | null | undefined;
+  workspaceId: string | null | undefined;
+  capability: boolean | null | undefined;
+}): { ok: true; client: TClient; workspaceId: string } | { ok: false } {
+  const workspaceId = input.workspaceId?.trim() ?? "";
+  if (
+    input.status !== "connected" ||
+    input.client == null ||
+    !workspaceId ||
+    !input.capability
+  ) {
+    return { ok: false };
+  }
+  return { ok: true, client: input.client, workspaceId };
+}
