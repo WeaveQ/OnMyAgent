@@ -20,8 +20,14 @@ import { agentManagementSnapshot } from "../../../../app/lib/desktop";
 import type { ProviderListItem } from "../../../../app/types";
 import {
   mergeConnectedProviders,
+  moveConnectedProviderInOrder,
+  orderConnectedProviders,
   type MergedConnectedProvider,
 } from "../../connections";
+import {
+  readConnectedProviderOrderIds,
+  writeConnectedProviderOrderIds,
+} from "../../../shell/session-memory";
 
 /** Match provider-list React Query TTL so list + inventory stay coherent. */
 export const OPENCODE_INVENTORY_CACHE_MS = 5 * 60 * 1000;
@@ -47,6 +53,11 @@ export type LoadOpenCodeManagedProvidersOptions = {
 
 export type AiProvidersController = {
   connectedProviders: MergedConnectedProvider[];
+  /** Persist move-up / move-down order for the settings list. */
+  moveConnectedProvider: (
+    providerId: string,
+    direction: "up" | "down",
+  ) => void;
   providerListHydrated: boolean;
   opencodeInventoryReady: boolean;
   opencodeManagedProviders: AgentManagementManagedProvider[];
@@ -239,20 +250,39 @@ export function useAiProvidersController(
     root,
   ]);
 
-  const connectedProviders = useMemo(
-    () =>
-      mergeConnectedProviders({
-        sdkProviders: input.sdkProviders,
-        connectedIds: input.connectedIds,
-        managedProviders: opencodeManagedProviders,
-        isBlocked: input.isBlocked,
-      }),
-    [
-      input.connectedIds,
-      input.isBlocked,
-      input.sdkProviders,
-      opencodeManagedProviders,
-    ],
+  const [providerOrderIds, setProviderOrderIds] = useState<string[]>(() =>
+    readConnectedProviderOrderIds(),
+  );
+
+  const connectedProviders = useMemo(() => {
+    const merged = mergeConnectedProviders({
+      sdkProviders: input.sdkProviders,
+      connectedIds: input.connectedIds,
+      managedProviders: opencodeManagedProviders,
+      isBlocked: input.isBlocked,
+    });
+    return orderConnectedProviders(merged, providerOrderIds);
+  }, [
+    input.connectedIds,
+    input.isBlocked,
+    input.sdkProviders,
+    opencodeManagedProviders,
+    providerOrderIds,
+  ]);
+
+  const moveConnectedProvider = useCallback(
+    (providerId: string, direction: "up" | "down") => {
+      const presentIds = connectedProviders.map((provider) => provider.id);
+      const next = moveConnectedProviderInOrder(
+        providerOrderIds,
+        presentIds,
+        providerId,
+        direction,
+      );
+      setProviderOrderIds(next);
+      writeConnectedProviderOrderIds(next);
+    },
+    [connectedProviders, providerOrderIds],
   );
 
   const providersDiscovering =
@@ -268,6 +298,7 @@ export function useAiProvidersController(
 
   return {
     connectedProviders,
+    moveConnectedProvider,
     providerListHydrated,
     opencodeInventoryReady,
     opencodeManagedProviders,

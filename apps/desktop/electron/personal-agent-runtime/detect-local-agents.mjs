@@ -16,6 +16,8 @@ import { existsSync, realpathSync } from "node:fs";
 import os from "node:os";
 import { delimiter, join } from "node:path";
 
+import { enrichedPath } from "../runtime-path-env.mjs";
+
 const HOME = os.homedir();
 
 /**
@@ -219,6 +221,15 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     displayName: "Grok Build CLI",
     commands: ["grok"],
     skillsDirs: [join(HOME, ".grok", "skills")],
+    // Packaged Electron often has a short PATH; also probe common install roots.
+    wellKnownPaths: [
+      join(HOME, ".local", "bin", "grok"),
+      join(HOME, ".bun", "bin", "grok"),
+      join(HOME, ".npm-global", "bin", "grok"),
+      join(HOME, "npm", "bin", "grok"),
+      "/opt/homebrew/bin/grok",
+      "/usr/local/bin/grok",
+    ],
     // `grok agent stdio` starts the ACP stdio server
     // (installed via `npm install -g @xai-official/grok`, binary: `grok`)
     acpArgs: ["agent", "stdio"],
@@ -343,8 +354,11 @@ export function mergeCatalogNativeSkillDirs(agent) {
 // Resolve an executable name against PATH without spawning a shell. `command`
 // and `which` are shell builtins/redirects that are unreliable from
 // execFileSync, so we walk PATH ourselves and check file existence.
+// Use enrichedPath so packaged Electron (short PATH) still sees Homebrew/npm bins.
 function resolveOnPath(command) {
-  const paths = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+  const pathEnv =
+    enrichedPath([], process.env.PATH) ?? process.env.PATH ?? "";
+  const paths = pathEnv.split(delimiter).filter(Boolean);
   const exts =
     process.platform === "win32"
       ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")

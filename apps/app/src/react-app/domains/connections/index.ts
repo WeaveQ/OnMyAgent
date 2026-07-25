@@ -27,3 +27,8 @@ export {
   type MergedConnectedProviderSource,
   type MergeConnectedProvidersInput,
 } from "./merge-connected-providers";
+export {
+  moveConnectedProviderInOrder,
+  orderConnectedProviders,
+  type OrderableProvider,
+} from "./order-connected-providers";

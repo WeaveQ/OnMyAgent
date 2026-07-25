@@ -451,6 +451,8 @@ export default {
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
   "settings.provider_badge_cloud": "Cloud",
+  "settings.provider_move_up": "Move up",
+  "settings.provider_move_down": "Move down",
   "settings.providers_desc": "Connect model and tool services",
   "settings.providers_title": "Models",
   "settings.providers_dialog_title": "Model providers",
