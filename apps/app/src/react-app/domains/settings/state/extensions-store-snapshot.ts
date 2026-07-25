@@ -92,3 +92,40 @@ export function buildExtensionsStoreSnapshot(input: {
     }),
   };
 }
+
+
+export function createInitialExtensionsMutableState(input: {
+  hubRepo: ExtensionsStoreMutableState["hubRepo"];
+  hubRepos: ExtensionsStoreMutableState["hubRepos"];
+}): ExtensionsStoreMutableState {
+  return {
+    skillsContextKey: "",
+    pluginsContextKey: "",
+    hubSkillsContextKey: "",
+    cloudOrgSkillsContextKey: "",
+    skills: [],
+    skillsStatus: null,
+    hubSkills: [],
+    hubSkillsStatus: null,
+    cloudOrgSkills: [],
+    cloudOrgSkillsStatus: null,
+    importedCloudSkills: {},
+    cloudOrgSkillHubs: [],
+    cloudOrgSkillHubsStatus: null,
+    importedCloudSkillHubs: {},
+    cloudOrgMarketplaces: [],
+    cloudOrgMarketplacesStatus: null,
+    importedCloudPlugins: {},
+    hubRepo: input.hubRepo,
+    hubRepos: input.hubRepos,
+    pluginScope: "project",
+    pluginConfig: null,
+    pluginConfigPath: null,
+    pluginList: [],
+    pluginInput: "",
+    pluginStatus: null,
+    activePluginGuide: null,
+    sidebarPluginList: [],
+    sidebarPluginStatus: null,
+  };
+}
