@@ -57,6 +57,8 @@ import {
 import { isDesktopRuntime } from "../../app/utils";
 import { useLocal, type OnboardingProfile } from "../kernel/local-provider";
 import { createOnMyAgentServerClient } from "../../app/lib/onmyagent-server";
+import { prewarmAgentManagementCore } from "../domains/local-agents";
+import { prewarmProvidersForWorkspace } from "../domains/settings";
 import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 import { writeActiveWorkspaceId } from "./session-memory";
 import {
@@ -422,6 +424,48 @@ export function WelcomeRoute() {
         setCreatedWorkspaceId(targetWorkspaceId);
       }
       setStep("profile");
+
+      // While the user fills the profile step, warm Models + 管理 so both
+      // surfaces open without a cold first-load spinner after onboarding.
+      const createdWorkspace =
+        list.workspaces.find((item) => item.id === targetWorkspaceId) ??
+        list.workspaces[list.workspaces.length - 1] ??
+        null;
+      void (async () => {
+        try {
+          // Core fleet does not need OpenCode HTTP — start immediately.
+          void prewarmAgentManagementCore(selectedFolder).catch((error) => {
+            console.warn("[welcome] agent-management prewarm failed", error);
+          });
+
+          const connection = await resolveOnMyAgentConnection();
+          if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
+            return;
+          }
+          await prewarmProvidersForWorkspace({
+            workspace: createdWorkspace
+              ? {
+                  ...createdWorkspace,
+                  path: createdWorkspace.path || selectedFolder,
+                }
+              : {
+                  id: targetWorkspaceId,
+                  name: workspaceName,
+                  path: selectedFolder,
+                  preset: "starter",
+                  workspaceType: "local",
+                },
+            localServer: {
+              baseUrl: connection.normalizedBaseUrl,
+              token: connection.resolvedToken,
+            },
+            directory: selectedFolder,
+            healthTimeoutMs: 20_000,
+          });
+        } catch (error) {
+          console.warn("[welcome] providers prewarm failed", error);
+        }
+      })();
     } catch (error) {
       setWorkspaceError(
         error instanceof Error

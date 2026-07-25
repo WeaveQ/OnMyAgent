@@ -102,6 +102,13 @@ export {
   orderBackgroundSessionWorkspacesSelectedOnly,
   selectSidebarPreviewSessionIds,
 } from "./sync/sidebar-load-policy";
+/** Quiet-session poll policy — shell imports via this barrel only. */
+export {
+  CONVERSATION_HISTORY_SNAPSHOT_LIMIT,
+  RELOAD_EVENTS_POLL_INTERVAL_MS,
+  SESSION_SNAPSHOT_STALE_TIME_MS,
+  shouldRunReloadEventsPoll,
+} from "./sync/session-poll-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   permissionKey,

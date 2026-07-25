@@ -16,6 +16,7 @@ import type {
   OnMyAgentSessionMessage,
 } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
+import { CONVERSATION_HISTORY_SNAPSHOT_LIMIT } from "../sync/session-poll-policy";
 import { formatConversationTime } from "./conversation-model";
 
 export type ConversationHistoryEntry = {
@@ -136,7 +137,7 @@ export function ConversationHistoryPanel(props: {
       if (!client || !sessionId) throw new Error("unavailable");
       return (
         await client.getSessionSnapshot(props.workspaceId, sessionId, {
-          limit: 200,
+          limit: CONVERSATION_HISTORY_SNAPSHOT_LIMIT,
         })
       ).item;
     },
