@@ -8,6 +8,32 @@ This project follows a lightweight changelog format during early development. Re
 
 ### Added
 
+### Changed
+
+### Security
+
+### License / community
+
+## 0.4.8
+
+### Added
+
+- Shell **route-load registry** + shared `LoadSurface` for boot/route/inset loading chrome (`system.load_*` i18n).
+- Progressive boot: dismiss full-screen overlay once workspace shell can paint; sidebar session title cache for cold start.
+- Product error templates in `kernel/user-error` with recovery actions on settings route banners.
+- Settings AI empty-state dual CTAs, list skeleton, and `useAiProvidersController` / `mergeConnectedProviders`.
+
+### Changed
+
+- Shared provider inventory merge (`mergeConnectedProviders`) for settings AI and session model catalogs.
+- Composer model-unavailable control opens AI settings; first-load vs soft-refresh load scopes reduce double-load feel.
+- Boot/runtime and reload copy prefer product language (apply/reload) over bare “engine” jargon (en / zh / zh-TW).
+- Architecture / domain README / public roadmap notes synced for shell load UX.
+
+## 0.4.7
+
+### Added
+
 - Session goal lifecycle in the composer: preview before send, pause / resume / clear, session-scoped runtime isolation, and Codex-style access modes.
 - Messaging domain surfaces for automations and personal-agent channels (Feishu, Weixin, pairing).
 - `local-agents` domain for ACP / local agent management, cards, and related UI.
@@ -17,10 +43,6 @@ This project follows a lightweight changelog format during early development. Re
 - `DesktopCommandMap` + domain IPC handlers under `apps/desktop/electron/desktop-handlers/` (typed desktop bridge).
 - Main rail bottom **Devices** icon entry (with channels).
 - Safety-net CI: `ui-contracts` suite in `test:ui`, `check:architecture-paths` in `pnpm check`, e2e health-binding scan, desktop-handlers domain smoke.
-- Shell **route-load registry** + shared `LoadSurface` for boot/route/inset loading chrome (`system.load_*` i18n).
-- Progressive boot: dismiss full-screen overlay once workspace shell can paint; sidebar session title cache for cold start.
-- Product error templates in `kernel/user-error` with recovery actions on settings route banners.
-- Settings AI empty-state dual CTAs, list skeleton, and `useAiProvidersController` / `mergeConnectedProviders`.
 
 ### Changed
 
@@ -32,9 +54,7 @@ This project follows a lightweight changelog format during early development. Re
 - `@onmyagent/ui` is React-only (`@onmyagent/ui/react`); Solid export and unused Paper mesh helpers removed.
 - Documentation layout under `docs/`: map (`README.md`), `Architecture.md`, `release.md`, `loop/{rules,incidents}.md`, `design/`. Plan/feature draft trees (`docs/plans`, `docs/archive`, `docs/features`) removed and gitignored; use `.loop/`.
 - Engineering skills live under `.agents/skills/` with symlinks for Codex/Claude/Grok (`.codex/skills`, `.claude/skills`, `.grok/skills`). Added `CLAUDE.md` → `AGENTS.md` and `skills-audit`.
-- Composer model-unavailable control opens AI settings; first-load vs soft-refresh load scopes reduce double-load feel.
-- Boot/runtime and reload copy prefer product language (apply/reload) over bare “engine” jargon (en / zh / zh-TW).
-- Workspace package version **0.4.7** (see `package.json` files).
+
 ### Security
 
 - Documented public contribution and support paths for safe issue reporting.
