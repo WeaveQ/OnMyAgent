@@ -135,7 +135,8 @@ describe("settings AI view wiring (structural)", () => {
     expect(aiView).toContain("settings.provider_model_count_pending");
     expect(aiView).toContain("system.load_settings_ai");
     expect(aiView).toContain("settings.loading_providers_inventory");
-    expect(aiView).toContain("settings.connect_provider_empty_hint");
+    expect(aiView).toContain("settings.providers_empty_title");
+    expect(aiView).toContain("settings.providers_empty_cta_connect");
     expect(aiView).toContain("modelCount");
     expect(aiView).toContain("providersLoading");
     expect(aiView).toContain("inventorySyncing");

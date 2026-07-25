@@ -140,7 +140,7 @@ export function ModelSelectView({
         aria-label={t("settings.model_change")}
         aria-keyshortcuts="Meta+Alt+/"
         title={displayLabel}
-        className="flex h-7 max-w-36 shrink min-w-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+        className="flex h-7 max-w-40 min-w-0 shrink items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
       >
         <span className="min-w-0 truncate">{displayLabel}</span>
         <ChevronDown className="size-3.5 shrink-0" />

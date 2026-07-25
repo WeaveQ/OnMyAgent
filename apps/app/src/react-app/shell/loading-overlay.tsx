@@ -1,15 +1,30 @@
 /** @jsxImportSource react */
+import { Button } from "@/components/ui/button";
+
+import { t } from "../../i18n";
+import { relaunchDesktopApp } from "../../app/lib/desktop";
+import { isElectronRuntime } from "../../app/utils";
 import { useBootState, useBootOverlayVisible } from "./boot-state";
 import { LoadSurface, useRouteLoadTop } from "./load-surface";
-import { t } from "../../i18n";
 
 const RELEASES_URL = "https://github.com/WeaveQ/onmyagent/releases";
 
 const errorClass = {
-  wrap: "flex flex-col gap-2 text-xs leading-5 text-dls-status-danger-fg",
+  wrap: "flex flex-col gap-3 text-xs leading-5 text-dls-status-danger-fg",
   secondary: "text-dls-secondary",
   link: "text-dls-accent underline decoration-dls-accent/40 underline-offset-4",
+  actions: "flex flex-wrap items-center justify-center gap-2",
 };
+
+function relaunchOrReload() {
+  if (isElectronRuntime()) {
+    void relaunchDesktopApp().catch(() => {
+      window.location.reload();
+    });
+    return;
+  }
+  window.location.reload();
+}
 
 /**
  * Quiet, opaque boot overlay. Solid surface fill so nothing bleeds through.
@@ -36,6 +51,15 @@ export function LoadingOverlay() {
       {error ? (
         <div className={errorClass.wrap}>
           <div>{error}</div>
+          <div className={errorClass.actions}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => relaunchOrReload()}
+            >
+              {t("system.boot_retry")}
+            </Button>
+          </div>
           <div className={errorClass.secondary}>
             {t("system.boot_download_latest_hint")}{" "}
             <a

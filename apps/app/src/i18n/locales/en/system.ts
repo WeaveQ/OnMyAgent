@@ -33,6 +33,24 @@ export default {
   "system.boot_error_with_detail": "Something went wrong. {detail}",
   "system.boot_download_latest_hint":
     "If this keeps happening, download the latest version:",
+  "system.boot_retry": "Try again",
+  "system.error_action_retry": "Try again",
+  "system.error_action_reload_app": "Restart app",
+  "system.error_action_open_ai_settings": "Open model settings",
+  "system.error_not_connected_title": "Not connected",
+  "system.error_not_connected_body":
+    "The workspace service is offline. Wait a moment and try again, or reopen the app.",
+  "system.error_providers_load_title": "Couldn’t load providers",
+  "system.error_providers_load_body":
+    "Check your network and workspace connection, then try again.",
+  "system.error_connect_provider_title": "Couldn’t connect provider",
+  "system.error_connect_provider_body":
+    "Check the API key or sign-in, then try connecting again.",
+  "system.error_remote_workspace_title": "Remote workspace unavailable",
+  "system.error_remote_workspace_body":
+    "Can’t reach this remote workspace. Check the address and network, then retry.",
+  "system.error_request_title": "Request failed",
+  "system.error_request_body": "Something went wrong. Please try again.",
   "system.load_opening": "Opening…",
   "system.load_session_route": "Loading workspace…",
   "system.load_settings_route": "Loading settings…",

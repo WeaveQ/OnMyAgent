@@ -762,6 +762,15 @@ export default {
   "settings.providers_empty_summary": "還沒有新增模型服務商",
   "settings.connect_provider_empty_hint":
     "使用右上角「自訂模型服務商配置」新增相容 API，或「連接模型服務商」登入官方服務。",
+  "settings.providers_empty_title": "先新增一個模型服務商",
+  "settings.providers_empty_body":
+    "可以連接官方服務，或透過自訂配置新增相容 API。至少有一個可用服務商後，再設定預設對話模型。",
+  "settings.providers_empty_cta_connect": "連接模型服務商",
+  "settings.providers_empty_cta_custom": "自訂配置",
+  "settings.providers_empty_runtime_title": "工作區服務未在線",
+  "settings.providers_empty_runtime_body":
+    "自訂配置仍可編輯。連接官方服務商需要本地工作區服務在運行。",
+  "settings.provider_error_retry": "再試一次",
   "settings.provider_model_count": "{count} 個模型",
   "settings.open_deeplink_failed": "打開深度鏈接失敗",
   "settings.opencode_engine_sidecar": "智能體引擎",

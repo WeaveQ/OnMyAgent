@@ -380,6 +380,15 @@ export default {
   "settings.providers_empty_summary": "No model providers added yet",
   "settings.connect_provider_empty_hint":
     "Use “Custom model provider configuration” above for a compatible API, or “Connect model provider” to sign in to a hosted service.",
+  "settings.providers_empty_title": "Add a model provider to get started",
+  "settings.providers_empty_body":
+    "Connect a hosted service, or add a compatible API with custom configuration. You can set the default chat model after at least one provider is ready.",
+  "settings.providers_empty_cta_connect": "Connect model provider",
+  "settings.providers_empty_cta_custom": "Custom configuration",
+  "settings.providers_empty_runtime_title": "Workspace service is offline",
+  "settings.providers_empty_runtime_body":
+    "Custom configuration still works. Connecting hosted providers needs the local workspace service to be running.",
+  "settings.provider_error_retry": "Try again",
   "settings.provider_model_count": "{count} models",
   "settings.no_audit_entries": "No audit entries yet.",
   "settings.no_custom_path_set": "No custom path set",

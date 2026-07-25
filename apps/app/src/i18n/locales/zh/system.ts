@@ -32,6 +32,24 @@ export default {
     "本地服务未完成启动。请退出 OnMyAgent 后重新打开。",
   "system.boot_error_with_detail": "出了点问题。{detail}",
   "system.boot_download_latest_hint": "若反复出现，请下载最新版本：",
+  "system.boot_retry": "再试一次",
+  "system.error_action_retry": "再试一次",
+  "system.error_action_reload_app": "重新打开应用",
+  "system.error_action_open_ai_settings": "打开模型设置",
+  "system.error_not_connected_title": "未连接",
+  "system.error_not_connected_body":
+    "工作区服务当前不可用。请稍等再试，或重新打开应用。",
+  "system.error_providers_load_title": "无法加载服务商",
+  "system.error_providers_load_body":
+    "请检查网络与工作区连接后重试。",
+  "system.error_connect_provider_title": "无法连接服务商",
+  "system.error_connect_provider_body":
+    "请检查 API 密钥或登录状态后重新连接。",
+  "system.error_remote_workspace_title": "远程工作区不可用",
+  "system.error_remote_workspace_body":
+    "无法连接该远程工作区。请检查地址与网络后重试。",
+  "system.error_request_title": "请求失败",
+  "system.error_request_body": "出了点问题，请重试。",
   "system.load_opening": "正在打开…",
   "system.load_session_route": "正在加载工作区…",
   "system.load_settings_route": "正在加载设置…",
