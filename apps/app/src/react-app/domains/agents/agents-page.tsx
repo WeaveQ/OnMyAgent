@@ -608,7 +608,7 @@ export function AgentsPage(props: AgentsPageProps) {
   const handleSoon = (label: string) => {
     showToast({
       title: label,
-      description: "开发中，敬请期待",
+      description: t("agents.coming_soon_desc"),
       tone: "info",
     });
   };
@@ -617,7 +617,7 @@ export function AgentsPage(props: AgentsPageProps) {
     async (item: AgentCardItem) => {
       if (item.kind !== "custom" || !registry) return;
       const confirmed = window.confirm(
-        `确定要删除智能体「${item.agent.name}」吗？此操作不可撤销。`,
+        t("agents.delete_confirm", { name: item.agent.name }),
       );
       if (!confirmed) return;
       const nowIso = new Date().toISOString();
@@ -628,7 +628,7 @@ export function AgentsPage(props: AgentsPageProps) {
       };
       await persistRegistry(nextRegistry);
       showToast({
-        title: `已删除智能体：${item.agent.name}`,
+        title: t("agents.deleted_title", { name: item.agent.name }),
         tone: "success",
         durationMs: 3000,
       });
@@ -666,8 +666,10 @@ export function AgentsPage(props: AgentsPageProps) {
     await persistRegistry(nextRegistry);
     setWizardOpen(false);
     showToast({
-      title: `已创建智能体：${agent.name}`,
-      description: `配置已写入 ${USER_AGENT_REGISTRY_DISPLAY_PATH}`,
+      title: t("agents.created_title", { name: agent.name }),
+      description: t("agents.config_written_desc", {
+        path: USER_AGENT_REGISTRY_DISPLAY_PATH,
+      }),
       tone: "success",
       durationMs: 3600,
     });
@@ -715,8 +717,12 @@ export function AgentsPage(props: AgentsPageProps) {
       await persistRegistry(nextRegistry);
       setEditingAgent(null);
       showToast({
-        title: `已更新模板：${updatedTemplate.name}`,
-        description: `配置已写入 ${USER_AGENT_REGISTRY_DISPLAY_PATH}`,
+        title: t("agents.updated_template_title", {
+          name: updatedTemplate.name,
+        }),
+        description: t("agents.config_written_desc", {
+          path: USER_AGENT_REGISTRY_DISPLAY_PATH,
+        }),
         tone: "success",
         durationMs: 3600,
       });
@@ -757,8 +763,10 @@ export function AgentsPage(props: AgentsPageProps) {
     await persistRegistry(nextRegistry);
     setEditingAgent(null);
     showToast({
-      title: `已更新智能体：${updatedAgent.name}`,
-      description: `配置已写入 ${USER_AGENT_REGISTRY_DISPLAY_PATH}`,
+      title: t("agents.updated_agent_title", { name: updatedAgent.name }),
+      description: t("agents.config_written_desc", {
+        path: USER_AGENT_REGISTRY_DISPLAY_PATH,
+      }),
       tone: "success",
       durationMs: 3600,
     });
