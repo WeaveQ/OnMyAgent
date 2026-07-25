@@ -99,6 +99,27 @@ export function userErrorCopy(
   }
 }
 
+/**
+ * Single-line string for hosts that only accept a string error slot
+ * (route banner, provider action error, etc.).
+ */
+export function userErrorMessage(
+  scenario: UserErrorScenario,
+  detail?: string | null,
+): string {
+  const copy = userErrorCopy(scenario, detail);
+  return `${copy.title}. ${copy.body}`;
+}
+
+/**
+ * Classify a raw/SDK error message and return product-facing copy.
+ * Prefer this over surfacing describeRouteError() / error.message directly.
+ */
+export function userErrorFromRaw(message: string | null | undefined): string {
+  const classified = classifyProviderError(message);
+  return userErrorMessage(classified.scenario, classified.detail);
+}
+
 /** Classify common provider/auth error strings into a scenario. */
 export function classifyProviderError(message: string | null | undefined): {
   scenario: UserErrorScenario;
@@ -112,7 +133,9 @@ export function classifyProviderError(message: string | null | undefined): {
   if (
     lower.includes("not connected") ||
     lower.includes("no server") ||
-    raw.includes("未连接")
+    lower.includes("connect first") ||
+    raw.includes("未连接") ||
+    raw.includes("请先连接")
   ) {
     return { scenario: "not_connected", detail: sanitizeDetail(raw) };
   }
@@ -123,10 +146,13 @@ export function classifyProviderError(message: string | null | undefined): {
     return { scenario: "providers_load_failed", detail: sanitizeDetail(raw) };
   }
   if (
+    lower.includes("disconnect") ||
     lower.includes("connect") ||
     lower.includes("oauth") ||
     lower.includes("auth") ||
-    raw.includes("连接")
+    lower.includes("api key") ||
+    raw.includes("连接") ||
+    raw.includes("断开")
   ) {
     return { scenario: "connect_provider_failed", detail: sanitizeDetail(raw) };
   }

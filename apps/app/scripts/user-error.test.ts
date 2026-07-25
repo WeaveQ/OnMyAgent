@@ -5,9 +5,12 @@ import path from "node:path";
 import {
   classifyProviderError,
   userErrorCopy,
+  userErrorFromRaw,
+  userErrorMessage,
 } from "../src/react-app/kernel/user-error";
 
 const localeRoot = path.join(import.meta.dir, "../src/i18n/locales");
+const appRoot = path.join(import.meta.dir, "../src/react-app");
 
 describe("userErrorCopy", () => {
   test("covers main scenarios with recovery actions", () => {
@@ -35,6 +38,21 @@ describe("userErrorCopy", () => {
     expect(copy.body).not.toContain("at Object.fn");
     expect(copy.body).not.toContain("Error: boom");
   });
+
+  test("userErrorMessage joins title and body", () => {
+    const message = userErrorMessage("not_connected");
+    expect(message).toContain(".");
+    expect(message.length).toBeGreaterThan(10);
+  });
+
+  test("userErrorFromRaw maps offline / connect strings", () => {
+    const offline = userErrorFromRaw("Not connected to a server");
+    expect(offline.length).toBeGreaterThan(0);
+    expect(offline.toLowerCase()).not.toContain("at object");
+
+    const connect = userErrorFromRaw("Failed to connect provider");
+    expect(connect.length).toBeGreaterThan(0);
+  });
 });
 
 describe("classifyProviderError", () => {
@@ -47,6 +65,9 @@ describe("classifyProviderError", () => {
     );
     expect(classifyProviderError("Failed to load providers").scenario).toBe(
       "providers_load_failed",
+    );
+    expect(classifyProviderError("Please connect first").scenario).toBe(
+      "not_connected",
     );
   });
 });
@@ -109,5 +130,64 @@ describe("UX-1 wiring", () => {
       expect(system).toContain("system.error_connect_provider_body");
       expect(system).toContain("system.error_action_retry");
     }
+  });
+});
+
+describe("S1–S3 UX wiring", () => {
+  test("S1: session/settings first-paint use system load copy, not session.loading_detail", () => {
+    const pageView = readFileSync(
+      path.join(appRoot, "shell/session-route/page-view.tsx"),
+      "utf8",
+    );
+    const settingsRender = readFileSync(
+      path.join(appRoot, "shell/settings-route/render.tsx"),
+      "utf8",
+    );
+    expect(pageView).toContain("system.load_session_route");
+    expect(pageView).not.toMatch(
+      /busyHint=\{[^}]*session\.loading_detail/,
+    );
+    expect(settingsRender).toContain("system.load_settings_route");
+    expect(settingsRender).not.toMatch(
+      /busyHint=\{loading \? t\("session\.loading_detail"\)/,
+    );
+  });
+
+  test("S2: model-unavailable CTA opens AI settings section", () => {
+    const composer = readFileSync(
+      path.join(
+        appRoot,
+        "domains/session/surface/composer/composer.tsx",
+      ),
+      "utf8",
+    );
+    const sectionRoutes = readFileSync(
+      path.join(appRoot, "shell/session-route/composer.ts"),
+      "utf8",
+    );
+    expect(composer).toContain('onOpenSettingsSection("ai")');
+    expect(composer).toContain("system.error_action_open_ai_settings");
+    expect(sectionRoutes).toContain('section === "ai"');
+    expect(sectionRoutes).toContain('"/settings/ai"');
+  });
+
+  test("S3: main failure paths call userErrorFromRaw / userErrorMessage", () => {
+    const sessionRefresh = readFileSync(
+      path.join(appRoot, "shell/session-route/refresh-hook.ts"),
+      "utf8",
+    );
+    const sessionRender = readFileSync(
+      path.join(appRoot, "shell/session-route/render.tsx"),
+      "utf8",
+    );
+    const settingsRender = readFileSync(
+      path.join(appRoot, "shell/settings-route/render.tsx"),
+      "utf8",
+    );
+    expect(sessionRefresh).toContain("userErrorFromRaw");
+    expect(sessionRefresh).toContain('userErrorMessage("not_connected")');
+    expect(sessionRender).toContain("userErrorFromRaw");
+    expect(settingsRender).toContain("userErrorFromRaw");
+    expect(settingsRender).toContain('userErrorMessage("not_connected")');
   });
 });

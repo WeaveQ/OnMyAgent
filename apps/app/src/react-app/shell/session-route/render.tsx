@@ -72,6 +72,7 @@ import type {
 } from "../../../app/types";
 import { isDesktopRuntime } from "../../../app/utils";
 import { usePlatform } from "../../kernel/platform";
+import { userErrorFromRaw } from "../../kernel/user-error";
 import {
   useRemoteWorkspaceConnectionEditor,
   useShareWorkspaceState,
@@ -653,7 +654,7 @@ export function SessionRouteRender() {
     }).catch((error) => {
       const message =
         error instanceof Error ? error.message : describeRouteError(error);
-      setRouteError(message);
+      setRouteError(userErrorFromRaw(message));
     });
   }, [client, loading, selectedWorkspace, workspaces]);
 

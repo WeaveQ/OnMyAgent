@@ -68,7 +68,7 @@ function StatusIndicator(props: StatusIndicatorProps) {
           {t("session.preparing_workspace")}
         </span>
         <span className="truncate text-dls-secondary text-xs">
-          {t("session.loading_detail")}
+          {t("system.load_session_route")}
         </span>
       </div>
     );

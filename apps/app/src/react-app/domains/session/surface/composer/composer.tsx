@@ -1434,8 +1434,17 @@ export function ReactSessionComposer(props: ComposerProps) {
                   <button
                     type="button"
                     className={composerTextClass.modelUnavailable}
-                    onClick={() => props.onModelPickerOpenChange(true)}
-                    title={t("settings.model_change")}
+                    onClick={() => {
+                      // Closed loop: unavailable model → AI/provider settings
+                      // so users can reconnect credentials or pick another
+                      // default. Model select next door still switches models.
+                      if (props.onOpenSettingsSection) {
+                        props.onOpenSettingsSection("ai");
+                        return;
+                      }
+                      props.onModelPickerOpenChange(true);
+                    }}
+                    title={t("system.error_action_open_ai_settings")}
                     aria-label={t("settings.model_unavailable")}
                   >
                     <AlertCircle className="size-3.5 shrink-0" />
