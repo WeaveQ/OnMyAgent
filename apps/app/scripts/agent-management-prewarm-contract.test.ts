@@ -58,11 +58,17 @@ describe("agent management prewarm contract", () => {
   });
 
   test("session and welcome call agent-management prewarm", () => {
-    const session = readFileSync(
-      path.join(root, "src/react-app/shell/session-route/render.tsx"),
+    const modelCatalog = readFileSync(
+      path.join(root, "src/react-app/shell/session-route/model-catalog-hook.ts"),
       "utf8",
     );
-    expect(session).toContain("prewarmAgentManagementCore");
+    expect(modelCatalog).toContain("useSessionRoutePrewarm");
+
+    const sessionPrewarm = readFileSync(
+      path.join(root, "src/react-app/shell/session-route/prewarm-hook.ts"),
+      "utf8",
+    );
+    expect(sessionPrewarm).toContain("prewarmAgentManagementCore");
 
     const welcome = readFileSync(
       path.join(root, "src/react-app/shell/welcome-route.tsx"),

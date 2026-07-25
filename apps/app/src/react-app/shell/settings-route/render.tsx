@@ -41,7 +41,6 @@ import {
   useExtensionsStoreSnapshot,
   SettingsShell,
   useAiProvidersController,
-  prewarmWorkspaceProviders,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
 import { userErrorFromRaw } from "../../kernel/user-error";
@@ -52,6 +51,7 @@ import {
   deleteOpenCodeManagedProvider,
   disconnectSettingsProvider,
 } from "./provider-list-actions";
+import { useSettingsProvidersPrewarm } from "./providers-prewarm-hook";
 import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
   LazyAiSettingsView,
@@ -717,25 +717,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     if (opencodeClient) setProviderActionError(null);
   }, [opencodeClient]);
 
-  // Prefetch Models tab data as soon as the settings workspace client is live,
-  // so the first open of Settings → Models hits warm React Query + inventory caches.
-  useEffect(() => {
-    if (!opencodeClient) return;
-    let cancelled = false;
-    void prewarmWorkspaceProviders({
-      client: opencodeClient,
-      baseUrl: opencodeBaseUrl,
-      directory: selectedWorkspaceRoot || undefined,
-      workspaceRoot: selectedWorkspaceRoot || undefined,
-    }).catch((error) => {
-      if (!cancelled) {
-        console.warn("[settings-route] providers prewarm failed", error);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [opencodeBaseUrl, opencodeClient, selectedWorkspaceRoot]);
+  useSettingsProvidersPrewarm({
+    opencodeClient,
+    opencodeBaseUrl,
+    selectedWorkspaceRoot,
+  });
 
   useEffect(() => {
     const openFromPending = (raw: string | null) => {
