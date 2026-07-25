@@ -1294,9 +1294,9 @@ export function ReactSessionComposer(props: ComposerProps) {
               }}
             />
 
-            {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div className="mt-2 flex items-end justify-between gap-1.5">
-              <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
+            {/* Action row — tools left; reasoning + model + send as a tight right cluster */}
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <div className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {
                     fileInputRef.current = element;
@@ -1416,6 +1416,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     onChange={props.onAccessModeChange}
                   />
                 )}
+              </div>
+
+              {/* Model controls + send stay as a tight trailing cluster so
+                  “深度 / reasoning” is not stranded mid-toolbar with empty flex. */}
+              <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5">
                 {props.modelUnavailable ? null : (
                   <ModelBehaviorSelect
                     value={props.modelVariant}
@@ -1425,9 +1430,6 @@ export function ReactSessionComposer(props: ComposerProps) {
                     disabled={props.busy}
                   />
                 )}
-              </div>
-
-              <div className="ml-auto flex shrink-0 items-center gap-1">
                 {props.modelUnavailable ? (
                   <button
                     type="button"

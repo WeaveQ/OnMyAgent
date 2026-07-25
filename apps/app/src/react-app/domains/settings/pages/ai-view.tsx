@@ -372,14 +372,42 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               );
             })
           ) : (
-            <SettingsBlockRow
-              title={t("settings.no_providers_connected")}
-              description={
-                runtimeConnected
-                  ? t("settings.connect_provider_empty_hint")
-                  : t("settings.connect_provider_runtime_required")
-              }
-            />
+            <div className="flex flex-col gap-3 px-3 py-4">
+              <div className="flex flex-col gap-1">
+                <div className="text-sm font-medium text-dls-text">
+                  {runtimeConnected
+                    ? t("settings.providers_empty_title")
+                    : t("settings.providers_empty_runtime_title")}
+                </div>
+                <p className="text-xs leading-5 text-dls-secondary">
+                  {runtimeConnected
+                    ? t("settings.providers_empty_body")
+                    : t("settings.providers_empty_runtime_body")}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void props.onOpenOpencodeConfig?.()}
+                  disabled={props.busy}
+                >
+                  <FileCode className="size-3.5" />
+                  {t("settings.providers_empty_cta_custom")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void props.onOpenProviderAuth()}
+                  disabled={connectDisabled}
+                >
+                  {props.providerAuthBusy
+                    ? t("system.load_settings_ai")
+                    : t("settings.providers_empty_cta_connect")}
+                </Button>
+              </div>
+            </div>
           )}
         </SettingsBlock>
 
@@ -387,7 +415,20 @@ export function AiSettingsView(props: AiSettingsViewProps) {
             explained by the warning notice / disabled button. */}
         {runtimeConnected && props.providerConnectError ? (
           <SettingsNotice tone="error">
-            {props.providerConnectError}
+            <span className="flex flex-col gap-2">
+              <span>{props.providerConnectError}</span>
+              <span className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void props.onOpenProviderAuth()}
+                  disabled={connectDisabled}
+                >
+                  {t("settings.provider_error_retry")}
+                </Button>
+              </span>
+            </span>
           </SettingsNotice>
         ) : null}
         {props.providerDisconnectError ? (
