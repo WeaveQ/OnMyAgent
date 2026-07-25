@@ -169,7 +169,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       disabled={connectDisabled}
                     >
                       {props.providerAuthBusy
-                        ? t("settings.loading_providers_list")
+                        ? t("system.load_settings_ai")
                         : t("settings.connect_provider")}
                     </Button>
                   </span>

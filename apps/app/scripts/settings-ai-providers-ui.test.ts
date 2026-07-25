@@ -133,7 +133,7 @@ describe("settings AI view wiring (structural)", () => {
     );
     expect(aiView).toContain("settings.provider_model_count");
     expect(aiView).toContain("settings.provider_model_count_pending");
-    expect(aiView).toContain("settings.loading_providers_list");
+    expect(aiView).toContain("system.load_settings_ai");
     expect(aiView).toContain("settings.loading_providers_inventory");
     expect(aiView).toContain("settings.connect_provider_empty_hint");
     expect(aiView).toContain("modelCount");
@@ -151,7 +151,7 @@ describe("settings AI view wiring (structural)", () => {
       "utf8",
     );
     expect(skeleton).toContain("export function AiSettingsProvidersSkeleton");
-    expect(skeleton).toContain("settings.loading_providers_list");
+    expect(skeleton).toContain("system.load_settings_ai");
   });
 
   test("settings-route uses phase helpers and never empty→disconnected_label", () => {

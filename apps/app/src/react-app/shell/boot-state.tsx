@@ -32,7 +32,11 @@ export type BootStateSnapshot = {
 type BootStateContextValue = BootStateSnapshot & {
   routeReady: boolean;
   setPhase: (phase: BootPhaseId, detail?: string | null) => void;
-  setError: (message: string | null) => void;
+  /**
+   * User-facing error for the overlay. Prefer i18n; optional technical detail
+   * is stored separately and not shown as the primary line.
+   */
+  setError: (message: string | null, technicalDetail?: string | null) => void;
   markReady: () => void;
   markRouteReady: () => void;
 };
@@ -46,15 +50,82 @@ const DEFAULT_STATE: BootStateSnapshot = {
   error: null,
 };
 
-const PHASE_MESSAGES: Record<BootPhaseId, string> = {
-  idle: "",
-  "bootstrapping-workspaces": "Loading your workspaces",
-  "starting-onmyagent-server": "Starting the OnMyAgent server",
-  "starting-engine": t("system.boot_preparing_workspace"),
-  "activating-workspace": t("system.boot_activating_workspace"),
-  ready: t("system.boot_ready"),
-  error: t("system.boot_error"),
-};
+/** Resolve phase copy at call time so locale switches stay correct. */
+export function bootPhaseMessage(phase: BootPhaseId): string {
+  switch (phase) {
+    case "idle":
+      return "";
+    case "bootstrapping-workspaces":
+      return t("system.boot_loading_workspaces");
+    case "starting-onmyagent-server":
+      return t("system.boot_starting_server");
+    case "starting-engine":
+      return t("system.boot_preparing_workspace");
+    case "activating-workspace":
+      return t("system.boot_activating_workspace");
+    case "ready":
+      return t("system.boot_ready");
+    case "error":
+      return t("system.boot_error");
+    default:
+      return t("system.boot_preparing_workspace");
+  }
+}
+
+/**
+ * Map unknown/raw failures to a short user-facing string. Raw stack or
+ * engine strings become a generic message; known i18n keys pass through.
+ */
+export function userFacingBootError(
+  error: unknown,
+  fallbackKey = "system.boot_start_runtime_failed",
+): { message: string; technicalDetail: string | null } {
+  if (error == null || error === "") {
+    return { message: t(fallbackKey), technicalDetail: null };
+  }
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    // Already localized product copy (zh/en short sentences without stack).
+    if (
+      trimmed &&
+      !trimmed.includes("\n") &&
+      !/Error:|at\s+\S+\s+\(|ENOENT|ECONNREFUSED|TypeError/i.test(trimmed) &&
+      trimmed.length < 160
+    ) {
+      // Prefer known friendly templates when the string matches English internals.
+      if (/did not finish starting/i.test(trimmed)) {
+        return {
+          message: t("system.boot_server_not_ready"),
+          technicalDetail: trimmed,
+        };
+      }
+      if (/Failed to start OnMyAgent runtime/i.test(trimmed)) {
+        return {
+          message: t("system.boot_start_runtime_failed"),
+          technicalDetail: trimmed,
+        };
+      }
+      return { message: trimmed, technicalDetail: null };
+    }
+    return {
+      message: t(fallbackKey),
+      technicalDetail: trimmed || null,
+    };
+  }
+  if (error instanceof Error) {
+    return userFacingBootError(error.message, fallbackKey);
+  }
+  try {
+    const serialized = JSON.stringify(error);
+    return {
+      message: t(fallbackKey),
+      technicalDetail:
+        serialized && serialized !== "{}" ? serialized.slice(0, 500) : null,
+    };
+  } catch {
+    return { message: t(fallbackKey), technicalDetail: null };
+  }
+}
 
 const BootStateContext = createContext<BootStateContextValue | null>(null);
 
@@ -75,7 +146,7 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
       return {
         ...current,
         phase,
-        message: PHASE_MESSAGES[phase] ?? current.message,
+        message: bootPhaseMessage(phase) || current.message,
         detail: detail ?? null,
         startedAt: nextStartedAt,
         completedAt: phase === "ready" ? Date.now() : null,
@@ -84,20 +155,27 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setError = useCallback((message: string | null) => {
-    setSnapshot((current) => ({
-      ...current,
-      error: message,
-      phase: message ? "error" : current.phase,
-      message: message ? PHASE_MESSAGES.error : current.message,
-    }));
-  }, []);
+  const setError = useCallback(
+    (message: string | null, technicalDetail?: string | null) => {
+      setSnapshot((current) => ({
+        ...current,
+        error: message,
+        phase: message ? "error" : current.phase,
+        message: message ? bootPhaseMessage("error") : current.message,
+        detail:
+          technicalDetail === undefined
+            ? current.detail
+            : technicalDetail,
+      }));
+    },
+    [],
+  );
 
   const markReady = useCallback(() => {
     setSnapshot((current) => ({
       ...current,
       phase: "ready",
-      message: PHASE_MESSAGES.ready,
+      message: bootPhaseMessage("ready"),
       detail: null,
       completedAt: Date.now(),
       error: null,
@@ -109,11 +187,20 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<BootStateContextValue>(
-    () => ({ ...snapshot, routeReady, setPhase, setError, markReady, markRouteReady }),
+    () => ({
+      ...snapshot,
+      routeReady,
+      setPhase,
+      setError,
+      markReady,
+      markRouteReady,
+    }),
     [markReady, markRouteReady, routeReady, setError, setPhase, snapshot],
   );
 
-  return <BootStateContext.Provider value={value}>{children}</BootStateContext.Provider>;
+  return (
+    <BootStateContext.Provider value={value}>{children}</BootStateContext.Provider>
+  );
 }
 
 export function useBootState(): BootStateContextValue {

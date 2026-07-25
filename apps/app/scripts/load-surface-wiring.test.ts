@@ -11,7 +11,7 @@ describe("load surface wiring", () => {
       "utf8",
     );
     expect(src).toContain("RouteChunkFallback");
-    expect(src).toContain("system.boot_preparing_workspace");
+    expect(src).toContain("system.load_opening");
     expect(src).not.toContain("function RouteSuspenseFallback");
   });
 
