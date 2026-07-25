@@ -16,6 +16,10 @@ import type {
   OnboardingProfile,
 } from "../../kernel/local-provider";
 import type { AiSettingsConnectedProvider } from "../../domains/settings";
+import {
+  countOpenCodeProviderModels as countOpenCodeProviderModelsShared,
+  normalizeMergedProviderSource,
+} from "../../domains/connections";
 
 export type RouteWorkspace = OnMyAgentWorkspaceInfo & {
   displayNameResolved: string;
@@ -517,18 +521,11 @@ export function settingsPathForRoute(route: SettingsRoutePath) {
   return route.tab;
 }
 
+/** Prefer normalizeMergedProviderSource from connections for new code. */
 export function normalizeSettingsProviderSource(
   source: ProviderListItem["source"],
 ): AiSettingsConnectedProvider["source"] | undefined {
-  if (
-    source === "env" ||
-    source === "api" ||
-    source === "config" ||
-    source === "custom"
-  ) {
-    return source;
-  }
-  return undefined;
+  return normalizeMergedProviderSource(source);
 }
 
 /** UI phase for Settings → Models header chrome (status + summary). */
@@ -563,22 +560,12 @@ export function aiProvidersSummaryI18nKey(phase: AiProvidersUiPhase): string {
 
 /**
  * Model count for OpenCode-managed inventory rows.
- * Prefer explicit models[]; fall back to settingsConfig.models keys (live JSON).
+ * Prefer connections.countOpenCodeProviderModels for new code.
  */
 export function countOpenCodeProviderModels(provider: {
   models?: ReadonlyArray<{ id?: string } | string> | null;
   settingsConfig?: Record<string, unknown> | null;
 }): number {
-  if (Array.isArray(provider.models) && provider.models.length > 0) {
-    return provider.models.length;
-  }
-  const settings = provider.settingsConfig;
-  if (!settings || typeof settings !== "object") return 0;
-  const models = settings.models;
-  if (models && typeof models === "object" && !Array.isArray(models)) {
-    return Object.keys(models).length;
-  }
-  if (Array.isArray(models)) return models.length;
-  return 0;
+  return countOpenCodeProviderModelsShared(provider);
 }
 

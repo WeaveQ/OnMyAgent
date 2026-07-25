@@ -164,9 +164,9 @@ describe("settings AI view wiring (structural)", () => {
     );
     expect(route).toContain("resolveAiProvidersUiPhase");
     expect(route).toContain("aiProvidersStatusI18nKey");
-    expect(route).toContain("countOpenCodeProviderModels");
+    expect(route).toContain("useAiProvidersController");
     expect(route).toContain("providersLoading={providersDiscovering}");
-    expect(route).toContain("inventorySyncing=");
+    expect(route).toContain("inventorySyncing={inventorySyncing}");
     expect(route).toContain("SettingsAiTabSuspense");
     // Empty branch must not hard-code disconnected for finished empty list.
     expect(route).not.toMatch(

@@ -25,26 +25,15 @@ import {
   skillSourceSummaryForMatrix,
   skillSourcesForMatrix,
 } from "./skill-inventory-scope";
+import {
+  resolveSkillCellState,
+  skillMatrixGridStyle,
+  type SkillCellState,
+} from "./skill-matrix-layout";
 import { AgentBrandIcon, agentBrandIconTileClass } from "../agent-brand-icon";
 
-type SkillCellState = "native" | "managed" | "available" | "readonly" | "busy" | "unavailable";
-
-// Skill name | agent enable columns | actions (import + open folder)
-// Fixed tracks must match header + row exactly (no extra padding on either side).
-// Agent: icon-xs cell hit target (24px) + breathing room for centering.
-// Actions: two icon-xs (24+24) + gap-0.5 + border-l — 52px was too tight and
-// overflowed into the last agent column (column misalignment).
-const SKILL_MATRIX_AGENT_COL = "48px";
-const SKILL_MATRIX_ACTION_COL = "64px";
 /** Hairline rules — avoid stacked full-opacity borders looking "thick". */
 const SKILL_MATRIX_RULE = "border-dls-border/25";
-
-function skillMatrixGridStyle(agentColCount: number) {
-  const n = Math.max(1, agentColCount);
-  return {
-    gridTemplateColumns: `minmax(12rem,1fr) repeat(${n}, ${SKILL_MATRIX_AGENT_COL}) ${SKILL_MATRIX_ACTION_COL}`,
-  } as const;
-}
 
 /** Estimated row height for virtual window (min-h-12 + meta line). */
 const SKILL_MATRIX_ROW_ESTIMATE_PX = 56;
@@ -362,23 +351,7 @@ function getSkillCellState(
   busyKey: string | null,
   agentUnavailable = false,
 ): { state: SkillCellState; tooltip: string } {
-  const label = skillAgentLabel(agent);
-  if (agentUnavailable) {
-    return {
-      state: "unavailable",
-      tooltip: t("skills.matrix_tooltip_agent_missing", { label }),
-    };
-  }
-  const enabled = skill.agents.includes(agent);
-  const ownsSource = skill.sources.some((source) => source.agent === agent && source.path === skill.path && !source.managedByStudioSwitch);
-  const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
-  const canSync = sourceKind === "skill" && skill.sources.some((source) => source.kind !== "runtime-skill" && source.kind !== "slash-command");
-  const busy = busyKey === `${skill.path}:${agent}`;
-  if (busy) return { state: "busy", tooltip: t("skills.matrix_tooltip_busy", { label }) };
-  if (enabled && ownsSource) return { state: "native", tooltip: t("skills.matrix_tooltip_native", { label }) };
-  if (enabled) return { state: "managed", tooltip: t("skills.matrix_tooltip_managed", { label }) };
-  if (!canSync) return { state: "readonly", tooltip: t("skills.matrix_tooltip_readonly", { label }) };
-  return { state: "available", tooltip: t("skills.matrix_tooltip_available", { label }) };
+  return resolveSkillCellState(skill, agent, busyKey, agentUnavailable);
 }
 
 function SkillAgentCluster(props: {
