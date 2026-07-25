@@ -234,7 +234,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       <span className="truncate">{provider.name}</span>
                       {isCloud ? (
                         <StatusBadge size="tiny" tone="accent">
-                          Cloud
+                          {t("settings.provider_badge_cloud")}
                         </StatusBadge>
                       ) : null}
                       {provider.id === "opencode" ? (
@@ -242,7 +242,16 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                           {t("model_picker.free")}
                         </StatusBadge>
                       ) : null}
-                      {provider.managedBy === "opencode" ? (
+                      {/* Built-in Zen (id=opencode): only "free". User custom
+                          shows 自定义 — never the OpenCode engine badge. */}
+                      {provider.id === "opencode" ? null : provider.source ===
+                        "custom" ? (
+                        sourceLabel ? (
+                          <StatusBadge size="tiny" tone="neutral">
+                            {sourceLabel}
+                          </StatusBadge>
+                        ) : null
+                      ) : provider.managedBy === "opencode" ? (
                         <StatusBadge size="tiny" tone="neutral">
                           OpenCode
                         </StatusBadge>

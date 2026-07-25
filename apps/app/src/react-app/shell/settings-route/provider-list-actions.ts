@@ -53,7 +53,9 @@ export async function deleteOpenCodeManagedProvider(input: {
   ) => void;
   applyEngineConfigForProviders: () => Promise<boolean>;
   refreshProviders: (opts: { dispose: boolean }) => Promise<unknown>;
-  loadOpenCodeManagedProviders: () => Promise<AgentManagementManagedProvider[]>;
+  loadOpenCodeManagedProviders: (options?: {
+    force?: boolean;
+  }) => Promise<AgentManagementManagedProvider[]>;
   clearReloadRequired: () => void;
   markReloadRequired: (reason: ReloadReason, trigger?: ReloadTrigger) => void;
 }): Promise<void> {
@@ -80,7 +82,7 @@ export async function deleteOpenCodeManagedProvider(input: {
     const applied = await input.applyEngineConfigForProviders().catch(() => false);
     await input.refreshProviders({ dispose: true }).catch(() => null);
     await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
-    const managed = await input.loadOpenCodeManagedProviders();
+    const managed = await input.loadOpenCodeManagedProviders({ force: true });
     input.setOpenCodeManagedProviders(managed);
     if (applied) {
       input.clearReloadRequired();

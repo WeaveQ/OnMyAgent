@@ -42,6 +42,7 @@ import {
   SettingsShell,
   useAiProvidersController,
 } from "../../domains/settings";
+import { prewarmWorkspaceProviders } from "../../domains/settings/state/providers-prewarm";
 import { useBootState } from "../boot-state";
 import { userErrorFromRaw } from "../../kernel/user-error";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
@@ -715,6 +716,26 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     // Clear connect-time errors once the workspace runtime is available again.
     if (opencodeClient) setProviderActionError(null);
   }, [opencodeClient]);
+
+  // Prefetch Models tab data as soon as the settings workspace client is live,
+  // so the first open of Settings → Models hits warm React Query + inventory caches.
+  useEffect(() => {
+    if (!opencodeClient) return;
+    let cancelled = false;
+    void prewarmWorkspaceProviders({
+      client: opencodeClient,
+      baseUrl: opencodeBaseUrl,
+      directory: selectedWorkspaceRoot || undefined,
+      workspaceRoot: selectedWorkspaceRoot || undefined,
+    }).catch((error) => {
+      if (!cancelled) {
+        console.warn("[settings-route] providers prewarm failed", error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opencodeBaseUrl, opencodeClient, selectedWorkspaceRoot]);
 
   useEffect(() => {
     const openFromPending = (raw: string | null) => {
@@ -1945,7 +1966,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               setOpenCodeManagedProviders(saved.opencodeProviders);
             } else {
               try {
-                const managedProviders = await loadOpenCodeManagedProviders();
+                const managedProviders = await loadOpenCodeManagedProviders({
+                  force: true,
+                });
                 setOpenCodeManagedProviders(managedProviders);
               } catch {
                 // best-effort inventory
