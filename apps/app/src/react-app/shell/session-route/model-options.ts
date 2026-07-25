@@ -12,7 +12,11 @@ import type {
 } from "../../../app/types";
 import { isProviderModelFree } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
-import { getConnectedProviderItems } from "../../domains/connections";
+import {
+  connectedProviderIdSet,
+  getConnectedProviderItems,
+  mergeConnectedProviders,
+} from "../../domains/connections";
 
 export { isProviderModelFree };
 
@@ -241,6 +245,29 @@ export function resolveProviderDefaultModel(input: {
 }
 
 /**
+ * Provider ids in the same merge path Settings → Models uses (SDK connected +
+ * optional OpenCode managed inventory). Used to keep picker/settings id sets aligned.
+ */
+export function connectedCatalogProviderIds(input: {
+  data: ProviderListResponse | null | undefined;
+  managedProviders?: Parameters<typeof mergeConnectedProviders>[0]["managedProviders"];
+  isBlocked?: (providerId: string) => boolean;
+}): Set<string> {
+  const items = getConnectedProviderItems(input.data);
+  const connectedIds = items.map((p) => p.id);
+  // When no managed inventory is passed, merge reduces to SDK connected rows —
+  // same base set the picker already uses via getConnectedProviderItems.
+  return connectedProviderIdSet(
+    mergeConnectedProviders({
+      sdkProviders: items,
+      connectedIds,
+      managedProviders: input.managedProviders,
+      isBlocked: input.isBlocked,
+    }),
+  );
+}
+
+/**
  * True when the model appears in the same connected catalog the composer
  * picker builds from (getConnectedProviderItems + model keys).
  * Stricter than isSelectedModelUnavailable — ignores OpenCode "suggested"
@@ -254,6 +281,9 @@ export function isModelInConnectedCatalog(
   const providerId = model.providerID.trim();
   const modelId = model.modelID.trim();
   if (!providerId || !modelId) return false;
+
+  // Guard: provider must be in the shared connected-id set.
+  if (!connectedCatalogProviderIds({ data }).has(providerId)) return false;
 
   for (const provider of getConnectedProviderItems(data)) {
     if (provider.id !== providerId) continue;

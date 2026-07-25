@@ -40,6 +40,7 @@ import {
   createExtensionsStore,
   useExtensionsStoreSnapshot,
   SettingsShell,
+  useAiProvidersController,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
 import {
@@ -66,7 +67,6 @@ import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
   agentManagementProviderAction,
-  agentManagementSnapshot,
   onmyagentServerInfo,
   pickDirectory,
   resolveWorkspaceListSelectedId,
@@ -104,8 +104,6 @@ import { recordInspectorEvent } from "../app-inspector";
 import {
   aiProvidersStatusI18nKey,
   aiProvidersSummaryI18nKey,
-  countOpenCodeProviderModels,
-  normalizeSettingsProviderSource,
   resolveAiProvidersUiPhase,
   describeRouteError,
   describeWorkspaceCreateError,
@@ -183,7 +181,11 @@ import {
   workspaceSettingsRoute,
 } from "../workspace-routes";
 import { getReactQueryClient } from "../../infra/query-client";
-import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../../domains/connections";
+import {
+  ensureProviderListQuery,
+  getConnectedProviderItems,
+  refreshProviderListQueries,
+} from "../../domains/connections";
 import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "../new-providers-toast";
 
 const ROUTE_ONMYAGENT_CAPABILITIES: OnMyAgentServerCapabilities = {
@@ -305,7 +307,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<Record<string, string>>({});
   const [providerConnectedIds, setProviderConnectedIds] = useState<string[]>([]);
-  const [opencodeManagedProviders, setOpenCodeManagedProviders] = useState<AgentManagementManagedProvider[]>([]);
   const [openCodeProviderConfigOpen, setOpenCodeProviderConfigOpen] = useState(false);
   const [editingOpenCodeProvider, setEditingOpenCodeProvider] =
     useState<AgentManagementManagedProvider | null>(null);
@@ -314,10 +315,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providerSyncBusy, setProviderSyncBusy] = useState(false);
   /** Error message for AI provider save/delete only (not success banners). */
   const [providerActionError, setProviderActionError] = useState<string | null>(null);
-  /** False until the first provider list refresh for this client finishes. */
-  const [providerListHydrated, setProviderListHydrated] = useState(false);
-  /** False until OpenCode live inventory has been loaded for the AI tab. */
-  const [opencodeInventoryReady, setOpenCodeInventoryReady] = useState(false);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [developerMode, setDeveloperMode] = useState(() => readStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, false));
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
@@ -1141,44 +1138,48 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot,
   ]);
 
+  const isProviderBlocked = useCallback(
+    (providerId: string) =>
+      isDesktopProviderBlocked({
+        providerId,
+        checkRestriction: checkDesktopRestriction,
+      }),
+    [checkDesktopRestriction],
+  );
+
+  const aiProviders = useAiProvidersController({
+    activeClient: Boolean(activeClient),
+    selectedWorkspaceRoot,
+    selectedWorkspaceId: selectedWorkspace?.id,
+    sdkProviders: providers,
+    connectedIds: providerConnectedIds,
+    isBlocked: isProviderBlocked,
+    refreshSdkProviders: () => providerAuthStore.refreshProviders(),
+    refreshMcpServers: () => {
+      void connectionsStore.refreshMcpServers();
+    },
+  });
+
+  const {
+    connectedProviders,
+    providerListHydrated,
+    opencodeInventoryReady,
+    opencodeManagedProviders,
+    setOpenCodeManagedProviders,
+    providersDiscovering,
+    inventorySyncing,
+    loadOpenCodeManagedProviders,
+    findManagedProvider,
+  } = aiProviders;
+
   useEffect(() => {
     if (!activeClient) {
       setProviders([]);
       setProviderDefaults({});
       setProviderConnectedIds([]);
       setDisabledProviders([]);
-      setProviderListHydrated(false);
-      return;
     }
-    let cancelled = false;
-    setProviderListHydrated(false);
-    void providerAuthStore
-      .refreshProviders()
-      .catch(() => null)
-      .finally(() => {
-        if (!cancelled) setProviderListHydrated(true);
-      });
-    void connectionsStore.refreshMcpServers();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeClient, connectionsStore, providerAuthStore, selectedWorkspace?.id]);
-
-  const loadOpenCodeManagedProviders = useCallback(async () => {
-    if (!selectedWorkspaceRoot) return [];
-    try {
-      // providers-only: skip listAgents / usage (those made the edit modal lag).
-      const snapshot = await agentManagementSnapshot({
-        workspaceRoot: selectedWorkspaceRoot,
-        domains: ["providers"],
-        includeModels: false,
-      });
-      return snapshot.providers.byAgent.opencode;
-    } catch (error) {
-      console.warn("[settings] failed to load OpenCode managed providers", error);
-      return [];
-    }
-  }, [selectedWorkspaceRoot]);
+  }, [activeClient]);
 
   const handleEditOpenCodeProvider = useCallback(
     (provider: AiSettingsConnectedProvider) => {
@@ -1199,14 +1200,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       // Prefer in-memory inventory for instant open. After save, inventory is
       // updated from the save response (opencodeProviders), so re-edit is fresh
       // without awaiting IPC. Background refresh only updates the list for later.
-      const cached =
-        opencodeManagedProviders.find((item) => item.id === provider.id) ?? null;
+      const cached = findManagedProvider(provider.id);
 
       if (cached) {
         setEditingOpenCodeProvider(cached);
         setOpenCodeProviderConfigOpen(true);
-        void loadOpenCodeManagedProviders().then((providers) => {
-          setOpenCodeManagedProviders(providers);
+        void loadOpenCodeManagedProviders().then((next) => {
+          setOpenCodeManagedProviders(next);
         });
         return;
       }
@@ -1215,10 +1215,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       if (providerActionBusyId) return;
       setProviderActionBusyId(provider.id);
       void loadOpenCodeManagedProviders()
-        .then((providers) => {
-          setOpenCodeManagedProviders(providers);
+        .then((next) => {
+          setOpenCodeManagedProviders(next);
           setEditingOpenCodeProvider(
-            providers.find((item) => item.id === provider.id) ?? fallback,
+            next.find((item) => item.id === provider.id) ?? fallback,
           );
           setOpenCodeProviderConfigOpen(true);
         })
@@ -1230,39 +1230,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           setProviderActionBusyId(null);
         });
     },
-    [loadOpenCodeManagedProviders, opencodeManagedProviders, providerActionBusyId],
+    [
+      findManagedProvider,
+      loadOpenCodeManagedProviders,
+      providerActionBusyId,
+      setOpenCodeManagedProviders,
+    ],
   );
-
-  // Drop inventory only when the workspace changes — keep it across tab switches
-  // so re-opening 模型 is instant after the first load.
-  useEffect(() => {
-    setOpenCodeManagedProviders([]);
-    setOpenCodeInventoryReady(false);
-  }, [selectedWorkspaceRoot]);
-
-  // Prefetch custom OpenCode inventory as soon as settings has a workspace, not
-  // only when the AI tab is selected (first visit felt slow waiting on IPC).
-  useEffect(() => {
-    if (!selectedWorkspaceRoot || !activeClient) return;
-    if (opencodeInventoryReady) return;
-    let cancelled = false;
-    void loadOpenCodeManagedProviders()
-      .then((providers) => {
-        if (cancelled) return;
-        setOpenCodeManagedProviders(providers);
-      })
-      .finally(() => {
-        if (!cancelled) setOpenCodeInventoryReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activeClient,
-    loadOpenCodeManagedProviders,
-    opencodeInventoryReady,
-    selectedWorkspaceRoot,
-  ]);
 
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
   const workspaceOptions = workspaces.map((workspace) => ({
@@ -1286,50 +1260,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     ? `${local.prefs.defaultModel.providerID}/${local.prefs.defaultModel.modelID}`
     : t("settings.default_label");
   const defaultModelVariantLabel = local.prefs.modelVariant ?? t("settings.default_label");
-  const providerConnectedIdSet = new Set(providerConnectedIds);
-  const connectedProvidersById = new Map<string, AiSettingsConnectedProvider>();
-  for (const provider of providers) {
-    if (
-      !providerConnectedIdSet.has(provider.id) ||
-      isDesktopProviderBlocked({
-        providerId: provider.id,
-        checkRestriction: checkDesktopRestriction,
-      })
-    ) {
-      continue;
-    }
-    const modelCount = Object.keys(provider.models ?? {}).length;
-    connectedProvidersById.set(provider.id, {
-      id: provider.id,
-      name: provider.name ?? provider.id,
-      source: normalizeSettingsProviderSource(provider.source),
-      ...(modelCount > 0 ? { modelCount } : {}),
-    });
-  }
-  for (const provider of opencodeManagedProviders) {
-    if (
-      !provider.livePresent ||
-      isDesktopProviderBlocked({
-        providerId: provider.id,
-        checkRestriction: checkDesktopRestriction,
-      })
-    ) {
-      continue;
-    }
-    const modelCount = countOpenCodeProviderModels(provider);
-    connectedProvidersById.set(provider.id, {
-      id: provider.id,
-      name: provider.name || provider.id,
-      source: "custom",
-      managedBy: "opencode",
-      ...(modelCount > 0 ? { modelCount } : {}),
-    });
-  }
-  const connectedProviders = [...connectedProvidersById.values()];
-  // Only wait for the OpenCode provider.list snapshot. Agent-management inventory
-  // (custom OpenCode providers) merges in the background so first paint is not
-  // blocked on desktop IPC / studio-switch reads.
-  const providersDiscovering = Boolean(activeClient) && !providerListHydrated;
+  // Inventory merges in the background so first paint is not blocked on desktop IPC.
   const providersUiPhase = resolveAiProvidersUiPhase({
     discovering: providersDiscovering,
     providerCount: connectedProviders.length,
@@ -1676,11 +1607,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               providerSyncBusy={providerSyncBusy}
               runtimeConnected={Boolean(activeClient)}
               providersLoading={providersDiscovering}
-              inventorySyncing={
-                Boolean(activeClient) &&
-                providerListHydrated &&
-                !opencodeInventoryReady
-              }
+              inventorySyncing={inventorySyncing}
               onOpenProviderAuth={handleOpenProviderAuth}
               onOpenOpencodeConfig={handleOpenCustomProviderConfig}
               onDisconnectProvider={async (providerId) => {

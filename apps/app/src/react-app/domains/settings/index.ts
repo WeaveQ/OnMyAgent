@@ -106,6 +106,13 @@ export type {
 
 export { useDebugViewModel } from "./state/debug-view-model";
 export { useRecoveryViewModel } from "./state/recovery-view-model";
+export {
+  loadOpenCodeManagedProvidersForWorkspace,
+  resetOpenCodeInventoryInflightForTests,
+  useAiProvidersController,
+  type AiProvidersController,
+  type AiProvidersControllerInput,
+} from "./state/ai-providers-controller";
 export { useMessagingViewProps } from "./state/messaging-view-state";
 export { useElectronUpdaterState } from "./state/electron-updater-state";
 export type { SettingsUpdateStatus } from "./state/electron-updater-state";
