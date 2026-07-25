@@ -15,10 +15,13 @@ import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type { SidebarSessionItem } from "../../../app/types";
-import { t } from "../../../i18n";
 import { getReactQueryClient } from "../../infra/query-client";
 import { refreshProviderListQueries } from "../../domains/connections";
 import { useRemoteAccessRestart } from "../../domains/workspace";
+import {
+  userErrorFromRaw,
+  userErrorMessage,
+} from "../../kernel/user-error";
 import { recordInspectorEvent } from "../app-inspector";
 import { useReloadCoordinator } from "../reload-coordinator";
 import {
@@ -272,7 +275,8 @@ export function useSessionRouteRefresh(input: Input) {
           preservedWorkspaceCount: desktopWorkspaces.length,
         }),
       );
-      setRouteError(message);
+      // Product-facing banner: keep raw message in inspector only.
+      setRouteError(userErrorFromRaw(message));
       if (desktopWorkspaces.length > 0) {
         const orderedDesktopWorkspaces =
           buildRouteRefreshErrorFallbackWorkspaces({
@@ -330,12 +334,12 @@ export function useSessionRouteRefresh(input: Input) {
 
   const reloadWorkspaceEngineFromUi = useCallback(async () => {
     if (!client || !selectedWorkspaceId) {
-      setRouteError(t("app.error_connect_first"));
+      setRouteError(userErrorMessage("not_connected"));
       return false;
     }
     const endpoint = endpointForWorkspace(selectedWorkspace);
     if (!endpoint) {
-      setRouteError(t("app.error_connect_first"));
+      setRouteError(userErrorMessage("not_connected"));
       return false;
     }
     await endpoint.client.reloadEngine(endpoint.workspaceId);

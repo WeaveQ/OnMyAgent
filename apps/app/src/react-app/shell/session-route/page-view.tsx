@@ -468,9 +468,13 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           onmyagentServerToken={selectedWorkspaceServerToken}
           developerMode={developerMode}
           headerStatus={
-            canCreateTask ? t("status.connected") : t("session.loading_detail")
+            canCreateTask
+              ? t("status.connected")
+              : t("system.load_session_route")
           }
-          busyHint={effectiveLoading ? t("session.loading_detail") : null}
+          busyHint={
+            effectiveLoading ? t("system.load_session_route") : null
+          }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
           providerConnectedIds={providerConnectedIds}
           providers={providers}

@@ -45,6 +45,10 @@ import {
 import { useBootState } from "../boot-state";
 import { useLoadScope } from "../load-surface";
 import {
+  userErrorFromRaw,
+  userErrorMessage,
+} from "../../kernel/user-error";
+import {
   LazyAiSettingsView,
   LazyArchivedTasksView,
   LazyAuthorizedFoldersPanel,
@@ -781,9 +785,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         setModelOptions(options);
       } catch (error) {
         setRouteError(
-          error instanceof Error
-            ? error.message
-            : t("app.unknown_error"),
+          userErrorFromRaw(
+            error instanceof Error ? error.message : t("app.unknown_error"),
+          ),
         );
       }
     })();
@@ -906,7 +910,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           preservedWorkspaceCount: desktopWorkspaces.length,
         }),
       );
-      setRouteError(message);
+      setRouteError(userErrorFromRaw(message));
       if (desktopWorkspaces.length > 0) {
         setWorkspaces(desktopWorkspaces);
         setLegacySelectedWorkspaceId((current) => {
@@ -1041,7 +1045,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       allWorkspaces: workspaces,
     }).catch((error) => {
       const message = error instanceof Error ? error.message : describeRouteError(error);
-      setRouteError(message);
+      setRouteError(userErrorFromRaw(message));
     });
   }, [loading, onmyagentClient, selectedWorkspace, workspaces]);
 
@@ -1490,7 +1494,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const workspaceId =
       routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
     if (!onmyagentClient || !workspaceId) {
-      setRouteError(t("app.error_connect_first"));
+      setRouteError(userErrorMessage("not_connected"));
       return false;
     }
     return applyEngineConfigForProviders();
@@ -1603,7 +1607,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               providerConnected={connectedProviders.length > 0}
               connectedProviders={connectedProviders}
               disconnectingProviderId={providerActionBusyId}
-              providerConnectError={providerAuthSnapshot.providerAuthError}
+              providerConnectError={
+                providerAuthSnapshot.providerAuthError
+                  ? userErrorFromRaw(providerAuthSnapshot.providerAuthError)
+                  : null
+              }
               providerDisconnectStatus={null}
               providerDisconnectError={providerActionError}
               providerActionBusyId={providerActionBusyId}
@@ -1620,9 +1628,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                   await providerAuthStore.disconnectProvider(providerId);
                 } catch (error) {
                   setProviderActionError(
-                    error instanceof Error
-                      ? error.message
-                      : t("providers.disconnect_failed"),
+                    userErrorFromRaw(
+                      error instanceof Error
+                        ? error.message
+                        : t("providers.disconnect_failed"),
+                    ),
                   );
                 } finally {
                   setProviderActionBusyId(null);
@@ -1697,7 +1707,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                   }
                 } catch (error) {
                   setProviderActionError(
-                    error instanceof Error ? error.message : t("settings.custom_provider_remove_failed"),
+                    userErrorFromRaw(
+                      error instanceof Error
+                        ? error.message
+                        : t("settings.custom_provider_remove_failed"),
+                    ),
                   );
                 } finally {
                   setProviderActionBusyId(null);
@@ -1921,7 +1935,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onSelectWorkspace={handleSelectSettingsWorkspace}
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
         headerStatus={routeOnMyAgentStatus}
-        busyHint={loading ? t("session.loading_detail") : busyLabel}
+        busyHint={loading ? t("system.load_settings_route") : busyLabel}
         onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
         compact={props.embedded}
@@ -1992,7 +2006,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             }
           } catch (error) {
             setProviderActionError(
-              error instanceof Error ? error.message : String(error),
+              userErrorFromRaw(
+                error instanceof Error ? error.message : String(error),
+              ),
             );
           } finally {
             setProviderSyncBusy(false);

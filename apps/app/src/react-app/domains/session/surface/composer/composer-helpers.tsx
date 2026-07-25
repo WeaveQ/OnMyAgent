@@ -38,7 +38,12 @@ export type PastedTextChip = {
   lines: number;
 };
 
-export type ToolMenuSettingsSection = "commands" | "skills" | "mcps" | "plugins";
+export type ToolMenuSettingsSection =
+  | "ai"
+  | "commands"
+  | "skills"
+  | "mcps"
+  | "plugins";
 export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";
 export type ComposerPromptTemplate = {
   id: string;
