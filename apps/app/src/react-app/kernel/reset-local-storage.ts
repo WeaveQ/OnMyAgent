@@ -124,3 +124,27 @@ export function clearLocalStorageForOnMyAgentReset(mode: ResetLocalStorageMode) 
     // ignore persistence failures
   }
 }
+
+/**
+ * After onboarding reset, re-enter the guide without killing the Electron process.
+ *
+ * Desktop dev is started by `electron-dev` (Vite parent + Electron child).
+ * `app.relaunch()` restarts only Electron (PPID → 1), so `http://localhost:5173`
+ * is gone and the window goes white. Soft reload keeps Vite alive and re-reads
+ * localStorage into LocalProvider.
+ *
+ * Desktop uses HashRouter — must set `#/welcome` before reload.
+ */
+export function softReenterWelcomeGuide() {
+  if (typeof window === "undefined") return;
+  try {
+    window.location.hash = "#/welcome";
+  } catch {
+    // ignore
+  }
+  try {
+    window.location.reload();
+  } catch {
+    // ignore
+  }
+}

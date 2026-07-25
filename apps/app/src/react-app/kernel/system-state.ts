@@ -12,7 +12,10 @@ import {
   safeStringify,
 } from "../../app/utils";
 import { t } from "../../i18n";
-import { clearLocalStorageForOnMyAgentReset } from "./reset-local-storage";
+import {
+  clearLocalStorageForOnMyAgentReset,
+  softReenterWelcomeGuide,
+} from "./reset-local-storage";
 
 export type ReloadState = {
   reloadPending: boolean;
@@ -196,7 +199,11 @@ export function useSystemState(
         await resetOnMyAgentState(resetModalMode);
       }
       clearLocalStorageForOnMyAgentReset(resetModalMode);
-      if (isDesktopRuntime()) {
+      // Onboarding: soft re-enter #/welcome (keeps Vite parent in desktop dev).
+      // Full wipe: process relaunch to clear Electron-side state.
+      if (resetModalMode === "onboarding") {
+        softReenterWelcomeGuide();
+      } else if (isDesktopRuntime()) {
         await relaunchDesktopApp();
       } else {
         window.location.reload();
