@@ -14,6 +14,23 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.9
+
+### Added
+
+- Archive **store-pool lifecycle**: status probes use `withSessionArchiveStore`; mutations and POST sync notify the archive change-bus (#174).
+- Sidebar **cold-start policy**: list limit, deferred preview snapshots, selected-workspace-only background load (#174).
+- Session surface pure **send/plan/goal orchestration** helpers with unit tests (#174).
+- Leaf modules to clear import cycles (den types, session page types, sidebar/composer types, `opencode-workspace-client`) (#175).
+
+### Changed
+
+- Provider-auth config/error transforms extracted; store under file-size baseline (#174).
+- Desktop composition thin-out: `desktop-workspace-ids` + `runtime-engine-state` (#175).
+- Agents page host thinned: `CreateAgentWizard` + shared styles extracted; toast/confirm copy via i18n (#175).
+- Extensions-store pure helpers (`formatSkillPath`, gateway capability resolve, initial state factory) (#175).
+- `madge --circular` clean for `apps/app` and `apps/server` (#175).
+
 ## 0.4.8
 
 ### Added
