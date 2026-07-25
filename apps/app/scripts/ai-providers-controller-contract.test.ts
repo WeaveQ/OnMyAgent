@@ -25,10 +25,19 @@ describe("ai providers controller contract", () => {
       "utf8",
     );
     expect(route).toContain("useAiProvidersController");
-    expect(route).toContain("prewarmWorkspaceProviders");
+    expect(route).toContain("useSettingsProvidersPrewarm");
     // Host must not re-implement dual for-loops merge.
     expect(route).not.toMatch(/connectedProvidersById\.set/);
     expect(route).not.toContain("agentManagementSnapshot({");
+
+    const settingsPrewarm = readFileSync(
+      path.join(
+        root,
+        "src/react-app/shell/settings-route/providers-prewarm-hook.ts",
+      ),
+      "utf8",
+    );
+    expect(settingsPrewarm).toContain("prewarmWorkspaceProviders");
   });
 
   test("session and welcome routes prewarm providers before Models tab", () => {
@@ -44,11 +53,17 @@ describe("ai providers controller contract", () => {
     expect(prewarm).toContain("ensureProviderListQuery");
     expect(prewarm).toContain("loadOpenCodeManagedProvidersForWorkspace");
 
-    const session = readFileSync(
-      path.join(root, "src/react-app/shell/session-route/render.tsx"),
+    const modelCatalog = readFileSync(
+      path.join(root, "src/react-app/shell/session-route/model-catalog-hook.ts"),
       "utf8",
     );
-    expect(session).toContain("prewarmWorkspaceProviders");
+    expect(modelCatalog).toContain("useSessionRoutePrewarm");
+
+    const sessionPrewarm = readFileSync(
+      path.join(root, "src/react-app/shell/session-route/prewarm-hook.ts"),
+      "utf8",
+    );
+    expect(sessionPrewarm).toContain("prewarmWorkspaceProviders");
 
     const welcome = readFileSync(
       path.join(root, "src/react-app/shell/welcome-route.tsx"),

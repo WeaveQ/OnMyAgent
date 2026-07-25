@@ -57,6 +57,7 @@ import { emptyModelBehaviorOptions } from "./state";
 import { readWindowSeenProviderIds } from "./storage";
 import { refreshCreatedSessionSnapshotWithRetries } from "./sessions";
 import { workspaceSettingsRoute } from "../workspace-routes";
+import { useSessionRoutePrewarm } from "./prewarm-hook";
 
 /**
  * Session-scoped dedupe for "previous model unavailable" toasts.
@@ -122,6 +123,13 @@ export function useSessionRouteModelCatalog(input: Input) {
     setModelOptions,
     sidebarActiveWorkspaceId,
   } = input;
+
+  // Background prewarm lives here so session-route/render.tsx stays under file-size.
+  useSessionRoutePrewarm({
+    opencodeClient,
+    opencodeBaseUrl,
+    sessionWorkspaceRoot,
+  });
 
   const { showToast } = useStatusToasts();
   const defaultModelRef = useRef(local.prefs.defaultModel);
