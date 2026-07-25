@@ -20,7 +20,6 @@ import type {
 } from "../../../app/types";
 import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../../app/utils";
 import { t } from "../../../i18n";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "../../domains/connections";
 import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../../domains/shared";
@@ -44,13 +43,15 @@ import {
   useAiProvidersController,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
-import { useLoadScope } from "../load-surface";
+import { userErrorFromRaw } from "../../kernel/user-error";
+import { useShellInteractiveLoad } from "../use-shell-interactive-load";
+import { useFacingRouteError } from "./facing-route-error";
+import { canDisconnectProviderRow } from "./provider-disconnect-policy";
 import {
-  presentUserError,
-  userErrorFromRaw,
-  type UserErrorActionId,
-  type UserErrorScenario,
-} from "../../kernel/user-error";
+  deleteOpenCodeManagedProvider,
+  disconnectSettingsProvider,
+} from "./provider-list-actions";
+import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
   LazyAiSettingsView,
   LazyArchivedTasksView,
@@ -74,10 +75,8 @@ import { usePlatform } from "../../kernel/platform";
 import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
-  agentManagementProviderAction,
   onmyagentServerInfo,
   pickDirectory,
-  relaunchDesktopApp,
   resolveWorkspaceListSelectedId,
   type AgentManagementManagedProvider,
   type WorkspaceList,
@@ -92,7 +91,6 @@ import {
 } from "../../domains/cloud";
 import {
   isDesktopRuntime,
-  isElectronRuntime,
   resolveModelDisplayName,
   resolveProviderDisplayName,
   safeStringify,
@@ -304,22 +302,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [routeError, setRouteError] = useState<string | null>(null);
-  const [routeErrorAction, setRouteErrorAction] =
-    useState<UserErrorActionId | null>(null);
-  const setFacingRouteError = useCallback(
-    (raw: string | null, forcedScenario?: UserErrorScenario) => {
-      if (!raw && !forcedScenario) {
-        setRouteError(null);
-        setRouteErrorAction(null);
-        return;
-      }
-      const copy = presentUserError(raw, forcedScenario);
-      setRouteError(`${copy.title}. ${copy.body}`);
-      setRouteErrorAction(copy.primaryAction);
-    },
-    [],
-  );
+  const {
+    routeError,
+    routeErrorAction,
+    setFacingRouteError,
+    clearFacingRouteError,
+  } = useFacingRouteError();
   const { workspacesRef } = useSettingsWorkspaceRefs(workspaces);
   const refreshInFlightRef = useRef(false);
   const reconnectAttemptedWorkspaceIdRef = useRef("");
@@ -587,7 +575,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         setBusy,
         setBusyLabel,
         setBusyStartedAt: () => {},
-        setError: setRouteError,
+        setError: setFacingRouteError,
         markReloadRequired: reloadCoordinator.markReloadRequired,
       }),
     [onmyagentServerStore, reloadCoordinator.markReloadRequired],
@@ -676,11 +664,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     onmyagentServerSnapshot,
     runtimeWorkspaceId: selectedWorkspace?.id ?? null,
     selectedWorkspaceRoot,
-    setRouteError,
+    setRouteError: setFacingRouteError,
   });
   const recoveryViewProps = useRecoveryViewModel({
     anyActiveRuns: activeReloadBlockingSessions.length > 0,
-    setRouteError,
+    setRouteError: setFacingRouteError,
   });
   const onReleaseChannelChange = useCallback(
     (next: "stable" | "alpha") => {
@@ -694,7 +682,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     updateAutoCheck,
     updateAutoDownload,
     desktopConfig: desktopConfig.config,
-    setError: setRouteError,
+    setError: setFacingRouteError,
   });
 
   const workspaceSessionGroups = useMemo(
@@ -837,19 +825,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [updateAutoDownload]);
 
   const { markRouteReady: markBootRouteReady } = useBootState();
-  // First open of settings: full route scope. Soft re-refresh after interactive
-  // stays quiet so boot/route chrome does not stack a second full load feel.
-  const [shellInteractive, setShellInteractive] = useState(false);
-  useEffect(() => {
-    if (!loading) setShellInteractive(true);
-  }, [loading]);
-  useLoadScope("route-settings", loading && !shellInteractive);
+  const { shellInteractive } = useShellInteractiveLoad({
+    loading,
+    firstLoadScope: "route-settings",
+  });
   const refreshRouteState = useMemo(() => async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
     setLoading(true);
-    setRouteError(null);
-    setRouteErrorAction(null);
+    clearFacingRouteError();
     let desktopList: WorkspaceList | null = null;
     let desktopWorkspaces = workspacesRef.current;
     try {
@@ -1650,102 +1634,45 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               inventorySyncing={inventorySyncing}
               onOpenProviderAuth={handleOpenProviderAuth}
               onOpenOpencodeConfig={handleOpenCustomProviderConfig}
-              onDisconnectProvider={async (providerId) => {
-                setProviderActionBusyId(providerId);
-                setProviderActionError(null);
-                try {
-                  await providerAuthStore.disconnectProvider(providerId);
-                } catch (error) {
-                  setProviderActionError(
-                    userErrorFromRaw(
-                      error instanceof Error
-                        ? error.message
-                        : t("providers.disconnect_failed"),
-                    ),
-                  );
-                } finally {
-                  setProviderActionBusyId(null);
-                }
-              }}
-              canDisconnectProvider={(provider) => {
-                // OpenCode custom providers use edit/delete, not disconnect.
-                if (provider.managedBy === "opencode") return false;
-                // Built-in free OpenCode Zen: disconnect disables it in workspace
-                // config (it has no OAuth/API credentials to revoke).
-                if (provider.id === "opencode") return true;
-                // Env / config / custom entries are not "disconnectable" OAuth rows;
-                // showing Unplug here reads as a false "disconnected" status.
-                if (
-                  provider.source === "env" ||
-                  provider.source === "config" ||
-                  provider.source === "custom"
-                ) {
-                  return false;
-                }
-                // If inventory is still loading, treat as not managed-by-opencode yet
-                // only when the id is not already tagged; otherwise allow disconnect.
-                if (!opencodeInventoryReady) {
-                  // Avoid flashing Unplug on rows that will become edit/delete once
-                  // inventory merges (custom OpenCode providers appear in SDK list
-                  // before managedBy is set).
-                  return false;
-                }
-                return true;
-              }}
+              onDisconnectProvider={(providerId) =>
+                disconnectSettingsProvider({
+                  providerId,
+                  disconnectProvider: (id) =>
+                    providerAuthStore.disconnectProvider(id),
+                  setBusyId: setProviderActionBusyId,
+                  setError: setProviderActionError,
+                })
+              }
+              canDisconnectProvider={(provider) =>
+                canDisconnectProviderRow({
+                  provider,
+                  opencodeInventoryReady,
+                })
+              }
               canEditProvider={(provider) => provider.managedBy === "opencode"}
               onEditProvider={handleEditOpenCodeProvider}
               canDeleteProvider={(provider) => provider.managedBy === "opencode"}
               onDeleteProvider={async (provider) => {
                 if (providerActionBusyId || providerSyncBusy) return;
-                setProviderActionBusyId(provider.id);
-                setProviderSyncBusy(true);
-                setProviderActionError(null);
-                try {
-                  await agentManagementProviderAction({
-                    action: "delete",
-                    appType: "opencode",
-                    providerId: provider.id,
-                    workspaceRoot: selectedWorkspaceRoot,
-                  });
-                  // Drop from local inventory immediately for snappy UI.
-                  setOpenCodeManagedProviders((current) =>
-                    current.filter((item) => item.id !== provider.id),
-                  );
-                  // Clear default model if it pointed at the deleted provider.
-                  if (local.prefs.defaultModel?.providerID === provider.id) {
-                    local.setPrefs((previous) => ({
-                      ...previous,
-                      defaultModel: null,
-                      modelVariant: null,
-                    }));
-                  }
-                  // Apply engine so OpenCode drops the provider without a manual reload.
-                  const applied = await applyEngineConfigForProviders().catch(() => false);
-                  await providerAuthStore.refreshProviders({ dispose: true }).catch(() => null);
-                  await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
-                  const managed = await loadOpenCodeManagedProviders();
-                  setOpenCodeManagedProviders(managed);
-                  if (applied) {
-                    reloadCoordinator.clearReloadRequired();
-                  } else {
-                    reloadCoordinator.markReloadRequired("config", {
-                      type: "config",
-                      name: "opencode.json",
-                      action: "updated",
-                    });
-                  }
-                } catch (error) {
-                  setProviderActionError(
-                    userErrorFromRaw(
-                      error instanceof Error
-                        ? error.message
-                        : t("settings.custom_provider_remove_failed"),
-                    ),
-                  );
-                } finally {
-                  setProviderActionBusyId(null);
-                  setProviderSyncBusy(false);
-                }
+                await deleteOpenCodeManagedProvider({
+                  providerId: provider.id,
+                  workspaceRoot: selectedWorkspaceRoot,
+                  defaultModelProviderId:
+                    local.prefs.defaultModel?.providerID ?? null,
+                  setBusyId: setProviderActionBusyId,
+                  setSyncBusy: setProviderSyncBusy,
+                  setError: setProviderActionError,
+                  setOpenCodeManagedProviders,
+                  setPrefs: local.setPrefs,
+                  applyEngineConfigForProviders,
+                  refreshProviders: (opts) =>
+                    providerAuthStore.refreshProviders(opts),
+                  loadOpenCodeManagedProviders,
+                  clearReloadRequired: () =>
+                    reloadCoordinator.clearReloadRequired(),
+                  markReloadRequired: (kind, detail) =>
+                    reloadCoordinator.markReloadRequired(kind, detail),
+                });
               }}
               cloudProviderIds={new Set(
                 Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
@@ -1972,47 +1899,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
         errorSlot={
-          routeError && routeErrorAction ? (
-            <div className="flex flex-wrap gap-2">
-              {routeErrorAction === "retry" ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void refreshRouteState()}
-                >
-                  {t("system.error_action_retry")}
-                </Button>
-              ) : null}
-              {routeErrorAction === "open_ai_settings" ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigateSettingsPath("ai")}
-                >
-                  {t("system.error_action_open_ai_settings")}
-                </Button>
-              ) : null}
-              {routeErrorAction === "reload_app" ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (isElectronRuntime()) {
-                      void relaunchDesktopApp().catch(() => {
-                        window.location.reload();
-                      });
-                      return;
-                    }
-                    window.location.reload();
-                  }}
-                >
-                  {t("system.error_action_reload_app")}
-                </Button>
-              ) : null}
-            </div>
+          routeError ? (
+            <SettingsRouteErrorSlot
+              action={routeErrorAction}
+              onRetry={() => void refreshRouteState()}
+              onOpenAiSettings={() => navigateSettingsPath("ai")}
+            />
           ) : null
         }
         compact={props.embedded}

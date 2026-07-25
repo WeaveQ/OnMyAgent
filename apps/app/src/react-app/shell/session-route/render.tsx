@@ -87,7 +87,6 @@ import {
   useRestrictionNotice,
 } from "../../domains/cloud";
 import { useBootState } from "../boot-state";
-import { useLoadScope } from "../load-surface";
 import {
   readActiveWorkspaceId,
   readCachedSidebarSessionsByWorkspace,
@@ -96,6 +95,7 @@ import {
   readWorkspaceOrderIds,
   writeSessionTodos,
 } from "../session-memory";
+import { useShellInteractiveLoad } from "../use-shell-interactive-load";
 import { useReactRenderWatchdog } from "../react-render-watchdog";
 import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagent";
 import { useStatusToasts } from "../../domains/shell-feedback";
@@ -151,16 +151,11 @@ export function SessionRouteRender() {
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
-  // After the first successful route refresh the shell is interactive. Later
-  // refreshes must not re-blank the page or re-report a full route load —
-  // that is the "double load" users feel after boot.
-  const [shellInteractive, setShellInteractive] = useState(false);
-  useEffect(() => {
-    if (!loading) setShellInteractive(true);
-  }, [loading]);
-  // First paint → route-session (feeds boot overlay). Soft refresh → quieter scope.
-  useLoadScope("route-session", loading && !shellInteractive);
-  useLoadScope("session-refresh", loading && shellInteractive);
+  const { shellInteractive } = useShellInteractiveLoad({
+    loading,
+    firstLoadScope: "route-session",
+    softRefreshScope: "session-refresh",
+  });
   const [client, setClient] = useState<OnMyAgentServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
@@ -186,9 +181,7 @@ export function SessionRouteRender() {
       (selectedWorkspaceId ? null : (workspaces[0] ?? null)),
     [selectedWorkspaceId, workspaces],
   );
-  // Workspace-scoped API calls (sessions, events, activate, opencode/*) must
-  // hit the worker that owns the workspace, not the user's local server. The
-  // single source of truth for that routing is `resolveWorkspaceEndpoint`.
+  // API calls use resolveWorkspaceEndpoint so remote workspaces hit the owner.
   //
   // Route refs let stable callbacks read current workspace/session/server
   // values without cascading refresh loops.
@@ -693,17 +686,12 @@ export function SessionRouteRender() {
     errorsByWorkspaceId,
     sessionsByWorkspaceId,
   });
-  // Only the first load blanks chrome / shows startup skeleton. Soft refresh
-  // keeps the interactive shell and relies on registry session-refresh copy.
   const effectiveLoading = routeDataLoading && !shellInteractive;
   const selectedSessionFileRoot = resolveSelectedSessionFileRoot({
     boundDirectory: selectedSessionWorkspace?.directory,
     sessionDirectory: selectedSessionDirectory,
     workspaceRoot: selectedWorkspaceRoot,
   });
-  // Single source of truth for the selected workspace's server URL/token/id.
-  // For remote workspaces this is the worker that owns the workspace; for
-  // local workspaces it's the user's local OnMyAgent server.
   const selectedWorkspaceEndpoint = useMemo(
     () => resolveWorkspaceEndpoint(selectedWorkspace, { baseUrl, token }),
     [baseUrl, selectedWorkspace, token],
