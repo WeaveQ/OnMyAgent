@@ -10,9 +10,11 @@ import {
   AUTOMATION_RUNNING_REFETCH_MS,
   CODE_REVIEW_POLL_INTERVAL_MS,
   CODE_TERMINAL_SNAPSHOT_INTERVAL_MS,
+  SIDEBAR_SESSION_LIST_LIMIT,
   automationListRefetchIntervalMs,
   codeReviewPollIntervalMs,
   codeTerminalSnapshotIntervalMs,
+  selectSidebarPreviewSessionIds,
   shouldInstallGoalRuntimeClock,
   shouldRunActivePoll,
   shouldTickGoalRuntimeClock,
@@ -25,6 +27,18 @@ describe("shouldRunActivePoll (shipped)", () => {
     expect(shouldRunActivePoll({ enabled: false })).toBe(false);
     expect(shouldRunActivePoll({ enabled: true, documentVisible: false })).toBe(false);
     expect(shouldRunActivePoll({ enabled: true, documentVisible: true })).toBe(true);
+  });
+});
+
+describe("sidebar cold-start policy re-exports", () => {
+  test("exposes list limit and deferred preview selection", () => {
+    expect(SIDEBAR_SESSION_LIST_LIMIT).toBe(40);
+    expect(
+      selectSidebarPreviewSessionIds({
+        sessions: [{ id: "a" }, { id: "b" }],
+        deferred: false,
+      }).size,
+    ).toBe(0);
   });
 });
 

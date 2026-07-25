@@ -90,6 +90,18 @@ export {
   useSessionDraftState,
 } from "./sync/draft-store";
 export type { SessionDraftSnapshot } from "./sync/draft-store";
+/** Sidebar cold-start list limits — shell loads via domain barrel only. */
+export {
+  SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
+  SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_MAX,
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+  SIDEBAR_SESSION_LIST_LIMIT,
+  isDraftSessionId,
+  orderBackgroundSessionWorkspacesSelectedOnly,
+  selectSidebarPreviewSessionIds,
+} from "./sync/sidebar-load-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   permissionKey,

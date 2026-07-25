@@ -38,7 +38,10 @@ import {
 } from "./conversation-model";
 import {
   automationListRefetchIntervalMs,
+  SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
 } from "../sync/session-poll-policy";
+import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
 import {
   buildAssistantSidebarModel,
   buildAutomationLocalPinsMap,
@@ -153,9 +156,23 @@ export function AgentConversationPanel(props: {
   const mode = props.mode ?? "agent";
   const [automationRevision, setAutomationRevision] = useState(0);
   const knownAutomationRunKeysRef = useRef<Set<string> | null>(null);
+  // Defer automation list until after shell paint — not needed for first interaction.
+  const [automationListReady, setAutomationListReady] = useState(false);
+  useEffect(() => {
+    if (mode !== "assistant" || !props.client) {
+      setAutomationListReady(false);
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setAutomationListReady(true),
+      SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [mode, props.client, props.selectedWorkspaceId]);
   const automationQuery = useQuery({
     queryKey: ["onmyagent-automations", props.selectedWorkspaceId],
-    enabled: mode === "assistant" && Boolean(props.client),
+    enabled:
+      mode === "assistant" && Boolean(props.client) && automationListReady,
     queryFn: async () => {
       const client = props.client;
       if (!client) throw new Error("OnMyAgent server unavailable");
@@ -283,6 +300,13 @@ export function AgentConversationPanel(props: {
       );
     };
   }, [mode, props.selectedWorkspaceId]);
+  // Preview snapshots are deferred + capped. Selected session transcript is
+  // loaded by the main surface — do not N× snapshot the whole sidebar on boot.
+  const { previewSessionIds: assistantPreviewIds } = useDeferredSidebarPreviews({
+    enabled: mode === "assistant" && Boolean(props.client),
+    sessions: assistantSessions,
+    selectedSessionId: props.selectedSessionId,
+  });
   const assistantSnapshotQueries = useQueries({
     queries: assistantSessions.map((session) => ({
       queryKey: [
@@ -290,7 +314,10 @@ export function AgentConversationPanel(props: {
         props.selectedWorkspaceId,
         session.id,
       ],
-      enabled: Boolean(props.client) && !session.id.startsWith("draft:"),
+      enabled:
+        Boolean(props.client) &&
+        !session.id.startsWith("draft:") &&
+        assistantPreviewIds.has(session.id),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
@@ -299,14 +326,15 @@ export function AgentConversationPanel(props: {
             props.selectedWorkspaceId,
             session.id,
             {
-              limit: 8,
+              limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
               directory:
                 assistantWorkspaceBySessionId.get(session.id)?.directory,
             },
           )
         ).item;
       },
-      staleTime: 5_000,
+      staleTime: 30_000,
+      retry: false,
     })),
   });
   const assistantTitleFallbacks = new Map<string, string>();
@@ -341,6 +369,11 @@ export function AgentConversationPanel(props: {
     return list;
   }, [mode, registry, sessions]);
 
+  const { previewSessionIds: expertPreviewIds } = useDeferredSidebarPreviews({
+    enabled: mode === "agent" && Boolean(props.client),
+    sessions: expertLatestSessions,
+    selectedSessionId: props.selectedSessionId,
+  });
   const expertSnapshotQueries = useQueries({
     queries: expertLatestSessions.map((session) => ({
       queryKey: [
@@ -348,7 +381,10 @@ export function AgentConversationPanel(props: {
         props.selectedWorkspaceId,
         session.id,
       ],
-      enabled: Boolean(props.client) && mode === "agent",
+      enabled:
+        Boolean(props.client) &&
+        mode === "agent" &&
+        expertPreviewIds.has(session.id),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
@@ -356,11 +392,12 @@ export function AgentConversationPanel(props: {
           await client.getSessionSnapshot(
             props.selectedWorkspaceId,
             session.id,
-            { limit: 8 },
+            { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
           )
         ).item;
       },
-      staleTime: 5_000,
+      staleTime: 30_000,
+      retry: false,
     })),
   });
 

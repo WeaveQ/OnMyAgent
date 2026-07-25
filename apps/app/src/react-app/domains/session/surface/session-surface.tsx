@@ -25,7 +25,6 @@ import type {
 } from "../../../../app/lib/onmyagent-server";
 import type {
   ComposerAttachment,
-  ComposerCollaborationMode,
   ComposerDraft,
   ComposerPart,
   CollaborationGoalRuntime,
@@ -75,7 +74,6 @@ import {
   latestOutputLimitedAssistantMessage,
 } from "../sync/output-limit-recovery";
 import {
-  deriveGoalSummary,
   manualStopNoticeKind,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
@@ -83,6 +81,16 @@ import {
   summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
+import {
+  applySendDraftIntents,
+  buildGoalPauseRuntime,
+  buildGoalResumeRuntime,
+  buildPlanExecutionRequest,
+  goalResumeCollaborationMode,
+  makeSessionRunKey,
+  resolveAbortAction,
+  shouldBlockCodeDraftSend,
+} from "./session-surface-run-orchestration";
 import {
   getComposerAttachments,
   getComposerDraft,
@@ -133,7 +141,6 @@ import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
 import {
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
-  buildPlanExecutionHiddenSystemPrompt,
   createSessionInterruptionNotice,
   goalElapsedMs,
   isGoalIntentRuntime,
@@ -1098,10 +1105,12 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     const text = draft.trim();
     if (!text && attachments.length === 0) return;
     if (
-      assistantCodeFeaturesActive &&
-      props.draftOnly &&
-      assistantFeatureCategoryId === "code" &&
-      !props.draftWorkspaceDirectory?.trim()
+      shouldBlockCodeDraftSend({
+        assistantCodeFeaturesActive,
+        draftOnly: props.draftOnly,
+        assistantFeatureCategoryId,
+        draftWorkspaceDirectory: props.draftWorkspaceDirectory,
+      })
     ) {
       setShowFolderRequiredBubble(true);
       window.setTimeout(() => setShowFolderRequiredBubble(false), 2600);
@@ -1121,7 +1130,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setError(null);
     setDismissedErrorMessage(null);
     const startedAt = Date.now();
-    const runKey = `${props.sessionId}:${startedAt}`;
+    const runKey = makeSessionRunKey(props.sessionId, startedAt);
     activeRunStartedAtRef.current = startedAt;
     activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
@@ -1136,57 +1145,27 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     try {
-      const nextDraft = buildDraft(text, attachments);
-      if (stallRecoveryBySessionId[props.sessionId]) {
-        nextDraft.hiddenSystemPrompt = [
-          nextDraft.hiddenSystemPrompt,
-          t("session.stall_recovery_hidden"),
-        ]
-          .filter(Boolean)
-          .join("\n\n");
+      const stallKey = props.sessionId;
+      const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
+      const { draft: nextDraft, nextGoalRuntime } = applySendDraftIntents({
+        draft: buildDraft(text, attachments),
+        text,
+        messageBaseline: renderedMessages.length,
+        startedAt,
+        effectiveCollaborationMode,
+        assistantFeatureCategoryId,
+        goalRuntime: props.goalRuntime,
+        stallRecoveryHiddenPrompt: hadStallRecovery
+          ? t("session.stall_recovery_hidden")
+          : null,
+      });
+      if (hadStallRecovery) {
         setStallRecoveryBySessionId((current) =>
           removeRecordKey(current, props.sessionId),
         );
       }
-      const goalMode =
-        resolveSessionCollaborationKind(
-          effectiveCollaborationMode,
-          assistantFeatureCategoryId,
-        ) === "goal";
-      if (
-        effectiveCollaborationMode.kind === "plan" ||
-        effectiveCollaborationMode.planning
-      ) {
-        nextDraft.planningIntent = {
-          originalPrompt: text,
-          messageBaseline: renderedMessages.length,
-        };
-      }
-      const currentGoalRuntime = isGoalIntentRuntime(props.goalRuntime)
-        ? props.goalRuntime
-        : null;
-      if (goalMode && !currentGoalRuntime) {
-        nextDraft.goalIntent = {
-          objective: nextDraft.resolvedText ?? text,
-          messageBaseline: renderedMessages.length,
-        };
-      } else if (goalMode && currentGoalRuntime) {
-        const runtimeWithSummary = currentGoalRuntime.summary
-          ? currentGoalRuntime
-          : {
-              ...currentGoalRuntime,
-              summary: deriveGoalSummary(currentGoalRuntime.objective),
-            };
-        nextDraft.hiddenSystemPrompt = buildGoalHiddenSystemPrompt(runtimeWithSummary);
-        props.onGoalRuntimeChange?.({
-          ...runtimeWithSummary,
-          status: "running",
-          waitingReason: undefined,
-          updatedAt: startedAt,
-          lastRunStartedAt: startedAt,
-          lastRunMessageBaseline: renderedMessages.length,
-          completedAt: undefined,
-        });
+      if (nextGoalRuntime) {
+        props.onGoalRuntimeChange?.(nextGoalRuntime);
       }
       await props.onSendDraft(nextDraft);
       attachments.forEach(revokeAttachmentPreview);
@@ -1233,19 +1212,19 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
 
   const executeApprovedPlan = useCallback(async () => {
     const runtime = props.planRuntime;
-    if (!runtime || runtime.status !== "awaiting_approval") return;
-    const executionMode: ComposerCollaborationMode = {
-      kind: "craft",
-      planning: false,
+    if (!runtime) return;
+    const request = buildPlanExecutionRequest({
+      planRuntime: runtime,
       pursueGoal: effectiveCollaborationMode.pursueGoal,
-    };
-    const executionSystemPrompt = buildPlanExecutionHiddenSystemPrompt(runtime);
+      messageBaseline: renderedMessages.length,
+    });
+    if (!request) return;
     const executionPrompt = t("session.plan_runtime_execute");
 
     setError(null);
     setDismissedErrorMessage(null);
     const startedAt = Date.now();
-    const runKey = `${props.sessionId}:${startedAt}`;
+    const runKey = makeSessionRunKey(props.sessionId, startedAt);
     activeRunStartedAtRef.current = startedAt;
     activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
@@ -1259,19 +1238,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setSending(true);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
-    updateCollaborationMode(executionMode);
-    props.onPlanRuntimeChange?.({
-      ...runtime,
-      status: "executing",
-      approvedAt: Date.now(),
-      executionBaseline: renderedMessages.length,
-    });
+    updateCollaborationMode(request.executionMode);
+    props.onPlanRuntimeChange?.(request.nextPlanRuntime);
     try {
       await props.onSendDraft({
         ...buildDraft(executionPrompt, []),
         messageID: `msg_onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
-        collaborationMode: executionMode,
-        hiddenSystemPrompt: executionSystemPrompt,
+        collaborationMode: request.executionMode,
+        hiddenSystemPrompt: request.executionSystemPrompt,
       });
       props.onDraftChange(buildDraft("", []));
       setSending(false);
@@ -1308,33 +1282,20 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     const runtime = isGoalIntentRuntime(props.goalRuntime)
       ? props.goalRuntime
       : null;
-    if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
+    if (!runtime) return;
     const now = Date.now();
-    const totalPausedMs =
-      runtime.status === "paused" && runtime.pauseStartedAt
-        ? runtime.totalPausedMs + Math.max(0, now - runtime.pauseStartedAt)
-        : runtime.totalPausedMs;
-    const goalMode: ComposerCollaborationMode = {
-      planning: false,
-      pursueGoal: true,
-    };
-    const nextRuntime: CollaborationGoalRuntime = {
-      ...runtime,
-      summary: runtime.summary || deriveGoalSummary(runtime.objective),
-      status: "running",
-      waitingReason: undefined,
-      updatedAt: now,
-      totalPausedMs,
-      pauseStartedAt: undefined,
-      lastRunStartedAt: now,
-      lastRunMessageBaseline: renderedMessages.length,
-      completedAt: undefined,
-      lastKnownTodos: (props.todos ?? []).filter((todo) => todo.content.trim()),
-    };
+    const nextRuntime = buildGoalResumeRuntime({
+      runtime,
+      messageBaseline: renderedMessages.length,
+      now,
+      todos: props.todos,
+    });
+    if (!nextRuntime) return;
+    const goalMode = goalResumeCollaborationMode();
 
     setError(null);
     setDismissedErrorMessage(null);
-    const runKey = `${props.sessionId}:${now}`;
+    const runKey = makeSessionRunKey(props.sessionId, now);
     activeRunStartedAtRef.current = now;
     activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
@@ -1442,51 +1403,38 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
 
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(props.goalRuntime)
-      ? props.goalRuntime
-      : null;
-    if (
-      runtime &&
-      (runtime.status === "running" || runtime.status === "waiting")
-    ) {
-      const now = Date.now();
-      recordSessionInterruption("stopped", runtime);
-      const pausedRuntime = {
-        ...runtime,
-        status: "paused",
-        waitingReason: "user",
-        updatedAt: now,
-        pauseStartedAt: now,
-      } satisfies CollaborationGoalRuntime;
+    const now = Date.now();
+    const pausedRuntime = buildGoalPauseRuntime({
+      runtime: props.goalRuntime,
+      now,
+    });
+    if (pausedRuntime) {
+      recordSessionInterruption("stopped", pausedRuntime);
       props.onGoalRuntimeChange?.(pausedRuntime);
     }
     await stopActiveRun();
   }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
-    if (!chatStreaming) return;
     const collaborationKind = resolveSessionCollaborationKind(
       effectiveCollaborationMode,
       assistantFeatureCategoryId,
     );
-    if (collaborationKind === "goal" && isGoalIntentRuntime(props.goalRuntime)) {
+    const decision = resolveAbortAction({
+      chatStreaming,
+      collaborationKind,
+      goalRuntime: props.goalRuntime,
+      planRuntime: props.planRuntime,
+    });
+    if (decision.action === "noop") return;
+    if (decision.action === "pause-goal") {
       await pauseGoalRuntime();
       return;
     }
-    if (
-      props.planRuntime &&
-      (props.planRuntime.status === "executing" ||
-        props.planRuntime.status === "drafting")
-    ) {
-      props.onPlanRuntimeChange?.({
-        ...props.planRuntime,
-        status: "blocked",
-        blockedReason: "cancelled",
-      });
+    if (decision.nextPlanRuntime) {
+      props.onPlanRuntimeChange?.(decision.nextPlanRuntime);
     }
-    recordSessionInterruption(
-      manualStopNoticeKind(collaborationKind),
-    );
+    recordSessionInterruption(manualStopNoticeKind(collaborationKind));
     await stopActiveRun();
   }, [
     assistantFeatureCategoryId,
