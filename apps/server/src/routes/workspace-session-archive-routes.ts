@@ -194,7 +194,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
       const session = store.renameSession(sessionId, payload);
       if (!session) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
       return systemJsonResponse({ item: session });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "DELETE", "/workspace/:id/session-archive/sessions/:sessionId", "client", async (ctx) => {
@@ -202,7 +202,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
       if (!store.trashSession(sessionId)) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/sessions/:sessionId/restore", "client", async (ctx) => {
@@ -210,7 +210,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
       if (!store.restoreSession(sessionId)) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "DELETE", "/workspace/:id/session-archive/sessions/:sessionId/permanent", "client", async (ctx) => {
@@ -218,7 +218,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
       if (!store.permanentlyDeleteSession(sessionId)) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/trash", "client", async (ctx) => {
@@ -228,7 +228,11 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
 
   addRoute(routes, "DELETE", "/workspace/:id/session-archive/trash", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse({ ok: true, deleted: store.emptyTrash() }));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse({ ok: true, deleted: store.emptyTrash() }),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions/:sessionId/directory", "client", async (ctx) => {
@@ -296,7 +300,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
       if (!store.starSession(sessionId)) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "DELETE", "/workspace/:id/session-archive/sessions/:sessionId/star", "client", async (ctx) => {
@@ -304,7 +308,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
       store.unstarSession(sessionId);
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/starred/bulk", "client", async (ctx) => {
@@ -313,7 +317,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => {
       store.bulkStarSessions(payload.session_ids);
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/pins", "client", async (ctx) => {
@@ -333,7 +337,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
       const pinned = store.pinMessage(sessionId, readNumericId(ctx.params.messageId, "messageId"), payload);
       if (!pinned) throw new ApiError(400, "session_archive_pin_failed", "message does not belong to this session");
       return systemJsonResponse(pinned, 201);
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "DELETE", "/workspace/:id/session-archive/sessions/:sessionId/messages/:messageId/pin", "client", async (ctx) => {
@@ -341,7 +345,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
       store.unpinMessage(sessionId, readNumericId(ctx.params.messageId, "messageId"));
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions/:sessionId/tool-calls", "client", async (ctx) => {
@@ -598,14 +602,16 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
       const deleted = store.deleteInsight(readNumericId(ctx.params.insightId, "insightId"));
       if (!deleted) throw new ApiError(404, "session_archive_insight_not_found", "Session archive insight not found");
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/insights/generate", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = await ctx.request.json().catch(() => null);
-    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
+    const dbPath = resolveArchivePaths(workspace).dbPath;
+    return withSessionArchiveStore({ dbPath }, async (store) => {
       const insight = store.generateInsight(payload);
+      notifyArchiveDbChanged(dbPath);
       return sseResponse([
         sseEvent("status", { phase: "generating" }),
         sseEvent("log", { stream: "stdout", line: "generated local archive insight" }),
@@ -675,25 +681,37 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "POST", "/workspace/:id/session-archive/sessions/upload", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = sessionArchiveUploadImportRequestSchema.parse(await readJsonBody(ctx));
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.importUploadedExport(payload)));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse(store.importUploadedExport(payload)),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/import/claude-ai", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = sessionArchiveUploadImportRequestSchema.parse(await readJsonBody(ctx));
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => sseResponse([
-      sseEvent("progress", { imported: 0, updated: 0, skipped: 0, errors: 0 }),
-      sseEvent("done", store.importClaudeAiExport(payload)),
-    ]));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => sseResponse([
+        sseEvent("progress", { imported: 0, updated: 0, skipped: 0, errors: 0 }),
+        sseEvent("done", store.importClaudeAiExport(payload)),
+      ]),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/import/chatgpt", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = sessionArchiveUploadImportRequestSchema.parse(await readJsonBody(ctx));
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => sseResponse([
-      sseEvent("progress", { imported: 0, updated: 0, skipped: 0, errors: 0 }),
-      sseEvent("done", store.importChatGptExport(payload)),
-    ]));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => sseResponse([
+        sseEvent("progress", { imported: 0, updated: 0, skipped: 0, errors: 0 }),
+        sseEvent("done", store.importChatGptExport(payload)),
+      ]),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/config", "client", async (ctx) => {
@@ -715,7 +733,11 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "PUT", "/workspace/:id/session-archive/config", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = sessionArchiveConfigUpdateSchema.parse(await readJsonBody(ctx));
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.updateConfig(payload)));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse(store.updateConfig(payload)),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/settings/worktree-mappings", "client", async (ctx) => {
@@ -726,13 +748,21 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "POST", "/workspace/:id/session-archive/settings/worktree-mappings", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = sessionArchiveWorktreeMappingInputSchema.parse(await readJsonBody(ctx));
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.upsertWorktreeMapping(payload), 201));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse(store.upsertWorktreeMapping(payload), 201),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "PUT", "/workspace/:id/session-archive/settings/worktree-mappings/:mappingId", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const payload = sessionArchiveWorktreeMappingInputSchema.parse({ ...objectBody(await readJsonBody(ctx)), id: ctx.params.mappingId });
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.upsertWorktreeMapping(payload)));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse(store.upsertWorktreeMapping(payload)),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "DELETE", "/workspace/:id/session-archive/settings/worktree-mappings/:mappingId", "client", async (ctx) => {
@@ -740,12 +770,16 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => {
       if (!store.deleteWorktreeMapping(ctx.params.mappingId ?? "")) throw new ApiError(404, "session_archive_mapping_not_found", "Session archive worktree mapping not found");
       return systemJsonResponse({ ok: true });
-    });
+    }, { notify: true });
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/settings/worktree-mappings/apply", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.applyWorktreeMappings()));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse(store.applyWorktreeMappings()),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/secrets", "client", async (ctx) => {
@@ -764,7 +798,11 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/secrets/scan", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.scanSecrets()));
+    return withWorkspaceArchiveStore(
+      resolveArchivePaths(workspace).dbPath,
+      (store) => systemJsonResponse(store.scanSecrets()),
+      { notify: true },
+    );
   });
 
   addRoute(routes, "POST", "/workspace/:id/session-archive/sync", "client", async (ctx) => {
@@ -799,6 +837,8 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
         job.status = "completed";
         job.finished_at = new Date().toISOString();
         job.stats = stats;
+        // Explicit POST /sync must wake SSE the same way auto-sync does.
+        notifyArchiveDbChanged(paths.dbPath);
         return stats;
       })
       .catch((error: unknown) => {
@@ -851,15 +891,25 @@ async function withArchiveStore(
   dbPath: string,
   ctx: RequestContext,
   callback: (store: SessionArchiveStore, sessionId: string) => Response | Promise<Response>,
+  options?: { notify?: boolean },
 ): Promise<Response> {
-  return withSessionArchiveStore({ dbPath }, async (store) => callback(store, readSessionId(ctx)));
+  return withSessionArchiveStore({ dbPath }, async (store) => {
+    const response = await callback(store, readSessionId(ctx));
+    if (options?.notify) notifyArchiveDbChanged(dbPath);
+    return response;
+  });
 }
 
 async function withWorkspaceArchiveStore(
   dbPath: string,
   callback: (store: SessionArchiveStore) => Response | Promise<Response>,
+  options?: { notify?: boolean },
 ): Promise<Response> {
-  return withSessionArchiveStore({ dbPath }, async (store) => callback(store));
+  return withSessionArchiveStore({ dbPath }, async (store) => {
+    const response = await callback(store);
+    if (options?.notify) notifyArchiveDbChanged(dbPath);
+    return response;
+  });
 }
 
 function ensureSession(store: SessionArchiveStore, sessionId: string) {
