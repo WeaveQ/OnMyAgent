@@ -3,7 +3,7 @@
  *
  * Modes:
  * - onboarding: no disk wipe — renderer clears preferences + onboarding flags
- *   so the app re-enters the welcome guide after relaunch (workspaces kept).
+ *   and soft-reloads into #/welcome (do not process-relaunch in desktop dev).
  * - all: full product wipe — Electron userData + ~/.onmyagent +
  *   ~/.studio-switch + legacy product home dir + Application Support product dirs
  *
