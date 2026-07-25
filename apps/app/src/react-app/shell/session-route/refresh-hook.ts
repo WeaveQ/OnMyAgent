@@ -31,6 +31,10 @@ import {
 } from "./refs";
 import { loadSessionOnMyAgentConnectionState } from "./server-actions";
 import {
+  RELOAD_EVENTS_POLL_INTERVAL_MS,
+  shouldRunReloadEventsPoll,
+} from "../../domains/session/sync/session-poll-policy";
+import {
   buildConnectedRouteRefreshPlan,
   buildDisconnectedRouteState,
   buildRouteRefreshCompleteEvent,
@@ -486,6 +490,8 @@ export function useSessionRouteRefresh(input: Input) {
     let cancelled = false;
 
     const pollReloadEvents = async () => {
+      // Keep the interval installed while hidden; skip work until visible again.
+      if (!shouldRunReloadEventsPoll()) return;
       const currentCursor =
         reloadEventCursorByWorkspaceRef.current[selectedWorkspaceId];
       try {
@@ -515,7 +521,10 @@ export function useSessionRouteRefresh(input: Input) {
     };
 
     void pollReloadEvents();
-    const interval = window.setInterval(() => void pollReloadEvents(), 3000);
+    const interval = window.setInterval(
+      () => void pollReloadEvents(),
+      RELOAD_EVENTS_POLL_INTERVAL_MS,
+    );
     return () => {
       cancelled = true;
       window.clearInterval(interval);

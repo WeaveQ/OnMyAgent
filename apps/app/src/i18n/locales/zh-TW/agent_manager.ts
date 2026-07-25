@@ -79,6 +79,16 @@ export default {
   "agent_manager.provider_modal.fetch_models": "取得模型",
   "agent_manager.provider_modal.fetch_models_need_url": "請先填寫介面位址",
   "agent_manager.provider_modal.fetched_models": "已拉取 {count} 個模型",
+  "agent_manager.provider_modal.test_connection": "測試連線",
+  "agent_manager.provider_modal.test_connection_testing": "測試中…",
+  "agent_manager.provider_modal.test_connection_need_url": "請先填寫介面位址",
+  "agent_manager.provider_modal.test_connection_hint":
+    "以目前介面位址與金鑰請求模型列表，不會改動右側已填模型。",
+  "agent_manager.provider_modal.test_connection_ok_models":
+    "連線成功 · 發現 {count} 個模型 · 耗時 {ms}ms",
+  "agent_manager.provider_modal.test_connection_ok_empty":
+    "連線成功 · 介面未回傳模型 · 耗時 {ms}ms",
+  "agent_manager.provider_modal.test_connection_fail": "連線失敗：{message}",
   "agent_manager.provider_modal.model_list_hint": "填寫模型 ID，顯示名稱可自動帶出",
   "agent_manager.provider_modal.model_id_placeholder": "例如 qwen3.6-plus",
   "agent_manager.provider_modal.fill_all": "一鍵填充",

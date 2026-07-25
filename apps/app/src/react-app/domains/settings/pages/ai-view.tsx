@@ -7,7 +7,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileCode, Pencil, Trash2, Unplug } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  FileCode,
+  Pencil,
+  Trash2,
+  Unplug,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { t } from "@/i18n";
@@ -61,6 +68,11 @@ export type AiSettingsViewProps = {
   onDeleteProvider?: (provider: AiSettingsConnectedProvider) => void;
   canEditProvider?: (provider: AiSettingsConnectedProvider) => boolean;
   canDeleteProvider?: (provider: AiSettingsConnectedProvider) => boolean;
+  /** Move provider one step in the settings list (persisted preference). */
+  onMoveProvider?: (
+    providerId: string,
+    direction: "up" | "down",
+  ) => void;
   /** Provider id currently being edited/deleted (disables its row actions). */
   providerActionBusyId?: string | null;
   /**
@@ -210,7 +222,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
 
         <SettingsBlock>
           {props.connectedProviders.length > 0 ? (
-            props.connectedProviders.map((provider) => {
+            props.connectedProviders.map((provider, providerIndex) => {
               const sourceLabel = providerSourceLabel(provider.source);
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
               const rowBusy =
@@ -220,6 +232,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 provider.modelCount > 0
                   ? provider.modelCount
                   : null;
+              const canMoveUp =
+                Boolean(props.onMoveProvider) && providerIndex > 0;
+              const canMoveDown =
+                Boolean(props.onMoveProvider) &&
+                providerIndex < props.connectedProviders.length - 1;
 
               return (
                 <SettingsBlockRow
@@ -283,6 +300,72 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                   actions={
                     !isCloud ? (
                       <div className="inline-flex items-center gap-0.5">
+                        {props.onMoveProvider ? (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={(
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-dls-secondary"
+                                    disabled={
+                                      props.busy ||
+                                      rowBusy ||
+                                      !canMoveUp
+                                    }
+                                    onClick={() =>
+                                      props.onMoveProvider?.(
+                                        provider.id,
+                                        "up",
+                                      )
+                                    }
+                                    aria-label={t(
+                                      "settings.provider_move_up",
+                                    )}
+                                  >
+                                    <ChevronUp aria-hidden="true" />
+                                  </Button>
+                                )}
+                              />
+                              <TooltipContent>
+                                {t("settings.provider_move_up")}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={(
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-dls-secondary"
+                                    disabled={
+                                      props.busy ||
+                                      rowBusy ||
+                                      !canMoveDown
+                                    }
+                                    onClick={() =>
+                                      props.onMoveProvider?.(
+                                        provider.id,
+                                        "down",
+                                      )
+                                    }
+                                    aria-label={t(
+                                      "settings.provider_move_down",
+                                    )}
+                                  >
+                                    <ChevronDown aria-hidden="true" />
+                                  </Button>
+                                )}
+                              />
+                              <TooltipContent>
+                                {t("settings.provider_move_down")}
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        ) : null}
                         {props.canEditProvider?.(provider) ? (
                           <Tooltip>
                             <TooltipTrigger

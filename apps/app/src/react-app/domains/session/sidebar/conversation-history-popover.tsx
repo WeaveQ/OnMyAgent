@@ -17,6 +17,10 @@ import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
 import {
+  CONVERSATION_HISTORY_SNAPSHOT_LIMIT,
+  SESSION_SNAPSHOT_STALE_TIME_MS,
+} from "../sync/session-poll-policy";
+import {
   extractUserHistoryEntries,
   type ConversationHistoryEntry,
 } from "./conversation-history-panel";
@@ -44,11 +48,11 @@ export function ConversationHistoryPopover(props: {
       if (!client || !sessionId) throw new Error("unavailable");
       return (
         await client.getSessionSnapshot(props.workspaceId, sessionId, {
-          limit: 200,
+          limit: CONVERSATION_HISTORY_SNAPSHOT_LIMIT,
         })
       ).item;
     },
-    staleTime: 3_000,
+    staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
   });
 
   const entries = useMemo(

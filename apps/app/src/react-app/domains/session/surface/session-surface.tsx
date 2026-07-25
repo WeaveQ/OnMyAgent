@@ -68,6 +68,7 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
+import { SESSION_SNAPSHOT_STALE_TIME_MS } from "../sync/session-poll-policy";
 import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
@@ -356,7 +357,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
           { limit: 140, directory: props.workspaceRoot },
         )
       ).item,
-    staleTime: 500,
+    staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
   });
   const currentSnapshot =
     snapshotQuery.data?.session.id === props.sessionId
