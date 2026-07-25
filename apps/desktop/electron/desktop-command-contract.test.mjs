@@ -7,9 +7,23 @@ import {
 } from "../../../packages/types/src/desktop-ipc-commands.mjs";
 import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
 import {
+  createAllDesktopDomainHandlers,
   DESKTOP_HANDLER_COMMANDS,
   listImplementedDesktopCommands,
 } from "./desktop-handlers/index.mjs";
+
+/** Minimal dep proxy so factories can be constructed without a full main.mjs graph. */
+function mockDesktopHandlerDeps() {
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === "then") return undefined;
+        return async () => ({ ok: true, mocked: String(prop) });
+      },
+    },
+  );
+}
 
 test("desktop commands are assigned to exactly one domain", () => {
   const grouped = Object.values(desktopCommandGroups).flat();
@@ -52,6 +66,36 @@ test("desktop router exposes one handler registry per command domain", () => {
     [...router.domainHandlers.values()].reduce((count, handlers) => count + handlers.size, 0),
     desktopCommandNames.length,
   );
+});
+
+/**
+ * Runtime registration path used by main.mjs: every handler key from
+ * createAllDesktopDomainHandlers must be a subset of (and exact multiset match for)
+ * the declared `@onmyagent/types` command map. Fails if a handler is undeclared.
+ */
+test("createAllDesktopDomainHandlers keys ⊆ declared desktopCommandNames", () => {
+  const handlers = createAllDesktopDomainHandlers(mockDesktopHandlerDeps());
+  const registered = Object.keys(handlers).sort();
+  const declared = [...desktopCommandNames].sort();
+  const declaredSet = new Set(declared);
+
+  const undeclared = registered.filter((name) => !declaredSet.has(name));
+  assert.deepEqual(
+    undeclared,
+    [],
+    `handlers registered but not declared in desktopCommandNames: ${undeclared.join(", ")}`,
+  );
+
+  // Full parity (handlers ⊆ declarations AND declarations ⊆ handlers).
+  assert.deepEqual(
+    registered,
+    declared,
+    "registered handlers must match declared desktopCommandNames exactly",
+  );
+
+  for (const name of registered) {
+    assert.equal(typeof handlers[name], "function", `handler ${name} must be a function`);
+  }
 });
 
 test("generated Desktop command union is current", async () => {
