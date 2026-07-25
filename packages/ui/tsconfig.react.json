@@ -10,7 +10,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    // tsup/rollup-plugin-dts still injects baseUrl; silence TS 6 deprecation until tooling drops it.
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "src/common/**/*",
