@@ -207,14 +207,19 @@ describe("S4–S6 UX wiring", () => {
       path.join(appRoot, "shell/settings-route/render.tsx"),
       "utf8",
     );
-    expect(sessionRender).toContain('useLoadScope("route-session"');
-    expect(sessionRender).toContain('useLoadScope("session-refresh"');
-    expect(sessionRender).toContain("shellInteractive");
+    const shellLoad = readFileSync(
+      path.join(appRoot, "shell/use-shell-interactive-load.ts"),
+      "utf8",
+    );
+    expect(sessionRender).toContain("useShellInteractiveLoad");
+    expect(sessionRender).toContain('firstLoadScope: "route-session"');
+    expect(sessionRender).toContain('softRefreshScope: "session-refresh"');
     expect(sessionRender).toContain("routeDataLoading && !shellInteractive");
+    expect(shellLoad).toContain("useLoadScope");
     expect(pageView).toContain("useBootOverlayVisible");
     expect(pageView).toContain("bootOverlayVisible");
-    expect(settingsRender).toContain('useLoadScope("route-settings"');
-    expect(settingsRender).toContain("loading && !shellInteractive");
+    expect(settingsRender).toContain("useShellInteractiveLoad");
+    expect(settingsRender).toContain('firstLoadScope: "route-settings"');
   });
 
   test("S5: settings error banner has recovery action slot; send block is i18n", () => {
@@ -222,14 +227,23 @@ describe("S4–S6 UX wiring", () => {
       path.join(appRoot, "shell/settings-route/render.tsx"),
       "utf8",
     );
+    const errorSlot = readFileSync(
+      path.join(appRoot, "shell/settings-route/route-error-slot.tsx"),
+      "utf8",
+    );
+    const facing = readFileSync(
+      path.join(appRoot, "shell/settings-route/facing-route-error.ts"),
+      "utf8",
+    );
     const surface = readFileSync(
       path.join(appRoot, "shell/session-route/surface-props-hook-impl.ts"),
       "utf8",
     );
     expect(settingsRender).toContain("errorSlot=");
+    expect(settingsRender).toContain("SettingsRouteErrorSlot");
     expect(settingsRender).toContain("routeErrorAction");
-    expect(settingsRender).toContain("system.error_action_retry");
-    expect(settingsRender).toContain("presentUserError");
+    expect(errorSlot).toContain("system.error_action_retry");
+    expect(facing).toContain("presentUserError");
     expect(surface).toContain("session.model_unavailable_send_blocked");
     expect(surface).not.toContain(
       "Selected model is unavailable. Choose another model before sending.",
