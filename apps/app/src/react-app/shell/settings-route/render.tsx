@@ -43,6 +43,7 @@ import {
   useAiProvidersController,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
+import { useLoadScope } from "../load-surface";
 import {
   LazyAiSettingsView,
   LazyArchivedTasksView,
@@ -809,6 +810,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [updateAutoDownload]);
 
   const { markRouteReady: markBootRouteReady } = useBootState();
+  // Report settings route load into the shared registry (boot overlay + surfaces).
+  useLoadScope("route-settings", loading);
   const refreshRouteState = useMemo(() => async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;

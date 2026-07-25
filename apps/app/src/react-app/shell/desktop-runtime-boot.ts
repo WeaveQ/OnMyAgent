@@ -26,6 +26,7 @@ import {
 import { isDesktopRuntime, isElectronRuntime, safeStringify } from "../../app/utils";
 import { useServer } from "../kernel/server-provider";
 import { useBootState } from "./boot-state";
+import { beginLoadScope } from "./route-load-registry";
 
 // Module-scoped latch so React Strict-Mode's "mount-unmount-remount" cycle in
 // dev only triggers the boot sequence once per app launch, and the async work
@@ -78,6 +79,7 @@ export function useDesktopRuntimeBoot() {
     }
     if (BOOT_STARTED) return;
     BOOT_STARTED = true;
+    const endDesktopBootScope = beginLoadScope("desktop-boot");
 
     void (async () => {
       try {
@@ -299,6 +301,8 @@ export function useDesktopRuntimeBoot() {
       } catch (error) {
         console.warn("[desktop-boot] fatal:", error);
         setError(error instanceof Error ? error.message : safeStringify(error));
+      } finally {
+        endDesktopBootScope();
       }
     })();
   }, [markReady, setActive, setError, setPhase]);
