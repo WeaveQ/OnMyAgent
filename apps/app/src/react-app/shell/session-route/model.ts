@@ -366,10 +366,19 @@ export function orderBackgroundSessionWorkspaces(input: {
   workspaces: RouteWorkspace[];
   selectedWorkspaceId: string;
   alreadyLoadedWorkspaceIds: Set<string>;
+  /**
+   * Cold-start default: only revalidate the selected workspace.
+   * Pass "all-pending" when explicitly warming every unloaded workspace.
+   */
+  mode?: "selected-only" | "all-pending";
 }) {
   const selectedWorkspace = input.workspaces.find(
     (workspace) => workspace.id === input.selectedWorkspaceId,
   );
+  const mode = input.mode ?? "selected-only";
+  if (mode === "selected-only") {
+    return selectedWorkspace ? [selectedWorkspace] : [];
+  }
   const backgroundWorkspaces = input.workspaces.filter(
     (workspace) =>
       workspace.id === input.selectedWorkspaceId ||
