@@ -11,7 +11,10 @@ import {
 import { t } from "../../../../i18n";
 import { matchesResetConfirmation } from "../modals/reset-modal";
 import type { RecoveryViewProps } from "../pages/recovery-view";
-import { clearLocalStorageForOnMyAgentReset } from "../../../kernel/reset-local-storage";
+import {
+  clearLocalStorageForOnMyAgentReset,
+  softReenterWelcomeGuide,
+} from "../../../kernel/reset-local-storage";
 
 type UseRecoveryViewModelOptions = {
   anyActiveRuns: boolean;
@@ -92,9 +95,13 @@ export function useRecoveryViewModel(
           await resetOnMyAgentState(resetModalMode);
         }
         // Onboarding: rewrite prefs (hasCompletedOnboarding=false + empty profile)
-        // so relaunch re-enters /welcome. All: wipe every localStorage key.
+        // then soft-reload into #/welcome (do NOT app.relaunch in desktop dev —
+        // that orphans Electron from Vite and blanks the window).
+        // All: wipe every localStorage key + full process relaunch.
         clearLocalStorageForOnMyAgentReset(resetModalMode);
-        if (isDesktopRuntime()) {
+        if (resetModalMode === "onboarding") {
+          softReenterWelcomeGuide();
+        } else if (isDesktopRuntime()) {
           await relaunchDesktopApp();
         } else {
           window.location.reload();
