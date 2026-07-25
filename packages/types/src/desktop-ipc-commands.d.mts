@@ -170,6 +170,7 @@ export type DesktopCommandName =
   | "agentManagementSnapshot"
   | "agentManagementProviderAction"
   | "agentManagementFetchModels"
+  | "agentManagementTestModel"
   | "agentManagementSkillAction"
   | "agentManagementMcpSnapshot"
   | "agentManagementMcpAction"

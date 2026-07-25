@@ -902,13 +902,49 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   if (!endpoint) return;
                   const assistantSessionWorkspace =
                     readAssistantSessionWorkspace(sessionId);
-                  await endpoint.client.deleteSession(
-                    endpoint.workspaceId,
-                    sessionId,
-                    {
-                      directory: assistantSessionWorkspace?.directory,
-                    },
-                  );
+                  try {
+                    await endpoint.client.deleteSession(
+                      endpoint.workspaceId,
+                      sessionId,
+                      {
+                        directory: assistantSessionWorkspace?.directory,
+                      },
+                    );
+                  } catch (error) {
+                    // Ghost rows (OpenCode session already gone / 502 empty
+                    // upstream) still need local list cleanup so automation
+                    // folders and 定时 groups can be removed.
+                    const status =
+                      error &&
+                      typeof error === "object" &&
+                      "status" in error &&
+                      typeof (error as { status?: unknown }).status === "number"
+                        ? (error as { status: number }).status
+                        : null;
+                    const code =
+                      error &&
+                      typeof error === "object" &&
+                      "code" in error &&
+                      typeof (error as { code?: unknown }).code === "string"
+                        ? (error as { code: string }).code
+                        : "";
+                    const message =
+                      error instanceof Error ? error.message : String(error);
+                    const missing =
+                      status === 404 ||
+                      status === 410 ||
+                      status === 502 ||
+                      code === "session_not_found" ||
+                      code === "opencode_request_failed" ||
+                      code === "opencode_empty_response" ||
+                      /not found|session_not_found|404|502/i.test(message);
+                    if (!missing) throw error;
+                    console.warn(
+                      "[session-route] deleteSession ignored missing/failed session",
+                      sessionId,
+                      error,
+                    );
+                  }
                   removeAssistantSession(sessionId);
                   removeExpertSession(sessionId);
                   writeCustomAgentIdForSession(sessionId, null);

@@ -61,7 +61,8 @@ export const composerTextClass = {
   sourceBadge: "bg-dls-accent/10 text-dls-accent",
   commandBadge: "bg-dls-signal/15 text-dls-text",
   modelUnavailable:
-    "inline-flex max-w-48 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-dls-status-danger-fg hover:bg-dls-status-danger-soft",
+    // Align with model chip / workspace / permission chrome (text-sm / h-8).
+    "inline-flex h-8 max-w-48 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-status-danger-fg hover:bg-dls-status-danger-soft",
 };
 
 export const composerMenuClass = {

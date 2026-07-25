@@ -90,6 +90,10 @@ export default {
   "agent_manager.provider_modal.test_connection_ok_empty":
     "Connected · no models returned · {ms}ms",
   "agent_manager.provider_modal.test_connection_fail": "Connection failed: {message}",
+  "agent_manager.provider_modal.test_model": "Test model",
+  "agent_manager.provider_modal.test_model_need_id": "Enter a model ID first",
+  "agent_manager.provider_modal.test_model_ok": "Reachable · {ms}ms",
+  "agent_manager.provider_modal.test_model_fail": "Failed: {message}",
   "agent_manager.provider_modal.model_list_hint": "Enter a model ID; the display name can follow it",
   "agent_manager.provider_modal.model_id_placeholder": "e.g. qwen3.6-plus",
   "agent_manager.provider_modal.fill_all": "Fill all",

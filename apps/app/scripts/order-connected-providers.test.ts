@@ -77,14 +77,14 @@ describe("moveConnectedProviderInOrder", () => {
 });
 
 describe("settings provider order + badge UI contracts", () => {
-  test("ai-view wires move up/down without drag handlers", () => {
+  test("ai-view has no provider reorder controls", () => {
     const aiView = readFileSync(
       join(appRoot, "src/react-app/domains/settings/pages/ai-view.tsx"),
       "utf8",
     );
-    expect(aiView).toContain("onMoveProvider");
-    expect(aiView).toContain("provider_move_up");
-    expect(aiView).toContain("provider_move_down");
+    expect(aiView).not.toContain("onMoveProvider");
+    expect(aiView).not.toContain("provider_move_up");
+    expect(aiView).not.toContain("provider_move_down");
     expect(aiView).not.toMatch(/onDrag|dnd-kit|useSortable|DragDropContext/);
     // Zen free-only; custom never labeled OpenCode engine.
     expect(aiView).toContain('provider.id === "opencode"');
@@ -93,7 +93,7 @@ describe("settings provider order + badge UI contracts", () => {
     expect(aiView).toMatch(/OpenCode/);
   });
 
-  test("provider modal connectivity test does not mutate model rows", () => {
+  test("provider modal tests connectivity per model row", () => {
     const modal = readFileSync(
       join(
         appRoot,
@@ -101,19 +101,21 @@ describe("settings provider order + badge UI contracts", () => {
       ),
       "utf8",
     );
-    expect(modal).toContain("testProviderConnection");
-    expect(modal).toContain("test_connection");
-    expect(modal).toContain("agentManagementFetchModels");
-    // Probe path shares fetch-models IPC but keeps model rows untouched.
-    const probeStart = modal.indexOf("testProviderConnection");
+    expect(modal).toContain("testModelRow");
+    expect(modal).toContain("agentManagementTestModel");
+    expect(modal).toContain("test_model");
+    // Left-side whole-provider test removed.
+    expect(modal).not.toContain("testProviderConnection");
+    // Probe path must not rewrite draft model rows.
+    const probeStart = modal.indexOf("testModelRow");
     expect(probeStart).toBeGreaterThan(-1);
-    const probeBody = modal.slice(probeStart, probeStart + 1800);
-    expect(probeBody).toContain("agentManagementFetchModels");
+    const probeBody = modal.slice(probeStart, probeStart + 2200);
+    expect(probeBody).toContain("agentManagementTestModel");
     expect(probeBody).not.toContain("setDraftModels");
     expect(probeBody).not.toContain("updateDraft({ models");
   });
 
-  test("controller persists order via session-memory helpers", () => {
+  test("controller still applies optional stored provider order", () => {
     const controller = readFileSync(
       join(
         appRoot,
@@ -121,8 +123,9 @@ describe("settings provider order + badge UI contracts", () => {
       ),
       "utf8",
     );
-    expect(controller).toContain("moveConnectedProvider");
-    expect(controller).toContain("writeConnectedProviderOrderIds");
+    // Move-up/down UI removed; order helpers remain for legacy preference file.
+    expect(controller).not.toContain("moveConnectedProvider");
+    expect(controller).toContain("readConnectedProviderOrderIds");
     expect(controller).toContain("orderConnectedProviders");
   });
 });

@@ -47,7 +47,6 @@ import {
   buildConnectedModelOptions,
   buildProviderModelCatalog,
   filterAllowedModelOptions,
-  isModelPickableInConnectedCatalog,
   isSelectedModelUnavailable,
   resolveModelVariantState,
   resolveUsableDefaultModel,
@@ -260,7 +259,9 @@ export function useSessionRouteModelCatalog(input: Input) {
 
   // When the active model is no longer available (e.g. provider removed from
   // config), do NOT auto-switch. Composer shows "模型已不可用"; toast once per
-  // model key for the app session so soft reloads / remounts do not spam.
+  // model key for the app session. Never re-arm on catalog flicker — deleting
+  // the key when the list briefly looks "available" stacked two identical
+  // "原模型已不可用" toasts.
   const effectiveModelKey = effectiveModelRef
     ? `${effectiveModelRef.providerID}/${effectiveModelRef.modelID}`
     : "";
@@ -277,8 +278,9 @@ export function useSessionRouteModelCatalog(input: Input) {
         .filter(Boolean),
     );
     // Soft dispose / engine reload often reports zero connected providers for a
-    // beat. That is not "model removed" — skip toast and do not re-arm.
+    // beat. That is not "model removed" — skip toast.
     if (connectedIds.size === 0) return;
+    if (!effectiveModelKey) return;
 
     const restriction = checkRestrictionRef.current;
     const effectiveUnavailable = isSelectedModelUnavailable({
@@ -288,17 +290,7 @@ export function useSessionRouteModelCatalog(input: Input) {
       providerListData,
     });
 
-    if (!effectiveModelKey) return;
-
-    if (!effectiveUnavailable) {
-      // Only re-arm when the model is genuinely pickable again (not a flicker).
-      if (
-        isModelPickableInConnectedCatalog(providerListData, effectiveModelRef)
-      ) {
-        toastedUnavailableModelKeys.delete(effectiveModelKey);
-      }
-      return;
-    }
+    if (!effectiveUnavailable) return;
 
     if (toastedUnavailableModelKeys.has(effectiveModelKey)) return;
     toastedUnavailableModelKeys.add(effectiveModelKey);
