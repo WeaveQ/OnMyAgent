@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
+  readCachedSidebarSessionsByWorkspace,
   readLastSessionFor,
   readSessionAccessModes,
   readSessionCollaborationModes,
@@ -10,6 +11,7 @@ import {
   readSessionModelOverrides,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
+  writeCachedSidebarSessionsForWorkspace,
   writeLastSessionFor,
   writeSessionAccessModes,
   writeSessionCollaborationModes,
@@ -311,5 +313,43 @@ describe("session memory", () => {
     expect(readWorkspaceOrderIds()).toEqual(["ws_b"]);
     expect(readLastSessionFor("ws_a")).toBeNull();
     expect(readLastSessionFor("ws_b")).toBe("ses_b");
+  });
+
+  test("caches lightweight sidebar sessions for cold-start paint", () => {
+    writeCachedSidebarSessionsForWorkspace(" ws_a ", [
+      {
+        id: " ses_1 ",
+        title: "Hello",
+        time: { updated: 100, created: 50 },
+        directory: "/tmp/a",
+      },
+      { id: "", title: "skip-empty-id" },
+    ]);
+    writeCachedSidebarSessionsForWorkspace("ws_b", [
+      { id: "ses_2", title: "Other" },
+    ]);
+
+    expect(readCachedSidebarSessionsByWorkspace()).toEqual({
+      ws_a: [
+        {
+          id: "ses_1",
+          title: "Hello",
+          time: { updated: 100, created: 50 },
+          directory: "/tmp/a",
+        },
+      ],
+      ws_b: [{ id: "ses_2", title: "Other" }],
+    });
+
+    writeCachedSidebarSessionsForWorkspace("ws_a", []);
+    expect(readCachedSidebarSessionsByWorkspace()).toEqual({
+      ws_b: [{ id: "ses_2", title: "Other" }],
+    });
+
+    writeCachedSidebarSessionsForWorkspace("ws_b", [
+      { id: "ses_2", title: "Other" },
+    ]);
+    forgetWorkspaceMemory("ws_b");
+    expect(readCachedSidebarSessionsByWorkspace()).toEqual({});
   });
 });

@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   classifyProviderError,
+  presentUserError,
   userErrorCopy,
   userErrorFromRaw,
   userErrorMessage,
@@ -188,6 +189,79 @@ describe("S1–S3 UX wiring", () => {
     expect(sessionRefresh).toContain('userErrorMessage("not_connected")');
     expect(sessionRender).toContain("userErrorFromRaw");
     expect(settingsRender).toContain("userErrorFromRaw");
-    expect(settingsRender).toContain('userErrorMessage("not_connected")');
+    expect(settingsRender).toContain('setFacingRouteError(null, "not_connected")');
+  });
+});
+
+describe("S4–S6 UX wiring", () => {
+  test("S4: first-load vs soft-refresh scopes; suppress busy under boot overlay", () => {
+    const sessionRender = readFileSync(
+      path.join(appRoot, "shell/session-route/render.tsx"),
+      "utf8",
+    );
+    const pageView = readFileSync(
+      path.join(appRoot, "shell/session-route/page-view.tsx"),
+      "utf8",
+    );
+    const settingsRender = readFileSync(
+      path.join(appRoot, "shell/settings-route/render.tsx"),
+      "utf8",
+    );
+    expect(sessionRender).toContain('useLoadScope("route-session"');
+    expect(sessionRender).toContain('useLoadScope("session-refresh"');
+    expect(sessionRender).toContain("shellInteractive");
+    expect(sessionRender).toContain("routeDataLoading && !shellInteractive");
+    expect(pageView).toContain("useBootOverlayVisible");
+    expect(pageView).toContain("bootOverlayVisible");
+    expect(settingsRender).toContain('useLoadScope("route-settings"');
+    expect(settingsRender).toContain("loading && !shellInteractive");
+  });
+
+  test("S5: settings error banner has recovery action slot; send block is i18n", () => {
+    const settingsRender = readFileSync(
+      path.join(appRoot, "shell/settings-route/render.tsx"),
+      "utf8",
+    );
+    const surface = readFileSync(
+      path.join(appRoot, "shell/session-route/surface-props-hook-impl.ts"),
+      "utf8",
+    );
+    expect(settingsRender).toContain("errorSlot=");
+    expect(settingsRender).toContain("routeErrorAction");
+    expect(settingsRender).toContain("system.error_action_retry");
+    expect(settingsRender).toContain("presentUserError");
+    expect(surface).toContain("session.model_unavailable_send_blocked");
+    expect(surface).not.toContain(
+      "Selected model is unavailable. Choose another model before sending.",
+    );
+    const copy = presentUserError(null, "not_connected");
+    expect(copy.primaryAction).toBe("retry");
+  });
+
+  test("S6: reload copy avoids bare engine jargon in product strings", () => {
+    for (const locale of ["en", "zh", "zh-TW"] as const) {
+      const system = readFileSync(
+        path.join(localeRoot, locale, "system.ts"),
+        "utf8",
+      );
+      const settings = readFileSync(
+        path.join(localeRoot, locale, "settings.ts"),
+        "utf8",
+      );
+      expect(system).not.toContain("Reload the engine");
+      expect(system).not.toContain("重新加载引擎");
+      expect(system).not.toContain("重新加載引擎");
+      expect(settings).not.toContain("Engine reload required");
+      expect(settings).not.toContain("需要刷新引擎");
+      expect(settings).not.toContain("需要重新載入引擎");
+      expect(settings).toContain("settings.provider_reload_required_title");
+    }
+    for (const locale of ["en", "zh", "zh-TW"] as const) {
+      const session = readFileSync(
+        path.join(localeRoot, locale, "session.ts"),
+        "utf8",
+      );
+      expect(session).toContain("session.model_unavailable_send_blocked");
+    }
   });
 });

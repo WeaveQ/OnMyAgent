@@ -68,6 +68,30 @@ describe("userFacingBootError", () => {
   });
 });
 
+describe("progressive boot overlay", () => {
+  test("overlay can hide once routeReady even while engine is still starting", () => {
+    const bootState = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/shell/boot-state.tsx"),
+      "utf8",
+    );
+    expect(bootState).toContain("routeReady && phase !== \"error\"");
+    expect(bootState).toContain("Progressive:");
+  });
+
+  test("session route marks shell ready after desktop workspaces paint", () => {
+    const refresh = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/shell/session-route/refresh-hook.ts",
+      ),
+      "utf8",
+    );
+    expect(refresh).toContain("markShellReady");
+    expect(refresh).toContain("readCachedSidebarSessionsByWorkspace");
+    expect(refresh).toContain("scheduleStartupConnectionRetry");
+  });
+});
+
 describe("boot/desktop wiring", () => {
   test("desktop boot uses userFacingBootError; no raw English setError literals", () => {
     const boot = readFileSync(

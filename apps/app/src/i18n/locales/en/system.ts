@@ -2,22 +2,22 @@ import { APP_NAME } from "../brand";
 
 export default {
   "system.reload_body_agents":
-    "Agents load at startup. Reload the engine to make updated agents available.",
+    "Agents load at startup. Reload to make updated agents available.",
   "system.reload_body_commands":
-    "Commands load at startup. Reload the engine to make updated commands available.",
+    "Commands load at startup. Reload to make updated commands available.",
   "system.reload_body_config":
-    "Workspace configuration is read at startup. Reload the engine to apply changes.",
-  "system.reload_body_default": `${APP_NAME} detected changes that require reloading the local agent engine.`,
+    "Workspace configuration is read at startup. Reload to apply changes.",
+  "system.reload_body_default": `${APP_NAME} detected changes that need a reload to take effect.`,
   "system.reload_body_mcp":
-    "MCP servers load at startup. Reload the engine to activate the new connection.",
-  "system.reload_body_mixed": `${APP_NAME} detected configuration changes. Reload the engine to apply them.`,
+    "Connectors load at startup. Reload to activate the new connection.",
+  "system.reload_body_mixed": `${APP_NAME} detected configuration changes. Reload to apply them.`,
   "system.reload_body_plugins":
-    "Plugins load at startup. Reload the engine to apply configuration changes.",
+    "Plugins load at startup. Reload to apply configuration changes.",
   "system.reload_body_skills":
-    "Skill discovery may be cached. Reload the engine to make newly installed skills available.",
-  "system.reload_failed": "Failed to reload the engine.",
-  "system.reload_required": "Reload required",
-  "system.reload_unavailable": "Reload is unavailable for this worker.",
+    "Skill discovery may be cached. Reload to make newly installed skills available.",
+  "system.reload_failed": "Couldn’t apply the changes. Try reloading again.",
+  "system.reload_required": "Reload to apply changes",
+  "system.reload_unavailable": "Reload isn’t available for this workspace.",
   "system.stop_active_runs_before_reset": "Stop active runs before resetting.",
   "system.server_unhealthy": "Server reported unhealthy status.",
   "system.boot_preparing_workspace": "Starting OnMyAgent…",

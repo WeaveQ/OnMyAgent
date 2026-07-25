@@ -20,6 +20,7 @@ import type {
 } from "../../../app/types";
 import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../../app/utils";
 import { t } from "../../../i18n";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "../../domains/connections";
 import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../../domains/shared";
@@ -45,8 +46,10 @@ import {
 import { useBootState } from "../boot-state";
 import { useLoadScope } from "../load-surface";
 import {
+  presentUserError,
   userErrorFromRaw,
-  userErrorMessage,
+  type UserErrorActionId,
+  type UserErrorScenario,
 } from "../../kernel/user-error";
 import {
   LazyAiSettingsView,
@@ -74,6 +77,7 @@ import {
   agentManagementProviderAction,
   onmyagentServerInfo,
   pickDirectory,
+  relaunchDesktopApp,
   resolveWorkspaceListSelectedId,
   type AgentManagementManagedProvider,
   type WorkspaceList,
@@ -301,6 +305,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeErrorAction, setRouteErrorAction] =
+    useState<UserErrorActionId | null>(null);
+  const setFacingRouteError = useCallback(
+    (raw: string | null, forcedScenario?: UserErrorScenario) => {
+      if (!raw && !forcedScenario) {
+        setRouteError(null);
+        setRouteErrorAction(null);
+        return;
+      }
+      const copy = presentUserError(raw, forcedScenario);
+      setRouteError(`${copy.title}. ${copy.body}`);
+      setRouteErrorAction(copy.primaryAction);
+    },
+    [],
+  );
   const { workspacesRef } = useSettingsWorkspaceRefs(workspaces);
   const refreshInFlightRef = useRef(false);
   const reconnectAttemptedWorkspaceIdRef = useRef("");
@@ -784,17 +803,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         }
         setModelOptions(options);
       } catch (error) {
-        setRouteError(
-          userErrorFromRaw(
-            error instanceof Error ? error.message : t("app.unknown_error"),
-          ),
+        setFacingRouteError(
+          error instanceof Error ? error.message : t("app.unknown_error"),
         );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [modelPickerOpen, opencodeBaseUrl, opencodeClient, selectedWorkspaceRoot]);
+  }, [
+    modelPickerOpen,
+    opencodeBaseUrl,
+    opencodeClient,
+    selectedWorkspaceRoot,
+    setFacingRouteError,
+  ]);
 
   useEffect(() => {
     local.setUi((previous) => ({ ...previous, view: "settings", tab: route.tab }));
@@ -814,13 +837,19 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [updateAutoDownload]);
 
   const { markRouteReady: markBootRouteReady } = useBootState();
-  // Report settings route load into the shared registry (boot overlay + surfaces).
-  useLoadScope("route-settings", loading);
+  // First open of settings: full route scope. Soft re-refresh after interactive
+  // stays quiet so boot/route chrome does not stack a second full load feel.
+  const [shellInteractive, setShellInteractive] = useState(false);
+  useEffect(() => {
+    if (!loading) setShellInteractive(true);
+  }, [loading]);
+  useLoadScope("route-settings", loading && !shellInteractive);
   const refreshRouteState = useMemo(() => async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
     setLoading(true);
     setRouteError(null);
+    setRouteErrorAction(null);
     let desktopList: WorkspaceList | null = null;
     let desktopWorkspaces = workspacesRef.current;
     try {
@@ -910,7 +939,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           preservedWorkspaceCount: desktopWorkspaces.length,
         }),
       );
-      setRouteError(userErrorFromRaw(message));
+      setFacingRouteError(message);
       if (desktopWorkspaces.length > 0) {
         setWorkspaces(desktopWorkspaces);
         setLegacySelectedWorkspaceId((current) => {
@@ -1045,9 +1074,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       allWorkspaces: workspaces,
     }).catch((error) => {
       const message = error instanceof Error ? error.message : describeRouteError(error);
-      setRouteError(userErrorFromRaw(message));
+      setFacingRouteError(message);
     });
-  }, [loading, onmyagentClient, selectedWorkspace, workspaces]);
+  }, [loading, onmyagentClient, selectedWorkspace, setFacingRouteError, workspaces]);
 
   useEffect(() => {
     void refreshRouteState();
@@ -1494,11 +1523,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const workspaceId =
       routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
     if (!onmyagentClient || !workspaceId) {
-      setRouteError(userErrorMessage("not_connected"));
+      setFacingRouteError(null, "not_connected");
       return false;
     }
     return applyEngineConfigForProviders();
-  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId]);
+  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId, setFacingRouteError]);
 
   useEffect(() => {
     return reloadCoordinator.registerWorkspaceReloadControls({
@@ -1935,9 +1964,57 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onSelectWorkspace={handleSelectSettingsWorkspace}
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
         headerStatus={routeOnMyAgentStatus}
-        busyHint={loading ? t("system.load_settings_route") : busyLabel}
+        busyHint={
+          loading && !shellInteractive
+            ? t("system.load_settings_route")
+            : busyLabel
+        }
         onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
+        errorSlot={
+          routeError && routeErrorAction ? (
+            <div className="flex flex-wrap gap-2">
+              {routeErrorAction === "retry" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void refreshRouteState()}
+                >
+                  {t("system.error_action_retry")}
+                </Button>
+              ) : null}
+              {routeErrorAction === "open_ai_settings" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigateSettingsPath("ai")}
+                >
+                  {t("system.error_action_open_ai_settings")}
+                </Button>
+              ) : null}
+              {routeErrorAction === "reload_app" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (isElectronRuntime()) {
+                      void relaunchDesktopApp().catch(() => {
+                        window.location.reload();
+                      });
+                      return;
+                    }
+                    window.location.reload();
+                  }}
+                >
+                  {t("system.error_action_reload_app")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null
+        }
         compact={props.embedded}
         panelToolbarSlot={undefined}
       >

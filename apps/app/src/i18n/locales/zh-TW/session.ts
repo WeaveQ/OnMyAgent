@@ -178,6 +178,8 @@ export default {
   "session.model_unavailable_after_removed_title": "原模型已不可用",
   "session.model_unavailable_after_removed_desc":
     "{model} 已不在目前配置中，請自行選擇其他模型後繼續。",
+  "session.model_unavailable_send_blocked":
+    "目前模型已不可用。請選擇其他模型，或開啟模型設定重新連接服務商。",
   "session.transcript_yesterday": "昨天",
   "session.expand_pasted_text": "展開粘貼文本",
   "session.collapse_pasted_text": "收起粘貼文本",

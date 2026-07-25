@@ -2,6 +2,7 @@ import type {
   CollaborationGoalRuntime,
   ComposerAccessMode,
   ModelRef,
+  SidebarSessionItem,
   TodoItem,
   ComposerCollaborationMode,
 } from "../../app/types";
@@ -18,6 +19,13 @@ const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 /** Mode-scoped last session so assistant/expert each restore their own page. */
 const SESSION_BY_WORKSPACE_MODE_KEY = "onmyagent.react.sessionByWorkspaceMode.v1";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
+/** Lightweight sidebar session titles for instant cold-start paint. */
+const SIDEBAR_SESSIONS_CACHE_KEY =
+  "onmyagent.react.sidebarSessionsByWorkspace.v1";
+
+/** Cap stored rows so localStorage stays small across many workspaces. */
+const SIDEBAR_SESSIONS_CACHE_MAX_PER_WORKSPACE = 40;
+const SIDEBAR_SESSIONS_CACHE_MAX_WORKSPACES = 24;
 
 export type ShellSessionMode = "assistant" | "expert";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
@@ -524,6 +532,129 @@ export function writeSessionTodos(todosBySessionId: Record<string, TodoItem[]>):
   safeSet(TODOS_BY_SESSION_KEY, JSON.stringify(Object.fromEntries(entries)));
 }
 
+/**
+ * Read last successful sidebar session list per workspace. Used to paint the
+ * shell immediately on cold start while OpenCode finishes indexing.
+ */
+export function readCachedSidebarSessionsByWorkspace(): Record<
+  string,
+  SidebarSessionItem[]
+> {
+  const raw = safeGet(SIDEBAR_SESSIONS_CACHE_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+    const result: Record<string, SidebarSessionItem[]> = {};
+    for (const [workspaceId, value] of Object.entries(parsed)) {
+      const wsId = workspaceId.trim();
+      if (!wsId || !Array.isArray(value)) continue;
+      const items = value.flatMap((entry) => {
+        if (!isRecord(entry)) return [];
+        const id = typeof entry.id === "string" ? entry.id.trim() : "";
+        if (!id) return [];
+        const title = typeof entry.title === "string" ? entry.title : "";
+        const time =
+          entry.time && isRecord(entry.time)
+            ? {
+                updated:
+                  typeof entry.time.updated === "number"
+                    ? entry.time.updated
+                    : null,
+                created:
+                  typeof entry.time.created === "number"
+                    ? entry.time.created
+                    : null,
+              }
+            : undefined;
+        const item: SidebarSessionItem = { id, title };
+        if (time) item.time = time;
+        if (typeof entry.directory === "string") item.directory = entry.directory;
+        if (typeof entry.parentID === "string") item.parentID = entry.parentID;
+        return [item];
+      });
+      if (items.length) result[wsId] = items;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function toCachedSidebarSessionItem(
+  session: SidebarSessionItem,
+): SidebarSessionItem | null {
+  const id = session.id?.trim();
+  if (!id) return null;
+  const item: SidebarSessionItem = {
+    id,
+    title: typeof session.title === "string" ? session.title : "",
+  };
+  if (session.time && typeof session.time === "object") {
+    item.time = {
+      updated:
+        typeof session.time.updated === "number" ? session.time.updated : null,
+      created:
+        typeof session.time.created === "number" ? session.time.created : null,
+    };
+  }
+  if (typeof session.directory === "string") item.directory = session.directory;
+  if (typeof session.parentID === "string") item.parentID = session.parentID;
+  return item;
+}
+
+/**
+ * Persist a workspace's sidebar sessions after a successful live fetch.
+ * Empty list clears that workspace's cache entry.
+ */
+export function writeCachedSidebarSessionsForWorkspace(
+  workspaceId: string,
+  sessions: SidebarSessionItem[],
+): void {
+  const wsId = workspaceId?.trim();
+  if (!wsId) return;
+  const current = readCachedSidebarSessionsByWorkspace();
+  const trimmed = sessions
+    .flatMap((session) => {
+      const item = toCachedSidebarSessionItem(session);
+      return item ? [item] : [];
+    })
+    .slice(0, SIDEBAR_SESSIONS_CACHE_MAX_PER_WORKSPACE);
+  if (trimmed.length === 0) {
+    if (!(wsId in current)) return;
+    delete current[wsId];
+  } else {
+    current[wsId] = trimmed;
+  }
+  const workspaceIds = Object.keys(current);
+  if (workspaceIds.length > SIDEBAR_SESSIONS_CACHE_MAX_WORKSPACES) {
+    // Drop oldest workspaces by max session updated time (best-effort).
+    const ranked = workspaceIds
+      .map((id) => {
+        const maxUpdated = (current[id] ?? []).reduce((max, session) => {
+          const updated =
+            typeof session.time?.updated === "number"
+              ? session.time.updated
+              : typeof session.time?.created === "number"
+                ? session.time.created
+                : 0;
+          return Math.max(max, updated);
+        }, 0);
+        return { id, maxUpdated };
+      })
+      .sort((a, b) => b.maxUpdated - a.maxUpdated)
+      .slice(0, SIDEBAR_SESSIONS_CACHE_MAX_WORKSPACES);
+    const keep = new Set(ranked.map((entry) => entry.id));
+    for (const id of workspaceIds) {
+      if (!keep.has(id)) delete current[id];
+    }
+  }
+  safeSet(
+    SIDEBAR_SESSIONS_CACHE_KEY,
+    Object.keys(current).length ? JSON.stringify(current) : null,
+  );
+}
+
 export function forgetWorkspaceMemory(workspaceId: string): void {
   const wsId = workspaceId?.trim();
   if (!wsId) return;
@@ -531,6 +662,14 @@ export function forgetWorkspaceMemory(workspaceId: string): void {
   if (wsId in map) {
     delete map[wsId];
     safeSet(SESSION_BY_WORKSPACE_KEY, Object.keys(map).length ? JSON.stringify(map) : null);
+  }
+  const sidebarCache = readCachedSidebarSessionsByWorkspace();
+  if (wsId in sidebarCache) {
+    delete sidebarCache[wsId];
+    safeSet(
+      SIDEBAR_SESSIONS_CACHE_KEY,
+      Object.keys(sidebarCache).length ? JSON.stringify(sidebarCache) : null,
+    );
   }
   const active = readActiveWorkspaceId();
   if (active === wsId) writeActiveWorkspaceId(null);
