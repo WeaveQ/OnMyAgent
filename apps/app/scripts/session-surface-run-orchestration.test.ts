@@ -87,6 +87,15 @@ describe("session-surface run orchestration (shipped)", () => {
         draftWorkspaceDirectory: "",
       }),
     ).toBe(false);
+    // Host may omit draftOnly (boolean | undefined) — treat as not draft home.
+    expect(
+      shouldBlockCodeDraftSend({
+        assistantCodeFeaturesActive: true,
+        draftOnly: undefined,
+        assistantFeatureCategoryId: "code",
+        draftWorkspaceDirectory: "",
+      }),
+    ).toBe(false);
   });
 
   test("applySendDraftIntents attaches planningIntent in plan mode", () => {

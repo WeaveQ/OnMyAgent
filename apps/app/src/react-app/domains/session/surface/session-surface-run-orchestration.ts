@@ -35,13 +35,14 @@ export function makeSessionRunKey(sessionId: string, startedAt: number): string 
  */
 export function shouldBlockCodeDraftSend(input: {
   assistantCodeFeaturesActive: boolean;
-  draftOnly: boolean;
+  /** Host may omit draftOnly; treat undefined as false (not a draft home). */
+  draftOnly?: boolean | null;
   assistantFeatureCategoryId: AssistantCategoryId | string;
   draftWorkspaceDirectory?: string | null;
 }): boolean {
   return (
     input.assistantCodeFeaturesActive &&
-    input.draftOnly &&
+    Boolean(input.draftOnly) &&
     input.assistantFeatureCategoryId === "code" &&
     !input.draftWorkspaceDirectory?.trim()
   );
