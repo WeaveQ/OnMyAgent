@@ -1,10 +1,12 @@
 /** @jsxImportSource react */
 import {
+  Archive,
   ArrowLeft,
   Check,
   ChevronDown,
+  CircleAlert,
+  FileText,
   Folder,
-  MoreHorizontal,
   Pause,
   Pencil,
   Play,
@@ -12,7 +14,6 @@ import {
   ShieldAlert,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -55,6 +56,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/react-app/shell";
+import { useStatusToasts } from "../shell-feedback";
 import { AccessPermissionSelect } from "../../design-system/access-permission-select";
 import { AutomationPromptTools } from "./automation-prompt-tools";
 import type {
@@ -89,11 +91,30 @@ import {
   useAgentRegistryStore,
   type AgentRegistry,
 } from "../agents";
-import { syncAutomationSessionRecords } from "./automation-session-groups";
+import {
+  automationRunArchiveKey,
+  filterOutArchivedRuns,
+  groupCompletedRunsByDay,
+  partitionAutomationTasks,
+  resolvePostRunStatusTab,
+  resolveRunDayLabel,
+  shouldShowAutomationListLoading,
+  shouldShowAutomationTemplates,
+  type CompletedRunEntry,
+} from "./automation-list-model";
+import {
+  archiveAutomationRunKey,
+  readArchivedAutomationRunKeys,
+  removeAutomationSessionRecord,
+  syncAutomationSessionRecords,
+  automationArchivedRunsChangedEvent,
+} from "./automation-session-groups";
+import { archiveAssistantTask } from "../shared";
 
 type IntervalUnit = "minutes" | "hours" | "days";
 type AutomationDialogMode = "create" | "edit";
-type AutomationStatusTab = "scheduled" | "running" | "completed";
+/** Primary chrome: task definitions vs flat run history (reference IA). */
+type AutomationStatusTab = "tasks" | "runs";
 
 type AutomationFormState = {
   title: string;
@@ -113,15 +134,12 @@ type AutomationFormState = {
   effectiveEndDate: string;
 };
 
-type CompletedRun = {
-  task: OnMyAgentAutomationTaskItem;
-  run: OnMyAgentAutomationTaskItem["runs"][number];
-};
+type CompletedRun = CompletedRunEntry<OnMyAgentAutomationTaskItem>;
 
 const frequencyModes: AutomationFrequencyMode[] = ["weekly", "interval", "once"];
 const automationCycles: AutomationCycle[] = ["daily", "weekly", "biweekly", "monthly", "yearly"];
 const weekdays = [1, 2, 3, 4, 5, 6, 7];
-const automationStatusTabs: AutomationStatusTab[] = ["scheduled", "running", "completed"];
+const automationStatusTabs: AutomationStatusTab[] = ["tasks", "runs"];
 const riskAcceptedStorageKey = "onmyagent.automationFullAccessRiskAccepted.v1";
 
 function automationFrequencyLabel(mode: AutomationFrequencyMode) {
@@ -542,6 +560,7 @@ function ScheduledAutomationRow(props: {
           {nextRunLabel(props.item)}
         </span>
       </button>
+      {/* Inline actions (no dropdown) — popup position was clipped by the shell. */}
       <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
         <Button
           type="button"
@@ -555,51 +574,54 @@ function ScheduledAutomationRow(props: {
             props.onRunNow(props.item);
           }}
         >
-          <Play className="size-3.5" />
+          <Play className="size-3.5 text-dls-secondary" />
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                disabled={props.busy}
-                title={t("automation.task_actions")}
-                aria-label={t("automation.task_actions")}
-                onClick={(event) => event.stopPropagation()}
-              />
-            }
-          >
-            <MoreHorizontal className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            sideOffset={6}
-            className="min-w-40 rounded-xl border border-dls-border bg-dls-surface p-1 text-dls-text shadow-md"
-          >
-            <DropdownMenuItem
-              className="rounded-lg gap-2"
-              onClick={() => props.onToggleEnabled(props.item)}
-            >
-              {enabled ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-              {enabled ? t("automation.pause") : t("automation.resume")}
-            </DropdownMenuItem>
-            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => props.onEdit(props.item)}>
-              <Pencil className="size-3.5" />
-              {t("automation.edit")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              className="rounded-lg gap-2"
-              onClick={() => props.onDelete(props.item)}
-            >
-              <Trash2 className="size-3.5" />
-              {t("automation.delete")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          disabled={props.busy}
+          title={enabled ? t("automation.pause") : t("automation.resume")}
+          aria-label={enabled ? t("automation.pause") : t("automation.resume")}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onToggleEnabled(props.item);
+          }}
+        >
+          {enabled ? (
+            <Pause className="size-3.5 text-dls-secondary" />
+          ) : (
+            <Play className="size-3.5 text-dls-secondary" />
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          disabled={props.busy}
+          title={t("automation.edit")}
+          aria-label={t("automation.edit")}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onEdit(props.item);
+          }}
+        >
+          <Pencil className="size-3.5 text-dls-secondary" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          disabled={props.busy}
+          title={t("automation.delete")}
+          aria-label={t("automation.delete")}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onDelete(props.item);
+          }}
+        >
+          <Trash2 className="size-3.5 text-dls-secondary" />
+        </Button>
       </div>
     </div>
   );
@@ -635,64 +657,117 @@ function RunningAutomationRow(props: {
 
 function CompletedAutomationRow(props: {
   entry: CompletedRun;
+  busy: boolean;
   onOpenSession: (sessionId: string) => void;
+  onArchive: (entry: CompletedRun) => void;
+  onDelete: (item: OnMyAgentAutomationTaskItem) => void;
 }) {
   const { run, task } = props.entry;
   const successful = run.status === "success";
+  const skipped = run.status === "skipped";
+  const failed = !successful && !skipped;
   const statusClassName = successful
-    ? "text-dls-status-success-fg"
-    : run.status === "skipped"
+    ? "text-dls-secondary"
+    : skipped
       ? "text-dls-status-warning-fg"
       : "text-dls-status-danger-fg";
-  const failureMessage = !successful && run.status !== "skipped" ? run.error?.trim() : "";
+  const statusLabel = successful
+    ? run.source === "manual"
+      ? t("automation.run_manual_completed")
+      : t("automation.run_completed")
+    : skipped
+      ? t("automation.run_skipped")
+      : t("automation.run_failed");
+  const failureMessage = failed ? run.error?.trim() : "";
+  const canOpenSession = Boolean(run.sessionId);
+
   return (
-    <button
-      type="button"
-      disabled={!run.sessionId && !failureMessage}
-      onClick={() => {
-        if (run.sessionId) props.onOpenSession(run.sessionId);
-      }}
-      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-dls-text transition-colors enabled:hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-default"
-      title={failureMessage || undefined}
-    >
-      <StatusDot size="md" tone={successful ? "success" : run.status === "skipped" ? "warning" : "danger"} />
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium">{task.title}</span>
-          <StatusBadge tone="neutral" size="tiny" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
-            {automationDisplayId(task, run.groupName)}
-          </StatusBadge>
-          <span className={`shrink-0 ${statusClassName}`}>
-            {successful
-              ? run.source === "manual"
-                ? t("automation.run_manual_completed")
-                : t("automation.run_completed")
-              : run.status === "skipped"
-                ? t("automation.run_skipped")
-                : t("automation.run_failed")}
-          </span>
+    // Reference: run-history rows — idle shows time + status icon; hover swaps
+    // to open / archive / delete actions.
+    <div className="group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-dls-hover">
+      <button
+        type="button"
+        disabled={!canOpenSession}
+        onClick={() => {
+          if (run.sessionId) props.onOpenSession(run.sessionId);
+        }}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-dls-text focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-default"
+        title={
+          failureMessage ||
+          (canOpenSession
+            ? t("automation.open_run_session", { sessionId: run.sessionId ?? "" })
+            : undefined)
+        }
+      >
+        <span className="min-w-0 flex flex-1 items-baseline gap-2">
+          <span className="truncate font-medium text-dls-text">{task.title}</span>
+          <span className={`shrink-0 text-sm ${statusClassName}`}>{statusLabel}</span>
         </span>
-        {failureMessage ? (
-          <span className="mt-0.5 block truncate text-xs text-dls-status-danger-fg">
-            {failureMessage}
-          </span>
-        ) : null}
-      </span>
-      <span className="flex shrink-0 items-center gap-2 text-xs text-dls-secondary">
-        {relativeRunTime(run.ranAt)}
-        {successful ? (
-          <Check className="size-4 text-dls-status-success-fg" />
-        ) : (
-          <X
-            className={
-              run.status === "skipped"
-                ? "size-4 text-dls-status-warning-fg"
-                : "size-4 text-dls-status-danger-fg"
-            }
-          />
-        )}
-      </span>
-    </button>
+      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        {/* Idle chrome: time + status glyph (hidden on hover). */}
+        <span className="flex items-center gap-2 text-xs text-dls-secondary group-hover:hidden">
+          <span className="tabular-nums">{relativeRunTime(run.ranAt)}</span>
+          {successful ? (
+            <Check className="size-4 text-dls-status-success-fg" aria-hidden />
+          ) : (
+            <CircleAlert
+              className={
+                skipped
+                  ? "size-4 text-dls-status-warning-fg"
+                  : "size-4 text-dls-status-danger-fg"
+              }
+              aria-hidden
+            />
+          )}
+        </span>
+        {/* Hover: open session · archive run · delete task. */}
+        <div className="hidden items-center gap-0.5 group-hover:flex">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={props.busy || !canOpenSession}
+            title={t("automation.view_run_details")}
+            aria-label={t("automation.view_run_details")}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (run.sessionId) props.onOpenSession(run.sessionId);
+            }}
+          >
+            <FileText className="size-3.5 text-dls-secondary" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={props.busy}
+            title={t("automation.archive_run")}
+            aria-label={t("automation.archive_run")}
+            onClick={(event) => {
+              event.stopPropagation();
+              props.onArchive(props.entry);
+            }}
+          >
+            <Archive className="size-3.5 text-dls-secondary" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={props.busy}
+            title={t("automation.delete")}
+            aria-label={t("automation.delete")}
+            onClick={(event) => {
+              event.stopPropagation();
+              props.onDelete(task);
+            }}
+          >
+            <Trash2 className="size-3.5 text-dls-secondary" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -881,6 +956,13 @@ function AutomationDialog(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
+  listOpenCodeCommands?: () => Promise<
+    Array<{ id?: string; name: string; description?: string; source?: string }>
+  >;
+  listSkills?: () => Promise<
+    Array<{ name: string; description?: string; path?: string }>
+  >;
+  listMcp?: () => Promise<{ servers: Array<{ name?: string; id?: string }> }>;
   onOpenChange: (open: boolean) => void;
   onFormChange: (form: AutomationFormState) => void;
   onSubmit: () => void;
@@ -903,7 +985,7 @@ function AutomationDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent
         showCloseButton
-        className="flex max-h-[min(640px,calc(100vh-4rem))] w-full max-w-[480px] flex-col gap-3 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-5 text-dls-text sm:max-w-[480px]"
+        className="flex max-h-[min(820px,calc(100vh-3rem))] w-full max-w-[min(720px,calc(100vw-2rem))] flex-col gap-3 overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-5 text-dls-text sm:max-w-[720px]"
       >
         <DialogHeader className="flex-row items-center justify-between gap-3 pe-9">
           <DialogTitle className="min-w-0 truncate text-base font-medium leading-6 text-dls-text">
@@ -960,23 +1042,34 @@ function AutomationDialog(props: {
                 onChange={(event) => props.onFormChange({ ...props.form, prompt: event.currentTarget.value })}
                 className="min-h-28 max-h-48 resize-y border-0 bg-transparent text-sm text-dls-text focus-visible:ring-0"
               />
-              <div className="flex flex-nowrap items-center gap-1 border-t border-dls-border px-2 py-1.5 text-sm text-dls-secondary">
+              {/* Match session chrome: model + 技能 + permission (simple chips). */}
+              <div className="flex flex-nowrap items-center gap-0.5 border-t border-dls-border px-1.5 py-1 text-sm text-dls-secondary">
+                <ModelSelectContainer
+                  open={modelPickerOpen}
+                  value={props.form.model ?? { providerID: "", modelID: "" }}
+                  onOpenChange={setModelPickerOpen}
+                  onChange={(model) => props.onFormChange({ ...props.form, model })}
+                />
                 <AutomationPromptTools
                   client={props.client}
                   workspaceId={props.workspaceId}
                   workspaceRoot={props.workspaceRoot}
                   prompt={props.form.prompt}
                   onPromptChange={(prompt) => props.onFormChange({ ...props.form, prompt })}
+                  listOpenCodeCommands={props.listOpenCodeCommands}
+                  listSkills={props.listSkills}
+                  listMcp={props.listMcp}
                 />
                 <AccessPermissionSelect
+                  density="compact"
                   value={props.form.accessMode}
                   onChange={(accessMode) => props.onFormChange({ ...props.form, accessMode })}
                 />
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-xs"
-                  className="shrink-0 text-dls-secondary hover:text-dls-text"
+                  size="icon"
+                  className="ml-auto size-8 shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                   disabled={!canOptimizePrompt || props.busy}
                   title={
                     canOptimizePrompt
@@ -993,36 +1086,31 @@ function AutomationDialog(props: {
                 >
                   <Sparkles className="size-3.5" />
                 </Button>
-                <div className="ml-auto min-w-0 shrink">
-                  <ModelSelectContainer
-                    open={modelPickerOpen}
-                    value={props.form.model ?? { providerID: "", modelID: "" }}
-                    onOpenChange={setModelPickerOpen}
-                    onChange={(model) => props.onFormChange({ ...props.form, model })}
-                  />
-                </div>
               </div>
             </div>
           </AutomationField>
           <FrequencyFields form={props.form} onFormChange={props.onFormChange} />
-          <AutomationField label={t("automation.field_effective_range")} hint={t("automation.effective_range_hint")}>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Input
-                type="date"
-                variant="dls"
-                value={props.form.effectiveStartDate}
-                onClick={openNativePicker}
-                onChange={(event) => props.onFormChange({ ...props.form, effectiveStartDate: event.currentTarget.value })}
-              />
-              <Input
-                type="date"
-                variant="dls"
-                value={props.form.effectiveEndDate}
-                onClick={openNativePicker}
-                onChange={(event) => props.onFormChange({ ...props.form, effectiveEndDate: event.currentTarget.value })}
-              />
-            </div>
-          </AutomationField>
+          {/* Once already picks a concrete datetime — no separate effective range. */}
+          {props.form.frequencyMode === "once" ? null : (
+            <AutomationField label={t("automation.field_effective_range")} hint={t("automation.effective_range_hint")}>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Input
+                  type="date"
+                  variant="dls"
+                  value={props.form.effectiveStartDate}
+                  onClick={openNativePicker}
+                  onChange={(event) => props.onFormChange({ ...props.form, effectiveStartDate: event.currentTarget.value })}
+                />
+                <Input
+                  type="date"
+                  variant="dls"
+                  value={props.form.effectiveEndDate}
+                  onClick={openNativePicker}
+                  onChange={(event) => props.onFormChange({ ...props.form, effectiveEndDate: event.currentTarget.value })}
+                />
+              </div>
+            </AutomationField>
+          )}
         </div>
 
         <DialogFooter
@@ -1113,9 +1201,18 @@ export function AutomationPage(props: {
   /** When set, open the edit dialog for this automation after list load. */
   focusAutomationId?: string | null;
   onFocusAutomationConsumed?: () => void;
+  /** Same OpenCode command.list path as the session composer + menu. */
+  listOpenCodeCommands?: () => Promise<
+    Array<{ id?: string; name: string; description?: string; source?: string }>
+  >;
+  listSkills?: () => Promise<
+    Array<{ name: string; description?: string; path?: string }>
+  >;
+  listMcp?: () => Promise<{ servers: Array<{ name?: string; id?: string }> }>;
 }) {
   const workspace = useWorkspace();
   const local = useLocal();
+  const { showToast } = useStatusToasts();
   const registry = useAgentRegistryStore((state) => state.registry) ?? createDefaultAgentRegistry();
   const [automations, setAutomations] = useState<OnMyAgentAutomationTaskItem[]>([]);
   const [templateViewOpen, setTemplateViewOpen] = useState(false);
@@ -1129,7 +1226,11 @@ export function AutomationPage(props: {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeStatusTab, setActiveStatusTab] = useState<AutomationStatusTab>("scheduled");
+  const [activeStatusTab, setActiveStatusTab] = useState<AutomationStatusTab>("tasks");
+  const [listReady, setListReady] = useState(false);
+  const [archivedRunKeys, setArchivedRunKeys] = useState<string[]>(() =>
+    readArchivedAutomationRunKeys(props.workspaceId),
+  );
   const [personalizationBannerDismissed, setPersonalizationBannerDismissed] = useState(false);
   const [personalizationNotice, setPersonalizationNotice] = useState<string | null>(null);
 
@@ -1173,48 +1274,90 @@ export function AutomationPage(props: {
     shouldOfferPersonalizationApply(props.workspaceId, personalizationPlan) &&
     Boolean(personalizationPlan);
 
-  const visibleAutomations = automations.filter((item) => item.scene === props.scene);
-  const scheduled = visibleAutomations.filter((item) => (
-    !item.running &&
-    (
-      item.schedule.mode !== "once" ||
-      item.enabled ||
-      !item.runs.some((run) => run.source === "scheduled")
-    )
-  ));
-  const running = visibleAutomations.filter((item) => item.running);
-  const completed = visibleAutomations
-    .flatMap((task) => task.runs.map((run) => ({ task, run })))
-    .sort((left, right) => right.run.ranAt - left.run.ranAt);
+  const {
+    visible: visibleAutomations,
+    scheduled,
+    running,
+    completed,
+  } = useMemo(
+    () => partitionAutomationTasks(automations, props.scene),
+    [automations, props.scene],
+  );
+  const visibleCompleted = useMemo(
+    () => filterOutArchivedRuns(completed, archivedRunKeys),
+    [archivedRunKeys, completed],
+  );
+  const completedByDay = useMemo(
+    () => groupCompletedRunsByDay(visibleCompleted),
+    [visibleCompleted],
+  );
   const hasAutomations = visibleAutomations.length > 0;
   const statusTabCounts: Record<AutomationStatusTab, number> = {
-    scheduled: scheduled.length,
-    running: running.length,
-    completed: completed.length,
+    tasks: scheduled.length + running.length,
+    runs: visibleCompleted.length,
   };
+  const showListLoading = shouldShowAutomationListLoading({
+    listReady,
+    loading,
+    hasAutomations,
+  });
+  const showTemplates = shouldShowAutomationTemplates({
+    listReady,
+    hasAutomations,
+    templateViewOpen,
+  });
 
-  const refreshAutomations = () => {
+  const refreshAutomations = (options?: { silent?: boolean }) => {
     const workspaceId = props.workspaceId.trim();
     if (!props.client || !workspaceId) {
       setAutomations([]);
+      setListReady(true);
+      setLoading(false);
       return;
     }
-    setLoading(true);
-    setError(null);
+    if (!options?.silent) setLoading(true);
+    // Don't clear error on silent poll — keeps failed-load banner stable.
+    if (!options?.silent) setError(null);
     void props.client.listAutomations(workspaceId)
       .then((result) => {
         setAutomations(result.items);
         syncAutomationSessionRecords(workspaceId, result.items);
       })
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
-      .finally(() => setLoading(false));
+      .catch((cause: unknown) => {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        setError(message.trim() || t("automation.list_load_failed"));
+      })
+      .finally(() => {
+        setLoading(false);
+        setListReady(true);
+      });
   };
 
-  useEffect(refreshAutomations, [props.client, props.workspaceId]);
   useEffect(() => {
-    const timer = window.setInterval(refreshAutomations, running.length > 0 ? 2_000 : 15_000);
+    setListReady(false);
+    setArchivedRunKeys(readArchivedAutomationRunKeys(props.workspaceId));
+    refreshAutomations();
+  }, [props.client, props.workspaceId]);
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => refreshAutomations({ silent: true }),
+      running.length > 0 ? 2_000 : 15_000,
+    );
     return () => window.clearInterval(timer);
   }, [props.client, props.workspaceId, running.length]);
+  useEffect(() => {
+    const onArchived = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail;
+      if (detail?.workspaceId && detail.workspaceId !== props.workspaceId.trim()) {
+        return;
+      }
+      setArchivedRunKeys(readArchivedAutomationRunKeys(props.workspaceId));
+    };
+    window.addEventListener(automationArchivedRunsChangedEvent, onArchived);
+    return () => {
+      window.removeEventListener(automationArchivedRunsChangedEvent, onArchived);
+    };
+  }, [props.workspaceId]);
 
   useEffect(() => {
     const focusId = props.focusAutomationId?.trim();
@@ -1362,11 +1505,39 @@ export function AutomationPage(props: {
       .finally(() => setBusy(false));
   };
 
+  /** Soft-hide one run from history; archive session for sidebar/archived tasks. */
+  const archiveRun = (entry: CompletedRun) => {
+    const workspaceId = props.workspaceId.trim();
+    if (!workspaceId) return;
+    const key = automationRunArchiveKey(entry.task.id, entry.run);
+    archiveAutomationRunKey(workspaceId, key);
+    setArchivedRunKeys(readArchivedAutomationRunKeys(workspaceId));
+    const sessionId = entry.run.sessionId?.trim();
+    if (sessionId) {
+      // Soft-delete from 定时 records + assistant archive so sidebar drops the run.
+      removeAutomationSessionRecord(workspaceId, sessionId);
+      archiveAssistantTask(workspaceId, {
+        sessionId,
+        title: entry.task.title,
+        directory: entry.run.outputDirectory ?? null,
+        archivedAt: Date.now(),
+        category: entry.task.scene,
+      });
+    }
+    showToast({
+      title: t("automation.archive_success"),
+      description: t("automation.archive_success_desc", {
+        title: entry.task.title,
+      }),
+      tone: "success",
+    });
+  };
+
   const runNow = (item: OnMyAgentAutomationTaskItem) => {
     if (!props.client || !props.workspaceId.trim()) return;
     if (!hasAutomationModel(item.model) && !hasAutomationModel(item.agent?.model ?? null)) {
       setError(t("automation.model_required_run"));
-      setActiveStatusTab("scheduled");
+      setActiveStatusTab("tasks");
       openEditDialog({
         ...item,
         model: item.model ?? local.prefs.defaultModel ?? undefined,
@@ -1376,33 +1547,37 @@ export function AutomationPage(props: {
     setBusy(true);
     setError(null);
     setDialogOpen(false);
-    setActiveStatusTab("running");
-    window.setTimeout(refreshAutomations, 200);
-    window.setTimeout(refreshAutomations, 1_200);
+    setActiveStatusTab("tasks");
+    window.setTimeout(() => refreshAutomations({ silent: true }), 200);
+    window.setTimeout(() => refreshAutomations({ silent: true }), 1_200);
     void props.client.runAutomation(props.workspaceId, item.id)
       .then((result) => {
         setAutomations(result.items);
         syncAutomationSessionRecords(props.workspaceId, result.items);
+        const tab = resolvePostRunStatusTab(result.item);
+        if (tab === "running") {
+          setActiveStatusTab("tasks");
+          return;
+        }
         const lastRun = result.item.lastRun;
         if (lastRun?.status === "failed") {
-          setActiveStatusTab("completed");
+          setActiveStatusTab("runs");
           setError(lastRun.error?.trim() || t("automation.run_failed"));
           return;
         }
         const sessionId = lastRun?.sessionId;
         if (sessionId) props.onOpenSession(props.workspaceId, sessionId);
-        setActiveStatusTab("completed");
+        setActiveStatusTab("runs");
       })
       .catch((cause: unknown) => {
-        setActiveStatusTab("completed");
+        setActiveStatusTab("runs");
         setError(cause instanceof Error ? cause.message : String(cause));
-        refreshAutomations();
+        refreshAutomations({ silent: true });
       })
       .finally(() => setBusy(false));
   };
 
   const openSession = (sessionId: string) => props.onOpenSession(props.workspaceId, sessionId);
-  const showTemplates = !hasAutomations || templateViewOpen;
 
   const applyPersonalization = async () => {
     const plan = personalizationPlan;
@@ -1556,7 +1731,7 @@ export function AutomationPage(props: {
             </div>
           </NoticeBox>
         ) : null}
-        {loading && automations.length === 0 ? (
+        {showListLoading ? (
           <div className="mb-4 flex items-center gap-2 text-sm text-dls-secondary">
             <LoadingSpinner />
             {t("automation.loading")}
@@ -1602,16 +1777,14 @@ export function AutomationPage(props: {
           </div>
         ) : (
           <section className="space-y-4">
-            {/* Match files page My / Drive free-float inverted pills. */}
+            {/* Reference IA: 定时任务 | 运行记录 */}
             <SegmentedTabGroup density="bare">
               {automationStatusTabs.map((tab) => {
                 const active = activeStatusTab === tab;
                 const label =
-                  tab === "scheduled"
-                    ? t("automation.scheduled_section")
-                    : tab === "running"
-                      ? t("automation.running_section")
-                      : t("automation.completed_section");
+                  tab === "tasks"
+                    ? t("automation.tab_tasks")
+                    : t("automation.tab_runs");
                 return (
                   <NavTabButton
                     key={tab}
@@ -1636,36 +1809,66 @@ export function AutomationPage(props: {
                 );
               })}
             </SegmentedTabGroup>
-            <div className="space-y-1">
-              {activeStatusTab === "scheduled"
-                ? scheduled.map((item) => (
+            <div className="space-y-3">
+              {activeStatusTab === "tasks" ? (
+                <div className="space-y-1">
+                  {running.map((item) => (
+                    <RunningAutomationRow
+                      key={item.id}
+                      item={item}
+                      onOpenSession={openSession}
+                    />
+                  ))}
+                  {scheduled.map((item) => (
                     <ScheduledAutomationRow
                       key={item.id}
                       item={item}
                       busy={busy}
                       onEdit={openEditDialog}
                       onRunNow={runNow}
-                      onToggleEnabled={(task) => updateItem(task, { enabled: !task.enabled })}
+                      onToggleEnabled={(task) =>
+                        updateItem(task, { enabled: !task.enabled })
+                      }
                       onDelete={deleteItem}
                     />
-                  ))
-                : null}
-              {activeStatusTab === "running"
-                ? running.map((item) => <RunningAutomationRow key={item.id} item={item} onOpenSession={openSession} />)
-                : null}
-              {activeStatusTab === "completed"
-                ? completed.map((entry) => (
-                    <CompletedAutomationRow
-                      key={`${entry.task.id}-${entry.run.ranAt}-${entry.run.sessionId ?? entry.run.status}`}
-                      entry={entry}
-                      onOpenSession={openSession}
-                    />
-                  ))
-                : null}
-              {statusTabCounts[activeStatusTab] === 0 ? (
-                <EmptyStateBox size="default" tone="muted" className="text-sm">
-                  {t("automation.empty_title")}
-                </EmptyStateBox>
+                  ))}
+                  {statusTabCounts.tasks === 0 ? (
+                    <EmptyStateBox size="default" tone="muted" className="text-sm">
+                      {t("automation.empty_tasks_title")}
+                    </EmptyStateBox>
+                  ) : null}
+                </div>
+              ) : null}
+              {activeStatusTab === "runs" ? (
+                <div className="space-y-4">
+                  {completedByDay.map((group) => (
+                    <div key={group.dayKey} className="space-y-1">
+                      <div className="px-1 text-xs font-medium text-dls-secondary">
+                        {resolveRunDayLabel({
+                          dayKey: group.dayKey,
+                          dayLabel: group.dayLabel,
+                          todayLabel: t("automation.day_today"),
+                          yesterdayLabel: t("automation.day_yesterday"),
+                        })}
+                      </div>
+                      {group.entries.map((entry) => (
+                        <CompletedAutomationRow
+                          key={`${entry.task.id}-${entry.run.ranAt}-${entry.run.sessionId ?? entry.run.status}`}
+                          entry={entry}
+                          busy={busy}
+                          onOpenSession={openSession}
+                          onArchive={archiveRun}
+                          onDelete={deleteItem}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                  {statusTabCounts.runs === 0 ? (
+                    <EmptyStateBox size="default" tone="muted" className="text-sm">
+                      {t("automation.empty_runs_title")}
+                    </EmptyStateBox>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </section>
@@ -1681,6 +1884,9 @@ export function AutomationPage(props: {
         client={props.client}
         workspaceId={props.workspaceId}
         workspaceRoot={workspace.selectedWorkspaceRoot}
+        listOpenCodeCommands={props.listOpenCodeCommands}
+        listSkills={props.listSkills}
+        listMcp={props.listMcp}
         onOpenChange={setDialogOpen}
         onFormChange={setForm}
         onSubmit={submitAutomation}

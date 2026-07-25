@@ -189,8 +189,33 @@ export async function deleteWorkspaceSession(
   directory?: string,
 ): Promise<void> {
   const opencode = getWorkspaceOpencodeClient(config, workspace, directory);
-  unwrapOpencodeResult(
-    await opencode.session.delete({ sessionID: sessionId }),
-    `/session/${encodeURIComponent(sessionId)}`,
-  );
+  try {
+    unwrapOpencodeResult(
+      await opencode.session.delete({ sessionID: sessionId }),
+      `/session/${encodeURIComponent(sessionId)}`,
+    );
+  } catch (error) {
+    // Idempotent delete: sidebar/automation lists can retain rows whose
+    // OpenCode session is already gone (snapshot 404). Treat as success so
+    // "删除任务" can finish local cleanup + automation definition removal.
+    if (error instanceof ApiError && error.code === "opencode_request_failed") {
+      const details = error.details;
+      const upstreamStatus =
+        details && typeof details === "object" && "status" in details
+          ? Number((details as { status?: unknown }).status)
+          : NaN;
+      if (
+        upstreamStatus === 404 ||
+        upstreamStatus === 400 ||
+        upstreamStatus === 410
+      ) {
+        return;
+      }
+    }
+    if (error instanceof ApiError && error.code === "opencode_empty_response") {
+      // Some OpenCode builds return empty body on successful delete.
+      return;
+    }
+    throw error;
+  }
 }

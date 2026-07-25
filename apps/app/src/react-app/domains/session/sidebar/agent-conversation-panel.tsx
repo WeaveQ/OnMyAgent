@@ -71,6 +71,7 @@ import {
   type AutomationSessionRecord,
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
+  readDeletedAutomationSessionIds,
   syncAutomationSessionRecords,
 } from "../../messaging";
 
@@ -81,13 +82,22 @@ function registerAutomationAssistantSessions(workspaceId: string) {
   }
 }
 
-function mergeAutomationSessions(
+/**
+ * Merge engine sessions with local automation run records, dropping archived /
+ * soft-deleted automation sessions so archive from the runs list stays in sync
+ * with the 定时 sidebar.
+ */
+export function mergeAutomationSessions(
   sessions: WorkspaceSessionGroup["sessions"],
   records: AutomationSessionRecord[],
+  excludedSessionIds?: ReadonlySet<string>,
 ): WorkspaceSessionGroup["sessions"] {
-  const sessionsById = new Map(sessions.map((session) => [session.id, session]));
-  const merged = [...sessions];
+  const excluded = excludedSessionIds ?? new Set<string>();
+  const base = sessions.filter((session) => !excluded.has(session.id));
+  const sessionsById = new Map(base.map((session) => [session.id, session]));
+  const merged = [...base];
   for (const record of records) {
+    if (excluded.has(record.sessionId)) continue;
     if (sessionsById.has(record.sessionId)) continue;
     const title = record.title.trim() || t("automation.run_history_title_fallback");
     const session: SidebarSessionItem = {
@@ -250,6 +260,7 @@ export function AgentConversationPanel(props: {
   const group = props.groups.find(
     (item) => item.workspace.id === props.selectedWorkspaceId,
   );
+  const [archivedRevision, setArchivedRevision] = useState(0);
   const automationSessionRecords =
     useMemo(
       () =>
@@ -258,12 +269,29 @@ export function AgentConversationPanel(props: {
           : [],
       [automationRevision, mode, props.selectedWorkspaceId],
     );
+  const excludedAutomationSessionIds = useMemo(() => {
+    if (mode !== "assistant") return new Set<string>();
+    const deleted = readDeletedAutomationSessionIds(props.selectedWorkspaceId);
+    const archived = archivedSessionIdSet(
+      readAssistantArchivedTasks(props.selectedWorkspaceId),
+    );
+    return new Set([...deleted, ...archived]);
+  }, [automationRevision, archivedRevision, mode, props.selectedWorkspaceId]);
   const sessions: WorkspaceSessionGroup["sessions"] = useMemo(
     () =>
       mode === "assistant"
-        ? mergeAutomationSessions(group?.sessions ?? [], automationSessionRecords)
+        ? mergeAutomationSessions(
+            group?.sessions ?? [],
+            automationSessionRecords,
+            excludedAutomationSessionIds,
+          )
         : group?.sessions ?? [],
-    [automationSessionRecords, group?.sessions, mode],
+    [
+      automationSessionRecords,
+      excludedAutomationSessionIds,
+      group?.sessions,
+      mode,
+    ],
   );
   const assistantSessions = useMemo(
     () =>
@@ -535,7 +563,6 @@ export function AgentConversationPanel(props: {
     }
     return map;
   });
-  const [archivedRevision, setArchivedRevision] = useState(0);
   const assistantArchivedTasks = useMemo(
     () => readAssistantArchivedTasks(props.selectedWorkspaceId),
     [props.selectedWorkspaceId, archivedRevision],

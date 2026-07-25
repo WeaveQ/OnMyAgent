@@ -18,6 +18,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "agentManagementSnapshot",
   "agentManagementProviderAction",
   "agentManagementFetchModels",
+  "agentManagementTestModel",
   "agentManagementSkillAction",
   "agentManagementMcpSnapshot",
   "agentManagementMcpAction",
@@ -122,6 +123,7 @@ export function createAgentManagementDomainHandlers({
   scanAgentManagementSkills,
   agentManagementProviderAction,
   agentManagementFetchModels,
+  agentManagementTestModel,
   agentManagementSkillAction,
   readAgentManagementProvidersSnapshot,
 } = {}) {
@@ -244,6 +246,10 @@ export function createAgentManagementDomainHandlers({
 
   agentManagementFetchModels: async (event, args) => {
     return agentManagementFetchModels(args[0] ?? {});
+  },
+
+  agentManagementTestModel: async (event, args) => {
+    return agentManagementTestModel(args[0] ?? {});
   },
 
   agentManagementSkillAction: async (event, args) => {

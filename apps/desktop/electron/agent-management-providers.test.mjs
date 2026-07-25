@@ -6,6 +6,43 @@ import test from "node:test";
 
 import { createAgentManagementProviders } from "./agent-management-providers.mjs";
 
+test("probes a single model via chat/completions", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  const seen = [];
+  globalThis.fetch = async (url, init) => {
+    seen.push({ url: String(url), method: init?.method, body: init?.body });
+    if (String(url).endsWith("/v1/chat/completions") && init?.method === "POST") {
+      return new Response(JSON.stringify({
+        id: "chatcmpl-test",
+        choices: [{ message: { role: "assistant", content: "ok" } }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response("not found", { status: 404 });
+  };
+
+  const providers = createAgentManagementProviders({ getRealHomeDir: () => os.tmpdir() });
+  const result = await providers.agentManagementTestModel({
+    appType: "opencode",
+    baseUrl: "https://example.test/v1",
+    apiKey: "sk-test",
+    modelId: "glm-5.2",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.modelId, "glm-5.2");
+  assert.ok(result.elapsedMs >= 0);
+  assert.ok(
+    seen.some((item) => item.url.endsWith("/v1/chat/completions")),
+    `expected chat/completions call, got: ${seen.map((s) => s.url).join(", ")}`,
+  );
+  const body = JSON.parse(seen.find((s) => s.url.endsWith("/chat/completions"))?.body ?? "{}");
+  assert.equal(body.model, "glm-5.2");
+  assert.equal(body.max_tokens, 1);
+});
+
 test("preserves provider-advertised output token limits when fetching models", async (context) => {
   const originalFetch = globalThis.fetch;
   context.after(() => {

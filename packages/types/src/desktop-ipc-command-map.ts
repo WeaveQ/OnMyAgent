@@ -21,6 +21,8 @@ import type {
 import type {
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
+  AgentManagementTestModelInput,
+  AgentManagementTestModelResult,
   AgentManagementMcpActionInput,
   AgentManagementMcpActionResult,
   AgentManagementMcpSnapshot,
@@ -834,6 +836,10 @@ type TypedDesktopCommandMap = {
   agentManagementFetchModels: DesktopCommandContract<
     [AgentManagementFetchModelsInput],
     AgentManagementFetchModelsResult
+  >;
+  agentManagementTestModel: DesktopCommandContract<
+    [AgentManagementTestModelInput],
+    AgentManagementTestModelResult
   >;
   agentManagementSkillAction: DesktopCommandContract<
     [AgentManagementSkillActionInput],

@@ -41,7 +41,11 @@ import type {
   AgentManagementProviderActionInput,
   AgentManagementSnapshot,
 } from "../../../../app/lib/desktop";
-import { agentManagementFetchModels, agentManagementProviderAction } from "../../../../app/lib/desktop";
+import {
+  agentManagementFetchModels,
+  agentManagementProviderAction,
+  agentManagementTestModel,
+} from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
 import { AgentBrandIcon, type AgentBrandIconSize } from "../agent-brand-icon";
 import { visibleFleetConfigAgentKeys } from "./agent-fleet-model";
@@ -462,16 +466,19 @@ export function AgentManagementProviderModal(props: {
   const [fetchedModels, setFetchedModels] = useState<AgentManagementFetchedModel[]>([]);
   const [fetchModelsError, setFetchModelsError] = useState<string | null>(null);
   const [fetchModelsNotice, setFetchModelsNotice] = useState<string | null>(null);
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionTestTone, setConnectionTestTone] = useState<
-    "danger" | "warning" | "success" | null
-  >(null);
-  const [connectionTestMessage, setConnectionTestMessage] = useState<string | null>(
-    null,
-  );
+  /** Per model-row connectivity probe (rowId → result). */
+  const [modelTestByRowId, setModelTestByRowId] = useState<
+    Record<
+      string,
+      {
+        status: "idle" | "testing" | "ok" | "fail";
+        message?: string;
+      }
+    >
+  >({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const fetchModelsRunRef = useRef(0);
-  const connectionTestRunRef = useRef(0);
+  const modelTestRunByRowRef = useRef(new Map<string, number>());
   const modalOpenRef = useRef(props.open);
   const updateDraft = (patch: Partial<ProviderDraft>) => props.onDraftChange({ ...props.draft, ...patch });
   const canSubmit = props.draft.name.trim() && (props.draft.id.trim() || props.draft.name.trim());
@@ -491,14 +498,12 @@ export function AgentManagementProviderModal(props: {
   useEffect(() => {
     modalOpenRef.current = props.open;
     fetchModelsRunRef.current += 1;
-    connectionTestRunRef.current += 1;
     setFetchingModels(false);
     setFetchedModels([]);
     setFetchModelsError(null);
     setFetchModelsNotice(null);
-    setTestingConnection(false);
-    setConnectionTestTone(null);
-    setConnectionTestMessage(null);
+    setModelTestByRowId({});
+    modelTestRunByRowRef.current.clear();
     setAdvancedOpen(false);
   }, [props.open, props.appType, props.draft.editingId]);
 
@@ -624,53 +629,74 @@ export function AgentManagementProviderModal(props: {
     }
   };
 
-  /** Probe base URL + API key without mutating the in-form model rows. */
-  const testProviderConnection = async () => {
-    if (testingConnection || fetchingModels) return;
+  /** Probe one model via chat/completions (max_tokens=1); does not change draft rows. */
+  const testModelRow = async (rowId: string, modelIdRaw: string) => {
+    const modelId = modelIdRaw.trim();
     if (!props.draft.baseUrl.trim()) {
-      setConnectionTestTone("warning");
-      setConnectionTestMessage(
-        t("agent_manager.provider_modal.test_connection_need_url"),
-      );
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "fail",
+          message: t("agent_manager.provider_modal.test_connection_need_url"),
+        },
+      }));
       return;
     }
-    const runId = connectionTestRunRef.current + 1;
-    connectionTestRunRef.current = runId;
-    setConnectionTestTone(null);
-    setConnectionTestMessage(null);
-    setTestingConnection(true);
-    const startedAt = Date.now();
+    if (!modelId) {
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "fail",
+          message: t("agent_manager.provider_modal.test_model_need_id"),
+        },
+      }));
+      return;
+    }
+    const runId = (modelTestRunByRowRef.current.get(rowId) ?? 0) + 1;
+    modelTestRunByRowRef.current.set(rowId, runId);
+    setModelTestByRowId((current) => ({
+      ...current,
+      [rowId]: { status: "testing" },
+    }));
     try {
-      const result = await agentManagementFetchModels({
+      const result = await agentManagementTestModel({
         appType: props.appType,
         baseUrl: props.draft.baseUrl,
         apiKey: props.draft.apiKey,
+        modelId,
       });
-      if (connectionTestRunRef.current !== runId || !modalOpenRef.current) return;
-      const elapsedMs = Math.max(0, Date.now() - startedAt);
-      const count = Array.isArray(result.models) ? result.models.length : 0;
-      setConnectionTestTone("success");
-      setConnectionTestMessage(
-        count > 0
-          ? t("agent_manager.provider_modal.test_connection_ok_models", {
-              count,
-              ms: elapsedMs,
-            })
-          : t("agent_manager.provider_modal.test_connection_ok_empty", {
-              ms: elapsedMs,
-            }),
-      );
-    } catch (error) {
-      if (connectionTestRunRef.current !== runId || !modalOpenRef.current) return;
-      const message = error instanceof Error ? error.message : String(error);
-      setConnectionTestTone("danger");
-      setConnectionTestMessage(
-        t("agent_manager.provider_modal.test_connection_fail", { message }),
-      );
-    } finally {
-      if (connectionTestRunRef.current === runId && modalOpenRef.current) {
-        setTestingConnection(false);
+      if (
+        modelTestRunByRowRef.current.get(rowId) !== runId ||
+        !modalOpenRef.current
+      ) {
+        return;
       }
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "ok",
+          message: t("agent_manager.provider_modal.test_model_ok", {
+            ms: result.elapsedMs,
+          }),
+        },
+      }));
+    } catch (error) {
+      if (
+        modelTestRunByRowRef.current.get(rowId) !== runId ||
+        !modalOpenRef.current
+      ) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "fail",
+          message: t("agent_manager.provider_modal.test_model_fail", {
+            message,
+          }),
+        },
+      }));
     }
   };
 
@@ -763,48 +789,6 @@ export function AgentManagementProviderModal(props: {
                   />
                 </label>
 
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={
-                        testingConnection ||
-                        fetchingModels ||
-                        !props.draft.baseUrl.trim()
-                      }
-                      aria-busy={testingConnection}
-                      title={
-                        props.draft.baseUrl.trim()
-                          ? t("agent_manager.provider_modal.test_connection")
-                          : t(
-                              "agent_manager.provider_modal.test_connection_need_url",
-                            )
-                      }
-                      onClick={() => void testProviderConnection()}
-                    >
-                      {testingConnection ? (
-                        <LoadingSpinner size="sm" className="mr-1.5" />
-                      ) : (
-                        <Unplug className="mr-1.5 size-3.5" />
-                      )}
-                      {testingConnection
-                        ? t(
-                            "agent_manager.provider_modal.test_connection_testing",
-                          )
-                        : t("agent_manager.provider_modal.test_connection")}
-                    </Button>
-                    <span className={hintClass}>
-                      {t("agent_manager.provider_modal.test_connection_hint")}
-                    </span>
-                  </div>
-                  {connectionTestMessage && connectionTestTone ? (
-                    <ProviderModelNotice tone={connectionTestTone}>
-                      {connectionTestMessage}
-                    </ProviderModelNotice>
-                  ) : null}
-                </div>
               </div>
             </section>
 
@@ -1050,14 +1034,15 @@ export function AgentManagementProviderModal(props: {
                       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 px-0.5 text-xs font-medium text-dls-secondary">
                         <span>{t("agent_manager.provider_modal.model_id")}</span>
                         <span>{t("agent_manager.provider_modal.display_name")}</span>
-                        <span className="w-9" aria-hidden="true" />
+                        <span className="w-[4.5rem]" aria-hidden="true" />
                       </div>
                       <ul className="space-y-2">
-                        {props.draft.modelRows.map((row, index) => (
-                          <li
-                            key={row.rowId}
-                            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
-                          >
+                        {props.draft.modelRows.map((row, index) => {
+                          const rowTest = modelTestByRowId[row.rowId];
+                          const testingRow = rowTest?.status === "testing";
+                          return (
+                          <li key={row.rowId} className="space-y-1">
+                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
                             <Input
                               value={row.id}
                               onChange={(event) => {
@@ -1071,6 +1056,13 @@ export function AgentManagementProviderModal(props: {
                                       : row.name,
                                   contextWindow: "",
                                   outputTokenLimit: "",
+                                });
+                                // Clear stale probe when the model id changes.
+                                setModelTestByRowId((current) => {
+                                  if (!current[row.rowId]) return current;
+                                  const next = { ...current };
+                                  delete next[row.rowId];
+                                  return next;
                                 });
                               }}
                               list={
@@ -1111,6 +1103,49 @@ export function AgentManagementProviderModal(props: {
                                       type="button"
                                       variant="ghost"
                                       size="icon-sm"
+                                      disabled={
+                                        testingRow ||
+                                        fetchingModels ||
+                                        !props.draft.baseUrl.trim()
+                                      }
+                                      aria-busy={testingRow}
+                                      onClick={() =>
+                                        void testModelRow(row.rowId, row.id)
+                                      }
+                                      className={cn(
+                                        "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                                        rowTest?.status === "ok" &&
+                                          "text-dls-status-success-fg",
+                                        rowTest?.status === "fail" &&
+                                          "text-dls-status-danger-fg",
+                                      )}
+                                      aria-label={t(
+                                        "agent_manager.provider_modal.test_model",
+                                      )}
+                                    >
+                                      {testingRow ? (
+                                        <LoadingSpinner size="sm" />
+                                      ) : (
+                                        <Unplug className="size-3.5" />
+                                      )}
+                                    </Button>
+                                  }
+                                />
+                                <TooltipContent side="bottom">
+                                  <span>
+                                    {t(
+                                      "agent_manager.provider_modal.test_model",
+                                    )}
+                                  </span>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
                                       onClick={() => removeModelRow(row.rowId)}
                                       className="text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger-fg"
                                       aria-label={t(
@@ -1128,8 +1163,23 @@ export function AgentManagementProviderModal(props: {
                                 </TooltipContent>
                               </Tooltip>
                             </div>
+                            </div>
+                            {rowTest?.message ? (
+                              <ProviderModelNotice
+                                tone={
+                                  rowTest.status === "ok"
+                                    ? "success"
+                                    : rowTest.status === "fail"
+                                      ? "danger"
+                                      : "warning"
+                                }
+                              >
+                                {rowTest.message}
+                              </ProviderModelNotice>
+                            ) : null}
                           </li>
-                        ))}
+                          );
+                        })}
                       </ul>
                       <button
                         type="button"

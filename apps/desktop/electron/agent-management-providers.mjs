@@ -610,6 +610,63 @@ export function createAgentManagementProviders(options = {}) {
     throw new Error(`Fetch models failed: all candidate endpoints failed (${endpoints.join(", ")}): ${lastError}`);
   }
 
+  function agentManagementChatCompletionsEndpoints(baseUrl) {
+    return agentManagementModelsEndpoints(baseUrl).map((endpoint) =>
+      String(endpoint).replace(/\/models\/?$/i, "/chat/completions"),
+    );
+  }
+
+  /**
+   * Probe a single model via OpenAI-compatible chat/completions (max_tokens=1).
+   * Used by per-row "连通性测试" in the provider modal.
+   */
+  async function agentManagementTestModel(input = {}) {
+    const modelId = String(input.modelId ?? "").trim();
+    if (!modelId) throw new Error("Model ID is required");
+    const endpoints = agentManagementChatCompletionsEndpoints(input.baseUrl);
+    const apiKey = String(input.apiKey ?? "").trim();
+    let lastError = "no candidates";
+    const startedAt = Date.now();
+    for (const endpoint of endpoints) {
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 1,
+            stream: false,
+          }),
+        });
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        continue;
+      }
+      const text = await response.text();
+      if (response.ok) {
+        return {
+          ok: true,
+          endpoint,
+          modelId,
+          elapsedMs: Math.max(0, Date.now() - startedAt),
+        };
+      }
+      lastError = `HTTP ${response.status}${text ? ` ${text.slice(0, 240)}` : ""}`;
+      // Try next candidate for "route missing"; otherwise surface as model/auth error.
+      if (response.status === 404 || response.status === 405) continue;
+      throw new Error(`Model test failed at ${endpoint}: ${lastError}`);
+    }
+    throw new Error(
+      `Model test failed: all candidate endpoints failed (${endpoints.join(", ")}): ${lastError}`,
+    );
+  }
+
   function escapeTomlString(value) {
     return String(value ?? "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
   }
@@ -1220,6 +1277,7 @@ export function createAgentManagementProviders(options = {}) {
 
   return {
     agentManagementFetchModels,
+    agentManagementTestModel,
     agentManagementProviderAction,
     readAgentManagementProvidersSnapshot,
   };
