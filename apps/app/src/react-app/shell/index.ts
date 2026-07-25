@@ -6,6 +6,13 @@
 // (only shrink, never grow).
 export * from "./app-inspector";
 export * from "./boot-state";
+export * from "./route-load-registry";
+export {
+  LoadSurface,
+  RouteChunkFallback,
+  useLoadScope,
+  useRouteLoadTop,
+} from "./load-surface";
 export * from "./control/control-provider";
 export * from "./dev-profiler";
 export * from "./dot-ticker";

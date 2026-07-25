@@ -9,7 +9,7 @@ import { useDenAuth, ForcedSigninPage, OrgOnboardingPage } from "../domains/clou
 import { NewProvidersToast } from "./new-providers-toast";
 import { useFontZoomBehavior } from "./font-zoom";
 import { LoadingOverlay } from "./loading-overlay";
-import { OwDotTicker } from "./dot-ticker";
+import { RouteChunkFallback } from "./load-surface";
 import { DevProfiler, DevProfilerOverlay } from "./dev-profiler";
 import { ReactRenderWatchdogOverlay } from "./react-render-watchdog-overlay";
 import { AppMenuProvider } from "./app-menu";
@@ -26,26 +26,6 @@ const SettingsRoute = lazy(() =>
 const WelcomeRoute = lazy(() =>
   import("./welcome-route").then((module) => ({ default: module.WelcomeRoute })),
 );
-
-const routeSuspenseFallbackClass = {
-  shell: "fixed inset-0 z-[1000] flex items-center justify-center bg-dls-surface",
-  content: "flex w-full max-w-[320px] flex-col items-center gap-4 px-6 text-center",
-  message: "text-xs leading-5 text-dls-secondary",
-};
-
-/** Lightweight route-level fallback (same visual language as boot LoadingOverlay). */
-function RouteSuspenseFallback() {
-  return (
-    <div className={routeSuspenseFallbackClass.shell} aria-live="polite" aria-busy="true" role="status">
-      <div className={routeSuspenseFallbackClass.content}>
-        <OwDotTicker size="md" />
-        <div className={routeSuspenseFallbackClass.message}>
-          {t("system.boot_preparing_workspace")}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 
 type DenSigninGateProps = {
@@ -226,7 +206,13 @@ export function AppRoot() {
         <OnMyAgentControlProvider>
           <OnMyAgentRouteControlActions />
           <DenSigninGate>
-            <Suspense fallback={<RouteSuspenseFallback />}>
+            <Suspense
+              fallback={
+                // Shared full-screen surface; generic open copy (route-specific
+                // messages report via useLoadScope once the chunk mounts).
+                <RouteChunkFallback messageKey="system.boot_preparing_workspace" />
+              }
+            >
               <Routes>
                 <Route
                   path="/signin"

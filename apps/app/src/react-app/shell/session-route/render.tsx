@@ -86,6 +86,7 @@ import {
   useRestrictionNotice,
 } from "../../domains/cloud";
 import { useBootState } from "../boot-state";
+import { useLoadScope } from "../load-surface";
 import {
   readActiveWorkspaceId,
   readLastSessionFor,
@@ -148,6 +149,9 @@ export function SessionRouteRender() {
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
+  // Shared load registry so boot overlay / surfaces show "Loading workspace…"
+  // instead of a second full-screen with the same boot copy.
+  useLoadScope("route-session", loading);
   const [client, setClient] = useState<OnMyAgentServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
