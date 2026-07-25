@@ -80,6 +80,16 @@ export default {
   "agent_manager.provider_modal.fetch_models": "Fetch models",
   "agent_manager.provider_modal.fetch_models_need_url": "Enter the API URL first",
   "agent_manager.provider_modal.fetched_models": "Fetched {count} models",
+  "agent_manager.provider_modal.test_connection": "Test connection",
+  "agent_manager.provider_modal.test_connection_testing": "Testing…",
+  "agent_manager.provider_modal.test_connection_need_url": "Enter the API URL first",
+  "agent_manager.provider_modal.test_connection_hint":
+    "Calls the models endpoint with the URL and key above. Does not change the model list.",
+  "agent_manager.provider_modal.test_connection_ok_models":
+    "Connected · {count} models · {ms}ms",
+  "agent_manager.provider_modal.test_connection_ok_empty":
+    "Connected · no models returned · {ms}ms",
+  "agent_manager.provider_modal.test_connection_fail": "Connection failed: {message}",
   "agent_manager.provider_modal.model_list_hint": "Enter a model ID; the display name can follow it",
   "agent_manager.provider_modal.model_id_placeholder": "e.g. qwen3.6-plus",
   "agent_manager.provider_modal.fill_all": "Fill all",

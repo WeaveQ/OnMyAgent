@@ -51,6 +51,7 @@ import {
   deleteOpenCodeManagedProvider,
   disconnectSettingsProvider,
 } from "./provider-list-actions";
+import { useSettingsProvidersPrewarm } from "./providers-prewarm-hook";
 import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
   LazyAiSettingsView,
@@ -716,6 +717,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     if (opencodeClient) setProviderActionError(null);
   }, [opencodeClient]);
 
+  useSettingsProvidersPrewarm({
+    opencodeClient,
+    opencodeBaseUrl,
+    selectedWorkspaceRoot,
+  });
+
   useEffect(() => {
     const openFromPending = (raw: string | null) => {
       if (!raw) return false;
@@ -1182,6 +1189,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const {
     connectedProviders,
+    moveConnectedProvider,
     providerListHydrated,
     opencodeInventoryReady,
     opencodeManagedProviders,
@@ -1651,6 +1659,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               }
               canEditProvider={(provider) => provider.managedBy === "opencode"}
               onEditProvider={handleEditOpenCodeProvider}
+              onMoveProvider={moveConnectedProvider}
               canDeleteProvider={(provider) => provider.managedBy === "opencode"}
               onDeleteProvider={async (provider) => {
                 if (providerActionBusyId || providerSyncBusy) return;
@@ -1945,7 +1954,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               setOpenCodeManagedProviders(saved.opencodeProviders);
             } else {
               try {
-                const managedProviders = await loadOpenCodeManagedProviders();
+                const managedProviders = await loadOpenCodeManagedProviders({
+                  force: true,
+                });
                 setOpenCodeManagedProviders(managedProviders);
               } catch {
                 // best-effort inventory

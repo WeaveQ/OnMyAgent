@@ -143,6 +143,33 @@ describe("settings AI view wiring (structural)", () => {
     expect(aiView).toContain("AiSettingsProvidersSkeleton");
   });
 
+  test("ai-view: Zen free only; custom not OpenCode; Cloud uses i18n", () => {
+    const aiView = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/settings/pages/ai-view.tsx",
+      ),
+      "utf8",
+    );
+    expect(aiView).toContain('provider.id === "opencode"');
+    expect(aiView).toContain("model_picker.free");
+    expect(aiView).toContain("settings.provider_badge_cloud");
+    expect(aiView).not.toMatch(/>\s*Cloud\s*</);
+    expect(aiView).toMatch(
+      /provider\.id === "opencode" \? null : provider\.source ===\s*"custom"/,
+    );
+    const en = readFileSync(
+      path.join(import.meta.dir, "../src/i18n/locales/en/settings.ts"),
+      "utf8",
+    );
+    const zh = readFileSync(
+      path.join(import.meta.dir, "../src/i18n/locales/zh/settings.ts"),
+      "utf8",
+    );
+    expect(en).toContain("settings.provider_badge_cloud");
+    expect(zh).toContain("settings.provider_badge_cloud");
+  });
+
   test("ai-providers skeleton is a standalone light module", () => {
     const skeleton = readFileSync(
       path.join(

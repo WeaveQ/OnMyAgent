@@ -20,6 +20,7 @@ import {
   Settings2,
   Sparkles,
   Trash2,
+  Unplug,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -461,8 +462,16 @@ export function AgentManagementProviderModal(props: {
   const [fetchedModels, setFetchedModels] = useState<AgentManagementFetchedModel[]>([]);
   const [fetchModelsError, setFetchModelsError] = useState<string | null>(null);
   const [fetchModelsNotice, setFetchModelsNotice] = useState<string | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionTestTone, setConnectionTestTone] = useState<
+    "danger" | "warning" | "success" | null
+  >(null);
+  const [connectionTestMessage, setConnectionTestMessage] = useState<string | null>(
+    null,
+  );
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const fetchModelsRunRef = useRef(0);
+  const connectionTestRunRef = useRef(0);
   const modalOpenRef = useRef(props.open);
   const updateDraft = (patch: Partial<ProviderDraft>) => props.onDraftChange({ ...props.draft, ...patch });
   const canSubmit = props.draft.name.trim() && (props.draft.id.trim() || props.draft.name.trim());
@@ -482,10 +491,14 @@ export function AgentManagementProviderModal(props: {
   useEffect(() => {
     modalOpenRef.current = props.open;
     fetchModelsRunRef.current += 1;
+    connectionTestRunRef.current += 1;
     setFetchingModels(false);
     setFetchedModels([]);
     setFetchModelsError(null);
     setFetchModelsNotice(null);
+    setTestingConnection(false);
+    setConnectionTestTone(null);
+    setConnectionTestMessage(null);
     setAdvancedOpen(false);
   }, [props.open, props.appType, props.draft.editingId]);
 
@@ -610,6 +623,57 @@ export function AgentManagementProviderModal(props: {
       if (fetchModelsRunRef.current === runId && modalOpenRef.current) setFetchingModels(false);
     }
   };
+
+  /** Probe base URL + API key without mutating the in-form model rows. */
+  const testProviderConnection = async () => {
+    if (testingConnection || fetchingModels) return;
+    if (!props.draft.baseUrl.trim()) {
+      setConnectionTestTone("warning");
+      setConnectionTestMessage(
+        t("agent_manager.provider_modal.test_connection_need_url"),
+      );
+      return;
+    }
+    const runId = connectionTestRunRef.current + 1;
+    connectionTestRunRef.current = runId;
+    setConnectionTestTone(null);
+    setConnectionTestMessage(null);
+    setTestingConnection(true);
+    const startedAt = Date.now();
+    try {
+      const result = await agentManagementFetchModels({
+        appType: props.appType,
+        baseUrl: props.draft.baseUrl,
+        apiKey: props.draft.apiKey,
+      });
+      if (connectionTestRunRef.current !== runId || !modalOpenRef.current) return;
+      const elapsedMs = Math.max(0, Date.now() - startedAt);
+      const count = Array.isArray(result.models) ? result.models.length : 0;
+      setConnectionTestTone("success");
+      setConnectionTestMessage(
+        count > 0
+          ? t("agent_manager.provider_modal.test_connection_ok_models", {
+              count,
+              ms: elapsedMs,
+            })
+          : t("agent_manager.provider_modal.test_connection_ok_empty", {
+              ms: elapsedMs,
+            }),
+      );
+    } catch (error) {
+      if (connectionTestRunRef.current !== runId || !modalOpenRef.current) return;
+      const message = error instanceof Error ? error.message : String(error);
+      setConnectionTestTone("danger");
+      setConnectionTestMessage(
+        t("agent_manager.provider_modal.test_connection_fail", { message }),
+      );
+    } finally {
+      if (connectionTestRunRef.current === runId && modalOpenRef.current) {
+        setTestingConnection(false);
+      }
+    }
+  };
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="flex max-h-[90vh] !w-[min(920px,calc(100vw-32px))] !max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
@@ -698,6 +762,49 @@ export function AgentManagementProviderModal(props: {
                     className={fieldClass}
                   />
                 </label>
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        testingConnection ||
+                        fetchingModels ||
+                        !props.draft.baseUrl.trim()
+                      }
+                      aria-busy={testingConnection}
+                      title={
+                        props.draft.baseUrl.trim()
+                          ? t("agent_manager.provider_modal.test_connection")
+                          : t(
+                              "agent_manager.provider_modal.test_connection_need_url",
+                            )
+                      }
+                      onClick={() => void testProviderConnection()}
+                    >
+                      {testingConnection ? (
+                        <LoadingSpinner size="sm" className="mr-1.5" />
+                      ) : (
+                        <Unplug className="mr-1.5 size-3.5" />
+                      )}
+                      {testingConnection
+                        ? t(
+                            "agent_manager.provider_modal.test_connection_testing",
+                          )
+                        : t("agent_manager.provider_modal.test_connection")}
+                    </Button>
+                    <span className={hintClass}>
+                      {t("agent_manager.provider_modal.test_connection_hint")}
+                    </span>
+                  </div>
+                  {connectionTestMessage && connectionTestTone ? (
+                    <ProviderModelNotice tone={connectionTestTone}>
+                      {connectionTestMessage}
+                    </ProviderModelNotice>
+                  ) : null}
+                </div>
               </div>
             </section>
 

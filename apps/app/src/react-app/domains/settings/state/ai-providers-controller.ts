@@ -1,8 +1,10 @@
 /**
  * Settings → Models provider list controller: SDK list hydrate, OpenCode
- * inventory prefetch (single-flight), and merge into list rows.
+ * inventory prefetch (single-flight + TTL cache), and merge into list rows.
  *
  * Shell settings-route host should only pass wiring (client, workspace, policy).
+ * Inventory is module-cached so session/welcome prewarm can zero-cost the first
+ * Settings → Models open.
  */
 import {
   useCallback,
@@ -18,8 +20,17 @@ import { agentManagementSnapshot } from "../../../../app/lib/desktop";
 import type { ProviderListItem } from "../../../../app/types";
 import {
   mergeConnectedProviders,
+  moveConnectedProviderInOrder,
+  orderConnectedProviders,
   type MergedConnectedProvider,
 } from "../../connections";
+import {
+  readConnectedProviderOrderIds,
+  writeConnectedProviderOrderIds,
+} from "../../../shell";
+
+/** Match provider-list React Query TTL so list + inventory stay coherent. */
+export const OPENCODE_INVENTORY_CACHE_MS = 5 * 60 * 1000;
 
 export type AiProvidersControllerInput = {
   activeClient: boolean;
@@ -35,8 +46,18 @@ export type AiProvidersControllerInput = {
   refreshMcpServers?: () => void;
 };
 
+export type LoadOpenCodeManagedProvidersOptions = {
+  /** Bypass TTL cache and re-fetch via IPC. */
+  force?: boolean;
+};
+
 export type AiProvidersController = {
   connectedProviders: MergedConnectedProvider[];
+  /** Persist move-up / move-down order for the settings list. */
+  moveConnectedProvider: (
+    providerId: string,
+    direction: "up" | "down",
+  ) => void;
   providerListHydrated: boolean;
   opencodeInventoryReady: boolean;
   opencodeManagedProviders: AgentManagementManagedProvider[];
@@ -45,25 +66,71 @@ export type AiProvidersController = {
   >;
   providersDiscovering: boolean;
   inventorySyncing: boolean;
-  loadOpenCodeManagedProviders: () => Promise<AgentManagementManagedProvider[]>;
+  loadOpenCodeManagedProviders: (
+    options?: LoadOpenCodeManagedProvidersOptions,
+  ) => Promise<AgentManagementManagedProvider[]>;
   findManagedProvider: (
     providerId: string,
   ) => AgentManagementManagedProvider | null;
 };
 
-/** Module-level single-flight cache for inventory IPC per workspace root. */
+/** Module-level single-flight for in-progress inventory IPC per workspace root. */
 const inventoryInflight = new Map<
   string,
   Promise<AgentManagementManagedProvider[]>
 >();
 
+type InventoryCacheEntry = {
+  at: number;
+  providers: AgentManagementManagedProvider[];
+};
+
+/** Module-level result cache so prewarm survives Settings remount. */
+const inventoryCache = new Map<string, InventoryCacheEntry>();
+
+export function peekOpenCodeManagedProvidersCache(
+  workspaceRoot: string,
+): AgentManagementManagedProvider[] | null {
+  const key = workspaceRoot.trim();
+  if (!key) return null;
+  const entry = inventoryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.at >= OPENCODE_INVENTORY_CACHE_MS) return null;
+  return entry.providers;
+}
+
+export function seedOpenCodeManagedProvidersCache(
+  workspaceRoot: string,
+  providers: AgentManagementManagedProvider[],
+): void {
+  const key = workspaceRoot.trim();
+  if (!key) return;
+  inventoryCache.set(key, { at: Date.now(), providers });
+}
+
+export function invalidateOpenCodeManagedProvidersCache(
+  workspaceRoot?: string,
+): void {
+  if (workspaceRoot == null) {
+    inventoryCache.clear();
+    return;
+  }
+  inventoryCache.delete(workspaceRoot.trim());
+}
+
 export async function loadOpenCodeManagedProvidersForWorkspace(
   workspaceRoot: string,
+  options?: LoadOpenCodeManagedProvidersOptions,
 ): Promise<AgentManagementManagedProvider[]> {
   const key = workspaceRoot.trim();
   if (!key) return [];
-  const existing = inventoryInflight.get(key);
-  if (existing) return existing;
+
+  if (!options?.force) {
+    const cached = peekOpenCodeManagedProvidersCache(key);
+    if (cached) return cached;
+    const existing = inventoryInflight.get(key);
+    if (existing) return existing;
+  }
 
   const request = (async () => {
     try {
@@ -72,7 +139,9 @@ export async function loadOpenCodeManagedProvidersForWorkspace(
         domains: ["providers"],
         includeModels: false,
       });
-      return snapshot.providers.byAgent.opencode;
+      const providers = snapshot.providers.byAgent.opencode;
+      seedOpenCodeManagedProvidersCache(key, providers);
+      return providers;
     } catch (error) {
       console.warn("[settings] failed to load OpenCode managed providers", error);
       return [];
@@ -85,25 +154,47 @@ export async function loadOpenCodeManagedProvidersForWorkspace(
   return request;
 }
 
-/** Test helper: clear single-flight map between tests. */
+/** Test helper: clear single-flight + result cache between tests. */
 export function resetOpenCodeInventoryInflightForTests() {
   inventoryInflight.clear();
+  inventoryCache.clear();
 }
 
 export function useAiProvidersController(
   input: AiProvidersControllerInput,
 ): AiProvidersController {
-  const [providerListHydrated, setProviderListHydrated] = useState(false);
-  const [opencodeInventoryReady, setOpenCodeInventoryReady] = useState(false);
-  const [opencodeManagedProviders, setOpenCodeManagedProviders] = useState<
-    AgentManagementManagedProvider[]
-  >([]);
   const root = input.selectedWorkspaceRoot?.trim() || "";
+  const cachedInventory = root ? peekOpenCodeManagedProvidersCache(root) : null;
 
-  const loadOpenCodeManagedProviders = useCallback(async () => {
-    if (!root) return [];
-    return loadOpenCodeManagedProvidersForWorkspace(root);
-  }, [root]);
+  const [providerListHydrated, setProviderListHydrated] = useState(false);
+  const [opencodeInventoryReady, setOpenCodeInventoryReady] = useState(
+    () => cachedInventory != null,
+  );
+  const [opencodeManagedProviders, setOpenCodeManagedProvidersState] = useState<
+    AgentManagementManagedProvider[]
+  >(() => cachedInventory ?? []);
+
+  const setOpenCodeManagedProviders = useCallback<
+    Dispatch<SetStateAction<AgentManagementManagedProvider[]>>
+  >(
+    (action) => {
+      setOpenCodeManagedProvidersState((previous) => {
+        const next =
+          typeof action === "function" ? action(previous) : action;
+        if (root) seedOpenCodeManagedProvidersCache(root, next);
+        return next;
+      });
+    },
+    [root],
+  );
+
+  const loadOpenCodeManagedProviders = useCallback(
+    async (options?: LoadOpenCodeManagedProvidersOptions) => {
+      if (!root) return [];
+      return loadOpenCodeManagedProvidersForWorkspace(root, options);
+    },
+    [root],
+  );
 
   useEffect(() => {
     if (!input.activeClient) {
@@ -126,7 +217,13 @@ export function useAiProvidersController(
   }, [input.activeClient, input.selectedWorkspaceId]);
 
   useEffect(() => {
-    setOpenCodeManagedProviders([]);
+    const nextCached = root ? peekOpenCodeManagedProvidersCache(root) : null;
+    if (nextCached) {
+      setOpenCodeManagedProvidersState(nextCached);
+      setOpenCodeInventoryReady(true);
+      return;
+    }
+    setOpenCodeManagedProvidersState([]);
     setOpenCodeInventoryReady(false);
   }, [root]);
 
@@ -137,7 +234,8 @@ export function useAiProvidersController(
     void loadOpenCodeManagedProviders()
       .then((providers) => {
         if (cancelled) return;
-        setOpenCodeManagedProviders(providers);
+        setOpenCodeManagedProvidersState(providers);
+        seedOpenCodeManagedProvidersCache(root, providers);
       })
       .finally(() => {
         if (!cancelled) setOpenCodeInventoryReady(true);
@@ -152,20 +250,39 @@ export function useAiProvidersController(
     root,
   ]);
 
-  const connectedProviders = useMemo(
-    () =>
-      mergeConnectedProviders({
-        sdkProviders: input.sdkProviders,
-        connectedIds: input.connectedIds,
-        managedProviders: opencodeManagedProviders,
-        isBlocked: input.isBlocked,
-      }),
-    [
-      input.connectedIds,
-      input.isBlocked,
-      input.sdkProviders,
-      opencodeManagedProviders,
-    ],
+  const [providerOrderIds, setProviderOrderIds] = useState<string[]>(() =>
+    readConnectedProviderOrderIds(),
+  );
+
+  const connectedProviders = useMemo(() => {
+    const merged = mergeConnectedProviders({
+      sdkProviders: input.sdkProviders,
+      connectedIds: input.connectedIds,
+      managedProviders: opencodeManagedProviders,
+      isBlocked: input.isBlocked,
+    });
+    return orderConnectedProviders(merged, providerOrderIds);
+  }, [
+    input.connectedIds,
+    input.isBlocked,
+    input.sdkProviders,
+    opencodeManagedProviders,
+    providerOrderIds,
+  ]);
+
+  const moveConnectedProvider = useCallback(
+    (providerId: string, direction: "up" | "down") => {
+      const presentIds = connectedProviders.map((provider) => provider.id);
+      const next = moveConnectedProviderInOrder(
+        providerOrderIds,
+        presentIds,
+        providerId,
+        direction,
+      );
+      setProviderOrderIds(next);
+      writeConnectedProviderOrderIds(next);
+    },
+    [connectedProviders, providerOrderIds],
   );
 
   const providersDiscovering =
@@ -181,6 +298,7 @@ export function useAiProvidersController(
 
   return {
     connectedProviders,
+    moveConnectedProvider,
     providerListHydrated,
     opencodeInventoryReady,
     opencodeManagedProviders,

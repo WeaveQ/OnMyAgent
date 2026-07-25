@@ -58,17 +58,23 @@ import {
 import {
   addInFlightDomains,
   applyPartialDomainSnapshotToLatest,
-  DEFAULT_MANAGEMENT_DOMAIN_TTL_MS,
   domainsForAgentMutation,
   domainsForPanel,
   domainsForSkillMutation,
   domainsNotInFlight,
-  markDomainsFetched,
   missingDomains,
   removeInFlightDomains,
-  type DomainFreshnessMap,
   type ManagementLoadDomain,
 } from "./agent-management-load-cache";
+import {
+  AGENT_MANAGER_SNAPSHOT_TTL_MS,
+  agentManagerCacheKey,
+  getAgentManagerDomainInFlight,
+  readCachedAgentManagerDomains,
+  readCachedAgentManagerSnapshot,
+  setAgentManagerDomainInFlight,
+  writeCachedAgentManagerSnapshot,
+} from "./agent-management-snapshot-store";
 import {
   AgentManagementProviderModal,
   AgentManagementProviderPanel,
@@ -94,49 +100,9 @@ type AgentManagementUiCache = {
   healthResults: Record<string, AgentManagementHealthResult>;
 };
 
-type AgentManagerSnapshotCacheEntry = {
-  snapshot: AgentManagementSnapshot;
-  /** Per-domain freshness; independent TTL so skills/mcp can lag core. */
-  domains: DomainFreshnessMap;
-};
-
 const AGENT_MANAGER_PANEL_STORAGE_KEY = "onmyagent.agentManagement.activePanel";
-/** In-memory snapshot cache across remounts (sidebar view unmounts this page). */
-const AGENT_MANAGER_SNAPSHOT_CACHE = new Map<string, AgentManagerSnapshotCacheEntry>();
+/** UI prefs only (panel/filter); snapshot cache lives in agent-management-snapshot-store. */
 const AGENT_MANAGER_UI_CACHE = new Map<string, AgentManagementUiCache>();
-/**
- * Per-workspace domains currently mid-fetch. Concurrent tab loads gate here so
- * a late mcp response never races a second core fetch, and merges always re-read
- * AGENT_MANAGER_SNAPSHOT_CACHE after await (not the start-of-request snapshot).
- */
-const AGENT_MANAGER_DOMAIN_INFLIGHT = new Map<string, Set<ManagementLoadDomain>>();
-/** Soft TTL: re-entry within this window reuses cache without network. After TTL, silent background revalidate. */
-const AGENT_MANAGER_SNAPSHOT_TTL_MS = DEFAULT_MANAGEMENT_DOMAIN_TTL_MS;
-
-function agentManagerCacheKey(workspaceRoot: string) {
-  return workspaceRoot.trim() || "__default_workspace__";
-}
-
-function readCachedAgentManagerSnapshot(cacheKey: string): AgentManagementSnapshot | null {
-  return AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey)?.snapshot ?? null;
-}
-
-function readCachedAgentManagerDomains(cacheKey: string): DomainFreshnessMap {
-  return AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey)?.domains ?? {};
-}
-
-function writeCachedAgentManagerSnapshot(
-  cacheKey: string,
-  snapshot: AgentManagementSnapshot,
-  loadedDomains?: readonly ManagementLoadDomain[],
-) {
-  const previous = AGENT_MANAGER_SNAPSHOT_CACHE.get(cacheKey);
-  const domains = markDomainsFetched(
-    previous?.domains,
-    loadedDomains ?? (snapshot.loadedDomains as ManagementLoadDomain[] | undefined) ?? ["core", "skills", "mcp"],
-  );
-  AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, { snapshot, domains });
-}
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
   return value === "providers" || value === "agents" || value === "skills" || value === "mcp" || value === "archive";
@@ -293,9 +259,9 @@ export function AgentManagementPage(props: {
    * Load only the requested snapshot domains.
    * Default path for 本地: core only (no skill scan / MCP).
    *
-   * Concurrency: domains already in AGENT_MANAGER_DOMAIN_INFLIGHT are skipped
-   * (per-domain gate). After await, merge re-reads AGENT_MANAGER_SNAPSHOT_CACHE
-   * so a late mcp/skills response cannot wipe agents written by a concurrent core load.
+   * Concurrency: domains already mid-fetch in the shared store are skipped
+   * (per-domain gate, shared with shell prewarm). After await, merge re-reads
+   * the store so a late mcp/skills response cannot wipe concurrent core load.
    */
   const refresh = useCallback(async (options?: {
     force?: boolean;
@@ -313,7 +279,7 @@ export function AgentManagementPage(props: {
     const cached = readCachedAgentManagerSnapshot(cacheKey);
     const domainState = readCachedAgentManagerDomains(cacheKey);
 
-    // Cache-first paint for anything we already have.
+    // Cache-first paint for anything we already have (including shell prewarm).
     if (cached) {
       setSnapshot(cached);
       setError(null);
@@ -325,14 +291,14 @@ export function AgentManagementPage(props: {
       : missingDomains(domainState, needed, Date.now(), AGENT_MANAGER_SNAPSHOT_TTL_MS);
 
     // Per-domain flight gate: skip domains already mid-fetch (do not coalesce all into one key).
-    const flying = AGENT_MANAGER_DOMAIN_INFLIGHT.get(cacheKey) ?? new Set<ManagementLoadDomain>();
+    const flying = getAgentManagerDomainInFlight(cacheKey);
     const toFetch = domainsNotInFlight(staleOrMissing, flying);
 
     if (toFetch.length === 0) {
       return readCachedAgentManagerSnapshot(cacheKey) ?? cached;
     }
 
-    AGENT_MANAGER_DOMAIN_INFLIGHT.set(
+    setAgentManagerDomainInFlight(
       cacheKey,
       addInFlightDomains(flying, toFetch),
     );
@@ -373,12 +339,11 @@ export function AgentManagementPage(props: {
       }
       return latest ?? cached;
     } finally {
-      const still = AGENT_MANAGER_DOMAIN_INFLIGHT.get(cacheKey);
-      if (still) {
-        const next = removeInFlightDomains(still, toFetch);
-        if (next.size === 0) AGENT_MANAGER_DOMAIN_INFLIGHT.delete(cacheKey);
-        else AGENT_MANAGER_DOMAIN_INFLIGHT.set(cacheKey, next);
-      }
+      const still = getAgentManagerDomainInFlight(cacheKey);
+      setAgentManagerDomainInFlight(
+        cacheKey,
+        removeInFlightDomains(still, toFetch),
+      );
       setLoading(false);
       setRefreshing(false);
       setDomainLoading((current) => {
