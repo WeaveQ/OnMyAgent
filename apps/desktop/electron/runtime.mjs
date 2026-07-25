@@ -221,30 +221,6 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
   };
 }
 
-) {
-  const child = state.childExited ? null : state.child;
-  const reachable = options.reachable !== false;
-  const running = reachable && (state.inProcess || Boolean(child && child.exitCode === null && !child.killed));
-  return {
-    running,
-    remoteAccessEnabled: state.remoteAccessEnabled,
-    host: state.host,
-    port: state.port,
-    baseUrl: state.baseUrl,
-    connectUrl: state.connectUrl,
-    mdnsUrl: state.mdnsUrl,
-    lanUrl: state.lanUrl,
-    clientToken: state.clientToken,
-    ownerToken: state.ownerToken,
-    hostToken: state.hostToken,
-    managedOpencodeBinPath: state.managedOpencodeBinPath,
-    managedOpencodeBinSource: state.managedOpencodeBinSource,
-    pid: child?.pid ?? null,
-    lastStdout: state.lastStdout,
-    lastStderr: state.lastStderr,
-  };
-}
-
 async function fileExists(targetPath) {
   try {
     await readFile(targetPath);
