@@ -25,7 +25,8 @@ import {
 } from "../../app/lib/onmyagent-server";
 import { isDesktopRuntime, isElectronRuntime, safeStringify } from "../../app/utils";
 import { useServer } from "../kernel/server-provider";
-import { useBootState } from "./boot-state";
+import { useBootState, userFacingBootError } from "./boot-state";
+import { beginLoadScope } from "./route-load-registry";
 
 // Module-scoped latch so React Strict-Mode's "mount-unmount-remount" cycle in
 // dev only triggers the boot sequence once per app launch, and the async work
@@ -78,6 +79,7 @@ export function useDesktopRuntimeBoot() {
     }
     if (BOOT_STARTED) return;
     BOOT_STARTED = true;
+    const endDesktopBootScope = beginLoadScope("desktop-boot");
 
     void (async () => {
       try {
@@ -132,12 +134,16 @@ export function useDesktopRuntimeBoot() {
           };
 
           if (boot.ok === false) {
-            setError(boot.error || "Failed to start OnMyAgent runtime");
+            const friendly = userFacingBootError(
+              boot.error,
+              "system.boot_start_runtime_failed",
+            );
+            setError(friendly.message, friendly.technicalDetail);
             return;
           }
 
           if (!boot.skipped && !isOnMyAgentServerReady(boot.onmyagentServer)) {
-            setError("OnMyAgent server did not finish starting. Please restart OnMyAgent.");
+            setError(t("system.boot_server_not_ready"));
             return;
           }
 
@@ -255,7 +261,11 @@ export function useDesktopRuntimeBoot() {
               onmyagentRemoteAccess: readOnMyAgentServerSettings().remoteAccessEnabled === true,
             }).catch((error) => {
               console.warn("[desktop-boot] fallback engineStart failed:", error);
-              setError(error instanceof Error ? error.message : safeStringify(error));
+              const friendly = userFacingBootError(
+                error,
+                "system.start_workspace_failed",
+              );
+              setError(friendly.message, friendly.technicalDetail);
               return null;
             }) as EngineInfo | null;
             if (engineStartResult) {
@@ -298,7 +308,13 @@ export function useDesktopRuntimeBoot() {
         markReady();
       } catch (error) {
         console.warn("[desktop-boot] fatal:", error);
-        setError(error instanceof Error ? error.message : safeStringify(error));
+        const friendly = userFacingBootError(
+          error,
+          "system.boot_start_runtime_failed",
+        );
+        setError(friendly.message, friendly.technicalDetail);
+      } finally {
+        endDesktopBootScope();
       }
     })();
   }, [markReady, setActive, setError, setPhase]);

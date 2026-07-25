@@ -14,8 +14,12 @@ src/react-app/
 ├── shell/                     App bootstrap, providers, route frames (orchestration only)
 │   ├── session-route/         Session host facade folder (index + render + intent/composer/…)
 │   ├── settings-route/        Settings host (render + model + actions facade)
+│   ├── boot-state / loading-overlay   Progressive boot latch + full-screen overlay
+│   ├── route-load-registry / load-surface   Unified route/page load scopes + chrome
+│   ├── session-memory         Local prefs + cold-start sidebar session cache
 │   └── app-root / providers   Route tree composition
 ├── kernel/                    App-wide state + provider contracts
+│   └── user-error.ts          Product-facing error templates + classify helpers
 ├── infra/                     React-only runtime infra (e.g. QueryClient)
 ├── capabilities/              Cross-domain application capabilities with neutral ownership
 │   ├── artifacts/             Markdown, Office preview, open-target and artifact contracts
@@ -38,8 +42,10 @@ src/react-app/
     ├── agents/                Agent registry UI + personal agent pages
     ├── plugins/               Skills catalog / plugins / connectors pages
     ├── workspace/             Create + share + rename + workspace files
-    ├── settings/              Settings shell + tab bodies under pages/ (incl. global Updates)
-    ├── connections/           MCP + provider auth (canonical owner)
+    ├── settings/              Settings shell + tab bodies under pages/ (incl. global Updates,
+    │                            `state/ai-providers-controller.ts` for AI tab load/merge UX)
+    ├── connections/           MCP + provider auth (canonical owner);
+    │                            `merge-connected-providers.ts` shared inventory merge
     ├── cloud/                 Den auth + restrictions + org onboarding
     ├── shell-feedback/        Reload banner, toasts, top-right notifications
     └── shared/                Cross-domain infra only (see below)
@@ -143,8 +149,31 @@ reusable product composites belong in `design-system/`.
 - `react-app/kernel/platform.tsx`: `PlatformProvider` + `createDefaultPlatform()` (Electron vs web).
 - `react-app/kernel/system-state.ts`: reload + reset modal state.
 - `react-app/kernel/model-config.ts`: model parse/serialize + `useDefaultModel()`.
+- `react-app/kernel/user-error.ts`: scenario templates (`userErrorCopy` / `presentUserError` /
+  `userErrorFromRaw`) for route banners and provider failures — prefer over raw SDK strings.
 - `react-app/infra/query-client.ts`: TanStack Query singleton.
 - Domain stores: `session/sync/*`, `settings/state/*`, `connections/*`, etc.
+
+## Shell load / boot (cold start)
+
+| Piece | Role |
+| --- | --- |
+| `shell/boot-state.tsx` | Boot phase + one-way `routeReady` latch; progressive hide once shell can paint |
+| `shell/loading-overlay.tsx` | Full-screen overlay; prefers active `route-load-registry` message when busy |
+| `shell/route-load-registry.ts` | Nested load scopes (`desktop-boot`, `route-session`, `route-settings`, `session-refresh`, …) |
+| `shell/load-surface.tsx` | Shared `LoadSurface` + `useLoadScope` for boot/route/inset chrome |
+| `shell/session-memory.ts` | Workspace prefs + **sidebar session title cache** for cold-start paint |
+
+Rules for implementers:
+
+- First route open reports `route-session` / `route-settings`; after the shell is interactive, soft
+  refreshes use quieter scopes (e.g. `session-refresh`) and must not re-blank page chrome.
+- Mark boot `routeReady` as soon as workspace chrome can paint (desktop workspace list + optional
+  cached sidebar titles); do not wait for full engine warm-up to dismiss the overlay.
+- User-visible load copy keys live under `system.load_*` / `system.boot_*` in i18n — do not reuse
+  session message-pulling copy for workspace/route loads.
+- Product errors: classify through `kernel/user-error` before showing route banners; wire recovery
+  actions (`retry` / `open_ai_settings` / `reload_app`) when the host has a button slot.
 
 ## `shared/` contents (current)
 
@@ -261,7 +290,9 @@ tree when a domain-scoped import path is clearer:
   stays in `render.tsx` / `page-view.tsx` / sibling modules — do not reintroduce a
   root-level `session-route.tsx` god file.
 - **Settings host:** `shell/settings-route/` folder facade (`index.ts` + `render.tsx` + modules);
-  `settings-route-render.tsx` is a compat re-export.
+  `settings-route-render.tsx` is a compat re-export. AI providers tab UX is driven by
+  `domains/settings/state/ai-providers-controller.ts` (merge via
+  `connections/mergeConnectedProviders`).
 - Guard: `node scripts/checks/architecture-paths.mjs` (expects `session-route/index.ts`
   + `session-route/render.tsx` + thin settings entry).
 

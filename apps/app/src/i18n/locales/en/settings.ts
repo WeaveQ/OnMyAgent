@@ -357,7 +357,8 @@ export default {
   "settings.last_error": "Last error",
   "settings.last_stderr": "Last stderr",
   "settings.last_stdout": "Last stdout",
-  "settings.loading_providers": "Loading providers...",
+  // Prefer system.load_settings_ai for new UI; these stay as aliases.
+  "settings.loading_providers": "Loading providers…",
   "settings.loading_providers_list": "Loading providers…",
   "settings.loading_providers_inventory":
     "Syncing custom providers in the background…",
@@ -379,6 +380,15 @@ export default {
   "settings.providers_empty_summary": "No model providers added yet",
   "settings.connect_provider_empty_hint":
     "Use “Custom model provider configuration” above for a compatible API, or “Connect model provider” to sign in to a hosted service.",
+  "settings.providers_empty_title": "Add a model provider to get started",
+  "settings.providers_empty_body":
+    "Connect a hosted service, or add a compatible API with custom configuration. You can set the default chat model after at least one provider is ready.",
+  "settings.providers_empty_cta_connect": "Connect model provider",
+  "settings.providers_empty_cta_custom": "Custom configuration",
+  "settings.providers_empty_runtime_title": "Workspace service is offline",
+  "settings.providers_empty_runtime_body":
+    "Custom configuration still works. Connecting hosted providers needs the local workspace service to be running.",
+  "settings.provider_error_retry": "Try again",
   "settings.provider_model_count": "{count} models",
   "settings.no_audit_entries": "No audit entries yet.",
   "settings.no_custom_path_set": "No custom path set",
@@ -938,14 +948,15 @@ export default {
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
   "settings.provider_edit_confirm_title": "Save changes to this model provider?",
-  "settings.provider_edit_confirm_desc": "Saving writes to the OpenCode config. Reload the engine for changes to take effect.",
+  "settings.provider_edit_confirm_desc":
+    "Saving updates this workspace’s model configuration. Reload to apply the changes.",
   "settings.provider_edit_confirm_button": "Save changes",
   "settings.provider_delete_confirm_title": "Delete this model provider?",
   "settings.provider_delete_confirm_desc":
     "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
   "settings.provider_more_actions": "More actions",
-  "settings.provider_reload_required_title": "Engine reload required",
+  "settings.provider_reload_required_title": "Reload to apply changes",
   "settings.provider_reload_required_desc":
-    "Adding or modifying model providers requires an engine reload (no need to restart the app) to take effect immediately. Click reload now to apply.",
+    "Adding or changing model providers needs a quick reload (no app restart) before they work in new chats. Reload now to apply.",
   "settings.provider_reload_now": "Reload now",
 } as const;

@@ -72,6 +72,7 @@ import type {
 } from "../../../app/types";
 import { isDesktopRuntime } from "../../../app/utils";
 import { usePlatform } from "../../kernel/platform";
+import { userErrorFromRaw } from "../../kernel/user-error";
 import {
   useRemoteWorkspaceConnectionEditor,
   useShareWorkspaceState,
@@ -88,11 +89,13 @@ import {
 import { useBootState } from "../boot-state";
 import {
   readActiveWorkspaceId,
+  readCachedSidebarSessionsByWorkspace,
   readLastSessionFor,
   readSessionTodos,
   readWorkspaceOrderIds,
   writeSessionTodos,
 } from "../session-memory";
+import { useShellInteractiveLoad } from "../use-shell-interactive-load";
 import { useReactRenderWatchdog } from "../react-render-watchdog";
 import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagent";
 import { useStatusToasts } from "../../domains/shell-feedback";
@@ -148,6 +151,11 @@ export function SessionRouteRender() {
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
+  const { shellInteractive } = useShellInteractiveLoad({
+    loading,
+    firstLoadScope: "route-session",
+    softRefreshScope: "session-refresh",
+  });
   const [client, setClient] = useState<OnMyAgentServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
@@ -157,7 +165,7 @@ export function SessionRouteRender() {
   );
   const [sessionsByWorkspaceId, setSessionsByWorkspaceId] = useState<
     Record<string, SidebarSessionItem[]>
-  >({});
+  >(() => readCachedSidebarSessionsByWorkspace());
   const [errorsByWorkspaceId, setErrorsByWorkspaceId] = useState<
     Record<string, string | null>
   >({});
@@ -173,9 +181,7 @@ export function SessionRouteRender() {
       (selectedWorkspaceId ? null : (workspaces[0] ?? null)),
     [selectedWorkspaceId, workspaces],
   );
-  // Workspace-scoped API calls (sessions, events, activate, opencode/*) must
-  // hit the worker that owns the workspace, not the user's local server. The
-  // single source of truth for that routing is `resolveWorkspaceEndpoint`.
+  // API calls use resolveWorkspaceEndpoint so remote workspaces hit the owner.
   //
   // Route refs let stable callbacks read current workspace/session/server
   // values without cascading refresh loops.
@@ -649,7 +655,7 @@ export function SessionRouteRender() {
     }).catch((error) => {
       const message =
         error instanceof Error ? error.message : describeRouteError(error);
-      setRouteError(message);
+      setRouteError(userErrorFromRaw(message));
     });
   }, [client, loading, selectedWorkspace, workspaces]);
 
@@ -666,7 +672,7 @@ export function SessionRouteRender() {
     sessionWorkspaceRoot,
     selectedWorkspaceError,
     routeNotFoundMessage,
-    effectiveLoading,
+    effectiveLoading: routeDataLoading,
   } = buildSelectedWorkspaceRouteState({
     selectedWorkspace,
     selectedSessionWorkspaceDirectory:
@@ -680,14 +686,12 @@ export function SessionRouteRender() {
     errorsByWorkspaceId,
     sessionsByWorkspaceId,
   });
+  const effectiveLoading = routeDataLoading && !shellInteractive;
   const selectedSessionFileRoot = resolveSelectedSessionFileRoot({
     boundDirectory: selectedSessionWorkspace?.directory,
     sessionDirectory: selectedSessionDirectory,
     workspaceRoot: selectedWorkspaceRoot,
   });
-  // Single source of truth for the selected workspace's server URL/token/id.
-  // For remote workspaces this is the worker that owns the workspace; for
-  // local workspaces it's the user's local OnMyAgent server.
   const selectedWorkspaceEndpoint = useMemo(
     () => resolveWorkspaceEndpoint(selectedWorkspace, { baseUrl, token }),
     [baseUrl, selectedWorkspace, token],

@@ -60,7 +60,7 @@ export function AiSettingsProvidersSkeleton(props: { rows?: number }) {
             />
           ))}
         </SettingsBlock>
-        <span className="sr-only">{t("settings.loading_providers_list")}</span>
+        <span className="sr-only">{t("system.load_settings_ai")}</span>
       </div>
     </LayoutStack>
   );

@@ -1,65 +1,78 @@
 /** @jsxImportSource react */
-import { useBootState, useBootOverlayVisible } from "./boot-state";
-import { OwDotTicker } from "./dot-ticker";
+import { Button } from "@/components/ui/button";
+
 import { t } from "../../i18n";
+import { relaunchDesktopApp } from "../../app/lib/desktop";
+import { isElectronRuntime } from "../../app/utils";
+import { useBootState, useBootOverlayVisible } from "./boot-state";
+import { LoadSurface, useRouteLoadTop } from "./load-surface";
 
 const RELEASES_URL = "https://github.com/WeaveQ/onmyagent/releases";
 
-const loadingOverlayClass = {
-  shell: "fixed inset-0 z-[1000] flex items-center justify-center bg-dls-surface transition-opacity duration-[160ms]",
-  visible: "pointer-events-auto opacity-100",
-  fading: "pointer-events-none opacity-0",
-  content: "flex w-full max-w-[320px] flex-col items-center gap-4 px-6 text-center",
-  message: "text-xs leading-5 text-dls-secondary",
-  error: "flex flex-col gap-2 text-xs leading-5 text-dls-status-danger-fg",
+const errorClass = {
+  wrap: "flex flex-col gap-3 text-xs leading-5 text-dls-status-danger-fg",
   secondary: "text-dls-secondary",
   link: "text-dls-accent underline decoration-dls-accent/40 underline-offset-4",
+  actions: "flex flex-wrap items-center justify-center gap-2",
 };
+
+function relaunchOrReload() {
+  if (isElectronRuntime()) {
+    void relaunchDesktopApp().catch(() => {
+      window.location.reload();
+    });
+    return;
+  }
+  window.location.reload();
+}
 
 /**
  * Quiet, opaque boot overlay. Solid surface fill so nothing bleeds through.
- * A minimal typographic beat plus a small dot ticker. Fades once both the
- * boot hook and the first route load are ready.
+ * Message prefers active route-load registry scopes, then boot phase copy.
+ * Fades once both the boot hook and the first route load are ready.
  */
 export function LoadingOverlay() {
   const visible = useBootOverlayVisible();
   const { phase, message, error } = useBootState();
+  const { top, detail, busy: routeBusy } = useRouteLoadTop();
 
   if (!visible) return null;
 
   const fading = phase === "ready";
+  // Prefer specific route load copy when something is actively loading under the overlay.
+  const displayMessage =
+    routeBusy && top
+      ? t(top.messageKey ?? "system.boot_preparing_workspace") +
+        (detail?.trim() ? ` · ${detail.trim()}` : "")
+      : message || t("system.boot_preparing_workspace");
 
   return (
-    <div
-      className={`${loadingOverlayClass.shell} ${
-        fading ? loadingOverlayClass.fading : loadingOverlayClass.visible
-      }`}
-      aria-live="polite"
-      aria-busy={!fading}
-      role="status"
-    >
-      <div className={loadingOverlayClass.content}>
-        <OwDotTicker size="md" />
-        <div className={loadingOverlayClass.message}>
-          {message || t("system.boot_preparing_workspace")}
-        </div>
-        {error ? (
-          <div className={loadingOverlayClass.error}>
-            <div>{error}</div>
-            <div className={loadingOverlayClass.secondary}>
-              Download the latest version manually here:{" "}
-              <a
-                href={RELEASES_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={loadingOverlayClass.link}
-              >
-                {RELEASES_URL}
-              </a>
-            </div>
+    <LoadSurface variant="full" fading={fading} message={displayMessage}>
+      {error ? (
+        <div className={errorClass.wrap}>
+          <div>{error}</div>
+          <div className={errorClass.actions}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => relaunchOrReload()}
+            >
+              {t("system.boot_retry")}
+            </Button>
           </div>
-        ) : null}
-      </div>
-    </div>
+          <div className={errorClass.secondary}>
+            {t("system.boot_download_latest_hint")}{" "}
+            <a
+              href={RELEASES_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={errorClass.link}
+            >
+              {RELEASES_URL}
+            </a>
+          </div>
+        </div>
+      ) : null}
+    </LoadSurface>
   );
 }

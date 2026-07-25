@@ -133,9 +133,10 @@ describe("settings AI view wiring (structural)", () => {
     );
     expect(aiView).toContain("settings.provider_model_count");
     expect(aiView).toContain("settings.provider_model_count_pending");
-    expect(aiView).toContain("settings.loading_providers_list");
+    expect(aiView).toContain("system.load_settings_ai");
     expect(aiView).toContain("settings.loading_providers_inventory");
-    expect(aiView).toContain("settings.connect_provider_empty_hint");
+    expect(aiView).toContain("settings.providers_empty_title");
+    expect(aiView).toContain("settings.providers_empty_cta_connect");
     expect(aiView).toContain("modelCount");
     expect(aiView).toContain("providersLoading");
     expect(aiView).toContain("inventorySyncing");
@@ -151,7 +152,7 @@ describe("settings AI view wiring (structural)", () => {
       "utf8",
     );
     expect(skeleton).toContain("export function AiSettingsProvidersSkeleton");
-    expect(skeleton).toContain("settings.loading_providers_list");
+    expect(skeleton).toContain("system.load_settings_ai");
   });
 
   test("settings-route uses phase helpers and never empty→disconnected_label", () => {
@@ -164,9 +165,9 @@ describe("settings AI view wiring (structural)", () => {
     );
     expect(route).toContain("resolveAiProvidersUiPhase");
     expect(route).toContain("aiProvidersStatusI18nKey");
-    expect(route).toContain("countOpenCodeProviderModels");
+    expect(route).toContain("useAiProvidersController");
     expect(route).toContain("providersLoading={providersDiscovering}");
-    expect(route).toContain("inventorySyncing=");
+    expect(route).toContain("inventorySyncing={inventorySyncing}");
     expect(route).toContain("SettingsAiTabSuspense");
     // Empty branch must not hard-code disconnected for finished empty list.
     expect(route).not.toMatch(

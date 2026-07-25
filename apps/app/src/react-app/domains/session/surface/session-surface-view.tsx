@@ -188,7 +188,7 @@ export type SessionSurfaceViewProps = {
   listImportedPlugins: () => Promise<CloudImportedPlugin[]>;
   importedPlugins: CloudImportedPlugin[];
   onOpenSettingsSection?:
-    | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
+    | ((section: "ai" | "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
   onOpenSkillsMarketplace?: (() => void) | undefined;
   onOpenConnectorsMarketplace?: (() => void) | undefined;
