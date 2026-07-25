@@ -869,14 +869,15 @@ export default {
   "settings.browser.tabs": "標籤頁 {value}",
   "settings.browser.agent_tabs": "智慧代理標籤頁 {value}",
   "settings.provider_edit_confirm_title": "儲存對此模型服務商的修改？",
-  "settings.provider_edit_confirm_desc": "儲存將寫入 OpenCode 設定，需重新載入引擎後生效。",
+  "settings.provider_edit_confirm_desc":
+    "儲存將更新此工作區的模型配置，重新載入後生效。",
   "settings.provider_edit_confirm_button": "儲存修改",
   "settings.provider_delete_confirm_title": "刪除此模型服務商？",
   "settings.provider_delete_confirm_desc":
     "確定刪除「{name}」嗎？將從目前配置移除，之後新對話無法使用；歷史會話記錄會保留。",
   "settings.provider_more_actions": "更多操作",
-  "settings.provider_reload_required_title": "需要重新載入引擎",
+  "settings.provider_reload_required_title": "需要重新載入以應用變更",
   "settings.provider_reload_required_desc":
-    "新增或修改模型服務商需要重新載入引擎（不用重啟 App）以使修改立即生效，請點擊立即重新載入按鈕。",
+    "新增或修改模型服務商後，需要快速重新載入（不用重啟應用）才會在新對話中生效。請點擊立即重新載入。",
   "settings.provider_reload_now": "立即重新載入",
 } as const;

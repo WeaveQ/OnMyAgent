@@ -21,6 +21,7 @@ import {
   readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspaces,
 } from "../../domains/session";
+import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 import {
   describeWorkspaceSessionLoadError,
   isRemoteOnMyAgentWorkspace,
@@ -191,6 +192,12 @@ export function useSessionRouteSessionLoader(input: Input) {
                 ),
             });
             sessionsByWorkspaceIdRef.current = next;
+            // Persist lightweight titles so the next cold start can paint the
+            // sidebar before OpenCode finishes indexing.
+            writeCachedSidebarSessionsForWorkspace(
+              workspace.id,
+              next[workspace.id] ?? sidebarItems,
+            );
             return next;
           });
           setErrorsByWorkspaceId((current) => ({

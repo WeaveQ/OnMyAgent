@@ -131,9 +131,10 @@ const BootStateContext = createContext<BootStateContextValue | null>(null);
 
 export function BootStateProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<BootStateSnapshot>(DEFAULT_STATE);
-  // Once the main route has finished its first successful refresh (workspaces
-  // + sessions fetched), we consider the app "interactive". This is a one-way
-  // latch so subsequent background refreshes never re-show the overlay.
+  // Once the main route has enough shell chrome to paint (workspace list and
+  // optionally cached sidebar titles), we consider the app interactive. This
+  // is a one-way latch so subsequent background refreshes never re-show the
+  // overlay. Session index and engine warm-up continue after this latch.
   const [routeReady, setRouteReady] = useState(false);
   const startedAtRef = useRef<number | null>(null);
 
@@ -212,18 +213,21 @@ export function useBootState(): BootStateContextValue {
 }
 
 /**
- * Overlay stays up until BOTH the desktop boot hook has reported `ready` AND
- * the main route has completed its first refresh (`routeReady`). After that
- * we hold for ~160ms so the fade feels intentional instead of a flicker.
+ * Overlay stays up until the main route has enough shell data (`routeReady`).
+ * Engine/runtime may still be warming (phase `starting-engine`, etc.); that
+ * continues as in-app status rather than a full-screen blocker so cold start
+ * feels interactive sooner. Errors keep the overlay so retry chrome is visible.
+ *
+ * After `canHide` we hold ~200ms so the fade feels intentional instead of a flicker.
  */
 export function useBootOverlayVisible(): boolean {
   const { phase, routeReady } = useBootState();
   // HMR can remount the provider while the route tree stays mounted. In that
   // state the boot phase falls back to `idle`, but the already-rendered route
-  // is interactive and can mark itself ready again. Treat `idle + routeReady`
-  // the same as `ready + routeReady` so the full-screen boot overlay never
-  // becomes a permanent pointer-events blocker during development.
-  const canHide = routeReady && (phase === "ready" || phase === "idle");
+  // is interactive and can mark itself ready again.
+  // Progressive: once the route painted shell chrome, hide even if desktop
+  // boot is still on starting-engine / activating-workspace.
+  const canHide = routeReady && phase !== "error";
   const [visible, setVisible] = useState(!canHide);
 
   useEffect(() => {

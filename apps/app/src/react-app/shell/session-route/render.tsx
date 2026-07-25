@@ -90,6 +90,7 @@ import { useBootState } from "../boot-state";
 import { useLoadScope } from "../load-surface";
 import {
   readActiveWorkspaceId,
+  readCachedSidebarSessionsByWorkspace,
   readLastSessionFor,
   readSessionTodos,
   readWorkspaceOrderIds,
@@ -150,9 +151,16 @@ export function SessionRouteRender() {
 
   const { markRouteReady: markBootRouteReady } = useBootState();
   const [loading, setLoading] = useState(true);
-  // Shared load registry so boot overlay / surfaces show "Loading workspace…"
-  // instead of a second full-screen with the same boot copy.
-  useLoadScope("route-session", loading);
+  // After the first successful route refresh the shell is interactive. Later
+  // refreshes must not re-blank the page or re-report a full route load —
+  // that is the "double load" users feel after boot.
+  const [shellInteractive, setShellInteractive] = useState(false);
+  useEffect(() => {
+    if (!loading) setShellInteractive(true);
+  }, [loading]);
+  // First paint → route-session (feeds boot overlay). Soft refresh → quieter scope.
+  useLoadScope("route-session", loading && !shellInteractive);
+  useLoadScope("session-refresh", loading && shellInteractive);
   const [client, setClient] = useState<OnMyAgentServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
@@ -162,7 +170,7 @@ export function SessionRouteRender() {
   );
   const [sessionsByWorkspaceId, setSessionsByWorkspaceId] = useState<
     Record<string, SidebarSessionItem[]>
-  >({});
+  >(() => readCachedSidebarSessionsByWorkspace());
   const [errorsByWorkspaceId, setErrorsByWorkspaceId] = useState<
     Record<string, string | null>
   >({});
@@ -671,7 +679,7 @@ export function SessionRouteRender() {
     sessionWorkspaceRoot,
     selectedWorkspaceError,
     routeNotFoundMessage,
-    effectiveLoading,
+    effectiveLoading: routeDataLoading,
   } = buildSelectedWorkspaceRouteState({
     selectedWorkspace,
     selectedSessionWorkspaceDirectory:
@@ -685,6 +693,9 @@ export function SessionRouteRender() {
     errorsByWorkspaceId,
     sessionsByWorkspaceId,
   });
+  // Only the first load blanks chrome / shows startup skeleton. Soft refresh
+  // keeps the interactive shell and relies on registry session-refresh copy.
+  const effectiveLoading = routeDataLoading && !shellInteractive;
   const selectedSessionFileRoot = resolveSelectedSessionFileRoot({
     boundDirectory: selectedSessionWorkspace?.directory,
     sessionDirectory: selectedSessionDirectory,

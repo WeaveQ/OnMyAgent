@@ -948,14 +948,15 @@ export default {
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
   "settings.provider_edit_confirm_title": "Save changes to this model provider?",
-  "settings.provider_edit_confirm_desc": "Saving writes to the OpenCode config. Reload the engine for changes to take effect.",
+  "settings.provider_edit_confirm_desc":
+    "Saving updates this workspace’s model configuration. Reload to apply the changes.",
   "settings.provider_edit_confirm_button": "Save changes",
   "settings.provider_delete_confirm_title": "Delete this model provider?",
   "settings.provider_delete_confirm_desc":
     "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
   "settings.provider_more_actions": "More actions",
-  "settings.provider_reload_required_title": "Engine reload required",
+  "settings.provider_reload_required_title": "Reload to apply changes",
   "settings.provider_reload_required_desc":
-    "Adding or modifying model providers requires an engine reload (no need to restart the app) to take effect immediately. Click reload now to apply.",
+    "Adding or changing model providers needs a quick reload (no app restart) before they work in new chats. Reload now to apply.",
   "settings.provider_reload_now": "Reload now",
 } as const;

@@ -36,6 +36,7 @@ import { isDesktopRuntime, safeStringify } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
+import { useBootOverlayVisible } from "../boot-state";
 import {
   SessionPage,
   resetRailBookmarkToPrimary,
@@ -277,6 +278,7 @@ export type SessionRoutePageViewProps = {
 };
 
 export function SessionRoutePageView(props: SessionRoutePageViewProps) {
+  const bootOverlayVisible = useBootOverlayVisible();
   const {
     activePermission,
     activeQuestion,
@@ -472,8 +474,14 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               ? t("status.connected")
               : t("system.load_session_route")
           }
+          // While the full-screen boot overlay is up, skip busyHint so users
+          // do not read the same load copy twice (overlay + header chrome).
           busyHint={
-            effectiveLoading ? t("system.load_session_route") : null
+            bootOverlayVisible
+              ? null
+              : effectiveLoading
+                ? t("system.load_session_route")
+                : null
           }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
           providerConnectedIds={providerConnectedIds}

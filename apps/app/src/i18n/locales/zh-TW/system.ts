@@ -2,22 +2,22 @@ import { APP_NAME } from "../brand";
 
 export default {
   "system.reload_body_agents":
-    "Agent 在啟動時加載。重新加載引擎以使更新的 Agent 可用。",
+    "Agent 在啟動時載入。請重新載入以使更新的 Agent 可用。",
   "system.reload_body_commands":
-    "命令在啟動時加載。重新加載引擎以使更新的命令可用。",
+    "命令在啟動時載入。請重新載入以使更新的命令可用。",
   "system.reload_body_config":
-    "工作區配置在啟動時讀取。重新加載引擎以應用配置變更。",
-  "system.reload_body_default": `${APP_NAME}檢測到需要重新加載本地智能體引擎的變更。`,
+    "工作區配置在啟動時讀取。請重新載入以應用變更。",
+  "system.reload_body_default": `${APP_NAME}檢測到需要重新載入後才能生效的變更。`,
   "system.reload_body_mcp":
-    "MCP 服務器在啟動時加載。重新加載引擎以激活新連接。",
-  "system.reload_body_mixed": `${APP_NAME}檢測到配置變更。重新加載引擎以應用。`,
+    "連接器在啟動時載入。請重新載入以啟用新連接。",
+  "system.reload_body_mixed": `${APP_NAME}檢測到配置變更。請重新載入以應用。`,
   "system.reload_body_plugins":
-    "插件在啟動時加載。重新加載引擎以應用配置變更。",
+    "插件在啟動時載入。請重新載入以應用配置變更。",
   "system.reload_body_skills":
-    "技能發現狀態可能會被緩存。重新加載引擎以使新安裝的技能可用。",
-  "system.reload_failed": "重新加載引擎失敗。",
-  "system.reload_required": "需要重新加載",
-  "system.reload_unavailable": "此工作區不支持重新加載。",
+    "技能發現狀態可能會被快取。請重新載入以使新安裝的技能可用。",
+  "system.reload_failed": "無法應用變更，請再試一次重新載入。",
+  "system.reload_required": "需要重新載入以應用變更",
+  "system.reload_unavailable": "此工作區暫不支援重新載入。",
   "system.stop_active_runs_before_reset": "請先停止活躍的運行再重置。",
   "system.server_unhealthy": "服務器報告狀態異常。",
   "system.boot_preparing_workspace": "正在啟動 OnMyAgent…",

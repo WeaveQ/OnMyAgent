@@ -52,6 +52,7 @@ import {
 import { maxSequence } from "./sessions";
 import {
   readActiveWorkspaceId,
+  readCachedSidebarSessionsByWorkspace,
   writeActiveWorkspaceId,
 } from "../session-memory";
 
@@ -139,6 +140,21 @@ export function useSessionRouteRefresh(input: Input) {
   );
   const launchActivatedWorkspaceIdsRef = useRef(new Set<string>());
   const startupRetryTimerRef = useRef<number | null>(null);
+  const startupRetryAttemptsRef = useRef(0);
+  const refreshRouteStateRef = useRef<(() => Promise<void>) | null>(null);
+
+  const scheduleStartupConnectionRetry = useCallback(() => {
+    if (startupRetryTimerRef.current !== null) return;
+    if (startupRetryAttemptsRef.current >= 8) return;
+    const attempt = startupRetryAttemptsRef.current + 1;
+    // Backoff while desktop runtime finishes embedding the local server.
+    startupRetryTimerRef.current = window.setTimeout(() => {
+      startupRetryTimerRef.current = null;
+      startupRetryAttemptsRef.current = attempt;
+      refreshInFlightRef.current = false;
+      void refreshRouteStateRef.current?.();
+    }, Math.min(350 * attempt, 2_000));
+  }, []);
 
   const refreshRouteState = useCallback(async () => {
     // Dedupe: if a refresh is already running, skip this call. Fast workspace
@@ -153,12 +169,53 @@ export function useSessionRouteRefresh(input: Input) {
       ReturnType<typeof loadDesktopSessionWorkspaces>
     >["desktopList"] = null;
     let desktopWorkspaces = workspacesRef.current;
+    let shellReadyMarked = false;
+    const markShellReady = () => {
+      if (shellReadyMarked) return;
+      shellReadyMarked = true;
+      // Dismiss the full-screen boot overlay as soon as workspace chrome can
+      // paint. Session index + engine warm-up continue in the background.
+      markBootRouteReady();
+    };
     try {
       const desktopBootstrap = await loadDesktopSessionWorkspaces({
         fallbackWorkspaces: workspacesRef.current,
       });
       desktopList = desktopBootstrap.desktopList;
       desktopWorkspaces = desktopBootstrap.desktopWorkspaces;
+
+      // Progressive shell: paint desktop workspaces + last sidebar titles
+      // before waiting on the local server / OpenCode cold start.
+      if (desktopWorkspaces.length > 0) {
+        const cachedSessions = readCachedSidebarSessionsByWorkspace();
+        const desktopSelectedId =
+          resolveSelectedDesktopSessionWorkspaceId(desktopList);
+        const disconnectedPreview = buildDisconnectedRouteState({
+          desktopWorkspaces,
+          workspaceOrderIds: workspaceOrderIdsRef.current,
+          desktopSelectedId,
+        });
+        setWorkspaces(disconnectedPreview.orderedWorkspaces);
+        if (Object.keys(cachedSessions).length > 0) {
+          const nextSessions = { ...cachedSessions };
+          sessionsByWorkspaceIdRef.current = {
+            ...sessionsByWorkspaceIdRef.current,
+            ...nextSessions,
+          };
+          setSessionsByWorkspaceId((current) => ({
+            ...current,
+            ...nextSessions,
+          }));
+        }
+        if (disconnectedPreview.selectedWorkspaceId) {
+          setLegacySelectedWorkspaceId((current) =>
+            current?.trim()
+              ? current
+              : disconnectedPreview.selectedWorkspaceId,
+          );
+        }
+        markShellReady();
+      }
 
       const sessionConnection = await loadSessionOnMyAgentConnectionState();
       setOnMyAgentServerHostInfoState(sessionConnection.hostInfo);
@@ -177,11 +234,29 @@ export function useSessionRouteRefresh(input: Input) {
             resolveSelectedDesktopSessionWorkspaceId(desktopList),
         });
         setWorkspaces(disconnectedState.orderedWorkspaces);
-        sessionsByWorkspaceIdRef.current = {};
-        setSessionsByWorkspaceId({});
+        // Keep cached sidebar titles during transient disconnect on cold start
+        // so the shell does not flash empty while the runtime is still booting.
+        if (Object.keys(sessionsByWorkspaceIdRef.current).length === 0) {
+          const cachedSessions = readCachedSidebarSessionsByWorkspace();
+          if (Object.keys(cachedSessions).length > 0) {
+            sessionsByWorkspaceIdRef.current = cachedSessions;
+            setSessionsByWorkspaceId(cachedSessions);
+          } else {
+            sessionsByWorkspaceIdRef.current = {};
+            setSessionsByWorkspaceId({});
+          }
+        }
         setErrorsByWorkspaceId({});
         setLegacySelectedWorkspaceId(disconnectedState.selectedWorkspaceId);
+        markShellReady();
+        scheduleStartupConnectionRetry();
         return;
+      }
+      // Connected — stop cold-start connection polling.
+      startupRetryAttemptsRef.current = 0;
+      if (startupRetryTimerRef.current !== null) {
+        window.clearTimeout(startupRetryTimerRef.current);
+        startupRetryTimerRef.current = null;
       }
 
       // Update the local-server ref synchronously, BEFORE we kick off any
@@ -297,10 +372,9 @@ export function useSessionRouteRefresh(input: Input) {
     } finally {
       setLoading(false);
       refreshInFlightRef.current = false;
-      // Tell the boot overlay the first route data load has completed so
-      // the overlay dismisses after BOTH the desktop boot and the workspace
-      // list/sessions are ready.
-      markBootRouteReady();
+      // Ensure overlay can dismiss even if desktop workspace list was empty
+      // (first-run / no local workspaces yet).
+      markShellReady();
     }
   }, [
     endpointForWorkspace,
@@ -308,6 +382,7 @@ export function useSessionRouteRefresh(input: Input) {
     localServerRef,
     markBootRouteReady,
     routeWorkspaceId,
+    scheduleStartupConnectionRetry,
     selectedSessionId,
     sessionsByWorkspaceIdRef,
     setBaseUrl,
@@ -324,6 +399,8 @@ export function useSessionRouteRefresh(input: Input) {
     workspaceOrderIdsRef,
     workspacesRef,
   ]);
+
+  refreshRouteStateRef.current = refreshRouteState;
 
   const remoteAccessRestart = useRemoteAccessRestart({
     isEnabled: () => onmyagentServerSettings.remoteAccessEnabled === true,

@@ -183,6 +183,8 @@ export default {
   "session.model_unavailable_after_removed_title": "Previous model is no longer available",
   "session.model_unavailable_after_removed_desc":
     "{model} is not available in the current configuration. Choose another model to continue.",
+  "session.model_unavailable_send_blocked":
+    "This model is no longer available. Choose another model, or open model settings to reconnect the provider.",
   "session.transcript_yesterday": "Yesterday",
   "session.expand_pasted_text": "Expand pasted text",
   "session.collapse_pasted_text": "Collapse pasted text",

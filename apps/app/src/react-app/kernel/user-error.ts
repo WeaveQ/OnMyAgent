@@ -120,6 +120,21 @@ export function userErrorFromRaw(message: string | null | undefined): string {
   return userErrorMessage(classified.scenario, classified.detail);
 }
 
+/**
+ * Full presentation for hosts that can wire recovery buttons.
+ * Prefer this when rendering banners with primary actions.
+ */
+export function presentUserError(
+  message: string | null | undefined,
+  forcedScenario?: UserErrorScenario,
+): UserErrorCopy {
+  if (forcedScenario) {
+    return userErrorCopy(forcedScenario);
+  }
+  const classified = classifyProviderError(message);
+  return userErrorCopy(classified.scenario, classified.detail);
+}
+
 /** Classify common provider/auth error strings into a scenario. */
 export function classifyProviderError(message: string | null | undefined): {
   scenario: UserErrorScenario;
