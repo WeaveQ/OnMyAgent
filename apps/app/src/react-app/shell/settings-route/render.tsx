@@ -41,8 +41,8 @@ import {
   useExtensionsStoreSnapshot,
   SettingsShell,
   useAiProvidersController,
+  prewarmWorkspaceProviders,
 } from "../../domains/settings";
-import { prewarmWorkspaceProviders } from "../../domains/settings/state/providers-prewarm";
 import { useBootState } from "../boot-state";
 import { userErrorFromRaw } from "../../kernel/user-error";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";

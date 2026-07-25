@@ -18,8 +18,8 @@ import {
   workspaceServerId,
   type ResolvedWorkspaceEndpoint,
 } from "../../../app/lib/workspace-endpoint";
-import { prewarmWorkspaceProviders } from "../../domains/settings/state/providers-prewarm";
-import { prewarmAgentManagementCore } from "../../domains/local-agents/agent-management/agent-management-snapshot-store";
+import { prewarmWorkspaceProviders } from "../../domains/settings";
+import { prewarmAgentManagementCore } from "../../domains/local-agents";
 import {
   buildSelectedWorkspaceRouteState,
   describeRouteError,
