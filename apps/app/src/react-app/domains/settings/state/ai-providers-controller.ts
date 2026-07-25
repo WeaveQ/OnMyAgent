@@ -27,7 +27,7 @@ import {
 import {
   readConnectedProviderOrderIds,
   writeConnectedProviderOrderIds,
-} from "../../../shell/session-memory";
+} from "../../../shell";
 
 /** Match provider-list React Query TTL so list + inventory stay coherent. */
 export const OPENCODE_INVENTORY_CACHE_MS = 5 * 60 * 1000;

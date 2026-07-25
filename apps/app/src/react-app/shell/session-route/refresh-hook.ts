@@ -33,7 +33,7 @@ import { loadSessionOnMyAgentConnectionState } from "./server-actions";
 import {
   RELOAD_EVENTS_POLL_INTERVAL_MS,
   shouldRunReloadEventsPoll,
-} from "../../domains/session/sync/session-poll-policy";
+} from "../../domains/session";
 import {
   buildConnectedRouteRefreshPlan,
   buildDisconnectedRouteState,

@@ -57,8 +57,8 @@ import {
 import { isDesktopRuntime } from "../../app/utils";
 import { useLocal, type OnboardingProfile } from "../kernel/local-provider";
 import { createOnMyAgentServerClient } from "../../app/lib/onmyagent-server";
-import { prewarmAgentManagementCore } from "../domains/local-agents/agent-management/agent-management-snapshot-store";
-import { prewarmProvidersForWorkspace } from "../domains/settings/state/providers-prewarm";
+import { prewarmAgentManagementCore } from "../domains/local-agents";
+import { prewarmProvidersForWorkspace } from "../domains/settings";
 import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 import { writeActiveWorkspaceId } from "./session-memory";
 import {

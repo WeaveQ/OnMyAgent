@@ -32,3 +32,8 @@ export * from "./workspace-shell-layout";
 export * from "./new-providers-toast";
 export * from "./workspace-provider";
 export * from "./font-zoom";
+/** Preference / session-scoped localStorage helpers used by domains via this barrel only. */
+export {
+  readConnectedProviderOrderIds,
+  writeConnectedProviderOrderIds,
+} from "./session-memory";
