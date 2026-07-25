@@ -12,7 +12,7 @@ import type {
   LocalAgentAttachment,
   LocalAgentComposerSubmit,
   LocalAgentQuoteChip,
-} from "./local-agent-draft-composer";
+} from "./local-agent-composer-types";
 
 export type LocalAgentPromptInput = Pick<LocalAgentComposerSubmit, "text" | "attachments" | "mentions" | "quotes">;
 

@@ -1,5 +1,5 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
-import { createWorkspaceOpencodeClient } from "./opencode-proxy.js";
+import { createWorkspaceOpencodeClient } from "./opencode-workspace-client.js";
 
 export type OpencodeClientFactory = (
   config: ServerConfig,

@@ -5,12 +5,17 @@ import type {
   QuestionRequest,
   ProviderListResponse,
   Session,
+  createOpencodeClient,
 } from "@opencode-ai/sdk/v2/client";
-import type { createClient } from "./lib/opencode";
 import type { OpencodeConfigFile, WorkspaceInfo } from "./lib/desktop";
 export type { ReloadReason, ReloadTrigger } from "@onmyagent/types/server";
 
-export type Client = ReturnType<typeof createClient>;
+/**
+ * OpenCode SDK client shape used across the app.
+ * Defined from the SDK (not `./lib/opencode`) so `types` stays a leaf relative
+ * to the client/utils graph and does not cycle: types → opencode → server → utils → types.
+ */
+export type Client = ReturnType<typeof createOpencodeClient>;
 
 export type ProviderListItem = ProviderListResponse["all"][number];
 

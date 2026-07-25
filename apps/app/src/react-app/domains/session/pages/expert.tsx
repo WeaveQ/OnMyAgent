@@ -85,7 +85,7 @@ import {
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
 
-import type { SessionPageProps } from "./index";
+import type { SessionPageProps } from "./session-page-types";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 
 import type { AgentCardItem } from "../../agents";
