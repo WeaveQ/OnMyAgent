@@ -13,6 +13,19 @@ export const CODE_REVIEW_POLL_INTERVAL_MS = 2500;
 export const AUTOMATION_RUNNING_REFETCH_MS = 2_000;
 export const AUTOMATION_IDLE_REFETCH_MS = 15_000;
 
+// Re-export sidebar cold-start policy so poll suites and callers share one path.
+export {
+  SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
+  SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_MAX,
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+  SIDEBAR_SESSION_LIST_LIMIT,
+  isDraftSessionId,
+  orderBackgroundSessionWorkspacesSelectedOnly,
+  selectSidebarPreviewSessionIds,
+} from "./sidebar-load-policy";
+
 export function isDocumentVisible(documentVisible?: boolean): boolean {
   if (documentVisible === false) return false;
   if (documentVisible === true) return true;
