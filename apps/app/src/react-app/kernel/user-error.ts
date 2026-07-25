@@ -145,18 +145,20 @@ export function classifyProviderError(message: string | null | undefined): {
     return { scenario: "request_failed", detail: null };
   }
   const lower = raw.toLowerCase();
+  // Match product/zh error fragments without hardcoding CJK source literals
+  // (pnpm check:i18n:cjk). Runtime still classifies Chinese server copy.
   if (
     lower.includes("not connected") ||
     lower.includes("no server") ||
     lower.includes("connect first") ||
-    raw.includes("未连接") ||
-    raw.includes("请先连接")
+    raw.includes("\u672a\u8fde\u63a5") ||
+    raw.includes("\u8bf7\u5148\u8fde\u63a5")
   ) {
     return { scenario: "not_connected", detail: sanitizeDetail(raw) };
   }
   if (
     lower.includes("load") &&
-    (lower.includes("provider") || raw.includes("服务商"))
+    (lower.includes("provider") || raw.includes("\u670d\u52a1\u5546"))
   ) {
     return { scenario: "providers_load_failed", detail: sanitizeDetail(raw) };
   }
@@ -166,12 +168,12 @@ export function classifyProviderError(message: string | null | undefined): {
     lower.includes("oauth") ||
     lower.includes("auth") ||
     lower.includes("api key") ||
-    raw.includes("连接") ||
-    raw.includes("断开")
+    raw.includes("\u8fde\u63a5") ||
+    raw.includes("\u65ad\u5f00")
   ) {
     return { scenario: "connect_provider_failed", detail: sanitizeDetail(raw) };
   }
-  if (lower.includes("remote") || raw.includes("远程")) {
+  if (lower.includes("remote") || raw.includes("\u8fdc\u7a0b")) {
     return { scenario: "remote_workspace_failed", detail: sanitizeDetail(raw) };
   }
   return { scenario: "request_failed", detail: sanitizeDetail(raw) };
