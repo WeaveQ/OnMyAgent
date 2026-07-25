@@ -1042,7 +1042,7 @@ function AutomationDialog(props: {
                 onChange={(event) => props.onFormChange({ ...props.form, prompt: event.currentTarget.value })}
                 className="min-h-28 max-h-48 resize-y border-0 bg-transparent text-sm text-dls-text focus-visible:ring-0"
               />
-              {/* Match session chrome: model + 技能 + permission (simple chips). */}
+              {/* Match session chrome: model + skills + permission (simple chips). */}
               <div className="flex flex-nowrap items-center gap-0.5 border-t border-dls-border px-1.5 py-1 text-sm text-dls-secondary">
                 <ModelSelectContainer
                   open={modelPickerOpen}
@@ -1777,7 +1777,7 @@ export function AutomationPage(props: {
           </div>
         ) : (
           <section className="space-y-4">
-            {/* Reference IA: 定时任务 | 运行记录 */}
+            {/* Reference IA: scheduled tasks | run history */}
             <SegmentedTabGroup density="bare">
               {automationStatusTabs.map((tab) => {
                 const active = activeStatusTab === tab;
