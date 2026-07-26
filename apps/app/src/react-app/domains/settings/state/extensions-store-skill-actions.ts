@@ -37,6 +37,7 @@ export type ExtensionsSkillActionsContext = {
   options: {
     selectedWorkspaceRoot: () => string;
     workspaceType: () => "local" | "remote";
+    runtimeWorkspaceId: () => string | null;
     setBusy: (value: boolean) => void;
     setBusyLabel: (value: string | null) => void;
     setBusyStartedAt: (value: number | null) => void;
@@ -47,21 +48,19 @@ export type ExtensionsSkillActionsContext = {
     client: () => any;
     markReloadRequired?: (reason: ReloadReason, trigger?: ReloadTrigger) => void;
   };
-  get snapshot(): {
-    skills: SkillCard[];
-    skillStatus: string | null;
-    skillError: string | null;
-  };
+  /** Full store snapshot — skill actions only read skills/status fields. */
+  get snapshot(): ExtensionsStoreMutableState | { skills: SkillCard[]; skillsStatus: string | null };
   mutateState: (updater: (current: MutableState) => MutableState) => void;
   setStateField: <K extends keyof MutableState>(key: K, value: MutableState[K]) => void;
   getOnMyAgentServerSnapshot: () => any;
   findLoadedSkill: (name: string) => SkillCard | undefined;
   workspaceWriter: {
-    upsertSkill: (input: {
-      name: string;
-      content: string;
-      description?: string;
-    }) => Promise<void>;
+    upsertSkill: (
+      name: string,
+      content: string,
+      description: string,
+      optionsOverride?: { overwrite?: boolean },
+    ) => Promise<void>;
     deleteSkill: (name: string) => Promise<void>;
   };
   get skillsRoot(): string;
@@ -254,7 +253,7 @@ async function uninstallSkill(name: string) {
   options.setError(null);
   setStateField("skillsStatus", null);
   try {
-    await deleteWorkspaceSkill(trimmed);
+    await workspaceWriter.deleteSkill(trimmed);
     setStateField("skillsStatus", t("skills.uninstalled"));
     options.markReloadRequired?.("skills", { type: "skill", name: trimmed, action: "removed" });
     await refreshSkills({ force: true });
