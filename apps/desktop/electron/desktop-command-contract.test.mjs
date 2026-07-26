@@ -75,8 +75,12 @@ test("desktop router exposes one handler registry per command domain", () => {
  */
 test("createAllDesktopDomainHandlers keys ⊆ declared desktopCommandNames", () => {
   const handlers = createAllDesktopDomainHandlers(mockDesktopHandlerDeps());
+  // Keep string keys for Set/has and Object.entries — DesktopCommandName is a
+  // branded union and fails checkJs when indexing with plain string.
   const registered = Object.keys(handlers).sort();
-  const declared = [...desktopCommandNames].sort();
+  /** @type {string[]} */
+  const declared = [...desktopCommandNames].map(String).sort();
+  /** @type {Set<string>} */
   const declaredSet = new Set(declared);
 
   const undeclared = registered.filter((name) => !declaredSet.has(name));
@@ -93,8 +97,8 @@ test("createAllDesktopDomainHandlers keys ⊆ declared desktopCommandNames", () 
     "registered handlers must match declared desktopCommandNames exactly",
   );
 
-  for (const name of registered) {
-    assert.equal(typeof handlers[name], "function", `handler ${name} must be a function`);
+  for (const [name, handler] of Object.entries(handlers)) {
+    assert.equal(typeof handler, "function", `handler ${name} must be a function`);
   }
 });
 
