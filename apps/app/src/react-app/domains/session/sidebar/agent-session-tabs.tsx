@@ -11,7 +11,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -135,13 +135,22 @@ export function summarizeSessionSnapshotForTab(
   return undefined;
 }
 
-/** Poll while a tab still has no message-derived title (empty chat → first reply). */
+/**
+ * Tab-title snapshot polling policy.
+ * - Have a message-derived title → stop.
+ * - 404 / not-found (null) → stop (cooldown handles retries).
+ * - Session is busy/streaming and still untitled → light poll (first reply landing).
+ * - Successful empty snapshot while idle → stop (real empty session; do not thrash
+ *   OpenCode on every cold enter).
+ */
 export function tabTitleSnapshotRefetchIntervalMs(
   snapshot: OnMyAgentSessionSnapshot | null | undefined,
+  options?: { busy?: boolean },
 ): number | false {
   if (snapshot === null) return false;
   if (summarizeSessionSnapshotForTab(snapshot)) return false;
-  return 3_000;
+  if (options?.busy) return 3_000;
+  return false;
 }
 
 const TAB_SCROLL_SPEED = 25;
@@ -346,10 +355,12 @@ export function AgentSessionTabs(props: {
     return stable;
   }, [props.sessions, stableOrderIds]);
 
+  const queryClient = useQueryClient();
+
   // Light snapshots only for tabs that still need a title fallback.
-  // Unlike sidebar list previews, tab chips cannot reuse the main surface
-  // snapshot — so include the selected session (immediately, before defer)
-  // and other title-needing tabs after the warm-up delay.
+  // Wait for the shared defer window so first paint / OpenCode warm-up is not
+  // competing with N× title snapshots. Include the selected session once
+  // deferred (surface snapshot is a different query key / limit).
   const { previewSessionIds: tabTitleSnapshotIds } = useDeferredSidebarPreviews({
     enabled: Boolean(props.client),
     sessions: orderedSessions.filter(
@@ -357,65 +368,100 @@ export function AgentSessionTabs(props: {
         !session.id.startsWith("draft:") && sessionNeedsTabTitleFallback(session),
     ),
     selectedSessionId: props.selectedSessionId,
-    maxPreviews: 8,
+    maxPreviews: 5,
     includeSelected: true,
-    prioritizeSelected: true,
+    prioritizeSelected: false,
   });
+
+  // After a run finishes, re-check title once (messages may have landed while empty).
+  const prevBusyBySessionRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    const prev = prevBusyBySessionRef.current;
+    const next: Record<string, boolean> = {};
+    for (const session of orderedSessions) {
+      if (session.id.startsWith("draft:")) continue;
+      if (!sessionNeedsTabTitleFallback(session)) continue;
+      const busy = isStreamingSessionStatus(
+        props.sessionStatusById?.[session.id],
+      );
+      next[session.id] = busy;
+      if (prev[session.id] && !busy) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            "onmyagent-agent-session-tab-snapshot",
+            props.workspaceId,
+            session.id,
+          ],
+        });
+      }
+    }
+    prevBusyBySessionRef.current = next;
+  }, [
+    orderedSessions,
+    props.sessionStatusById,
+    props.workspaceId,
+    queryClient,
+  ]);
+
   const snapshotQueries = useQueries({
-    queries: orderedSessions.map((session) => ({
-      queryKey: [
-        "onmyagent-agent-session-tab-snapshot",
-        props.workspaceId,
-        session.id,
-      ],
-      enabled:
-        Boolean(props.client) &&
-        !session.id.startsWith("draft:") &&
-        tabTitleSnapshotIds.has(session.id) &&
-        !shouldSkipSnapshotForNotFoundCooldown({
-          sessionId: session.id,
-          notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
-          nowMs: Date.now(),
-        }),
-      queryFn: async () => {
-        const client = props.client;
-        if (!client) throw new Error("OnMyAgent server unavailable");
-        if (
-          shouldSkipSnapshotForNotFoundCooldown({
+    queries: orderedSessions.map((session) => {
+      const busy = isStreamingSessionStatus(
+        props.sessionStatusById?.[session.id],
+      );
+      return {
+        queryKey: [
+          "onmyagent-agent-session-tab-snapshot",
+          props.workspaceId,
+          session.id,
+        ],
+        enabled:
+          Boolean(props.client) &&
+          !session.id.startsWith("draft:") &&
+          tabTitleSnapshotIds.has(session.id) &&
+          !shouldSkipSnapshotForNotFoundCooldown({
             sessionId: session.id,
             notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
             nowMs: Date.now(),
-          })
-        ) {
-          return null;
-        }
-        try {
-          return (
-            await client.getSessionSnapshot(props.workspaceId, session.id, {
-              limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
-            })
-          ).item;
-        } catch (error) {
-          if (isSessionSnapshotNotFoundError(error)) {
-            markSessionSnapshotNotFound({
+          }),
+        queryFn: async () => {
+          const client = props.client;
+          if (!client) throw new Error("OnMyAgent server unavailable");
+          if (
+            shouldSkipSnapshotForNotFoundCooldown({
               sessionId: session.id,
               notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
               nowMs: Date.now(),
-            });
+            })
+          ) {
             return null;
           }
-          throw error;
-        }
-      },
-      // Empty first paint must not stick for a long stale window; once we have
-      // a message preview, stop polling (see tabTitleSnapshotRefetchIntervalMs).
-      staleTime: 0,
-      refetchInterval: (query: {
-        state: { data: OnMyAgentSessionSnapshot | null | undefined };
-      }) => tabTitleSnapshotRefetchIntervalMs(query.state.data),
-      retry: (failureCount: number, error: unknown) =>
-        shouldRetrySessionSnapshotQuery(failureCount, error),
-    })),
+          try {
+            return (
+              await client.getSessionSnapshot(props.workspaceId, session.id, {
+                limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+              })
+            ).item;
+          } catch (error) {
+            if (isSessionSnapshotNotFoundError(error)) {
+              markSessionSnapshotNotFound({
+                sessionId: session.id,
+                notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+                nowMs: Date.now(),
+              });
+              return null;
+            }
+            throw error;
+          }
+        },
+        staleTime: 30_000,
+        refetchInterval: (query: {
+          state: { data: OnMyAgentSessionSnapshot | null | undefined };
+        }) =>
+          tabTitleSnapshotRefetchIntervalMs(query.state.data, { busy }),
+        retry: (failureCount: number, error: unknown) =>
+          shouldRetrySessionSnapshotQuery(failureCount, error),
+      };
+    }),
   });
 
   const togglePinSession = useCallback(

@@ -53,9 +53,15 @@ describe("expert session tab titles", () => {
     )).toContain("报价");
   });
 
-  test("empty snapshot keeps polling; titled snapshot stops", () => {
-    expect(tabTitleSnapshotRefetchIntervalMs(undefined)).toBe(3_000);
+  test("idle empty snapshot does not poll; busy empty does; titled stops", () => {
+    const empty = {
+      session: { id: "ses_5" },
+      messages: [],
+    } as never;
+    expect(tabTitleSnapshotRefetchIntervalMs(undefined)).toBe(false);
     expect(tabTitleSnapshotRefetchIntervalMs(null)).toBe(false);
+    expect(tabTitleSnapshotRefetchIntervalMs(empty)).toBe(false);
+    expect(tabTitleSnapshotRefetchIntervalMs(empty, { busy: true })).toBe(3_000);
     expect(
       tabTitleSnapshotRefetchIntervalMs({
         session: { id: "ses_5" },
@@ -69,28 +75,29 @@ describe("expert session tab titles", () => {
     ).toBe(false);
   });
 
-  test("tab title selection includes focused session before and after defer", () => {
+  test("tab title selection includes focused session only after defer (no cold thrash)", () => {
     const sessions = [
       { id: "ses_selected" },
       { id: "ses_a" },
       { id: "ses_b" },
     ];
+    // Cold first paint: do not prioritize selected — surface already loads it.
     const before = selectSidebarPreviewSessionIds({
       sessions,
       selectedSessionId: "ses_selected",
       deferred: false,
-      prioritizeSelected: true,
+      prioritizeSelected: false,
       includeSelected: true,
     });
-    expect([...before]).toEqual(["ses_selected"]);
+    expect(before.size).toBe(0);
 
     const after = selectSidebarPreviewSessionIds({
       sessions,
       selectedSessionId: "ses_selected",
       deferred: true,
-      prioritizeSelected: true,
+      prioritizeSelected: false,
       includeSelected: true,
-      maxPreviews: 8,
+      maxPreviews: 5,
     });
     expect(after.has("ses_selected")).toBe(true);
     expect(after.has("ses_a")).toBe(true);
