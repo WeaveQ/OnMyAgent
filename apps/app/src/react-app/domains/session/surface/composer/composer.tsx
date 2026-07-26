@@ -87,7 +87,7 @@ import {
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
 import { mergeSlashCommandsWithSkills } from "./slash-command-merge";
-import { resolveComposerShellPadClass } from "../composer-shell-inset";
+import { resolveComposerLayoutClasses } from "./composer-layout";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
@@ -1014,48 +1014,31 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
-  const homeLayout = Boolean(props.homeLayout);
-  const heroHome = Boolean(props.heroHome);
-  // Home / expert-empty: fold workspace+permission into the primary toolbar so
-  // the card stays one compact unit (no tall empty middle + sparse under-bar).
-  const inlineToolbarAccessory = homeLayout && Boolean(props.bottomAccessory);
-  const underCardAccessory = Boolean(props.bottomAccessory) && !inlineToolbarAccessory;
-  // When workspace/permission bar sits under the card, share the outer silhouette:
-  // full width + square joint (no top corners on the bar, no bottom corners on the card).
-  const panelRoundedClass =
-    mentionOpen || slashOpen
-      ? "rounded-t-[18px] border-t-transparent"
-      : underCardAccessory
-        ? "rounded-t-xl rounded-b-none"
-        : heroHome
-          ? "rounded-2xl"
-          : "rounded-xl";
-
-  // Same width for hero home, expert empty, and in-session (1120 + side pad).
-  // Bottom inset matches in-session chat so draft-home is not flush to the edge.
-  const shellPadClass = resolveComposerShellPadClass({
+  const layout = resolveComposerLayoutClasses({
+    homeLayout: props.homeLayout,
+    heroHome: props.heroHome,
+    showOuterBorder: props.showOuterBorder,
     compactTopSpacing: props.compactTopSpacing,
+    hasBottomAccessory: Boolean(props.bottomAccessory),
+    hasAttachments: props.attachments.length > 0,
+    mentionOpen,
+    slashOpen,
   });
-  const panelChromeClass = heroHome
-    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
-    : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
-  const editorPadClass =
-    props.attachments.length > 0
-      ? heroHome
-        ? "px-5 pb-2.5 pt-3"
-        : "px-4 pb-2 pt-2"
-      : heroHome
-        ? "px-5 pb-2.5 pt-4"
-        : "px-4 pb-2 pt-3";
+  const {
+    homeLayout,
+    heroHome,
+    inlineToolbarAccessory,
+    underCardAccessory,
+    panelChromeClass,
+    editorPadClass,
+    rootChromeClass,
+    contentMaxWidthClass,
+  } = layout;
 
   return (
     <div
       ref={rootRef}
-      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
-        homeLayout || heroHome
-          ? `bg-transparent ${shellPadClass}`
-          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`
-      }`}
+      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${rootChromeClass}`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
       onCompositionStart={() => {
@@ -1065,8 +1048,7 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      {/* Keep in sync with SESSION_CONTENT_MAX_WIDTH_CLASS / contentRef. */}
-      <div className="mx-auto w-full max-w-[1120px]">
+      <div className={`mx-auto w-full ${contentMaxWidthClass}`}>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}

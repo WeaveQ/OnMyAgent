@@ -27,10 +27,17 @@ describe("composer tool menu model", () => {
 
     expect(helpers).toContain("showOuterBorder?: boolean;");
     expect(helpers).toContain("homeLayout?: boolean;");
-    expect(source).toContain(
-      'props.showOuterBorder ? `border border-dls-border shadow-sm',
+    const layout = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer-layout.ts",
+      ),
+      "utf8",
     );
-    expect(source).toContain("const homeLayout = Boolean(props.homeLayout);");
+    expect(layout).toContain("border border-dls-border shadow-sm");
+    expect(layout).toContain("input.showOuterBorder");
+    expect(source).toContain("resolveComposerLayoutClasses");
+    expect(layout).toContain("const homeLayout = Boolean(input.homeLayout);");
     expect(source).not.toContain("shadow-sm transition-shadow");
   });
 

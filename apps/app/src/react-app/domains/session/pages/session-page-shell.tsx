@@ -11,30 +11,13 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { KeepAlivePane } from "../sidebar/keep-alive-pane";
+import {
+  SESSION_RAIL_KEEP_ALIVE_PANE_KEYS,
+  type SessionRailPaneKey,
+} from "./rail-keep-alive-lru";
 
-export type SessionRailPaneKey =
-  | "agents"
-  | "store"
-  | "localAgent"
-  | "agentManagement"
-  | "files"
-  | "projects"
-  | "devices"
-  | "channels"
-  | "billing";
-
-/** Secondary rail panes that use visited-set keep-alive. */
-export const SESSION_RAIL_KEEP_ALIVE_PANE_KEYS = [
-  "agents",
-  "store",
-  "localAgent",
-  "agentManagement",
-  "files",
-  "projects",
-  "devices",
-  "channels",
-  "billing",
-] as const satisfies readonly SessionRailPaneKey[];
+export type { SessionRailPaneKey };
+export { SESSION_RAIL_KEEP_ALIVE_PANE_KEYS };
 
 /**
  * Outer main column: transparent under local-agent, otherwise dls background;

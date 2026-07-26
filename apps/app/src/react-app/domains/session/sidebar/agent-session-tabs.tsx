@@ -45,22 +45,52 @@ import {
   resolveAgentIdForSession,
   useExpertUnreadStore,
 } from "../status/expert-unread-store";
+import {
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+} from "../sync/session-poll-policy";
+import {
+  isSessionSnapshotNotFoundError,
+  markSessionSnapshotNotFound,
+  shouldRetrySessionSnapshotQuery,
+  shouldSkipSnapshotForNotFoundCooldown,
+} from "../sync/session-snapshot-fetch-policy";
+import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
 
-function summarizeTabTitle(
+/** Cooldown so missing tab-title snapshots do not re-storm OpenCode. */
+const tabTitleSnapshotNotFoundUntilBySessionId = new Map<string, number>();
+
+/**
+ * Whether the session still needs a message-derived tab title.
+ * Generated OpenCode titles ("New session - <date>") are not shown as-is.
+ */
+export function sessionNeedsTabTitleFallback(
+  session: WorkspaceSessionGroup["sessions"][number],
+): boolean {
+  const rawTitle = session.title?.trim() ?? "";
+  if (!rawTitle) return true;
+  const defaultTitle = t("session.default_title");
+  if (rawTitle === DEFAULT_SESSION_TITLE || rawTitle === defaultTitle) return true;
+  return isGeneratedSessionTitle(rawTitle);
+}
+
+/**
+ * Tab label for an expert session chip.
+ * - Prefer a real human title when OpenCode has assigned one.
+ * - Else prefer a short preview from messages (when a light snapshot is available).
+ * - Else show "新会话", never stick on "总结中" forever (that label implied work in
+ *   progress after tab snapshots were disabled on cold start).
+ */
+export function summarizeTabTitle(
   session: WorkspaceSessionGroup["sessions"][number],
   generatedFallback?: string,
 ) {
-  const rawTitle = session.title?.trim() ?? "";
-  const defaultTitle = t("session.default_title");
-  if (
-    rawTitle &&
-    rawTitle !== DEFAULT_SESSION_TITLE &&
-    rawTitle !== defaultTitle &&
-    !isGeneratedSessionTitle(rawTitle)
-  ) {
-    return rawTitle;
+  if (!sessionNeedsTabTitleFallback(session)) {
+    return session.title!.trim();
   }
-  return compactTabTitle(generatedFallback ?? t("session.agent_tab_summarizing"));
+  if (generatedFallback?.trim()) {
+    return compactTabTitle(generatedFallback);
+  }
+  return t("session.agent_tab_new_session");
 }
 
 function compactTabTitle(input: string) {
@@ -71,6 +101,47 @@ function compactTabTitle(input: string) {
     .trim();
   const source = cleaned || input.trim() || t("session.agent_tab_new_session");
   return source.length > 10 ? source.slice(0, 10) : source;
+}
+
+/**
+ * Derive a tab title from a light message snapshot.
+ * Prefer the first user turn (conversation topic); fall back to any text.
+ * Exported for unit tests.
+ */
+export function summarizeSessionSnapshotForTab(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+): string | undefined {
+  if (!snapshot?.messages?.length) return undefined;
+
+  const visibleText = (message: (typeof snapshot.messages)[number]) => {
+    const text = sessionMessagePreview(message);
+    if (!text) return "";
+    return text
+      .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  for (const message of snapshot.messages) {
+    if (message.info.role !== "user") continue;
+    const text = visibleText(message);
+    if (text) return text;
+  }
+
+  for (const message of snapshot.messages) {
+    const text = visibleText(message);
+    if (text) return text;
+  }
+  return undefined;
+}
+
+/** Poll while a tab still has no message-derived title (empty chat → first reply). */
+export function tabTitleSnapshotRefetchIntervalMs(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+): number | false {
+  if (snapshot === null) return false;
+  if (summarizeSessionSnapshotForTab(snapshot)) return false;
+  return 3_000;
 }
 
 const TAB_SCROLL_SPEED = 25;
@@ -108,19 +179,6 @@ function SessionTabMarqueeText({ title }: { title: string }) {
       )}
     </>
   );
-}
-
-function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
-  const previews = snapshot.messages
-    .map(sessionMessagePreview)
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(" ");
-  if (!previews) return undefined;
-  return previews
-    .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /**
@@ -288,8 +346,21 @@ export function AgentSessionTabs(props: {
     return stable;
   }, [props.sessions, stableOrderIds]);
 
-  // Tabs only need titles on cold start. Full snapshots are owned by the
-  // focused session surface — N× tab snapshots used to thrash OpenCode on boot.
+  // Light snapshots only for tabs that still need a title fallback.
+  // Unlike sidebar list previews, tab chips cannot reuse the main surface
+  // snapshot — so include the selected session (immediately, before defer)
+  // and other title-needing tabs after the warm-up delay.
+  const { previewSessionIds: tabTitleSnapshotIds } = useDeferredSidebarPreviews({
+    enabled: Boolean(props.client),
+    sessions: orderedSessions.filter(
+      (session) =>
+        !session.id.startsWith("draft:") && sessionNeedsTabTitleFallback(session),
+    ),
+    selectedSessionId: props.selectedSessionId,
+    maxPreviews: 8,
+    includeSelected: true,
+    prioritizeSelected: true,
+  });
   const snapshotQueries = useQueries({
     queries: orderedSessions.map((session) => ({
       queryKey: [
@@ -297,17 +368,53 @@ export function AgentSessionTabs(props: {
         props.workspaceId,
         session.id,
       ],
-      enabled: false,
+      enabled:
+        Boolean(props.client) &&
+        !session.id.startsWith("draft:") &&
+        tabTitleSnapshotIds.has(session.id) &&
+        !shouldSkipSnapshotForNotFoundCooldown({
+          sessionId: session.id,
+          notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+          nowMs: Date.now(),
+        }),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
-        return (
-          await client.getSessionSnapshot(props.workspaceId, session.id, {
-            limit: 8,
+        if (
+          shouldSkipSnapshotForNotFoundCooldown({
+            sessionId: session.id,
+            notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+            nowMs: Date.now(),
           })
-        ).item;
+        ) {
+          return null;
+        }
+        try {
+          return (
+            await client.getSessionSnapshot(props.workspaceId, session.id, {
+              limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+            })
+          ).item;
+        } catch (error) {
+          if (isSessionSnapshotNotFoundError(error)) {
+            markSessionSnapshotNotFound({
+              sessionId: session.id,
+              notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+              nowMs: Date.now(),
+            });
+            return null;
+          }
+          throw error;
+        }
       },
-      staleTime: 30_000,
+      // Empty first paint must not stick for a long stale window; once we have
+      // a message preview, stop polling (see tabTitleSnapshotRefetchIntervalMs).
+      staleTime: 0,
+      refetchInterval: (query: {
+        state: { data: OnMyAgentSessionSnapshot | null | undefined };
+      }) => tabTitleSnapshotRefetchIntervalMs(query.state.data),
+      retry: (failureCount: number, error: unknown) =>
+        shouldRetrySessionSnapshotQuery(failureCount, error),
     })),
   });
 
@@ -424,8 +531,9 @@ export function AgentSessionTabs(props: {
           {orderedSessions.map((session, index) => {
             const isDraft = session.id.startsWith("draft:");
             const active = session.id === activeSessionId;
-            const generatedFallback = snapshotQueries[index]?.data
-              ? summarizeSessionSnapshotForTab(snapshotQueries[index]?.data)
+            const snapshotData = snapshotQueries[index]?.data;
+            const generatedFallback = snapshotData
+              ? summarizeSessionSnapshotForTab(snapshotData)
               : undefined;
             const title = isDraft
               ? session.title

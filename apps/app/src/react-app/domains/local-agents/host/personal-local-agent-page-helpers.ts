@@ -8,6 +8,7 @@ import {
 import { formatAgentVersionDisplay } from "../agent-management/agent-card-model";
 import { isPersonalLocalAgentProvider, PROVIDER_LABELS } from "../local-agent-page-model";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
+import { SESSION_CONTENT_MAX_WIDTH_CLASS } from "../../../capabilities/layout/content-column";
 import {
   classifiedRunFailureMessage,
   runTimelineAlreadyShowsFailure,
@@ -38,8 +39,10 @@ export const localAgentLayoutClass = {
   headerRow: "flex h-12 items-center gap-3 px-4",
   headerIdentity: "flex min-w-0 max-w-[min(40%,14rem)] items-center gap-2.5",
   headerActions: "relative z-10 flex min-w-0 shrink-0 items-center gap-1.5 mac:titlebar-no-drag",
-  pageContent: "mx-auto flex w-full min-w-0 max-w-[1120px] flex-col gap-5",
-  chatPanel: "mx-auto w-full min-w-0 max-w-[1120px] rounded-xl border border-dls-border bg-dls-surface p-2",
+  /** Shared max-width column (same token as session composer/transcript). */
+  contentColumn: `mx-auto w-full min-w-0 ${SESSION_CONTENT_MAX_WIDTH_CLASS}`,
+  pageContent: `mx-auto flex w-full min-w-0 ${SESSION_CONTENT_MAX_WIDTH_CLASS} flex-col gap-5`,
+  chatPanel: `mx-auto w-full min-w-0 ${SESSION_CONTENT_MAX_WIDTH_CLASS} rounded-xl border border-dls-border bg-dls-surface p-2`,
   chatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border px-4 py-3 text-sm leading-6",
   userChatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border bg-dls-chat-user-bg px-4 py-3 text-sm leading-6 text-dls-text",
   assistantChatMessage: "max-w-[min(86%,100%)] min-w-0 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-3 text-sm leading-6 text-dls-chat-agent-text",

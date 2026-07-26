@@ -46,6 +46,15 @@ import {
   selectLanAddress,
   buildConnectUrls,
 } from "./runtime-engine-state.mjs";
+import {
+  appendOutput,
+  cleanupPackagedSidecars as cleanupPackagedSidecarsImpl,
+  ensureOpencodeConfig as ensureOpencodeConfigImpl,
+  generateManagedCredentials as generateManagedCredentialsImpl,
+  spawnManagedChild,
+  stopChild as stopChildImpl,
+  truncateOutput,
+} from "./runtime-opencode-lifecycle.mjs";
 
 export { snapshotOnMyAgentServerState, DIRECT_RUNTIME, ORCHESTRATOR_RUNTIME } from "./runtime-engine-state.mjs";
 
@@ -86,11 +95,6 @@ function bundledExtensionRootPaths() {
     path.resolve(__runtimeDir, "..", "resources", BUNDLED_EXTENSIONS_RESOURCE_DIR),
   ].filter(Boolean);
   return candidates.filter((candidate) => existsSync(candidate));
-}
-
-function truncateOutput(value, limit = 8000) {
-  const text = String(value ?? "");
-  return text.length <= limit ? text : text.slice(text.length - limit);
 }
 
 /**
@@ -136,11 +140,6 @@ async function copyDirRecursive(sourceDir, targetPath) {
       await copyFile(src, dst);
     }
   }
-}
-
-function appendOutput(state, key, chunk) {
-  const next = `${state[key] ?? ""}${String(chunk ?? "")}`;
-  state[key] = truncateOutput(next);
 }
 
 function normalizeWorkspaceKey(value) {
@@ -1152,124 +1151,32 @@ export function createRuntimeManager({
     };
   }
 
-  function spawnManagedChild(state, program, args, options = {}) {
-    const child = spawn(program, args, {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-
-    state.child = child;
-    state.childExited = false;
-    state.lastStdout = null;
-    state.lastStderr = null;
-
-    child.stdout?.on("data", (chunk) => appendOutput(state, "lastStdout", chunk.toString()));
-    child.stderr?.on("data", (chunk) => appendOutput(state, "lastStderr", chunk.toString()));
-    child.on("exit", (code) => {
-      state.childExited = true;
-      if (code != null && code !== 0) {
-        appendOutput(state, "lastStderr", `Process exited with code ${code}.\n`);
-      }
-      options.onExit?.(code);
-    });
-    child.on("error", (error) => {
-      state.childExited = true;
-      appendOutput(state, "lastStderr", `${error instanceof Error ? error.message : String(error)}\n`);
-    });
-
-    return child;
-  }
-
-  function processMatchesSidecar(command) {
-    const value = String(command ?? "");
-    return sidecarDirs.some((dir) => value.includes(dir)) &&
-      (
-        value.includes("onmyagent-orchestrator") ||
-        value.includes("onmyagent-server") ||
-        value.includes("opencode serve")
-      );
-  }
-
-  function killProcessId(pid, signal = "SIGTERM") {
-    if (!Number.isFinite(pid) || pid <= 0 || pid === process.pid) return;
-    try {
-      process.kill(pid, signal);
-    } catch {
-      // Process already exited or is not ours.
-    }
-  }
-
   async function cleanupPackagedSidecars() {
-    if (!app.isPackaged) return;
-
     // First ask the previously recorded orchestrator daemon to shut itself and
     // its OpenCode child down. This handles the happy path without relying on
     // process-list parsing.
-    await requestOrchestratorShutdown(orchestratorState.dataDir || orchestratorDataDir()).catch(() => false);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // Safety net: an unclean Electron quit can orphan sidecars. Packaged builds
-    // should always own a fresh runtime per app launch, so remove any leftover
-    // sidecars from this app bundle before choosing ports for the new runtime.
-    const result = spawnSync("ps", ["-Ao", "pid=,command="], { encoding: "utf8" });
-    const rows = String(result.stdout ?? "").split(/\r?\n/);
-    const pids = [];
-    for (const row of rows) {
-      const match = row.match(/^\s*(\d+)\s+(.+)$/);
-      if (!match) continue;
-      const pid = Number(match[1]);
-      const command = match[2] ?? "";
-      if (processMatchesSidecar(command)) pids.push(pid);
-    }
-    for (const pid of pids) killProcessId(pid, "SIGTERM");
-    if (pids.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      for (const pid of pids) killProcessId(pid, "SIGKILL");
-    }
+    await cleanupPackagedSidecarsImpl({
+      isPackaged: app.isPackaged,
+      sidecarDirs,
+      requestShutdown: () => requestOrchestratorShutdown(orchestratorState.dataDir || orchestratorDataDir()),
+    });
   }
 
   async function stopChild(state, options = {}) {
-    const child = state.child;
-    state.child = null;
-    state.childExited = true;
-    if (!child || child.exitCode != null || child.killed) return;
-
-    if (options.requestShutdown) {
-      try {
-        const shutdownRequested = await options.requestShutdown();
-        if (shutdownRequested) {
-          await new Promise((resolve) => setTimeout(resolve, 750));
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    if (child.exitCode == null && !child.killed) {
-      child.kill("SIGTERM");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (child.exitCode == null && !child.killed) {
-        child.kill("SIGKILL");
-      }
-    }
+    return stopChildImpl(state, options);
   }
 
   async function ensureOpencodeConfig(projectDir) {
-    const jsoncPath = path.join(projectDir, "opencode.jsonc");
-    const jsonPath = path.join(projectDir, "opencode.json");
-    if ((await fileExists(jsoncPath)) || (await fileExists(jsonPath))) return;
-    await mkdir(projectDir, { recursive: true });
-    await writeFile(
-      jsoncPath,
-      `${JSON.stringify({ $schema: "https://opencode.ai/config.json" }, null, 2)}\n`,
-      "utf8",
-    );
+    return ensureOpencodeConfigImpl(projectDir, {
+      fileExists,
+      mkdir,
+      writeFile,
+      pathJoin: path.join,
+    });
   }
 
   function generateManagedCredentials() {
-    return [randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, ""), randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "")];
+    return generateManagedCredentialsImpl(randomUUID);
   }
 
   async function issueOwnerToken(baseUrl, hostToken) {

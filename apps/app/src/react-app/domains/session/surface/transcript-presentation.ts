@@ -1,18 +1,21 @@
-/**
- * Keep in sync with SESSION_CONTENT_MAX_WIDTH_CLASS / composer max-w-[1120px]
- * so transcript body and the input bar share one content column.
- */
-export const DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH = 1120;
+import {
+  SESSION_CONTENT_MAX_WIDTH_PX,
+  sessionContentHorizontalPadPx,
+} from "../../../capabilities/layout/content-column";
+
+/** @deprecated Prefer SESSION_CONTENT_MAX_WIDTH_PX — kept for existing imports. */
+export const DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH = SESSION_CONTENT_MAX_WIDTH_PX;
 
 /**
  * @param containerWidth Scroll port clientWidth (includes horizontal padding).
  * @returns Max content width for the transcript root, matching the composer column.
  */
 export function computeTranscriptMaxContentWidth(containerWidth: number) {
-  // Same gutters as SESSION_CONTENT_X_PADDING_CLASS: px-4 / md:px-8.
-  const horizontalPad = containerWidth >= 768 ? 64 : 32;
-  const available = Math.max(0, containerWidth - horizontalPad);
-  return Math.min(DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH, available);
+  const available = Math.max(
+    0,
+    containerWidth - sessionContentHorizontalPadPx(containerWidth),
+  );
+  return Math.min(SESSION_CONTENT_MAX_WIDTH_PX, available);
 }
 
 export function formatTranscriptDuration(durationMs: number) {

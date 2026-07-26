@@ -54,8 +54,7 @@ import type {
   SessionArchiveWorktreeMappingInput,
 } from "@onmyagent/types/session-archive";
 
-import { Database, type SqliteDatabase } from "../core/sqlite.js";
-import { ensureDir } from "../core/utils.js";
+import { type SqliteDatabase } from "../core/sqlite.js";
 import { sessionArchiveRegistry, resolveSessionArchiveSourceRoots } from "./session-archive-registry.js";
 import {
   SESSION_ARCHIVE_ACTIVE_SECRETS_RULES_VERSIONS,
@@ -63,7 +62,6 @@ import {
   scanSessionArchiveSecrets,
 } from "./session-archive-secrets.js";
 import { createSessionArchiveAnalyticsApi } from "./session-archive-analytics.js";
-import { initializeArchiveDb, repairEpochArchiveTimestamps } from "./session-archive-schema.js";
 import {
   appendSubstringMatches,
   boolToInt,
@@ -163,22 +161,7 @@ export type {
   SessionArchiveUsageTopSessionsInput,
 } from "./session-archive-types.js";
 
-export async function openSessionArchiveStore(input: {
-  dbPath: string;
-  readOnly?: boolean;
-}): Promise<SessionArchiveStore> {
-  if (!input.readOnly) {
-    await ensureDir(dirname(input.dbPath));
-  }
-  const db = input.readOnly
-    ? new Database(input.dbPath, { readonly: true })
-    : new Database(input.dbPath);
-  if (!input.readOnly) {
-    initializeArchiveDb(db);
-    repairEpochArchiveTimestamps(db);
-  }
-  return createSessionArchiveStore(input.dbPath, db);
-}
+export { openSessionArchiveStore } from "./session-archive-open.js";
 
 export function createSessionArchiveStore(
   dbPath: string,

@@ -88,12 +88,27 @@ describe("rail navigation memory", () => {
 describe("rail keep-alive contract", () => {
   test("assistant and expert keep secondary rail pages mounted via shared shell", () => {
     const shell = readPage("session-page-shell.tsx");
-    const assistant = readPage("assistant.tsx") + "\n" + shell;
-    const expert = readPage("expert.tsx") + "\n" + shell;
+    const hostState = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/use-session-page-host-state.ts",
+      ),
+      "utf8",
+    );
+    const keepAlive = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/sidebar/keep-alive-pane.tsx",
+      ),
+      "utf8",
+    );
+    const assistant = readPage("assistant.tsx") + "\n" + shell + "\n" + hostState;
+    const expert = readPage("expert.tsx") + "\n" + shell + "\n" + hostState;
     for (const source of [assistant, expert]) {
       expect(source).toContain("KeepAlivePane");
       expect(source).toContain("useVisitedRailViews");
-      // Rail bookmark writes live in useRailLocation (openRailView), not the page hosts.
+      // Shared host owns rail location + visited keep-alive set.
+      expect(source).toContain("useSessionPageHostState");
       expect(source).toContain("useRailLocation");
       expect(source).toContain("SessionRailKeepAliveStack");
       expect(source).toContain("SessionPageMainColumn");
@@ -104,6 +119,7 @@ describe("rail keep-alive contract", () => {
       );
       expect(source).toContain('mounted={props.visitedRailViews.has("store")}');
     }
+    expect(keepAlive).toContain("nextVisitedRailViews");
     const railLocation = readFileSync(
       join(
         import.meta.dir,
@@ -149,10 +165,18 @@ describe("rail keep-alive contract", () => {
 
   test("assistant and expert hide SessionSurface under secondary rails", () => {
     const shell = readPage("session-page-shell.tsx");
+    const hostState = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/use-session-page-host-state.ts",
+      ),
+      "utf8",
+    );
     const assistantHost = readPage("assistant.tsx");
     const expertHost = readPage("expert.tsx");
+    expect(hostState).toContain("isPrimarySessionRailView");
+    expect(hostState).toContain("isPrimarySessionView");
     for (const host of [assistantHost, expertHost]) {
-      expect(host).toContain("isPrimarySessionRailView");
       expect(host).toContain("isPrimarySessionView");
       // Hosts gate primary keep-alive with primary rail + delayed loading.
       expect(host).toMatch(
