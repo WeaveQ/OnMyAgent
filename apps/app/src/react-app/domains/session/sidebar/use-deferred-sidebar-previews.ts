@@ -16,6 +16,8 @@ export function useDeferredSidebarPreviews(input: {
   selectedSessionId?: string | null;
   deferMs?: number;
   maxPreviews?: number;
+  includeSelected?: boolean;
+  prioritizeSelected?: boolean;
 }): {
   deferred: boolean;
   previewSessionIds: Set<string>;
@@ -66,10 +68,12 @@ export function useDeferredSidebarPreviews(input: {
   }, [input.deferMs, input.enabled]);
 
   const previewSessionIds = selectSidebarPreviewSessionIds({
-    sessions: input.sessions,
+    sessions: input.enabled ? input.sessions : [],
     selectedSessionId: input.selectedSessionId,
     deferred: deferred && input.enabled,
     maxPreviews: input.maxPreviews,
+    includeSelected: input.includeSelected,
+    prioritizeSelected: input.enabled && input.prioritizeSelected,
   });
 
   return { deferred, previewSessionIds };
