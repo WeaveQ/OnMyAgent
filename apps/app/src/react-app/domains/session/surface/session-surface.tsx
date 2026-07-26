@@ -10,10 +10,6 @@ import type { UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
-import {
-  readSessionTranscriptNotices,
-  writeSessionTranscriptNotices,
-} from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { currentLocale, t } from "../../../../i18n";
 import {
@@ -35,7 +31,6 @@ import type {
 } from "../../../../app/types";
 import { publishInspectorSlice, recordInspectorEvent, useReactRenderWatchdog } from "../../../shell";
 import {
-  deriveAssistantActivity,
   getAssistantActivityPhaseLabel,
 } from "./chrome/assistant-activity";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
@@ -50,15 +45,11 @@ import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
 } from "./session-render-state";
-import {
-  type SessionTranscriptDivider,
-} from "./message-list";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
 import {
   useSessionActivityStore,
-  type SessionActivityStatus,
 } from "../status/session-activity-store";
 import {
   deriveOpenTargets,
@@ -78,7 +69,6 @@ import {
   manualStopNoticeKind,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
-  shouldShowSessionActivity,
   summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
@@ -107,9 +97,7 @@ import {
 } from "./personal-assistant-config";
 import { personalizeAssistantScenariosForMenu } from "./personalize-assistant-scenarios";
 import {
-  assistantFallbackText,
   messageToReadableText,
-  messageHasVisibleAssistantOutput,
   findTranscriptSearchMatchIds,
   transcriptToText,
 } from "./session-surface-model";
@@ -121,7 +109,6 @@ import {
 } from "./session-surface-support";
 import {
   filterCompactionMessages,
-  messageActivityFingerprint,
 } from "./transcript/message-compaction";
 import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
@@ -131,6 +118,8 @@ import { useSessionSurfacePendingAgent } from "./session-surface-pending-agent";
 import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
 import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
 import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
+import { useSessionSurfaceTranscriptNotices } from "./session-surface-transcript-notices";
+import { useSessionSurfaceActivityModel } from "./session-surface-activity-model";
 import { SessionSurfaceView } from "./session-surface-view";
 import {
   AssistantNoVisibleOutputCard,
@@ -147,7 +136,6 @@ import {
   isGoalIntentRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
-  transcriptNoticeLabel,
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
 import {
@@ -371,22 +359,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     statusQueryKey,
     currentSnapshot?.status ?? IDLE_STATUS,
   );
-  const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
-    useState<Record<string, number>>({});
-  const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
-    useState<Record<string, SessionTranscriptNotice[]>>(
-      readSessionTranscriptNotices,
-    );
-  const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
-    useState<Record<string, boolean>>({});
   const activeRunStartedAtRef = useRef<number | null>(null);
   const activeRunKeyRef = useRef<string | null>(null);
-  const compactWasActiveRef = useRef<Record<string, boolean>>({});
-  const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
-  useEffect(() => {
-    writeSessionTranscriptNotices(transcriptNoticesBySessionId);
-  }, [transcriptNoticesBySessionId]);
-  const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -501,6 +475,22 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  const {
+    compactBoundary,
+    transcriptNoticesBySessionId,
+    setTranscriptNoticesBySessionId,
+    stallRecoveryBySessionId,
+    setStallRecoveryBySessionId,
+    markStallRecovery,
+    appendTranscriptNotice,
+    interruptionDividers,
+  } = useSessionSurfaceTranscriptNotices({
+    sessionId: props.sessionId,
+    rawRenderedMessageCount: rawRenderedMessages.length,
+    renderedMessageCount: rawRenderedMessages.length,
+    sessionActivityStatus,
+    autoApprovedPermissionNoticeId: props.autoApprovedPermissionNoticeId,
+  });
   const renderedMessages = useMemo(
     () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
     [compactBoundary, rawRenderedMessages],
@@ -576,105 +566,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   ]);
   const renderedMessageCountRef = useRef(renderedMessages.length);
   renderedMessageCountRef.current = renderedMessages.length;
-  const appendTranscriptNotice = useCallback(
-    (notice: SessionTranscriptNotice) => {
-      setTranscriptNoticesBySessionId((current) => {
-        const existing = current[props.sessionId] ?? [];
-        return {
-          ...current,
-          [props.sessionId]: [...existing, notice].slice(
-            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
-          ),
-        };
-      });
-    },
-    [props.sessionId],
-  );
-  const updateLatestTranscriptNotice = useCallback(
-    (
-      predicate: (notice: SessionTranscriptNotice) => boolean,
-      update: (notice: SessionTranscriptNotice) => SessionTranscriptNotice,
-    ) => {
-      setTranscriptNoticesBySessionId((current) => {
-        const existing = current[props.sessionId] ?? [];
-        let targetIndex = -1;
-        for (let index = existing.length - 1; index >= 0; index -= 1) {
-          const notice = existing[index];
-          if (notice && predicate(notice)) {
-            targetIndex = index;
-            break;
-          }
-        }
-        if (targetIndex < 0) return current;
-        const next = [...existing];
-        const target = next[targetIndex];
-        if (!target) return current;
-        next[targetIndex] = update(target);
-        return { ...current, [props.sessionId]: next };
-      });
-    },
-    [props.sessionId],
-  );
-  useEffect(() => {
-    const noticeId = props.autoApprovedPermissionNoticeId?.trim();
-    if (!noticeId) return;
-    if (autoApprovedPermissionNoticeRef.current[props.sessionId] === noticeId) {
-      return;
-    }
-    autoApprovedPermissionNoticeRef.current = {
-      ...autoApprovedPermissionNoticeRef.current,
-      [props.sessionId]: noticeId,
-    };
-    appendTranscriptNotice({
-      id: `${props.sessionId}:permission-auto-approved:${noticeId}`,
-      kind: "permission-auto-approved",
-      afterMessageCount: renderedMessages.length,
-    });
-  }, [
-    appendTranscriptNotice,
-    props.autoApprovedPermissionNoticeId,
-    props.sessionId,
-    renderedMessages.length,
-  ]);
-  useEffect(() => {
-    const compacting = sessionActivityStatus === "compacting";
-    const wasCompacting = compactWasActiveRef.current[props.sessionId] === true;
-    if (compacting) {
-      if (!wasCompacting) {
-        setCompactBoundaryBySessionId((current) => ({
-          ...current,
-          [props.sessionId]: rawRenderedMessages.length,
-        }));
-        appendTranscriptNotice({
-          id: `${props.sessionId}:compacting:${renderedMessages.length}:${Date.now()}`,
-          kind: "compacting",
-          afterMessageCount: renderedMessages.length,
-        });
-      }
-      compactWasActiveRef.current = {
-        ...compactWasActiveRef.current,
-        [props.sessionId]: true,
-      };
-      return;
-    }
-    if (wasCompacting) {
-      compactWasActiveRef.current = {
-        ...compactWasActiveRef.current,
-        [props.sessionId]: false,
-      };
-      updateLatestTranscriptNotice(
-        (notice) => notice.kind === "compacting",
-        (notice) => ({ ...notice, kind: "compacted" }),
-      );
-    }
-  }, [
-    appendTranscriptNotice,
-    props.sessionId,
-    rawRenderedMessages.length,
-    renderedMessages.length,
-    sessionActivityStatus,
-    updateLatestTranscriptNotice,
-  ]);
   useSessionSurfacePlanGoalEffects({
     chatStreaming,
     renderedMessages,
@@ -716,39 +607,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     !snapshot &&
     snapshotQuery.isLoading &&
     renderedMessages.length === 0;
-  const assistantOutputAfterAwaitStart = useMemo(() => {
-    if (awaitingAssistantBaseline === null) return false;
-    return renderedMessages
-      .slice(awaitingAssistantBaseline)
-      .some(messageHasVisibleAssistantOutput);
-  }, [awaitingAssistantBaseline, renderedMessages]);
-  const noVisibleAssistantOutputText = useMemo(() => {
-    if (noVisibleAssistantOutputBaseline === null) return "";
-    return assistantFallbackText(
-      renderedMessages,
-      noVisibleAssistantOutputBaseline,
-    );
-  }, [noVisibleAssistantOutputBaseline, renderedMessages]);
-  const assistantOutputAfterNoVisibleFallback = useMemo(() => {
-    if (noVisibleAssistantOutputBaseline === null) return false;
-    return renderedMessages
-      .slice(noVisibleAssistantOutputBaseline)
-      .some(messageHasVisibleAssistantOutput);
-  }, [noVisibleAssistantOutputBaseline, renderedMessages]);
-  const showAssistantWaitState =
-    awaitingAssistantBaseline !== null && !assistantOutputAfterAwaitStart;
-  const showAssistantRespondingState =
-    awaitingAssistantBaseline !== null &&
-    assistantOutputAfterAwaitStart &&
-    chatStreaming;
-  const effectiveActivityStatus: SessionActivityStatus =
-    sessionActivityStatus !== "idle"
-      ? sessionActivityStatus
-      : showAssistantWaitState
-        ? "thinking"
-        : showAssistantRespondingState
-          ? "responding"
-          : "idle";
   const activePermissionNeedsApproval = Boolean(
     props.activePermission &&
       !resolveAccessModePermissionReply(
@@ -756,30 +614,30 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
         props.activePermission.permission,
       ),
   );
-  const assistantActivity = deriveAssistantActivity({
-    status: effectiveActivityStatus,
-    sending,
-    hasActivePermission: activePermissionNeedsApproval,
-    hasActiveQuestion: Boolean(props.activeQuestion),
-    messages: renderedMessages,
-  });
-  const activityFingerprint = useMemo(
-    () => messageActivityFingerprint(renderedMessages),
-    [renderedMessages],
-  );
-  const activityVisible = shouldShowSessionActivity({
+  const {
+    assistantOutputAfterAwaitStart,
+    noVisibleAssistantOutputText,
+    showAssistantWaitState,
+    showAssistantRespondingState,
+    effectiveActivityStatus,
+    assistantActivity,
+    activityFingerprint,
+    activityVisible,
+    showNoVisibleAssistantOutput,
+  } = useSessionSurfaceActivityModel({
+    renderedMessages,
+    awaitingAssistantBaseline,
+    noVisibleAssistantOutputBaseline,
+    sessionActivityStatus,
     chatStreaming,
-    activityStatus: effectiveActivityStatus,
-    goalRuntime: props.goalRuntime ?? null,
-    stopRequested: props.draftOnly ? false : storedSessionStopRequested,
-    runInterrupted:
-      !props.draftOnly &&
-      storedSessionRunKey !== null &&
-      (transcriptNoticesBySessionId[props.sessionId] ?? []).some(
-        (notice) =>
-          (notice.kind === "cancelled" || notice.kind === "stopped") &&
-          notice.runKey === storedSessionRunKey,
-      ),
+    sending,
+    activePermissionNeedsApproval,
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    goalRuntime: props.goalRuntime,
+    draftOnly: props.draftOnly,
+    stopRequested: storedSessionStopRequested,
+    storedSessionRunKey,
+    transcriptNotices: transcriptNoticesBySessionId[props.sessionId] ?? [],
   });
   const { showStalledActivityNotice, shouldInjectStallRecovery } =
     useSessionSurfaceActivityStall({
@@ -789,6 +647,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       liveStatusType: liveStatus.type,
       activityVisible,
     });
+  useEffect(() => {
+    if (!shouldInjectStallRecovery) return;
+    markStallRecovery();
+  }, [markStallRecovery, shouldInjectStallRecovery]);
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
@@ -797,27 +659,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const cancelledError =
     visibleError && isUserCancelledError(visibleError) ? visibleError : null;
   const visibleTranscriptError = cancelledError ? null : visibleError;
-  useEffect(() => {
-    if (!shouldInjectStallRecovery) return;
-    setStallRecoveryBySessionId((current) => {
-      if (current[props.sessionId]) return current;
-      return { ...current, [props.sessionId]: true };
-    });
-  }, [props.sessionId, shouldInjectStallRecovery]);
-  const interruptionDividers = useMemo<SessionTranscriptDivider[]>(() => {
-    const notices = transcriptNoticesBySessionId[props.sessionId] ?? [];
-    return notices.map((notice) => ({
-      id: notice.id,
-      afterMessageCount: notice.afterMessageCount,
-      label: transcriptNoticeLabel(notice),
-      variant: notice.kind,
-    }));
-  }, [props.sessionId, transcriptNoticesBySessionId]);
   const hasTranscriptContent =
     renderedMessages.length > 0 || interruptionDividers.length > 0;
-  const showNoVisibleAssistantOutput =
-    noVisibleAssistantOutputBaseline !== null &&
-    !assistantOutputAfterNoVisibleFallback;
   const showInlineActivityIndicator =
     hasTranscriptContent &&
     activityVisible &&

@@ -88,6 +88,12 @@ import {
   activeTurnReserveStyle,
   resolveVirtualItemEstimate,
 } from "./message-list/virtual-window";
+import {
+  resolveActiveTurnVirtualIndex,
+  resolveVirtualRowMeasurePolicy,
+  shouldAttachVirtualMeasure,
+  shouldBatchRemeasureOnStreamEnd,
+} from "./message-list/virtual-measure-policy";
 
 export type {
   SessionTranscriptDivider,
@@ -719,8 +725,34 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // getTotalSize() still sums estimates — a fixed-height empty shell looks like
   // multi-screen blank space above the live message. Fall back to normal flow.
   const useVirtualWindow = shouldVirtualize && virtualRows.length > 0;
-  const shouldMeasureVirtualRows =
-    measureWhileScrolling || props.isStreaming;
+  const scrollBlocksMeasure = !measureWhileScrolling;
+  const allowVirtualMeasure = shouldAttachVirtualMeasure({
+    isStreaming: props.isStreaming,
+    scrollBlocksMeasure,
+  });
+  // Detached live tail is measured via ResizeObserver; virtual rows only
+  // measure the active turn while streaming (none when tail is detached).
+  const activeTurnVirtualIndex = resolveActiveTurnVirtualIndex({
+    detachedTail: Boolean(detachedTailRenderItem),
+    virtualItemCount: virtualRenderItems.length,
+  });
+
+  // Batch remeasure once when a stream ends so historical sizes catch up.
+  const wasStreamingRef = useRef(props.isStreaming);
+  useEffect(() => {
+    const wasStreaming = wasStreamingRef.current;
+    wasStreamingRef.current = props.isStreaming;
+    if (
+      !shouldVirtualize ||
+      !shouldBatchRemeasureOnStreamEnd({
+        wasStreaming,
+        isStreaming: props.isStreaming,
+      })
+    ) {
+      return;
+    }
+    virtualizer.measure();
+  }, [props.isStreaming, shouldVirtualize, virtualizer]);
 
   // The detached tail is outside TanStack Virtual. Measure it while it grows so
   // its exact height is ready when the next message moves it into history.
@@ -945,13 +977,19 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                 {virtualRows.map((virtualRow) => {
                   const item = virtualRenderItems[virtualRow.index];
                   if (!item) return null;
+                  const rowMeasure = resolveVirtualRowMeasurePolicy({
+                    isStreaming: props.isStreaming,
+                    scrollBlocksMeasure,
+                    activeTurnVirtualIndex,
+                    virtualIndex: virtualRow.index,
+                  });
                   return (
                     <div
                       key={virtualRow.key}
                       data-index={virtualRow.index}
-                      // Skip live measure mid-scroll — keep measuring while streaming.
+                      // Streaming: only active turn. Idle: all (unless scroll-blocked).
                       ref={
-                        shouldMeasureVirtualRows
+                        allowVirtualMeasure && rowMeasure.shouldMeasure
                           ? virtualizer.measureElement
                           : undefined
                       }

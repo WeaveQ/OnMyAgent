@@ -1,11 +1,10 @@
 /** Shared class maps for SessionSurface chrome panels. */
 
-/**
- * Shared content column for transcript + composer so fullscreen layout stays aligned.
- * Keep in sync with ReactSessionComposer non-home max-width.
- */
-export const SESSION_CONTENT_MAX_WIDTH_CLASS = "max-w-[1120px]";
-export const SESSION_CONTENT_X_PADDING_CLASS = "px-4 md:px-8";
+export {
+  SESSION_CONTENT_MAX_WIDTH_CLASS,
+  SESSION_CONTENT_MAX_WIDTH_PX,
+  SESSION_CONTENT_X_PADDING_CLASS,
+} from "../../../capabilities/layout/content-column";
 
 export const sessionSurfaceTextClass = {
   assistantHeroTitle: "mt-4 text-lg font-medium text-dls-text",
