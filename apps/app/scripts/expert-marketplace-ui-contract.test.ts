@@ -428,9 +428,13 @@ describe("expert marketplace UI contract", () => {
 
   test("expert side panel reuses assistant office and code workspace panel", () => {
     const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const hostState = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-session-page-host-state.ts",
+    );
 
     expect(expertPage).toContain("CodeWorkspaceSidePanel");
-    expect(expertPage).toContain('setCurrentSidePanel("codeMenu")');
+    // Side-panel open helpers live in shared host state after host extract.
+    expect(hostState).toContain('setCurrentSidePanel("codeMenu")');
     expect(expertPage).toContain('activeSidePanel === "review"');
     expect(expertPage).toContain('activeSidePanel === "terminal"');
     expect(expertPage).toContain('activeSidePanel === "browser"');
