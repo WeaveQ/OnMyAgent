@@ -14,6 +14,13 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.11
+
+### Changed
+
+- Session-route **provider / inventory prewarm** deferred via `requestIdleCallback` (timeout fallback) so first paint does not race `listSessions` and the selected-session snapshot.
+- Expert **tab titles**: stop cold thrash (no immediate selected-session title snapshot; idle empty sessions do not poll every 3s); still include selected after defer and recheck once when a run ends (#180).
+
 ## 0.4.10
 
 ### Added
