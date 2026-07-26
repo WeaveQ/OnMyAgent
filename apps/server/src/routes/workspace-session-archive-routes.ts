@@ -18,7 +18,6 @@ import {
   syncSessionArchive,
   type SessionArchiveRuntimePaths,
   type SessionArchiveSourceRoot,
-  type SessionArchiveSyncMode,
 } from "../services/session-archive-sync.js";
 import {
   defaultSessionArchiveStorePool,
@@ -27,11 +26,37 @@ import {
 import { resolveArchiveSsePollMs } from "../services/archive-sse-policy.js";
 import { notifyArchiveDbChanged } from "../services/archive-change-bus.js";
 import {
+  DEFAULT_SESSION_ARCHIVE_PERIODIC_MS,
+  shouldRunPeriodicArchiveSync,
+} from "../services/automation-schedule-policy.js";
+import {
   persistentSessionArchiveEventsResponse,
   persistentSessionArchiveWatchResponse,
   sseEvent,
   sseResponse,
 } from "./workspace-session-archive-sse.js";
+import { registerWorkspaceSessionArchiveAnalyticsRoutes } from "./workspace-session-archive-analytics-routes.js";
+import {
+  ensureSession,
+  objectBody,
+  parseContentSearchMode,
+  parseMessageDirection,
+  parseOptionalBoolean,
+  parseOptionalDateOnly,
+  parseOptionalNonNegativeInteger,
+  parseOptionalPositiveInteger,
+  parseSearchSort,
+  parseSecretConfidence,
+  parseSessionListAutomation,
+  parseSessionListTermination,
+  parseSyncMode,
+  readCsvQuery,
+  readJsonBody,
+  readNumericId,
+  readSessionId,
+  withArchiveStore,
+  withWorkspaceArchiveStore,
+} from "./workspace-session-archive-route-helpers.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import pkg from "../../package.json" with { type: "json" };
 
@@ -49,8 +74,6 @@ type SessionArchiveSyncJob = {
 
 const sessionArchiveSyncJobs = new Map<string, SessionArchiveSyncJob>();
 
-const SESSION_ARCHIVE_AUTO_SYNC_INTERVAL_MS = 5_000;
-
 function scheduleSessionArchiveAutoSync(input: {
   workspace: WorkspaceInfo;
   paths: SessionArchiveRuntimePaths;
@@ -61,7 +84,10 @@ function scheduleSessionArchiveAutoSync(input: {
   if (existing?.status === "running") return;
   if (existing?.finished_at) {
     const finishedAtMs = Date.parse(existing.finished_at);
-    if (Number.isFinite(finishedAtMs) && Date.now() - finishedAtMs < SESSION_ARCHIVE_AUTO_SYNC_INTERVAL_MS) {
+    if (
+      Number.isFinite(finishedAtMs) &&
+      !shouldRunPeriodicArchiveSync(finishedAtMs, Date.now(), DEFAULT_SESSION_ARCHIVE_PERIODIC_MS)
+    ) {
       return;
     }
   }
@@ -382,15 +408,6 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
     });
   });
 
-  addRoute(routes, "GET", "/workspace/:id/session-archive/sessions/:sessionId/usage", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
-      const usage = store.getUsage(sessionId);
-      if (!usage) throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
-      return systemJsonResponse(usage);
-    });
-  });
-
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions/:sessionId/search", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     return withArchiveStore(resolveArchivePaths(workspace).dbPath, ctx, (store, sessionId) => {
@@ -447,134 +464,6 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
       maxEvents,
       signal: ctx.request.signal,
     });
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/usage/summary", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    const filter = parseUsageFilter(ctx);
-    return withSessionArchiveStore({ dbPath: resolveArchivePaths(workspace).dbPath }, async (store) => {
-      return systemJsonResponse(store.getUsageSummary(filter));
-    });
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/usage/comparison", "client", async (ctx) => {
-    const currentCost = parseRequiredNumber(ctx.url.searchParams.get("current_cost"), "current_cost");
-    return withResolvedWorkspaceArchiveStore(ctx, (store) => {
-      return systemJsonResponse(store.getUsageComparison({
-        ...parseUsageFilter(ctx),
-        currentCost,
-      }));
-    });
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/usage/top-sessions", "client", async (ctx) => {
-    return withResolvedWorkspaceArchiveStore(ctx, (store) => {
-      return systemJsonResponse(store.getTopUsageSessions({
-        ...parseUsageFilter(ctx),
-        limit: parseOptionalPositiveInteger(ctx.url.searchParams.get("limit"), "limit"),
-      }));
-    });
-  });
-
-  // Batch analytics endpoint: single request for all analytics data
-  // Reduces 13 HTTP requests to 1, leverages analytics cache for maximum performance
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/batch", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsBatch()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/summary", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsSummary()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/activity", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsActivity()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/heatmap", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    const metric = ctx.url.searchParams.get("metric")?.trim() || undefined;
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsHeatmap(metric)));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/projects", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsProjects()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/hour-of-week", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsHourOfWeek()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/sessions", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsSessionShape()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/velocity", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsVelocity()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/tools", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsTools()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/skills", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsSkills()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/top-sessions", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    const metric = ctx.url.searchParams.get("metric")?.trim() || undefined;
-    const limit = parseOptionalPositiveInteger(ctx.url.searchParams.get("limit"), "limit");
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsTopSessions(metric, limit)));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/signals", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsSignals()));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/analytics/signal-sessions", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    const signal = ctx.url.searchParams.get("signal")?.trim() || "low_health";
-    const limit = parseOptionalPositiveInteger(ctx.url.searchParams.get("limit"), "limit");
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getAnalyticsSignalSessions(signal, limit)));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/activity/report", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getActivityReport({
-      preset: parseActivityPreset(ctx.url.searchParams.get("preset")),
-      date: ctx.url.searchParams.get("date")?.trim() || undefined,
-      from: ctx.url.searchParams.get("from")?.trim() || undefined,
-      to: ctx.url.searchParams.get("to")?.trim() || undefined,
-      timezone: ctx.url.searchParams.get("timezone")?.trim() || undefined,
-      bucket: parseActivityBucket(ctx.url.searchParams.get("bucket")),
-      project: ctx.url.searchParams.get("project")?.trim() || undefined,
-      agent: ctx.url.searchParams.get("agent")?.trim() || undefined,
-      machine: ctx.url.searchParams.get("machine")?.trim() || undefined,
-      automation: parseActivityAutomation(ctx.url.searchParams.get("automation")),
-    })));
-  });
-
-  addRoute(routes, "GET", "/workspace/:id/session-archive/trends/terms", "client", async (ctx) => {
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    const terms = ctx.url.searchParams.getAll("term").map((term) => term.trim()).filter(Boolean);
-    if (terms.length === 0) {
-      throw new ApiError(400, "invalid_query", "at least one term is required");
-    }
-    return withWorkspaceArchiveStore(resolveArchivePaths(workspace).dbPath, (store) => systemJsonResponse(store.getTrendsTerms({
-      ...parseUsageFilter(ctx),
-      terms,
-      granularity: parseTrendGranularity(ctx.url.searchParams.get("granularity")),
-    })));
   });
 
   addRoute(routes, "GET", "/workspace/:id/session-archive/insights", "client", async (ctx) => {
@@ -867,6 +756,13 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
       return systemJsonResponse({ ok: true, status: "idle", stats: store.stats(), dbPath: paths.dbPath });
     });
   });
+
+  registerWorkspaceSessionArchiveAnalyticsRoutes({
+    routes,
+    config,
+    resolveWorkspace,
+    resolveArchivePaths,
+  });
 }
 
 function sessionArchiveSyncJobKey(workspaceId: string, dbPath: string): string {
@@ -885,216 +781,4 @@ function syncJobResponse(job: SessionArchiveSyncJob, dbPath: string) {
     error: job.error,
     dbPath,
   };
-}
-
-async function withArchiveStore(
-  dbPath: string,
-  ctx: RequestContext,
-  callback: (store: SessionArchiveStore, sessionId: string) => Response | Promise<Response>,
-  options?: { notify?: boolean },
-): Promise<Response> {
-  return withSessionArchiveStore({ dbPath }, async (store) => {
-    const response = await callback(store, readSessionId(ctx));
-    if (options?.notify) notifyArchiveDbChanged(dbPath);
-    return response;
-  });
-}
-
-async function withWorkspaceArchiveStore(
-  dbPath: string,
-  callback: (store: SessionArchiveStore) => Response | Promise<Response>,
-  options?: { notify?: boolean },
-): Promise<Response> {
-  return withSessionArchiveStore({ dbPath }, async (store) => {
-    const response = await callback(store);
-    if (options?.notify) notifyArchiveDbChanged(dbPath);
-    return response;
-  });
-}
-
-function ensureSession(store: SessionArchiveStore, sessionId: string) {
-  if (!store.getSession(sessionId)) {
-    throw new ApiError(404, "session_archive_session_not_found", "Session archive session not found");
-  }
-}
-
-function readSessionId(ctx: RequestContext): string {
-  const sessionId = (ctx.params.sessionId ?? "").trim();
-  if (!sessionId) {
-    throw new ApiError(400, "invalid_payload", "sessionId is required");
-  }
-  return sessionId;
-}
-
-function parseOptionalPositiveInteger(value: string | null, name: string): number | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new ApiError(400, "invalid_query", `${name} must be a positive integer`);
-  }
-  return parsed;
-}
-
-function parseOptionalNonNegativeInteger(value: string | null, name: string): number | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new ApiError(400, "invalid_query", `${name} must be a non-negative integer`);
-  }
-  return parsed;
-}
-
-function parseOptionalDateOnly(value: string | null, name: string): string | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  const trimmed = value.trim();
-  if (!isDateOnly(trimmed)) {
-    throw new ApiError(400, "invalid_query", `${name} must use YYYY-MM-DD`);
-  }
-  return trimmed;
-}
-
-function readCsvQuery(searchParams: URLSearchParams, name: string): string[] | undefined {
-  const values = searchParams.getAll(name)
-    .flatMap((value) => value.split(","))
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return values.length ? values : undefined;
-}
-
-function parseSessionListAutomation(value: string | null): "all" | "human" | "automated" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "all" || value === "human" || value === "automated") return value;
-  throw new ApiError(400, "invalid_query", "automated must be all, human, or automated");
-}
-
-function parseSessionListTermination(value: string | null): "all" | "clean" | "unclean" | "truncated" | "tool_call_pending" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "all" || value === "clean" || value === "unclean" || value === "truncated" || value === "tool_call_pending") return value;
-  throw new ApiError(400, "invalid_query", "termination must be all, clean, unclean, truncated, or tool_call_pending");
-}
-
-function parseRequiredNumber(value: string | null, name: string): number {
-  if (value == null || value.trim() === "") {
-    throw new ApiError(400, "invalid_query", `${name} is required`);
-  }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    throw new ApiError(400, "invalid_query", `${name} must be a number`);
-  }
-  return parsed;
-}
-
-function parseUsageFilter(ctx: RequestContext) {
-  const today = new Date().toISOString().slice(0, 10);
-  const fromDefault = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
-  const from = ctx.url.searchParams.get("from")?.trim() || fromDefault;
-  const to = ctx.url.searchParams.get("to")?.trim() || today;
-  if (!isDateOnly(from) || !isDateOnly(to)) {
-    throw new ApiError(400, "invalid_query", "from and to must use YYYY-MM-DD");
-  }
-  if (from > to) {
-    throw new ApiError(400, "invalid_query", "from must not be after to");
-  }
-  return {
-    from,
-    to,
-    agent: ctx.url.searchParams.get("agent")?.trim() || undefined,
-    project: ctx.url.searchParams.get("project")?.trim() || undefined,
-    machine: ctx.url.searchParams.get("machine")?.trim() || undefined,
-    model: ctx.url.searchParams.get("model")?.trim() || undefined,
-    excludeProject: ctx.url.searchParams.get("exclude_project")?.trim() || undefined,
-    excludeAgent: ctx.url.searchParams.get("exclude_agent")?.trim() || undefined,
-    excludeModel: ctx.url.searchParams.get("exclude_model")?.trim() || undefined,
-    minUserMessages: parseOptionalNonNegativeInteger(ctx.url.searchParams.get("min_user_messages"), "min_user_messages"),
-    includeOneShot: parseOptionalBoolean(ctx.url.searchParams.get("include_one_shot")) ?? true,
-    includeAutomated: parseOptionalBoolean(ctx.url.searchParams.get("include_automated")) ?? false,
-    activeSince: ctx.url.searchParams.get("active_since")?.trim() || undefined,
-  };
-}
-
-function parseOptionalBoolean(value: string | null): boolean | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "true") return true;
-  if (value === "false") return false;
-  throw new ApiError(400, "invalid_query", "boolean query values must be true or false");
-}
-
-function isDateOnly(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(new Date(`${value}T00:00:00Z`).getTime());
-}
-
-function parseSyncMode(value: string | null): SessionArchiveSyncMode | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "incremental" || value === "resync") return value;
-  throw new ApiError(400, "invalid_query", "mode must be incremental or resync");
-}
-
-function parseMessageDirection(value: string | null): "asc" | "desc" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "asc" || value === "desc") return value;
-  throw new ApiError(400, "invalid_query", "direction must be asc or desc");
-}
-
-function parseSearchSort(value: string | null): "relevance" | "recency" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "relevance" || value === "recency") return value;
-  throw new ApiError(400, "invalid_query", "sort must be relevance or recency");
-}
-
-function parseContentSearchMode(value: string | null): "substring" | "regex" | "fts" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "substring" || value === "regex" || value === "fts") return value;
-  throw new ApiError(400, "invalid_query", "mode must be substring, regex, or fts");
-}
-
-function parseActivityPreset(value: string | null): "day" | "week" | "month" | "custom" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "day" || value === "week" || value === "month" || value === "custom") return value;
-  throw new ApiError(400, "invalid_query", "preset must be day, week, month, or custom");
-}
-
-function parseActivityBucket(value: string | null): "5m" | "15m" | "1h" | "1d" | "1w" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "5m" || value === "15m" || value === "1h" || value === "1d" || value === "1w") return value;
-  throw new ApiError(400, "invalid_query", "bucket must be 5m, 15m, 1h, 1d, or 1w");
-}
-
-function parseActivityAutomation(value: string | null): "all" | "interactive" | "automated" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "all" || value === "interactive" || value === "automated") return value;
-  throw new ApiError(400, "invalid_query", "automation must be all, interactive, or automated");
-}
-
-function parseTrendGranularity(value: string | null): "day" | "week" | "month" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "day" || value === "week" || value === "month") return value;
-  throw new ApiError(400, "invalid_query", "granularity must be day, week, or month");
-}
-
-function parseSecretConfidence(value: string | null): "definite" | "candidate" | "all" | undefined {
-  if (value == null || value.trim() === "") return undefined;
-  if (value === "definite" || value === "candidate" || value === "all") return value;
-  throw new ApiError(400, "invalid_query", "confidence must be definite, candidate, or all");
-}
-
-function readNumericId(value: string | undefined, name: string): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new ApiError(400, "invalid_payload", `${name} must be a non-negative integer`);
-  }
-  return parsed;
-}
-
-async function readJsonBody(ctx: RequestContext, fallback?: Record<string, unknown>): Promise<unknown> {
-  try {
-    return await ctx.request.json();
-  } catch {
-    if (fallback !== undefined) return fallback;
-    throw new ApiError(400, "invalid_payload", "request body must be valid JSON");
-  }
-}
-
-function objectBody(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(Object.entries(value));
 }

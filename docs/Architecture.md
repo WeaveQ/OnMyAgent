@@ -67,6 +67,8 @@ apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索�
 
 ## Runtime Data Flow
 
+OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.17.20**); product prefers the bundled pin over stale PATH installs (see desktop `opencode-binary-policy` / orchestrator version checks).
+
 ```text
 desktop(electron) → runtime.mjs → spawn sidecars
   ├→ opencode binary (sidecar)
@@ -394,9 +396,9 @@ scripts/release/      release review, prepare, ship, and asset publishing
 2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
 3. **已完成一轮（主轨 perf）**：archive **store pool** + SSE 长连接 + **change-bus** 推送钩子 + analytics TTL 全量失效 + OpenCode client pool；见 **Server Archive Runtime**。**lifecycle 已改走 pool**；HTTP 写路径（rename/trash/star/pin/import/config/POST sync 等）在成功后 `notifyArchiveDbChanged`。
 4. **已落文档**：双运行时主辅（OpenCode 主 / Personal 辅）见 **Dual Runtime Boundary**；实现层收敛（统一 open API、禁交叉写）仍按该节执行。
-5. 下一步：继续压缩 `server.ts` / `session-archive.ts` 等 god-file 与 OpenCode/client/config helper；保持 composition root 不承载业务路由。`pnpm check:file-size` 防回胀。
-6. 进行中：session **host-thin**（`shell/session-route` 只编排 hooks/bags，`domains/session` 持业务）；与 Personal UI 解耦保持 barrel 边界。send/plan/goal 纯编排已抽出 `session-surface-run-orchestration.ts`。
-7. 已开始：orchestrator spawn 环境与 PATH 扩展逻辑迁入 `apps/orchestrator/src/env-paths.ts`，data-dir 解析迁入 `apps/orchestrator/src/data-dir.ts`，sidecar target/config 解析迁入 `apps/orchestrator/src/sidecar-config.ts`，版本 manifest 读取迁入 `apps/orchestrator/src/version-manifest.ts`，sandbox mount allowlist/config/data-dir 挂载校验迁入 `apps/orchestrator/src/sandbox-mounts.ts`；后续继续拆 args/config、runtime services、sandbox、logging。
+5. **已完成一轮（tech-wave-complete）**：`register-server-routes.ts` 薄 composition；`session-archive-open` 抽出；archive analytics routes / helpers 拆分；session list default limit + slow log；snapshot 404 no-retry 策略；automations due helpers；archive periodic sync due-based + change-bus；OpenCode pin **v1.17.20**（`constants.json`；PATH 上旧 binary 不得盖住 pin/sidecar）。`pnpm check:file-size` 防回胀。
+6. **已完成一轮（session host-thin）**：`use-session-page-host-state` 共享 expert/assistant host；`session-surface` activity/transcript-notices 抽出；composer-layout；rail keep-alive LRU（secondary max=3）；virtual measure 流式策略。
+7. **已完成一轮（orchestrator/desktop lifecycle）**：`runtime-spawn.ts`、`runtime-opencode-lifecycle.mjs`、personal-agent `conversation-runtime-api.mjs`；env-paths / data-dir / sidecar-config / version-manifest / sandbox-mounts 仍为 spawn 前置模块。
 8. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。**P1-D 追加**：workspace id / skill-command 纯函数 → `desktop-workspace-ids.mjs`；engine/server/orchestrator state → `runtime-engine-state.mjs`。
 9. **已完成一轮（shell 冷启动 / 加载 UX）**：`route-load-registry` + `LoadSurface` 统一 boot/route 加载文案；progressive boot（壳可画即收全屏遮罩）；侧栏会话标题 localStorage 缓存；`kernel/user-error` 主失败路径模板 + 设置错误条恢复动作；settings AI 列表 skeleton / `useAiProvidersController` + `mergeConnectedProviders`。细节见 `apps/app/src/react-app/ARCHITECTURE.md` **Shell load / boot**。
 10. **已完成一轮（P1-C import cycles）**：`madge --circular` 在 `apps/app/src` 与 `apps/server/src` 为 **0**。主要断环：pool↔proxy → `opencode-workspace-client.ts`；den↔events → `den-types.ts`；shared/kernel → 直引 profile-option-aliases；session pages / sidebar / shell-feedback / local-agent composer → leaf types；`types.ts` 不再 type-import `./lib/opencode`。
