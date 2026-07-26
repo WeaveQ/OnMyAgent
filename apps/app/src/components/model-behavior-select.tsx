@@ -70,7 +70,8 @@ export function ModelBehaviorSelect({
               size="sm"
               disabled={disabled}
               aria-label={t("composer.behavior_label")}
-              className="h-7 max-w-28 shrink-0 rounded-md border-0 bg-transparent px-1.5 text-xs font-medium text-dls-secondary hover:bg-dls-hover hover:text-dls-text data-[size=sm]:h-7 [&_[data-slot=select-value]]:truncate"
+              // Match model chip + left composer chrome (text-sm / h-8).
+              className="h-8 max-w-28 shrink-0 rounded-lg border-0 bg-transparent px-2 text-sm font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text data-[size=sm]:h-8 [&_[data-slot=select-value]]:truncate"
             />
           }
         >

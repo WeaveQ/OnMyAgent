@@ -40,4 +40,25 @@ describe("assistant automation groups", () => {
       },
     ]);
   });
+
+  test("folds recreated templates that share a title into one group", () => {
+    const groups = groupAssistantAutomationItems([
+      {
+        item: "run-old",
+        automationId: "auto-old",
+        title: "历史上的今天",
+        updatedAt: 100,
+      },
+      {
+        item: "run-new",
+        automationId: "auto-new",
+        title: "历史上的今天",
+        updatedAt: 200,
+      },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.id).toBe("auto-new");
+    expect(groups[0]!.title).toBe("历史上的今天");
+    expect(groups[0]!.items).toEqual(["run-new", "run-old"]);
+  });
 });

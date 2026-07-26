@@ -89,6 +89,10 @@ export default {
   "agent_manager.provider_modal.test_connection_ok_empty":
     "連線成功 · 介面未回傳模型 · 耗時 {ms}ms",
   "agent_manager.provider_modal.test_connection_fail": "連線失敗：{message}",
+  "agent_manager.provider_modal.test_model": "連通性測試",
+  "agent_manager.provider_modal.test_model_need_id": "請先填寫模型 ID",
+  "agent_manager.provider_modal.test_model_ok": "連通成功 · 耗時 {ms}ms",
+  "agent_manager.provider_modal.test_model_fail": "連通失敗：{message}",
   "agent_manager.provider_modal.model_list_hint": "填寫模型 ID，顯示名稱可自動帶出",
   "agent_manager.provider_modal.model_id_placeholder": "例如 qwen3.6-plus",
   "agent_manager.provider_modal.fill_all": "一鍵填充",

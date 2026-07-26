@@ -707,12 +707,22 @@ export function AssistantPage(props: AssistantPageProps) {
         return;
       }
       // 1) Delete every run session under the group (history rows).
+      // Ghost sessions (already missing in OpenCode) must not abort the loop —
+      // otherwise the schedule definition is never deleted and "定时" returns.
       for (const sessionId of target.sessionIds) {
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
         );
-        await props.onDeleteSession(sessionId);
+        try {
+          await props.onDeleteSession(sessionId);
+        } catch (error) {
+          console.warn(
+            "[assistant] failed to delete automation run session; continuing",
+            sessionId,
+            error,
+          );
+        }
       }
       // 2) Delete the automation definition itself. Without this, the schedule
       // keeps firing and the "定时" group reappears — feels like "删不掉".
@@ -1212,6 +1222,34 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceId={props.selectedWorkspaceId}
                           focusAutomationId={focusAutomationId}
                           onFocusAutomationConsumed={() => setFocusAutomationId(null)}
+                          // Same OpenCode command.list + skill sources as session + menu.
+                          listOpenCodeCommands={props.surface?.listCommands}
+                          listSkills={
+                            props.onmyagentServerClient && props.selectedWorkspaceId
+                              ? () =>
+                                  props
+                                    .onmyagentServerClient!.listSkills(
+                                      props.selectedWorkspaceId,
+                                      { includeGlobal: true },
+                                    )
+                                    .then((result) => result.items)
+                              : undefined
+                          }
+                          listMcp={
+                            props.onmyagentServerClient && props.selectedWorkspaceId
+                              ? () =>
+                                  props
+                                    .onmyagentServerClient!.listMcp(
+                                      props.selectedWorkspaceId,
+                                    )
+                                    .then((result) => ({
+                                      servers: result.items.map((item) => ({
+                                        name: item.name,
+                                        id: item.name,
+                                      })),
+                                    }))
+                              : undefined
+                          }
                           onOpenSession={(workspaceId, sessionId) => {
                             writeAssistantSelectionMemory(
                               workspaceId,

@@ -1531,6 +1531,20 @@ export type AgentManagementFetchModelsResult = {
   models: AgentManagementFetchedModel[];
 };
 
+export type AgentManagementTestModelInput = {
+  appType: AgentManagementManagedProvider["appType"];
+  baseUrl: string;
+  apiKey?: string;
+  modelId: string;
+};
+
+export type AgentManagementTestModelResult = {
+  ok: boolean;
+  endpoint: string;
+  modelId: string;
+  elapsedMs: number;
+};
+
 export type AgentManagementSkillActionInput = {
   action: "enable" | "disable" | "import" | "open";
   agent: AgentManagementSkillAgent;

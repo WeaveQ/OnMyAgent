@@ -1189,7 +1189,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const {
     connectedProviders,
-    moveConnectedProvider,
     providerListHydrated,
     opencodeInventoryReady,
     opencodeManagedProviders,
@@ -1659,7 +1658,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               }
               canEditProvider={(provider) => provider.managedBy === "opencode"}
               onEditProvider={handleEditOpenCodeProvider}
-              onMoveProvider={moveConnectedProvider}
               canDeleteProvider={(provider) => provider.managedBy === "opencode"}
               onDeleteProvider={async (provider) => {
                 if (providerActionBusyId || providerSyncBusy) return;

@@ -2,13 +2,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ArrowUpRightIcon, Check, CircleAlert } from "lucide-react";
 import {
-  BuildingOffice2Icon,
-  CloudIcon,
-  ServerStackIcon,
-  Square3Stack3DIcon,
-} from "@heroicons/react/24/solid";
+  ArrowRight,
+  ArrowUpRightIcon,
+  Building2,
+  Check,
+  CircleAlert,
+  Cloud,
+  Layers,
+  Server,
+} from "lucide-react";
 
 import {
   createDenClient,
@@ -170,7 +173,7 @@ export function OrgOnboardingPage() {
         <PageContainer>
           <PageHeader>
             <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-              <BuildingOffice2Icon className="size-7 text-dls-text" />
+              <Building2 className="size-7 text-dls-text" />
             </IconTile>
             <PageTitle>{t("den.your_organization")}</PageTitle>
           </PageHeader>
@@ -195,7 +198,7 @@ export function OrgOnboardingPage() {
         <PageContainer>
           <PageHeader>
             <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-              <BuildingOffice2Icon className="size-7 text-dls-text" />
+              <Building2 className="size-7 text-dls-text" />
             </IconTile>
             <PageTitle>{t("den.choose_your_organization")}</PageTitle>
             <Alert variant="destructive">
@@ -337,7 +340,7 @@ export function ResourceSelectionPage() {
         {/* Header */}
         <PageHeader>
           <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-            <BuildingOffice2Icon className="size-7 text-dls-text" />
+            <Building2 className="size-7 text-dls-text" />
           </IconTile>
           <PageTitle>{orgName || "Your organization"}</PageTitle>
           {loading ? null : error ? (
@@ -398,7 +401,7 @@ export function ResourceSelectionPage() {
                 {/* AI Providers */}
                 {providers.length > 0 ? (
                   <Section
-                    icon={<CloudIcon className="size-5 text-dls-text/60" />}
+                    icon={<Cloud className="size-5 text-dls-text/60" />}
                     title={t("den.ai_providers_title")}
                     description={t("den.ai_providers_desc")}
                     count={t("den.models_count", { count: totalModels })}
@@ -418,7 +421,7 @@ export function ResourceSelectionPage() {
                 {marketplaces.length > 0 ? (
                   <Section
                     icon={
-                      <Square3Stack3DIcon className="size-5 text-dls-text/60" />
+                      <Layers className="size-5 text-dls-text/60" />
                     }
                     title={t("den.marketplaces_title")}
                     description={t("den.marketplaces_desc")}
@@ -434,7 +437,7 @@ export function ResourceSelectionPage() {
                 {workers.length > 0 ? (
                   <Section
                     icon={
-                      <ServerStackIcon className="size-5 text-dls-text/60" />
+                      <Server className="size-5 text-dls-text/60" />
                     }
                     title={t("den.cloud_workers_section_title")}
                     description={t("den.cloud_workers_section_desc")}
@@ -704,7 +707,7 @@ function OrganizationSelectionPage({
       <PageContainer>
         <PageHeader>
           <IconTile className="mx-auto size-14" size="lg" shape="xl" border>
-            <BuildingOffice2Icon className="size-7 text-dls-text" />
+            <Building2 className="size-7 text-dls-text" />
           </IconTile>
           <PageTitle>{t("den.choose_your_organization")}</PageTitle>
           {error ? (
@@ -779,7 +782,7 @@ export function OrganizationList({
           >
             <Field orientation="horizontal">
               <FieldTitle className="flex min-w-0 items-center gap-4">
-                <BuildingOffice2Icon className="size-6 shrink-0 text-dls-secondary" />
+                <Building2 className="size-6 shrink-0 text-dls-secondary" />
                 <div className="flex min-w-0 flex-col items-start">
                   <span className="max-w-full truncate text-sm font-medium">
                     {org.name}
