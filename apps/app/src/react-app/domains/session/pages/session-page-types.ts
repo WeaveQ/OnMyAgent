@@ -105,7 +105,8 @@ export type SessionPageProps = {
   providers?: ProviderListItem[];
   mcpConnectedCount: number;
   onSendFeedback: () => void;
-  onOpenSettings: () => void;
+  /** Open settings; optional route like `/settings/usage`. */
+  onOpenSettings: (route?: string) => void;
   sidebar: SessionPageSidebarProps;
   surface?: SessionPageSurfaceProps | null;
   history?: SessionPageHistoryControls | null;
