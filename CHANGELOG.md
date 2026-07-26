@@ -14,6 +14,21 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.10
+
+### Added
+
+- Session **rail keep-alive LRU**, virtual measure policy, and deferred sidebar/tab title snapshots (#179).
+- Server **session list / snapshot / archive open** policy modules and automation wait policy (#177–#179).
+- Automation UX: list model, session groups, provider probe helpers (#176–#177).
+
+### Changed
+
+- Tech-wave hygiene: thin session hosts, archive route extracts, desktop lifecycle spawn, marketplace extracts (#178–#179).
+- Expert tab titles: leave the stuck "summarizing" placeholder; derive chip labels from the focused session's messages (#179).
+- Provider order / connectivity test and quieter session load paths (#176).
+- OpenCode pin / CI desktop contract and automation e2e busy→idle mock (#177–#178).
+
 ## 0.4.9
 
 ### Added
