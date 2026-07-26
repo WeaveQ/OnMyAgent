@@ -127,6 +127,11 @@ describe("sidebar load policy", () => {
       ),
       "utf8",
     );
-    expect(tabs).toContain("enabled: false");
+    // Tabs re-enable light title snapshots only for sessions that still need a
+    // fallback title, gated by the same deferred/capped preview policy.
+    expect(tabs).toContain("useDeferredSidebarPreviews");
+    expect(tabs).toContain("sessionNeedsTabTitleFallback");
+    expect(tabs).toContain("tabTitleSnapshotIds.has");
   });
 });
+
