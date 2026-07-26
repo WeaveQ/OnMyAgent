@@ -103,6 +103,47 @@ function compactTabTitle(input: string) {
   return source.length > 10 ? source.slice(0, 10) : source;
 }
 
+/**
+ * Derive a tab title from a light message snapshot.
+ * Prefer the first user turn (conversation topic); fall back to any text.
+ * Exported for unit tests.
+ */
+export function summarizeSessionSnapshotForTab(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+): string | undefined {
+  if (!snapshot?.messages?.length) return undefined;
+
+  const visibleText = (message: (typeof snapshot.messages)[number]) => {
+    const text = sessionMessagePreview(message);
+    if (!text) return "";
+    return text
+      .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  for (const message of snapshot.messages) {
+    if (message.info.role !== "user") continue;
+    const text = visibleText(message);
+    if (text) return text;
+  }
+
+  for (const message of snapshot.messages) {
+    const text = visibleText(message);
+    if (text) return text;
+  }
+  return undefined;
+}
+
+/** Poll while a tab still has no message-derived title (empty chat → first reply). */
+export function tabTitleSnapshotRefetchIntervalMs(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+): number | false {
+  if (snapshot === null) return false;
+  if (summarizeSessionSnapshotForTab(snapshot)) return false;
+  return 3_000;
+}
+
 const TAB_SCROLL_SPEED = 25;
 const TAB_VISIBLE_WIDTH = 78;
 
@@ -138,19 +179,6 @@ function SessionTabMarqueeText({ title }: { title: string }) {
       )}
     </>
   );
-}
-
-function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
-  const previews = snapshot.messages
-    .map(sessionMessagePreview)
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(" ");
-  if (!previews) return undefined;
-  return previews
-    .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /**
@@ -318,9 +346,10 @@ export function AgentSessionTabs(props: {
     return stable;
   }, [props.sessions, stableOrderIds]);
 
-  // Only fetch light snapshots for tabs that still need a title fallback.
-  // Deferred + capped (same policy as sidebar previews) so we do not thrash
-  // OpenCode on boot; focused session transcript stays on the main surface.
+  // Light snapshots only for tabs that still need a title fallback.
+  // Unlike sidebar list previews, tab chips cannot reuse the main surface
+  // snapshot — so include the selected session (immediately, before defer)
+  // and other title-needing tabs after the warm-up delay.
   const { previewSessionIds: tabTitleSnapshotIds } = useDeferredSidebarPreviews({
     enabled: Boolean(props.client),
     sessions: orderedSessions.filter(
@@ -329,6 +358,8 @@ export function AgentSessionTabs(props: {
     ),
     selectedSessionId: props.selectedSessionId,
     maxPreviews: 8,
+    includeSelected: true,
+    prioritizeSelected: true,
   });
   const snapshotQueries = useQueries({
     queries: orderedSessions.map((session) => ({
@@ -376,7 +407,12 @@ export function AgentSessionTabs(props: {
           throw error;
         }
       },
-      staleTime: 30_000,
+      // Empty first paint must not stick for a long stale window; once we have
+      // a message preview, stop polling (see tabTitleSnapshotRefetchIntervalMs).
+      staleTime: 0,
+      refetchInterval: (query: {
+        state: { data: OnMyAgentSessionSnapshot | null | undefined };
+      }) => tabTitleSnapshotRefetchIntervalMs(query.state.data),
       retry: (failureCount: number, error: unknown) =>
         shouldRetrySessionSnapshotQuery(failureCount, error),
     })),

@@ -42,6 +42,26 @@ describe("sidebar load policy", () => {
     expect(after.has("draft:x")).toBe(false);
     expect(after.size).toBe(SIDEBAR_PREVIEW_SNAPSHOT_MAX);
     expect([...after]).toEqual(["ses_a", "ses_b", "ses_c", "ses_d", "ses_e"]);
+
+    // Tab titles: focused session must be eligible (surface snapshot is not wired in).
+    const tabBefore = selectSidebarPreviewSessionIds({
+      sessions,
+      selectedSessionId: "ses_selected",
+      deferred: false,
+      prioritizeSelected: true,
+      includeSelected: true,
+    });
+    expect([...tabBefore]).toEqual(["ses_selected"]);
+    const tabAfter = selectSidebarPreviewSessionIds({
+      sessions,
+      selectedSessionId: "ses_selected",
+      deferred: true,
+      prioritizeSelected: true,
+      includeSelected: true,
+      maxPreviews: 3,
+    });
+    expect(tabAfter.has("ses_selected")).toBe(true);
+    expect(tabAfter.size).toBe(3);
   });
 
   test("draft session id helper", () => {
@@ -127,11 +147,13 @@ describe("sidebar load policy", () => {
       ),
       "utf8",
     );
-    // Tabs re-enable light title snapshots only for sessions that still need a
-    // fallback title, gated by the same deferred/capped preview policy.
+    // Tabs re-enable light title snapshots for sessions that still need a
+    // fallback title, including the focused session (unlike list previews).
     expect(tabs).toContain("useDeferredSidebarPreviews");
     expect(tabs).toContain("sessionNeedsTabTitleFallback");
     expect(tabs).toContain("tabTitleSnapshotIds.has");
+    expect(tabs).toContain("includeSelected: true");
+    expect(tabs).toContain("prioritizeSelected: true");
   });
 });
 

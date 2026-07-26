@@ -32,24 +32,45 @@ export function isDraftSessionId(sessionId: string | null | undefined): boolean 
 
 /**
  * Sessions allowed to fetch preview snapshots.
- * - Before defer: none (selected session uses the main surface snapshot).
- * - After defer: up to max recent non-draft sessions excluding selected.
+ * - Before defer: none (selected session uses the main surface snapshot),
+ *   unless `prioritizeSelected` is set (tab titles need the focused session).
+ * - After defer: up to max recent non-draft sessions.
+ * - By default the selected id is excluded (surface already owns its transcript).
+ *   Pass `includeSelected` when the consumer cannot reuse the surface snapshot
+ *   (expert session tab chips).
  */
 export function selectSidebarPreviewSessionIds(input: {
   sessions: Array<{ id: string }>;
   selectedSessionId?: string | null;
   deferred: boolean;
   maxPreviews?: number;
+  /** Include the focused session in the deferred set (default false). */
+  includeSelected?: boolean;
+  /**
+   * Always allow the focused session even before defer fires.
+   * Used by expert tab titles so the active chip can leave "New session"
+   * as soon as messages exist, without waiting for the warm-up delay.
+   */
+  prioritizeSelected?: boolean;
 }): Set<string> {
-  if (!input.deferred) return new Set();
-  const max = input.maxPreviews ?? SIDEBAR_PREVIEW_SNAPSHOT_MAX;
   const selected = input.selectedSessionId?.trim() || "";
   const ids = new Set<string>();
+
+  if (input.prioritizeSelected && selected && !isDraftSessionId(selected)) {
+    const inList = input.sessions.some(
+      (session) => session.id?.trim() === selected,
+    );
+    if (inList) ids.add(selected);
+  }
+
+  if (!input.deferred) return ids;
+
+  const max = input.maxPreviews ?? SIDEBAR_PREVIEW_SNAPSHOT_MAX;
   for (const session of input.sessions) {
     if (ids.size >= max) break;
     const id = session.id?.trim();
     if (!id || isDraftSessionId(id)) continue;
-    if (id === selected) continue;
+    if (!input.includeSelected && id === selected) continue;
     ids.add(id);
   }
   return ids;
