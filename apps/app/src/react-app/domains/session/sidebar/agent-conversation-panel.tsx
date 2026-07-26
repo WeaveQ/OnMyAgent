@@ -41,7 +41,14 @@ import {
   SIDEBAR_AUTOMATION_LIST_DEFER_MS,
   SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
 } from "../sync/session-poll-policy";
+import {
+  isSessionSnapshotNotFoundError,
+  markSessionSnapshotNotFound,
+  shouldRetrySessionSnapshotQuery,
+  shouldSkipSnapshotForNotFoundCooldown,
+} from "../sync/session-snapshot-fetch-policy";
 import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
+
 import {
   buildAssistantSidebarModel,
   buildAutomationLocalPinsMap,
@@ -81,6 +88,9 @@ function registerAutomationAssistantSessions(workspaceId: string) {
     writeAssistantSessionCategory(record.sessionId, record.category);
   }
 }
+
+/** Module-level cooldown so remounts do not re-storm 404 snapshot ids. */
+const snapshotNotFoundUntilBySessionId = new Map<string, number>();
 
 /**
  * Merge engine sessions with local automation run records, dropping archived /
@@ -345,24 +355,51 @@ export function AgentConversationPanel(props: {
       enabled:
         Boolean(props.client) &&
         !session.id.startsWith("draft:") &&
-        assistantPreviewIds.has(session.id),
+        assistantPreviewIds.has(session.id) &&
+        !shouldSkipSnapshotForNotFoundCooldown({
+          sessionId: session.id,
+          notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+          nowMs: Date.now(),
+        }),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
-        return (
-          await client.getSessionSnapshot(
-            props.selectedWorkspaceId,
-            session.id,
-            {
-              limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
-              directory:
-                assistantWorkspaceBySessionId.get(session.id)?.directory,
-            },
-          )
-        ).item;
+        if (
+          shouldSkipSnapshotForNotFoundCooldown({
+            sessionId: session.id,
+            notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+            nowMs: Date.now(),
+          })
+        ) {
+          return null;
+        }
+        try {
+          return (
+            await client.getSessionSnapshot(
+              props.selectedWorkspaceId,
+              session.id,
+              {
+                limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+                directory:
+                  assistantWorkspaceBySessionId.get(session.id)?.directory,
+              },
+            )
+          ).item;
+        } catch (error) {
+          if (isSessionSnapshotNotFoundError(error)) {
+            markSessionSnapshotNotFound({
+              sessionId: session.id,
+              notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+              nowMs: Date.now(),
+            });
+            return null;
+          }
+          throw error;
+        }
       },
       staleTime: 30_000,
-      retry: false,
+      retry: (failureCount: number, error: unknown) =>
+        shouldRetrySessionSnapshotQuery(failureCount, error),
     })),
   });
   const assistantTitleFallbacks = new Map<string, string>();
@@ -412,20 +449,47 @@ export function AgentConversationPanel(props: {
       enabled:
         Boolean(props.client) &&
         mode === "agent" &&
-        expertPreviewIds.has(session.id),
+        expertPreviewIds.has(session.id) &&
+        !shouldSkipSnapshotForNotFoundCooldown({
+          sessionId: session.id,
+          notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+          nowMs: Date.now(),
+        }),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
-        return (
-          await client.getSessionSnapshot(
-            props.selectedWorkspaceId,
-            session.id,
-            { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
-          )
-        ).item;
+        if (
+          shouldSkipSnapshotForNotFoundCooldown({
+            sessionId: session.id,
+            notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+            nowMs: Date.now(),
+          })
+        ) {
+          return null;
+        }
+        try {
+          return (
+            await client.getSessionSnapshot(
+              props.selectedWorkspaceId,
+              session.id,
+              { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
+            )
+          ).item;
+        } catch (error) {
+          if (isSessionSnapshotNotFoundError(error)) {
+            markSessionSnapshotNotFound({
+              sessionId: session.id,
+              notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+              nowMs: Date.now(),
+            });
+            return null;
+          }
+          throw error;
+        }
       },
       staleTime: 30_000,
-      retry: false,
+      retry: (failureCount: number, error: unknown) =>
+        shouldRetrySessionSnapshotQuery(failureCount, error),
     })),
   });
 

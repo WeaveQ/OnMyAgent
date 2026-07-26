@@ -23,8 +23,17 @@ import {
   parseAutomationScheduleTime,
   parseTime,
 } from "./automation-next-run.js";
+import {
+  AUTOMATION_DUE_GRACE_MS,
+  isAutomationNextRunStale,
+  selectClaimableAutomation,
+} from "./automation-schedule-policy.js";
 
 export { nextRunAt } from "./automation-next-run.js";
+export {
+  AUTOMATION_DUE_GRACE_MS,
+  selectClaimableAutomation,
+} from "./automation-schedule-policy.js";
 
 type AutomationStoreFile = {
   version: 1;
@@ -61,7 +70,6 @@ export type AutomationManualRunResult = {
 
 const AUTOMATION_ID_PREFIX = "automation-";
 const AUTOMATION_LEASE_TTL_MS = 2 * 60 * 60 * 1000;
-const AUTOMATION_DUE_GRACE_MS = 2 * 60 * 1000;
 const MIN_INTERVAL_MINUTES = 5;
 const MAX_INTERVAL_MINUTES = 30 * 24 * 60;
 const storeLocks = new Map<string, Promise<void>>();
@@ -444,7 +452,7 @@ function refreshDueAutomationSchedules(store: AutomationStoreFile, now: number):
   let changed = false;
   for (const entry of store.items) {
     if (!entry.enabled || entry.running) continue;
-    const stale = entry.nextRunAt != null && entry.nextRunAt < now - AUTOMATION_DUE_GRACE_MS;
+    const stale = isAutomationNextRunStale(entry.nextRunAt, now);
     const next = entry.nextRunAt == null || stale
       ? nextRunAt(entry.schedule, now, entry.effectiveRange)
       : entry.nextRunAt;
@@ -454,23 +462,6 @@ function refreshDueAutomationSchedules(store: AutomationStoreFile, now: number):
     changed = true;
   }
   return changed;
-}
-
-function selectClaimableAutomation(items: AutomationTaskItem[], now: number): AutomationTaskItem | undefined {
-  return items
-    .filter((entry) => (
-      entry.running?.expiresAt != null && entry.running.expiresAt <= now
-    ) || (
-      entry.enabled &&
-      entry.nextRunAt != null &&
-      entry.nextRunAt <= now &&
-      (entry.nextRunAt >= now - AUTOMATION_DUE_GRACE_MS || Boolean(entry.effectiveRange.endDate)) &&
-      !entry.running
-    ))
-    .sort((a, b) => (
-      (a.running?.scheduledForAt ?? a.nextRunAt ?? 0) -
-      (b.running?.scheduledForAt ?? b.nextRunAt ?? 0)
-    ))[0];
 }
 
 function findAutomationTaskOrThrow(store: AutomationStoreFile, id: string): AutomationTaskItem {

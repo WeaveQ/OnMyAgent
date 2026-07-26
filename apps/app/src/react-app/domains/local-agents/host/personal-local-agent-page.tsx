@@ -1819,7 +1819,7 @@ return (
       </div>
       {/* Solid footer plate — avoid gradient glass that washes out the composer. */}
       <footer className="mac:titlebar-no-drag min-w-0 shrink-0 px-6 pb-5 pt-2">
-        <div className="mx-auto w-full min-w-0 max-w-[1120px]">
+        <div className={localAgentLayoutClass.contentColumn}>
           <LocalAgentDraftComposer
             draftKey={selectedChatKey}
             workspaceRoot={effectiveWorkspaceRoot}

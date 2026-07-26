@@ -11,6 +11,16 @@ import {
   buildSessionStatuses,
   buildSessionTodos,
 } from "./session-read-model.js";
+import {
+  formatWorkspaceSessionListTiming,
+  normalizeWorkspaceSessionListInput,
+  shouldLogSlowWorkspaceSessionList,
+} from "./workspace-session-list-policy.js";
+import {
+  isSessionNotFoundApiError,
+  sessionNotFoundError,
+  shouldRetryWorkspaceSessionSnapshot,
+} from "./session-snapshot-policy.js";
 
 function remapSessionReadError(error: unknown): never {
   if (error instanceof ApiError && error.code === "opencode_request_failed") {
@@ -28,12 +38,7 @@ function remapSessionReadError(error: unknown): never {
       );
     }
     if (upstreamStatus === 404) {
-      throw new ApiError(
-        404,
-        "session_not_found",
-        "Session not found",
-        details,
-      );
+      throw sessionNotFoundError(details);
     }
   }
   throw error;
@@ -44,23 +49,43 @@ export async function listWorkspaceSessions(
   workspace: WorkspaceInfo,
   input: { roots?: boolean; start?: number; search?: string; limit?: number; directory?: string },
 ) {
+  const started = performance.now();
+  const normalized = normalizeWorkspaceSessionListInput(input);
   try {
     const connection = resolveWorkspaceOpencodeConnection(config, workspace);
     if (!connection.baseUrl?.trim()) {
       return [];
     }
-    const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
-    return buildSessionList(
+    const opencode = getWorkspaceOpencodeClient(
+      config,
+      workspace,
+      normalized.directory,
+    );
+    const items = buildSessionList(
       unwrapOpencodeResult(
         await opencode.session.list({
-          roots: input.roots,
-          start: input.start,
-          search: input.search,
-          limit: input.limit,
+          roots: normalized.roots,
+          start: normalized.start,
+          search: normalized.search,
+          limit: normalized.limit,
         }),
         "/session",
       ),
     );
+    const durationMs = performance.now() - started;
+    if (shouldLogSlowWorkspaceSessionList(durationMs)) {
+      console.info(
+        formatWorkspaceSessionListTiming({
+          workspaceId: workspace.id,
+          durationMs,
+          limit: normalized.limit,
+          itemCount: items.length,
+          roots: normalized.roots,
+          search: Boolean(normalized.search),
+        }),
+      );
+    }
+    return items;
   } catch (error) {
     remapSessionReadError(error);
   }
@@ -178,7 +203,18 @@ export async function readWorkspaceSessionSnapshot(
     ]);
     return buildSessionSnapshot({ session, messages, todos, statuses });
   } catch (error) {
-    remapSessionReadError(error);
+    try {
+      remapSessionReadError(error);
+    } catch (mapped) {
+      // Terminal missing-session errors: no server-side retry of this snapshot id.
+      if (
+        isSessionNotFoundApiError(mapped) ||
+        !shouldRetryWorkspaceSessionSnapshot(mapped)
+      ) {
+        throw mapped;
+      }
+      throw mapped;
+    }
   }
 }
 

@@ -113,7 +113,7 @@ export function SessionSurfaceComposerColumn(props: {
       ) : null}
       {/*
         Brand hero can stay centered; composer width is owned by the composer
-        host (max-w-[1120px] — same as in-session / expert empty).
+        host (SESSION_CONTENT_MAX_WIDTH_CLASS — same as in-session / expert empty).
       */}
       <div
         className={cn(
