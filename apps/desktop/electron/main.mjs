@@ -470,6 +470,7 @@ const {
 
 const {
   agentManagementFetchModels,
+  agentManagementTestModel,
   agentManagementProviderAction,
   readAgentManagementProvidersSnapshot,
 } = createAgentManagementProviders({ getRealHomeDir });
@@ -1458,6 +1459,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   personalAgentLegacyHarness,
   agentManagementProviderAction,
   agentManagementFetchModels,
+  agentManagementTestModel,
   agentManagementSkillAction,
   readAgentManagementProvidersSnapshot,
   // workspace

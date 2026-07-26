@@ -4,12 +4,32 @@ import {
   applyAutomationToolSelection,
   appendAutomationPromptText,
   automationInboxFileReference,
+  buildAutomationSkillCatalog,
 } from "../src/react-app/domains/messaging/automation-prompt-tools";
 
 describe("automation prompt tool selections", () => {
   test("supports commands and skills as executable slash prompts", () => {
-    expect(applyAutomationToolSelection("existing", { kind: "command", name: "review" })).toBe("/review ");
-    expect(applyAutomationToolSelection("existing", { kind: "skill", name: "slides" })).toBe("/slides ");
+    expect(applyAutomationToolSelection("", { kind: "command", name: "review" })).toBe(
+      "/review ",
+    );
+    expect(applyAutomationToolSelection("", { kind: "skill", name: "slides" })).toBe(
+      "/slides ",
+    );
+  });
+
+  test("keeps existing free-text as slash command arguments", () => {
+    expect(
+      applyAutomationToolSelection("Summarize today's market", {
+        kind: "skill",
+        name: "stock-brief",
+      }),
+    ).toBe("/stock-brief Summarize today's market");
+    expect(
+      applyAutomationToolSelection("/old inspect the repo", {
+        kind: "command",
+        name: "review",
+      }),
+    ).toBe("/review inspect the repo");
   });
 
   test("supports plugins and connectors as durable instructions", () => {
@@ -24,6 +44,29 @@ describe("automation prompt tool selections", () => {
     expect(reference).toBe("@/workspace/.opencode/onmyagent/inbox/reports/input.pdf");
     expect(appendAutomationPromptText("Review", reference)).toBe(
       "Review\n@/workspace/.opencode/onmyagent/inbox/reports/input.pdf",
+    );
+  });
+
+  test("merges OpenCode commands and skills like the session composer", () => {
+    const catalog = buildAutomationSkillCatalog({
+      openCodeCommands: [
+        { name: "skills", description: "Enable/disable Skills", source: "command" },
+        { name: "mcp-only", description: "hidden", source: "mcp" },
+      ],
+      skills: [
+        { name: "slides", description: "Make slides", path: "/skills/slides" },
+        { name: "skills", description: "skill card should lose to command" },
+      ],
+      markdownCommands: [{ name: "project-cmd", description: "Workspace md" }],
+    });
+    const names = catalog.map((item) => item.name);
+    expect(names).toContain("skills");
+    expect(names).toContain("slides");
+    expect(names).toContain("project-cmd");
+    expect(names).not.toContain("mcp-only");
+    // OpenCode command wins over skill card of the same name (mergeSlashCommandsWithSkills).
+    expect(catalog.find((item) => item.name === "skills")?.description).toBe(
+      "Enable/disable Skills",
     );
   });
 });

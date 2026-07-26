@@ -20,13 +20,30 @@ describe("automation prompt tools contract", () => {
     expect(pageSource).toContain("<ModelSelectContainer");
     expect(pageSource).not.toContain("<AgentSelect");
     expect(pageSource).toContain("pickDirectory({");
+    // Toolbar order: model → skills → permission (session-like simple chips).
+    const modelIdx = pageSource.indexOf("<ModelSelectContainer");
+    const toolsIdx = pageSource.indexOf("<AutomationPromptTools");
+    const permIdx = pageSource.indexOf("<AccessPermissionSelect");
+    expect(modelIdx).toBeGreaterThan(-1);
+    expect(toolsIdx).toBeGreaterThan(modelIdx);
+    expect(permIdx).toBeGreaterThan(toolsIdx);
+    // Same catalog as session composer Skills: OpenCode command.list + skills.
+    expect(pageSource).toContain("listOpenCodeCommands");
+    expect(toolsSource).toContain("listOpenCodeCommands");
+    expect(toolsSource).toContain("buildAutomationSkillCatalog");
     expect(toolsSource).toContain(".listCommands(");
     expect(toolsSource).toContain(".listSkills(");
-    expect(toolsSource).toContain(".listPlugins(");
-    expect(toolsSource).toContain(".listMcp(");
     expect(toolsSource).toContain(".uploadInbox(");
     expect(toolsSource).toContain('type="file"');
     expect(toolsSource).toContain("<PopoverContent");
     expect(toolsSource).toContain('side="top"');
+    // Simple 技能 chip — not dual-pane 36rem tool menu.
+    expect(toolsSource).toContain('t("automation.tool_skills")');
+    expect(toolsSource).toContain("w-64");
+    expect(toolsSource).toContain("max-h-56");
+    expect(toolsSource).not.toContain("36rem");
+    expect(toolsSource).not.toContain('id: "plugins"');
+    expect(toolsSource).not.toContain('id: "connectors"');
+    expect(toolsSource).not.toContain('id: "commands"');
   });
 });

@@ -140,10 +140,11 @@ export function ModelSelectView({
         aria-label={t("settings.model_change")}
         aria-keyshortcuts="Meta+Alt+/"
         title={displayLabel}
-        className="flex h-7 max-w-40 min-w-0 shrink items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+        // Match workspace / access-permission composer chrome (text-sm / h-8).
+        className="flex h-8 max-w-40 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
       >
         <span className="min-w-0 truncate">{displayLabel}</span>
-        <ChevronDown className="size-3.5 shrink-0" />
+        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </PopoverTrigger>
       <PopoverContent
         className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"

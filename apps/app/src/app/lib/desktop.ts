@@ -70,6 +70,7 @@ import type { WorkspaceList } from "./desktop-types";
 import type {
   AgentManagementProviderActionInput,
   AgentManagementFetchModelsInput,
+  AgentManagementTestModelInput,
   AgentManagementMcpActionInput,
   AgentManagementSkillActionInput,
   BuiltinSkillPackageInstallInput,
@@ -866,6 +867,10 @@ export const agentManagementProviderAction = (
 export const agentManagementFetchModels = (
   input: AgentManagementFetchModelsInput,
 ) => invokeDesktopCommand("agentManagementFetchModels", input);
+
+export const agentManagementTestModel = (
+  input: AgentManagementTestModelInput,
+) => invokeDesktopCommand("agentManagementTestModel", input);
 
 export const agentManagementSkillAction = (
   input: AgentManagementSkillActionInput,
