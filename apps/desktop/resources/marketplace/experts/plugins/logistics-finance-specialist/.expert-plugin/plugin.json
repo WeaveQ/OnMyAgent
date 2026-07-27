@@ -10,7 +10,8 @@
   "skills": [
     "./skills/pod-recon",
     "./skills/billing-case",
-    "./skills/ar-collection"
+    "./skills/ar-collection",
+    "./skills/introduce-logistics-finance"
   ],
   "displayName": {
     "en": "Finance Specialist",

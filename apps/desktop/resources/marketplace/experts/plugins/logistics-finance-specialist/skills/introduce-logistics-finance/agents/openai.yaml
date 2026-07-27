@@ -1,0 +1,4 @@
+interface:
+  display_name: "财务结算能力介绍"
+  short_description: "先用文字和表格介绍能力，再生成 HTML 能力图谱"
+  default_prompt: "请按流程介绍你的能力，并在最后生成 HTML 能力图谱。"

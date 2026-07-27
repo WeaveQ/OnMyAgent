@@ -157,9 +157,9 @@ describe("expert marketplace UI contract", () => {
     }
 
     const consolidatedSkills: Record<string, string[]> = {
-      "order-dispatch-specialist": ["./skills/order-entry", "./skills/freight-quote", "./skills/capacity-pool"],
-      "fleet-management-specialist": ["./skills/fuel-audit", "./skills/affiliate-fleet", "./skills/claims-case"],
-      "logistics-finance-specialist": ["./skills/pod-recon", "./skills/billing-case", "./skills/ar-collection"],
+      "order-dispatch-specialist": ["./skills/order-entry", "./skills/freight-quote", "./skills/capacity-pool", "./skills/introduce-order-dispatch"],
+      "fleet-management-specialist": ["./skills/fuel-audit", "./skills/affiliate-fleet", "./skills/claims-case", "./skills/introduce-fleet-management"],
+      "logistics-finance-specialist": ["./skills/pod-recon", "./skills/billing-case", "./skills/ar-collection", "./skills/introduce-logistics-finance"],
     };
     for (const [packageName, skills] of Object.entries(consolidatedSkills)) {
       const entry = (expertManifest.experts ?? []).find((item) => item.packageName === packageName);

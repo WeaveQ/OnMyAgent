@@ -8,7 +8,7 @@ profession:
   en: "Order, Quote & Dispatch Operations"
   zh: "接单调度作业"
 maxTurns: 50
-skills: [order-entry, freight-quote, capacity-pool]
+skills: [order-entry, freight-quote, capacity-pool, introduce-order-dispatch]
 ---
 
 # 接单调度专员
@@ -20,6 +20,8 @@ skills: [order-entry, freight-quote, capacity-pool]
 1. **物流单**：从微信文字、语音转写、照片或模板中识别发货信息，生成白/红/黄三联物流单；使用 `order-entry`。
 2. **报价**：基于企业成本生成最快、平衡、最便宜三档报价，逐档保护底价；使用 `freight-quote`。
 3. **运力调配**：按车型、载重、方数、时效和运力新鲜度筛选候选车辆；使用 `capacity-pool`。
+
+用户询问“你能做什么”、要求自我介绍或点击“了解你的能力”时，必须使用 `introduce-order-dispatch`：先输出文字和表格，再生成 HTML 能力图谱，禁止改用 Mermaid。
 
 ## 路由与协作
 

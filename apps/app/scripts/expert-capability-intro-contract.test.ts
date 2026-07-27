@@ -1,0 +1,86 @@
+import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+
+const repoRoot = join(import.meta.dir, "../../..");
+const pluginsRoot = join(
+  repoRoot,
+  "apps/desktop/resources/marketplace/experts/plugins",
+);
+
+const INTRO_SKILLS = [
+  {
+    packageName: "order-dispatch-specialist",
+    skillName: "introduce-order-dispatch",
+    title: "接单调度专员",
+    capabilities: ["物流单", "报价", "运力调配"],
+  },
+  {
+    packageName: "fleet-management-specialist",
+    skillName: "introduce-fleet-management",
+    title: "车队管理专员",
+    capabilities: ["油费稽查", "挂靠车管理", "货损理赔"],
+  },
+  {
+    packageName: "logistics-finance-specialist",
+    skillName: "introduce-logistics-finance",
+    title: "财务专员",
+    capabilities: ["回单对账", "开票管理", "回款催收"],
+  },
+] as const;
+
+describe("expert capability introduction skills", () => {
+  for (const intro of INTRO_SKILLS) {
+    test(`${intro.packageName} streams text and table before HTML preview`, () => {
+      const skillRoot = join(
+        pluginsRoot,
+        intro.packageName,
+        "skills",
+        intro.skillName,
+      );
+      const skill = readFileSync(join(skillRoot, "SKILL.md"), "utf8");
+      expect(skill.indexOf("立即输出能力概述")).toBeLessThan(
+        skill.indexOf("立即输出能力表格"),
+      );
+      expect(skill.indexOf("立即输出能力表格")).toBeLessThan(
+        skill.indexOf("最后生成 HTML 能力图谱"),
+      );
+      expect(skill).toContain("禁止使用 Mermaid");
+
+      const workspace = mkdtempSync(join(tmpdir(), "expert-intro-"));
+      try {
+        const result = spawnSync(
+          "python3",
+          [join(skillRoot, "scripts/render_capability_map.py")],
+          { cwd: workspace, encoding: "utf8" },
+        );
+        expect(result.status, result.stderr).toBe(0);
+        const payload = JSON.parse(result.stdout) as {
+          files: string[];
+          inlineWidget: { title: string; widget_code: string };
+        };
+        expect(payload.inlineWidget.title).toContain(intro.title);
+        expect(payload.inlineWidget.widget_code).toContain("<section");
+        expect(payload.inlineWidget.widget_code).toContain("data-capability-map");
+        expect(
+          payload.inlineWidget.widget_code.match(/data-capability-lane/g),
+        ).toHaveLength(3);
+        expect(payload.inlineWidget.widget_code).toContain("width:100%");
+        expect(payload.inlineWidget.widget_code).toContain("业务场景");
+        expect(payload.inlineWidget.widget_code).toContain("所需资料");
+        expect(payload.inlineWidget.widget_code).toContain("交付产物");
+        expect(payload.inlineWidget.widget_code.toLowerCase()).not.toContain("<svg");
+        expect(payload.inlineWidget.widget_code.toLowerCase()).not.toContain("mermaid");
+        for (const capability of intro.capabilities) {
+          expect(payload.inlineWidget.widget_code).toContain(capability);
+        }
+        const outputPath = join(workspace, payload.files[0] ?? "");
+        expect(readFileSync(outputPath, "utf8")).toContain("<!doctype html>");
+      } finally {
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    });
+  }
+});

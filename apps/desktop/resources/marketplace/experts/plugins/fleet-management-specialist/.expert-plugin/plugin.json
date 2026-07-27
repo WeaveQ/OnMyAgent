@@ -10,7 +10,8 @@
   "skills": [
     "./skills/fuel-audit",
     "./skills/affiliate-fleet",
-    "./skills/claims-case"
+    "./skills/claims-case",
+    "./skills/introduce-fleet-management"
   ],
   "displayName": {
     "en": "Fleet Management Specialist",
