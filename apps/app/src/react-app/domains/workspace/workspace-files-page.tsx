@@ -299,6 +299,51 @@ function filterWorkspaceFileTree(
   return { ...node, children: [] };
 }
 
+/**
+ * Flatten matching files under a directory node (all depths).
+ * Used when type/search filters are active so results are not limited to one level.
+ */
+function collectMatchingFilesUnder(
+  node: WorkspaceFileTreeNode,
+  query: string,
+  typeFilter: FileCategory,
+): WorkspaceFileTreeNode[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  const out: WorkspaceFileTreeNode[] = [];
+
+  const walk = (current: WorkspaceFileTreeNode) => {
+    if (current.kind === "file") {
+      const matchesQuery =
+        !normalizedQuery ||
+        current.name.toLowerCase().includes(normalizedQuery) ||
+        current.path.toLowerCase().includes(normalizedQuery);
+      if (!matchesQuery) return;
+      if (typeFilter !== "all" && getFileCategory(current.name) !== typeFilter) return;
+      out.push(current);
+      return;
+    }
+    for (const child of current.children) walk(child);
+  };
+
+  for (const child of node.children) walk(child);
+
+  out.sort((left, right) => {
+    const byTime = (right.mtimeMs || 0) - (left.mtimeMs || 0);
+    if (byTime !== 0) return byTime;
+    return left.path.localeCompare(right.path);
+  });
+  return out;
+}
+
+function relativeDisplayPath(filePath: string, directoryPath: string): string {
+  const base = directoryPath.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  const full = filePath.replace(/\\/g, "/");
+  if (!base) return full;
+  if (full === base) return full;
+  if (full.startsWith(`${base}/`)) return full.slice(base.length + 1);
+  return full;
+}
+
 function FilePreviewDrawer(props: {
   open: boolean;
   file: FileNode | null;
@@ -612,11 +657,14 @@ export function WorkspaceFilesPage(props: {
     };
 
     const directoryPrefix = currentDirectoryPath.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+    // Type / text filters must walk all descendants under the current folder.
+    const deepListing = typeFilter !== "all" || Boolean(query.trim());
 
     const load = async (): Promise<OnMyAgentWorkspaceFileCatalogEntry[]> => {
       if (isElectronRuntime()) {
         const result = await listCodeWorkspaceFiles({
           workspacePath: fileRoot,
+          recursive: deepListing,
           ...(directoryPrefix ? { relativePath: directoryPrefix } : {}),
         });
         return result.items.map((item) => ({
@@ -635,7 +683,7 @@ export function WorkspaceFilesPage(props: {
       const catalog = await props.client.listWorkspaceFiles(props.workspaceId, {
         includeDirs: true,
         limit: 10_000,
-        shallow: true,
+        shallow: !deepListing,
         ...(directoryPrefix ? { prefix: directoryPrefix } : {}),
         ...(hasScopedFileRoot ? { root: fileRoot } : {}),
       });
@@ -668,7 +716,9 @@ export function WorkspaceFilesPage(props: {
     hasScopedFileRoot,
     props.client,
     props.workspaceId,
+    query,
     refreshKey,
+    typeFilter,
   ]);
 
   useEffect(() => {
@@ -775,6 +825,12 @@ export function WorkspaceFilesPage(props: {
   const currentDirectory =
     findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ?? visibleFileTree;
   const breadcrumbs = workspaceFileBreadcrumbs(currentDirectoryPath);
+  const deepListingActive = typeFilter !== "all" || Boolean(query.trim());
+  /** One-level children for browse; flattened matching files when type/search is on. */
+  const listedNodes = useMemo(() => {
+    if (!deepListingActive) return currentDirectory.children;
+    return collectMatchingFilesUnder(currentDirectory, query, typeFilter);
+  }, [currentDirectory, deepListingActive, query, typeFilter]);
 
   const openArtifactTarget = useCallback(
     async (target: OpenTarget) => {
@@ -1075,7 +1131,7 @@ export function WorkspaceFilesPage(props: {
                       );
                     })}
                   </nav>
-                  {currentDirectory.children.length > 0 ? (
+                  {listedNodes.length > 0 ? (
                     /*
                       Scroll only file rows. Use a raw <table> (not Table wrapper)
                       so sticky thead is not trapped by Table's overflow-x-auto shell.
@@ -1121,7 +1177,12 @@ export function WorkspaceFilesPage(props: {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {currentDirectory.children.map((node) => (
+                          {listedNodes.map((node) => {
+                            const nestedPathLabel =
+                              deepListingActive && node.kind === "file"
+                                ? relativeDisplayPath(node.path, currentDirectoryPath)
+                                : node.name;
+                            return (
                           <TableRow
                             key={node.path}
                             data-workspace-file-row={node.kind}
@@ -1153,13 +1214,14 @@ export function WorkspaceFilesPage(props: {
                               <span className="flex min-w-0 items-center gap-2.5">
                                 <FileKindIcon node={node} fileRoot={fileRoot} />
                                 <span
-                                  className="truncate text-sm font-medium"
+                                  className="min-w-0 truncate text-sm font-medium"
                                   style={{
                                     color: "var(--dls-text-primary)",
                                     opacity: 1,
                                   }}
+                                  title={node.path}
                                 >
-                                  {node.name}
+                                  {nestedPathLabel}
                                 </span>
                                 {node.kind === "dir" ? (
                                   <ChevronRight className="ml-auto size-3.5 shrink-0 text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100" />
@@ -1211,7 +1273,8 @@ export function WorkspaceFilesPage(props: {
                               ) : null}
                             </TableCell>
                           </TableRow>
-                          ))}
+                            );
+                          })}
                         </TableBody>
                       </table>
                     </div>

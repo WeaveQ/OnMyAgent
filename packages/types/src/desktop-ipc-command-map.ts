@@ -263,7 +263,16 @@ type TypedDesktopCommandMap = {
     { ok: true }
   >;
   codeWorkspaceFilesList: DesktopCommandContract<
-    [{ workspacePath: string; relativePath?: string }],
+    [
+      {
+        workspacePath: string;
+        relativePath?: string;
+        /** When true, walk all descendants under relativePath (for type/search filters). */
+        recursive?: boolean;
+        /** Legacy alias: shallow:false means recursive. */
+        shallow?: boolean;
+      },
+    ],
     { items: CodeWorkspaceFileEntry[] }
   >;
   codeWorkspaceFileRead: DesktopCommandContract<
