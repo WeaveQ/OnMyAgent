@@ -533,6 +533,7 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
     expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
     expect(expertPage).toContain("pendingSessionId={pendingTabSessionId}");
+    expect(expertPage).toContain("setPendingTabSessionId(createdSessionId)");
     expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
     expect(tabs).toContain("window.setTimeout");
