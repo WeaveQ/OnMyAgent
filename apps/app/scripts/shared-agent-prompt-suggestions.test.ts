@@ -38,8 +38,11 @@ describe("shared agent prompt suggestions contract", () => {
     );
     expect(source).toContain(".slice(0, 3)");
     expect(source).toContain('title: t("session.expert_self_intro_prompt_title")');
-    expect(source).toContain('description: t("session.expert_self_intro_prompt_description")');
-    expect(source).toContain('prompt: t("session.expert_self_intro_prompt")');
+    expect(source).toContain('"order-dispatch-specialist"');
+    expect(source).toContain('"fleet-management-specialist"');
+    expect(source).toContain('"logistics-finance-specialist"');
+    expect(source).toContain('"session.expert_self_intro_capability_map_description"');
+    expect(source).toContain('"session.expert_self_intro_capability_map_prompt"');
 
     const localeRoot = join(import.meta.dir, "../src/i18n/locales");
     const zh = readFileSync(join(localeRoot, "zh/session.ts"), "utf8");
@@ -48,17 +51,17 @@ describe("shared agent prompt suggestions contract", () => {
     expect(zh).toContain(
       '"session.expert_self_intro_prompt_title": "了解你的能力"',
     );
-    expect(zh).toContain('"session.expert_self_intro_prompt_description":');
+    expect(zh).toContain('"session.expert_self_intro_capability_map_description":');
     expect(zh).toContain("Mermaid flowchart");
     expect(zhTw).toContain(
       '"session.expert_self_intro_prompt_title": "瞭解你的能力"',
     );
-    expect(zhTw).toContain('"session.expert_self_intro_prompt_description":');
+    expect(zhTw).toContain('"session.expert_self_intro_capability_map_description":');
     expect(zhTw).toContain("Mermaid flowchart");
     expect(en).toContain(
       '"session.expert_self_intro_prompt_title": "Explore your capabilities"',
     );
-    expect(en).toContain('"session.expert_self_intro_prompt_description":');
+    expect(en).toContain('"session.expert_self_intro_capability_map_description":');
     expect(en).toContain("Mermaid flowchart capability map");
   });
 });
