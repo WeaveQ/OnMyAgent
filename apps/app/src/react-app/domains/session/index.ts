@@ -113,10 +113,8 @@ export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   permissionKey,
   questionKey,
-  removeOptimisticUserMessage,
   seedPermissionState,
   seedQuestionState,
-  seedOptimisticUserMessage,
   seedSessionState,
   statusKey,
   todoKey,

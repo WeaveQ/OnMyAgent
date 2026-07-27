@@ -48,8 +48,6 @@ import {
   isSameDirectory,
   materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
-  removeOptimisticUserMessage,
-  seedOptimisticUserMessage,
   shouldIsolateExpertSessionDirectory,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
@@ -625,11 +623,6 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (!sessionId) return;
-        const promptMessageId =
-          draft.messageID ??
-          (createdSession
-            ? `msg_onmyagent-user-${crypto.randomUUID()}`
-            : undefined);
         if (createdSession) {
           setSessionsByWorkspaceId((current) => {
             const next = insertCreatedSessionForWorkspace({
@@ -640,16 +633,6 @@ export function useSessionRouteSurfaceProps(
             sessionsByWorkspaceIdRef.current = next;
             return next;
           });
-          if (promptMessageId) {
-            seedOptimisticUserMessage({
-              workspaceId:
-                selectedWorkspaceEndpoint?.workspaceId ??
-                selectedWorkspaceId,
-              sessionId,
-              messageId: promptMessageId,
-              text: resolveDraftText(promptDraft),
-            });
-          }
           activateCreatedSessionRoute({
             selectedWorkspaceId,
             sessionId,
@@ -932,37 +915,24 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
-        try {
-          const result = await runWithCreatedSessionRuntimeSync(() =>
-            opencodeClient.session.promptAsync({
-              sessionID: sessionId,
-              parts,
-              ...(promptMessageId ? { messageID: promptMessageId } : {}),
-              // Priority: user's manual override > agent's configured model > global default.
-              // Never modify `pendingAgentSnapshot.model` — the agent's configured model
-              // is owned by the agent page edit dialog.
-              model: selectedPromptModel,
-              agent: selectedAgent ?? undefined,
-              ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-              ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
-              ...(combinedSystem ? { system: combinedSystem } : {}),
-              directory: taskWorkspaceRoot || undefined,
-            }),
-          );
-          if (result.error) {
-            throw new Error(serializeSDKError(result.error));
-          }
-        } catch (error) {
-          if (createdSession && promptMessageId) {
-            removeOptimisticUserMessage({
-              workspaceId:
-                selectedWorkspaceEndpoint?.workspaceId ??
-                selectedWorkspaceId,
-              sessionId,
-              messageId: promptMessageId,
-            });
-          }
-          throw error;
+        const result = await runWithCreatedSessionRuntimeSync(() =>
+          opencodeClient.session.promptAsync({
+            sessionID: sessionId,
+            parts,
+            ...(draft.messageID ? { messageID: draft.messageID } : {}),
+            // Priority: user's manual override > agent's configured model > global default.
+            // Never modify `pendingAgentSnapshot.model` — the agent's configured model
+            // is owned by the agent page edit dialog.
+            model: selectedPromptModel,
+            agent: selectedAgent ?? undefined,
+            ...(modelVariantValue ? { variant: modelVariantValue } : {}),
+            ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
+            ...(combinedSystem ? { system: combinedSystem } : {}),
+            directory: taskWorkspaceRoot || undefined,
+          }),
+        );
+        if (result.error) {
+          throw new Error(serializeSDKError(result.error));
         }
         // Opt-in conversation memory: rule-extract profile lines and write
         // straight into items (list UI). User can delete any row anytime.
