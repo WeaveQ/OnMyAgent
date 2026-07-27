@@ -20,7 +20,6 @@ import {
   resolveAccessModePermissionReply,
   isLowRiskPermission,
   resolveDraftSendPlan,
-  resolveRuntimePromptMessageId,
   routeForSettingsSection,
   sanitizeUploadFilename,
   updateDefaultModelPrefs,
@@ -52,20 +51,6 @@ function attachment(input: Partial<ComposerAttachment> & { name: string; kind: "
 }
 
 describe("session route composer", () => {
-  test("leaves ordinary prompt ids to the runtime", () => {
-    expect(
-      resolveRuntimePromptMessageId(draft({ text: "新会话消息" })),
-    ).toBeUndefined();
-    expect(
-      resolveRuntimePromptMessageId(
-        draft({
-          text: "内部续写",
-          messageID: "msg_onmyagent-internal-output-limit-test",
-        }),
-      ),
-    ).toBe("msg_onmyagent-internal-output-limit-test");
-  });
-
   test("maps settings sections to stable route targets", () => {
     // MCP/connectors no longer open Settings → Extensions (removed).
     expect(routeForSettingsSection("commands")).toBe("/settings/general");
