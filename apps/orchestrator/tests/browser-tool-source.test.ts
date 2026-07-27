@@ -10,6 +10,8 @@ describe("managed Browser Node REPL tool", () => {
     expect(source).toContain("ONMYAGENT_BROWSER_RPC_ENDPOINT");
     expect(source).toContain('method: "getCapability"');
     expect(source).toContain('method: "nodeReplWrite"');
+    expect(source).toContain("ONLY supported way to control");
+    expect(source).toContain("Do NOT fall back to CDP ports");
     expect(source).not.toContain("sessionId: tool.schema");
     expect(source).not.toContain("workspaceId: tool.schema");
   });

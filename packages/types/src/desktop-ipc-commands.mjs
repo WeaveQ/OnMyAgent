@@ -34,6 +34,7 @@ const commandGroups = /** @type {const} */ ({
     "__revealItemInDir", "__fetch", "__homeDir", "__joinPath",
     "__setZoomFactor", "__setNativeTheme", "__setApplicationMenuVisible",
     "checkSoftwareEnv", "installSoftwareEnv",
+    "checkBrowserSkillStatus", "openBrowserSkillInstallPage",
   ],
   localAgents: [
     "personalLocalAgentsList", "personalLocalAgentMetadataList",

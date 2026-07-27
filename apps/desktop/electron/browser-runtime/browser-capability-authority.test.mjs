@@ -62,7 +62,11 @@ test("capability tokens reject signature tampering", () => {
     peerIdentity: "sid:user",
   };
   const token = authority.issue(scope);
-  const tampered = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
+  const [payload, signature] = token.split(".");
+  // Force a full-signature flip so base64url decode never collides with HMAC
+  // (single trailing-char flips can be no-ops under loose base64url decode).
+  const flipped = Buffer.from(signature, "base64url").map((byte) => byte ^ 0xff);
+  const tampered = `${payload}.${Buffer.from(flipped).toString("base64url")}`;
 
   assert.throws(() => authority.verify(tampered, scope), /signature/i);
 });

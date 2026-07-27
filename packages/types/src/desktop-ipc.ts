@@ -251,7 +251,7 @@ export type {
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileEntry,
   CodeWorkspaceFileContent,
-} from "./desktop-ipc-code-workspace";
+} from "./desktop-ipc-code-workspace.js";
 
 export type LocalSkillCard = {
   name: string;
@@ -938,7 +938,6 @@ export type PersonalLocalAgentConversationWarmupResult = {
   error?: string | null;
 };
 
-
 export type PersonalLocalAgentConversationConfirmationsResult = {
   conversation: PersonalLocalAgentConversation | null;
   confirmations: PersonalLocalAgentApprovalRequest[];
@@ -1297,7 +1296,6 @@ export type FeishuAccountStatus = {
   error?: string;
 };
 
-
 export type AgentManagementManagedProviderModel = {
   id: string;
   name: string;
@@ -1480,7 +1478,6 @@ export type AgentManagementSnapshot = {
   loadedDomains?: AgentManagementSnapshotDomain[];
 };
 
-
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }
   | { action: "save"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string; syncLive?: boolean; provider: Omit<Partial<AgentManagementManagedProvider>, "settingsConfig"> & { settingsConfig?: Record<string, unknown> | string; simple?: Record<string, unknown> } }
@@ -1550,7 +1547,6 @@ export type AgentManagementSkillActionResult = {
   path?: string;
   result?: string;
 };
-
 
 export type PersonalLocalAgentHostStatusInput = {
   workspaceRoot: string;
@@ -1834,6 +1830,8 @@ export type SoftwareEnvironmentInfo = {
   };
 };
 
+export type { BrowserSkillStatusResult } from "./desktop-ipc-browser-skill.js";
+
 export type SoftwareEnvironmentInstallResult = {
   ok: boolean;
   message?: string;
@@ -2049,4 +2047,4 @@ export type {
   DesktopCommandArgsOf,
   DesktopCommandResultOf,
   DesktopInvoke,
-} from "./desktop-ipc-command-map";
+} from "./desktop-ipc-command-map.js";

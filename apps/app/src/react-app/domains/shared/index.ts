@@ -15,6 +15,19 @@ export {
   setOnMyAgentExtensionHidden,
 } from "./extension-state";
 export {
+  getExtensionConfigSlot,
+  getExtensionConnected,
+  hasExtensionConfig,
+  registerExtensionConfig,
+  registerExtensionRuntime,
+} from "./extension-registry";
+export type {
+  ExtensionConfigContext,
+  ExtensionConfigFactory,
+  ExtensionRuntimeContext,
+  OnMyAgentExtensionRuntime,
+} from "./extension-registry";
+export {
   createOnMyAgentServerStore,
   useOnMyAgentServerStoreSnapshot,
 } from "./onmyagent-server-store";

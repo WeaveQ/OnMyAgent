@@ -174,7 +174,14 @@ function CodeSidePanelMenu(props: {
       </header>
       <div className="flex min-h-0 flex-1 items-center justify-center px-6">
         <div className="w-full max-w-[520px] space-y-2">
-          {codeRailItems.map((item) => {
+          {[...codeRailItems]
+            .map((item, index) => ({
+              item,
+              index,
+              labelLen: String(t(item.labelKey)).length,
+            }))
+            .sort((a, b) => a.labelLen - b.labelLen || a.index - b.index)
+            .map(({ item }) => {
             const Icon = item.icon;
             const selected = props.activePanel === item.id;
             const shortcut = codeRailShortcutById[item.id];

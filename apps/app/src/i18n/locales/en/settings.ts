@@ -220,6 +220,10 @@ export default {
   "settings.computer_use_setup_title": "Computer Use setup",
   "settings.computer_use_setup_description":
     "Connect the local MCP server and grant the macOS permissions it needs to control apps",
+  "settings.computer_use_step_connect": "Connect",
+  "settings.computer_use_step_runtime": "Health",
+  "settings.computer_use_step_privacy": "Access & memory",
+  "settings.computer_use_connect_step_title": "1. Connect Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
     "Adds the local Computer Use server to this workspace so Composer can use the computer-control tools",
   "settings.computer_use_configured": "Configured",

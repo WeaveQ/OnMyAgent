@@ -479,9 +479,14 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
           className="shrink-0 border-b border-dls-border bg-dls-background mac:bg-dls-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
         >
           <div className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2">
+            {/*
+              Keep this strip as a window-drag region (parent has titlebar-drag).
+              Only tabs/buttons opt out via Button's titlebar-no-drag — do not
+              no-drag the whole flex-1 scroller or empty top chrome becomes undraggable.
+            */}
             <div
               data-panel-titlebar-controls="true"
-              className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+              className="min-w-0 flex-1 overflow-x-auto"
             >
               <PanelTabList
                 values={sessionTabs.map((tab) => tab.tabId)}

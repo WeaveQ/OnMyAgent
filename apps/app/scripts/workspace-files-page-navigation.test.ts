@@ -20,7 +20,10 @@ describe("workspace files page navigation", () => {
     expect(source).toContain('data-workspace-file-breadcrumb="true"');
     expect(source).toContain('data-workspace-file-row={node.kind}');
     expect(source).toContain("listCodeWorkspaceFiles");
-    expect(source).toContain("shallow: true");
+    // Browse stays shallow; type/search filters walk all descendants under the current folder.
+    expect(source).toContain("shallow: !deepListing");
+    expect(source).toContain("recursive: deepListing");
+    expect(source).toContain("collectMatchingFilesUnder");
     expect(source).toContain("currentDirectoryPath");
   });
 
