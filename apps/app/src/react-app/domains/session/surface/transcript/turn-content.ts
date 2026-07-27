@@ -49,7 +49,6 @@ export type TurnWidgetItem = {
   kind: "widget";
   messageId: string;
   partIndex: number;
-  terminal: boolean;
   title: string | null;
   html: string;
   toolName: string;
@@ -103,7 +102,6 @@ export type TurnContentPresentation = {
 const CANCELLATION_SENTINELS = ["[User Cancelled]", "Interrupted by user"] as const;
 
 type WidgetPayload = {
-  terminal: boolean;
   title: string | null;
   html: string;
   loadingMessages: string[];
@@ -171,27 +169,14 @@ function directWidgetPayload(value: unknown): WidgetPayload | null {
         const parsed: unknown = JSON.parse(trimmed);
         return extractWidgetPayload(parsed);
       } catch {
-        return {
-          terminal: false,
-          title: null,
-          html: trimmed,
-          loadingMessages: [],
-          artifactCopies: [],
-        };
+        return { title: null, html: trimmed, loadingMessages: [], artifactCopies: [] };
       }
     }
-    return {
-      terminal: false,
-      title: null,
-      html: trimmed,
-      loadingMessages: [],
-      artifactCopies: [],
-    };
+    return { title: null, html: trimmed, loadingMessages: [], artifactCopies: [] };
   }
 
   const record = recordValue(value);
   if (!record) return null;
-  const terminal = record.terminal === true;
   const html = record.widget_code ?? record.widgetCode ?? record.html;
   const title = typeof record.title === "string" && record.title.trim()
     ? record.title.trim()
@@ -202,13 +187,11 @@ function directWidgetPayload(value: unknown): WidgetPayload | null {
   const copies = artifactCopies(record.artifactCopies ?? record.artifact_copies);
   if (
     typeof html !== "string" &&
-    !terminal &&
     !title &&
     loadingMessages.length === 0 &&
     copies.length === 0
   ) return null;
   return {
-    terminal,
     title,
     html: typeof html === "string" ? html.trim() : "",
     loadingMessages,
@@ -305,7 +288,6 @@ function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
     kind: "widget",
     messageId: item.messageId,
     partIndex: item.partIndex,
-    terminal: payload?.terminal ?? false,
     title: payload?.title ?? null,
     html: payload?.html ?? "",
     toolName,
@@ -389,7 +371,6 @@ function makeWidgetVisual(
     kind: "widget",
     messageId: item.messageId,
     partIndex: item.partIndex,
-    terminal: payload?.terminal ?? false,
     title: payload?.title ?? null,
     html: payload?.html ?? "",
     toolName: "show_widget",
@@ -675,18 +656,11 @@ export function buildTurnContentPresentation(
   const hoistedItems: TurnWidgetItem[] = [];
   const renderItems: TurnContentItem[] = [];
   let removedCancellationSentinel = false;
-  let terminalWidgetReached = false;
   for (const item of indexedParts) {
-    if (terminalWidgetReached) continue;
     const widget = widgetFromToolPart(item);
     if (widget) {
       hoistedItems.push(widget);
       renderItems.push(item);
-      terminalWidgetReached = (
-        widget.terminal &&
-        widget.status === "completed" &&
-        Boolean(widget.html.trim())
-      );
       continue;
     }
     if (item.part.type === "text") {
