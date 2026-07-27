@@ -48,6 +48,14 @@ describe("expert capability introduction skills", () => {
         skill.indexOf("最后生成 HTML 能力图谱"),
       );
       expect(skill).toContain("禁止使用 Mermaid");
+      expect(skill).toContain("图谱完成后立即结束");
+      expect(skill).toContain(
+        "脚本返回的 `inlineWidget` 就是本轮唯一且最终的能力图谱",
+      );
+      expect(skill).toContain(
+        "不再调用 `render_visual`、`show_widget`、`visualizer`",
+      );
+      expect(skill).toContain("图谱必须是本轮最后一个可见内容");
 
       const workspace = mkdtempSync(join(tmpdir(), "expert-intro-"));
       try {
