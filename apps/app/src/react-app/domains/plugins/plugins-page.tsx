@@ -56,6 +56,7 @@ import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
+import { connectorTileClassName } from "./connector-tile";
 import {
   loadArtifactPluginCatalog,
   loadArtifactPluginDetail,
@@ -153,15 +154,16 @@ const pluginsTextClass = {
   categoryTitle: "mb-2 text-xs font-medium uppercase tracking-wide text-dls-secondary",
 };
 
-/** Align with expert / skill marketplace grid (full-bleed content + px-6). */
-const PLUGIN_CARD_GRID =
-  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
-
 /**
- * Connector cards: denser adaptive grid (3–5 cols) so tiles don’t stretch too wide.
+ * Shared product grid: max 4 columns so rows stay even (4 file tools fill one
+ * row; 5 built-ins wrap cleanly as 4+1 without a lonely stretched tile).
  */
-const CONNECTOR_CARD_GRID =
-  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+const PRODUCT_CONNECTOR_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+
+/** Coming-soon catalog can stay denser. */
+const PLUGIN_CARD_GRID =
+  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 /** File-processing plugins: browser + Office suite in product order. */
 const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
@@ -190,7 +192,11 @@ const pluginsLayoutClass = {
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
   // Match expert/skills: no max-w-6xl so side gutters match px-6 only.
   pageContainer: "w-full px-6 pb-10 pt-5",
-  pluginPageContainer: "w-full space-y-7 px-6 pb-10 pt-5",
+  pluginPageContainer: "w-full space-y-8 px-6 pb-10 pt-5",
+  section: "space-y-3",
+  sectionHeader: "space-y-1",
+  sectionTitle: "text-base font-medium leading-6 text-dls-text",
+  sectionDivider: "border-t border-dls-border/50 pt-8",
   card: "rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
@@ -201,8 +207,8 @@ const pluginsLayoutClass = {
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
   disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
   cardGrid: PLUGIN_CARD_GRID,
-  artifactCardGrid: CONNECTOR_CARD_GRID,
-  connectorCardGrid: CONNECTOR_CARD_GRID,
+  artifactCardGrid: PRODUCT_CONNECTOR_GRID,
+  connectorCardGrid: PRODUCT_CONNECTOR_GRID,
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
   originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
@@ -769,14 +775,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
 
   return (
     <section
-      className="space-y-5 border-t border-dls-border/50 pt-6"
+      className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
       aria-labelledby="artifact-plugins-heading"
     >
-      <div className="space-y-1">
-        <h2
-          id="artifact-plugins-heading"
-          className="text-base font-medium leading-6 text-dls-text"
-        >
+      <div className={pluginsLayoutClass.sectionHeader}>
+        <h2 id="artifact-plugins-heading" className={pluginsLayoutClass.sectionTitle}>
           {t("plugins.artifact_title")}
         </h2>
         <p className={pluginsTextClass.sectionLead}>
@@ -1013,9 +1016,9 @@ function BuiltinExtensionsSection(props: {
     detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
 
   return (
-    <section className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-base font-medium leading-6 text-dls-text">
+    <section className={pluginsLayoutClass.section}>
+      <div className={pluginsLayoutClass.sectionHeader}>
+        <h2 className={pluginsLayoutClass.sectionTitle}>
           {t("plugins.builtin_section_title")}
         </h2>
         <p className={pluginsTextClass.sectionLead}>
@@ -1078,13 +1081,7 @@ function BuiltinExtensionCard(props: {
 
   return (
     <article
-      className={cn(
-        "group flex h-full min-h-[7.25rem] flex-col rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 text-left transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover",
-        "focus-within:border-dls-border focus-within:bg-dls-hover",
-        !enabled && "opacity-80",
-        "mac:titlebar-no-drag",
-      )}
+      className={cn(connectorTileClassName, !enabled && "opacity-80")}
     >
       <div className="flex min-w-0 items-start gap-2.5">
         <IconTile
@@ -1166,29 +1163,33 @@ export function PluginsPage(props: PluginsPageProps) {
             client={props.client}
           />
           <ArtifactPluginsCatalog {...props} />
-          <section className="space-y-5 border-t border-dls-border/50 pt-6">
-            <div className="space-y-1">
-              <h2 className="text-base font-medium leading-6 text-dls-text">
+          <section
+            className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
+          >
+            <div className={pluginsLayoutClass.sectionHeader}>
+              <h2 className={pluginsLayoutClass.sectionTitle}>
                 {t("plugins.sample_section_title")}
               </h2>
               <p className={pluginsTextClass.sectionLead}>
                 {t("plugins.sample_section_hint")}
               </p>
             </div>
-            {categories.map((category) => {
-              const items = filteredByCategory.get(category.id) ?? [];
-              if (items.length === 0) return null;
-              return (
-                <section key={category.id} className="space-y-0">
-                  <h3 className={pluginsTextClass.categoryTitle}>{category.title}</h3>
-                  <div className={pluginsLayoutClass.cardGrid}>
-                    {items.map((item) => (
-                      <PluginCard key={item.id} item={item} />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+            <div className="space-y-5">
+              {categories.map((category) => {
+                const items = filteredByCategory.get(category.id) ?? [];
+                if (items.length === 0) return null;
+                return (
+                  <section key={category.id} className="space-y-2">
+                    <h3 className={pluginsTextClass.categoryTitle}>{category.title}</h3>
+                    <div className={pluginsLayoutClass.cardGrid}>
+                      {items.map((item) => (
+                        <PluginCard key={item.id} item={item} />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           </section>
         </div>
       </div>
