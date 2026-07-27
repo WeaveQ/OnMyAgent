@@ -38,17 +38,27 @@ describe("shared agent prompt suggestions contract", () => {
     );
     expect(source).toContain(".slice(0, 3)");
     expect(source).toContain('title: t("session.expert_self_intro_prompt_title")');
+    expect(source).toContain('description: t("session.expert_self_intro_prompt_description")');
     expect(source).toContain('prompt: t("session.expert_self_intro_prompt")');
 
     const localeRoot = join(import.meta.dir, "../src/i18n/locales");
-    expect(readFileSync(join(localeRoot, "zh/session.ts"), "utf8")).toContain(
+    const zh = readFileSync(join(localeRoot, "zh/session.ts"), "utf8");
+    const zhTw = readFileSync(join(localeRoot, "zh-TW/session.ts"), "utf8");
+    const en = readFileSync(join(localeRoot, "en/session.ts"), "utf8");
+    expect(zh).toContain(
       '"session.expert_self_intro_prompt_title": "了解你的能力"',
     );
-    expect(readFileSync(join(localeRoot, "zh-TW/session.ts"), "utf8")).toContain(
+    expect(zh).toContain('"session.expert_self_intro_prompt_description":');
+    expect(zh).toContain("Mermaid flowchart");
+    expect(zhTw).toContain(
       '"session.expert_self_intro_prompt_title": "瞭解你的能力"',
     );
-    expect(readFileSync(join(localeRoot, "en/session.ts"), "utf8")).toContain(
+    expect(zhTw).toContain('"session.expert_self_intro_prompt_description":');
+    expect(zhTw).toContain("Mermaid flowchart");
+    expect(en).toContain(
       '"session.expert_self_intro_prompt_title": "Explore your capabilities"',
     );
+    expect(en).toContain('"session.expert_self_intro_prompt_description":');
+    expect(en).toContain("Mermaid flowchart capability map");
   });
 });

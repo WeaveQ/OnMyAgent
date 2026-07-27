@@ -217,7 +217,7 @@ function promptsFromExpertQuickPrompts(quickPrompts: string[] | undefined): Prom
   return [
     {
       title: t("session.expert_self_intro_prompt_title"),
-      description: t("session.expert_self_intro_prompt"),
+      description: t("session.expert_self_intro_prompt_description"),
       prompt: t("session.expert_self_intro_prompt"),
       icon: MessageSquare,
     },
