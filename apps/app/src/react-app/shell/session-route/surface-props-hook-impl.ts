@@ -157,7 +157,7 @@ export type SessionRouteSurfacePropsInput = {
   opencodeClient: Client | null;
   pageMode: PageMode;
   providerConnectedIds: string[];
-  refreshCreatedSessionSnapshot: (sessionId: string, directory: string) => void;
+  refreshCreatedSessionSnapshot: (sessionId: string, directory: string) => Promise<void>;
   refreshRouteState: () => Promise<void> | void;
   rememberPendingCreatedSession: (workspaceId: string, sessionId: string) => void;
   selectedAgent: string | null;
@@ -768,7 +768,7 @@ export function useSessionRouteSurfaceProps(
             });
           });
           if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+            await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
           }
           return;
         }
@@ -792,7 +792,7 @@ export function useSessionRouteSurfaceProps(
             throw new Error(serializeSDKError(result.error));
           }
           if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+            await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
           }
           return;
         }
@@ -957,7 +957,7 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (createdSession) {
-          refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+          await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
         }
       },
       onDraftChange: () => {

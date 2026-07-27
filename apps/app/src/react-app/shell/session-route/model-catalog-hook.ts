@@ -423,10 +423,10 @@ export function useSessionRouteModelCatalog(input: Input) {
   }, [engineReloadVersion, opencodeClient, sessionWorkspaceRoot]);
 
   const refreshCreatedSessionSnapshot = useCallback(
-    (sessionId: string, directory: string) => {
+    async (sessionId: string, directory: string) => {
       const endpoint = selectedWorkspaceEndpoint;
       if (!endpoint) return;
-      void refreshCreatedSessionSnapshotWithRetries({
+      await refreshCreatedSessionSnapshotWithRetries({
         directory,
         endpoint,
         sessionId,
