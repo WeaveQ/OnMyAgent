@@ -9,6 +9,8 @@ import {
 import type { UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
+import { listCodeWorkspaceFiles } from "../../../../app/lib/desktop";
+import { isElectronRuntime } from "../../../../app/utils";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { currentLocale, t } from "../../../../i18n";
@@ -22,6 +24,7 @@ import type {
 import type {
   ComposerAttachment,
   ComposerDraft,
+  ComposerMentionTarget,
   ComposerPart,
   CollaborationGoalRuntime,
   McpServerEntry,
@@ -39,6 +42,7 @@ import {
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import { workspaceMentionTargets } from "../../../capabilities/artifacts/workspace-mention-targets";
 
 import type { ReactComposerNotice } from "./composer/notice";
 import {
@@ -824,6 +828,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
                   label: value,
                 } satisfies ComposerDraft["parts"][number],
               ];
+            if (kind === "directory")
+              return [
+                {
+                  type: "directory",
+                  path: value,
+                  label: value,
+                } satisfies ComposerDraft["parts"][number],
+              ];
           }
           return [
             {
@@ -1354,6 +1366,28 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     opencodeClient,
   });
 
+  const searchSessionMentionTargets = useCallback(
+    async (query: string): Promise<ComposerMentionTarget[]> => {
+      if (!props.workspaceRoot.trim()) return [];
+      if (isElectronRuntime()) {
+        const result = await listCodeWorkspaceFiles({
+          workspacePath: props.workspaceRoot,
+        });
+        return workspaceMentionTargets(
+          result.items.map((item) => ({ ...item, revision: "" })),
+          query,
+        );
+      }
+      const result = await props.client.listWorkspaceFiles(props.workspaceId, {
+        includeDirs: true,
+        limit: 10_000,
+        root: props.workspaceRoot,
+      });
+      return workspaceMentionTargets(result.items, query);
+    },
+    [props.client, props.workspaceId, props.workspaceRoot],
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const resolveTranscriptScrollElement = useCallback(() => scrollRef.current, []);
@@ -1725,7 +1759,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onOpenConnectorsMarketplace={props.onOpenConnectorsMarketplace}
       onOpenCustomConnector={props.onOpenCustomConnector}
       recentFiles={props.recentFiles}
-      searchFiles={props.searchFiles}
+      searchFiles={searchSessionMentionTargets}
       onInsertMention={handleInsertMention}
       notice={notice}
       onNotice={setNotice}
