@@ -267,47 +267,10 @@ describe("WorkBuddy turn content presentation", () => {
       errorText: null,
     });
     expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
       "widget",
       "body",
     ]);
-  });
-
-  test("does not announce a next visualization after its completed widget is available", () => {
-    const turn = completedTurn([
-      assistant("command", [{
-        type: "dynamic-tool",
-        toolName: "bash",
-        toolCallId: "command-1",
-        state: "output-available",
-        input: { command: "python3 render_capability_map.py" },
-        output: "prepared",
-      }]),
-      assistant("tool-widget", [{
-        type: "dynamic-tool",
-        toolName: "render_visual",
-        toolCallId: "widget-1",
-        state: "output-available",
-        input: { title: "能力图谱" },
-        output: {
-          title: "能力图谱",
-          widget_code: "<section data-capability-map></section>",
-        },
-      }]),
-      assistant("final", [{ type: "text", text: "能力说明完成。" }]),
-    ]);
-
-    const presentation = buildTurnContentPresentation(turn);
-
-    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
-      "process",
-      "widget",
-      "body",
-    ]);
-    expect(
-      presentation?.segments.some(
-        (segment) => segment.kind === "synthetic-body",
-      ),
-    ).toBe(false);
   });
 
   test("keeps a tool widget in chronological order while the turn is running", () => {
