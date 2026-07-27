@@ -565,21 +565,6 @@ export function useSessionRouteSurfaceProps(
           }
         }
 
-        const promptDraft: ComposerDraft = skillCommandPrompt
-          ? {
-              ...draft,
-              command: undefined,
-              text: skillCommandPrompt.visiblePrompt,
-              resolvedText: skillCommandPrompt.visiblePrompt,
-              parts: [
-                { type: "text", text: skillCommandPrompt.visiblePrompt },
-                ...draft.parts.filter(
-                  (part): part is Extract<ComposerPart, { type: "agent" | "file" | "directory" }> =>
-                    part.type === "agent" || part.type === "file" || part.type === "directory",
-                ),
-              ],
-            }
-          : draft;
         let sessionId = sendPlan.initialSessionId;
         let createdSession: { id: string; directory?: string } | null = null;
         if (!sessionId) {
@@ -812,6 +797,22 @@ export function useSessionRouteSurfaceProps(
           }
           return;
         }
+
+        const promptDraft: ComposerDraft = skillCommandPrompt
+          ? {
+              ...draft,
+              command: undefined,
+              text: skillCommandPrompt.visiblePrompt,
+              resolvedText: skillCommandPrompt.visiblePrompt,
+              parts: [
+                { type: "text", text: skillCommandPrompt.visiblePrompt },
+                ...draft.parts.filter(
+                  (part): part is Extract<ComposerPart, { type: "agent" | "file" | "directory" }> =>
+                    part.type === "agent" || part.type === "file" || part.type === "directory",
+                ),
+              ],
+            }
+          : draft;
 
         const attachmentUploadTarget = resolveAttachmentUploadTarget({
           fallbackClient: client,
