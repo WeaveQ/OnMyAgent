@@ -52,16 +52,16 @@ describe("shared agent prompt suggestions contract", () => {
       '"session.expert_self_intro_prompt_title": "了解你的能力"',
     );
     expect(zh).toContain('"session.expert_self_intro_capability_map_description":');
-    expect(zh).toContain("Mermaid flowchart");
+    expect(zh).toContain("HTML 能力图谱");
     expect(zhTw).toContain(
       '"session.expert_self_intro_prompt_title": "瞭解你的能力"',
     );
     expect(zhTw).toContain('"session.expert_self_intro_capability_map_description":');
-    expect(zhTw).toContain("Mermaid flowchart");
+    expect(zhTw).toContain("HTML 能力圖譜");
     expect(en).toContain(
       '"session.expert_self_intro_prompt_title": "Explore your capabilities"',
     );
     expect(en).toContain('"session.expert_self_intro_capability_map_description":');
-    expect(en).toContain("Mermaid flowchart capability map");
+    expect(en).toContain("HTML capability map");
   });
 });

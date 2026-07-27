@@ -23,7 +23,7 @@ describe("affiliate-vehicle-admin expert contract", () => {
       "skills/affiliate-fleet/references/onmyagent-automations.md",
     );
 
-    expect(agent).toContain("skills: [fuel-audit, affiliate-fleet, claims-case]");
+    expect(agent).toContain("skills: [fuel-audit, affiliate-fleet, claims-case, introduce-fleet-management]");
     expect(agent).toContain("挂靠车管理");
     expect(agent).toContain("不自动扣款");
     expect(skill).toContain("--mode export");

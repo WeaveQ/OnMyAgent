@@ -94,7 +94,7 @@ describe("order entry clerk expert contract", () => {
     const documentTypes = readExpertFile("skills/order-entry/references/document-types.md");
     const protocol = readExpertFile("skills/order-entry/references/waybill-data-protocol.md");
 
-    expect(agent).toContain("skills: [order-entry, freight-quote, capacity-pool]");
+    expect(agent).toContain("skills: [order-entry, freight-quote, capacity-pool, introduce-order-dispatch]");
     expect(agent).toContain("物流单");
     expect(agent).toContain("报价");
     expect(agent).toContain("运力调配");

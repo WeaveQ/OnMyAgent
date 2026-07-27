@@ -28,7 +28,7 @@ describe("ar-collector expert contract", () => {
 
     expect(onMyAgentManifest).toBe(expertManifest);
     expect(JSON.parse(expertManifest).version).toBe("1.0.0");
-    expect(agent).toContain("skills: [pod-recon, billing-case, ar-collection]");
+    expect(agent).toContain("skills: [pod-recon, billing-case, ar-collection, introduce-logistics-finance]");
     expect(agent).toContain("回款催收");
     expect(agent).toContain("不自动入账");
     expect(skill).toContain("--mode preview");

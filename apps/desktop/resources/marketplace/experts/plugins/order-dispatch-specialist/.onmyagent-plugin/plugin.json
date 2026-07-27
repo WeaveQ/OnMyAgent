@@ -10,7 +10,8 @@
   "skills": [
     "./skills/order-entry",
     "./skills/freight-quote",
-    "./skills/capacity-pool"
+    "./skills/capacity-pool",
+    "./skills/introduce-order-dispatch"
   ],
   "displayName": {
     "en": "Order & Dispatch Specialist",

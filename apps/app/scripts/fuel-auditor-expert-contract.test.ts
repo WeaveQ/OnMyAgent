@@ -24,7 +24,7 @@ describe("fuel-auditor expert contract", () => {
 
     expect(onMyAgentManifest).toBe(expertManifest);
     expect(JSON.parse(expertManifest).version).toBe("1.0.0");
-    expect(agent).toContain("skills: [fuel-audit, affiliate-fleet, claims-case]");
+    expect(agent).toContain("skills: [fuel-audit, affiliate-fleet, claims-case, introduce-fleet-management]");
     expect(agent).toContain("油费稽查");
     expect(agent).toContain("不自动扣款");
     expect(skill).toContain("--mode preview");
