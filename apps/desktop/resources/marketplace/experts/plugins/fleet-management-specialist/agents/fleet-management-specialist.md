@@ -6,7 +6,7 @@ displayName:
   zh: "车队管理专员"
 profession:
   en: "Fleet Control & Risk Operations"
-  zh: "车队管理与风控作业"
+  zh: "车队管理作业"
 maxTurns: 50
 skills: [fuel-audit, affiliate-fleet, claims-case]
 ---
