@@ -45,6 +45,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "__setApplicationMenuVisible",
   "checkSoftwareEnv",
   "installSoftwareEnv",
+  "checkBrowserSkillStatus",
+  "openBrowserSkillInstallPage",
 ]);
 
 /**
@@ -72,6 +74,8 @@ export function createSystemDomainHandlers({
   revokeComputerUseAppAuthorization,
   clearComputerUseAppAuthorizations,
   openComputerUseSetupApp,
+  checkBrowserSkillStatus,
+  openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
   getDesktopBootstrapConfig,
@@ -373,6 +377,15 @@ export function createSystemDomainHandlers({
 
   checkSoftwareEnv: async (event, args) => {
     return runtimeManager.softwareEnvironmentInfo();
+  },
+
+  checkBrowserSkillStatus: async (event, args) => {
+    return checkBrowserSkillStatus();
+  },
+
+  openBrowserSkillInstallPage: async (event, args) => {
+    const target = args[0] === "cli" || args[0] === "docs" ? args[0] : "extension";
+    return openBrowserSkillInstallPage(target);
   },
 
   installSoftwareEnv: async (event, args) => {

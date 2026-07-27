@@ -158,5 +158,6 @@ export type { LocalProviderInstallInput } from "./openai-image-extension";
 import "./openai-image-gen-config";
 import "./ollama-config";
 import "./computer-use-config";
+import "./browser-skill-config";
 import "./onmyagent-voice-config";
 import "./browser-config";

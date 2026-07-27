@@ -33,6 +33,7 @@ import type {
   AgentManagementSnapshot,
   AgentManagementSnapshotInput,
   AppBuildInfo,
+  BrowserSkillStatusResult,
   BuiltinSkillPackageInstallInput,
   BuiltinSkillPackageInstallResult,
   CacheResetResult,
@@ -381,6 +382,11 @@ type TypedDesktopCommandMap = {
   installSoftwareEnv: DesktopCommandContract<
     [string, string?],
     SoftwareEnvironmentInstallResult
+  >;
+  checkBrowserSkillStatus: DesktopCommandContract<[], BrowserSkillStatusResult>;
+  openBrowserSkillInstallPage: DesktopCommandContract<
+    [("cli" | "extension" | "docs")?],
+    OkResult & { url?: string }
   >;
 
   // local agents

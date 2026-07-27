@@ -155,6 +155,7 @@ const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
 /** Built-in extensions: product priority when enablement is equal. */
 const BUILTIN_EXTENSION_DISPLAY_ORDER = [
   "computer-use",
+  "browser-skill",
   "onmyagent-voice",
   "openai-image-gen",
   "ollama",

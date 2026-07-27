@@ -2,6 +2,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   AppWindow,
+  Globe,
   ImageIcon,
   Mic,
   Plug,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
  */
 const BUILTIN_LUCIDE_BY_ID: Record<string, LucideIcon> = {
   "computer-use": AppWindow,
+  "browser-skill": Globe,
   "onmyagent-voice": Mic,
   "openai-image-gen": ImageIcon,
 };

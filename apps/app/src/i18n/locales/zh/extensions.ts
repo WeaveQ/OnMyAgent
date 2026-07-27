@@ -71,6 +71,41 @@ export default {
   "extensions.computer_use_verify_mcp": "验证 Computer Use MCP",
   "extensions.accessibility_permission": "辅助功能权限",
   "extensions.screen_recording_permission": "屏幕录制权限",
+  "extensions.browser_skill_name": "BrowserSkill",
+  "extensions.browser_skill_description":
+    "通过腾讯 BrowserSkill 外部 CLI 与扩展驱动本机真实 Chrome/Edge（含登录态与 Cookie），与应用内浏览器自动化、Computer Use 互补。",
+  "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）来",
+  "extensions.browser_skill_suggestion_summary":
+    "打开我已登录的后台页面并总结置顶条目",
+  "extensions.browser_skill_suggestion_form":
+    "在我已登录的浏览器会话里填写多步表单",
+  "extensions.browser_skill_suggestion_smoke":
+    "运行 bsk doctor 并确认扩展已连接",
+  "extensions.browser_skill_setup":
+    "安装 bsk CLI、添加 BrowserSkill Chrome 扩展，并运行 doctor 直到弹窗变绿。使用的是你本机真实浏览器配置，而非应用内 Agent 浏览器。",
+  "extensions.browser_skill_install_extension": "安装 Chrome 扩展",
+  "extensions.browser_skill_run_doctor": "运行 doctor / 刷新状态",
+  "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
+  "extensions.browser_skill_cli_label": "bsk CLI",
+  "extensions.browser_skill_extension_label": "BrowserSkill 扩展",
+  "extensions.browser_skill_extension_hint":
+    "Chrome/Edge 扩展弹窗需显示已连接（绿色）",
+  "extensions.browser_skill_panel_description":
+    "通过腾讯 BrowserSkill 控制本机真实浏览器。请在本机安装 CLI 与扩展；OnMyAgent 只做发现/健康检查并附带 Agent 技能说明。",
+  "extensions.browser_skill_desktop_only":
+    "BrowserSkill 状态检查需要 OnMyAgent 桌面端。",
+  "extensions.browser_skill_open_docs": "打开文档",
+  "extensions.browser_skill_health_title": "健康状态",
+  "extensions.browser_skill_health_pending": "正在检查 BrowserSkill 状态…",
+  "extensions.browser_skill_status_installed": "已安装",
+  "extensions.browser_skill_status_missing": "未找到",
+  "extensions.browser_skill_status_connected": "已连接",
+  "extensions.browser_skill_status_disconnected": "未连接",
+  "extensions.browser_skill_status_ready": "就绪",
+  "extensions.browser_skill_status_setup": "需要配置",
+  "extensions.browser_skill_vs_in_app":
+    "不同于 OnMyAgent 应用内 Browser（browser-automation）与 Computer Use（桌面应用）。已登录站点优先用 BrowserSkill。",
+  "extensions.browser_skill_install_cli_title": "安装 CLI（终端）",
   "extensions.openai_image_desc": "生成图片",
   "extensions.openai_image_setup": `添加 OpenAI API key，启用图片生成`,
   "extensions.openai_image_config_desc": "配置 OpenAI 图片生成",

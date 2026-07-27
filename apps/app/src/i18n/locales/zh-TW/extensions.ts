@@ -71,6 +71,41 @@ export default {
   "extensions.computer_use_verify_mcp": "驗證 Computer Use MCP",
   "extensions.accessibility_permission": "輔助功能權限",
   "extensions.screen_recording_permission": "屏幕錄製權限",
+  "extensions.browser_skill_name": "BrowserSkill",
+  "extensions.browser_skill_description":
+    "透過騰訊 BrowserSkill 外部 CLI 與擴充功能驅動本機真實 Chrome/Edge（含登入態與 Cookie），與應用內瀏覽器自動化、Computer Use 互補。",
+  "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）來",
+  "extensions.browser_skill_suggestion_summary":
+    "開啟我已登入的後台頁面並總結置頂項目",
+  "extensions.browser_skill_suggestion_form":
+    "在我已登入的瀏覽器工作階段中填寫多步表單",
+  "extensions.browser_skill_suggestion_smoke":
+    "執行 bsk doctor 並確認擴充功能已連線",
+  "extensions.browser_skill_setup":
+    "安裝 bsk CLI、加入 BrowserSkill Chrome 擴充功能，並執行 doctor 直到彈窗變綠。使用的是你本機真實瀏覽器設定，而非應用內 Agent 瀏覽器。",
+  "extensions.browser_skill_install_extension": "安裝 Chrome 擴充功能",
+  "extensions.browser_skill_run_doctor": "執行 doctor / 重新整理狀態",
+  "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
+  "extensions.browser_skill_cli_label": "bsk CLI",
+  "extensions.browser_skill_extension_label": "BrowserSkill 擴充功能",
+  "extensions.browser_skill_extension_hint":
+    "Chrome/Edge 擴充功能彈窗需顯示已連線（綠色）",
+  "extensions.browser_skill_panel_description":
+    "透過騰訊 BrowserSkill 控制本機真實瀏覽器。請在本機安裝 CLI 與擴充功能；OnMyAgent 只做發現/健康檢查並附帶 Agent 技能說明。",
+  "extensions.browser_skill_desktop_only":
+    "BrowserSkill 狀態檢查需要 OnMyAgent 桌面端。",
+  "extensions.browser_skill_open_docs": "開啟文件",
+  "extensions.browser_skill_health_title": "健康狀態",
+  "extensions.browser_skill_health_pending": "正在檢查 BrowserSkill 狀態…",
+  "extensions.browser_skill_status_installed": "已安裝",
+  "extensions.browser_skill_status_missing": "未找到",
+  "extensions.browser_skill_status_connected": "已連線",
+  "extensions.browser_skill_status_disconnected": "未連線",
+  "extensions.browser_skill_status_ready": "就緒",
+  "extensions.browser_skill_status_setup": "需要設定",
+  "extensions.browser_skill_vs_in_app":
+    "不同於 OnMyAgent 應用內 Browser（browser-automation）與 Computer Use（桌面應用）。已登入網站優先使用 BrowserSkill。",
+  "extensions.browser_skill_install_cli_title": "安裝 CLI（終端機）",
   "extensions.openai_image_desc": "生成圖片",
   "extensions.openai_image_setup": `添加 OpenAI API key，啟用圖片生成`,
   "extensions.openai_image_config_desc": "配置 OpenAI 圖片生成",

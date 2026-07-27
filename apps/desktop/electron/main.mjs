@@ -59,6 +59,7 @@ import {
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
+import { createBrowserSkillDesktopHelpers } from "./browser-skill-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
@@ -218,6 +219,10 @@ const {
   openSystemPermissionSettings,
   openComputerUseSetupApp,
 } = computerUseDesktopHelpers;
+
+const browserSkillDesktopHelpers = createBrowserSkillDesktopHelpers({ shell });
+const { checkBrowserSkillStatus, openBrowserSkillInstallPage } =
+  browserSkillDesktopHelpers;
 
 // Production Electron shares the same on-disk state folder as the Tauri shell
 // so in-place migration is a no-op for almost every file. Dev mode uses the
@@ -1539,6 +1544,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   revokeComputerUseAppAuthorization,
   clearComputerUseAppAuthorizations,
   openComputerUseSetupApp,
+  checkBrowserSkillStatus,
+  openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
   getDesktopBootstrapConfig,
