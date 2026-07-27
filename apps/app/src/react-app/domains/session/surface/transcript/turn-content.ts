@@ -709,17 +709,10 @@ export function buildTurnContentPresentation(
       }
       return item;
     });
-  // 同 turn 内多次 preview/export 重跑产生的同类 widget 只保留最新一个：
-  // 按 title 去重（兼容数据逐轮变化导致 html 不同的情况），无 title 时回退按 html 去重。
-  const visibleHoistedItems = Array.from(
-    hoistedItems
-      .reduce<Map<string, TurnWidgetItem>>((map, widget) => {
-        const dedupKey = widget.title?.trim() || widget.html.trim();
-        map.set(dedupKey, widget);
-        return map;
-      }, new Map())
-      .values(),
-  );
+  // 折叠后的 turn 只提升最后一次预览。更早的预览仍属于可展开的执行过程，
+  // 不应在最终正文后重复堆叠，尤其是专家先预览再导出时产生的中间版本。
+  const latestHoistedItem = hoistedItems.at(-1);
+  const visibleHoistedItems = latestHoistedItem ? [latestHoistedItem] : [];
 
   const locale = options.locale ?? "en";
   const publicRenderItems = visibleRenderItems.filter((item, index) => {
