@@ -8,7 +8,7 @@ import { isSandboxedHtmlVisual } from "../src/react-app/domains/session/surface/
 const repoRoot = join(import.meta.dir, "../../..");
 const expertRoot = join(
   repoRoot,
-  "apps/desktop/resources/marketplace/experts/plugins/order-entry-clerk",
+  "apps/desktop/resources/marketplace/experts/plugins/order-dispatch-specialist",
 );
 
 function readExpertFile(path: string): string {
@@ -88,40 +88,23 @@ function runGenerator(
 
 describe("order entry clerk expert contract", () => {
   test("generates a template-first logistics document with a progressive HTML preview", () => {
-    const agent = readExpertFile("agents/order-entry-clerk.md");
+    const agent = readExpertFile("agents/order-dispatch-specialist.md");
     const skill = readExpertFile("skills/order-entry/SKILL.md");
     const template = readExpertFile("skills/order-entry/assets/logistics-waybill-template.html");
     const documentTypes = readExpertFile("skills/order-entry/references/document-types.md");
     const protocol = readExpertFile("skills/order-entry/references/waybill-data-protocol.md");
 
-    expect(agent).toContain("制作物流单、发货单、发车单/派车单或运单前，都先询问用户是否有要求的模板");
-    expect(agent).toContain(".process/");
-    expect(agent).not.toContain("output/.process/");
-    expect(agent).toContain("PDF 与/或 XLSX");
-    expect(agent).toContain("白、红、黄三联");
-    expect(agent).toContain("待派车确认稿");
-    expect(agent).toContain("最终版");
-    expect(agent).toContain("waybill-data.json");
-    expect(agent).not.toContain("```show_widget");
-    expect(agent).not.toContain("[放大查看]");
-    expect(agent).not.toContain("preview:.process/");
-    expect(agent).toContain("会话内直接展示");
-    expect(agent).toContain("禁止自由发挥或另行设计");
-    expect(agent).toContain("查看");
-    expect(agent).toContain("artifact:实际文件名.ext");
-    expect(agent).toContain("侧边栏");
-    expect(agent).not.toContain("artifact:output/");
-    expect(agent).toContain("不是会话工作区目录");
-    expect(agent).toContain("~/.onmyagent/marketplaces/experts/order-entry-clerk/skills/order-entry/assets/logistics-waybill-template.html");
-    expect(agent).toContain("生成 PDF 和 Excel");
-    expect(agent).toContain("先不生成");
-    expect(agent).toContain("编辑字段");
+    expect(agent).toContain("skills: [order-entry, freight-quote, capacity-pool]");
+    expect(agent).toContain("物流单");
+    expect(agent).toContain("报价");
+    expect(agent).toContain("运力调配");
+    expect(agent).toContain("白/红/黄三联");
     expect(skill).toContain("assets/logistics-waybill-template.html");
     expect(skill).toContain("禁止增删区块、重排字段、改变合并单元格");
     expect(skill).toContain("专家模板安装异常");
     expect(skill).toContain("只写一份");
     expect(skill).toContain("scripts/generate_waybill.py");
-    expect(skill).toContain("--output-dir .");
+    expect(skill).toContain("--output-dir 物流单");
     expect(skill).toContain("物流单` 与 `字段数据");
     expect(skill).toContain("只有导出脚本成功且返回的 PDF/XLSX 文件存在");
     expect(skill).not.toContain("preview:.process/");
@@ -177,8 +160,8 @@ describe("order entry clerk expert contract", () => {
     const onMyAgentManifest = readExpertFile(".onmyagent-plugin/plugin.json");
 
     expect(onMyAgentManifest).toBe(expertManifest);
-    expect(JSON.parse(expertManifest).version).toBe("1.3.1");
-    expect(JSON.parse(expertManifest).displayDescription.zh).toContain("白、红、黄三联");
+    expect(JSON.parse(expertManifest).version).toBe("1.0.0");
+    expect(JSON.parse(expertManifest).displayDescription.zh).toContain("物流单");
   });
 
   test("exports three final PDF and three two-sheet Excel copies from one confirmed data source", () => {
