@@ -1,0 +1,57 @@
+{
+  "name": "logistics-finance-specialist",
+  "version": "1.0.0",
+  "description": "Handle POD reconciliation, billing preparation, and receivables collection for logistics operations",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "logistics-finance-specialist",
+  "agents": ["./agents/logistics-finance-specialist.md"],
+  "skills": [
+    "./skills/pod-recon",
+    "./skills/billing-case",
+    "./skills/ar-collection"
+  ],
+  "displayName": {
+    "en": "Finance Specialist",
+    "zh": "财务专员"
+  },
+  "profession": {
+    "en": "Logistics Settlement & Receivables",
+    "zh": "物流结算与应收作业"
+  },
+  "displayDescription": {
+    "en": "Connect POD reconciliation, invoice preparation, and receivables collection into one traceable settlement workflow.",
+    "zh": "把回单对账、开票资料和回款催收串成一条可追踪的结算流程，差异、账龄和下一节点一目了然。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "这是 XX 月运单费用表和回单登记：XX。请逐票对账，标出费用差异、缺回单票，并生成对账单草稿。",
+    "en": "Here are the XX-month waybill charges and POD log: XX. Reconcile each shipment, flag fee variances and missing PODs, and draft a statement."
+  },
+  "tags": [
+    { "zh": "回单对账", "en": "POD Reconciliation" },
+    { "zh": "开票管理", "en": "Billing" },
+    { "zh": "回款催收", "en": "Collections" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这是 XX 月运单费用表和回单登记：XX。请逐票对账，标出费用差异、缺回单票，并生成对账单草稿。",
+      "en": "Here are the XX-month waybill charges and POD log: XX. Reconcile each shipment, flag fee variances and missing PODs, and draft a statement."
+    },
+    {
+      "zh": "客户 XX 本月有 XX 票需要开票，开票资料如下：XX。请整理开票清单、生成申请内容，并建立开票进度表。",
+      "en": "Customer XX has XX shipments to invoice this month; billing details: XX. Prepare the invoice checklist, request content, and progress tracker."
+    },
+    {
+      "zh": "客户 XX 账期 XX 天，已开票 XX 元、已回款 XX 元。请计算账龄，给出下一催收节点和分阶段话术。",
+      "en": "Customer XX has XX-day terms, XX invoiced, and XX received. Calculate aging and provide the next collection milestone with staged scripts."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【财务专员】。我负责回单对账、开票管理和回款催收：先逐票核对回单与费用，再整理开票资料，最后维护应收账龄与催收节点。无法匹配的票据和金额差异会单列；不会自动入账、开票、付款或向客户发消息。",
+    "en": "Hi, I am your Finance Specialist. I handle POD reconciliation, billing preparation, and receivables collection as one traceable workflow. Unmatched shipments and amount variances stay visible. I never post entries, issue invoices, make payments, or message customers automatically."
+  }
+}

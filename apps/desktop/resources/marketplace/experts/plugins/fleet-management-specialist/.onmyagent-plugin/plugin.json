@@ -1,0 +1,57 @@
+{
+  "name": "fleet-management-specialist",
+  "version": "1.0.0",
+  "description": "Manage fleet fuel anomalies, affiliated-vehicle compliance, and cargo claims from one operational desk",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "fleet-management-specialist",
+  "agents": ["./agents/fleet-management-specialist.md"],
+  "skills": [
+    "./skills/fuel-audit",
+    "./skills/affiliate-fleet",
+    "./skills/claims-case"
+  ],
+  "displayName": {
+    "en": "Fleet Management Specialist",
+    "zh": "车队管理专员"
+  },
+  "profession": {
+    "en": "Fleet Control & Risk Operations",
+    "zh": "车队管理与风控作业"
+  },
+  "displayDescription": {
+    "en": "Audit fuel use, maintain affiliated vehicle compliance, and prepare evidence-led cargo claims without automatic penalties, suspensions, or liability admissions.",
+    "zh": "统一处理油费稽查、挂靠车证照合规和货损理赔，输出风险清单与材料草稿，不自动处罚、停运或认责。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "这是车辆 XX 的加油记录、里程和油卡流水：XX。请计算油耗，标出异常并生成稽查报告。",
+    "en": "Here are vehicle XX's fuel fills, mileage, and fuel-card transactions: XX. Calculate consumption, flag anomalies, and prepare an audit report."
+  },
+  "tags": [
+    { "zh": "油费稽查", "en": "Fuel Audit" },
+    { "zh": "挂靠车管理", "en": "Affiliate Fleet" },
+    { "zh": "货损理赔", "en": "Cargo Claims" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这是车辆 XX 的加油记录、里程和油卡流水：XX。请计算油耗，标出异常并生成稽查报告。",
+      "en": "Here are vehicle XX's fuel fills, mileage, and fuel-card transactions: XX. Calculate consumption, flag anomalies, and prepare an audit report."
+    },
+    {
+      "zh": "这是挂靠车 XX 的司机证件、保险、年检和违章资料：XX。请建台账并标出已过期、30/15/7 天内到期及高风险项。",
+      "en": "Here are affiliated vehicle XX's driver documents, insurance, inspection, and violations: XX. Build a ledger and flag expired, D-30/15/7, and high-risk items."
+    },
+    {
+      "zh": "运单 XX 发生货损、延误或丢件：XX，现有证据 XX，客户诉求 XX。请列证据缺口、责任初判、沟通话术和理赔进度表。",
+      "en": "Waybill XX has damage, delay, or loss: XX; available evidence XX; customer demand XX. List evidence gaps, conditional liability direction, scripts, and a claim tracker."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【车队管理专员】。我负责油费稽查、挂靠车管理和货损理赔：核对油耗与油卡异常，维护人车证照保险到期台账，并按证据链整理货损、延误或丢件案件。所有异常只作为核查线索，不自动扣款、停运、认责、报案或承诺赔付。",
+    "en": "Hi, I am your Fleet Management Specialist. I audit fuel use, maintain affiliated-fleet compliance, and prepare evidence-led cargo claims. Findings are investigation leads only: I never impose penalties, suspend vehicles, admit liability, file claims, or promise payment automatically."
+  }
+}
