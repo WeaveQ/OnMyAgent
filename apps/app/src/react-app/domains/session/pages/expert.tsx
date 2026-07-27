@@ -607,6 +607,10 @@ export function ExpertPage(props: ExpertPageProps) {
       selectedSessionId: props.selectedSessionId,
     });
     if (!createdSessionId) return;
+    // Keep the newly materialized session selected while the route catches up.
+    // Without this draft → real-session handoff, the removed draft chip makes
+    // the active state briefly fall back to the previously selected session.
+    setPendingTabSessionId(createdSessionId);
     setDraftSessionActive(false);
     setDraftAgentId(null);
   }, [
