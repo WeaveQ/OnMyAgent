@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  sessionLikelyHasMessagesForTabTitle,
   sessionNeedsTabTitleFallback,
+  sessionShouldFetchTabTitleSnapshot,
   summarizeSessionSnapshotForTab,
   summarizeTabTitle,
   tabTitleSnapshotRefetchIntervalMs,
@@ -75,19 +77,18 @@ describe("expert session tab titles", () => {
     ).toBe(false);
   });
 
-  test("tab title selection includes focused session only after defer (no cold thrash)", () => {
+  test("tab title selection never includes selected session in deferred set", () => {
     const sessions = [
       { id: "ses_selected" },
       { id: "ses_a" },
       { id: "ses_b" },
     ];
-    // Cold first paint: do not prioritize selected — surface already loads it.
     const before = selectSidebarPreviewSessionIds({
       sessions,
       selectedSessionId: "ses_selected",
       deferred: false,
       prioritizeSelected: false,
-      includeSelected: true,
+      includeSelected: false,
     });
     expect(before.size).toBe(0);
 
@@ -96,11 +97,51 @@ describe("expert session tab titles", () => {
       selectedSessionId: "ses_selected",
       deferred: true,
       prioritizeSelected: false,
-      includeSelected: true,
-      maxPreviews: 5,
+      includeSelected: false,
+      maxPreviews: 3,
     });
-    expect(after.has("ses_selected")).toBe(true);
+    expect(after.has("ses_selected")).toBe(false);
     expect(after.has("ses_a")).toBe(true);
     expect(after.has("ses_b")).toBe(true);
+  });
+
+  test("empty brand-new sessions do not fetch title snapshots on cold enter", () => {
+    const empty = {
+      id: "ses_empty",
+      title: "New session - 2026-07-26T01:00:00.000Z",
+      time: { created: 1_000, updated: 1_000 },
+    } as never;
+    expect(sessionLikelyHasMessagesForTabTitle(empty)).toBe(false);
+    expect(
+      sessionShouldFetchTabTitleSnapshot(empty, {
+        selectedSessionId: "ses_other",
+      }),
+    ).toBe(false);
+
+    const active = {
+      id: "ses_active",
+      title: "New session - 2026-07-26T01:00:00.000Z",
+      time: { created: 1_000, updated: 5_000 },
+    } as never;
+    expect(sessionLikelyHasMessagesForTabTitle(active)).toBe(true);
+    expect(
+      sessionShouldFetchTabTitleSnapshot(active, {
+        selectedSessionId: "ses_other",
+      }),
+    ).toBe(true);
+    // Selected + idle: surface owns it — no dual fetch.
+    expect(
+      sessionShouldFetchTabTitleSnapshot(active, {
+        selectedSessionId: "ses_active",
+        busy: false,
+      }),
+    ).toBe(false);
+    // Selected + busy: allow one title path for first-turn chip update.
+    expect(
+      sessionShouldFetchTabTitleSnapshot(active, {
+        selectedSessionId: "ses_active",
+        busy: true,
+      }),
+    ).toBe(true);
   });
 });

@@ -47,6 +47,8 @@ import {
 } from "../status/expert-unread-store";
 import {
   SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+  TAB_TITLE_SNAPSHOT_DEFER_MS,
+  TAB_TITLE_SNAPSHOT_MAX,
 } from "../sync/session-poll-policy";
 import {
   isSessionSnapshotNotFoundError,
@@ -71,6 +73,42 @@ export function sessionNeedsTabTitleFallback(
   const defaultTitle = t("session.default_title");
   if (rawTitle === DEFAULT_SESSION_TITLE || rawTitle === defaultTitle) return true;
   return isGeneratedSessionTitle(rawTitle);
+}
+
+/**
+ * Heuristic: only sessions that look like they have activity are worth a
+ * title-snapshot fetch. Brand-new / empty chips stay "新会话" without hitting
+ * OpenCode on first install.
+ */
+export function sessionLikelyHasMessagesForTabTitle(
+  session: WorkspaceSessionGroup["sessions"][number],
+): boolean {
+  const created = session.time?.created;
+  const updated = session.time?.updated;
+  if (typeof updated !== "number" || !Number.isFinite(updated)) return false;
+  if (typeof created !== "number" || !Number.isFinite(created)) {
+    // Updated present without created still suggests list metadata after use.
+    return true;
+  }
+  // ≥1.5s gap is a cheap signal that something beyond create landed.
+  return updated > created + 1_500;
+}
+
+/** Eligible for a deferred light title snapshot (not the selected surface). */
+export function sessionShouldFetchTabTitleSnapshot(
+  session: WorkspaceSessionGroup["sessions"][number],
+  options?: { selectedSessionId?: string | null; busy?: boolean },
+): boolean {
+  if (session.id.startsWith("draft:")) return false;
+  if (!sessionNeedsTabTitleFallback(session)) return false;
+  const selected = options?.selectedSessionId?.trim() || "";
+  // Selected session transcript is owned by the main surface — never double-fetch
+  // on cold enter (was a major first-install thrash).
+  if (selected && session.id === selected) {
+    // Only while streaming the first turn, so the chip can pick up a preview.
+    return Boolean(options?.busy);
+  }
+  return sessionLikelyHasMessagesForTabTitle(session);
 }
 
 /**
@@ -357,21 +395,45 @@ export function AgentSessionTabs(props: {
 
   const queryClient = useQueryClient();
 
-  // Light snapshots only for tabs that still need a title fallback.
-  // Wait for the shared defer window so first paint / OpenCode warm-up is not
-  // competing with N× title snapshots. Include the selected session once
-  // deferred (surface snapshot is a different query key / limit).
-  const { previewSessionIds: tabTitleSnapshotIds } = useDeferredSidebarPreviews({
+  // Light snapshots only for non-selected tabs that look non-empty.
+  // Selected session is owned by the surface — dual-fetch on cold enter was a
+  // first-install thrash. Long defer so OpenCode listSessions finishes first.
+  const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
     enabled: Boolean(props.client),
-    sessions: orderedSessions.filter(
-      (session) =>
-        !session.id.startsWith("draft:") && sessionNeedsTabTitleFallback(session),
+    sessions: orderedSessions.filter((session) =>
+      sessionShouldFetchTabTitleSnapshot(session, {
+        selectedSessionId: props.selectedSessionId,
+        busy: false,
+      }),
     ),
     selectedSessionId: props.selectedSessionId,
-    maxPreviews: 5,
-    includeSelected: true,
+    maxPreviews: TAB_TITLE_SNAPSHOT_MAX,
+    includeSelected: false,
     prioritizeSelected: false,
+    deferMs: TAB_TITLE_SNAPSHOT_DEFER_MS,
   });
+  // While the focused session is streaming its first turn, allow one title path
+  // so the chip can leave "新会话" without waiting for the long cold defer.
+  const tabTitleSnapshotIds = useMemo(() => {
+    const ids = new Set(deferredTabTitleIds);
+    const selected = props.selectedSessionId?.trim() || "";
+    if (
+      selected &&
+      !selected.startsWith("draft:") &&
+      isStreamingSessionStatus(props.sessionStatusById?.[selected])
+    ) {
+      const session = orderedSessions.find((item) => item.id === selected);
+      if (session && sessionNeedsTabTitleFallback(session)) {
+        ids.add(selected);
+      }
+    }
+    return ids;
+  }, [
+    deferredTabTitleIds,
+    orderedSessions,
+    props.selectedSessionId,
+    props.sessionStatusById,
+  ]);
 
   // After a run finishes, re-check title once (messages may have landed while empty).
   const prevBusyBySessionRef = useRef<Record<string, boolean>>({});

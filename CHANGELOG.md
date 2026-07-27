@@ -14,6 +14,13 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.12
+
+### Changed
+
+- **First-install cold path**: stop dual-fetching selected-session title snapshots; only non-empty, non-selected tabs may title-snapshot after 6s; empty chips stay "新会话" without OpenCode hits.
+- Session-route prewarm: idle wait 8s; inventory-only (skip duplicate provider.list); sidebar preview defer 4s.
+
 ## 0.4.11
 
 ### Changed

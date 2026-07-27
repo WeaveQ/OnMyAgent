@@ -20,6 +20,11 @@ export type PrewarmWorkspaceProvidersInput = {
   baseUrl?: string | null;
   directory?: string | null;
   workspaceRoot?: string | null;
+  /**
+   * Session-route cold path: skip provider.list (composer model-catalog already
+   * loads it on the critical path). Only warm managed-inventory IPC for Settings.
+   */
+  inventoryOnly?: boolean;
 };
 
 /**
@@ -31,6 +36,12 @@ export async function prewarmWorkspaceProviders(
 ): Promise<void> {
   const directory = (input.directory ?? input.workspaceRoot ?? "").trim();
   const workspaceRoot = (input.workspaceRoot ?? input.directory ?? "").trim();
+
+  if (input.inventoryOnly) {
+    if (!workspaceRoot) return;
+    await loadOpenCodeManagedProvidersForWorkspace(workspaceRoot).catch(() => []);
+    return;
+  }
 
   await Promise.all([
     ensureProviderListQuery(getReactQueryClient(), {
