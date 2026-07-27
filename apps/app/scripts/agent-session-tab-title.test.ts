@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  sessionLikelyHasMessagesForTabTitle,
   sessionNeedsTabTitleFallback,
   sessionShouldFetchTabTitleSnapshot,
   summarizeSessionSnapshotForTab,
@@ -105,43 +104,50 @@ describe("expert session tab titles", () => {
     expect(after.has("ses_b")).toBe(true);
   });
 
-  test("empty brand-new sessions do not fetch title snapshots on cold enter", () => {
-    const empty = {
-      id: "ses_empty",
+  test("expert tab title selection prioritizes the active tab and resolves a bounded strip after defer", () => {
+    const sessions = Array.from({ length: 6 }, (_, index) => ({
+      id: `ses_${index + 1}`,
+    }));
+    const before = selectSidebarPreviewSessionIds({
+      sessions,
+      selectedSessionId: "ses_3",
+      deferred: false,
+      includeSelected: true,
+      prioritizeSelected: true,
+      maxPreviews: 8,
+    });
+    expect([...before]).toEqual(["ses_3"]);
+
+    const after = selectSidebarPreviewSessionIds({
+      sessions,
+      selectedSessionId: "ses_3",
+      deferred: true,
+      includeSelected: true,
+      prioritizeSelected: true,
+      maxPreviews: 8,
+    });
+    expect(after.size).toBe(6);
+    expect(after.has("ses_3")).toBe(true);
+  });
+
+  test("default-titled real sessions fetch one bounded title snapshot regardless of list timestamps", () => {
+    const defaultTitled = {
+      id: "ses_default",
       title: "New session - 2026-07-26T01:00:00.000Z",
       time: { created: 1_000, updated: 1_000 },
     } as never;
-    expect(sessionLikelyHasMessagesForTabTitle(empty)).toBe(false);
+    expect(sessionShouldFetchTabTitleSnapshot(defaultTitled)).toBe(true);
     expect(
-      sessionShouldFetchTabTitleSnapshot(empty, {
-        selectedSessionId: "ses_other",
+      sessionShouldFetchTabTitleSnapshot({
+        ...defaultTitled,
+        id: "draft:ws:expert",
       }),
     ).toBe(false);
-
-    const active = {
-      id: "ses_active",
-      title: "New session - 2026-07-26T01:00:00.000Z",
-      time: { created: 1_000, updated: 5_000 },
-    } as never;
-    expect(sessionLikelyHasMessagesForTabTitle(active)).toBe(true);
     expect(
-      sessionShouldFetchTabTitleSnapshot(active, {
-        selectedSessionId: "ses_other",
-      }),
-    ).toBe(true);
-    // Selected + idle: surface owns it — no dual fetch.
-    expect(
-      sessionShouldFetchTabTitleSnapshot(active, {
-        selectedSessionId: "ses_active",
-        busy: false,
+      sessionShouldFetchTabTitleSnapshot({
+        ...defaultTitled,
+        title: "广州汽配运输",
       }),
     ).toBe(false);
-    // Selected + busy: allow one title path for first-turn chip update.
-    expect(
-      sessionShouldFetchTabTitleSnapshot(active, {
-        selectedSessionId: "ses_active",
-        busy: true,
-      }),
-    ).toBe(true);
   });
 });
