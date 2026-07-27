@@ -17,7 +17,7 @@ import type {
   CodeWorkspaceOpenTargetsResult,
   CodeWorkspaceTerminal,
   CodeWorkspaceTerminalSnapshot,
-} from "./desktop-ipc-code-workspace";
+} from "./desktop-ipc-code-workspace.js";
 import type {
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
@@ -33,6 +33,7 @@ import type {
   AgentManagementSnapshot,
   AgentManagementSnapshotInput,
   AppBuildInfo,
+  BrowserSkillStatusResult,
   BuiltinSkillPackageInstallInput,
   BuiltinSkillPackageInstallResult,
   CacheResetResult,
@@ -173,7 +174,7 @@ import type {
   WorkspaceList,
   WorkspaceOnMyAgentConfig,
   WorkspaceUpdateRemoteInput,
-} from "./desktop-ipc";
+} from "./desktop-ipc.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -262,7 +263,16 @@ type TypedDesktopCommandMap = {
     { ok: true }
   >;
   codeWorkspaceFilesList: DesktopCommandContract<
-    [{ workspacePath: string; relativePath?: string }],
+    [
+      {
+        workspacePath: string;
+        relativePath?: string;
+        /** When true, walk all descendants under relativePath (for type/search filters). */
+        recursive?: boolean;
+        /** Legacy alias: shallow:false means recursive. */
+        shallow?: boolean;
+      },
+    ],
     { items: CodeWorkspaceFileEntry[] }
   >;
   codeWorkspaceFileRead: DesktopCommandContract<
@@ -381,6 +391,15 @@ type TypedDesktopCommandMap = {
   installSoftwareEnv: DesktopCommandContract<
     [string, string?],
     SoftwareEnvironmentInstallResult
+  >;
+  checkBrowserSkillStatus: DesktopCommandContract<[], BrowserSkillStatusResult>;
+  openBrowserSkillInstallPage: DesktopCommandContract<
+    [("cli" | "extension" | "docs")?],
+    OkResult & {
+      url?: string;
+      method?: "terminal" | "docs" | "extension" | "cli" | string;
+      command?: string;
+    }
   >;
 
   // local agents

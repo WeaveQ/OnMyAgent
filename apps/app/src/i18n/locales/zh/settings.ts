@@ -223,6 +223,10 @@ export default {
   "settings.computer_use_setup_title": "Computer Use 设置",
   "settings.computer_use_setup_description":
     "连接本地 MCP 服务器，并授予它控制应用所需的 macOS 权限",
+  "settings.computer_use_step_connect": "连接",
+  "settings.computer_use_step_runtime": "运行状态",
+  "settings.computer_use_step_privacy": "授权与记忆",
+  "settings.computer_use_connect_step_title": "1. 连接 Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
     "将本地 Computer Use 服务器添加到此工作区，让编辑器可以使用电脑控制工具",
   "settings.computer_use_configured": "已配置",

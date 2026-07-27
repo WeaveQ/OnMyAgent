@@ -25,6 +25,12 @@ test("lists and reads files inside the selected workspace", async () => {
       relativePath: "src",
     });
     assert.equal(nested.items[0]?.path, "src/index.ts");
+    const deep = await listCodeWorkspaceFiles({
+      workspacePath,
+      recursive: true,
+    });
+    assert.ok(deep.items.some((item) => item.path === "src/index.ts"));
+    assert.ok(deep.items.some((item) => item.path === "src" && item.kind === "dir"));
     const content = await readCodeWorkspaceFile({
       workspacePath,
       relativePath: "src/index.ts",

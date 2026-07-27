@@ -59,6 +59,7 @@ import {
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
+import { createBrowserSkillDesktopHelpers as createBskDesktopHelpers } from "./browser-skill-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
@@ -219,6 +220,7 @@ const {
   openComputerUseSetupApp,
 } = computerUseDesktopHelpers;
 
+const { checkBrowserSkillStatus, openBrowserSkillInstallPage } = createBskDesktopHelpers({ shell });
 // Production Electron shares the same on-disk state folder as the Tauri shell
 // so in-place migration is a no-op for almost every file. Dev mode uses the
 // separate dev identifier so it can run beside the production app.
@@ -324,7 +326,6 @@ const IDLE_ROUTER_INFO = Object.freeze({
 
 let mainWindow = null;
 const pendingDeepLinks = [];
-
 
 /** Populated after browserController is created (menu/ui-control call at runtime). */
 let desktopWindowController = null;
@@ -486,9 +487,6 @@ const {
   shell,
 });
 
-
-
-
 function builtinExpertPackageSource(packageName) {
   const safePackage = validateExpertPackageName(packageName);
   const workspaceRoot = path.resolve(__dirname, "../../..");
@@ -526,7 +524,6 @@ function builtinSkillPackageSource(packageName) {
   ];
   return { safePackage, candidates };
 }
-
 
 async function migrateLegacyElectronWorkspaceStateIfNeeded() {
   const current = workspaceStatePath();
@@ -648,10 +645,6 @@ async function setDesktopBootstrapConfig(config) {
   return normalized;
 }
 
-
-
-
-
 function defaultWorkspaceOnMyAgentConfig(workspacePath, preset = null) {
   return {
     version: 1,
@@ -702,13 +695,6 @@ async function normalizeLocalWorkspacePath(rawPath) {
   const resolved = path.resolve(expanded);
   return realpath(resolved).catch(() => resolved);
 }
-
-
-
-
-
-
-
 
 async function fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken) {
   const url = `${String(hostUrl ?? "").replace(/\/+$/, "")}/workspaces`;
@@ -1539,6 +1525,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   revokeComputerUseAppAuthorization,
   clearComputerUseAppAuthorizations,
   openComputerUseSetupApp,
+  checkBrowserSkillStatus,
+  openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
   getDesktopBootstrapConfig,

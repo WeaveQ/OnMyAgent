@@ -96,13 +96,13 @@ export {
   getExtensionConnected,
   registerExtensionConfig,
   registerExtensionRuntime,
-} from "./extension-registry";
+} from "../shared";
 export type {
   ExtensionConfigContext,
   ExtensionConfigFactory,
   ExtensionRuntimeContext,
   OnMyAgentExtensionRuntime,
-} from "./extension-registry";
+} from "../shared";
 
 export { useDebugViewModel } from "./state/debug-view-model";
 export { useRecoveryViewModel } from "./state/recovery-view-model";
@@ -158,5 +158,6 @@ export type { LocalProviderInstallInput } from "./openai-image-extension";
 import "./openai-image-gen-config";
 import "./ollama-config";
 import "./computer-use-config";
+import "./browser-skill-config";
 import "./onmyagent-voice-config";
 import "./browser-config";

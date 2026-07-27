@@ -255,7 +255,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
       >
         {targets.length > 0 ? (
           <div className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2">
-            <div className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag">
+            <div className="min-w-0 flex-1 overflow-x-auto">
               <PanelTabList values={targets.map((item) => item.id)} onReorder={() => {}}>
                 {targets.map((item) => (
                   <PanelTabItem
@@ -314,6 +314,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
               {target.exists === false ? "missing" : target.size !== undefined ? `${formatFileSize(target.size)}` : ""}
             </span>
           </div>
+          <div className="flex shrink-0 items-center gap-1 mac:titlebar-no-drag">
           {isTextContent(target) && data?.kind === "text" ? (
             editing || isDirectTextEdit ? (
               <>
@@ -389,6 +390,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
             />
             <TooltipContent>{t("session.artifact_close")}</TooltipContent>
           </Tooltip>
+          </div>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">

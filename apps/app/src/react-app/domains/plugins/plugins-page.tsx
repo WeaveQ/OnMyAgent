@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Blocks,
+  ChevronRight,
   Cloud,
   Database,
   FileText,
@@ -44,7 +45,11 @@ import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
-import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "@/app/constants";
+import {
+  getMcpServerName,
+  ONMYAGENT_EXTENSION_CATALOG,
+  type McpDirectoryInfo,
+} from "@/app/constants";
 import {
   isOnMyAgentExtensionEnabled,
   isOnMyAgentExtensionHidden,
@@ -55,6 +60,7 @@ import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
+import { connectorTileClassName } from "./connector-tile";
 import {
   loadArtifactPluginCatalog,
   loadArtifactPluginDetail,
@@ -65,6 +71,28 @@ import {
   type ArtifactPluginDetailLabels,
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
+import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
+import {
+  getExtensionConfigSlot,
+  hasExtensionConfig,
+  type ExtensionConfigContext,
+} from "@/react-app/domains/shared";
+import { useLocal } from "@/react-app/kernel/local-provider";
+
+/** Matches local provider install shape used by Ollama / OpenAI-compatible panels. */
+type LocalProviderInstallInput = {
+  providerId: string;
+  name: string;
+  baseURL: string;
+  modelId: string;
+  modelName: string;
+  setDefault: boolean;
+};
+
+function describeInstallError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 export type ArtifactPluginPromptSelection = {
   pluginId: string;
@@ -134,15 +162,16 @@ const pluginsTextClass = {
   categoryTitle: "mb-2 text-xs font-medium uppercase tracking-wide text-dls-secondary",
 };
 
-/** Align with expert / skill marketplace grid (full-bleed content + px-6). */
-const PLUGIN_CARD_GRID =
-  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
-
 /**
- * Connector cards: denser adaptive grid (3–5 cols) so tiles don’t stretch too wide.
+ * Shared product grid: max 4 columns so rows stay even (4 file tools fill one
+ * row; 5 built-ins wrap cleanly as 4+1 without a lonely stretched tile).
  */
-const CONNECTOR_CARD_GRID =
-  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+const PRODUCT_CONNECTOR_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+
+/** Coming-soon catalog can stay denser. */
+const PLUGIN_CARD_GRID =
+  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 /** File-processing plugins: browser + Office suite in product order. */
 const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
@@ -155,6 +184,7 @@ const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
 /** Built-in extensions: product priority when enablement is equal. */
 const BUILTIN_EXTENSION_DISPLAY_ORDER = [
   "computer-use",
+  "browser-skill",
   "onmyagent-voice",
   "openai-image-gen",
   "ollama",
@@ -170,7 +200,11 @@ const pluginsLayoutClass = {
   scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
   // Match expert/skills: no max-w-6xl so side gutters match px-6 only.
   pageContainer: "w-full px-6 pb-10 pt-5",
-  pluginPageContainer: "w-full space-y-7 px-6 pb-10 pt-5",
+  pluginPageContainer: "w-full space-y-8 px-6 pb-10 pt-5",
+  section: "space-y-3",
+  sectionHeader: "space-y-1",
+  sectionTitle: "text-base font-medium leading-6 text-dls-text",
+  sectionDivider: "border-t border-dls-border/50 pt-8",
   card: "rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 transition-colors",
   cardRow: "flex items-center gap-3",
   cardColumn: "flex flex-col",
@@ -181,8 +215,8 @@ const pluginsLayoutClass = {
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
   disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
   cardGrid: PLUGIN_CARD_GRID,
-  artifactCardGrid: CONNECTOR_CARD_GRID,
-  connectorCardGrid: CONNECTOR_CARD_GRID,
+  artifactCardGrid: PRODUCT_CONNECTOR_GRID,
+  connectorCardGrid: PRODUCT_CONNECTOR_GRID,
   skillSectionTitle: "mb-2 flex items-baseline gap-2",
   skillSectionDescription: "mb-3 pl-6",
   originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
@@ -749,14 +783,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
 
   return (
     <section
-      className="space-y-5 border-t border-dls-border/50 pt-6"
+      className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
       aria-labelledby="artifact-plugins-heading"
     >
-      <div className="space-y-1">
-        <h2
-          id="artifact-plugins-heading"
-          className="text-base font-medium leading-6 text-dls-text"
-        >
+      <div className={pluginsLayoutClass.sectionHeader}>
+        <h2 id="artifact-plugins-heading" className={pluginsLayoutClass.sectionTitle}>
           {t("plugins.artifact_title")}
         </h2>
         <p className={pluginsTextClass.sectionLead}>
@@ -851,24 +882,241 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   );
 }
 
-function BuiltinExtensionsSection() {
+const COMPUTER_USE_MCP_NAME = "computer-use";
+const COMPUTER_USE_MCP_FALLBACK_COMMAND = ["npx", "-y", "@onmyagent/handsfree", "mcp"] as const;
+
+async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<string[]> {
+  try {
+    const command = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.(
+      "getComputerUseMcpCommand",
+    );
+    if (
+      Array.isArray(command) &&
+      command.length > 0 &&
+      command.every((part) => typeof part === "string")
+    ) {
+      return command;
+    }
+  } catch {
+    throw new Error(
+      "Computer Use helper app is unavailable. Restart OnMyAgent or reinstall the app.",
+    );
+  }
+  if (entry.command?.length) return entry.command;
+  return [...COMPUTER_USE_MCP_FALLBACK_COMMAND];
+}
+
+function BuiltinExtensionsSection(props: {
+  workspaceId: string;
+  client?: OnMyAgentServerClient | null;
+}) {
+  const local = useLocal();
   const [revision, setRevision] = useState(0);
+  const [detailEntry, setDetailEntry] = useState<McpDirectoryInfo | null>(null);
+  const [localProviderBusy, setLocalProviderBusy] = useState(false);
+  const [localProviderStatus, setLocalProviderStatus] = useState<string | null>(null);
+  const [localProviderError, setLocalProviderError] = useState<string | null>(null);
+  const [computerUseConnected, setComputerUseConnected] = useState(false);
+  const [computerUseConnecting, setComputerUseConnecting] = useState(false);
+
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
     return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
   }, []);
 
+  const refreshComputerUseMcp = useCallback(async () => {
+    const client = props.client;
+    const workspaceId = props.workspaceId.trim();
+    if (!client || !workspaceId) {
+      setComputerUseConnected(false);
+      return;
+    }
+    try {
+      const result = await client.listMcp(workspaceId);
+      setComputerUseConnected(
+        result.items.some((item) => {
+          const name = item.name;
+          return (
+            name === COMPUTER_USE_MCP_NAME ||
+            name === "computer-use-mcp"
+          );
+        }),
+      );
+    } catch {
+      setComputerUseConnected(false);
+    }
+  }, [props.client, props.workspaceId]);
+
+  useEffect(() => {
+    void refreshComputerUseMcp();
+  }, [refreshComputerUseMcp]);
+
+  const connectComputerUseMcp = useCallback(
+    async (entry: McpDirectoryInfo) => {
+      const client = props.client;
+      const workspaceId = props.workspaceId.trim();
+      if (!client || !workspaceId) {
+        throw new Error(t("extensions.local_provider_server_not_connected"));
+      }
+      if (!isDesktopRuntime()) {
+        throw new Error(t("mcp.desktop_required"));
+      }
+
+      setComputerUseConnecting(true);
+      try {
+        const command = await resolveComputerUseMcpCommand(entry);
+        const slug = entry.id ?? getMcpServerName(entry);
+        await client.addMcp(workspaceId, {
+          name: slug,
+          config: {
+            type: "local",
+            command,
+            enabled: true,
+          },
+        });
+        try {
+          await client.reloadEngine(workspaceId);
+        } catch {
+          // Config is already written; user can retry reload from workspace actions.
+        }
+        setOnMyAgentExtensionEnabled(entry, true);
+        setComputerUseConnected(true);
+        setRevision((value) => value + 1);
+      } finally {
+        setComputerUseConnecting(false);
+        void refreshComputerUseMcp();
+      }
+    },
+    [props.client, props.workspaceId, refreshComputerUseMcp],
+  );
+
+  const installLocalProvider = useCallback(
+    async (input: LocalProviderInstallInput) => {
+      const client = props.client;
+      const workspaceId = props.workspaceId.trim();
+      const modelId = input.modelId.trim();
+      if (!client || !workspaceId) {
+        setLocalProviderError(t("extensions.local_provider_server_not_connected"));
+        return;
+      }
+      if (!modelId) {
+        setLocalProviderError(t("extensions.local_provider_model_required"));
+        return;
+      }
+
+      setLocalProviderBusy(true);
+      setLocalProviderStatus(null);
+      setLocalProviderError(null);
+      try {
+        await client.patchConfig(workspaceId, {
+          opencode: {
+            provider: {
+              [input.providerId]: {
+                npm: "@ai-sdk/openai-compatible",
+                name: input.name,
+                options: { baseURL: input.baseURL },
+                models: { [modelId]: { name: input.modelName.trim() || modelId } },
+              },
+            },
+          },
+        });
+        if (input.setDefault) {
+          local.setPrefs((previous) => ({
+            ...previous,
+            defaultModel: { providerID: input.providerId, modelID: modelId },
+            modelVariant: null,
+          }));
+        }
+        try {
+          await client.reloadEngine(workspaceId);
+        } catch {
+          // User can retry via refresh; provider block is already written.
+        }
+        try {
+          window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
+        } catch {
+          // ignore
+        }
+        setLocalProviderStatus(
+          t("extensions.local_provider_added_status", {
+            name: input.name,
+            modelId,
+          }),
+        );
+      } catch (error) {
+        setLocalProviderError(describeInstallError(error));
+      } finally {
+        setLocalProviderBusy(false);
+      }
+    },
+    [local, props.client, props.workspaceId],
+  );
+
+  const extensionConfigCtx = useMemo<ExtensionConfigContext>(
+    () => ({
+      onmyagentServerClient: props.client ?? null,
+      computerUse: {
+        connected: computerUseConnected,
+        connecting: computerUseConnecting,
+        onConnect: () => {
+          const entry =
+            detailEntry ??
+            ONMYAGENT_EXTENSION_CATALOG.find(
+              (item) => (item.id ?? item.serverName) === COMPUTER_USE_MCP_NAME,
+            ) ??
+            null;
+          if (!entry) {
+            throw new Error(t("mcp.connect_failed"));
+          }
+          return connectComputerUseMcp(entry);
+        },
+        onRefresh: () => refreshComputerUseMcp(),
+      },
+      imageExtension: {
+        busy: false,
+        status: null,
+        error: null,
+        envKeyDetected: false,
+        onInstall: async () => undefined,
+        onTestGenerate: async () => undefined,
+      },
+      voiceExtension: {
+        busy: false,
+        status: null,
+        error: null,
+        envKeyDetected: false,
+        onSaveApiKey: async () => undefined,
+        onTestSession: async () => undefined,
+      },
+      localProvider: {
+        busy: localProviderBusy,
+        status: localProviderStatus,
+        error: localProviderError,
+        onInstall: installLocalProvider,
+      },
+    }),
+    [
+      computerUseConnected,
+      computerUseConnecting,
+      connectComputerUseMcp,
+      detailEntry,
+      installLocalProvider,
+      localProviderBusy,
+      localProviderError,
+      localProviderStatus,
+      props.client,
+      refreshComputerUseMcp,
+    ],
+  );
+
   const entries = useMemo(() => {
     void revision;
     const visible = ONMYAGENT_EXTENSION_CATALOG.filter(
       (entry) => !isOnMyAgentExtensionHidden(entry),
     );
-    // Enabled first, then product order (Computer Use → Voice → Image → Ollama).
+    // Stable product order only — do not jump cards when the user toggles enable.
     return [...visible].sort((left, right) => {
-      const leftOn = isOnMyAgentExtensionEnabled(left);
-      const rightOn = isOnMyAgentExtensionEnabled(right);
-      if (leftOn !== rightOn) return leftOn ? -1 : 1;
       const leftId = left.id ?? left.serverName ?? left.name;
       const rightId = right.id ?? right.serverName ?? right.name;
       const byOrder =
@@ -881,10 +1129,17 @@ function BuiltinExtensionsSection() {
 
   if (entries.length === 0) return null;
 
+  const detailConfig =
+    detailEntry != null
+      ? getExtensionConfigSlot(detailEntry, extensionConfigCtx)
+      : null;
+  const detailEnabled =
+    detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
+
   return (
-    <section className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-base font-medium leading-6 text-dls-text">
+    <section className={pluginsLayoutClass.section}>
+      <div className={pluginsLayoutClass.sectionHeader}>
+        <h2 className={pluginsLayoutClass.sectionTitle}>
           {t("plugins.builtin_section_title")}
         </h2>
         <p className={pluginsTextClass.sectionLead}>
@@ -893,18 +1148,48 @@ function BuiltinExtensionsSection() {
       </div>
       <div className={pluginsLayoutClass.connectorCardGrid}>
         {entries.map((entry) => (
-          <BuiltinExtensionCard key={entry.id ?? entry.serverName ?? entry.name} entry={entry} />
+          <BuiltinExtensionCard
+            key={entry.id ?? entry.serverName ?? entry.name}
+            entry={entry}
+            onOpenDetails={() => setDetailEntry(entry)}
+          />
         ))}
       </div>
+      {detailEntry ? (
+        <ExtensionDetailModal
+          open
+          onClose={() => setDetailEntry(null)}
+          name={detailEntry.name}
+          description={detailEntry.description?.trim() || detailEntry.name}
+          kind="extension"
+          preview={detailEntry.preview === true}
+          connected={detailEnabled}
+          connectedLabel={t("plugins.artifact_enabled")}
+          disconnectedLabel={t("plugins.artifact_disabled")}
+          // Config panel is the setup surface — skip duplicate setup/details chrome.
+          setupInstructions={
+            detailConfig
+              ? undefined
+              : detailEntry.extensionManifest?.setup?.instructions
+          }
+          showEnablementCard={false}
+          showDetailsCard={!detailConfig}
+          size="wide"
+          configSlot={detailConfig}
+        />
+      ) : null}
     </section>
   );
 }
 
 /**
- * Match ArtifactPluginCard chrome: vertical tile, same min-height / hover border,
- * icon + title + switch, description. No detail link (extensions are toggle-only).
+ * Match ArtifactPluginCard chrome: icon + title + switch, description,
+ * and “View details” when a settings panel is registered (e.g. BrowserSkill).
  */
-function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
+function BuiltinExtensionCard(props: {
+  entry: McpDirectoryInfo;
+  onOpenDetails: () => void;
+}) {
   const [, setRevision] = useState(0);
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
@@ -913,16 +1198,11 @@ function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
   }, []);
   const enabled = isOnMyAgentExtensionEnabled(props.entry);
   const description = props.entry.description?.trim() ?? "";
+  const canOpenDetails = hasExtensionConfig(props.entry);
 
   return (
     <article
-      className={cn(
-        "group flex h-full min-h-[7.25rem] flex-col rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 text-left transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover",
-        "focus-within:border-dls-border focus-within:bg-dls-hover",
-        !enabled && "opacity-80",
-        "mac:titlebar-no-drag",
-      )}
+      className={cn(connectorTileClassName, !enabled && "opacity-80")}
     >
       <div className="flex min-w-0 items-start gap-2.5">
         <IconTile
@@ -959,10 +1239,21 @@ function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
       ) : (
         <div className="mt-2 min-h-10" aria-hidden />
       )}
-      {/* Reserve footer band so height matches artifact cards with View details. */}
-      <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
-        —
-      </div>
+      {canOpenDetails ? (
+        <button
+          type="button"
+          className="mt-auto inline-flex items-center gap-0.5 pt-2 text-xs text-dls-secondary transition-colors hover:text-dls-text"
+          onClick={props.onOpenDetails}
+          aria-label={`${props.entry.name}. ${t("plugins.artifact_open")}`}
+        >
+          {t("plugins.artifact_open")}
+          <ChevronRight className="size-3.5" aria-hidden="true" />
+        </button>
+      ) : (
+        <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
+          —
+        </div>
+      )}
     </article>
   );
 }
@@ -988,31 +1279,38 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
-          <BuiltinExtensionsSection />
+          <BuiltinExtensionsSection
+            workspaceId={props.workspaceId}
+            client={props.client}
+          />
           <ArtifactPluginsCatalog {...props} />
-          <section className="space-y-5 border-t border-dls-border/50 pt-6">
-            <div className="space-y-1">
-              <h2 className="text-base font-medium leading-6 text-dls-text">
+          <section
+            className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
+          >
+            <div className={pluginsLayoutClass.sectionHeader}>
+              <h2 className={pluginsLayoutClass.sectionTitle}>
                 {t("plugins.sample_section_title")}
               </h2>
               <p className={pluginsTextClass.sectionLead}>
                 {t("plugins.sample_section_hint")}
               </p>
             </div>
-            {categories.map((category) => {
-              const items = filteredByCategory.get(category.id) ?? [];
-              if (items.length === 0) return null;
-              return (
-                <section key={category.id} className="space-y-0">
-                  <h3 className={pluginsTextClass.categoryTitle}>{category.title}</h3>
-                  <div className={pluginsLayoutClass.cardGrid}>
-                    {items.map((item) => (
-                      <PluginCard key={item.id} item={item} />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+            <div className="space-y-5">
+              {categories.map((category) => {
+                const items = filteredByCategory.get(category.id) ?? [];
+                if (items.length === 0) return null;
+                return (
+                  <section key={category.id} className="space-y-2">
+                    <h3 className={pluginsTextClass.categoryTitle}>{category.title}</h3>
+                    <div className={pluginsLayoutClass.cardGrid}>
+                      {items.map((item) => (
+                        <PluginCard key={item.id} item={item} />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           </section>
         </div>
       </div>

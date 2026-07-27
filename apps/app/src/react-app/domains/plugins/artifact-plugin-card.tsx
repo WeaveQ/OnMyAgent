@@ -7,6 +7,7 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import { ArtifactPluginIcon } from "./artifact-plugin-detail";
+import { connectorTileClassName } from "./connector-tile";
 
 export type ArtifactPluginCardProps = {
   plugin: ArtifactPluginCatalogItem;
@@ -59,15 +60,7 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const copy = localizedPluginCopy(plugin);
 
   return (
-    <article
-      className={cn(
-        "group flex h-full min-h-[7.25rem] flex-col rounded-2xl border border-transparent bg-dls-surface px-3.5 py-3 text-left transition-colors",
-        "hover:border-dls-border hover:bg-dls-hover",
-        "focus-within:border-dls-border focus-within:bg-dls-hover",
-        !enabled && "opacity-80",
-        "mac:titlebar-no-drag",
-      )}
-    >
+    <article className={cn(connectorTileClassName, !enabled && "opacity-80")}>
       <div className="flex min-w-0 items-start gap-2.5">
         <ArtifactPluginIcon pluginId={plugin.id} size="sm" />
         <div className="min-w-0 flex-1">

@@ -440,7 +440,9 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain('activeSidePanel === "browser"');
     expect(expertPage).toContain('activeSidePanel === "artifacts"');
     expect(expertPage).toContain('activeExpertFeatureCategoryId === "office"');
-    expect(expertPage).toContain('["review", "terminal"]');
+    // Office keeps terminal + browser + files; only code review is code-scene only.
+    expect(expertPage).toContain('? ["review"]');
+    expect(expertPage).not.toContain('["review", "terminal"]');
     expect(expertPage).not.toContain("<BrowserPanel");
     expect(expertPage).not.toContain("<ArtifactPanel");
   });

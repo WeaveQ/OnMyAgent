@@ -46,11 +46,16 @@ import { useBootState } from "../boot-state";
 import { userErrorFromRaw } from "../../kernel/user-error";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
 import { useFacingRouteError } from "./facing-route-error";
-import { canDisconnectProviderRow } from "./provider-disconnect-policy";
+import {
+  canDeleteOpenCodeProvider,
+  canDisconnectProviderRow,
+  canEditOpenCodeProvider,
+} from "./provider-disconnect-policy";
 import {
   deleteOpenCodeManagedProvider,
   disconnectSettingsProvider,
 } from "./provider-list-actions";
+import { buildOpenCodeProviderEditFallback } from "./open-code-provider-edit";
 import { useSettingsProvidersPrewarm } from "./providers-prewarm-hook";
 import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
@@ -1210,20 +1215,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const handleEditOpenCodeProvider = useCallback(
     (provider: AiSettingsConnectedProvider) => {
-      if (provider.managedBy !== "opencode") return;
+      if (!canEditOpenCodeProvider(provider)) return;
       setProviderActionError(null);
-      const fallback: AgentManagementManagedProvider = {
-        id: provider.id,
-        appType: "opencode",
-        name: provider.name || provider.id,
-        settingsConfig: {},
-        isCurrent: false,
-        inFailoverQueue: false,
-        liveManaged: true,
-        livePresent: true,
-        configPath: "",
-        models: [],
-      };
+      const fallback = buildOpenCodeProviderEditFallback(provider, providers);
       // Prefer in-memory inventory for instant open. After save, inventory is
       // updated from the save response (opencodeProviders), so re-edit is fresh
       // without awaiting IPC. Background refresh only updates the list for later.
@@ -1238,7 +1232,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         return;
       }
 
-      // Cold path: inventory not ready yet (rare right after tab open).
+      // Cold path: inventory not ready yet, or config-only install (no DB row).
       if (providerActionBusyId) return;
       setProviderActionBusyId(provider.id);
       void loadOpenCodeManagedProviders()
@@ -1261,6 +1255,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       findManagedProvider,
       loadOpenCodeManagedProviders,
       providerActionBusyId,
+      providers,
       setOpenCodeManagedProviders,
     ],
   );
@@ -1656,9 +1651,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                   opencodeInventoryReady,
                 })
               }
-              canEditProvider={(provider) => provider.managedBy === "opencode"}
+              canEditProvider={canEditOpenCodeProvider}
               onEditProvider={handleEditOpenCodeProvider}
-              canDeleteProvider={(provider) => provider.managedBy === "opencode"}
+              canDeleteProvider={canDeleteOpenCodeProvider}
               onDeleteProvider={async (provider) => {
                 if (providerActionBusyId || providerSyncBusy) return;
                 await deleteOpenCodeManagedProvider({

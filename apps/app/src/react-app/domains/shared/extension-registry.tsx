@@ -97,6 +97,11 @@ export function getExtensionConfigSlot(
   return factory ? factory(ctx) : null;
 }
 
+/** True when a settings panel factory is registered for this catalog entry. */
+export function hasExtensionConfig(entry: McpDirectoryInfo): boolean {
+  return registry.has(configRegistryId(entry));
+}
+
 export function getExtensionConnected(
   entry: McpDirectoryInfo,
   ctx: ExtensionRuntimeContext,

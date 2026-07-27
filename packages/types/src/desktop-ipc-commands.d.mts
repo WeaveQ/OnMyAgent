@@ -65,6 +65,8 @@ export type DesktopCommandName =
   | "__setApplicationMenuVisible"
   | "checkSoftwareEnv"
   | "installSoftwareEnv"
+  | "checkBrowserSkillStatus"
+  | "openBrowserSkillInstallPage"
   | "personalLocalAgentsList"
   | "personalLocalAgentMetadataList"
   | "personalLocalAgentAcpAgentsList"

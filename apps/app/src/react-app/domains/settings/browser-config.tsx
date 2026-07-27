@@ -7,7 +7,7 @@ import { busySpinClass } from "@/components/ui/busy-spin";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
-import { registerExtensionConfig } from "./extension-registry";
+import { registerExtensionConfig } from "../shared";
 
 type BrowserDiagnostics = {
   protocolVersion: number;

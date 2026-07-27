@@ -1065,8 +1065,18 @@ export function CodeWorkspaceSidePanel(props: {
   // async addTab) so content is never blank while a top tab chip is visible.
   const activeTab =
     tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
+  // Empty-state menu: shorter translated labels first (e.g. zh 终端/文件 → 浏览器 → 自动化任务).
   const visibleToolItems = useMemo(
-    () => toolItems.filter((item) => !props.hiddenKinds?.includes(item.kind)),
+    () =>
+      toolItems
+        .filter((item) => !props.hiddenKinds?.includes(item.kind))
+        .map((item, index) => ({
+          item,
+          index,
+          labelLen: String(t(item.labelKey)).length,
+        }))
+        .sort((a, b) => a.labelLen - b.labelLen || a.index - b.index)
+        .map(({ item }) => item),
     [props.hiddenKinds],
   );
 
@@ -1283,9 +1293,13 @@ export function CodeWorkspaceSidePanel(props: {
         data-panel-titlebar="true"
         className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
       >
+        {/*
+          Empty header chrome stays draggable. Tabs/buttons already use
+          titlebar-no-drag via Button — do not blanket the scroller.
+        */}
         <div
           data-panel-titlebar-controls="true"
-          className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+          className="min-w-0 flex-1 overflow-x-auto"
         >
           <div className="flex min-w-max items-center gap-1">
             <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>

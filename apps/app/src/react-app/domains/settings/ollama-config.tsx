@@ -48,7 +48,7 @@ import { formatFileSize } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { OLLAMA_PROVIDER_CONFIG } from "./openai-image-extension";
-import { registerExtensionConfig, type ExtensionConfigContext } from "./extension-registry";
+import { registerExtensionConfig, type ExtensionConfigContext } from "../shared";
 
 const ollamaConfigFactory = (ctx: ExtensionConfigContext) => (
   <OllamaConfig
