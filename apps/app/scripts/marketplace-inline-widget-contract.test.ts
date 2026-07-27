@@ -7,15 +7,15 @@ import path from "node:path";
  * Keep this list explicit so new experts must opt into the contract.
  */
 const EXPORT_SKILL_GLOBS = [
-  "claims-specialist/skills/claims-case/SKILL.md",
-  "pod-reconciler/skills/pod-recon/SKILL.md",
-  "fuel-auditor/skills/fuel-audit/SKILL.md",
-  "ar-collector/skills/ar-collection/SKILL.md",
-  "quote-specialist/skills/freight-quote/SKILL.md",
+  "fleet-management-specialist/skills/claims-case/SKILL.md",
+  "logistics-finance-specialist/skills/pod-recon/SKILL.md",
+  "fleet-management-specialist/skills/fuel-audit/SKILL.md",
+  "logistics-finance-specialist/skills/ar-collection/SKILL.md",
+  "order-dispatch-specialist/skills/freight-quote/SKILL.md",
   "warehouse-manager/skills/warehouse-ledger/SKILL.md",
-  "affiliate-vehicle-admin/skills/affiliate-fleet/SKILL.md",
-  "capacity-dispatcher/skills/capacity-pool/SKILL.md",
-  "order-entry-clerk/skills/order-entry/SKILL.md",
+  "fleet-management-specialist/skills/affiliate-fleet/SKILL.md",
+  "order-dispatch-specialist/skills/capacity-pool/SKILL.md",
+  "order-dispatch-specialist/skills/order-entry/SKILL.md",
 ];
 
 const marketplaceRoot = path.join(
