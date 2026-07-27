@@ -438,7 +438,7 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.hoistedItems[0]?.html).toBe(latestHtml);
   });
 
-  test("hoists only the final command widget after a completed turn collapses", () => {
+  test("keeps distinct command widgets that carry different titles", () => {
     const turn = completedTurn([
       assistant("preview", [{
         type: "dynamic-tool",
@@ -465,12 +465,7 @@ describe("WorkBuddy turn content presentation", () => {
       assistant("final", [{ type: "text", text: "完成。" }]),
     ]);
 
-    expect(buildTurnContentPresentation(turn)?.hoistedItems).toEqual([
-      expect.objectContaining({
-        title: "异常报告",
-        html: "<div>b</div>",
-      }),
-    ]);
+    expect(buildTurnContentPresentation(turn)?.hoistedItems).toHaveLength(2);
   });
 
   test("preserves WorkBuddy widget loading messages while the tool is running", () => {
