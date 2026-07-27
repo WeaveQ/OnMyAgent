@@ -87,26 +87,23 @@ export const permissionKey = (workspaceId: string, sessionId: string) =>
 export const questionKey = (workspaceId: string, sessionId: string) =>
   ["react-session-questions", workspaceId, sessionId] as const;
 
-const OPTIMISTIC_USER_MESSAGE_PREFIX = "optimistic-user-";
-
 export function seedOptimisticUserMessage(input: {
   workspaceId: string;
   sessionId: string;
+  messageId: string;
   text: string;
 }) {
   const text = input.text.trim();
-  if (!text) return null;
-  const messageId = `${OPTIMISTIC_USER_MESSAGE_PREFIX}${crypto.randomUUID()}`;
+  if (!text) return;
   getReactQueryClient().setQueryData<UIMessage[]>(
     transcriptKey(input.workspaceId, input.sessionId),
     (current = []) =>
       upsertMessage(current, {
-        id: messageId,
+        id: input.messageId,
         role: "user",
         parts: [{ type: "text", text }],
       }),
   );
-  return messageId;
 }
 
 export function removeOptimisticUserMessage(input: {
@@ -666,30 +663,6 @@ function upsertMessage(messages: UIMessage[], next: UIMessage) {
   );
 }
 
-function replaceOptimisticUserMessage(
-  messages: UIMessage[],
-  next: UIMessage,
-) {
-  const optimistic = messages.findLast(
-    (message) =>
-      message.role === "user" &&
-      message.id.startsWith(OPTIMISTIC_USER_MESSAGE_PREFIX),
-  );
-  const withoutOptimistic = messages.filter(
-    (message) =>
-      !(
-        message.role === "user" &&
-        message.id.startsWith(OPTIMISTIC_USER_MESSAGE_PREFIX)
-      ),
-  );
-  return upsertMessage(
-    withoutOptimistic,
-    optimistic && next.parts.length === 0
-      ? { ...next, parts: optimistic.parts }
-      : next,
-  );
-}
-
 /**
  * When a message.part.updated or message.part.delta event arrives for a
  * messageID we haven't seen a message.updated for yet, we have to stub the
@@ -1084,10 +1057,7 @@ function applyEvent(
     } satisfies UIMessage;
     queryClient.setQueryData<UIMessage[]>(
       transcriptKey(workspaceId, info.sessionID),
-      (current = []) =>
-        info.role === "user"
-          ? replaceOptimisticUserMessage(current, next)
-          : upsertMessage(current, next),
+      (current = []) => upsertMessage(current, next),
     );
     return;
   }
@@ -1478,16 +1448,6 @@ export function seedSessionState(
   const key = transcriptKey(workspaceId, snapshot.session.id);
   const incoming = snapshotToUIMessages(snapshot);
   const existing = queryClient.getQueryData<UIMessage[]>(key);
-  const current =
-    incoming.some((message) => message.role === "user")
-      ? (existing ?? []).filter(
-          (message) =>
-            !(
-              message.role === "user" &&
-              message.id.startsWith(OPTIMISTIC_USER_MESSAGE_PREFIX)
-            ),
-        )
-      : (existing ?? []);
 
   useSessionActivityStore
     .getState()
@@ -1501,7 +1461,7 @@ export function seedSessionState(
   queryClient.setQueryData(
     key,
     reconcileTranscriptMessages({
-      currentMessages: current,
+      currentMessages: existing ?? [],
       snapshotMessages: incoming,
       reason: "snapshot",
     }),
