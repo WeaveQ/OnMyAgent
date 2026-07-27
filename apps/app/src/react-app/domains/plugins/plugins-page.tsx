@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Blocks,
   ChevronRight,
@@ -72,6 +72,11 @@ import {
   hasExtensionConfig,
   type ExtensionConfigContext,
 } from "@/react-app/domains/settings/extension-registry";
+import type { LocalProviderInstallInput } from "@/react-app/domains/settings/openai-image-extension";
+import { useLocal } from "@/react-app/kernel/local-provider";
+import { getReactQueryClient } from "@/react-app/infra/query-client";
+import { refreshProviderListQueries } from "@/react-app/domains/connections";
+import { describeRouteError } from "@/react-app/shell/settings-route/model";
 // Register built-in extension settings panels (BrowserSkill, Computer Use, …).
 import "@/react-app/domains/settings/browser-skill-config";
 import "@/react-app/domains/settings/computer-use-config";
@@ -866,40 +871,120 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   );
 }
 
-/** Minimal context for config factories that only need desktop IPC / local UI. */
-const BUILTIN_EXTENSION_CONFIG_CTX: ExtensionConfigContext = {
-  imageExtension: {
-    busy: false,
-    status: null,
-    error: null,
-    envKeyDetected: false,
-    onInstall: async () => undefined,
-    onTestGenerate: async () => undefined,
-  },
-  voiceExtension: {
-    busy: false,
-    status: null,
-    error: null,
-    envKeyDetected: false,
-    onSaveApiKey: async () => undefined,
-    onTestSession: async () => undefined,
-  },
-  localProvider: {
-    busy: false,
-    status: null,
-    error: null,
-    onInstall: async () => undefined,
-  },
-};
-
-function BuiltinExtensionsSection() {
+function BuiltinExtensionsSection(props: {
+  workspaceId: string;
+  client?: OnMyAgentServerClient | null;
+}) {
+  const local = useLocal();
   const [revision, setRevision] = useState(0);
   const [detailEntry, setDetailEntry] = useState<McpDirectoryInfo | null>(null);
+  const [localProviderBusy, setLocalProviderBusy] = useState(false);
+  const [localProviderStatus, setLocalProviderStatus] = useState<string | null>(null);
+  const [localProviderError, setLocalProviderError] = useState<string | null>(null);
+
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
     return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
   }, []);
+
+  const installLocalProvider = useCallback(
+    async (input: LocalProviderInstallInput) => {
+      const client = props.client;
+      const workspaceId = props.workspaceId.trim();
+      const modelId = input.modelId.trim();
+      if (!client || !workspaceId) {
+        setLocalProviderError(t("extensions.local_provider_server_not_connected"));
+        return;
+      }
+      if (!modelId) {
+        setLocalProviderError(t("extensions.local_provider_model_required"));
+        return;
+      }
+
+      setLocalProviderBusy(true);
+      setLocalProviderStatus(null);
+      setLocalProviderError(null);
+      try {
+        await client.patchConfig(workspaceId, {
+          opencode: {
+            provider: {
+              [input.providerId]: {
+                npm: "@ai-sdk/openai-compatible",
+                name: input.name,
+                options: { baseURL: input.baseURL },
+                models: { [modelId]: { name: input.modelName.trim() || modelId } },
+              },
+            },
+          },
+        });
+        if (input.setDefault) {
+          local.setPrefs((previous) => ({
+            ...previous,
+            defaultModel: { providerID: input.providerId, modelID: modelId },
+            modelVariant: null,
+          }));
+        }
+        try {
+          await client.reloadEngine(workspaceId);
+        } catch {
+          // User can retry via refresh; provider block is already written.
+        }
+        await refreshProviderListQueries(getReactQueryClient());
+        try {
+          window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
+        } catch {
+          // ignore
+        }
+        setLocalProviderStatus(
+          t("extensions.local_provider_added_status", {
+            name: input.name,
+            modelId,
+          }),
+        );
+      } catch (error) {
+        setLocalProviderError(describeRouteError(error));
+      } finally {
+        setLocalProviderBusy(false);
+      }
+    },
+    [local, props.client, props.workspaceId],
+  );
+
+  const extensionConfigCtx = useMemo<ExtensionConfigContext>(
+    () => ({
+      onmyagentServerClient: props.client ?? null,
+      imageExtension: {
+        busy: false,
+        status: null,
+        error: null,
+        envKeyDetected: false,
+        onInstall: async () => undefined,
+        onTestGenerate: async () => undefined,
+      },
+      voiceExtension: {
+        busy: false,
+        status: null,
+        error: null,
+        envKeyDetected: false,
+        onSaveApiKey: async () => undefined,
+        onTestSession: async () => undefined,
+      },
+      localProvider: {
+        busy: localProviderBusy,
+        status: localProviderStatus,
+        error: localProviderError,
+        onInstall: installLocalProvider,
+      },
+    }),
+    [
+      installLocalProvider,
+      localProviderBusy,
+      localProviderError,
+      localProviderStatus,
+      props.client,
+    ],
+  );
 
   const entries = useMemo(() => {
     void revision;
@@ -922,7 +1007,7 @@ function BuiltinExtensionsSection() {
 
   const detailConfig =
     detailEntry != null
-      ? getExtensionConfigSlot(detailEntry, BUILTIN_EXTENSION_CONFIG_CTX)
+      ? getExtensionConfigSlot(detailEntry, extensionConfigCtx)
       : null;
   const detailEnabled =
     detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
@@ -1076,7 +1161,10 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         <div className={pluginsLayoutClass.pluginPageContainer}>
-          <BuiltinExtensionsSection />
+          <BuiltinExtensionsSection
+            workspaceId={props.workspaceId}
+            client={props.client}
+          />
           <ArtifactPluginsCatalog {...props} />
           <section className="space-y-5 border-t border-dls-border/50 pt-6">
             <div className="space-y-1">
