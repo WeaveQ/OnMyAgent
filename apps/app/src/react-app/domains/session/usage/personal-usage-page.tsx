@@ -15,7 +15,6 @@ import {
   formatPersonalTokenCount,
   formatTaskDuration,
   monthLabelColumns,
-  trimLeadingEmptyActivityColumns,
   type PersonalUsageClient,
   type TokenActivityCell,
   type TokenActivityColumn,
@@ -50,12 +49,14 @@ const weeklyCellClass = {
     "bg-[color-mix(in_srgb,var(--profile-usage-accent)_78%,transparent)] group-hover:bg-[var(--profile-usage-accent)] group-hover:ring-1 group-hover:ring-[color-mix(in_srgb,var(--profile-usage-accent)_55%,transparent)]",
 };
 
-function usageActivityModeLabel(mode: Exclude<TokenActivityMode, "cumulative">): string {
+function usageActivityModeLabel(mode: TokenActivityMode): string {
   switch (mode) {
     case "daily":
       return t("session.usage_daily");
     case "weekly":
       return t("session.usage_weekly");
+    case "cumulative":
+      return t("session.usage_cumulative");
   }
 }
 
@@ -99,18 +100,6 @@ function formatDuration(minutes: number) {
   const duration = formatTaskDuration(minutes);
   if (duration.hours === 0) {
     return t("session.usage_duration_minutes", { minutes: duration.minutes });
-  }
-  // Multi-day: "36天 21小时" — shorter than "885小时6分钟" and avoids mid-unit wrap.
-  const days = Math.floor(duration.hours / 24);
-  const remHours = duration.hours % 24;
-  if (days >= 1) {
-    if (remHours === 0) {
-      return t("session.usage_duration_days", { days });
-    }
-    return t("session.usage_duration_days_hours", { days, hours: remHours });
-  }
-  if (duration.minutes === 0) {
-    return t("session.usage_duration_hours", { hours: duration.hours });
   }
   return t("session.usage_duration_hours_minutes", duration);
 }
@@ -168,21 +157,27 @@ function activityTooltip(props: {
       tokens: formatLocalizedTokenCount(props.cell.value),
     });
   }
+  if (props.mode === "weekly") {
+    const date = formatActivityDate(props.column.weekStart, "weekly");
+    return t("session.usage_weekly_tooltip", {
+      date,
+      tokens: formatLocalizedTokenCount(props.column.weeklyValue),
+    });
+  }
   const date = formatActivityDate(props.column.weekStart, "weekly");
-  return t("session.usage_weekly_tooltip", {
+  return t("session.usage_cumulative_tooltip", {
     date,
-    tokens: formatLocalizedTokenCount(props.column.weeklyValue),
+    tokens: formatLocalizedTokenCount(props.column.cumulativeValue),
   });
 }
 
 function Metric(props: { label: string; value: string }) {
   return (
-    <div className="flex min-h-20 min-w-0 flex-col items-center justify-center gap-1.5 px-3 py-4 text-center sm:min-h-24 sm:px-4 sm:py-5">
-      {/* Keep units intact; allow wrap only between segments on very narrow cells. */}
-      <div className="max-w-full text-sm font-medium leading-snug tracking-tight text-dls-text break-keep sm:text-base sm:leading-tight">
+    <div className="min-w-0 px-2 py-2.5 text-center">
+      <div className="truncate text-base font-medium tabular-nums text-dls-text">
         {props.value}
       </div>
-      <div className="max-w-full text-xs leading-snug text-dls-secondary sm:text-sm">
+      <div className="mt-0.5 truncate text-sm text-dls-secondary">
         {props.label}
       </div>
     </div>
@@ -201,34 +196,18 @@ function ActivityGrid(props: {
     y: number;
   } | null>(null);
 
-  // Stretch columns when few weeks remain after trimming empty leading weeks,
-  // so the heatmap fills the card instead of leaving a huge empty left gutter.
-  const stretchColumns = props.columns.length > 0 && props.columns.length < 40;
-
   return (
     <div
-      className="relative w-full [--profile-usage-accent:#339cff] dark:[--profile-usage-accent:#99ceff]"
+      className="relative [--profile-usage-accent:#339cff] dark:[--profile-usage-accent:#99ceff]"
       role="grid"
       aria-label={t("session.usage_activity_grid_label")}
       onMouseLeave={() => setHovered(null)}
     >
-      {/*
-        Leading empty weeks are trimmed in the page; start from the left and
-        either hug content (scroll when full year) or stretch to fill.
-      */}
-      <div
-        className={cn(
-          "flex gap-1",
-          stretchColumns ? "w-full" : "min-w-max",
-        )}
-      >
+      <div className="flex justify-end gap-1 overflow-hidden">
         {props.columns.map((column) => (
           <div
             key={column.weekStart}
-            className={cn(
-              "group flex flex-col gap-1",
-              stretchColumns ? "min-w-0 flex-1" : "shrink-0",
-            )}
+            className="group flex shrink-0 flex-col gap-1"
           >
             {column.cells.map((cell, index) => {
               if (props.mode === "daily" && cell.date > props.today) {
@@ -244,11 +223,9 @@ function ActivityGrid(props: {
                   role="gridcell"
                   tabIndex={keyboardTarget ? 0 : -1}
                   className={cn(
-                    "rounded-xs transition-colors outline-none",
+                    "size-3 shrink-0 rounded-xs",
+                    "transition-colors outline-none",
                     "focus-visible:ring-2 focus-visible:ring-dls-accent",
-                    stretchColumns
-                      ? "aspect-square w-full min-h-3 max-h-4"
-                      : "size-3 shrink-0",
                     props.mode === "daily"
                       ? activityLevelClass[cell.level]
                       : cell.level > 0
@@ -304,12 +281,11 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
     () => resolveProfileIdentity(props.identity),
     [props.identity],
   );
-  // Last ~6 months; still trim any leading empty weeks inside that window.
+  // Full trailing-year window (~53 weeks). Do not trim leading empty weeks —
+  // that left a blank gap on the left and only a short right-aligned strip.
   const activity = useMemo(
     () =>
-      trimLeadingEmptyActivityColumns(
-        buildTokenActivitySeries(usage.summary.daily, activityMode, today),
-      ),
+      buildTokenActivitySeries(usage.summary.daily, activityMode, today),
     [activityMode, today, usage.summary.daily],
   );
   const monthLabels = useMemo(
@@ -407,19 +383,16 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
               </NoticeBox>
             ) : null}
 
-            <section
-              aria-label={t("session.usage_summary_label")}
-              className={cn(
-                "mt-12 grid gap-px overflow-hidden rounded-xl border border-dls-border bg-dls-border",
-                // Mid-width settings panes: wrap early so 5 Chinese labels are not crushed.
-                "grid-cols-2 sm:grid-cols-3 xl:grid-cols-5",
-                "[&>*]:bg-dls-surface-solid",
-              )}
-            >
-              {metrics.map((metric) => (
-                <Metric key={metric.label} {...metric} />
-              ))}
-            </section>
+            <div className="mt-12 overflow-x-auto pb-1">
+              <section
+                aria-label={t("session.usage_summary_label")}
+                className="grid min-w-3xl grid-cols-5 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-dls-border"
+              >
+                {metrics.map((metric) => (
+                  <Metric key={metric.label} {...metric} />
+                ))}
+              </section>
+            </div>
 
             <section data-token-activity="true" className="mt-10">
               <div className="flex items-center justify-between gap-3">
@@ -431,7 +404,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   role="tablist"
                   aria-label={t("session.usage_activity_mode_label")}
                 >
-                  {(["daily", "weekly"] as const).map((mode) => (
+                  {(["daily", "weekly", "cumulative"] as const).map((mode) => (
                     <NavTabButton
                       key={mode}
                       type="button"
@@ -453,26 +426,24 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                   {t("session.usage_empty")}
                 </EmptyStateBox>
               ) : (
-                <div className="mt-3 w-full overflow-x-auto pb-2">
-                  <div className="flex w-full min-w-0 flex-col">
-                    <ActivityGrid
-                      columns={activity}
-                      mode={activityMode}
-                      today={today}
-                    />
-                    <div className="relative mt-2 h-5 w-full" aria-hidden="true">
-                      {monthLabels.map(({ label, columnIndex }) => (
-                        <span
-                          key={`${label}-${columnIndex}`}
-                          className="absolute top-0 whitespace-nowrap text-sm text-dls-secondary"
-                          style={{
-                            left: `${(columnIndex / Math.max(activity.length, 1)) * 100}%`,
-                          }}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
+                <div className="mt-3 overflow-hidden pb-2">
+                  <ActivityGrid
+                    columns={activity}
+                    mode={activityMode}
+                    today={today}
+                  />
+                  <div className="relative mt-2 h-5" aria-hidden="true">
+                    {monthLabels.map(({ label, columnIndex }) => (
+                      <span
+                        key={`${label}-${columnIndex}`}
+                        className="absolute top-0 text-sm text-dls-secondary"
+                        style={{
+                          left: `${(columnIndex / Math.max(activity.length, 1)) * 100}%`,
+                        }}
+                      >
+                        {label}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
