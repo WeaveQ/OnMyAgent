@@ -20,8 +20,17 @@ export const SIDEBAR_PREVIEW_SNAPSHOT_MAX = 5;
 /** Message limit for sidebar preview snapshots (not full transcript). */
 export const SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT = 8;
 
-/** Delay before any non-critical sidebar preview snapshots are allowed. */
-export const SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS = 2_000;
+/**
+ * Delay before any non-critical sidebar preview snapshots are allowed.
+ * Keep well after cold listSessions so first-install OpenCode is not flooded.
+ */
+export const SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS = 4_000;
+
+/** Expert tab title snapshots: even later; selected session uses the surface. */
+export const TAB_TITLE_SNAPSHOT_DEFER_MS = 6_000;
+
+/** Cap tab-title light snapshots (non-selected only). */
+export const TAB_TITLE_SNAPSHOT_MAX = 3;
 
 /** Delay before automation list polling starts (not needed for first paint). */
 export const SIDEBAR_AUTOMATION_LIST_DEFER_MS = 2_500;

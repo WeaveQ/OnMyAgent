@@ -43,14 +43,13 @@ describe("sidebar load policy", () => {
     expect(after.size).toBe(SIDEBAR_PREVIEW_SNAPSHOT_MAX);
     expect([...after]).toEqual(["ses_a", "ses_b", "ses_c", "ses_d", "ses_e"]);
 
-    // Tab titles: after defer, include selected (surface uses a different query).
-    // Before defer: empty so first paint does not compete with OpenCode warm-up.
+    // Tab titles: exclude selected always (surface owns it). Before defer: empty.
     const tabBefore = selectSidebarPreviewSessionIds({
       sessions,
       selectedSessionId: "ses_selected",
       deferred: false,
       prioritizeSelected: false,
-      includeSelected: true,
+      includeSelected: false,
     });
     expect(tabBefore.size).toBe(0);
     const tabAfter = selectSidebarPreviewSessionIds({
@@ -58,10 +57,10 @@ describe("sidebar load policy", () => {
       selectedSessionId: "ses_selected",
       deferred: true,
       prioritizeSelected: false,
-      includeSelected: true,
+      includeSelected: false,
       maxPreviews: 3,
     });
-    expect(tabAfter.has("ses_selected")).toBe(true);
+    expect(tabAfter.has("ses_selected")).toBe(false);
     expect(tabAfter.size).toBe(3);
   });
 
@@ -148,13 +147,13 @@ describe("sidebar load policy", () => {
       ),
       "utf8",
     );
-    // Tabs re-enable light title snapshots for sessions that still need a
-    // fallback title after defer (include selected; do not prioritize cold).
+    // Tabs: deferred, non-selected only; never dual-fetch focused session cold.
     expect(tabs).toContain("useDeferredSidebarPreviews");
-    expect(tabs).toContain("sessionNeedsTabTitleFallback");
+    expect(tabs).toContain("sessionShouldFetchTabTitleSnapshot");
     expect(tabs).toContain("tabTitleSnapshotIds.has");
-    expect(tabs).toContain("includeSelected: true");
+    expect(tabs).toContain("includeSelected: false");
     expect(tabs).toContain("prioritizeSelected: false");
+    expect(tabs).toContain("TAB_TITLE_SNAPSHOT_DEFER_MS");
   });
 });
 

@@ -33,6 +33,8 @@ export {
   SIDEBAR_PREVIEW_SNAPSHOT_MAX,
   SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
+  TAB_TITLE_SNAPSHOT_DEFER_MS,
+  TAB_TITLE_SNAPSHOT_MAX,
   isDraftSessionId,
   orderBackgroundSessionWorkspacesSelectedOnly,
   selectSidebarPreviewSessionIds,

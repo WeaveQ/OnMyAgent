@@ -4,8 +4,13 @@
  * selected-session snapshot are not racing inventory prewarm.
  */
 
-export const SESSION_PREWARM_IDLE_TIMEOUT_MS = 2_500;
-export const SESSION_PREWARM_FALLBACK_DELAY_MS = 600;
+/**
+ * Long enough that cold listSessions + first surface snapshot finish first.
+ * First-install OpenCode index warm often takes several seconds.
+ */
+export const SESSION_PREWARM_IDLE_TIMEOUT_MS = 8_000;
+/** Fallback when requestIdleCallback is unavailable. */
+export const SESSION_PREWARM_FALLBACK_DELAY_MS = 4_000;
 
 export type ScheduleIdleWorkInput = {
   run: () => void;
