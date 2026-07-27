@@ -74,6 +74,24 @@ export async function materializeExpertPackageSkills(input) {
   return installed;
 }
 
+/**
+ * Materialize expert-owned skills and expose them to an already-running
+ * OpenCode config without requiring an engine restart.
+ * @param {{
+ *   packageDir: string,
+ *   skillsRoot: string,
+ *   refreshSkillLinks?: () => Promise<unknown>,
+ * }} input
+ * @returns {Promise<string[]>} installed skill names
+ */
+export async function materializeExpertPackageSkillsAndRefresh(input) {
+  const installed = await materializeExpertPackageSkills(input);
+  if (installed.length > 0 && typeof input?.refreshSkillLinks === "function") {
+    await input.refreshSkillLinks();
+  }
+  return installed;
+}
+
 function isSafeSkillFolderName(value) {
   const name = String(value ?? "").trim();
   return Boolean(name) && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) && name !== "." && name !== "..";

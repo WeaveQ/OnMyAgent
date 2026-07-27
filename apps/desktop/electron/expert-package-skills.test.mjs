@@ -11,6 +11,7 @@ import path from "node:path";
 import {
   listExpertPackageSkillSources,
   materializeExpertPackageSkills,
+  materializeExpertPackageSkillsAndRefresh,
 } from "./expert-package-skills.mjs";
 
 async function withTempDir(run) {
@@ -73,6 +74,32 @@ describe("expert-package-skills", () => {
       assert.match(content, /name: order-entry/);
       assert.equal(
         existsSync(path.join(skillsRoot, "order-entry", "notes.txt")),
+        true,
+      );
+    });
+  });
+
+  it("refreshes runtime skill links after materializing an updated expert", async () => {
+    await withTempDir(async (root) => {
+      const packageDir = path.join(root, "order-entry-clerk");
+      const skillsRoot = path.join(root, ".onmyagent", "skills");
+      await writeExpertPackage(packageDir, "introduce-order-dispatch");
+      let refreshCount = 0;
+
+      const installed = await materializeExpertPackageSkillsAndRefresh({
+        packageDir,
+        skillsRoot,
+        refreshSkillLinks: async () => {
+          refreshCount += 1;
+        },
+      });
+
+      assert.deepEqual(installed, ["introduce-order-dispatch"]);
+      assert.equal(refreshCount, 1);
+      assert.equal(
+        existsSync(
+          path.join(skillsRoot, "introduce-order-dispatch", "SKILL.md"),
+        ),
         true,
       );
     });
