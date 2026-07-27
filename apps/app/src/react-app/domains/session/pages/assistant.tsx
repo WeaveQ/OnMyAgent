@@ -1354,7 +1354,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           assistantCategoryId === "office"
-                            ? ["review", "terminal"]
+                            ? ["review"]
                             : undefined
                         }
                       />

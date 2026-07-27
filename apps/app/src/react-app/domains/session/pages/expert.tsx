@@ -1741,7 +1741,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           activeExpertFeatureCategoryId === "office"
-                            ? ["review", "terminal"]
+                            ? ["review"]
                             : undefined
                         }
                       />
