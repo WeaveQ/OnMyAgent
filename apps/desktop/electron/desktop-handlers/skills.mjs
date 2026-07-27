@@ -3,7 +3,7 @@
  * Factories receive services/helpers constructed in main.mjs.
  */
 
-import { materializeExpertPackageSkills } from "../expert-package-skills.mjs";
+import { materializeExpertPackageSkillsAndRefresh } from "../expert-package-skills.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "importSkill",
@@ -50,6 +50,7 @@ export function createSkillsDomainHandlers({
   myExpertPackageFiles,
   findSkillFile,
   isBundledSkillPath,
+  refreshRuntimeSkillLinks,
 } = {}) {
   return {
   importSkill: async (event, args) => {
@@ -145,9 +146,10 @@ export function createSkillsDomainHandlers({
     await copyDirectoryRecursive(sourceDir, destination);
     // Expert-owned skills (e.g. order-entry on order-entry-clerk) must also land
     // in the user skills root so load_skill / listSkills resolve them by name.
-    const skills = await materializeExpertPackageSkills({
+    const skills = await materializeExpertPackageSkillsAndRefresh({
       packageDir: destination,
       skillsRoot: onmyagentUserSkillsRoot(),
+      refreshSkillLinks: refreshRuntimeSkillLinks,
     });
     return {
       ok: true,
