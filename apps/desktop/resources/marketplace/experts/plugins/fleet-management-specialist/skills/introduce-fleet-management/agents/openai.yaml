@@ -1,0 +1,4 @@
+interface:
+  display_name: "车队管理上手向导"
+  short_description: "用示例教你稽查、管车和理赔，再生成 HTML 使用路线图"
+  default_prompt: "请使用 $introduce-fleet-management 教我如何使用车队管理专员。"

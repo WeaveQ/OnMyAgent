@@ -71,7 +71,7 @@ describe("expert marketplace UI contract", () => {
     );
   });
 
-  test("ships Logistics marketplace category and four logistics expert packages under 14-Logistics", () => {
+  test("ships the logistics verticals plus three consolidated operations experts", () => {
     const categories = readMarketplaceFile("categories.ts");
     expect(categories).toContain('id: "14-Logistics"');
     expect(categories).toContain("session.expert_marketplace_category_logistics");
@@ -93,6 +93,9 @@ describe("expert marketplace UI contract", () => {
       "logistics-line-haul",
       "logistics-urban-delivery",
       "logistics-cold-chain",
+      "order-dispatch-specialist",
+      "fleet-management-specialist",
+      "logistics-finance-specialist",
     ] as const;
     const verticalSkillMarkers: Record<string, string> = {
       "logistics-line-haul": "throw-weight",
@@ -131,7 +134,17 @@ describe("expert marketplace UI contract", () => {
 
     const expertManifest = JSON.parse(
       readMarketplaceFile("builtin-experts.manifest.json"),
-    ) as { experts?: Array<{ packageName?: string; manifest?: { categoryId?: string; categoryIds?: string[] } }> };
+    ) as {
+      experts?: Array<{
+        packageName?: string;
+        manifest?: {
+          categoryId?: string;
+          categoryIds?: string[];
+          skills?: string[];
+          quickPrompts?: Array<{ en?: string; zh?: string }>;
+        };
+      }>;
+    };
     const manifestNames = (expertManifest.experts ?? []).map((entry) => entry.packageName);
     for (const packageName of logisticsPackages) {
       expect(manifestNames).toContain(packageName);
@@ -143,9 +156,62 @@ describe("expert marketplace UI contract", () => {
       expect(cats).toContain("14-Logistics");
     }
 
+    const consolidatedSkills: Record<string, string[]> = {
+      "order-dispatch-specialist": ["./skills/order-entry", "./skills/freight-quote", "./skills/capacity-pool", "./skills/introduce-order-dispatch"],
+      "fleet-management-specialist": ["./skills/fuel-audit", "./skills/affiliate-fleet", "./skills/claims-case", "./skills/introduce-fleet-management"],
+      "logistics-finance-specialist": ["./skills/pod-recon", "./skills/billing-case", "./skills/ar-collection", "./skills/introduce-logistics-finance"],
+    };
+    for (const [packageName, skills] of Object.entries(consolidatedSkills)) {
+      const entry = (expertManifest.experts ?? []).find((item) => item.packageName === packageName);
+      expect(entry?.manifest?.skills).toEqual(skills);
+      expect(entry?.manifest?.quickPrompts).toHaveLength(3);
+    }
+
+    const removedPackages = [
+      "order-entry-clerk",
+      "quote-specialist",
+      "capacity-dispatcher",
+      "fuel-auditor",
+      "affiliate-vehicle-admin",
+      "claims-specialist",
+      "pod-reconciler",
+      "invoice-assistant",
+      "ar-collector",
+      "warehouse-manager",
+      "waybill-cargo-checker",
+    ];
+    for (const packageName of removedPackages) {
+      expect(existsSync(join(builtinPluginsRoot, packageName))).toBe(false);
+      expect(manifestNames).not.toContain(packageName);
+    }
+
     const assetMap = readMarketplaceFile("builtin-expert-assets.ts");
     for (const packageName of logisticsPackages) {
       expect(assetMap).toContain(`"${packageName}"`);
+    }
+  });
+
+  test("keeps every consolidated skill inside its fixed capability directory", () => {
+    const capabilitySkills: Array<[string, string, string]> = [
+      ["order-dispatch-specialist", "order-entry", "物流单"],
+      ["order-dispatch-specialist", "freight-quote", "报价"],
+      ["order-dispatch-specialist", "capacity-pool", "运力调配"],
+      ["fleet-management-specialist", "fuel-audit", "油费稽查"],
+      ["fleet-management-specialist", "affiliate-fleet", "挂靠车管理"],
+      ["fleet-management-specialist", "claims-case", "货损理赔"],
+      ["logistics-finance-specialist", "pod-recon", "回单对账"],
+      ["logistics-finance-specialist", "billing-case", "开票管理"],
+      ["logistics-finance-specialist", "ar-collection", "回款催收"],
+    ];
+
+    for (const [packageName, skillName, directory] of capabilitySkills) {
+      const skill = readFileSync(
+        join(builtinPluginsRoot, packageName, "skills", skillName, "SKILL.md"),
+        "utf8",
+      );
+      expect(skill).toContain(`${directory}/`);
+      expect(skill).toContain(`artifact:${directory}/`);
+      expect(skill).toContain(".process/");
     }
   });
 
@@ -460,14 +526,20 @@ describe("expert marketplace UI contract", () => {
 
   test("expert session tabs keep pending selection visible while route catches up", () => {
     const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
+    const expertPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert.tsx",
+    );
     const actionRow = readWorkspaceFile("apps/app/src/components/ui/action-row.tsx");
 
-    expect(tabs).toContain("const [pendingSessionId, setPendingSessionId]");
-    expect(tabs).toContain("const activeSessionId = pendingSessionId ?? props.selectedSessionId");
+    expect(expertPage).toContain("const [pendingTabSessionId, setPendingTabSessionId]");
+    expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
+    expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
+    expect(expertPage).toContain("pendingSessionId={pendingTabSessionId}");
+    expect(expertPage).toContain("setPendingTabSessionId(createdSessionId)");
+    expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
-    expect(tabs).toContain("mergeStableSessionTabOrder");
     expect(tabs).toContain("window.setTimeout");
-    expect(tabs).toContain("setPendingSessionId(session.id)");
+    expect(tabs).toContain("props.onPendingSessionIdChange(session.id)");
     expect(tabs).toContain("const active = session.id === activeSessionId");
     // Session tab active chrome: soft list-selected wash (not accent pill).
     expect(actionRow).toContain("bg-dls-list-selected font-medium text-dls-text shadow-none");

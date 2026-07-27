@@ -574,6 +574,15 @@ export async function draftToParts(
         url: `file://${absolute}`,
         filename: filenameFromPath(part.path),
       });
+      continue;
+    }
+    if (part.type === "directory") {
+      const absolute = toAbsolutePath(part.path);
+      if (!absolute) continue;
+      parts.push({
+        type: "text",
+        text: `Referenced local directory: ${absolute} (workspace-relative path: ${part.path}). This is a directory, not an uploaded file. Inspect only the files needed for this request.`,
+      });
     }
   }
 

@@ -75,40 +75,12 @@ export function sessionNeedsTabTitleFallback(
   return isGeneratedSessionTitle(rawTitle);
 }
 
-/**
- * Heuristic: only sessions that look like they have activity are worth a
- * title-snapshot fetch. Brand-new / empty chips stay "新会话" without hitting
- * OpenCode on first install.
- */
-export function sessionLikelyHasMessagesForTabTitle(
-  session: WorkspaceSessionGroup["sessions"][number],
-): boolean {
-  const created = session.time?.created;
-  const updated = session.time?.updated;
-  if (typeof updated !== "number" || !Number.isFinite(updated)) return false;
-  if (typeof created !== "number" || !Number.isFinite(created)) {
-    // Updated present without created still suggests list metadata after use.
-    return true;
-  }
-  // ≥1.5s gap is a cheap signal that something beyond create landed.
-  return updated > created + 1_500;
-}
-
 /** Eligible for a deferred light title snapshot (not the selected surface). */
 export function sessionShouldFetchTabTitleSnapshot(
   session: WorkspaceSessionGroup["sessions"][number],
-  options?: { selectedSessionId?: string | null; busy?: boolean },
 ): boolean {
   if (session.id.startsWith("draft:")) return false;
-  if (!sessionNeedsTabTitleFallback(session)) return false;
-  const selected = options?.selectedSessionId?.trim() || "";
-  // Selected session transcript is owned by the main surface — never double-fetch
-  // on cold enter (was a major first-install thrash).
-  if (selected && session.id === selected) {
-    // Only while streaming the first turn, so the chip can pick up a preview.
-    return Boolean(options?.busy);
-  }
-  return sessionLikelyHasMessagesForTabTitle(session);
+  return sessionNeedsTabTitleFallback(session);
 }
 
 /**
@@ -288,6 +260,9 @@ export function AgentSessionTabs(props: {
   workspaceId: string;
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];
+  orderIds: readonly string[];
+  pendingSessionId: string | null;
+  onPendingSessionIdChange: (sessionId: string | null) => void;
   /** Active expert — used when session→agent binding is missing. */
   agentId?: string | null;
   /** Per-session run status — chip shows busy state when user switches away. */
@@ -301,7 +276,6 @@ export function AgentSessionTabs(props: {
   onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   // Parent uses this to drop the title-bar border while the strip is open
   // (one rule only). No sessions ⇒ treat as collapsed so the header keeps a line.
@@ -324,15 +298,16 @@ export function AgentSessionTabs(props: {
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const activeSessionId = pendingSessionId ?? props.selectedSessionId;
+  const pendingSessionIsVisible = Boolean(
+    props.pendingSessionId &&
+      props.sessions.some((session) => session.id === props.pendingSessionId),
+  );
+  const activeSessionId = pendingSessionIsVisible
+    ? props.pendingSessionId
+    : props.selectedSessionId;
 
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
-  );
-  // Stable left-to-right order for this expert strip; survives session list
-  // refreshes that re-sort by updatedAt (which previously made chips jump).
-  const [stableOrderIds, setStableOrderIds] = useState<string[]>(() =>
-    mergeStableSessionTabOrder([], props.sessions),
   );
   const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
   const sessionUnreadByWorkspace = useExpertUnreadStore(
@@ -352,26 +327,9 @@ export function AgentSessionTabs(props: {
     [props.agentId],
   );
 
-  const orderWorkspaceIdRef = useRef(props.workspaceId);
-
   useEffect(() => {
-    const workspaceChanged = orderWorkspaceIdRef.current !== props.workspaceId;
-    if (workspaceChanged) {
-      orderWorkspaceIdRef.current = props.workspaceId;
-      setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
-    }
-    setStableOrderIds((current) => {
-      const base = workspaceChanged ? [] : current;
-      const next = mergeStableSessionTabOrder(base, props.sessions);
-      if (
-        next.length === current.length &&
-        next.every((id, index) => id === current[index])
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [props.sessions, props.workspaceId]);
+    setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
+  }, [props.workspaceId]);
 
   const pinnedSet = useMemo(
     () => new Set(pinnedSessionIds),
@@ -380,7 +338,7 @@ export function AgentSessionTabs(props: {
 
   const orderedSessions = useMemo(() => {
     const byId = new Map(props.sessions.map((session) => [session.id, session]));
-    const stable = stableOrderIds
+    const stable = props.orderIds
       .map((id) => byId.get(id))
       .filter((session): session is (typeof props.sessions)[number] => Boolean(session));
     // Sessions not yet in the stable ledger (race) append without reshuffling.
@@ -391,49 +349,23 @@ export function AgentSessionTabs(props: {
       }
     }
     return stable;
-  }, [props.sessions, stableOrderIds]);
+  }, [props.orderIds, props.sessions]);
 
   const queryClient = useQueryClient();
 
-  // Light snapshots only for non-selected tabs that look non-empty.
-  // Selected session is owned by the surface — dual-fetch on cold enter was a
-  // first-install thrash. Long defer so OpenCode listSessions finishes first.
+  // Resolve default OpenCode titles from the first user message. The selected
+  // expert tab gets one immediate lightweight snapshot; remaining tabs wait
+  // for the deferred warm phase and stay capped.
   const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
     enabled: Boolean(props.client),
-    sessions: orderedSessions.filter((session) =>
-      sessionShouldFetchTabTitleSnapshot(session, {
-        selectedSessionId: props.selectedSessionId,
-        busy: false,
-      }),
-    ),
+    sessions: orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),
     selectedSessionId: props.selectedSessionId,
     maxPreviews: TAB_TITLE_SNAPSHOT_MAX,
-    includeSelected: false,
-    prioritizeSelected: false,
+    includeSelected: true,
+    prioritizeSelected: true,
     deferMs: TAB_TITLE_SNAPSHOT_DEFER_MS,
   });
-  // While the focused session is streaming its first turn, allow one title path
-  // so the chip can leave "新会话" without waiting for the long cold defer.
-  const tabTitleSnapshotIds = useMemo(() => {
-    const ids = new Set(deferredTabTitleIds);
-    const selected = props.selectedSessionId?.trim() || "";
-    if (
-      selected &&
-      !selected.startsWith("draft:") &&
-      isStreamingSessionStatus(props.sessionStatusById?.[selected])
-    ) {
-      const session = orderedSessions.find((item) => item.id === selected);
-      if (session && sessionNeedsTabTitleFallback(session)) {
-        ids.add(selected);
-      }
-    }
-    return ids;
-  }, [
-    deferredTabTitleIds,
-    orderedSessions,
-    props.selectedSessionId,
-    props.sessionStatusById,
-  ]);
+  const tabTitleSnapshotIds = deferredTabTitleIds;
 
   // After a run finishes, re-check title once (messages may have landed while empty).
   const prevBusyBySessionRef = useRef<Record<string, boolean>>({});
@@ -542,21 +474,24 @@ export function AgentSessionTabs(props: {
   );
 
   useEffect(() => {
-    if (!pendingSessionId) return;
+    if (!props.pendingSessionId) return;
     const fallbackTimer = window.setTimeout(() => {
-      setPendingSessionId((current) =>
-        current === pendingSessionId ? null : current,
-      );
+      props.onPendingSessionIdChange(null);
     }, 4_000);
-    if (props.selectedSessionId === pendingSessionId) {
-      setPendingSessionId(null);
+    if (props.selectedSessionId === props.pendingSessionId) {
+      props.onPendingSessionIdChange(null);
       return () => window.clearTimeout(fallbackTimer);
     }
-    if (!props.sessions.some((session) => session.id === pendingSessionId)) {
-      setPendingSessionId(null);
+    if (!pendingSessionIsVisible) {
+      props.onPendingSessionIdChange(null);
     }
     return () => window.clearTimeout(fallbackTimer);
-  }, [pendingSessionId, props.selectedSessionId, props.sessions]);
+  }, [
+    pendingSessionIsVisible,
+    props.onPendingSessionIdChange,
+    props.pendingSessionId,
+    props.selectedSessionId,
+  ]);
 
   useEffect(() => {
     if (!activeSessionId || !expanded) return;
@@ -676,7 +611,7 @@ export function AgentSessionTabs(props: {
                   active={active}
                   muted={isDraft}
                   onClick={() => {
-                    setPendingSessionId(session.id);
+                    props.onPendingSessionIdChange(session.id);
                     setMenuState(null);
                     // Opening a different session clears that tab’s red dot
                     // (stay if already active — preserves just-marked unread).

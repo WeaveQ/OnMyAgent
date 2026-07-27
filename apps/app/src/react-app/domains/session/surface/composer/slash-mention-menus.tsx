@@ -4,6 +4,7 @@
  * Extracted from composer.tsx (mechanical UI split).
  */
 import type { RefObject } from "react";
+import { Folder } from "lucide-react";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { ArtifactIcon } from "../../artifacts/artifact-icon";
 import { cn } from "@/lib/utils";
@@ -218,13 +219,17 @@ export function ComposerMentionMenu(props: {
                 onMouseEnter={() => props.setMenuIndex(index)}
                 onClick={() => props.onSelect(item)}
               >
-                <ArtifactIcon name={item.value || item.label} className="size-3.5 shrink-0" />
+                {item.kind === "directory" ? (
+                  <Folder className="size-3.5 shrink-0 text-dls-secondary" />
+                ) : (
+                  <ArtifactIcon name={item.value || item.label} className="size-3.5 shrink-0" />
+                )}
                 <div className="min-w-0 flex-1 overflow-hidden text-left">
                   <div className="truncate text-sm font-medium leading-5 text-dls-text">
                     @{item.label}
                   </div>
                   <div className="truncate text-sm leading-5 text-dls-secondary">
-                    {t("composer.file_kind")}
+                    {t(item.kind === "directory" ? "composer.folder_kind" : "composer.file_kind")}
                   </div>
                 </div>
               </MenuRowButton>

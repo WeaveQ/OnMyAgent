@@ -1510,6 +1510,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   myExpertPackageFiles,
   findSkillFile,
   isBundledSkillPath,
+  refreshRuntimeSkillLinks: () => runtimeManager.refreshSkillLinks(),
   // system
   userAgentRegistryPath,
   stat,
