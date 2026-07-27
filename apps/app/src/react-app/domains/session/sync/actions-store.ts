@@ -26,6 +26,7 @@ import type {
   Client,
   ComposerAttachment,
   ComposerDraft,
+  ComposerMentionTarget,
   ComposerPart,
   MessageWithParts,
   ModelRef,
@@ -188,6 +189,15 @@ export function createSessionActionsStore(options: {
           url: `file://${absolute}`,
           filename: filenameFromPath(part.path),
         } as FilePartInput);
+        continue;
+      }
+      if (part.type === "directory") {
+        const absolute = toAbsolutePath(part.path);
+        if (!absolute) continue;
+        parts.push({
+          type: "text",
+          text: `Referenced local directory: ${absolute} (workspace-relative path: ${part.path}). This is a directory, not an uploaded file. Inspect only the files needed for this request.`,
+        });
       }
     }
 
@@ -228,6 +238,22 @@ export function createSessionActionsStore(options: {
 
     parts.push(...(await Promise.all(draft.attachments.map(attachmentToFilePart))));
     return parts;
+  };
+
+  const buildCommandDirectoryContext = (draft: ComposerDraft) => {
+    const root = options.runtimeWorkspaceRoot().trim() || options.selectedWorkspaceRoot().trim();
+    return draft.parts.flatMap((part) => {
+      if (part.type !== "directory") return [];
+      const trimmed = part.path.trim();
+      if (!trimmed) return [];
+      const absolute = trimmed.startsWith("/") || /^[a-zA-Z]:\\/.test(trimmed)
+        ? trimmed
+        : root
+          ? `${root}/${trimmed}`.replace(/\/\/+/g, "/")
+          : "";
+      if (!absolute) return [];
+      return [`Referenced local directory: ${absolute} (workspace-relative path: ${part.path}). This is a directory, not an uploaded file. Inspect only the files needed for this request.`];
+    }).join("\n");
   };
 
   const describeProviderError = (error: unknown, fallback: string) => {
@@ -574,7 +600,9 @@ export function createSessionActionsStore(options: {
           await c.session.command({
             sessionID,
             command: command.name,
-            arguments: command.arguments,
+            arguments: [command.arguments, buildCommandDirectoryContext(resolvedDraft)]
+              .filter(Boolean)
+              .join("\n"),
             agent: agent ?? undefined,
             model: modelString,
             variant: requestVariant,
@@ -884,7 +912,7 @@ export function createSessionActionsStore(options: {
           directory: directory || undefined,
         }),
       );
-      return result;
+      return result.map((path): ComposerMentionTarget => ({ path, kind: "file" }));
     } catch {
       return [];
     }

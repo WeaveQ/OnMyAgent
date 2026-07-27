@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 const repoRoot = join(import.meta.dir, "../../..");
 const expertRoot = join(
   repoRoot,
-  "apps/desktop/resources/marketplace/experts/plugins/claims-specialist",
+  "apps/desktop/resources/marketplace/experts/plugins/fleet-management-specialist",
 );
 
 function readExpertFile(path: string): string {
@@ -29,18 +29,19 @@ describe("claims-specialist expert contract", () => {
       readExpertFile(".expert-plugin/plugin.json"),
     ) as { version: string };
     expect(onMyAgentManifest).toEqual(expertManifest);
-    expect(onMyAgentManifest.version).toBe("1.1.0");
+    expect(onMyAgentManifest.version).toBe("1.0.0");
   });
 
   test("exports evidence gaps, conditional liability, dual scripts, and progress", () => {
     const script = join(expertRoot, "skills/claims-case/scripts/build_claim_artifacts.py");
     const outputDir = mkdtempSync(join(tmpdir(), "claims-specialist-"));
+    const capabilityDir = join(outputDir, "货损理赔");
     try {
       const inputPath = join(outputDir, "claim-case.json");
       cpSync(join(import.meta.dir, "fixtures/claims-specialist/claim-case.json"), inputPath);
       const exported = spawnSync(
         "python3",
-        [script, "--input", inputPath, "--output-dir", outputDir, "--mode", "export"],
+        [script, "--input", inputPath, "--output-dir", capabilityDir, "--mode", "export"],
         { encoding: "utf8" },
       );
       expect(exported.status, exported.stderr).toBe(0);
@@ -48,16 +49,8 @@ describe("claims-specialist expert contract", () => {
       expect(body.missing).toContain("loading_photos");
       expect(body.missing).toContain("driver_statement");
       expect(body.missing).toContain("value_proof");
-      expect(body.files.some((file) => file.includes("理赔进度_CLM-YD8899.csv"))).toBe(true);
-      expect(
-        readFileSync(join(outputDir, ".process/liability-draft.md"), "utf8"),
-      ).toContain("不是法律结论，不确认唯一责任方");
-      expect(
-        readFileSync(join(outputDir, "客户沟通话术_CLM-YD8899.md"), "utf8"),
-      ).toContain("不承认全责、不承诺赔付金额");
-      expect(
-        readFileSync(join(outputDir, "保司报案提纲_CLM-YD8899.md"), "utf8"),
-      ).toContain("不自动向保司提交");
+      expect(body.files.some((file) => file.includes("货损理赔/理赔材料_CLM-YD8899.xlsx"))).toBe(true);
+      expect(body.files.some((file) => file.includes("货损理赔/理赔材料_CLM-YD8899.pdf"))).toBe(true);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }

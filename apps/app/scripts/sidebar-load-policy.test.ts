@@ -147,13 +147,14 @@ describe("sidebar load policy", () => {
       ),
       "utf8",
     );
-    // Tabs: deferred, non-selected only; never dual-fetch focused session cold.
+    // Expert tabs: resolve the focused title immediately, then defer and cap
+    // the remaining lightweight snapshots.
     expect(tabs).toContain("useDeferredSidebarPreviews");
     expect(tabs).toContain("sessionShouldFetchTabTitleSnapshot");
     expect(tabs).toContain("tabTitleSnapshotIds.has");
-    expect(tabs).toContain("includeSelected: false");
-    expect(tabs).toContain("prioritizeSelected: false");
+    expect(tabs).toContain("includeSelected: true");
+    expect(tabs).toContain("prioritizeSelected: true");
     expect(tabs).toContain("TAB_TITLE_SNAPSHOT_DEFER_MS");
+    expect(tabs).toContain("TAB_TITLE_SNAPSHOT_MAX");
   });
 });
-

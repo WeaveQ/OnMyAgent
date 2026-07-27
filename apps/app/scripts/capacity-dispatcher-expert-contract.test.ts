@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 const repoRoot = join(import.meta.dir, "../../..");
 const expertRoot = join(
   repoRoot,
-  "apps/desktop/resources/marketplace/experts/plugins/capacity-dispatcher",
+  "apps/desktop/resources/marketplace/experts/plugins/order-dispatch-specialist",
 );
 
 function readExpertFile(path: string): string {
@@ -29,7 +29,7 @@ describe("capacity-dispatcher expert contract", () => {
       readExpertFile(".expert-plugin/plugin.json"),
     ) as { version: string };
     expect(onMyAgentManifest).toEqual(expertManifest);
-    expect(onMyAgentManifest.version).toBe("1.2.0");
+    expect(onMyAgentManifest.version).toBe("1.0.0");
   });
 
   test("exports ranked candidates while rejecting stale and insufficient capacity", () => {
@@ -38,6 +38,7 @@ describe("capacity-dispatcher expert contract", () => {
       "skills/capacity-pool/scripts/build_dispatch_artifacts.py",
     );
     const outputDir = mkdtempSync(join(tmpdir(), "capacity-dispatcher-"));
+    const capabilityDir = join(outputDir, "运力调配");
     try {
       const inputPath = join(outputDir, "capacity-dispatch.json");
       cpSync(
@@ -46,7 +47,7 @@ describe("capacity-dispatcher expert contract", () => {
       );
       const exported = spawnSync(
         "python3",
-        [script, "--input", inputPath, "--output-dir", outputDir, "--mode", "export"],
+        [script, "--input", inputPath, "--output-dir", capabilityDir, "--mode", "export"],
         { encoding: "utf8" },
       );
       expect(exported.status, exported.stderr).toBe(0);
@@ -67,13 +68,8 @@ describe("capacity-dispatcher expert contract", () => {
       expect(
         body.rejected.find((item) => item.plate === "粤B10004")?.reasons,
       ).toContain("剩余载重不足");
-      expect(body.files.some((file) => file.includes("运力调配方案_D-001.md"))).toBe(true);
-      expect(
-        readFileSync(join(outputDir, "运力调配方案_D-001.md"), "utf8"),
-      ).toContain("不会自动锁车、改状态或发送外部消息");
-      expect(
-        readFileSync(join(outputDir, "司机确认话术_D-001.md"), "utf8"),
-      ).toContain("仅为草稿，不自动发送");
+      expect(body.files.some((file) => file.includes("运力调配/运力调配方案_D-001.xlsx"))).toBe(true);
+      expect(body.files.some((file) => file.includes("运力调配/运力调配方案对比_D-001.docx"))).toBe(true);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }

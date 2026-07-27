@@ -30,11 +30,12 @@ import {
   type NodeKey,
 } from "lexical";
 import type { InitialConfigType } from "@lexical/react/LexicalComposer.js";
+import type { ComposerMentionKind } from "../../../../../app/types";
 import { decodeComposerMentionValue, encodeComposerMentionValue } from "./mention-encoding";
 
 type EditorProps = {
   value: string;
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
   disabled: boolean;
   placeholder: string;
@@ -64,7 +65,7 @@ const composerEditorTokenClass = {
 type SerializedComposerMentionNode = Spread<
   {
     mentionValue: string;
-    mentionKind: "agent" | "file";
+    mentionKind: ComposerMentionKind;
     type: "composer-mention";
     version: 1;
   },
@@ -92,7 +93,7 @@ type SerializedComposerScenarioNode = Spread<
 
 class ComposerMentionNode extends TextNode {
   __value: string;
-  __kind: "agent" | "file";
+  __kind: ComposerMentionKind;
 
   static override getType() {
     return "composer-mention";
@@ -106,7 +107,7 @@ class ComposerMentionNode extends TextNode {
     return $createComposerMentionNode(serializedNode.mentionValue, serializedNode.mentionKind);
   }
 
-  constructor(value = "", kind: "agent" | "file" = "file", key?: NodeKey) {
+  constructor(value = "", kind: ComposerMentionKind = "file", key?: NodeKey) {
     super(`@${encodeComposerMentionValue(value)}`, key);
     this.__value = value;
     this.__kind = kind;
@@ -124,9 +125,9 @@ class ComposerMentionNode extends TextNode {
 
   override createDOM(_config: EditorConfig) {
     const dom = document.createElement("span");
-    const isFile = this.__kind === "file";
-    dom.className = isFile ? composerEditorTokenClass.fileMention : composerEditorTokenClass.agentMention;
-    dom.textContent = `@${isFile ? this.__value.split(/[\\/]/).pop() || this.__value : this.__value}`;
+    const isPath = this.__kind !== "agent";
+    dom.className = isPath ? composerEditorTokenClass.fileMention : composerEditorTokenClass.agentMention;
+    dom.textContent = `@${isPath ? this.__value.split(/[\\/]/).pop() || this.__value : this.__value}`;
     dom.contentEditable = "false";
     dom.setAttribute("spellcheck", "false");
     dom.title = `@${this.__value}`;
@@ -135,9 +136,9 @@ class ComposerMentionNode extends TextNode {
 
   override updateDOM(prevNode: ComposerMentionNode, dom: HTMLElement) {
     if (prevNode.__value !== this.__value || prevNode.__kind !== this.__kind) {
-      const isFile = this.__kind === "file";
-      dom.className = isFile ? composerEditorTokenClass.fileMention : composerEditorTokenClass.agentMention;
-      dom.textContent = `@${isFile ? this.__value.split(/[\\/]/).pop() || this.__value : this.__value}`;
+      const isPath = this.__kind !== "agent";
+      dom.className = isPath ? composerEditorTokenClass.fileMention : composerEditorTokenClass.agentMention;
+      dom.textContent = `@${isPath ? this.__value.split(/[\\/]/).pop() || this.__value : this.__value}`;
       dom.title = `@${this.__value}`;
     }
     return false;
@@ -160,7 +161,7 @@ class ComposerMentionNode extends TextNode {
   }
 }
 
-function $createComposerMentionNode(value: string, kind: "agent" | "file") {
+function $createComposerMentionNode(value: string, kind: ComposerMentionKind) {
   return $applyNodeReplacement(new ComposerMentionNode(value, kind));
 }
 
@@ -392,7 +393,7 @@ function appendSegmentWithNewlines(
 
 function setPrompt(
   value: string,
-  mentions: Record<string, "agent" | "file">,
+  mentions: Record<string, ComposerMentionKind>,
   scenarioTags?: Array<{ id: string; label: string }>,
 ) {
   const root = $getRoot();
@@ -451,7 +452,7 @@ function serializePromptFromRoot(): string {
 
 function SyncPlugin(props: {
   value: string;
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
   disabled: boolean;
 }) {

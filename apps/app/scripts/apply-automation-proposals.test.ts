@@ -109,7 +109,9 @@ describe("automationProposalSearchRoots", () => {
       catalogRoot: "/Users/me/ws",
       sessionRoot: "/Users/me/ws/ar-collector/abc",
     });
-    expect(roots[0]).toBe("ar-collector/abc/automations/proposals");
+    expect(roots[0]).toBe("ar-collector/abc/回单对账/automations/proposals");
+    expect(roots).toContain("ar-collector/abc/回款催收/automations/proposals");
+    expect(roots).toContain("ar-collector/abc/automations/proposals");
     expect(roots).toContain("automations/proposals");
     expect(knownAutomationProposalPaths(roots).some((p) => p.endsWith("ar-daily-board.json"))).toBe(
       true,
@@ -122,7 +124,13 @@ describe("automationProposalSearchRoots", () => {
       sessionRoot: "/Users/me/ws/ar-collector/abc",
       includeWorkspaceRoot: false,
     });
-    expect(roots).toEqual(["ar-collector/abc/automations/proposals"]);
+    expect(roots).toEqual([
+      "ar-collector/abc/回单对账/automations/proposals",
+      "ar-collector/abc/回款催收/automations/proposals",
+      "ar-collector/abc/油费稽查/automations/proposals",
+      "ar-collector/abc/挂靠车管理/automations/proposals",
+      "ar-collector/abc/automations/proposals",
+    ]);
     expect(
       automationProposalSearchRoots({
         catalogRoot: "/Users/me/ws",

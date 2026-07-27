@@ -10,6 +10,8 @@ import type {
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
+  ComposerMentionKind,
+  ComposerMentionTarget,
   McpServerEntry,
   McpStatusMap,
   ModelRef,
@@ -26,7 +28,7 @@ import type { ReactComposerNotice as ReactComposerNoticeData } from "./notice";
 
 export type MentionItem = {
   id: string;
-  kind: "agent" | "file";
+  kind: ComposerMentionKind;
   value: string;
   label: string;
 };
@@ -174,7 +176,7 @@ export function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
 
 export type ComposerProps = {
   draft: string;
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
   promptTemplates?: ComposerPromptTemplate[];
   onSelectPromptTemplate?: (templateId: string, prompt: string) => void;
@@ -223,8 +225,8 @@ export type ComposerProps = {
   /** Open custom MCP config dialog (e.g. MCP row toggle / advanced). */
   onOpenCustomConnector?: () => void;
   recentFiles: string[];
-  searchFiles: (query: string) => Promise<string[]>;
-  onInsertMention: (kind: "agent" | "file", value: string) => void;
+  searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNoticeData | null;
   onNotice: (notice: ReactComposerNoticeData) => void;
   onPasteText: (text: string) => void;

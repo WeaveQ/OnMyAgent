@@ -41,7 +41,8 @@ describe("waybillDataPathCandidates", () => {
       catalogRoot: "/Users/me/ws",
       sessionRoot: "/Users/me/ws/order-entry-clerk/abc123",
     });
-    expect(paths[0]).toBe("order-entry-clerk/abc123/waybill-data.json");
+    expect(paths[0]).toBe("order-entry-clerk/abc123/物流单/waybill-data.json");
+    expect(paths).toContain("物流单/waybill-data.json");
     expect(paths).toContain("waybill-data.json");
     expect(paths).toContain("output/waybill-data.json");
   });

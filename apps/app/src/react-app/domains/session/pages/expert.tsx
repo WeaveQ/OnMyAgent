@@ -97,6 +97,7 @@ import { WorkspaceFilesPage } from "../../workspace";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
+  mergeStableSessionTabOrder,
   SidebarPaneCollapseToggle,
   STARTUP_SKELETON_ROWS,
   OnMyAgentRail,
@@ -154,7 +155,7 @@ import {
   selectRawWorkspaceSessions,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
-import { resolveBoundExpertDraftSession } from "./expert-draft-session";
+import { resolveReadyBoundExpertDraftSession } from "./expert-draft-session";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
@@ -194,6 +195,12 @@ export function ExpertPage(props: ExpertPageProps) {
     useState<number | null>(null);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
+  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
+    null,
+  );
+  const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope] = useState<
+    Record<string, string[]>
+  >({});
   const [draftAgentContexts, setDraftAgentContexts] = useState<
     Record<string, PendingAgentContext>
   >({});
@@ -297,6 +304,37 @@ export function ExpertPage(props: ExpertPageProps) {
       workspaceSessions,
     ],
   );
+  const sessionTabOrderScope = [
+    props.selectedWorkspaceId,
+    activeConversationAgentId ?? "unbound",
+  ].join(":");
+  const sessionTabOrderIds = useMemo(
+    () =>
+      mergeStableSessionTabOrder(
+        sessionTabOrderIdsByScope[sessionTabOrderScope] ?? [],
+        currentAgentSessions,
+      ),
+    [
+      currentAgentSessions,
+      sessionTabOrderIdsByScope,
+      sessionTabOrderScope,
+    ],
+  );
+  useEffect(() => {
+    setSessionTabOrderIdsByScope((current) => {
+      const previous = current[sessionTabOrderScope] ?? [];
+      if (
+        previous.length === sessionTabOrderIds.length &&
+        previous.every((id, index) => id === sessionTabOrderIds[index])
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        [sessionTabOrderScope]: sessionTabOrderIds,
+      };
+    });
+  }, [sessionTabOrderIds, sessionTabOrderScope]);
   const activeConversationGroup = useMemo(
     () =>
       resolveActiveConversationGroup({
@@ -562,19 +600,24 @@ export function ExpertPage(props: ExpertPageProps) {
     [props.sidebar],
   );
   useEffect(() => {
-    const createdSessionId = resolveBoundExpertDraftSession({
+    const createdSessionId = resolveReadyBoundExpertDraftSession({
       draftSessionActive,
       draftAgentId,
       pendingAgent,
+      selectedSessionId: props.selectedSessionId,
     });
     if (!createdSessionId) return;
-    handleOpenExpertSession(props.selectedWorkspaceId, createdSessionId);
+    // Keep the newly materialized session selected while the route catches up.
+    // Without this draft → real-session handoff, the removed draft chip makes
+    // the active state briefly fall back to the previously selected session.
+    setPendingTabSessionId(createdSessionId);
+    setDraftSessionActive(false);
+    setDraftAgentId(null);
   }, [
     draftAgentId,
     draftSessionActive,
-    handleOpenExpertSession,
     pendingAgent,
-    props.selectedWorkspaceId,
+    props.selectedSessionId,
   ]);
   const handleStartAgentConversation = useCallback(
     (
@@ -1191,6 +1234,9 @@ export function ExpertPage(props: ExpertPageProps) {
           draftSessionActive ? activeDraftSessionId : props.selectedSessionId
         }
         sessions={currentAgentSessions}
+        orderIds={sessionTabOrderIds}
+        pendingSessionId={pendingTabSessionId}
+        onPendingSessionIdChange={setPendingTabSessionId}
         agentId={activeConversationAgentId}
         sessionStatusById={props.sidebar.sessionStatusById}
         onOpenSession={handleOpenExpertSession}

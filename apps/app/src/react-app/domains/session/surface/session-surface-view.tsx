@@ -21,6 +21,8 @@ import type {
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
+  ComposerMentionKind,
+  ComposerMentionTarget,
   McpServerEntry,
   McpStatusMap,
   ModelRef,
@@ -144,7 +146,7 @@ export type SessionSurfaceViewProps = {
 
   // Composer state + handlers
   draft: string;
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   assistantScenarioTags: { id: string; label: string }[];
   personalizedPromptTemplates: ComposerPromptTemplate[] | undefined;
   onSelectPromptTemplate: (scenarioId: string, prompt: string) => void;
@@ -194,8 +196,8 @@ export type SessionSurfaceViewProps = {
   onOpenConnectorsMarketplace?: (() => void) | undefined;
   onOpenCustomConnector?: (() => void) | undefined;
   recentFiles: string[];
-  searchFiles: (query: string) => Promise<string[]>;
-  onInsertMention: (kind: "agent" | "file", value: string) => void;
+  searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNotice | null;
   onNotice: (notice: ReactComposerNotice | null) => void;
   onPasteText: (text: string) => void;
