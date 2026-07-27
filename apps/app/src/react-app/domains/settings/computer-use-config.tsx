@@ -37,7 +37,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { registerExtensionConfig } from "./extension-registry";
+import { registerExtensionConfig } from "../shared";
 import { SettingsActionRow } from "./settings-section";
 import { t } from "@/i18n";
 

@@ -14,7 +14,7 @@ import { busySpinClass } from "@/components/ui/busy-spin";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
-import { registerExtensionConfig } from "./extension-registry";
+import { registerExtensionConfig } from "../shared";
 
 const FALLBACK_INSTALL_COMMAND =
   "curl -fsSL https://raw.githubusercontent.com/Tencent/BrowserSkill/main/install.sh | sh && bsk doctor";

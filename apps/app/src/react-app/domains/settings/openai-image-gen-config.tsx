@@ -20,7 +20,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { registerExtensionConfig, type ExtensionConfigContext } from "./extension-registry";
+import { registerExtensionConfig, type ExtensionConfigContext } from "../shared";
 import { t } from "@/i18n";
 
 export type OpenAiImageGenConfigProps = {

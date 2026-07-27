@@ -76,19 +76,23 @@ import {
   getExtensionConfigSlot,
   hasExtensionConfig,
   type ExtensionConfigContext,
-} from "@/react-app/domains/settings/extension-registry";
-import type { LocalProviderInstallInput } from "@/react-app/domains/settings/openai-image-extension";
+} from "@/react-app/domains/shared";
 import { useLocal } from "@/react-app/kernel/local-provider";
-import { getReactQueryClient } from "@/react-app/infra/query-client";
-import { refreshProviderListQueries } from "@/react-app/domains/connections";
-import { describeRouteError } from "@/react-app/shell/settings-route/model";
-// Register built-in extension settings panels (BrowserSkill, Computer Use, …).
-import "@/react-app/domains/settings/browser-skill-config";
-import "@/react-app/domains/settings/computer-use-config";
-import "@/react-app/domains/settings/ollama-config";
-import "@/react-app/domains/settings/openai-image-gen-config";
-import "@/react-app/domains/settings/onmyagent-voice-config";
-import "@/react-app/domains/settings/browser-config";
+
+/** Matches local provider install shape used by Ollama / OpenAI-compatible panels. */
+type LocalProviderInstallInput = {
+  providerId: string;
+  name: string;
+  baseURL: string;
+  modelId: string;
+  modelName: string;
+  setDefault: boolean;
+};
+
+function describeInstallError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 export type ArtifactPluginPromptSelection = {
   pluginId: string;
@@ -1029,7 +1033,6 @@ function BuiltinExtensionsSection(props: {
         } catch {
           // User can retry via refresh; provider block is already written.
         }
-        await refreshProviderListQueries(getReactQueryClient());
         try {
           window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
         } catch {
@@ -1042,7 +1045,7 @@ function BuiltinExtensionsSection(props: {
           }),
         );
       } catch (error) {
-        setLocalProviderError(describeRouteError(error));
+        setLocalProviderError(describeInstallError(error));
       } finally {
         setLocalProviderBusy(false);
       }

@@ -96,13 +96,13 @@ export {
   getExtensionConnected,
   registerExtensionConfig,
   registerExtensionRuntime,
-} from "./extension-registry";
+} from "../shared";
 export type {
   ExtensionConfigContext,
   ExtensionConfigFactory,
   ExtensionRuntimeContext,
   OnMyAgentExtensionRuntime,
-} from "./extension-registry";
+} from "../shared";
 
 export { useDebugViewModel } from "./state/debug-view-model";
 export { useRecoveryViewModel } from "./state/recovery-view-model";
