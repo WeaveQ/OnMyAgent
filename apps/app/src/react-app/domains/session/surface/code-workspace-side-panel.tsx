@@ -1283,9 +1283,13 @@ export function CodeWorkspaceSidePanel(props: {
         data-panel-titlebar="true"
         className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
       >
+        {/*
+          Empty header chrome stays draggable. Tabs/buttons already use
+          titlebar-no-drag via Button — do not blanket the scroller.
+        */}
         <div
           data-panel-titlebar-controls="true"
-          className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+          className="min-w-0 flex-1 overflow-x-auto"
         >
           <div className="flex min-w-max items-center gap-1">
             <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
