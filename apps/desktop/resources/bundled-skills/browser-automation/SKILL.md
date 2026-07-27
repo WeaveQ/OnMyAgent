@@ -1,9 +1,23 @@
 ---
 name: browser-automation
-description: "Control OnMyAgent's built-in in-app browser for opening, navigating, inspecting visible or interactive page state, clicking, typing, screenshots, uploads, downloads, dialogs, and local web testing. Prefer purpose-built connectors or APIs for semantic operations when available."
+description: >
+  Control OnMyAgent's built-in in-app browser (right rail Browser panel) via
+  onmyagent_browser_node_repl only. Open/navigate/click/type/screenshot.
+  NEVER use CDP ports 9823/9222, remote-debugging-port, shell ps, or external
+  Chrome — those are not the in-app browser. Prefer connectors for pure API work.
 ---
 
 # Browser
+
+## Hard rule (read first)
+
+| Do | Do not |
+|----|--------|
+| Tool **`onmyagent_browser_node_repl`** | Shell / `ps` / port scan for CDP |
+| `agent.browsers.getDefault()` + `tabs.new({ url })` | Connect to `127.0.0.1:9823` or `9222` |
+| Report RPC/runtime errors as desktop runtime issues | Claim "browser has no debug port" |
+
+No CDP port on the in-app browser is **normal**. Control is managed RPC, not DevTools.
 
 ## Stop: choose the right surface before any browser action
 
@@ -21,12 +35,12 @@ Use the single tool `onmyagent_browser_node_repl`. State persists for the sessio
 
 User-facing progress updates should stay non-technical. Describe recovery as connecting to the browser or retrying the browser connection.
 
-Initialize once per fresh Node session:
+**Open a site (first action when the user gives a URL):**
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
-// Prefer a direct open when the user already named a URL:
 globalThis.tab ??= await browser.tabs.new({ url: "https://example.com" })
+return { id: tab.id, url: await tab.url() }
 ```
 
 Aliases accepted by `agent.browsers.get()` for the in-app browser: `"in-app"`, `"iab"`, `"browser"`.

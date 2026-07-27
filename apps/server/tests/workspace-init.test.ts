@@ -126,6 +126,9 @@ describe("ensureWorkspaceFiles", () => {
       expect(browserNodeReplTool).toContain("ONMYAGENT_BROWSER_RPC_ENDPOINT");
       expect(browserNodeReplTool).toContain('method: "getCapability"');
       expect(browserNodeReplTool).toContain('method: "nodeReplWrite"');
+      expect(browserNodeReplTool).toContain("ONLY supported way to control");
+      expect(browserNodeReplTool).toContain("Do NOT fall back to CDP ports");
+      expect(browserNodeReplTool).toContain("agent.browsers.getDefault()");
       expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
 
       const secondResult = await ensureWorkspaceFiles(root, "starter");
@@ -310,8 +313,12 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(fresh).toContain(`<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`);
       expect(fresh).toContain("onmyagent_browser_node_repl");
-      expect(fresh).not.toContain("127.0.0.1");
-      expect(fresh).not.toContain("browser_url");
+      expect(fresh).toContain("Forbidden");
+      expect(fresh).toContain("remote-debugging-port");
+      expect(fresh).toContain("that is expected");
+      // Must ban the retired CDP entrypoint, not teach it as the way to connect.
+      expect(fresh).toContain("Inventing `browser_url`");
+      expect(fresh).not.toMatch(/always use.*"http:\/\/127\.0\.0\.1:9823"/);
 
       // Existing agent files without the marker get the block appended; user
       // content outside markers is preserved.

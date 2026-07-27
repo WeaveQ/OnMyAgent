@@ -153,18 +153,39 @@ const ONMYAGENT_LANGUAGE_GUIDANCE = `<!-- ${APP_NAME}_LANGUAGE_START -->
 const ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->
 ## Browser automation
 
-${APP_NAME} has a built-in in-app browser. For any web task (open a site, search, read or fill a page, scrape content), drive it directly instead of asking the user to browse manually.
+${APP_NAME} has a **built-in in-app browser** (session right rail / Browser panel). When the user asks to open, show, navigate, click, fill, or read a page in that browser, you **must** drive it with the tool below — do not ask them to do it manually, and do not diagnose "missing CDP".
 
-- Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
-- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
-- Hybrid control (DOM + vision): after open/navigate, call \`await tab.sense()\`, \`nodeRepl.emitImage(sense.shot.image)\`, then act with DOM locators/\`dom_cua\` from \`sense.nodes\`. Use vision only to disambiguate; coordinate click only as fallback.
-- Prefer continuous REPL calls for one page goal (open → sense → click → like/favorite/follow/comment → read). Avoid narrating between every action; summarize when the stage finishes.
-- Toggle buttons (like / favorite / follow): read active state first; click **at most once** if not already active. A second click undoes the first. Scope selectors to the note/detail surface, not feed cards under a modal. Never re-click to "verify".
-- \`tab.screenshot()\` returns a plain object with \`image\` (data URL), not a Node Buffer. Prefer \`nodeRepl.emitImage(shot.image)\` and return meta only when the image is large.
-- Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
-- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`. Prefer \`tab.evaluate\` / locators when screenshots fail or are null.
-- The built-in browser needs no URL or port from you. Never invent localhost endpoints, CDP, the \`opencode-chrome-devtools\` plugin, or any external browser tool.
-- Finalize temporary tabs when the task is done; leave user-owned tabs open unless the user asks otherwise.
+### Required path (always)
+
+1. Call tool **\`onmyagent_browser_node_repl\`** (optionally load skill \`browser-automation\` first for API detail).
+2. In the tool code:
+   \`\`\`js
+   globalThis.browser ??= await agent.browsers.getDefault()
+   globalThis.tab ??= await browser.tabs.new({ url: "https://example.com" })
+   return { id: tab.id, url: await tab.url() }
+   \`\`\`
+3. Keep Browser/Tab handles in variables across calls. State persists for the session.
+
+Aliases for \`agent.browsers.get()\`: \`"in-app"\`, \`"iab"\`, \`"browser"\`.
+
+### Forbidden (never do these for the in-app browser)
+
+- Scanning processes or ports for CDP / DevTools (\`9823\`, \`9222\`, \`remote-debugging-port\`, \`/json/list\`, \`ps\` + Chrome flags).
+- Connecting Playwright, Puppeteer, or \`chrome-devtools\` to localhost or external Chrome.
+- Inventing \`browser_url\`, \`http://127.0.0.1:9823\`, or the retired \`opencode-chrome-devtools\` plugin.
+- Telling the user the in-app browser is "not debuggable" because no CDP port is open — **that is expected**. Control is via RPC + this tool, not CDP.
+
+If the tool errors with "Browser runtime is unavailable", say the desktop Browser runtime is not attached and ask them to retry in the desktop app — still do **not** fall back to CDP.
+
+### Control tips
+
+- Hybrid (DOM + vision): after open/navigate, \`await tab.sense()\`, \`nodeRepl.emitImage(sense.shot.image)\`, then act with DOM locators/\`dom_cua\` from \`sense.nodes\`. Vision only to disambiguate; coordinate click as fallback.
+- Prefer continuous REPL for one page goal; summarize when the stage finishes.
+- Toggle buttons (like / favorite / follow): read active state first; click **at most once**.
+- \`tab.screenshot()\` returns \`{ image, width, height }\` (not a Buffer). Prefer \`nodeRepl.emitImage(shot.image)\`.
+- Return plain JSON (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
+- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — no top-level \`tab.waitForLoadState\`.
+- Finalize temporary tabs when done; leave user-owned tabs open unless asked otherwise.
 <!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
 
 const ONMYAGENT_AGENT = `---
