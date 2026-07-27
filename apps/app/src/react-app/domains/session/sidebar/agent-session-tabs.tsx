@@ -75,40 +75,12 @@ export function sessionNeedsTabTitleFallback(
   return isGeneratedSessionTitle(rawTitle);
 }
 
-/**
- * Heuristic: only sessions that look like they have activity are worth a
- * title-snapshot fetch. Brand-new / empty chips stay "新会话" without hitting
- * OpenCode on first install.
- */
-export function sessionLikelyHasMessagesForTabTitle(
-  session: WorkspaceSessionGroup["sessions"][number],
-): boolean {
-  const created = session.time?.created;
-  const updated = session.time?.updated;
-  if (typeof updated !== "number" || !Number.isFinite(updated)) return false;
-  if (typeof created !== "number" || !Number.isFinite(created)) {
-    // Updated present without created still suggests list metadata after use.
-    return true;
-  }
-  // ≥1.5s gap is a cheap signal that something beyond create landed.
-  return updated > created + 1_500;
-}
-
 /** Eligible for a deferred light title snapshot (not the selected surface). */
 export function sessionShouldFetchTabTitleSnapshot(
   session: WorkspaceSessionGroup["sessions"][number],
-  options?: { selectedSessionId?: string | null; busy?: boolean },
 ): boolean {
   if (session.id.startsWith("draft:")) return false;
-  if (!sessionNeedsTabTitleFallback(session)) return false;
-  const selected = options?.selectedSessionId?.trim() || "";
-  // Selected session transcript is owned by the main surface — never double-fetch
-  // on cold enter (was a major first-install thrash).
-  if (selected && session.id === selected) {
-    // Only while streaming the first turn, so the chip can pick up a preview.
-    return Boolean(options?.busy);
-  }
-  return sessionLikelyHasMessagesForTabTitle(session);
+  return sessionNeedsTabTitleFallback(session);
 }
 
 /**
@@ -381,45 +353,19 @@ export function AgentSessionTabs(props: {
 
   const queryClient = useQueryClient();
 
-  // Light snapshots only for non-selected tabs that look non-empty.
-  // Selected session is owned by the surface — dual-fetch on cold enter was a
-  // first-install thrash. Long defer so OpenCode listSessions finishes first.
+  // Resolve default OpenCode titles from the first user message. The selected
+  // expert tab gets one immediate lightweight snapshot; remaining tabs wait
+  // for the deferred warm phase and stay capped.
   const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
     enabled: Boolean(props.client),
-    sessions: orderedSessions.filter((session) =>
-      sessionShouldFetchTabTitleSnapshot(session, {
-        selectedSessionId: props.selectedSessionId,
-        busy: false,
-      }),
-    ),
+    sessions: orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),
     selectedSessionId: props.selectedSessionId,
     maxPreviews: TAB_TITLE_SNAPSHOT_MAX,
-    includeSelected: false,
-    prioritizeSelected: false,
+    includeSelected: true,
+    prioritizeSelected: true,
     deferMs: TAB_TITLE_SNAPSHOT_DEFER_MS,
   });
-  // While the focused session is streaming its first turn, allow one title path
-  // so the chip can leave "新会话" without waiting for the long cold defer.
-  const tabTitleSnapshotIds = useMemo(() => {
-    const ids = new Set(deferredTabTitleIds);
-    const selected = props.selectedSessionId?.trim() || "";
-    if (
-      selected &&
-      !selected.startsWith("draft:") &&
-      isStreamingSessionStatus(props.sessionStatusById?.[selected])
-    ) {
-      const session = orderedSessions.find((item) => item.id === selected);
-      if (session && sessionNeedsTabTitleFallback(session)) {
-        ids.add(selected);
-      }
-    }
-    return ids;
-  }, [
-    deferredTabTitleIds,
-    orderedSessions,
-    props.selectedSessionId,
-    props.sessionStatusById,
-  ]);
+  const tabTitleSnapshotIds = deferredTabTitleIds;
 
   // After a run finishes, re-check title once (messages may have landed while empty).
   const prevBusyBySessionRef = useRef<Record<string, boolean>>({});

@@ -26,11 +26,11 @@ export const SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT = 8;
  */
 export const SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS = 4_000;
 
-/** Expert tab title snapshots: even later; selected session uses the surface. */
+/** Non-selected expert tab titles wait until after the cold-start warm phase. */
 export const TAB_TITLE_SNAPSHOT_DEFER_MS = 6_000;
 
-/** Cap tab-title light snapshots (non-selected only). */
-export const TAB_TITLE_SNAPSHOT_MAX = 3;
+/** Cap lightweight expert-tab title snapshots, including the selected tab. */
+export const TAB_TITLE_SNAPSHOT_MAX = 8;
 
 /** Delay before automation list polling starts (not needed for first paint). */
 export const SIDEBAR_AUTOMATION_LIST_DEFER_MS = 2_500;
