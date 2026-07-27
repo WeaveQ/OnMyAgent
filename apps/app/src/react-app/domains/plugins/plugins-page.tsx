@@ -2,6 +2,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Blocks,
+  ChevronRight,
   Cloud,
   Database,
   FileText,
@@ -65,6 +66,19 @@ import {
   type ArtifactPluginDetailLabels,
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
+import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
+import {
+  getExtensionConfigSlot,
+  hasExtensionConfig,
+  type ExtensionConfigContext,
+} from "@/react-app/domains/settings/extension-registry";
+// Register built-in extension settings panels (BrowserSkill, Computer Use, …).
+import "@/react-app/domains/settings/browser-skill-config";
+import "@/react-app/domains/settings/computer-use-config";
+import "@/react-app/domains/settings/ollama-config";
+import "@/react-app/domains/settings/openai-image-gen-config";
+import "@/react-app/domains/settings/onmyagent-voice-config";
+import "@/react-app/domains/settings/browser-config";
 
 export type ArtifactPluginPromptSelection = {
   pluginId: string;
@@ -852,8 +866,35 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   );
 }
 
+/** Minimal context for config factories that only need desktop IPC / local UI. */
+const BUILTIN_EXTENSION_CONFIG_CTX: ExtensionConfigContext = {
+  imageExtension: {
+    busy: false,
+    status: null,
+    error: null,
+    envKeyDetected: false,
+    onInstall: async () => undefined,
+    onTestGenerate: async () => undefined,
+  },
+  voiceExtension: {
+    busy: false,
+    status: null,
+    error: null,
+    envKeyDetected: false,
+    onSaveApiKey: async () => undefined,
+    onTestSession: async () => undefined,
+  },
+  localProvider: {
+    busy: false,
+    status: null,
+    error: null,
+    onInstall: async () => undefined,
+  },
+};
+
 function BuiltinExtensionsSection() {
   const [revision, setRevision] = useState(0);
+  const [detailEntry, setDetailEntry] = useState<McpDirectoryInfo | null>(null);
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
@@ -882,6 +923,13 @@ function BuiltinExtensionsSection() {
 
   if (entries.length === 0) return null;
 
+  const detailConfig =
+    detailEntry != null
+      ? getExtensionConfigSlot(detailEntry, BUILTIN_EXTENSION_CONFIG_CTX)
+      : null;
+  const detailEnabled =
+    detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
+
   return (
     <section className="space-y-4">
       <div className="space-y-1">
@@ -894,18 +942,42 @@ function BuiltinExtensionsSection() {
       </div>
       <div className={pluginsLayoutClass.connectorCardGrid}>
         {entries.map((entry) => (
-          <BuiltinExtensionCard key={entry.id ?? entry.serverName ?? entry.name} entry={entry} />
+          <BuiltinExtensionCard
+            key={entry.id ?? entry.serverName ?? entry.name}
+            entry={entry}
+            onOpenDetails={() => setDetailEntry(entry)}
+          />
         ))}
       </div>
+      {detailEntry ? (
+        <ExtensionDetailModal
+          open
+          onClose={() => setDetailEntry(null)}
+          name={detailEntry.name}
+          description={detailEntry.description?.trim() || detailEntry.name}
+          kind="extension"
+          preview={detailEntry.preview === true}
+          connected={detailEnabled}
+          connectedLabel={t("plugins.artifact_enabled")}
+          disconnectedLabel={t("plugins.artifact_disabled")}
+          setupInstructions={detailEntry.extensionManifest?.setup?.instructions}
+          showEnablementCard={false}
+          size="wide"
+          configSlot={detailConfig}
+        />
+      ) : null}
     </section>
   );
 }
 
 /**
- * Match ArtifactPluginCard chrome: vertical tile, same min-height / hover border,
- * icon + title + switch, description. No detail link (extensions are toggle-only).
+ * Match ArtifactPluginCard chrome: icon + title + switch, description,
+ * and “View details” when a settings panel is registered (e.g. BrowserSkill).
  */
-function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
+function BuiltinExtensionCard(props: {
+  entry: McpDirectoryInfo;
+  onOpenDetails: () => void;
+}) {
   const [, setRevision] = useState(0);
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
@@ -914,6 +986,7 @@ function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
   }, []);
   const enabled = isOnMyAgentExtensionEnabled(props.entry);
   const description = props.entry.description?.trim() ?? "";
+  const canOpenDetails = hasExtensionConfig(props.entry);
 
   return (
     <article
@@ -960,10 +1033,21 @@ function BuiltinExtensionCard(props: { entry: McpDirectoryInfo }) {
       ) : (
         <div className="mt-2 min-h-10" aria-hidden />
       )}
-      {/* Reserve footer band so height matches artifact cards with View details. */}
-      <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
-        —
-      </div>
+      {canOpenDetails ? (
+        <button
+          type="button"
+          className="mt-auto inline-flex items-center gap-0.5 pt-2 text-xs text-dls-secondary transition-colors hover:text-dls-text"
+          onClick={props.onOpenDetails}
+          aria-label={`${props.entry.name}. ${t("plugins.artifact_open")}`}
+        >
+          {t("plugins.artifact_open")}
+          <ChevronRight className="size-3.5" aria-hidden="true" />
+        </button>
+      ) : (
+        <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
+          —
+        </div>
+      )}
     </article>
   );
 }
