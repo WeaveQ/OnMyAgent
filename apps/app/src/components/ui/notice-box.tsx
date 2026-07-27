@@ -10,6 +10,8 @@ const noticeBoxVariants = cva("rounded-xl border px-3 py-2 text-xs", {
       error: "border-dls-status-danger/30 bg-dls-status-danger-soft text-dls-status-danger-fg",
       warning: "border-dls-status-warning/25 bg-dls-status-warning/12 text-dls-status-warning",
       info: "border-dls-accent/30 bg-dls-accent/10 text-dls-accent",
+      success:
+        "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
     },
     size: {
       default: "px-3 py-2 text-xs",
