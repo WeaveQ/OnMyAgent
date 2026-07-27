@@ -31,9 +31,9 @@ const INTRO_SKILLS = [
   },
 ] as const;
 
-describe("expert capability introduction skills", () => {
+describe("expert onboarding guide skills", () => {
   for (const intro of INTRO_SKILLS) {
-    test(`${intro.packageName} streams text and table before HTML preview`, () => {
+    test(`${intro.packageName} teaches usage before HTML preview`, () => {
       const skillRoot = join(
         pluginsRoot,
         intro.packageName,
@@ -41,16 +41,16 @@ describe("expert capability introduction skills", () => {
         intro.skillName,
       );
       const skill = readFileSync(join(skillRoot, "SKILL.md"), "utf8");
-      expect(skill.indexOf("立即输出能力概述")).toBeLessThan(
-        skill.indexOf("立即输出能力表格"),
+      expect(skill.indexOf("立即告诉用户该怎么开始")).toBeLessThan(
+        skill.indexOf("立即输出照着问的示例表"),
       );
-      expect(skill.indexOf("立即输出能力表格")).toBeLessThan(
-        skill.indexOf("最后生成 HTML 能力图谱"),
+      expect(skill.indexOf("立即输出照着问的示例表")).toBeLessThan(
+        skill.indexOf("最后生成 HTML 使用路线图"),
       );
-      expect(skill).toContain("禁止使用 Mermaid");
-      expect(skill).toContain("图谱完成后立即结束");
+      expect(skill).toContain("禁止改用 Mermaid");
+      expect(skill).toContain("路线图完成后立即结束");
       expect(skill).toContain(
-        "脚本返回的 `inlineWidget` 就是本轮唯一且最终的能力图谱",
+        "脚本返回的 `inlineWidget` 是本轮唯一且最终的上手路线图",
       );
       expect(skill).toContain(
         "不再调用 `render_visual`、`show_widget`、`visualizer`",
@@ -72,14 +72,16 @@ describe("expert capability introduction skills", () => {
         expect(payload.inlineWidget.terminal).toBe(true);
         expect(payload.inlineWidget.title).toContain(intro.title);
         expect(payload.inlineWidget.widget_code).toContain("<section");
-        expect(payload.inlineWidget.widget_code).toContain("data-capability-map");
+        expect(payload.inlineWidget.title).toContain("上手指南");
+        expect(payload.inlineWidget.widget_code).toContain("data-expert-guide");
         expect(
-          payload.inlineWidget.widget_code.match(/data-capability-lane/g),
+          payload.inlineWidget.widget_code.match(/data-guide-entry/g),
         ).toHaveLength(3);
         expect(payload.inlineWidget.widget_code).toContain("width:100%");
-        expect(payload.inlineWidget.widget_code).toContain("业务场景");
-        expect(payload.inlineWidget.widget_code).toContain("所需资料");
-        expect(payload.inlineWidget.widget_code).toContain("交付产物");
+        expect(payload.inlineWidget.widget_code).toContain("一次任务怎么完成");
+        expect(payload.inlineWidget.widget_code).toContain("可以直接这样说");
+        expect(payload.inlineWidget.widget_code).toContain("最少准备");
+        expect(payload.inlineWidget.widget_code).toContain("你会得到");
         expect(payload.inlineWidget.widget_code.toLowerCase()).not.toContain("<svg");
         expect(payload.inlineWidget.widget_code.toLowerCase()).not.toContain("mermaid");
         for (const capability of intro.capabilities) {
