@@ -412,7 +412,12 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
         snapshot,
       );
       input.seedSessionState(input.endpoint.workspaceId, snapshot);
-      if (snapshot.messages.length > 0) return;
+      // A newly created session can briefly expose metadata/system parts
+      // before the first user turn is persisted. Stopping on any message
+      // leaves the new session rendered without the prompt until a later
+      // page switch refetches it.
+      if (snapshot.messages.some((message) => message.info.role === "user"))
+        return;
     } catch {
       continue;
     }
