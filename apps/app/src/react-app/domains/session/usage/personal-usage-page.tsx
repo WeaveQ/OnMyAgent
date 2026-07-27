@@ -13,7 +13,6 @@ import { currentLocale, t } from "@/i18n";
 import {
   buildTokenActivitySeries,
   formatPersonalTokenCount,
-  formatTaskDuration,
   monthLabelColumns,
   type PersonalUsageClient,
   type TokenActivityCell,
@@ -94,14 +93,6 @@ function initials(name: string) {
     .slice(0, 2)
     .map((part) => part.slice(0, 1).toUpperCase())
     .join("");
-}
-
-function formatDuration(minutes: number) {
-  const duration = formatTaskDuration(minutes);
-  if (duration.hours === 0) {
-    return t("session.usage_duration_minutes", { minutes: duration.minutes });
-  }
-  return t("session.usage_duration_hours_minutes", duration);
 }
 
 function formatDays(count: number) {
@@ -305,10 +296,6 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
       value: formatLocalizedTokenCount(usage.summary.peakSessionTokens),
     },
     {
-      label: t("session.usage_longest_task"),
-      value: formatDuration(usage.summary.longestSessionMinutes),
-    },
-    {
       label: t("session.usage_current_streak"),
       value: formatDays(usage.summary.currentStreakDays),
     },
@@ -386,7 +373,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
             <div className="mt-12 overflow-x-auto pb-1">
               <section
                 aria-label={t("session.usage_summary_label")}
-                className="grid min-w-3xl grid-cols-5 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-dls-border"
+                className="grid min-w-3xl grid-cols-4 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-dls-border"
               >
                 {metrics.map((metric) => (
                   <Metric key={metric.label} {...metric} />
