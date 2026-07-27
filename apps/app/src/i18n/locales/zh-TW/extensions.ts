@@ -73,7 +73,7 @@ export default {
   "extensions.screen_recording_permission": "屏幕錄製權限",
   "extensions.browser_skill_name": "BrowserSkill",
   "extensions.browser_skill_description":
-    "透過騰訊 BrowserSkill 外部 CLI 與擴充功能驅動本機真實 Chrome/Edge（含登入態與 Cookie），與應用內瀏覽器自動化、Computer Use 互補。",
+    "透過騰訊 BrowserSkill 驅動本機真實 Chrome/Edge（含登入態），與應用內瀏覽器自動化、Computer Use 互補。",
   "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）來",
   "extensions.browser_skill_suggestion_summary":
     "開啟我已登入的後台頁面並總結置頂項目",
@@ -82,18 +82,18 @@ export default {
   "extensions.browser_skill_suggestion_smoke":
     "執行 bsk doctor 並確認擴充功能已連線",
   "extensions.browser_skill_setup":
-    "安裝 bsk CLI、加入 BrowserSkill Chrome 擴充功能，並執行 doctor 直到彈窗變綠。使用的是你本機真實瀏覽器設定，而非應用內 Agent 瀏覽器。",
+    "三步完成：終端機安裝 CLI → 安裝 Chrome 擴充功能 → 重新檢查狀態。使用你本機真實瀏覽器。",
   "extensions.browser_skill_install_extension": "安裝 Chrome 擴充功能",
-  "extensions.browser_skill_run_doctor": "執行 doctor / 重新整理狀態",
+  "extensions.browser_skill_run_doctor": "重新檢查狀態",
   "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
   "extensions.browser_skill_cli_label": "bsk CLI",
   "extensions.browser_skill_extension_label": "BrowserSkill 擴充功能",
   "extensions.browser_skill_extension_hint":
-    "Chrome/Edge 擴充功能彈窗需顯示已連線（綠色）",
+    "Chrome/Edge 擴充功能彈窗變綠即表示已連線",
   "extensions.browser_skill_panel_description":
-    "透過騰訊 BrowserSkill 控制本機真實瀏覽器。請在本機安裝 CLI 與擴充功能；OnMyAgent 只做發現/健康檢查並附帶 Agent 技能說明。",
+    "操控你已登入的網站。本機完成三步引導即可，之後 Agent 可直接使用。",
   "extensions.browser_skill_desktop_only":
-    "BrowserSkill 狀態檢查需要 OnMyAgent 桌面端。",
+    "BrowserSkill 設定需要 OnMyAgent 桌面端。",
   "extensions.browser_skill_open_docs": "開啟文件",
   "extensions.browser_skill_health_title": "健康狀態",
   "extensions.browser_skill_health_pending": "正在檢查 BrowserSkill 狀態…",
@@ -104,8 +104,30 @@ export default {
   "extensions.browser_skill_status_ready": "就緒",
   "extensions.browser_skill_status_setup": "需要設定",
   "extensions.browser_skill_vs_in_app":
-    "不同於 OnMyAgent 應用內 Browser（browser-automation）與 Computer Use（桌面應用）。已登入網站優先使用 BrowserSkill。",
-  "extensions.browser_skill_install_cli_title": "安裝 CLI（終端機）",
+    "不是應用內 Browser，也不是 Computer Use。適合已登入網站。",
+  "extensions.browser_skill_install_cli_title": "安裝 CLI",
+  "extensions.browser_skill_setup_intro": "依下面三步操作即可，每台機器只需一次。",
+  "extensions.browser_skill_step_cli_title": "1. 安裝 bsk CLI",
+  "extensions.browser_skill_step_cli_desc":
+    "一鍵開啟終端機執行官方安裝命令，或複製命令自行貼上。",
+  "extensions.browser_skill_step_ext_title": "2. 安裝 Chrome 擴充功能",
+  "extensions.browser_skill_step_ext_desc":
+    "一鍵開啟 Chrome 線上應用程式商店。裝好後開啟擴充功能彈窗，直到變綠。",
+  "extensions.browser_skill_step_verify_title": "3. 重新檢查",
+  "extensions.browser_skill_step_verify_desc": "CLI 與擴充功能就緒後，點這裡重新整理狀態。",
+  "extensions.browser_skill_open_terminal": "開啟終端機安裝",
+  "extensions.browser_skill_copy_command": "複製安裝命令",
+  "extensions.browser_skill_copied": "已複製",
+  "extensions.browser_skill_command_copied": "安裝命令已複製到剪貼簿。",
+  "extensions.browser_skill_terminal_opened":
+    "已開啟終端機並填入安裝命令。在終端機完成安裝後，點「重新檢查狀態」。",
+  "extensions.browser_skill_cli_docs_fallback":
+    "已開啟安裝文件。若終端機未能自動開啟，請複製命令手動執行。",
+  "extensions.browser_skill_extension_opened":
+    "已開啟 Chrome 線上應用程式商店。安裝 BrowserSkill，彈窗變綠後點「重新檢查狀態」。",
+  "extensions.browser_skill_ready_message":
+    "BrowserSkill 已就緒。Agent 可透過 bsk 使用你的真實瀏覽器。",
+  "extensions.browser_skill_doctor_details": "Doctor 輸出",
   "extensions.openai_image_desc": "生成圖片",
   "extensions.openai_image_setup": `添加 OpenAI API key，啟用圖片生成`,
   "extensions.openai_image_config_desc": "配置 OpenAI 圖片生成",

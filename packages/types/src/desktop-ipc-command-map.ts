@@ -386,7 +386,11 @@ type TypedDesktopCommandMap = {
   checkBrowserSkillStatus: DesktopCommandContract<[], BrowserSkillStatusResult>;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
-    OkResult & { url?: string }
+    OkResult & {
+      url?: string;
+      method?: "terminal" | "docs" | "extension" | "cli" | string;
+      command?: string;
+    }
   >;
 
   // local agents

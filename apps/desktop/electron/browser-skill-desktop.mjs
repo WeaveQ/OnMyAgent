@@ -1,6 +1,7 @@
 /**
  * BrowserSkill (Tencent/bsk) health helpers for the desktop bridge.
- * External CLI + Chrome extension — not bundled; we only discover/status.
+ * External CLI + Chrome extension — not bundled; we only discover/status
+ * and open guided install surfaces (Terminal / Web Store / docs).
  */
 import { spawn } from "node:child_process";
 import { accessSync, constants as fsConstants } from "node:fs";
@@ -13,6 +14,10 @@ const CHROME_WEB_STORE =
   "https://chromewebstore.google.com/detail/hhcmgoofomhgciiibhipgmgkgnoenaoi";
 const DOCS =
   "https://github.com/Tencent/BrowserSkill#quick-start";
+
+/** One-liner users can paste or we open in Terminal. */
+export const BROWSER_SKILL_INSTALL_COMMAND =
+  `curl -fsSL ${INSTALL_SH} | sh && bsk doctor`;
 
 /**
  * @param {string} command
@@ -103,7 +108,6 @@ export function resolveBskBinary() {
     // fall through
   }
 
-  // which-style: try bare name via shell path lookup
   return { path: "bsk", source: "path" };
 }
 
@@ -124,18 +128,18 @@ export async function checkBrowserSkillStatus() {
       binaryPath: resolved.source === "home-local" ? bin : null,
       message:
         versionResult.stderr.trim() ||
-        "bsk CLI not found. Install with: curl -fsSL https://raw.githubusercontent.com/Tencent/BrowserSkill/main/install.sh | sh",
+        "bsk CLI not found. Use the guided setup to install it.",
       doctorSummary: null,
       installCliUrl: INSTALL_SH,
       chromeWebStoreUrl: CHROME_WEB_STORE,
       docsUrl: DOCS,
+      installCommand: BROWSER_SKILL_INSTALL_COMMAND,
     };
   }
 
   const version = versionResult.stdout.trim().split("\n")[0] || null;
   const doctor = await runCommand(bin, ["doctor"], { timeoutMs: 12_000 });
   const combined = `${doctor.stdout}\n${doctor.stderr}`.toLowerCase();
-  // Heuristics: doctor text varies; treat "extension" + fail as disconnected.
   const extensionFail =
     /extension/.test(combined) &&
     (/\bfail\b/.test(combined) || /0 browsers? connected/.test(combined));
@@ -155,14 +159,54 @@ export async function checkBrowserSkillStatus() {
     version,
     binaryPath: resolved.source === "home-local" ? bin : "bsk (PATH)",
     message: ok
-      ? "BrowserSkill CLI and extension look healthy."
+      ? "BrowserSkill is ready — agents can use the real browser via bsk."
       : extensionConnected
         ? doctor.stderr.trim() || doctor.stdout.trim() || "bsk doctor reported issues."
-        : "Install the BrowserSkill Chrome extension and wait until the popup turns green.",
+        : "CLI found. Install the Chrome extension and wait until its popup is green.",
     doctorSummary: (doctor.stdout || doctor.stderr || "").trim().slice(0, 4_000) || null,
     installCliUrl: INSTALL_SH,
     chromeWebStoreUrl: CHROME_WEB_STORE,
     docsUrl: DOCS,
+    installCommand: BROWSER_SKILL_INSTALL_COMMAND,
+  };
+}
+
+/**
+ * Open macOS Terminal with the official install one-liner.
+ * Falls back to docs URL on other platforms or if Terminal open fails.
+ * @param {{ shell: { openExternal: (url: string) => Promise<void> } }} deps
+ */
+export async function openBrowserSkillCliInstall(deps) {
+  if (process.platform === "darwin") {
+    // AppleScript-escape for double-quoted do script string.
+    const escaped = BROWSER_SKILL_INSTALL_COMMAND
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"');
+    const script = `tell application "Terminal" to do script "${escaped}"`;
+    const result = await runCommand("osascript", ["-e", script], {
+      timeoutMs: 8_000,
+    });
+    if (result.ok) {
+      // Bring Terminal forward.
+      void runCommand(
+        "osascript",
+        ["-e", 'tell application "Terminal" to activate'],
+        { timeoutMs: 3_000 },
+      );
+      return {
+        ok: true,
+        method: "terminal",
+        command: BROWSER_SKILL_INSTALL_COMMAND,
+      };
+    }
+  }
+
+  await deps.shell.openExternal(DOCS);
+  return {
+    ok: true,
+    method: "docs",
+    url: DOCS,
+    command: BROWSER_SKILL_INSTALL_COMMAND,
   };
 }
 
@@ -171,20 +215,21 @@ export async function checkBrowserSkillStatus() {
  * @param {"cli" | "extension" | "docs"} target
  */
 export async function openBrowserSkillResource(deps, target) {
-  const url =
-    target === "cli"
-      ? DOCS
-      : target === "extension"
-        ? CHROME_WEB_STORE
-        : DOCS;
+  if (target === "cli") {
+    return openBrowserSkillCliInstall(deps);
+  }
+  const url = target === "extension" ? CHROME_WEB_STORE : DOCS;
   await deps.shell.openExternal(url);
-  return { ok: true, url };
+  return { ok: true, method: target, url };
 }
 
 export function createBrowserSkillDesktopHelpers(deps) {
   return {
     checkBrowserSkillStatus,
     openBrowserSkillInstallPage: (target = "extension") =>
-      openBrowserSkillResource(deps, target === "cli" ? "cli" : target === "docs" ? "docs" : "extension"),
+      openBrowserSkillResource(
+        deps,
+        target === "cli" ? "cli" : target === "docs" ? "docs" : "extension",
+      ),
   };
 }

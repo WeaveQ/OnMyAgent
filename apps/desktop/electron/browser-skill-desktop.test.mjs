@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BROWSER_SKILL_INSTALL_COMMAND,
   checkBrowserSkillStatus,
   resolveBskBinary,
 } from "./browser-skill-desktop.mjs";
@@ -16,6 +17,11 @@ test("resolveBskBinary returns a candidate path or PATH name", () => {
   );
 });
 
+test("install one-liner is stable", () => {
+  assert.match(BROWSER_SKILL_INSTALL_COMMAND, /install\.sh/);
+  assert.match(BROWSER_SKILL_INSTALL_COMMAND, /bsk doctor/);
+});
+
 test("checkBrowserSkillStatus returns a stable shape when bsk is missing", async () => {
   const status = await checkBrowserSkillStatus();
   assert.equal(typeof status.ok, "boolean");
@@ -26,6 +32,7 @@ test("checkBrowserSkillStatus returns a stable shape when bsk is missing", async
   assert.ok(status.installCliUrl.includes("BrowserSkill"));
   assert.ok(status.chromeWebStoreUrl.includes("chromewebstore"));
   assert.ok(status.docsUrl.includes("BrowserSkill"));
+  assert.ok(status.installCommand?.includes("install.sh"));
   // On CI/dev machines without bsk, installed should be false.
   if (!status.installed) {
     assert.equal(status.ok, false);

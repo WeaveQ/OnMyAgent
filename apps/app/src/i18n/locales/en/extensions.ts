@@ -71,7 +71,7 @@ export default {
   "extensions.screen_recording_permission": "Screen Recording permission",
   "extensions.browser_skill_name": "BrowserSkill",
   "extensions.browser_skill_description":
-    "Drive your real Chrome/Edge browser (logins and cookies) via the external Tencent BrowserSkill CLI and extension — complementary to in-app browser automation and Computer Use.",
+    "Drive your real Chrome/Edge browser (logins and cookies) via Tencent BrowserSkill — complementary to in-app browser automation and Computer Use.",
   "extensions.browser_skill_prompt": "Use BrowserSkill (bsk) to ",
   "extensions.browser_skill_suggestion_summary":
     "Open my already-signed-in dashboard and summarize the top items",
@@ -80,18 +80,18 @@ export default {
   "extensions.browser_skill_suggestion_smoke":
     "Run bsk doctor and confirm the extension is connected",
   "extensions.browser_skill_setup":
-    "Install the bsk CLI, add the BrowserSkill Chrome extension, then run doctor until the popup is green. This uses your real browser profile — not the in-app agent browser.",
+    "Three taps: open Terminal to install CLI → install the Chrome extension → recheck. Uses your real browser profile.",
   "extensions.browser_skill_install_extension": "Install Chrome extension",
-  "extensions.browser_skill_run_doctor": "Run doctor / refresh status",
+  "extensions.browser_skill_run_doctor": "Recheck status",
   "extensions.browser_skill_skill_label": "BrowserSkill agent skill",
   "extensions.browser_skill_cli_label": "bsk CLI",
   "extensions.browser_skill_extension_label": "BrowserSkill extension",
   "extensions.browser_skill_extension_hint":
-    "Chrome/Edge extension must show a green connection in its popup",
+    "Chrome/Edge extension popup should be green when connected",
   "extensions.browser_skill_panel_description":
-    "External real-browser control via Tencent BrowserSkill. Install CLI + extension on this machine; OnMyAgent only discovers health and ships the agent skill.",
+    "Control sites you are already signed into. Setup takes three short steps on this machine.",
   "extensions.browser_skill_desktop_only":
-    "BrowserSkill status checks require the OnMyAgent desktop app.",
+    "BrowserSkill setup requires the OnMyAgent desktop app.",
   "extensions.browser_skill_open_docs": "Open docs",
   "extensions.browser_skill_health_title": "Health",
   "extensions.browser_skill_health_pending": "Checking BrowserSkill status…",
@@ -102,8 +102,32 @@ export default {
   "extensions.browser_skill_status_ready": "Ready",
   "extensions.browser_skill_status_setup": "Needs setup",
   "extensions.browser_skill_vs_in_app":
-    "Different from OnMyAgent in-app Browser (browser-automation) and from Computer Use (desktop apps). Prefer BrowserSkill for sites you are already signed into.",
-  "extensions.browser_skill_install_cli_title": "Install CLI (terminal)",
+    "Not the in-app Browser, and not Computer Use. Best for already-signed-in sites.",
+  "extensions.browser_skill_install_cli_title": "Install CLI",
+  "extensions.browser_skill_setup_intro":
+    "Finish the steps below. You only need this once per machine.",
+  "extensions.browser_skill_step_cli_title": "1. Install bsk CLI",
+  "extensions.browser_skill_step_cli_desc":
+    "Opens Terminal with the official install command (or copy it).",
+  "extensions.browser_skill_step_ext_title": "2. Install Chrome extension",
+  "extensions.browser_skill_step_ext_desc":
+    "Opens the Chrome Web Store. After install, open the popup until it turns green.",
+  "extensions.browser_skill_step_verify_title": "3. Recheck",
+  "extensions.browser_skill_step_verify_desc":
+    "After CLI + extension are ready, refresh here.",
+  "extensions.browser_skill_open_terminal": "Open Terminal to install",
+  "extensions.browser_skill_copy_command": "Copy install command",
+  "extensions.browser_skill_copied": "Copied",
+  "extensions.browser_skill_command_copied": "Install command copied to clipboard.",
+  "extensions.browser_skill_terminal_opened":
+    "Terminal opened with the install command. Finish there, then recheck.",
+  "extensions.browser_skill_cli_docs_fallback":
+    "Opened install docs. Copy the command if Terminal could not be launched.",
+  "extensions.browser_skill_extension_opened":
+    "Chrome Web Store opened. Install BrowserSkill, wait for a green popup, then recheck.",
+  "extensions.browser_skill_ready_message":
+    "BrowserSkill is ready. Agents can use your real browser via bsk.",
+  "extensions.browser_skill_doctor_details": "Doctor output",
   "extensions.openai_image_desc": "Generate images",
   "extensions.openai_image_setup": `Add an OpenAI API key to enable image generation`,
   "extensions.openai_image_config_desc": "Configure OpenAI image generation",

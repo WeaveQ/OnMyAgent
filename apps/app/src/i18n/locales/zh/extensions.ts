@@ -73,7 +73,7 @@ export default {
   "extensions.screen_recording_permission": "屏幕录制权限",
   "extensions.browser_skill_name": "BrowserSkill",
   "extensions.browser_skill_description":
-    "通过腾讯 BrowserSkill 外部 CLI 与扩展驱动本机真实 Chrome/Edge（含登录态与 Cookie），与应用内浏览器自动化、Computer Use 互补。",
+    "通过腾讯 BrowserSkill 驱动本机真实 Chrome/Edge（含登录态），与应用内浏览器自动化、Computer Use 互补。",
   "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）来",
   "extensions.browser_skill_suggestion_summary":
     "打开我已登录的后台页面并总结置顶条目",
@@ -82,18 +82,18 @@ export default {
   "extensions.browser_skill_suggestion_smoke":
     "运行 bsk doctor 并确认扩展已连接",
   "extensions.browser_skill_setup":
-    "安装 bsk CLI、添加 BrowserSkill Chrome 扩展，并运行 doctor 直到弹窗变绿。使用的是你本机真实浏览器配置，而非应用内 Agent 浏览器。",
+    "三步完成：终端安装 CLI → 安装 Chrome 扩展 → 复查状态。使用你本机真实浏览器。",
   "extensions.browser_skill_install_extension": "安装 Chrome 扩展",
-  "extensions.browser_skill_run_doctor": "运行 doctor / 刷新状态",
+  "extensions.browser_skill_run_doctor": "复查状态",
   "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
   "extensions.browser_skill_cli_label": "bsk CLI",
   "extensions.browser_skill_extension_label": "BrowserSkill 扩展",
   "extensions.browser_skill_extension_hint":
-    "Chrome/Edge 扩展弹窗需显示已连接（绿色）",
+    "Chrome/Edge 扩展弹窗变绿即表示已连接",
   "extensions.browser_skill_panel_description":
-    "通过腾讯 BrowserSkill 控制本机真实浏览器。请在本机安装 CLI 与扩展；OnMyAgent 只做发现/健康检查并附带 Agent 技能说明。",
+    "操控你已登录的网站。本机完成三步引导即可，之后 Agent 可直接用。",
   "extensions.browser_skill_desktop_only":
-    "BrowserSkill 状态检查需要 OnMyAgent 桌面端。",
+    "BrowserSkill 配置需要 OnMyAgent 桌面端。",
   "extensions.browser_skill_open_docs": "打开文档",
   "extensions.browser_skill_health_title": "健康状态",
   "extensions.browser_skill_health_pending": "正在检查 BrowserSkill 状态…",
@@ -104,8 +104,30 @@ export default {
   "extensions.browser_skill_status_ready": "就绪",
   "extensions.browser_skill_status_setup": "需要配置",
   "extensions.browser_skill_vs_in_app":
-    "不同于 OnMyAgent 应用内 Browser（browser-automation）与 Computer Use（桌面应用）。已登录站点优先用 BrowserSkill。",
-  "extensions.browser_skill_install_cli_title": "安装 CLI（终端）",
+    "不是应用内 Browser，也不是 Computer Use。适合已登录站点。",
+  "extensions.browser_skill_install_cli_title": "安装 CLI",
+  "extensions.browser_skill_setup_intro": "按下面三步操作即可，每台机器只需一次。",
+  "extensions.browser_skill_step_cli_title": "1. 安装 bsk CLI",
+  "extensions.browser_skill_step_cli_desc":
+    "一键打开终端执行官方安装命令，或复制命令自行粘贴。",
+  "extensions.browser_skill_step_ext_title": "2. 安装 Chrome 扩展",
+  "extensions.browser_skill_step_ext_desc":
+    "一键打开 Chrome 网上应用店。装好后打开扩展弹窗，直到变绿。",
+  "extensions.browser_skill_step_verify_title": "3. 复查",
+  "extensions.browser_skill_step_verify_desc": "CLI 和扩展就绪后，点这里刷新状态。",
+  "extensions.browser_skill_open_terminal": "打开终端安装",
+  "extensions.browser_skill_copy_command": "复制安装命令",
+  "extensions.browser_skill_copied": "已复制",
+  "extensions.browser_skill_command_copied": "安装命令已复制到剪贴板。",
+  "extensions.browser_skill_terminal_opened":
+    "已打开终端并填入安装命令。在终端完成安装后，点「复查状态」。",
+  "extensions.browser_skill_cli_docs_fallback":
+    "已打开安装文档。若终端未能自动打开，请复制命令手动执行。",
+  "extensions.browser_skill_extension_opened":
+    "已打开 Chrome 网上应用店。安装 BrowserSkill，弹窗变绿后点「复查状态」。",
+  "extensions.browser_skill_ready_message":
+    "BrowserSkill 已就绪。Agent 可通过 bsk 使用你的真实浏览器。",
+  "extensions.browser_skill_doctor_details": "Doctor 输出",
   "extensions.openai_image_desc": "生成图片",
   "extensions.openai_image_setup": `添加 OpenAI API key，启用图片生成`,
   "extensions.openai_image_config_desc": "配置 OpenAI 图片生成",

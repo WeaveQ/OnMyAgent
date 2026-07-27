@@ -24,6 +24,8 @@ describe("built-in BrowserSkill (Path B)", () => {
     expect(skill).toContain("browser-automation");
     expect(skill).toContain("Computer Use");
     expect(skill).toContain("Tencent/BrowserSkill");
+    expect(skill).toContain("Extensions → BrowserSkill");
+    expect(skill).toContain("do not dump shell unless asked");
     for (const cmd of ["navigate", "snapshot", "click", "fill", "request-help"]) {
       expect(skill).toContain(cmd);
     }

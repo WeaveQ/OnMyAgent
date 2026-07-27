@@ -1846,6 +1846,8 @@ export type BrowserSkillStatusResult = {
   installCliUrl: string;
   chromeWebStoreUrl: string;
   docsUrl: string;
+  /** Official one-liner for clipboard / Terminal open. */
+  installCommand?: string;
 };
 
 export type SoftwareEnvironmentInstallResult = {
