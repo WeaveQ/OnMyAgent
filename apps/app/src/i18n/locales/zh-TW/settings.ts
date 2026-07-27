@@ -226,6 +226,7 @@ export default {
   "settings.computer_use_step_connect": "連接",
   "settings.computer_use_step_runtime": "運行狀態",
   "settings.computer_use_step_privacy": "授權與記憶",
+  "settings.computer_use_connect_step_title": "1. 連接 Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
     "將本地 Computer Use 服務器添加到此工作區，讓編輯器可以使用電腦控制工具",
   "settings.computer_use_configured": "已配置",

@@ -81,12 +81,19 @@ type ComputerUseConfigProps = {
   onRefresh?: () => void | Promise<void>;
 };
 
-type SetupSectionId = "connect" | "runtime" | "privacy";
+/** Real setup steps 1–5 (MCP → permissions → runtime → app access → memory). */
+type SetupStepId = 1 | 2 | 3 | 4 | 5;
+
+const SETUP_STEPS: readonly SetupStepId[] = [1, 2, 3, 4, 5];
 
 const computerUseLayoutClass = {
-  content: "space-y-5",
-  stepTabs: "w-full min-w-0",
-  stepPanel: "space-y-4",
+  content: "flex min-h-0 flex-col gap-5",
+  // Full-width equal steps so 1–5 stay stable (overrides SegmentedTabGroup w-fit).
+  stepTabs: "flex w-full min-w-0",
+  // Fixed body height so switching 1–5 does not resize the modal.
+  stepPanel:
+    "h-[min(28rem,46vh)] min-h-[22rem] space-y-4 overflow-y-auto overscroll-contain pr-0.5",
+  stepTab: "min-w-0 flex-1 justify-center tabular-nums",
   actionButton: "min-h-10 w-full whitespace-normal text-center lg:w-auto",
   primaryActionButton: "min-h-10 w-full justify-center whitespace-normal text-center",
   buttonLabel: "min-w-0 break-words",
@@ -265,7 +272,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
   const [authorizationBusy, setAuthorizationBusy] = useState(false);
   const [clearAuthorizationsOpen, setClearAuthorizationsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [section, setSection] = useState<SetupSectionId>("connect");
+  const [step, setStep] = useState<SetupStepId>(1);
 
   // Spawn --check → fresh TCC read. Works whether or not the GUI is open.
   const verify = useCallback(async () => {
@@ -427,8 +434,20 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
     }
   };
 
-  const connectComplete = props.connected && allGranted;
-  const runtimeComplete = result?.protocolVersion === 1 && !versionMismatch && !protocolMismatch;
+  const stepComplete: Record<SetupStepId, boolean> = {
+    1: props.connected,
+    2: allGranted,
+    3: result?.protocolVersion === 1 && !versionMismatch && !protocolMismatch,
+    4: result?.appAuthorizations !== undefined,
+    5: result !== null,
+  };
+  const stepAriaLabel: Record<SetupStepId, string> = {
+    1: t("settings.computer_use_connect_step_title"),
+    2: t("settings.computer_use_permissions_step_title"),
+    3: t("settings.computer_use_runtime_step_title"),
+    4: t("settings.computer_use_app_authorizations_title"),
+    5: t("settings.computer_use_skysight_title"),
+  };
 
   return (
     <Card variant="outline" size="sm">
@@ -459,48 +478,56 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
         ) : null}
 
         <SegmentedTabGroup density="filter" className={computerUseLayoutClass.stepTabs}>
-          <NavTabButton
-            active={section === "connect"}
-            size="tab"
-            shape="tab"
-            onClick={() => setSection("connect")}
-          >
-            <StatusIcon complete={connectComplete} muted={section !== "connect" && !connectComplete} />
-            {t("settings.computer_use_step_connect")}
-          </NavTabButton>
-          <NavTabButton
-            active={section === "runtime"}
-            size="tab"
-            shape="tab"
-            onClick={() => setSection("runtime")}
-          >
-            <StatusIcon complete={runtimeComplete} muted={section !== "runtime" && !runtimeComplete} />
-            {t("settings.computer_use_step_runtime")}
-          </NavTabButton>
-          <NavTabButton
-            active={section === "privacy"}
-            size="tab"
-            shape="tab"
-            onClick={() => setSection("privacy")}
-          >
-            <StatusIcon
-              complete={result?.appAuthorizations !== undefined}
-              muted={section !== "privacy" && result?.appAuthorizations === undefined}
-            />
-            {t("settings.computer_use_step_privacy")}
-          </NavTabButton>
+          {SETUP_STEPS.map((stepId) => {
+            const complete = stepComplete[stepId];
+            const active = step === stepId;
+            return (
+              <NavTabButton
+                key={stepId}
+                active={active}
+                size="tab"
+                shape="tab"
+                className={computerUseLayoutClass.stepTab}
+                onClick={() => setStep(stepId)}
+                aria-label={stepAriaLabel[stepId]}
+                title={stepAriaLabel[stepId]}
+              >
+                <span
+                  className={
+                    complete
+                      ? "text-sm font-medium tabular-nums text-dls-accent"
+                      : active
+                        ? "text-sm font-medium tabular-nums"
+                        : "text-sm tabular-nums text-dls-secondary"
+                  }
+                >
+                  {stepId}
+                </span>
+              </NavTabButton>
+            );
+          })}
         </SegmentedTabGroup>
 
-        {section === "connect" ? (
-          <div className={computerUseLayoutClass.stepPanel}>
+        <div className={computerUseLayoutClass.stepPanel}>
+          {step === 1 ? (
             <SetupRow
-              title={t("extensions.computer_use_connect_mcp")}
+              title={t("settings.computer_use_connect_step_title")}
               description={t("settings.computer_use_connect_mcp_desc")}
               complete={props.connected}
             >
               <Button
                 className={computerUseLayoutClass.actionButton}
-                onClick={() => void props.onConnect?.()}
+                onClick={() => {
+                  if (!props.onConnect || props.connected || props.connecting) return;
+                  void (async () => {
+                    setError(null);
+                    try {
+                      await props.onConnect?.();
+                    } catch (e) {
+                      setError(errMsg(e));
+                    }
+                  })();
+                }}
                 disabled={!props.onConnect || props.connected || props.connecting}
               >
                 {props.connecting ? (
@@ -515,7 +542,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 </span>
               </Button>
             </SetupRow>
+          ) : null}
 
+          {step === 2 ? (
             <SetupRow
               title={t("settings.computer_use_permissions_step_title")}
               description={t("settings.computer_use_permissions_step_description")}
@@ -555,11 +584,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 </Button>
               </div>
             </SetupRow>
-          </div>
-        ) : null}
+          ) : null}
 
-        {section === "runtime" ? (
-          <div className={computerUseLayoutClass.stepPanel}>
+          {step === 3 ? (
             <SetupRow
               title={t("settings.computer_use_runtime_step_title")}
               description={t("settings.computer_use_runtime_step_description")}
@@ -595,11 +622,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 ) : null}
               </div>
             </SetupRow>
-          </div>
-        ) : null}
+          ) : null}
 
-        {section === "privacy" ? (
-          <div className={computerUseLayoutClass.stepPanel}>
+          {step === 4 ? (
             <SetupRow
               title={t("settings.computer_use_app_authorizations_title")}
               description={t("settings.computer_use_app_authorizations_description")}
@@ -648,7 +673,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 </Button>
               </div>
             </SetupRow>
+          ) : null}
 
+          {step === 5 ? (
             <SetupRow
               title={t("settings.computer_use_skysight_title")}
               description={t("settings.computer_use_skysight_description")}
@@ -812,8 +839,8 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
                 </Button>
               </div>
             </SetupRow>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </CardContent>
 
       <CardFooter className="border-t border-dls-border">

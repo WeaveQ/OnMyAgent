@@ -205,8 +205,10 @@ describe("built-in Computer Use", () => {
     const settings = readWorkspaceFile(
       "apps/app/src/react-app/domains/settings/computer-use-config.tsx",
     );
-    // Stepped form: connect / runtime / privacy sections instead of one long stack.
-    expect(settings).toContain('SetupSectionId = "connect" | "runtime" | "privacy"');
+    // Stepped form: real steps 1–5 with a fixed-height panel (no modal resize jump).
+    expect(settings).toContain("type SetupStepId = 1 | 2 | 3 | 4 | 5");
+    expect(settings).toContain("const SETUP_STEPS: readonly SetupStepId[] = [1, 2, 3, 4, 5]");
+    expect(settings).toContain('h-[min(28rem,46vh)]');
     expect(settings).toContain('permissionGrid: "grid gap-2"');
     expect(settings).toContain('runtimeGrid: "grid gap-2 xl:grid-cols-2"');
     expect(settings).toContain('className="min-w-0 break-words text-sm"');

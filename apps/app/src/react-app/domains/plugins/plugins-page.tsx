@@ -45,7 +45,11 @@ import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
-import { ONMYAGENT_EXTENSION_CATALOG, type McpDirectoryInfo } from "@/app/constants";
+import {
+  getMcpServerName,
+  ONMYAGENT_EXTENSION_CATALOG,
+  type McpDirectoryInfo,
+} from "@/app/constants";
 import {
   isOnMyAgentExtensionEnabled,
   isOnMyAgentExtensionHidden,
@@ -874,6 +878,30 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   );
 }
 
+const COMPUTER_USE_MCP_NAME = "computer-use";
+const COMPUTER_USE_MCP_FALLBACK_COMMAND = ["npx", "-y", "@onmyagent/handsfree", "mcp"] as const;
+
+async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<string[]> {
+  try {
+    const command = await window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.(
+      "getComputerUseMcpCommand",
+    );
+    if (
+      Array.isArray(command) &&
+      command.length > 0 &&
+      command.every((part) => typeof part === "string")
+    ) {
+      return command;
+    }
+  } catch {
+    throw new Error(
+      "Computer Use helper app is unavailable. Restart OnMyAgent or reinstall the app.",
+    );
+  }
+  if (entry.command?.length) return entry.command;
+  return [...COMPUTER_USE_MCP_FALLBACK_COMMAND];
+}
+
 function BuiltinExtensionsSection(props: {
   workspaceId: string;
   client?: OnMyAgentServerClient | null;
@@ -884,12 +912,80 @@ function BuiltinExtensionsSection(props: {
   const [localProviderBusy, setLocalProviderBusy] = useState(false);
   const [localProviderStatus, setLocalProviderStatus] = useState<string | null>(null);
   const [localProviderError, setLocalProviderError] = useState<string | null>(null);
+  const [computerUseConnected, setComputerUseConnected] = useState(false);
+  const [computerUseConnecting, setComputerUseConnecting] = useState(false);
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
     return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
   }, []);
+
+  const refreshComputerUseMcp = useCallback(async () => {
+    const client = props.client;
+    const workspaceId = props.workspaceId.trim();
+    if (!client || !workspaceId) {
+      setComputerUseConnected(false);
+      return;
+    }
+    try {
+      const result = await client.listMcp(workspaceId);
+      setComputerUseConnected(
+        result.items.some((item) => {
+          const name = item.name;
+          return (
+            name === COMPUTER_USE_MCP_NAME ||
+            name === "computer-use-mcp"
+          );
+        }),
+      );
+    } catch {
+      setComputerUseConnected(false);
+    }
+  }, [props.client, props.workspaceId]);
+
+  useEffect(() => {
+    void refreshComputerUseMcp();
+  }, [refreshComputerUseMcp]);
+
+  const connectComputerUseMcp = useCallback(
+    async (entry: McpDirectoryInfo) => {
+      const client = props.client;
+      const workspaceId = props.workspaceId.trim();
+      if (!client || !workspaceId) {
+        throw new Error(t("extensions.local_provider_server_not_connected"));
+      }
+      if (!isDesktopRuntime()) {
+        throw new Error(t("mcp.desktop_required"));
+      }
+
+      setComputerUseConnecting(true);
+      try {
+        const command = await resolveComputerUseMcpCommand(entry);
+        const slug = entry.id ?? getMcpServerName(entry);
+        await client.addMcp(workspaceId, {
+          name: slug,
+          config: {
+            type: "local",
+            command,
+            enabled: true,
+          },
+        });
+        try {
+          await client.reloadEngine(workspaceId);
+        } catch {
+          // Config is already written; user can retry reload from workspace actions.
+        }
+        setOnMyAgentExtensionEnabled(entry, true);
+        setComputerUseConnected(true);
+        setRevision((value) => value + 1);
+      } finally {
+        setComputerUseConnecting(false);
+        void refreshComputerUseMcp();
+      }
+    },
+    [props.client, props.workspaceId, refreshComputerUseMcp],
+  );
 
   const installLocalProvider = useCallback(
     async (input: LocalProviderInstallInput) => {
@@ -957,6 +1053,23 @@ function BuiltinExtensionsSection(props: {
   const extensionConfigCtx = useMemo<ExtensionConfigContext>(
     () => ({
       onmyagentServerClient: props.client ?? null,
+      computerUse: {
+        connected: computerUseConnected,
+        connecting: computerUseConnecting,
+        onConnect: () => {
+          const entry =
+            detailEntry ??
+            ONMYAGENT_EXTENSION_CATALOG.find(
+              (item) => (item.id ?? item.serverName) === COMPUTER_USE_MCP_NAME,
+            ) ??
+            null;
+          if (!entry) {
+            throw new Error(t("mcp.connect_failed"));
+          }
+          return connectComputerUseMcp(entry);
+        },
+        onRefresh: () => refreshComputerUseMcp(),
+      },
       imageExtension: {
         busy: false,
         status: null,
@@ -981,11 +1094,16 @@ function BuiltinExtensionsSection(props: {
       },
     }),
     [
+      computerUseConnected,
+      computerUseConnecting,
+      connectComputerUseMcp,
+      detailEntry,
       installLocalProvider,
       localProviderBusy,
       localProviderError,
       localProviderStatus,
       props.client,
+      refreshComputerUseMcp,
     ],
   );
 

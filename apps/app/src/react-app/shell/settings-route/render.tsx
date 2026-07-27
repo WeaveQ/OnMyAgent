@@ -41,12 +41,17 @@ import {
   useExtensionsStoreSnapshot,
   SettingsShell,
   useAiProvidersController,
+  OLLAMA_PROVIDER_CONFIG,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
 import { userErrorFromRaw } from "../../kernel/user-error";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
 import { useFacingRouteError } from "./facing-route-error";
-import { canDisconnectProviderRow } from "./provider-disconnect-policy";
+import {
+  canDeleteOpenCodeProvider,
+  canDisconnectProviderRow,
+  canEditOpenCodeProvider,
+} from "./provider-disconnect-policy";
 import {
   deleteOpenCodeManagedProvider,
   disconnectSettingsProvider,
@@ -1210,19 +1215,66 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const handleEditOpenCodeProvider = useCallback(
     (provider: AiSettingsConnectedProvider) => {
-      if (provider.managedBy !== "opencode") return;
+      if (!canEditOpenCodeProvider(provider)) return;
       setProviderActionError(null);
+
+      // Prefer live inventory. For workspace-config installs (e.g. Ollama from
+      // connectors), inventory may be empty — seed from SDK list + known defaults.
+      const sdkProvider = providers.find((item) => item.id === provider.id);
+      const sdkModels = Object.entries(sdkProvider?.models ?? {}).map(
+        ([id, model]) => ({
+          id,
+          name:
+            model && typeof model === "object" && "name" in model
+              ? String((model as { name?: string }).name ?? id)
+              : id,
+        }),
+      );
+      const isOllama = provider.id === "ollama";
+      const fallbackSettings: Record<string, unknown> = {
+        name: provider.name || provider.id,
+        npm: "@ai-sdk/openai-compatible",
+        options: {
+          baseURL: isOllama
+            ? OLLAMA_PROVIDER_CONFIG.baseURL
+            : "",
+        },
+        ...(sdkModels.length > 0
+          ? {
+              models: Object.fromEntries(
+                sdkModels.map((model) => [model.id, { name: model.name }]),
+              ),
+            }
+          : isOllama
+            ? {
+                models: {
+                  [OLLAMA_PROVIDER_CONFIG.defaultModelId]: {
+                    name: OLLAMA_PROVIDER_CONFIG.defaultModelId,
+                  },
+                },
+              }
+            : {}),
+      };
       const fallback: AgentManagementManagedProvider = {
         id: provider.id,
         appType: "opencode",
         name: provider.name || provider.id,
-        settingsConfig: {},
+        settingsConfig: fallbackSettings,
         isCurrent: false,
         inFailoverQueue: false,
         liveManaged: true,
         livePresent: true,
         configPath: "",
-        models: [],
+        models: sdkModels.length
+          ? sdkModels
+          : isOllama
+            ? [
+                {
+                  id: OLLAMA_PROVIDER_CONFIG.defaultModelId,
+                  name: OLLAMA_PROVIDER_CONFIG.defaultModelId,
+                },
+              ]
+            : [],
       };
       // Prefer in-memory inventory for instant open. After save, inventory is
       // updated from the save response (opencodeProviders), so re-edit is fresh
@@ -1238,7 +1290,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         return;
       }
 
-      // Cold path: inventory not ready yet (rare right after tab open).
+      // Cold path: inventory not ready yet, or config-only install (no DB row).
       if (providerActionBusyId) return;
       setProviderActionBusyId(provider.id);
       void loadOpenCodeManagedProviders()
@@ -1261,6 +1313,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       findManagedProvider,
       loadOpenCodeManagedProviders,
       providerActionBusyId,
+      providers,
       setOpenCodeManagedProviders,
     ],
   );
@@ -1656,9 +1709,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                   opencodeInventoryReady,
                 })
               }
-              canEditProvider={(provider) => provider.managedBy === "opencode"}
+              canEditProvider={canEditOpenCodeProvider}
               onEditProvider={handleEditOpenCodeProvider}
-              canDeleteProvider={(provider) => provider.managedBy === "opencode"}
+              canDeleteProvider={canDeleteOpenCodeProvider}
               onDeleteProvider={async (provider) => {
                 if (providerActionBusyId || providerSyncBusy) return;
                 await deleteOpenCodeManagedProvider({

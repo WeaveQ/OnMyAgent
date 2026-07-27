@@ -31,7 +31,8 @@ const extensionDetailTextClass = {
 
 const extensionDetailLayoutClass = {
   contentBase: "flex max-h-[90vh] min-h-0 w-full flex-col overflow-hidden",
-  contentWide: "max-w-3xl sm:max-w-3xl",
+  // Fixed height for stepped setup panels so switching sections does not resize the dialog.
+  contentWide: "h-[min(90vh,46rem)] max-w-3xl sm:max-w-3xl",
   contentDefault: "max-w-xl sm:max-w-xl",
   headerRow: "flex min-w-0 items-start gap-4",
   iconWrap: "relative shrink-0",

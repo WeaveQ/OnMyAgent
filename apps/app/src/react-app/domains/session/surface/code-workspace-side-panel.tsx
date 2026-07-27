@@ -1065,8 +1065,18 @@ export function CodeWorkspaceSidePanel(props: {
   // async addTab) so content is never blank while a top tab chip is visible.
   const activeTab =
     tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
+  // Empty-state menu: shorter translated labels first (e.g. zh 终端/文件 → 浏览器 → 自动化任务).
   const visibleToolItems = useMemo(
-    () => toolItems.filter((item) => !props.hiddenKinds?.includes(item.kind)),
+    () =>
+      toolItems
+        .filter((item) => !props.hiddenKinds?.includes(item.kind))
+        .map((item, index) => ({
+          item,
+          index,
+          labelLen: String(t(item.labelKey)).length,
+        }))
+        .sort((a, b) => a.labelLen - b.labelLen || a.index - b.index)
+        .map(({ item }) => item),
     [props.hiddenKinds],
   );
 
