@@ -288,6 +288,9 @@ export function AgentSessionTabs(props: {
   workspaceId: string;
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];
+  orderIds: readonly string[];
+  pendingSessionId: string | null;
+  onPendingSessionIdChange: (sessionId: string | null) => void;
   /** Active expert — used when session→agent binding is missing. */
   agentId?: string | null;
   /** Per-session run status — chip shows busy state when user switches away. */
@@ -301,7 +304,6 @@ export function AgentSessionTabs(props: {
   onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   // Parent uses this to drop the title-bar border while the strip is open
   // (one rule only). No sessions ⇒ treat as collapsed so the header keeps a line.
@@ -324,15 +326,16 @@ export function AgentSessionTabs(props: {
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const activeSessionId = pendingSessionId ?? props.selectedSessionId;
+  const pendingSessionIsVisible = Boolean(
+    props.pendingSessionId &&
+      props.sessions.some((session) => session.id === props.pendingSessionId),
+  );
+  const activeSessionId = pendingSessionIsVisible
+    ? props.pendingSessionId
+    : props.selectedSessionId;
 
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
-  );
-  // Stable left-to-right order for this expert strip; survives session list
-  // refreshes that re-sort by updatedAt (which previously made chips jump).
-  const [stableOrderIds, setStableOrderIds] = useState<string[]>(() =>
-    mergeStableSessionTabOrder([], props.sessions),
   );
   const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
   const sessionUnreadByWorkspace = useExpertUnreadStore(
@@ -352,26 +355,9 @@ export function AgentSessionTabs(props: {
     [props.agentId],
   );
 
-  const orderWorkspaceIdRef = useRef(props.workspaceId);
-
   useEffect(() => {
-    const workspaceChanged = orderWorkspaceIdRef.current !== props.workspaceId;
-    if (workspaceChanged) {
-      orderWorkspaceIdRef.current = props.workspaceId;
-      setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
-    }
-    setStableOrderIds((current) => {
-      const base = workspaceChanged ? [] : current;
-      const next = mergeStableSessionTabOrder(base, props.sessions);
-      if (
-        next.length === current.length &&
-        next.every((id, index) => id === current[index])
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [props.sessions, props.workspaceId]);
+    setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
+  }, [props.workspaceId]);
 
   const pinnedSet = useMemo(
     () => new Set(pinnedSessionIds),
@@ -380,7 +366,7 @@ export function AgentSessionTabs(props: {
 
   const orderedSessions = useMemo(() => {
     const byId = new Map(props.sessions.map((session) => [session.id, session]));
-    const stable = stableOrderIds
+    const stable = props.orderIds
       .map((id) => byId.get(id))
       .filter((session): session is (typeof props.sessions)[number] => Boolean(session));
     // Sessions not yet in the stable ledger (race) append without reshuffling.
@@ -391,7 +377,7 @@ export function AgentSessionTabs(props: {
       }
     }
     return stable;
-  }, [props.sessions, stableOrderIds]);
+  }, [props.orderIds, props.sessions]);
 
   const queryClient = useQueryClient();
 
@@ -542,21 +528,24 @@ export function AgentSessionTabs(props: {
   );
 
   useEffect(() => {
-    if (!pendingSessionId) return;
+    if (!props.pendingSessionId) return;
     const fallbackTimer = window.setTimeout(() => {
-      setPendingSessionId((current) =>
-        current === pendingSessionId ? null : current,
-      );
+      props.onPendingSessionIdChange(null);
     }, 4_000);
-    if (props.selectedSessionId === pendingSessionId) {
-      setPendingSessionId(null);
+    if (props.selectedSessionId === props.pendingSessionId) {
+      props.onPendingSessionIdChange(null);
       return () => window.clearTimeout(fallbackTimer);
     }
-    if (!props.sessions.some((session) => session.id === pendingSessionId)) {
-      setPendingSessionId(null);
+    if (!pendingSessionIsVisible) {
+      props.onPendingSessionIdChange(null);
     }
     return () => window.clearTimeout(fallbackTimer);
-  }, [pendingSessionId, props.selectedSessionId, props.sessions]);
+  }, [
+    pendingSessionIsVisible,
+    props.onPendingSessionIdChange,
+    props.pendingSessionId,
+    props.selectedSessionId,
+  ]);
 
   useEffect(() => {
     if (!activeSessionId || !expanded) return;
@@ -676,7 +665,7 @@ export function AgentSessionTabs(props: {
                   active={active}
                   muted={isDraft}
                   onClick={() => {
-                    setPendingSessionId(session.id);
+                    props.onPendingSessionIdChange(session.id);
                     setMenuState(null);
                     // Opening a different session clears that tab’s red dot
                     // (stay if already active — preserves just-marked unread).

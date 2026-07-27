@@ -33,7 +33,10 @@ export {
 
 export { AgentConversationPanel } from "./agent-conversation-panel";
 export { SidebarPaneCollapseToggle } from "./sidebar-pane-collapse-toggle";
-export { AgentSessionTabs } from "./agent-session-tabs";
+export {
+  AgentSessionTabs,
+  mergeStableSessionTabOrder,
+} from "./agent-session-tabs";
 
 export {
   hiddenAccessibleTargetsStorageKey,

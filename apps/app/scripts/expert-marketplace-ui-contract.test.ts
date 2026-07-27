@@ -524,14 +524,19 @@ describe("expert marketplace UI contract", () => {
 
   test("expert session tabs keep pending selection visible while route catches up", () => {
     const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
+    const expertPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert.tsx",
+    );
     const actionRow = readWorkspaceFile("apps/app/src/components/ui/action-row.tsx");
 
-    expect(tabs).toContain("const [pendingSessionId, setPendingSessionId]");
-    expect(tabs).toContain("const activeSessionId = pendingSessionId ?? props.selectedSessionId");
+    expect(expertPage).toContain("const [pendingTabSessionId, setPendingTabSessionId]");
+    expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
+    expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
+    expect(expertPage).toContain("pendingSessionId={pendingTabSessionId}");
+    expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
-    expect(tabs).toContain("mergeStableSessionTabOrder");
     expect(tabs).toContain("window.setTimeout");
-    expect(tabs).toContain("setPendingSessionId(session.id)");
+    expect(tabs).toContain("props.onPendingSessionIdChange(session.id)");
     expect(tabs).toContain("const active = session.id === activeSessionId");
     // Session tab active chrome: soft list-selected wash (not accent pill).
     expect(actionRow).toContain("bg-dls-list-selected font-medium text-dls-text shadow-none");
