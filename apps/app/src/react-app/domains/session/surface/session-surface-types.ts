@@ -8,6 +8,7 @@ import type {
   ComposerAccessMode,
   ComposerCollaborationMode,
   ComposerDraft,
+  ComposerMentionTarget,
   ModelRef,
   PendingPermission,
   PendingQuestion,
@@ -116,7 +117,7 @@ export type SessionSurfaceProps = {
     import("../../../../app/types").SlashCommandOption[]
   >;
   recentFiles: string[];
-  searchFiles: (query: string) => Promise<string[]>;
+  searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
   isRemoteWorkspace: boolean;
   isSandboxWorkspace: boolean;
   todos?: TodoItem[];

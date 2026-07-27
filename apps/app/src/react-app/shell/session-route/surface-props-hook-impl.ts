@@ -21,6 +21,7 @@ import type {
   CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   ComposerDraft,
+  ComposerMentionTarget,
   ComposerPart,
   ModelRef,
   SidebarSessionItem,
@@ -806,8 +807,8 @@ export function useSessionRouteSurfaceProps(
               parts: [
                 { type: "text", text: skillCommandPrompt.visiblePrompt },
                 ...draft.parts.filter(
-                  (part): part is Extract<ComposerPart, { type: "agent" | "file" }> =>
-                    part.type === "agent" || part.type === "file",
+                  (part): part is Extract<ComposerPart, { type: "agent" | "file" | "directory" }> =>
+                    part.type === "agent" || part.type === "file" || part.type === "directory",
                 ),
               ],
             }
@@ -995,7 +996,7 @@ export function useSessionRouteSurfaceProps(
             directory: sessionWorkspaceRoot || undefined,
           }),
         );
-        return result;
+        return result.map((path): ComposerMentionTarget => ({ path, kind: "file" }));
       },
       isRemoteWorkspace: selectedWorkspace?.workspaceType === "remote",
       isSandboxWorkspace: selectedWorkspace

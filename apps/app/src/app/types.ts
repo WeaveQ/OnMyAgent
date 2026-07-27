@@ -98,10 +98,18 @@ export type MessageGroup =
 
 export type PromptMode = "prompt" | "shell";
 
+export type ComposerMentionKind = "agent" | "file" | "directory";
+
+export type ComposerMentionTarget = {
+  path: string;
+  kind: "file" | "directory";
+};
+
 export type ComposerPart =
   | { type: "text"; text: string }
   | { type: "agent"; name: string }
   | { type: "file"; path: string; label?: string }
+  | { type: "directory"; path: string; label?: string }
   | { type: "paste"; id: string; label: string; text: string; lines: number };
 
 export type ComposerAttachment = {

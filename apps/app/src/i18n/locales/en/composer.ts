@@ -10,6 +10,7 @@ export default {
   "composer.default_agent": "Default agent",
   "composer.file_exceeds_limit": "{name} exceeds the 8MB limit.",
   "composer.file_kind": "File",
+  "composer.folder_kind": "Folder",
   "composer.image_kind": "Image",
   "composer.inserted_links_unsupported":
     "Inserted links for unsupported files.",

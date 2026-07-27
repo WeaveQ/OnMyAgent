@@ -10,6 +10,7 @@ export default {
   "composer.default_agent": "默認智能體",
   "composer.file_exceeds_limit": "{name}超過8MB限制。",
   "composer.file_kind": "文件",
+  "composer.folder_kind": "資料夾",
   "composer.image_kind": "圖片",
   "composer.inserted_links_unsupported": "已為不支持的文件插入鏈接。",
   "composer.loading_commands": "正在加載命令…",

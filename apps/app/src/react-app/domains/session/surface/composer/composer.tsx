@@ -400,26 +400,14 @@ export function ReactSessionComposer(props: ComposerProps) {
     let cancelled = false;
     void props
       .searchFiles(mentionQuery)
-      .then((files) => {
+      .then((targets) => {
         if (cancelled) return;
-        const recent = props.recentFiles.slice(0, 8);
-        const recentSet = new Set(recent);
-        const next: MentionItem[] = [
-          ...recent.map((file) => ({
-            id: `file:${file}`,
-            kind: "file" as const,
-            value: file,
-            label: file,
-          })),
-          ...files
-            .filter((file) => !recentSet.has(file))
-            .map((file) => ({
-              id: `file:${file}`,
-              kind: "file" as const,
-              value: file,
-              label: file,
-            })),
-        ];
+        const next: MentionItem[] = targets.map((target) => ({
+          id: `${target.kind}:${target.path}`,
+          kind: target.kind,
+          value: target.path,
+          label: target.path,
+        }));
         setMentionItems(next);
       })
       .catch(() => {
@@ -428,7 +416,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     return () => {
       cancelled = true;
     };
-  }, [mentionOpen, mentionQuery, props.recentFiles, props.searchFiles]);
+  }, [mentionOpen, mentionQuery, props.searchFiles]);
 
   useEffect(() => {
     if (!toolMenuOpen) return;
