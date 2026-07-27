@@ -48,6 +48,8 @@ import {
   isSameDirectory,
   materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
+  removeOptimisticUserMessage,
+  seedOptimisticUserMessage,
   shouldIsolateExpertSessionDirectory,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
@@ -565,6 +567,21 @@ export function useSessionRouteSurfaceProps(
           }
         }
 
+        const promptDraft: ComposerDraft = skillCommandPrompt
+          ? {
+              ...draft,
+              command: undefined,
+              text: skillCommandPrompt.visiblePrompt,
+              resolvedText: skillCommandPrompt.visiblePrompt,
+              parts: [
+                { type: "text", text: skillCommandPrompt.visiblePrompt },
+                ...draft.parts.filter(
+                  (part): part is Extract<ComposerPart, { type: "agent" | "file" | "directory" }> =>
+                    part.type === "agent" || part.type === "file" || part.type === "directory",
+                ),
+              ],
+            }
+          : draft;
         let sessionId = sendPlan.initialSessionId;
         let createdSession: { id: string; directory?: string } | null = null;
         if (!sessionId) {
@@ -608,6 +625,11 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (!sessionId) return;
+        const promptMessageId =
+          draft.messageID ??
+          (createdSession
+            ? `msg_onmyagent-user-${crypto.randomUUID()}`
+            : undefined);
         if (createdSession) {
           setSessionsByWorkspaceId((current) => {
             const next = insertCreatedSessionForWorkspace({
@@ -618,6 +640,16 @@ export function useSessionRouteSurfaceProps(
             sessionsByWorkspaceIdRef.current = next;
             return next;
           });
+          if (promptMessageId) {
+            seedOptimisticUserMessage({
+              workspaceId:
+                selectedWorkspaceEndpoint?.workspaceId ??
+                selectedWorkspaceId,
+              sessionId,
+              messageId: promptMessageId,
+              text: resolveDraftText(promptDraft),
+            });
+          }
           activateCreatedSessionRoute({
             selectedWorkspaceId,
             sessionId,
@@ -798,22 +830,6 @@ export function useSessionRouteSurfaceProps(
           return;
         }
 
-        const promptDraft: ComposerDraft = skillCommandPrompt
-          ? {
-              ...draft,
-              command: undefined,
-              text: skillCommandPrompt.visiblePrompt,
-              resolvedText: skillCommandPrompt.visiblePrompt,
-              parts: [
-                { type: "text", text: skillCommandPrompt.visiblePrompt },
-                ...draft.parts.filter(
-                  (part): part is Extract<ComposerPart, { type: "agent" | "file" | "directory" }> =>
-                    part.type === "agent" || part.type === "file" || part.type === "directory",
-                ),
-              ],
-            }
-          : draft;
-
         const attachmentUploadTarget = resolveAttachmentUploadTarget({
           fallbackClient: client,
           fallbackWorkspaceId: selectedWorkspaceId,
@@ -916,24 +932,37 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
-        const result = await runWithCreatedSessionRuntimeSync(() =>
-          opencodeClient.session.promptAsync({
-            sessionID: sessionId,
-            parts,
-            ...(draft.messageID ? { messageID: draft.messageID } : {}),
-            // Priority: user's manual override > agent's configured model > global default.
-            // Never modify `pendingAgentSnapshot.model` — the agent's configured model
-            // is owned by the agent page edit dialog.
-            model: selectedPromptModel,
-            agent: selectedAgent ?? undefined,
-            ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-            ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
-            ...(combinedSystem ? { system: combinedSystem } : {}),
-            directory: taskWorkspaceRoot || undefined,
-          }),
-        );
-        if (result.error) {
-          throw new Error(serializeSDKError(result.error));
+        try {
+          const result = await runWithCreatedSessionRuntimeSync(() =>
+            opencodeClient.session.promptAsync({
+              sessionID: sessionId,
+              parts,
+              ...(promptMessageId ? { messageID: promptMessageId } : {}),
+              // Priority: user's manual override > agent's configured model > global default.
+              // Never modify `pendingAgentSnapshot.model` — the agent's configured model
+              // is owned by the agent page edit dialog.
+              model: selectedPromptModel,
+              agent: selectedAgent ?? undefined,
+              ...(modelVariantValue ? { variant: modelVariantValue } : {}),
+              ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
+              ...(combinedSystem ? { system: combinedSystem } : {}),
+              directory: taskWorkspaceRoot || undefined,
+            }),
+          );
+          if (result.error) {
+            throw new Error(serializeSDKError(result.error));
+          }
+        } catch (error) {
+          if (createdSession && promptMessageId) {
+            removeOptimisticUserMessage({
+              workspaceId:
+                selectedWorkspaceEndpoint?.workspaceId ??
+                selectedWorkspaceId,
+              sessionId,
+              messageId: promptMessageId,
+            });
+          }
+          throw error;
         }
         // Opt-in conversation memory: rule-extract profile lines and write
         // straight into items (list UI). User can delete any row anytime.
