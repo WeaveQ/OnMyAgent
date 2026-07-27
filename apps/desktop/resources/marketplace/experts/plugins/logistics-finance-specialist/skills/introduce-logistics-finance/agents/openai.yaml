@@ -1,4 +1,4 @@
 interface:
-  display_name: "财务结算能力介绍"
-  short_description: "先用文字和表格介绍能力，再生成 HTML 能力图谱"
-  default_prompt: "请按流程介绍你的能力，并在最后生成 HTML 能力图谱。"
+  display_name: "财务结算上手向导"
+  short_description: "用示例教你对账、开票和催收，再生成 HTML 使用路线图"
+  default_prompt: "请使用 $introduce-logistics-finance 教我如何使用财务专员。"
