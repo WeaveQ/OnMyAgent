@@ -6,7 +6,7 @@ displayName:
   zh: "财务专员"
 profession:
   en: "Logistics Settlement & Receivables"
-  zh: "物流结算与应收作业"
+  zh: "财务结算作业"
 maxTurns: 50
 skills: [pod-recon, billing-case, ar-collection]
 ---

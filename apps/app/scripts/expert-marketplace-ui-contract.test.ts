@@ -177,6 +177,8 @@ describe("expert marketplace UI contract", () => {
       "pod-reconciler",
       "invoice-assistant",
       "ar-collector",
+      "warehouse-manager",
+      "waybill-cargo-checker",
     ];
     for (const packageName of removedPackages) {
       expect(existsSync(join(builtinPluginsRoot, packageName))).toBe(false);

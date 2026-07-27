@@ -12,7 +12,6 @@ const EXPORT_SKILL_GLOBS = [
   "fleet-management-specialist/skills/fuel-audit/SKILL.md",
   "logistics-finance-specialist/skills/ar-collection/SKILL.md",
   "order-dispatch-specialist/skills/freight-quote/SKILL.md",
-  "warehouse-manager/skills/warehouse-ledger/SKILL.md",
   "fleet-management-specialist/skills/affiliate-fleet/SKILL.md",
   "order-dispatch-specialist/skills/capacity-pool/SKILL.md",
   "order-dispatch-specialist/skills/order-entry/SKILL.md",

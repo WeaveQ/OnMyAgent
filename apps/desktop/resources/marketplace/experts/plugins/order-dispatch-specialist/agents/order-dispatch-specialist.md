@@ -6,7 +6,7 @@ displayName:
   zh: "接单调度专员"
 profession:
   en: "Order, Quote & Dispatch Operations"
-  zh: "接单与调度作业"
+  zh: "接单调度作业"
 maxTurns: 50
 skills: [order-entry, freight-quote, capacity-pool]
 ---
