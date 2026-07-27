@@ -404,6 +404,56 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.segments.some((segment) => segment.kind === "process")).toBe(false);
   });
 
+  test("stops presenting model chatter after a completed terminal widget", () => {
+    const widgetCode = '<section data-capability-map>能力图谱</section>';
+    const presentation = buildTurnContentPresentation(completedTurn([
+      assistant("intro", [{
+        type: "text",
+        text: "下面先介绍三项能力，并给出资料与交付物表格。",
+      }]),
+      assistant("capability-map", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "render-capability-map",
+        state: "output-available",
+        input: { command: "python3 render_capability_map.py" },
+        output: JSON.stringify({
+          inlineWidget: {
+            terminal: true,
+            title: "接单调度专员能力图谱",
+            widget_code: widgetCode,
+          },
+        }),
+      }]),
+      assistant("post-widget-reasoning", [{
+        type: "reasoning",
+        text: "前一个命令我已运行完成。下一步我来渲染可视化结果。",
+      }]),
+      assistant("post-widget-body", [{
+        type: "text",
+        text: "自我介绍已完成。已就绪，请直接发送业务信息。",
+      }]),
+    ]));
+
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "body",
+      "widget",
+    ]);
+    expect(presentation?.finalText).toBe(
+      "下面先介绍三项能力，并给出资料与交付物表格。",
+    );
+    expect(presentation?.hoistedItems).toEqual([
+      expect.objectContaining({
+        terminal: true,
+        title: "接单调度专员能力图谱",
+        html: widgetCode,
+        status: "completed",
+      }),
+    ]);
+    expect(JSON.stringify(presentation)).not.toContain("下一步我来渲染");
+    expect(JSON.stringify(presentation)).not.toContain("自我介绍已完成");
+  });
+
   test("does not duplicate a legacy widget echoed after the command result", () => {
     const payload = {
       title: "当前物流单",
