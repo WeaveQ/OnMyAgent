@@ -42,3 +42,11 @@ python3 <Skill根目录>/scripts/render_capability_map.py
 - 禁止使用 Mermaid、SVG、`show_widget` 围栏或重新绘制图谱。
 - 禁止把 `.process` 文件作为正式产物链接交付。
 - 图谱失败时保留前面的文字和表格，只简短说明预览暂不可用。
+
+## 4. 图谱完成后立即结束
+
+- 脚本返回的 `inlineWidget` 就是本轮唯一且最终的能力图谱。
+- `inlineWidget` 成功返回后立即结束本轮，不再调用 `render_visual`、`show_widget`、`visualizer` 或其他可视化工具。
+- 不再重复能力说明、表格、任务总结或下一步建议。
+- 不输出“已完成”“已就绪”“收到”“请直接发送资料”等状态确认；图谱必须是本轮最后一个可见内容。
+- 不复述、检查或评价自己此前已经输出的内容。
