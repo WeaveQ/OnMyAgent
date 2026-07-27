@@ -45,20 +45,10 @@ describe("personal usage UI contract", () => {
     expect(page).toContain("usage_day");
     expect(page).toContain('"daily"');
     expect(page).toContain('"weekly"');
-    // Cumulative mode removed from the usage activity tabs.
-    expect(page).not.toContain('(["daily", "weekly", "cumulative"]');
-    // Metrics wrap on mid-width settings panes instead of clipping Chinese labels.
-    expect(page).toContain("grid-cols-2 sm:grid-cols-3 xl:grid-cols-5");
-    expect(page).not.toContain("min-w-3xl grid-cols-5");
-    expect(page).not.toContain("mt-0.5 truncate text-sm text-dls-secondary");
-    // Longest-task cells: roomy padding + compact multi-day duration keys.
-    expect(page).toContain("min-h-20");
-    expect(page).toContain("break-keep");
-    expect(page).toContain("usage_duration_days_hours");
-    expect(page).toContain("usage_duration_hours");
-    // Heatmap trims leading empty weeks and can stretch columns when short.
+    expect(page).toContain('"cumulative"');
+    // Codex parity keeps fixed cells and mode-specific whole-column hover.
     expect(page).toContain("buildTokenActivitySeries");
-    expect(page).toContain("trimLeadingEmptyActivityColumns");
+    expect(page).not.toContain("trimLeadingEmptyActivityColumns");
     expect(page).toContain("[--profile-usage-accent:#339cff]");
     expect(page).toContain("dark:[--profile-usage-accent:#99ceff]");
     expect(page).toContain("var(--profile-usage-accent)_22%");
@@ -71,15 +61,14 @@ describe("personal usage UI contract", () => {
     expect(page).toContain('cell.date > props.today');
     expect(page).toContain("return null");
     expect(page).toContain('props.mode === "daily"');
-    expect(page).toContain("size-3 shrink-0");
-    expect(page).toContain("aspect-square");
-    expect(page).toContain("overflow-x-auto");
+    expect(page).toContain("size-3 shrink-0 rounded-xs");
     expect(page).not.toContain("weekCellForMode");
+    expect(page).not.toContain("aspect-square");
     expect(page).toContain("rounded-xs");
     expect(page).toContain("aria-label");
     expect(page).toContain("usage_daily_tooltip");
     expect(page).toContain("usage_weekly_tooltip");
-    expect(page).not.toContain("usage_cumulative_tooltip");
+    expect(page).toContain("usage_cumulative_tooltip");
     expect(page).not.toContain("usage_scope_label");
     expect(page).not.toContain("SelectTrigger");
     expect(page).not.toContain("icon:");
@@ -161,8 +150,10 @@ describe("personal usage UI contract", () => {
       "session.usage_activity",
       "session.usage_daily",
       "session.usage_weekly",
+      "session.usage_cumulative",
       "session.usage_daily_tooltip",
       "session.usage_weekly_tooltip",
+      "session.usage_cumulative_tooltip",
     ] as const;
     for (const key of keys) {
       expect(enSession[key]).toBeTruthy();
