@@ -67,8 +67,9 @@ describe("expert capability introduction skills", () => {
         expect(result.status, result.stderr).toBe(0);
         const payload = JSON.parse(result.stdout) as {
           files: string[];
-          inlineWidget: { title: string; widget_code: string };
+          inlineWidget: { terminal: boolean; title: string; widget_code: string };
         };
+        expect(payload.inlineWidget.terminal).toBe(true);
         expect(payload.inlineWidget.title).toContain(intro.title);
         expect(payload.inlineWidget.widget_code).toContain("<section");
         expect(payload.inlineWidget.widget_code).toContain("data-capability-map");

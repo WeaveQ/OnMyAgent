@@ -100,6 +100,7 @@ def main() -> None:
         "files": [str(output)],
         "processDir": str(output.parent),
         "inlineWidget": {
+            "terminal": True,
             "title": f'{data["title"]}能力图谱',
             "widget_code": fragment,
         },
