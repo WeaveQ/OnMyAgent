@@ -110,7 +110,7 @@ export function toWorkspaceRelativePath(
   return null;
 }
 
-/** Prefer session-isolated waybill-data.json, then legacy output/, then root. */
+/** Prefer the consolidated logistics capability directory, then legacy locations. */
 export function waybillDataPathCandidates(input: {
   catalogRoot: string;
   sessionRoot?: string | null;
@@ -130,13 +130,17 @@ export function waybillDataPathCandidates(input: {
   if (sessionDir) {
     const relativeDir = toWorkspaceRelativePath(input.catalogRoot, sessionDir);
     if (relativeDir) {
+      push(`${relativeDir}/物流单/waybill-data.json`);
       push(`${relativeDir}/waybill-data.json`);
       push(`${relativeDir}/output/waybill-data.json`);
     } else if (!sessionDir.startsWith("/") && !/^[a-zA-Z]:[\\/]/.test(sessionDir)) {
-      push(`${sessionDir.replace(/[/\\]+$/, "")}/waybill-data.json`);
+      const relativeSessionDir = sessionDir.replace(/[/\\]+$/, "");
+      push(`${relativeSessionDir}/物流单/waybill-data.json`);
+      push(`${relativeSessionDir}/waybill-data.json`);
     }
   }
 
+  push("物流单/waybill-data.json");
   push("waybill-data.json");
   push("output/waybill-data.json");
   return out;

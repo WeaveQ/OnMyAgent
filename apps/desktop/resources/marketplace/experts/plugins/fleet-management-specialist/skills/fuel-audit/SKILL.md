@@ -7,20 +7,26 @@ description: 车队油费稽核工作流。当需要把加油记录、行驶里�
 
 用「里程 + 加油量 + 油卡流水」做 **可解释的异常筛选**，让管理者先查高风险车/司机。
 
+## 能力目录
+
+- 当前工作目录是专家会话根目录；固定使用 `油费稽查/`。
+- 数据源、`.process/`、报告、CSV 和自动化提案全部放入 `油费稽查/`。
+- 交付链接必须带目录，例如 `artifact:油费稽查/油费稽查报告_XX.xlsx`。
+
 ## 标准作业流程
 
-1. **归并数据**：按 `references/data-fields.md` 对齐车牌、时间、升/元、里程，把单一数据源写到会话根 `fuel-audit-data.json`；字段协议见 `references/data-protocol.md`。
+1. **归并数据**：按 `references/data-fields.md` 对齐车牌、时间、升/元、里程，把单一数据源写到 `油费稽查/fuel-audit-data.json`；字段协议见 `references/data-protocol.md`。
 2. **算油耗**：段耗与 L/100km；里程为 0 或负增量时标数据质量异常，不硬算。
 3. **套基准**：读取 `references/consumption-baselines.md`。用户/车队同车同线历史优先；否则 `source` 写 `illustrative`。
 4. **扫规则**：读取 `references/anomaly-rules.md`，扫描偏离、短里程重复加油、非定点、时空矛盾与套现组合。
 5. **逐轮生成稽核预览 HTML**：每次更新 fuel-audit-data.json 后跑 preview：
    ```bash
-   python3 <Skill根目录>/scripts/build_fuel_audit.py --input fuel-audit-data.json --output-dir . --mode preview
+   python3 <Skill根目录>/scripts/build_fuel_audit.py --input 油费稽查/fuel-audit-data.json --output-dir 油费稽查 --mode preview
    ```
    preview 生成 `.process/fuel-preview.html`（汇总 + 油耗对比 SVG 图表 + 风险分布图 + 车辆稽核表异常标红 + Top 风险与核查动作）。客户端直接读取命令结果中的完整 `inlineWidget` JSON 并渲染，**禁止**把它放进 `show_widget` 围栏、禁止输出 `preview:` 链接、禁止把 HTML 源码或半截 JSON 贴进正文。**不输出文字看板分析**，结果由 preview HTML 承担。每轮补全后重跑 preview 刷新。
 6. **导出前格式确认（必须）+ 导出**：用户确认稽核后**不要**立刻 export。先用选择题请用户点选其一：生成 Excel 和 PDF / 只生成 Excel / 只生成 PDF / 先不生成。只有用户明确选择前三项之一后才运行：
    ```bash
-   python3 <Skill根目录>/scripts/build_fuel_audit.py --input fuel-audit-data.json --output-dir . --mode export
+   python3 <Skill根目录>/scripts/build_fuel_audit.py --input 油费稽查/fuel-audit-data.json --output-dir 油费稽查 --mode export
    ```
    export 生成油费稽查报告 Excel（`油费稽查报告_<stamp>.xlsx`，含「单车油耗汇总」（异常行标红）与「异常明细」两个工作表）与油费稽查报告 PDF（`油费稽查报告_<stamp>.pdf`，含 SVG 油耗对比图/风险分布图/异常详情，Chrome headless 导出）。**HTML 只是过程预览，不作为结果产物**。
 7. **交付产物（强制表格）**：过程 HTML 不提供用户链接。结果 Excel/PDF/CSV 必须用两列表格交付，不得自由发挥：
@@ -28,9 +34,9 @@ description: 车队油费稽核工作流。当需要把加油记录、行驶里�
     ```markdown
     | 文件 | 操作 |
     | --- | --- |
-    | <脚本返回的实际文件名.xlsx> | [查看](artifact:<实际文件名.xlsx>) |
-    | <脚本返回的实际文件名.pdf> | [查看](artifact:<实际文件名.pdf>) |
-    | <脚本返回的实际文件名.csv> | [查看](artifact:<实际文件名.csv>) |
+    | <脚本返回的实际文件名.xlsx> | [查看](artifact:油费稽查/<实际文件名.xlsx>) |
+    | <脚本返回的实际文件名.pdf> | [查看](artifact:油费稽查/<实际文件名.pdf>) |
+    | <脚本返回的实际文件名.csv> | [查看](artifact:油费稽查/<实际文件名.csv>) |
     ```
 
     - 操作列文案固定为 **「查看」**；链接协议固定 `artifact:...`，点击 = 打开侧边栏「文件」并预览。
@@ -46,7 +52,7 @@ description: 车队油费稽核工作流。当需要把加油记录、行驶里�
 - 示意基准必须标注。
 - 不自动扣款、处罚、停卡或发送外部消息；这些都由管理者拍板。
 - 不声称 automation proposal 已经是定时任务；以 OnMyAgent 创建结果卡为准。
-- 过程产物只放 `.process/`，最终报告/CSV 放会话根；禁止再建 `output/`。
+- 过程产物只放 `油费稽查/.process/`，最终报告/CSV 放 `油费稽查/`；禁止再建 `output/`。
 - 稽核结果必须通过 preview HTML 卡片展示，**禁止只输出文字/表格分析而不跑 preview**；未跑 preview 不得声称已完成稽核。
 - 过程 HTML（`.process/fuel-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON。
 - 结果产物（油费稽查报告 Excel/PDF）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。HTML 仅作过程预览，不作为结果产物。

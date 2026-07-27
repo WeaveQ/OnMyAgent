@@ -7,6 +7,12 @@ description: 动态运力池与多因素配载方法论。当需要汇总车辆�
 
 将散落在微信与电话中的运力信息整理为可查询、可催更的实时运力池；在有待调度订单时，基于多因素匹配输出 1–3 套配载方案与推荐理由，降低对个人经验的单点依赖和空驶浪费。
 
+## 能力目录
+
+- 当前工作目录是专家会话根目录；固定使用 `运力调配/`。
+- 运力池数据、订单数据、`.process/` 和正式配载方案全部放入 `运力调配/`。
+- 交付链接必须带目录，例如 `artifact:运力调配/运力调配方案_XX.xlsx`。
+
 ## 标准作业流程
 
 ### A. 运力池
@@ -23,14 +29,14 @@ description: 动态运力池与多因素配载方法论。当需要汇总车辆�
 7. **落盘 + 多因素匹配**：按 `references/data-protocol.md` 维护 `capacity-dispatch.json`（订单 + 运力池），按 `references/load-matching.md` 做硬过滤 -> 软排序 -> 取前 1–3 候选。**不输出文字分析表格**，方案与理由由 preview HTML 卡片承担。
 8. **逐轮生成配载方案预览 HTML**：每次收到运力/订单信息后跑 preview：
     ```bash
-    python3 <Skill根目录>/scripts/build_dispatch_artifacts.py --input capacity-dispatch.json --output-dir . --mode preview
+    python3 <Skill根目录>/scripts/build_dispatch_artifacts.py --input 运力调配/capacity-dispatch.json --output-dir 运力调配 --mode preview
     ```
     preview 生成 `.process/dispatch-preview.html`（配载方案卡片：首选/备选/可选，含综合分、车型、位置、空驶、新鲜度、优势理由、风险与推荐方案高亮）与运力池看板 `.process/capacity-board.md`、未入选运力 `.process/rejected-capacity.md`。脚本按综合分自动推荐最高分候选；可在 `order.recommendation: { plate, reason }` 覆盖。客户端直接读取命令结果中的完整 `inlineWidget` JSON 并渲染，**禁止**把它放进 `show_widget` 围栏、禁止输出 `preview:` 链接、禁止把 HTML 源码或半截 JSON 贴进正文。每轮补全后重跑 preview 刷新。
 9. **风险与拍板项**：高风险已在 preview 卡片显示；若需额外提示调度最终确认，正文简述即可，**禁止**用文字表格重复展开方案。
 10. **锁定后提示**：若用户选定方案，提示更新对应运力状态，避免重复派车。
 11. **导出前格式确认（必须）+ 导出**：用户确认配载方案后**不要**立刻 export。先用选择题请用户点选其一：生成 Excel 和 Word / 只生成 Excel / 只生成 Word / 先不生成。只有用户明确选择前三项之一后才运行：
     ```bash
-    python3 <Skill根目录>/scripts/build_dispatch_artifacts.py --input capacity-dispatch.json --output-dir . --mode export
+    python3 <Skill根目录>/scripts/build_dispatch_artifacts.py --input 运力调配/capacity-dispatch.json --output-dir 运力调配 --mode export
     ```
     export 生成配载方案 Excel（`运力调配方案_<orderId>.xlsx`，含「候选方案」与「订单信息」两个工作表）与配载方案 Word（`运力调配方案对比_<orderId>.docx`，含推荐结论/候选对比表/优劣势/司机确认话术/未入选运力）。**HTML 只是过程预览，不作为结果产物**。
 12. **交付产物（强制表格）**：过程 HTML 不提供用户链接。结果 Excel/Word 必须用两列表格交付，不得自由发挥：
@@ -38,8 +44,8 @@ description: 动态运力池与多因素配载方法论。当需要汇总车辆�
     ```markdown
     | 文件 | 操作 |
     | --- | --- |
-    | <脚本返回的实际文件名.xlsx> | [查看](artifact:<实际文件名.xlsx>) |
-    | <脚本返回的实际文件名.docx> | [查看](artifact:<实际文件名.docx>) |
+    | <脚本返回的实际文件名.xlsx> | [查看](artifact:运力调配/<实际文件名.xlsx>) |
+    | <脚本返回的实际文件名.docx> | [查看](artifact:运力调配/<实际文件名.docx>) |
     ```
 
     - 操作列文案固定为 **「查看」**；链接协议固定 `artifact:...`，点击 = 打开侧边栏「文件」并预览。

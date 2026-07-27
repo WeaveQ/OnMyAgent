@@ -7,6 +7,12 @@ description: 回单跟踪与费用对账方法论。当需要汇总回单回收�
 
 把回单回收与费用数据收成「能催、能对、能拍板」的台账与对账单草稿。
 
+## 能力目录
+
+- 当前工作目录是专家会话根目录；固定使用 `回单对账/`。
+- 回单数据、费用数据、`.process/`、对账单和自动化提案全部放入 `回单对账/`。
+- 交付链接必须带目录，例如 `artifact:回单对账/对账单_XX.xlsx`。
+
 ## 标准作业流程
 
 1. **吃素材**：登记表、运单费用表、对方账单、截图/PDF；模糊识别标「识别存疑」。
@@ -18,12 +24,12 @@ description: 回单跟踪与费用对账方法论。当需要汇总回单回收�
 7. **待拍板**：大额差异、规则冲突、材料矛盾最多列 3 项请调度/财务确认。
 8. **逐轮生成对账预览 HTML**：按 `references/data-protocol.md` 维护 `pod-recon-data.json`，每次收到回单/费用数据后跑 preview：
    ```bash
-   python3 <Skill根目录>/scripts/build_pod_recon_artifacts.py --input pod-recon-data.json --output-dir . --mode preview
+   python3 <Skill根目录>/scripts/build_pod_recon_artifacts.py --input 回单对账/pod-recon-data.json --output-dir 回单对账 --mode preview
    ```
    preview 生成 `.process/recon-preview.html`（汇总卡：我方/对方/差异/差异票数/超期/可结算 + 比价结论 + 对账明细表差异行标红 + 差异清单 + 超期回单）。客户端直接读取命令结果中的完整 `inlineWidget` JSON 并渲染，**禁止**把它放进 `show_widget` 围栏、禁止输出 `preview:` 链接、禁止把 HTML 源码或半截 JSON 贴进正文。**不输出文字表格分析**，对账结果由 preview HTML 承担。每轮补全后重跑 preview 刷新。
 9. **导出前格式确认（必须）+ 导出**：用户确认对账单后**不要**立刻 export。先用选择题请用户点选其一：生成 Excel 和 PDF / 只生成 Excel / 只生成 PDF / 先不生成。只有用户明确选择前三项之一后才运行：
    ```bash
-   python3 <Skill根目录>/scripts/build_pod_recon_artifacts.py --input pod-recon-data.json --output-dir . --mode export
+   python3 <Skill根目录>/scripts/build_pod_recon_artifacts.py --input 回单对账/pod-recon-data.json --output-dir 回单对账 --mode export
    ```
    export 生成对账单 Excel（`对账单_<period>.xlsx`，含「对账明细」（差异行标红）与「汇总」两个工作表）与对账单 PDF（`对账单_<period>.pdf`，含汇总/对账表/差异/超期，由 Chrome headless 从 HTML 导出）。若有超期回单，export 另生成 `automations/proposals/pod-overdue-scan.json`（每日回单超期扫描提案，用户确认后由宿主创建）。**HTML 只是过程预览，不作为结果产物**。
 10. **交付产物（强制表格）**：过程 HTML 不提供用户链接。结果 Excel/PDF 必须用两列表格交付，不得自由发挥：
@@ -31,8 +37,8 @@ description: 回单跟踪与费用对账方法论。当需要汇总回单回收�
     ```markdown
     | 文件 | 操作 |
     | --- | --- |
-    | <脚本返回的实际文件名.xlsx> | [查看](artifact:<实际文件名.xlsx>) |
-    | <脚本返回的实际文件名.pdf> | [查看](artifact:<实际文件名.pdf>) |
+    | <脚本返回的实际文件名.xlsx> | [查看](artifact:回单对账/<实际文件名.xlsx>) |
+    | <脚本返回的实际文件名.pdf> | [查看](artifact:回单对账/<实际文件名.pdf>) |
     ```
 
     - 操作列文案固定为 **「查看」**；链接协议固定 `artifact:...`，点击 = 打开侧边栏「文件」并预览。
