@@ -545,10 +545,10 @@ function buildExpandedSegments(
   let operationCount = 0;
   let nextOperationCovered = false;
   let previousCompletedStep: ProgressNarrationStep | null = null;
-  const flushProcess = () => {
+  const flushProcess = (suppressNarration = false) => {
     if (processItems.length === 0) return;
     const operation = processTool;
-    if (operation && !nextOperationCovered) {
+    if (operation && !nextOperationCovered && !suppressNarration) {
       segments.push({
         kind: "synthetic-body",
         id: `synthetic-body:${itemId(operation)}`,
@@ -578,8 +578,10 @@ function buildExpandedSegments(
   for (const item of items) {
     const widget = widgetFromToolPart(item);
     if (widget) {
-      flushProcess();
-      if (!nextOperationCovered) {
+      const widgetAlreadyRendered =
+        widget.status === "completed" && Boolean(widget.html.trim());
+      flushProcess(widgetAlreadyRendered);
+      if (!nextOperationCovered && !widgetAlreadyRendered) {
         segments.push({
           kind: "synthetic-body",
           id: `synthetic-body:${itemId(item)}`,
