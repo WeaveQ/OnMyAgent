@@ -251,7 +251,7 @@ export type {
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileEntry,
   CodeWorkspaceFileContent,
-} from "./desktop-ipc-code-workspace";
+} from "./desktop-ipc-code-workspace.js";
 
 export type LocalSkillCard = {
   name: string;
@@ -2065,4 +2065,4 @@ export type {
   DesktopCommandArgsOf,
   DesktopCommandResultOf,
   DesktopInvoke,
-} from "./desktop-ipc-command-map";
+} from "./desktop-ipc-command-map.js";

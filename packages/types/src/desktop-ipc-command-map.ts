@@ -17,7 +17,7 @@ import type {
   CodeWorkspaceOpenTargetsResult,
   CodeWorkspaceTerminal,
   CodeWorkspaceTerminalSnapshot,
-} from "./desktop-ipc-code-workspace";
+} from "./desktop-ipc-code-workspace.js";
 import type {
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
@@ -174,7 +174,7 @@ import type {
   WorkspaceList,
   WorkspaceOnMyAgentConfig,
   WorkspaceUpdateRemoteInput,
-} from "./desktop-ipc";
+} from "./desktop-ipc.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
