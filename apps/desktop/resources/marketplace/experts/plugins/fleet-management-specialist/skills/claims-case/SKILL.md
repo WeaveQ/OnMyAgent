@@ -7,6 +7,12 @@ description: 物流理赔案件作业法。当需要处理货损、延误、丢�
 
 把碎的异常信息收成 **可报案、可沟通、可跟踪** 的理赔作业包。
 
+## 能力目录
+
+- 当前工作目录是专家会话根目录；固定使用 `货损理赔/`。
+- 案件数据、证据清单、`.process/`、正式材料和进度表全部放入 `货损理赔/`。
+- 交付链接必须带目录，例如 `artifact:货损理赔/理赔材料_XX.xlsx`。
+
 ## 标准作业流程
 
 1. **立案件卡**：`references/case-fields.md` 结构化运单、异常类型、时间线、诉求。
@@ -17,12 +23,12 @@ description: 物流理赔案件作业法。当需要处理货损、延误、丢�
 6. **待拍板**：报案与否、提案金额边界、是否升级。
 7. **逐轮生成理赔预览 HTML**：每次更新 claim-case.json 后跑 preview：
    ```bash
-   python3 <Skill根目录>/scripts/build_claim_artifacts.py --input claim-case.json --output-dir . --mode preview
+   python3 <Skill根目录>/scripts/build_claim_artifacts.py --input 货损理赔/claim-case.json --output-dir 货损理赔 --mode preview
    ```
    preview 生成 `.process/claim-preview.html`（汇总卡：证据覆盖率/缺失/责任方向/进度 + 证据完备度表缺失标红 + 责任初判方向 + 进度表）。客户端直接读取命令结果中的完整 `inlineWidget` JSON 并渲染，**禁止**把它放进 `show_widget` 围栏、禁止输出 `preview:` 链接、禁止把 HTML 源码或半截 JSON 贴进正文。**不输出文字看板分析**，结果由 preview HTML 承担。每轮补全后重跑 preview 刷新。
 8. **导出前格式确认（必须）+ 导出**：用户确认案件后**不要**立刻 export。先用选择题请用户点选其一：生成 Excel 和 PDF / 只生成 Excel / 只生成 PDF / 先不生成。只有用户明确选择前三项之一后才运行：
    ```bash
-   python3 <Skill根目录>/scripts/build_claim_artifacts.py --input claim-case.json --output-dir . --mode export
+   python3 <Skill根目录>/scripts/build_claim_artifacts.py --input 货损理赔/claim-case.json --output-dir 货损理赔 --mode export
    ```
    export 生成理赔材料 Excel（`理赔材料_<caseId>.xlsx`，含「证据完备度」（缺失标红）与「进度」两个工作表）与理赔材料 PDF（`理赔材料_<caseId>.pdf`，证据/责任/进度，Chrome headless 导出）。**HTML 只是过程预览，不作为结果产物**。
 9. **交付产物（强制表格）**：过程 HTML 不提供用户链接。结果 Excel/PDF 必须用两列表格交付，不得自由发挥：
@@ -30,8 +36,8 @@ description: 物流理赔案件作业法。当需要处理货损、延误、丢�
     ```markdown
     | 文件 | 操作 |
     | --- | --- |
-    | <脚本返回的实际文件名.xlsx> | [查看](artifact:<实际文件名.xlsx>) |
-    | <脚本返回的实际文件名.pdf> | [查看](artifact:<实际文件名.pdf>) |
+    | <脚本返回的实际文件名.xlsx> | [查看](artifact:货损理赔/<实际文件名.xlsx>) |
+    | <脚本返回的实际文件名.pdf> | [查看](artifact:货损理赔/<实际文件名.pdf>) |
     ```
 
     - 操作列文案固定为 **「查看」**；链接协议固定 `artifact:...`，点击 = 打开侧边栏「文件」并预览。

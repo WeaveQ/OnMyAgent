@@ -115,7 +115,16 @@ export function parseAutomationProposalPayload(
 const KNOWN_PROPOSAL_BASENAMES = [
   "ar-daily-board.json",
   "fleet-daily-scan.json",
+  "fuel-weekly-scan.json",
+  "pod-overdue-scan.json",
   "warehouse-daily-brief.json",
+] as const;
+
+const CAPABILITY_PROPOSAL_DIRECTORIES = [
+  "回单对账",
+  "回款催收",
+  "油费稽查",
+  "挂靠车管理",
 ] as const;
 
 /** Workspace-relative dirs that may hold expert automation proposals. */
@@ -144,15 +153,25 @@ export function automationProposalSearchRoots(input: {
   if (sessionDir) {
     const relativeDir = toWorkspaceRelativePath(input.catalogRoot, sessionDir);
     if (relativeDir) {
+      for (const capability of CAPABILITY_PROPOSAL_DIRECTORIES) {
+        push(`${relativeDir}/${capability}/automations/proposals`);
+      }
       push(`${relativeDir}/automations/proposals`);
     } else if (
       !sessionDir.startsWith("/") &&
       !/^[a-zA-Z]:[\\/]/.test(sessionDir)
     ) {
-      push(`${sessionDir.replace(/[/\\]+$/, "")}/automations/proposals`);
+      const relativeSessionDir = sessionDir.replace(/[/\\]+$/, "");
+      for (const capability of CAPABILITY_PROPOSAL_DIRECTORIES) {
+        push(`${relativeSessionDir}/${capability}/automations/proposals`);
+      }
+      push(`${relativeSessionDir}/automations/proposals`);
     }
   }
   if (input.includeWorkspaceRoot !== false) {
+    for (const capability of CAPABILITY_PROPOSAL_DIRECTORIES) {
+      push(`${capability}/automations/proposals`);
+    }
     push("automations/proposals");
   }
   return roots;
