@@ -938,7 +938,6 @@ export type PersonalLocalAgentConversationWarmupResult = {
   error?: string | null;
 };
 
-
 export type PersonalLocalAgentConversationConfirmationsResult = {
   conversation: PersonalLocalAgentConversation | null;
   confirmations: PersonalLocalAgentApprovalRequest[];
@@ -1297,7 +1296,6 @@ export type FeishuAccountStatus = {
   error?: string;
 };
 
-
 export type AgentManagementManagedProviderModel = {
   id: string;
   name: string;
@@ -1480,7 +1478,6 @@ export type AgentManagementSnapshot = {
   loadedDomains?: AgentManagementSnapshotDomain[];
 };
 
-
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }
   | { action: "save"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string; syncLive?: boolean; provider: Omit<Partial<AgentManagementManagedProvider>, "settingsConfig"> & { settingsConfig?: Record<string, unknown> | string; simple?: Record<string, unknown> } }
@@ -1550,7 +1547,6 @@ export type AgentManagementSkillActionResult = {
   path?: string;
   result?: string;
 };
-
 
 export type PersonalLocalAgentHostStatusInput = {
   workspaceRoot: string;
@@ -1834,21 +1830,7 @@ export type SoftwareEnvironmentInfo = {
   };
 };
 
-/** Result of `checkBrowserSkillStatus` (Tencent BrowserSkill / `bsk` CLI). */
-export type BrowserSkillStatusResult = {
-  ok: boolean;
-  installed: boolean;
-  extensionConnected: boolean;
-  version: string | null;
-  binaryPath?: string | null;
-  message: string;
-  doctorSummary?: string | null;
-  installCliUrl: string;
-  chromeWebStoreUrl: string;
-  docsUrl: string;
-  /** Official one-liner for clipboard / Terminal open. */
-  installCommand?: string;
-};
+export type { BrowserSkillStatusResult } from "./desktop-ipc-browser-skill.js";
 
 export type SoftwareEnvironmentInstallResult = {
   ok: boolean;

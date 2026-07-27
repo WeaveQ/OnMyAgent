@@ -41,7 +41,6 @@ import {
   useExtensionsStoreSnapshot,
   SettingsShell,
   useAiProvidersController,
-  OLLAMA_PROVIDER_CONFIG,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
 import { userErrorFromRaw } from "../../kernel/user-error";
@@ -56,6 +55,7 @@ import {
   deleteOpenCodeManagedProvider,
   disconnectSettingsProvider,
 } from "./provider-list-actions";
+import { buildOpenCodeProviderEditFallback } from "./open-code-provider-edit";
 import { useSettingsProvidersPrewarm } from "./providers-prewarm-hook";
 import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
@@ -1217,65 +1217,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     (provider: AiSettingsConnectedProvider) => {
       if (!canEditOpenCodeProvider(provider)) return;
       setProviderActionError(null);
-
-      // Prefer live inventory. For workspace-config installs (e.g. Ollama from
-      // connectors), inventory may be empty — seed from SDK list + known defaults.
-      const sdkProvider = providers.find((item) => item.id === provider.id);
-      const sdkModels = Object.entries(sdkProvider?.models ?? {}).map(
-        ([id, model]) => ({
-          id,
-          name:
-            model && typeof model === "object" && "name" in model
-              ? String((model as { name?: string }).name ?? id)
-              : id,
-        }),
-      );
-      const isOllama = provider.id === "ollama";
-      const fallbackSettings: Record<string, unknown> = {
-        name: provider.name || provider.id,
-        npm: "@ai-sdk/openai-compatible",
-        options: {
-          baseURL: isOllama
-            ? OLLAMA_PROVIDER_CONFIG.baseURL
-            : "",
-        },
-        ...(sdkModels.length > 0
-          ? {
-              models: Object.fromEntries(
-                sdkModels.map((model) => [model.id, { name: model.name }]),
-              ),
-            }
-          : isOllama
-            ? {
-                models: {
-                  [OLLAMA_PROVIDER_CONFIG.defaultModelId]: {
-                    name: OLLAMA_PROVIDER_CONFIG.defaultModelId,
-                  },
-                },
-              }
-            : {}),
-      };
-      const fallback: AgentManagementManagedProvider = {
-        id: provider.id,
-        appType: "opencode",
-        name: provider.name || provider.id,
-        settingsConfig: fallbackSettings,
-        isCurrent: false,
-        inFailoverQueue: false,
-        liveManaged: true,
-        livePresent: true,
-        configPath: "",
-        models: sdkModels.length
-          ? sdkModels
-          : isOllama
-            ? [
-                {
-                  id: OLLAMA_PROVIDER_CONFIG.defaultModelId,
-                  name: OLLAMA_PROVIDER_CONFIG.defaultModelId,
-                },
-              ]
-            : [],
-      };
+      const fallback = buildOpenCodeProviderEditFallback(provider, providers);
       // Prefer in-memory inventory for instant open. After save, inventory is
       // updated from the save response (opencodeProviders), so re-edit is fresh
       // without awaiting IPC. Background refresh only updates the list for later.
