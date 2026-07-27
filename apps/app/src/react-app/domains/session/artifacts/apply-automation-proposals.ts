@@ -121,10 +121,10 @@ const KNOWN_PROPOSAL_BASENAMES = [
 ] as const;
 
 const CAPABILITY_PROPOSAL_DIRECTORIES = [
-  "回单对账",
-  "回款催收",
-  "油费稽查",
-  "挂靠车管理",
+  "\u56de\u5355\u5bf9\u8d26",
+  "\u56de\u6b3e\u50ac\u6536",
+  "\u6cb9\u8d39\u7a3d\u67e5",
+  "\u6302\u9760\u8f66\u7ba1\u7406",
 ] as const;
 
 /** Workspace-relative dirs that may hold expert automation proposals. */
