@@ -97,6 +97,7 @@ import { WorkspaceFilesPage } from "../../workspace";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
+  mergeStableSessionTabOrder,
   SidebarPaneCollapseToggle,
   STARTUP_SKELETON_ROWS,
   OnMyAgentRail,
@@ -194,6 +195,12 @@ export function ExpertPage(props: ExpertPageProps) {
     useState<number | null>(null);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
+  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
+    null,
+  );
+  const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope] = useState<
+    Record<string, string[]>
+  >({});
   const [draftAgentContexts, setDraftAgentContexts] = useState<
     Record<string, PendingAgentContext>
   >({});
@@ -297,6 +304,37 @@ export function ExpertPage(props: ExpertPageProps) {
       workspaceSessions,
     ],
   );
+  const sessionTabOrderScope = [
+    props.selectedWorkspaceId,
+    activeConversationAgentId ?? "unbound",
+  ].join(":");
+  const sessionTabOrderIds = useMemo(
+    () =>
+      mergeStableSessionTabOrder(
+        sessionTabOrderIdsByScope[sessionTabOrderScope] ?? [],
+        currentAgentSessions,
+      ),
+    [
+      currentAgentSessions,
+      sessionTabOrderIdsByScope,
+      sessionTabOrderScope,
+    ],
+  );
+  useEffect(() => {
+    setSessionTabOrderIdsByScope((current) => {
+      const previous = current[sessionTabOrderScope] ?? [];
+      if (
+        previous.length === sessionTabOrderIds.length &&
+        previous.every((id, index) => id === sessionTabOrderIds[index])
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        [sessionTabOrderScope]: sessionTabOrderIds,
+      };
+    });
+  }, [sessionTabOrderIds, sessionTabOrderScope]);
   const activeConversationGroup = useMemo(
     () =>
       resolveActiveConversationGroup({
@@ -1192,6 +1230,9 @@ export function ExpertPage(props: ExpertPageProps) {
           draftSessionActive ? activeDraftSessionId : props.selectedSessionId
         }
         sessions={currentAgentSessions}
+        orderIds={sessionTabOrderIds}
+        pendingSessionId={pendingTabSessionId}
+        onPendingSessionIdChange={setPendingTabSessionId}
         agentId={activeConversationAgentId}
         sessionStatusById={props.sidebar.sessionStatusById}
         onOpenSession={handleOpenExpertSession}
