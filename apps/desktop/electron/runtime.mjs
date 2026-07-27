@@ -255,25 +255,20 @@ export function createRuntimeManager({
   listLocalWorkspacePaths,
   runtimeEnvironment = () => ({}),
 }) {
-  const engineState = createEngineState();
-  const onmyagentServerState = createOnMyAgentServerState();
-  const orchestratorState = createOrchestratorState();
-
+  const engineState = createEngineState(), onmyagentServerState = createOnMyAgentServerState(), orchestratorState = createOrchestratorState();
   // Serialize engine lifecycle operations. Without this, concurrent renderer
   // invocations of engineStart/engineStop/engineRestart race: each call's
   // stopAllRuntimeChildren kills the previous call's freshly-spawned
   // orchestrator daemon, and the prior call then times out its /health probe.
   let runtimeLifecycleQueue = Promise.resolve();
-  let lifecycleState = "idle";
-  let activeOpencodeConfigDir = null;
+  let lifecycleState = "idle", activeOpencodeConfigDir = null;
   function withRuntimeLifecycle(fn) {
     const next = runtimeLifecycleQueue.then(fn, fn);
     runtimeLifecycleQueue = next.catch(() => {});
     return next;
   }
 
-  const userDataDir = app.getPath("userData");
-  const sidecarDirs = [
+  const userDataDir = app.getPath("userData"), sidecarDirs = [
     path.join(desktopRoot, "resources", "sidecars"),
     process.resourcesPath ? path.join(process.resourcesPath, "sidecars") : null,
     path.join(path.dirname(app.getPath("exe")), "sidecars"),
@@ -343,13 +338,9 @@ export function createRuntimeManager({
     return null;
   }
 
-  function onmyagentServerTokenStorePath() {
-    return path.join(userDataDir, "onmyagent-server-tokens.json");
-  }
+  function onmyagentServerTokenStorePath() { return path.join(userDataDir, "onmyagent-server-tokens.json"); }
 
-  function onmyagentServerStatePath() {
-    return path.join(userDataDir, "onmyagent-server-state.json");
-  }
+  function onmyagentServerStatePath() { return path.join(userDataDir, "onmyagent-server-state.json"); }
 
   function managedOpencodeWorkdir() {
     return path.join(userDataDir, "managed-opencode-workdir");
@@ -430,8 +421,7 @@ export function createRuntimeManager({
   }
 
   async function prepareOnMyAgentOpencodeConfigDir(configDir) {
-    activeOpencodeConfigDir = configDir;
-    const skillsDir = path.join(configDir, "skills");
+    activeOpencodeConfigDir = configDir; const skillsDir = path.join(configDir, "skills");
     await mkdir(skillsDir, { recursive: true });
 
     try {
@@ -488,17 +478,11 @@ export function createRuntimeManager({
   }
 
   async function refreshSkillLinks() {
-    let configDir = activeOpencodeConfigDir;
-    if (!configDir && process.env.ONMYAGENT_DEV_MODE === "1") {
-      const devPaths = await ensureDevModePaths();
-      configDir =
-        process.env.OPENCODE_CONFIG_DIR?.trim() ||
-        resolveLocalOpencodeConfigDir() ||
-        devPaths.opencodeConfigDir;
-    }
-    configDir ??= onmyagentOpencodeConfigDir();
-    await prepareOnMyAgentOpencodeConfigDir(configDir);
-    return configDir;
+    const devConfigDir = !activeOpencodeConfigDir && process.env.ONMYAGENT_DEV_MODE === "1"
+      ? (await ensureDevModePaths()).opencodeConfigDir : null;
+    const configDir = activeOpencodeConfigDir || (devConfigDir && (process.env.OPENCODE_CONFIG_DIR?.trim()
+      || resolveLocalOpencodeConfigDir() || devConfigDir)) || onmyagentOpencodeConfigDir();
+    return prepareOnMyAgentOpencodeConfigDir(configDir);
   }
 
   function orchestratorDataDir() {
@@ -2105,8 +2089,7 @@ export function createRuntimeManager({
   return {
     engineStart: (projectDir, options) => withRuntimeLifecycle(() => engineStart(projectDir, options)),
     engineStop: () => withRuntimeLifecycle(() => engineStop()),
-    engineRestart: (options) => withRuntimeLifecycle(() => engineRestart(options)),
-    refreshSkillLinks: () => withRuntimeLifecycle(() => refreshSkillLinks()),
+    engineRestart: (options) => withRuntimeLifecycle(() => engineRestart(options)), refreshSkillLinks: () => withRuntimeLifecycle(() => refreshSkillLinks()),
     prepareFreshRuntime: () => withRuntimeLifecycle(() => prepareFreshRuntime()),
     dispose: () => withRuntimeLifecycle(() => stopAllRuntimeChildren()),
     runtimeStatus,
