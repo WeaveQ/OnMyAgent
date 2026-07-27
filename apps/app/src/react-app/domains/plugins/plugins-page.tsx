@@ -906,11 +906,8 @@ function BuiltinExtensionsSection() {
     const visible = ONMYAGENT_EXTENSION_CATALOG.filter(
       (entry) => !isOnMyAgentExtensionHidden(entry),
     );
-    // Enabled first, then product order (Computer Use → Voice → Image → Ollama).
+    // Stable product order only — do not jump cards when the user toggles enable.
     return [...visible].sort((left, right) => {
-      const leftOn = isOnMyAgentExtensionEnabled(left);
-      const rightOn = isOnMyAgentExtensionEnabled(right);
-      if (leftOn !== rightOn) return leftOn ? -1 : 1;
       const leftId = left.id ?? left.serverName ?? left.name;
       const rightId = right.id ?? right.serverName ?? right.name;
       const byOrder =
