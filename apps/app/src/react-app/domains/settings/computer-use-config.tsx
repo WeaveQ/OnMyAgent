@@ -81,8 +81,12 @@ type ComputerUseConfigProps = {
   onRefresh?: () => void | Promise<void>;
 };
 
+type SetupSectionId = "connect" | "runtime" | "privacy";
+
 const computerUseLayoutClass = {
-  content: "space-y-4",
+  content: "space-y-5",
+  stepTabs: "w-full min-w-0",
+  stepPanel: "space-y-4",
   actionButton: "min-h-10 w-full whitespace-normal text-center lg:w-auto",
   primaryActionButton: "min-h-10 w-full justify-center whitespace-normal text-center",
   buttonLabel: "min-w-0 break-words",
@@ -261,6 +265,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
   const [authorizationBusy, setAuthorizationBusy] = useState(false);
   const [clearAuthorizationsOpen, setClearAuthorizationsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [section, setSection] = useState<SetupSectionId>("connect");
 
   // Spawn --check → fresh TCC read. Works whether or not the GUI is open.
   const verify = useCallback(async () => {
@@ -422,6 +427,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
     }
   };
 
+  const connectComplete = props.connected && allGranted;
+  const runtimeComplete = result?.protocolVersion === 1 && !versionMismatch && !protocolMismatch;
+
   return (
     <Card variant="outline" size="sm">
       <CardHeader>
@@ -450,319 +458,362 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
           </Alert>
         ) : null}
 
-        {/* Step 1 — MCP */}
-        <SetupRow
-          title={t("extensions.computer_use_connect_mcp")}
-          description={t("settings.computer_use_connect_mcp_desc")}
-          complete={props.connected}
-        >
-          <Button
-            className={computerUseLayoutClass.actionButton}
-            onClick={() => void props.onConnect?.()}
-            disabled={!props.onConnect || props.connected || props.connecting}
+        <SegmentedTabGroup density="filter" className={computerUseLayoutClass.stepTabs}>
+          <NavTabButton
+            active={section === "connect"}
+            size="tab"
+            shape="tab"
+            onClick={() => setSection("connect")}
           >
-            {props.connecting ? (
-              <LoadingSpinner size="default" className="shrink-0" />
-            ) : null}
-            <span className={computerUseLayoutClass.buttonLabel}>
-              {props.connected
-                  ? t("settings.computer_use_configured")
-                : props.connecting
-                  ? t("settings.computer_use_connecting")
-                  : t("extensions.computer_use_connect_mcp")}
-            </span>
-          </Button>
-        </SetupRow>
+            <StatusIcon complete={connectComplete} muted={section !== "connect" && !connectComplete} />
+            {t("settings.computer_use_step_connect")}
+          </NavTabButton>
+          <NavTabButton
+            active={section === "runtime"}
+            size="tab"
+            shape="tab"
+            onClick={() => setSection("runtime")}
+          >
+            <StatusIcon complete={runtimeComplete} muted={section !== "runtime" && !runtimeComplete} />
+            {t("settings.computer_use_step_runtime")}
+          </NavTabButton>
+          <NavTabButton
+            active={section === "privacy"}
+            size="tab"
+            shape="tab"
+            onClick={() => setSection("privacy")}
+          >
+            <StatusIcon
+              complete={result?.appAuthorizations !== undefined}
+              muted={section !== "privacy" && result?.appAuthorizations === undefined}
+            />
+            {t("settings.computer_use_step_privacy")}
+          </NavTabButton>
+        </SegmentedTabGroup>
 
-        {/* Step 2 — Permissions */}
-        <SetupRow
-          title={t("settings.computer_use_permissions_step_title")}
-          description={t("settings.computer_use_permissions_step_description")}
-          complete={allGranted}
-        >
-          <div className={computerUseLayoutClass.permissionsStack}>
-            <div className={computerUseLayoutClass.permissionGrid}>
-              <Pill
-                label={t("settings.permission_accessibility")}
-                granted={result?.accessibility === true}
-                checked={result !== null}
-              />
-              <Pill
-                label={t("settings.permission_screen_recording")}
-                granted={result?.screenRecording === true}
-                checked={result !== null}
-              />
-            </div>
-
-            <Button
-              className={computerUseLayoutClass.primaryActionButton}
-              onClick={() => void grant()}
-              disabled={busy}
+        {section === "connect" ? (
+          <div className={computerUseLayoutClass.stepPanel}>
+            <SetupRow
+              title={t("extensions.computer_use_connect_mcp")}
+              description={t("settings.computer_use_connect_mcp_desc")}
+              complete={props.connected}
             >
-              {busy ? (
-                <LoadingSpinner size="default" className="shrink-0" />
-              ) : (
-                <Settings2 className="size-4 shrink-0" />
-              )}
-              <span className={computerUseLayoutClass.buttonLabel}>
-                {busy
-                  ? t("settings.computer_use_opening")
-                  : allGranted
-                    ? t("settings.computer_use_reopen_helper")
-                    : t("settings.computer_use_grant_permissions")}
-              </span>
-            </Button>
-          </div>
-        </SetupRow>
+              <Button
+                className={computerUseLayoutClass.actionButton}
+                onClick={() => void props.onConnect?.()}
+                disabled={!props.onConnect || props.connected || props.connecting}
+              >
+                {props.connecting ? (
+                  <LoadingSpinner size="default" className="shrink-0" />
+                ) : null}
+                <span className={computerUseLayoutClass.buttonLabel}>
+                  {props.connected
+                    ? t("settings.computer_use_configured")
+                    : props.connecting
+                      ? t("settings.computer_use_connecting")
+                      : t("extensions.computer_use_connect_mcp")}
+                </span>
+              </Button>
+            </SetupRow>
 
-        <SetupRow
-          title={t("settings.computer_use_runtime_step_title")}
-          description={t("settings.computer_use_runtime_step_description")}
-          complete={result?.protocolVersion === 1}
-        >
-          <div className={computerUseLayoutClass.permissionsStack}>
-            <div className={computerUseLayoutClass.runtimeGrid}>
-              <StatusValue
-                label={t("settings.computer_use_helper_version")}
-                value={result?.helperVersion ?? t("settings.computer_use_unknown")}
-                tone={result?.helperVersion ? "accent" : "neutral"}
-              />
-              <StatusValue
-                label={t("settings.computer_use_desktop_version")}
-                value={result?.desktopVersion ?? t("settings.computer_use_unknown")}
-                tone={result?.desktopVersion ? "accent" : "neutral"}
-              />
-              <StatusValue
-                label={t("settings.computer_use_protocol")}
-                value={result?.protocolVersion === undefined ? t("settings.computer_use_unknown") : `v${result.protocolVersion}`}
-                tone={result?.protocolVersion === 1 ? "accent" : "warning"}
-              />
-              <StatusValue
-                label={t("settings.computer_use_activity")}
-                value={activityLabel(result?.activity)}
-                tone={result?.activity?.phase === "paused" || result?.activity?.phase === "errored" ? "warning" : result?.activity?.phase === "running" ? "accent" : "neutral"}
-              />
-            </div>
-            {versionMismatch || protocolMismatch ? (
-              <NoticeBox tone="warning" size="content">
-                {t("settings.computer_use_update_required")}
-              </NoticeBox>
-            ) : null}
-          </div>
-        </SetupRow>
-
-        <SetupRow
-          title={t("settings.computer_use_app_authorizations_title")}
-          description={t("settings.computer_use_app_authorizations_description")}
-          complete={result?.appAuthorizations !== undefined}
-        >
-          <div className={computerUseLayoutClass.permissionsStack}>
-            <NoticeBox tone="info" size="content">
-              {t("settings.computer_use_app_authorizations_notice")}
-            </NoticeBox>
-            {result?.appAuthorizations?.allowedBundleIdentifiers.length ? (
-              <div className="grid gap-2">
-                {result.appAuthorizations.allowedBundleIdentifiers.map(
-                  (bundleIdentifier) => (
-                    <SettingsActionRow key={bundleIdentifier} density="compact">
-                      <span className="min-w-0 break-all font-mono text-xs">
-                        {bundleIdentifier}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={authorizationBusy}
-                        aria-label={t("settings.computer_use_app_authorization_revoke")}
-                        onClick={() => void revokeAppAuthorization(bundleIdentifier)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </SettingsActionRow>
-                  ),
-                )}
-              </div>
-            ) : (
-              <div className="text-xs text-dls-secondary">
-                {t("settings.computer_use_app_authorizations_empty")}
-              </div>
-            )}
-            <Button
-              variant="outline"
-              className={computerUseLayoutClass.actionButton}
-              disabled={
-                authorizationBusy ||
-                !result?.appAuthorizations?.allowedBundleIdentifiers.length
-              }
-              onClick={() => setClearAuthorizationsOpen(true)}
+            <SetupRow
+              title={t("settings.computer_use_permissions_step_title")}
+              description={t("settings.computer_use_permissions_step_description")}
+              complete={allGranted}
             >
-              {t("settings.computer_use_app_authorizations_clear")}
-            </Button>
-          </div>
-        </SetupRow>
+              <div className={computerUseLayoutClass.permissionsStack}>
+                <div className={computerUseLayoutClass.permissionGrid}>
+                  <Pill
+                    label={t("settings.permission_accessibility")}
+                    granted={result?.accessibility === true}
+                    checked={result !== null}
+                  />
+                  <Pill
+                    label={t("settings.permission_screen_recording")}
+                    granted={result?.screenRecording === true}
+                    checked={result !== null}
+                  />
+                </div>
 
-        <SetupRow
-          title={t("settings.computer_use_skysight_title")}
-          description={t("settings.computer_use_skysight_description")}
-          complete={result !== null}
-        >
-          <div className={computerUseLayoutClass.permissionsStack}>
-            <SettingsActionRow density="compact">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">
-                  {t("settings.computer_use_skysight_toggle")}
-                </div>
-                <div className="mt-1 text-xs text-dls-secondary">
-                  {result?.skysight?.recording
-                    ? t("settings.computer_use_skysight_recording")
-                    : t("settings.computer_use_skysight_stopped")}
-                </div>
-              </div>
-              <Switch
-                aria-label={t("settings.computer_use_skysight_toggle")}
-                checked={result?.skysight?.enabled === true}
-                disabled={result === null || skysightBusy}
-                onCheckedChange={(enabled) => void setSkysightEnabled(enabled)}
-              />
-            </SettingsActionRow>
-            <SettingsActionRow density="compact">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">
-                  {t("settings.computer_use_skysight_pause")}
-                </div>
-                <div className="mt-1 text-xs text-dls-secondary">
-                  {result?.skysight?.paused
-                    ? t("settings.computer_use_skysight_paused")
-                    : t("settings.computer_use_skysight_active")}
-                </div>
-              </div>
-              <Switch
-                aria-label={t("settings.computer_use_skysight_pause")}
-                checked={result?.skysight?.paused === true}
-                disabled={result?.skysight?.enabled !== true || skysightBusy}
-                onCheckedChange={(paused) => void setSkysightPaused(paused)}
-              />
-            </SettingsActionRow>
-            <SettingsActionRow density="compact">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">
-                  {t("settings.computer_use_skysight_private_browsing")}
-                </div>
-                <div className="mt-1 text-xs text-dls-secondary">
-                  {t("settings.computer_use_skysight_private_browsing_description")}
-                </div>
-              </div>
-              <Switch
-                aria-label={t("settings.computer_use_skysight_private_browsing")}
-                checked={!result?.skysight?.exclusions?.some(
-                  (entry) => entry.scope === "private_browsing",
-                )}
-                disabled={result === null || skysightBusy}
-                onCheckedChange={(observe) =>
-                  void updateSkysightExclusion(
-                    observe ? "remove" : "add",
-                    "private_browsing",
-                  )
-                }
-              />
-            </SettingsActionRow>
-            <div className="grid gap-2">
-              <div className="text-sm font-medium">
-                {t("settings.computer_use_skysight_exclusions")}
-              </div>
-              <SegmentedTabGroup density="filter">
-                <NavTabButton
-                  active={skysightExclusionScope === "app"}
-                  size="tab"
-                  shape="tab"
-                  onClick={() => setSkysightExclusionScope("app")}
-                >
-                  {t("settings.computer_use_skysight_exclusion_app")}
-                </NavTabButton>
-                <NavTabButton
-                  active={skysightExclusionScope === "website"}
-                  size="tab"
-                  shape="tab"
-                  onClick={() => setSkysightExclusionScope("website")}
-                >
-                  {t("settings.computer_use_skysight_exclusion_website")}
-                </NavTabButton>
-              </SegmentedTabGroup>
-              <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                <Input
-                  value={skysightExclusionValue}
-                  disabled={skysightBusy}
-                  aria-label={t("settings.computer_use_skysight_exclusion_value")}
-                  placeholder={t(
-                    skysightExclusionScope === "app"
-                      ? "settings.computer_use_skysight_exclusion_app_placeholder"
-                      : "settings.computer_use_skysight_exclusion_website_placeholder",
-                  )}
-                  onChange={(event) => setSkysightExclusionValue(event.target.value)}
-                />
                 <Button
-                  variant="outline"
-                  disabled={skysightBusy || !skysightExclusionValue.trim()}
-                  onClick={() =>
-                    void updateSkysightExclusion(
-                      "add",
-                      skysightExclusionScope,
-                      skysightExclusionValue,
-                    )
-                  }
+                  className={computerUseLayoutClass.primaryActionButton}
+                  onClick={() => void grant()}
+                  disabled={busy}
                 >
-                  <Plus />
-                  {t("settings.computer_use_skysight_exclusion_add")}
+                  {busy ? (
+                    <LoadingSpinner size="default" className="shrink-0" />
+                  ) : (
+                    <Settings2 className="size-4 shrink-0" />
+                  )}
+                  <span className={computerUseLayoutClass.buttonLabel}>
+                    {busy
+                      ? t("settings.computer_use_opening")
+                      : allGranted
+                        ? t("settings.computer_use_reopen_helper")
+                        : t("settings.computer_use_grant_permissions")}
+                  </span>
                 </Button>
               </div>
-              {result?.skysight?.exclusions?.filter(
-                (entry) => entry.scope !== "private_browsing",
-              ).length ? (
-                result.skysight.exclusions
-                  .filter((entry) => entry.scope !== "private_browsing")
-                  .map((entry) => (
-                    <SettingsActionRow
-                      key={`${entry.scope}:${entry.value ?? ""}`}
-                      density="compact"
-                    >
-                      <span className="min-w-0 break-all font-mono text-xs">
-                        {entry.value}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={skysightBusy}
-                        aria-label={t("settings.computer_use_skysight_exclusion_remove")}
-                        onClick={() =>
-                          void updateSkysightExclusion(
-                            "remove",
-                            entry.scope,
-                            entry.value,
-                          )
-                        }
-                      >
-                        <Trash2 />
-                      </Button>
-                    </SettingsActionRow>
-                  ))
-              ) : (
-                <div className="text-xs text-dls-secondary">
-                  {t("settings.computer_use_skysight_exclusions_empty")}
-                </div>
-              )}
-            </div>
-            <NoticeBox tone="info" size="content">
-              {t("settings.computer_use_skysight_privacy")}
-            </NoticeBox>
-            <Button
-              variant="outline"
-              className={computerUseLayoutClass.actionButton}
-              disabled={skysightBusy}
-              onClick={() => setClearSkysightOpen(true)}
-            >
-              {t("settings.computer_use_skysight_clear")}
-            </Button>
+            </SetupRow>
           </div>
-        </SetupRow>
+        ) : null}
+
+        {section === "runtime" ? (
+          <div className={computerUseLayoutClass.stepPanel}>
+            <SetupRow
+              title={t("settings.computer_use_runtime_step_title")}
+              description={t("settings.computer_use_runtime_step_description")}
+              complete={result?.protocolVersion === 1}
+            >
+              <div className={computerUseLayoutClass.permissionsStack}>
+                <div className={computerUseLayoutClass.runtimeGrid}>
+                  <StatusValue
+                    label={t("settings.computer_use_helper_version")}
+                    value={result?.helperVersion ?? t("settings.computer_use_unknown")}
+                    tone={result?.helperVersion ? "accent" : "neutral"}
+                  />
+                  <StatusValue
+                    label={t("settings.computer_use_desktop_version")}
+                    value={result?.desktopVersion ?? t("settings.computer_use_unknown")}
+                    tone={result?.desktopVersion ? "accent" : "neutral"}
+                  />
+                  <StatusValue
+                    label={t("settings.computer_use_protocol")}
+                    value={result?.protocolVersion === undefined ? t("settings.computer_use_unknown") : `v${result.protocolVersion}`}
+                    tone={result?.protocolVersion === 1 ? "accent" : "warning"}
+                  />
+                  <StatusValue
+                    label={t("settings.computer_use_activity")}
+                    value={activityLabel(result?.activity)}
+                    tone={result?.activity?.phase === "paused" || result?.activity?.phase === "errored" ? "warning" : result?.activity?.phase === "running" ? "accent" : "neutral"}
+                  />
+                </div>
+                {versionMismatch || protocolMismatch ? (
+                  <NoticeBox tone="warning" size="content">
+                    {t("settings.computer_use_update_required")}
+                  </NoticeBox>
+                ) : null}
+              </div>
+            </SetupRow>
+          </div>
+        ) : null}
+
+        {section === "privacy" ? (
+          <div className={computerUseLayoutClass.stepPanel}>
+            <SetupRow
+              title={t("settings.computer_use_app_authorizations_title")}
+              description={t("settings.computer_use_app_authorizations_description")}
+              complete={result?.appAuthorizations !== undefined}
+            >
+              <div className={computerUseLayoutClass.permissionsStack}>
+                <NoticeBox tone="info" size="content">
+                  {t("settings.computer_use_app_authorizations_notice")}
+                </NoticeBox>
+                {result?.appAuthorizations?.allowedBundleIdentifiers.length ? (
+                  <div className="grid gap-2">
+                    {result.appAuthorizations.allowedBundleIdentifiers.map(
+                      (bundleIdentifier) => (
+                        <SettingsActionRow key={bundleIdentifier} density="compact">
+                          <span className="min-w-0 break-all font-mono text-xs">
+                            {bundleIdentifier}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={authorizationBusy}
+                            aria-label={t("settings.computer_use_app_authorization_revoke")}
+                            onClick={() => void revokeAppAuthorization(bundleIdentifier)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </SettingsActionRow>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs text-dls-secondary">
+                    {t("settings.computer_use_app_authorizations_empty")}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  className={computerUseLayoutClass.actionButton}
+                  disabled={
+                    authorizationBusy ||
+                    !result?.appAuthorizations?.allowedBundleIdentifiers.length
+                  }
+                  onClick={() => setClearAuthorizationsOpen(true)}
+                >
+                  {t("settings.computer_use_app_authorizations_clear")}
+                </Button>
+              </div>
+            </SetupRow>
+
+            <SetupRow
+              title={t("settings.computer_use_skysight_title")}
+              description={t("settings.computer_use_skysight_description")}
+              complete={result !== null}
+            >
+              <div className={computerUseLayoutClass.permissionsStack}>
+                <SettingsActionRow density="compact">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">
+                      {t("settings.computer_use_skysight_toggle")}
+                    </div>
+                    <div className="mt-1 text-xs text-dls-secondary">
+                      {result?.skysight?.recording
+                        ? t("settings.computer_use_skysight_recording")
+                        : t("settings.computer_use_skysight_stopped")}
+                    </div>
+                  </div>
+                  <Switch
+                    aria-label={t("settings.computer_use_skysight_toggle")}
+                    checked={result?.skysight?.enabled === true}
+                    disabled={result === null || skysightBusy}
+                    onCheckedChange={(enabled) => void setSkysightEnabled(enabled)}
+                  />
+                </SettingsActionRow>
+                <SettingsActionRow density="compact">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">
+                      {t("settings.computer_use_skysight_pause")}
+                    </div>
+                    <div className="mt-1 text-xs text-dls-secondary">
+                      {result?.skysight?.paused
+                        ? t("settings.computer_use_skysight_paused")
+                        : t("settings.computer_use_skysight_active")}
+                    </div>
+                  </div>
+                  <Switch
+                    aria-label={t("settings.computer_use_skysight_pause")}
+                    checked={result?.skysight?.paused === true}
+                    disabled={result?.skysight?.enabled !== true || skysightBusy}
+                    onCheckedChange={(paused) => void setSkysightPaused(paused)}
+                  />
+                </SettingsActionRow>
+                <SettingsActionRow density="compact">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">
+                      {t("settings.computer_use_skysight_private_browsing")}
+                    </div>
+                    <div className="mt-1 text-xs text-dls-secondary">
+                      {t("settings.computer_use_skysight_private_browsing_description")}
+                    </div>
+                  </div>
+                  <Switch
+                    aria-label={t("settings.computer_use_skysight_private_browsing")}
+                    checked={!result?.skysight?.exclusions?.some(
+                      (entry) => entry.scope === "private_browsing",
+                    )}
+                    disabled={result === null || skysightBusy}
+                    onCheckedChange={(observe) =>
+                      void updateSkysightExclusion(
+                        observe ? "remove" : "add",
+                        "private_browsing",
+                      )
+                    }
+                  />
+                </SettingsActionRow>
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">
+                    {t("settings.computer_use_skysight_exclusions")}
+                  </div>
+                  <SegmentedTabGroup density="filter">
+                    <NavTabButton
+                      active={skysightExclusionScope === "app"}
+                      size="tab"
+                      shape="tab"
+                      onClick={() => setSkysightExclusionScope("app")}
+                    >
+                      {t("settings.computer_use_skysight_exclusion_app")}
+                    </NavTabButton>
+                    <NavTabButton
+                      active={skysightExclusionScope === "website"}
+                      size="tab"
+                      shape="tab"
+                      onClick={() => setSkysightExclusionScope("website")}
+                    >
+                      {t("settings.computer_use_skysight_exclusion_website")}
+                    </NavTabButton>
+                  </SegmentedTabGroup>
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+                    <Input
+                      value={skysightExclusionValue}
+                      disabled={skysightBusy}
+                      aria-label={t("settings.computer_use_skysight_exclusion_value")}
+                      placeholder={t(
+                        skysightExclusionScope === "app"
+                          ? "settings.computer_use_skysight_exclusion_app_placeholder"
+                          : "settings.computer_use_skysight_exclusion_website_placeholder",
+                      )}
+                      onChange={(event) => setSkysightExclusionValue(event.target.value)}
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={skysightBusy || !skysightExclusionValue.trim()}
+                      onClick={() =>
+                        void updateSkysightExclusion(
+                          "add",
+                          skysightExclusionScope,
+                          skysightExclusionValue,
+                        )
+                      }
+                    >
+                      <Plus />
+                      {t("settings.computer_use_skysight_exclusion_add")}
+                    </Button>
+                  </div>
+                  {result?.skysight?.exclusions?.filter(
+                    (entry) => entry.scope !== "private_browsing",
+                  ).length ? (
+                    result.skysight.exclusions
+                      .filter((entry) => entry.scope !== "private_browsing")
+                      .map((entry) => (
+                        <SettingsActionRow
+                          key={`${entry.scope}:${entry.value ?? ""}`}
+                          density="compact"
+                        >
+                          <span className="min-w-0 break-all font-mono text-xs">
+                            {entry.value}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={skysightBusy}
+                            aria-label={t("settings.computer_use_skysight_exclusion_remove")}
+                            onClick={() =>
+                              void updateSkysightExclusion(
+                                "remove",
+                                entry.scope,
+                                entry.value,
+                              )
+                            }
+                          >
+                            <Trash2 />
+                          </Button>
+                        </SettingsActionRow>
+                      ))
+                  ) : (
+                    <div className="text-xs text-dls-secondary">
+                      {t("settings.computer_use_skysight_exclusions_empty")}
+                    </div>
+                  )}
+                </div>
+                <NoticeBox tone="info" size="content">
+                  {t("settings.computer_use_skysight_privacy")}
+                </NoticeBox>
+                <Button
+                  variant="outline"
+                  className={computerUseLayoutClass.actionButton}
+                  disabled={skysightBusy}
+                  onClick={() => setClearSkysightOpen(true)}
+                >
+                  {t("settings.computer_use_skysight_clear")}
+                </Button>
+              </div>
+            </SetupRow>
+          </div>
+        ) : null}
       </CardContent>
 
       <CardFooter className="border-t border-dls-border">
@@ -861,9 +912,9 @@ function SetupRow(props: {
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-dls-border bg-dls-surface-muted p-3">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex min-w-0 flex-1 gap-3">
+    <div className="rounded-xl border border-dls-border bg-dls-surface-muted/60 p-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 items-start gap-3">
           <StatusIcon complete={props.complete} />
           <div className="min-w-0">
             <div className="text-sm font-medium text-dls-text">
@@ -874,7 +925,7 @@ function SetupRow(props: {
             </div>
           </div>
         </div>
-        <div className="w-full min-w-0 xl:w-[min(28rem,52%)]">
+        <div className="min-w-0 pl-7">
           {props.children}
         </div>
       </div>
@@ -922,11 +973,11 @@ function Pill(props: { label: string; granted: boolean; checked: boolean }) {
 
 function StatusIcon(props: { complete: boolean; muted?: boolean }) {
   if (props.complete) {
-    return <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-dls-accent" />;
+    return <CheckCircle2 className="size-3.5 shrink-0 text-dls-accent" />;
   }
   return (
     <CircleAlert
-      className={`mt-0.5 size-4 shrink-0 ${props.muted ? "text-dls-secondary" : "text-dls-status-warning"}`}
+      className={`size-3.5 shrink-0 ${props.muted ? "text-dls-secondary" : "text-dls-status-warning"}`}
     />
   );
 }

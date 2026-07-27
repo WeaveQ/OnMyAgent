@@ -205,8 +205,8 @@ describe("built-in Computer Use", () => {
     const settings = readWorkspaceFile(
       "apps/app/src/react-app/domains/settings/computer-use-config.tsx",
     );
-    expect(settings).toContain("xl:w-[min(28rem,52%)]");
-    expect(settings).not.toContain("xl:w-[min(22rem,44%)]");
+    // Stepped form: connect / runtime / privacy sections instead of one long stack.
+    expect(settings).toContain('SetupSectionId = "connect" | "runtime" | "privacy"');
     expect(settings).toContain('permissionGrid: "grid gap-2"');
     expect(settings).toContain('runtimeGrid: "grid gap-2 xl:grid-cols-2"');
     expect(settings).toContain('className="min-w-0 break-words text-sm"');

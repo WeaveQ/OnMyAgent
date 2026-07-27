@@ -957,8 +957,14 @@ function BuiltinExtensionsSection() {
           connected={detailEnabled}
           connectedLabel={t("plugins.artifact_enabled")}
           disconnectedLabel={t("plugins.artifact_disabled")}
-          setupInstructions={detailEntry.extensionManifest?.setup?.instructions}
+          // Config panel is the setup surface — skip duplicate setup/details chrome.
+          setupInstructions={
+            detailConfig
+              ? undefined
+              : detailEntry.extensionManifest?.setup?.instructions
+          }
           showEnablementCard={false}
+          showDetailsCard={!detailConfig}
           size="wide"
           configSlot={detailConfig}
         />
