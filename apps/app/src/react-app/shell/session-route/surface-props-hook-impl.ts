@@ -87,6 +87,7 @@ import {
   resolveComposerRuntimeTools,
   resolveDraftSendPlan,
   resolveDraftText,
+  resolveRuntimePromptMessageId,
   routeForSettingsSection,
   type SettingsSection,
 } from "./composer";
@@ -625,11 +626,7 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (!sessionId) return;
-        const promptMessageId =
-          draft.messageID ??
-          (createdSession
-            ? `msg_onmyagent-user-${crypto.randomUUID()}`
-            : undefined);
+        let optimisticMessageId: string | null = null;
         if (createdSession) {
           setSessionsByWorkspaceId((current) => {
             const next = insertCreatedSessionForWorkspace({
@@ -640,16 +637,13 @@ export function useSessionRouteSurfaceProps(
             sessionsByWorkspaceIdRef.current = next;
             return next;
           });
-          if (promptMessageId) {
-            seedOptimisticUserMessage({
-              workspaceId:
-                selectedWorkspaceEndpoint?.workspaceId ??
-                selectedWorkspaceId,
-              sessionId,
-              messageId: promptMessageId,
-              text: resolveDraftText(promptDraft),
-            });
-          }
+          optimisticMessageId = seedOptimisticUserMessage({
+            workspaceId:
+              selectedWorkspaceEndpoint?.workspaceId ??
+              selectedWorkspaceId,
+            sessionId,
+            text: resolveDraftText(promptDraft),
+          });
           activateCreatedSessionRoute({
             selectedWorkspaceId,
             sessionId,
@@ -932,12 +926,16 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
+        const runtimePromptMessageId =
+          resolveRuntimePromptMessageId(draft);
         try {
           const result = await runWithCreatedSessionRuntimeSync(() =>
             opencodeClient.session.promptAsync({
               sessionID: sessionId,
               parts,
-              ...(promptMessageId ? { messageID: promptMessageId } : {}),
+              ...(runtimePromptMessageId
+                ? { messageID: runtimePromptMessageId }
+                : {}),
               // Priority: user's manual override > agent's configured model > global default.
               // Never modify `pendingAgentSnapshot.model` — the agent's configured model
               // is owned by the agent page edit dialog.
@@ -953,13 +951,13 @@ export function useSessionRouteSurfaceProps(
             throw new Error(serializeSDKError(result.error));
           }
         } catch (error) {
-          if (createdSession && promptMessageId) {
+          if (createdSession && optimisticMessageId) {
             removeOptimisticUserMessage({
               workspaceId:
                 selectedWorkspaceEndpoint?.workspaceId ??
                 selectedWorkspaceId,
               sessionId,
-              messageId: promptMessageId,
+              messageId: optimisticMessageId,
             });
           }
           throw error;

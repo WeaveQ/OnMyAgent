@@ -189,6 +189,12 @@ export function resolveDraftText(draft: Pick<ComposerDraft, "resolvedText" | "te
   return (draft.resolvedText ?? draft.text).trim();
 }
 
+export function resolveRuntimePromptMessageId(
+  draft: Pick<ComposerDraft, "messageID">,
+) {
+  return draft.messageID || undefined;
+}
+
 export function draftHasSendableContent(draft: Pick<ComposerDraft, "attachments" | "resolvedText" | "text">) {
   return resolveDraftText(draft).length > 0 || draft.attachments.length > 0;
 }

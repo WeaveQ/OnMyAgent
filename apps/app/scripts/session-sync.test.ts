@@ -47,13 +47,13 @@ afterEach(() => {
 });
 
 describe("session sync tracking", () => {
-  test("shows a created session user prompt immediately and reconciles by message id", () => {
-    seedOptimisticUserMessage({
+  test("shows a created session user prompt immediately and reconciles to the runtime id", () => {
+    const optimisticMessageId = seedOptimisticUserMessage({
       workspaceId: "runtime_ws",
       sessionId: "ses_new",
-      messageId: "msg_user",
       text: "客户微信发来一条新订单",
     });
+    expect(optimisticMessageId).toStartWith("optimistic-user-");
     __createWorkspaceSessionSyncForTest(syncInput);
     const release = trackWorkspaceSessionSync(syncInput, "ses_new");
 
@@ -61,7 +61,7 @@ describe("session sync tracking", () => {
       type: "message.updated",
       properties: {
         info: {
-          id: "msg_user",
+          id: "msg_runtime_user",
           sessionID: "ses_new",
           role: "user",
           time: { created: 1_000 },
@@ -75,7 +75,7 @@ describe("session sync tracking", () => {
       ),
     ).toEqual([
       expect.objectContaining({
-        id: "msg_user",
+        id: "msg_runtime_user",
         role: "user",
         parts: [{ type: "text", text: "客户微信发来一条新订单" }],
       }),
@@ -84,16 +84,17 @@ describe("session sync tracking", () => {
   });
 
   test("removes a created-session optimistic prompt when submission fails", () => {
-    seedOptimisticUserMessage({
+    const optimisticMessageId = seedOptimisticUserMessage({
       workspaceId: "runtime_ws",
       sessionId: "ses_new",
-      messageId: "msg_failed",
       text: "这条消息发送失败",
     });
+    expect(optimisticMessageId).not.toBeNull();
+    if (!optimisticMessageId) throw new Error("Expected optimistic message id");
     removeOptimisticUserMessage({
       workspaceId: "runtime_ws",
       sessionId: "ses_new",
-      messageId: "msg_failed",
+      messageId: optimisticMessageId,
     });
     expect(
       getReactQueryClient().getQueryData<UIMessage[]>(
