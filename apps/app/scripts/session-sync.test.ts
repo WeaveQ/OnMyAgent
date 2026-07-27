@@ -9,6 +9,8 @@ import {
   __applySessionSyncEventForTest,
   __createWorkspaceSessionSyncForTest,
   __disposeWorkspaceSessionSyncForTest,
+  removeOptimisticUserMessage,
+  seedOptimisticUserMessage,
   trackWorkspaceSessionSync,
   transcriptKey,
 } from "../src/react-app/domains/session/sync/session-sync";
@@ -45,6 +47,61 @@ afterEach(() => {
 });
 
 describe("session sync tracking", () => {
+  test("shows a created session user prompt immediately and reconciles by message id", () => {
+    seedOptimisticUserMessage({
+      workspaceId: "runtime_ws",
+      sessionId: "ses_new",
+      messageId: "msg_user",
+      text: "客户微信发来一条新订单",
+    });
+    __createWorkspaceSessionSyncForTest(syncInput);
+    const release = trackWorkspaceSessionSync(syncInput, "ses_new");
+
+    __applySessionSyncEventForTest(syncInput, {
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "msg_user",
+          sessionID: "ses_new",
+          role: "user",
+          time: { created: 1_000 },
+        },
+      },
+    });
+
+    expect(
+      getReactQueryClient().getQueryData<UIMessage[]>(
+        transcriptKey("runtime_ws", "ses_new"),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        id: "msg_user",
+        role: "user",
+        parts: [{ type: "text", text: "客户微信发来一条新订单" }],
+      }),
+    ]);
+    release();
+  });
+
+  test("removes a created-session optimistic prompt when submission fails", () => {
+    seedOptimisticUserMessage({
+      workspaceId: "runtime_ws",
+      sessionId: "ses_new",
+      messageId: "msg_failed",
+      text: "这条消息发送失败",
+    });
+    removeOptimisticUserMessage({
+      workspaceId: "runtime_ws",
+      sessionId: "ses_new",
+      messageId: "msg_failed",
+    });
+    expect(
+      getReactQueryClient().getQueryData<UIMessage[]>(
+        transcriptKey("runtime_ws", "ses_new"),
+      ),
+    ).toEqual([]);
+  });
+
   test("preserves rich metadata from live message updates", () => {
     __createWorkspaceSessionSyncForTest(syncInput);
     const release = trackWorkspaceSessionSync(syncInput, "ses_new");

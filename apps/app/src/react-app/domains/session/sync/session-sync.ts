@@ -87,6 +87,37 @@ export const permissionKey = (workspaceId: string, sessionId: string) =>
 export const questionKey = (workspaceId: string, sessionId: string) =>
   ["react-session-questions", workspaceId, sessionId] as const;
 
+export function seedOptimisticUserMessage(input: {
+  workspaceId: string;
+  sessionId: string;
+  messageId: string;
+  text: string;
+}) {
+  const text = input.text.trim();
+  if (!text) return;
+  getReactQueryClient().setQueryData<UIMessage[]>(
+    transcriptKey(input.workspaceId, input.sessionId),
+    (current = []) =>
+      upsertMessage(current, {
+        id: input.messageId,
+        role: "user",
+        parts: [{ type: "text", text }],
+      }),
+  );
+}
+
+export function removeOptimisticUserMessage(input: {
+  workspaceId: string;
+  sessionId: string;
+  messageId: string;
+}) {
+  getReactQueryClient().setQueryData<UIMessage[]>(
+    transcriptKey(input.workspaceId, input.sessionId),
+    (current = []) =>
+      current.filter((message) => message.id !== input.messageId),
+  );
+}
+
 function syncKey(input: SyncOptions) {
   return `${input.workspaceId}:${input.baseUrl}:${input.directory?.trim() ?? ""}:${input.onmyagentToken}`;
 }

@@ -154,7 +154,7 @@ import {
   selectRawWorkspaceSessions,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
-import { resolveBoundExpertDraftSession } from "./expert-draft-session";
+import { resolveReadyBoundExpertDraftSession } from "./expert-draft-session";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
@@ -562,19 +562,20 @@ export function ExpertPage(props: ExpertPageProps) {
     [props.sidebar],
   );
   useEffect(() => {
-    const createdSessionId = resolveBoundExpertDraftSession({
+    const createdSessionId = resolveReadyBoundExpertDraftSession({
       draftSessionActive,
       draftAgentId,
       pendingAgent,
+      selectedSessionId: props.selectedSessionId,
     });
     if (!createdSessionId) return;
-    handleOpenExpertSession(props.selectedWorkspaceId, createdSessionId);
+    setDraftSessionActive(false);
+    setDraftAgentId(null);
   }, [
     draftAgentId,
     draftSessionActive,
-    handleOpenExpertSession,
     pendingAgent,
-    props.selectedWorkspaceId,
+    props.selectedSessionId,
   ]);
   const handleStartAgentConversation = useCallback(
     (
