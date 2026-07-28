@@ -101,6 +101,12 @@ export type SessionPageProps = {
   headerStatus: string;
   busyHint: string | null;
   startupPhase: BootPhase;
+  /**
+   * Session-route mount began during app cold boot (overlay / engine still
+   * settling). Enables first-screen skeleton even when workspace id is
+   * cache-hydrated. False for settings "Back to app" remounts.
+   */
+  coldBootShell?: boolean;
   providerConnectedIds: string[];
   providers?: ProviderListItem[];
   mcpConnectedCount: number;

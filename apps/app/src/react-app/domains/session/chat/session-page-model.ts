@@ -13,18 +13,23 @@ export const STARTUP_SKELETON_ROWS = [
 ];
 
 /**
- * Full-page card skeleton is only for true cold boot (no workspace identity yet).
- * After settings "Back to app" the route already has a workspace id while the
- * engine reconnects — do not mask the draft home with a multi-second skeleton.
+ * Full-page card skeleton for cold first paint.
+ *
+ * - App cold start (`coldBootShell`): show even when workspace id is already
+ *   hydrated from cache/desktop list so the home column is not blank under or
+ *   right after the boot overlay.
+ * - Settings "Back to app" remount: `coldBootShell` is false; if a workspace id
+ *   is already known, skip the multi-second skeleton and keep draft home.
  */
 export function shouldShowSessionStartupSkeleton(input: {
   selectedSessionId: string | null | undefined;
   selectedWorkspaceId: string | null | undefined;
   clientConnected: boolean;
   startupPhase: string | null | undefined;
+  /** True when this session-route mount began during app cold boot. */
+  coldBootShell?: boolean;
 }): boolean {
   if (input.selectedSessionId?.trim()) return false;
-  if (input.selectedWorkspaceId?.trim()) return false;
   if (input.clientConnected) return false;
   const phase = input.startupPhase ?? "";
   if (
@@ -34,6 +39,8 @@ export function shouldShowSessionStartupSkeleton(input: {
   ) {
     return false;
   }
+  if (input.coldBootShell) return true;
+  if (input.selectedWorkspaceId?.trim()) return false;
   return true;
 }
 

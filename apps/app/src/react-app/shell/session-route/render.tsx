@@ -149,7 +149,17 @@ export function SessionRouteRender() {
   const checkDesktopRestriction = useCheckDesktopRestriction();
   const restrictionNotice = useRestrictionNotice();
 
-  const { markRouteReady: markBootRouteReady } = useBootState();
+  const {
+    markRouteReady: markBootRouteReady,
+    phase: bootPhase,
+    routeReady: bootRouteReady,
+  } = useBootState();
+  // Snapshot once: true when this session-route mount began during app cold boot
+  // (engine/overlay still settling). Settings "Back to app" remounts with phase
+  // already ready + routeReady, so first-screen skeleton stays off.
+  const [coldBootShell] = useState(
+    !bootRouteReady || (bootPhase !== "ready" && bootPhase !== "error"),
+  );
   const [loading, setLoading] = useState(true);
   const { shellInteractive } = useShellInteractiveLoad({
     loading,
@@ -1239,6 +1249,7 @@ export function SessionRouteRender() {
       creatingSessionWorkspaceIdsRef={creatingSessionWorkspaceIdsRef}
       developerMode={developerMode}
       disabledProviderIds={disabledProviderIds}
+      coldBootShell={coldBootShell}
       effectiveLoading={effectiveLoading}
       endpointForWorkspace={endpointForWorkspace}
       firstSessionIdForPageMode={firstSessionIdForPageMode}

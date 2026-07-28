@@ -158,6 +158,8 @@ export type SessionRoutePageViewProps = {
   creatingSessionWorkspaceIdsRef: MutableRefObject<Set<string>>;
   developerMode: boolean;
   disabledProviderIds: string[];
+  /** Session-route mount began during app cold boot (first-screen skeleton). */
+  coldBootShell: boolean;
   effectiveLoading: boolean;
   endpointForWorkspace: (
     workspace: RouteWorkspace | null | undefined,
@@ -300,6 +302,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     creatingSessionWorkspaceIdsRef,
     developerMode,
     disabledProviderIds,
+    coldBootShell,
     effectiveLoading,
     endpointForWorkspace,
     firstSessionIdForPageMode,
@@ -484,6 +487,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 : null
           }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
+          coldBootShell={coldBootShell}
           providerConnectedIds={providerConnectedIds}
           providers={providers}
           renderAgentsPage={(agentsPageProps) => (
