@@ -3,7 +3,7 @@ import type { SidebarSessionItem } from "../../../app/types";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import { t } from "../../../i18n";
-import { isExpertSession } from "../../domains/agents";
+import { addAssistantSession, isExpertSession } from "../../domains/agents";
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
@@ -130,6 +130,21 @@ export async function collectWorkspaceSessionItems(input: {
     ).values(),
   );
   const normalizedWorkspaceRoot = input.normalizeDirectoryPath(input.workspaceRoot);
+  if (normalizedWorkspaceRoot && !input.isRemoteOnMyAgentWorkspace) {
+    // Auto-register sessions whose directory matches the workspace root so they
+    // pass the downstream `isAssistantSession` filter in the sidebar. This
+    // covers sessions created from the main process (e.g. IM AssistantBridge),
+    // which are not registered through addAssistantSession at creation time.
+    for (const session of fetchedItems) {
+      const id = session?.id;
+      const dir = session?.directory;
+      if (!id || !dir) continue;
+      if (input.normalizeDirectoryPath(dir) === normalizedWorkspaceRoot && !assistantSessionIds.has(id)) {
+        addAssistantSession(id);
+        assistantSessionIds.add(id);
+      }
+    }
+  }
   const items = normalizedWorkspaceRoot && !input.isRemoteOnMyAgentWorkspace
     ? fetchedItems.filter(
         (session) =>

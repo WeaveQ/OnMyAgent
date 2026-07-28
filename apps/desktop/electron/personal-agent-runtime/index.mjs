@@ -497,6 +497,7 @@ export function createPersonalAgentRuntime(options) {
       opencodeBaseUrl: engine?.baseUrl ?? onmyagentServer?.baseUrl ?? null,
       onmyagentServerToken: onmyagentServer?.clientToken ?? onmyagentServer?.ownerToken ?? null,
       opencodeAuthorization,
+      workspacePath: engine?.projectDir ?? null,
     };
   }
 
@@ -1992,5 +1993,10 @@ export function createPersonalAgentRuntime(options) {
     getHostStatus,
     classifyErrorForTest: classifyErrorInfo,
     buildErrorTipForTest: buildErrorTip,
+    // Read-only accessor used by the channel AssistantBridge (P2): returns the
+    // same OpenCode connection the runtime uses internally, so the bridge can
+    // create/prompt the OpenCode session the desktop "助理" tab reads. No core
+    // runtime behavior changes for any other agent.
+    getOpencodeConnection: runtimeContext,
   };
 }

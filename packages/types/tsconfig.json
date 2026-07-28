@@ -12,7 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    // tsup/rollup-plugin-dts still injects baseUrl; silence TS 6 deprecation until tooling drops it.
+    // tsup/rollup-plugin-dts still injects baseUrl; silence TS 6.0 deprecation.
     "ignoreDeprecations": "6.0"
   },
   "include": [
