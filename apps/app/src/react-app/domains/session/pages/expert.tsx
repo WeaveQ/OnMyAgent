@@ -33,6 +33,7 @@ import {
   SessionSurface,
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
+import { CAPABILITY_TEMPLATE_EVENT } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
 import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
 import {
@@ -984,33 +985,10 @@ export function ExpertPage(props: ExpertPageProps) {
       } else {
         return;
       }
-      window.setTimeout(() => {
-        const host = document.querySelector<HTMLElement>(
-          '[contenteditable="true"]',
-        );
-        if (!host) return;
-        host.focus();
-        const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
-        let node: Node | null = walker.nextNode();
-        while (node) {
-          const text = node.textContent ?? "";
-          const match = text.match(/<[^>]+>/);
-          if (match && match.index !== undefined) {
-            const range = document.createRange();
-            range.setStart(node, match.index);
-            range.setEnd(node, match.index + match[0].length);
-            const selection = window.getSelection();
-            selection?.removeAllRanges();
-            selection?.addRange(range);
-            return;
-          }
-          node = walker.nextNode();
-        }
-      }, 120);
     };
-    window.addEventListener("onmyagent-capability-template", handler);
+    window.addEventListener(CAPABILITY_TEMPLATE_EVENT, handler);
     return () =>
-      window.removeEventListener("onmyagent-capability-template", handler);
+      window.removeEventListener(CAPABILITY_TEMPLATE_EVENT, handler);
   }, [
     draftAgentId,
     props.runtimeWorkspaceId,
