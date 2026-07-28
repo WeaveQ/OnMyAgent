@@ -250,7 +250,7 @@ export type {
   CodeWorkspaceTerminal,
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileEntry,
-  CodeWorkspaceFileContent,
+  CodeWorkspaceFileContent, CodeWorkspaceBinaryFileContent,
 } from "./desktop-ipc-code-workspace.js";
 
 export type LocalSkillCard = {
@@ -1950,6 +1950,7 @@ export type BuiltinSkillPackageInstallResult = {
   skillName: string;
 };
 
+export type ExpertPromptTemplate = { id: string; title: string; description: string; template: string; requiredSlots: string[]; conditionalSlots: string[] };
 export type ExpertPackageListEntry = {
   id: string;
   packageName: string;
@@ -1961,6 +1962,7 @@ export type ExpertPackageListEntry = {
   categoryId: string;
   tags: string[];
   quickPrompts: string[];
+  promptTemplates: ExpertPromptTemplate[];
   avatarUrl: string | null;
   expertType: "agent" | "team";
   leadAgentName: string;

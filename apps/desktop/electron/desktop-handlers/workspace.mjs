@@ -30,6 +30,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "codeWorkspaceTerminalClose",
   "codeWorkspaceFilesList",
   "codeWorkspaceFileRead",
+  "codeWorkspaceFileReadBinary",
   "codeWorkspaceGitSwitchBranch",
   "codeWorkspaceGitCommit",
   "codeWorkspaceGitPush",
@@ -65,6 +66,7 @@ export function createWorkspaceDomainHandlers({
   isDirectory,
   listCodeWorkspaceFiles,
   readCodeWorkspaceFile,
+  readCodeWorkspaceBinaryFile,
 } = {}) {
   return {
   workspaceBootstrap: async (event, args) => {
@@ -480,6 +482,10 @@ export function createWorkspaceDomainHandlers({
 
   codeWorkspaceFileRead: async (event, args) => {
     return readCodeWorkspaceFile(args[0]);
+  },
+
+  codeWorkspaceFileReadBinary: async (event, args) => {
+    return readCodeWorkspaceBinaryFile(args[0]);
   },
 
   codeWorkspaceGitSwitchBranch: async (event, args) => {

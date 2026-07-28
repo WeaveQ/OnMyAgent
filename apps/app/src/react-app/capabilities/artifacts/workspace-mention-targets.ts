@@ -31,3 +31,18 @@ export function workspaceMentionTargets(
     })
     .slice(0, 50);
 }
+
+export function workspaceDirectoryTargets(
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
+): ComposerMentionTarget[] {
+  return entries
+    .filter((entry) => !shouldHideEntry(entry.path))
+    .map((entry): ComposerMentionTarget => ({
+      path: entry.path,
+      kind: entry.kind === "dir" ? "directory" : "file",
+    }))
+    .sort((left, right) => {
+      if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
+      return left.path.localeCompare(right.path);
+    });
+}

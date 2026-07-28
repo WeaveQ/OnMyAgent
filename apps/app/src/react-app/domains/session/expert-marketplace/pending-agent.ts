@@ -18,6 +18,7 @@ export function buildPendingAgentFromMarketplaceExpert(
     },
     systemPrompt: expert.systemPrompt,
     quickPrompts: expert.quickPrompts.slice(0, 3),
+    promptTemplates: expert.promptTemplates.slice(0, 3),
     conversationStartId: Date.now(),
     draftSource: "agent-selection",
     marketplaceExpert: {

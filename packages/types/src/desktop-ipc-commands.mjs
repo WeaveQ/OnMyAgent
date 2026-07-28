@@ -15,6 +15,7 @@ const commandGroups = /** @type {const} */ ({
     "codeWorkspaceTerminalCreate", "codeWorkspaceTerminalWrite",
     "codeWorkspaceTerminalResize", "codeWorkspaceTerminalSnapshot",
     "codeWorkspaceTerminalClose", "codeWorkspaceFilesList", "codeWorkspaceFileRead",
+    "codeWorkspaceFileReadBinary",
     "codeWorkspaceGitSwitchBranch", "codeWorkspaceGitCommit", "codeWorkspaceGitPush",
   ],
   system: [

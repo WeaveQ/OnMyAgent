@@ -14,18 +14,21 @@ const INTRO_SKILLS = [
   {
     packageName: "order-dispatch-specialist",
     skillName: "introduce-order-dispatch",
+    slug: "order-dispatch",
     title: "接单调度专员",
     capabilities: ["物流单", "报价", "运力调配"],
   },
   {
     packageName: "fleet-management-specialist",
     skillName: "introduce-fleet-management",
+    slug: "fleet-management",
     title: "车队管理专员",
     capabilities: ["油费稽查", "挂靠车管理", "货损理赔"],
   },
   {
     packageName: "logistics-finance-specialist",
     skillName: "introduce-logistics-finance",
+    slug: "logistics-finance",
     title: "财务专员",
     capabilities: ["回单对账", "开票管理", "回款催收"],
   },
@@ -40,6 +43,55 @@ describe("expert onboarding guide skills", () => {
         "skills",
         intro.skillName,
       );
+      const packageRoot = join(pluginsRoot, intro.packageName);
+      const expertManifest = JSON.parse(
+        readFileSync(
+          join(packageRoot, ".expert-plugin", "plugin.json"),
+          "utf8",
+        ),
+      );
+      const compatibilityManifest = JSON.parse(
+        readFileSync(
+          join(packageRoot, ".onmyagent-plugin", "plugin.json"),
+          "utf8",
+        ),
+      );
+      expect(compatibilityManifest.promptTemplates).toBe(
+        expertManifest.promptTemplates,
+      );
+      const promptTemplates = JSON.parse(
+        readFileSync(
+          join(packageRoot, expertManifest.promptTemplates),
+          "utf8",
+        ),
+      );
+      expect(promptTemplates).toHaveLength(3);
+      const capabilityMap = JSON.parse(
+        readFileSync(join(skillRoot, "assets/capability-map.json"), "utf8"),
+      );
+      expect(
+        capabilityMap.capabilities.map((capability) => capability.templateId),
+      ).toEqual(promptTemplates.map((template) => template.id));
+      for (const template of promptTemplates) {
+        for (const locale of ["zh", "en"]) {
+          const localizedTemplate = template.template[locale];
+          const placeholderLabels = [
+            ...localizedTemplate.matchAll(/<([^<>\r\n]+)>/g),
+          ].map((match) => match[1]);
+          const declaredLabels = [
+            ...template.requiredSlots[locale],
+            ...template.conditionalSlots[locale],
+          ];
+          expect(placeholderLabels).toEqual([...new Set(placeholderLabels)]);
+          expect(new Set(placeholderLabels)).toEqual(new Set(declaredLabels));
+          const numberedLines = [
+            ...localizedTemplate.matchAll(/^(\d+)\.\s/gm),
+          ].map((match) => Number(match[1]));
+          expect(numberedLines).toEqual(
+            numberedLines.map((_, index) => index + 1),
+          );
+        }
+      }
       const skill = readFileSync(join(skillRoot, "SKILL.md"), "utf8");
       expect(skill.indexOf("立即告诉用户该怎么开始")).toBeLessThan(
         skill.indexOf("立即输出照着问的示例表"),
@@ -66,7 +118,6 @@ describe("expert onboarding guide skills", () => {
         );
         expect(result.status, result.stderr).toBe(0);
         const payload = JSON.parse(result.stdout) as {
-          files: string[];
           inlineWidget: { terminal: boolean; title: string; widget_code: string };
         };
         expect(payload.inlineWidget.terminal).toBe(true);
@@ -80,6 +131,9 @@ describe("expert onboarding guide skills", () => {
         expect(payload.inlineWidget.widget_code).toContain("width:100%");
         expect(payload.inlineWidget.widget_code).toContain("一次任务怎么完成");
         expect(payload.inlineWidget.widget_code).toContain("可以直接这样说");
+        expect(payload.inlineWidget.widget_code).toContain(
+          "onmyagent:prompt-template",
+        );
         expect(payload.inlineWidget.widget_code).toContain("最少准备");
         expect(payload.inlineWidget.widget_code).toContain("你会得到");
         expect(payload.inlineWidget.widget_code.toLowerCase()).not.toContain("<svg");
@@ -87,7 +141,11 @@ describe("expert onboarding guide skills", () => {
         for (const capability of intro.capabilities) {
           expect(payload.inlineWidget.widget_code).toContain(capability);
         }
-        const outputPath = join(workspace, payload.files[0] ?? "");
+        const outputPath = join(
+          workspace,
+          ".process",
+          `${intro.slug}-capability-map.html`,
+        );
         expect(readFileSync(outputPath, "utf8")).toContain("<!doctype html>");
       } finally {
         rmSync(workspace, { recursive: true, force: true });

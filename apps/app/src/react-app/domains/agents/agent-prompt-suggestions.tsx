@@ -9,6 +9,7 @@ import {
   PenLine,
   MessageSquare,
 } from "lucide-react";
+import type { ExpertPromptTemplate } from "@onmyagent/types/desktop-ipc";
 import type { ComponentType } from "react";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { t } from "@/i18n";
@@ -18,6 +19,7 @@ export type PromptSuggestion = {
   title: string;
   description?: string;
   prompt: string;
+  template?: boolean;
   icon: ComponentType<{ className?: string }>;
 };
 
@@ -217,12 +219,14 @@ const CAPABILITY_MAP_EXPERT_IDS = [
 function promptsFromExpertQuickPrompts(
   agentId: string | null | undefined,
   quickPrompts: string[] | undefined,
+  promptTemplates: ExpertPromptTemplate[] | undefined,
 ): PromptSuggestion[] | null {
+  const templates = (promptTemplates ?? []).slice(0, 3);
   const prompts = (quickPrompts ?? [])
     .map((prompt) => prompt.trim())
     .filter(Boolean)
     .slice(0, 3);
-  if (prompts.length === 0) return null;
+  if (templates.length === 0 && prompts.length === 0) return null;
   const showCapabilityMap = CAPABILITY_MAP_EXPERT_IDS.some((id) => agentId?.includes(id));
   return [
     {
@@ -239,22 +243,35 @@ function promptsFromExpertQuickPrompts(
       ),
       icon: MessageSquare,
     },
-    ...prompts.map((prompt, index) => ({
-      title: prompt,
-      prompt,
-      icon: EXPERT_PROMPT_ICONS[index] ?? Sparkles,
-    })),
+    ...(templates.length > 0
+      ? templates.map((template, index) => ({
+          title: template.title,
+          description: template.description || undefined,
+          prompt: template.template,
+          template: true,
+          icon: EXPERT_PROMPT_ICONS[index] ?? Sparkles,
+        }))
+      : prompts.map((prompt, index) => ({
+          title: prompt,
+          prompt,
+          icon: EXPERT_PROMPT_ICONS[index] ?? Sparkles,
+        }))),
   ];
 }
 
 export function AgentPromptSuggestions(props: {
   agentId: string | null | undefined;
   quickPrompts?: string[];
-  onSelect: (prompt: string) => void;
+  promptTemplates?: ExpertPromptTemplate[];
+  onSelect: (prompt: string, template: boolean) => void;
   className?: string;
 }) {
   const prompts =
-    promptsFromExpertQuickPrompts(props.agentId, props.quickPrompts) ??
+    promptsFromExpertQuickPrompts(
+      props.agentId,
+      props.quickPrompts,
+      props.promptTemplates,
+    ) ??
     resolvePrompts(props.agentId).slice(0, 4);
   return (
     <div className={cn("w-full max-w-2xl", props.className)}>
@@ -266,9 +283,9 @@ export function AgentPromptSuggestions(props: {
               key={p.title}
               density="prompt"
               type="button"
-              onClick={() => props.onSelect(p.prompt)}
+              onClick={() => props.onSelect(p.prompt, p.template === true)}
               className={cn(
-                // Taller cards so multi-line expert prompts are less truncated.
+                // Keep cards compact; the detailed template is injected after selection.
                 "min-h-[5.75rem] items-start gap-3 rounded-xl border border-dls-border/60 bg-dls-surface-muted/40 px-3.5 py-3.5 text-left shadow-none",
                 "transition-colors duration-150",
                 "hover:border-dls-border hover:bg-dls-hover",

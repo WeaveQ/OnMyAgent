@@ -40,12 +40,19 @@ describe("mergeStableSessionTabOrder", () => {
     expect(next).toEqual(["draft:ws", "new", "a", "b"]);
   });
 
-  test("drops sessions that no longer exist", () => {
+  test("retains temporarily missing sessions in the stable order ledger", () => {
     const next = mergeStableSessionTabOrder(["a", "gone", "b"], [
       { id: "b" },
       { id: "a" },
     ]);
-    expect(next).toEqual(["a", "b"]);
+    expect(next).toEqual(["a", "gone", "b"]);
+
+    const afterRefresh = mergeStableSessionTabOrder(next, [
+      { id: "gone" },
+      { id: "b" },
+      { id: "a" },
+    ]);
+    expect(afterRefresh).toEqual(["a", "gone", "b"]);
   });
 
   test("initial load preserves parent newest-first order left-to-right", () => {

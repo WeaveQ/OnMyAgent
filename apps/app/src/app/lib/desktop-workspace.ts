@@ -79,6 +79,11 @@ export const readCodeWorkspaceFile = (input: {
   relativePath: string;
 }) => invokeDesktopCommand("codeWorkspaceFileRead", input);
 
+export const readCodeWorkspaceBinaryFile = (input: {
+  workspacePath: string;
+  relativePath: string;
+}) => invokeDesktopCommand("codeWorkspaceFileReadBinary", input);
+
 /** Loose bridge-compatible wrappers (historical desktopBridge surface). */
 export const workspaceBootstrap = () =>
   invokeElectronHelper("workspaceBootstrap");

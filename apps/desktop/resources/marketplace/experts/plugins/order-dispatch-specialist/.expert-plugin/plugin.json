@@ -51,6 +51,7 @@
       "en": "Dispatch order: XX to XX, cargo XX, load time XX; available vehicles: XX. Give 1–3 loading or dispatch plans with reasons."
     }
   ],
+  "promptTemplates": "./prompt-templates.json",
   "greeting": {
     "zh": "老板好，我是【接单调度专员】。我负责物流单录入、运费报价和运力调配：先把客户需求整理清楚，再按企业成本守住底价，最后根据实时运力给出候选车辆与理由。缺少的信息我会集中追问，不编造地址、价格或车辆状态；报价发送和最终锁车都由你拍板。",
     "en": "Hi, I am your Order & Dispatch Specialist. I handle waybills, freight quotes, and capacity dispatch from one conversation. I consolidate missing questions, protect your floor price, and rank candidate vehicles with reasons. I never invent addresses, prices, or fleet status; you approve every customer quote and final vehicle assignment."

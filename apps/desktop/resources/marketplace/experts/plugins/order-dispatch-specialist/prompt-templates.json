@@ -1,0 +1,62 @@
+[
+  {
+    "id": "waybill",
+    "title": { "zh": "物流单", "en": "Waybill" },
+    "description": {
+      "zh": "一次补齐运输资料并生成物流单",
+      "en": "Collect shipment details once and generate a waybill"
+    },
+    "template": {
+      "zh": "请补齐以下物流单资料：\n\n1. 单据要求：生成 <单据类型>，使用 <指定模板或通用格式>\n2. 托运信息：托运方 <托运方名称>，联系人 <托运联系人>，电话 <托运电话>，装货地址 <装货详细地址>\n3. 收货信息：收货方 <收货方名称>，联系人 <收货联系人>，电话 <收货电话>，卸货地址 <卸货详细地址>\n4. 货物信息：品名 <货物名称>，数量 <数量> <单位>，包装 <包装方式>\n5. 重量体积：重量 <重量> 吨，体积 <体积> 方（重量和体积至少填写一项）\n6. 时间要求：计划提货时间 <计划提货时间>，要求到达时间 <要求到达时间>\n7. 运输要求：车型 <车型要求>，提送方式 <提货和交付方式>，结算方式 <结算方式>\n8. 其他要求：<装卸、回单、保价、温控或其他特殊要求；没有则填无>\n9. 已派车时补充：车牌 <车牌号>，司机 <司机姓名>，司机电话 <司机电话>；尚未派车可填“待派车”\n\n请整理并生成物流单；如仍有缺失或冲突，请一次性列出待确认项。",
+      "en": "Please complete the following waybill details:\n\n1. Document: create a <Document type> using <Specified template or standard format>\n2. Shipper: <Shipper name>, contact <Shipper contact>, phone <Shipper phone>, loading address <Detailed loading address>\n3. Consignee: <Consignee name>, contact <Consignee contact>, phone <Consignee phone>, unloading address <Detailed unloading address>\n4. Cargo: <Cargo name>, quantity <Quantity> <Unit>, packaging <Packaging>\n5. Weight and volume: <Weight> tonnes and <Volume> m³ (provide at least one)\n6. Schedule: planned pickup <Planned pickup time>, required delivery <Required delivery time>\n7. Transport: vehicle <Vehicle requirement>, handover <Pickup and delivery method>, settlement <Settlement method>\n8. Other requirements: <Loading, POD, insurance, temperature control, or none>\n9. If dispatched: plate <Plate number>, driver <Driver name>, phone <Driver phone>; otherwise enter “pending dispatch”\n\nPrepare the waybill and list all remaining gaps or conflicts in one confirmation request."
+    },
+    "requiredSlots": {
+      "zh": ["单据类型", "指定模板或通用格式", "托运方名称", "托运联系人", "托运电话", "装货详细地址", "收货方名称", "收货联系人", "收货电话", "卸货详细地址", "货物名称", "数量", "单位", "包装方式", "重量", "体积", "计划提货时间", "要求到达时间", "车型要求", "提货和交付方式", "结算方式"],
+      "en": ["Document type", "Specified template or standard format", "Shipper name", "Shipper contact", "Shipper phone", "Detailed loading address", "Consignee name", "Consignee contact", "Consignee phone", "Detailed unloading address", "Cargo name", "Quantity", "Unit", "Packaging", "Weight", "Volume", "Planned pickup time", "Required delivery time", "Vehicle requirement", "Pickup and delivery method", "Settlement method"]
+    },
+    "conditionalSlots": {
+      "zh": ["装卸、回单、保价、温控或其他特殊要求；没有则填无", "车牌号", "司机姓名", "司机电话"],
+      "en": ["Loading, POD, insurance, temperature control, or none", "Plate number", "Driver name", "Driver phone"]
+    }
+  },
+  {
+    "id": "freight-quote",
+    "title": { "zh": "货运报价", "en": "Freight Quote" },
+    "description": {
+      "zh": "补齐询价条件并生成三档报价",
+      "en": "Collect quote conditions and produce three options"
+    },
+    "template": {
+      "zh": "请补齐以下报价资料：\n\n1. 运输线路：提货地 <提货详细地址>，卸货地 <卸货详细地址>\n2. 货物信息：品名 <货物名称>，包装 <包装方式>，是否可叠压 <是否可叠压>\n3. 重量体积：重量 <重量> 吨，体积 <体积> 方（重量和体积至少填写一项）\n4. 运输方式：选择 <整车、零担或专线>，车型要求 <车型要求>\n5. 时间要求：装货时间 <装货时间>，送达时效 <送达时效>\n6. 提送装卸：<是否上门提货、送货上门、含装卸、需要叉车或尾板>\n7. 回单保价：回单要求 <回单要求>，货值或保价要求 <货值或保价要求>\n8. 税费口径：<含税或未税>，发票要求 <发票类型或无>\n9. 成本依据：企业成本或可接受底价 <成本或底价> 元，历史成交价 <历史成交价；没有则填无>\n10. 其他费用：<进仓、预约、等候、多点装卸、夜间、旺季等附加条件；没有则填无>\n\n请生成最快、平衡、最便宜三档报价，列明计费口径、包含项目、另计费用、所用假设和底价提醒。",
+      "en": "Please complete the following quote details:\n\n1. Route: pickup <Detailed pickup address>, delivery <Detailed delivery address>\n2. Cargo: <Cargo name>, packaging <Packaging>, stackable <Stackable or not>\n3. Weight and volume: <Weight> tonnes and <Volume> m³ (provide at least one)\n4. Mode: <Full truck, LTL, or line-haul>, vehicle <Vehicle requirement>\n5. Schedule: loading <Loading time>, delivery SLA <Delivery SLA>\n6. Services: <Pickup, delivery, loading, unloading, forklift, or tail lift requirements>\n7. POD and cover: POD <POD requirement>, cargo value or insurance <Cargo value or insurance requirement>\n8. Tax: <Tax-inclusive or tax-exclusive>, invoice <Invoice type or none>\n9. Cost basis: enterprise cost or floor <Cost or floor price>, historical rate <Historical rate or none>\n10. Surcharges: <Warehouse, booking, waiting, multi-stop, night, peak-season, or none>\n\nProduce fastest, balanced, and cheapest options with pricing basis, inclusions, extras, assumptions, and floor-price warnings."
+    },
+    "requiredSlots": {
+      "zh": ["提货详细地址", "卸货详细地址", "货物名称", "包装方式", "是否可叠压", "重量", "体积", "整车、零担或专线", "车型要求", "装货时间", "送达时效", "是否上门提货、送货上门、含装卸、需要叉车或尾板", "回单要求", "货值或保价要求", "含税或未税", "发票类型或无", "成本或底价"],
+      "en": ["Detailed pickup address", "Detailed delivery address", "Cargo name", "Packaging", "Stackable or not", "Weight", "Volume", "Full truck, LTL, or line-haul", "Vehicle requirement", "Loading time", "Delivery SLA", "Pickup, delivery, loading, unloading, forklift, or tail lift requirements", "POD requirement", "Cargo value or insurance requirement", "Tax-inclusive or tax-exclusive", "Invoice type or none", "Cost or floor price"]
+    },
+    "conditionalSlots": {
+      "zh": ["历史成交价；没有则填无", "进仓、预约、等候、多点装卸、夜间、旺季等附加条件；没有则填无"],
+      "en": ["Historical rate or none", "Warehouse, booking, waiting, multi-stop, night, peak-season, or none"]
+    }
+  },
+  {
+    "id": "capacity-dispatch",
+    "title": { "zh": "运力调配", "en": "Capacity Dispatch" },
+    "description": {
+      "zh": "补齐订单和实时运力并推荐候选车辆",
+      "en": "Match a complete order against current capacity"
+    },
+    "template": {
+      "zh": "请补齐以下调度资料：\n\n1. 订单线路：装货地 <装货详细地址>，卸货地 <卸货详细地址>\n2. 货物信息：品名 <货物名称>，重量 <重量> 吨，体积 <体积> 方（重量和体积至少填写一项）\n3. 时间窗口：最晚装货时间 <最晚装货时间>，要求到达时间 <要求到达时间>\n4. 车辆要求：车型 <车型要求>，特殊能力或资质 <尾板、冷藏、危化资质等；没有则填无>\n5. 调度限制：<是否允许拼车、指定司机、装卸要求等；没有则填无>\n6. 可用运力：@<车辆清单或车辆实时状态文件>\n7. 清单必含：每辆车的 <车牌或司机>、<当前位置>、<车型>、<剩余载重和方数>\n8. 实时状态：每辆车的 <当前状态>、<预计空闲时间>、<可接方向>、<信息更新时间>\n\n请先排除超载、超方、车型或资质不符、时效不可达和信息过期的车辆，再推荐 1–3 套方案，说明推荐理由、未入选原因和待确认风险，暂不锁车。",
+      "en": "Please complete the following dispatch details:\n\n1. Route: loading <Detailed loading address>, unloading <Detailed unloading address>\n2. Cargo: <Cargo name>, <Weight> tonnes, <Volume> m³ (provide at least one)\n3. Window: latest loading <Latest loading time>, required arrival <Required arrival time>\n4. Vehicle: <Vehicle requirement>, special capability <Tail lift, refrigeration, dangerous-goods qualification, or none>\n5. Restrictions: <Pooling, designated driver, loading or unloading restrictions, or none>\n6. Available capacity: @<Vehicle list or live-status file>\n7. Each vehicle must include <Plate or driver>, <Current location>, <Vehicle type>, <Remaining weight and volume>\n8. Live status: <Current status>, <Expected free time>, <Preferred lanes>, <Status updated time>\n\nExclude overload, capacity, qualification, timing, and stale-data failures, then recommend 1–3 options with selection reasons, rejection reasons, and confirmation risks. Do not lock a vehicle."
+    },
+    "requiredSlots": {
+      "zh": ["装货详细地址", "卸货详细地址", "货物名称", "重量", "体积", "最晚装货时间", "要求到达时间", "车型要求", "车辆清单或车辆实时状态文件", "车牌或司机", "当前位置", "车型", "剩余载重和方数", "当前状态", "预计空闲时间", "可接方向", "信息更新时间"],
+      "en": ["Detailed loading address", "Detailed unloading address", "Cargo name", "Weight", "Volume", "Latest loading time", "Required arrival time", "Vehicle requirement", "Vehicle list or live-status file", "Plate or driver", "Current location", "Vehicle type", "Remaining weight and volume", "Current status", "Expected free time", "Preferred lanes", "Status updated time"]
+    },
+    "conditionalSlots": {
+      "zh": ["尾板、冷藏、危化资质等；没有则填无", "是否允许拼车、指定司机、装卸要求等；没有则填无"],
+      "en": ["Tail lift, refrigeration, dangerous-goods qualification, or none", "Pooling, designated driver, loading or unloading restrictions, or none"]
+    }
+  }
+]

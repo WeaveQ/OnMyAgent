@@ -15,6 +15,7 @@ const testTargets = new Map([
   ['automation-model', ['bun', ['test', 'scripts/automation-model.test.ts']]],
   ['extensions-store', ['bun', ['test', 'scripts/extensions-store.test.ts']]],
   ['expert-marketplace-ui-contract', ['bun', ['test', 'scripts/expert-marketplace-ui-contract.test.ts']]],
+  ['capability-template-editor', ['bun', ['test', 'scripts/capability-template-editor.test.ts']]],
   ['filter-chip-contract', ['bun', ['test', 'scripts/filter-chip-contract.test.ts']]],
   // Stale class-snapshot style contracts removed (not in default ui-contracts gate):
   // style-residual / assistant-navigation-*-contract / automation-typography /
@@ -120,6 +121,7 @@ const composedTargets = new Map([
   ['ui-contracts', [
     // Structural / product safety nets verified green
     'expert-marketplace-ui-contract',
+    'capability-template-editor',
     'filter-chip-contract',
     'session-route-facade-contract',
     'e2e-scripts-health-binding-contract',

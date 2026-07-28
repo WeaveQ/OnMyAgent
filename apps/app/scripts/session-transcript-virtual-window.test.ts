@@ -5,6 +5,7 @@ import {
   resolveVirtualItemKey,
   resolveVirtualItemEstimate,
   selectVirtualRenderWindow,
+  shouldRemeasureVirtualHistory,
   shouldVirtualizeTranscript,
   TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
 } from "../src/react-app/domains/session/surface/message-list/virtual-window";
@@ -87,5 +88,23 @@ describe("session transcript virtual window (shipped helpers)", () => {
     const measured = new Map([[item.id, 184]]);
     expect(resolveVirtualItemEstimate(item, measured, () => 720)).toBe(184);
     expect(resolveVirtualItemEstimate({ id: "unseen" }, measured, () => 320)).toBe(320);
+  });
+
+  test("remeasures only when virtual history membership changes", () => {
+    expect(shouldRemeasureVirtualHistory({
+      previousCount: 20,
+      currentCount: 21,
+      shouldVirtualize: true,
+    })).toBe(true);
+    expect(shouldRemeasureVirtualHistory({
+      previousCount: 21,
+      currentCount: 21,
+      shouldVirtualize: true,
+    })).toBe(false);
+    expect(shouldRemeasureVirtualHistory({
+      previousCount: 19,
+      currentCount: 20,
+      shouldVirtualize: false,
+    })).toBe(false);
   });
 });

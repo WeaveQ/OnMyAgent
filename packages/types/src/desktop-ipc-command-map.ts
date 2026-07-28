@@ -8,6 +8,7 @@
  */
 import type { DesktopCommandName } from "./desktop-ipc-commands.mjs";
 import type {
+  CodeWorkspaceBinaryFileContent,
   CodeWorkspaceEnvironmentSnapshot,
   CodeWorkspaceFileContent,
   CodeWorkspaceFileEntry,
@@ -278,6 +279,10 @@ type TypedDesktopCommandMap = {
   codeWorkspaceFileRead: DesktopCommandContract<
     [{ workspacePath: string; relativePath: string }],
     CodeWorkspaceFileContent
+  >;
+  codeWorkspaceFileReadBinary: DesktopCommandContract<
+    [{ workspacePath: string; relativePath: string }],
+    CodeWorkspaceBinaryFileContent
   >;
   codeWorkspaceGitSwitchBranch: DesktopCommandContract<
     [{ workspacePath: string; sessionId: string; branch: string }],

@@ -12,7 +12,10 @@ import {
   workspaceNameFromRoot,
 } from "../src/react-app/domains/session/chat/session-page-files-model";
 import * as workspaceFileModel from "../src/react-app/domains/session/chat/session-page-files-model";
-import { workspaceMentionTargets } from "../src/react-app/capabilities/artifacts/workspace-mention-targets";
+import {
+  workspaceDirectoryTargets,
+  workspaceMentionTargets,
+} from "../src/react-app/capabilities/artifacts/workspace-mention-targets";
 
 function entry(path: string, kind: "file" | "dir" = "file", size = 100): OnMyAgentWorkspaceFileCatalogEntry {
   return { path, kind, size, mtimeMs: 1000 };
@@ -113,6 +116,22 @@ describe("session page files model", () => {
       { path: "报价/历史 方案/报价单 XX.xlsx", kind: "file" },
     ]);
     expect(workspaceMentionTargets(entries, "process")).toEqual([]);
+  });
+
+  test("builds sorted direct-child targets for @ folder browsing", () => {
+    expect(
+      workspaceDirectoryTargets([
+        entry("物流单/回单.pdf"),
+        entry("物流单/历史", "dir"),
+        entry("物流单/.secret"),
+        entry("物流单/opencode.jsonc"),
+        entry("物流单/运单.xlsx"),
+      ]),
+    ).toEqual([
+      { path: "物流单/历史", kind: "directory" },
+      { path: "物流单/回单.pdf", kind: "file" },
+      { path: "物流单/运单.xlsx", kind: "file" },
+    ]);
   });
 
   test("groups root, agent, and task files for the workspace file hierarchy", () => {

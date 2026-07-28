@@ -4,6 +4,7 @@ import {
 } from "./categories";
 import type {
   ExpertMarketplaceEntry,
+  ExpertPromptTemplate,
   ExpertRegistryRecord,
   LocalizedText,
 } from "./types";
@@ -64,6 +65,7 @@ type ExpertPackageManifest = {
   categoryIds?: string[] | null;
   tags?: Array<LocalizedText | string> | LocalizedTextList | null;
   quickPrompts?: Array<LocalizedText | string> | LocalizedTextList | null;
+  promptTemplates?: LocalizedExpertPromptTemplate[] | string | null;
   agents?: string[] | string | null;
   expertType?: string | null;
   agentName?: string | null;
@@ -73,6 +75,15 @@ type ExpertPackageManifest = {
 type LocalizedTextList = {
   zh?: string[];
   en?: string[];
+};
+
+type LocalizedExpertPromptTemplate = {
+  id?: string | null;
+  title?: LocalizedText | string | null;
+  description?: LocalizedText | string | null;
+  template?: LocalizedText | string | null;
+  requiredSlots?: LocalizedTextList | string[] | null;
+  conditionalSlots?: LocalizedTextList | string[] | null;
 };
 
 function packageNameFromPath(path: string): string {
@@ -100,6 +111,28 @@ function localizedList(
   if (!input) return [];
   if (Array.isArray(input)) return input.map(localized).filter(Boolean);
   return (input.zh ?? input.en ?? []).map((item) => item.trim()).filter(Boolean);
+}
+
+function localizedPromptTemplates(
+  input: LocalizedExpertPromptTemplate[] | string | null | undefined,
+): ExpertPromptTemplate[] {
+  if (!Array.isArray(input)) return [];
+  const templates: ExpertPromptTemplate[] = [];
+  for (const item of input) {
+    const id = item.id?.trim() ?? "";
+    const title = localized(item.title);
+    const template = localized(item.template);
+    if (!id || !title || !template) continue;
+    templates.push({
+      id,
+      title,
+      description: localized(item.description),
+      template,
+      requiredSlots: localizedList(item.requiredSlots),
+      conditionalSlots: localizedList(item.conditionalSlots),
+    });
+  }
+  return templates;
 }
 
 function firstAgentPath(input: string[] | string | null | undefined): string {
@@ -227,6 +260,7 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         categoryLabels: categoryIds.map(expertMarketplaceCategoryLabel),
         tags: localizedList(manifest.tags).slice(0, 4),
         quickPrompts: localizedList(manifest.quickPrompts).slice(0, 4),
+        promptTemplates: localizedPromptTemplates(manifest.promptTemplates).slice(0, 4),
         avatarUrl: resolveAvatarUrl(packageName, manifest.avatar),
         expertType,
         leadAgentName,
