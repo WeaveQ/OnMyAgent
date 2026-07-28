@@ -41,8 +41,9 @@ description: 接单调度专员的上手向导。当用户询问“你能做什�
 `python3 <Skill根目录>/scripts/render_capability_map.py`
 
 - HTML 必须展示“选择入口 → 提供原始资料 → 确认关键缺项 → 获得产物”的使用路径。
-- 保留脚本返回的完整 `inlineWidget`；禁止改用 Mermaid、SVG、`show_widget` 或重新绘制。
-- `.process` HTML 仅供预览，不作为正式产物链接。
+- 客户端会直接读取脚本 stdout 返回的完整 `inlineWidget` JSON 并渲染，agent 无需也不得再调用 `render_visual`、`show_widget`、`visualizer` 或其他可视化工具。
+- 禁止改用 Mermaid、SVG 重新绘制；禁止 `cat`/读取 `.process` HTML 文件内容到对话或传给任何渲染工具。
+- `.process` 上的完整 HTML 文档仅供本地预览，不作为正式产物链接；渲染只认 stdout 的 fragment `inlineWidget`。
 - 预览失败时只简短说明路线图暂不可用，前面的上手说明仍然有效。
 
 ## 4. 路线图完成后立即结束
