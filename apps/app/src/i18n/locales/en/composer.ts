@@ -11,6 +11,13 @@ export default {
   "composer.file_exceeds_limit": "{name} exceeds the 8MB limit.",
   "composer.file_kind": "File",
   "composer.folder_kind": "Folder",
+  "composer.folder_files_add": "Add {count}",
+  "composer.folder_files_adding": "Adding…",
+  "composer.folder_files_back": "Back",
+  "composer.folder_files_empty": "This folder has no files.",
+  "composer.folder_files_failed": "Could not add the selected workspace files.",
+  "composer.folder_files_hint": "Choose one or more files",
+  "composer.folder_files_loading": "Loading folder files",
   "composer.image_kind": "Image",
   "composer.inserted_links_unsupported":
     "Inserted links for unsupported files.",

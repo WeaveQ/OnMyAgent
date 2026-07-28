@@ -25,6 +25,7 @@ export type DesktopCommandName =
   | "codeWorkspaceTerminalClose"
   | "codeWorkspaceFilesList"
   | "codeWorkspaceFileRead"
+  | "codeWorkspaceFileReadBinary"
   | "codeWorkspaceGitSwitchBranch"
   | "codeWorkspaceGitCommit"
   | "codeWorkspaceGitPush"

@@ -105,3 +105,18 @@ export async function readCodeWorkspaceFile(input = {}) {
     updatedAt: fileStat.mtimeMs,
   };
 }
+
+export async function readCodeWorkspaceBinaryFile(input = {}) {
+  const relativePath = String(input.relativePath ?? "").trim();
+  if (!relativePath) throw new Error("Workspace file path is required.");
+  const { target } = resolveWorkspaceTarget(input.workspacePath, relativePath);
+  const fileStat = await stat(target);
+  if (!fileStat.isFile()) throw new Error("Workspace file is not a file.");
+  const content = await readFile(target);
+  return {
+    path: relativePath,
+    data: new Uint8Array(content),
+    bytes: fileStat.size,
+    updatedAt: fileStat.mtimeMs,
+  };
+}
