@@ -12,6 +12,7 @@ import {
   CONTROLLED_TEXT_INSERTION_COMMAND,
   createEditor,
   KEY_BACKSPACE_COMMAND,
+  KEY_DELETE_COMMAND,
   KEY_TAB_COMMAND,
   PASTE_COMMAND,
 } from "lexical";
@@ -223,6 +224,7 @@ describe("capability template editor", () => {
       },
     });
     registerCapabilitySlotEditing(lexicalEditor);
+    let prevented = false;
 
     lexicalEditor.update(
       () => {
@@ -236,16 +238,96 @@ describe("capability template editor", () => {
         $selectComposerPlaceholderNode(slot);
         expect(
           lexicalEditor.dispatchCommand(KEY_BACKSPACE_COMMAND, {
-            preventDefault() {},
+            preventDefault() {
+              prevented = true;
+            },
           }),
         ).toBe(true);
       },
       { discrete: true },
     );
 
+    expect(prevented).toBe(true);
     expect(
       lexicalEditor.getEditorState().read(() => $getRoot().getTextContent()),
     ).toBe("请填 。");
+  });
+
+  test("backspace after an empty slot removes only the slot", () => {
+    const lexicalEditor = createEditor({
+      namespace: "capability-template-backward-boundary-test",
+      nodes: [ComposerPlaceholderNode],
+      onError(error) {
+        throw error;
+      },
+    });
+    registerCapabilitySlotEditing(lexicalEditor);
+    let prevented = false;
+
+    lexicalEditor.update(
+      () => {
+        const followingText = $createTextNode(" 箱货物");
+        $getRoot().append(
+          $createParagraphNode()
+            .append($createTextNode("发 "))
+            .append($createComposerPlaceholderNode("数量"))
+            .append(followingText),
+        );
+        followingText.select(0, 0);
+        expect(
+          lexicalEditor.dispatchCommand(KEY_BACKSPACE_COMMAND, {
+            preventDefault() {
+              prevented = true;
+            },
+          }),
+        ).toBe(true);
+      },
+      { discrete: true },
+    );
+
+    expect(prevented).toBe(true);
+    expect(
+      lexicalEditor.getEditorState().read(() => $getRoot().getTextContent()),
+    ).toBe("发  箱货物");
+  });
+
+  test("delete before an empty slot removes only the slot", () => {
+    const lexicalEditor = createEditor({
+      namespace: "capability-template-forward-boundary-test",
+      nodes: [ComposerPlaceholderNode],
+      onError(error) {
+        throw error;
+      },
+    });
+    registerCapabilitySlotEditing(lexicalEditor);
+    let prevented = false;
+
+    lexicalEditor.update(
+      () => {
+        const precedingText = $createTextNode("发 ");
+        $getRoot().append(
+          $createParagraphNode()
+            .append(precedingText)
+            .append($createComposerPlaceholderNode("数量"))
+            .append($createTextNode(" 箱货物")),
+        );
+        const offset = precedingText.getTextContentSize();
+        precedingText.select(offset, offset);
+        expect(
+          lexicalEditor.dispatchCommand(KEY_DELETE_COMMAND, {
+            preventDefault() {
+              prevented = true;
+            },
+          }),
+        ).toBe(true);
+      },
+      { discrete: true },
+    );
+
+    expect(prevented).toBe(true);
+    expect(
+      lexicalEditor.getEditorState().read(() => $getRoot().getTextContent()),
+    ).toBe("发  箱货物");
   });
 
   test("moves between slots with Tab and keeps each value independent", () => {
