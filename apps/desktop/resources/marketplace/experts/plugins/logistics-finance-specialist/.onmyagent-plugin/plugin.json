@@ -51,6 +51,7 @@
       "en": "Customer XX has XX-day terms, XX invoiced, and XX received. Calculate aging and provide the next collection milestone with staged scripts."
     }
   ],
+  "promptTemplates": "./prompt-templates.json",
   "greeting": {
     "zh": "老板好，我是【财务专员】。我负责回单对账、开票管理和回款催收：先逐票核对回单与费用，再整理开票资料，最后维护应收账龄与催收节点。无法匹配的票据和金额差异会单列；不会自动入账、开票、付款或向客户发消息。",
     "en": "Hi, I am your Finance Specialist. I handle POD reconciliation, billing preparation, and receivables collection as one traceable workflow. Unmatched shipments and amount variances stay visible. I never post entries, issue invoices, make payments, or message customers automatically."
