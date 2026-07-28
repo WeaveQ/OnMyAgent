@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { type UIMessage } from "ai";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
@@ -87,6 +87,7 @@ import { blockIsActivelyStreaming } from "./message-list/message-block-row-equal
 import {
   activeTurnReserveStyle,
   resolveVirtualItemEstimate,
+  shouldRemeasureVirtualHistory,
 } from "./message-list/virtual-window";
 import {
   resolveActiveTurnVirtualIndex,
@@ -753,6 +754,25 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     }
     virtualizer.measure();
   }, [props.isStreaming, shouldVirtualize, virtualizer]);
+
+  // Starting a new turn moves the previous detached tail (often a tall preview)
+  // into virtual history. TanStack can retain the row's pre-transition size
+  // until an external resize, leaving a large blank gap above the new turn.
+  // Remeasure only on history membership changes, not on streaming updates.
+  const previousVirtualHistoryCountRef = useRef(virtualRenderItems.length);
+  useLayoutEffect(() => {
+    const previousCount = previousVirtualHistoryCountRef.current;
+    const currentCount = virtualRenderItems.length;
+    previousVirtualHistoryCountRef.current = currentCount;
+    if (!shouldRemeasureVirtualHistory({
+      previousCount,
+      currentCount,
+      shouldVirtualize,
+    })) {
+      return;
+    }
+    virtualizer.measure();
+  }, [shouldVirtualize, virtualRenderItems.length, virtualizer]);
 
   // The detached tail is outside TanStack Virtual. Measure it while it grows so
   // its exact height is ready when the next message moves it into history.

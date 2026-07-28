@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   Mail,
@@ -61,6 +61,7 @@ import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
 
 /** Cooldown so missing tab-title snapshots do not re-storm OpenCode. */
 const tabTitleSnapshotNotFoundUntilBySessionId = new Map<string, number>();
+const RECENT_SESSION_TITLE_WINDOW_MS = 5 * 60_000;
 
 /**
  * Whether the session still needs a message-derived tab title.
@@ -84,6 +85,31 @@ export function sessionShouldFetchTabTitleSnapshot(
   return sessionNeedsTabTitleFallback(session);
 }
 
+export function shouldShowExpertTabSummarizing(
+  session: WorkspaceSessionGroup["sessions"][number],
+  options: {
+    busy: boolean;
+    trackedPending: boolean;
+    pendingSelection: boolean;
+    nowMs: number;
+  },
+): boolean {
+  if (!sessionNeedsTabTitleFallback(session)) return false;
+  if (
+    options.busy ||
+    options.trackedPending ||
+    options.pendingSelection
+  ) {
+    return true;
+  }
+  const createdAt = session.time?.created;
+  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) {
+    return false;
+  }
+  const ageMs = options.nowMs - createdAt;
+  return ageMs >= 0 && ageMs <= RECENT_SESSION_TITLE_WINDOW_MS;
+}
+
 /**
  * Tab label for an expert session chip.
  * - Prefer a real human title when OpenCode has assigned one.
@@ -94,9 +120,13 @@ export function sessionShouldFetchTabTitleSnapshot(
 export function summarizeTabTitle(
   session: WorkspaceSessionGroup["sessions"][number],
   generatedFallback?: string,
+  options?: { summarizing?: boolean },
 ) {
   if (!sessionNeedsTabTitleFallback(session)) {
     return session.title!.trim();
+  }
+  if (options?.summarizing) {
+    return t("session.agent_tab_summarizing");
   }
   if (generatedFallback?.trim()) {
     return compactTabTitle(generatedFallback);
@@ -154,6 +184,22 @@ export function summarizeSessionSnapshotForTab(
   return undefined;
 }
 
+export function resolvedSessionSnapshotTitle(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+): string | undefined {
+  const title = snapshot?.session?.title?.trim() ?? "";
+  if (!title) return undefined;
+  const defaultTitle = t("session.default_title");
+  if (
+    title === DEFAULT_SESSION_TITLE ||
+    title === defaultTitle ||
+    isGeneratedSessionTitle(title)
+  ) {
+    return undefined;
+  }
+  return title;
+}
+
 /**
  * Tab-title snapshot polling policy.
  * - Have a message-derived title → stop.
@@ -164,9 +210,11 @@ export function summarizeSessionSnapshotForTab(
  */
 export function tabTitleSnapshotRefetchIntervalMs(
   snapshot: OnMyAgentSessionSnapshot | null | undefined,
-  options?: { busy?: boolean },
+  options?: { busy?: boolean; titlePending?: boolean },
 ): number | false {
   if (snapshot === null) return false;
+  if (resolvedSessionSnapshotTitle(snapshot)) return false;
+  if (options?.titlePending) return 3_000;
   if (summarizeSessionSnapshotForTab(snapshot)) return false;
   if (options?.busy) return 3_000;
   return false;
@@ -314,6 +362,12 @@ export function AgentSessionTabs(props: {
   const activeSessionId = pendingSessionIsVisible
     ? props.pendingSessionId
     : props.selectedSessionId;
+  const knownSessionIdsRef = useRef(
+    new Set(props.sessions.map((session) => session.id)),
+  );
+  const [titlePendingSessionIds, setTitlePendingSessionIds] = useState<
+    Set<string>
+  >(() => new Set());
 
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
@@ -359,6 +413,40 @@ export function AgentSessionTabs(props: {
     }
     return stable;
   }, [props.orderIds, props.sessions]);
+
+  // Only sessions that appear after this tab strip mounted enter the title
+  // generation state. Cold-start history keeps its legacy fallback instead of
+  // being mislabeled as actively summarizing forever.
+  useLayoutEffect(() => {
+    const visibleIds = new Set(orderedSessions.map((session) => session.id));
+    setTitlePendingSessionIds((current) => {
+      const next = new Set(current);
+      for (const session of orderedSessions) {
+        const newlyCreated = !knownSessionIdsRef.current.has(session.id);
+        knownSessionIdsRef.current.add(session.id);
+        if (
+          !session.id.startsWith("draft:") &&
+          sessionNeedsTabTitleFallback(session) &&
+          (newlyCreated || props.pendingSessionId === session.id)
+        ) {
+          next.add(session.id);
+        }
+        if (!sessionNeedsTabTitleFallback(session)) {
+          next.delete(session.id);
+        }
+      }
+      for (const sessionId of next) {
+        if (!visibleIds.has(sessionId)) next.delete(sessionId);
+      }
+      if (
+        next.size === current.size &&
+        [...next].every((sessionId) => current.has(sessionId))
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [orderedSessions, props.pendingSessionId]);
 
   const queryClient = useQueryClient();
 
@@ -411,6 +499,12 @@ export function AgentSessionTabs(props: {
       const busy = isStreamingSessionStatus(
         props.sessionStatusById?.[session.id],
       );
+      const titlePending = shouldShowExpertTabSummarizing(session, {
+        busy,
+        trackedPending: titlePendingSessionIds.has(session.id),
+        pendingSelection: props.pendingSessionId === session.id,
+        nowMs: Date.now(),
+      });
       return {
         queryKey: [
           "onmyagent-agent-session-tab-snapshot",
@@ -460,7 +554,10 @@ export function AgentSessionTabs(props: {
         refetchInterval: (query: {
           state: { data: OnMyAgentSessionSnapshot | null | undefined };
         }) =>
-          tabTitleSnapshotRefetchIntervalMs(query.state.data, { busy }),
+          tabTitleSnapshotRefetchIntervalMs(query.state.data, {
+            busy,
+            titlePending,
+          }),
         retry: (failureCount: number, error: unknown) =>
           shouldRetrySessionSnapshotQuery(failureCount, error),
       };
@@ -583,15 +680,25 @@ export function AgentSessionTabs(props: {
           {orderedSessions.map((session, index) => {
             const isDraft = session.id.startsWith("draft:");
             const active = session.id === activeSessionId;
+            const sessionStatus = props.sessionStatusById?.[session.id];
+            const busy = isStreamingSessionStatus(sessionStatus);
+            const titlePending = shouldShowExpertTabSummarizing(session, {
+              busy,
+              trackedPending: titlePendingSessionIds.has(session.id),
+              pendingSelection: props.pendingSessionId === session.id,
+              nowMs: Date.now(),
+            });
             const snapshotData = snapshotQueries[index]?.data;
+            const snapshotTitle = resolvedSessionSnapshotTitle(snapshotData);
             const generatedFallback = snapshotData
               ? summarizeSessionSnapshotForTab(snapshotData)
               : undefined;
             const title = isDraft
               ? session.title
-              : summarizeTabTitle(session, generatedFallback);
-            const sessionStatus = props.sessionStatusById?.[session.id];
-            const busy = isStreamingSessionStatus(sessionStatus);
+              : snapshotTitle ??
+                summarizeTabTitle(session, generatedFallback, {
+                  summarizing: titlePending,
+                });
             const activityLabel = expertActivityLabel(sessionStatus);
             const pinned = pinnedSet.has(session.id);
             const sessionUnread = isSessionUnread(
