@@ -5,7 +5,17 @@ import json
 from pathlib import Path
 
 
-def render_fragment(data: dict) -> str:
+def load_prompt_templates(skill_root: Path) -> dict[str, str]:
+    plugin_root = skill_root.parent.parent
+    manifest = json.loads(
+        (plugin_root / ".expert-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    registry_path = plugin_root / manifest["promptTemplates"].removeprefix("./")
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    return {item["id"]: item["template"]["zh"] for item in registry}
+
+
+def render_fragment(data: dict, prompt_templates: dict[str, str]) -> str:
     workflow = []
     for index, step in enumerate(data["workflow"], start=1):
         workflow.append(
@@ -15,6 +25,7 @@ def render_fragment(data: dict) -> str:
         )
     cards = []
     for index, capability in enumerate(data["capabilities"], start=1):
+        template = prompt_templates[capability["templateId"]]
         cards.append(
             '<article class="guide-card" data-guide-entry>'
             '<header>'
@@ -22,7 +33,7 @@ def render_fragment(data: dict) -> str:
             f'<div><h3>{html.escape(capability["name"])}</h3>'
             f'<p>{html.escape(capability["when"])}</p></div>'
             '</header>'
-            f'<div class="guide-prompt" role="button" tabindex="0" data-template="{html.escape(capability["template"])}">'
+            f'<div class="guide-prompt" role="button" tabindex="0" data-template="{html.escape(template)}">'
             '<span>可以直接这样说</span>'
             f'<p>{html.escape(capability["example"])}</p>'
             '</div>'
@@ -83,7 +94,7 @@ def render_fragment(data: dict) -> str:
   <div class="guide-tip"><strong>使用原则</strong><span>{html.escape(data["tip"])}</span></div>
 </section>
 """.strip()
-    return fragment + "\n<script>(function(){var s=document.querySelectorAll('.guide-prompt[data-template]');function f(e){parent.postMessage({type:'onmyagent:capability-template',template:e.dataset.template},'*')}s.forEach(function(e){e.addEventListener('click',function(){f(e)});e.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();f(e)}})})})()</script>"
+    return fragment + "\n<script>(function(){var s=document.querySelectorAll('.guide-prompt[data-template]');function f(e){parent.postMessage({type:'onmyagent:prompt-template',template:e.dataset.template},'*')}s.forEach(function(e){e.addEventListener('click',function(){f(e)});e.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();f(e)}})})})()</script>"
 
 
 def main() -> None:
@@ -92,9 +103,10 @@ def main() -> None:
     args = parser.parse_args()
     skill_root = Path(__file__).resolve().parent.parent
     data = json.loads((skill_root / "assets" / "capability-map.json").read_text(encoding="utf-8"))
+    prompt_templates = load_prompt_templates(skill_root)
     output = Path(args.output) if args.output else Path(".process") / f'{data["slug"]}-capability-map.html'
     output.parent.mkdir(parents=True, exist_ok=True)
-    fragment = render_fragment(data)
+    fragment = render_fragment(data, prompt_templates)
     document = (
         '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
