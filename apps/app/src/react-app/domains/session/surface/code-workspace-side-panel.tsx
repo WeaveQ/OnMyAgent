@@ -1052,6 +1052,8 @@ export function CodeWorkspaceSidePanel(props: {
     const snapshot = readWorkspacePanelSnapshot(cacheKey);
     return snapshot?.activeId ?? null;
   });
+  const [terminalBusy, setTerminalBusy] = useState(false);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
   const tabsRef = useRef<ToolTab[]>(tabs);
   const activeIdRef = useRef<string | null>(activeId);
   const restoredKind =
@@ -1143,6 +1145,7 @@ export function CodeWorkspaceSidePanel(props: {
       // One browser/files/review tool surface per session side panel. Multiple
       // page tabs live *inside* BrowserPanel, not as duplicate tool chips.
       if (kind !== "terminal") {
+        setTerminalError(null);
         // User open browser: ensure a session page tab *before* mounting BrowserPanel
         // so the viewport activates on first paint (no empty shell → late show race).
         if (kind === "browser" && options?.seedHomeWhenEmpty && props.sessionId) {
@@ -1171,20 +1174,52 @@ export function CodeWorkspaceSidePanel(props: {
         return;
       }
 
-      const terminal = await createCodeWorkspaceTerminal({
-        workspacePath: props.workspacePath,
-      });
-      const id = terminal.terminalId;
-      const next: ToolTab = {
-        id,
-        kind,
-        label: terminal.title,
-        terminal,
-      };
-      setTabs((current) => [...current, next]);
-      setActiveId(id);
+      if (!isElectronRuntime()) {
+        setTerminalError(t("session.code_side_panel_terminal_desktop_only"));
+        return;
+      }
+      if (terminalBusy) return;
+
+      setTerminalBusy(true);
+      setTerminalError(null);
+      try {
+        // Prefer workspace path; catalog root / file root are still valid cwds.
+        const workspacePath =
+          props.workspacePath?.trim() ||
+          props.workspaceCatalogRoot?.trim() ||
+          props.fileRoot?.trim() ||
+          null;
+        const terminal = await createCodeWorkspaceTerminal({
+          workspacePath,
+        });
+        const id = terminal.terminalId;
+        const next: ToolTab = {
+          id,
+          kind,
+          label: terminal.title || t("session.code_side_panel_terminal"),
+          terminal,
+        };
+        setTabs((current) => [...current, next]);
+        setActiveId(id);
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : t("session.code_side_panel_terminal_open_failed");
+        setTerminalError(message);
+        console.error("Failed to open terminal:", error);
+      } finally {
+        setTerminalBusy(false);
+      }
     },
-    [props.hiddenKinds, props.sessionId, props.workspacePath],
+    [
+      props.fileRoot,
+      props.hiddenKinds,
+      props.sessionId,
+      props.workspaceCatalogRoot,
+      props.workspacePath,
+      terminalBusy,
+    ],
   );
 
   // Ensure the requested tool tab exists once. Do not re-run addTab on every
@@ -1326,9 +1361,11 @@ export function CodeWorkspaceSidePanel(props: {
                 <DropdownMenuContent align="start" className="w-48">
                   {visibleToolItems.map((item) => {
                     const Icon = item.icon;
+                    const isTerminal = item.kind === "terminal";
                     return (
                       <DropdownMenuItem
                         key={item.kind}
+                        disabled={isTerminal && terminalBusy}
                         onClick={() =>
                           void addTab(
                             item.kind,
@@ -1336,7 +1373,11 @@ export function CodeWorkspaceSidePanel(props: {
                           )
                         }
                       >
-                        <Icon />
+                        {isTerminal && terminalBusy ? (
+                          <LoadingSpinner size="sm" className="size-4" />
+                        ) : (
+                          <Icon />
+                        )}
                         {t(item.labelKey)}
                       </DropdownMenuItem>
                     );
@@ -1360,17 +1401,36 @@ export function CodeWorkspaceSidePanel(props: {
           <PanelRight className="size-3.5" />
         </Button>
       </header>
+      {terminalError ? (
+        <div className="shrink-0 border-b border-dls-border px-3 py-2">
+          <NoticeBox tone="error" size="default" className="flex items-start justify-between gap-2">
+            <span className="min-w-0 flex-1 break-words">{terminalError}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0"
+              onClick={() => setTerminalError(null)}
+              aria-label={t("common.close")}
+            >
+              <span className="text-xs">×</span>
+            </Button>
+          </NoticeBox>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1">
         {activeTab ? content : (
           <div className="flex h-full items-center justify-center p-6">
             <div className="w-full max-w-md space-y-2">
               {visibleToolItems.map((item) => {
                 const Icon = item.icon;
+                const isTerminal = item.kind === "terminal";
                 return (
                   <MenuRowButton
                     key={item.kind}
                     type="button"
                     className="h-10 bg-dls-surface-muted text-dls-text hover:bg-dls-hover"
+                    disabled={isTerminal && terminalBusy}
                     onClick={() =>
                       void addTab(
                         item.kind,
@@ -1378,7 +1438,11 @@ export function CodeWorkspaceSidePanel(props: {
                       )
                     }
                   >
-                    <Icon className="size-4 text-dls-secondary" />
+                    {isTerminal && terminalBusy ? (
+                      <LoadingSpinner size="sm" className="size-4 text-dls-secondary" />
+                    ) : (
+                      <Icon className="size-4 text-dls-secondary" />
+                    )}
                     {t(item.labelKey)}
                   </MenuRowButton>
                 );

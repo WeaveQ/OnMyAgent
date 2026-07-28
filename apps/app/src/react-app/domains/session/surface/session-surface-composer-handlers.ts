@@ -132,10 +132,13 @@ export function useSessionSurfaceComposerHandlers(
   };
 
   const handleInsertMention = (kind: ComposerMentionKind, value: string) => {
-    setComposerDraft(
-      sessionId,
-      draft.replace(/@([^\s@]*)$/, `@${encodeComposerMentionValue(value)} `),
-    );
+    const token = encodeComposerMentionValue(value);
+    // Replace in-progress `@query` when picking from the mention menu; otherwise
+    // append so "add to task" from My Files still inserts a usable chip.
+    const nextDraft = /@([^\s@]*)$/u.test(draft)
+      ? draft.replace(/@([^\s@]*)$/u, `@${token} `)
+      : `${draft}${draft.length > 0 && !/\s$/u.test(draft) ? " " : ""}@${token} `;
+    setComposerDraft(sessionId, nextDraft);
     setComposerMentions(sessionId, { ...mentions, [value]: kind });
   };
 

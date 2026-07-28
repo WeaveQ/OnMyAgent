@@ -78,6 +78,8 @@ export default {
   "session.code_side_panel_review_desc": "这里会展示本轮改动、检查项和待审核文件。",
   "session.code_side_panel_terminal": "终端",
   "session.code_side_panel_terminal_desc": "这里会接入代码任务的终端输出和命令执行记录。",
+  "session.code_side_panel_terminal_open_failed": "无法打开终端，请稍后重试。",
+  "session.code_side_panel_terminal_desktop_only": "终端仅在桌面应用中可用。",
   "session.code_side_panel_expand": "展开侧边栏",
   "session.code_side_panel_minimize": "最小化侧边栏",
   "session.code_side_panel_toggle": "展开侧边栏",

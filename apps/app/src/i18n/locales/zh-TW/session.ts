@@ -78,6 +78,8 @@ export default {
   "session.code_side_panel_review_desc": "這裡會展示本輪改動、檢查項和待審核文件。",
   "session.code_side_panel_terminal": "終端",
   "session.code_side_panel_terminal_desc": "這裡會接入代碼任務的終端輸出和命令執行記錄。",
+  "session.code_side_panel_terminal_open_failed": "無法打開終端，請稍後重試。",
+  "session.code_side_panel_terminal_desktop_only": "終端僅在桌面應用中可用。",
   "session.code_side_panel_expand": "展開側邊欄",
   "session.code_side_panel_minimize": "最小化側邊欄",
   "session.code_side_panel_toggle": "展開側邊欄",

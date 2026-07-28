@@ -500,8 +500,8 @@ export function SessionRouteRender() {
   );
   useSessionRouteInspector(sessionRouteInspectorInput);
 
-  // Once workspaces + sessions are loaded and the URL has no sessionId, try to
-  // restore the last session the user opened in the active workspace.
+  // Once workspaces are loaded, repair invalid workspace URLs. Do not re-open
+  // the last chat when the URL has no sessionId — cold start stays on new-task home.
   useEffect(() => {
     const navigation = resolveSessionRouteRestoreNavigation({
       firstSessionIdForPageMode,

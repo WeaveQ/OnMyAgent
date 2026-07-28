@@ -221,7 +221,10 @@ export default {
   "settings.computer_use_setup_description":
     "Connect the local MCP server and grant the macOS permissions it needs to control apps",
   "settings.computer_use_step_connect": "Connect",
+  "settings.computer_use_step_permissions": "Permissions",
   "settings.computer_use_step_runtime": "Health",
+  "settings.computer_use_step_apps": "App access",
+  "settings.computer_use_step_memory": "Memory",
   "settings.computer_use_step_privacy": "Access & memory",
   "settings.computer_use_connect_step_title": "1. Connect Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
@@ -249,19 +252,46 @@ export default {
     "Open the Computer Use helper, grant Accessibility and Screen Recording, then verify the result.",
   "settings.computer_use_runtime_step_title": "3. Runtime health",
   "settings.computer_use_runtime_step_description":
-    "Check the helper protocol and current activity state.",
+    "See whether Computer Use is ready, busy, or needs attention — in plain language.",
   "settings.computer_use_helper_version": "Helper version",
   "settings.computer_use_desktop_version": "OnMyAgent version",
   "settings.computer_use_protocol": "Protocol",
-  "settings.computer_use_activity": "Activity",
+  "settings.computer_use_status": "Overall status",
+  "settings.computer_use_compatibility": "Compatibility",
+  "settings.computer_use_compatibility_ok": "Compatible",
+  "settings.computer_use_compatibility_needs_update": "Needs update",
+  "settings.computer_use_status_checking": "Checking…",
+  "settings.computer_use_status_ready": "Ready",
+  "settings.computer_use_status_working": "Working",
+  "settings.computer_use_status_paused": "Paused",
+  "settings.computer_use_status_error": "Error",
+  "settings.computer_use_status_needs_update": "Needs update",
+  "settings.computer_use_runtime_summary_checking":
+    "Checking whether Computer Use is ready on this Mac…",
+  "settings.computer_use_runtime_summary_ready":
+    "Computer Use is ready. Start a task from the composer when you need it.",
+  "settings.computer_use_runtime_summary_working":
+    "Computer Use is controlling an app right now.",
+  "settings.computer_use_runtime_summary_working_app":
+    "Computer Use is controlling {app} right now.",
+  "settings.computer_use_runtime_summary_paused":
+    "Paused because you used the mouse or keyboard. It will resume when you stop.",
+  "settings.computer_use_runtime_summary_error":
+    "Computer Use hit a problem. Try verify below, or reopen the helper from step 2.",
+  "settings.computer_use_runtime_summary_needs_update":
+    "This Computer Use helper is out of date for this OnMyAgent build. Update or reinstall the app.",
+  "settings.computer_use_versions_hint":
+    "Versions: helper {helper} · app {app}",
+  "settings.computer_use_activity": "What it’s doing",
   "settings.computer_use_unknown": "Unknown",
   "settings.computer_use_update_required":
-    "The bundled helper does not match this OnMyAgent build. Update or reinstall OnMyAgent before using Computer Use.",
-  "settings.computer_use_activity_running": "Running",
-  "settings.computer_use_activity_paused": "Paused by physical input",
-  "settings.computer_use_activity_ready": "Ready",
-  "settings.computer_use_activity_error": "Error",
-  "settings.computer_use_activity_inactive": "Inactive",
+    "This Computer Use helper is out of date for this OnMyAgent build. Update or reinstall OnMyAgent, then open this panel again.",
+  "settings.computer_use_activity_running": "Controlling an app",
+  "settings.computer_use_activity_running_app": "Controlling {app}",
+  "settings.computer_use_activity_paused": "Paused — you used the mouse or keyboard",
+  "settings.computer_use_activity_ready": "Idle, waiting for a task",
+  "settings.computer_use_activity_error": "Something went wrong",
+  "settings.computer_use_activity_inactive": "Not running",
   "settings.computer_use_app_authorizations_title": "4. App access",
   "settings.computer_use_app_authorizations_description":
     "Review apps that you chose to always allow Computer Use to control.",
