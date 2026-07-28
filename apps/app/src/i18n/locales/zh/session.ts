@@ -1051,7 +1051,7 @@ export default {
   "session.channel_pairing_pending_empty": "暂无待配对请求",
   "session.channel_pairing_authorized_title": "已授权用户",
   "session.channel_pairing_authorized_empty": "暂无已授权用户",
-  "session.agent_tab_summarizing": "总结中",
+  "session.agent_tab_summarizing": "总结中…",
   "session.agent_tab_loading": "加载中…",
   "session.agent_tab_new_session": "新会话",
   "session.agent_tab_new_session_title": "新建会话",

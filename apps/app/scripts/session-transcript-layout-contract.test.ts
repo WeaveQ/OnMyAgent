@@ -297,6 +297,8 @@ describe("session transcript layout contract", () => {
       "Math.max(estimate, activeTurnMinHeight)",
     );
     expect(messageList).toContain("const activeTurnMinHeight = 0");
+    expect(messageList).toContain("shouldRemeasureVirtualHistory");
+    expect(messageList).toContain("previousVirtualHistoryCountRef");
     const virtualWindow = await Bun.file(
       new URL(
         "../src/react-app/domains/session/surface/message-list/virtual-window.ts",
