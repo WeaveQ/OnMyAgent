@@ -52,4 +52,14 @@ assert.equal(legacy.assistant?.backend, "codex");
 assert.equal(legacy.assistant?.agent_type, "codex");
 console.log("✓ legacy fields");
 
+console.log("Test 7: pseudo-agent binding + rollback to external agent (P1-02)");
+await store.setChatAssistant("weixin", "chat-onmyagent", { assistant_id: "onmyagent" });
+const boundOnmyagent = store.getChatAssistant("weixin", "chat-onmyagent");
+assert.equal(boundOnmyagent?.assistant_id, "onmyagent");
+console.log("✓ onmyagent bound to chat");
+await store.setChatAssistant("weixin", "chat-onmyagent", { assistant_id: "asst-codex" });
+const rebound = store.getChatAssistant("weixin", "chat-onmyagent");
+assert.equal(rebound?.assistant_id, "asst-codex");
+console.log("✓ rolled back to external agent without data loss");
+
 console.log("All assistant binding store tests passed");

@@ -26,6 +26,12 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
+import {
+  ONMYAGENT_ASSISTANT_AGENT_ID,
+  ONMYAGENT_ASSISTANT_PROVIDER,
+  createOnMyAgentAssistantAgent,
+  runAssistantBridgeTurn,
+} from "./assistant-bridge.mjs";
 import { formatAgentReply } from "./AgentReplyHeader.mjs";
 import { CHANNEL_EVENTS } from "./ChannelEventBus.mjs";
 
@@ -354,11 +360,30 @@ export function createChannelAgentDispatcher(options = {}) {
     pendingBatches.set(key, { event: batchEvent, agent, timer });
   }
 
+  // Routes an IM chat bound to the `onmyagent` pseudo-agent to the desktop
+  // assistant tab via the shared AssistantBridge helper. Pure additive path —
+  // only provider `onmyagent-assistant` reaches here.
+  function runChannelAssistantBridgeTurn(session, event) {
+    return runAssistantBridgeTurn({
+      runtime,
+      store,
+      session,
+      event,
+      platformLabel: platformType,
+      appendLog,
+      readChatSetting: storeSafeReadChatSetting,
+      deliverReply: (s, e, text) => deliverReply(s, e.chatId, e.senderId, text),
+    });
+  }
+
   async function dispatchToAgent(session, event) {
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) {
       throw new Error("personal agent runtime is unavailable");
     }
     const agent = event.agentSnapshot ?? await currentAgentForChat(platformType, session, event.chatId);
+    if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+      return await runChannelAssistantBridgeTurn(session, event);
+    }
     const promptMode = await currentPromptModeForChat(session, event.chatId);
     const historyKey = chatAgentHistoryKey(event.chatId, agent);
     const runKey = activeRunKey(event.chatId, agent);
@@ -1102,6 +1127,9 @@ function normalizeAvailableAgents(value, fallbackAgent) {
     const agent = normalizePersonalLocalAgent(item);
     byId.set(agent.id, agent);
   }
+  if (!byId.has(ONMYAGENT_ASSISTANT_AGENT_ID)) {
+    byId.set(ONMYAGENT_ASSISTANT_AGENT_ID, createOnMyAgentAssistantAgent());
+  }
   return [...byId.values()];
 }
 
@@ -1360,7 +1388,7 @@ function renderAgentHelp(session, chatId) {
     "可用 Agent：",
     ...session.options.availableAgents.map((agent) => `- ${agent.id}: ${agentLabel(agent)}`),
     "",
-    "发送 #agent <id> 切换，例如：#agent codex",
+    "发送 #agent <id> 切换，例如：#agent codex 或 #agent onmyagent（连接本地助理）",
   ].join("\n");
 }
 
@@ -1454,6 +1482,7 @@ export const __test__ = {
   isAllowed,
   normalizeRuntimeOptions,
   normalizePromptMode,
+  normalizeAvailableAgents,
   parseAgentSwitchCommand,
   parseModeCommand,
   parseModelSwitchCommand,
@@ -1472,4 +1501,7 @@ export const __test__ = {
   runAgentTurn,
   getChannelRunSnapshotState,
   scopedRuntimeAgent,
+  createOnMyAgentAssistantAgent,
+  ONMYAGENT_ASSISTANT_AGENT_ID,
+  ONMYAGENT_ASSISTANT_PROVIDER,
 };
