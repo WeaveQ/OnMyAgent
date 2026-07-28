@@ -40,7 +40,7 @@ export default {
   "session.create_expert_prompt": "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]",
   "session.expert_capability": "能力介绍",
   "session.expert_strengths": "擅长领域",
-  "session.expert_self_intro_prompt_title": "了解你的能力",
+  "session.expert_self_intro_prompt_title": "了解我的能力",
   "session.expert_self_intro_prompt": "请介绍一下你能处理哪些工作，并说明每项能力适合什么业务场景、我需要提供哪些资料。",
   "session.expert_self_intro_capability_map_description": "先看能力说明和表格，再预览 HTML 能力图谱。",
   "session.expert_self_intro_capability_map_prompt": "请使用你的自我介绍技能，按流程介绍你能处理的工作：先输出能力描述，再输出包含适用场景、所需资料和主要产物的表格，最后生成可直接预览的 HTML 能力图谱。",

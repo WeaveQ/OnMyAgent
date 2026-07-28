@@ -43,7 +43,7 @@ export default {
   "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
   "session.expert_capability": "Capabilities",
   "session.expert_strengths": "Strengths",
-  "session.expert_self_intro_prompt_title": "Explore your capabilities",
+  "session.expert_self_intro_prompt_title": "Explore my capabilities",
   "session.expert_self_intro_prompt": "Please introduce the work you can handle, explain when each capability is useful, and tell me what information I should provide.",
   "session.expert_self_intro_capability_map_description": "Read the capability summary and table first, then preview an HTML capability map.",
   "session.expert_self_intro_capability_map_prompt": "Use your self-introduction skill and follow its workflow: first describe the work you can handle, then provide a table of use cases, required inputs, and main deliverables, and finally generate an HTML capability map that can be previewed directly.",
