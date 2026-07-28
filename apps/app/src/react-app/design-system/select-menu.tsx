@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 export type SelectMenuOption = {
   value: string;
   label: string;
+  /** Optional secondary line under the label (tone menus, rich pickers). */
+  description?: string;
 };
 
 type SelectMenuProps = {
@@ -32,10 +34,15 @@ type SelectMenuProps = {
   onOpen?: () => void;
   /** Root class — use e.g. `w-auto max-w-[14rem]` in flex toolbars. Default `w-full`. */
   className?: string;
+  /** Minimum panel width (useful when options have descriptions). */
+  panelMinWidth?: number;
 };
 
 type PanelRect = {
-  top: number;
+  /** Distance from viewport top (bottom placement). */
+  top: number | null;
+  /** Distance from viewport bottom (top placement) — panel grows upward from trigger. */
+  bottom: number | null;
   left: number;
   width: number;
   maxHeight: number;
@@ -51,20 +58,21 @@ const triggerClasses = {
 
 const optionRowClasses = {
   default:
-    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover",
+    "flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover",
   compact:
-    "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs text-dls-text transition-colors hover:bg-dls-hover",
+    "flex w-full items-start gap-2 px-2 py-1.5 text-left text-xs text-dls-text transition-colors hover:bg-dls-hover",
 };
 
 const PANEL_GAP = 6;
-const PANEL_MAX_HEIGHT = 288; // 18rem
+const PANEL_MAX_HEIGHT = 360;
 const VIEWPORT_PAD = 8;
 
 function computePanelRect(
   trigger: DOMRect,
   preferred: "bottom" | "top" | "auto",
+  minWidth: number,
 ): PanelRect {
-  const width = Math.max(trigger.width, 140);
+  const width = Math.max(trigger.width, minWidth);
   const spaceBelow = window.innerHeight - trigger.bottom - VIEWPORT_PAD;
   const spaceAbove = trigger.top - VIEWPORT_PAD;
 
@@ -86,12 +94,27 @@ function computePanelRect(
   left = Math.min(left, window.innerWidth - width - VIEWPORT_PAD);
   left = Math.max(VIEWPORT_PAD, left);
 
-  const top =
-    placement === "bottom"
-      ? trigger.bottom + PANEL_GAP
-      : Math.max(VIEWPORT_PAD, trigger.top - PANEL_GAP - maxHeight);
-
-  return { top, left, width, maxHeight, placement };
+  // Bottom-open: top edge just under trigger.
+  // Top-open: CSS `bottom` so panel sits snug above trigger (do NOT subtract
+  // maxHeight — that left a huge empty gap when content is short).
+  if (placement === "bottom") {
+    return {
+      top: trigger.bottom + PANEL_GAP,
+      bottom: null,
+      left,
+      width,
+      maxHeight,
+      placement,
+    };
+  }
+  return {
+    top: null,
+    bottom: Math.max(VIEWPORT_PAD, window.innerHeight - trigger.top + PANEL_GAP),
+    left,
+    width,
+    maxHeight,
+    placement,
+  };
 }
 
 export function SelectMenu(props: SelectMenuProps) {
@@ -101,6 +124,11 @@ export function SelectMenu(props: SelectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const size = props.size ?? "default";
   const placement = props.placement ?? "auto";
+  const hasDescriptions = props.options.some((opt) =>
+    Boolean(opt.description?.trim()),
+  );
+  const panelMinWidth =
+    props.panelMinWidth ?? (hasDescriptions ? 280 : 140);
 
   const displayLabel = useMemo(() => {
     const match = props.options.find((o) => o.value === props.value);
@@ -113,7 +141,7 @@ export function SelectMenu(props: SelectMenuProps) {
   const updatePanelPosition = useEffectEvent(() => {
     const trigger = rootRef.current?.getBoundingClientRect();
     if (!trigger) return;
-    setPanelRect(computePanelRect(trigger, placement));
+    setPanelRect(computePanelRect(trigger, placement, panelMinWidth));
   });
 
   useLayoutEffect(() => {
@@ -122,7 +150,7 @@ export function SelectMenu(props: SelectMenuProps) {
       return;
     }
     updatePanelPosition();
-  }, [open, props.options.length, placement]);
+  }, [open, props.options.length, placement, panelMinWidth]);
 
   useEffect(() => {
     if (!open) return;
@@ -169,18 +197,22 @@ export function SelectMenu(props: SelectMenuProps) {
             role="listbox"
             // Solid opaque surface + isolation so glass/backdrop parents never
             // show through option rows (avoids "穿透" of underlying controls).
-            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1"
+            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1 shadow-lg"
             style={{
-              top: panelRect.top,
+              top: panelRect.top ?? "auto",
+              bottom: panelRect.bottom ?? "auto",
               left: panelRect.left,
               width: Math.max(panelRect.width, 160),
               maxHeight: panelRect.maxHeight,
-              backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
-              color: "var(--dls-text-primary)",
+              // Hard solid fill (var alone can still glass-mix under mac vibrancy).
+              backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
+              color: "var(--dls-text-primary, #f8fafc)",
+              opacity: 1,
             }}
           >
             {props.options.map((opt) => {
               const selected = opt.value === props.value;
+              const description = opt.description?.trim() ?? "";
               return (
                 <button
                   key={opt.value}
@@ -192,28 +224,37 @@ export function SelectMenu(props: SelectMenuProps) {
                     "w-full border-0 outline-none focus-visible:bg-dls-hover",
                     selected
                       ? "bg-dls-list-selected text-dls-text"
-                      : "bg-transparent text-dls-text hover:bg-dls-hover",
+                      : "bg-dls-surface-solid text-dls-text hover:bg-dls-hover",
                   )}
-                  style={
-                    selected
-                      ? { backgroundColor: "var(--dls-list-selected)" }
-                      : undefined
-                  }
                   onClick={() => {
                     props.onChange(opt.value);
                     close();
                   }}
                 >
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {opt.label}
+                  <span className="min-w-0 flex-1 text-left">
+                    <span
+                      className={cn(
+                        "block font-medium leading-5",
+                        selected ? "text-dls-text" : "text-dls-text",
+                      )}
+                    >
+                      {opt.label}
+                    </span>
+                    {description ? (
+                      <span className="mt-0.5 block text-xs font-normal leading-4 text-dls-secondary">
+                        {description}
+                      </span>
+                    ) : null}
                   </span>
                   {selected ? (
                     <Check
                       size={16}
-                      className="shrink-0 text-dls-accent"
+                      className="mt-0.5 shrink-0 text-dls-accent"
                       aria-hidden
                     />
-                  ) : null}
+                  ) : (
+                    <span className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  )}
                 </button>
               );
             })}

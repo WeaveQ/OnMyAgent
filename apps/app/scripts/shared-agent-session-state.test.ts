@@ -189,6 +189,44 @@ describe("shared agent session state", () => {
     ]);
   });
 
+  test("sync drops local records when the automation definition is gone", () => {
+    const automation = {
+      id: "automation-1",
+      scene: "office",
+      title: "异常跟进清单",
+      prompt: "跟进",
+      schedule: {
+        mode: "weekly",
+        day: "daily",
+        time: "10:00",
+      },
+      effectiveRange: {},
+      enabled: true,
+      createdAt: 1_772_000_000_000,
+      updatedAt: 1_772_000_000_000,
+      nextRunAt: null,
+      running: null,
+      lastRun: null,
+      runs: [
+        {
+          status: "success",
+          source: "scheduled",
+          ranAt: 1_772_100_000_000,
+          sessionId: "run-1",
+          groupName: "自动化任务-异常",
+          outputDirectory: "/tmp/自动化任务-异常",
+        },
+      ],
+    } satisfies OnMyAgentAutomationTaskItem;
+
+    syncAutomationSessionRecords("workspace-1", [automation]);
+    expect(readAutomationSessionRecords("workspace-1")).toHaveLength(1);
+
+    // Sidebar / page deleted the schedule — remaining automations list is empty.
+    syncAutomationSessionRecords("workspace-1", []);
+    expect(readAutomationSessionRecords("workspace-1")).toEqual([]);
+  });
+
   test("removes deleted automation sessions and prevents sync from restoring them", () => {
     const automation = {
       id: "automation-1",

@@ -17,8 +17,18 @@ import {
   discoverSessionArchiveSessionFiles,
 } from "./session-archive-parser.js";
 import { resolveSessionArchiveSourceRoots, resolveSessionArchiveWatchRoots } from "./session-archive-registry.js";
-import { shouldRunIncrementalSessionArchiveSync } from "./automation-schedule-policy.js";
+import {
+  DEFAULT_SESSION_ARCHIVE_PERIODIC_MS,
+  shouldRunIncrementalSessionArchiveSync,
+  shouldRunPeriodicArchiveSync,
+} from "./automation-schedule-policy.js";
+import { notifyArchiveDbChanged } from "./archive-change-bus.js";
 import { withSessionArchiveStore } from "./session-archive-store-pool.js";
+
+export {
+  DEFAULT_SESSION_ARCHIVE_PERIODIC_MS,
+  shouldRunPeriodicArchiveSync,
+} from "./automation-schedule-policy.js";
 
 export type SessionArchiveRuntimePaths = {
   root: string;
@@ -271,6 +281,7 @@ export function startSessionArchiveSyncWatcher(input: {
   sourceRoots?: SessionArchiveSourceRoot[];
   sourceConfig?: Parameters<typeof resolveSessionArchiveSourceRoots>[0];
   debounceMs?: number;
+  /** Idle tick interval for due-based periodic drain (opt-in; use DEFAULT_SESSION_ARCHIVE_PERIODIC_MS). */
   periodicMs?: number;
   limit?: number;
   changedPaths?: string[];
@@ -279,10 +290,14 @@ export function startSessionArchiveSyncWatcher(input: {
   const sourceRoots = input.sourceRoots ?? defaultSessionArchiveSourceRoots(input.sourceConfig);
   const watchRoots = sessionArchiveSyncWatchRoots(sourceRoots);
   const debounceMs = input.debounceMs ?? 750;
+  // Opt-in periodic drain; callers may pass DEFAULT_SESSION_ARCHIVE_PERIODIC_MS.
+  const periodicMs = input.periodicMs ?? 0;
   const watchers: FSWatcher[] = [];
   let timer: ReturnType<typeof setTimeout> | null = null;
   let periodicTimer: ReturnType<typeof setInterval> | null = null;
   let running: Promise<SessionArchiveSyncStats> | null = null;
+  /** Last completed sync attempt (ms). 0 = never — used for due-based periodic ticks. */
+  let lastPeriodicRunMs = 0;
 
   let pendingChangedPaths = new Set<string>(input.changedPaths ?? []);
 
@@ -299,9 +314,18 @@ export function startSessionArchiveSyncWatcher(input: {
       limit: input.limit,
       changedPaths: pathsForRun,
       onProgress: input.onProgress,
-    }).finally(() => {
-      running = null;
-    });
+    })
+      .then((stats) => {
+        lastPeriodicRunMs = Date.now();
+        // Notify change-bus so SSE clients refresh after successful watcher sync.
+        if (!stats.aborted) {
+          notifyArchiveDbChanged(input.paths.dbPath);
+        }
+        return stats;
+      })
+      .finally(() => {
+        running = null;
+      });
     return running;
   };
 
@@ -323,10 +347,14 @@ export function startSessionArchiveSyncWatcher(input: {
       // Missing or unsupported roots are handled by periodic sync.
     }
   }
-  if (input.periodicMs && input.periodicMs > 0) {
-    // Only periodic-wake when we have pending paths (or force via syncNow).
-    // Empty incremental full-discover every period was a major IO tax.
+  if (periodicMs > 0) {
+    // Due-based periodic drain: only wake when interval elapsed AND we have
+    // pending paths. Empty full-discover every tick was a major IO tax.
+    // Tick at most every periodicMs (or 5s floor for the setInterval cadence).
+    const tickMs = Math.max(5_000, Math.min(periodicMs, DEFAULT_SESSION_ARCHIVE_PERIODIC_MS));
     periodicTimer = setInterval(() => {
+      const nowMs = Date.now();
+      if (!shouldRunPeriodicArchiveSync(lastPeriodicRunMs, nowMs, periodicMs)) return;
       if (pendingChangedPaths.size === 0) return;
       if (!shouldRunIncrementalSessionArchiveSync({
         mode: "incremental",
@@ -335,7 +363,7 @@ export function startSessionArchiveSyncWatcher(input: {
         return;
       }
       void syncNow("incremental");
-    }, input.periodicMs);
+    }, tickMs);
   }
 
   return {

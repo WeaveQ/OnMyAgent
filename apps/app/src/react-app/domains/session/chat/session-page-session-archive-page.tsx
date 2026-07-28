@@ -15,16 +15,19 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { CountBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
 import {
   agentLabel,
   archiveAgentIconId,
+  archiveSessionPreviewLine,
+  cleanArchiveMessageContent,
+  isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   groupSessionsByAgent,
   buildResumeRequest,
   humanizeArchiveTitle,
+  shortProjectLabel,
 } from "./session-archive-helpers";
 
 // Pure helpers + the `SessionArchiveResumeRequest` type live in
@@ -38,16 +41,25 @@ export type {
 export {
   agentLabel,
   archiveAgentIconId,
+  archiveSessionPreviewLine,
+  cleanArchiveMessageContent,
+  isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   VISIBLE_AGENTS,
   RESUMABLE_AGENTS,
   groupSessionsByAgent,
   buildResumeRequest,
   humanizeArchiveTitle,
+  shortProjectLabel,
+  extractArchiveTitleLine,
 } from "./session-archive-helpers";
 
-const PAGE_LIMIT = 2000;
-const MESSAGE_LIMIT = 500;
+/** First-screen page size — never mount thousands of list rows at once. */
+const PAGE_LIMIT = 50;
+/** Transcript window; full history can be expanded later if needed. */
+const MESSAGE_LIMIT = 120;
+const SEARCH_DEBOUNCE_MS = 280;
+const SSE_LIST_REFRESH_DEBOUNCE_MS = 1_500;
 
 type Props = {
   client: OnMyAgentServerClient | null;
@@ -63,21 +75,50 @@ type ArchiveSyncSummary = {
   warnings: string[];
 };
 
+/** Merge pages by id (newer page rows win for the same id). Exported for unit tests. */
+export function mergeArchiveSessionPages(
+  existing: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+  incoming: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+): OnMyAgentSessionArchiveSession[] {
+  const map = new Map<string, OnMyAgentSessionArchiveSession>();
+  for (const row of existing) map.set(row.id, row);
+  for (const row of incoming) map.set(row.id, row);
+  return Array.from(map.values());
+}
+
+/** List order: newest file_mtime first (matches the sidebar UI). */
+export function sortArchiveSessionsByRecency(
+  sessions: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+): OnMyAgentSessionArchiveSession[] {
+  return [...sessions].sort((a, b) => {
+    const at = a.file_mtime ?? 0;
+    const bt = b.file_mtime ?? 0;
+    if (bt !== at) return bt - at;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sessions, setSessions] = useState<OnMyAgentSessionArchiveSession[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [listTotal, setListTotal] = useState(0);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<OnMyAgentSessionArchiveMessagesResponse["messages"]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listTick, setListTick] = useState(0);
   const [agentCounts, setAgentCounts] = useState<Array<{ agent: string; count: number }>>([]);
-  const [agentFilter, setAgentFilter] = useState<string | null>(null); // null = 全部
+  /** null = all agents. Default picks the first (highest count) chip once counts load. */
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
   const [lastSyncSummary, setLastSyncSummary] = useState<ArchiveSyncSummary | null>(null);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const trimmedQuery = query.trim();
+  const trimmedQuery = debouncedQuery.trim();
   const refreshList = useCallback(() => setListTick((tick) => tick + 1), []);
 
   // Guard so SSE-driven refreshes never disturb the transcript pane the user
@@ -85,28 +126,67 @@ export function SessionArchivePage(props: Props) {
   // selection, not when the list ticks.
   const lastLoadedSessionRef = useRef<string | null>(null);
   const initialSyncDoneRef = useRef(false);
+  const initialAgentFilterSeededRef = useRef(false);
+  const sseRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadSessionList = useCallback(async () => {
-    if (!props.client || !props.workspaceId.trim()) return;
-    setLoadingList(true);
-    setError(null);
-    try {
-      const page = await props.client.listSessionArchiveSessions(props.workspaceId, {
-        limit: PAGE_LIMIT,
-        search: trimmedQuery || undefined,
-      });
-      setSessions(page.sessions);
-      setAgentCounts(page.agent_counts ?? []);
-      setSelectedSessionId((current) => {
-        if (current && page.sessions.some((s) => s.id === current)) return current;
-        return page.sessions[0]?.id ?? null;
-      });
-    } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setLoadingList(false);
-    }
-  }, [props.client, props.workspaceId, trimmedQuery]);
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  const loadSessionList = useCallback(
+    async (options?: { cursor?: string; append?: boolean }) => {
+      if (!props.client || !props.workspaceId.trim()) return;
+      const append = Boolean(options?.append && options.cursor);
+      if (append) setLoadingMore(true);
+      else setLoadingList(true);
+      setError(null);
+      try {
+        const page = await props.client.listSessionArchiveSessions(props.workspaceId, {
+          limit: PAGE_LIMIT,
+          search: trimmedQuery || undefined,
+          agent: agentFilter || undefined,
+          cursor: options?.cursor,
+        });
+        setSessions((prev) =>
+          append ? mergeArchiveSessionPages(prev, page.sessions) : page.sessions,
+        );
+        setNextCursor(page.next_cursor?.trim() || null);
+        setListTotal(typeof page.total === "number" ? page.total : page.sessions.length);
+        // agent_counts are global (server ignores agent filter for counts).
+        if (!append || (page.agent_counts?.length ?? 0) > 0) {
+          const counts = page.agent_counts ?? [];
+          setAgentCounts(counts);
+          // Entering 会话: auto-select the first agent chip (most sessions).
+          // Only seed once so user can still clear to "all" by re-clicking.
+          if (!initialAgentFilterSeededRef.current && !append) {
+            const firstAgent = [...counts]
+              .filter((entry) => entry.count > 0 && isVisibleArchiveAgent(entry.agent))
+              .sort((a, b) => b.count - a.count)[0]?.agent;
+            if (firstAgent) {
+              initialAgentFilterSeededRef.current = true;
+              setAgentFilter(firstAgent);
+            } else {
+              initialAgentFilterSeededRef.current = true;
+            }
+          }
+        }
+        // Default session selection (first visible row) is applied in the
+        // flatSessions effect so it matches the sorted list the user sees.
+      } catch (cause: unknown) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setLoadingList(false);
+        setLoadingMore(false);
+      }
+    },
+    [props.client, props.workspaceId, trimmedQuery, agentFilter],
+  );
+
+  const loadMoreSessions = useCallback(() => {
+    if (!nextCursor || loadingList || loadingMore) return;
+    void loadSessionList({ cursor: nextCursor, append: true });
+  }, [nextCursor, loadingList, loadingMore, loadSessionList]);
 
   const runArchiveSync = useCallback(
     async (mode: "incremental" | "resync" = "resync") => {
@@ -136,6 +216,7 @@ export function SessionArchivePage(props: Props) {
             window.setTimeout(resolve, 200);
           });
         }
+        // Refresh first page only (cheap) after sync.
         await loadSessionList();
       } catch (cause: unknown) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -146,13 +227,22 @@ export function SessionArchivePage(props: Props) {
     [props.client, props.workspaceId, loadSessionList],
   );
 
+  // Reset one-shot seeds when switching workspace so the first agent chip is
+  // selected again for the new archive.
+  useEffect(() => {
+    initialAgentFilterSeededRef.current = false;
+    initialSyncDoneRef.current = false;
+    setAgentFilter(null);
+    setSelectedSessionId(null);
+  }, [props.workspaceId]);
+
+  // Paint first page immediately — do not block on full archive sync.
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
     void loadSessionList();
-  }, [props.client, props.workspaceId, trimmedQuery, listTick, loadSessionList]);
+  }, [props.client, props.workspaceId, trimmedQuery, agentFilter, listTick, loadSessionList]);
 
-  // First visit: run a real archive sync so Windows cold starts actually index
-  // local agent histories instead of only re-reading an empty SQLite cache.
+  // Background incremental sync after first paint (cold start indexing).
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
     if (initialSyncDoneRef.current) return;
@@ -193,8 +283,15 @@ export function SessionArchivePage(props: Props) {
   useEffect(() => {
     if (!props.client || !props.workspaceId.trim()) return;
     const controller = new AbortController();
+    const scheduleRefresh = () => {
+      if (sseRefreshTimerRef.current) clearTimeout(sseRefreshTimerRef.current);
+      sseRefreshTimerRef.current = setTimeout(() => {
+        sseRefreshTimerRef.current = null;
+        refreshList();
+      }, SSE_LIST_REFRESH_DEBOUNCE_MS);
+    };
     props.client
-      .openSessionArchiveEventsStream(props.workspaceId, { pollMs: 5000, signal: controller.signal })
+      .openSessionArchiveEventsStream(props.workspaceId, { pollMs: 15_000, signal: controller.signal })
       .then(async (response) => {
         const body = response.body;
         if (!body) return;
@@ -203,7 +300,7 @@ export function SessionArchivePage(props: Props) {
           while (true) {
             const { done } = await reader.read();
             if (done) break;
-            refreshList();
+            scheduleRefresh();
           }
         } finally {
           reader.releaseLock();
@@ -212,6 +309,7 @@ export function SessionArchivePage(props: Props) {
       .catch(() => {});
     return () => {
       controller.abort();
+      if (sseRefreshTimerRef.current) clearTimeout(sseRefreshTimerRef.current);
     };
   }, [props.client, props.workspaceId, refreshList]);
 
@@ -240,40 +338,61 @@ export function SessionArchivePage(props: Props) {
 
   const handleDelete = useCallback(async () => {
     if (!props.client || !selectedSessionId) return;
+    const deletedId = selectedSessionId;
     try {
-      await props.client.trashSessionArchiveSession(props.workspaceId, selectedSessionId);
-      setSelectedSessionId(null);
+      await props.client.trashSessionArchiveSession(props.workspaceId, deletedId);
+      // Immediately move selection to the next visible row so the detail pane
+      // never sits empty after delete.
+      const remaining = sortArchiveSessionsByRecency(
+        sessions.filter((session) => session.id !== deletedId),
+      );
+      setSelectedSessionId(remaining[0]?.id ?? null);
       lastLoadedSessionRef.current = null;
       refreshList();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
-  }, [props.client, props.workspaceId, selectedSessionId, refreshList]);
+  }, [props.client, props.workspaceId, selectedSessionId, sessions, refreshList]);
 
   const resumeRequest = useMemo(() => buildResumeRequest(selectedSession), [selectedSession]);
+  /** Chip total: prefer server agent_counts sum; filter uses that agent's count. */
   const totalKnown = useMemo(() => {
-    return groups.reduce((sum, g) => {
-      const total = (g as { totalCount?: number }).totalCount;
-      return sum + (typeof total === "number" ? total : g.sessions.length);
-    }, 0);
-  }, [groups]);
+    if (agentFilter) {
+      const hit = agentCounts.find((entry) => entry.agent === agentFilter);
+      return hit?.count ?? listTotal;
+    }
+    if (agentCounts.length > 0) {
+      return agentCounts.reduce((sum, entry) => sum + entry.count, 0);
+    }
+    return listTotal;
+  }, [agentCounts, agentFilter, listTotal]);
   const handleResume = useCallback(() => {
     if (!resumeRequest || !props.onResume) return;
     props.onResume(resumeRequest);
   }, [props, resumeRequest]);
   const canResume = Boolean(resumeRequest && props.onResume);
 
-  const flatSessions = useMemo(() => {
-    const source = agentFilter
-      ? groups.filter((g) => g.agent === agentFilter)
-      : groups;
-    const rows = source.flatMap((g) => g.sessions);
-    return rows.sort((a, b) => {
-      const at = a.file_mtime ?? 0;
-      const bt = b.file_mtime ?? 0;
-      return bt - at;
-    });
-  }, [groups, agentFilter]);
+  // Server already filters by agent when agentFilter is set — sort loaded page only.
+  const flatSessions = useMemo(
+    () => sortArchiveSessionsByRecency(sessions),
+    [sessions],
+  );
+
+  // Guarantee: whenever the visible list is non-empty, something is selected
+  // (first row). Covers filter/search edge cases that skip loadSessionList.
+  useEffect(() => {
+    if (flatSessions.length === 0) {
+      if (selectedSessionId !== null) setSelectedSessionId(null);
+      return;
+    }
+    if (
+      selectedSessionId &&
+      flatSessions.some((session) => session.id === selectedSessionId)
+    ) {
+      return;
+    }
+    setSelectedSessionId(flatSessions[0]!.id);
+  }, [flatSessions, selectedSessionId]);
 
   const roleLabel = useCallback((role: string) => {
     if (role === "user") return t("session_archive.role_user");
@@ -298,8 +417,8 @@ export function SessionArchivePage(props: Props) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-dls-background">
-      {/* Toolbar */}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 px-4 py-2.5">
+      {/* Toolbar flush with content gutter (no extra horizontal inset). */}
+      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 py-2.5">
         <div className="flex items-center gap-2">
           <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
@@ -313,33 +432,10 @@ export function SessionArchivePage(props: Props) {
               className="text-sm text-dls-text placeholder:text-dls-secondary/70"
             />
           </InputGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() => {
-              void runArchiveSync("resync");
-            }}
-            disabled={loadingList || syncing}
-            aria-label={t("session_archive.sync")}
-            title={t("session_archive.sync")}
-            className="shrink-0"
-          >
-            <RefreshCw className={cn("size-3.5", (loadingList || syncing) && "animate-spin")} />
-          </Button>
-          <CountBadge size="dot" className="shrink-0 tabular-nums">
-            {t("session_archive.agent_group_count", { count: totalKnown })}
-          </CountBadge>
         </div>
 
         {groups.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            <FilterChip
-              type="button"
-              selected={!agentFilter}
-              onClick={() => setAgentFilter(null)}
-              label={t("session_archive.agent_filter_all")}
-            />
             {groups.map((g) => {
               const count =
                 (g as { totalCount?: number }).totalCount ?? g.sessions.length;
@@ -348,9 +444,12 @@ export function SessionArchivePage(props: Props) {
                   key={g.agent}
                   type="button"
                   selected={g.agent === agentFilter}
-                  onClick={() =>
-                    setAgentFilter(g.agent === agentFilter ? null : g.agent)
-                  }
+                  onClick={() => {
+                    // Keep a chip selected when possible: click active → stay;
+                    // click another → switch. (No "all" null unless forced empty.)
+                    setAgentFilter(g.agent);
+                  }}
+                  className="rounded-md"
                   label={
                     <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
                       <AgentBrandIcon
@@ -378,7 +477,16 @@ export function SessionArchivePage(props: Props) {
       {/* Master–detail */}
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-80 shrink-0 flex-col border-r border-dls-border/60 bg-dls-surface/40">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div
+            ref={listScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto"
+            onScroll={(event) => {
+              const el = event.currentTarget;
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+                loadMoreSessions();
+              }
+            }}
+          >
             {loadingList && flatSessions.length === 0 ? (
               <div className="flex items-center gap-2 px-4 py-8 text-xs text-dls-secondary">
                 <LoadingSpinner size="sm" />
@@ -427,7 +535,7 @@ export function SessionArchivePage(props: Props) {
               {flatSessions.map((session) => {
                 const active = session.id === selectedSessionId;
                 const title = sessionTitle(session);
-                const project = shortProjectLabel(session.project);
+                const preview = archiveSessionPreviewLine(session);
                 const timeLabel = session.file_mtime
                   ? formatRelativeTime(session.file_mtime)
                   : null;
@@ -438,7 +546,7 @@ export function SessionArchivePage(props: Props) {
                       onClick={() => setSelectedSessionId(session.id)}
                       aria-current={active ? "true" : undefined}
                       className={cn(
-                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
+                        "flex min-h-14 w-full min-w-0 items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
                         active
                           ? "bg-dls-list-selected text-dls-text shadow-none"
                           : "text-dls-text hover:bg-dls-list-hover/50",
@@ -462,22 +570,12 @@ export function SessionArchivePage(props: Props) {
                             </span>
                           ) : null}
                         </span>
-                        <span className="flex min-w-0 items-center gap-1.5 text-2xs leading-4 text-dls-secondary">
-                          <span className="shrink-0">
-                            {agentLabel(session.agent)}
+                        {/* Preview = first user question; message count right-aligned. */}
+                        <span className="flex min-w-0 items-center gap-2 text-2xs leading-4 text-dls-secondary">
+                          <span className="min-w-0 flex-1 truncate">
+                            {preview ?? agentLabel(session.agent)}
                           </span>
-                          {project ? (
-                            <>
-                              <span className="opacity-40" aria-hidden="true">
-                                ·
-                              </span>
-                              <span className="min-w-0 truncate">{project}</span>
-                            </>
-                          ) : null}
-                          <span className="opacity-40" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className="shrink-0 tabular-nums">
+                          <span className="shrink-0 tabular-nums text-right">
                             {t("session_archive.message_count", {
                               count: session.message_count,
                             })}
@@ -489,6 +587,30 @@ export function SessionArchivePage(props: Props) {
                 );
               })}
             </ul>
+            {nextCursor ? (
+              <div className="flex justify-center px-3 pb-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMore || loadingList}
+                  onClick={() => loadMoreSessions()}
+                  className="w-full"
+                >
+                  {loadingMore ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      {t("session_archive.loading_more")}
+                    </>
+                  ) : (
+                    `${t("session_archive.load_more")} · ${t("session_archive.loaded_count", undefined, {
+                      loaded: flatSessions.length,
+                      total: totalKnown,
+                    })}`
+                  )}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </aside>
 
@@ -643,55 +765,8 @@ export function SessionArchivePage(props: Props) {
   );
 }
 
-/**
- * Prefer human payload inside harness wrappers; strip protocol tags so the
- * transcript does not look like a raw XML dump.
- */
-function cleanArchiveMessageContent(content: string): string {
-  const raw = String(content ?? "").trim();
-  if (!raw) return "";
-  const userRequest = raw.match(/<user-request>\s*([\s\S]*?)\s*<\/user-request>/i);
-  if (userRequest?.[1]?.trim()) return userRequest[1].trim();
-  const stripped = raw
-    .replace(/<\/?(?:auto-slash-command|command-instruction|user-request|INSTRUCTIONS)[^>]*>/gi, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return stripped || raw;
-}
-
-/** Drop empty / pure tool-noise lines so the transcript stays readable. */
-function isNoisyArchiveMessage(message: {
-  role: string;
-  content: string;
-}): boolean {
-  const text = String(message.content ?? "").trim();
-  if (!text) return true;
-  if (message.role === "tool") {
-    // Keep short tool summaries; drop giant dumps.
-    if (text.length > 600) return true;
-  }
-  // JSON-RPC / protocol blobs
-  if (text.startsWith("{") && (text.includes("jsonrpc") || text.includes('"method"'))) {
-    return true;
-  }
-  // Bare harness shells: mostly tags/punctuation after cleanArchiveMessageContent.
-  if (message.role === "system" && text.length > 400) {
-    const letters = text.replace(/[^A-Za-z0-9]/g, "");
-    if (letters.length < 12) return true;
-  }
-  return false;
-}
-
 function formatCompactCount(count: number): string {
   if (!Number.isFinite(count) || count < 1000) return String(count);
   if (count < 10_000) return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return `${Math.round(count / 1000)}k`;
-}
-
-function shortProjectLabel(project: string | null | undefined): string | null {
-  if (!project) return null;
-  const normalized = project.replace(/\\/g, "/").replace(/\/+$/, "");
-  const parts = normalized.split("/").filter(Boolean);
-  if (parts.length === 0) return project;
-  return parts[parts.length - 1] ?? project;
 }

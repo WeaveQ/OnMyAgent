@@ -25,7 +25,8 @@ import {
 } from "../../app/lib/onmyagent-server";
 import { isDesktopRuntime, isElectronRuntime, safeStringify } from "../../app/utils";
 import { useServer } from "../kernel/server-provider";
-import { useBootState } from "./boot-state";
+import { useBootState, userFacingBootError } from "./boot-state";
+import { beginLoadScope } from "./route-load-registry";
 
 // Module-scoped latch so React Strict-Mode's "mount-unmount-remount" cycle in
 // dev only triggers the boot sequence once per app launch, and the async work
@@ -78,6 +79,7 @@ export function useDesktopRuntimeBoot() {
     }
     if (BOOT_STARTED) return;
     BOOT_STARTED = true;
+    const endDesktopBootScope = beginLoadScope("desktop-boot");
 
     void (async () => {
       try {
@@ -97,7 +99,29 @@ export function useDesktopRuntimeBoot() {
         const preferredRemoteAccess = readOnMyAgentServerSettings().remoteAccessEnabled === true;
 
         setPhase("bootstrapping-workspaces");
-        const list = await workspaceBootstrap().catch(() => null) as WorkspaceList | null;
+        // P1: parallel critical path —
+        // - workspace list (always)
+        // - Electron: shared main-process runtimeBootstrap (idempotent promise)
+        // - non-Electron: cheap engineInfo probe for attach-if-running
+        const listPromise = workspaceBootstrap().catch(() => null) as Promise<WorkspaceList | null>;
+        type ElectronBootResult = {
+          ok?: boolean;
+          skipped?: boolean;
+          error?: string;
+          engine?: { baseUrl?: string | null };
+          onmyagentServer?: BootOnMyAgentServerInfo;
+        };
+        const electronRuntimePromise = isElectronRuntime()
+          ? (runtimeBootstrap().catch((error) => ({
+              ok: false,
+              error: error instanceof Error ? error.message : safeStringify(error),
+            })) as Promise<ElectronBootResult>)
+          : null;
+        const engineProbePromise = isElectronRuntime()
+          ? Promise.resolve(null as EngineInfo | null)
+          : (engineInfo().catch(() => null) as Promise<EngineInfo | null>);
+
+        const list = await listPromise;
         if (!list) {
           markReady();
           return;
@@ -118,26 +142,24 @@ export function useDesktopRuntimeBoot() {
           return;
         }
 
-        if (isElectronRuntime()) {
+        if (isElectronRuntime() && electronRuntimePromise) {
           setPhase("starting-engine", t("system.starting_workspace"));
-          const boot = (await runtimeBootstrap().catch((error) => ({
-            ok: false,
-            error: error instanceof Error ? error.message : safeStringify(error),
-          }))) as {
-            ok?: boolean;
-            skipped?: boolean;
-            error?: string;
-            engine?: { baseUrl?: string | null };
-            onmyagentServer?: BootOnMyAgentServerInfo;
-          };
+          // Yield one frame so the solid boot overlay can paint before we
+          // block on the (already in-flight) runtime bootstrap result.
+          await Promise.resolve();
+          const boot = await electronRuntimePromise;
 
           if (boot.ok === false) {
-            setError(boot.error || "Failed to start OnMyAgent runtime");
+            const friendly = userFacingBootError(
+              boot.error,
+              "system.boot_start_runtime_failed",
+            );
+            setError(friendly.message, friendly.technicalDetail);
             return;
           }
 
           if (!boot.skipped && !isOnMyAgentServerReady(boot.onmyagentServer)) {
-            setError("OnMyAgent server did not finish starting. Please restart OnMyAgent.");
+            setError(t("system.boot_server_not_ready"));
             return;
           }
 
@@ -174,12 +196,10 @@ export function useDesktopRuntimeBoot() {
         }
 
         // FAST PATH ─────────────────────────────────────────────────────
-        // Cheap status probe: if engine is already running just publish the
-        // current onmyagent-server base URL + token and finish in <1s.
-        // This mirrors Solid's bootstrap at context/workspace.ts:3883-3907
-        // ("localAttachExisting"), which never restarts a running stack.
+        // Cheap status probe (started in parallel with workspaceBootstrap):
+        // if engine is already running, attach and finish without engineStart.
         try {
-          const engine = await engineInfo() as EngineInfo | null;
+          const engine = await engineProbePromise;
           if (engine?.running && engine.baseUrl) {
             setActive(engine.baseUrl);
             const fresh = await onmyagentServerInfo().catch(() => null) as OnMyAgentServerInfo | null;
@@ -255,7 +275,11 @@ export function useDesktopRuntimeBoot() {
               onmyagentRemoteAccess: readOnMyAgentServerSettings().remoteAccessEnabled === true,
             }).catch((error) => {
               console.warn("[desktop-boot] fallback engineStart failed:", error);
-              setError(error instanceof Error ? error.message : safeStringify(error));
+              const friendly = userFacingBootError(
+                error,
+                "system.start_workspace_failed",
+              );
+              setError(friendly.message, friendly.technicalDetail);
               return null;
             }) as EngineInfo | null;
             if (engineStartResult) {
@@ -298,7 +322,13 @@ export function useDesktopRuntimeBoot() {
         markReady();
       } catch (error) {
         console.warn("[desktop-boot] fatal:", error);
-        setError(error instanceof Error ? error.message : safeStringify(error));
+        const friendly = userFacingBootError(
+          error,
+          "system.boot_start_runtime_failed",
+        );
+        setError(friendly.message, friendly.technicalDetail);
+      } finally {
+        endDesktopBootScope();
       }
     })();
   }, [markReady, setActive, setError, setPhase]);

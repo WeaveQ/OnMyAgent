@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import * as React from "react";
 import type { WorkspaceConnectionState } from "../../../../app/types";
-import type { SidebarPrimaryView } from "./app-sidebar";
+import type { SidebarPrimaryView } from "./app-sidebar-types";
 
 export type SidebarContextValue = {
   selectedWorkspaceId: string;

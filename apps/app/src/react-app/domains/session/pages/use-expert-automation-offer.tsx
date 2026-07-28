@@ -10,6 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import type { AutomationTaskInput } from "@onmyagent/types";
 
 import { t } from "../../../../i18n";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
@@ -18,7 +20,7 @@ import type { OpenTarget } from "../artifacts/open-target";
 import {
   automationProposalsFingerprint,
   createAutomationsFromPayloads,
-  loadAutomationProposals,
+  loadNewAutomationProposals,
 } from "../artifacts/apply-automation-proposals";
 import { AutomationCreateResultCard } from "../artifacts/automation-create-result-card";
 import { writeAutomationFocus } from "../artifacts/automation-focus-memory";
@@ -39,6 +41,7 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import { buildPathWithRailView } from "../navigation/app-location";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useStatusToasts } from "../../shell-feedback";
 
@@ -48,6 +51,7 @@ export type UseExpertAutomationOfferInput = {
   selectedWorkspaceRoot: string;
   runtimeWorkspaceId: string | null;
   selectedSessionId: string | null;
+  selectedModel?: AutomationTaskInput["model"];
   draftSessionActive: boolean;
   draftAgentId: string | null;
   activeDraftSessionId: string | null;
@@ -66,12 +70,15 @@ export type UseExpertAutomationOfferResult = {
   effectiveActiveQuestion: PendingQuestion | null | undefined;
   effectiveRespondQuestion: (requestID: string, answers: string[][]) => void;
   automationResultAccessory: ReactNode;
+  openCreatedAutomation: (row: { id: string; scene: "office" | "code" }) => void;
 };
 
 export function useExpertAutomationOffer(
   input: UseExpertAutomationOfferInput,
 ): UseExpertAutomationOfferResult {
   const { showToast } = useStatusToasts();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [automationOfferFlow, setAutomationOfferFlow] =
     useState<AutomationOfferFlowState>(() => createIdleAutomationOfferFlow());
@@ -183,7 +190,8 @@ export function useExpertAutomationOffer(
       return;
     }
     try {
-      const loaded = await loadAutomationProposals({
+      // Skip titles already created — proposal JSON stays on disk after create.
+      const loaded = await loadNewAutomationProposals({
         client,
         workspaceId,
         catalogRoot: input.codeWorkspaceCatalogRoot,
@@ -192,7 +200,15 @@ export function useExpertAutomationOffer(
         // Session-only: do not pull another expert's workspace-global proposals.
         includeWorkspaceRoot: false,
       });
-      if (loaded.proposals.length === 0) return;
+      if (loaded.proposals.length === 0) {
+        // All proposals already exist (or none found): mark fingerprint so we
+        // do not keep re-scanning into an offer for the same files.
+        if (automationOfferFlowRef.current.phase === "idle") {
+          offeredAutomationFingerprintRef.current = "all-existing";
+          automationOfferScopeRef.current = scopeKey;
+        }
+        return;
+      }
       // Scope may have changed while the scan was in flight.
       if (input.selectedSessionId?.trim() !== scopeKey) return;
       const fingerprint = automationProposalsFingerprint(loaded.proposals);
@@ -259,7 +275,8 @@ export function useExpertAutomationOffer(
   const runAutomationCreate = useCallback(
     async (flow: AutomationOfferFlowState) => {
       const client = input.onmyagentServerClient;
-      const { workspaceId } = resolveAutomationSessionDirectory();
+      const { workspaceId, sessionDirectory } =
+        resolveAutomationSessionDirectory();
       if (!client || !workspaceId) {
         setAutomationOfferFlow((current) => ({
           ...current,
@@ -286,6 +303,9 @@ export function useExpertAutomationOffer(
           client,
           workspaceId,
           items,
+          defaultModel: input.selectedModel,
+          defaultWorkspaceDirectory: sessionDirectory,
+          sourceSessionId: input.selectedSessionId,
         });
         if (result.created.length > 0) {
           showToast({
@@ -331,7 +351,13 @@ export function useExpertAutomationOffer(
         }));
       }
     },
-    [input.onmyagentServerClient, resolveAutomationSessionDirectory, showToast],
+    [
+      input.onmyagentServerClient,
+      input.selectedModel,
+      input.selectedSessionId,
+      resolveAutomationSessionDirectory,
+      showToast,
+    ],
   );
 
   const handleHostAutomationAnswer = useCallback(
@@ -402,10 +428,28 @@ export function useExpertAutomationOffer(
       writeAssistantSelectionMemory(workspaceId, row.scene, {
         kind: "automation",
       });
+      // Bookmark + history-backed rail URL so Back leaves scheduled tasks.
       writeRailView("assistant", workspaceId, "scheduledTasks");
+      if (location.pathname.includes("/assistant")) {
+        navigate(
+          buildPathWithRailView({
+            mode: "assistant",
+            pathname: location.pathname,
+            search: location.search,
+            view: "scheduledTasks",
+          }),
+        );
+        return;
+      }
       input.onNavigateToMode("assistant");
     },
-    [input.onNavigateToMode, input.selectedWorkspaceId],
+    [
+      input.onNavigateToMode,
+      input.selectedWorkspaceId,
+      location.pathname,
+      location.search,
+      navigate,
+    ],
   );
 
   const automationResultAccessory =
@@ -430,5 +474,6 @@ export function useExpertAutomationOffer(
     effectiveActiveQuestion,
     effectiveRespondQuestion,
     automationResultAccessory,
+    openCreatedAutomation,
   };
 }

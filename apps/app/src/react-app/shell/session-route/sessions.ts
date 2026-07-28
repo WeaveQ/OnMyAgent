@@ -4,6 +4,10 @@ import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import { t } from "../../../i18n";
 import { isExpertSession } from "../../domains/agents";
+import {
+  SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
+  SIDEBAR_SESSION_LIST_LIMIT,
+} from "../../domains/session";
 import type { RouteWorkspace } from "./model";
 import { getSessionStatus, isActiveSessionStatus } from "./state";
 import type { SessionOption as PaletteSessionOption } from "../command-palette";
@@ -70,20 +74,52 @@ export async function collectWorkspaceSessionItems(input: {
   isRemoteOnMyAgentWorkspace: boolean;
   assistantSessionRecords: Array<{ sessionId: string; directory: string }>;
   normalizeDirectoryPath: (path: string) => string;
+  /** Override list page size (defaults to sidebar cold-start limit). */
+  limit?: number;
+  /** When false, skip per-directory follow-up lists (faster cold path). */
+  includeAssistantDirectories?: boolean;
 }) {
-  const response = await input.client.listSessions(input.workspaceId, { limit: 200 });
+  const limit = input.limit ?? SIDEBAR_SESSION_LIST_LIMIT;
+  const response = await input.client.listSessions(input.workspaceId, {
+    limit,
+  });
   const assistantSessionIds = new Set(
     input.assistantSessionRecords.map((item) => item.sessionId),
   );
-  const assistantDirectories = Array.from(
-    new Set(input.assistantSessionRecords.map((item) => item.directory.trim())),
-  ).filter(Boolean);
-  const assistantDirectoryResults = await Promise.allSettled(
-    assistantDirectories.map(async (directory) => {
-      const result = await input.client.listSessions(input.workspaceId, { limit: 200, directory });
-      return result.items.filter((item) => assistantSessionIds.has(item.id));
-    }),
+  const includeAssistantDirectories = input.includeAssistantDirectories !== false;
+  const assistantDirectories = includeAssistantDirectories
+    ? Array.from(
+        new Set(
+          input.assistantSessionRecords.map((item) => item.directory.trim()),
+        ),
+      )
+        .filter(Boolean)
+        .slice(0, SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT)
+    : [];
+  const primaryIds = new Set(
+    (response.items ?? []).map((item) => item.id).filter(Boolean),
   );
+  // Only directory-list for assistant sessions missing from the primary page.
+  const missingAssistant = input.assistantSessionRecords.some(
+    (record) =>
+      record.sessionId &&
+      !primaryIds.has(record.sessionId) &&
+      record.directory?.trim(),
+  );
+  const assistantDirectoryResults =
+    missingAssistant && assistantDirectories.length > 0
+      ? await Promise.allSettled(
+          assistantDirectories.map(async (directory) => {
+            const result = await input.client.listSessions(input.workspaceId, {
+              limit,
+              directory,
+            });
+            return result.items.filter((item) =>
+              assistantSessionIds.has(item.id),
+            );
+          }),
+        )
+      : [];
   const assistantDirectoryItems = assistantDirectoryResults.flatMap(
     (result) => (result.status === "fulfilled" ? result.value : []),
   );
@@ -376,7 +412,12 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
         snapshot,
       );
       input.seedSessionState(input.endpoint.workspaceId, snapshot);
-      if (snapshot.messages.length > 0) return;
+      // A newly created session can briefly expose metadata/system parts
+      // before the first user turn is persisted. Stopping on any message
+      // leaves the new session rendered without the prompt until a later
+      // page switch refetches it.
+      if (snapshot.messages.some((message) => message.info.role === "user"))
+        return;
     } catch {
       continue;
     }

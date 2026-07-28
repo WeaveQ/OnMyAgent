@@ -12,6 +12,10 @@ import {
   safeStringify,
 } from "../../app/utils";
 import { t } from "../../i18n";
+import {
+  clearLocalStorageForOnMyAgentReset,
+  softReenterWelcomeGuide,
+} from "./reset-local-storage";
 
 export type ReloadState = {
   reloadPending: boolean;
@@ -43,24 +47,6 @@ export type SystemStateControls = {
   confirmReset: () => Promise<void>;
   setError: (message: string | null) => void;
 };
-
-function clearOnMyAgentLocalStorage(mode: ResetOnMyAgentMode) {
-  if (typeof window === "undefined") return;
-  try {
-    if (mode === "all") {
-      window.localStorage.clear();
-      return;
-    }
-    const keys = Object.keys(window.localStorage);
-    for (const key of keys) {
-      if (/onmyagent|openwork/.test(key)) window.localStorage.removeItem(key);
-    }
-    window.localStorage.removeItem("onmyagent_mode_pref");
-    window.localStorage.removeItem("openwork_mode_pref");
-  } catch {
-    // ignore
-  }
-}
 
 type UseSystemStateOptions = {
   hasActiveRuns: () => boolean;
@@ -197,7 +183,13 @@ export function useSystemState(
       options.setError(t("system.stop_active_runs_before_reset"));
       return;
     }
-    if (resetModalText.trim().toUpperCase() !== "RESET") return;
+    // Onboarding re-entry: no typed confirmation. Full wipe still requires the phrase.
+    if (
+      resetModalMode !== "onboarding" &&
+      resetModalText.trim() !== t("settings.reset_confirmation_word")
+    ) {
+      return;
+    }
 
     setResetModalBusy(true);
     options.setError(null);
@@ -206,8 +198,12 @@ export function useSystemState(
       if (isDesktopRuntime()) {
         await resetOnMyAgentState(resetModalMode);
       }
-      clearOnMyAgentLocalStorage(resetModalMode);
-      if (isDesktopRuntime()) {
+      clearLocalStorageForOnMyAgentReset(resetModalMode);
+      // Onboarding: soft re-enter #/welcome (keeps Vite parent in desktop dev).
+      // Full wipe: process relaunch to clear Electron-side state.
+      if (resetModalMode === "onboarding") {
+        softReenterWelcomeGuide();
+      } else if (isDesktopRuntime()) {
         await relaunchDesktopApp();
       } else {
         window.location.reload();

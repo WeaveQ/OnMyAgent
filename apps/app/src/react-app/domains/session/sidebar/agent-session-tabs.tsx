@@ -11,7 +11,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -45,22 +45,62 @@ import {
   resolveAgentIdForSession,
   useExpertUnreadStore,
 } from "../status/expert-unread-store";
+import {
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+  TAB_TITLE_SNAPSHOT_DEFER_MS,
+  TAB_TITLE_SNAPSHOT_MAX,
+} from "../sync/session-poll-policy";
+import {
+  isSessionSnapshotNotFoundError,
+  markSessionSnapshotNotFound,
+  shouldRetrySessionSnapshotQuery,
+  shouldSkipSnapshotForNotFoundCooldown,
+} from "../sync/session-snapshot-fetch-policy";
+import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
 
-function summarizeTabTitle(
+/** Cooldown so missing tab-title snapshots do not re-storm OpenCode. */
+const tabTitleSnapshotNotFoundUntilBySessionId = new Map<string, number>();
+
+/**
+ * Whether the session still needs a message-derived tab title.
+ * Generated OpenCode titles ("New session - <date>") are not shown as-is.
+ */
+export function sessionNeedsTabTitleFallback(
+  session: WorkspaceSessionGroup["sessions"][number],
+): boolean {
+  const rawTitle = session.title?.trim() ?? "";
+  if (!rawTitle) return true;
+  const defaultTitle = t("session.default_title");
+  if (rawTitle === DEFAULT_SESSION_TITLE || rawTitle === defaultTitle) return true;
+  return isGeneratedSessionTitle(rawTitle);
+}
+
+/** Eligible for a deferred light title snapshot (not the selected surface). */
+export function sessionShouldFetchTabTitleSnapshot(
+  session: WorkspaceSessionGroup["sessions"][number],
+): boolean {
+  if (session.id.startsWith("draft:")) return false;
+  return sessionNeedsTabTitleFallback(session);
+}
+
+/**
+ * Tab label for an expert session chip.
+ * - Prefer a real human title when OpenCode has assigned one.
+ * - Else prefer a short preview from messages (when a light snapshot is available).
+ * - Else show "新会话", never stick on "总结中" forever (that label implied work in
+ *   progress after tab snapshots were disabled on cold start).
+ */
+export function summarizeTabTitle(
   session: WorkspaceSessionGroup["sessions"][number],
   generatedFallback?: string,
 ) {
-  const rawTitle = session.title?.trim() ?? "";
-  const defaultTitle = t("session.default_title");
-  if (
-    rawTitle &&
-    rawTitle !== DEFAULT_SESSION_TITLE &&
-    rawTitle !== defaultTitle &&
-    !isGeneratedSessionTitle(rawTitle)
-  ) {
-    return rawTitle;
+  if (!sessionNeedsTabTitleFallback(session)) {
+    return session.title!.trim();
   }
-  return compactTabTitle(generatedFallback ?? t("session.agent_tab_summarizing"));
+  if (generatedFallback?.trim()) {
+    return compactTabTitle(generatedFallback);
+  }
+  return t("session.agent_tab_new_session");
 }
 
 function compactTabTitle(input: string) {
@@ -71,6 +111,56 @@ function compactTabTitle(input: string) {
     .trim();
   const source = cleaned || input.trim() || t("session.agent_tab_new_session");
   return source.length > 10 ? source.slice(0, 10) : source;
+}
+
+/**
+ * Derive a tab title from a light message snapshot.
+ * Prefer the first user turn (conversation topic); fall back to any text.
+ * Exported for unit tests.
+ */
+export function summarizeSessionSnapshotForTab(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+): string | undefined {
+  if (!snapshot?.messages?.length) return undefined;
+
+  const visibleText = (message: (typeof snapshot.messages)[number]) => {
+    const text = sessionMessagePreview(message);
+    if (!text) return "";
+    return text
+      .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  for (const message of snapshot.messages) {
+    if (message.info.role !== "user") continue;
+    const text = visibleText(message);
+    if (text) return text;
+  }
+
+  for (const message of snapshot.messages) {
+    const text = visibleText(message);
+    if (text) return text;
+  }
+  return undefined;
+}
+
+/**
+ * Tab-title snapshot polling policy.
+ * - Have a message-derived title → stop.
+ * - 404 / not-found (null) → stop (cooldown handles retries).
+ * - Session is busy/streaming and still untitled → light poll (first reply landing).
+ * - Successful empty snapshot while idle → stop (real empty session; do not thrash
+ *   OpenCode on every cold enter).
+ */
+export function tabTitleSnapshotRefetchIntervalMs(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+  options?: { busy?: boolean },
+): number | false {
+  if (snapshot === null) return false;
+  if (summarizeSessionSnapshotForTab(snapshot)) return false;
+  if (options?.busy) return 3_000;
+  return false;
 }
 
 const TAB_SCROLL_SPEED = 25;
@@ -110,19 +200,6 @@ function SessionTabMarqueeText({ title }: { title: string }) {
   );
 }
 
-function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
-  const previews = snapshot.messages
-    .map(sessionMessagePreview)
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(" ");
-  if (!previews) return undefined;
-  return previews
-    .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /**
  * Tab strip order (left → right, after the fixed “+ 新会话” button):
  * - newest sessions on the left; older sessions further right
@@ -132,17 +209,28 @@ function summarizeSessionSnapshotForTab(snapshot: OnMyAgentSessionSnapshot) {
  */
 export function mergeStableSessionTabOrder(
   previousIds: readonly string[],
-  sessions: readonly { id: string }[],
+  sessions: readonly {
+    id: string;
+    time?: { created?: number | null };
+  }[],
 ): string[] {
   const present = new Set(sessions.map((session) => session.id));
   const kept = previousIds.filter((id) => present.has(id));
   const keptSet = new Set(kept);
-  // Preserve parent order for newcomers (listSessions is typically newest-first).
-  const newcomers: string[] = [];
-  for (const session of sessions) {
-    if (keptSet.has(session.id) || newcomers.includes(session.id)) continue;
-    newcomers.push(session.id);
-  }
+  const newcomers = sessions
+    .map((session, sourceIndex) => ({
+      id: session.id,
+      createdAt: session.time?.created ?? Number.NEGATIVE_INFINITY,
+      sourceIndex,
+    }))
+    .filter((session, index, all) => (
+      !keptSet.has(session.id) &&
+      all.findIndex((candidate) => candidate.id === session.id) === index
+    ))
+    .sort((left, right) =>
+      right.createdAt - left.createdAt || left.sourceIndex - right.sourceIndex
+    )
+    .map((session) => session.id);
   const isDraft = (id: string) => id.startsWith("draft:");
   const draftNew = newcomers.filter(isDraft);
   const realNew = newcomers.filter((id) => !isDraft(id));
@@ -172,6 +260,9 @@ export function AgentSessionTabs(props: {
   workspaceId: string;
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];
+  orderIds: readonly string[];
+  pendingSessionId: string | null;
+  onPendingSessionIdChange: (sessionId: string | null) => void;
   /** Active expert — used when session→agent binding is missing. */
   agentId?: string | null;
   /** Per-session run status — chip shows busy state when user switches away. */
@@ -185,7 +276,6 @@ export function AgentSessionTabs(props: {
   onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   // Parent uses this to drop the title-bar border while the strip is open
   // (one rule only). No sessions ⇒ treat as collapsed so the header keeps a line.
@@ -208,15 +298,16 @@ export function AgentSessionTabs(props: {
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const activeSessionId = pendingSessionId ?? props.selectedSessionId;
+  const pendingSessionIsVisible = Boolean(
+    props.pendingSessionId &&
+      props.sessions.some((session) => session.id === props.pendingSessionId),
+  );
+  const activeSessionId = pendingSessionIsVisible
+    ? props.pendingSessionId
+    : props.selectedSessionId;
 
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
-  );
-  // Stable left-to-right order for this expert strip; survives session list
-  // refreshes that re-sort by updatedAt (which previously made chips jump).
-  const [stableOrderIds, setStableOrderIds] = useState<string[]>(() =>
-    mergeStableSessionTabOrder([], props.sessions),
   );
   const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
   const sessionUnreadByWorkspace = useExpertUnreadStore(
@@ -236,26 +327,9 @@ export function AgentSessionTabs(props: {
     [props.agentId],
   );
 
-  const orderWorkspaceIdRef = useRef(props.workspaceId);
-
   useEffect(() => {
-    const workspaceChanged = orderWorkspaceIdRef.current !== props.workspaceId;
-    if (workspaceChanged) {
-      orderWorkspaceIdRef.current = props.workspaceId;
-      setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
-    }
-    setStableOrderIds((current) => {
-      const base = workspaceChanged ? [] : current;
-      const next = mergeStableSessionTabOrder(base, props.sessions);
-      if (
-        next.length === current.length &&
-        next.every((id, index) => id === current[index])
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [props.sessions, props.workspaceId]);
+    setPinnedSessionIds(readAgentSessionTabPinnedIds(props.workspaceId));
+  }, [props.workspaceId]);
 
   const pinnedSet = useMemo(
     () => new Set(pinnedSessionIds),
@@ -264,7 +338,7 @@ export function AgentSessionTabs(props: {
 
   const orderedSessions = useMemo(() => {
     const byId = new Map(props.sessions.map((session) => [session.id, session]));
-    const stable = stableOrderIds
+    const stable = props.orderIds
       .map((id) => byId.get(id))
       .filter((session): session is (typeof props.sessions)[number] => Boolean(session));
     // Sessions not yet in the stable ledger (race) append without reshuffling.
@@ -274,34 +348,114 @@ export function AgentSessionTabs(props: {
         if (!seen.has(session.id)) stable.push(session);
       }
     }
-    const indexById = new Map(stable.map((session, index) => [session.id, index]));
-    return [...stable].sort((left, right) => {
-      const leftPinned = pinnedSet.has(left.id) ? 1 : 0;
-      const rightPinned = pinnedSet.has(right.id) ? 1 : 0;
-      if (leftPinned !== rightPinned) return rightPinned - leftPinned;
-      return (indexById.get(left.id) ?? 0) - (indexById.get(right.id) ?? 0);
-    });
-  }, [pinnedSet, props.sessions, stableOrderIds]);
+    return stable;
+  }, [props.orderIds, props.sessions]);
+
+  const queryClient = useQueryClient();
+
+  // Resolve default OpenCode titles from the first user message. The selected
+  // expert tab gets one immediate lightweight snapshot; remaining tabs wait
+  // for the deferred warm phase and stay capped.
+  const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
+    enabled: Boolean(props.client),
+    sessions: orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),
+    selectedSessionId: props.selectedSessionId,
+    maxPreviews: TAB_TITLE_SNAPSHOT_MAX,
+    includeSelected: true,
+    prioritizeSelected: true,
+    deferMs: TAB_TITLE_SNAPSHOT_DEFER_MS,
+  });
+  const tabTitleSnapshotIds = deferredTabTitleIds;
+
+  // After a run finishes, re-check title once (messages may have landed while empty).
+  const prevBusyBySessionRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    const prev = prevBusyBySessionRef.current;
+    const next: Record<string, boolean> = {};
+    for (const session of orderedSessions) {
+      if (session.id.startsWith("draft:")) continue;
+      if (!sessionNeedsTabTitleFallback(session)) continue;
+      const busy = isStreamingSessionStatus(
+        props.sessionStatusById?.[session.id],
+      );
+      next[session.id] = busy;
+      if (prev[session.id] && !busy) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            "onmyagent-agent-session-tab-snapshot",
+            props.workspaceId,
+            session.id,
+          ],
+        });
+      }
+    }
+    prevBusyBySessionRef.current = next;
+  }, [
+    orderedSessions,
+    props.sessionStatusById,
+    props.workspaceId,
+    queryClient,
+  ]);
 
   const snapshotQueries = useQueries({
-    queries: orderedSessions.map((session) => ({
-      queryKey: [
-        "onmyagent-agent-session-tab-snapshot",
-        props.workspaceId,
-        session.id,
-      ],
-      enabled: Boolean(props.client) && !session.id.startsWith("draft:"),
-      queryFn: async () => {
-        const client = props.client;
-        if (!client) throw new Error("OnMyAgent server unavailable");
-        return (
-          await client.getSessionSnapshot(props.workspaceId, session.id, {
-            limit: 8,
-          })
-        ).item;
-      },
-      staleTime: 5_000,
-    })),
+    queries: orderedSessions.map((session) => {
+      const busy = isStreamingSessionStatus(
+        props.sessionStatusById?.[session.id],
+      );
+      return {
+        queryKey: [
+          "onmyagent-agent-session-tab-snapshot",
+          props.workspaceId,
+          session.id,
+        ],
+        enabled:
+          Boolean(props.client) &&
+          !session.id.startsWith("draft:") &&
+          tabTitleSnapshotIds.has(session.id) &&
+          !shouldSkipSnapshotForNotFoundCooldown({
+            sessionId: session.id,
+            notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+            nowMs: Date.now(),
+          }),
+        queryFn: async () => {
+          const client = props.client;
+          if (!client) throw new Error("OnMyAgent server unavailable");
+          if (
+            shouldSkipSnapshotForNotFoundCooldown({
+              sessionId: session.id,
+              notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+              nowMs: Date.now(),
+            })
+          ) {
+            return null;
+          }
+          try {
+            return (
+              await client.getSessionSnapshot(props.workspaceId, session.id, {
+                limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+              })
+            ).item;
+          } catch (error) {
+            if (isSessionSnapshotNotFoundError(error)) {
+              markSessionSnapshotNotFound({
+                sessionId: session.id,
+                notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
+                nowMs: Date.now(),
+              });
+              return null;
+            }
+            throw error;
+          }
+        },
+        staleTime: 30_000,
+        refetchInterval: (query: {
+          state: { data: OnMyAgentSessionSnapshot | null | undefined };
+        }) =>
+          tabTitleSnapshotRefetchIntervalMs(query.state.data, { busy }),
+        retry: (failureCount: number, error: unknown) =>
+          shouldRetrySessionSnapshotQuery(failureCount, error),
+      };
+    }),
   });
 
   const togglePinSession = useCallback(
@@ -320,21 +474,24 @@ export function AgentSessionTabs(props: {
   );
 
   useEffect(() => {
-    if (!pendingSessionId) return;
+    if (!props.pendingSessionId) return;
     const fallbackTimer = window.setTimeout(() => {
-      setPendingSessionId((current) =>
-        current === pendingSessionId ? null : current,
-      );
+      props.onPendingSessionIdChange(null);
     }, 4_000);
-    if (props.selectedSessionId === pendingSessionId) {
-      setPendingSessionId(null);
+    if (props.selectedSessionId === props.pendingSessionId) {
+      props.onPendingSessionIdChange(null);
       return () => window.clearTimeout(fallbackTimer);
     }
-    if (!props.sessions.some((session) => session.id === pendingSessionId)) {
-      setPendingSessionId(null);
+    if (!pendingSessionIsVisible) {
+      props.onPendingSessionIdChange(null);
     }
     return () => window.clearTimeout(fallbackTimer);
-  }, [pendingSessionId, props.selectedSessionId, props.sessions]);
+  }, [
+    pendingSessionIsVisible,
+    props.onPendingSessionIdChange,
+    props.pendingSessionId,
+    props.selectedSessionId,
+  ]);
 
   useEffect(() => {
     if (!activeSessionId || !expanded) return;
@@ -417,8 +574,9 @@ export function AgentSessionTabs(props: {
           {orderedSessions.map((session, index) => {
             const isDraft = session.id.startsWith("draft:");
             const active = session.id === activeSessionId;
-            const generatedFallback = snapshotQueries[index]?.data
-              ? summarizeSessionSnapshotForTab(snapshotQueries[index]?.data)
+            const snapshotData = snapshotQueries[index]?.data;
+            const generatedFallback = snapshotData
+              ? summarizeSessionSnapshotForTab(snapshotData)
               : undefined;
             const title = isDraft
               ? session.title
@@ -453,7 +611,7 @@ export function AgentSessionTabs(props: {
                   active={active}
                   muted={isDraft}
                   onClick={() => {
-                    setPendingSessionId(session.id);
+                    props.onPendingSessionIdChange(session.id);
                     setMenuState(null);
                     // Opening a different session clears that tab’s red dot
                     // (stay if already active — preserves just-marked unread).

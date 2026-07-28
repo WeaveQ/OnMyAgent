@@ -44,10 +44,13 @@ describe("assistant draft home brand contract", () => {
     expect(layout).toContain("max-w-2xl");
     expect(surface).toMatch(/homeLayout=\{(?:props\.)?homeComposerLayout\}/);
     expect(surface).toMatch(/heroHome=\{Boolean\(personalAssistantDraftHome\)\}/);
-    expect(composer).toContain("const homeLayout = Boolean(props.homeLayout);");
-    expect(composer).toContain("const heroHome = Boolean(props.heroHome);");
-    expect(composer).toContain("max-w-[1120px]");
-    expect(composer).toContain("rounded-2xl");
+    // Layout chrome lives in composer-layout.ts (home/hero class resolution).
+    const composerLayout = readSurface("composer/composer-layout.ts");
+    expect(composer).toContain("resolveComposerLayoutClasses");
+    expect(composerLayout).toContain("const homeLayout = Boolean(input.homeLayout);");
+    expect(composerLayout).toContain("const heroHome = Boolean(input.heroHome);");
+    expect(composerLayout).toContain("SESSION_CONTENT_MAX_WIDTH_CLASS");
+    expect(composerLayout).toContain("rounded-2xl");
     const editor = readSurface("composer/editor.tsx");
     expect(editor).toContain("min-h-28");
 
@@ -55,7 +58,8 @@ describe("assistant draft home brand contract", () => {
     expect(composer).toContain("bg-dls-surface-muted");
     expect(composer).toContain("bottomAccessory");
     expect(composer).toContain("rounded-t-none rounded-b-xl");
-    expect(composer).toContain("rounded-t-xl rounded-b-none");
+    // Card joint rounding lives in composer-layout with the under-card accessory.
+    expect(composerLayout).toContain("rounded-t-xl rounded-b-none");
     expect(composer).not.toContain("bg-dls-surface-muted/40");
   });
 });

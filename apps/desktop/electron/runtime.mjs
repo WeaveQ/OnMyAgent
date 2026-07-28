@@ -25,11 +25,42 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
+import {
+  chooseOpencodeBinary,
+  chooseProductRuntimeBinary,
+  compareVersions,
+  isVersionAtLeast,
+  parseVersionTokens,
+} from "./opencode-binary-policy.mjs";
+
+import {
+  DIRECT_RUNTIME,
+  ORCHESTRATOR_RUNTIME,
+  nowMs,
+  createEngineState,
+  snapshotEngineState,
+  createOnMyAgentServerState,
+  snapshotOnMyAgentServerState,
+  assertOnMyAgentServerReady,
+  createOrchestratorState,
+  selectLanAddress,
+  buildConnectUrls,
+} from "./runtime-engine-state.mjs";
+import {
+  appendOutput,
+  cleanupPackagedSidecars as cleanupPackagedSidecarsImpl,
+  ensureOpencodeConfig as ensureOpencodeConfigImpl,
+  generateManagedCredentials as generateManagedCredentialsImpl,
+  spawnManagedChild,
+  stopChild as stopChildImpl,
+  truncateOutput,
+} from "./runtime-opencode-lifecycle.mjs";
+
+export { snapshotOnMyAgentServerState, DIRECT_RUNTIME, ORCHESTRATOR_RUNTIME } from "./runtime-engine-state.mjs";
+
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
-const DIRECT_RUNTIME = "direct";
-const ORCHESTRATOR_RUNTIME = "onmyagent-orchestrator";
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
@@ -64,11 +95,6 @@ function bundledExtensionRootPaths() {
     path.resolve(__runtimeDir, "..", "resources", BUNDLED_EXTENSIONS_RESOURCE_DIR),
   ].filter(Boolean);
   return candidates.filter((candidate) => existsSync(candidate));
-}
-
-function truncateOutput(value, limit = 8000) {
-  const text = String(value ?? "");
-  return text.length <= limit ? text : text.slice(text.length - limit);
 }
 
 /**
@@ -114,11 +140,6 @@ async function copyDirRecursive(sourceDir, targetPath) {
       await copyFile(src, dst);
     }
   }
-}
-
-function appendOutput(state, key, chunk) {
-  const next = `${state[key] ?? ""}${String(chunk ?? "")}`;
-  state[key] = truncateOutput(next);
 }
 
 function normalizeWorkspaceKey(value) {
@@ -199,118 +220,6 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
   };
 }
 
-function nowMs() {
-  return Date.now();
-}
-
-function createEngineState() {
-  return {
-    child: null,
-    childExited: true,
-    runtime: DIRECT_RUNTIME,
-    projectDir: null,
-    hostname: null,
-    port: null,
-    baseUrl: null,
-    opencodeUsername: null,
-    opencodePassword: null,
-    opencodeBinPath: null,
-    opencodeBinSource: null,
-    lastStdout: null,
-    lastStderr: null,
-  };
-}
-
-function snapshotEngineState(state) {
-  const child = state.childExited ? null : state.child;
-  return {
-    running: Boolean(child && child.exitCode === null && !child.killed),
-    runtime: state.runtime,
-    baseUrl: state.baseUrl,
-    projectDir: state.projectDir,
-    hostname: state.hostname,
-    port: state.port,
-    opencodeUsername: state.opencodeUsername,
-    opencodePassword: state.opencodePassword,
-    opencodeBinPath: state.opencodeBinPath,
-    opencodeBinSource: state.opencodeBinSource,
-    pid: child?.pid ?? null,
-    lastStdout: state.lastStdout,
-    lastStderr: state.lastStderr,
-  };
-}
-
-function createOnMyAgentServerState() {
-  return {
-    child: null,
-    childExited: true,
-    inProcess: false,
-    remoteAccessEnabled: false,
-    host: null,
-    port: null,
-    baseUrl: null,
-    connectUrl: null,
-    mdnsUrl: null,
-    lanUrl: null,
-    clientToken: null,
-    ownerToken: null,
-    hostToken: null,
-    managedOpencodeBinPath: null,
-    managedOpencodeBinSource: null,
-    lastStdout: null,
-    lastStderr: null,
-  };
-}
-
-export function snapshotOnMyAgentServerState(state, options = {}) {
-  const child = state.childExited ? null : state.child;
-  const reachable = options.reachable !== false;
-  const running = reachable && (state.inProcess || Boolean(child && child.exitCode === null && !child.killed));
-  return {
-    running,
-    remoteAccessEnabled: state.remoteAccessEnabled,
-    host: state.host,
-    port: state.port,
-    baseUrl: state.baseUrl,
-    connectUrl: state.connectUrl,
-    mdnsUrl: state.mdnsUrl,
-    lanUrl: state.lanUrl,
-    clientToken: state.clientToken,
-    ownerToken: state.ownerToken,
-    hostToken: state.hostToken,
-    managedOpencodeBinPath: state.managedOpencodeBinPath,
-    managedOpencodeBinSource: state.managedOpencodeBinSource,
-    pid: child?.pid ?? null,
-    lastStdout: state.lastStdout,
-    lastStderr: state.lastStderr,
-  };
-}
-
-function assertOnMyAgentServerReady(snapshot) {
-  if (!snapshot?.running) {
-    throw new Error("OnMyAgent server did not stay running after startup.");
-  }
-  if (!snapshot.baseUrl) {
-    throw new Error("OnMyAgent server did not report a base URL after startup.");
-  }
-  if (!snapshot.ownerToken && !snapshot.clientToken) {
-    throw new Error("OnMyAgent server did not report an access token after startup.");
-  }
-  return snapshot;
-}
-
-function createOrchestratorState() {
-  return {
-    child: null,
-    childExited: true,
-    dataDir: null,
-    baseUrl: null,
-    daemonPort: null,
-    lastStdout: null,
-    lastStderr: null,
-  };
-}
-
 async function fileExists(targetPath) {
   try {
     await readFile(targetPath);
@@ -327,30 +236,6 @@ async function readJsonFile(targetPath, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function selectLanAddress() {
-  const interfaces = os.networkInterfaces();
-  for (const entries of Object.values(interfaces)) {
-    for (const entry of entries ?? []) {
-      if (entry && entry.family === "IPv4" && entry.internal === false) {
-        return entry.address;
-      }
-    }
-  }
-  return null;
-}
-
-function buildConnectUrls(port) {
-  const hostname = os.hostname().trim();
-  const mdnsUrl = hostname ? `http://${hostname.replace(/\.local$/i, "")}.local:${port}` : null;
-  const lan = selectLanAddress();
-  const lanUrl = lan ? `http://${lan}:${port}` : null;
-  return {
-    connectUrl: lanUrl ?? mdnsUrl,
-    mdnsUrl,
-    lanUrl,
-  };
 }
 
 import {
@@ -370,24 +255,20 @@ export function createRuntimeManager({
   listLocalWorkspacePaths,
   runtimeEnvironment = () => ({}),
 }) {
-  const engineState = createEngineState();
-  const onmyagentServerState = createOnMyAgentServerState();
-  const orchestratorState = createOrchestratorState();
-
+  const engineState = createEngineState(), onmyagentServerState = createOnMyAgentServerState(), orchestratorState = createOrchestratorState();
   // Serialize engine lifecycle operations. Without this, concurrent renderer
   // invocations of engineStart/engineStop/engineRestart race: each call's
   // stopAllRuntimeChildren kills the previous call's freshly-spawned
   // orchestrator daemon, and the prior call then times out its /health probe.
   let runtimeLifecycleQueue = Promise.resolve();
-  let lifecycleState = "idle";
+  let lifecycleState = "idle", activeOpencodeConfigDir = null;
   function withRuntimeLifecycle(fn) {
     const next = runtimeLifecycleQueue.then(fn, fn);
     runtimeLifecycleQueue = next.catch(() => {});
     return next;
   }
 
-  const userDataDir = app.getPath("userData");
-  const sidecarDirs = [
+  const userDataDir = app.getPath("userData"), sidecarDirs = [
     path.join(desktopRoot, "resources", "sidecars"),
     process.resourcesPath ? path.join(process.resourcesPath, "sidecars") : null,
     path.join(path.dirname(app.getPath("exe")), "sidecars"),
@@ -457,13 +338,9 @@ export function createRuntimeManager({
     return null;
   }
 
-  function onmyagentServerTokenStorePath() {
-    return path.join(userDataDir, "onmyagent-server-tokens.json");
-  }
+  function onmyagentServerTokenStorePath() { return path.join(userDataDir, "onmyagent-server-tokens.json"); }
 
-  function onmyagentServerStatePath() {
-    return path.join(userDataDir, "onmyagent-server-state.json");
-  }
+  function onmyagentServerStatePath() { return path.join(userDataDir, "onmyagent-server-state.json"); }
 
   function managedOpencodeWorkdir() {
     return path.join(userDataDir, "managed-opencode-workdir");
@@ -474,7 +351,7 @@ export function createRuntimeManager({
   }
 
   function onmyagentUserSkillsRoot() {
-    return path.join(os.homedir(), ".onmyagent", "skills");
+    return path.join(app.getPath("home"), ".onmyagent", "skills");
   }
 
   function collectSkillDirs(root) {
@@ -504,9 +381,58 @@ export function createRuntimeManager({
     return dirs;
   }
 
+  /**
+   * Keep @opencode-ai/plugin package pin aligned with the product OpenCode
+   * version. A lagging pin (e.g. 1.14.x plugin against 1.17.x runtime) is a
+   * common root cause of "fn3 is not a function" during provider load.
+   */
+  async function ensureOpencodePluginPackagePin(configDir, opencodeVersion) {
+    const pin = parseVersionTokens(opencodeVersion);
+    if (!pin || !configDir) return;
+    const packagePath = path.join(configDir, "package.json");
+    /** @type {{ dependencies?: Record<string, string>, [key: string]: unknown }} */
+    let pkg = { dependencies: {} };
+    try {
+      if (existsSync(packagePath)) {
+        const parsed = JSON.parse(await readFile(packagePath, "utf8"));
+        if (parsed && typeof parsed === "object") pkg = parsed;
+      }
+    } catch {
+      pkg = { dependencies: {} };
+    }
+    if (!pkg.dependencies || typeof pkg.dependencies !== "object" || Array.isArray(pkg.dependencies)) {
+      pkg.dependencies = {};
+    }
+    const current = String(pkg.dependencies["@opencode-ai/plugin"] ?? "").trim();
+    const desired = String(opencodeVersion).replace(/^v/i, "").trim();
+    if (!desired) return;
+    if (current && isVersionAtLeast(current, desired) && compareVersions(current, desired) === 0) {
+      return;
+    }
+    if (current && isVersionAtLeast(current, desired)) {
+      // Newer pin than product is allowed (forward compatible plugins).
+      return;
+    }
+    pkg.dependencies["@opencode-ai/plugin"] = desired;
+    await writeFile(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+    console.warn(
+      `[runtime] Aligned ${packagePath} @opencode-ai/plugin ${current || "(missing)"} -> ${desired}. Reinstall plugins if provider load still fails (fn3).`,
+    );
+  }
+
   async function prepareOnMyAgentOpencodeConfigDir(configDir) {
-    const skillsDir = path.join(configDir, "skills");
+    activeOpencodeConfigDir = configDir; const skillsDir = path.join(configDir, "skills");
     await mkdir(skillsDir, { recursive: true });
+
+    try {
+      const opencodeDecision = resolveOpencodeBinaryDecision(null);
+      const version = opencodeDecision?.bundledVersion || opencodeDecision?.localVersion;
+      if (version) {
+        await ensureOpencodePluginPackagePin(configDir, version);
+      }
+    } catch (error) {
+      console.warn("[runtime] Failed to align @opencode-ai/plugin pin:", error);
+    }
 
     const artifactSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS);
     const pluginRoot = bundledPluginsRootPath();
@@ -549,6 +475,14 @@ export function createRuntimeManager({
       reservedSkillIds: artifactSkillIds,
     });
     return configDir;
+  }
+
+  async function refreshSkillLinks() {
+    const devConfigDir = !activeOpencodeConfigDir && process.env.ONMYAGENT_DEV_MODE === "1"
+      ? (await ensureDevModePaths()).opencodeConfigDir : null;
+    const configDir = activeOpencodeConfigDir || (devConfigDir && (process.env.OPENCODE_CONFIG_DIR?.trim()
+      || resolveLocalOpencodeConfigDir() || devConfigDir)) || onmyagentOpencodeConfigDir();
+    return prepareOnMyAgentOpencodeConfigDir(configDir);
   }
 
   function orchestratorDataDir() {
@@ -765,13 +699,17 @@ export function createRuntimeManager({
     return env;
   }
 
+  function envForcedOpencodeBinaryPath() {
+    for (const key of ["OPENCODE_BIN", "ONMYAGENT_OPENCODE_BIN", "ONMYAGENT_LOCAL_OPENCODE_BIN"]) {
+      const value = process.env[key]?.trim();
+      if (value && existsSync(value)) return value;
+    }
+    return null;
+  }
+
   function localOpencodeBinaryCandidates() {
     const binaryName = process.platform === "win32" ? "opencode.exe" : "opencode";
-    const candidates = [
-      process.env.OPENCODE_BIN?.trim(),
-      process.env.ONMYAGENT_OPENCODE_BIN?.trim(),
-      process.env.ONMYAGENT_LOCAL_OPENCODE_BIN?.trim(),
-    ];
+    const candidates = [];
 
     const pathEntries = (enrichedPath([], process.env.PATH) ?? "")
       .split(path.delimiter)
@@ -800,13 +738,103 @@ export function createRuntimeManager({
     return [...new Set(candidates.filter(Boolean))];
   }
 
+  /**
+   * Scan machine-local OpenCode installs and pick the newest one that meets
+   * the bundled pin. Avoids PATH order traps (e.g. stale /usr/local 1.14.x
+   * before Homebrew 1.17.x) that reintroduce plugin hook failures.
+   */
+  function findBestLocalOpencodeBinary(bundledPath, bundledVersion) {
+    /** @type {{ path: string, version: string | null } | null} */
+    let bestCompatible = null;
+    /** @type {{ path: string, version: string | null } | null} */
+    let firstExisting = null;
+    const bundledResolved = bundledPath ? path.resolve(bundledPath) : null;
+
+    for (const candidate of localOpencodeBinaryCandidates()) {
+      if (!existsSync(candidate)) continue;
+      // Never treat the product sidecar itself as a "local" install.
+      if (bundledResolved && path.resolve(candidate) === bundledResolved) continue;
+      // Skip arch-suffixed sidecar copies that may appear via PATH.
+      if (candidate.includes(`${path.sep}resources${path.sep}sidecars${path.sep}`)) continue;
+
+      const version = probeVersion(candidate);
+      if (!firstExisting) firstExisting = { path: candidate, version };
+
+      if (!version) continue;
+      if (bundledVersion && !isVersionAtLeast(version, bundledVersion)) continue;
+
+      if (
+        !bestCompatible ||
+        !bestCompatible.version ||
+        (compareVersions(version, bestCompatible.version) ?? -1) > 0
+      ) {
+        bestCompatible = { path: candidate, version };
+      }
+    }
+
+    return { bestCompatible, firstExisting };
+  }
+
+  /**
+   * Resolve OpenCode with product-owned version gate:
+   * bundled by default; local only when a compatible version is found.
+   */
+  function resolveOpencodeBinaryDecision(opencodeBinPath) {
+    const explicitPath = typeof opencodeBinPath === "string" ? opencodeBinPath.trim() : "";
+    const envForcedPath = explicitPath ? null : envForcedOpencodeBinaryPath();
+    const bundled = resolveBundledBinaryInfo("opencode");
+    const bundledVersion = bundled?.path ? probeVersion(bundled.path) : null;
+
+    let localPath = null;
+    let localVersion = null;
+    if (!explicitPath && !envForcedPath) {
+      const { bestCompatible, firstExisting } = findBestLocalOpencodeBinary(
+        bundled?.path ?? null,
+        bundledVersion,
+      );
+      if (bestCompatible) {
+        localPath = bestCompatible.path;
+        localVersion = bestCompatible.version;
+      } else if (firstExisting) {
+        // Feed an incompatible/unknown local into the policy so notices fire.
+        localPath = firstExisting.path;
+        localVersion = firstExisting.version;
+      }
+    } else if (envForcedPath) {
+      localVersion = probeVersion(envForcedPath);
+    }
+
+    const decision = chooseOpencodeBinary({
+      explicitPath: explicitPath || null,
+      envForcedPath,
+      localPath,
+      localVersion,
+      bundledPath: bundled?.path ?? null,
+      bundledVersion,
+    });
+
+    if (decision.notice) {
+      console.warn(`[runtime] OpenCode binary policy: ${decision.notice}`);
+    } else if (decision.path) {
+      console.info(
+        `[runtime] OpenCode binary policy: using ${decision.source} (${decision.reason}) -> ${decision.path}`,
+      );
+    }
+
+    if (!decision.path) return null;
+    return {
+      path: decision.path,
+      source: decision.source,
+      reason: decision.reason,
+      notice: decision.notice,
+      localVersion: decision.localVersion,
+      bundledVersion: decision.bundledVersion,
+    };
+  }
+
   function resolveBinaryInfo(baseName, extraPaths = []) {
     if (baseName === "opencode") {
-      for (const candidate of localOpencodeBinaryCandidates()) {
-        if (existsSync(candidate)) {
-          return { path: candidate, source: "local" };
-        }
-      }
+      return resolveOpencodeBinaryDecision(null);
     }
 
     for (const directory of [...sidecarDirs, ...extraPaths]) {
@@ -856,6 +884,80 @@ export function createRuntimeManager({
     return null;
   }
 
+  function envForcedRuntimeBinaryPath(tool) {
+    const keys =
+      tool === "node"
+        ? ["ONMYAGENT_NODE_BIN", "NODE_BINARY"]
+        : tool === "python"
+          ? ["ONMYAGENT_PYTHON_BIN", "PYTHON_BINARY"]
+          : [];
+    for (const key of keys) {
+      const value = process.env[key]?.trim();
+      if (value && existsSync(value)) return value;
+    }
+    return null;
+  }
+
+  function findPathRuntimeBinary(tool) {
+    const names =
+      tool === "node"
+        ? process.platform === "win32"
+          ? ["node.exe"]
+          : ["node"]
+        : tool === "python"
+          ? process.platform === "win32"
+            ? ["python.exe", "python3.exe"]
+            : ["python3", "python"]
+          : [];
+    // Search the original process PATH without our runtimeBinDirs prepend so
+    // we can tell "true machine local" from product-bundled copies.
+    const rawPath = process.env.PATH ?? process.env.Path ?? process.env.path ?? "";
+    const pathEntries = rawPath.split(path.delimiter).filter(Boolean);
+    const bundledDirs = new Set(runtimeBinDirs.map((dir) => path.resolve(dir)));
+    for (const entry of pathEntries) {
+      if (bundledDirs.has(path.resolve(entry))) continue;
+      for (const name of names) {
+        const candidate = path.join(entry, name);
+        if (existsSync(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Product-owned Node / Python: bundled wins whenever present.
+   */
+  function resolveProductRuntimeBinaryDecision(tool) {
+    const toolLabel = tool === "node" ? "Node" : tool === "python" ? "Python" : tool;
+    const bundledPath = bundledRuntimeBinary(tool);
+    const bundledExists = bundledPath && existsSync(bundledPath) ? bundledPath : null;
+    const envForcedPath = envForcedRuntimeBinaryPath(tool);
+    const localPath = envForcedPath || bundledExists ? null : findPathRuntimeBinary(tool);
+
+    const decision = chooseProductRuntimeBinary({
+      toolLabel,
+      envForcedPath,
+      localPath,
+      bundledPath: bundledExists,
+      bundledVersion: bundledExists ? probeVersion(bundledExists) : null,
+      localVersion: localPath || envForcedPath ? probeVersion(localPath ?? envForcedPath) : null,
+    });
+
+    if (decision.notice) {
+      console.warn(`[runtime] ${toolLabel} binary policy: ${decision.notice}`);
+    }
+
+    if (!decision.path) return null;
+    return {
+      path: decision.path,
+      source: decision.source,
+      reason: decision.reason,
+      notice: decision.notice,
+      localVersion: decision.localVersion,
+      bundledVersion: decision.bundledVersion,
+    };
+  }
+
   function probeVersion(binary) {
     if (!binary || !existsSync(binary)) return null;
     const result = spawnSync(binary, ["--version"], {
@@ -871,8 +973,7 @@ export function createRuntimeManager({
   }
 
   function resolveOpencodeBinary(opencodeBinPath) {
-    const explicitPath = typeof opencodeBinPath === "string" ? opencodeBinPath.trim() : "";
-    return explicitPath ? { path: explicitPath, source: "custom" } : resolveBinaryInfo("opencode");
+    return resolveOpencodeBinaryDecision(opencodeBinPath);
   }
 
   function resolveDockerCandidates() {
@@ -1037,7 +1138,8 @@ export function createRuntimeManager({
 
     return {
       found: true,
-      inPath: resolved.source === "path",
+      // "local" covers PATH / homebrew / ~/.opencode discoveries.
+      inPath: resolved.source === "local",
       resolvedPath: resolved.path,
       resolvedSource: resolved.source,
       version: versionResult.stdout?.trim() || versionResult.stderr?.trim() || null,
@@ -1049,124 +1151,32 @@ export function createRuntimeManager({
     };
   }
 
-  function spawnManagedChild(state, program, args, options = {}) {
-    const child = spawn(program, args, {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-
-    state.child = child;
-    state.childExited = false;
-    state.lastStdout = null;
-    state.lastStderr = null;
-
-    child.stdout?.on("data", (chunk) => appendOutput(state, "lastStdout", chunk.toString()));
-    child.stderr?.on("data", (chunk) => appendOutput(state, "lastStderr", chunk.toString()));
-    child.on("exit", (code) => {
-      state.childExited = true;
-      if (code != null && code !== 0) {
-        appendOutput(state, "lastStderr", `Process exited with code ${code}.\n`);
-      }
-      options.onExit?.(code);
-    });
-    child.on("error", (error) => {
-      state.childExited = true;
-      appendOutput(state, "lastStderr", `${error instanceof Error ? error.message : String(error)}\n`);
-    });
-
-    return child;
-  }
-
-  function processMatchesSidecar(command) {
-    const value = String(command ?? "");
-    return sidecarDirs.some((dir) => value.includes(dir)) &&
-      (
-        value.includes("onmyagent-orchestrator") ||
-        value.includes("onmyagent-server") ||
-        value.includes("opencode serve")
-      );
-  }
-
-  function killProcessId(pid, signal = "SIGTERM") {
-    if (!Number.isFinite(pid) || pid <= 0 || pid === process.pid) return;
-    try {
-      process.kill(pid, signal);
-    } catch {
-      // Process already exited or is not ours.
-    }
-  }
-
   async function cleanupPackagedSidecars() {
-    if (!app.isPackaged) return;
-
     // First ask the previously recorded orchestrator daemon to shut itself and
     // its OpenCode child down. This handles the happy path without relying on
     // process-list parsing.
-    await requestOrchestratorShutdown(orchestratorState.dataDir || orchestratorDataDir()).catch(() => false);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // Safety net: an unclean Electron quit can orphan sidecars. Packaged builds
-    // should always own a fresh runtime per app launch, so remove any leftover
-    // sidecars from this app bundle before choosing ports for the new runtime.
-    const result = spawnSync("ps", ["-Ao", "pid=,command="], { encoding: "utf8" });
-    const rows = String(result.stdout ?? "").split(/\r?\n/);
-    const pids = [];
-    for (const row of rows) {
-      const match = row.match(/^\s*(\d+)\s+(.+)$/);
-      if (!match) continue;
-      const pid = Number(match[1]);
-      const command = match[2] ?? "";
-      if (processMatchesSidecar(command)) pids.push(pid);
-    }
-    for (const pid of pids) killProcessId(pid, "SIGTERM");
-    if (pids.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      for (const pid of pids) killProcessId(pid, "SIGKILL");
-    }
+    await cleanupPackagedSidecarsImpl({
+      isPackaged: app.isPackaged,
+      sidecarDirs,
+      requestShutdown: () => requestOrchestratorShutdown(orchestratorState.dataDir || orchestratorDataDir()),
+    });
   }
 
   async function stopChild(state, options = {}) {
-    const child = state.child;
-    state.child = null;
-    state.childExited = true;
-    if (!child || child.exitCode != null || child.killed) return;
-
-    if (options.requestShutdown) {
-      try {
-        const shutdownRequested = await options.requestShutdown();
-        if (shutdownRequested) {
-          await new Promise((resolve) => setTimeout(resolve, 750));
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    if (child.exitCode == null && !child.killed) {
-      child.kill("SIGTERM");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (child.exitCode == null && !child.killed) {
-        child.kill("SIGKILL");
-      }
-    }
+    return stopChildImpl(state, options);
   }
 
   async function ensureOpencodeConfig(projectDir) {
-    const jsoncPath = path.join(projectDir, "opencode.jsonc");
-    const jsonPath = path.join(projectDir, "opencode.json");
-    if ((await fileExists(jsoncPath)) || (await fileExists(jsonPath))) return;
-    await mkdir(projectDir, { recursive: true });
-    await writeFile(
-      jsoncPath,
-      `${JSON.stringify({ $schema: "https://opencode.ai/config.json" }, null, 2)}\n`,
-      "utf8",
-    );
+    return ensureOpencodeConfigImpl(projectDir, {
+      fileExists,
+      mkdir,
+      writeFile,
+      pathJoin: path.join,
+    });
   }
 
   function generateManagedCredentials() {
-    return [randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, ""), randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "")];
+    return generateManagedCredentialsImpl(randomUUID);
   }
 
   async function issueOwnerToken(baseUrl, hostToken) {
@@ -1588,9 +1598,20 @@ export function createRuntimeManager({
 
   async function onmyagentServerRestart(options = {}) {
     const workspacePaths = prioritizeWorkspacePaths(engineState.projectDir, await listLocalWorkspacePaths());
-    const shouldManageOpencode = Boolean(
+    const wasManagingOpencode = Boolean(
       onmyagentServerState.managedOpencodeBinPath || engineState.opencodeBinPath,
     );
+    const shouldManageOpencode =
+      options.manageOpencode === true ||
+      (options.manageOpencode !== false && wasManagingOpencode);
+    // Always re-resolve the OpenCode binary on restart. Reusing the previous
+    // managed path as opencodeBinPath treats it as an explicit override and can
+    // permanently pin a stale PATH install (e.g. /usr/local 1.14.x) after the
+    // product pin moves to a newer bundled binary.
+    const explicitOverride =
+      typeof options.opencodeBinPath === "string" && options.opencodeBinPath.trim()
+        ? options.opencodeBinPath.trim()
+        : null;
     return startOnMyAgentServer({
       workspacePaths,
       opencodeBaseUrl: shouldManageOpencode ? null : engineState.baseUrl,
@@ -1598,7 +1619,7 @@ export function createRuntimeManager({
       opencodePassword: shouldManageOpencode ? null : engineState.opencodePassword,
       remoteAccessEnabled: options.remoteAccessEnabled === true,
       manageOpencode: shouldManageOpencode,
-      opencodeBinPath: engineState.opencodeBinPath ?? onmyagentServerState.managedOpencodeBinPath,
+      opencodeBinPath: explicitOverride,
     });
   }
 
@@ -1695,35 +1716,51 @@ export function createRuntimeManager({
   }
 
   function softwareEnvironmentInfo() {
-    const bundledOpencode = resolveBundledBinaryInfo("opencode");
-    const nodePath = bundledRuntimeBinary("node");
-    const pythonPath = bundledRuntimeBinary("python");
-    const nodeVersion = probeVersion(nodePath);
-    const pythonVersion = probeVersion(pythonPath);
-    const opencodeVersion = probeVersion(bundledOpencode?.path);
-    const opencodeInstalled = Boolean(opencodeVersion);
+    const node = resolveProductRuntimeBinaryDecision("node");
+    const python = resolveProductRuntimeBinaryDecision("python");
+    const opencode = resolveOpencodeBinaryDecision(null);
+    const nodeInstalled = Boolean(node?.path && (node.bundledVersion || node.localVersion || probeVersion(node.path)));
+    const pythonInstalled = Boolean(
+      python?.path && (python.bundledVersion || python.localVersion || probeVersion(python.path)),
+    );
+    const opencodeInstalled = Boolean(
+      opencode?.path && (opencode.bundledVersion || opencode.localVersion || probeVersion(opencode.path)),
+    );
     return {
-      node: Boolean(nodeVersion),
-      python: Boolean(pythonVersion),
+      node: nodeInstalled,
+      python: pythonInstalled,
       opencode: opencodeInstalled,
       details: {
         node: {
-          installed: Boolean(nodeVersion),
-          bundled: true,
-          path: nodePath,
-          version: nodeVersion,
+          installed: nodeInstalled,
+          bundled: node?.source === "bundled",
+          path: node?.path ?? null,
+          version: node?.bundledVersion ?? node?.localVersion ?? (node?.path ? probeVersion(node.path) : null),
+          source: node?.source ?? null,
+          reason: node?.reason ?? null,
+          notice: node?.notice ?? null,
         },
         python: {
-          installed: Boolean(pythonVersion),
-          bundled: true,
-          path: pythonPath,
-          version: pythonVersion,
+          installed: pythonInstalled,
+          bundled: python?.source === "bundled",
+          path: python?.path ?? null,
+          version:
+            python?.bundledVersion ?? python?.localVersion ?? (python?.path ? probeVersion(python.path) : null),
+          source: python?.source ?? null,
+          reason: python?.reason ?? null,
+          notice: python?.notice ?? null,
         },
         opencode: {
           installed: opencodeInstalled,
-          bundled: true,
-          path: bundledOpencode?.path ?? null,
-          version: opencodeVersion,
+          bundled: opencode?.source === "bundled",
+          path: opencode?.path ?? null,
+          version:
+            opencode?.bundledVersion ??
+            opencode?.localVersion ??
+            (opencode?.path ? probeVersion(opencode.path) : null),
+          source: opencode?.source ?? null,
+          reason: opencode?.reason ?? null,
+          notice: opencode?.notice ?? null,
         },
       },
     };
@@ -2052,7 +2089,7 @@ export function createRuntimeManager({
   return {
     engineStart: (projectDir, options) => withRuntimeLifecycle(() => engineStart(projectDir, options)),
     engineStop: () => withRuntimeLifecycle(() => engineStop()),
-    engineRestart: (options) => withRuntimeLifecycle(() => engineRestart(options)),
+    engineRestart: (options) => withRuntimeLifecycle(() => engineRestart(options)), refreshSkillLinks: () => withRuntimeLifecycle(() => refreshSkillLinks()),
     prepareFreshRuntime: () => withRuntimeLifecycle(() => prepareFreshRuntime()),
     dispose: () => withRuntimeLifecycle(() => stopAllRuntimeChildren()),
     runtimeStatus,

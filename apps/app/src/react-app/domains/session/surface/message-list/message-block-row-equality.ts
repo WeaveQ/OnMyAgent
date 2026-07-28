@@ -44,6 +44,7 @@ export type MessageBlockRowMemoProps = {
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
   onRevertToMessage?: (messageId: string) => void;
   onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   onOpenTarget?: (target: OpenTarget) => void;
   onTurnDetailsExpandedChange: (turnId: string, expanded: boolean) => void;
 };
@@ -78,6 +79,7 @@ export function messageBlockRowPropsEqual(
     prev.onExpandedStepIdsChange === next.onExpandedStepIdsChange &&
     prev.onRevertToMessage === next.onRevertToMessage &&
     prev.onOpenCodePath === next.onOpenCodePath &&
+    prev.onDownloadCodePath === next.onDownloadCodePath &&
     prev.onOpenTarget === next.onOpenTarget &&
     prev.onTurnDetailsExpandedChange === next.onTurnDetailsExpandedChange
   );

@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
-  isLocalhostBrowserTarget,
+  isUserFacingLocalPreviewTarget,
   type OpenTarget,
 } from "../../artifacts/open-target";
 
@@ -14,7 +14,9 @@ export function selectTurnOpenTargets(
   const inlineTargets = new Map<string, OpenTarget>();
   for (const candidate of deriveOpenTargets(messages, { includeFileMentions: true })) {
     const verified = verifiedById.get(candidate.id);
-    if (candidate.kind === "url" && isLocalhostBrowserTarget(candidate)) {
+    // Only intentional local previews (`localhost:port`), never internal
+    // 127.0.0.1 bridges that leak from browser tool JSON.
+    if (candidate.kind === "url" && isUserFacingLocalPreviewTarget(candidate)) {
       inlineTargets.set(candidate.id, verified ?? candidate);
       continue;
     }

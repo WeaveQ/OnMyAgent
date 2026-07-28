@@ -49,12 +49,33 @@ describe("session route control", () => {
         workspaceId: "ws_a",
         activeWorkspaceId: "ws_a",
         selectedSessionId: "ses_a",
+        pageMode: "assistant",
+        returnTo: "/workspace/ws_a/assistant/ses_a?view=files",
         workspaceSettingsRoute: (workspaceId, tab) => `/workspace/${workspaceId}/settings/${tab}`,
       }),
     ).toEqual({
       target: "/workspace/ws_a/settings/general",
-      state: { workspaceId: "ws_a", sessionId: "ses_a" },
+      state: {
+        workspaceId: "ws_a",
+        sessionId: "ses_a",
+        pageMode: "assistant",
+        returnTo: "/workspace/ws_a/assistant/ses_a?view=files",
+      },
     });
+  });
+
+  test("settings navigation state captures expert mode for back-to-app", () => {
+    expect(
+      buildSettingsNavigationTarget({
+        route: "/settings/ai",
+        workspaceId: "ws_a",
+        activeWorkspaceId: "ws_a",
+        selectedSessionId: "ses_expert",
+        pageMode: "expert",
+        returnTo: "/workspace/ws_a/session/ses_expert",
+        workspaceSettingsRoute: (workspaceId, tab) => `/workspace/${workspaceId}/settings/${tab}`,
+      }).state.pageMode,
+    ).toBe("expert");
   });
 
   test("uses selected session directory when no assistant workspace record exists", () => {
@@ -238,8 +259,10 @@ describe("session route control", () => {
     ).toEqual({ type: "none" });
   });
 
-  test("redirects first-run users without workspaces to welcome", () => {
+  test("redirects incomplete onboarding to welcome even when workspaces exist", () => {
     expect(shouldRedirectSessionRouteToWelcome({ hasCompletedOnboarding: false, loading: false, workspaceCount: 0 }))
+      .toBe(true);
+    expect(shouldRedirectSessionRouteToWelcome({ hasCompletedOnboarding: false, loading: false, workspaceCount: 3 }))
       .toBe(true);
     expect(shouldRedirectSessionRouteToWelcome({ hasCompletedOnboarding: true, loading: false, workspaceCount: 0 }))
       .toBe(false);

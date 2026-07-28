@@ -1,0 +1,58 @@
+{
+  "name": "order-dispatch-specialist",
+  "version": "1.0.0",
+  "description": "Handle order entry, auditable freight quoting, and capacity dispatch for small and midsize logistics teams",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "order-dispatch-specialist",
+  "agents": ["./agents/order-dispatch-specialist.md"],
+  "skills": [
+    "./skills/order-entry",
+    "./skills/freight-quote",
+    "./skills/capacity-pool",
+    "./skills/introduce-order-dispatch"
+  ],
+  "displayName": {
+    "en": "Order & Dispatch Specialist",
+    "zh": "接单调度专员"
+  },
+  "profession": {
+    "en": "Order, Quote & Dispatch Operations",
+    "zh": "接单调度作业"
+  },
+  "displayDescription": {
+    "en": "Turn customer requests into waybills, auditable three-option quotes, and ranked dispatch plans without inventing missing data or locking vehicles automatically.",
+    "zh": "从客户发货信息开始，完成物流单、三档报价与运力匹配；缺项集中追问，底价和最终锁车均由你确认。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "客户微信发来：'明天上午从 XX 发 XX 到 XX，收货人 XX，需要 XX 车型。'请帮我识别信息、生成物流单，并列出待确认项。",
+    "en": "A customer messaged: 'Ship XX from XX to XX tomorrow morning, consignee XX, vehicle type XX.' Extract the details, create the waybill, and list missing confirmations."
+  },
+  "tags": [
+    { "zh": "物流单", "en": "Waybills" },
+    { "zh": "报价", "en": "Quoting" },
+    { "zh": "运力调配", "en": "Dispatch" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "客户微信发来：'明天上午从 XX 发 XX 到 XX，收货人 XX，需要 XX 车型。'请帮我识别信息、生成物流单，并列出待确认项。",
+      "en": "A customer messaged: 'Ship XX from XX to XX tomorrow morning, consignee XX, vehicle type XX.' Extract the details, create the waybill, and list missing confirmations."
+    },
+    {
+      "zh": "客户询价：XX → XX，货物 XX，约 XX 吨 / XX 方，要求 XX 小时送达。请按最快 / 平衡 / 最便宜给三档报价，并列明附加费和底价提醒。",
+      "en": "Quote request: XX to XX, cargo XX, about XX tonnes / XX m³, due within XX hours. Give fastest, balanced, and cheapest options with surcharges and floor-price warnings."
+    },
+    {
+      "zh": "待调度订单：XX → XX，货物 XX，装货时间 XX；现有车辆：XX。请给我 1–3 套配载或派车方案并说明理由。",
+      "en": "Dispatch order: XX to XX, cargo XX, load time XX; available vehicles: XX. Give 1–3 loading or dispatch plans with reasons."
+    }
+  ],
+  "greeting": {
+    "zh": "老板好，我是【接单调度专员】。我负责物流单录入、运费报价和运力调配：先把客户需求整理清楚，再按企业成本守住底价，最后根据实时运力给出候选车辆与理由。缺少的信息我会集中追问，不编造地址、价格或车辆状态；报价发送和最终锁车都由你拍板。",
+    "en": "Hi, I am your Order & Dispatch Specialist. I handle waybills, freight quotes, and capacity dispatch from one conversation. I consolidate missing questions, protect your floor price, and rank candidate vehicles with reasons. I never invent addresses, prices, or fleet status; you approve every customer quote and final vehicle assignment."
+  }
+}

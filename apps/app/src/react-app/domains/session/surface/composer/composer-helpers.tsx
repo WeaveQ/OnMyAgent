@@ -10,6 +10,8 @@ import type {
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
+  ComposerMentionKind,
+  ComposerMentionTarget,
   McpServerEntry,
   McpStatusMap,
   ModelRef,
@@ -26,7 +28,7 @@ import type { ReactComposerNotice as ReactComposerNoticeData } from "./notice";
 
 export type MentionItem = {
   id: string;
-  kind: "agent" | "file";
+  kind: ComposerMentionKind;
   value: string;
   label: string;
 };
@@ -38,7 +40,12 @@ export type PastedTextChip = {
   lines: number;
 };
 
-export type ToolMenuSettingsSection = "commands" | "skills" | "mcps" | "plugins";
+export type ToolMenuSettingsSection =
+  | "ai"
+  | "commands"
+  | "skills"
+  | "mcps"
+  | "plugins";
 export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";
 export type ComposerPromptTemplate = {
   id: string;
@@ -56,7 +63,8 @@ export const composerTextClass = {
   sourceBadge: "bg-dls-accent/10 text-dls-accent",
   commandBadge: "bg-dls-signal/15 text-dls-text",
   modelUnavailable:
-    "inline-flex max-w-48 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-dls-status-danger-fg hover:bg-dls-status-danger-soft",
+    // Align with model chip / workspace / permission chrome (text-sm / h-8).
+    "inline-flex h-8 max-w-48 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-status-danger-fg hover:bg-dls-status-danger-soft",
 };
 
 export const composerMenuClass = {
@@ -168,7 +176,7 @@ export function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
 
 export type ComposerProps = {
   draft: string;
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
   promptTemplates?: ComposerPromptTemplate[];
   onSelectPromptTemplate?: (templateId: string, prompt: string) => void;
@@ -217,8 +225,8 @@ export type ComposerProps = {
   /** Open custom MCP config dialog (e.g. MCP row toggle / advanced). */
   onOpenCustomConnector?: () => void;
   recentFiles: string[];
-  searchFiles: (query: string) => Promise<string[]>;
-  onInsertMention: (kind: "agent" | "file", value: string) => void;
+  searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNoticeData | null;
   onNotice: (notice: ReactComposerNoticeData) => void;
   onPasteText: (text: string) => void;

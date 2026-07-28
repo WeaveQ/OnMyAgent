@@ -235,9 +235,9 @@ For vulnerability reporting and project security boundaries, see `SECURITY.md`.
 
 ### Next Milestones
 
-- Keep reducing cold-start cost by splitting low-frequency settings, Skill, and syntax-highlighting surfaces.
+- Keep reducing cold-start cost (lazy settings/Skill/highlight chunks); progressive boot and unified load chrome already land first paint sooner.
 - Harden real external-channel E2E coverage for Feishu and Weixin when credentials and callback access are available.
-- Continue modularizing desktop main-process and session/settings composition roots.
+- Continue modularizing desktop main-process and further thin session host surfaces (message-list split, deeper runtime hooks).
 - Expand work detail views, audit trails, and safer approval policy presets.
 - Prepare the team worker layer: shared workspaces, team permissions, organization audit, Skill Packs, and enterprise deployment options.
 

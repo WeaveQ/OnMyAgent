@@ -3,10 +3,13 @@ import type { UIMessage } from "ai";
 import type { Locale } from "@/i18n";
 import type { TranscriptTurn, TranscriptTurnState } from "./turn-model";
 import {
+  completedProgressNarrationStep,
   isTranscriptToolPart,
   isWrongLanguageProgressNarration,
   progressNarrationKey,
+  progressNarrationStep,
   type ProgressNarrationMessageKey,
+  type ProgressNarrationStep,
 } from "./progress-narration";
 
 const WIDGET_TOOL_NAMES = new Set([
@@ -68,7 +71,13 @@ export type TurnBodySegment =
 
 export type TurnContentSegment =
   | { kind: "process"; id: string; items: TurnProcessItem[] }
-  | { kind: "synthetic-body"; id: string; messageKey: ProgressNarrationMessageKey }
+  | {
+      kind: "synthetic-body";
+      id: string;
+      messageKey: ProgressNarrationMessageKey;
+      previousStep: ProgressNarrationStep | null;
+      nextStep: ProgressNarrationStep;
+    }
   | { kind: "body"; id: string; item: TurnContentItem; text: string }
   | { kind: "file"; id: string; item: TurnContentItem }
   | { kind: "widget"; id: string; visual: TurnWidgetItem };
@@ -108,8 +117,9 @@ function artifactCopies(value: unknown): TurnWidgetArtifactCopy[] {
     if (
       typeof key !== "string" || !key.trim() ||
       typeof label !== "string" || !label.trim() ||
-      typeof pdf !== "string" || !pdf.trim() ||
-      typeof xlsx !== "string" || !xlsx.trim()
+      typeof pdf !== "string" ||
+      typeof xlsx !== "string" ||
+      (!pdf.trim() && !xlsx.trim())
     ) return [];
     return [{
       key: key.trim(),
@@ -242,15 +252,29 @@ function parseWidgetResultPayload(value: unknown): WidgetPayload | null {
   return extractWidgetPayload(value);
 }
 
+function isInlineWidgetCommandResult(toolName: string, value: unknown) {
+  if (!/bash|shell|command|exec|terminal|repl/.test(toolName)) return false;
+  try {
+    const serialized = typeof value === "string" ? value : JSON.stringify(value);
+    return /["']inline_?widget["']\s*:/i.test(serialized);
+  } catch {
+    return false;
+  }
+}
+
 function widgetFromToolPart(item: TurnContentItem): TurnWidgetItem | null {
   const part = item.part;
   if (part.type !== "dynamic-tool") return null;
   const toolName = part.toolName.trim().toLowerCase();
-  if (!WIDGET_TOOL_NAMES.has(toolName)) return null;
   const outputPayload = part.state === "output-available"
     ? parseWidgetResultPayload(part.output)
     : null;
-  const inputPayload = parseWidgetPayload(part.input);
+  const widgetTool = WIDGET_TOOL_NAMES.has(toolName);
+  const inlineWidgetCommand = part.state === "output-available" &&
+    isInlineWidgetCommandResult(toolName, part.output) &&
+    Boolean(outputPayload?.html);
+  if (!widgetTool && !inlineWidgetCommand) return null;
+  const inputPayload = widgetTool ? parseWidgetPayload(part.input) : null;
   const payload = outputPayload ?? inputPayload;
   if (!payload && part.state === "output-available") return null;
   const inputMessages = inputPayload?.loadingMessages ?? [];
@@ -520,6 +544,7 @@ function buildExpandedSegments(
   let nextStageStart: number | null = null;
   let operationCount = 0;
   let nextOperationCovered = false;
+  let previousCompletedStep: ProgressNarrationStep | null = null;
   const flushProcess = () => {
     if (processItems.length === 0) return;
     const operation = processTool;
@@ -529,8 +554,10 @@ function buildExpandedSegments(
         id: `synthetic-body:${itemId(operation)}`,
         messageKey: progressNarrationKey(
           operation.part,
-          operationCount === 0 ? "start" : "continue",
+          operationCount === 0 || !previousCompletedStep ? "start" : "continue",
         ),
+        previousStep: previousCompletedStep,
+        nextStep: progressNarrationStep(operation.part),
       });
     }
     segments.push({
@@ -541,6 +568,7 @@ function buildExpandedSegments(
     if (operation) {
       operationCount += 1;
       nextOperationCovered = false;
+      previousCompletedStep = completedProgressNarrationStep(operation.part);
     }
     processItems = [];
     processTool = null;
@@ -557,8 +585,10 @@ function buildExpandedSegments(
           id: `synthetic-body:${itemId(item)}`,
           messageKey: progressNarrationKey(
             item.part,
-            operationCount === 0 ? "start" : "continue",
+            operationCount === 0 || !previousCompletedStep ? "start" : "continue",
           ),
+          previousStep: previousCompletedStep,
+          nextStep: progressNarrationStep(item.part),
         });
       }
       segments.push({
@@ -568,6 +598,7 @@ function buildExpandedSegments(
       });
       operationCount += 1;
       nextOperationCovered = false;
+      previousCompletedStep = completedProgressNarrationStep(item.part);
       continue;
     }
     if (item.part.type === "text") {
@@ -650,15 +681,55 @@ export function buildTurnContentPresentation(
     renderItems.push(item);
   }
 
+  const fencedWidgetHtml = new Set(
+    renderItems.flatMap((item) =>
+      item.bodySegments?.flatMap((segment) =>
+        segment.kind === "widget" && segment.visual.html.trim()
+          ? [segment.visual.html.trim()]
+          : []
+      ) ?? []
+    ),
+  );
+  const visibleRenderItems = renderItems
+    .filter((item) => {
+      const widget = widgetFromToolPart(item);
+      return !widget || !fencedWidgetHtml.has(widget.html.trim());
+    })
+    .map((item) => {
+      // 命令结果 inlineWidget 已作为权威 widget 渲染（hoistedItems）；
+      // 正文里的 show_widget 围栏多为专家误贴的重复，移除其 widget 段避免预览重复展示。
+      if (
+        hoistedItems.length > 0 &&
+        item.bodySegments?.some((segment) => segment.kind === "widget")
+      ) {
+        const filtered = item.bodySegments.filter(
+          (segment) => segment.kind !== "widget",
+        );
+        return { ...item, bodySegments: filtered.length > 0 ? filtered : undefined };
+      }
+      return item;
+    });
+  // 同 turn 内多次 preview/export 重跑产生的同类 widget 只保留最新一个：
+  // 按 title 去重（兼容数据逐轮变化导致 html 不同的情况），无 title 时回退按 html 去重。
+  const visibleHoistedItems = Array.from(
+    hoistedItems
+      .reduce<Map<string, TurnWidgetItem>>((map, widget) => {
+        const dedupKey = widget.title?.trim() || widget.html.trim();
+        map.set(dedupKey, widget);
+        return map;
+      }, new Map())
+      .values(),
+  );
+
   const locale = options.locale ?? "en";
-  const publicRenderItems = renderItems.filter((item, index) => {
+  const publicRenderItems = visibleRenderItems.filter((item, index) => {
     if (
       item.part.type !== "text" ||
       !isWrongLanguageProgressNarration(item.part.text, locale)
     ) {
       return true;
     }
-    return !renderItems.slice(index + 1).some((laterItem) => (
+    return !visibleRenderItems.slice(index + 1).some((laterItem) => (
       isTranscriptToolPart(laterItem.part) || widgetFromToolPart(laterItem) !== null
     ));
   });
@@ -677,7 +748,7 @@ export function buildTurnContentPresentation(
   if (
     processItems.length === 0 &&
     publicRenderItems.length <= 1 &&
-    hoistedItems.length === 0 &&
+    visibleHoistedItems.length === 0 &&
     !hasInlineWidget &&
     !removedCancellationSentinel
   ) {
@@ -702,6 +773,6 @@ export function buildTurnContentPresentation(
     segments: buildExpandedSegments(publicRenderItems),
     collapsedSegments: buildCollapsedSegments(publicRenderItems),
     processItems,
-    hoistedItems,
+    hoistedItems: visibleHoistedItems,
   };
 }

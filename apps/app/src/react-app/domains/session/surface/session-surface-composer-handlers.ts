@@ -11,6 +11,7 @@ import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server
 import type {
   ComposerAttachment,
   ComposerDraft,
+  ComposerMentionKind,
   McpServerEntry,
   McpStatusMap,
   SkillCard,
@@ -32,7 +33,7 @@ export type SessionSurfaceComposerHandlersInput = {
   attachmentsDisabledReason?: string | null;
   draft: string;
   attachments: ComposerAttachment[];
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   pasteParts: Array<{
     id: string;
     label: string;
@@ -43,7 +44,7 @@ export type SessionSurfaceComposerHandlersInput = {
   setComposerAttachments: (sessionId: string, attachments: ComposerAttachment[]) => void;
   setComposerMentions: (
     sessionId: string,
-    mentions: Record<string, "agent" | "file">,
+    mentions: Record<string, ComposerMentionKind>,
   ) => void;
   setComposerPasteParts: (
     sessionId: string,
@@ -130,11 +131,14 @@ export function useSessionSurfaceComposerHandlers(
     );
   };
 
-  const handleInsertMention = (kind: "agent" | "file", value: string) => {
-    setComposerDraft(
-      sessionId,
-      draft.replace(/@([^\s@]*)$/, `@${encodeComposerMentionValue(value)} `),
-    );
+  const handleInsertMention = (kind: ComposerMentionKind, value: string) => {
+    const token = encodeComposerMentionValue(value);
+    // Replace in-progress `@query` when picking from the mention menu; otherwise
+    // append so "add to task" from My Files still inserts a usable chip.
+    const nextDraft = /@([^\s@]*)$/u.test(draft)
+      ? draft.replace(/@([^\s@]*)$/u, `@${token} `)
+      : `${draft}${draft.length > 0 && !/\s$/u.test(draft) ? " " : ""}@${token} `;
+    setComposerDraft(sessionId, nextDraft);
     setComposerMentions(sessionId, { ...mentions, [value]: kind });
   };
 

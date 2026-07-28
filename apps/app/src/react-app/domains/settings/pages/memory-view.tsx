@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import { SelectMenu } from "../../../design-system/select-menu";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnboardingProfile } from "../../../kernel/local-provider";
+import {
+  normalizeResponseTone,
+  type ResponseToneId,
+} from "../../../kernel/response-tone";
 import {
   roleOptions,
   industryOptions,
@@ -51,8 +55,8 @@ export type MemoryViewProps = {
   draft: OnboardingProfile;
   onDraftChange: (draft: OnboardingProfile) => void;
   busy?: boolean;
-  responseTone: "friendly" | "business";
-  onResponseToneChange: (tone: "friendly" | "business") => void;
+  responseTone: ResponseToneId;
+  onResponseToneChange: (tone: ResponseToneId) => void;
   customInstructions: string;
   onCustomInstructionsChange: (instructions: string) => void;
 };
@@ -60,35 +64,8 @@ export type MemoryViewProps = {
 export function MemoryView(props: MemoryViewProps) {
   const { draft, onDraftChange } = props;
   const busy = props.busy === true;
-  const [instructionsDraft, setInstructionsDraft] = useState(
-    props.customInstructions,
-  );
-  const [instructionsSaved, setInstructionsSaved] = useState(false);
-  const instructionsDirty = instructionsDraft !== props.customInstructions;
 
-  useEffect(() => {
-    if (!instructionsDirty) {
-      setInstructionsDraft(props.customInstructions);
-    }
-  }, [props.customInstructions, instructionsDirty]);
-
-  useEffect(() => {
-    if (!instructionsSaved) return;
-    const timer = window.setTimeout(() => setInstructionsSaved(false), 2000);
-    return () => window.clearTimeout(timer);
-  }, [instructionsSaved]);
-
-  const handleSaveInstructions = useCallback(() => {
-    if (!instructionsDirty || busy) return;
-    props.onCustomInstructionsChange(instructionsDraft);
-    setInstructionsSaved(true);
-  }, [
-    busy,
-    instructionsDirty,
-    instructionsDraft,
-    props.onCustomInstructionsChange,
-  ]);
-
+  // All preference fields auto-persist via parent callbacks (no page-level Save).
   const setListValue = useCallback(
     (key: "roles" | "industries" | "tools" | "tasks", next: string[]) => {
       onDraftChange({ ...draft, [key]: next });
@@ -113,21 +90,55 @@ export function MemoryView(props: MemoryViewProps) {
             actions={
               <SelectMenu
                 ariaLabel={t("settings.response_tone")}
+                className="w-auto min-w-[8.5rem] max-w-[12rem]"
+                panelMinWidth={288}
                 options={[
+                  {
+                    value: "default",
+                    label: t("settings.response_tone_default"),
+                    description: t("settings.response_tone_default_desc"),
+                  },
+                  {
+                    value: "professional",
+                    label: t("settings.response_tone_professional"),
+                    description: t("settings.response_tone_professional_desc"),
+                  },
                   {
                     value: "friendly",
                     label: t("settings.response_tone_friendly"),
+                    description: t("settings.response_tone_friendly_desc"),
                   },
                   {
-                    value: "business",
-                    label: t("settings.response_tone_business"),
+                    value: "direct",
+                    label: t("settings.response_tone_direct"),
+                    description: t("settings.response_tone_direct_desc"),
+                  },
+                  {
+                    value: "imaginative",
+                    label: t("settings.response_tone_imaginative"),
+                    description: t("settings.response_tone_imaginative_desc"),
+                  },
+                  {
+                    value: "pragmatic",
+                    label: t("settings.response_tone_pragmatic"),
+                    description: t("settings.response_tone_pragmatic_desc"),
+                  },
+                  {
+                    value: "sarcastic",
+                    label: t("settings.response_tone_sarcastic"),
+                    description: t("settings.response_tone_sarcastic_desc"),
+                  },
+                  {
+                    value: "socratic",
+                    label: t("settings.response_tone_socratic"),
+                    description: t("settings.response_tone_socratic_desc"),
                   },
                 ]}
                 value={props.responseTone}
                 disabled={busy}
                 onChange={(value) =>
                   props.onResponseToneChange(
-                    value === "friendly" ? "friendly" : "business",
+                    normalizeResponseTone(value),
                   )
                 }
               />
@@ -137,27 +148,14 @@ export function MemoryView(props: MemoryViewProps) {
             title={t("settings.custom_instructions")}
             description={t("settings.custom_instructions_desc")}
             align="start"
-            actions={
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || !instructionsDirty}
-                onClick={handleSaveInstructions}
-              >
-                {instructionsSaved && !instructionsDirty
-                  ? t("settings.memory_saved")
-                  : t("settings.memory_save")}
-              </Button>
-            }
           >
             <Textarea
               className="min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
-              value={instructionsDraft}
+              value={props.customInstructions}
               disabled={busy}
               placeholder={t("settings.custom_instructions_placeholder")}
               onChange={(event) => {
-                setInstructionsDraft(event.target.value);
-                setInstructionsSaved(false);
+                props.onCustomInstructionsChange(event.target.value);
               }}
             />
           </SettingsBlockRow>

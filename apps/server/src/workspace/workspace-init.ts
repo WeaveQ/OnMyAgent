@@ -34,36 +34,9 @@ ${APP_NAME} can preview, edit, and download standard artifacts when you create o
 - For large HTML, SVG, source-code, or report artifacts, do not place the entire artifact in one JSON tool argument. Keep each file-mutation tool call bounded: write a small skeleton first, then edit or append in multiple calls, and validate the completed file before presenting it. Prefer chunks below 8,000 characters so a provider output limit cannot cut a tool call mid-JSON.
 <!-- ${APP_NAME}_ARTIFACTS_END -->`;
 
-const ONMYAGENT_PRESENTATION_GUIDANCE = `<!-- ${APP_NAME}_PRESENTATION_START -->
-## User-facing presentation
-
-- Do not mention specific tool names in user-facing replies or status descriptions. Describe the action and result in natural language.
-- Intermediate tool calls, observations, reasoning, and progress may be folded or hidden. The final reply must stand on its own and restate every substantive result the user needs, including important outputs or changed files, findings, conclusions, errors, unresolved risks, and next steps when relevant.
-- Explicit requests to show, visualize, diagram, chart, draw, or graph require an inline visual when no file artifact or specialized connected tool is the intended destination; the same applies when the user asks to illustrate something or asks what it looks like. First read the relevant visual design module, then call \`render_visual\`.
-- Always use an inline visual for educational or teaching requests when no file artifact or specialized connected tool is intended, except for a pure dictionary-style word-definition lookup.
-- Data comparisons and architecture or system design requests should proactively use an inline chart or diagram when the visual communicates the structure more clearly than prose.
-- A noun-phrase specification of a visual artifact is itself a render request even when it has no verb. Render specifications such as a comparison table, timeline, form, or state machine instead of substituting a prose description or Markdown table.
-- Between multiple visuals, write a short paragraph that explains the next visual and connects it to the previous one.
-- Never expose the visual machinery. Use a natural preamble, and do not paste generated SVG or HTML source into the reply.
-
-### Progress narration
-
-- Use user-facing body text as the boundary between meaningful stages of tool-backed work. Before the first operation group, write one or two short, natural sentences that acknowledge the goal, state your immediate intent, and say what you will do next.
-- After receiving a material result and before starting the next operation group, write a new short paragraph that states the useful outcome of the previous stage and the next action. When something fails, state the obstacle briefly and explain the recovery action instead of exposing raw diagnostics.
-- Every visible process fold should therefore have preceding body text that lets the user follow the work from top to bottom without opening the fold. Do not put progress narration inside reasoning content.
-- Related low-level calls that serve one stage may share one preceding paragraph. Do not narrate every low-level call; start a new paragraph when the result, direction, or immediate goal changes.
-- Keep each progress paragraph to one or two sentences. Do not restate the full user request, expose internal reasoning, name specific tools or skills, recite arguments, or paste raw tool output.
-- Output these explanations directly as assistant body text. Never use a shell command, tool result, fold label, or synthetic UI summary to communicate them.
-
-Required message rhythm (the labels describe structure only and must not be copied into the reply):
-
-\`Text -> operation group -> text -> operation group\`
-
-- Text: "I'll open the requested site and get to the first post. First I'll prepare browser access."
-- Operation group: prepare browser access.
-- Text: "Browser access is ready. Next I'll open the site and locate the first post."
-- Operation group: open and inspect the site.
-<!-- ${APP_NAME}_PRESENTATION_END -->`;
+// Intentionally no WorkBuddy-style Progress narration block here.
+// Forced Text→tool→Text rhythm slowed multi-step browser automation vs 8d3a58a.
+// If a presentation marker remains in an old agent file, ensureOnMyAgentAgent strips it.
 
 const ONMYAGENT_VISUAL_GUIDANCE = `<!-- ${APP_NAME}_VISUALS_START -->
 ## Inline visuals
@@ -180,14 +153,39 @@ const ONMYAGENT_LANGUAGE_GUIDANCE = `<!-- ${APP_NAME}_LANGUAGE_START -->
 const ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE = `<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->
 ## Browser automation
 
-${APP_NAME} has a built-in in-app browser. For any web task (open a site, search, read or fill a page, scrape content), drive it directly instead of asking the user to browse manually.
+${APP_NAME} has a **built-in in-app browser** (session right rail / Browser panel). When the user asks to open, show, navigate, click, fill, or read a page in that browser, you **must** drive it with the tool below — do not ask them to do it manually, and do not diagnose "missing CDP".
 
-- Invoke the Browser plugin skill (\`browser-automation\`) for the full API. The single tool is \`onmyagent_browser_node_repl\`; state persists for the session, so keep Browser/Tab handles in variables across calls.
-- Entry point: \`globalThis.browser ??= await agent.browsers.getDefault()\`, then \`globalThis.tab ??= await browser.tabs.new({ url })\` (fast direct open when the URL is known).
-- Return plain JSON from the tool (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
-- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — there is no top-level \`tab.waitForLoadState\`.
-- The built-in browser needs no URL or port from you. Never invent localhost endpoints, CDP, the \`opencode-chrome-devtools\` plugin, or any external browser tool.
-- Finalize temporary tabs when the task is done; leave user-owned tabs open unless the user asks otherwise.
+### Required path (always)
+
+1. Call tool **\`onmyagent_browser_node_repl\`** (optionally load skill \`browser-automation\` first for API detail).
+2. In the tool code:
+   \`\`\`js
+   globalThis.browser ??= await agent.browsers.getDefault()
+   globalThis.tab ??= await browser.tabs.new({ url: "https://example.com" })
+   return { id: tab.id, url: await tab.url() }
+   \`\`\`
+3. Keep Browser/Tab handles in variables across calls. State persists for the session.
+
+Aliases for \`agent.browsers.get()\`: \`"in-app"\`, \`"iab"\`, \`"browser"\`.
+
+### Forbidden (never do these for the in-app browser)
+
+- Scanning processes or ports for CDP / DevTools (\`9823\`, \`9222\`, \`remote-debugging-port\`, \`/json/list\`, \`ps\` + Chrome flags).
+- Connecting Playwright, Puppeteer, or \`chrome-devtools\` to localhost or external Chrome.
+- Inventing \`browser_url\`, \`http://127.0.0.1:9823\`, or the retired \`opencode-chrome-devtools\` plugin.
+- Telling the user the in-app browser is "not debuggable" because no CDP port is open — **that is expected**. Control is via RPC + this tool, not CDP.
+
+If the tool errors with "Browser runtime is unavailable", say the desktop Browser runtime is not attached and ask them to retry in the desktop app — still do **not** fall back to CDP.
+
+### Control tips
+
+- Hybrid (DOM + vision): after open/navigate, \`await tab.sense()\`, \`nodeRepl.emitImage(sense.shot.image)\`, then act with DOM locators/\`dom_cua\` from \`sense.nodes\`. Vision only to disambiguate; coordinate click as fallback.
+- Prefer continuous REPL for one page goal; summarize when the stage finishes.
+- Toggle buttons (like / favorite / follow): read active state first; click **at most once**.
+- \`tab.screenshot()\` returns \`{ image, width, height }\` (not a Buffer). Prefer \`nodeRepl.emitImage(shot.image)\`.
+- Return plain JSON (e.g. \`{ id: tab.id, url: await tab.url() }\`). Do not expect \`return tab\` to print a full object.
+- Use \`tab.playwright.waitForLoadState\` / \`waitForURL\` — no top-level \`tab.waitForLoadState\`.
+- Finalize temporary tabs when done; leave user-owned tabs open unless asked otherwise.
 <!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
 
 const ONMYAGENT_AGENT = `---
@@ -221,8 +219,6 @@ Hard rule: never copy private memory into repo files. Store only redacted summar
 - If you change code, run the smallest meaningful test.
 - If steps repeat, factor them into a skill.
 - Prefer clear, practical steps over abstract explanations.
-
-${ONMYAGENT_PRESENTATION_GUIDANCE}
 
 ${ONMYAGENT_BROWSER_AUTOMATION_GUIDANCE}
 
@@ -443,6 +439,7 @@ async function ensureOnMyAgentAgent(
     changed = true;
   }
 
+  // Strip legacy WorkBuddy presentation / progress-narration blocks (slow multi-step browser).
   const presentationStart = `<!-- ${APP_NAME}_PRESENTATION_START -->`;
   const presentationEnd = `<!-- ${APP_NAME}_PRESENTATION_END -->`;
   const presentationStartIdx = current.indexOf(presentationStart);
@@ -451,13 +448,7 @@ async function ensureOnMyAgentAgent(
     presentationStartIdx >= 0 &&
     presentationEndIdx > presentationStartIdx
   ) {
-    const patched = `${current.slice(0, presentationStartIdx)}${ONMYAGENT_PRESENTATION_GUIDANCE}${current.slice(presentationEndIdx + presentationEnd.length)}`;
-    if (patched !== current) {
-      current = patched;
-      changed = true;
-    }
-  } else {
-    current = `${current.trimEnd()}\n\n${ONMYAGENT_PRESENTATION_GUIDANCE}\n`;
+    current = `${current.slice(0, presentationStartIdx).trimEnd()}\n\n${current.slice(presentationEndIdx + presentationEnd.length).trimStart()}`;
     changed = true;
   }
 

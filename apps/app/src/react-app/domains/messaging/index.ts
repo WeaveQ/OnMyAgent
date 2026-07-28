@@ -1,8 +1,13 @@
 export { AutomationPage } from "./automation-page";
+export * from "./automation-list-model";
 export { MessagingChannelsPage } from "./messaging-channels-page";
 export {
+  automationArchivedRunsChangedEvent,
   automationSessionsChangedEvent,
+  archiveAutomationRunKey,
+  readArchivedAutomationRunKeys,
   readAutomationSessionRecords,
+  readDeletedAutomationSessionIds,
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
   syncAutomationSessionRecords,

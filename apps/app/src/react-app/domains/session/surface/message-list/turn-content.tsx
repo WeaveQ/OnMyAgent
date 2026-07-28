@@ -2,6 +2,7 @@
 import { currentLocale, t } from "@/i18n";
 import { MarkdownBlock, type MarkdownCodePathOpenMode, type MarkdownVerifiedCodePath } from "../markdown";
 import { InlineVisual } from "../transcript/inline-visual";
+import { progressNarrationTransitionKey } from "../transcript/progress-narration";
 import {
   type TurnContentSegment,
   type TurnContentPresentation,
@@ -24,6 +25,7 @@ export function WorkBuddyTurnContent(props: {
   expandedStepIds: Set<string>;
   onExpandedStepIdsChange: (updater: (current: Set<string>) => Set<string>) => void;
   onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   highlightQuery?: string;
   verifiedCodePaths?: readonly MarkdownVerifiedCodePath[];
 }) {
@@ -107,10 +109,22 @@ export function WorkBuddyTurnContent(props: {
   const renderExpandedSegment = (segment: TurnContentSegment) => {
     if (segment.kind === "process") return renderProcess(segment.id, segment.items);
     if (segment.kind === "synthetic-body") {
+      const narrationText = segment.previousStep
+        ? [
+            t(
+              progressNarrationTransitionKey("completed", segment.previousStep),
+              { target: segment.previousStep.target ?? "" },
+            ),
+            t(
+              progressNarrationTransitionKey("next", segment.nextStep),
+              { target: segment.nextStep.target ?? "" },
+            ),
+          ].join(" ")
+        : t(segment.messageKey);
       return (
         <div key={segment.id} className="session-workbuddy-turn-body">
           <MarkdownBlock
-            text={t(segment.messageKey)}
+            text={narrationText}
             streaming={false}
             showStreamingCursor={false}
             highlightQuery={props.highlightQuery}
@@ -126,7 +140,7 @@ export function WorkBuddyTurnContent(props: {
         <InlineVisual
           key={segment.id}
           visual={segment.visual}
-          onOpenCodePath={props.onOpenCodePath}
+          onDownloadCodePath={props.onDownloadCodePath}
         />
       );
     }
@@ -153,7 +167,7 @@ export function WorkBuddyTurnContent(props: {
                   <InlineVisual
                     key={`${segment.id}:widget:${index}`}
                     visual={bodySegment.visual}
-                    onOpenCodePath={props.onOpenCodePath}
+                    onDownloadCodePath={props.onDownloadCodePath}
                   />
                 )
               : bodySegment.text.trim()
@@ -201,7 +215,7 @@ export function WorkBuddyTurnContent(props: {
                   <InlineVisual
                     key={`${segment.id}:widget:${index}`}
                     visual={bodySegment.visual}
-                    onOpenCodePath={props.onOpenCodePath}
+                    onDownloadCodePath={props.onDownloadCodePath}
                   />
                 )
               : bodySegment.text.trim()
@@ -243,7 +257,7 @@ export function WorkBuddyTurnContent(props: {
             <InlineVisual
               key={`${visual.messageId}:${visual.partIndex}:${visual.toolName}`}
               visual={visual}
-              onOpenCodePath={props.onOpenCodePath}
+              onDownloadCodePath={props.onDownloadCodePath}
             />
           ))
         : null}

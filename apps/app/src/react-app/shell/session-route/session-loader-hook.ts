@@ -22,6 +22,11 @@ import {
   readAssistantSessionWorkspaces,
 } from "../../domains/session";
 import {
+  readLastSessionFor,
+  writeCachedSidebarSessionsForWorkspace,
+  writeLastSessionFor,
+} from "../session-memory";
+import {
   describeWorkspaceSessionLoadError,
   isRemoteOnMyAgentWorkspace,
   removeRetryingWorkspaceId,
@@ -177,6 +182,9 @@ export function useSessionRouteSessionLoader(input: Input) {
               workspace.id,
             ),
             normalizeDirectoryPath,
+            // Cold path: skip per-directory listSessions until a retry — primary
+            // list is enough for the sidebar and avoids OpenCode fan-out on boot.
+            includeAssistantDirectories: attempt > 0,
           });
           setSessionsByWorkspaceId((current) => {
             const next = mergeWorkspaceFetchedSessions({
@@ -191,6 +199,23 @@ export function useSessionRouteSessionLoader(input: Input) {
                 ),
             });
             sessionsByWorkspaceIdRef.current = next;
+            // Persist lightweight titles so the next cold start can paint the
+            // sidebar before OpenCode finishes indexing.
+            const persisted = next[workspace.id] ?? sidebarItems;
+            writeCachedSidebarSessionsForWorkspace(workspace.id, persisted);
+            // Drop remembered session ids that no longer exist (avoids 404
+            // snapshot storms on the next cold start).
+            const liveIds = new Set(persisted.map((item) => item.id));
+            for (const mode of ["assistant", "expert"] as const) {
+              const remembered = readLastSessionFor(workspace.id, mode);
+              if (remembered && !liveIds.has(remembered)) {
+                writeLastSessionFor(workspace.id, null, mode);
+              }
+            }
+            const legacyRemembered = readLastSessionFor(workspace.id);
+            if (legacyRemembered && !liveIds.has(legacyRemembered)) {
+              writeLastSessionFor(workspace.id, null);
+            }
             return next;
           });
           setErrorsByWorkspaceId((current) => ({

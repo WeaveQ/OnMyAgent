@@ -142,6 +142,32 @@ export function describeRouteError(error: unknown) {
     : t("app.unknown_error");
 }
 
+/** OpenCode returned 404 for a stale/expired question request id. */
+export function isQuestionNotFoundError(error: unknown): boolean {
+  if (!error) return false;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : (() => {
+            try {
+              return JSON.stringify(error);
+            } catch {
+              return String(error);
+            }
+          })();
+  if (/QuestionNotFoundError/i.test(message)) return true;
+  if (/question request not found/i.test(message)) return true;
+  if (/request not found:\s*que_/i.test(message)) return true;
+  if (typeof error === "object" && error !== null) {
+    const record = error as { _tag?: unknown; name?: unknown };
+    if (record._tag === "QuestionNotFoundError") return true;
+    if (record.name === "QuestionNotFoundError") return true;
+  }
+  return false;
+}
+
 export function buildWorkspaceBootstrapErrorEvent(input: {
   error: unknown;
   route: string;
@@ -340,10 +366,19 @@ export function orderBackgroundSessionWorkspaces(input: {
   workspaces: RouteWorkspace[];
   selectedWorkspaceId: string;
   alreadyLoadedWorkspaceIds: Set<string>;
+  /**
+   * Cold-start default: only revalidate the selected workspace.
+   * Pass "all-pending" when explicitly warming every unloaded workspace.
+   */
+  mode?: "selected-only" | "all-pending";
 }) {
   const selectedWorkspace = input.workspaces.find(
     (workspace) => workspace.id === input.selectedWorkspaceId,
   );
+  const mode = input.mode ?? "selected-only";
+  if (mode === "selected-only") {
+    return selectedWorkspace ? [selectedWorkspace] : [];
+  }
   const backgroundWorkspaces = input.workspaces.filter(
     (workspace) =>
       workspace.id === input.selectedWorkspaceId ||
@@ -418,9 +453,12 @@ export function buildSelectedWorkspaceRouteState(input: {
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
 }) {
   const selectedWorkspaceRoot = input.selectedWorkspace?.path?.trim() || "";
+  // Session record directory (persisted by the server at create time) is the
+  // primary source. localStorage assistantSessionWorkspace is a fallback for
+  // legacy sessions created before directory was stored in the session record.
   const sessionWorkspaceRoot =
-    input.selectedSessionWorkspaceDirectory.trim() ||
     input.selectedSessionDirectory?.trim() ||
+    input.selectedSessionWorkspaceDirectory.trim() ||
     selectedWorkspaceRoot;
   const selectedWorkspaceIsLoading = input.retryingWorkspaceIds.includes(
     input.selectedWorkspaceId,
@@ -769,17 +807,44 @@ export function normalizeSettingsRouteTab(route: string) {
   return route.replace(/^\/settings\/?/, "").replace(/^\/+|\/+$/g, "") || "general";
 }
 
+export type SettingsNavigationPageMode = "assistant" | "expert";
+
+export type SettingsNavigationState = {
+  workspaceId: string;
+  sessionId: string | null;
+  /** Shell mode the user left (assistant vs expert). Used by "Back to app". */
+  pageMode: SettingsNavigationPageMode;
+  /**
+   * Full pathname+search to restore (including rail `?view=`). Preferred over
+   * rebuilding from workspace/session/mode so Back to app is exact.
+   */
+  returnTo: string | null;
+};
+
 export function buildSettingsNavigationTarget(input: {
   route: string;
   workspaceId: string;
   activeWorkspaceId: string;
   selectedSessionId: string | null;
+  pageMode: SettingsNavigationPageMode;
+  /** Current shell location when opening settings (pathname + search). */
+  returnTo?: string | null;
   workspaceSettingsRoute: (workspaceId: string, tab: string) => string;
-}) {
-  const sessionId = input.workspaceId === input.activeWorkspaceId ? input.selectedSessionId : null;
+}): { target: string; state: SettingsNavigationState } {
+  const sessionId =
+    input.workspaceId === input.activeWorkspaceId ? input.selectedSessionId : null;
   const tab = normalizeSettingsRouteTab(input.route);
   const target = input.workspaceId
     ? input.workspaceSettingsRoute(input.workspaceId, tab)
     : input.route;
-  return { target, state: { workspaceId: input.workspaceId, sessionId } };
+  const returnTo = input.returnTo?.trim() || null;
+  return {
+    target,
+    state: {
+      workspaceId: input.workspaceId,
+      sessionId,
+      pageMode: input.pageMode,
+      returnTo,
+    },
+  };
 }

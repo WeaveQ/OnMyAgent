@@ -5,6 +5,7 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import {
   ChevronRight,
+  Clock3,
   ClipboardCheck,
   Folder,
   FolderOpen,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 
 import type {
+  OnMyAgentAutomationTaskItem,
   OnMyAgentServerClient,
   OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../../app/lib/onmyagent-server";
@@ -45,6 +47,8 @@ import {
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -71,6 +75,7 @@ import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../artifacts/open-artifact-for-editing";
+import { ArtifactSpreadsheetEditor } from "../../../capabilities/artifacts/artifact-spreadsheet-editor";
 import { useStatusToasts } from "../../shell-feedback";
 import {
   buildWorkspaceFileTree,
@@ -80,8 +85,9 @@ import {
 import { BrowserPanel } from "../browser/browser-panel";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
+import { automationsForSourceSession } from "../artifacts/session-automation-panel-model";
 
-type ToolKind = "review" | "terminal" | "browser" | "files";
+type ToolKind = "review" | "terminal" | "browser" | "files" | "automations";
 
 type ToolTab = {
   id: string;
@@ -149,6 +155,7 @@ const toolItems: Array<{
   { kind: "terminal", labelKey: "session.code_side_panel_terminal", icon: SquareTerminal },
   { kind: "browser", labelKey: "session.code_side_panel_browser", icon: Globe },
   { kind: "files", labelKey: "session.code_side_panel_files", icon: Folder },
+  { kind: "automations", labelKey: "session.code_side_panel_automations", icon: Clock3 },
 ];
 
 function toolIcon(kind: ToolKind) {
@@ -190,6 +197,7 @@ type WorkspaceFilePreview =
   | { kind: "loading" }
   | { kind: "unsupported" }
   | { kind: "text"; content: string; format: "html" | "markdown" | "text" }
+  | { kind: "sheet"; content: string; name: string }
   | { kind: "local"; filePath: string; name: string }
   | { kind: "binary"; url: string; name: string };
 
@@ -508,6 +516,17 @@ function WorkspaceFilesPanel(props: {
           if (!client || !workspaceId) return;
           result = await client.readWorkspaceFile(workspaceId, requestPath);
         }
+        if (
+          targetPreview === "sheet" &&
+          /\.(csv|tsv)$/i.test(targetName)
+        ) {
+          setPreview({
+            kind: "sheet",
+            content: result.content,
+            name: targetName,
+          });
+          return;
+        }
         const format = targetPreview === "markdown"
           ? "markdown"
           : targetPreview === "html"
@@ -716,6 +735,14 @@ function WorkspaceFilesPanel(props: {
           <MarkdownPreview className="min-h-0 flex-1" content={preview.content} />
         ) : preview.kind === "text" && preview.format === "html" ? (
           <HTMLPreview className="min-h-0 flex-1" type="text" title={selectedPath ?? ""} content={preview.content} />
+        ) : preview.kind === "sheet" ? (
+          <ArtifactSpreadsheetEditor
+            className="min-h-0 flex-1"
+            name={preview.name}
+            content={{ kind: "text", data: preview.content }}
+            readOnly
+            onSave={async () => {}}
+          />
         ) : preview.kind === "text" ? (
           <PlainText className="min-h-0 flex-1" content={preview.content} />
         ) : (
@@ -896,6 +923,107 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
   );
 }
 
+function SessionAutomationsPanel(props: {
+  client: OnMyAgentServerClient | null;
+  workspaceId: string | null;
+  sessionId: string | null;
+  onViewAutomation?: (task: OnMyAgentAutomationTaskItem) => void;
+}) {
+  const [items, setItems] = useState<OnMyAgentAutomationTaskItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    const client = props.client;
+    const workspaceId = props.workspaceId?.trim() ?? "";
+    const sessionId = props.sessionId?.trim() ?? "";
+    if (!client || !workspaceId || !sessionId) {
+      setItems([]);
+      setLoading(false);
+      setLoadFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async (initial: boolean) => {
+      if (initial) setLoading(true);
+      try {
+        const result = await client.listAutomations(workspaceId);
+        if (cancelled) return;
+        setItems(automationsForSourceSession(result.items, sessionId));
+        setLoadFailed(false);
+      } catch {
+        if (!cancelled) setLoadFailed(true);
+      } finally {
+        if (!cancelled && initial) setLoading(false);
+      }
+    };
+
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [props.client, props.sessionId, props.workspaceId]);
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <LoadingSpinner size="default" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto p-3">
+      {loadFailed ? (
+        <NoticeBox tone="error" className="mb-3">
+          {t("session.current_session_automations_load_failed")}
+        </NoticeBox>
+      ) : null}
+      {items.length === 0 ? (
+        <EmptyStateBox size="comfortable" tone="muted">
+          <div className="space-y-1 text-center">
+            <p className="font-medium text-dls-text">
+              {t("session.current_session_automations_empty")}
+            </p>
+            <p>{t("session.current_session_automations_empty_desc")}</p>
+          </div>
+        </EmptyStateBox>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-start gap-3 rounded-lg border border-dls-border bg-dls-surface p-3"
+            >
+              <Clock3 className="mt-0.5 size-4 shrink-0 text-dls-secondary" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-dls-text">
+                  {item.title}
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
+                  {item.prompt}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => props.onViewAutomation?.(item)}
+              >
+                {t("session.automation_result_view")}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CodeWorkspaceSidePanel(props: {
   workspacePath: string | null;
   workspaceCatalogRoot: string;
@@ -905,9 +1033,11 @@ export function CodeWorkspaceSidePanel(props: {
   focusToken?: number | null;
   workspaceId: string | null;
   sessionId: string | null;
+  automationSourceSessionId?: string | null;
   client: OnMyAgentServerClient | null;
   initialKind?: ToolKind | null;
   onClose: () => void;
+  onViewAutomation?: (task: OnMyAgentAutomationTaskItem) => void;
   hiddenKinds?: ToolKind[];
 }) {
   const cacheKey = workspacePanelCacheKey(props.sessionId, props.workspaceId);
@@ -922,6 +1052,8 @@ export function CodeWorkspaceSidePanel(props: {
     const snapshot = readWorkspacePanelSnapshot(cacheKey);
     return snapshot?.activeId ?? null;
   });
+  const [terminalBusy, setTerminalBusy] = useState(false);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
   const tabsRef = useRef<ToolTab[]>(tabs);
   const activeIdRef = useRef<string | null>(activeId);
   const restoredKind =
@@ -935,8 +1067,18 @@ export function CodeWorkspaceSidePanel(props: {
   // async addTab) so content is never blank while a top tab chip is visible.
   const activeTab =
     tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
+  // Empty-state menu: shorter translated labels first (e.g. zh 终端/文件 → 浏览器 → 自动化任务).
   const visibleToolItems = useMemo(
-    () => toolItems.filter((item) => !props.hiddenKinds?.includes(item.kind)),
+    () =>
+      toolItems
+        .filter((item) => !props.hiddenKinds?.includes(item.kind))
+        .map((item, index) => ({
+          item,
+          index,
+          labelLen: String(t(item.labelKey)).length,
+        }))
+        .sort((a, b) => a.labelLen - b.labelLen || a.index - b.index)
+        .map(({ item }) => item),
     [props.hiddenKinds],
   );
 
@@ -1003,6 +1145,7 @@ export function CodeWorkspaceSidePanel(props: {
       // One browser/files/review tool surface per session side panel. Multiple
       // page tabs live *inside* BrowserPanel, not as duplicate tool chips.
       if (kind !== "terminal") {
+        setTerminalError(null);
         // User open browser: ensure a session page tab *before* mounting BrowserPanel
         // so the viewport activates on first paint (no empty shell → late show race).
         if (kind === "browser" && options?.seedHomeWhenEmpty && props.sessionId) {
@@ -1031,20 +1174,52 @@ export function CodeWorkspaceSidePanel(props: {
         return;
       }
 
-      const terminal = await createCodeWorkspaceTerminal({
-        workspacePath: props.workspacePath,
-      });
-      const id = terminal.terminalId;
-      const next: ToolTab = {
-        id,
-        kind,
-        label: terminal.title,
-        terminal,
-      };
-      setTabs((current) => [...current, next]);
-      setActiveId(id);
+      if (!isElectronRuntime()) {
+        setTerminalError(t("session.code_side_panel_terminal_desktop_only"));
+        return;
+      }
+      if (terminalBusy) return;
+
+      setTerminalBusy(true);
+      setTerminalError(null);
+      try {
+        // Prefer workspace path; catalog root / file root are still valid cwds.
+        const workspacePath =
+          props.workspacePath?.trim() ||
+          props.workspaceCatalogRoot?.trim() ||
+          props.fileRoot?.trim() ||
+          null;
+        const terminal = await createCodeWorkspaceTerminal({
+          workspacePath,
+        });
+        const id = terminal.terminalId;
+        const next: ToolTab = {
+          id,
+          kind,
+          label: terminal.title || t("session.code_side_panel_terminal"),
+          terminal,
+        };
+        setTabs((current) => [...current, next]);
+        setActiveId(id);
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : t("session.code_side_panel_terminal_open_failed");
+        setTerminalError(message);
+        console.error("Failed to open terminal:", error);
+      } finally {
+        setTerminalBusy(false);
+      }
     },
-    [props.hiddenKinds, props.sessionId, props.workspacePath],
+    [
+      props.fileRoot,
+      props.hiddenKinds,
+      props.sessionId,
+      props.workspaceCatalogRoot,
+      props.workspacePath,
+      terminalBusy,
+    ],
   );
 
   // Ensure the requested tool tab exists once. Do not re-run addTab on every
@@ -1121,16 +1296,28 @@ export function CodeWorkspaceSidePanel(props: {
         />
       );
     }
+    if (activeTab.kind === "automations") {
+      return (
+        <SessionAutomationsPanel
+          client={props.client}
+          workspaceId={props.workspaceId}
+          sessionId={props.automationSourceSessionId ?? props.sessionId}
+          onViewAutomation={props.onViewAutomation}
+        />
+      );
+    }
     return null;
   }, [
     activeTab,
     props.client,
+    props.automationSourceSessionId,
     props.sessionId,
     props.workspaceCatalogRoot,
     props.fileRoot,
     props.fileTargets,
     props.focusPath,
     props.focusToken,
+    props.onViewAutomation,
     props.workspaceId,
     props.workspacePath,
   ]);
@@ -1141,9 +1328,13 @@ export function CodeWorkspaceSidePanel(props: {
         data-panel-titlebar="true"
         className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
       >
+        {/*
+          Empty header chrome stays draggable. Tabs/buttons already use
+          titlebar-no-drag via Button — do not blanket the scroller.
+        */}
         <div
           data-panel-titlebar-controls="true"
-          className="min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+          className="min-w-0 flex-1 overflow-x-auto"
         >
           <div className="flex min-w-max items-center gap-1">
             <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
@@ -1170,9 +1361,11 @@ export function CodeWorkspaceSidePanel(props: {
                 <DropdownMenuContent align="start" className="w-48">
                   {visibleToolItems.map((item) => {
                     const Icon = item.icon;
+                    const isTerminal = item.kind === "terminal";
                     return (
                       <DropdownMenuItem
                         key={item.kind}
+                        disabled={isTerminal && terminalBusy}
                         onClick={() =>
                           void addTab(
                             item.kind,
@@ -1180,7 +1373,11 @@ export function CodeWorkspaceSidePanel(props: {
                           )
                         }
                       >
-                        <Icon />
+                        {isTerminal && terminalBusy ? (
+                          <LoadingSpinner size="sm" className="size-4" />
+                        ) : (
+                          <Icon />
+                        )}
                         {t(item.labelKey)}
                       </DropdownMenuItem>
                     );
@@ -1204,17 +1401,36 @@ export function CodeWorkspaceSidePanel(props: {
           <PanelRight className="size-3.5" />
         </Button>
       </header>
+      {terminalError ? (
+        <div className="shrink-0 border-b border-dls-border px-3 py-2">
+          <NoticeBox tone="error" size="default" className="flex items-start justify-between gap-2">
+            <span className="min-w-0 flex-1 break-words">{terminalError}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0"
+              onClick={() => setTerminalError(null)}
+              aria-label={t("common.close")}
+            >
+              <span className="text-xs">×</span>
+            </Button>
+          </NoticeBox>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1">
         {activeTab ? content : (
           <div className="flex h-full items-center justify-center p-6">
             <div className="w-full max-w-md space-y-2">
               {visibleToolItems.map((item) => {
                 const Icon = item.icon;
+                const isTerminal = item.kind === "terminal";
                 return (
                   <MenuRowButton
                     key={item.kind}
                     type="button"
                     className="h-10 bg-dls-surface-muted text-dls-text hover:bg-dls-hover"
+                    disabled={isTerminal && terminalBusy}
                     onClick={() =>
                       void addTab(
                         item.kind,
@@ -1222,7 +1438,11 @@ export function CodeWorkspaceSidePanel(props: {
                       )
                     }
                   >
-                    <Icon className="size-4 text-dls-secondary" />
+                    {isTerminal && terminalBusy ? (
+                      <LoadingSpinner size="sm" className="size-4 text-dls-secondary" />
+                    ) : (
+                      <Icon className="size-4 text-dls-secondary" />
+                    )}
                     {t(item.labelKey)}
                   </MenuRowButton>
                 );

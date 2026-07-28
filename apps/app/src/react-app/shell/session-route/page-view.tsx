@@ -36,12 +36,15 @@ import { isDesktopRuntime, safeStringify } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
+import { useBootOverlayVisible } from "../boot-state";
+import { useColdBootShell } from "./cold-boot-shell";
 import {
   SessionPage,
+  resetRailBookmarkToPrimary,
   type PageMode,
   type SessionAgentManagementIntent,
+  type SessionPageSurfaceProps,
 } from "../../domains/session";
-import type { SessionPageSurfaceProps } from "../../domains/session";
 
 import { loadAgentsPage } from "../../domains/agents";
 
@@ -276,6 +279,8 @@ export type SessionRoutePageViewProps = {
 };
 
 export function SessionRoutePageView(props: SessionRoutePageViewProps) {
+  const bootOverlayVisible = useBootOverlayVisible();
+  const coldBootShell = useColdBootShell();
   const {
     activePermission,
     activeQuestion,
@@ -422,8 +427,13 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           agentManagementIntent={agentManagementIntent}
           onAgentManagementIntentConsumed={clearAgentManagementIntent}
           onNavigateToMode={(targetMode) => {
-            // Returning to assistant must restore the last session/task selection —
-            // do not suppress restore (WorkBuddy-style sidebar memory).
+            // User mode switch must push history so Back can return to the prior mode.
+            // Session choice still uses mode-scoped last-session memory for the target path.
+            // Clear secondary rail bookmarks (files/store/…) for the *target* mode so
+            // remounting Assistant/Expert does not re-open 文件 after 助理↔专家.
+            if (selectedWorkspaceId) {
+              resetRailBookmarkToPrimary(targetMode, selectedWorkspaceId);
+            }
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
               findFirstSessionIdMatching,
@@ -434,7 +444,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               targetMode,
               workspaceId: selectedWorkspaceId,
             });
-            if (path) navigate(path, { replace: true });
+            if (path) navigate(path);
           }}
           selectedSessionId={selectedSessionId}
           selectedWorkspaceId={selectedWorkspaceId}
@@ -449,6 +459,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               : { workspaceType: "local" }
           }
           selectedWorkspaceRoot={sessionWorkspaceRoot}
+          // True registry workspace path — Files rail must not use session-scoped root.
+          workspaceFilesRoot={selectedWorkspaceRoot}
           selectedSessionFileRoot={selectedSessionFileRoot}
           selectedWorkspaceError={selectedWorkspaceError}
           runtimeWorkspaceId={selectedWorkspaceEndpoint?.workspaceId || null}
@@ -460,10 +472,21 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           onmyagentServerToken={selectedWorkspaceServerToken}
           developerMode={developerMode}
           headerStatus={
-            canCreateTask ? t("status.connected") : t("session.loading_detail")
+            canCreateTask
+              ? t("status.connected")
+              : t("system.load_session_route")
           }
-          busyHint={effectiveLoading ? t("session.loading_detail") : null}
+          // While the full-screen boot overlay is up, skip busyHint so users
+          // do not read the same load copy twice (overlay + header chrome).
+          busyHint={
+            bootOverlayVisible
+              ? null
+              : effectiveLoading
+                ? t("system.load_session_route")
+                : null
+          }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
+          coldBootShell={coldBootShell}
           providerConnectedIds={providerConnectedIds}
           providers={providers}
           renderAgentsPage={(agentsPageProps) => (
@@ -570,6 +593,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               const isolated = buildIsolatedExpertSessionDirectory({
                 workspaceRoot,
                 agentName: pendingAgentSnapshot?.name?.trim() || "expert",
+                agentId: pendingAgentSnapshot?.id?.trim() || "",
               });
               const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
               const ensureWorkspaceId =
@@ -881,13 +905,49 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   if (!endpoint) return;
                   const assistantSessionWorkspace =
                     readAssistantSessionWorkspace(sessionId);
-                  await endpoint.client.deleteSession(
-                    endpoint.workspaceId,
-                    sessionId,
-                    {
-                      directory: assistantSessionWorkspace?.directory,
-                    },
-                  );
+                  try {
+                    await endpoint.client.deleteSession(
+                      endpoint.workspaceId,
+                      sessionId,
+                      {
+                        directory: assistantSessionWorkspace?.directory,
+                      },
+                    );
+                  } catch (error) {
+                    // Ghost rows (OpenCode session already gone / 502 empty
+                    // upstream) still need local list cleanup so automation
+                    // folders and 定时 groups can be removed.
+                    const status =
+                      error &&
+                      typeof error === "object" &&
+                      "status" in error &&
+                      typeof (error as { status?: unknown }).status === "number"
+                        ? (error as { status: number }).status
+                        : null;
+                    const code =
+                      error &&
+                      typeof error === "object" &&
+                      "code" in error &&
+                      typeof (error as { code?: unknown }).code === "string"
+                        ? (error as { code: string }).code
+                        : "";
+                    const message =
+                      error instanceof Error ? error.message : String(error);
+                    const missing =
+                      status === 404 ||
+                      status === 410 ||
+                      status === 502 ||
+                      code === "session_not_found" ||
+                      code === "opencode_request_failed" ||
+                      code === "opencode_empty_response" ||
+                      /not found|session_not_found|404|502/i.test(message);
+                    if (!missing) throw error;
+                    console.warn(
+                      "[session-route] deleteSession ignored missing/failed session",
+                      sessionId,
+                      error,
+                    );
+                  }
                   removeAssistantSession(sessionId);
                   removeExpertSession(sessionId);
                   writeCustomAgentIdForSession(sessionId, null);

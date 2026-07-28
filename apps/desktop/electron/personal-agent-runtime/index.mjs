@@ -25,18 +25,18 @@ import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMes
 import {
   createConversation,
   getConversation,
-  getConversationById,
   getOrCreateConversation,
-  importConversationFromArchive,
-  listChannelConversations,
   listConversations,
-  listConversationsByProvider,
   readConversationEvents,
   resetConversationPointer,
   updateConversation,
   writeConversationEvents,
 } from "./conversation-store.mjs";
 import { clearSession, readSession, writeSession } from "./session-store.mjs";
+import {
+  createConversationRuntimeApi,
+  extractProbeMetadata,
+} from "./conversation-runtime-api.mjs";
 import { runId, isProcessTreeAlive, terminateProcessTreeByPid } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { readAgentHandshakeCache, writeAgentHandshakeCache } from "./agent-handshake-cache.mjs";
@@ -74,6 +74,17 @@ export function createPersonalAgentRuntime(options) {
   const legacy = options.legacy;
   const injectedAdapters = options.adapters ?? {};
   const bundledExtensionRoots = Array.isArray(options.bundledExtensionRoots) ? options.bundledExtensionRoots.filter(Boolean) : [];
+  const conversationApi = createConversationRuntimeApi({ legacy, runs });
+  const {
+    resetConversation,
+    listAgentConversations,
+    createAgentConversation,
+    getAgentConversation,
+    getAgentConversationById,
+    listAgentChannelConversations,
+    listAgentConversationsByProvider,
+    importAgentConversationFromArchive,
+  } = conversationApi;
   void recoverAgentProcesses().catch(() => undefined);
   // Reap any process trees left behind by the previous runtime session before
   // finalizing their orphaned run logs. `recoverAgentProcesses` only marks them
@@ -926,87 +937,6 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  async function resetConversation(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    for (const state of runs.values()) {
-      if (
-        state.status === "running" &&
-        state.workspaceRoot === workspaceRoot &&
-        state.agentProvider === agent.provider &&
-        state.agentId === agent.id
-      ) {
-        return { ok: false, error: "agent has an active run" };
-      }
-    }
-    const conversation = await resetConversationPointer(workspaceRoot, agent.provider, agent.id, input.conversationId);
-    const cleared = await clearSession(workspaceRoot, agent.provider, agent.id);
-    return { ...cleared, conversation };
-  }
-
-  async function listAgentConversations(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    return listConversations(workspaceRoot, agent.provider, agent.id);
-  }
-
-  async function createAgentConversation(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, input);
-    return { conversation };
-  }
-
-  async function getAgentConversation(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const conversation = await getConversation(workspaceRoot, agent.provider, agent.id, input.conversationId);
-    return { conversation };
-  }
-
-  // Cross-agent lookup by id (ignores the provider/agentId partition). Lets
-  // the UI open any conversation — channel-bound ones live under scoped
-  // agents not in the ACP list, and restored sessions may come from anywhere.
-  async function getAgentConversationById(input = {}) {
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const conversationId = String(input.conversationId ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    if (!conversationId) throw new Error("conversationId is required");
-    const conversation = await getConversationById(workspaceRoot, conversationId);
-    return { conversation };
-  }
-
-  // All source:"channel" conversations across the workspace, for the Studio
-  // "Channel sessions" group.
-  async function listAgentChannelConversations(input = {}) {
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    return listChannelConversations(workspaceRoot);
-  }
-
-  // Aggregate the agent's normal sessions and its communication-channel
-  // sessions (`source:"channel"`) into a single conversation list, so the
-  // local-agent dropdown shows every session for the selected agent.
-  async function listAgentConversationsByProvider(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    return listConversationsByProvider(workspaceRoot, agent.provider, agent.id);
-  }
-
-  // Import an archived session's messages as a local transcript so the local
-  // agent view can render its history (used by "resume from archive").
-  async function importAgentConversationFromArchive(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    return importConversationFromArchive(workspaceRoot, agent.provider, agent.id, input);
-  }
-
   async function warmupConversation(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
@@ -1104,7 +1034,6 @@ export function createPersonalAgentRuntime(options) {
       return { ok: false, conversation, error: error instanceof Error ? error.message : String(error) };
     }
   }
-
 
   async function listAgentProviderSessions(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
@@ -1927,32 +1856,6 @@ export function createPersonalAgentRuntime(options) {
     const agent = (agents.agents ?? []).find((item) => item.id === id || item.provider === id);
     if (!agent) return { ok: false, healthy: false, status: "missing", reason: `agent ${id} was not found`, checkedAt: Date.now() };
     return checkProviderHealth({ ...input, agent });
-  }
-
-  function extractProbeMetadata(...sources) {
-    for (const source of sources) {
-      if (!source || typeof source !== "object") continue;
-      const modelsBlock = source.models && typeof source.models === "object" ? source.models : source;
-      const rawModels = Array.isArray(modelsBlock?.availableModels)
-        ? modelsBlock.availableModels
-        : Array.isArray(source.availableModels)
-          ? source.availableModels
-          : Array.isArray(source.available_models)
-            ? source.available_models
-            : [];
-      const models = rawModels
-        .map((item) => (item && typeof item === "object"
-          ? { id: String(item.id ?? item.modelId ?? item.name ?? "").trim(), label: String(item.name ?? item.label ?? item.id ?? "").trim() }
-          : { id: String(item ?? "").trim(), label: String(item ?? "").trim() }))
-        .filter((m) => m.id);
-      const configOptions = Array.isArray(source.configOptions)
-        ? source.configOptions
-        : Array.isArray(source.config_options)
-          ? source.config_options
-          : [];
-      if (models.length || configOptions.length) return { models, configOptions };
-    }
-    return { models: [], configOptions: [] };
   }
 
   async function getHostStatus(input = {}) {

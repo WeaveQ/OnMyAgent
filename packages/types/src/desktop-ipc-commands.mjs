@@ -29,10 +29,12 @@ const commandGroups = /** @type {const} */ ({
     "checkSystemPermissions", "openSystemPermissionSettings",
     "getDesktopBootstrapConfig", "debugDesktopBootstrapConfig",
     "setDesktopBootstrapConfig", "pickDirectory", "pickFile", "saveFile",
+    "exportVisualSnapshot",
     "updaterEnvironment", "setWindowDecorations", "__openPath",
     "__revealItemInDir", "__fetch", "__homeDir", "__joinPath",
     "__setZoomFactor", "__setNativeTheme", "__setApplicationMenuVisible",
     "checkSoftwareEnv", "installSoftwareEnv",
+    "checkBrowserSkillStatus", "openBrowserSkillInstallPage",
   ],
   localAgents: [
     "personalLocalAgentsList", "personalLocalAgentMetadataList",
@@ -82,7 +84,7 @@ const commandGroups = /** @type {const} */ ({
   ],
   agentManagement: [
     "agentManagementSnapshot", "agentManagementProviderAction",
-    "agentManagementFetchModels", "agentManagementSkillAction",
+    "agentManagementFetchModels", "agentManagementTestModel", "agentManagementSkillAction",
     "agentManagementMcpSnapshot", "agentManagementMcpAction",
   ],
   opencode: [

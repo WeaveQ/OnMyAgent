@@ -39,7 +39,7 @@ describe("personal usage UI contract", () => {
     expect(page).toContain("EmptyStateBox");
     expect(page).toContain("usage_total_tokens");
     expect(page).toContain("usage_peak_tokens");
-    expect(page).toContain("usage_longest_task");
+    expect(page).not.toContain("usage_longest_task");
     expect(page).toContain("usage_current_streak");
     expect(page).toContain("usage_longest_streak");
     expect(page).toContain("usage_day");
@@ -142,6 +142,9 @@ describe("personal usage UI contract", () => {
       "session.usage_day",
       "session.usage_peak_tokens",
       "session.usage_longest_task",
+      "session.usage_duration_hours",
+      "session.usage_duration_days",
+      "session.usage_duration_days_hours",
       "session.usage_current_streak",
       "session.usage_longest_streak",
       "session.usage_activity",

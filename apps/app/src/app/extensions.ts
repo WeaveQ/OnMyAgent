@@ -246,6 +246,79 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
     },
     {
       schemaVersion: 1,
+      id: "browser-skill",
+      name: t("extensions.browser_skill_name"),
+      description: t("extensions.browser_skill_description"),
+      preview: true,
+      source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
+      icon: { src: "/on-my-agent-logo.png" },
+      composer: {
+        prompt: t("extensions.browser_skill_prompt"),
+        suggestions: [
+          t("extensions.browser_skill_suggestion_summary"),
+          t("extensions.browser_skill_suggestion_form"),
+          t("extensions.browser_skill_suggestion_smoke"),
+        ],
+      },
+      setup: {
+        instructions: t("extensions.browser_skill_setup"),
+        primaryCta: t("extensions.browser_skill_install_extension"),
+        secondaryCta: t("extensions.browser_skill_run_doctor"),
+        testActionRef: "onmyagent.browserSkill.healthCheck",
+      },
+      resources: [
+        {
+          type: "skill",
+          id: "browser-skill-bundled",
+          label: t("extensions.browser_skill_skill_label"),
+          path: "bundled-skills/browser-skill/SKILL.md",
+          required: true,
+        },
+        {
+          type: "local-service",
+          id: "browser-skill-bsk-cli",
+          label: t("extensions.browser_skill_cli_label"),
+          description: "bsk",
+          required: true,
+        },
+      ],
+      contributions: [
+        {
+          type: "settings-panel",
+          ref: "onmyagent.browserSkill.settings",
+          location: "settings-detail",
+        },
+        {
+          type: "setup-instructions",
+          ref: "onmyagent.browserSkill.setup",
+          location: "settings-detail",
+        },
+        {
+          type: "test-action",
+          ref: "onmyagent.browserSkill.healthCheck",
+          label: t("extensions.browser_skill_run_doctor"),
+        },
+        {
+          type: "composer-prompt",
+          prompt: t("extensions.browser_skill_prompt"),
+          location: "composer",
+        },
+      ],
+      enablement: [
+        {
+          type: "toggle-enabled",
+          ref: "browser-skill",
+          label: t("common.enabled"),
+        },
+      ],
+      lifecycle: {
+        reload: ["config"],
+        detection: ["cli:bsk", "extension:browser-skill"],
+      },
+      platform: ["darwin", "linux", "windows"],
+    },
+    {
+      schemaVersion: 1,
       id: "openai-image-gen",
       name: "OpenAI Image Gen",
       description: t("extensions.openai_image_desc"),

@@ -1,9 +1,23 @@
 ---
 name: browser-automation
-description: "Control OnMyAgent's built-in in-app browser for opening, navigating, inspecting visible or interactive page state, clicking, typing, screenshots, uploads, downloads, dialogs, and local web testing. Prefer purpose-built connectors or APIs for semantic operations when available."
+description: >
+  Control OnMyAgent's built-in in-app browser (right rail Browser panel) via
+  onmyagent_browser_node_repl only. Open/navigate/click/type/screenshot.
+  NEVER use CDP ports 9823/9222, remote-debugging-port, shell ps, or external
+  Chrome — those are not the in-app browser. Prefer connectors for pure API work.
 ---
 
 # Browser
+
+## Hard rule (read first)
+
+| Do | Do not |
+|----|--------|
+| Tool **`onmyagent_browser_node_repl`** | Shell / `ps` / port scan for CDP |
+| `agent.browsers.getDefault()` + `tabs.new({ url })` | Connect to `127.0.0.1:9823` or `9222` |
+| Report RPC/runtime errors as desktop runtime issues | Claim "browser has no debug port" |
+
+No CDP port on the in-app browser is **normal**. Control is managed RPC, not DevTools.
 
 ## Stop: choose the right surface before any browser action
 
@@ -21,33 +35,74 @@ Use the single tool `onmyagent_browser_node_repl`. State persists for the sessio
 
 User-facing progress updates should stay non-technical. Describe recovery as connecting to the browser or retrying the browser connection.
 
-Initialize once per fresh Node session:
+**Open a site (first action when the user gives a URL):**
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
-// Prefer a direct open when the user already named a URL:
 globalThis.tab ??= await browser.tabs.new({ url: "https://example.com" })
+return { id: tab.id, url: await tab.url() }
 ```
 
 Aliases accepted by `agent.browsers.get()` for the in-app browser: `"in-app"`, `"iab"`, `"browser"`.
 
 Once a browser connection is established, reuse it across later turns. A tab binding is separate from the browser binding. If a tab is missing, stale, or closed, create or claim a fresh tab from the existing browser binding. Never call `agent.browsers.get*` only to recover a tab.
 
-## Workflow
+## Hybrid control loop (DOM + vision) — required orientation
 
-1. Get the default Browser (or `get("iab")` when the user names the in-app browser).
-2. Prefer `browser.tabs.new({ url })` for a fast direct open when the target URL is known.
-3. Observe before acting. Prefer role, label, text, placeholder, or test-id locators.
-4. Perform the smallest safe action and verify the resulting state.
-5. Use DOM-CUA when semantic locators are insufficient; coordinate CUA only as a last resort.
-6. Finalize temporary Tabs when the task is complete. Leave user-owned Tabs open unless the user requests otherwise.
+Market-proven pattern (Browser Use / Stagehand-style): **DOM-primary, vision-assist**. Neither alone is enough on modal-heavy sites (e.g. Xiaohongshu).
+
+1. Get default Browser; open URL with `tabs.new({ url })` when known.
+2. **Orient with one hybrid call:**
+   ```js
+   const sense = await tab.sense() // DOM nodes + screenshot + scale
+   nodeRepl.emitImage(sense.shot.image)
+   // Use sense.nodes[].label / role / ref; keep sense.shot.scaleX/Y for any cua click
+   ```
+3. **Act with DOM first:** locators / `dom_cua.click(ref)` scoped to the active surface (detail modal, not feed under it).
+4. **Vision assist when DOM is wrong or ambiguous:** compare `sense.shot` to `nodes` (wrong card, covered target, icon-only control). Prefer re-`sense()` + better DOM; only then `tab.cua.click(node.center)` (page coords) or `imageX * scaleX`.
+5. Continuous REPL for one page goal; toggle buttons: read state → click at most once.
+6. Finalize temporary tabs when done.
+
+Do **not** dump full-page body text or all `.like-wrapper`s without scoping. Do **not** pure-vision click without a DOM candidate when nodes already list the control.
+
+## Reading text (avoid TypeError)
+
+Locator readers are **async** and may return `null`. Always `await`, then coerce:
+
+```js
+// Correct
+const raw = await tab.playwright.locator(".title").textContent()
+const text = String(raw ?? "").trim().slice(0, 200)
+
+// Wrong — Promise has no .slice; null has no .slice
+// el.textContent().catch(() => "").slice(0, 50)
+// (await el.textContent()).slice(0, 50)  // still throws if null
+```
+
+Prefer `tab.playwright.evaluate(() => ...)` for multi-field page reads (returns plain JSON).
+
+## Toggle actions (like / favorite / follow / star)
+
+Sites such as Xiaohongshu use **toggle** controls. A second click undoes the first.
+
+- **Read desired state first.** If already active (`like-active`, collected/active class, text `已关注` / `Following`, aria-pressed=true), **do not click** — report already done.
+- **Click at most once per intent.** After a successful `click` / JS click returns, treat the action as done when: return is ok, desired class/text appears, or count increases. **Never click again to “verify”.**
+- Prefer the control **inside the open note/detail container**. Global `.like-wrapper` / `.collect-wrapper` may match feed cards under a modal — wrong node → false “not liked” → re-click toggles off.
+- When the locator is covered, one JS `element.click()` is fine; still only once. If state is ambiguous, **read attributes/text once** and stop; do not hammer the button.
+- Batch like + favorite + follow + comment in few REPL calls; summarize once at the end.
+
+## Confirm dialogs
+
+In-app browser actions **do not show desktop confirmation dialogs** (clicks, 发送/submit, upload, download). Prefer normal locator clicks for comments and form submit.
 
 ```js
 globalThis.browser ??= await agent.browsers.getDefault()
 globalThis.tab ??= await browser.tabs.new({ url: "https://www.baidu.com" })
 await tab.playwright.getByRole("textbox").fill("query")
 await tab.playwright.getByRole("button", { name: "百度一下" }).click()
-await tab.screenshot()
+// screenshot is a plain object { image, width, height }, not a Buffer
+const shot = await tab.screenshot()
+nodeRepl.emitImage(shot.image)
 ```
 
 ## Documentation

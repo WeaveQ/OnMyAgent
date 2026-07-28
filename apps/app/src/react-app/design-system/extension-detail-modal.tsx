@@ -31,7 +31,8 @@ const extensionDetailTextClass = {
 
 const extensionDetailLayoutClass = {
   contentBase: "flex max-h-[90vh] min-h-0 w-full flex-col overflow-hidden",
-  contentWide: "max-w-3xl sm:max-w-3xl",
+  // Fixed height for stepped setup panels so switching sections does not resize the dialog.
+  contentWide: "h-[min(90vh,46rem)] max-w-3xl sm:max-w-3xl",
   contentDefault: "max-w-xl sm:max-w-xl",
   headerRow: "flex min-w-0 items-start gap-4",
   iconWrap: "relative shrink-0",
@@ -109,6 +110,11 @@ export type ExtensionDetailModalProps = {
   /** Extension-specific configuration UI rendered inside the modal body. */
   configSlot?: React.ReactNode;
   showEnablementCard?: boolean;
+  /**
+   * When false, hide the generic type/status details table.
+   * Useful when configSlot already carries the full setup surface.
+   */
+  showDetailsCard?: boolean;
   size?: "default" | "wide";
 };
 
@@ -246,6 +252,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
     onShow,
     configSlot,
     showEnablementCard = true,
+    showDetailsCard = true,
     size = "default",
   } = props;
   const resolvedIconSrc = iconSrc
@@ -390,6 +397,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
             ) : null}
 
             {/* Details */}
+            {showDetailsCard ? (
             <Card variant="outline" size="sm">
               <CardHeader>
                 <CardTitle>{t("extensions.details")}</CardTitle>
@@ -494,6 +502,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
 
             {/* Skill-specific: trigger + content preview */}
             {kind === "ui-control" ? (

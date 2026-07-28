@@ -69,6 +69,65 @@ export default {
   "extensions.computer_use_verify_mcp": "Verify Computer Use MCP",
   "extensions.accessibility_permission": "Accessibility permission",
   "extensions.screen_recording_permission": "Screen Recording permission",
+  "extensions.browser_skill_name": "BrowserSkill",
+  "extensions.browser_skill_description":
+    "Drive your real Chrome/Edge browser (logins and cookies) via Tencent BrowserSkill — complementary to in-app browser automation and Computer Use.",
+  "extensions.browser_skill_prompt": "Use BrowserSkill (bsk) to ",
+  "extensions.browser_skill_suggestion_summary":
+    "Open my already-signed-in dashboard and summarize the top items",
+  "extensions.browser_skill_suggestion_form":
+    "Fill a multi-step form in my logged-in browser session",
+  "extensions.browser_skill_suggestion_smoke":
+    "Run bsk doctor and confirm the extension is connected",
+  "extensions.browser_skill_setup":
+    "Three taps: open Terminal to install CLI → install the Chrome extension → recheck. Uses your real browser profile.",
+  "extensions.browser_skill_install_extension": "Install Chrome extension",
+  "extensions.browser_skill_run_doctor": "Recheck status",
+  "extensions.browser_skill_skill_label": "BrowserSkill agent skill",
+  "extensions.browser_skill_cli_label": "bsk CLI",
+  "extensions.browser_skill_extension_label": "BrowserSkill extension",
+  "extensions.browser_skill_extension_hint":
+    "Chrome/Edge extension popup should be green when connected",
+  "extensions.browser_skill_panel_description":
+    "Control sites you are already signed into. Setup takes three short steps on this machine.",
+  "extensions.browser_skill_desktop_only":
+    "BrowserSkill setup requires the OnMyAgent desktop app.",
+  "extensions.browser_skill_open_docs": "Open docs",
+  "extensions.browser_skill_health_title": "Health",
+  "extensions.browser_skill_health_pending": "Checking BrowserSkill status…",
+  "extensions.browser_skill_status_installed": "Installed",
+  "extensions.browser_skill_status_missing": "Not found",
+  "extensions.browser_skill_status_connected": "Connected",
+  "extensions.browser_skill_status_disconnected": "Not connected",
+  "extensions.browser_skill_status_ready": "Ready",
+  "extensions.browser_skill_status_setup": "Needs setup",
+  "extensions.browser_skill_vs_in_app":
+    "Not the in-app Browser, and not Computer Use. Best for already-signed-in sites.",
+  "extensions.browser_skill_install_cli_title": "Install CLI",
+  "extensions.browser_skill_setup_intro":
+    "Finish the steps below. You only need this once per machine.",
+  "extensions.browser_skill_step_cli_title": "1. Install bsk CLI",
+  "extensions.browser_skill_step_cli_desc":
+    "Opens Terminal with the official install command (or copy it).",
+  "extensions.browser_skill_step_ext_title": "2. Install Chrome extension",
+  "extensions.browser_skill_step_ext_desc":
+    "Opens the Chrome Web Store. After install, open the popup until it turns green.",
+  "extensions.browser_skill_step_verify_title": "3. Recheck",
+  "extensions.browser_skill_step_verify_desc":
+    "After CLI + extension are ready, refresh here.",
+  "extensions.browser_skill_open_terminal": "Open Terminal to install",
+  "extensions.browser_skill_copy_command": "Copy install command",
+  "extensions.browser_skill_copied": "Copied",
+  "extensions.browser_skill_command_copied": "Install command copied to clipboard.",
+  "extensions.browser_skill_terminal_opened":
+    "Terminal opened with the install command. Finish there, then recheck.",
+  "extensions.browser_skill_cli_docs_fallback":
+    "Opened install docs. Copy the command if Terminal could not be launched.",
+  "extensions.browser_skill_extension_opened":
+    "Chrome Web Store opened. Install BrowserSkill, wait for a green popup, then recheck.",
+  "extensions.browser_skill_ready_message":
+    "BrowserSkill is ready. Agents can use your real browser via bsk.",
+  "extensions.browser_skill_doctor_details": "Doctor output",
   "extensions.openai_image_desc": "Generate images",
   "extensions.openai_image_setup": `Add an OpenAI API key to enable image generation`,
   "extensions.openai_image_config_desc": "Configure OpenAI image generation",

@@ -35,6 +35,7 @@ import {
 import {
   MESSAGE_LIST_CONTAIN_STYLE,
 } from "./message-list/styles";
+import { ConnectedProviderIdsProvider } from "./message-list/connected-providers-context";
 import type {
   MessageBlockItem,
   SessionTranscriptDivider,
@@ -83,7 +84,16 @@ import {
 } from "./message-list/chrome";
 import { MessageBlockRow } from "./message-list/message-block-row";
 import { blockIsActivelyStreaming } from "./message-list/message-block-row-equality";
-import { activeTurnReserveStyle } from "./message-list/virtual-window";
+import {
+  activeTurnReserveStyle,
+  resolveVirtualItemEstimate,
+} from "./message-list/virtual-window";
+import {
+  resolveActiveTurnVirtualIndex,
+  resolveVirtualRowMeasurePolicy,
+  shouldAttachVirtualMeasure,
+  shouldBatchRemeasureOnStreamEnd,
+} from "./message-list/virtual-measure-policy";
 
 export type {
   SessionTranscriptDivider,
@@ -132,7 +142,13 @@ type SessionTranscriptProps = {
   onRevertToMessage?: (messageId: string) => void;
   openTargets?: OpenTarget[];
   onOpenTarget?: (target: OpenTarget) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   workspaceRoot?: string;
+  /**
+   * Live connected OpenCode provider IDs. Used only to badge historical model
+   * labels as "removed" when the provider is no longer available.
+   */
+  connectedProviderIds?: readonly string[] | null;
   /**
    * When set, renders this identity once at the start of each visible
    * assistant turn. The root transcript always supplies the active identity.
@@ -636,6 +652,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   const detachedTailRenderItem = detachedTailRenderItemIndex >= 0
     ? renderItems[detachedTailRenderItemIndex]
     : null;
+  const detachedTailRenderItemId = detachedTailRenderItem?.id ?? null;
   const virtualRenderItems = detachedTailRenderItem
     ? renderItems.slice(0, detachedTailRenderItemIndex)
     : renderItems;
@@ -649,6 +666,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // estimate-only blank regions above the live tail.
   const [measureWhileScrolling, setMeasureWhileScrolling] = useState(true);
   const measureWhileScrollingRef = useRef(true);
+  const measuredRenderItemSizesRef = useRef(new Map<string, number>());
+  const detachedTailElementRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!shouldVirtualize) return;
     const scrollContainer = props.scrollElement?.();
@@ -678,7 +697,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // height. That reserve is only for the detached tail; baking it into
   // estimateSize left multi-viewport blank gaps after the turn scrolled up.
   const estimateVirtualItemSize = useCallback(
-    (index: number) => estimateRenderItemSize(virtualRenderItems[index]),
+    (index: number) => resolveVirtualItemEstimate(
+      virtualRenderItems[index],
+      measuredRenderItemSizesRef.current,
+      estimateRenderItemSize,
+    ),
     [virtualRenderItems],
   );
 
@@ -702,30 +725,52 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // getTotalSize() still sums estimates — a fixed-height empty shell looks like
   // multi-screen blank space above the live message. Fall back to normal flow.
   const useVirtualWindow = shouldVirtualize && virtualRows.length > 0;
-  const shouldMeasureVirtualRows =
-    measureWhileScrolling || props.isStreaming;
+  const scrollBlocksMeasure = !measureWhileScrolling;
+  const allowVirtualMeasure = shouldAttachVirtualMeasure({
+    isStreaming: props.isStreaming,
+    scrollBlocksMeasure,
+  });
+  // Detached live tail is measured via ResizeObserver; virtual rows only
+  // measure the active turn while streaming (none when tail is detached).
+  const activeTurnVirtualIndex = resolveActiveTurnVirtualIndex({
+    detachedTail: Boolean(detachedTailRenderItem),
+    virtualItemCount: virtualRenderItems.length,
+  });
 
-  // After scroll settles (or while streaming), force measurement so estimates converge.
+  // Batch remeasure once when a stream ends so historical sizes catch up.
+  const wasStreamingRef = useRef(props.isStreaming);
   useEffect(() => {
-    if (!shouldVirtualize || !shouldMeasureVirtualRows) return;
-    virtualizer.measure();
-  }, [shouldMeasureVirtualRows, shouldVirtualize, virtualizer]);
-
-  // Remeasure when the live turn ends or message volume changes (export/tools).
-  const previousActiveRenderItemIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    const previous = previousActiveRenderItemIdRef.current;
-    previousActiveRenderItemIdRef.current = activeRenderItemId;
-    if (!shouldVirtualize) return;
-    if (previous && previous !== activeRenderItemId) {
-      virtualizer.measure();
+    const wasStreaming = wasStreamingRef.current;
+    wasStreamingRef.current = props.isStreaming;
+    if (
+      !shouldVirtualize ||
+      !shouldBatchRemeasureOnStreamEnd({
+        wasStreaming,
+        isStreaming: props.isStreaming,
+      })
+    ) {
+      return;
     }
-  }, [activeRenderItemId, shouldVirtualize, virtualizer]);
-
-  useEffect(() => {
-    if (!shouldVirtualize) return;
     virtualizer.measure();
-  }, [props.messages.length, props.isStreaming, shouldVirtualize, virtualizer]);
+  }, [props.isStreaming, shouldVirtualize, virtualizer]);
+
+  // The detached tail is outside TanStack Virtual. Measure it while it grows so
+  // its exact height is ready when the next message moves it into history.
+  useEffect(() => {
+    const element = detachedTailElementRef.current;
+    if (!detachedTailRenderItemId || !element) return;
+    const rememberHeight = () => {
+      const height = Math.max(1, Math.ceil(element.getBoundingClientRect().height));
+      measuredRenderItemSizesRef.current.set(detachedTailRenderItemId, height);
+    };
+    rememberHeight();
+    const observer = new ResizeObserver(rememberHeight);
+    observer.observe(element);
+    return () => {
+      rememberHeight();
+      observer.disconnect();
+    };
+  }, [detachedTailRenderItemId]);
 
   useEffect(() => {
     const scrollToMessage = (messageId: string, behavior: ScrollBehavior = "smooth") => {
@@ -845,6 +890,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
           : undefined}
         verifiedCodePaths={verifiedMarkdownCodePaths}
         onOpenCodePath={onOpenMarkdownCodePath}
+        onDownloadCodePath={props.onDownloadCodePath}
         onOpenTarget={props.onOpenTarget}
         workspaceRoot={props.workspaceRoot}
         assistantAvatar={props.assistantAvatar}
@@ -907,6 +953,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   };
 
   return (
+    <ConnectedProviderIdsProvider providerIds={props.connectedProviderIds}>
     <div
       className={cn("pb-0", !isNestedVariant && "session-transcript-root mx-auto w-full")}
       style={transcriptStyle}
@@ -930,13 +977,19 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                 {virtualRows.map((virtualRow) => {
                   const item = virtualRenderItems[virtualRow.index];
                   if (!item) return null;
+                  const rowMeasure = resolveVirtualRowMeasurePolicy({
+                    isStreaming: props.isStreaming,
+                    scrollBlocksMeasure,
+                    activeTurnVirtualIndex,
+                    virtualIndex: virtualRow.index,
+                  });
                   return (
                     <div
                       key={virtualRow.key}
                       data-index={virtualRow.index}
-                      // Skip live measure mid-scroll — keep measuring while streaming.
+                      // Streaming: only active turn. Idle: all (unless scroll-blocked).
                       ref={
-                        shouldMeasureVirtualRows
+                        allowVirtualMeasure && rowMeasure.shouldMeasure
                           ? virtualizer.measureElement
                           : undefined
                       }
@@ -950,7 +1003,11 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             ) : null}
           </div>
           {detachedTailRenderItem
-            ? renderTranscriptItem(detachedTailRenderItem)
+            ? (
+                <div ref={detachedTailElementRef}>
+                  {renderTranscriptItem(detachedTailRenderItem)}
+                </div>
+              )
             : null}
         </>
       ) : (
@@ -963,11 +1020,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
             <div key={item.id}>{renderTranscriptItem(item)}</div>
           ))}
           {shouldVirtualize && detachedTailRenderItem
-            ? renderTranscriptItem(detachedTailRenderItem)
+            ? (
+                <div ref={detachedTailElementRef}>
+                  {renderTranscriptItem(detachedTailRenderItem)}
+                </div>
+              )
             : null}
         </div>
       )}
     </div>
+    </ConnectedProviderIdsProvider>
   );
 }
 

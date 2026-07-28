@@ -80,6 +80,11 @@ export function resolveSessionRouteRestoreNavigation(input: {
   firstSessionIdForPageMode: (workspaceId: string) => string | null;
   legacySelectedWorkspaceId: string;
   loading: boolean;
+  /**
+   * React Router navigationType. When "POP", last-session restore must not
+   * rewrite the URL (Back to draft/empty would otherwise be stolen).
+   */
+  navigationType?: string | null;
   /** Prefer mode-scoped: readLastSessionFor(workspaceId, pageMode). */
   pageMode?: "assistant" | "expert";
   readLastSessionFor: (
@@ -101,6 +106,7 @@ export function resolveSessionRouteRestoreNavigation(input: {
     input.workspaces.length > 0 &&
     !input.workspaces.some((workspace) => workspace.id === input.routeWorkspaceId)
   ) {
+    // Repair invalid workspace id (allowed even on POP — not last-session steal).
     const fallbackWorkspaceId = resolveFallbackWorkspaceId({
       preferredWorkspaceId: input.legacySelectedWorkspaceId,
       workspaces: input.workspaces,
@@ -121,23 +127,24 @@ export function resolveSessionRouteRestoreNavigation(input: {
   }
   if (!input.selectedWorkspaceId) return { type: "none" };
   if (input.suppressRestoreSession) return { type: "none" };
-  const remembered = input.readLastSessionFor(
-    input.selectedWorkspaceId,
-    input.pageMode,
-  );
-  if (!remembered) return { type: "none" };
-  const sessions = input.sessionsByWorkspaceId[input.selectedWorkspaceId] ?? [];
-  if (!input.sessionListOwnsSession({ sessions, sessionId: remembered })) return { type: "none" };
-  if (!input.sessionMatchesPageMode(remembered)) return { type: "none" };
-  return { type: "workspace", workspaceId: input.selectedWorkspaceId, sessionId: remembered };
+  // URL has no sessionId: stay on the new-task home (empty composer). Do not
+  // re-open the last chat on cold start or refresh — users expect a clean
+  // compose surface. Mode switches still use resolveSessionRouteModeSwitchPath.
+  return { type: "none" };
 }
 
+/**
+ * Send the user back to the welcome / onboarding guide when they have not
+ * finished (or have reset) onboarding. Workspace count is intentionally
+ * ignored so "重置入门" re-opens the guide even if workspaces already exist.
+ */
 export function shouldRedirectSessionRouteToWelcome(input: {
   hasCompletedOnboarding: boolean;
   loading: boolean;
-  workspaceCount: number;
+  /** @deprecated kept for call-site compat; not used in the decision */
+  workspaceCount?: number;
 }) {
-  return !input.loading && input.workspaceCount === 0 && !input.hasCompletedOnboarding;
+  return !input.loading && !input.hasCompletedOnboarding;
 }
 
 export function resolveSessionRouteModeSwitchPath(input: {

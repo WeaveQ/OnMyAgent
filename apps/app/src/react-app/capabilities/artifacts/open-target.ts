@@ -328,6 +328,25 @@ export function isLocalhostBrowserTarget(target: OpenTarget) {
   return target.kind === "url" && /(?:https?|wss?):\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/i.test(target.value);
 }
 
+/**
+ * User-facing local previews (e.g. `http://localhost:5173`) — not internal
+ * loopback bridges (`http://127.0.0.1:9823` browser/runtime ports) that leak
+ * from tool JSON and look like bogus "open browser" chips in the transcript.
+ */
+export function isUserFacingLocalPreviewTarget(target: OpenTarget): boolean {
+  if (!isLocalhostBrowserTarget(target)) return false;
+  try {
+    const url = new URL(target.value);
+    const host = url.hostname.toLowerCase();
+    // Agents write `localhost:port` for app previews. Bare 127.0.0.1 / ::1 /
+    // 0.0.0.0 origins are almost always OnMyAgent internal services.
+    if (host !== "localhost") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function selectAutoOpenTarget(targets: OpenTarget[]): OpenTarget | null {
   return targets.find(shouldAutoOpenTarget) ?? null;
 }

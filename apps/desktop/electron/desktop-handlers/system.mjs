@@ -2,6 +2,10 @@
  * system domain IPC handlers for the Electron desktop bridge.
  * Factories receive services/helpers constructed in main.mjs.
  */
+import {
+  createVisualSnapshotPdf,
+  exportVisualSnapshot,
+} from "../visual-snapshot-export.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "userAgentRegistryRead",
@@ -28,6 +32,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "pickDirectory",
   "pickFile",
   "saveFile",
+  "exportVisualSnapshot",
   "updaterEnvironment",
   "setWindowDecorations",
   "__openPath",
@@ -40,6 +45,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "__setApplicationMenuVisible",
   "checkSoftwareEnv",
   "installSoftwareEnv",
+  "checkBrowserSkillStatus",
+  "openBrowserSkillInstallPage",
 ]);
 
 /**
@@ -67,6 +74,8 @@ export function createSystemDomainHandlers({
   revokeComputerUseAppAuthorization,
   clearComputerUseAppAuthorizations,
   openComputerUseSetupApp,
+  checkBrowserSkillStatus,
+  openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
   getDesktopBootstrapConfig,
@@ -78,6 +87,7 @@ export function createSystemDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
+  BrowserWindow,
 } = {}) {
   return {
   userAgentRegistryRead: async (event, args) => {
@@ -257,6 +267,13 @@ export function createSystemDomainHandlers({
     return result.canceled ? null : (result.filePath ?? null);
   },
 
+  exportVisualSnapshot: async (event, args) => exportVisualSnapshot(args[0], {
+    sourceWindow: activeWindowFromEvent(event),
+    dialog,
+    writeFile,
+    createPdf: (image, rect) => createVisualSnapshotPdf({ BrowserWindow, image, rect }),
+  }),
+
   updaterEnvironment: async (event, args) => {
     const executablePath = app.isPackaged
       ? app.getPath("exe")
@@ -360,6 +377,15 @@ export function createSystemDomainHandlers({
 
   checkSoftwareEnv: async (event, args) => {
     return runtimeManager.softwareEnvironmentInfo();
+  },
+
+  checkBrowserSkillStatus: async (event, args) => {
+    return checkBrowserSkillStatus();
+  },
+
+  openBrowserSkillInstallPage: async (event, args) => {
+    const target = args[0] === "cli" || args[0] === "docs" ? args[0] : "extension";
+    return openBrowserSkillInstallPage(target);
   },
 
   installSoftwareEnv: async (event, args) => {

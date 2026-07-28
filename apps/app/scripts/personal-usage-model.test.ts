@@ -134,8 +134,10 @@ describe("personal usage model", () => {
 
     const dailySeries = buildTokenActivitySeries(daily, "daily", "2026-07-16");
     expect(dailySeries.length).toBeGreaterThan(0);
+    expect(dailySeries.length).toBeGreaterThanOrEqual(52);
+    expect(dailySeries.length).toBeLessThanOrEqual(54);
     const totalCells = dailySeries.reduce((sum, column) => sum + column.cells.length, 0);
-    expect(totalCells).toBe(371);
+    expect(totalCells).toBe(dailySeries.length * 7);
     const lastColumn = dailySeries.at(-1);
     expect(lastColumn?.cells.at(4)).toMatchObject({ date: "2026-07-16", value: 30, level: 4 });
 
@@ -159,8 +161,17 @@ describe("personal usage model", () => {
 
   test("loads accessible workspaces while preserving partial failures", async () => {
     let requestedTopSessionLimit = 0;
+    const calls: string[] = [];
     const client = {
+      async syncSessionArchive(workspaceId: string) {
+        calls.push(`sync:${workspaceId}`);
+        return { status: "completed" as const };
+      },
+      async getSessionArchiveSyncStatus() {
+        return { status: "completed" as const };
+      },
       async getSessionArchiveUsageSummary(workspaceId: string) {
+        calls.push(`summary:${workspaceId}`);
         if (workspaceId === "beta") throw new Error("offline");
         return {
           totals: { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 },
@@ -198,6 +209,8 @@ describe("personal usage model", () => {
       }),
     ]);
     expect(requestedTopSessionLimit).toBe(100);
+    expect(calls.indexOf("sync:alpha")).toBeLessThan(calls.indexOf("summary:alpha"));
+    expect(calls.indexOf("sync:beta")).toBeLessThan(calls.indexOf("summary:beta"));
     expect(result.failures).toEqual([{ workspaceId: "beta", workspaceName: "Beta" }]);
   });
 });

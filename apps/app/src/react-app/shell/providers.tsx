@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { isWebDeployment } from "../../app/lib/onmyagent-deployment";
 import { hydrateOnMyAgentServerSettingsFromEnv } from "../../app/lib/onmyagent-server";
@@ -10,12 +10,14 @@ import { LocalProvider } from "../kernel/local-provider";
 import { ServerProvider } from "../kernel/server-provider";
 import { AgentReadyDesktopNotificationMonitor } from "./agent-ready-desktop-notification-monitor";
 import { AutomationRunDesktopNotificationMonitor } from "./automation-run-desktop-notification-monitor";
+import { UpdateAvailableNoticeMonitor } from "./update-available-notice-monitor";
 import { ArchitectureMismatchGate } from "./architecture-mismatch-gate";
-import { BootStateProvider } from "./boot-state";
+import { BootStateProvider, useBootState } from "./boot-state";
 import { DesktopRuntimeBoot } from "./desktop-runtime-boot";
 import { startDebugLogger, stopDebugLogger } from "./debug-logger";
 import { resolveOnMyAgentConnection } from "./onmyagent-connection";
 import { ReloadCoordinatorProvider } from "./reload-coordinator";
+import { scheduleIdleWork } from "./session-route/prewarm-schedule";
 
 function resolveDefaultServerUrl(): string {
   if (isDesktopRuntime()) return "http://127.0.0.1:4096";
@@ -43,6 +45,35 @@ type AppProvidersProps = {
   children: ReactNode;
 };
 
+/**
+ * Desktop notification / update monitors are not needed for first paint.
+ * Mount after boot reaches ready/error, on idle, so they do not compete with
+ * engine IPC and session-route refresh on cold start.
+ */
+function DeferredDesktopMonitors() {
+  const { phase } = useBootState();
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (phase !== "ready" && phase !== "error") return;
+    const scheduled = scheduleIdleWork({
+      run: () => setEnabled(true),
+      idleTimeoutMs: 4_000,
+      fallbackDelayMs: 1_500,
+    });
+    return () => scheduled.cancel();
+  }, [phase]);
+
+  if (!enabled) return null;
+  return (
+    <>
+      <AgentReadyDesktopNotificationMonitor />
+      <AutomationRunDesktopNotificationMonitor />
+      <UpdateAvailableNoticeMonitor />
+    </>
+  );
+}
+
 export function AppProviders({ children }: AppProvidersProps) {
   hydrateOnMyAgentServerSettingsFromEnv();
 
@@ -69,8 +100,7 @@ export function AppProviders({ children }: AppProvidersProps) {
               <RestrictionNoticeProvider>
                 <LocalProvider>
                   <StatusToastsProvider>
-                    <AgentReadyDesktopNotificationMonitor />
-                    <AutomationRunDesktopNotificationMonitor />
+                    <DeferredDesktopMonitors />
                     <ReloadCoordinatorProvider>{children}</ReloadCoordinatorProvider>
                   </StatusToastsProvider>
                 </LocalProvider>

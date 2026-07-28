@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { memo, type CSSProperties } from "react";
 import {
+  ChevronRight,
   CircleAlert,
 } from "lucide-react";
 
@@ -51,14 +52,26 @@ function messageGroupKey(messageId: string, group: MessageGroup) {
   return `${messageId}:text:${group.segment}:${partId}`;
 }
 
-function OpenTargetIcon(props: { target: OpenTarget }) {
-  return (
-    <ArtifactIcon
-      type={props.target.preview}
-      name={props.target.name || props.target.value}
-      className="size-3.5 shrink-0"
-    />
-  );
+function openTargetDisplay(target: OpenTarget): { title: string; action: string } {
+  if (target.kind === "url") {
+    const raw = (target.name || target.value || "").trim();
+    let title = raw;
+    try {
+      const href = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `http://${raw}`;
+      const url = new URL(href);
+      title = url.host || raw;
+    } catch {
+      // Keep raw label when it is not a parseable URL.
+    }
+    return {
+      title: title || t("session.open_browser"),
+      action: t("session.open_browser"),
+    };
+  }
+  return {
+    title: target.name || target.value || t("session.open_artifact"),
+    action: t("session.open_artifact"),
+  };
 }
 
 function OpenableTargetsStrip(props: {
@@ -85,27 +98,48 @@ function OpenableTargetsStrip(props: {
     }
   };
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs leading-none">
-      <span className="mr-0.5 text-dls-secondary">{t("session.openable_items")}</span>
-      {props.targets.map((target) => (
-          <Button
+    <div className="mt-3 flex w-full max-w-sm flex-col gap-2">
+      {props.targets.length > 1 ? (
+        <div className="text-xs font-medium text-dls-secondary">
+          {t("session.openable_items")}
+        </div>
+      ) : null}
+      {props.targets.map((target) => {
+        const { title, action } = openTargetDisplay(target);
+        return (
+          <button
             key={target.id}
             type="button"
-            variant="outline"
-            size="xs"
-            className="session-generated-artifact-card max-w-[220px] rounded-lg text-dls-text hover:text-dls-text"
+            className={cn(
+              "session-generated-artifact-card group flex w-full min-w-0 items-center gap-3 rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5 text-left transition-colors",
+              "hover:bg-dls-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+            )}
             title={target.value}
+            aria-label={`${title} · ${action}`}
             onClick={() => void openInFolder(target)}
           >
-            <OpenTargetIcon target={target} />
-            <span className="truncate">{target.name || target.value}</span>
-            <span className="text-dls-secondary">
-              {target.kind === "url"
-                ? t("session.open_browser")
-                : t("session.open_artifact")}
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary">
+              <ArtifactIcon
+                type={target.preview}
+                name={target.name || target.value}
+                className="size-4"
+              />
             </span>
-          </Button>
-        ))}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium leading-snug text-dls-text">
+                {title}
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-dls-secondary">
+                {action}
+              </span>
+            </span>
+            <ChevronRight
+              className="size-3.5 shrink-0 text-dls-secondary opacity-50 transition-opacity group-hover:opacity-100"
+              aria-hidden
+            />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -179,6 +213,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
             expandedStepIds={props.expandedStepIds}
             onExpandedStepIdsChange={props.onExpandedStepIdsChange}
             onOpenCodePath={props.onOpenCodePath}
+            onDownloadCodePath={props.onDownloadCodePath}
             highlightQuery={hasSearchMatch ? props.searchHighlightQuery : undefined}
             verifiedCodePaths={props.verifiedCodePaths}
           />

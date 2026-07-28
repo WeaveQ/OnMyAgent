@@ -4,6 +4,7 @@ import { RefreshCcw } from "lucide-react";
 import type { OnMyAgentServerInfo } from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
+import { busySpinClass } from "@/components/ui/busy-spin";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { LabeledInput } from "../../../design-system/labeled-input";
 import { SettingsActionRow, SettingsCard, SettingsNotice } from "../settings-section";
@@ -59,7 +60,7 @@ export function ConfigEngineReloadSection(props: {
           {props.reloadAvailabilityReason ? <div className={configTextClass.description}>{props.reloadAvailabilityReason}</div> : null}
         </div>
         <Button variant={props.reloadButtonTone} size="sm" onClick={props.onReload} disabled={props.reloadButtonDisabled}>
-          <RefreshCcw size={14} className={props.reloadBusy ? "animate-spin" : ""} />
+          <RefreshCcw size={14} className={busySpinClass(props.reloadBusy)} />
           {props.reloadButtonLabel}
         </Button>
       </SettingsActionRow>

@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const COMPUTER_USE_HELPER_APP_NAME = "OnMyAgent Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
@@ -17,6 +18,34 @@ export function isComputerUseAppshotSupported(
   platform = process.platform,
 ) {
   return platform === "darwin";
+}
+
+/** Product version for Computer Use UI (not Electron runtime version). */
+export function resolveOnMyAgentProductVersion(app) {
+  try {
+    const fromApp = String(app?.getVersion?.() ?? "").trim();
+    // Electron majors are typically large (>= 20); product is 0.x / 1.x style.
+    if (fromApp && /^\d+\.\d+\.\d+/.test(fromApp)) {
+      const major = Number(fromApp.split(".")[0]);
+      if (Number.isFinite(major) && major < 20) return fromApp;
+    }
+  } catch {
+    // fall through to package.json
+  }
+  try {
+    const pkgPath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "package.json",
+    );
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    if (typeof pkg.version === "string" && pkg.version.trim()) {
+      return pkg.version.trim();
+    }
+  } catch {
+    // leave undefined
+  }
+  return undefined;
 }
 
 /**
@@ -284,7 +313,7 @@ async function checkComputerUsePermissions() {
   }
   return {
     ...status,
-    desktopVersion: app.getVersion(),
+    desktopVersion: resolveOnMyAgentProductVersion(app),
     ...(status.skysight
       ? {
           skysight: {

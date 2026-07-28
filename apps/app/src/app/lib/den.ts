@@ -15,6 +15,15 @@ import {
   dispatchDenSettingsChanged,
 } from "./den-session-events";
 import {
+  buildDenAuthUrl as buildDenAuthUrlPure,
+  deriveDenApiBaseUrl as deriveDenApiBaseUrlPure,
+  ensureDenApiBasePath,
+  isWebAppHost,
+  normalizeDenBaseUrl as normalizeDenBaseUrlPure,
+  resolveDenBaseUrls as resolveDenBaseUrlsPure,
+  stripDenApiBasePath,
+} from "./den-url-parse";
+import {
   desktopFetch,
   getDesktopBootstrapConfig as getDesktopBootstrapConfigFromShell,
   setDesktopBootstrapConfig as setDesktopBootstrapConfigInShell,
@@ -58,16 +67,29 @@ const BUILD_DEN_REQUIRE_SIGNIN =
     : false);
 
 export const DEFAULT_DEN_BASE_URL = BUILD_DEN_BASE_URL;
+
+export function normalizeDenBaseUrl(input: string | null | undefined): string | null {
+  return normalizeDenBaseUrlPure(input);
+}
+
+export function resolveDenBaseUrls(
+  input: { baseUrl?: string | null; apiBaseUrl?: string | null } | string | null | undefined,
+): DenBaseUrls {
+  return resolveDenBaseUrlsPure(input, DEFAULT_DEN_BASE_URL);
+}
+
+function deriveDenApiBaseUrl(input: string | null | undefined): string {
+  return deriveDenApiBaseUrlPure(input, DEFAULT_DEN_BASE_URL);
+}
+
+export function buildDenAuthUrl(baseUrl: string, mode: "sign-in" | "sign-up"): string {
+  return buildDenAuthUrlPure(baseUrl, mode);
+}
+
 export const DEN_INFERENCE_PATH = "/dashboard/inference";
 
-export type DenSettings = {
-  baseUrl: string;
-  apiBaseUrl?: string;
-  authToken?: string | null;
-  activeOrgId?: string | null;
-  activeOrgSlug?: string | null;
-  activeOrgName?: string | null;
-};
+export type { DenSettings, DenUser } from "./den-types";
+import type { DenSettings, DenUser } from "./den-types";
 
 type DenBaseUrls = {
   baseUrl: string;
@@ -79,12 +101,6 @@ export type DenBootstrapConfig = DenBaseUrls & {
 };
 
 export type DenDesktopConfig = SharedDesktopConfig;
-
-export type DenUser = {
-  id: string;
-  email: string;
-  name: string | null;
-};
 
 export type DenOrgSummary = {
   id: string;
@@ -316,126 +332,9 @@ export function normalizeDenDesktopConfig(payload: unknown): DenDesktopConfig {
   return normalizeDesktopConfig(payload);
 }
 
-export function normalizeDenBaseUrl(input: string | null | undefined): string | null {
-  const value = (input ?? "").trim();
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return null;
-    }
-    return url.toString().replace(/\/+$/, "");
-  } catch {
-    return null;
-  }
-}
-
 export function getDenInferenceUrl(baseUrl?: string | null): string {
   const normalized = normalizeDenBaseUrl(baseUrl ?? readDenSettings().baseUrl) ?? DEFAULT_DEN_BASE_URL;
   return `${normalized}${DEN_INFERENCE_PATH}`;
-}
-
-function isWebAppHost(hostname: string): boolean {
-  const normalized = hostname.trim().toLowerCase();
-
-  if (
-    normalized === "localhost" ||
-    normalized === "0.0.0.0" ||
-    normalized === "::1" ||
-    normalized === "[::1]" ||
-    /^127(?:\.\d{1,3}){3}$/.test(normalized)
-  ) {
-    return true;
-  }
-
-  const ipv4Match = normalized.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipv4Match) {
-    const [first, second, third, fourth] = ipv4Match.slice(1).map(Number);
-    const octets = [first, second, third, fourth];
-    if (octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)) {
-      if (
-        first === 10 ||
-        first === 127 ||
-        (first === 172 && second >= 16 && second <= 31) ||
-        (first === 192 && second === 168) ||
-        (first === 169 && second === 254) ||
-        (first === 100 && second >= 64 && second <= 127)
-      ) {
-        return true;
-      }
-    }
-  }
-
-  return normalized === "app.onmyagentlabs.com" || normalized === "app.onmyagent.software" || normalized.startsWith("app.");
-}
-
-function stripDenApiBasePath(input: string | null | undefined): string | null {
-  const normalized = normalizeDenBaseUrl(input);
-  if (!normalized) return null;
-
-  try {
-    const url = new URL(normalized);
-    const pathname = url.pathname.replace(/\/+$/, "");
-    const suffix = "/api/den";
-    if (!pathname.toLowerCase().endsWith(suffix)) {
-      return normalized;
-    }
-
-    const nextPathname = pathname.slice(0, -suffix.length) || "/";
-    url.pathname = nextPathname;
-    return url.toString().replace(/\/+$/, "");
-  } catch {
-    return normalized;
-  }
-}
-
-function ensureDenApiBasePath(input: string | null | undefined): string | null {
-  const normalized = normalizeDenBaseUrl(input);
-  if (!normalized) return null;
-
-  try {
-    const url = new URL(normalized);
-    const pathname = url.pathname.replace(/\/+$/, "");
-    if (pathname.toLowerCase().endsWith("/api/den")) {
-      return normalized;
-    }
-    url.pathname = `${pathname}/api/den`.replace(/\/+/g, "/");
-    return url.toString().replace(/\/+$/, "");
-  } catch {
-    return normalized;
-  }
-}
-
-function deriveDenApiBaseUrl(input: string | null | undefined): string {
-  const normalized = normalizeDenBaseUrl(input) ?? DEFAULT_DEN_BASE_URL;
-
-  try {
-    const url = new URL(normalized);
-    const pathname = url.pathname.replace(/\/+$/, "");
-    if (pathname.toLowerCase().endsWith("/api/den")) {
-      return normalized;
-    }
-    if (isWebAppHost(url.hostname)) {
-      return ensureDenApiBasePath(normalized) ?? normalized;
-    }
-  } catch {
-    return normalized;
-  }
-
-  return normalized;
-}
-
-export function resolveDenBaseUrls(input: { baseUrl?: string | null; apiBaseUrl?: string | null } | string | null | undefined): DenBaseUrls {
-  const rawBaseUrl = typeof input === "string" ? input : input?.baseUrl;
-  const rawApiBaseUrl = typeof input === "string" ? null : input?.apiBaseUrl;
-  const normalizedBaseUrl = normalizeDenBaseUrl(rawBaseUrl);
-  const normalizedApiBaseUrl = normalizeDenBaseUrl(rawApiBaseUrl);
-  const seedUrl = normalizedBaseUrl ?? normalizedApiBaseUrl ?? DEFAULT_DEN_BASE_URL;
-
-  return {
-    baseUrl: stripDenApiBasePath(normalizedBaseUrl ?? seedUrl) ?? DEFAULT_DEN_BASE_URL,
-    apiBaseUrl: normalizedApiBaseUrl ?? deriveDenApiBaseUrl(seedUrl),
-  };
 }
 
 function resolveDenBootstrapConfig(
@@ -525,16 +424,6 @@ export async function setDenBootstrapConfig(
   });
 
   return readDenBootstrapConfig();
-}
-
-export function buildDenAuthUrl(baseUrl: string, mode: "sign-in" | "sign-up"): string {
-  const target = new URL(resolveDenBaseUrls(baseUrl).baseUrl);
-  target.searchParams.set("mode", mode);
-  if (isDesktopDeployment()) {
-    target.searchParams.set("desktopAuth", "1");
-    target.searchParams.set("desktopScheme", "onmyagent");
-  }
-  return target.toString();
 }
 
 function resolveRequestBaseUrl(baseUrls: DenBaseUrls, path: string): string {

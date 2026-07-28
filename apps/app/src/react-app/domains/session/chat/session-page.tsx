@@ -97,10 +97,10 @@ import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
 import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
 import {
   GLOBAL_VOICE_SIDE_PANEL_KEY,
-  STARTUP_SKELETON_ROWS,
   sessionTitleForId,
   type TaskStatusIndicator,
 } from "./session-page-model";
+import { SessionStartupSkeleton } from "../pages/session-startup-skeleton";
 import { OnMyAgentRail } from "./session-page-rail";
 import { useSessionPageSessionActions } from "./session-page-session-actions";
 import { useSessionPageSidePanel } from "./session-page-side-panel";
@@ -113,6 +113,7 @@ import { WorkspaceFilesPage } from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import { appendComposerFileMention } from "../pages/shared-page-utils";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -174,7 +175,14 @@ function CodeSidePanelMenu(props: {
       </header>
       <div className="flex min-h-0 flex-1 items-center justify-center px-6">
         <div className="w-full max-w-[520px] space-y-2">
-          {codeRailItems.map((item) => {
+          {[...codeRailItems]
+            .map((item, index) => ({
+              item,
+              index,
+              labelLen: String(t(item.labelKey)).length,
+            }))
+            .sort((a, b) => a.labelLen - b.labelLen || a.index - b.index)
+            .map(({ item }) => {
             const Icon = item.icon;
             const selected = props.activePanel === item.id;
             const shortcut = codeRailShortcutById[item.id];
@@ -248,129 +256,14 @@ function CodeSidePanelPlaceholder(props: {
   );
 }
 
-type StatusBarOverrides = Pick<
-  StatusBarProps,
-  "loading" | "showSettingsButton" | "settingsOpen"
->;
-
-export type SessionPageHistoryControls = {
-  canUndo: boolean;
-  canRedo: boolean;
-  busyAction: "undo" | "redo" | null;
-  onUndo: () => void | Promise<void>;
-  onRedo: () => void | Promise<void>;
-};
-
-export type SessionPageSidebarProps = {
-  workspaceSessionGroups: WorkspaceSessionGroup[];
-  selectedWorkspaceId: string;
-  selectedSessionId: string | null;
-  developerMode: boolean;
-  sessionStatusById: Record<string, string>;
-  connectingWorkspaceId: string | null;
-  workspaceConnectionStateById: Record<string, WorkspaceConnectionState>;
-  newTaskDisabled: boolean;
-  sidebarHydratedFromCache: boolean;
-  startupPhase: BootPhase;
-  onSelectWorkspace: (workspaceId: string) => Promise<boolean> | boolean | void;
-  onOpenSession: (workspaceId: string, sessionId: string) => void;
-  onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
-  onCreateTaskInWorkspace: (workspaceId: string) => void;
-  onCreateTaskWithPrompt?: (workspaceId: string, prompt: string) => void;
-  onOpenRenameWorkspace: (workspaceId: string) => void;
-  onShareWorkspace: (workspaceId: string) => void;
-  onRevealWorkspace: (workspaceId: string) => void;
-  onRecoverWorkspace: (
-    workspaceId: string,
-  ) => Promise<boolean> | boolean | void;
-  onTestWorkspaceConnection: (
-    workspaceId: string,
-  ) => Promise<boolean> | boolean | void;
-  onEditWorkspaceConnection: (workspaceId: string) => void;
-  onForgetWorkspace: (workspaceId: string) => void;
-  onOpenCreateWorkspace: () => void;
-  onReorderWorkspaces?: (workspaceIds: string[]) => void;
-};
-
-export type SessionPageSurfaceProps = Omit<
-  SessionSurfaceProps,
-  "client" | "workspaceId" | "sessionId" | "opencodeBaseUrl" | "onmyagentToken"
->;
-
-export type SessionPageProps = {
-  selectedSessionId: string | null;
-  selectedWorkspaceId: string;
-  selectedWorkspaceDisplay: {
-    id?: string;
-    name?: string;
-    displayName?: string;
-    workspaceType?: WorkspaceInfo["workspaceType"];
-  };
-  selectedWorkspaceRoot: string;
-  selectedSessionFileRoot?: string | null;
-  selectedWorkspaceError?: string | null;
-  runtimeWorkspaceId: string | null;
-  /**
-   * Pre-built OpenCode SDK base URL for the selected workspace's owning
-   * server. The parent route resolves this through `resolveWorkspaceEndpoint`
-   * so we never compose `<baseUrl>/workspace/<id>/opencode` here.
-   */
-  opencodeBaseUrl?: string | null;
-  workspaces: WorkspaceInfo[];
-  clientConnected: boolean;
-  onmyagentServerStatus: OnMyAgentServerStatus;
-  onmyagentServerClient: OnMyAgentServerClient | null;
-  onmyagentServerToken?: string | null;
-  developerMode: boolean;
-  headerStatus: string;
-  busyHint: string | null;
-  startupPhase: BootPhase;
-  providerConnectedIds: string[];
-  providers?: ProviderListItem[];
-  mcpConnectedCount: number;
-  onSendFeedback: () => void;
-  /** Open settings; optional route like `/settings/usage`. */
-  onOpenSettings: (route?: string) => void;
-  sidebar: SessionPageSidebarProps;
-  surface?: SessionPageSurfaceProps | null;
-  history?: SessionPageHistoryControls | null;
-  todos: TodoItem[];
-  sessionLoadingById: (sessionId: string | null) => boolean;
-  shareWorkspaceModal?: ShareWorkspaceModalProps | null;
-  providerAuthModal?: ProviderAuthModalProps | null;
-  activePermission?: PendingPermission | null;
-  permissionReplyBusy?: boolean;
-  respondPermission?: (
-    requestID: string,
-    reply: "once" | "always" | "reject",
-  ) => void;
-  autoApprovedPermissionNoticeId?: string | null;
-  safeStringify?: (value: unknown) => string;
-  activeQuestion?: PendingQuestion | null;
-  questionReplyBusy?: boolean;
-  respondQuestion?: (requestID: string, answers: string[][]) => void;
-  statusBar?: Partial<StatusBarOverrides>;
-  notFoundMessage?: string | null;
-  onRenameSession?: (sessionId: string, title: string) => Promise<void> | void;
-  onDeleteSession?: (sessionId: string) => Promise<void> | void;
-  onAccessibleTargetsChange?: (targets: OpenTarget[]) => void;
-  account?: SidebarAccountInfo | null;
-  onOpenAccountSettings?: () => void;
-  onSignOut?: () => void;
-  renderAgentsPage: (props: {
-    workspaceId: string;
-    workspaceRoot: string;
-    client: OnMyAgentServerClient | null;
-    providers?: ProviderListItem[];
-    connectedProviderIds?: string[];
-    initialEditingAgentId?: string | null;
-    editRequestKey?: number;
-    dialogOnly?: boolean;
-    onStartConversation?: (item: AgentCardItem, registry: AgentRegistry) => void;
-  }) => React.ReactNode;
-  /** Settings content rendered inside the right pane when the settings rail icon is active. */
-  settingsSlot?: React.ReactNode;
-};
+// Canonical page prop types live in pages/session-page-types (single definition).
+export type {
+  SessionPageHistoryControls,
+  SessionPageProps,
+  SessionPageSidebarProps,
+  SessionPageSurfaceProps,
+} from "../pages/session-page-types";
+import type { SessionPageProps } from "../pages/session-page-types";
 
 export function SessionPage(props: SessionPageProps) {
   const { showToast } = useStatusToasts();
@@ -592,6 +485,7 @@ export function SessionPage(props: SessionPageProps) {
         sessionLoadingById: props.sessionLoadingById,
         sidebar: props.sidebar,
         startupPhase: props.startupPhase,
+        coldBootShell: props.coldBootShell === true,
         statusBarLoading: props.statusBar?.loading,
         surface: props.surface,
         workspaceCount: props.workspaces.length,
@@ -599,6 +493,7 @@ export function SessionPage(props: SessionPageProps) {
     [
       agentPanel.activeSidebarView,
       props.clientConnected,
+      props.coldBootShell,
       props.onmyagentServerClient,
       props.onmyagentServerStatus,
       props.onmyagentServerToken,
@@ -840,8 +735,33 @@ export function SessionPage(props: SessionPageProps) {
                             props.runtimeWorkspaceId ??
                             props.selectedWorkspaceId
                           }
-                          workspaceRoot={props.selectedWorkspaceRoot}
+                          workspaceRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
+                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
+                          fileRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
                           onOpenArtifact={openTarget}
+                          onAddToTask={(relativePath) => {
+                            if (
+                              !appendComposerFileMention(
+                                pageView.renderedSessionId,
+                                relativePath,
+                              )
+                            ) {
+                              return;
+                            }
+                            agentPanel.openChatView();
+                            showToast({
+                              tone: "success",
+                              title: t("files.added_to_task_title"),
+                              description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),
@@ -880,38 +800,7 @@ export function SessionPage(props: SessionPageProps) {
                       {pageView.isSessionSurfaceView &&
                       !pageView.activePlaceholderView &&
                       pageView.showStartupSkeleton ? (
-                        <div
-                          className="px-6 py-14"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="mx-auto max-w-2xl space-y-6">
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
-                            </div>
-                            <div className="space-y-3">
-                              {STARTUP_SKELETON_ROWS.map((row) => (
-                                <div
-                                  key={row.id}
-                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
-                                >
-                                  <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
-                                    style={{ width: row.titleWidth }}
-                                  />
-                                  <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
-                                    <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
-                                      style={{ width: row.bodyWidth }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        <SessionStartupSkeleton />
                       ) : null}
 
                       {pageView.isSessionSurfaceView &&

@@ -5,12 +5,17 @@ import type {
   QuestionRequest,
   ProviderListResponse,
   Session,
+  createOpencodeClient,
 } from "@opencode-ai/sdk/v2/client";
-import type { createClient } from "./lib/opencode";
 import type { OpencodeConfigFile, WorkspaceInfo } from "./lib/desktop";
 export type { ReloadReason, ReloadTrigger } from "@onmyagent/types/server";
 
-export type Client = ReturnType<typeof createClient>;
+/**
+ * OpenCode SDK client shape used across the app.
+ * Defined from the SDK (not `./lib/opencode`) so `types` stays a leaf relative
+ * to the client/utils graph and does not cycle: types → opencode → server → utils → types.
+ */
+export type Client = ReturnType<typeof createOpencodeClient>;
 
 export type ProviderListItem = ProviderListResponse["all"][number];
 
@@ -93,10 +98,18 @@ export type MessageGroup =
 
 export type PromptMode = "prompt" | "shell";
 
+export type ComposerMentionKind = "agent" | "file" | "directory";
+
+export type ComposerMentionTarget = {
+  path: string;
+  kind: "file" | "directory";
+};
+
 export type ComposerPart =
   | { type: "text"; text: string }
   | { type: "agent"; name: string }
   | { type: "file"; path: string; label?: string }
+  | { type: "directory"; path: string; label?: string }
   | { type: "paste"; id: string; label: string; text: string; lines: number };
 
 export type ComposerAttachment = {
@@ -249,6 +262,7 @@ export type SettingsTab =
   | "memory"
   | "conversation-memory"
   | "archived-tasks"
+  | "recovery"
   | "debug";
 
 export type WorkspacePreset = "starter" | "automation" | "minimal";

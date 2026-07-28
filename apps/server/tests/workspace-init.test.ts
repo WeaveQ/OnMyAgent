@@ -90,19 +90,10 @@ describe("ensureWorkspaceFiles", () => {
       expect(agent).toContain("write a small skeleton first");
       expect(agent).toContain("edit or append in multiple calls");
       expect(agent).toContain(`${APP_NAME} can render safe SVG/HTML fragments`);
-      expect(agent).toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
-      expect(agent).toContain("Do not mention specific tool names");
-      expect(agent).toContain("The final reply must stand on its own");
-      expect(agent).toContain("Explicit requests to show, visualize, diagram, chart, draw, or graph");
-      expect(agent).toContain("Always use an inline visual for educational or teaching requests");
-      expect(agent).toContain("Data comparisons and architecture or system design requests");
-      expect(agent).toContain("A noun-phrase specification of a visual artifact");
-      expect(agent).toContain("Between multiple visuals, write a short paragraph");
-      expect(agent).toContain("Before the first operation group");
-      expect(agent).toContain("After receiving a material result and before starting the next operation group");
-      expect(agent).toContain("Every visible process fold should therefore have preceding body text");
-      expect(agent).toContain("Do not narrate every low-level call");
-      expect(agent).toContain("Text -> operation group -> text -> operation group");
+      expect(agent).not.toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
+      expect(agent).toContain("onmyagent_browser_node_repl");
+      expect(agent).toContain("Toggle buttons");
+      expect(agent).toContain("at most once");
       expect(agent).toContain('request `modules: ["chart"]`');
       expect(agent).toContain("call `read_me` with every relevant module and then `render_visual`");
       expect(agent).toContain("pass its workspace-relative path as `file_path`");
@@ -135,6 +126,9 @@ describe("ensureWorkspaceFiles", () => {
       expect(browserNodeReplTool).toContain("ONMYAGENT_BROWSER_RPC_ENDPOINT");
       expect(browserNodeReplTool).toContain('method: "getCapability"');
       expect(browserNodeReplTool).toContain('method: "nodeReplWrite"');
+      expect(browserNodeReplTool).toContain("ONLY supported way to control");
+      expect(browserNodeReplTool).toContain("Do NOT fall back to CDP ports");
+      expect(browserNodeReplTool).toContain("agent.browsers.getDefault()");
       expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
 
       const secondResult = await ensureWorkspaceFiles(root, "starter");
@@ -177,10 +171,8 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(agent).toContain("Old instructions");
       expect(agent).toContain(`${APP_NAME} Artifacts`);
-      expect(agent).toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
-      expect(agent).toContain("Do not mention specific tool names");
-      expect(agent).toContain("Before the first operation group");
-      expect(agent).toContain("Every visible process fold should therefore have preceding body text");
+      expect(agent).not.toContain(`<!-- ${APP_NAME}_PRESENTATION_START -->`);
+      expect(agent).toContain("Toggle buttons");
       expect(result.reloadReasons.sort()).toEqual(["agents", "commands", "config"]);
     });
   });
@@ -321,8 +313,12 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(fresh).toContain(`<!-- ${APP_NAME}_BROWSER_AUTOMATION_START -->`);
       expect(fresh).toContain("onmyagent_browser_node_repl");
-      expect(fresh).not.toContain("127.0.0.1");
-      expect(fresh).not.toContain("browser_url");
+      expect(fresh).toContain("Forbidden");
+      expect(fresh).toContain("remote-debugging-port");
+      expect(fresh).toContain("that is expected");
+      // Must ban the retired CDP entrypoint, not teach it as the way to connect.
+      expect(fresh).toContain("Inventing `browser_url`");
+      expect(fresh).not.toMatch(/always use.*"http:\/\/127\.0\.0\.1:9823"/);
 
       // Existing agent files without the marker get the block appended; user
       // content outside markers is preserved.

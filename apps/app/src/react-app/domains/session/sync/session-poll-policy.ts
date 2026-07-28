@@ -13,6 +13,33 @@ export const CODE_REVIEW_POLL_INTERVAL_MS = 2500;
 export const AUTOMATION_RUNNING_REFETCH_MS = 2_000;
 export const AUTOMATION_IDLE_REFETCH_MS = 15_000;
 
+/** Reload-events poll: longer than the old hard 3s always-on timer. */
+export const RELOAD_EVENTS_POLL_INTERVAL_MS = 10_000;
+
+/** Focused session snapshot React Query staleTime (was 500ms). */
+export const SESSION_SNAPSHOT_STALE_TIME_MS = 5_000;
+
+/**
+ * Conversation-history panel/popover snapshot message cap.
+ * Align with sidebar-scale lists rather than a hard 200-message pull.
+ */
+export const CONVERSATION_HISTORY_SNAPSHOT_LIMIT = 40;
+
+// Re-export sidebar cold-start policy so poll suites and callers share one path.
+export {
+  SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
+  SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_MAX,
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+  SIDEBAR_SESSION_LIST_LIMIT,
+  TAB_TITLE_SNAPSHOT_DEFER_MS,
+  TAB_TITLE_SNAPSHOT_MAX,
+  isDraftSessionId,
+  orderBackgroundSessionWorkspacesSelectedOnly,
+  selectSidebarPreviewSessionIds,
+} from "./sidebar-load-policy";
+
 export function isDocumentVisible(documentVisible?: boolean): boolean {
   if (documentVisible === false) return false;
   if (documentVisible === true) return true;
@@ -27,6 +54,17 @@ export function shouldRunActivePoll(input: {
 }): boolean {
   if (!input.enabled) return false;
   return isDocumentVisible(input.documentVisible);
+}
+
+/**
+ * Reload-events poll tick: skip while the tab is hidden so a backgrounded
+ * session route does not keep hitting listReloadEvents every interval.
+ * Interval install stays independent (see refresh-hook).
+ */
+export function shouldRunReloadEventsPoll(input?: {
+  documentVisible?: boolean;
+}): boolean {
+  return isDocumentVisible(input?.documentVisible);
 }
 
 /**

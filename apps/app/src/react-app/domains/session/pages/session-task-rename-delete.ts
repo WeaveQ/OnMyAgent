@@ -58,14 +58,18 @@ export function useSessionTaskRenameDelete<
     [workspaceSessionGroups, sessionActionId],
   );
 
+  // Close rename when selection changes. Do NOT abort an in-flight group delete:
+  // deleting the currently open run navigates away (selectedSessionId changes)
+  // and used to clear deleteTarget mid-loop, so remaining runs + the schedule
+  // survived — “定时任务删不掉”.
   useEffect(() => {
     setRenameOpen(false);
-    setDeleteOpen(false);
     setRenameBusy(false);
-    setDeleteBusy(false);
     setSessionActionId(null);
+    if (deleteBusy) return;
+    setDeleteOpen(false);
     setDeleteTarget(null);
-  }, [selectedSessionId]);
+  }, [selectedSessionId, deleteBusy]);
 
   const openRenameModal = useCallback(
     (sessionId: string, title: string) => {

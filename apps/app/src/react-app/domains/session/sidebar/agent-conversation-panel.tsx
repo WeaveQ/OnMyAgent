@@ -38,7 +38,17 @@ import {
 } from "./conversation-model";
 import {
   automationListRefetchIntervalMs,
+  SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
 } from "../sync/session-poll-policy";
+import {
+  isSessionSnapshotNotFoundError,
+  markSessionSnapshotNotFound,
+  shouldRetrySessionSnapshotQuery,
+  shouldSkipSnapshotForNotFoundCooldown,
+} from "../sync/session-snapshot-fetch-policy";
+import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
+
 import {
   buildAssistantSidebarModel,
   buildAutomationLocalPinsMap,
@@ -68,6 +78,7 @@ import {
   type AutomationSessionRecord,
   automationSessionsChangedEvent,
   readAutomationSessionRecords,
+  readDeletedAutomationSessionIds,
   syncAutomationSessionRecords,
 } from "../../messaging";
 
@@ -78,13 +89,25 @@ function registerAutomationAssistantSessions(workspaceId: string) {
   }
 }
 
-function mergeAutomationSessions(
+/** Module-level cooldown so remounts do not re-storm 404 snapshot ids. */
+const snapshotNotFoundUntilBySessionId = new Map<string, number>();
+
+/**
+ * Merge engine sessions with local automation run records, dropping archived /
+ * soft-deleted automation sessions so archive from the runs list stays in sync
+ * with the 定时 sidebar.
+ */
+export function mergeAutomationSessions(
   sessions: WorkspaceSessionGroup["sessions"],
   records: AutomationSessionRecord[],
+  excludedSessionIds?: ReadonlySet<string>,
 ): WorkspaceSessionGroup["sessions"] {
-  const sessionsById = new Map(sessions.map((session) => [session.id, session]));
-  const merged = [...sessions];
+  const excluded = excludedSessionIds ?? new Set<string>();
+  const base = sessions.filter((session) => !excluded.has(session.id));
+  const sessionsById = new Map(base.map((session) => [session.id, session]));
+  const merged = [...base];
   for (const record of records) {
+    if (excluded.has(record.sessionId)) continue;
     if (sessionsById.has(record.sessionId)) continue;
     const title = record.title.trim() || t("automation.run_history_title_fallback");
     const session: SidebarSessionItem = {
@@ -153,9 +176,23 @@ export function AgentConversationPanel(props: {
   const mode = props.mode ?? "agent";
   const [automationRevision, setAutomationRevision] = useState(0);
   const knownAutomationRunKeysRef = useRef<Set<string> | null>(null);
+  // Defer automation list until after shell paint — not needed for first interaction.
+  const [automationListReady, setAutomationListReady] = useState(false);
+  useEffect(() => {
+    if (mode !== "assistant" || !props.client) {
+      setAutomationListReady(false);
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setAutomationListReady(true),
+      SIDEBAR_AUTOMATION_LIST_DEFER_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [mode, props.client, props.selectedWorkspaceId]);
   const automationQuery = useQuery({
     queryKey: ["onmyagent-automations", props.selectedWorkspaceId],
-    enabled: mode === "assistant" && Boolean(props.client),
+    enabled:
+      mode === "assistant" && Boolean(props.client) && automationListReady,
     queryFn: async () => {
       const client = props.client;
       if (!client) throw new Error("OnMyAgent server unavailable");
@@ -233,6 +270,7 @@ export function AgentConversationPanel(props: {
   const group = props.groups.find(
     (item) => item.workspace.id === props.selectedWorkspaceId,
   );
+  const [archivedRevision, setArchivedRevision] = useState(0);
   const automationSessionRecords =
     useMemo(
       () =>
@@ -241,12 +279,29 @@ export function AgentConversationPanel(props: {
           : [],
       [automationRevision, mode, props.selectedWorkspaceId],
     );
+  const excludedAutomationSessionIds = useMemo(() => {
+    if (mode !== "assistant") return new Set<string>();
+    const deleted = readDeletedAutomationSessionIds(props.selectedWorkspaceId);
+    const archived = archivedSessionIdSet(
+      readAssistantArchivedTasks(props.selectedWorkspaceId),
+    );
+    return new Set([...deleted, ...archived]);
+  }, [automationRevision, archivedRevision, mode, props.selectedWorkspaceId]);
   const sessions: WorkspaceSessionGroup["sessions"] = useMemo(
     () =>
       mode === "assistant"
-        ? mergeAutomationSessions(group?.sessions ?? [], automationSessionRecords)
+        ? mergeAutomationSessions(
+            group?.sessions ?? [],
+            automationSessionRecords,
+            excludedAutomationSessionIds,
+          )
         : group?.sessions ?? [],
-    [automationSessionRecords, group?.sessions, mode],
+    [
+      automationSessionRecords,
+      excludedAutomationSessionIds,
+      group?.sessions,
+      mode,
+    ],
   );
   const assistantSessions = useMemo(
     () =>
@@ -283,6 +338,13 @@ export function AgentConversationPanel(props: {
       );
     };
   }, [mode, props.selectedWorkspaceId]);
+  // Preview snapshots are deferred + capped. Selected session transcript is
+  // loaded by the main surface — do not N× snapshot the whole sidebar on boot.
+  const { previewSessionIds: assistantPreviewIds } = useDeferredSidebarPreviews({
+    enabled: mode === "assistant" && Boolean(props.client),
+    sessions: assistantSessions,
+    selectedSessionId: props.selectedSessionId,
+  });
   const assistantSnapshotQueries = useQueries({
     queries: assistantSessions.map((session) => ({
       queryKey: [
@@ -290,23 +352,54 @@ export function AgentConversationPanel(props: {
         props.selectedWorkspaceId,
         session.id,
       ],
-      enabled: Boolean(props.client) && !session.id.startsWith("draft:"),
+      enabled:
+        Boolean(props.client) &&
+        !session.id.startsWith("draft:") &&
+        assistantPreviewIds.has(session.id) &&
+        !shouldSkipSnapshotForNotFoundCooldown({
+          sessionId: session.id,
+          notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+          nowMs: Date.now(),
+        }),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
-        return (
-          await client.getSessionSnapshot(
-            props.selectedWorkspaceId,
-            session.id,
-            {
-              limit: 8,
-              directory:
-                assistantWorkspaceBySessionId.get(session.id)?.directory,
-            },
-          )
-        ).item;
+        if (
+          shouldSkipSnapshotForNotFoundCooldown({
+            sessionId: session.id,
+            notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+            nowMs: Date.now(),
+          })
+        ) {
+          return null;
+        }
+        try {
+          return (
+            await client.getSessionSnapshot(
+              props.selectedWorkspaceId,
+              session.id,
+              {
+                limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+                directory:
+                  assistantWorkspaceBySessionId.get(session.id)?.directory,
+              },
+            )
+          ).item;
+        } catch (error) {
+          if (isSessionSnapshotNotFoundError(error)) {
+            markSessionSnapshotNotFound({
+              sessionId: session.id,
+              notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+              nowMs: Date.now(),
+            });
+            return null;
+          }
+          throw error;
+        }
       },
-      staleTime: 5_000,
+      staleTime: 30_000,
+      retry: (failureCount: number, error: unknown) =>
+        shouldRetrySessionSnapshotQuery(failureCount, error),
     })),
   });
   const assistantTitleFallbacks = new Map<string, string>();
@@ -341,6 +434,11 @@ export function AgentConversationPanel(props: {
     return list;
   }, [mode, registry, sessions]);
 
+  const { previewSessionIds: expertPreviewIds } = useDeferredSidebarPreviews({
+    enabled: mode === "agent" && Boolean(props.client),
+    sessions: expertLatestSessions,
+    selectedSessionId: props.selectedSessionId,
+  });
   const expertSnapshotQueries = useQueries({
     queries: expertLatestSessions.map((session) => ({
       queryKey: [
@@ -348,19 +446,50 @@ export function AgentConversationPanel(props: {
         props.selectedWorkspaceId,
         session.id,
       ],
-      enabled: Boolean(props.client) && mode === "agent",
+      enabled:
+        Boolean(props.client) &&
+        mode === "agent" &&
+        expertPreviewIds.has(session.id) &&
+        !shouldSkipSnapshotForNotFoundCooldown({
+          sessionId: session.id,
+          notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+          nowMs: Date.now(),
+        }),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
-        return (
-          await client.getSessionSnapshot(
-            props.selectedWorkspaceId,
-            session.id,
-            { limit: 8 },
-          )
-        ).item;
+        if (
+          shouldSkipSnapshotForNotFoundCooldown({
+            sessionId: session.id,
+            notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+            nowMs: Date.now(),
+          })
+        ) {
+          return null;
+        }
+        try {
+          return (
+            await client.getSessionSnapshot(
+              props.selectedWorkspaceId,
+              session.id,
+              { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
+            )
+          ).item;
+        } catch (error) {
+          if (isSessionSnapshotNotFoundError(error)) {
+            markSessionSnapshotNotFound({
+              sessionId: session.id,
+              notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+              nowMs: Date.now(),
+            });
+            return null;
+          }
+          throw error;
+        }
       },
-      staleTime: 5_000,
+      staleTime: 30_000,
+      retry: (failureCount: number, error: unknown) =>
+        shouldRetrySessionSnapshotQuery(failureCount, error),
     })),
   });
 
@@ -498,7 +627,6 @@ export function AgentConversationPanel(props: {
     }
     return map;
   });
-  const [archivedRevision, setArchivedRevision] = useState(0);
   const assistantArchivedTasks = useMemo(
     () => readAssistantArchivedTasks(props.selectedWorkspaceId),
     [props.selectedWorkspaceId, archivedRevision],
@@ -782,8 +910,8 @@ export function AgentConversationPanel(props: {
     [props.selectedWorkspaceId],
   );
 
-  const handleArchiveAssistantSession = useCallback(
-    (sessionId: string, title: string) => {
+  const archiveAssistantSessionCore = useCallback(
+    (sessionId: string, title: string, options?: { silent?: boolean }) => {
       archiveAssistantTask(props.selectedWorkspaceId, {
         sessionId,
         title,
@@ -810,29 +938,35 @@ export function AgentConversationPanel(props: {
           }
           return { ...current, [automationId]: nextIds };
         });
-        return;
-      }
-      const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
-      if (spaceDir) {
-        setSpaceLocalPinsByDirectory((current) => {
-          const prev = current[spaceDir] ?? [];
-          if (!prev.includes(sessionId)) return current;
-          const nextIds = prev.filter((id) => id !== sessionId);
-          writeAssistantSpaceLocalPins(
-            props.selectedWorkspaceId,
-            spaceDir,
-            nextIds,
-          );
-          return { ...current, [spaceDir]: nextIds };
-        });
       } else {
-        setAssistantGlobalPins((current) => {
-          const next = current.filter(
-            (pin) => !(pin.kind === "session" && pin.id === sessionId),
-          );
-          if (next.length === current.length) return current;
-          writeAssistantGlobalPins(props.selectedWorkspaceId, next);
-          return next;
+        const spaceDir = folderPathBySessionId.get(sessionId)?.trim() || null;
+        if (spaceDir) {
+          setSpaceLocalPinsByDirectory((current) => {
+            const prev = current[spaceDir] ?? [];
+            if (!prev.includes(sessionId)) return current;
+            const nextIds = prev.filter((id) => id !== sessionId);
+            writeAssistantSpaceLocalPins(
+              props.selectedWorkspaceId,
+              spaceDir,
+              nextIds,
+            );
+            return { ...current, [spaceDir]: nextIds };
+          });
+        } else {
+          setAssistantGlobalPins((current) => {
+            const next = current.filter(
+              (pin) => !(pin.kind === "session" && pin.id === sessionId),
+            );
+            if (next.length === current.length) return current;
+            writeAssistantGlobalPins(props.selectedWorkspaceId, next);
+            return next;
+          });
+        }
+      }
+      if (!options?.silent) {
+        showToast({
+          tone: "success",
+          title: t("session.archive_task_done"),
         });
       }
     },
@@ -841,7 +975,15 @@ export function AgentConversationPanel(props: {
       folderPathBySessionId,
       props.assistantCategoryId,
       props.selectedWorkspaceId,
+      showToast,
     ],
+  );
+
+  const handleArchiveAssistantSession = useCallback(
+    (sessionId: string, title: string) => {
+      archiveAssistantSessionCore(sessionId, title);
+    },
+    [archiveAssistantSessionCore],
   );
 
   const handleOpenFolder = useCallback((path: string) => {
@@ -947,9 +1089,10 @@ export function AgentConversationPanel(props: {
       const group = automationGroupsAll.find((item) => item.id === groupId);
       if (!group || group.items.length === 0) return;
       for (const item of group.items) {
-        handleArchiveAssistantSession(
+        archiveAssistantSessionCore(
           item.latestSession.id,
           item.description,
+          { silent: true },
         );
       }
       // Drop group from global pins + clear local pin order.
@@ -977,8 +1120,8 @@ export function AgentConversationPanel(props: {
       });
     },
     [
+      archiveAssistantSessionCore,
       automationGroupsAll,
-      handleArchiveAssistantSession,
       props.selectedWorkspaceId,
       showToast,
     ],

@@ -1,9 +1,9 @@
 /** @jsxImportSource react */
 import type { LucideIcon } from "lucide-react";
 import {
-  AppWindow,
-  ImageIcon,
-  Mic,
+  AudioLines,
+  Compass,
+  MousePointerClick,
   Plug,
 } from "lucide-react";
 
@@ -13,16 +13,19 @@ import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { cn } from "@/lib/utils";
 
 /**
- * Built-in product extensions: prefer the same semantic Lucide / ProviderIcon
- * language used elsewhere in the shell (model picker, rail, settings cards)
- * instead of shared logo PNGs that read poorly at 16px / dark mode.
+ * Product-feature glyphs (no brand mark). Prefer brand ProviderIcon when mapped.
+ * Chosen to read clearly at ~18px on the white connector tile.
  */
 const BUILTIN_LUCIDE_BY_ID: Record<string, LucideIcon> = {
-  "computer-use": AppWindow,
-  "onmyagent-voice": Mic,
-  "openai-image-gen": ImageIcon,
+  // Desktop AX / click-drive, not a plain window frame.
+  "computer-use": MousePointerClick,
+  // Real Chromium profile navigation (distinct from in-app browser).
+  "browser-skill": Compass,
+  // Speech / realtime — waveform is more distinctive than a bare mic.
+  "onmyagent-voice": AudioLines,
 };
 
+/** Brand logos (model picker language) for vendor-tied extensions. */
 const BUILTIN_PROVIDER_ID_BY_EXT: Record<string, string> = {
   ollama: "ollama",
   "openai-image-gen": "openai",
@@ -44,8 +47,8 @@ export function extensionIcon(entry: McpDirectoryInfo, size = 16) {
   const providerId = BUILTIN_PROVIDER_ID_BY_EXT[key];
   const Lucide = BUILTIN_LUCIDE_BY_ID[key];
 
-  // Brand providers (OpenAI / Ollama): system ProviderIcon (same as model picker).
-  if (providerId && !Lucide) {
+  // Brand first (OpenAI Image Gen / Ollama) so product cards match model picker.
+  if (providerId) {
     return (
       <ProviderIcon
         providerId={providerId}
@@ -55,7 +58,6 @@ export function extensionIcon(entry: McpDirectoryInfo, size = 16) {
     );
   }
 
-  // Product features with a clear system glyph (Computer Use, Voice, Image).
   if (Lucide) {
     return <Lucide size={size} className={cn(ICON_INK, "shrink-0")} strokeWidth={2} />;
   }

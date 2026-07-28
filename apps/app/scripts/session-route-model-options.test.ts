@@ -124,6 +124,61 @@ describe("session route model options", () => {
       ]);
   });
 
+  test("marks OpenCode Zen free models in connected options", () => {
+    const options = buildConnectedModelOptions({
+      data: {
+        all: [
+          {
+            id: "opencode",
+            name: "OpenCode Zen",
+            models: {
+              "big-pickle": {
+                id: "big-pickle",
+                name: "Big Pickle",
+                cost: { input: 0, output: 0 },
+              },
+              "deepseek-v4-flash-free": {
+                id: "deepseek-v4-flash-free",
+                name: "DeepSeek V4 Flash Free",
+                cost: { input: 0, output: 0 },
+              },
+            },
+          } as never,
+        ],
+        connected: ["opencode"],
+        default: { opencode: "big-pickle" },
+      },
+      seenProviderIds: new Set(),
+      recentProviderIds: new Set(),
+    });
+
+    expect(options.map((item) => `${item.modelID}:${item.isFree}`)).toEqual([
+      "big-pickle:true",
+      "deepseek-v4-flash-free:true",
+    ]);
+  });
+
+  test("allows OpenCode Zen when allowZenModel is open", () => {
+    const options = [
+      option({ providerID: "opencode", modelID: "big-pickle", isConnected: true, isFree: true }),
+      option({ providerID: "qwen", modelID: "qwen3.7-max", isConnected: true }),
+    ];
+
+    expect(
+      filterAllowedModelOptions({
+        options,
+        checkRestriction: () => false,
+      }).map((item) => item.providerID),
+    ).toEqual(["opencode", "qwen"]);
+
+    expect(
+      filterAllowedModelOptions({
+        options,
+        checkRestriction: ({ restriction }) => restriction === "allowZenModel",
+      }).map((item) => item.providerID),
+    ).toEqual(["qwen"]);
+  });
+
   test("filters custom local model options when custom providers are restricted", () => {
     const options = [
       option({ providerID: "openai", modelID: "gpt-4o", isConnected: true }),
@@ -255,6 +310,32 @@ describe("session route model options", () => {
       model: { providerID: "google", modelID: "gemini-3-pro-preview" },
       changed: false,
     });
+    // Loaded empty catalog → drop ghost defaults (e.g. big-pickle) so the
+    // composer does not claim a model when the menu is empty.
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: DEFAULT_MODEL,
+        checkRestriction: () => false,
+        connectedProviderIds: [],
+        providerListData: {
+          all: [],
+          connected: [],
+          default: {},
+        } as never,
+      }),
+    ).toEqual({ model: null, changed: true });
+    expect(
+      resolveUsableDefaultModel({
+        currentDefault: null,
+        checkRestriction: () => false,
+        connectedProviderIds: [],
+        providerListData: {
+          all: [],
+          connected: [],
+          default: {},
+        } as never,
+      }),
+    ).toEqual({ model: null, changed: false });
     // Last used still in connected catalog → keep.
     expect(
       resolveUsableDefaultModel({

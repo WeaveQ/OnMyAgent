@@ -18,6 +18,7 @@ export const loadEnvironmentView = () => import("./pages/environment-view");
 export const loadUpdatesView = () => import("./pages/updates-view");
 export const loadUsageView = () => import("./pages/usage-view");
 export const loadDebugView = () => import("./pages/debug-view");
+export const loadRecoveryView = () => import("./pages/recovery-view");
 export const loadArchivedTasksView = () => import("./pages/archived-tasks-view");
 export const loadAuthorizedFoldersPanel = () =>
   import("./panels/authorized-folders-panel");

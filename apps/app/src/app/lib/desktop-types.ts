@@ -1461,6 +1461,17 @@ export type AgentManagementAgent = PersonalLocalAgent & {
   skillCount: number;
 };
 
+export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp" | "providers";
+
+export type AgentManagementSnapshotInput = {
+  workspaceRoot: string;
+  /** When set, only these domains are loaded. Omit for full legacy snapshot. */
+  domains?: AgentManagementSnapshotDomain[];
+  /** Default false for domain-aware loads; true for full legacy snapshot. */
+  includeModels?: boolean;
+  includeDiscoverable?: boolean;
+};
+
 export type AgentManagementSnapshot = {
   generatedAt: number;
   workspaceRoot: string;
@@ -1468,12 +1479,26 @@ export type AgentManagementSnapshot = {
   skills: AgentManagementSkill[];
   providers: AgentManagementProvidersSnapshot;
   mcp: AgentManagementMcpSnapshot;
+  /** Domains actually populated in this response (partial loads omit others). */
+  loadedDomains?: AgentManagementSnapshotDomain[];
 };
 
 
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }
-  | { action: "save"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string; syncLive?: boolean; provider: Omit<Partial<AgentManagementManagedProvider>, "settingsConfig"> & { settingsConfig?: Record<string, unknown> | string; simple?: Record<string, unknown> } }
+  | {
+      action: "save";
+      appType: AgentManagementManagedProvider["appType"];
+      workspaceRoot?: string;
+      syncLive?: boolean;
+      /** When true (default for OpenCode), also set opencode.json model to the first catalog entry. */
+      setDefault?: boolean;
+      switchDefault?: boolean;
+      provider: Omit<Partial<AgentManagementManagedProvider>, "settingsConfig"> & {
+        settingsConfig?: Record<string, unknown> | string;
+        simple?: Record<string, unknown>;
+      };
+    }
   | { action: "delete" | "switch" | "syncLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string; providerId: string };
 
 export type AgentManagementProviderActionResult = {
@@ -1481,6 +1506,8 @@ export type AgentManagementProviderActionResult = {
   action: string;
   appType: AgentManagementManagedProvider["appType"];
   providerId?: string;
+  defaultModelId?: string | null;
+  defaultModel?: { providerID: string; modelID: string } | null;
   imported?: number;
   providers: AgentManagementProvidersSnapshot;
 };
@@ -1502,6 +1529,20 @@ export type AgentManagementFetchModelsResult = {
   ok: boolean;
   endpoint: string;
   models: AgentManagementFetchedModel[];
+};
+
+export type AgentManagementTestModelInput = {
+  appType: AgentManagementManagedProvider["appType"];
+  baseUrl: string;
+  apiKey?: string;
+  modelId: string;
+};
+
+export type AgentManagementTestModelResult = {
+  ok: boolean;
+  endpoint: string;
+  modelId: string;
+  elapsedMs: number;
 };
 
 export type AgentManagementSkillActionInput = {

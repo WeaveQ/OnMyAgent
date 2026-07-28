@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import {
   registerExtensionConfig,
   type ExtensionConfigContext,
-} from "./extension-registry";
+} from "../shared";
 import { t } from "@/i18n";
 import { APP_NAME } from "../../../i18n/locales/brand";
 

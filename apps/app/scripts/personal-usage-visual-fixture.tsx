@@ -30,6 +30,12 @@ function dateOnly(offset: number) {
 }
 
 const client: PersonalUsageClient = {
+  async syncSessionArchive() {
+    return { status: "completed" };
+  },
+  async getSessionArchiveSyncStatus() {
+    return { status: "completed" };
+  },
   async getSessionArchiveUsageSummary(workspaceId) {
     if (fixtureState === "partial" && workspaceId === "code") {
       throw new Error("Fixture workspace unavailable");

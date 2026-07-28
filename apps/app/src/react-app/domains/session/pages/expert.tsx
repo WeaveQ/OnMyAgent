@@ -1,11 +1,11 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePanelRef } from "react-resizable-panels";
 import {
   ChevronDown,
   ChevronUp,
   PanelRight,
+  Plus,
   Search,
   X,
   Zap,
@@ -13,12 +13,9 @@ import {
 
 import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
-import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
 import {
-  isCollectibleArtifactTarget,
-  isLocalhostBrowserTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
 import {
@@ -36,28 +33,19 @@ import {
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../workspace";
-import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
+import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
 import {
   installBuiltinSkillPackage,
-  listExpertPackages,
-  type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
-import { openInAppBrowser } from "../browser/open-in-app-browser";
-import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
-import {
-  getExtensionId,
-  isOnMyAgentExtensionEnabled,
-  ONMYAGENT_EXTENSION_STATE_CHANGED,
-} from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
 import { SessionHistorySearchChrome } from "./session-history-search-chrome";
-import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
+import { SessionArchivePage } from "../chat/session-page-session-archive-page";
 import { createCanvasSessionKey } from "../infinite-canvas";
 import {
   LazyCodeWorkspaceSidePanel,
@@ -72,20 +60,14 @@ import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pe
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import { writeAssistantSelectionMemory } from "../sidebar/session-chrome";
 import {
-  useVisitedRailViews,
-} from "../sidebar/keep-alive-pane";
-import {
-  isPrimarySessionRailView,
-  readRailView,
   writeAssistantCategoryMemory,
-  writeRailView,
 } from "../sidebar/rail-navigation-memory";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
 
-import type { SessionPageProps } from "./index";
+import type { SessionPageProps } from "./session-page-types";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 
 import type { AgentCardItem } from "../../agents";
@@ -114,19 +96,17 @@ import { WorkspaceFilesPage } from "../../workspace";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
+  mergeStableSessionTabOrder,
   SidebarPaneCollapseToggle,
-  STARTUP_SKELETON_ROWS,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
-  hiddenAccessibleTargetsStorageKey,
-  readHiddenAccessibleTargetIds,
-  writeHiddenAccessibleTargetIds,
+  shouldShowSessionStartupSkeleton,
   workspaceTaskStatus,
   type OnMyAgentPrimaryView,
 } from "../sidebar/session-chrome";
+import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   readExpertPinnedAgentIds,
   writeExpertPinnedAgentIds,
@@ -150,10 +130,9 @@ import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
 
 import {
-  isVisibleExpertPackageEntry,
-  packageEntryToMarketplaceExpert,
-  isTrackableAccessibleTarget,
+  appendComposerFileMention,
   setComposerDraftAfterNewTask,
+  setExpertComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import {
   expertFeatureCategoryForAgent,
@@ -163,7 +142,7 @@ import {
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
-import { useSessionHostSidePanel } from "./use-session-host-side-panel";
+import { useSessionPageHostState } from "./use-session-page-host-state";
 import {
   buildCurrentAgentSessions,
   buildDraftAgentGroups,
@@ -177,6 +156,7 @@ import {
   selectRawWorkspaceSessions,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
+import { resolveReadyBoundExpertDraftSession } from "./expert-draft-session";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
@@ -200,28 +180,12 @@ export type ExpertPageProps = SessionPageProps & {
 export function ExpertPage(props: ExpertPageProps) {
   const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
-  const [activeSidebarView, setActiveSidebarView] =
-    useState<OnMyAgentPrimaryView>(() =>
-      readRailView("expert", props.selectedWorkspaceId, "chat"),
-    );
-  // Workspace switch: restore this mode's last rail page (管理/本地/专家会话…).
-  useEffect(() => {
-    setActiveSidebarView(readRailView("expert", props.selectedWorkspaceId, "chat"));
-  }, [props.selectedWorkspaceId]);
-  const visitedRailViews = useVisitedRailViews(
-    activeSidebarView,
-    props.selectedWorkspaceId,
-  );
-  const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
   const [storeActiveTab, setStoreActiveTab] =
     useState<StorePrimaryTab>("experts");
-  const myExpertPackages = useMyExpertPackages({
-    enabled: activeSidebarView === "store" && storeActiveTab === "experts",
-  });
   const {
     customConnectorOpen,
     setCustomConnectorOpen,
@@ -232,6 +196,12 @@ export function ExpertPage(props: ExpertPageProps) {
     useState<number | null>(null);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
+  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
+    null,
+  );
+  const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope] = useState<
+    Record<string, string[]>
+  >({});
   const [draftAgentContexts, setDraftAgentContexts] = useState<
     Record<string, PendingAgentContext>
   >({});
@@ -335,6 +305,37 @@ export function ExpertPage(props: ExpertPageProps) {
       workspaceSessions,
     ],
   );
+  const sessionTabOrderScope = [
+    props.selectedWorkspaceId,
+    activeConversationAgentId ?? "unbound",
+  ].join(":");
+  const sessionTabOrderIds = useMemo(
+    () =>
+      mergeStableSessionTabOrder(
+        sessionTabOrderIdsByScope[sessionTabOrderScope] ?? [],
+        currentAgentSessions,
+      ),
+    [
+      currentAgentSessions,
+      sessionTabOrderIdsByScope,
+      sessionTabOrderScope,
+    ],
+  );
+  useEffect(() => {
+    setSessionTabOrderIdsByScope((current) => {
+      const previous = current[sessionTabOrderScope] ?? [];
+      if (
+        previous.length === sessionTabOrderIds.length &&
+        previous.every((id, index) => id === sessionTabOrderIds[index])
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        [sessionTabOrderScope]: sessionTabOrderIds,
+      };
+    });
+  }, [sessionTabOrderIds, sessionTabOrderScope]);
   const activeConversationGroup = useMemo(
     () =>
       resolveActiveConversationGroup({
@@ -365,22 +366,20 @@ export function ExpertPage(props: ExpertPageProps) {
     ],
   );
 
-  const sidePanelScopeId =
-    activeSidebarView === "localAgent"
-      ? `localAgent:${props.selectedWorkspaceId}`
-      : props.selectedSessionId;
+  const expertHistorySessionId = draftSessionActive
+    ? activeDraftSessionId
+    : props.selectedSessionId;
   const {
-    sessionSidePanel,
-    setSidePanelState,
-    toggleSidePanelState,
-    setCurrentSidePanel: setCurrentSidePanelFromHook,
+    activeSidebarView,
+    openRailView,
+    visitedRailViews,
+    pendingArchiveResume,
+    setPendingArchiveResume,
+    setCurrentSidePanel,
     toggleCurrentSidePanel,
     artifactTarget,
     setArtifactTarget,
     openTargets,
-    setOpenTargets,
-    hiddenAccessibleTargetIds,
-    setHiddenAccessibleTargetIds,
     accessibleTargets,
     artifactFileTargets,
     visibleArtifactTarget,
@@ -390,20 +389,44 @@ export function ExpertPage(props: ExpertPageProps) {
     sidePanelOpen,
     voiceExtensionEnabled,
     handleOpenTargetsChange,
-    removeAccessibleTarget,
-  } = useSessionHostSidePanel({
-    sidePanelScopeId,
+    artifactFocusToken,
+    codeWorkspacePath,
+    codeWorkspaceCatalogRoot,
+    historySearchOpen,
+    historySearchQuery,
+    setHistorySearchQuery,
+    historyMatchCount,
+    setHistoryMatchCount,
+    historyActiveMatch,
+    setHistoryActiveMatch,
+    historySearchInputRef,
+    browserPanelRef,
+    openWorkspaceSidePanelMenu,
+    handleHistorySelectPrompt,
+    openHistorySearch,
+    closeHistorySearch,
+    commitBrowserPanelWidth,
+    openTarget,
+    closeRightPane,
+    isPrimarySessionView,
+  } = useSessionPageHostState({
+    mode: "expert",
     selectedWorkspaceId: props.selectedWorkspaceId,
     selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceRoot: props.selectedWorkspaceRoot,
+    workspaces: props.workspaces,
+    draftWorkspaceDirectory:
+      props.surface?.draftWorkspace?.draftWorkspaceDirectory,
     onAccessibleTargetsChange: props.onAccessibleTargetsChange,
+    historySearchViews: ["chat"],
+    sidePanelDefaultWidth: EXPERT_SIDE_PANEL_DEFAULT_WIDTH,
+    sidePanelMinWidth: EXPERT_SIDE_PANEL_MIN_WIDTH,
+    historyComposerSessionId: expertHistorySessionId,
   });
-  const [artifactFocusToken, setArtifactFocusToken] = useState(0);
-  const codeWorkspacePath =
-    props.surface?.draftWorkspace?.draftWorkspaceDirectory?.trim() ||
-    props.selectedWorkspaceRoot;
-  const codeWorkspaceCatalogRoot =
-    props.workspaces.find((workspace) => workspace.id === props.selectedWorkspaceId)
-      ?.path?.trim() || props.selectedWorkspaceRoot;
+  const myExpertPackages = useMyExpertPackages({
+    enabled: activeSidebarView === "store" && storeActiveTab === "experts",
+  });
+  const openExpertSidePanelMenu = openWorkspaceSidePanelMenu;
 
   useReactRenderWatchdog("ExpertPage", {
     selectedSessionId: props.selectedSessionId,
@@ -414,14 +437,9 @@ export function ExpertPage(props: ExpertPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
-  const prevSessionIdRef = useRef(props.selectedSessionId);
-  useEffect(() => {
-    const prev = prevSessionIdRef.current;
-    prevSessionIdRef.current = props.selectedSessionId;
-    if (props.selectedSessionId?.trim() && prev?.trim()) {
-      setActiveSidebarView("chat");
-    }
-  }, [props.selectedSessionId]);
+  // Do NOT force openRailView("chat") when selectedSessionId changes.
+  // Opening a session navigates to a clean path (no ?view=). Forcing chat here
+  // steals history Back when POP lands on a secondary rail URL (?view=files etc).
 
   useEffect(() => {
     if (activeSidebarView !== "chat") return;
@@ -554,21 +572,13 @@ export function ExpertPage(props: ExpertPageProps) {
     [],
   );
 
-  /** Header find bar (same chrome as assistant — not a right rail). */
-  const [historySearchOpen, setHistorySearchOpen] = useState(false);
-  const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const [historyMatchCount, setHistoryMatchCount] = useState(0);
-  const [historyActiveMatch, setHistoryActiveMatch] = useState(0);
-  const historySearchInputRef = useRef<HTMLInputElement>(null);
-  const browserPanelRef = usePanelRef();
-  const preserveSidePanelOnPanelOpenRef = useRef(false);
   const activateDraftAgent = useCallback(
     (agent: PendingAgentContext) => {
       setDraftAgentContexts((current) => ({ ...current, [agent.id]: agent }));
       usePendingAgentStore.getState().setAgent(agent);
       setDraftAgentId(agent.id);
       setDraftSessionActive(true);
-      setActiveSidebarView("chat");
+      openRailView("chat");
     },
     [],
   );
@@ -585,11 +595,31 @@ export function ExpertPage(props: ExpertPageProps) {
     (workspaceId: string, sessionId: string) => {
       setDraftSessionActive(false);
       setDraftAgentId(null);
-      setActiveSidebarView("chat");
+      openRailView("chat");
       props.sidebar.onOpenSession(workspaceId, sessionId);
     },
     [props.sidebar],
   );
+  useEffect(() => {
+    const createdSessionId = resolveReadyBoundExpertDraftSession({
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+      selectedSessionId: props.selectedSessionId,
+    });
+    if (!createdSessionId) return;
+    // Keep the newly materialized session selected while the route catches up.
+    // Without this draft → real-session handoff, the removed draft chip makes
+    // the active state briefly fall back to the previously selected session.
+    setPendingTabSessionId(createdSessionId);
+    setDraftSessionActive(false);
+    setDraftAgentId(null);
+  }, [
+    draftAgentId,
+    draftSessionActive,
+    pendingAgent,
+    props.selectedSessionId,
+  ]);
   const handleStartAgentConversation = useCallback(
     (
       item: AgentCardItem,
@@ -658,7 +688,7 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const openExpertMarket = useCallback(() => {
     setStoreActiveTab("experts");
-    setActiveSidebarView("store");
+    openRailView("store");
   }, []);
   const openFreshExpertDraft = useCallback(() => {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
@@ -690,7 +720,7 @@ export function ExpertPage(props: ExpertPageProps) {
   }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
 
   const handleStartMarketplaceExpert = useCallback(
-    (expert: ExpertMarketplaceEntry) => {
+    (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
@@ -700,6 +730,11 @@ export function ExpertPage(props: ExpertPageProps) {
           props.sidebar.selectedWorkspaceId,
           existingConversationGroup.latestSession.id,
         );
+        if (initialPrompt) {
+          useComposerStateStore
+            .getState()
+            .setDraft(existingConversationGroup.latestSession.id, initialPrompt);
+        }
         void installSummonedMarketplaceExpert(expert).catch((error) => {
           console.warn("[expert-marketplace] failed to install expert package", error);
         });
@@ -723,7 +758,14 @@ export function ExpertPage(props: ExpertPageProps) {
       openFreshExpertDraft();
       // Re-assert after create-task's synchronous setAgent(null).
       activateDraftAgent(pendingWithStart);
-      setActiveSidebarView("chat");
+      if (initialPrompt) {
+        setExpertComposerDraftAfterNewTask(
+          props.selectedWorkspaceId,
+          pendingWithStart.id,
+          initialPrompt,
+        );
+      }
+      openRailView("chat");
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn("[expert-marketplace] failed to install expert package", error);
       });
@@ -786,7 +828,7 @@ export function ExpertPage(props: ExpertPageProps) {
         props.onCreateFreshSessionForAgent(props.selectedWorkspaceId),
       );
     }
-    setActiveSidebarView("chat");
+    openRailView("chat");
   }, [
     activeAgentContext,
     activeConversationAgentId,
@@ -805,12 +847,14 @@ export function ExpertPage(props: ExpertPageProps) {
     effectiveActiveQuestion,
     effectiveRespondQuestion,
     automationResultAccessory,
+    openCreatedAutomation,
   } = useExpertAutomationOffer({
     onmyagentServerClient: props.onmyagentServerClient,
     selectedWorkspaceId: props.selectedWorkspaceId,
     selectedWorkspaceRoot: props.selectedWorkspaceRoot,
     runtimeWorkspaceId: props.runtimeWorkspaceId,
     selectedSessionId: props.selectedSessionId,
+    selectedModel: props.surface?.model.selectedModel,
     draftSessionActive,
     draftAgentId,
     activeDraftSessionId,
@@ -926,176 +970,6 @@ export function ExpertPage(props: ExpertPageProps) {
     }
   }, [props.selectedSessionId]);
 
-  const setCurrentSidePanel = setCurrentSidePanelFromHook;
-
-  const openBrowserPanelFromAgent = useCallback(() => {
-    if (preserveSidePanelOnPanelOpenRef.current) {
-      preserveSidePanelOnPanelOpenRef.current = false;
-      return;
-    }
-    if (!props.selectedSessionId) return;
-    setCurrentSidePanel("browser");
-  }, [props.selectedSessionId, setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
-  const {
-    setRightSidebarExpandedWidth: setBrowserPanelWidth,
-  } = useWorkspaceShellLayout({
-    expandedRightWidth: EXPERT_SIDE_PANEL_DEFAULT_WIDTH,
-    minRightWidth: EXPERT_SIDE_PANEL_MIN_WIDTH,
-  });
-  const openExpertSidePanelMenu = useCallback(() => {
-    setBrowserPanelWidth(EXPERT_SIDE_PANEL_DEFAULT_WIDTH);
-    setCurrentSidePanel("codeMenu");
-  }, [setBrowserPanelWidth, setCurrentSidePanel]);
-
-  const expertHistorySessionId = draftSessionActive
-    ? activeDraftSessionId
-    : props.selectedSessionId;
-
-  const handleHistorySelectPrompt = useCallback(
-    (text: string) => {
-      const sessionId = expertHistorySessionId;
-      if (!sessionId || !text.trim()) return;
-      useComposerStateStore.getState().setDraft(sessionId, text);
-    },
-    [expertHistorySessionId],
-  );
-
-  /** Header find only — never opens the right workspace panel. */
-  const openHistorySearch = useCallback(
-    (event?: { stopPropagation?: () => void }) => {
-      event?.stopPropagation?.();
-      setHistorySearchOpen(true);
-      window.setTimeout(() => historySearchInputRef.current?.focus(), 0);
-    },
-    [],
-  );
-
-  const closeHistorySearch = useCallback(() => {
-    setHistorySearchOpen(false);
-    setHistorySearchQuery("");
-    setHistoryActiveMatch(0);
-    setHistoryMatchCount(0);
-  }, []);
-
-  useEffect(() => {
-    setHistoryActiveMatch(0);
-  }, [historySearchQuery, expertHistorySessionId]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-        if (activeSidebarView === "chat") {
-          event.preventDefault();
-          openHistorySearch();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSidebarView, openHistorySearch]);
-
-  const commitBrowserPanelWidth = useCallback(() => {
-    const size = browserPanelRef.current?.getSize();
-    if (size?.inPixels) setBrowserPanelWidth(Math.round(size.inPixels));
-  }, [browserPanelRef, setBrowserPanelWidth]);
-  const browserUrlForTarget = useCallback((target: OpenTarget) => {
-    if (/^wss?:\/\//i.test(target.value))
-      return target.value.replace(/^ws:/i, "http:").replace(/^wss:/i, "https:");
-    return target.value;
-  }, []);
-  const openTarget = useCallback(
-    async (target: OpenTarget, options?: { auto?: boolean }) => {
-      if (target.kind === "url" || target.preview === "browser") {
-        const url = browserUrlForTarget(target);
-        await openInAppBrowser({
-          openSidePanel: () => setCurrentSidePanel("browser"),
-          url,
-          sessionId: props.selectedSessionId,
-        });
-        return;
-      }
-      if (options?.auto && artifactTarget?.id === target.id) return;
-      setArtifactTarget(target);
-      setArtifactFocusToken((token) => token + 1);
-      preserveSidePanelOnPanelOpenRef.current = true;
-      setCurrentSidePanel("artifacts");
-    },
-    [
-      artifactTarget?.id,
-      browserUrlForTarget,
-      props.selectedSessionId,
-      setCurrentSidePanel,
-    ],
-  );
-  const closeRightPane = useCallback(() => {
-    setCurrentSidePanel(null);
-  }, [setCurrentSidePanel]);
-  useEffect(() => {
-    const open = (event: Event) => {
-      const requested = (event as CustomEvent<OpenTarget>).detail;
-      const target =
-        accessibleTargets.find(
-          (item) =>
-            item.id === requested?.id || item.value === requested?.value,
-        ) ?? (requested?.kind && requested?.value ? requested : null);
-      if (target) openTarget(target);
-    };
-    const hide = (event: Event) => {
-      const requested = (event as CustomEvent<OpenTarget>).detail;
-      const target = accessibleTargets.find(
-        (item) => item.id === requested?.id || item.value === requested?.value,
-      );
-      if (target) removeAccessibleTarget(target);
-    };
-    window.addEventListener("onmyagent-open-accessible-target", open);
-    window.addEventListener("onmyagent-hide-accessible-target", hide);
-    return () => {
-      window.removeEventListener("onmyagent-open-accessible-target", open);
-      window.removeEventListener("onmyagent-hide-accessible-target", hide);
-    };
-  }, [accessibleTargets, openTarget, removeAccessibleTarget]);
-  useEffect(() => {
-    const handler = () => setCurrentSidePanel(null);
-    window.addEventListener("onmyagent-close-right-pane", handler);
-    return () =>
-      window.removeEventListener("onmyagent-close-right-pane", handler);
-  }, [setCurrentSidePanel]);
-  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
-    () =>
-      voiceExtensionEnabled
-        ? {
-            id: "voice.panel.open",
-            label: t("session.open_voice_mode"),
-            description: t("session.open_voice_mode_desc"),
-            sideEffect: "none",
-            execute: () => {
-              setCurrentSidePanel("voice");
-              return { open: true };
-            },
-          }
-        : null,
-    [setCurrentSidePanel, voiceExtensionEnabled],
-  );
-  useControlAction(openVoicePanelControlAction);
-
-  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
-    () =>
-      voiceExtensionEnabled && activeSidePanel === "voice"
-        ? {
-            id: "voice.panel.close",
-            label: t("session.close_voice_mode"),
-            description: t("session.close_voice_mode_desc"),
-            sideEffect: "none",
-            execute: () => {
-              setCurrentSidePanel(null);
-              return { open: false };
-            },
-          }
-        : null,
-    [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled],
-  );
-  useControlAction(closeVoicePanelControlAction);
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
@@ -1193,12 +1067,13 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
-  const showStartupSkeleton =
-    !props.selectedSessionId &&
-    !props.clientConnected &&
-    props.startupPhase !== "sessionIndexReady" &&
-    props.startupPhase !== "firstSessionReady" &&
-    props.startupPhase !== "ready";
+  const showStartupSkeleton = shouldShowSessionStartupSkeleton({
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    clientConnected: props.clientConnected,
+    startupPhase: props.startupPhase,
+    coldBootShell: props.coldBootShell === true,
+  });
   // Draft “新会话” must not be blocked by loading state of the previously
   // selected real session (sessionLoadingById is tied to selectedSessionId).
   const showSessionLoadingState =
@@ -1284,16 +1159,6 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
-  /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
-  const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
-
-  // Workspace / files / browser side panel is session-scoped. Leaving 助理/专家
-  // chat for 市场、管理、本地、文件… must close it so secondary pages are full-width.
-  useEffect(() => {
-    if (isPrimarySessionView) return;
-    setCurrentSidePanel(null);
-  }, [isPrimarySessionView, setCurrentSidePanel]);
-
   useEffect(() => {
     if (!showSessionLoadingState) {
       setShowDelayedSessionLoadingState(false);
@@ -1371,6 +1236,9 @@ export function ExpertPage(props: ExpertPageProps) {
           draftSessionActive ? activeDraftSessionId : props.selectedSessionId
         }
         sessions={currentAgentSessions}
+        orderIds={sessionTabOrderIds}
+        pendingSessionId={pendingTabSessionId}
+        onPendingSessionIdChange={setPendingTabSessionId}
         agentId={activeConversationAgentId}
         sessionStatusById={props.sidebar.sessionStatusById}
         onOpenSession={handleOpenExpertSession}
@@ -1397,9 +1265,8 @@ export function ExpertPage(props: ExpertPageProps) {
               props.onNavigateToMode("assistant");
               return;
             }
-            // Expert rail return must not create a task.
-            writeRailView("expert", props.selectedWorkspaceId, view);
-            setActiveSidebarView(view);
+            // Rail changes push history via ?view= (bookmark for cold start).
+            openRailView(view);
             if (view === "chat") {
               setAgentPanelCollapsed(false);
             }
@@ -1407,12 +1274,10 @@ export function ExpertPage(props: ExpertPageProps) {
           onOpenAccountSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenDevices={() => {
-            writeRailView("expert", props.selectedWorkspaceId, "devices");
-            setActiveSidebarView("devices");
+            openRailView("devices");
           }}
           onOpenBilling={() => {
-            writeRailView("expert", props.selectedWorkspaceId, "billing");
-            setActiveSidebarView("billing");
+            openRailView("billing");
           }}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
@@ -1548,7 +1413,7 @@ export function ExpertPage(props: ExpertPageProps) {
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                               onResume={(request) => {
                                 setPendingArchiveResume(request);
-                                setActiveSidebarView("localAgent");
+                                openRailView("localAgent");
                               }}
                             />
                           )}
@@ -1561,8 +1426,28 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.runtimeWorkspaceId ??
                             props.selectedWorkspaceId
                           }
-                          workspaceRoot={props.selectedWorkspaceRoot}
+                          workspaceRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
+                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
+                          fileRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
                           onOpenArtifact={openTarget}
+                          onAddToTask={(relativePath) => {
+                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
+                              return;
+                            }
+                            openRailView("chat");
+                            showToast({
+                              tone: "success",
+                              title: t("files.added_to_task_title"),
+                              description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),
@@ -1595,40 +1480,8 @@ export function ExpertPage(props: ExpertPageProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView &&
-                      showBlockingStartupSkeleton ? (
-                        <div
-                          className="px-6 py-14"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="mx-auto max-w-2xl space-y-6">
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
-                            </div>
-                            <div className="space-y-3">
-                              {STARTUP_SKELETON_ROWS.map((row) => (
-                                <div
-                                  key={row.id}
-                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
-                                >
-                                  <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
-                                    style={{ width: row.titleWidth }}
-                                  />
-                                  <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
-                                    <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
-                                      style={{ width: row.bodyWidth }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                      {isPrimarySessionView && showBlockingStartupSkeleton ? (
+                        <SessionStartupSkeleton />
                       ) : null}
 
                       {isPrimarySessionView &&
@@ -1647,6 +1500,16 @@ export function ExpertPage(props: ExpertPageProps) {
                             <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">
                               {t("session.no_expert_conversations_desc")}
                             </p>
+                            <Button
+                              type="button"
+                              size="default"
+                              className="mt-5 gap-1.5"
+                              onClick={openExpertMarket}
+                              data-testid="expert-empty-open-market"
+                            >
+                              <Plus className="size-4" strokeWidth={2} />
+                              {t("session.no_expert_conversations_action")}
+                            </Button>
                           </div>
                         </div>
                       ) : null}
@@ -1707,7 +1570,7 @@ export function ExpertPage(props: ExpertPageProps) {
                                 props.account?.email ||
                                 t("session.current_user"),
                             }}
-                            headerActions={headerPanelControls}
+                            headerActions={draftSessionActive ? null : headerPanelControls}
                             conversationTabs={conversationTabs}
                             searchQuery={historySearchOpen ? historySearchQuery : ""}
                             searchActiveMatchIndex={historyActiveMatch}
@@ -1721,11 +1584,11 @@ export function ExpertPage(props: ExpertPageProps) {
                               ...props.surface!.marketplace,
                               onOpenSkillsMarketplace: () => {
                                 setStoreActiveTab("skills");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenConnectorsMarketplace: () => {
                                 setStoreActiveTab("plugins");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenCustomConnector: () => openCustomConnector("config"),
                             }}
@@ -1889,6 +1752,7 @@ export function ExpertPage(props: ExpertPageProps) {
                         focusToken={artifactFocusToken}
                         workspaceId={props.runtimeWorkspaceId}
                         sessionId={props.selectedSessionId}
+                        automationSourceSessionId={props.selectedSessionId}
                         client={props.onmyagentServerClient}
                         initialKind={
                           activeSidePanel === "review"
@@ -1902,9 +1766,10 @@ export function ExpertPage(props: ExpertPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           activeExpertFeatureCategoryId === "office"
-                            ? ["review", "terminal"]
+                            ? ["review"]
                             : undefined
                         }
                       />

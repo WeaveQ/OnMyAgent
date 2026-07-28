@@ -43,14 +43,14 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: 助理 → 专家 → 文件 → 市场 → 管理 → 本地
+// Order: 助理 → 专家 → 文件 → 市场 → 本地 → 管理
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
-  { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
   { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: LocalAgentRailIcon },
+  { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
 ];
 
 function DevicesRailIcon(props: { active?: boolean; className?: string }) {

@@ -4,7 +4,7 @@ export default {
   "settings.audit_actor_host": "host",
   "settings.audit_actor_remote": "remote",
   "settings.api_keys_info":
-    "API keys are stored locally on this device. Environment-backed providers must be changed in the worker environment and then reloaded.",
+    "This list is currently available providers (not chat history). API keys are stored on this device. Environment-backed providers must be changed in the worker environment, then reloaded.",
   "settings.appearance_hint": "Match the system or force light/dark mode",
   "settings.appearance_title": "Appearance",
 
@@ -79,8 +79,19 @@ export default {
   "settings.clear": "Clear",
   "settings.config_updated":
     "Configuration updated. Reload the engine if the change affects the runtime.",
+  "settings.custom_provider_ready":
+    "{name} is ready. You can use this model now.",
+  "settings.custom_provider_removed":
+    "{name} was removed from the current configuration. New chats cannot use it; past sessions keep their history.",
+  "settings.custom_provider_remove_failed": "Failed to remove the model provider.",
+  "settings.custom_provider_syncing":
+    "Applying configuration and refreshing the model list…",
   "settings.configure": "Configure",
   "settings.connect_provider": "Connect provider",
+  "settings.connect_provider_runtime_required":
+    "Connect a workspace runtime first (open a chat from the main app and wait for the engine). Official provider sign-in needs a live connection.",
+  "settings.connect_provider_runtime_required_short":
+    "Runtime not connected — cannot load the official provider list",
   "settings.connection": "Connection",
   "settings.connection_failed": "Connection failed",
   "settings.connection_title": "Connection",
@@ -166,7 +177,8 @@ export default {
   "settings.group_global": "Global",
   "settings.group_workspace": "Workspace",
   "settings.group_archived": "Archive",
-  "settings.tab_archived_tasks": "Archive management",
+  "settings.group_data": "Data",
+  "settings.tab_archived_tasks": "Archive",
   "settings.tab_description_archived_tasks":
     "Manage session archive policy and restore or permanently delete archived tasks",
   "settings.archived_tasks_list_title": "Archived tasks",
@@ -208,6 +220,13 @@ export default {
   "settings.computer_use_setup_title": "Computer Use setup",
   "settings.computer_use_setup_description":
     "Connect the local MCP server and grant the macOS permissions it needs to control apps",
+  "settings.computer_use_step_connect": "Connect",
+  "settings.computer_use_step_permissions": "Permissions",
+  "settings.computer_use_step_runtime": "Health",
+  "settings.computer_use_step_apps": "App access",
+  "settings.computer_use_step_memory": "Memory",
+  "settings.computer_use_step_privacy": "Access & memory",
+  "settings.computer_use_connect_step_title": "1. Connect Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
     "Adds the local Computer Use server to this workspace so Composer can use the computer-control tools",
   "settings.computer_use_configured": "Configured",
@@ -233,19 +252,46 @@ export default {
     "Open the Computer Use helper, grant Accessibility and Screen Recording, then verify the result.",
   "settings.computer_use_runtime_step_title": "3. Runtime health",
   "settings.computer_use_runtime_step_description":
-    "Check the helper protocol and current activity state.",
+    "See whether Computer Use is ready, busy, or needs attention — in plain language.",
   "settings.computer_use_helper_version": "Helper version",
   "settings.computer_use_desktop_version": "OnMyAgent version",
   "settings.computer_use_protocol": "Protocol",
-  "settings.computer_use_activity": "Activity",
+  "settings.computer_use_status": "Overall status",
+  "settings.computer_use_compatibility": "Compatibility",
+  "settings.computer_use_compatibility_ok": "Compatible",
+  "settings.computer_use_compatibility_needs_update": "Needs update",
+  "settings.computer_use_status_checking": "Checking…",
+  "settings.computer_use_status_ready": "Ready",
+  "settings.computer_use_status_working": "Working",
+  "settings.computer_use_status_paused": "Paused",
+  "settings.computer_use_status_error": "Error",
+  "settings.computer_use_status_needs_update": "Needs update",
+  "settings.computer_use_runtime_summary_checking":
+    "Checking whether Computer Use is ready on this Mac…",
+  "settings.computer_use_runtime_summary_ready":
+    "Computer Use is ready. Start a task from the composer when you need it.",
+  "settings.computer_use_runtime_summary_working":
+    "Computer Use is controlling an app right now.",
+  "settings.computer_use_runtime_summary_working_app":
+    "Computer Use is controlling {app} right now.",
+  "settings.computer_use_runtime_summary_paused":
+    "Paused because you used the mouse or keyboard. It will resume when you stop.",
+  "settings.computer_use_runtime_summary_error":
+    "Computer Use hit a problem. Try verify below, or reopen the helper from step 2.",
+  "settings.computer_use_runtime_summary_needs_update":
+    "This Computer Use helper is out of date for this OnMyAgent build. Update or reinstall the app.",
+  "settings.computer_use_versions_hint":
+    "Versions: helper {helper} · app {app}",
+  "settings.computer_use_activity": "What it’s doing",
   "settings.computer_use_unknown": "Unknown",
   "settings.computer_use_update_required":
-    "The bundled helper does not match this OnMyAgent build. Update or reinstall OnMyAgent before using Computer Use.",
-  "settings.computer_use_activity_running": "Running",
-  "settings.computer_use_activity_paused": "Paused by physical input",
-  "settings.computer_use_activity_ready": "Ready",
-  "settings.computer_use_activity_error": "Error",
-  "settings.computer_use_activity_inactive": "Inactive",
+    "This Computer Use helper is out of date for this OnMyAgent build. Update or reinstall OnMyAgent, then open this panel again.",
+  "settings.computer_use_activity_running": "Controlling an app",
+  "settings.computer_use_activity_running_app": "Controlling {app}",
+  "settings.computer_use_activity_paused": "Paused — you used the mouse or keyboard",
+  "settings.computer_use_activity_ready": "Idle, waiting for a task",
+  "settings.computer_use_activity_error": "Something went wrong",
+  "settings.computer_use_activity_inactive": "Not running",
   "settings.computer_use_app_authorizations_title": "4. App access",
   "settings.computer_use_app_authorizations_description":
     "Review apps that you chose to always allow Computer Use to control.",
@@ -345,7 +391,12 @@ export default {
   "settings.last_error": "Last error",
   "settings.last_stderr": "Last stderr",
   "settings.last_stdout": "Last stdout",
-  "settings.loading_providers": "Loading providers...",
+  // Prefer system.load_settings_ai for new UI; these stay as aliases.
+  "settings.loading_providers": "Loading providers…",
+  "settings.loading_providers_list": "Loading providers…",
+  "settings.loading_providers_inventory":
+    "Syncing custom providers in the background…",
+  "settings.provider_model_count_pending": "Models…",
   "settings.managed_by_env": "Managed by env",
   "settings.managed_by_opencode": "Managed by the local engine",
   "settings.model": "Model",
@@ -358,17 +409,44 @@ export default {
     "Choose the default chat model and reasoning mode",
   "settings.model_title": "Model",
   "settings.no_active_workspace": "No active local workspace.",
-  "settings.no_providers_connected": "No providers connected yet.",
+  "settings.no_providers_connected": "No providers available yet.",
+  "settings.providers_not_configured": "Not configured",
+  "settings.providers_empty_summary": "No model providers added yet",
   "settings.connect_provider_empty_hint":
-    "Use “Connect model provider” above to add one.",
+    "Use “Custom model provider configuration” above for a compatible API, or “Connect model provider” to sign in to a hosted service.",
+  "settings.providers_empty_title": "Add a model provider to get started",
+  "settings.providers_empty_body":
+    "Connect a hosted service, or add a compatible API with custom configuration. You can set the default chat model after at least one provider is ready.",
+  "settings.providers_empty_cta_connect": "Connect model provider",
+  "settings.providers_empty_cta_custom": "Custom configuration",
+  "settings.providers_empty_runtime_title": "Workspace service is offline",
+  "settings.providers_empty_runtime_body":
+    "Custom configuration still works. Connecting hosted providers needs the local workspace service to be running.",
+  "settings.provider_error_retry": "Try again",
+  "settings.provider_model_count": "{count} models",
   "settings.no_audit_entries": "No audit entries yet.",
   "settings.no_custom_path_set": "No custom path set",
   "settings.personalization_title": "Personality",
   "settings.personalization_desc": "Set the default tone, project notes, and context",
   "settings.response_tone": "Tone",
   "settings.response_tone_desc": "Choose the default style the assistant uses when replying",
+  "settings.response_tone_default": "Default",
+  "settings.response_tone_default_desc": "No fixed style",
+  "settings.response_tone_professional": "Professional",
+  "settings.response_tone_professional_desc": "Clear, accurate, trustworthy",
   "settings.response_tone_friendly": "Friendly",
-  "settings.response_tone_business": "Business",
+  "settings.response_tone_friendly_desc": "Warm, approachable, encouraging",
+  "settings.response_tone_direct": "Direct",
+  "settings.response_tone_direct_desc": "Concise, no fluff, straight to the point",
+  "settings.response_tone_imaginative": "Imaginative",
+  "settings.response_tone_imaginative_desc": "Vivid metaphors and analogies",
+  "settings.response_tone_pragmatic": "Pragmatic",
+  "settings.response_tone_pragmatic_desc": "Minimum words, maximum information",
+  "settings.response_tone_business": "Pragmatic",
+  "settings.response_tone_sarcastic": "Witty roast",
+  "settings.response_tone_sarcastic_desc": "Sharp but not mean",
+  "settings.response_tone_socratic": "Socratic",
+  "settings.response_tone_socratic_desc": "Guide with questions; teach how to think",
   "settings.custom_instructions": "Custom instructions",
   "settings.custom_instructions_desc": "Provide extra guidance, preferences, project background, or collaboration rules",
   "settings.custom_instructions_placeholder": "Example: keep answers concise; lead with conclusions for code; use Chinese by default for this project...",
@@ -406,11 +484,14 @@ export default {
   "settings.provider_source_config": "Config",
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
+  "settings.provider_badge_cloud": "Cloud",
+  "settings.provider_move_up": "Move up",
+  "settings.provider_move_down": "Move down",
   "settings.providers_desc": "Connect model and tool services",
   "settings.providers_title": "Models",
-  "settings.providers_dialog_title": "Connect providers",
+  "settings.providers_dialog_title": "Model providers",
   "settings.providers_dialog_description":
-    "Select the model provider you want to use and enter the corresponding key. These keys will only be stored locally",
+    "Pick a provider and enter its key. Keys stay on this device only.",
   "settings.quit_hint": `${APP_NAME} quits immediately after cleanup so the next launch starts from a blank local state for this mode`,
   "settings.recent_events": "Recent events",
   "settings.reconnect_failed":
@@ -426,25 +507,31 @@ export default {
   "settings.report_issue": "Report an issue",
   "settings.reset": "Reset",
   "settings.reset_app_data": "Reset app data",
-  "settings.reset_app_data_description": `More aggressive. Clears ${APP_NAME} cache + app data`,
+  "settings.reset_app_data_description": `Full wipe of ${APP_NAME} on this device: app data, ~/.onmyagent, agent-management catalog (~/.studio-switch), and local preferences. Does not delete Claude/Codex/OpenCode CLI configs.`,
   "settings.reset_app_data_title": "Reset app data",
-  "settings.reset_app_data_warning": `Clears ${APP_NAME} cache and app data on this device.`,
+  "settings.reset_app_data_warning": `Deletes ${APP_NAME} Electron data, ~/.onmyagent, ~/.studio-switch, and preferences. Shared CLI agent configs (~/.claude, ~/.codex, ~/.config/opencode) are kept.`,
   "settings.reset_button": "Reset",
   "settings.reset_cancel": "Cancel",
   "settings.reset_config_defaults": "Reset to defaults",
   "settings.reset_confirm_button": "Reset & Restart",
   "settings.reset_confirmation_hint": `Type {resetWord} to confirm. ${APP_NAME} will restart`,
   "settings.reset_confirmation_label": "Confirmation",
-  "settings.reset_confirmation_placeholder": "Type RESET",
+  "settings.reset_confirmation_placeholder": "Type: I confirm reset",
+  "settings.reset_confirmation_word": "I confirm reset",
   "settings.reset_onboarding": "Reset onboarding",
-  "settings.reset_onboarding_description": `Clears ${APP_NAME} preferences and restarts the app`,
+  "settings.reset_onboarding_confirm_button": "Re-enter setup",
+  "settings.reset_onboarding_confirm_desc":
+    "This clears preferences and profile, then restarts into the setup guide.",
+  "settings.reset_onboarding_description": `Clear preferences and profile, then re-open the setup guide (workspaces kept)`,
   "settings.reset_onboarding_title": "Reset onboarding",
-  "settings.reset_onboarding_warning": `Clears ${APP_NAME} local preferences and workspace onboarding markers.`,
+  "settings.reset_onboarding_warning": `Clears preferences, onboarding profile, and completion flags. After restart you will go through the guide again. Workspaces and shared CLI configs are kept.`,
   "settings.reset_onmyagent_desc_dev": `With dev mode active, it only clears the isolated engine dev state inside ${APP_NAME}-dev-data.`,
   "settings.reset_onmyagent_desc_prod": `With dev mode active, it only clears the isolated engine dev state inside ${APP_NAME}-dev-data.`,
   "settings.reset_onmyagent_title": `Reset ${APP_NAME} + engine state`,
   "settings.reset_requires_confirm":
-    "Requires typing RESET and will restart the app.",
+    "Requires typing “I confirm reset” and will restart the app.",
+  "settings.reset_requires_confirm_app_data_only":
+    "“Reset app data” requires typing the confirmation phrase; “Reset onboarding” only needs a confirm click.",
   "settings.reset_startup": "Reset default startup mode",
   "settings.reset_startup_pref": "Reset startup preference",
   "settings.reset_stop_active_runs": "Stop active runs before resetting.",
@@ -476,7 +563,7 @@ export default {
   "settings.tools_section_desc":
     "Probes and binary pickers for diagnosing local execution",
   "settings.recovery_section_title": "Reset & recovery",
-  "settings.recovery_section_desc": `Roll back state without quitting ${APP_NAME}`,
+  "settings.recovery_section_desc": `Reset onboarding or clear local ${APP_NAME} data. The app restarts after confirmation.`,
   "settings.danger_section_title": "Danger zone",
   "settings.danger_section_desc":
     "Irreversible actions. Use only when you understand the consequences",
@@ -618,13 +705,13 @@ export default {
   "settings.environment.delete_variable": "Delete {key}",
   "settings.environment.deleting": "Deleting…",
   "settings.environment.description":
-    "Save API keys and tokens for local agents, skills, and MCP servers. Secrets stay on this device; changes become available after you apply them",
+    "API keys for this device only. Apply changes to take effect.",
   "settings.environment.edit_title": "Edit environment variable",
   "settings.environment.empty_body":
-    "Add keys like ANTHROPIC_API_KEY, GOOGLE_API_KEY, ELEVENLABS_API_KEY, or GITHUB_TOKEN for services your agents and MCP servers need.",
+    "e.g. ANTHROPIC_API_KEY, GITHUB_TOKEN",
   "settings.environment.empty_title": "No environment variables yet",
   "settings.environment.empty_value": "(empty)",
-  "settings.environment.footer_hint": `${APP_NAME}_ / OPENCODE_ are reserved; existing environment variables win`,
+  "settings.environment.footer_hint": `ONMYAGENT_ / OPENCODE_ are reserved`,
   "settings.environment.override_hint": `Existing environment variables take precedence over saved values`,
   "settings.environment.hide": "Hide",
   "settings.environment.hide_value": "Hide value for {key}",
@@ -670,7 +757,7 @@ export default {
   "settings.tab_description_environment":
     "Manage local environment and secrets",
   "settings.tab_description_recovery":
-    "Fix migrations, reset workspaces, and recover local settings",
+    "Reset onboarding or clear local app data",
   "settings.tab_description_skills":
     "Browse, edit, and install skills",
   "settings.tab_description_updates":
@@ -685,6 +772,8 @@ export default {
   "settings.software_env.description_col": "Description",
   "settings.software_env.status": "Status",
   "settings.software_env.loading": "Loading…",
+  "settings.software_env.refresh": "Refresh status",
+  "settings.software_env.refreshing": "Refreshing…",
   "settings.software_env.status_unavailable": "Status unavailable. Please retry later.",
   "settings.software_env.install": "Install",
   "settings.software_env.installing": "Installing…",
@@ -699,14 +788,14 @@ export default {
     "JavaScript runtime built on Chrome V8, for server-side development",
   "settings.software_env.python_desc":
     "General-purpose language for scripting, automation, and data processing",
-  "settings.software_env.runtime_name": "Agent runtime",
+  "settings.software_env.runtime_name": "OpenCode",
   "settings.software_env.opencode_desc":
     "Local agent runtime used by OnMyAgent to run tasks",
   "settings.tab_extensions": "Extensions",
   "settings.extensions_card_description":
     "MCPs, skills, plugins, and integrations",
   "settings.tab_general": "Overview",
-  "settings.tab_recovery": "Recovery",
+  "settings.tab_recovery": "Reset",
   "settings.tab_recovery_description": "Reset onboarding and clear data",
   "settings.tab_memory": "Preferences",
   "settings.tab_description_memory":
@@ -804,6 +893,10 @@ export default {
   "settings.update": "Update",
   "settings.update_available": "Update available: v",
   "settings.update_available_version": "Update available: v{version}",
+  "settings.update_available_notice_title": "Update available",
+  "settings.update_available_notice_body":
+    "OnMyAgent v{version} is available. Open the release page to download.",
+  "settings.update_available_notice_action": "Open release page",
   "settings.update_check_button": "Check now",
   "settings.update_check_failed": "Couldn't check for updates",
   "settings.update_checking": "Checking for updates…",
@@ -892,13 +985,15 @@ export default {
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
   "settings.provider_edit_confirm_title": "Save changes to this model provider?",
-  "settings.provider_edit_confirm_desc": "Saving writes to the OpenCode config. Reload the engine for changes to take effect.",
+  "settings.provider_edit_confirm_desc":
+    "Saving updates this workspace’s model configuration. Reload to apply the changes.",
   "settings.provider_edit_confirm_button": "Save changes",
   "settings.provider_delete_confirm_title": "Delete this model provider?",
-  "settings.provider_delete_confirm_desc": "This removes the provider from the OpenCode config. This cannot be undone. Reload the engine for changes to take effect.",
+  "settings.provider_delete_confirm_desc":
+    "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
   "settings.provider_more_actions": "More actions",
-  "settings.provider_reload_required_title": "Engine reload required",
+  "settings.provider_reload_required_title": "Reload to apply changes",
   "settings.provider_reload_required_desc":
-    "Adding or modifying model providers requires an engine reload (no need to restart the app) to take effect immediately. Click reload now to apply.",
+    "Adding or changing model providers needs a quick reload (no app restart) before they work in new chats. Reload now to apply.",
   "settings.provider_reload_now": "Reload now",
 } as const;

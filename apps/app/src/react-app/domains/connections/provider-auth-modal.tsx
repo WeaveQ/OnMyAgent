@@ -824,15 +824,17 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
         if (!open) handleClose();
       }}
     >
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("settings.providers_dialog_title")}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="flex max-h-[min(520px,calc(100vh-5rem))] min-h-0 w-full max-w-md flex-col overflow-hidden sm:max-w-md">
+        <DialogHeader className="space-y-1 pb-0">
+          <DialogTitle className="text-base">
+            {t("settings.providers_dialog_title")}
+          </DialogTitle>
+          <DialogDescription className="text-xs leading-snug">
             {t("settings.providers_dialog_description")}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5">
           {errorMessage ? (
             <NoticeBox tone="error">{errorMessage}</NoticeBox>
           ) : props.loading ? (
@@ -845,13 +847,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
             <div className="-mr-1 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {resolvedView === "list" ? (
                 <div
-                  className="space-y-3"
+                  className="space-y-2"
                   role="presentation"
                   onKeyDown={handleListKeyDown}
                 >
-                  <InputGroup controlSize="lg" tone="surfaceMuted" className="mb-1">
+                  <InputGroup controlSize="sm" tone="surfaceMuted">
                     <InputGroupAddon align="inline-start">
-                      <Search size={16} />
+                      <Search size={14} />
                     </InputGroupAddon>
                     <InputGroupInput
                       ref={searchInputRef}
@@ -876,7 +878,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         key={entry.id}
                         type="button"
                         density="row"
-                        className={`group gap-3.5 transition-all duration-200 ${
+                        className={`group gap-2.5 !py-2 transition-colors ${
                           index === activeEntryIndex
                             ? "bg-dls-surface-muted"
                             : "hover:bg-dls-surface-muted"
@@ -885,72 +887,76 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         onMouseEnter={() => setActiveEntryIndex(index)}
                         onClick={() => handleEntrySelect(entry)}
                       >
-                        <IconTile size="sm" shape="circle" tone="surface" border className="overflow-hidden border-dls-mist bg-dls-surface-muted">
+                        <IconTile
+                          size="xs"
+                          shape="circle"
+                          tone="surface"
+                          border
+                          className="overflow-hidden border-dls-mist bg-dls-surface-muted"
+                        >
                           <ProviderIcon
                             providerId={entry.id}
-                            size={16}
+                            size={14}
                             className="text-dls-text"
                           />
                         </IconTile>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 flex items-center gap-2">
-                              <div className="text-sm font-medium text-dls-text truncate tracking-tight">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium tracking-tight text-dls-text">
                                 {entry.name}
                               </div>
+                              <div className="mt-0.5 truncate font-mono text-2xs text-dls-secondary/70">
+                                {entry.id}
+                              </div>
                             </div>
-                            <div className="flex items-center justify-end shrink-0">
+                            <div className="flex shrink-0 items-center justify-end">
                               {entry.connected ? (
                                 <StatusBadge tone="accent" shape="soft" size="tiny">
                                   <CheckCircle2 size={12} strokeWidth={2.5} />
                                   {t("provider_auth.action_connected")}
                                 </StatusBadge>
                               ) : (
-                                <div className="text-xs font-medium text-dls-secondary group-hover:text-dls-text transition-colors flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
+                                <div className="flex items-center gap-0.5 text-xs font-medium text-dls-secondary opacity-80 transition-colors group-hover:text-dls-text group-hover:opacity-100">
                                   {t("provider_auth.action_connect")}
                                   <ChevronRight
                                     size={14}
-                                    className="opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-200"
+                                    className="-ml-2 opacity-0 transition-all duration-200 group-hover:ml-0 group-hover:opacity-100"
                                   />
                                 </div>
                               )}
                             </div>
                           </div>
-                          <div className="text-xs text-dls-secondary font-mono truncate mt-0.5 opacity-60 group-hover:opacity-80 transition-opacity">
-                            {entry.id}
-                          </div>
 
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {entry.methods.map((method) => (
-                              <span
-                                key={`${entry.id}-${method.type}-${method.methodIndex ?? method.cloudProviderId ?? method.label}`}
-                                className={`${providerAuthTextClass.methodChip} ${
-                                  method.type === "oauth"
-                                    ? providerAuthStateClass.oauthChip
-                                    : method.type === "cloud"
-                                      ? providerAuthStateClass.cloudChip
-                                      : providerAuthStateClass.neutralChip
-                                }`}
-                              >
-                                {methodLabel(method)}
-                              </span>
-                            ))}
-                          </div>
+                          {entry.methods.length > 0 ? (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {entry.methods.map((method) => (
+                                <span
+                                  key={`${entry.id}-${method.type}-${method.methodIndex ?? method.cloudProviderId ?? method.label}`}
+                                  className={`${providerAuthTextClass.methodChip} !px-1.5 !py-0 !text-2xs ${
+                                    method.type === "oauth"
+                                      ? providerAuthStateClass.oauthChip
+                                      : method.type === "cloud"
+                                        ? providerAuthStateClass.cloudChip
+                                        : providerAuthStateClass.neutralChip
+                                  }`}
+                                >
+                                  {methodLabel(method)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       </ActionRowButton>
                     ))
                   ) : (
-                    <div className="text-sm text-dls-secondary pt-2">
+                    <div className="pt-1 text-sm text-dls-secondary">
                       {entries.length
                         ? t("provider_auth.empty_no_match")
                         : t("provider_auth.empty_no_providers")}
                     </div>
                   )}
-
-                  <div className="text-xs text-dls-secondary">
-                    {t("provider_auth.hint_keyboard_navigation")}
-                  </div>
                 </div>
               ) : null}
 
@@ -1318,13 +1324,15 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
           ) : null}
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-3">
-          <div className="min-h-[16px] text-xs text-dls-secondary">
-            {props.submitting ? submittingLabel() : null}
-          </div>
+        <DialogFooter className="shrink-0 flex-row items-center justify-end gap-2 sm:space-x-0">
+          {props.submitting ? (
+            <div className="mr-auto text-xs text-dls-secondary">
+              {submittingLabel()}
+            </div>
+          ) : null}
           <DialogClose
             disabled={actionDisabled}
-            render={<Button variant="outline" disabled={actionDisabled} />}
+            render={<Button size="sm" variant="outline" disabled={actionDisabled} />}
           >
             {t("provider_auth.action_close")}
           </DialogClose>

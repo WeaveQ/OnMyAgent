@@ -18,3 +18,17 @@ export * from "./provider-auth-types";
 
 export { AddMcpModal } from "./add-mcp-modal";
 export * from "./provider-list-query";
+export {
+  connectedProviderIdSet,
+  countOpenCodeProviderModels,
+  mergeConnectedProviders,
+  normalizeMergedProviderSource,
+  type MergedConnectedProvider,
+  type MergedConnectedProviderSource,
+  type MergeConnectedProvidersInput,
+} from "./merge-connected-providers";
+export {
+  moveConnectedProviderInOrder,
+  orderConnectedProviders,
+  type OrderableProvider,
+} from "./order-connected-providers";

@@ -21,6 +21,7 @@ import type {
   CollaborationGoalRuntime,
   CollaborationPlanRuntime,
   ComposerDraft,
+  ComposerMentionTarget,
   ComposerPart,
   ModelRef,
   SidebarSessionItem,
@@ -37,7 +38,6 @@ import {
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
-  readSessionAgentSnapshot,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
@@ -61,6 +61,10 @@ import {
 } from "../../domains/shared";
 import { getReactQueryClient } from "../../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "../onboarding-profile";
+import {
+  buildCustomInstructionsSystemPrompt,
+  buildResponseToneSystemPrompt,
+} from "../../kernel/response-tone";
 import {
   applySessionAccessMode,
   applySessionScopedValue,
@@ -153,7 +157,8 @@ export type SessionRouteSurfacePropsInput = {
   opencodeBaseUrl: string;
   opencodeClient: Client | null;
   pageMode: PageMode;
-  refreshCreatedSessionSnapshot: (sessionId: string, directory: string) => void;
+  providerConnectedIds: string[];
+  refreshCreatedSessionSnapshot: (sessionId: string, directory: string) => Promise<void>;
   refreshRouteState: () => Promise<void> | void;
   rememberPendingCreatedSession: (workspaceId: string, sessionId: string) => void;
   selectedAgent: string | null;
@@ -225,6 +230,7 @@ export function useSessionRouteSurfaceProps(
     opencodeBaseUrl,
     opencodeClient,
     pageMode,
+    providerConnectedIds,
     refreshCreatedSessionSnapshot,
     refreshRouteState,
     rememberPendingCreatedSession,
@@ -315,6 +321,7 @@ export function useSessionRouteSurfaceProps(
     // local server with the local `rem_*` id.
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
+      connectedProviderIds: providerConnectedIds,
       developerMode: false,
       modelLabel,
       onModelClick: () => {
@@ -392,9 +399,7 @@ export function useSessionRouteSurfaceProps(
         const text = resolveDraftText(draft);
         if (!draftHasSendableContent(draft)) return;
         if (modelAvailabilityBlocksTask)
-          throw new Error(
-            "Selected model is unavailable. Choose another model before sending.",
-          );
+          throw new Error(t("session.model_unavailable_send_blocked"));
         const planningMode = isComposerPlanningMode(draft.collaborationMode);
 
         // Honor the "click +新会话 then send" flow: if the user activated
@@ -438,11 +443,21 @@ export function useSessionRouteSurfaceProps(
         forceNewSessionOnNextSendRef.current = false;
         let { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
 
+        // Expert new-session: force taskWorkspaceRoot to the workspace root.
+        // sessionWorkspaceRoot may still point at the previous expert's session
+        // directory (URL navigate is async), which would cause shouldIsolate to
+        // return false and reuse the wrong expert's directory (directory cross-
+        // contamination). The user-picked folder (explicitAssistantWorkspace)
+        // is preserved and takes precedence.
+        if (pageMode === "expert" && sendPlan.needsNewSession && !explicitAssistantWorkspace.trim()) {
+          taskWorkspaceRoot = selectedWorkspace?.path?.trim() || taskWorkspaceRoot;
+        }
+
         // Expert sessions without a user-picked folder get an isolated artifact
-        // directory: {workspace}/{agentName}/{sessionKey}/ so sessions never mix outputs.
-        // Draft/folder equal to the workspace root still isolates — otherwise the
-        // files panel would scan the entire project tree.
-        // Always use the true workspace path as root — never sessionWorkspaceRoot,
+        // directory: {workspace}/{agentName-agentId}/{timestamp}/ so sessions
+        // never mix outputs. Draft/folder equal to the workspace root still
+        // isolates - otherwise the files panel would scan the entire project tree.
+        // Always use the true workspace path as root - never sessionWorkspaceRoot,
         // which may already be an isolated subdir (breaks relative marker writes).
         const workspaceRootForSession = selectedWorkspace?.path?.trim() || "";
         const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
@@ -457,15 +472,15 @@ export function useSessionRouteSurfaceProps(
           );
           if (isolate && workspaceRootForSession) {
             const pendingForDir = usePendingAgentStore.getState().getAgent();
-            const agentName =
-              pendingForDir?.name?.trim() ||
-              (selectedSessionId
-                ? readSessionAgentSnapshot(selectedSessionId)?.name?.trim()
-                : undefined) ||
-              "expert";
+            // New session: use the pending agent name + id. Never fall back to
+            // the previously selected session's agent snapshot - that belongs
+            // to a different expert and would create artifacts in the wrong dir.
+            const agentName = pendingForDir?.name?.trim() || "expert";
+            const agentId = pendingForDir?.id?.trim() || "";
             const isolated = buildIsolatedExpertSessionDirectory({
               workspaceRoot: workspaceRootForSession,
               agentName,
+              agentId,
             });
             // Only bind the isolated path when the directory is actually created.
             // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
@@ -754,7 +769,7 @@ export function useSessionRouteSurfaceProps(
             });
           });
           if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+            await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
           }
           return;
         }
@@ -778,7 +793,7 @@ export function useSessionRouteSurfaceProps(
             throw new Error(serializeSDKError(result.error));
           }
           if (createdSession) {
-            refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+            await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
           }
           return;
         }
@@ -792,8 +807,8 @@ export function useSessionRouteSurfaceProps(
               parts: [
                 { type: "text", text: skillCommandPrompt.visiblePrompt },
                 ...draft.parts.filter(
-                  (part): part is Extract<ComposerPart, { type: "agent" | "file" }> =>
-                    part.type === "agent" || part.type === "file",
+                  (part): part is Extract<ComposerPart, { type: "agent" | "file" | "directory" }> =>
+                    part.type === "agent" || part.type === "file" || part.type === "directory",
                 ),
               ],
             }
@@ -886,6 +901,9 @@ export function useSessionRouteSurfaceProps(
             local.prefs.conversationMemory,
           ) ||
             undefined,
+          buildResponseToneSystemPrompt(local.prefs.responseTone) || undefined,
+          buildCustomInstructionsSystemPrompt(local.prefs.customInstructions) ||
+            undefined,
           pendingAgentSnapshot?.systemPrompt || undefined,
           buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
             undefined,
@@ -940,7 +958,7 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (createdSession) {
-          refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
+          await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
         }
       },
       onDraftChange: () => {
@@ -978,7 +996,7 @@ export function useSessionRouteSurfaceProps(
             directory: sessionWorkspaceRoot || undefined,
           }),
         );
-        return result;
+        return result.map((path): ComposerMentionTarget => ({ path, kind: "file" }));
       },
       isRemoteWorkspace: selectedWorkspace?.workspaceType === "remote",
       isSandboxWorkspace: selectedWorkspace
@@ -1092,6 +1110,7 @@ export function useSessionRouteSurfaceProps(
     opencodeBaseUrl,
     opencodeClient,
     pageMode,
+    providerConnectedIds,
     refreshCreatedSessionSnapshot,
     selectedAgent,
     selectedSessionId,

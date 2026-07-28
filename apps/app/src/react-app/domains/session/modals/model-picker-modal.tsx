@@ -256,7 +256,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
                 </div>
                 {!props.query.trim() ? (
                   <Button variant="outline" onClick={props.onOpenSettings}>
-                    Connect a provider
+                    {t("settings.connect_provider")}
                   </Button>
                 ) : null}
               </div>
@@ -280,7 +280,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
         {/* Footer */}
         <DialogFooter className="shrink-0">
           <DialogClose render={<Button variant="outline" />}>
-            Done
+            {t("settings.done")}
           </DialogClose>
         </DialogFooter>
       </DialogContent>

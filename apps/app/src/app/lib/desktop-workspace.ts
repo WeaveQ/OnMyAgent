@@ -70,6 +70,8 @@ export const closeCodeWorkspaceTerminal = (input: { terminalId: string }) =>
 export const listCodeWorkspaceFiles = (input: {
   workspacePath: string;
   relativePath?: string;
+  /** Walk all descendants under relativePath (used by type/search filters). */
+  recursive?: boolean;
 }) => invokeDesktopCommand("codeWorkspaceFilesList", input);
 
 export const readCodeWorkspaceFile = (input: {

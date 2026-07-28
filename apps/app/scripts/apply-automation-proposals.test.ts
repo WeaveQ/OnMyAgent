@@ -6,10 +6,13 @@ import {
   automationProposalsFingerprint,
   buildAutomationPayloadFromDraft,
   createAutomationsFromPayloads,
+  filterNewAutomationProposals,
   isAutomationCreateConfirmText,
   knownAutomationProposalPaths,
+  loadNewAutomationProposals,
   parseAutomationProposalPayload,
   type AutomationProposalClient,
+  type LoadedAutomationProposal,
 } from "../src/react-app/domains/session/artifacts/apply-automation-proposals";
 import {
   applyAutomationOfferAnswer,
@@ -65,6 +68,10 @@ describe("parseAutomationProposalPayload", () => {
       scene: "office",
       title: "应收催收·每日看板",
       prompt: "read ar-ledger.json",
+      model: {
+        providerID: "openai",
+        modelID: "gpt-5.2",
+      },
       schedule: {
         mode: "interval",
         day: "daily",
@@ -77,6 +84,10 @@ describe("parseAutomationProposalPayload", () => {
     expect(payload?.title).toBe("应收催收·每日看板");
     expect(payload?.schedule.mode).toBe("interval");
     expect(payload?.schedule.intervalMinutes).toBe(1440);
+    expect(payload?.model).toEqual({
+      providerID: "openai",
+      modelID: "gpt-5.2",
+    });
   });
 
   test("rejects incomplete payloads", () => {
@@ -98,7 +109,9 @@ describe("automationProposalSearchRoots", () => {
       catalogRoot: "/Users/me/ws",
       sessionRoot: "/Users/me/ws/ar-collector/abc",
     });
-    expect(roots[0]).toBe("ar-collector/abc/automations/proposals");
+    expect(roots[0]).toBe("ar-collector/abc/回单对账/automations/proposals");
+    expect(roots).toContain("ar-collector/abc/回款催收/automations/proposals");
+    expect(roots).toContain("ar-collector/abc/automations/proposals");
     expect(roots).toContain("automations/proposals");
     expect(knownAutomationProposalPaths(roots).some((p) => p.endsWith("ar-daily-board.json"))).toBe(
       true,
@@ -111,7 +124,13 @@ describe("automationProposalSearchRoots", () => {
       sessionRoot: "/Users/me/ws/ar-collector/abc",
       includeWorkspaceRoot: false,
     });
-    expect(roots).toEqual(["ar-collector/abc/automations/proposals"]);
+    expect(roots).toEqual([
+      "ar-collector/abc/回单对账/automations/proposals",
+      "ar-collector/abc/回款催收/automations/proposals",
+      "ar-collector/abc/油费稽查/automations/proposals",
+      "ar-collector/abc/挂靠车管理/automations/proposals",
+      "ar-collector/abc/automations/proposals",
+    ]);
     expect(
       automationProposalSearchRoots({
         catalogRoot: "/Users/me/ws",
@@ -281,6 +300,93 @@ describe("createAutomationsFromPayloads", () => {
     expect(result.created).toHaveLength(1);
     expect(created).toEqual(["T1"]);
   });
+
+  test("inherits the source session model without replacing an explicit model", async () => {
+    const createdModels: Array<{ providerID: string; modelID: string } | null | undefined> = [];
+    const client: Pick<
+      AutomationProposalClient,
+      "listAutomations" | "createAutomation"
+    > = {
+      listAutomations: async () => ({ items: [] }),
+      createAutomation: async (_id, payload) => {
+        createdModels.push(payload.model);
+        return { item: { id: payload.title, title: payload.title } };
+      },
+    };
+    const inherited = parseAutomationProposalPayload({
+      scene: "office",
+      title: "Inherited",
+      prompt: "run",
+      schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+    });
+    const explicit = parseAutomationProposalPayload({
+      scene: "office",
+      title: "Explicit",
+      prompt: "run",
+      model: { providerID: "anthropic", modelID: "claude-sonnet-4" },
+      schedule: { mode: "interval", day: "daily", time: "10:00", intervalMinutes: 1440 },
+    });
+    expect(inherited).not.toBeNull();
+    expect(explicit).not.toBeNull();
+    if (!inherited || !explicit) return;
+
+    await createAutomationsFromPayloads({
+      client,
+      workspaceId: "ws",
+      defaultModel: { providerID: "openai", modelID: "gpt-5.2" },
+      items: [
+        { path: "inherited.json", payload: inherited },
+        { path: "explicit.json", payload: explicit },
+      ],
+    });
+
+    expect(createdModels).toEqual([
+      { providerID: "openai", modelID: "gpt-5.2" },
+      { providerID: "anthropic", modelID: "claude-sonnet-4" },
+    ]);
+  });
+
+  test("binds created tasks to the trusted source session and its selected folder", async () => {
+    const createdPayloads: Array<{
+      workspaceDirectory?: string | null;
+      sourceSessionId?: string | null;
+    }> = [];
+    const client: Pick<
+      AutomationProposalClient,
+      "listAutomations" | "createAutomation"
+    > = {
+      listAutomations: async () => ({ items: [] }),
+      createAutomation: async (_id, payload) => {
+        createdPayloads.push(payload);
+        return { item: { id: payload.title, title: payload.title } };
+      },
+    };
+    const payload = parseAutomationProposalPayload({
+      scene: "office",
+      title: "Trusted context",
+      prompt: "run",
+      workspaceDirectory: "/untrusted/proposal/path",
+      sourceSessionId: "ses_untrusted",
+      schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+    });
+    expect(payload).not.toBeNull();
+    if (!payload) return;
+
+    await createAutomationsFromPayloads({
+      client,
+      workspaceId: "ws",
+      defaultWorkspaceDirectory: "/Users/me/customer-a",
+      sourceSessionId: "ses_customer_a",
+      items: [{ path: "trusted.json", payload }],
+    });
+
+    expect(createdPayloads).toEqual([
+      expect.objectContaining({
+        workspaceDirectory: "/Users/me/customer-a",
+        sourceSessionId: "ses_customer_a",
+      }),
+    ]);
+  });
 });
 
 describe("applyAutomationProposals", () => {
@@ -335,5 +441,59 @@ describe("applyAutomationProposals", () => {
       },
     ]);
     expect(created).toEqual(["挂靠车管·每日到期扫描"]);
+  });
+});
+
+describe("filterNewAutomationProposals", () => {
+  test("drops proposals whose title already exists", () => {
+    const proposals: LoadedAutomationProposal[] = [
+      {
+        path: "a.json",
+        payload: parseAutomationProposalPayload({
+          scene: "office",
+          title: "应收催收·每日看板",
+          prompt: "p",
+          schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+        })!,
+      },
+      {
+        path: "b.json",
+        payload: parseAutomationProposalPayload({
+          scene: "office",
+          title: "新任务",
+          prompt: "p",
+          schedule: { mode: "interval", day: "daily", time: "10:00", intervalMinutes: 1440 },
+        })!,
+      },
+    ];
+    const next = filterNewAutomationProposals(proposals, ["应收催收·每日看板"]);
+    expect(next.map((item) => item.payload.title)).toEqual(["新任务"]);
+  });
+
+  test("loadNewAutomationProposals returns empty when all titles exist", async () => {
+    const payload = {
+      scene: "office",
+      title: "应收催收·每日看板",
+      prompt: "p",
+      schedule: { mode: "interval", day: "daily", time: "09:00", intervalMinutes: 1440 },
+    };
+    const client: Pick<
+      AutomationProposalClient,
+      "listWorkspaceFiles" | "readWorkspaceFile" | "listAutomations"
+    > = {
+      listWorkspaceFiles: async () => ({
+        items: [{ path: "automations/proposals/ar-daily-board.json", kind: "file" }],
+      }),
+      readWorkspaceFile: async () => ({ content: JSON.stringify(payload) }),
+      listAutomations: async () => ({
+        items: [{ id: "1", title: "应收催收·每日看板" }],
+      }),
+    };
+    const loaded = await loadNewAutomationProposals({
+      client,
+      workspaceId: "ws_1",
+      catalogRoot: "/ws",
+    });
+    expect(loaded.proposals).toEqual([]);
   });
 });

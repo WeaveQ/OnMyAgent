@@ -208,17 +208,35 @@ function resolvePrompts(
   return getGenericPrompts();
 }
 
-function promptsFromExpertQuickPrompts(quickPrompts: string[] | undefined): PromptSuggestion[] | null {
+const CAPABILITY_MAP_EXPERT_IDS = [
+  "order-dispatch-specialist",
+  "fleet-management-specialist",
+  "logistics-finance-specialist",
+];
+
+function promptsFromExpertQuickPrompts(
+  agentId: string | null | undefined,
+  quickPrompts: string[] | undefined,
+): PromptSuggestion[] | null {
   const prompts = (quickPrompts ?? [])
     .map((prompt) => prompt.trim())
     .filter(Boolean)
     .slice(0, 3);
   if (prompts.length === 0) return null;
+  const showCapabilityMap = CAPABILITY_MAP_EXPERT_IDS.some((id) => agentId?.includes(id));
   return [
     {
       title: t("session.expert_self_intro_prompt_title"),
-      description: t("session.expert_self_intro_prompt"),
-      prompt: t("session.expert_self_intro_prompt"),
+      description: t(
+        showCapabilityMap
+          ? "session.expert_self_intro_capability_map_description"
+          : "session.expert_self_intro_prompt",
+      ),
+      prompt: t(
+        showCapabilityMap
+          ? "session.expert_self_intro_capability_map_prompt"
+          : "session.expert_self_intro_prompt",
+      ),
       icon: MessageSquare,
     },
     ...prompts.map((prompt, index) => ({
@@ -236,7 +254,7 @@ export function AgentPromptSuggestions(props: {
   className?: string;
 }) {
   const prompts =
-    promptsFromExpertQuickPrompts(props.quickPrompts) ??
+    promptsFromExpertQuickPrompts(props.agentId, props.quickPrompts) ??
     resolvePrompts(props.agentId).slice(0, 4);
   return (
     <div className={cn("w-full max-w-2xl", props.className)}>

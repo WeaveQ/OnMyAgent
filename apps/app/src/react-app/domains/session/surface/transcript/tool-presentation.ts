@@ -1198,7 +1198,9 @@ export function buildTranscriptToolPresentation(input: {
   return {
     family,
     secondary:
-      specializedSecondary ?? (family === "command"
+      family === "read"
+        ? null
+        : specializedSecondary ?? (family === "command"
         ? command
         : family === "search"
           ? query

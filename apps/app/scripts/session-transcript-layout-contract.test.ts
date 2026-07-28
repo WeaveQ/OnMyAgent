@@ -150,7 +150,16 @@ describe("session transcript layout contract", () => {
 
     // Body column = contentRef max-w-[1120px] (same as composer); no second JS max-width.
     expect(layout).toContain("SESSION_CONTENT_MAX_WIDTH_CLASS");
-    expect(presentation).toContain("DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH = 1120");
+    // Numeric width lives in capabilities/layout/content-column; presentation re-exports it.
+    expect(presentation).toContain("SESSION_CONTENT_MAX_WIDTH_PX");
+    expect(presentation).toContain("DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH");
+    const contentColumn = await Bun.file(
+      new URL(
+        "../src/react-app/capabilities/layout/content-column.ts",
+        import.meta.url,
+      ),
+    ).text();
+    expect(contentColumn).toContain("SESSION_CONTENT_MAX_WIDTH_PX = 1120");
     expect(messageList).toContain('maxWidth: "100%"');
     expect(messageList).toContain("session-transcript-root mx-auto w-full");
     expect(messageList).toContain("session-transcript-user-row");

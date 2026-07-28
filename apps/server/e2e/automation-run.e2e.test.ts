@@ -25,6 +25,7 @@ afterEach(async () => {
 });
 
 describe("automation run", () => {
+  // Wait policy needs busy → idle settle (~3s) per run; two runs in this case.
   test("runs plain prompts and slash commands in their execution directories", async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), "onmyagent-automation-e2e-"));
     const stateRoot = await mkdtemp(join(tmpdir(), "onmyagent-automation-state-"));
@@ -44,6 +45,8 @@ describe("automation run", () => {
       directory: string | null;
       body?: unknown;
     }> = [];
+    // Simulate real OpenCode: prompt/command → busy, then idle so wait policy can settle.
+    let remainingBusyPolls = 0;
     const opencode = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
@@ -67,6 +70,7 @@ describe("automation run", () => {
         ) {
           const promptDirectory = directory ? decodeURIComponent(directory) : "";
           await writeFile(join(promptDirectory, "执行结果.md"), "Detailed artifact.\n");
+          remainingBusyPolls = 2;
           return new Response(null, { status: 204 });
         }
         if (
@@ -75,6 +79,7 @@ describe("automation run", () => {
         ) {
           const commandDirectory = directory ? decodeURIComponent(directory) : "";
           await writeFile(join(commandDirectory, "执行结果.md"), "Command artifact.\n");
+          remainingBusyPolls = 2;
           return Response.json({
             info: {
               id: "msg_command",
@@ -86,7 +91,15 @@ describe("automation run", () => {
           });
         }
         if (request.method === "GET" && url.pathname === "/session/status") {
-          return Response.json({});
+          if (remainingBusyPolls > 0) {
+            remainingBusyPolls -= 1;
+            return Response.json({
+              ses_automation_204: { type: "busy" },
+            });
+          }
+          return Response.json({
+            ses_automation_204: { type: "idle" },
+          });
         }
         if (
           request.method === "GET" &&
@@ -214,5 +227,5 @@ describe("automation run", () => {
     expect(commandRequest?.body).toMatchObject({
       arguments: expect.stringContaining("inspect the latest changes"),
     });
-  });
+  }, 60_000);
 });

@@ -22,6 +22,7 @@ const AC_SUITES: Array<{
       "scripts/session-transcript-turn-model.test.ts",
       "scripts/session-transcript-scroll-intent.test.ts",
       "scripts/session-transcript-virtual-window.test.ts",
+      "scripts/session-virtual-measure-policy.test.ts",
       "scripts/session-transcript-block-model.test.ts",
       "scripts/session-transcript-estimate-size.test.ts",
     ],
@@ -58,6 +59,7 @@ const AC_SUITES: Array<{
     files: [
       "scripts/session-lazy-side-panels-contract.test.ts",
       "scripts/session-browser-bounds-raf.test.ts",
+      "scripts/session-rail-keep-alive-lru.test.ts",
     ],
   },
   {

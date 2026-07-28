@@ -26,7 +26,7 @@ describe("right side panel titlebar contract", () => {
     }
   });
 
-  test("interactive tab and navigation regions opt out of dragging", () => {
+  test("tab strip containers stay drag-able; only interactive chrome opts out", () => {
     const workspacePanel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
     );
@@ -35,8 +35,16 @@ describe("right side panel titlebar contract", () => {
     );
 
     expect(workspacePanel).toContain('data-panel-titlebar-controls="true"');
-    expect(workspacePanel).toContain("mac:titlebar-no-drag");
     expect(browserPanel).toContain('data-panel-titlebar-controls="true"');
+    // Blank header chrome must remain a window-drag region. A blanket
+    // titlebar-no-drag on the flex-1 scroller blocks the whole top bar.
+    expect(workspacePanel).not.toMatch(
+      /data-panel-titlebar-controls="true"\s*\n\s*className="[^"]*titlebar-no-drag/,
+    );
+    expect(browserPanel).not.toMatch(
+      /data-panel-titlebar-controls="true"\s*\n\s*className="[^"]*titlebar-no-drag/,
+    );
+    // URL field (and similar inputs) still opt out so typing is not a window drag.
     expect(browserPanel).toContain("mac:titlebar-no-drag");
   });
 });

@@ -2,6 +2,7 @@
  * workspace domain IPC handlers for the Electron desktop bridge.
  * Factories receive services/helpers constructed in main.mjs.
  */
+import os from "node:os";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "workspaceBootstrap",
@@ -438,9 +439,21 @@ export function createWorkspaceDomainHandlers({
   },
 
   codeWorkspaceTerminalCreate: async (event, args) => {
-    const workspacePath = await codeWorkspaceActions.resolveCodeWorkspacePath(args[0]);
-    if (!workspacePath || !(await isDirectory(workspacePath))) {
-      throw new Error("Workspace path is not a directory.");
+    // Prefer the workspace folder; fall back to home so the + → 终端 menu item
+    // still opens when the session has no valid workspace path (draft / unset).
+    // Hard-failing here made the menu look unclickable — the renderer swallowed
+    // the rejection with `void addTab(...)`.
+    const resolved = await codeWorkspaceActions.resolveCodeWorkspacePath(args[0]);
+    let workspacePath =
+      resolved && (await isDirectory(resolved)) ? resolved : null;
+    if (!workspacePath) {
+      const home = os.homedir();
+      if (home && (await isDirectory(home))) {
+        workspacePath = home;
+      }
+    }
+    if (!workspacePath) {
+      throw new Error("No usable directory for the terminal.");
     }
     return codeTerminalManager.create({ workspacePath });
   },

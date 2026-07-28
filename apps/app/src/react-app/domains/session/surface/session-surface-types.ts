@@ -8,6 +8,7 @@ import type {
   ComposerAccessMode,
   ComposerCollaborationMode,
   ComposerDraft,
+  ComposerMentionTarget,
   ModelRef,
   PendingPermission,
   PendingQuestion,
@@ -59,7 +60,7 @@ export type SessionSurfacePermissionBag = {
 
 export type SessionSurfaceMarketplaceBag = {
   onOpenSettingsSection?:
-    | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
+    | ((section: "ai" | "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
   onOpenSkillsMarketplace?: (() => void) | undefined;
   onOpenConnectorsMarketplace?: (() => void) | undefined;
@@ -81,6 +82,8 @@ export type SessionSurfaceProps = {
   workspaceId: string;
   workspaceRoot: string;
   sessionId: string;
+  /** Live connected provider IDs for historical transcript model badges. */
+  connectedProviderIds?: readonly string[] | null;
   draftOnly?: boolean;
   /**
    * False while the host keep-alive pane is hidden (other rail pages).
@@ -114,7 +117,7 @@ export type SessionSurfaceProps = {
     import("../../../../app/types").SlashCommandOption[]
   >;
   recentFiles: string[];
-  searchFiles: (query: string) => Promise<string[]>;
+  searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
   isRemoteWorkspace: boolean;
   isSandboxWorkspace: boolean;
   todos?: TodoItem[];
