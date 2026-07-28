@@ -18,6 +18,25 @@ def text(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
+_DOC_PATTERN = re.compile(r"^<!doctype\s+html[^>]*>", re.IGNORECASE)
+_HTML_BODY_PATTERN = re.compile(r"<html[^>]*>.*?<body[^>]*>(.*)</body>\s*</html>", re.IGNORECASE | re.DOTALL)
+_HEAD_PATTERN = re.compile(r"<head[^>]*>.*?</head>", re.IGNORECASE | re.DOTALL)
+
+
+def inline_widget_fragment(preview_html: str) -> str:
+    """
+    Defensive fragment guard: dispatch_preview_html already returns a fragment,
+    but if a future change wraps it in a full HTML document, strip the doctype /
+    <html>/<head>/<body> shell so render_visual never receives a complete document.
+    """
+    stripped = preview_html.strip()
+    if not _DOC_PATTERN.match(stripped):
+        return stripped
+    without_head = _HEAD_PATTERN.sub("", stripped, count=1)
+    body_match = _HTML_BODY_PATTERN.search(without_head)
+    return body_match.group(1).strip() if body_match else without_head.strip()
+
+
 def number(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
@@ -695,7 +714,7 @@ def main() -> None:
         "files": files,
         "inlineWidget": {
             "title": "配载方案预览",
-            "widget_code": preview_html,
+            "widget_code": inline_widget_fragment(preview_html),
         },
     }
 

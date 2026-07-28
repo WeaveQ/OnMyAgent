@@ -54,7 +54,7 @@ description: 车队油费稽核工作流。当需要把加油记录、行驶里�
 - 不声称 automation proposal 已经是定时任务；以 OnMyAgent 创建结果卡为准。
 - 过程产物只放 `油费稽查/.process/`，最终报告/CSV 放 `油费稽查/`；禁止再建 `output/`。
 - 稽核结果必须通过 preview HTML 卡片展示，**禁止只输出文字/表格分析而不跑 preview**；未跑 preview 不得声称已完成稽核。
-- 过程 HTML（`.process/fuel-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON。
+- 过程 HTML（`.process/fuel-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON；也不得调用 `render_visual` 等可视化工具二次渲染。
 - 结果产物（油费稽查报告 Excel/PDF）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。HTML 仅作过程预览，不作为结果产物。
 
 ## 参考资料
