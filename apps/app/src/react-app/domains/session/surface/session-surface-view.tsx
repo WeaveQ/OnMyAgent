@@ -115,6 +115,7 @@ export type SessionSurfaceViewProps = {
   draftOnly?: boolean;
   effectiveAgent: PendingAgentContext | null;
   typeComposerText: (text: string) => void | Promise<void>;
+  typeComposerTemplate: (template: string) => void | Promise<void>;
   assistantActivity: AssistantActivity;
   onDismissError: () => void;
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
@@ -197,6 +198,8 @@ export type SessionSurfaceViewProps = {
   onOpenCustomConnector?: (() => void) | undefined;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  listFolderFiles: (path: string) => Promise<ComposerMentionTarget[]>;
+  loadWorkspaceFiles: (paths: string[]) => Promise<File[]>;
   onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNotice | null;
   onNotice: (notice: ReactComposerNotice | null) => void;
@@ -325,7 +328,12 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                     <AgentPromptSuggestions
                       agentId={props.effectiveAgent.id}
                       quickPrompts={props.effectiveAgent.quickPrompts}
-                      onSelect={(prompt) => void props.typeComposerText(prompt)}
+                      promptTemplates={props.effectiveAgent.promptTemplates}
+                      onSelect={(prompt, template) =>
+                        void (template
+                          ? props.typeComposerTemplate(prompt)
+                          : props.typeComposerText(prompt))
+                      }
                       className="shrink-0"
                     />
                   }
@@ -433,6 +441,8 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onOpenCustomConnector={props.onOpenCustomConnector}
               recentFiles={props.recentFiles}
               searchFiles={props.searchFiles}
+              listFolderFiles={props.listFolderFiles}
+              loadWorkspaceFiles={props.loadWorkspaceFiles}
               onInsertMention={props.onInsertMention}
               notice={props.notice}
               onNotice={props.onNotice}

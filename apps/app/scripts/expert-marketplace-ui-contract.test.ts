@@ -529,6 +529,9 @@ describe("expert marketplace UI contract", () => {
     const expertPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/expert.tsx",
     );
+    const surfaceProps = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
+    );
     const actionRow = readWorkspaceFile("apps/app/src/components/ui/action-row.tsx");
 
     expect(expertPage).toContain("const [pendingTabSessionId, setPendingTabSessionId]");
@@ -536,11 +539,24 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
     expect(expertPage).toContain("pendingSessionId={pendingTabSessionId}");
     expect(expertPage).toContain("setPendingTabSessionId(createdSessionId)");
+    expect(expertPage).toContain("resolveBoundExpertDraftSession({");
+    expect(expertPage).toContain("props.sidebar.onOpenSession(");
     expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
     expect(tabs).toContain("window.setTimeout");
     expect(tabs).toContain("props.onPendingSessionIdChange(session.id)");
+    expect(tabs).not.toContain("if (!pendingSessionIsVisible)");
     expect(tabs).toContain("const active = session.id === activeSessionId");
+    // Bind the created expert before route activation so ExpertPage can lock
+    // selection without flashing through its draft home.
+    const earlyBindIndex = surfaceProps.indexOf(
+      "writeCustomAgentIdForSession(\n                sessionId,",
+    );
+    const routeActivationIndex = surfaceProps.indexOf(
+      "activateCreatedSessionRoute({",
+    );
+    expect(earlyBindIndex).toBeGreaterThan(-1);
+    expect(routeActivationIndex).toBeGreaterThan(earlyBindIndex);
     // Session tab active chrome: soft list-selected wash (not accent pill).
     expect(actionRow).toContain("bg-dls-list-selected font-medium text-dls-text shadow-none");
   });

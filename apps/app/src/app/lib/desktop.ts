@@ -716,6 +716,7 @@ export {
   closeCodeWorkspaceTerminal,
   listCodeWorkspaceFiles,
   readCodeWorkspaceFile,
+  readCodeWorkspaceBinaryFile,
   workspaceBootstrap,
   workspaceSetSelected,
   workspaceSetRuntimeActive,

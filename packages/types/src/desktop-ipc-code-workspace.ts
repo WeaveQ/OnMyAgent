@@ -113,3 +113,10 @@ export type CodeWorkspaceFileContent = {
   bytes: number;
   updatedAt: number;
 };
+
+export type CodeWorkspaceBinaryFileContent = {
+  path: string;
+  data: Uint8Array;
+  bytes: number;
+  updatedAt: number;
+};

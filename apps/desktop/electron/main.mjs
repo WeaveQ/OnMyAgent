@@ -65,6 +65,7 @@ import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
   listCodeWorkspaceFiles,
+  readCodeWorkspaceBinaryFile,
   readCodeWorkspaceFile,
 } from "./code-workspace-files.mjs";
 import { createAgentManagementProviders } from "./agent-management-providers.mjs";
@@ -1473,6 +1474,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   codeTerminalManager,
   isDirectory,
   listCodeWorkspaceFiles,
+  readCodeWorkspaceBinaryFile,
   readCodeWorkspaceFile,
   // runtime
   runtimeManager,

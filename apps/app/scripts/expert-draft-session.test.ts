@@ -53,4 +53,15 @@ describe("expert draft session activation", () => {
       selectedSessionId: "ses_new",
     })).toBe("ses_new");
   });
+
+  test("exposes the bound session before route selection catches up", () => {
+    expect(resolveBoundExpertDraftSession({
+      draftSessionActive: true,
+      draftAgentId: "order-entry",
+      pendingAgent: {
+        id: "order-entry",
+        boundSessionId: "ses_new",
+      },
+    })).toBe("ses_new");
+  });
 });

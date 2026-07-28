@@ -97,7 +97,7 @@ import {
   detectClientPlatform,
   isAppshotCaptureSupported,
 } from "./appshot";
-
+import { useMentionFolderBrowser } from "./use-mention-folder-browser";
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -121,7 +121,6 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
   const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>(() => readPinnedSkillIds());
   const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
-  const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
   const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -395,30 +394,6 @@ export function ReactSessionComposer(props: ComposerProps) {
   }, [slashOpen, toolMenuOpen, loadCommands]);
 
   useEffect(() => {
-    // @ menu is files-only (workspace / recent). Agent pick lives in its own menu, not @.
-    if (!mentionOpen) return;
-    let cancelled = false;
-    void props
-      .searchFiles(mentionQuery)
-      .then((targets) => {
-        if (cancelled) return;
-        const next: MentionItem[] = targets.map((target) => ({
-          id: `${target.kind}:${target.path}`,
-          kind: target.kind,
-          value: target.path,
-          label: target.path,
-        }));
-        setMentionItems(next);
-      })
-      .catch(() => {
-        if (!cancelled) setMentionItems([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mentionOpen, mentionQuery, props.searchFiles]);
-
-  useEffect(() => {
     if (!toolMenuOpen) return;
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target;
@@ -528,11 +503,13 @@ export function ReactSessionComposer(props: ComposerProps) {
     return undefined;
   }, [toolMenuOpen, toolMenuSection]);
 
-  const mentionFiltered = useMemo(() => {
-    if (!mentionOpen) return [];
-    if (!mentionQuery) return mentionItems.slice(0, 8);
-    return fuzzysort.go(mentionQuery, mentionItems, { keys: ["label"], limit: 8 }).map((entry) => entry.obj);
-  }, [mentionItems, mentionOpen, mentionQuery]);
+  const mentionBrowser = useMentionFolderBrowser({
+    open: mentionOpen,
+    query: mentionQuery,
+    searchFiles: props.searchFiles, listFolderFiles: props.listFolderFiles,
+  });
+  const mentionFiltered = mentionBrowser.filtered;
+  const mentionFolderPath = mentionBrowser.folderPath;
   // Shared skill catalog for `+` skills flyout and `/` slash menu so count + order match.
   // Prefer OpenCode command.list rows when both sources have the same name, but keep
   // the OnMyAgent install set so those can sort first after pins.
@@ -610,7 +587,12 @@ export function ReactSessionComposer(props: ComposerProps) {
       : skillCatalogOrdered;
   }, [skillCatalogOrdered, slashOpen, slashQuery]);
   const activeMenu = slashOpen ? "slash" : mentionOpen ? "mention" : null;
-  const activeItems = activeMenu === "slash" ? slashFiltered : activeMenu === "mention" ? mentionFiltered : [];
+  const activeItems =
+    activeMenu === "slash"
+      ? slashFiltered
+      : activeMenu === "mention" && !mentionFolderPath
+        ? mentionFiltered
+        : [];
   const pluginSkillFiles = importedPlugins.flatMap((plugin) =>
     plugin.files.filter((file) => file.objectType === "command" || file.objectType === "skill"),
   );
@@ -751,6 +733,15 @@ export function ReactSessionComposer(props: ComposerProps) {
     );
   };
 
+  const selectMentionItem = (item: MentionItem) => {
+    if (item.kind === "directory") {
+      mentionBrowser.openFolder(item.value);
+      return;
+    }
+    props.onInsertMention(item.kind, item.value);
+    setMentionOpen(false);
+  };
+
   const acceptActiveItem = () => {
     if (!activeItems.length) return false;
     if (activeMenu === "slash") {
@@ -762,8 +753,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     if (activeMenu === "mention") {
       const item = mentionFiltered[menuIndex];
       if (!item) return false;
-      props.onInsertMention(item.kind, item.value);
-      setMentionOpen(false);
+      selectMentionItem(item);
       return true;
     }
     return false;
@@ -839,6 +829,12 @@ export function ReactSessionComposer(props: ComposerProps) {
       return;
     }
 
+    if (mentionOpen && mentionFolderPath && event.key === "Escape") {
+      event.preventDefault();
+      mentionBrowser.backFolder();
+      return;
+    }
+
     if (!activeMenu || !activeItems.length) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -863,14 +859,14 @@ export function ReactSessionComposer(props: ComposerProps) {
     }
   };
 
-  const addAttachments = async (inputFiles: File[]) => {
-    if (!inputFiles.length) return;
+  const addAttachments = async (inputFiles: File[]): Promise<number> => {
+    if (!inputFiles.length) return 0;
     if (!props.attachmentsEnabled) {
       props.onNotice({
         title: props.attachmentsDisabledReason ?? t("composer.attachments_unavailable"),
         tone: "warning",
       });
-      return;
+      return 0;
     }
 
     const { accepted, oversizeNames } = await processAttachmentFiles(inputFiles);
@@ -912,6 +908,24 @@ export function ReactSessionComposer(props: ComposerProps) {
         tone: "warning",
       });
     }
+    return accepted.length;
+  };
+
+  const addSelectedMentionFiles = async () => {
+    if (!props.attachmentsEnabled) {
+      props.onNotice({
+        title: props.attachmentsDisabledReason ?? t("composer.attachments_unavailable"),
+        tone: "warning",
+      });
+      return;
+    }
+    const added = await mentionBrowser.addSelectedFiles(
+      props.loadWorkspaceFiles,
+      addAttachments,
+    );
+    if (!added) return;
+    handleDraftChange(draftRef.current.replace(/@([^\s@]*)$/, ""));
+    setMentionOpen(false);
   };
 
   const attachAppshot = async (payload: unknown) => {
@@ -1045,14 +1059,21 @@ export function ReactSessionComposer(props: ComposerProps) {
           <ComposerMentionMenu
             open={mentionOpen}
             filtered={mentionFiltered}
+            folderPath={mentionFolderPath}
+            folderItems={mentionBrowser.folderItems}
+            folderLoading={mentionBrowser.folderLoading}
+            folderAdding={mentionBrowser.folderAdding}
+            folderError={mentionBrowser.folderError}
+            selectedFilePaths={mentionBrowser.selectedFilePaths}
             activeMenu={activeMenu}
             menuIndex={menuIndex}
             menuItemRefs={menuItemRefs}
             setMenuIndex={setMenuIndex}
-            onSelect={(item) => {
-              props.onInsertMention(item.kind, item.value);
-              setMentionOpen(false);
-            }}
+            onSelect={selectMentionItem}
+            onOpenFolder={mentionBrowser.openFolder}
+            onBackFolder={mentionBrowser.backFolder}
+            onToggleFile={mentionBrowser.toggleFile}
+            onAddSelectedFiles={() => void addSelectedMentionFiles()}
           />
           <ComposerSlashMenu
             open={slashOpen}
@@ -1288,7 +1309,6 @@ export function ReactSessionComposer(props: ComposerProps) {
                     className={toolMenuOpen ? composerMenuClass.activeToolButton : composerMenuClass.toolButton}
                     onClick={() => {
                       setMentionOpen(false);
-                      setMentionItems([]);
                       setSlashOpen(false);
                       setToolMenuOpen((value) => {
                         const nextOpen = !value;

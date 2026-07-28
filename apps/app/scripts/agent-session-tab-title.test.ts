@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   sessionNeedsTabTitleFallback,
   sessionShouldFetchTabTitleSnapshot,
+  resolvedSessionSnapshotTitle,
+  shouldShowExpertTabSummarizing,
   summarizeSessionSnapshotForTab,
   summarizeTabTitle,
   tabTitleSnapshotRefetchIntervalMs,
@@ -25,12 +27,31 @@ describe("expert session tab titles", () => {
     } as never;
     expect(sessionNeedsTabTitleFallback(session)).toBe(true);
     expect(summarizeTabTitle(session)).not.toMatch(/总结中|Summarizing/);
+    expect(
+      summarizeTabTitle(session, undefined, { summarizing: true }),
+    ).toMatch(/总结中|Summarizing/);
+    expect(
+      summarizeTabTitle(session, "[工具] bash", { summarizing: true }),
+    ).toMatch(/总结中|Summarizing/);
     expect(summarizeTabTitle(session, "请帮我查一下库存异常")).toContain("库存");
   });
 
-  test("empty title falls back to new session, not summarizing forever", () => {
+  test("placeholder session without title or time shows loading, not new session", () => {
     const title = summarizeTabTitle({ id: "ses_3", title: "" } as never);
     expect(title).not.toMatch(/总结中|Summarizing/);
+    expect(title).not.toMatch(/新会话|New session/);
+  });
+
+  test("untitled session with activity time shows relative time, not new session", () => {
+    const recent = Date.now() - 5 * 60_000;
+    const session = {
+      id: "ses_time",
+      title: "New session - 2026-07-26T01:00:00.000Z",
+      time: { created: recent, updated: recent },
+    } as never;
+    const title = summarizeTabTitle(session);
+    expect(title).not.toMatch(/新会话|New session/);
+    expect(title).toMatch(/分钟前|m ago/);
   });
 
   test("snapshot tab title prefers first user message over assistant text", () => {
@@ -54,6 +75,51 @@ describe("expert session tab titles", () => {
     )).toContain("报价");
   });
 
+  test("uses a formal snapshot title instead of deriving one from tool text", () => {
+    const snapshot = {
+      session: { id: "ses_title", title: "核对六月运输账单" },
+      messages: [
+        {
+          info: { role: "assistant", time: { created: 1 } },
+          parts: [{ type: "text", text: "[工具] bash" }],
+        },
+      ],
+    } as never;
+    expect(resolvedSessionSnapshotTitle(snapshot)).toBe("核对六月运输账单");
+    expect(resolvedSessionSnapshotTitle({
+      ...snapshot,
+      session: {
+        id: "ses_title",
+        title: "New session - 2026-07-26T01:00:00.000Z",
+      },
+    })).toBeUndefined();
+  });
+
+  test("keeps a remounted recent session in summarizing state", () => {
+    const nowMs = Date.now();
+    const recent = {
+      id: "ses_recent",
+      title: "New session - 2026-07-28T08:00:00.000Z",
+      time: { created: nowMs - 3_000, updated: nowMs - 1_000 },
+    } as never;
+    expect(shouldShowExpertTabSummarizing(recent, {
+      busy: false,
+      trackedPending: false,
+      pendingSelection: false,
+      nowMs,
+    })).toBe(true);
+    const history = {
+      ...recent,
+      time: { created: nowMs - 10 * 60_000, updated: nowMs - 1_000 },
+    } as never;
+    expect(shouldShowExpertTabSummarizing(history, {
+      busy: false,
+      trackedPending: false,
+      pendingSelection: false,
+      nowMs,
+    })).toBe(false);
+  });
+
   test("idle empty snapshot does not poll; busy empty does; titled stops", () => {
     const empty = {
       session: { id: "ses_5" },
@@ -63,6 +129,9 @@ describe("expert session tab titles", () => {
     expect(tabTitleSnapshotRefetchIntervalMs(null)).toBe(false);
     expect(tabTitleSnapshotRefetchIntervalMs(empty)).toBe(false);
     expect(tabTitleSnapshotRefetchIntervalMs(empty, { busy: true })).toBe(3_000);
+    expect(
+      tabTitleSnapshotRefetchIntervalMs(empty, { titlePending: true }),
+    ).toBe(3_000);
     expect(
       tabTitleSnapshotRefetchIntervalMs({
         session: { id: "ses_5" },
