@@ -9,7 +9,10 @@ import {
 import type { UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
-import { listCodeWorkspaceFiles } from "../../../../app/lib/desktop";
+import {
+  listCodeWorkspaceFiles,
+  readCodeWorkspaceBinaryFile,
+} from "../../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../../app/utils";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
@@ -42,7 +45,10 @@ import {
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { workspaceMentionTargets } from "../../../capabilities/artifacts/workspace-mention-targets";
+import {
+  workspaceDirectoryTargets,
+  workspaceMentionTargets,
+} from "../../../capabilities/artifacts/workspace-mention-targets";
 
 import type { ReactComposerNotice } from "./composer/notice";
 import {
@@ -163,6 +169,28 @@ export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
 import { flattenSessionSurfaceProps } from "./session-surface-types";
 import { useSessionSurfaceSearch } from "./session-surface-search";
+
+function workspaceAttachmentContentType(path: string) {
+  const extension = path.toLowerCase().split(".").pop() ?? "";
+  const contentTypes: Record<string, string> = {
+    csv: "text/csv",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    gif: "image/gif",
+    jpeg: "image/jpeg",
+    jpg: "image/jpeg",
+    json: "application/json",
+    md: "text/markdown",
+    pdf: "application/pdf",
+    png: "image/png",
+    svg: "image/svg+xml",
+    txt: "text/plain",
+    webp: "image/webp",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  };
+  return contentTypes[extension] ?? "application/octet-stream";
+}
 
 export function SessionSurface(bagProps: SessionSurfaceProps) {
   const props = flattenSessionSurfaceProps(bagProps);
@@ -1389,6 +1417,56 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     [props.client, props.workspaceId, props.workspaceRoot],
   );
 
+  const listSessionMentionFolder = useCallback(
+    async (path: string): Promise<ComposerMentionTarget[]> => {
+      if (!props.workspaceRoot.trim()) return [];
+      if (isElectronRuntime()) {
+        const result = await listCodeWorkspaceFiles({
+          workspacePath: props.workspaceRoot,
+          relativePath: path,
+        });
+        return workspaceDirectoryTargets(
+          result.items.map((item) => ({ ...item, revision: "" })),
+        );
+      }
+      const result = await props.client.listWorkspaceFiles(props.workspaceId, {
+        includeDirs: true,
+        limit: 10_000,
+        prefix: path,
+        root: props.workspaceRoot,
+        shallow: true,
+      });
+      return workspaceDirectoryTargets(result.items);
+    },
+    [props.client, props.workspaceId, props.workspaceRoot],
+  );
+
+  const loadSessionMentionFiles = useCallback(
+    async (paths: string[]): Promise<File[]> =>
+      Promise.all(
+        paths.map(async (path) => {
+          const name = path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+          if (isElectronRuntime()) {
+            const result = await readCodeWorkspaceBinaryFile({
+              workspacePath: props.workspaceRoot,
+              relativePath: path,
+            });
+            return new File([new Uint8Array(result.data)], name, {
+              type: workspaceAttachmentContentType(path),
+            });
+          }
+          const result = await props.client.downloadWorkspaceFile(
+            props.workspaceId,
+            path,
+          );
+          return new File([result.data], name, {
+            type: result.contentType ?? "application/octet-stream",
+          });
+        }),
+      ),
+    [props.client, props.workspaceId, props.workspaceRoot],
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const resolveTranscriptScrollElement = useCallback(() => scrollRef.current, []);
@@ -1762,6 +1840,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onOpenCustomConnector={props.onOpenCustomConnector}
       recentFiles={props.recentFiles}
       searchFiles={searchSessionMentionTargets}
+      listFolderFiles={listSessionMentionFolder}
+      loadWorkspaceFiles={loadSessionMentionFiles}
       onInsertMention={handleInsertMention}
       notice={notice}
       onNotice={setNotice}

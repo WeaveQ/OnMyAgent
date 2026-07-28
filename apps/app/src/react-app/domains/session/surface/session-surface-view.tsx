@@ -198,6 +198,8 @@ export type SessionSurfaceViewProps = {
   onOpenCustomConnector?: (() => void) | undefined;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  listFolderFiles: (path: string) => Promise<ComposerMentionTarget[]>;
+  loadWorkspaceFiles: (paths: string[]) => Promise<File[]>;
   onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNotice | null;
   onNotice: (notice: ReactComposerNotice | null) => void;
@@ -439,6 +441,8 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onOpenCustomConnector={props.onOpenCustomConnector}
               recentFiles={props.recentFiles}
               searchFiles={props.searchFiles}
+              listFolderFiles={props.listFolderFiles}
+              loadWorkspaceFiles={props.loadWorkspaceFiles}
               onInsertMention={props.onInsertMention}
               notice={props.notice}
               onNotice={props.onNotice}

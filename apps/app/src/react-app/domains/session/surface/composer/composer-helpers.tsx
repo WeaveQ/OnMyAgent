@@ -226,6 +226,8 @@ export type ComposerProps = {
   onOpenCustomConnector?: () => void;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  listFolderFiles: (path: string) => Promise<ComposerMentionTarget[]>;
+  loadWorkspaceFiles: (paths: string[]) => Promise<File[]>;
   onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNoticeData | null;
   onNotice: (notice: ReactComposerNoticeData) => void;

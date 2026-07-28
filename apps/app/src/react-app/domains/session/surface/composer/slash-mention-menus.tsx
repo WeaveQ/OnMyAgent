@@ -4,9 +4,12 @@
  * Extracted from composer.tsx (mechanical UI split).
  */
 import type { RefObject } from "react";
-import { Folder } from "lucide-react";
+import { ChevronLeft, ChevronRight, Folder } from "lucide-react";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { ArtifactIcon } from "../../artifacts/artifact-icon";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 import type { SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
@@ -186,13 +189,147 @@ export function ComposerSlashMenu(props: {
 export function ComposerMentionMenu(props: {
   open: boolean;
   filtered: MentionItem[];
+  folderPath: string | null;
+  folderItems: MentionItem[];
+  folderLoading: boolean;
+  folderAdding: boolean;
+  folderError: string | null;
+  selectedFilePaths: ReadonlySet<string>;
   activeMenu: string | null;
   menuIndex: number;
   menuItemRefs: RefObject<Array<HTMLButtonElement | null>>;
   setMenuIndex: (index: number) => void;
   onSelect: (item: MentionItem) => void;
+  onOpenFolder: (path: string) => void;
+  onBackFolder: () => void;
+  onToggleFile: (path: string) => void;
+  onAddSelectedFiles: () => void;
 }) {
-  if (!props.open || props.filtered.length === 0) return null;
+  if (!props.open) return null;
+  if (props.folderPath) {
+    const folderName =
+      props.folderPath.split("/").filter(Boolean).at(-1) ?? props.folderPath;
+    return (
+      <div className={composerMenuClass.anchor}>
+        <div className={composerMenuClass.panelWithoutBottomBorder}>
+          <div className="flex items-center gap-2 border-b border-dls-border px-2.5 py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("composer.folder_files_back")}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                props.onBackFolder();
+              }}
+              onClick={(event) => {
+                if (event.detail === 0) props.onBackFolder();
+              }}
+            >
+              <ChevronLeft />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-dls-text">
+                {folderName}
+              </div>
+              <div className="truncate text-xs text-dls-secondary">
+                {t("composer.folder_files_hint")}
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              disabled={
+                props.folderAdding || props.selectedFilePaths.size === 0
+              }
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                props.onAddSelectedFiles();
+              }}
+              onClick={(event) => {
+                if (event.detail === 0) props.onAddSelectedFiles();
+              }}
+            >
+              {props.folderAdding
+                ? t("composer.folder_files_adding")
+                : t("composer.folder_files_add", {
+                    count: props.selectedFilePaths.size,
+                  })}
+            </Button>
+          </div>
+          {props.folderError ? (
+            <div
+              role="alert"
+              className="border-b border-dls-status-danger-border bg-dls-status-danger-soft px-3 py-2 text-xs text-dls-status-danger-fg"
+            >
+              {props.folderError}
+            </div>
+          ) : null}
+          <div
+            role="presentation"
+            className={composerMenuClass.scrollArea}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {props.folderLoading ? (
+              <div className="flex min-h-20 items-center justify-center">
+                <LoadingSpinner />
+                <span className="sr-only">
+                  {t("composer.folder_files_loading")}
+                </span>
+              </div>
+            ) : props.folderItems.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-dls-secondary">
+                {t("composer.folder_files_empty")}
+              </div>
+            ) : (
+              <div className="grid gap-0.5">
+                {props.folderItems.map((item) =>
+                  item.kind === "directory" ? (
+                    <MenuRowButton
+                      key={item.id}
+                      type="button"
+                      density="compact"
+                      align="center"
+                      className="gap-2 px-2.5 py-1.5"
+                      onClick={() => props.onOpenFolder(item.value)}
+                    >
+                      <Folder className="size-3.5 shrink-0 text-dls-secondary" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-dls-text">
+                        {item.value.split("/").filter(Boolean).at(-1) ??
+                          item.label}
+                      </span>
+                      <ChevronRight className="size-3.5 text-dls-secondary" />
+                    </MenuRowButton>
+                  ) : (
+                    <label
+                      key={item.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-dls-text transition-colors hover:bg-dls-surface-muted/70"
+                    >
+                      <Checkbox
+                        checked={props.selectedFilePaths.has(item.value)}
+                        onCheckedChange={() => props.onToggleFile(item.value)}
+                      />
+                      <ArtifactIcon
+                        name={item.value || item.label}
+                        className="size-3.5 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.value.split("/").filter(Boolean).at(-1) ??
+                          item.label}
+                      </span>
+                    </label>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (props.filtered.length === 0) return null;
   return (
     <div className={composerMenuClass.anchor}>
       <div className={composerMenuClass.panelWithoutBottomBorder}>
