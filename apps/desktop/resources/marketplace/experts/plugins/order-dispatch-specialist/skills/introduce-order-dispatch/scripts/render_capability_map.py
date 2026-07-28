@@ -102,8 +102,6 @@ def main() -> None:
     print(json.dumps({
         "ok": True,
         "state": "preview",
-        "files": [str(output)],
-        "processDir": str(output.parent),
         "inlineWidget": {
             "terminal": True,
             "title": f'{data["title"]}上手指南',
