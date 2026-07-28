@@ -33,7 +33,7 @@ import {
   SessionSurface,
 } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
-import { CAPABILITY_TEMPLATE_EVENT } from "../surface/composer/capability-template";
+import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
 import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
 import {
@@ -986,9 +986,14 @@ export function ExpertPage(props: ExpertPageProps) {
         return;
       }
     };
-    window.addEventListener(CAPABILITY_TEMPLATE_EVENT, handler);
-    return () =>
-      window.removeEventListener(CAPABILITY_TEMPLATE_EVENT, handler);
+    for (const eventName of COMPOSER_TEMPLATE_EVENTS) {
+      window.addEventListener(eventName, handler);
+    }
+    return () => {
+      for (const eventName of COMPOSER_TEMPLATE_EVENTS) {
+        window.removeEventListener(eventName, handler);
+      }
+    };
   }, [
     draftAgentId,
     props.runtimeWorkspaceId,

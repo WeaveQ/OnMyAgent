@@ -34,7 +34,7 @@ import type { InitialConfigType } from "@lexical/react/LexicalComposer.js";
 import type { ComposerMentionKind } from "../../../../../app/types";
 import { decodeComposerMentionValue, encodeComposerMentionValue } from "./mention-encoding";
 import {
-  CAPABILITY_TEMPLATE_EVENT,
+  COMPOSER_TEMPLATE_EVENTS,
   splitCapabilityTemplate,
 } from "./capability-template";
 import {
@@ -655,7 +655,7 @@ function ScenarioChipRemovePlugin() {
   return null;
 }
 
-function CapabilityTemplatePlugin(props: {
+function ComposerTemplatePlugin(props: {
   mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
 }) {
@@ -691,9 +691,14 @@ function CapabilityTemplatePlugin(props: {
       );
     };
 
-    window.addEventListener(CAPABILITY_TEMPLATE_EVENT, applyTemplate);
-    return () =>
-      window.removeEventListener(CAPABILITY_TEMPLATE_EVENT, applyTemplate);
+    for (const eventName of COMPOSER_TEMPLATE_EVENTS) {
+      window.addEventListener(eventName, applyTemplate);
+    }
+    return () => {
+      for (const eventName of COMPOSER_TEMPLATE_EVENTS) {
+        window.removeEventListener(eventName, applyTemplate);
+      }
+    };
   }, [editor, props.mentions, props.scenarioTags]);
 
   useEffect(() => {
@@ -955,7 +960,7 @@ export function LexicalPromptEditor(props: EditorProps) {
         <SyncPlugin value={props.value} mentions={props.mentions} scenarioTags={props.scenarioTags} disabled={props.disabled} />
         <SubmitPlugin onSubmit={props.onSubmit} disabled={props.disabled} />
         <ScenarioChipRemovePlugin />
-        <CapabilityTemplatePlugin
+        <ComposerTemplatePlugin
           mentions={props.mentions}
           scenarioTags={props.scenarioTags}
         />

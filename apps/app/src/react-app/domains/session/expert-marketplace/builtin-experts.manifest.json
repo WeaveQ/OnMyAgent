@@ -1631,6 +1631,203 @@
             "en": "Waybill XX has damage, delay, or loss: XX; available evidence XX; customer demand XX. List evidence gaps, conditional liability direction, scripts, and a claim tracker."
           }
         ],
+        "promptTemplates": [
+          {
+            "id": "fuel-audit",
+            "title": {
+              "zh": "油费稽查",
+              "en": "Fuel Audit"
+            },
+            "description": {
+              "zh": "补齐油耗数据并筛查异常线索",
+              "en": "Collect fuel data and screen for anomaly leads"
+            },
+            "template": {
+              "zh": "请补齐以下油费稽查资料：\n\n1. 稽查范围：统计周期 <统计周期>，车辆 <车牌号或车辆清单>\n2. 车辆信息：车型 <车型>，动力类型 <柴油、燃气等>，司机 <司机姓名>\n3. 里程数据：期初里程 <期初里程> 公里，期末里程 <期末里程> 公里；或直接提供周期里程 <周期里程> 公里\n4. 加油记录：@<加油记录文件或明细>\n5. 每笔加油记录应包含：<加油时间>、<油站>、<升数>、<金额>、<支付方式或油卡流水号>\n6. 核查基准：企业油耗基准 <基准下限>–<基准上限> 升/百公里；没有企业基准时填“使用示意基准”\n7. 异常核查资料：@<油卡流水、GPS轨迹、固定油站名单或任务记录>\n8. 核查口径：<按自然周期或加满到加满>，其他说明 <其他核查规则；没有则填无>\n\n请计算单车油耗，检查异常偏离、重复加油、非定点加油、时空矛盾等线索，并生成稽查报告；异常只作为核查线索，不直接认定违规。",
+              "en": "Please complete the following fuel-audit details:\n\n1. Scope: period <Audit period>, vehicles <Plate number or vehicle list>\n2. Vehicle: type <Vehicle type>, powertrain <Diesel, gas, or other>, driver <Driver name>\n3. Mileage: opening <Opening odometer> km, closing <Closing odometer> km, or period distance <Period distance> km\n4. Fuel records: @<Fuel record file or details>\n5. Each fill should include <Fill time>, <Station>, <Litres>, <Amount>, <Payment method or fuel-card transaction ID>\n6. Baseline: <Baseline low>–<Baseline high> L/100km; enter “illustrative baseline” if unavailable\n7. Anomaly evidence: @<Fuel-card flow, GPS, approved stations, or job records>\n8. Method: <Natural period or full-to-full>, notes <Other audit rules or none>\n\nCalculate per-vehicle consumption, screen deviation, repeated fills, off-network fills, and time-location conflicts, and generate an audit report. Treat anomalies as leads only."
+            },
+            "requiredSlots": {
+              "zh": [
+                "统计周期",
+                "车牌号或车辆清单",
+                "车型",
+                "柴油、燃气等",
+                "司机姓名",
+                "期初里程",
+                "期末里程",
+                "周期里程",
+                "加油记录文件或明细",
+                "加油时间",
+                "油站",
+                "升数",
+                "金额",
+                "支付方式或油卡流水号",
+                "基准下限",
+                "基准上限",
+                "按自然周期或加满到加满"
+              ],
+              "en": [
+                "Audit period",
+                "Plate number or vehicle list",
+                "Vehicle type",
+                "Diesel, gas, or other",
+                "Driver name",
+                "Opening odometer",
+                "Closing odometer",
+                "Period distance",
+                "Fuel record file or details",
+                "Fill time",
+                "Station",
+                "Litres",
+                "Amount",
+                "Payment method or fuel-card transaction ID",
+                "Baseline low",
+                "Baseline high",
+                "Natural period or full-to-full"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "油卡流水、GPS轨迹、固定油站名单或任务记录",
+                "其他核查规则；没有则填无"
+              ],
+              "en": [
+                "Fuel-card flow, GPS, approved stations, or job records",
+                "Other audit rules or none"
+              ]
+            }
+          },
+          {
+            "id": "affiliate-fleet",
+            "title": {
+              "zh": "挂靠车管理",
+              "en": "Affiliated Fleet"
+            },
+            "description": {
+              "zh": "补齐人车证照并建立合规台账",
+              "en": "Collect people, vehicle, and compliance records"
+            },
+            "template": {
+              "zh": "请补齐以下挂靠车资料：\n\n1. 车辆信息：车牌 <车牌号>，车型 <车型>，挂靠单位 <挂靠单位>，车辆状态 <在营、停运或退出>\n2. 所有人信息：登记所有人 <登记所有人>，实际车主或控制人 <实际车主>\n3. 司机信息：姓名 <司机姓名>，电话 <司机电话>，准驾车型 <准驾车型>\n4. 司机证件：驾驶证到期日 <驾驶证到期日>，从业资格证到期日 <从业资格证到期日>\n5. 车辆证件：行驶证检验有效期 <行驶证检验有效期>，营运证或审验到期日 <营运证到期日>\n6. 保险年检：交强险到期日 <交强险到期日>，商业险到期日 <商业险到期日>，年检到期日 <年检到期日>\n7. 违章情况：未处理违章 <未处理条数> 条，未处理记分 <未处理记分> 分\n8. 原始资料：@<证照、保险、合同、年检和违章资料>\n9. 其他风险：<证照不一致、合同异常或其他说明；没有则填无>\n\n请建立挂靠车合规台账，标出已过期、D-30、D-15、D-7 和高风险事项，并生成催补资料建议；暂不自动停运、处罚或创建提醒任务。",
+              "en": "Please complete the following affiliated-fleet details:\n\n1. Vehicle: plate <Plate number>, type <Vehicle type>, affiliate <Affiliate organization>, status <Active, suspended, or exited>\n2. Ownership: registered owner <Registered owner>, actual owner or controller <Actual owner>\n3. Driver: <Driver name>, phone <Driver phone>, licence class <Licence class>\n4. Driver documents: licence expiry <Driver licence expiry>, qualification expiry <Driver qualification expiry>\n5. Vehicle documents: licence inspection expiry <Vehicle licence inspection expiry>, operating permit expiry <Operating permit expiry>\n6. Insurance and inspection: compulsory insurance <Compulsory insurance expiry>, commercial insurance <Commercial insurance expiry>, annual inspection <Annual inspection expiry>\n7. Violations: <Open violation count> open, <Open points> points\n8. Source documents: @<Licences, insurance, contract, inspection, and violation records>\n9. Other risks: <Document mismatch, contract issue, other risk, or none>\n\nBuild the compliance ledger, flag expired, D-30, D-15, D-7, and high-risk items, and draft document-chasing advice. Do not suspend, penalize, or create reminders automatically."
+            },
+            "requiredSlots": {
+              "zh": [
+                "车牌号",
+                "车型",
+                "挂靠单位",
+                "在营、停运或退出",
+                "登记所有人",
+                "实际车主",
+                "司机姓名",
+                "司机电话",
+                "准驾车型",
+                "驾驶证到期日",
+                "从业资格证到期日",
+                "行驶证检验有效期",
+                "营运证到期日",
+                "交强险到期日",
+                "商业险到期日",
+                "年检到期日",
+                "未处理条数",
+                "未处理记分",
+                "证照、保险、合同、年检和违章资料"
+              ],
+              "en": [
+                "Plate number",
+                "Vehicle type",
+                "Affiliate organization",
+                "Active, suspended, or exited",
+                "Registered owner",
+                "Actual owner",
+                "Driver name",
+                "Driver phone",
+                "Licence class",
+                "Driver licence expiry",
+                "Driver qualification expiry",
+                "Vehicle licence inspection expiry",
+                "Operating permit expiry",
+                "Compulsory insurance expiry",
+                "Commercial insurance expiry",
+                "Annual inspection expiry",
+                "Open violation count",
+                "Open points",
+                "Licences, insurance, contract, inspection, and violation records"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "证照不一致、合同异常或其他说明；没有则填无"
+              ],
+              "en": [
+                "Document mismatch, contract issue, other risk, or none"
+              ]
+            }
+          },
+          {
+            "id": "cargo-claim",
+            "title": {
+              "zh": "货损理赔",
+              "en": "Cargo Claim"
+            },
+            "description": {
+              "zh": "补齐案件和证据资料并准备理赔作业包",
+              "en": "Collect case evidence and prepare a claim workpack"
+            },
+            "template": {
+              "zh": "请补齐以下理赔案件资料：\n\n1. 运单信息：运单号 <运单号>，运输线路 <装货地到卸货地>\n2. 货物信息：品名 <货物名称>，数量 <数量> <单位>，声明货值 <声明货值> 元\n3. 保险保价：是否保价或投保 <保价或保险情况>，保单号 <保单号；没有则填无>\n4. 异常情况：类型 <破损、水湿、延误、丢件或其他>，发现时间 <发现时间>，发现地点或环节 <发现地点或环节>\n5. 事件经过：<提货、装车、运输、卸货、签收和客诉的时间线>\n6. 各方说法：客户说明 <客户说明>，司机或承运方说明 <司机或承运方说明>\n7. 客户诉求：<赔付金额、补发、维修、道歉或其他要求>\n8. 基础证据：@<运单、托运约定、货值证明和书面沟通>\n9. 现场证据：@<现场照片视频、交接单、签收单、司机说明和监控资料>\n10. 类型专项证据：@<包装照片、轨迹、天气、件数交接或损失证明等与本案类型相关的资料>\n\n请建立案件卡和时间线，检查证据缺口，给出条件式责任初判、各方沟通话术及理赔进度表；暂不认责、报案、承诺赔付或发送消息。",
+              "en": "Please complete the following claim details:\n\n1. Waybill: <Waybill number>, route <Loading-to-delivery route>\n2. Cargo: <Cargo name>, quantity <Quantity> <Unit>, declared value <Declared value>\n3. Cover: <Insurance or declared-cover status>, policy <Policy number or none>\n4. Incident: <Damage, wetting, delay, loss, or other>, found <Discovery time>, at <Discovery location or stage>\n5. Timeline: <Pickup, loading, transit, unloading, signing, and complaint timeline>\n6. Statements: customer <Customer statement>, driver or carrier <Driver or carrier statement>\n7. Demand: <Compensation, replacement, repair, apology, or other demand>\n8. Core evidence: @<Waybill, transport terms, value proof, and written communications>\n9. Scene evidence: @<Photos, video, handover, POD, driver statement, and CCTV>\n10. Type-specific evidence: @<Packaging, tracking, weather, quantity handover, or loss proof>\n\nBuild the case card and timeline, identify evidence gaps, draft a conditional liability view, communications, and a claim tracker. Do not admit liability, report, promise payment, or send messages."
+            },
+            "requiredSlots": {
+              "zh": [
+                "运单号",
+                "装货地到卸货地",
+                "货物名称",
+                "数量",
+                "单位",
+                "声明货值",
+                "保价或保险情况",
+                "破损、水湿、延误、丢件或其他",
+                "发现时间",
+                "发现地点或环节",
+                "提货、装车、运输、卸货、签收和客诉的时间线",
+                "客户说明",
+                "司机或承运方说明",
+                "赔付金额、补发、维修、道歉或其他要求",
+                "运单、托运约定、货值证明和书面沟通",
+                "现场照片视频、交接单、签收单、司机说明和监控资料",
+                "包装照片、轨迹、天气、件数交接或损失证明等与本案类型相关的资料"
+              ],
+              "en": [
+                "Waybill number",
+                "Loading-to-delivery route",
+                "Cargo name",
+                "Quantity",
+                "Unit",
+                "Declared value",
+                "Insurance or declared-cover status",
+                "Damage, wetting, delay, loss, or other",
+                "Discovery time",
+                "Discovery location or stage",
+                "Pickup, loading, transit, unloading, signing, and complaint timeline",
+                "Customer statement",
+                "Driver or carrier statement",
+                "Compensation, replacement, repair, apology, or other demand",
+                "Waybill, transport terms, value proof, and written communications",
+                "Photos, video, handover, POD, driver statement, and CCTV",
+                "Packaging, tracking, weather, quantity handover, or loss proof"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "保单号；没有则填无"
+              ],
+              "en": [
+                "Policy number or none"
+              ]
+            }
+          }
+        ],
         "greeting": {
           "zh": "老板好，我是【车队管理专员】。我负责油费稽查、挂靠车管理和货损理赔：核对油耗与油卡异常，维护人车证照保险到期台账，并按证据链整理货损、延误或丢件案件。所有异常只作为核查线索，不自动扣款、停运、认责、报案或承诺赔付。",
           "en": "Hi, I am your Fleet Management Specialist. I audit fuel use, maintain affiliated-fleet compliance, and prepare evidence-led cargo claims. Findings are investigation leads only: I never impose penalties, suspend vehicles, admit liability, file claims, or promise payment automatically."
@@ -2681,6 +2878,195 @@
             "en": "Customer XX has XX-day terms, XX invoiced, and XX received. Calculate aging and provide the next collection milestone with staged scripts."
           }
         ],
+        "promptTemplates": [
+          {
+            "id": "pod-reconciliation",
+            "title": {
+              "zh": "回单对账",
+              "en": "POD Reconciliation"
+            },
+            "description": {
+              "zh": "补齐双方账单和回单资料并逐票核对",
+              "en": "Collect both ledgers and reconcile every shipment"
+            },
+            "template": {
+              "zh": "请补齐以下回单对账资料：\n\n1. 对账范围：对账对象 <客户、承运商或司机名称>，账期 <对账月份或周期>，币种 <币种>\n2. 对齐规则：优先按 <运单号、客户单号或车牌＋发车日＋线路> 对齐\n3. 我方运单费用：@<我方运单费用表>\n4. 我方费用表应包含：<运单号或对齐键>、<线路>、<基础运费及各项附加费>、<我方应付或应收金额>\n5. 回单资料：@<回单登记或回单文件>\n6. 回单资料应包含：<运单号>、<回单状态>、<应回日期>、<实际回收日期或当前持有人>\n7. 对方账单：@<客户或承运商账单>\n8. 结算规则：<必须原件、认可电子回单或无需回单>\n9. 差异规则：普通差异阈值 <差异阈值> 元，大额差异阈值 <大额差异阈值> 元\n\n请逐票匹配并核对，单列费用差异、缺失回单、超期回单和无法匹配项，生成对账单草稿；暂不入账、付款或修改回单状态。",
+              "en": "Please complete the following POD reconciliation details:\n\n1. Scope: counterparty <Customer, carrier, or driver>, period <Reconciliation period>, currency <Currency>\n2. Match key: <Waybill, customer reference, or plate plus date plus route>\n3. Our charges: @<Internal shipment charge file>\n4. The file must include <Waybill or match key>, <Route>, <Base freight and surcharges>, <Our payable or receivable>\n5. POD data: @<POD register or files>\n6. POD data must include <Waybill number>, <POD status>, <POD due date>, <Received date or current holder>\n7. Counterparty bill: @<Customer or carrier bill>\n8. Settlement rule: <Original required, electronic accepted, or POD not required>\n9. Variance rules: standard <Variance threshold>, large <Large variance threshold>\n\nMatch and reconcile each shipment, listing fee variances, missing and overdue PODs, and unmatched items. Generate a draft statement without posting, paying, or changing POD status."
+            },
+            "requiredSlots": {
+              "zh": [
+                "客户、承运商或司机名称",
+                "对账月份或周期",
+                "币种",
+                "运单号、客户单号或车牌＋发车日＋线路",
+                "我方运单费用表",
+                "运单号或对齐键",
+                "线路",
+                "基础运费及各项附加费",
+                "我方应付或应收金额",
+                "回单登记或回单文件",
+                "运单号",
+                "回单状态",
+                "应回日期",
+                "实际回收日期或当前持有人",
+                "客户或承运商账单",
+                "必须原件、认可电子回单或无需回单",
+                "差异阈值",
+                "大额差异阈值"
+              ],
+              "en": [
+                "Customer, carrier, or driver",
+                "Reconciliation period",
+                "Currency",
+                "Waybill, customer reference, or plate plus date plus route",
+                "Internal shipment charge file",
+                "Waybill or match key",
+                "Route",
+                "Base freight and surcharges",
+                "Our payable or receivable",
+                "POD register or files",
+                "Waybill number",
+                "POD status",
+                "POD due date",
+                "Received date or current holder",
+                "Customer or carrier bill",
+                "Original required, electronic accepted, or POD not required",
+                "Variance threshold",
+                "Large variance threshold"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [],
+              "en": []
+            }
+          },
+          {
+            "id": "billing",
+            "title": {
+              "zh": "开票管理",
+              "en": "Billing"
+            },
+            "description": {
+              "zh": "补齐开票资料和运单明细并生成申请草稿",
+              "en": "Collect invoice data and prepare an application"
+            },
+            "template": {
+              "zh": "请补齐以下开票资料：\n\n1. 开票客户：客户全称 <客户开票抬头>，本次涉及 <运单票数> 票\n2. 发票要求：发票类型 <增值税专票、普票或电子普票>，货物或服务名称 <开票项目名称>\n3. 金额税率：开票金额 <开票金额> 元，金额口径 <含税或未税>，税率 <税率>%\n4. 运单对应：@<运单号、单票金额和线路清单>\n5. 基础资料：税号 <纳税人识别号>，注册地址 <注册地址>，联系电话 <开票联系电话>\n6. 银行资料：开户行 <开户行全称>，银行账号 <银行账号>\n7. 专票资料：一般纳税人资格及资料 @<专票资质文件；非专票填不适用>\n8. 交付方式：<电子票接收邮箱，或纸票收件人、电话和邮寄地址>\n9. 账期进度：期望开票日期 <期望开票日期>，客户账期 <客户账期>\n10. 开票依据：@<确认对账单、合同或其他开票依据>\n\n请先检查资料完整性以及运单金额合计是否与开票金额一致，再生成开票清单、申请内容和进度表；暂不正式提交开票。",
+              "en": "Please complete the following billing details:\n\n1. Customer: legal invoice name <Invoice title>, shipments <Shipment count>\n2. Invoice: <VAT special, general, or electronic general>, item <Invoice item name>\n3. Amount: <Invoice amount>, basis <Tax-inclusive or tax-exclusive>, rate <Tax rate>%\n4. Shipment mapping: @<Waybill, per-shipment amount, and route list>\n5. Registration: tax ID <Tax ID>, address <Registered address>, phone <Invoice phone>\n6. Bank: <Bank name>, account <Bank account>\n7. Special VAT documents: @<VAT qualification file or not applicable>\n8. Delivery: <Electronic email or paper recipient, phone, and address>\n9. Progress: desired issue date <Desired invoice date>, terms <Customer terms>\n10. Basis: @<Confirmed statement, contract, or other billing basis>\n\nCheck completeness and that shipment totals match the invoice amount, then prepare the billing list, application, and tracker. Do not submit the invoice."
+            },
+            "requiredSlots": {
+              "zh": [
+                "客户开票抬头",
+                "运单票数",
+                "增值税专票、普票或电子普票",
+                "开票项目名称",
+                "开票金额",
+                "含税或未税",
+                "税率",
+                "运单号、单票金额和线路清单",
+                "纳税人识别号",
+                "注册地址",
+                "开票联系电话",
+                "开户行全称",
+                "银行账号",
+                "电子票接收邮箱，或纸票收件人、电话和邮寄地址",
+                "期望开票日期",
+                "客户账期",
+                "确认对账单、合同或其他开票依据"
+              ],
+              "en": [
+                "Invoice title",
+                "Shipment count",
+                "VAT special, general, or electronic general",
+                "Invoice item name",
+                "Invoice amount",
+                "Tax-inclusive or tax-exclusive",
+                "Tax rate",
+                "Waybill, per-shipment amount, and route list",
+                "Tax ID",
+                "Registered address",
+                "Invoice phone",
+                "Bank name",
+                "Bank account",
+                "Electronic email or paper recipient, phone, and address",
+                "Desired invoice date",
+                "Customer terms",
+                "Confirmed statement, contract, or other billing basis"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "专票资质文件；非专票填不适用"
+              ],
+              "en": [
+                "VAT qualification file or not applicable"
+              ]
+            }
+          },
+          {
+            "id": "receivables-collection",
+            "title": {
+              "zh": "回款催收",
+              "en": "Receivables Collection"
+            },
+            "description": {
+              "zh": "补齐应收和账期信息并生成催收方案",
+              "en": "Collect receivable facts and prepare a collection plan"
+            },
+            "template": {
+              "zh": "请补齐以下回款催收资料：\n\n1. 客户信息：客户 <客户名称>，内部负责人 <业务或财务负责人>\n2. 发票信息：发票号或账单号 <发票号或账单号>，开票日期 <开票日期>\n3. 应收金额：开票金额 <开票金额> 元，已回款 <已回款金额> 元，币种 <币种>\n4. 账期规则：<开票后、对账确认后、月结固定日或回单齐全后起算>\n5. 起算到期：起算日 <账期起算日>，账期 <账期天数或付款规则>，约定到期日 <到期日>\n6. 回款情况：最近回款日期和金额 <最近回款情况；没有则填无>\n7. 沟通记录：最后跟进日期 <最后跟进日期>，客户最近回复或付款承诺 <最近回复或承诺>\n8. 争议情况：<金额、回单、发票或服务争议；没有则填无>\n9. 付款方式：<电汇、承兑或其他>；如为承兑，补充 <票号、承兑到期日和是否兑付>\n10. 关联资料：@<发票、对账单、运单或历史沟通记录>\n\n请计算未收余额、账龄、当前节点和下一跟进时间，生成分阶段催收话术及风险提示；暂不发送消息、升级法务或创建定时任务。",
+              "en": "Please complete the following collection details:\n\n1. Customer: <Customer name>, owner <Business or finance owner>\n2. Invoice: <Invoice or statement number>, issue date <Invoice date>\n3. Receivable: invoiced <Invoiced amount>, paid <Paid amount>, currency <Currency>\n4. Terms basis: <Invoice date, reconciliation date, fixed monthly date, or POD completion>\n5. Due calculation: start <Terms start date>, terms <Terms or net days>, due <Due date>\n6. Payments: <Latest payment date and amount or none>\n7. Follow-up: last contact <Last follow-up date>, latest response or promise <Latest response or promise>\n8. Disputes: <Amount, POD, invoice, service dispute, or none>\n9. Payment method: <Wire, acceptance, or other>; if acceptance, <Acceptance number, maturity, and redemption status>\n10. Related records: @<Invoice, statement, waybill, or communication history>\n\nCalculate open balance, aging, current node, and next follow-up, then draft staged collection scripts and risks. Do not message, escalate legally, or create automations."
+            },
+            "requiredSlots": {
+              "zh": [
+                "客户名称",
+                "业务或财务负责人",
+                "发票号或账单号",
+                "开票日期",
+                "开票金额",
+                "已回款金额",
+                "币种",
+                "开票后、对账确认后、月结固定日或回单齐全后起算",
+                "账期起算日",
+                "账期天数或付款规则",
+                "到期日",
+                "最后跟进日期",
+                "最近回复或承诺",
+                "电汇、承兑或其他",
+                "发票、对账单、运单或历史沟通记录"
+              ],
+              "en": [
+                "Customer name",
+                "Business or finance owner",
+                "Invoice or statement number",
+                "Invoice date",
+                "Invoiced amount",
+                "Paid amount",
+                "Currency",
+                "Invoice date, reconciliation date, fixed monthly date, or POD completion",
+                "Terms start date",
+                "Terms or net days",
+                "Due date",
+                "Last follow-up date",
+                "Latest response or promise",
+                "Wire, acceptance, or other",
+                "Invoice, statement, waybill, or communication history"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "最近回款情况；没有则填无",
+                "金额、回单、发票或服务争议；没有则填无",
+                "票号、承兑到期日和是否兑付"
+              ],
+              "en": [
+                "Latest payment date and amount or none",
+                "Amount, POD, invoice, service dispute, or none",
+                "Acceptance number, maturity, and redemption status"
+              ]
+            }
+          }
+        ],
         "greeting": {
           "zh": "老板好，我是【财务专员】。我负责回单对账、开票管理和回款催收：先逐票核对回单与费用，再整理开票资料，最后维护应收账龄与催收节点。无法匹配的票据和金额差异会单列；不会自动入账、开票、付款或向客户发消息。",
           "en": "Hi, I am your Finance Specialist. I handle POD reconciliation, billing preparation, and receivables collection as one traceable workflow. Unmatched shipments and amount variances stay visible. I never post entries, issue invoices, make payments, or message customers automatically."
@@ -3476,6 +3862,215 @@
           {
             "zh": "待调度订单：XX → XX，货物 XX，装货时间 XX；现有车辆：XX。请给我 1–3 套配载或派车方案并说明理由。",
             "en": "Dispatch order: XX to XX, cargo XX, load time XX; available vehicles: XX. Give 1–3 loading or dispatch plans with reasons."
+          }
+        ],
+        "promptTemplates": [
+          {
+            "id": "waybill",
+            "title": {
+              "zh": "物流单",
+              "en": "Waybill"
+            },
+            "description": {
+              "zh": "一次补齐运输资料并生成物流单",
+              "en": "Collect shipment details once and generate a waybill"
+            },
+            "template": {
+              "zh": "请补齐以下物流单资料：\n\n1. 单据要求：生成 <单据类型>，使用 <指定模板或通用格式>\n2. 托运信息：托运方 <托运方名称>，联系人 <托运联系人>，电话 <托运电话>，装货地址 <装货详细地址>\n3. 收货信息：收货方 <收货方名称>，联系人 <收货联系人>，电话 <收货电话>，卸货地址 <卸货详细地址>\n4. 货物信息：品名 <货物名称>，数量 <数量> <单位>，包装 <包装方式>\n5. 重量体积：重量 <重量> 吨，体积 <体积> 方（重量和体积至少填写一项）\n6. 时间要求：计划提货时间 <计划提货时间>，要求到达时间 <要求到达时间>\n7. 运输要求：车型 <车型要求>，提送方式 <提货和交付方式>，结算方式 <结算方式>\n8. 其他要求：<装卸、回单、保价、温控或其他特殊要求；没有则填无>\n9. 已派车时补充：车牌 <车牌号>，司机 <司机姓名>，司机电话 <司机电话>；尚未派车可填“待派车”\n\n请整理并生成物流单；如仍有缺失或冲突，请一次性列出待确认项。",
+              "en": "Please complete the following waybill details:\n\n1. Document: create a <Document type> using <Specified template or standard format>\n2. Shipper: <Shipper name>, contact <Shipper contact>, phone <Shipper phone>, loading address <Detailed loading address>\n3. Consignee: <Consignee name>, contact <Consignee contact>, phone <Consignee phone>, unloading address <Detailed unloading address>\n4. Cargo: <Cargo name>, quantity <Quantity> <Unit>, packaging <Packaging>\n5. Weight and volume: <Weight> tonnes and <Volume> m³ (provide at least one)\n6. Schedule: planned pickup <Planned pickup time>, required delivery <Required delivery time>\n7. Transport: vehicle <Vehicle requirement>, handover <Pickup and delivery method>, settlement <Settlement method>\n8. Other requirements: <Loading, POD, insurance, temperature control, or none>\n9. If dispatched: plate <Plate number>, driver <Driver name>, phone <Driver phone>; otherwise enter “pending dispatch”\n\nPrepare the waybill and list all remaining gaps or conflicts in one confirmation request."
+            },
+            "requiredSlots": {
+              "zh": [
+                "单据类型",
+                "指定模板或通用格式",
+                "托运方名称",
+                "托运联系人",
+                "托运电话",
+                "装货详细地址",
+                "收货方名称",
+                "收货联系人",
+                "收货电话",
+                "卸货详细地址",
+                "货物名称",
+                "数量",
+                "单位",
+                "包装方式",
+                "重量",
+                "体积",
+                "计划提货时间",
+                "要求到达时间",
+                "车型要求",
+                "提货和交付方式",
+                "结算方式"
+              ],
+              "en": [
+                "Document type",
+                "Specified template or standard format",
+                "Shipper name",
+                "Shipper contact",
+                "Shipper phone",
+                "Detailed loading address",
+                "Consignee name",
+                "Consignee contact",
+                "Consignee phone",
+                "Detailed unloading address",
+                "Cargo name",
+                "Quantity",
+                "Unit",
+                "Packaging",
+                "Weight",
+                "Volume",
+                "Planned pickup time",
+                "Required delivery time",
+                "Vehicle requirement",
+                "Pickup and delivery method",
+                "Settlement method"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "装卸、回单、保价、温控或其他特殊要求；没有则填无",
+                "车牌号",
+                "司机姓名",
+                "司机电话"
+              ],
+              "en": [
+                "Loading, POD, insurance, temperature control, or none",
+                "Plate number",
+                "Driver name",
+                "Driver phone"
+              ]
+            }
+          },
+          {
+            "id": "freight-quote",
+            "title": {
+              "zh": "货运报价",
+              "en": "Freight Quote"
+            },
+            "description": {
+              "zh": "补齐询价条件并生成三档报价",
+              "en": "Collect quote conditions and produce three options"
+            },
+            "template": {
+              "zh": "请补齐以下报价资料：\n\n1. 运输线路：提货地 <提货详细地址>，卸货地 <卸货详细地址>\n2. 货物信息：品名 <货物名称>，包装 <包装方式>，是否可叠压 <是否可叠压>\n3. 重量体积：重量 <重量> 吨，体积 <体积> 方（重量和体积至少填写一项）\n4. 运输方式：选择 <整车、零担或专线>，车型要求 <车型要求>\n5. 时间要求：装货时间 <装货时间>，送达时效 <送达时效>\n6. 提送装卸：<是否上门提货、送货上门、含装卸、需要叉车或尾板>\n7. 回单保价：回单要求 <回单要求>，货值或保价要求 <货值或保价要求>\n8. 税费口径：<含税或未税>，发票要求 <发票类型或无>\n9. 成本依据：企业成本或可接受底价 <成本或底价> 元，历史成交价 <历史成交价；没有则填无>\n10. 其他费用：<进仓、预约、等候、多点装卸、夜间、旺季等附加条件；没有则填无>\n\n请生成最快、平衡、最便宜三档报价，列明计费口径、包含项目、另计费用、所用假设和底价提醒。",
+              "en": "Please complete the following quote details:\n\n1. Route: pickup <Detailed pickup address>, delivery <Detailed delivery address>\n2. Cargo: <Cargo name>, packaging <Packaging>, stackable <Stackable or not>\n3. Weight and volume: <Weight> tonnes and <Volume> m³ (provide at least one)\n4. Mode: <Full truck, LTL, or line-haul>, vehicle <Vehicle requirement>\n5. Schedule: loading <Loading time>, delivery SLA <Delivery SLA>\n6. Services: <Pickup, delivery, loading, unloading, forklift, or tail lift requirements>\n7. POD and cover: POD <POD requirement>, cargo value or insurance <Cargo value or insurance requirement>\n8. Tax: <Tax-inclusive or tax-exclusive>, invoice <Invoice type or none>\n9. Cost basis: enterprise cost or floor <Cost or floor price>, historical rate <Historical rate or none>\n10. Surcharges: <Warehouse, booking, waiting, multi-stop, night, peak-season, or none>\n\nProduce fastest, balanced, and cheapest options with pricing basis, inclusions, extras, assumptions, and floor-price warnings."
+            },
+            "requiredSlots": {
+              "zh": [
+                "提货详细地址",
+                "卸货详细地址",
+                "货物名称",
+                "包装方式",
+                "是否可叠压",
+                "重量",
+                "体积",
+                "整车、零担或专线",
+                "车型要求",
+                "装货时间",
+                "送达时效",
+                "是否上门提货、送货上门、含装卸、需要叉车或尾板",
+                "回单要求",
+                "货值或保价要求",
+                "含税或未税",
+                "发票类型或无",
+                "成本或底价"
+              ],
+              "en": [
+                "Detailed pickup address",
+                "Detailed delivery address",
+                "Cargo name",
+                "Packaging",
+                "Stackable or not",
+                "Weight",
+                "Volume",
+                "Full truck, LTL, or line-haul",
+                "Vehicle requirement",
+                "Loading time",
+                "Delivery SLA",
+                "Pickup, delivery, loading, unloading, forklift, or tail lift requirements",
+                "POD requirement",
+                "Cargo value or insurance requirement",
+                "Tax-inclusive or tax-exclusive",
+                "Invoice type or none",
+                "Cost or floor price"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "历史成交价；没有则填无",
+                "进仓、预约、等候、多点装卸、夜间、旺季等附加条件；没有则填无"
+              ],
+              "en": [
+                "Historical rate or none",
+                "Warehouse, booking, waiting, multi-stop, night, peak-season, or none"
+              ]
+            }
+          },
+          {
+            "id": "capacity-dispatch",
+            "title": {
+              "zh": "运力调配",
+              "en": "Capacity Dispatch"
+            },
+            "description": {
+              "zh": "补齐订单和实时运力并推荐候选车辆",
+              "en": "Match a complete order against current capacity"
+            },
+            "template": {
+              "zh": "请补齐以下调度资料：\n\n1. 订单线路：装货地 <装货详细地址>，卸货地 <卸货详细地址>\n2. 货物信息：品名 <货物名称>，重量 <重量> 吨，体积 <体积> 方（重量和体积至少填写一项）\n3. 时间窗口：最晚装货时间 <最晚装货时间>，要求到达时间 <要求到达时间>\n4. 车辆要求：车型 <车型要求>，特殊能力或资质 <尾板、冷藏、危化资质等；没有则填无>\n5. 调度限制：<是否允许拼车、指定司机、装卸要求等；没有则填无>\n6. 可用运力：@<车辆清单或车辆实时状态文件>\n7. 清单必含：每辆车的 <车牌或司机>、<当前位置>、<车型>、<剩余载重和方数>\n8. 实时状态：每辆车的 <当前状态>、<预计空闲时间>、<可接方向>、<信息更新时间>\n\n请先排除超载、超方、车型或资质不符、时效不可达和信息过期的车辆，再推荐 1–3 套方案，说明推荐理由、未入选原因和待确认风险，暂不锁车。",
+              "en": "Please complete the following dispatch details:\n\n1. Route: loading <Detailed loading address>, unloading <Detailed unloading address>\n2. Cargo: <Cargo name>, <Weight> tonnes, <Volume> m³ (provide at least one)\n3. Window: latest loading <Latest loading time>, required arrival <Required arrival time>\n4. Vehicle: <Vehicle requirement>, special capability <Tail lift, refrigeration, dangerous-goods qualification, or none>\n5. Restrictions: <Pooling, designated driver, loading or unloading restrictions, or none>\n6. Available capacity: @<Vehicle list or live-status file>\n7. Each vehicle must include <Plate or driver>, <Current location>, <Vehicle type>, <Remaining weight and volume>\n8. Live status: <Current status>, <Expected free time>, <Preferred lanes>, <Status updated time>\n\nExclude overload, capacity, qualification, timing, and stale-data failures, then recommend 1–3 options with selection reasons, rejection reasons, and confirmation risks. Do not lock a vehicle."
+            },
+            "requiredSlots": {
+              "zh": [
+                "装货详细地址",
+                "卸货详细地址",
+                "货物名称",
+                "重量",
+                "体积",
+                "最晚装货时间",
+                "要求到达时间",
+                "车型要求",
+                "车辆清单或车辆实时状态文件",
+                "车牌或司机",
+                "当前位置",
+                "车型",
+                "剩余载重和方数",
+                "当前状态",
+                "预计空闲时间",
+                "可接方向",
+                "信息更新时间"
+              ],
+              "en": [
+                "Detailed loading address",
+                "Detailed unloading address",
+                "Cargo name",
+                "Weight",
+                "Volume",
+                "Latest loading time",
+                "Required arrival time",
+                "Vehicle requirement",
+                "Vehicle list or live-status file",
+                "Plate or driver",
+                "Current location",
+                "Vehicle type",
+                "Remaining weight and volume",
+                "Current status",
+                "Expected free time",
+                "Preferred lanes",
+                "Status updated time"
+              ]
+            },
+            "conditionalSlots": {
+              "zh": [
+                "尾板、冷藏、危化资质等；没有则填无",
+                "是否允许拼车、指定司机、装卸要求等；没有则填无"
+              ],
+              "en": [
+                "Tail lift, refrigeration, dangerous-goods qualification, or none",
+                "Pooling, designated driver, loading or unloading restrictions, or none"
+              ]
+            }
           }
         ],
         "greeting": {

@@ -115,6 +115,7 @@ export type SessionSurfaceViewProps = {
   draftOnly?: boolean;
   effectiveAgent: PendingAgentContext | null;
   typeComposerText: (text: string) => void | Promise<void>;
+  typeComposerTemplate: (template: string) => void | Promise<void>;
   assistantActivity: AssistantActivity;
   onDismissError: () => void;
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
@@ -325,7 +326,12 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                     <AgentPromptSuggestions
                       agentId={props.effectiveAgent.id}
                       quickPrompts={props.effectiveAgent.quickPrompts}
-                      onSelect={(prompt) => void props.typeComposerText(prompt)}
+                      promptTemplates={props.effectiveAgent.promptTemplates}
+                      onSelect={(prompt, template) =>
+                        void (template
+                          ? props.typeComposerTemplate(prompt)
+                          : props.typeComposerText(prompt))
+                      }
                       className="shrink-0"
                     />
                   }

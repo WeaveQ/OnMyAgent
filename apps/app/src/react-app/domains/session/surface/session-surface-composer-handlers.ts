@@ -19,6 +19,7 @@ import type {
 import { t } from "../../../../i18n";
 import { recordInspectorEvent } from "../../../shell";
 import { encodeComposerMentionValue } from "./composer/mention-encoding";
+import { dispatchComposerTemplate } from "./composer/capability-template";
 import type { ReactComposerNotice } from "./composer/notice";
 import { createComposerAttachments } from "./session-surface-support";
 import { waitForControl } from "./session-surface-hooks";
@@ -198,6 +199,12 @@ export function useSessionSurfaceComposerHandlers(
     [sessionId, setComposerDraft],
   );
 
+  const typeComposerTemplate = useCallback(async (template: string) => {
+    window.dispatchEvent(new Event("onmyagent:focusPrompt"));
+    dispatchComposerTemplate(template);
+    await waitForControl(40);
+  }, []);
+
   useEffect(() => {
     const handleVoiceTranscript = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
@@ -356,6 +363,7 @@ export function useSessionSurfaceComposerHandlers(
     handleRemovePastedText,
     handleUnsupportedFileLinks,
     typeComposerText,
+    typeComposerTemplate,
     listSkills,
     listMcp,
     listImportedPlugins,

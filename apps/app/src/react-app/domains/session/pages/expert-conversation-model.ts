@@ -194,6 +194,7 @@ export function resolveActiveAgentContext(input: {
       },
       systemPrompt: marketplaceExpert.systemPrompt,
       quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
+      promptTemplates: marketplaceExpert.promptTemplates.slice(0, 3),
       marketplaceExpert: {
         source: "builtin",
         packageName: marketplaceExpert.packageName,

@@ -18,6 +18,7 @@ import {
 } from "lexical";
 import {
   CAPABILITY_TEMPLATE_EVENT,
+  COMPOSER_TEMPLATE_EVENT,
   splitCapabilityTemplate,
 } from "../src/react-app/domains/session/surface/composer/capability-template";
 import {
@@ -73,9 +74,10 @@ describe("capability template editor", () => {
     );
 
     expect(CAPABILITY_TEMPLATE_EVENT).toBe("onmyagent-capability-template");
-    expect(visual).toContain("new CustomEvent(CAPABILITY_TEMPLATE_EVENT");
+    expect(COMPOSER_TEMPLATE_EVENT).toBe("onmyagent-composer-template");
+    expect(visual).toContain("dispatchComposerTemplate(template)");
     expect(expert).toContain(
-      "window.addEventListener(CAPABILITY_TEMPLATE_EVENT",
+      "window.addEventListener(eventName, handler)",
     );
     const placeholderNode = readApp(
       "src/react-app/domains/session/surface/composer/capability-placeholder-node.ts",
@@ -423,41 +425,44 @@ describe("capability template editor", () => {
     ).toBe("汽车配件 纸箱，数量 <数量>");
   });
 
-  test("all nine logistics capability prompts still declare placeholders", () => {
-    const maps = [
-      "order-dispatch-specialist/skills/introduce-order-dispatch",
-      "fleet-management-specialist/skills/introduce-fleet-management",
-      "logistics-finance-specialist/skills/introduce-logistics-finance",
+  test("all nine logistics prompt templates declare editable placeholders", () => {
+    const packages = [
+      "order-dispatch-specialist",
+      "fleet-management-specialist",
+      "logistics-finance-specialist",
     ];
 
-    for (const relativePath of maps) {
-      const map = JSON.parse(
+    for (const packageName of packages) {
+      const templates = JSON.parse(
         readFileSync(
           join(
             repoRoot,
             "apps/desktop/resources/marketplace/experts/plugins",
-            relativePath,
-            "assets/capability-map.json",
+            packageName,
+            "prompt-templates.json",
           ),
           "utf8",
         ),
       );
-      const capabilities: unknown = map.capabilities;
-      expect(Array.isArray(capabilities)).toBe(true);
-      if (!Array.isArray(capabilities)) continue;
-      expect(capabilities).toHaveLength(3);
-      for (const capability of capabilities) {
-        expect(capability).toBeObject();
+      expect(Array.isArray(templates)).toBe(true);
+      if (!Array.isArray(templates)) continue;
+      expect(templates).toHaveLength(3);
+      for (const template of templates) {
+        expect(template).toBeObject();
         if (
-          !capability ||
-          typeof capability !== "object" ||
-          Array.isArray(capability) ||
-          !("template" in capability) ||
-          typeof capability.template !== "string"
+          !template ||
+          typeof template !== "object" ||
+          Array.isArray(template) ||
+          !("template" in template) ||
+          !template.template ||
+          typeof template.template !== "object" ||
+          Array.isArray(template.template) ||
+          !("zh" in template.template) ||
+          typeof template.template.zh !== "string"
         ) {
           continue;
         }
-        expect(capability.template).toMatch(/<[^<>\r\n]+>/);
+        expect(template.template.zh).toMatch(/<[^<>\r\n]+>/);
       }
     }
   });

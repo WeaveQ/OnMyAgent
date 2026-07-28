@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import type { ExpertPromptTemplate } from "@onmyagent/types/desktop-ipc";
 import { create } from "zustand";
 
 export type AgentAvatarStyle = "pixel" | "adventurer" | "robot" | "lorelei";
@@ -56,6 +57,7 @@ export type PendingAgentContext = {
   model?: { providerID: string; modelID: string };
   tools?: AgentToolAccessMap;
   quickPrompts?: string[];
+  promptTemplates?: ExpertPromptTemplate[];
   conversationStartId?: number;
   draftSource?: "agent-selection" | "new-session";
   marketplaceExpert?: {
