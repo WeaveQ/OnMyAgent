@@ -156,7 +156,10 @@ import {
   selectRawWorkspaceSessions,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
-import { resolveReadyBoundExpertDraftSession } from "./expert-draft-session";
+import {
+  resolveBoundExpertDraftSession,
+  resolveReadyBoundExpertDraftSession,
+} from "./expert-draft-session";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
@@ -601,17 +604,31 @@ export function ExpertPage(props: ExpertPageProps) {
     [props.sidebar],
   );
   useEffect(() => {
-    const createdSessionId = resolveReadyBoundExpertDraftSession({
+    const createdSessionId = resolveBoundExpertDraftSession({
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+    });
+    if (!createdSessionId) return;
+    // Lock the draft → real-session handoff as soon as creation binds the
+    // expert. The route can still point at the prior tab for one render, so
+    // explicitly drive it to the created session instead of allowing the
+    // generic "first summoned expert" fallback to steal selection.
+    setPendingTabSessionId(createdSessionId);
+    if (props.selectedSessionId !== createdSessionId) {
+      props.sidebar.onOpenSession(
+        props.sidebar.selectedWorkspaceId,
+        createdSessionId,
+      );
+      return;
+    }
+    const readySessionId = resolveReadyBoundExpertDraftSession({
       draftSessionActive,
       draftAgentId,
       pendingAgent,
       selectedSessionId: props.selectedSessionId,
     });
-    if (!createdSessionId) return;
-    // Keep the newly materialized session selected while the route catches up.
-    // Without this draft → real-session handoff, the removed draft chip makes
-    // the active state briefly fall back to the previously selected session.
-    setPendingTabSessionId(createdSessionId);
+    if (!readySessionId) return;
     setDraftSessionActive(false);
     setDraftAgentId(null);
   }, [
@@ -619,6 +636,8 @@ export function ExpertPage(props: ExpertPageProps) {
     draftSessionActive,
     pendingAgent,
     props.selectedSessionId,
+    props.sidebar.onOpenSession,
+    props.sidebar.selectedWorkspaceId,
   ]);
   const handleStartAgentConversation = useCallback(
     (
