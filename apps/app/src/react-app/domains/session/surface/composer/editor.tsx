@@ -14,6 +14,7 @@ import {
   $createTextNode,
   $getRoot,
   $getSelection,
+  $nodesOfType,
   $setSelection,
   $isElementNode,
   $isRangeSelection,
@@ -32,6 +33,16 @@ import {
 import type { InitialConfigType } from "@lexical/react/LexicalComposer.js";
 import type { ComposerMentionKind } from "../../../../../app/types";
 import { decodeComposerMentionValue, encodeComposerMentionValue } from "./mention-encoding";
+import {
+  CAPABILITY_TEMPLATE_EVENT,
+  splitCapabilityTemplate,
+} from "./capability-template";
+import {
+  $createComposerPlaceholderNode,
+  $selectComposerPlaceholderNode,
+  ComposerPlaceholderNode,
+  registerCapabilitySlotEditing,
+} from "./capability-placeholder-node";
 
 type EditorProps = {
   value: string;
@@ -342,7 +353,11 @@ function $createComposerScenarioNode(id: string, label: string) {
   return $applyNodeReplacement(new ComposerScenarioNode(id, label));
 }
 
-type ComposerInlineTokenNode = ComposerMentionNode | ComposerSlashCommandNode | ComposerScenarioNode;
+type ComposerInlineTokenNode =
+  | ComposerMentionNode
+  | ComposerSlashCommandNode
+  | ComposerScenarioNode
+  | ComposerPlaceholderNode;
 
 function setSelectionAfterNode(node: ComposerInlineTokenNode) {
   const parent = node.getParent();
@@ -391,10 +406,26 @@ function appendSegmentWithNewlines(
   return current;
 }
 
+function appendCapabilityTemplateSegment(
+  paragraph: ReturnType<typeof $createParagraphNode>,
+  segment: string,
+) {
+  let current = paragraph;
+  for (const part of splitCapabilityTemplate(segment)) {
+    if (part.kind === "placeholder") {
+      current.append($createComposerPlaceholderNode(part.value));
+    } else {
+      current = appendSegmentWithNewlines(current, part.value);
+    }
+  }
+  return current;
+}
+
 function setPrompt(
   value: string,
   mentions: Record<string, ComposerMentionKind>,
   scenarioTags?: Array<{ id: string; label: string }>,
+  capabilityTemplate = false,
 ) {
   const root = $getRoot();
   root.clear();
@@ -413,7 +444,11 @@ function setPrompt(
     value = slashMatch[2] ?? "";
   }
 
-  const segments = value.split(/(\[\[assistant-scenario:[^\]]+\]\]|@[^\s@]+)/);
+  const segments = value.split(
+    capabilityTemplate
+      ? /(\[\[assistant-scenario:[^\]]+\]\]|@[^\s@<]+)/
+      : /(\[\[assistant-scenario:[^\]]+\]\]|@[^\s@]+)/,
+  );
   for (const segment of segments) {
     if (!segment) continue;
     const scenarioMatch = segment.match(/^\[\[assistant-scenario:([^\]]+)\]\]$/);
@@ -432,7 +467,9 @@ function setPrompt(
         continue;
       }
     }
-    paragraph = appendSegmentWithNewlines(paragraph, segment);
+    paragraph = capabilityTemplate
+      ? appendCapabilityTemplateSegment(paragraph, segment)
+      : appendSegmentWithNewlines(paragraph, segment);
   }
 }
 
@@ -618,6 +655,89 @@ function ScenarioChipRemovePlugin() {
   return null;
 }
 
+function CapabilityTemplatePlugin(props: {
+  mentions: Record<string, ComposerMentionKind>;
+  scenarioTags?: Array<{ id: string; label: string }>;
+}) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return registerCapabilitySlotEditing(editor);
+  }, [editor]);
+
+  useEffect(() => {
+    const applyTemplate = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const detail: unknown = event.detail;
+      if (
+        !detail ||
+        typeof detail !== "object" ||
+        Array.isArray(detail) ||
+        !("template" in detail) ||
+        typeof detail.template !== "string" ||
+        !detail.template.trim()
+      ) {
+        return;
+      }
+      const template = detail.template;
+
+      editor.update(
+        () => {
+          setPrompt(template, props.mentions, props.scenarioTags, true);
+          const firstSlot = $nodesOfType(ComposerPlaceholderNode)[0];
+          if (firstSlot) $selectComposerPlaceholderNode(firstSlot);
+        },
+        { onUpdate: () => editor.focus() },
+      );
+    };
+
+    window.addEventListener(CAPABILITY_TEMPLATE_EVENT, applyTemplate);
+    return () =>
+      window.removeEventListener(CAPABILITY_TEMPLATE_EVENT, applyTemplate);
+  }, [editor, props.mentions, props.scenarioTags]);
+
+  useEffect(() => {
+    const focusEmptySlot = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const placeholderDom = target.closest("[data-composer-placeholder]");
+      if (!(placeholderDom instanceof HTMLElement)) return;
+      if (!placeholderDom.dataset.slotPlaceholder) return;
+
+      event.preventDefault();
+      editor.update(
+        () => {
+          const placeholderNode = $nodesOfType(ComposerPlaceholderNode).find(
+            (node) => editor.getElementByKey(node.getKey()) === placeholderDom,
+          );
+          if (placeholderNode) {
+            $selectComposerPlaceholderNode(placeholderNode);
+          }
+        },
+        { onUpdate: () => editor.focus() },
+      );
+    };
+
+    let currentRootElement: HTMLElement | null = null;
+    const unregisterRootListener = editor.registerRootListener(
+      (rootElement, previousRootElement) => {
+        previousRootElement?.removeEventListener(
+          "mousedown",
+          focusEmptySlot,
+        );
+        currentRootElement = rootElement;
+        rootElement?.addEventListener("mousedown", focusEmptySlot);
+      },
+    );
+    return () => {
+      currentRootElement?.removeEventListener("mousedown", focusEmptySlot);
+      unregisterRootListener();
+    };
+  }, [editor]);
+
+  return null;
+}
+
 function MentionChipNavigationPlugin() {
   const [editor] = useLexicalComposerContext();
 
@@ -661,7 +781,10 @@ function MentionChipNavigationPlugin() {
         // --- Mention / scenario chips: atomic delete (same as before) ---
         if ($isTextNode(anchorNode) && selection.anchor.offset === 0) {
           const previous = anchorNode.getPreviousSibling();
-          if (previous instanceof ComposerMentionNode || previous instanceof ComposerScenarioNode) {
+          if (
+            previous instanceof ComposerMentionNode ||
+            previous instanceof ComposerScenarioNode
+          ) {
             previous.remove();
             return true;
           }
@@ -669,7 +792,11 @@ function MentionChipNavigationPlugin() {
 
         if ($isElementNode(anchorNode)) {
           const previous = anchorNode.getChildAtIndex(selection.anchor.offset - 1);
-          if (previous instanceof ComposerSlashCommandNode || previous instanceof ComposerMentionNode || previous instanceof ComposerScenarioNode) {
+          if (
+            previous instanceof ComposerSlashCommandNode ||
+            previous instanceof ComposerMentionNode ||
+            previous instanceof ComposerScenarioNode
+          ) {
             previous.remove();
             return true;
           }
@@ -689,7 +816,11 @@ function MentionChipNavigationPlugin() {
 
         if ($isTextNode(anchorNode) && selection.anchor.offset === 0) {
           const previous = anchorNode.getPreviousSibling();
-          if (previous instanceof ComposerMentionNode || previous instanceof ComposerSlashCommandNode || previous instanceof ComposerScenarioNode) {
+          if (
+            previous instanceof ComposerMentionNode ||
+            previous instanceof ComposerSlashCommandNode ||
+            previous instanceof ComposerScenarioNode
+          ) {
             setSelectionBeforeNode(previous);
             return true;
           }
@@ -707,14 +838,22 @@ function MentionChipNavigationPlugin() {
         if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false;
         const anchorNode = selection.anchor.getNode();
 
-        if (anchorNode instanceof ComposerMentionNode || anchorNode instanceof ComposerSlashCommandNode || anchorNode instanceof ComposerScenarioNode) {
+        if (
+          anchorNode instanceof ComposerMentionNode ||
+          anchorNode instanceof ComposerSlashCommandNode ||
+          anchorNode instanceof ComposerScenarioNode
+        ) {
           setSelectionAfterNode(anchorNode);
           return true;
         }
 
         if ($isElementNode(anchorNode)) {
           const current = anchorNode.getChildAtIndex(selection.anchor.offset);
-          if (current instanceof ComposerMentionNode || current instanceof ComposerSlashCommandNode || current instanceof ComposerScenarioNode) {
+          if (
+            current instanceof ComposerMentionNode ||
+            current instanceof ComposerSlashCommandNode ||
+            current instanceof ComposerScenarioNode
+          ) {
             setSelectionAfterNode(current);
             return true;
           }
@@ -754,7 +893,12 @@ export function LexicalPromptEditor(props: EditorProps) {
         throw error;
       },
         editable: !props.disabled,
-        nodes: [ComposerMentionNode, ComposerSlashCommandNode, ComposerScenarioNode],
+        nodes: [
+          ComposerMentionNode,
+          ComposerSlashCommandNode,
+          ComposerScenarioNode,
+          ComposerPlaceholderNode,
+        ],
         editorState: () => {
           setPrompt(props.value, props.mentions, props.scenarioTags);
         },
@@ -811,6 +955,10 @@ export function LexicalPromptEditor(props: EditorProps) {
         <SyncPlugin value={props.value} mentions={props.mentions} scenarioTags={props.scenarioTags} disabled={props.disabled} />
         <SubmitPlugin onSubmit={props.onSubmit} disabled={props.disabled} />
         <ScenarioChipRemovePlugin />
+        <CapabilityTemplatePlugin
+          mentions={props.mentions}
+          scenarioTags={props.scenarioTags}
+        />
         <MentionChipNavigationPlugin />
       </div>
     </LexicalComposer>

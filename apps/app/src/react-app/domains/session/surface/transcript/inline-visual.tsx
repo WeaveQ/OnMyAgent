@@ -15,6 +15,7 @@ import {
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useStatusToasts } from "../../../shell-feedback";
+import { CAPABILITY_TEMPLATE_EVENT } from "../composer/capability-template";
 
 import {
   resolveVisualArtifactExport,
@@ -177,7 +178,7 @@ function SandboxedVisual(props: {
         const template = event.data.template;
         if (typeof template !== "string") return;
         window.dispatchEvent(
-          new CustomEvent("onmyagent-capability-template", {
+          new CustomEvent(CAPABILITY_TEMPLATE_EVENT, {
             detail: { template },
           }),
         );
