@@ -30,6 +30,7 @@ import {
   DEFAULT_SESSION_TITLE,
   isGeneratedSessionTitle,
 } from "../../../../app/lib/session-title";
+import { formatRelativeTime } from "../../../../app/utils";
 import type { WorkspaceSessionGroup } from "../../../../app/types";
 import { t } from "../../../../i18n";
 import {
@@ -100,7 +101,15 @@ export function summarizeTabTitle(
   if (generatedFallback?.trim()) {
     return compactTabTitle(generatedFallback);
   }
-  return t("session.agent_tab_new_session");
+  // When the cold-start snapshot has not arrived yet, use the last activity
+  // time as a placeholder so history sessions are not mislabeled "新会话".
+  const activityMs = session.time?.updated ?? session.time?.created;
+  if (activityMs && Number.isFinite(activityMs)) {
+    return formatRelativeTime(activityMs);
+  }
+  // No title, no snapshot, no time: this is a cold-start placeholder session
+  // (ensureAgentSessionsVisible) whose real metadata has not loaded yet.
+  return t("session.agent_tab_loading");
 }
 
 function compactTabTitle(input: string) {
