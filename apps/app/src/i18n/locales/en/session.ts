@@ -1091,6 +1091,7 @@ export default {
   "session.channel_pairing_authorized_title": "Authorized users",
   "session.channel_pairing_authorized_empty": "No authorized users",
   "session.agent_tab_summarizing": "Summarizing…",
+  "session.agent_tab_loading": "Loading…",
   "session.agent_tab_new_session": "New session",
   "session.agent_tab_new_session_title": "New session",
   "session.agent_tab_actions_title": "Session actions",

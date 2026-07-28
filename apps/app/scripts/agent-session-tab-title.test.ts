@@ -28,9 +28,22 @@ describe("expert session tab titles", () => {
     expect(summarizeTabTitle(session, "请帮我查一下库存异常")).toContain("库存");
   });
 
-  test("empty title falls back to new session, not summarizing forever", () => {
+  test("placeholder session without title or time shows loading, not new session", () => {
     const title = summarizeTabTitle({ id: "ses_3", title: "" } as never);
     expect(title).not.toMatch(/总结中|Summarizing/);
+    expect(title).not.toMatch(/新会话|New session/);
+  });
+
+  test("untitled session with activity time shows relative time, not new session", () => {
+    const recent = Date.now() - 5 * 60_000;
+    const session = {
+      id: "ses_time",
+      title: "New session - 2026-07-26T01:00:00.000Z",
+      time: { created: recent, updated: recent },
+    } as never;
+    const title = summarizeTabTitle(session);
+    expect(title).not.toMatch(/新会话|New session/);
+    expect(title).toMatch(/分钟前|m ago/);
   });
 
   test("snapshot tab title prefers first user message over assistant text", () => {

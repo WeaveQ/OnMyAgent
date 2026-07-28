@@ -1050,6 +1050,7 @@ export default {
   "session.channel_pairing_authorized_title": "已授權使用者",
   "session.channel_pairing_authorized_empty": "暫無已授權使用者",
   "session.agent_tab_summarizing": "總結中",
+  "session.agent_tab_loading": "載入中…",
   "session.agent_tab_new_session": "新會話",
   "session.agent_tab_new_session_title": "新建會話",
   "session.agent_tab_actions_title": "會話操作",
