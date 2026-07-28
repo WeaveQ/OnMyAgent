@@ -235,23 +235,22 @@ describe("session restore POP guard (shipped control.ts)", () => {
     ],
   };
 
-  test("PUSH/REPLACE still restores last session when URL has no sessionId", () => {
+  test("does not restore last session when URL has no sessionId (new-task home)", () => {
     expect(
       resolveSessionRouteRestoreNavigation({ ...base, navigationType: "PUSH" }),
-    ).toEqual({
-      type: "workspace",
-      workspaceId: "ws_a",
-      sessionId: "ses_last",
-    });
-  });
-
-  test("POP does not auto-restore last session", () => {
+    ).toEqual({ type: "none" });
     expect(
       resolveSessionRouteRestoreNavigation({ ...base, navigationType: "POP" }),
     ).toEqual({ type: "none" });
+    expect(
+      resolveSessionRouteRestoreNavigation({
+        ...base,
+        navigationType: "REPLACE",
+      }),
+    ).toEqual({ type: "none" });
   });
 
-  test("POP still allows keeping an explicit selected session", () => {
+  test("keeps an explicit selected session without stealing focus", () => {
     expect(
       resolveSessionRouteRestoreNavigation({
         ...base,

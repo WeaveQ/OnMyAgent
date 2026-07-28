@@ -127,17 +127,10 @@ export function resolveSessionRouteRestoreNavigation(input: {
   }
   if (!input.selectedWorkspaceId) return { type: "none" };
   if (input.suppressRestoreSession) return { type: "none" };
-  // Do not auto-restore last session on browser/history Back (POP).
-  if (input.navigationType === "POP") return { type: "none" };
-  const remembered = input.readLastSessionFor(
-    input.selectedWorkspaceId,
-    input.pageMode,
-  );
-  if (!remembered) return { type: "none" };
-  const sessions = input.sessionsByWorkspaceId[input.selectedWorkspaceId] ?? [];
-  if (!input.sessionListOwnsSession({ sessions, sessionId: remembered })) return { type: "none" };
-  if (!input.sessionMatchesPageMode(remembered)) return { type: "none" };
-  return { type: "workspace", workspaceId: input.selectedWorkspaceId, sessionId: remembered };
+  // URL has no sessionId: stay on the new-task home (empty composer). Do not
+  // re-open the last chat on cold start or refresh — users expect a clean
+  // compose surface. Mode switches still use resolveSessionRouteModeSwitchPath.
+  return { type: "none" };
 }
 
 /**

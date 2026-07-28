@@ -1,12 +1,12 @@
 import {
   isCollectibleArtifactTarget,
-  isLocalhostBrowserTarget,
+  isUserFacingLocalPreviewTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
 
 export function isTrackableAccessibleTarget(target: OpenTarget) {
   return (
-    isCollectibleArtifactTarget(target) || isLocalhostBrowserTarget(target)
+    isCollectibleArtifactTarget(target) || isUserFacingLocalPreviewTarget(target)
   );
 }
 

@@ -15,7 +15,6 @@ import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft } from "../../../../app/types";
 import {
-  isLocalhostBrowserTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
@@ -120,6 +119,7 @@ export type AssistantPageProps = SessionPageProps & {
 };
 
 import {
+  appendComposerFileMention,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
@@ -980,6 +980,18 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.selectedWorkspaceRoot
                           }
                           onOpenArtifact={openTarget}
+                          onAddToTask={(relativePath) => {
+                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
+                              return;
+                            }
+                            openRailView("assistant");
+                            showToast({
+                              tone: "success",
+                              title: t("files.added_to_task_title"),
+                              description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),

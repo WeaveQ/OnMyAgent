@@ -224,7 +224,10 @@ export default {
   "settings.computer_use_setup_description":
     "连接本地 MCP 服务器，并授予它控制应用所需的 macOS 权限",
   "settings.computer_use_step_connect": "连接",
+  "settings.computer_use_step_permissions": "权限",
   "settings.computer_use_step_runtime": "运行状态",
+  "settings.computer_use_step_apps": "应用授权",
+  "settings.computer_use_step_memory": "本地记忆",
   "settings.computer_use_step_privacy": "授权与记忆",
   "settings.computer_use_connect_step_title": "1. 连接 Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
@@ -250,18 +253,45 @@ export default {
     "打开 Computer Use 助手，授予辅助功能和屏幕录制权限，然后验证结果。",
   "settings.computer_use_runtime_step_title": "3. 运行状态",
   "settings.computer_use_runtime_step_description":
-    "检查助手协议和当前活动状态。",
+    "用通俗说明查看 Computer Use 是否就绪、是否正在操作，以及是否需要处理。",
   "settings.computer_use_helper_version": "助手版本",
   "settings.computer_use_desktop_version": "OnMyAgent 版本",
   "settings.computer_use_protocol": "协议",
-  "settings.computer_use_activity": "活动状态",
+  "settings.computer_use_status": "总体状态",
+  "settings.computer_use_compatibility": "兼容性",
+  "settings.computer_use_compatibility_ok": "正常",
+  "settings.computer_use_compatibility_needs_update": "需要更新",
+  "settings.computer_use_status_checking": "检查中…",
+  "settings.computer_use_status_ready": "就绪",
+  "settings.computer_use_status_working": "工作中",
+  "settings.computer_use_status_paused": "已暂停",
+  "settings.computer_use_status_error": "异常",
+  "settings.computer_use_status_needs_update": "需要更新",
+  "settings.computer_use_runtime_summary_checking":
+    "正在检查本机 Computer Use 是否可用…",
+  "settings.computer_use_runtime_summary_ready":
+    "Computer Use 已就绪。需要时在对话里发起任务即可。",
+  "settings.computer_use_runtime_summary_working":
+    "Computer Use 正在控制某个应用。",
+  "settings.computer_use_runtime_summary_working_app":
+    "Computer Use 正在控制「{app}」。",
+  "settings.computer_use_runtime_summary_paused":
+    "因你使用了鼠标或键盘而暂停。停手后会自动继续。",
+  "settings.computer_use_runtime_summary_error":
+    "Computer Use 遇到问题。可点击下方验证，或回到第 2 步重新打开助手。",
+  "settings.computer_use_runtime_summary_needs_update":
+    "当前助手组件与本版 OnMyAgent 不兼容。请更新或重新安装应用后再试。",
+  "settings.computer_use_versions_hint":
+    "版本信息：助手 {helper} · 应用 {app}",
+  "settings.computer_use_activity": "当前在做什么",
   "settings.computer_use_unknown": "未知",
   "settings.computer_use_update_required":
-    "内置助手与当前 OnMyAgent 版本不匹配。请更新或重新安装 OnMyAgent 后再使用 Computer Use。",
-  "settings.computer_use_activity_running": "运行中",
-  "settings.computer_use_activity_paused": "因物理输入暂停",
-  "settings.computer_use_activity_ready": "就绪",
-  "settings.computer_use_activity_error": "错误",
+    "当前助手组件与本版 OnMyAgent 不兼容。请更新或重新安装 OnMyAgent，然后重新打开此面板。",
+  "settings.computer_use_activity_running": "正在控制应用",
+  "settings.computer_use_activity_running_app": "正在控制「{app}」",
+  "settings.computer_use_activity_paused": "已暂停 — 你使用了鼠标或键盘",
+  "settings.computer_use_activity_ready": "空闲，等待任务",
+  "settings.computer_use_activity_error": "出现异常",
   "settings.computer_use_activity_inactive": "未运行",
   "settings.computer_use_app_authorizations_title": "4. 应用访问授权",
   "settings.computer_use_app_authorizations_description":
