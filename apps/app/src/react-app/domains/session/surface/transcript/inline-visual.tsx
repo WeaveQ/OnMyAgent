@@ -173,6 +173,16 @@ function SandboxedVisual(props: {
         );
         return;
       }
+      if (event.data.type === "onmyagent:capability-template") {
+        const template = event.data.template;
+        if (typeof template !== "string") return;
+        window.dispatchEvent(
+          new CustomEvent("onmyagent-capability-template", {
+            detail: { template },
+          }),
+        );
+        return;
+      }
       if (event.data.type === "onmyagent:visual-resize") {
         const nextHeight = Number(event.data.height);
         if (!Number.isFinite(nextHeight)) return;

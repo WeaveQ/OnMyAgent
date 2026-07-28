@@ -963,6 +963,62 @@ export function ExpertPage(props: ExpertPageProps) {
   ]);
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ template?: string }>).detail;
+      const template = detail?.template;
+      if (typeof template !== "string" || !template.trim()) return;
+      const workspaceId =
+        props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
+      if (!workspaceId) return;
+      if (props.selectedSessionId) {
+        useComposerStateStore.getState().setDraft(
+          props.selectedSessionId,
+          template,
+        );
+      } else if (draftAgentId) {
+        setExpertComposerDraftAfterNewTask(
+          workspaceId,
+          draftAgentId,
+          template,
+        );
+      } else {
+        return;
+      }
+      window.setTimeout(() => {
+        const host = document.querySelector<HTMLElement>(
+          '[contenteditable="true"]',
+        );
+        if (!host) return;
+        host.focus();
+        const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+        let node: Node | null = walker.nextNode();
+        while (node) {
+          const text = node.textContent ?? "";
+          const match = text.match(/<[^>]+>/);
+          if (match && match.index !== undefined) {
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            return;
+          }
+          node = walker.nextNode();
+        }
+      }, 120);
+    };
+    window.addEventListener("onmyagent-capability-template", handler);
+    return () =>
+      window.removeEventListener("onmyagent-capability-template", handler);
+  }, [
+    draftAgentId,
+    props.runtimeWorkspaceId,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+  ]);
+
+  useEffect(() => {
     if (props.selectedSessionId) {
       setDraftSessionActive(false);
       setDraftAgentId(null);
