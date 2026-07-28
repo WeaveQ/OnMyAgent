@@ -8,6 +8,12 @@ import { getChannelRunSnapshotState } from "./local-qr.mjs";
 import { createFeishuStore, sanitizeAccount } from "./store.mjs";
 import { createFeishuWebSocketClient } from "./ws-client.mjs";
 import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
+import {
+  ONMYAGENT_ASSISTANT_AGENT_ID,
+  ONMYAGENT_ASSISTANT_PROVIDER,
+  createOnMyAgentAssistantAgent,
+  runAssistantBridgeTurn,
+} from "../channels/assistant-bridge.mjs";
 import { formatAgentReply } from "../channels/AgentReplyHeader.mjs";
 
 const RETRY_DELAY_SECONDS = 2;
@@ -365,9 +371,28 @@ export function createFeishuService(options = {}) {
     pendingBatches.set(key, { event: batchEvent, agent, timer });
   }
 
+  // Routes an IM chat bound to the `onmyagent` pseudo-agent to the desktop
+  // assistant tab via the shared AssistantBridge helper. Pure additive path —
+  // only provider `onmyagent-assistant` reaches here.
+  function runFeishuAssistantBridgeTurn(session, event) {
+    return runAssistantBridgeTurn({
+      runtime,
+      store,
+      session,
+      event,
+      platformLabel: "feishu",
+      appendLog,
+      readChatSetting: storeSafeReadChatSetting,
+      deliverReply: (s, e, text) => sendText(s, e.chatId, text),
+    });
+  }
+
   async function dispatchToAgent(session, event) {
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) throw new Error("personal agent runtime is unavailable");
     const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
+    if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+      return await runFeishuAssistantBridgeTurn(session, event);
+    }
     const promptMode = await currentPromptModeForChat(session, event.chatId);
     const historyKey = chatAgentHistoryKey(event.chatId, agent);
     const runKey = activeRunKey(event.chatId, agent);
@@ -1093,6 +1118,9 @@ function normalizeAvailableAgents(value, fallbackAgent) {
     const agent = normalizePersonalLocalAgent(item);
     byId.set(agent.id, agent);
   }
+  if (!byId.has(ONMYAGENT_ASSISTANT_AGENT_ID)) {
+    byId.set(ONMYAGENT_ASSISTANT_AGENT_ID, createOnMyAgentAssistantAgent());
+  }
   return [...byId.values()];
 }
 
@@ -1312,7 +1340,7 @@ function scopedFeishuRuntimeAgent(agent, event) {
 
 function renderAgentHelp(session, chatId) {
   const current = session.options.agentByChat.get(chatId) ?? session.options.agent;
-  return [`当前回复 Agent：${agentLabel(current)}`, "可用 Agent：", ...session.options.availableAgents.map((agent) => `- ${agent.id}: ${agentLabel(agent)}`), "", "发送 #agent <id> 切换，例如：#agent codex"].join("\n");
+  return [`当前回复 Agent：${agentLabel(current)}`, "可用 Agent：", ...session.options.availableAgents.map((agent) => `- ${agent.id}: ${agentLabel(agent)}`), "", "发送 #agent <id> 切换，例如：#agent codex 或 #agent onmyagent（连接本地助理）"].join("\n");
 }
 
 function renderModeHelp(session, chatId) {

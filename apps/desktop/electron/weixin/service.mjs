@@ -7,6 +7,12 @@ import { createQrSvgDataUrl, getChannelRunSnapshotState } from "./local-qr.mjs";
 import { downloadAndDecryptMedia, mediaReference, mediaUrlFromReference } from "./media.mjs";
 import { createWeixinStore, sanitizeAccount } from "./store.mjs";
 import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
+import {
+  ONMYAGENT_ASSISTANT_AGENT_ID,
+  ONMYAGENT_ASSISTANT_PROVIDER,
+  createOnMyAgentAssistantAgent,
+  runAssistantBridgeTurn,
+} from "../channels/assistant-bridge.mjs";
 import { formatAgentReply } from "../channels/AgentReplyHeader.mjs";
 
 const SESSION_EXPIRED_ERRCODE = -14;
@@ -383,6 +389,22 @@ export function createWeixinService(options = {}) {
     pendingBatches.set(key, { event: batchEvent, agent, timer });
   }
 
+  // Routes an IM chat bound to the `onmyagent` pseudo-agent to the desktop
+  // assistant tab via the shared AssistantBridge helper. Pure additive path —
+  // only provider `onmyagent-assistant` reaches here.
+  function runWeixinAssistantBridgeTurn(session, event) {
+    return runAssistantBridgeTurn({
+      runtime,
+      store,
+      session,
+      event,
+      platformLabel: "weixin",
+      appendLog,
+      readChatSetting: storeSafeReadChatSetting,
+      deliverReply: (s, e, text) => sendText(s, e.chatId, text, e.senderId),
+    });
+  }
+
   async function dispatchToAgent(session, event) {
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) {
       throw new Error("personal agent runtime is unavailable");
@@ -390,6 +412,9 @@ export function createWeixinService(options = {}) {
     await maybeSendTyping(session, event.chatId, TYPING_START);
     try {
       const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
+      if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+        return await runWeixinAssistantBridgeTurn(session, event);
+      }
       const promptMode = await currentPromptModeForChat(session, event.chatId);
       const historyKey = chatAgentHistoryKey(event.chatId, agent);
       const runKey = activeRunKey(event.chatId, agent);
@@ -1303,6 +1328,9 @@ function normalizeAvailableAgents(value, fallbackAgent) {
     const agent = normalizePersonalLocalAgent(item);
     byId.set(agent.id, agent);
   }
+  if (!byId.has(ONMYAGENT_ASSISTANT_AGENT_ID)) {
+    byId.set(ONMYAGENT_ASSISTANT_AGENT_ID, createOnMyAgentAssistantAgent());
+  }
   return [...byId.values()];
 }
 
@@ -1576,7 +1604,7 @@ function renderAgentHelp(session, chatId) {
     "可用 Agent：",
     ...session.options.availableAgents.map((agent) => `- ${agent.id}: ${agentLabel(agent)}`),
     "",
-    "发送 #agent <id> 切换，例如：#agent codex",
+    "发送 #agent <id> 切换，例如：#agent codex 或 #agent onmyagent（连接本地助理）",
   ];
   return lines.join("\n");
 }
