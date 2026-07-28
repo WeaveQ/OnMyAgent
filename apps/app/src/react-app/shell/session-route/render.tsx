@@ -96,6 +96,7 @@ import {
   writeSessionTodos,
 } from "../session-memory";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
+import { useColdBootShell } from "./cold-boot-shell";
 import { useReactRenderWatchdog } from "../react-render-watchdog";
 import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagent";
 import { useStatusToasts } from "../../domains/shell-feedback";
@@ -149,17 +150,8 @@ export function SessionRouteRender() {
   const checkDesktopRestriction = useCheckDesktopRestriction();
   const restrictionNotice = useRestrictionNotice();
 
-  const {
-    markRouteReady: markBootRouteReady,
-    phase: bootPhase,
-    routeReady: bootRouteReady,
-  } = useBootState();
-  // Snapshot once: true when this session-route mount began during app cold boot
-  // (engine/overlay still settling). Settings "Back to app" remounts with phase
-  // already ready + routeReady, so first-screen skeleton stays off.
-  const [coldBootShell] = useState(
-    !bootRouteReady || (bootPhase !== "ready" && bootPhase !== "error"),
-  );
+  const { markRouteReady: markBootRouteReady } = useBootState();
+  const coldBootShell = useColdBootShell();
   const [loading, setLoading] = useState(true);
   const { shellInteractive } = useShellInteractiveLoad({
     loading,
