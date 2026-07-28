@@ -38,6 +38,7 @@ type BuildSessionPageViewModelInput = {
   sessionLoadingById: (sessionId: string) => boolean;
   sidebar: SidebarSnapshot;
   startupPhase: BootPhase;
+  coldBootShell?: boolean;
   statusBarLoading?: boolean;
   surface?: unknown;
   workspaceCount: number;
@@ -56,6 +57,7 @@ export function buildSessionPageViewModel(input: BuildSessionPageViewModelInput)
     selectedWorkspaceId: input.selectedWorkspaceId,
     clientConnected: input.clientConnected,
     startupPhase: input.startupPhase,
+    coldBootShell: input.coldBootShell === true,
   });
   const selectedSessionId = input.selectedSessionId;
   const showSessionLoadingState =

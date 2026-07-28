@@ -59,6 +59,7 @@ import {
   readCachedSidebarSessionsByWorkspace,
   writeActiveWorkspaceId,
 } from "../session-memory";
+import { scheduleIdleWork } from "./prewarm-schedule";
 
 type EndpointForWorkspace = (
   workspace: RouteWorkspace | null | undefined,
@@ -177,8 +178,8 @@ export function useSessionRouteRefresh(input: Input) {
     const markShellReady = () => {
       if (shellReadyMarked) return;
       shellReadyMarked = true;
-      // Dismiss the full-screen boot overlay as soon as workspace chrome can
-      // paint. Session index + engine warm-up continue in the background.
+      // Only dismiss boot overlay after the first connection attempt finishes
+      // (success or scheduled retry). Cache can paint under the overlay first.
       markBootRouteReady();
     };
     try {
@@ -188,8 +189,8 @@ export function useSessionRouteRefresh(input: Input) {
       desktopList = desktopBootstrap.desktopList;
       desktopWorkspaces = desktopBootstrap.desktopWorkspaces;
 
-      // Progressive shell: paint desktop workspaces + last sidebar titles
-      // before waiting on the local server / OpenCode cold start.
+      // Cache-first paint under the boot overlay (do not mark route ready yet —
+      // that used to drop the overlay onto an empty/disconnected home).
       if (desktopWorkspaces.length > 0) {
         const cachedSessions = readCachedSidebarSessionsByWorkspace();
         const desktopSelectedId =
@@ -218,7 +219,6 @@ export function useSessionRouteRefresh(input: Input) {
               : disconnectedPreview.selectedWorkspaceId,
           );
         }
-        markShellReady();
       }
 
       const sessionConnection = await loadSessionOnMyAgentConnectionState();
@@ -252,7 +252,7 @@ export function useSessionRouteRefresh(input: Input) {
         }
         setErrorsByWorkspaceId({});
         setLegacySelectedWorkspaceId(disconnectedState.selectedWorkspaceId);
-        markShellReady();
+        // Defer overlay dismiss to finally: engine boot may still be running.
         scheduleStartupConnectionRetry();
         return;
       }
@@ -336,13 +336,18 @@ export function useSessionRouteRefresh(input: Input) {
       );
 
       // Session list comes from OpenCode's index and can be slow on cold
-      // boot. Kick it off in the background instead of blocking the route
-      // so the UI is interactive immediately; the sidebar shows a
-      // loading state per-workspace until the list arrives.
+      // boot. Idle-defer so we don't compete with engine warm-up / first paint.
       if (refreshPlan.backgroundWorkspaces.length > 0) {
-        void loadWorkspaceSessionsInBackground(
-          refreshPlan.backgroundWorkspaces,
-        );
+        const workspacesToLoad = refreshPlan.backgroundWorkspaces;
+        scheduleIdleWork({
+          run: () => {
+            void loadWorkspaceSessionsInBackground(workspacesToLoad);
+          },
+          // Bound wait: long enough for route commit, short enough that the
+          // sidebar is not empty for many seconds after overlay hide.
+          idleTimeoutMs: 1_200,
+          fallbackDelayMs: 200,
+        });
       }
     } catch (error) {
       const message = describeRouteError(error);

@@ -27,8 +27,8 @@ function relaunchOrReload() {
 }
 
 /**
- * Quiet, opaque boot overlay. Solid surface fill so nothing bleeds through.
- * Message prefers active route-load registry scopes, then boot phase copy.
+ * Full-screen boot overlay: solid background, brand mark, clear phase copy.
+ * Never translucent — empty shell must not bleed through.
  * Fades once both the boot hook and the first route load are ready.
  */
 export function LoadingOverlay() {
@@ -38,7 +38,7 @@ export function LoadingOverlay() {
 
   if (!visible) return null;
 
-  const fading = phase === "ready";
+  const fading = phase === "ready" && !error;
   // Prefer specific route load copy when something is actively loading under the overlay.
   const displayMessage =
     routeBusy && top
@@ -50,7 +50,7 @@ export function LoadingOverlay() {
     <LoadSurface variant="full" fading={fading} message={displayMessage}>
       {error ? (
         <div className={errorClass.wrap}>
-          <div>{error}</div>
+          <div className="text-sm font-medium">{error}</div>
           <div className={errorClass.actions}>
             <Button
               type="button"

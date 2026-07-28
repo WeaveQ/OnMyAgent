@@ -97,10 +97,10 @@ import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
 import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
 import {
   GLOBAL_VOICE_SIDE_PANEL_KEY,
-  STARTUP_SKELETON_ROWS,
   sessionTitleForId,
   type TaskStatusIndicator,
 } from "./session-page-model";
+import { SessionStartupSkeleton } from "../pages/session-startup-skeleton";
 import { OnMyAgentRail } from "./session-page-rail";
 import { useSessionPageSessionActions } from "./session-page-session-actions";
 import { useSessionPageSidePanel } from "./session-page-side-panel";
@@ -485,6 +485,7 @@ export function SessionPage(props: SessionPageProps) {
         sessionLoadingById: props.sessionLoadingById,
         sidebar: props.sidebar,
         startupPhase: props.startupPhase,
+        coldBootShell: props.coldBootShell === true,
         statusBarLoading: props.statusBar?.loading,
         surface: props.surface,
         workspaceCount: props.workspaces.length,
@@ -492,6 +493,7 @@ export function SessionPage(props: SessionPageProps) {
     [
       agentPanel.activeSidebarView,
       props.clientConnected,
+      props.coldBootShell,
       props.onmyagentServerClient,
       props.onmyagentServerStatus,
       props.onmyagentServerToken,
@@ -798,38 +800,7 @@ export function SessionPage(props: SessionPageProps) {
                       {pageView.isSessionSurfaceView &&
                       !pageView.activePlaceholderView &&
                       pageView.showStartupSkeleton ? (
-                        <div
-                          className="px-6 py-14"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="mx-auto max-w-2xl space-y-6">
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
-                            </div>
-                            <div className="space-y-3">
-                              {STARTUP_SKELETON_ROWS.map((row) => (
-                                <div
-                                  key={row.id}
-                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
-                                >
-                                  <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
-                                    style={{ width: row.titleWidth }}
-                                  />
-                                  <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
-                                    <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
-                                      style={{ width: row.bodyWidth }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        <SessionStartupSkeleton />
                       ) : null}
 
                       {pageView.isSessionSurfaceView &&

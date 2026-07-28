@@ -113,7 +113,8 @@ export function SessionArchivePage(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [listTick, setListTick] = useState(0);
   const [agentCounts, setAgentCounts] = useState<Array<{ agent: string; count: number }>>([]);
-  const [agentFilter, setAgentFilter] = useState<string | null>(null); // null = 全部
+  /** null = all agents. Default picks the first (highest count) chip once counts load. */
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
   const [lastSyncSummary, setLastSyncSummary] = useState<ArchiveSyncSummary | null>(null);
   const listScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -125,6 +126,7 @@ export function SessionArchivePage(props: Props) {
   // selection, not when the list ticks.
   const lastLoadedSessionRef = useRef<string | null>(null);
   const initialSyncDoneRef = useRef(false);
+  const initialAgentFilterSeededRef = useRef(false);
   const sseRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -153,10 +155,24 @@ export function SessionArchivePage(props: Props) {
         setListTotal(typeof page.total === "number" ? page.total : page.sessions.length);
         // agent_counts are global (server ignores agent filter for counts).
         if (!append || (page.agent_counts?.length ?? 0) > 0) {
-          setAgentCounts(page.agent_counts ?? []);
+          const counts = page.agent_counts ?? [];
+          setAgentCounts(counts);
+          // Entering 会话: auto-select the first agent chip (most sessions).
+          // Only seed once so user can still clear to "all" by re-clicking.
+          if (!initialAgentFilterSeededRef.current && !append) {
+            const firstAgent = [...counts]
+              .filter((entry) => entry.count > 0 && isVisibleArchiveAgent(entry.agent))
+              .sort((a, b) => b.count - a.count)[0]?.agent;
+            if (firstAgent) {
+              initialAgentFilterSeededRef.current = true;
+              setAgentFilter(firstAgent);
+            } else {
+              initialAgentFilterSeededRef.current = true;
+            }
+          }
         }
-        // Default selection (first visible row) is applied in the flatSessions effect
-        // so it always matches the sorted list the user sees.
+        // Default session selection (first visible row) is applied in the
+        // flatSessions effect so it matches the sorted list the user sees.
       } catch (cause: unknown) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -210,6 +226,15 @@ export function SessionArchivePage(props: Props) {
     },
     [props.client, props.workspaceId, loadSessionList],
   );
+
+  // Reset one-shot seeds when switching workspace so the first agent chip is
+  // selected again for the new archive.
+  useEffect(() => {
+    initialAgentFilterSeededRef.current = false;
+    initialSyncDoneRef.current = false;
+    setAgentFilter(null);
+    setSelectedSessionId(null);
+  }, [props.workspaceId]);
 
   // Paint first page immediately — do not block on full archive sync.
   useEffect(() => {
@@ -419,9 +444,11 @@ export function SessionArchivePage(props: Props) {
                   key={g.agent}
                   type="button"
                   selected={g.agent === agentFilter}
-                  onClick={() =>
-                    setAgentFilter(g.agent === agentFilter ? null : g.agent)
-                  }
+                  onClick={() => {
+                    // Keep a chip selected when possible: click active → stay;
+                    // click another → switch. (No "all" null unless forced empty.)
+                    setAgentFilter(g.agent);
+                  }}
                   className="rounded-md"
                   label={
                     <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
