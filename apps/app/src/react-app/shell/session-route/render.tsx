@@ -96,7 +96,6 @@ import {
   writeSessionTodos,
 } from "../session-memory";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
-import { useColdBootShell } from "./cold-boot-shell";
 import { useReactRenderWatchdog } from "../react-render-watchdog";
 import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagent";
 import { useStatusToasts } from "../../domains/shell-feedback";
@@ -151,7 +150,6 @@ export function SessionRouteRender() {
   const restrictionNotice = useRestrictionNotice();
 
   const { markRouteReady: markBootRouteReady } = useBootState();
-  const coldBootShell = useColdBootShell();
   const [loading, setLoading] = useState(true);
   const { shellInteractive } = useShellInteractiveLoad({
     loading,
@@ -1241,7 +1239,6 @@ export function SessionRouteRender() {
       creatingSessionWorkspaceIdsRef={creatingSessionWorkspaceIdsRef}
       developerMode={developerMode}
       disabledProviderIds={disabledProviderIds}
-      coldBootShell={coldBootShell}
       effectiveLoading={effectiveLoading}
       endpointForWorkspace={endpointForWorkspace}
       firstSessionIdForPageMode={firstSessionIdForPageMode}

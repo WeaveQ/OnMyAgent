@@ -37,6 +37,7 @@ import { t } from "../../../i18n";
 import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
 import { useBootOverlayVisible } from "../boot-state";
+import { useColdBootShell } from "./cold-boot-shell";
 import {
   SessionPage,
   resetRailBookmarkToPrimary,
@@ -158,8 +159,6 @@ export type SessionRoutePageViewProps = {
   creatingSessionWorkspaceIdsRef: MutableRefObject<Set<string>>;
   developerMode: boolean;
   disabledProviderIds: string[];
-  /** Session-route mount began during app cold boot (first-screen skeleton). */
-  coldBootShell: boolean;
   effectiveLoading: boolean;
   endpointForWorkspace: (
     workspace: RouteWorkspace | null | undefined,
@@ -281,6 +280,7 @@ export type SessionRoutePageViewProps = {
 
 export function SessionRoutePageView(props: SessionRoutePageViewProps) {
   const bootOverlayVisible = useBootOverlayVisible();
+  const coldBootShell = useColdBootShell();
   const {
     activePermission,
     activeQuestion,
@@ -302,7 +302,6 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     creatingSessionWorkspaceIdsRef,
     developerMode,
     disabledProviderIds,
-    coldBootShell,
     effectiveLoading,
     endpointForWorkspace,
     firstSessionIdForPageMode,
