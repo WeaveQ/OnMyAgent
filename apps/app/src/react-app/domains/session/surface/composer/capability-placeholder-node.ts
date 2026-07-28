@@ -25,7 +25,7 @@ const SLOT_WRAPPER_CLASS = "inline";
 const SLOT_BASE_CLASS =
   "inline-block min-w-px cursor-text rounded-sm bg-dls-accent/10 px-1 py-0.5 text-dls-accent outline-none [&[data-slot-empty=true]::after]:pointer-events-none [&[data-slot-empty=true]::after]:text-dls-accent/60 [&[data-slot-empty=true]::after]:content-[attr(data-slot-placeholder)]";
 const SLOT_SPACER_CLASS =
-  "inline-block select-none align-top text-[0px]";
+  "inline-block w-0 select-none align-top overflow-hidden";
 const SLOT_CARET_TEXT = "\u200B";
 
 function getLegacyEmptySlotText(placeholder: string) {
@@ -36,8 +36,8 @@ function createSlotSpacer() {
   const spacer = document.createElement("span");
   spacer.className = SLOT_SPACER_CLASS;
   spacer.contentEditable = "false";
+  spacer.dataset.composerSlotSpacer = "";
   spacer.setAttribute("aria-hidden", "true");
-  spacer.textContent = "\u00A0";
   return spacer;
 }
 
@@ -341,6 +341,29 @@ export function registerCapabilitySlotEditing(editor: LexicalEditor) {
       if (direction === "forward" && !after) return true;
     }
 
+    if ($isTextNode(anchorNode)) {
+      const atBoundary =
+        direction === "backward"
+          ? anchorOffset === 0
+          : anchorOffset === anchorNode.getTextContentSize();
+      if (atBoundary) {
+        const adjacent =
+          direction === "backward"
+            ? anchorNode.getPreviousSibling()
+            : anchorNode.getNextSibling();
+        if (adjacent instanceof ComposerPlaceholderNode) {
+          if (!adjacent.getSlotValue()) {
+            adjacent.remove();
+          } else {
+            const offset =
+              direction === "backward" ? adjacent.getChildrenSize() : 0;
+            adjacent.select(offset, offset);
+          }
+          return true;
+        }
+      }
+    }
+
     if ($isElementNode(anchorNode)) {
       const adjacent =
         direction === "backward"
@@ -365,12 +388,20 @@ export function registerCapabilitySlotEditing(editor: LexicalEditor) {
 
   const unregisterBackspace = editor.registerCommand(
     KEY_BACKSPACE_COMMAND,
-    () => protectSlotBoundary("backward"),
+    (event) => {
+      const handled = protectSlotBoundary("backward");
+      if (handled) event.preventDefault();
+      return handled;
+    },
     COMMAND_PRIORITY_HIGH,
   );
   const unregisterDelete = editor.registerCommand(
     KEY_DELETE_COMMAND,
-    () => protectSlotBoundary("forward"),
+    (event) => {
+      const handled = protectSlotBoundary("forward");
+      if (handled) event.preventDefault();
+      return handled;
+    },
     COMMAND_PRIORITY_HIGH,
   );
 
