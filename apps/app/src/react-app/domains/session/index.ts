@@ -18,6 +18,7 @@ export {
   deriveOpenTargets,
   isCollectibleArtifactTarget,
   isLocalhostBrowserTarget,
+  isUserFacingLocalPreviewTarget,
   selectAutoOpenTarget,
   shouldAutoOpenTarget,
 } from "./artifacts/open-target";

@@ -7,6 +7,7 @@ import {
   createComputerUseDesktopHelpers,
   parseComputerUseActivity,
   parseComputerUseStatus,
+  resolveOnMyAgentProductVersion,
 } from "./computer-use-desktop.mjs";
 
 class FakeChildProcess extends EventEmitter {
@@ -23,6 +24,17 @@ class FakeChildProcess extends EventEmitter {
     this.exitCode = 0;
   }
 }
+
+test("resolveOnMyAgentProductVersion prefers product version over Electron runtime version", () => {
+  assert.equal(
+    resolveOnMyAgentProductVersion({ getVersion: () => "0.4.13" }),
+    "0.4.13",
+  );
+  // Electron majors are large; fall back to apps/desktop/package.json.
+  const fallback = resolveOnMyAgentProductVersion({ getVersion: () => "39.8.10" });
+  assert.match(fallback, /^\d+\.\d+\.\d+/);
+  assert.notEqual(fallback, "39.8.10");
+});
 
 test("parseComputerUseStatus preserves permission, version, activity, Skysight, and app authorization state", () => {
   assert.deepEqual(

@@ -81,6 +81,8 @@ export default {
   "session.code_side_panel_review_desc": "Review changes, checks, and files that need attention in this code task.",
   "session.code_side_panel_terminal": "Terminal",
   "session.code_side_panel_terminal_desc": "View terminal output and command history for the current code task.",
+  "session.code_side_panel_terminal_open_failed": "Couldn't open the terminal. Try again.",
+  "session.code_side_panel_terminal_desktop_only": "Terminal is available in the desktop app.",
   "session.code_side_panel_expand": "Expand side panel",
   "session.code_side_panel_minimize": "Minimize side panel",
   "session.code_side_panel_toggle": "Expand side panel",

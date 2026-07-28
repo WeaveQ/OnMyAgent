@@ -113,6 +113,7 @@ import { WorkspaceFilesPage } from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import { appendComposerFileMention } from "../pages/shared-page-utils";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -742,6 +743,23 @@ export function SessionPage(props: SessionPageProps) {
                             props.selectedWorkspaceRoot
                           }
                           onOpenArtifact={openTarget}
+                          onAddToTask={(relativePath) => {
+                            if (
+                              !appendComposerFileMention(
+                                pageView.renderedSessionId,
+                                relativePath,
+                              )
+                            ) {
+                              return;
+                            }
+                            agentPanel.openChatView();
+                            showToast({
+                              tone: "success",
+                              title: t("files.added_to_task_title"),
+                              description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),

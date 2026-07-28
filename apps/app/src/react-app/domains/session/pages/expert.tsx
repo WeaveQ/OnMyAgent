@@ -16,7 +16,6 @@ import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
 import {
-  isLocalhostBrowserTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
 import {
@@ -130,6 +129,7 @@ import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
 
 import {
+  appendComposerFileMention,
   setComposerDraftAfterNewTask,
   setExpertComposerDraftAfterNewTask,
 } from "./shared-page-utils";
@@ -1434,6 +1434,18 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.selectedWorkspaceRoot
                           }
                           onOpenArtifact={openTarget}
+                          onAddToTask={(relativePath) => {
+                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
+                              return;
+                            }
+                            openRailView("chat");
+                            showToast({
+                              tone: "success",
+                              title: t("files.added_to_task_title"),
+                              description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),
