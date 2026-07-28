@@ -54,7 +54,7 @@ description: 物流应收台账与催收方法论。根据账期、开票、回�
 - 节点任务只生成话术并提醒负责人，禁止自动向客户发送消息。
 - 只在 `回款催收/` 落文件，禁止写入会话根或增加 `output/` 套层。
 - 催收看板必须通过 preview HTML 卡片展示，**禁止只输出文字/表格分析而不跑 preview**；未跑 preview 不得声称已完成对账。
-- 过程 HTML（`.process/ar-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON。
+- 过程 HTML（`.process/ar-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON；也不得调用 `render_visual` 等可视化工具二次渲染。
 - 结果产物（应收台账 Excel/PDF）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。HTML 仅作过程预览，不作为结果产物。
 
 ## 参考资料

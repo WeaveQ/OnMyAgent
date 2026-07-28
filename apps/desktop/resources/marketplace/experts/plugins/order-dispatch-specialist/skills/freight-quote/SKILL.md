@@ -55,7 +55,7 @@ description: 专线/零担询价与结构报价方法论。当需要根据线路
 - 历史合作价值/运力松紧 **仅在有依据时** 写入策略，禁止虚构客户等级。
 - 缺少任一成本字段时只输出结构和缺口，禁止生成貌似真实的报价金额。
 - 禁止自动向客户发送报价；最终档位、成交价与服务边界必须由用户拍板。
-- 过程 HTML（`.process/quote-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON。
+- 过程 HTML（`.process/quote-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON；也不得调用 `render_visual` 等可视化工具二次渲染。
 - 结果产物（报价 Excel/对比 Word）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。HTML 仅作过程预览，不作为结果产物。
 
 ## 参考资料

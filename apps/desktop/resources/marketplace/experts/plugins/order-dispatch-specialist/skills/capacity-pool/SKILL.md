@@ -59,7 +59,7 @@ description: 动态运力池与多因素配载方法论。当需要汇总车辆�
 - **stale 条目默认不得进入配载推荐**，必须先催更或由调度确认仍有效。
 - 超载、无资质危化、明显疲劳驾驶风险只做提示，**不给出违规配载方案**。
 - 方案是建议；对外锁车与承诺由调度拍板。禁止自动锁车、改运力状态或发送外部消息。
-- 过程 HTML（`.process/dispatch-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON。
+- 过程 HTML（`.process/dispatch-preview.html`）只通过脚本返回的 `inlineWidget` 让客户端实时渲染，禁止 `cat`/读取 HTML 源码到对话、禁止 `file://`/浏览器/`preview:` 打开；禁止在正文输出 `show_widget` 围栏或半截 JSON；也不得调用 `render_visual` 等可视化工具二次渲染。
 - 结果产物（配载方案 Excel/对比 Word）必须用两列表格 + `artifact:` 链接交付，操作列固定「查看」；过程产物（`.process/`）不提供用户链接，禁止 `file://` / `sandbox:` / 普通相对链接。HTML 仅作过程预览，不作为结果产物。
 
 ## 参考资料
