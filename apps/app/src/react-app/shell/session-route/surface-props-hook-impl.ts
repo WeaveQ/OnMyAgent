@@ -609,6 +609,32 @@ export function useSessionRouteSurfaceProps(
         }
         if (!sessionId) return;
         if (createdSession) {
+          // ExpertPage keeps its draft surface mounted until the created
+          // session is bound to the intended expert. Bind before navigating:
+          // navigating first briefly renders the real route with draft state,
+          // which looks like new chat → home → new chat and also lets fallback
+          // selection effects choose another expert/session.
+          if (pageMode === "expert") {
+            const { pendingAgentSnapshot } = resolvePendingAgentForPrompt({
+              currentAgent: usePendingAgentStore.getState().getAgent(),
+              createdSession: true,
+              sessionId,
+              inheritFromSessionId: selectedSessionId,
+            });
+            if (pendingAgentSnapshot) {
+              usePendingAgentStore.getState().setAgent(
+                bindPendingAgentToSession({
+                  agent: pendingAgentSnapshot,
+                  sessionId,
+                }),
+              );
+              writeCustomAgentIdForSession(
+                sessionId,
+                pendingAgentSnapshot.id,
+              );
+              writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
+            }
+          }
           setSessionsByWorkspaceId((current) => {
             const next = insertCreatedSessionForWorkspace({
               current,

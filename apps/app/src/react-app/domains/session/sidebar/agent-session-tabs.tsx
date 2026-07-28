@@ -263,6 +263,9 @@ function SessionTabMarqueeText({ title }: { title: string }) {
  * - selection / parent recency reshuffles must NOT move existing chips
  * - newly created sessions insert at the left edge (after any draft chip)
  * - draft placeholders stay leftmost among session chips
+ * - temporarily missing sessions remain in the ledger; rendering filters them
+ *   out, and keeping their slot prevents async inventory refreshes from
+ *   re-inserting them at the front when they reappear
  */
 export function mergeStableSessionTabOrder(
   previousIds: readonly string[],
@@ -271,8 +274,9 @@ export function mergeStableSessionTabOrder(
     time?: { created?: number | null };
   }[],
 ): string[] {
-  const present = new Set(sessions.map((session) => session.id));
-  const kept = previousIds.filter((id) => present.has(id));
+  const kept = previousIds.filter(
+    (id, index) => previousIds.indexOf(id) === index,
+  );
   const keptSet = new Set(kept);
   const newcomers = sessions
     .map((session, sourceIndex) => ({
@@ -588,12 +592,8 @@ export function AgentSessionTabs(props: {
       props.onPendingSessionIdChange(null);
       return () => window.clearTimeout(fallbackTimer);
     }
-    if (!pendingSessionIsVisible) {
-      props.onPendingSessionIdChange(null);
-    }
     return () => window.clearTimeout(fallbackTimer);
   }, [
-    pendingSessionIsVisible,
     props.onPendingSessionIdChange,
     props.pendingSessionId,
     props.selectedSessionId,
