@@ -5,6 +5,8 @@
  */
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import { APP_NAME } from "../../i18n/locales/brand";
 import { t } from "../../i18n";
 import { OwDotTicker } from "./dot-ticker";
 import {
@@ -18,17 +20,28 @@ import {
 import { useEffect } from "react";
 
 const surfaceClass = {
-  full: "fixed inset-0 z-[1000] flex items-center justify-center bg-dls-surface",
+  // Never use --dls-background here: on macOS Electron it is glass-mixed
+  // (color-mix … transparent) and the shell bleeds through.
+  full: "onmyagent-boot-overlay fixed inset-0 z-[1000] flex items-center justify-center",
   fullTransition:
-    "fixed inset-0 z-[1000] flex items-center justify-center bg-dls-surface transition-opacity duration-[160ms]",
+    "onmyagent-boot-overlay fixed inset-0 z-[1000] flex items-center justify-center transition-opacity duration-300 ease-out",
   fullVisible: "pointer-events-auto opacity-100",
   fullFading: "pointer-events-none opacity-0",
   inset: "flex min-h-[12rem] w-full items-center justify-center py-10",
-  content: "flex w-full max-w-[320px] flex-col items-center gap-4 px-6 text-center",
+  content:
+    "flex w-full max-w-[22rem] flex-col items-center gap-6 px-8 text-center",
   contentInset: "flex flex-col items-center",
-  message: "text-xs leading-5 text-dls-secondary",
+  brandMark:
+    "flex size-16 items-center justify-center rounded-2xl border border-dls-border bg-dls-surface-solid shadow-[0_8px_28px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.35)]",
+  brandTitle: "text-[15px] font-semibold tracking-tight text-dls-text",
+  message: "text-sm leading-6 text-dls-secondary",
   messageInset: "mt-3 text-xs leading-5 text-dls-secondary",
+  statusRow: "flex flex-col items-center gap-3",
 };
+
+/** Solid boot fill — independent of vibrancy tokens. */
+const BOOT_SOLID_BG =
+  "var(--dls-surface-solid, #ffffff)";
 
 function resolveMessage(
   def: LoadScopeDefinition | null | undefined,
@@ -78,6 +91,21 @@ type LoadSurfaceProps = {
   children?: ReactNode;
 };
 
+function BootBrandMark() {
+  return (
+    <div className={surfaceClass.brandMark}>
+      <img
+        src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+        alt=""
+        width={36}
+        height={36}
+        className="size-9 object-contain"
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 /**
  * Unified spinner surface. `full` matches boot overlay; `inset` matches
  * settings tab suspense.
@@ -89,7 +117,7 @@ export function LoadSurface(props: LoadSurfaceProps) {
     (props.messageKey ? t(props.messageKey) : null) ??
     resolveMessage(top, "system.boot_preparing_workspace", detail);
 
-  const size = props.size ?? (props.variant === "inset" ? "sm" : "md");
+  const size = props.size ?? (props.variant === "inset" ? "sm" : "lg");
 
   if (props.variant === "full") {
     const fading = props.fading === true;
@@ -98,13 +126,18 @@ export function LoadSurface(props: LoadSurfaceProps) {
         className={`${surfaceClass.fullTransition} ${
           fading ? surfaceClass.fullFading : surfaceClass.fullVisible
         }`}
+        style={{ backgroundColor: BOOT_SOLID_BG }}
         aria-live="polite"
         aria-busy={!fading}
         role="status"
       >
         <div className={surfaceClass.content}>
-          <OwDotTicker size={size} />
-          <div className={surfaceClass.message}>{message}</div>
+          <BootBrandMark />
+          <div className={surfaceClass.statusRow}>
+            <div className={surfaceClass.brandTitle}>{APP_NAME}</div>
+            <OwDotTicker size={size} className="text-dls-secondary" />
+            <div className={surfaceClass.message}>{message}</div>
+          </div>
           {props.children}
         </div>
       </div>
@@ -119,7 +152,7 @@ export function LoadSurface(props: LoadSurfaceProps) {
       role="status"
     >
       <div className={surfaceClass.contentInset}>
-        <OwDotTicker size={size} />
+        <OwDotTicker size={size === "lg" ? "md" : size} />
         <div className={surfaceClass.messageInset}>{message}</div>
         {props.children}
       </div>
@@ -140,16 +173,21 @@ export function RouteChunkFallback(props: {
   return (
     <div
       className={surfaceClass.full}
+      style={{ backgroundColor: BOOT_SOLID_BG }}
       aria-live="polite"
       aria-busy="true"
       role="status"
     >
       <div className={surfaceClass.content}>
-        <OwDotTicker size="md" />
-        <div className={surfaceClass.message}>
-          {props.messageKey
-            ? t(props.messageKey)
-            : t("system.boot_preparing_workspace")}
+        <BootBrandMark />
+        <div className={surfaceClass.statusRow}>
+          <div className={surfaceClass.brandTitle}>{APP_NAME}</div>
+          <OwDotTicker size="lg" className="text-dls-secondary" />
+          <div className={surfaceClass.message}>
+            {props.messageKey
+              ? t(props.messageKey)
+              : t("system.boot_preparing_workspace")}
+          </div>
         </div>
       </div>
     </div>

@@ -9,9 +9,23 @@ describe("shouldShowSessionStartupSkeleton", () => {
         selectedWorkspaceId: "ws_a",
         clientConnected: false,
         startupPhase: "nativeInit",
+        coldBootShell: false,
       }),
     ).toBe(false);
   });
+
+  test("true on cold boot even when workspace id is cache-hydrated", () => {
+    expect(
+      shouldShowSessionStartupSkeleton({
+        selectedSessionId: null,
+        selectedWorkspaceId: "ws_a",
+        clientConnected: false,
+        startupPhase: "nativeInit",
+        coldBootShell: true,
+      }),
+    ).toBe(true);
+  });
+
   test("false when session selected", () => {
     expect(
       shouldShowSessionStartupSkeleton({
@@ -19,10 +33,12 @@ describe("shouldShowSessionStartupSkeleton", () => {
         selectedWorkspaceId: "",
         clientConnected: false,
         startupPhase: "nativeInit",
+        coldBootShell: true,
       }),
     ).toBe(false);
   });
-  test("true only for true cold boot", () => {
+
+  test("true only for true cold boot without workspace id", () => {
     expect(
       shouldShowSessionStartupSkeleton({
         selectedSessionId: null,
@@ -37,6 +53,7 @@ describe("shouldShowSessionStartupSkeleton", () => {
         selectedWorkspaceId: "",
         clientConnected: true,
         startupPhase: "nativeInit",
+        coldBootShell: true,
       }),
     ).toBe(false);
     expect(
@@ -45,6 +62,7 @@ describe("shouldShowSessionStartupSkeleton", () => {
         selectedWorkspaceId: "",
         clientConnected: false,
         startupPhase: "ready",
+        coldBootShell: true,
       }),
     ).toBe(false);
   });

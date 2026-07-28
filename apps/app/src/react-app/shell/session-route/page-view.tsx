@@ -37,6 +37,7 @@ import { t } from "../../../i18n";
 import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
 import { useBootOverlayVisible } from "../boot-state";
+import { useColdBootShell } from "./cold-boot-shell";
 import {
   SessionPage,
   resetRailBookmarkToPrimary,
@@ -279,6 +280,7 @@ export type SessionRoutePageViewProps = {
 
 export function SessionRoutePageView(props: SessionRoutePageViewProps) {
   const bootOverlayVisible = useBootOverlayVisible();
+  const coldBootShell = useColdBootShell();
   const {
     activePermission,
     activeQuestion,
@@ -484,6 +486,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 : null
           }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
+          coldBootShell={coldBootShell}
           providerConnectedIds={providerConnectedIds}
           providers={providers}
           renderAgentsPage={(agentsPageProps) => (

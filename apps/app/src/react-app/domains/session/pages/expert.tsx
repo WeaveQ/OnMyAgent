@@ -98,14 +98,15 @@ import {
   AgentSessionTabs,
   mergeStableSessionTabOrder,
   SidebarPaneCollapseToggle,
-  STARTUP_SKELETON_ROWS,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
+  shouldShowSessionStartupSkeleton,
   workspaceTaskStatus,
   type OnMyAgentPrimaryView,
 } from "../sidebar/session-chrome";
+import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   readExpertPinnedAgentIds,
   writeExpertPinnedAgentIds,
@@ -1066,12 +1067,13 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
-  const showStartupSkeleton =
-    !props.selectedSessionId &&
-    !props.clientConnected &&
-    props.startupPhase !== "sessionIndexReady" &&
-    props.startupPhase !== "firstSessionReady" &&
-    props.startupPhase !== "ready";
+  const showStartupSkeleton = shouldShowSessionStartupSkeleton({
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    clientConnected: props.clientConnected,
+    startupPhase: props.startupPhase,
+    coldBootShell: props.coldBootShell === true,
+  });
   // Draft “新会话” must not be blocked by loading state of the previously
   // selected real session (sessionLoadingById is tied to selectedSessionId).
   const showSessionLoadingState =
@@ -1478,40 +1480,8 @@ export function ExpertPage(props: ExpertPageProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView &&
-                      showBlockingStartupSkeleton ? (
-                        <div
-                          className="px-6 py-14"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="mx-auto max-w-2xl space-y-6">
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
-                            </div>
-                            <div className="space-y-3">
-                              {STARTUP_SKELETON_ROWS.map((row) => (
-                                <div
-                                  key={row.id}
-                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
-                                >
-                                  <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
-                                    style={{ width: row.titleWidth }}
-                                  />
-                                  <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
-                                    <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
-                                      style={{ width: row.bodyWidth }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                      {isPrimarySessionView && showBlockingStartupSkeleton ? (
+                        <SessionStartupSkeleton />
                       ) : null}
 
                       {isPrimarySessionView &&

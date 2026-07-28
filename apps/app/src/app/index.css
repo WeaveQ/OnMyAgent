@@ -1523,6 +1523,16 @@ html.onmyagent-electron.onmyagent-platform-mac #root {
   background-image: none !important;
 }
 
+/* Boot / full-screen load: always solid (never glass-mixed tokens). */
+html.onmyagent-electron.onmyagent-platform-mac .onmyagent-boot-overlay {
+  background-color: #fafafa !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] .onmyagent-boot-overlay {
+  background-color: #1f1f1f !important;
+}
+
 html.onmyagent-electron.onmyagent-platform-mac:not([data-theme="dark"]) {
   /* Match dark ladder: rail more open than sidebar so wallpaper bleeds (WeChat). */
   --dls-rail-bg: color-mix(in srgb, #e4e2e3 40%, transparent);

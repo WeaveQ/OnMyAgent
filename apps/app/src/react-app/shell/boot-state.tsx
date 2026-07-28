@@ -213,31 +213,45 @@ export function useBootState(): BootStateContextValue {
 }
 
 /**
- * Overlay stays up until the main route has enough shell data (`routeReady`).
- * Engine/runtime may still be warming (phase `starting-engine`, etc.); that
- * continues as in-app status rather than a full-screen blocker so cold start
- * feels interactive sooner. Errors keep the overlay so retry chrome is visible.
- *
- * After `canHide` we hold ~200ms so the fade feels intentional instead of a flicker.
+ * Boot overlay hide policy (product):
+ * 1. Keep covering while runtime is still bootstrapping / starting the engine
+ *    — otherwise users see a washed empty home behind a half-ready shell.
+ * 2. Also wait for `routeReady` (workspace chrome can paint).
+ * 3. Hold a minimum time so we never flash the empty shell for a few frames.
+ * Errors keep the overlay so retry chrome stays visible.
  */
+const BOOT_BLOCKING_PHASES: ReadonlySet<BootPhaseId> = new Set([
+  "bootstrapping-workspaces",
+  "starting-onmyagent-server",
+  "starting-engine",
+  "activating-workspace",
+]);
+
+/** Minimum overlay visibility after first paint (ms). */
+const BOOT_OVERLAY_MIN_MS = 750;
+/** Extra settle after canHide so first meaningful frame can paint under the fade. */
+const BOOT_OVERLAY_SETTLE_MS = 400;
+
 export function useBootOverlayVisible(): boolean {
-  const { phase, routeReady } = useBootState();
+  const { phase, routeReady, startedAt } = useBootState();
+  const bootStillBlocking = BOOT_BLOCKING_PHASES.has(phase);
   // HMR can remount the provider while the route tree stays mounted. In that
   // state the boot phase falls back to `idle`, but the already-rendered route
   // is interactive and can mark itself ready again.
-  // Progressive: once the route painted shell chrome, hide even if desktop
-  // boot is still on starting-engine / activating-workspace.
-  const canHide = routeReady && phase !== "error";
-  const [visible, setVisible] = useState(!canHide);
+  const canHide =
+    routeReady && !bootStillBlocking && phase !== "error";
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (canHide) {
-      const handle = window.setTimeout(() => setVisible(false), 200);
-      return () => window.clearTimeout(handle);
+    if (!canHide) {
+      setVisible(true);
+      return undefined;
     }
-    setVisible(true);
-    return undefined;
-  }, [canHide]);
+    const elapsed = startedAt != null ? Date.now() - startedAt : 0;
+    const wait = Math.max(BOOT_OVERLAY_SETTLE_MS, BOOT_OVERLAY_MIN_MS - elapsed + BOOT_OVERLAY_SETTLE_MS);
+    const handle = window.setTimeout(() => setVisible(false), wait);
+    return () => window.clearTimeout(handle);
+  }, [canHide, startedAt]);
 
   return visible;
 }

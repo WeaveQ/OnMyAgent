@@ -74,7 +74,6 @@ import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
-  STARTUP_SKELETON_ROWS,
   shouldShowSessionStartupSkeleton,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
@@ -96,6 +95,7 @@ import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
+import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   BillingPage,
   DevicesPage,
@@ -608,6 +608,7 @@ export function AssistantPage(props: AssistantPageProps) {
     selectedWorkspaceId: props.selectedWorkspaceId,
     clientConnected: props.clientConnected,
     startupPhase: props.startupPhase,
+    coldBootShell: props.coldBootShell === true,
   });
   // Same as expert: draft home/new-session must not be masked by prior session loading.
   const showSessionLoadingState =
@@ -1071,40 +1072,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView &&
-                      showBlockingStartupSkeleton ? (
-                        <div
-                          className="px-6 py-14"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="mx-auto max-w-2xl space-y-6">
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
-                            </div>
-                            <div className="space-y-3">
-                              {STARTUP_SKELETON_ROWS.map((row) => (
-                                <div
-                                  key={row.id}
-                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
-                                >
-                                  <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
-                                    style={{ width: row.titleWidth }}
-                                  />
-                                  <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
-                                    <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
-                                      style={{ width: row.bodyWidth }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                      {isPrimarySessionView && showBlockingStartupSkeleton ? (
+                        <SessionStartupSkeleton />
                       ) : null}
 
                       {isPrimarySessionView &&
