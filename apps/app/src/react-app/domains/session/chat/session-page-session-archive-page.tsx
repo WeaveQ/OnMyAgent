@@ -86,6 +86,18 @@ export function mergeArchiveSessionPages(
   return Array.from(map.values());
 }
 
+/** List order: newest file_mtime first (matches the sidebar UI). */
+export function sortArchiveSessionsByRecency(
+  sessions: ReadonlyArray<OnMyAgentSessionArchiveSession>,
+): OnMyAgentSessionArchiveSession[] {
+  return [...sessions].sort((a, b) => {
+    const at = a.file_mtime ?? 0;
+    const bt = b.file_mtime ?? 0;
+    if (bt !== at) return bt - at;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 export function SessionArchivePage(props: Props) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -143,11 +155,8 @@ export function SessionArchivePage(props: Props) {
         if (!append || (page.agent_counts?.length ?? 0) > 0) {
           setAgentCounts(page.agent_counts ?? []);
         }
-        setSelectedSessionId((current) => {
-          if (append) return current;
-          if (current && page.sessions.some((s) => s.id === current)) return current;
-          return page.sessions[0]?.id ?? null;
-        });
+        // Default selection (first visible row) is applied in the flatSessions effect
+        // so it always matches the sorted list the user sees.
       } catch (cause: unknown) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -304,15 +313,21 @@ export function SessionArchivePage(props: Props) {
 
   const handleDelete = useCallback(async () => {
     if (!props.client || !selectedSessionId) return;
+    const deletedId = selectedSessionId;
     try {
-      await props.client.trashSessionArchiveSession(props.workspaceId, selectedSessionId);
-      setSelectedSessionId(null);
+      await props.client.trashSessionArchiveSession(props.workspaceId, deletedId);
+      // Immediately move selection to the next visible row so the detail pane
+      // never sits empty after delete.
+      const remaining = sortArchiveSessionsByRecency(
+        sessions.filter((session) => session.id !== deletedId),
+      );
+      setSelectedSessionId(remaining[0]?.id ?? null);
       lastLoadedSessionRef.current = null;
       refreshList();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
-  }, [props.client, props.workspaceId, selectedSessionId, refreshList]);
+  }, [props.client, props.workspaceId, selectedSessionId, sessions, refreshList]);
 
   const resumeRequest = useMemo(() => buildResumeRequest(selectedSession), [selectedSession]);
   /** Chip total: prefer server agent_counts sum; filter uses that agent's count. */
@@ -333,13 +348,26 @@ export function SessionArchivePage(props: Props) {
   const canResume = Boolean(resumeRequest && props.onResume);
 
   // Server already filters by agent when agentFilter is set — sort loaded page only.
-  const flatSessions = useMemo(() => {
-    return [...sessions].sort((a, b) => {
-      const at = a.file_mtime ?? 0;
-      const bt = b.file_mtime ?? 0;
-      return bt - at;
-    });
-  }, [sessions]);
+  const flatSessions = useMemo(
+    () => sortArchiveSessionsByRecency(sessions),
+    [sessions],
+  );
+
+  // Guarantee: whenever the visible list is non-empty, something is selected
+  // (first row). Covers filter/search edge cases that skip loadSessionList.
+  useEffect(() => {
+    if (flatSessions.length === 0) {
+      if (selectedSessionId !== null) setSelectedSessionId(null);
+      return;
+    }
+    if (
+      selectedSessionId &&
+      flatSessions.some((session) => session.id === selectedSessionId)
+    ) {
+      return;
+    }
+    setSelectedSessionId(flatSessions[0]!.id);
+  }, [flatSessions, selectedSessionId]);
 
   const roleLabel = useCallback((role: string) => {
     if (role === "user") return t("session_archive.role_user");

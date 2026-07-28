@@ -6,6 +6,7 @@ import {
   classifyOpenTarget,
   deriveOpenTargets,
   isCollectibleArtifactTarget,
+  isUserFacingLocalPreviewTarget,
   resolveArtifactAbsolutePath,
   resolveArtifactRevealCandidates,
   selectAutoOpenTarget,
@@ -181,6 +182,43 @@ describe("deriveOpenTargets", () => {
       "reports/final.md",
       "http://localhost:4173",
     ]);
+  });
+
+  it("hides internal 127.0.0.1 bridge URLs from the turn openable strip", () => {
+    const messages = [
+      message(
+        "msg_1",
+        "assistant",
+        "已在内置浏览器打开 https://juejin.cn/ 。内部地址 http://127.0.0.1:9823 不应展示。",
+      ),
+    ] satisfies UIMessage[];
+    const candidates = deriveOpenTargets(messages);
+    expect(candidates.some((t) => t.value.includes("127.0.0.1"))).toBe(true);
+    expect(
+      selectTurnOpenTargets(messages, candidates).map((target) => target.value),
+    ).not.toContain("http://127.0.0.1:9823");
+    expect(
+      isUserFacingLocalPreviewTarget({
+        id: "url:http://127.0.0.1:9823",
+        kind: "url",
+        value: "http://127.0.0.1:9823",
+        name: "127.0.0.1:9823",
+        preview: "browser",
+        confidence: 65,
+        reason: "message",
+      }),
+    ).toBe(false);
+    expect(
+      isUserFacingLocalPreviewTarget({
+        id: "url:http://localhost:5173",
+        kind: "url",
+        value: "http://localhost:5173",
+        name: "localhost:5173",
+        preview: "browser",
+        confidence: 65,
+        reason: "message",
+      }),
+    ).toBe(true);
   });
 
   it("extracts file and localhost URL targets from recent assistant output", () => {
