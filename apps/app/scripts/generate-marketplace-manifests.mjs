@@ -87,6 +87,14 @@ function firstAgentPath(packageRoot, manifest) {
   return firstAgent ? `agents/${firstAgent}` : "";
 }
 
+function resolveExpertPromptTemplates(packageRoot, manifest) {
+  if (Array.isArray(manifest.promptTemplates)) return manifest.promptTemplates;
+  if (typeof manifest.promptTemplates !== "string") return [];
+  const relativePath = manifest.promptTemplates.replace(/^\.\//, "");
+  const parsed = readJson(path.join(packageRoot, relativePath));
+  return Array.isArray(parsed) ? parsed : [];
+}
+
 function firstAvatarAsset(packageRoot, manifest) {
   const declared = String(manifest.avatar ?? "").replace(/^\.\//, "");
   if (declared) {
@@ -143,10 +151,17 @@ function generateExperts() {
       if (Object.keys(manifest).length === 0) return null;
       const agentPath = firstAgentPath(packageRoot, manifest);
       const avatarAsset = firstAvatarAsset(packageRoot, manifest);
+      const promptTemplates = resolveExpertPromptTemplates(packageRoot, manifest);
       assetEntries.push({ packageName, asset: avatarAsset });
       return {
         packageName,
-        manifest,
+        manifest:
+          promptTemplates.length > 0
+            ? {
+                ...manifest,
+                promptTemplates,
+              }
+            : manifest,
         readme: readText(path.join(packageRoot, "README.md")),
         agentMarkdown: agentPath ? readText(path.join(packageRoot, agentPath)) : "",
         agentPath,

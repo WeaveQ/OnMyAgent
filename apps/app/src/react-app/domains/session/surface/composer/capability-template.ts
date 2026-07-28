@@ -1,4 +1,19 @@
 export const CAPABILITY_TEMPLATE_EVENT = "onmyagent-capability-template";
+export const COMPOSER_TEMPLATE_EVENT = "onmyagent-composer-template";
+export const COMPOSER_TEMPLATE_EVENTS = [
+  COMPOSER_TEMPLATE_EVENT,
+  CAPABILITY_TEMPLATE_EVENT,
+];
+export const CAPABILITY_TEMPLATE_MESSAGE = "onmyagent:capability-template";
+export const COMPOSER_TEMPLATE_MESSAGE = "onmyagent:prompt-template";
+
+export function dispatchComposerTemplate(template: string): void {
+  window.dispatchEvent(
+    new CustomEvent(COMPOSER_TEMPLATE_EVENT, {
+      detail: { template },
+    }),
+  );
+}
 
 export type CapabilityTemplateSegment =
   | { kind: "text"; value: string }

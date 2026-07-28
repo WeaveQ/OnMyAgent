@@ -68,8 +68,43 @@ export function createExpertMarketplace(options = {}) {
   }
 
   function localizedExpertList(value) {
-    if (!Array.isArray(value)) return [];
-    return value.map((item) => localizedExpertValue(item)).filter(Boolean);
+    if (Array.isArray(value)) {
+      return value.map((item) => localizedExpertValue(item)).filter(Boolean);
+    }
+    if (value && typeof value === "object") {
+      const list = Array.isArray(value.zh)
+        ? value.zh
+        : Array.isArray(value.en)
+          ? value.en
+          : [];
+      return list.map((item) => String(item).trim()).filter(Boolean);
+    }
+    return [];
+  }
+
+  function localizedExpertPromptTemplates(packagePath, value) {
+    const source =
+      typeof value === "string"
+        ? readJsonIfExists(path.join(packagePath, value.replace(/^\.\//, "")))
+        : value;
+    if (!Array.isArray(source)) return [];
+    return source
+      .map((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+        const id = typeof item.id === "string" ? item.id.trim() : "";
+        const title = localizedExpertValue(item.title);
+        const template = localizedExpertValue(item.template);
+        if (!id || !title || !template) return null;
+        return {
+          id,
+          title,
+          description: localizedExpertValue(item.description),
+          template,
+          requiredSlots: localizedExpertList(item.requiredSlots),
+          conditionalSlots: localizedExpertList(item.conditionalSlots),
+        };
+      })
+      .filter(Boolean);
   }
 
   function readTextIfExists(filePath) {
@@ -194,6 +229,10 @@ export function createExpertMarketplace(options = {}) {
         : "all",
       tags: localizedExpertList(manifest.tags).slice(0, 4),
       quickPrompts: localizedExpertList(manifest.quickPrompts).slice(0, 4),
+      promptTemplates: localizedExpertPromptTemplates(
+        packagePath,
+        manifest.promptTemplates,
+      ).slice(0, 4),
       avatarUrl: resolvePackageAvatarDataUrl(packagePath, manifest.avatar),
       expertType: manifest.expertType === "team" ? "team" : "agent",
       leadAgentName:
@@ -261,6 +300,7 @@ export function createExpertMarketplace(options = {}) {
       categoryIds: ["product-operations"],
       tags: [],
       quickPrompts: [],
+      promptTemplates: [],
       createdAt: now,
     };
     const agentMarkdown = `---

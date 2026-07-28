@@ -37,6 +37,8 @@ describe("shared agent prompt suggestions contract", () => {
       "utf8",
     );
     expect(source).toContain(".slice(0, 3)");
+    expect(source).toContain("promptTemplates");
+    expect(source).toContain("template: true");
     expect(source).toContain('title: t("session.expert_self_intro_prompt_title")');
     expect(source).toContain('"order-dispatch-specialist"');
     expect(source).toContain('"fleet-management-specialist"');

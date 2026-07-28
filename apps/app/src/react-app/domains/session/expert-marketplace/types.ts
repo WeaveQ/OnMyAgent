@@ -5,6 +5,15 @@ export type LocalizedText = {
 
 export type ExpertMarketplaceSource = "builtin" | "installed" | "mine";
 
+export type ExpertPromptTemplate = {
+  id: string;
+  title: string;
+  description: string;
+  template: string;
+  requiredSlots: string[];
+  conditionalSlots: string[];
+};
+
 export type ExpertMarketplaceEntry = {
   id: string;
   packageName: string;
@@ -19,6 +28,7 @@ export type ExpertMarketplaceEntry = {
   categoryLabels: string[];
   tags: string[];
   quickPrompts: string[];
+  promptTemplates: ExpertPromptTemplate[];
   avatarUrl: string | null;
   expertType: "agent" | "team";
   leadAgentName: string;

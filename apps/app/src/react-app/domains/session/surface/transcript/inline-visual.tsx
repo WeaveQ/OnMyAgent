@@ -15,7 +15,11 @@ import {
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useStatusToasts } from "../../../shell-feedback";
-import { CAPABILITY_TEMPLATE_EVENT } from "../composer/capability-template";
+import {
+  CAPABILITY_TEMPLATE_MESSAGE,
+  COMPOSER_TEMPLATE_MESSAGE,
+  dispatchComposerTemplate,
+} from "../composer/capability-template";
 
 import {
   resolveVisualArtifactExport,
@@ -174,14 +178,13 @@ function SandboxedVisual(props: {
         );
         return;
       }
-      if (event.data.type === "onmyagent:capability-template") {
+      if (
+        event.data.type === CAPABILITY_TEMPLATE_MESSAGE ||
+        event.data.type === COMPOSER_TEMPLATE_MESSAGE
+      ) {
         const template = event.data.template;
         if (typeof template !== "string") return;
-        window.dispatchEvent(
-          new CustomEvent(CAPABILITY_TEMPLATE_EVENT, {
-            detail: { template },
-          }),
-        );
+        dispatchComposerTemplate(template);
         return;
       }
       if (event.data.type === "onmyagent:visual-resize") {

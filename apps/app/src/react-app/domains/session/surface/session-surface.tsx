@@ -1336,6 +1336,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     handleRemovePastedText,
     handleUnsupportedFileLinks,
     typeComposerText,
+    typeComposerTemplate,
     listSkills,
     listMcp,
     listImportedPlugins,
@@ -1686,6 +1687,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       draftOnly={props.draftOnly}
       effectiveAgent={effectiveAgent}
       typeComposerText={typeComposerText}
+      typeComposerTemplate={typeComposerTemplate}
       assistantActivity={assistantActivity}
       onDismissError={handleDismissError}
       onChangeModel={props.onChangeModel}

@@ -43,6 +43,55 @@ describe("expert onboarding guide skills", () => {
         "skills",
         intro.skillName,
       );
+      const packageRoot = join(pluginsRoot, intro.packageName);
+      const expertManifest = JSON.parse(
+        readFileSync(
+          join(packageRoot, ".expert-plugin", "plugin.json"),
+          "utf8",
+        ),
+      );
+      const compatibilityManifest = JSON.parse(
+        readFileSync(
+          join(packageRoot, ".onmyagent-plugin", "plugin.json"),
+          "utf8",
+        ),
+      );
+      expect(compatibilityManifest.promptTemplates).toBe(
+        expertManifest.promptTemplates,
+      );
+      const promptTemplates = JSON.parse(
+        readFileSync(
+          join(packageRoot, expertManifest.promptTemplates),
+          "utf8",
+        ),
+      );
+      expect(promptTemplates).toHaveLength(3);
+      const capabilityMap = JSON.parse(
+        readFileSync(join(skillRoot, "assets/capability-map.json"), "utf8"),
+      );
+      expect(
+        capabilityMap.capabilities.map((capability) => capability.templateId),
+      ).toEqual(promptTemplates.map((template) => template.id));
+      for (const template of promptTemplates) {
+        for (const locale of ["zh", "en"]) {
+          const localizedTemplate = template.template[locale];
+          const placeholderLabels = [
+            ...localizedTemplate.matchAll(/<([^<>\r\n]+)>/g),
+          ].map((match) => match[1]);
+          const declaredLabels = [
+            ...template.requiredSlots[locale],
+            ...template.conditionalSlots[locale],
+          ];
+          expect(placeholderLabels).toEqual([...new Set(placeholderLabels)]);
+          expect(new Set(placeholderLabels)).toEqual(new Set(declaredLabels));
+          const numberedLines = [
+            ...localizedTemplate.matchAll(/^(\d+)\.\s/gm),
+          ].map((match) => Number(match[1]));
+          expect(numberedLines).toEqual(
+            numberedLines.map((_, index) => index + 1),
+          );
+        }
+      }
       const skill = readFileSync(join(skillRoot, "SKILL.md"), "utf8");
       expect(skill.indexOf("立即告诉用户该怎么开始")).toBeLessThan(
         skill.indexOf("立即输出照着问的示例表"),
@@ -82,6 +131,9 @@ describe("expert onboarding guide skills", () => {
         expect(payload.inlineWidget.widget_code).toContain("width:100%");
         expect(payload.inlineWidget.widget_code).toContain("一次任务怎么完成");
         expect(payload.inlineWidget.widget_code).toContain("可以直接这样说");
+        expect(payload.inlineWidget.widget_code).toContain(
+          "onmyagent:prompt-template",
+        );
         expect(payload.inlineWidget.widget_code).toContain("最少准备");
         expect(payload.inlineWidget.widget_code).toContain("你会得到");
         expect(payload.inlineWidget.widget_code.toLowerCase()).not.toContain("<svg");
