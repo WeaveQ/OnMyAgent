@@ -3,6 +3,13 @@ import { fileURLToPath } from "node:url";
 
 const workerPath = fileURLToPath(new URL("./node-kernel-worker.mjs", import.meta.url));
 
+/** @param {unknown} error */
+function nodeErrorCode(error) {
+  if (!error || typeof error !== "object") return "";
+  const code = /** @type {{ code?: unknown }} */ (error).code;
+  return typeof code === "string" ? code : "";
+}
+
 function createKernel(options) {
   const child = spawn(
     options.nodePath,
@@ -37,28 +44,36 @@ function createKernel(options) {
       if (!line) continue;
       const response = JSON.parse(line);
       if (response.kind === "browser-request") {
+        const writeBrowserResponse = (payload) => {
+          if (dead || child.stdin.destroyed) return;
+          try {
+            child.stdin.write(`${JSON.stringify(payload)}\n`);
+          } catch {
+            // Worker already gone; ignore.
+          }
+        };
         if (typeof options.browserRequest !== "function") {
-          child.stdin.write(`${JSON.stringify({
+          writeBrowserResponse({
             kind: "browser-response",
             browserRequestId: response.browserRequestId,
             ok: false,
             error: "browser runtime is not configured",
-          })}\n`);
+          });
           continue;
         }
         void options.browserRequest(response.method, response.params, response.context)
-          .then((result) => child.stdin.write(`${JSON.stringify({
+          .then((result) => writeBrowserResponse({
             kind: "browser-response",
             browserRequestId: response.browserRequestId,
             ok: true,
             result,
-          })}\n`))
-          .catch((error) => child.stdin.write(`${JSON.stringify({
+          }))
+          .catch((error) => writeBrowserResponse({
             kind: "browser-response",
             browserRequestId: response.browserRequestId,
             ok: false,
             error: error instanceof Error ? error.message : String(error),
-          })}\n`));
+          }));
         continue;
       }
       const request = pending.get(response.id);
@@ -69,20 +84,28 @@ function createKernel(options) {
       else request.reject(new Error(response.error));
     }
   });
-  // Avoid unhandled 'error' when writing after the worker already exited.
-  child.stdin.on("error", () => {
-    dead = true;
-  });
-  child.on("error", () => {
-    dead = true;
-  });
-  child.on("exit", () => {
+  const failPending = (error) => {
     dead = true;
     for (const request of pending.values()) {
       clearTimeout(request.timer);
-      request.reject(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
+      request.reject(error);
     }
     pending.clear();
+  };
+
+  // Dead/killed workers can still surface EPIPE on stdin before "exit" runs.
+  // Without a listener the error becomes uncaught and flakes CI on Linux.
+  child.stdin.on("error", (error) => {
+    const code = nodeErrorCode(error);
+    if (code === "EPIPE" || code === "ERR_STREAM_DESTROYED") {
+      failPending(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
+      return;
+    }
+    failPending(error instanceof Error ? error : new Error(String(error)));
+  });
+
+  child.on("exit", () => {
+    failPending(new Error(`node kernel exited${stderr ? `: ${stderr}` : ""}`));
   });
 
   let requestId = 0;
@@ -90,33 +113,34 @@ function createKernel(options) {
     requestId += 1;
     const id = requestId;
     return new Promise((resolve, reject) => {
-      if (dead || child.killed || child.exitCode !== null) {
-        dead = true;
+      if (dead || child.killed || child.exitCode !== null || child.stdin.destroyed) {
         reject(new Error("node kernel exited"));
         return;
       }
       const timer = setTimeout(() => {
         pending.delete(id);
-        // Mark dead before SIGKILL so concurrent writers do not race on stdin.
-        dead = true;
         try {
           child.kill("SIGKILL");
         } catch {
-          // ignore
+          // already dead
         }
         reject(new Error(`node kernel timed out after ${options.timeoutMs}ms`));
       }, options.timeoutMs);
       pending.set(id, { resolve, reject, timer });
       try {
-        const ok = child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
-        if (ok === false) {
-          // Backpressure is fine; still track the request until response/timeout.
-        }
+        child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
       } catch (error) {
         pending.delete(id);
         clearTimeout(timer);
         dead = true;
-        reject(error instanceof Error ? error : new Error(String(error)));
+        const code = nodeErrorCode(error);
+        reject(
+          code === "EPIPE" || code === "ERR_STREAM_DESTROYED"
+            ? new Error("node kernel exited")
+            : error instanceof Error
+              ? error
+              : new Error(String(error)),
+        );
       }
     });
   };
@@ -167,26 +191,11 @@ export function createNodeKernelManager(options = {}) {
   };
 
   return {
-    async evaluate(sessionId, code) {
+    evaluate(sessionId, code) {
       if (typeof code !== "string" || !code.trim()) {
-        throw new TypeError("node kernel code is required");
+        return Promise.reject(new TypeError("node kernel code is required"));
       }
-      // One automatic retry when a dead/timed-out worker is still briefly
-      // referenced (exit handler race). Second failure surfaces to the caller.
-      try {
-        return await kernelFor(sessionId).evaluate(code);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!/node kernel (exited|timed out)/i.test(message) && error?.code !== "EPIPE") {
-          throw error;
-        }
-        const stale = kernels.get(sessionId);
-        if (stale) {
-          kernels.delete(sessionId);
-          void stale.stop();
-        }
-        return kernelFor(sessionId).evaluate(code);
-      }
+      return kernelFor(sessionId).evaluate(code);
     },
     configureBrowserSession(sessionId, context) {
       return kernelFor(sessionId).configureBrowser(context);

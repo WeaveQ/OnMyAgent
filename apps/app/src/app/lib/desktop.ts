@@ -70,6 +70,7 @@ import type { WorkspaceList } from "./desktop-types";
 import type {
   AgentManagementProviderActionInput,
   AgentManagementFetchModelsInput,
+  AgentManagementTestModelInput,
   AgentManagementMcpActionInput,
   AgentManagementSkillActionInput,
   BuiltinSkillPackageInstallInput,
@@ -188,6 +189,7 @@ declare global {
             releaseDate?: string | null;
             releaseNotes?: unknown;
             reason?: string | null;
+            releaseUrl?: string | null;
           }) => void,
         ) => () => void;
       };
@@ -854,8 +856,9 @@ export type {
   ChannelSession,
 } from "./desktop-messaging";
 
-export const agentManagementSnapshot = (input: { workspaceRoot: string }) =>
-  invokeDesktopCommand("agentManagementSnapshot", input);
+export const agentManagementSnapshot = (
+  input: import("./desktop-types").AgentManagementSnapshotInput,
+) => invokeDesktopCommand("agentManagementSnapshot", input);
 
 export const agentManagementProviderAction = (
   input: AgentManagementProviderActionInput,
@@ -864,6 +867,10 @@ export const agentManagementProviderAction = (
 export const agentManagementFetchModels = (
   input: AgentManagementFetchModelsInput,
 ) => invokeDesktopCommand("agentManagementFetchModels", input);
+
+export const agentManagementTestModel = (
+  input: AgentManagementTestModelInput,
+) => invokeDesktopCommand("agentManagementTestModel", input);
 
 export const agentManagementSkillAction = (
   input: AgentManagementSkillActionInput,

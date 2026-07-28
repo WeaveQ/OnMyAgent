@@ -11,10 +11,15 @@ import {
 } from "../expert-marketplace/categories";
 import {
   isCollectibleArtifactTarget,
-  isLocalhostBrowserTarget,
+  isUserFacingLocalPreviewTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
-import { useComposerStateStore } from "../surface/composer-state-store";
+import { encodeComposerMentionValue } from "../surface/composer/mention-encoding";
+import {
+  getComposerDraft,
+  getComposerMentions,
+  useComposerStateStore,
+} from "../surface/composer-state-store";
 
 /**
  * 判断专家包是否可见（过滤掉.expert-plugin目录）
@@ -46,7 +51,7 @@ export function packageEntryToMarketplaceExpert(
  */
 export function isTrackableAccessibleTarget(target: OpenTarget) {
   return (
-    isCollectibleArtifactTarget(target) || isLocalhostBrowserTarget(target)
+    isCollectibleArtifactTarget(target) || isUserFacingLocalPreviewTarget(target)
   );
 }
 
@@ -56,6 +61,44 @@ export function isTrackableAccessibleTarget(target: OpenTarget) {
  */
 export function setComposerDraftAfterNewTask(workspaceId: string, draft: string) {
   const sessionId = `draft:${workspaceId}`;
+  const apply = () => {
+    useComposerStateStore.getState().setDraft(sessionId, draft);
+  };
+  apply();
+  window.setTimeout(apply, 0);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(apply);
+  });
+}
+
+/**
+ * Insert a workspace file as an `@` mention into the active session composer
+ * so the user can keep chatting about it ("添加到任务 / 添加到会话").
+ */
+export function appendComposerFileMention(
+  sessionId: string,
+  relativePath: string,
+): boolean {
+  const path = relativePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!sessionId.trim() || !path) return false;
+  const store = useComposerStateStore.getState();
+  const draft = getComposerDraft(store, sessionId);
+  const mentions = getComposerMentions(store, sessionId);
+  const token = encodeComposerMentionValue(path);
+  const nextDraft = /@([^\s@]*)$/u.test(draft)
+    ? draft.replace(/@([^\s@]*)$/u, `@${token} `)
+    : `${draft}${draft.length > 0 && !/\s$/u.test(draft) ? " " : ""}@${token} `;
+  store.setDraft(sessionId, nextDraft);
+  store.setMentions(sessionId, { ...mentions, [path]: "file" });
+  return true;
+}
+
+export function setExpertComposerDraftAfterNewTask(
+  workspaceId: string,
+  agentId: string,
+  draft: string,
+) {
+  const sessionId = `draft:${workspaceId}:${agentId}`;
   const apply = () => {
     useComposerStateStore.getState().setDraft(sessionId, draft);
   };

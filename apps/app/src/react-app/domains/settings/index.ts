@@ -1,5 +1,7 @@
 // Page components are intentionally not static re-exports: shell hosts load
 // them through `lazy-pages` factories so Settings host can stay thin.
+// Exception: the AI list skeleton is light and used as Suspense fallback from shell.
+export { AiSettingsProvidersSkeleton } from "./pages/ai-providers-skeleton";
 export type {
   AiSettingsConnectedProvider,
   AiSettingsViewProps,
@@ -12,6 +14,7 @@ export type { SystemAuthorizationsViewProps } from "./pages/system-authorization
 export type { CloudMarketplacesViewProps } from "./pages/cloud-marketplaces-view";
 export type { CloudProvidersViewProps } from "./pages/cloud-providers-view";
 export type { DebugViewProps } from "./pages/debug-view";
+export type { RecoveryViewProps } from "./pages/recovery-view";
 export type { EnvironmentViewProps } from "./pages/environment-view";
 export type { ArchivedTasksViewProps } from "./pages/archived-tasks-view";
 export type {
@@ -32,6 +35,7 @@ export {
   loadCloudProvidersView,
   loadConversationMemoryView,
   loadDebugView,
+  loadRecoveryView,
   loadEnvironmentView,
   loadGeneralSettingsView,
   loadMemoryView,
@@ -42,6 +46,7 @@ export {
   loadUsageView,
 } from "./lazy-pages";
 export {
+  ChipGroupLabel,
   FieldLabel,
   ToggleChip,
   industryOptions,
@@ -91,15 +96,33 @@ export {
   getExtensionConnected,
   registerExtensionConfig,
   registerExtensionRuntime,
-} from "./extension-registry";
+} from "../shared";
 export type {
   ExtensionConfigContext,
   ExtensionConfigFactory,
   ExtensionRuntimeContext,
   OnMyAgentExtensionRuntime,
-} from "./extension-registry";
+} from "../shared";
 
 export { useDebugViewModel } from "./state/debug-view-model";
+export { useRecoveryViewModel } from "./state/recovery-view-model";
+export {
+  invalidateOpenCodeManagedProvidersCache,
+  loadOpenCodeManagedProvidersForWorkspace,
+  peekOpenCodeManagedProvidersCache,
+  resetOpenCodeInventoryInflightForTests,
+  seedOpenCodeManagedProvidersCache,
+  useAiProvidersController,
+  type AiProvidersController,
+  type AiProvidersControllerInput,
+  type LoadOpenCodeManagedProvidersOptions,
+} from "./state/ai-providers-controller";
+export {
+  prewarmProvidersForWorkspace,
+  prewarmWorkspaceProviders,
+  type PrewarmProvidersForWorkspaceInput,
+  type PrewarmWorkspaceProvidersInput,
+} from "./state/providers-prewarm";
 export { useMessagingViewProps } from "./state/messaging-view-state";
 export { useElectronUpdaterState } from "./state/electron-updater-state";
 export type { SettingsUpdateStatus } from "./state/electron-updater-state";
@@ -135,5 +158,6 @@ export type { LocalProviderInstallInput } from "./openai-image-extension";
 import "./openai-image-gen-config";
 import "./ollama-config";
 import "./computer-use-config";
+import "./browser-skill-config";
 import "./onmyagent-voice-config";
 import "./browser-config";

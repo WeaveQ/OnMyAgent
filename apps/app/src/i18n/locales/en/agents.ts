@@ -219,4 +219,11 @@ export default {
   "agents.help_background": "Richer personal/project background so it understands your needs better.",
   "agents.help_agent_memory": "Long-term instructions for the agent itself: role, rules to always follow, lessons learned. Included in every chat.",
   "agents.help_user_memory": "Long-term facts about you: identity, preferences, common projects, tech stack. Included in every chat.",
+  "agents.coming_soon_desc": "Coming soon — stay tuned.",
+  "agents.delete_confirm": "Delete agent “{name}”? This cannot be undone.",
+  "agents.deleted_title": "Deleted agent: {name}",
+  "agents.created_title": "Created agent: {name}",
+  "agents.updated_agent_title": "Updated agent: {name}",
+  "agents.updated_template_title": "Updated template: {name}",
+  "agents.config_written_desc": "Saved to {path}",
 } as const;

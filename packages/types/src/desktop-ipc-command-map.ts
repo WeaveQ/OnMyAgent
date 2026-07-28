@@ -17,10 +17,12 @@ import type {
   CodeWorkspaceOpenTargetsResult,
   CodeWorkspaceTerminal,
   CodeWorkspaceTerminalSnapshot,
-} from "./desktop-ipc-code-workspace";
+} from "./desktop-ipc-code-workspace.js";
 import type {
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
+  AgentManagementTestModelInput,
+  AgentManagementTestModelResult,
   AgentManagementMcpActionInput,
   AgentManagementMcpActionResult,
   AgentManagementMcpSnapshot,
@@ -29,7 +31,9 @@ import type {
   AgentManagementSkillActionInput,
   AgentManagementSkillActionResult,
   AgentManagementSnapshot,
+  AgentManagementSnapshotInput,
   AppBuildInfo,
+  BrowserSkillStatusResult,
   BuiltinSkillPackageInstallInput,
   BuiltinSkillPackageInstallResult,
   CacheResetResult,
@@ -170,7 +174,7 @@ import type {
   WorkspaceList,
   WorkspaceOnMyAgentConfig,
   WorkspaceUpdateRemoteInput,
-} from "./desktop-ipc";
+} from "./desktop-ipc.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -259,7 +263,16 @@ type TypedDesktopCommandMap = {
     { ok: true }
   >;
   codeWorkspaceFilesList: DesktopCommandContract<
-    [{ workspacePath: string; relativePath?: string }],
+    [
+      {
+        workspacePath: string;
+        relativePath?: string;
+        /** When true, walk all descendants under relativePath (for type/search filters). */
+        recursive?: boolean;
+        /** Legacy alias: shallow:false means recursive. */
+        shallow?: boolean;
+      },
+    ],
     { items: CodeWorkspaceFileEntry[] }
   >;
   codeWorkspaceFileRead: DesktopCommandContract<
@@ -350,6 +363,14 @@ type TypedDesktopCommandMap = {
     [{ title?: string; defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }?],
     string | null
   >;
+  exportVisualSnapshot: DesktopCommandContract<
+    [{
+      format: "png" | "pdf";
+      rect: { x: number; y: number; width: number; height: number };
+      defaultPath: string;
+    }],
+    { status: "saved" | "cancelled"; path: string | null }
+  >;
   updaterEnvironment: DesktopCommandContract<[], UpdaterEnvironment>;
   setWindowDecorations: DesktopCommandContract<[{ enabled: boolean }], void>;
   __openPath: DesktopCommandContract<[string], string | null>;
@@ -370,6 +391,15 @@ type TypedDesktopCommandMap = {
   installSoftwareEnv: DesktopCommandContract<
     [string, string?],
     SoftwareEnvironmentInstallResult
+  >;
+  checkBrowserSkillStatus: DesktopCommandContract<[], BrowserSkillStatusResult>;
+  openBrowserSkillInstallPage: DesktopCommandContract<
+    [("cli" | "extension" | "docs")?],
+    OkResult & {
+      url?: string;
+      method?: "terminal" | "docs" | "extension" | "cli" | string;
+      command?: string;
+    }
   >;
 
   // local agents
@@ -815,7 +845,7 @@ type TypedDesktopCommandMap = {
 
   // agent management
   agentManagementSnapshot: DesktopCommandContract<
-    [{ workspaceRoot: string }],
+    [AgentManagementSnapshotInput],
     AgentManagementSnapshot
   >;
   agentManagementProviderAction: DesktopCommandContract<
@@ -825,6 +855,10 @@ type TypedDesktopCommandMap = {
   agentManagementFetchModels: DesktopCommandContract<
     [AgentManagementFetchModelsInput],
     AgentManagementFetchModelsResult
+  >;
+  agentManagementTestModel: DesktopCommandContract<
+    [AgentManagementTestModelInput],
+    AgentManagementTestModelResult
   >;
   agentManagementSkillAction: DesktopCommandContract<
     [AgentManagementSkillActionInput],
@@ -904,8 +938,21 @@ type TypedDesktopCommandMap = {
   sandboxDebugProbe: DesktopCommandContract<[], SandboxDebugProbeResult>;
   onmyagentServerInfo: DesktopCommandContract<[], OnMyAgentServerInfo>;
   onmyagentServerRestart: DesktopCommandContract<[], OnMyAgentServerInfo>;
-  resetOpenworkState: DesktopCommandContract<[], CacheResetResult>;
-  resetOnMyAgentState: DesktopCommandContract<[], CacheResetResult>;
+  /** @deprecated alias — same as resetOnMyAgentState */
+  resetOpenworkState: DesktopCommandContract<
+    [("onboarding" | "all")?],
+    CacheResetResult
+  >;
+  /**
+   * Reset OnMyAgent local product data then UI relaunches.
+   * - onboarding: workspace list + desktop bootstrap only
+   * - all: Electron userData + ~/.onmyagent + ~/.studio-switch + legacy product home
+   *   (does not wipe shared CLI configs like ~/.config/opencode / ~/.claude / ~/.codex)
+   */
+  resetOnMyAgentState: DesktopCommandContract<
+    [("onboarding" | "all")?],
+    CacheResetResult
+  >;
 
   // skills
   importSkill: DesktopCommandContract<

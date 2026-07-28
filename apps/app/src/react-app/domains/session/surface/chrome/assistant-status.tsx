@@ -7,7 +7,10 @@ import { currentLocale, t } from "../../../../../i18n";
 import enLoadingTips from "../../../../../i18n/locales/en/session-loading-tips";
 import zhLoadingTips from "../../../../../i18n/locales/zh/session-loading-tips";
 import zhTWLoadingTips from "../../../../../i18n/locales/zh-TW/session-loading-tips";
-import { sessionSurfaceTextClass } from "../surface-styles";
+import {
+  SESSION_CONTENT_MAX_WIDTH_CLASS,
+  sessionSurfaceTextClass,
+} from "../surface-styles";
 
 const LOADING_TIP_DELAY_MS = 4_000;
 const LOADING_TIP_ROTATION_MS = 10_000;
@@ -163,7 +166,7 @@ export function OutputLimitContinueCard(props: {
 export function TranscriptHistorySkeleton({ pairCount = 3 }: { pairCount?: number }) {
   return (
     <div
-      className="mx-auto w-full max-w-[1120px] px-3 py-4"
+      className={`mx-auto w-full ${SESSION_CONTENT_MAX_WIDTH_CLASS} px-3 py-4`}
       role="status"
       aria-label={t("session.loading_detail")}
     >

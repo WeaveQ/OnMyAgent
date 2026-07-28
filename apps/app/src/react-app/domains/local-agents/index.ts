@@ -8,6 +8,13 @@
 export { AgentManagementPage } from "./agent-management/agent-management-page";
 export { OpenCodeProviderConfigDialog } from "./agent-management/agent-management-providers";
 export {
+  prewarmAgentManagementCore,
+  prefetchAgentManagementDomains,
+  readCachedAgentManagerSnapshot,
+  agentManagerCacheKey,
+  resetAgentManagerSnapshotStoreForTests,
+} from "./agent-management/agent-management-snapshot-store";
+export {
   AgentManagementProviderModal,
   defaultProviderDraft,
   providerDraftFromProvider,
@@ -88,6 +95,7 @@ export { WorkspaceFootnote } from "./workspace-picker/workspace-footnote";
 export {
   addRecentWorkspace,
   getRecentWorkspaces,
+  recentWorkspacesChangedEvent,
   readWorkspaceOverride,
   writeWorkspaceOverride,
   workspaceDisplayName,

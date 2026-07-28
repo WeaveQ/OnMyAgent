@@ -199,6 +199,16 @@ export function CommandPalette(props: CommandPaletteProps) {
           props.onOpenSettings("/settings/updates");
         },
       },
+      {
+        id: "settings-recovery",
+        title: t("settings.tab_recovery"),
+        detail: t("settings.tab_description_recovery"),
+        meta: t("session.cmd_settings_meta"),
+        action: () => {
+          props.onClose();
+          props.onOpenSettings("/settings/recovery");
+        },
+      },
     ],
     [accessibleTargetCount, props],
   );

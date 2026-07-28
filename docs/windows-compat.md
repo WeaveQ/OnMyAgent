@@ -8,19 +8,34 @@ run has a fighting chance.
 
 ## CI gate (PR required)
 
-| Job | OS | What | Why |
-|-----|-----|------|-----|
-| **Detect paths** | ubuntu | git diff path filter | Skip Windows host job when PR is docs/frontend-only |
-| **Checks** | ubuntu + macos | `pnpm check` + rename; **Linux only**: `test:windows-runtime` | Fail-fast mocked win32 contracts |
-| **Windows compat** | `windows-2022` | `test:windows-runtime` + preflight `--ci` | Real host; **skipped** if no Windows-relevant paths |
-| **Typecheck** | via Checks only | includes `@onmyagent/desktop` | TS is OS-agnostic — not re-run on Windows |
+Layered gate (Phase A):
+
+| Layer | When | Job | What |
+|-------|------|-----|------|
+| **L1** | every PR | Checks (ubuntu + macos) | `pnpm check` + rename; **Linux only**: `test:windows-runtime` (mocked win32) |
+| **L2** | path match **or** label | Windows compat (`windows-2022`) | Real host: `test:windows-runtime` + preflight `--ci` |
+| **L3** | release / later | (not PR) | NSIS package / install smoke — see Roadmap |
+
+| Job | OS | Why |
+|-----|-----|-----|
+| **Detect Windows-relevant paths** | ubuntu | Path filter + optional force label |
+| **Checks** | ubuntu + macos | Cheap fail-fast; mock Windows contracts on Linux |
+| **Windows compat** | `windows-2022` | Real host; **skipped** unless paths match or label |
+| **Typecheck** | via Checks only | TS is OS-agnostic — not re-run on Windows |
 
 **Path filter** (any match → run Windows host job):
 
 - `apps/desktop/**`, `apps/orchestrator/**`
+- `apps/server/src/services/session-archive*`, `apps/server/src/env-file.ts`, `apps/server/tests/session-archive*`
+- `apps/app/src/react-app/domains/workspace/**`
+- `apps/app/src/react-app/domains/session/chat/session-archive*`
+- `apps/app/src/app/lib/desktop.ts`
 - `scripts/dev/windows*`, `scripts/lib/run-command.mjs`
 - `package.json`, `pnpm-lock.yaml`, `constants.json`
 - `.github/workflows/ci-tests.yml`, `docs/windows-compat.md`
+
+**Force host gate (no path match required):** add PR label **`ci:windows`**.  
+Workflow listens for `labeled` / `unlabeled` so applying the label re-runs detection.
 
 **Not duplicated:** desktop typecheck; macos does not run windows-runtime.  
 **Intentional double-run:** `test:windows-runtime` on Linux (fail-fast) + Windows (host), only when host job is selected.
@@ -33,6 +48,9 @@ pnpm check:windows
 pnpm test:windows-runtime
 node scripts/dev/windows-preflight.mjs --ci
 ```
+
+When your PR touches archive parsers, workspace file roots, or desktop bridges but
+is not auto-selected, add label `ci:windows` or run `pnpm check:windows` before merge.
 
 ## Preflight
 

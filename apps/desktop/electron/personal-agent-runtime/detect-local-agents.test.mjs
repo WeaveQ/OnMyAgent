@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   dedupeCodebuddyWorkbuddyAgents,
   isWorkBuddyEmbeddedPath,
@@ -84,4 +85,20 @@ test("discoverableAgentDrafts surfaces WorkBuddy draft", () => {
     workbuddy.nativeSkillsDirs.some((dir) => String(dir).includes(".workbuddy")),
     "WorkBuddy also declares ~/.workbuddy/skills",
   );
+});
+
+test("Grok catalog uses well-known paths and enriched PATH resolution", () => {
+  const grok = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "grok");
+  assert.ok(grok, "grok catalog entry present");
+  assert.ok(Array.isArray(grok.wellKnownPaths) && grok.wellKnownPaths.length > 0);
+  assert.ok(
+    grok.wellKnownPaths.some((p) => String(p).includes(".local") && String(p).endsWith("grok")),
+  );
+  assert.deepEqual(grok.acpArgs, ["agent", "stdio"]);
+
+  // Source contract: resolveOnPath must walk enrichedPath, not raw process.env.PATH only.
+  const src = readFileSync(new URL("./detect-local-agents.mjs", import.meta.url), "utf8");
+  assert.match(src, /enrichedPath/);
+  assert.match(src, /wellKnownPaths/);
+  assert.match(src, /from "\.\.\/runtime-path-env\.mjs"/);
 });

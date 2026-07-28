@@ -17,19 +17,16 @@ import type {
   Actor,
   ReloadReason,
   ReloadTrigger,
-  TokenScope,
 } from "@onmyagent/types/server";
 import { ApprovalService } from "./services/approvals.js";
 import { repairCommands } from "./services/commands.js";
 import { ApiError, formatError } from "./core/errors.js";
-import { ensureWritable, requireClientScope, scopeRank } from "./core/server-scope.js";
 import { readJsoncFile } from "./core/jsonc.js";
 import { ReloadEventStore } from "./services/events.js";
 import { startReloadWatchers } from "./reload-watcher.js";
 import {
   opencodeConfigPath,
   onmyagentConfigPath,
-  globalSkillsDir,
 } from "./workspace/workspace-files.js";
 import { ensureDir, exists, hashToken, shortId } from "./core/utils.js";
 import {
@@ -48,73 +45,25 @@ import {
 } from "./services/opencode-connection.js";
 import { seedOpencodeSessionMessages } from "./services/opencode-db.js";
 import { type AuthMode, type RequestContext, type Route } from "./routes/route-core.js";
-import { registerSystemRoutes } from "./routes/system-routes.js";
-import { registerDevUiRoutes } from "./routes/dev-ui-routes.js";
-import { registerRuntimeRoutes } from "./routes/runtime-routes.js";
-import { registerWorkspaceImportExportRoutes } from "./routes/workspace-import-export-routes.js";
 import { serve, type ServeResult } from "./serve-node.js";
-import { registerExperimentalExtensionRoutes } from "./routes/experimental-extension-routes.js";
-import { registerTokenRoutes } from "./routes/token-routes.js";
-import { registerEnvRoutes } from "./routes/env-routes.js";
-import { registerVoiceRoutes } from "./routes/voice-routes.js";
-import { registerCommandRoutes } from "./routes/command-routes.js";
-import { registerAutomationRoutes } from "./routes/automation-routes.js";
-import { registerPluginRoutes } from "./routes/plugin-routes.js";
-import { registerArtifactPluginRoutes } from "./routes/artifact-plugin-routes.js";
-import { registerSkillRoutes } from "./routes/skill-routes.js";
-import { registerMcpRoutes } from "./routes/mcp-routes.js";
-import { registerApprovalRoutes } from "./routes/approval-routes.js";
-import { registerWorkspaceObservabilityRoutes } from "./routes/workspace-observability-routes.js";
-import { registerWorkspaceSessionArchiveRoutes } from "./routes/workspace-session-archive-routes.js";
-import { registerWorkspaceSessionRoutes } from "./routes/workspace-session-routes.js";
-import { registerWorkspaceRoutes } from "./routes/workspace-routes.js";
-import { registerWorkspaceConfigRoutes } from "./routes/workspace-config-routes.js";
-import { registerWorkspaceArtifactRoutes } from "./routes/workspace-artifact-routes.js";
-import { registerWorkspaceFileRoutes } from "./routes/workspace-file-routes.js";
-import { registerWorkspaceBlueprintRoutes, type BlueprintMaterializeResult } from "./routes/workspace-blueprint-routes.js";
-import { registerWorkspaceFileSessionRoutes } from "./routes/workspace-file-session-routes.js";
+import { type BlueprintMaterializeResult } from "./routes/workspace-blueprint-routes.js";
+import { registerServerRoutes } from "./register-server-routes.js";
 import pkg from "../package.json" with { type: "json" };
 import constants from "../../../constants.json" with { type: "json" };
 
 import { createServerLogger, logRequest } from "./core/server-logger.js";
-import { readJsonBody, ensurePlainObject } from "./core/request-body.js";
-import {
-  normalizeWorkspaceRelativePath,
-  isSupportedWorkspaceTextFilePath,
-  resolveWorkspaceArtifactTargets,
-  resolveInboxDir,
-  resolveOutboxDir,
-  resolveSafeChildPath,
-  decodeArtifactId,
-  decodeInboxId,
-  listArtifacts,
-  listInbox,
-  contentTypeForPath,
-  contentKindForPath,
-  fileRevision,
-} from "./workspace/path-utils.js";
+import { ensurePlainObject } from "./core/request-body.js";
 import {
   parseWorkspaceMount,
   parseWorkspaceOpencodeMount,
   assertOpencodeProxyAllowed,
   unwrapOpencodeResult,
-  logoutMcpAuth,
   proxyOpencodeRequest,
   resolveOpencodeDirectory,
 } from "./services/opencode-proxy.js";
 import { getWorkspaceOpencodeClient } from "./services/opencode-client-pool.js";
 import {
-  listWorkspaceSessions,
-  readWorkspaceSession,
-  readWorkspaceSessionMessages,
-  readWorkspaceSessionSnapshot,
-  deleteWorkspaceSession,
-} from "./services/workspace-sessions.js";
-import {
   startAutomationScheduler,
-  startAutomationTask,
-  waitForAutomationSession,
-  reconcileAutomationRuns,
 } from "./services/automation-runner.js";
 
 // Public API re-exports (tests/cli import these from server)
@@ -502,246 +451,29 @@ function createRoutes(
     return fileSessions.recordWorkspaceEvent({ workspaceId, ...input });
   };
 
-  registerSystemRoutes({
+  registerServerRoutes({
     routes,
     config,
+    tokens,
+    env,
+    fileSessions,
     serverVersion: SERVER_VERSION,
     opencodeVersion: OPENCODE_VERSION,
+    maxFileBytes: FILE_SESSION_MAX_FILE_BYTES,
     resolveWorkspace,
     serializeWorkspace,
-  });
-
-  registerDevUiRoutes(routes);
-
-  registerRuntimeRoutes({ routes, readJsonBody });
-
-  registerExperimentalExtensionRoutes({ routes, config, readJsonBody });
-
-  registerTokenRoutes({
-    routes,
-    config,
-    tokens,
-    ensureWritable,
-    readJsonBody,
-  });
-
-  registerEnvRoutes({
-    routes,
-    config,
-    env,
-    ensureWritable,
-    readJsonBody,
-  });
-
-  registerVoiceRoutes({ routes, env, readJsonBody });
-
-  registerCommandRoutes({
-    routes,
-    config,
-    tokens,
-    ensureWritable,
-    requireClientScope,
     requireHost,
-    resolveWorkspace,
     requireApproval,
     emitReloadEvent,
-    readJsonBody,
-  });
-
-  registerAutomationRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    reconcileAutomationRuns: async (workspace) => {
-      await reconcileAutomationRuns(config, workspace);
-    },
-    runAutomationTask: async (workspace, task, onStarted) => {
-      const execution = await startAutomationTask(config, workspace, task);
-      await onStarted(execution);
-      await waitForAutomationSession(config, workspace, execution);
-      return execution;
-    },
-    requireApproval,
-    readJsonBody,
-  });
-
-  registerPluginRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    emitReloadEvent,
-    opencodeConfigPath,
-    readJsonBody,
-  });
-
-  registerArtifactPluginRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    emitReloadEvent,
-    readJsonBody,
-  });
-
-  registerSkillRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    emitReloadEvent,
-    globalSkillsDir,
-    readJsonBody,
-  });
-
-  registerMcpRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    emitReloadEvent,
-    opencodeConfigPath,
-    logoutMcpAuth: (workspace, name) => logoutMcpAuth(config, workspace, name),
-    readJsonBody,
-  });
-
-  registerApprovalRoutes({ routes, readJsonBody });
-
-  registerWorkspaceObservabilityRoutes({
-    routes,
-    config,
-    resolveWorkspace,
-    requireClientScope,
-    reloadOpencodeEngine,
-  });
-
-  registerWorkspaceSessionArchiveRoutes({
-    routes,
-    config,
-    resolveWorkspace,
-  });
-
-  registerWorkspaceSessionRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    listWorkspaceSessions,
-    readWorkspaceSession,
-    readWorkspaceSessionMessages,
-    readWorkspaceSessionSnapshot,
-    deleteWorkspaceSession,
-  });
-
-  registerWorkspaceRoutes({
-    routes,
-    config,
-    ensureWritable,
-    resolveWorkspace,
-    serializeWorkspace,
+    buildConfigTrigger,
     persistServerWorkspaceState,
     onWorkspacesChanged,
     reloadOpencodeEngine,
-    readJsonBody,
-  });
-
-  registerWorkspaceConfigRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    emitReloadEvent,
     readOpencodeConfig,
     readOnMyAgentConfig,
     writeOnMyAgentConfig,
-    buildConfigTrigger,
-    readJsonBody,
-  });
-
-  registerWorkspaceArtifactRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    resolveInboxDir,
-    resolveOutboxDir,
-    listInbox,
-    listArtifacts,
-    decodeInboxId,
-    decodeArtifactId,
-    resolveSafeChildPath,
-    normalizeWorkspaceRelativePath,
-    resolveWorkspaceArtifactTargets,
-    readJsonBody,
-  });
-
-  registerWorkspaceFileRoutes({
-    routes,
-    config,
-    maxFileBytes: FILE_SESSION_MAX_FILE_BYTES,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    readJsonBody,
-    normalizeWorkspaceRelativePath,
-    resolveSafeChildPath,
-    isSupportedWorkspaceTextFilePath,
-    contentTypeForPath,
-    fileRevision,
-    recordWorkspaceFileEvent,
-  });
-
-  registerWorkspaceFileSessionRoutes({
-    routes,
-    config,
-    fileSessions,
-    ensureWritable,
-    requireClientScope,
-    requireApproval,
-    resolveWorkspace,
-    readJsonBody,
-    normalizeWorkspaceRelativePath,
-    resolveSafeChildPath,
-    contentKindForPath,
-    scopeRank,
-  });
-
-  registerWorkspaceImportExportRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
-    requireApproval,
-    readJsonBody,
-    readOnMyAgentConfig,
-    writeOnMyAgentConfig,
-    emitReloadEvent,
-    buildConfigTrigger,
-  });
-
-  registerWorkspaceBlueprintRoutes({
-    routes,
-    config,
-    ensureWritable,
-    requireClientScope,
-    resolveWorkspace,
     materializeBlueprintSessions,
+    recordWorkspaceFileEvent,
   });
 
   return routes;

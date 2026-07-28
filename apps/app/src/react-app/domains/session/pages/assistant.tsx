@@ -1,7 +1,6 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePanelRef } from "react-resizable-panels";
 import {
   ChevronDown,
   ChevronUp,
@@ -13,12 +12,9 @@ import {
 
 import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
-import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft } from "../../../../app/types";
 import {
-  isCollectibleArtifactTarget,
-  isLocalhostBrowserTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
@@ -26,30 +22,20 @@ import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
-import { useComposerStateStore } from "../surface/composer-state-store";
 import { ShareWorkspaceModal } from "../../workspace";
-import { OwDotTicker, type OnMyAgentControlAction, type SidePanelItem, useControlAction, useReactRenderWatchdog, useUiStateStore, useWorkspaceShellLayout } from "../../../shell";
+import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
 import {
   installBuiltinSkillPackage,
-  listExpertPackages,
-  type ExpertPackageListEntry,
 } from "../../../../app/lib/desktop";
-import { openInAppBrowser } from "../browser/open-in-app-browser";
-import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
-import {
-  getExtensionId,
-  isOnMyAgentExtensionEnabled,
-  ONMYAGENT_EXTENSION_STATE_CHANGED,
-} from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
 import { SessionHistorySearchChrome } from "./session-history-search-chrome";
-import { SessionArchivePage, type SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
+import { SessionArchivePage } from "../chat/session-page-session-archive-page";
 import { createCanvasSessionKey } from "../infinite-canvas";
 import {
   LazyCodeWorkspaceSidePanel,
@@ -63,7 +49,7 @@ import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import type {
   SessionAgentManagementIntent,
   SessionPageProps,
-} from "./index";
+} from "./session-page-types";
 
 import {
   addAssistantSession,
@@ -73,22 +59,27 @@ import {
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
-import { AutomationPage, MessagingChannelsPage } from "../../messaging";
-import { consumeAutomationFocus } from "../artifacts/automation-focus-memory";
+import {
+  AutomationPage,
+  MessagingChannelsPage,
+  syncAutomationSessionRecords,
+} from "../../messaging";
+import {
+  consumeAutomationFocus,
+  writeAutomationFocus,
+} from "../artifacts/automation-focus-memory";
+import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
 import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
-  STARTUP_SKELETON_ROWS,
+  shouldShowSessionStartupSkeleton,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
   GLOBAL_VOICE_SIDE_PANEL_KEY,
-  hiddenAccessibleTargetsStorageKey,
-  readHiddenAccessibleTargetIds,
-  writeHiddenAccessibleTargetIds,
   workspaceTaskStatus,
   readAssistantSelectionMemory,
   resolveAssistantSelectionMemory,
@@ -97,19 +88,14 @@ import {
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
 import {
-  useVisitedRailViews,
-} from "../sidebar/keep-alive-pane";
-import {
-  isPrimarySessionRailView,
   readAssistantCategoryMemory,
-  readRailView,
   writeAssistantCategoryMemory,
-  writeRailView,
 } from "../sidebar/rail-navigation-memory";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
+import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   BillingPage,
   DevicesPage,
@@ -133,18 +119,17 @@ export type AssistantPageProps = SessionPageProps & {
 };
 
 import {
-  isVisibleExpertPackageEntry,
-  packageEntryToMarketplaceExpert,
-  isTrackableAccessibleTarget,
+  appendComposerFileMention,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
-import { useSessionHostSidePanel } from "./use-session-host-side-panel";
+import { useSessionPageHostState } from "./use-session-page-host-state";
 import { useSummonMarketplaceExpert } from "./use-summon-marketplace-expert";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
+import { isStreamingSessionStatus } from "../sidebar/utils";
 
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
@@ -152,6 +137,8 @@ const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 
 type AssistantGroupDeleteTarget = {
   kind: "automation";
+  /** Stable automation task id — required to remove the schedule itself. */
+  groupId: string;
   title: string;
   sessionIds: string[];
 };
@@ -159,35 +146,73 @@ type AssistantGroupDeleteTarget = {
 export function AssistantPage(props: AssistantPageProps) {
   const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
-  const sidePanelSessionKey =
-    props.selectedSessionId ?? `assistant-draft:${props.selectedWorkspaceId}`;
-  /** Browser tab scope: real session id, or workspace draft key on new task. */
-  const browserSessionScopeId = sidePanelSessionKey;
   const agentManagementIntent = props.agentManagementIntent;
   const onAgentManagementIntentConsumed =
     props.onAgentManagementIntentConsumed;
   const consumedAgentManagementIntentRef = useRef<string | null>(null);
-  const [activeSidebarView, setActiveSidebarView] =
-    useState<OnMyAgentPrimaryView>(() =>
-      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
-    );
-  // Workspace switch: restore this mode's last rail page.
-  useEffect(() => {
-    setActiveSidebarView(
-      readRailView("assistant", props.selectedWorkspaceId, "assistant"),
-    );
-  }, [props.selectedWorkspaceId]);
-  const [pendingArchiveResume, setPendingArchiveResume] = useState<SessionArchiveResumeRequest | null>(null);
+  const {
+    activeSidebarView,
+    openRailView,
+    visitedRailViews,
+    pendingArchiveResume,
+    setPendingArchiveResume,
+    sidePanelSessionKey,
+    browserSessionScopeId,
+    sessionSidePanel,
+    setSidePanelState,
+    setCurrentSidePanel,
+    toggleCurrentSidePanel,
+    artifactTarget,
+    setArtifactTarget,
+    openTargets,
+    accessibleTargets,
+    artifactFileTargets,
+    visibleArtifactTarget,
+    artifactTargetCount,
+    hasArtifactTargets,
+    activeSidePanel,
+    sidePanelOpen,
+    voiceExtensionEnabled,
+    handleOpenTargetsChange,
+    artifactFocusToken,
+    codeWorkspacePath,
+    codeWorkspaceCatalogRoot,
+    historySearchOpen,
+    historySearchQuery,
+    setHistorySearchQuery,
+    historyMatchCount,
+    setHistoryMatchCount,
+    historyActiveMatch,
+    setHistoryActiveMatch,
+    historySearchInputRef,
+    browserPanelRef,
+    openWorkspaceSidePanelMenu,
+    handleHistorySelectPrompt,
+    openHistorySearch,
+    closeHistorySearch,
+    commitBrowserPanelWidth,
+    openTarget,
+    closeRightPane,
+    isPrimarySessionView,
+  } = useSessionPageHostState({
+    mode: "assistant",
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceRoot: props.selectedWorkspaceRoot,
+    workspaces: props.workspaces,
+    draftWorkspaceDirectory:
+      props.surface?.draftWorkspace?.draftWorkspaceDirectory,
+    onAccessibleTargetsChange: props.onAccessibleTargetsChange,
+    historySearchViews: ["assistant", "chat", "scheduledTasks"],
+    sidePanelDefaultWidth: ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH,
+    sidePanelMinWidth: ASSISTANT_SIDE_PANEL_MIN_WIDTH,
+  });
   const [agentManagementPageIntent, setAgentManagementPageIntent] =
     useState(agentManagementIntent);
   const [assistantCategoryId, setAssistantCategoryId] =
     useState<AssistantCategoryId>(() =>
       readAssistantCategoryMemory(props.selectedWorkspaceId, "office"),
     );
-  const visitedRailViews = useVisitedRailViews(
-    activeSidebarView,
-    props.selectedWorkspaceId,
-  );
   const setAssistantCategoryAndRemember = useCallback(
     (categoryId: AssistantCategoryId) => {
       setAssistantCategoryId(categoryId);
@@ -215,59 +240,18 @@ export function AssistantPage(props: AssistantPageProps) {
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
-  const sidePanelScopeId =
-    activeSidebarView === "localAgent"
-      ? `localAgent:${props.selectedWorkspaceId}`
-      : sidePanelSessionKey;
-  const {
-    sessionSidePanel,
-    setSidePanelState,
-    toggleSidePanelState,
-    setCurrentSidePanel: setCurrentSidePanelFromHook,
-    toggleCurrentSidePanel,
-    artifactTarget,
-    setArtifactTarget,
-    openTargets,
-    setOpenTargets,
-    hiddenAccessibleTargetIds,
-    setHiddenAccessibleTargetIds,
-    accessibleTargets,
-    artifactFileTargets,
-    visibleArtifactTarget,
-    artifactTargetCount,
-    hasArtifactTargets,
-    activeSidePanel,
-    sidePanelOpen,
-    voiceExtensionEnabled,
-    handleOpenTargetsChange,
-    removeAccessibleTarget,
-  } = useSessionHostSidePanel({
-    sidePanelScopeId,
-    selectedWorkspaceId: props.selectedWorkspaceId,
-    selectedSessionId: props.selectedSessionId,
-    onAccessibleTargetsChange: props.onAccessibleTargetsChange,
-  });
-  const [artifactFocusToken, setArtifactFocusToken] = useState(0);
   const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
-  const codeWorkspacePath =
-    props.surface?.draftWorkspace?.draftWorkspaceDirectory?.trim() ||
-    props.selectedWorkspaceRoot;
-  const codeWorkspaceCatalogRoot =
-    props.workspaces.find((workspace) => workspace.id === props.selectedWorkspaceId)
-      ?.path?.trim() || props.selectedWorkspaceRoot;
 
 
   const openAssistantSessionView = useCallback(() => {
-    writeRailView("assistant", props.selectedWorkspaceId, "assistant");
-    setActiveSidebarView("assistant");
-  }, [props.selectedWorkspaceId]);
+    openRailView("assistant");
+  }, [openRailView]);
 
   const [focusAutomationId, setFocusAutomationId] = useState<string | null>(null);
 
   const openScheduledTasksView = useCallback(() => {
-    writeRailView("assistant", props.selectedWorkspaceId, "scheduledTasks");
-    setActiveSidebarView("scheduledTasks");
-  }, [props.selectedWorkspaceId]);
+    openRailView("scheduledTasks");
+  }, [openRailView]);
 
   useEffect(() => {
     if (activeSidebarView !== "scheduledTasks") return;
@@ -294,6 +278,54 @@ export function AssistantPage(props: AssistantPageProps) {
       props.sidebar.workspaceSessionGroups,
     ],
   );
+
+  const selectedAssistantSessionDirectory =
+    assistantWorkspaceSessions.find(
+      (session) => session.id === props.selectedSessionId,
+    )?.directory ?? null;
+
+  const openCreatedAutomation = useCallback(
+    (row: { id: string; scene: "office" | "code" }) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!workspaceId) return;
+      writeAutomationFocus({
+        workspaceId,
+        automationId: row.id,
+        scene: row.scene,
+      });
+      setAssistantCategoryAndRemember(row.scene);
+      writeAssistantSelectionMemory(workspaceId, row.scene, {
+        kind: "automation",
+      });
+      openScheduledTasksView();
+    },
+    [
+      openScheduledTasksView,
+      props.selectedWorkspaceId,
+      setAssistantCategoryAndRemember,
+    ],
+  );
+
+  const automationOffer = useSessionAutomationOffer({
+    client: props.onmyagentServerClient,
+    workspaceId:
+      props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim(),
+    catalogRoot: codeWorkspaceCatalogRoot,
+    sessionRoot: props.selectedWorkspaceRoot,
+    selectedSessionId: props.selectedSessionId,
+    sessionDirectory: selectedAssistantSessionDirectory,
+    selectedModel: props.surface?.model.selectedModel,
+    activeQuestion: props.activeQuestion,
+    questionReplyBusy: props.questionReplyBusy,
+    respondQuestion: props.respondQuestion,
+    sessionBusy: isStreamingSessionStatus(
+      props.selectedSessionId
+        ? props.sidebar.sessionStatusById?.[props.selectedSessionId]
+        : undefined,
+    ),
+    openTargets,
+    onViewCreatedAutomation: openCreatedAutomation,
+  });
 
   const openAssistantNewTask = useCallback(
     (categoryId: AssistantCategoryId) => {
@@ -403,23 +435,10 @@ export function AssistantPage(props: AssistantPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
-  const prevSessionIdRef = useRef(props.selectedSessionId);
-  useEffect(() => {
-    const prev = prevSessionIdRef.current;
-    prevSessionIdRef.current = props.selectedSessionId;
-    if (props.selectedSessionId?.trim() && prev !== props.selectedSessionId) {
-      setActiveSidebarView("assistant");
-    }
-  }, [props.selectedSessionId]);
-
-  /** Header find bar (expands in chrome like in-chat search). */
-  const [historySearchOpen, setHistorySearchOpen] = useState(false);
-  const [historySearchQuery, setHistorySearchQuery] = useState("");
-  const [historyMatchCount, setHistoryMatchCount] = useState(0);
-  const [historyActiveMatch, setHistoryActiveMatch] = useState(0);
-  const historySearchInputRef = useRef<HTMLInputElement>(null);
-  const browserPanelRef = usePanelRef();
-  const preserveSidePanelOnPanelOpenRef = useRef(false);
+  // Do NOT force openRailView("assistant") when selectedSessionId changes.
+  // Session open already navigates to a clean path (no ?view=) so the primary
+  // rail wins for user clicks. Forcing primary here steals history Back: POP to
+  // /sessionA?view=files would immediately push a clean URL and leave files.
 
   const wrappedOnSendDraft = useCallback(
     async (draft: ComposerDraft) => {
@@ -443,19 +462,6 @@ export function AssistantPage(props: AssistantPageProps) {
     [assistantCategoryId, props.selectedSessionId, props.onCreateSessionForAgent, props.surface],
   );
 
-  const setCurrentSidePanel = setCurrentSidePanelFromHook;
-
-  const openBrowserPanelFromAgent = useCallback(() => {
-    if (preserveSidePanelOnPanelOpenRef.current) {
-      preserveSidePanelOnPanelOpenRef.current = false;
-      return;
-    }
-    // Only auto-open for a real chat session — never for draft / new-task.
-    if (!props.selectedSessionId) return;
-    setCurrentSidePanel("browser");
-  }, [props.selectedSessionId, setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, props.selectedSessionId);
-
   // Leaving a session for new-task: close draft-scoped side panel and hide
   // the shared browser surface so the previous chat's rail does not carry over.
   const previousSelectedSessionIdRef = useRef(props.selectedSessionId);
@@ -470,177 +476,8 @@ export function AssistantPage(props: AssistantPageProps) {
       void window.__ONMYAGENT_ELECTRON__?.browser?.hide?.();
     }
   }, [props.selectedSessionId, props.selectedWorkspaceId, setSidePanelState]);
-  const {
-    setRightSidebarExpandedWidth: setBrowserPanelWidth,
-  } = useWorkspaceShellLayout({
-    expandedRightWidth: ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH,
-    minRightWidth: ASSISTANT_SIDE_PANEL_MIN_WIDTH,
-  });
-  const assistantSidePanelWidthRef = useRef(ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH);
-  const openAssistantSidePanelMenu = useCallback(() => {
-    assistantSidePanelWidthRef.current = ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH;
-    setBrowserPanelWidth(ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH);
-    // Right rail stays workspace tools (not history — history is a header popover).
-    setCurrentSidePanel("codeMenu");
-  }, [setBrowserPanelWidth, setCurrentSidePanel]);
 
-  const handleHistorySelectPrompt = useCallback(
-    (text: string) => {
-      const sessionId = props.selectedSessionId;
-      if (!sessionId || !text.trim()) return;
-      useComposerStateStore.getState().setDraft(sessionId, text);
-    },
-    [props.selectedSessionId],
-  );
-
-  /** Header find only — never opens the right workspace / history panel. */
-  const openHistorySearch = useCallback((event?: { stopPropagation?: () => void }) => {
-    event?.stopPropagation?.();
-    setHistorySearchOpen(true);
-    window.setTimeout(() => historySearchInputRef.current?.focus(), 0);
-  }, []);
-
-  const closeHistorySearch = useCallback(() => {
-    setHistorySearchOpen(false);
-    setHistorySearchQuery("");
-    setHistoryActiveMatch(0);
-    setHistoryMatchCount(0);
-  }, []);
-
-  useEffect(() => {
-    setHistoryActiveMatch(0);
-  }, [historySearchQuery, props.selectedSessionId]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-        // Prefer header history search when assistant chat is active.
-        if (
-          activeSidebarView === "assistant" ||
-          activeSidebarView === "chat" ||
-          activeSidebarView === "scheduledTasks"
-        ) {
-          event.preventDefault();
-          openHistorySearch();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSidebarView, openHistorySearch]);
-  const commitBrowserPanelWidth = useCallback(() => {
-    const size = browserPanelRef.current?.getSize();
-    if (size?.inPixels) {
-      const next = Math.round(size.inPixels);
-      if (assistantSidePanelWidthRef.current === next) return;
-      assistantSidePanelWidthRef.current = next;
-      setBrowserPanelWidth(next);
-    }
-  }, [browserPanelRef, setBrowserPanelWidth]);
-  const browserUrlForTarget = useCallback((target: OpenTarget) => {
-    if (/^wss?:\/\//i.test(target.value))
-      return target.value.replace(/^ws:/i, "http:").replace(/^wss:/i, "https:");
-    return target.value;
-  }, []);
-  const openTarget = useCallback(
-    async (target: OpenTarget, options?: { auto?: boolean }) => {
-      if (target.kind === "url" || target.preview === "browser") {
-        const url = browserUrlForTarget(target);
-        await openInAppBrowser({
-          openSidePanel: () => setCurrentSidePanel("browser"),
-          url,
-          sessionId: props.selectedSessionId,
-        });
-        return;
-      }
-      if (options?.auto && artifactTarget?.id === target.id) return;
-      setArtifactTarget(target);
-      setArtifactFocusToken((token) => token + 1);
-      preserveSidePanelOnPanelOpenRef.current = true;
-      setCurrentSidePanel("artifacts");
-    },
-    [
-      artifactTarget?.id,
-      browserUrlForTarget,
-      props.selectedSessionId,
-      setCurrentSidePanel,
-    ],
-  );
-  const closeRightPane = useCallback(() => {
-    setCurrentSidePanel(null);
-  }, [setCurrentSidePanel]);
-  useEffect(() => {
-    const open = (event: Event) => {
-      const requested = (event as CustomEvent<OpenTarget>).detail;
-      const target =
-        accessibleTargets.find(
-          (item) =>
-            item.id === requested?.id || item.value === requested?.value,
-        ) ?? (requested?.kind && requested?.value ? requested : null);
-      if (target) openTarget(target);
-    };
-    const hide = (event: Event) => {
-      const requested = (event as CustomEvent<OpenTarget>).detail;
-      const target = accessibleTargets.find(
-        (item) => item.id === requested?.id || item.value === requested?.value,
-      );
-      if (target) removeAccessibleTarget(target);
-    };
-    window.addEventListener("onmyagent-open-accessible-target", open);
-    window.addEventListener("onmyagent-hide-accessible-target", hide);
-    return () => {
-      window.removeEventListener("onmyagent-open-accessible-target", open);
-      window.removeEventListener("onmyagent-hide-accessible-target", hide);
-    };
-  }, [accessibleTargets, openTarget, removeAccessibleTarget]);
-  useEffect(() => {
-    const handler = () => setCurrentSidePanel(null);
-    window.addEventListener("onmyagent-close-right-pane", handler);
-    return () =>
-      window.removeEventListener("onmyagent-close-right-pane", handler);
-  }, [setCurrentSidePanel]);
-  // History is a header popover now; clear any persisted right-rail "history".
-  useEffect(() => {
-    if (sessionSidePanel === "history") {
-      setCurrentSidePanel(null);
-    }
-  }, [sessionSidePanel, setCurrentSidePanel]);
-
-  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
-    () =>
-      voiceExtensionEnabled
-        ? {
-            id: "voice.panel.open",
-            label: t("session.open_voice_mode"),
-            description: t("session.open_voice_mode_desc"),
-            sideEffect: "none",
-            execute: () => {
-              setCurrentSidePanel("voice");
-              return { open: true };
-            },
-          }
-        : null,
-    [setCurrentSidePanel, voiceExtensionEnabled],
-  );
-  useControlAction(openVoicePanelControlAction);
-
-  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
-    () =>
-      voiceExtensionEnabled && activeSidePanel === "voice"
-        ? {
-            id: "voice.panel.close",
-            label: t("session.close_voice_mode"),
-            description: t("session.close_voice_mode_desc"),
-            sideEffect: "none",
-            execute: () => {
-              setCurrentSidePanel(null);
-              return { open: false };
-            },
-          }
-        : null,
-    [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled],
-  );
-  useControlAction(closeVoicePanelControlAction);
+  const openAssistantSidePanelMenu = openWorkspaceSidePanelMenu;
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
@@ -659,15 +496,54 @@ export function AssistantPage(props: AssistantPageProps) {
         await props.onDeleteSession(target.sessionId);
         return;
       }
+      // 1) Delete every run session under the group (history rows).
+      // Ghost sessions (already missing in OpenCode) must not abort the loop —
+      // otherwise the schedule definition is never deleted and "定时" returns.
       for (const sessionId of target.sessionIds) {
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
         );
-        await props.onDeleteSession(sessionId);
+        try {
+          await props.onDeleteSession(sessionId);
+        } catch (error) {
+          console.warn(
+            "[assistant] failed to delete automation run session; continuing",
+            sessionId,
+            error,
+          );
+        }
+      }
+      // 2) Delete the automation definition itself. Without this, the schedule
+      // keeps firing and the "定时" group reappears — feels like "删不掉".
+      const automationId = target.groupId.trim();
+      const client = props.onmyagentServerClient;
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId || !automationId) return;
+      try {
+        const result = await client.deleteAutomation(workspaceId, automationId);
+        syncAutomationSessionRecords(workspaceId, result.items ?? []);
+      } catch (error) {
+        console.warn(
+          "[assistant] failed to delete automation definition",
+          automationId,
+          error,
+        );
+        showToast({
+          tone: "error",
+          title: t("session.delete_task"),
+          description:
+            error instanceof Error ? error.message : String(error),
+        });
+        throw error;
       }
     },
-    [props.onDeleteSession, props.selectedWorkspaceId],
+    [
+      props.onDeleteSession,
+      props.onmyagentServerClient,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
   );
 
   const {
@@ -700,6 +576,7 @@ export function AssistantPage(props: AssistantPageProps) {
     (target: { groupId: string; title: string; sessionIds: string[] }) => {
       openDeleteGroupModal({
         kind: "automation",
+        groupId: target.groupId.trim(),
         title: target.title.trim(),
         sessionIds: target.sessionIds,
       });
@@ -726,12 +603,13 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
-  const showStartupSkeleton =
-    !props.selectedSessionId &&
-    !props.clientConnected &&
-    props.startupPhase !== "sessionIndexReady" &&
-    props.startupPhase !== "firstSessionReady" &&
-    props.startupPhase !== "ready";
+  const showStartupSkeleton = shouldShowSessionStartupSkeleton({
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    clientConnected: props.clientConnected,
+    startupPhase: props.startupPhase,
+    coldBootShell: props.coldBootShell === true,
+  });
   // Same as expert: draft home/new-session must not be masked by prior session loading.
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) &&
@@ -810,17 +688,9 @@ export function AssistantPage(props: AssistantPageProps) {
       : activeSidebarView;
   const railActiveView =
     activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
-  /** Only paint SessionSurface on assistant/chat — hide under keep-alive secondary rails. */
-  const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
-
-  // Leaving 助理/专家 chat for other rail pages must close the workspace panel.
-  useEffect(() => {
-    if (isPrimarySessionView) return;
-    setCurrentSidePanel(null);
-  }, [isPrimarySessionView, setCurrentSidePanel]);
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -830,10 +700,10 @@ export function AssistantPage(props: AssistantPageProps) {
     consumedAgentManagementIntentRef.current = intent.key;
     if (intent.action === "createProvider") {
       setAgentManagementPageIntent(intent);
-      setActiveSidebarView("agentManagement");
+      openRailView("agentManagement");
       onAgentManagementIntentConsumed?.(intent.key);
     }
-  }, [agentManagementIntent, onAgentManagementIntentConsumed]);
+  }, [agentManagementIntent, onAgentManagementIntentConsumed, openRailView]);
 
   useEffect(() => {
     if (!showSessionLoadingState) {
@@ -914,24 +784,21 @@ export function AssistantPage(props: AssistantPageProps) {
               props.onNavigateToMode("expert");
               return;
             }
-            // Returning to 助理 must NOT force a new task — restore last selection.
-            writeRailView("assistant", props.selectedWorkspaceId, view);
+            // Rail changes push history via ?view= (bookmark still written for cold start).
             if (view === "assistant") {
               setAgentPanelCollapsed(false);
               openAssistantSessionView();
               return;
             }
-            setActiveSidebarView(view);
+            openRailView(view);
           }}
           onOpenAccountSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenDevices={() => {
-            writeRailView("assistant", props.selectedWorkspaceId, "devices");
-            setActiveSidebarView("devices");
+            openRailView("devices");
           }}
           onOpenBilling={() => {
-            writeRailView("assistant", props.selectedWorkspaceId, "billing");
-            setActiveSidebarView("billing");
+            openRailView("billing");
           }}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
@@ -1077,12 +944,7 @@ export function AssistantPage(props: AssistantPageProps) {
                               action: "openPanel",
                               panel: panel ?? "skills",
                             });
-                            writeRailView(
-                              "assistant",
-                              props.selectedWorkspaceId,
-                              "agentManagement",
-                            );
-                            setActiveSidebarView("agentManagement");
+                            openRailView("agentManagement");
                           }}
                         />
                       ),
@@ -1096,12 +958,7 @@ export function AssistantPage(props: AssistantPageProps) {
                               workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
                               onResume={(request) => {
                                 setPendingArchiveResume(request);
-                                writeRailView(
-                                  "assistant",
-                                  props.selectedWorkspaceId,
-                                  "localAgent",
-                                );
-                                setActiveSidebarView("localAgent");
+                                openRailView("localAgent");
                               }}
                             />
                           )}
@@ -1114,8 +971,28 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.runtimeWorkspaceId ??
                             props.selectedWorkspaceId
                           }
-                          workspaceRoot={props.selectedWorkspaceRoot}
+                          workspaceRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
+                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
+                          fileRoot={
+                            props.workspaceFilesRoot?.trim() ||
+                            props.selectedWorkspaceRoot
+                          }
                           onOpenArtifact={openTarget}
+                          onAddToTask={(relativePath) => {
+                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
+                              return;
+                            }
+                            openRailView("assistant");
+                            showToast({
+                              tone: "success",
+                              title: t("files.added_to_task_title"),
+                              description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),
@@ -1140,6 +1017,34 @@ export function AssistantPage(props: AssistantPageProps) {
                           workspaceId={props.selectedWorkspaceId}
                           focusAutomationId={focusAutomationId}
                           onFocusAutomationConsumed={() => setFocusAutomationId(null)}
+                          // Same OpenCode command.list + skill sources as session + menu.
+                          listOpenCodeCommands={props.surface?.listCommands}
+                          listSkills={
+                            props.onmyagentServerClient && props.selectedWorkspaceId
+                              ? () =>
+                                  props
+                                    .onmyagentServerClient!.listSkills(
+                                      props.selectedWorkspaceId,
+                                      { includeGlobal: true },
+                                    )
+                                    .then((result) => result.items)
+                              : undefined
+                          }
+                          listMcp={
+                            props.onmyagentServerClient && props.selectedWorkspaceId
+                              ? () =>
+                                  props
+                                    .onmyagentServerClient!.listMcp(
+                                      props.selectedWorkspaceId,
+                                    )
+                                    .then((result) => ({
+                                      servers: result.items.map((item) => ({
+                                        name: item.name,
+                                        id: item.name,
+                                      })),
+                                    }))
+                              : undefined
+                          }
                           onOpenSession={(workspaceId, sessionId) => {
                             writeAssistantSelectionMemory(
                               workspaceId,
@@ -1167,40 +1072,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView &&
-                      showBlockingStartupSkeleton ? (
-                        <div
-                          className="px-6 py-14"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="mx-auto max-w-2xl space-y-6">
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 animate-pulse rounded-full bg-dls-surface-muted" />
-                              <div className="h-3 w-64 animate-pulse rounded-full bg-dls-surface-muted" />
-                            </div>
-                            <div className="space-y-3">
-                              {STARTUP_SKELETON_ROWS.map((row) => (
-                                <div
-                                  key={row.id}
-                                  className="rounded-xl border border-dls-border bg-dls-surface-muted p-4"
-                                >
-                                  <div
-                                    className="mb-3 h-3 animate-pulse rounded-full bg-dls-surface-muted"
-                                    style={{ width: row.titleWidth }}
-                                  />
-                                  <div className="space-y-2">
-                                    <div className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted" />
-                                    <div
-                                      className="h-2.5 animate-pulse rounded-full bg-dls-surface-muted"
-                                      style={{ width: row.bodyWidth }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                      {isPrimarySessionView && showBlockingStartupSkeleton ? (
+                        <SessionStartupSkeleton />
                       ) : null}
 
                       {isPrimarySessionView &&
@@ -1243,10 +1116,14 @@ export function AssistantPage(props: AssistantPageProps) {
                               respondPermission: props.respondPermission,
                               autoApprovedPermissionNoticeId:
                                 props.autoApprovedPermissionNoticeId,
-                              activeQuestion: props.activeQuestion,
-                              questionReplyBusy: props.questionReplyBusy,
-                              respondQuestion: props.respondQuestion,
+                              activeQuestion: automationOffer.activeQuestion,
+                              questionReplyBusy:
+                                automationOffer.questionReplyBusy,
+                              respondQuestion: automationOffer.respondQuestion,
                             }}
+                            extraComposerAccessory={
+                              automationOffer.resultAccessory
+                            }
                             safeStringify={props.safeStringify}
                             userIdentity={{
                               name:
@@ -1270,11 +1147,11 @@ export function AssistantPage(props: AssistantPageProps) {
                               ...props.surface!.marketplace,
                               onOpenSkillsMarketplace: () => {
                                 setStoreActiveTab("skills");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenConnectorsMarketplace: () => {
                                 setStoreActiveTab("plugins");
-                                setActiveSidebarView("store");
+                                openRailView("store");
                               },
                               onOpenCustomConnector: () => openCustomConnector("config"),
                             }}
@@ -1431,12 +1308,17 @@ export function AssistantPage(props: AssistantPageProps) {
                       <LazyCodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}
                         workspaceCatalogRoot={codeWorkspaceCatalogRoot}
-                        fileRoot={props.selectedSessionFileRoot ?? ""}
+                        fileRoot={props.selectedSessionFileRoot ?? null}
                         fileTargets={artifactFileTargets}
                         focusPath={artifactTarget?.value ?? null}
                         focusToken={artifactFocusToken}
-                        workspaceId={props.runtimeWorkspaceId}
-                        sessionId={browserSessionScopeId}
+                        workspaceId={
+                          props.runtimeWorkspaceId ??
+                          props.selectedWorkspaceId ??
+                          null
+                        }
+                        sessionId={browserSessionScopeId ?? null}
+                        automationSourceSessionId={props.selectedSessionId ?? null}
                         client={props.onmyagentServerClient}
                         initialKind={
                           activeSidePanel === "review"
@@ -1450,9 +1332,10 @@ export function AssistantPage(props: AssistantPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           assistantCategoryId === "office"
-                            ? ["review", "terminal"]
+                            ? ["review"]
                             : undefined
                         }
                       />

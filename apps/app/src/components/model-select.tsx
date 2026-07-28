@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/command";
 import { t } from "@/i18n";
 import { MenuRowButton } from "@/components/ui/action-row";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 function getProviderDisplayName(providerId: string) {
   return providerId
@@ -107,6 +108,10 @@ export function ModelSelectView({
       modelID: option.modelID,
     }),
   );
+  // Never fall back to raw modelIDs (e.g. "big-pickle") when the option is
+  // not in the connected catalog — empty picker would still look "selected".
+  const displayLabel =
+    selectedOption?.title ?? t("session.default_model");
 
   const groups = React.useMemo(() => groupByProvider(options), [options]);
 
@@ -134,13 +139,12 @@ export function ModelSelectView({
         disabled={disabled}
         aria-label={t("settings.model_change")}
         aria-keyshortcuts="Meta+Alt+/"
-        title={selectedOption?.title ?? value.modelID ?? t("session.default_model")}
-        className="flex h-7 max-w-36 shrink min-w-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+        title={displayLabel}
+        // Match workspace / access-permission composer chrome (text-sm / h-8).
+        className="flex h-8 max-w-40 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
       >
-        <span className="min-w-0 truncate">
-          {selectedOption?.title ?? value.modelID ?? t("session.default_model")}
-        </span>
-        <ChevronDown className="size-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{displayLabel}</span>
+        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </PopoverTrigger>
       <PopoverContent
         className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
@@ -191,6 +195,16 @@ export function ModelSelectView({
                               getProviderDisplayName(option.providerID)}
                           </span>
                         </span>
+                        {option.isFree ? (
+                          <StatusBadge
+                            shape="soft"
+                            size="tiny"
+                            tone="success"
+                            className="shrink-0"
+                          >
+                            {t("model_picker.free")}
+                          </StatusBadge>
+                        ) : null}
                         {selected ? (
                           <Check className="size-4 shrink-0 text-dls-accent" />
                         ) : null}

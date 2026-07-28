@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Check, ChevronRight, Clock3, HardDrive, RefreshCcw, ShieldCheck, XCircle } from "lucide-react";
+import { Check, ChevronRight, Clock3, HardDrive, RefreshCcw, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 
 import {
@@ -444,6 +444,19 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
         <StatusBadge tone={badgeTone} shape="soft" size="sm">
           {presentation.permissionLabel}
         </StatusBadge>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          className="shrink-0 text-dls-secondary hover:text-dls-text"
+          onClick={() =>
+            props.respondPermission?.(props.permission.id, "reject")
+          }
+          disabled={props.busy || !props.respondPermission}
+          aria-label={t("session.goal_runtime_clear")}
+        >
+          <Trash2 size={12} />
+        </Button>
       </div>
 
       <div className={permissionLayoutClass.panelBody}>

@@ -10,11 +10,17 @@ import {
   AUTOMATION_RUNNING_REFETCH_MS,
   CODE_REVIEW_POLL_INTERVAL_MS,
   CODE_TERMINAL_SNAPSHOT_INTERVAL_MS,
+  CONVERSATION_HISTORY_SNAPSHOT_LIMIT,
+  RELOAD_EVENTS_POLL_INTERVAL_MS,
+  SESSION_SNAPSHOT_STALE_TIME_MS,
+  SIDEBAR_SESSION_LIST_LIMIT,
   automationListRefetchIntervalMs,
   codeReviewPollIntervalMs,
   codeTerminalSnapshotIntervalMs,
+  selectSidebarPreviewSessionIds,
   shouldInstallGoalRuntimeClock,
   shouldRunActivePoll,
+  shouldRunReloadEventsPoll,
   shouldTickGoalRuntimeClock,
 } from "../src/react-app/domains/session/sync/session-poll-policy";
 
@@ -25,6 +31,72 @@ describe("shouldRunActivePoll (shipped)", () => {
     expect(shouldRunActivePoll({ enabled: false })).toBe(false);
     expect(shouldRunActivePoll({ enabled: true, documentVisible: false })).toBe(false);
     expect(shouldRunActivePoll({ enabled: true, documentVisible: true })).toBe(true);
+  });
+});
+
+describe("reload-events + session snapshot quiet policy (shipped)", () => {
+  test("reload poll interval is longer than the old 3s always-on timer", () => {
+    expect(RELOAD_EVENTS_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(5_000);
+    expect(shouldRunReloadEventsPoll({ documentVisible: false })).toBe(false);
+    expect(shouldRunReloadEventsPoll({ documentVisible: true })).toBe(true);
+  });
+
+  test("focused session snapshot staleTime is at least 5s", () => {
+    expect(SESSION_SNAPSHOT_STALE_TIME_MS).toBeGreaterThanOrEqual(5_000);
+  });
+
+  test("conversation history snapshot limit is sidebar-scale, not 200", () => {
+    expect(CONVERSATION_HISTORY_SNAPSHOT_LIMIT).toBeLessThan(200);
+    expect(CONVERSATION_HISTORY_SNAPSHOT_LIMIT).toBeGreaterThan(0);
+    expect(CONVERSATION_HISTORY_SNAPSHOT_LIMIT).toBe(SIDEBAR_SESSION_LIST_LIMIT);
+  });
+
+  test("refresh-hook and surface wire the quiet constants", () => {
+    const refresh = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/refresh-hook.ts"),
+      "utf8",
+    );
+    expect(refresh).toContain("RELOAD_EVENTS_POLL_INTERVAL_MS");
+    expect(refresh).toContain("shouldRunReloadEventsPoll");
+    expect(refresh).not.toMatch(/setInterval\(\s*\(\)\s*=>\s*void pollReloadEvents\(\),\s*3000\s*\)/);
+
+    const surface = readFileSync(
+      join(appRoot, "src/react-app/domains/session/surface/session-surface.tsx"),
+      "utf8",
+    );
+    expect(surface).toContain("SESSION_SNAPSHOT_STALE_TIME_MS");
+    expect(surface).not.toMatch(/staleTime:\s*500\b/);
+
+    const historyPanel = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/session/sidebar/conversation-history-panel.tsx",
+      ),
+      "utf8",
+    );
+    const historyPopover = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/session/sidebar/conversation-history-popover.tsx",
+      ),
+      "utf8",
+    );
+    expect(historyPanel).toContain("CONVERSATION_HISTORY_SNAPSHOT_LIMIT");
+    expect(historyPanel).not.toMatch(/limit:\s*200/);
+    expect(historyPopover).toContain("CONVERSATION_HISTORY_SNAPSHOT_LIMIT");
+    expect(historyPopover).not.toMatch(/limit:\s*200/);
+  });
+});
+
+describe("sidebar cold-start policy re-exports", () => {
+  test("exposes list limit and deferred preview selection", () => {
+    expect(SIDEBAR_SESSION_LIST_LIMIT).toBe(40);
+    expect(
+      selectSidebarPreviewSessionIds({
+        sessions: [{ id: "a" }, { id: "b" }],
+        deferred: false,
+      }).size,
+    ).toBe(0);
   });
 });
 

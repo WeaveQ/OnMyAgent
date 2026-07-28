@@ -12,6 +12,7 @@ import {
   workspaceNameFromRoot,
 } from "../src/react-app/domains/session/chat/session-page-files-model";
 import * as workspaceFileModel from "../src/react-app/domains/session/chat/session-page-files-model";
+import { workspaceMentionTargets } from "../src/react-app/capabilities/artifacts/workspace-mention-targets";
 
 function entry(path: string, kind: "file" | "dir" = "file", size = 100): OnMyAgentWorkspaceFileCatalogEntry {
   return { path, kind, size, mtimeMs: 1000 };
@@ -88,6 +89,30 @@ describe("session page files model", () => {
     ]);
     expect(filterHiddenFromTree(tree).children[0]?.children.map((child) => child.name))
       .toEqual(["task"]);
+  });
+
+  test("builds session mention targets for bare and searched @ queries", () => {
+    const entries = [
+      entry("报价", "dir"),
+      entry("报价/历史 方案", "dir"),
+      entry("报价/历史 方案/报价单 XX.xlsx"),
+      entry("物流单", "dir"),
+      entry("README.md"),
+      entry(".process", "dir"),
+      entry(".process/draft.json"),
+      entry("onmyagent-session.json"),
+    ];
+
+    expect(workspaceMentionTargets(entries, "")).toEqual([
+      { path: "报价", kind: "directory" },
+      { path: "物流单", kind: "directory" },
+      { path: "README.md", kind: "file" },
+    ]);
+    expect(workspaceMentionTargets(entries, "历史")).toEqual([
+      { path: "报价/历史 方案", kind: "directory" },
+      { path: "报价/历史 方案/报价单 XX.xlsx", kind: "file" },
+    ]);
+    expect(workspaceMentionTargets(entries, "process")).toEqual([]);
   });
 
   test("groups root, agent, and task files for the workspace file hierarchy", () => {

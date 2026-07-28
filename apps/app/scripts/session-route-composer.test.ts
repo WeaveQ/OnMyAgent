@@ -398,7 +398,7 @@ describe("session route composer", () => {
     );
   });
 
-  test("converts text, agent, and file draft parts to SDK parts", async () => {
+  test("converts text, agent, file, and directory draft parts to SDK parts", async () => {
     const parts = await draftToParts(
       draft({
         parts: [
@@ -406,6 +406,7 @@ describe("session route composer", () => {
           { type: "paste", label: "paste", text: "pasted", lines: 1 },
           { type: "agent", name: "builder" },
           { type: "file", path: "docs/spec.md" },
+          { type: "directory", path: "报价/历史 方案" },
           { type: "file", path: "   " },
         ],
       }),
@@ -421,6 +422,10 @@ describe("session route composer", () => {
         mime: "text/plain",
         url: "file:///tmp/workspace/docs/spec.md",
         filename: "spec.md",
+      },
+      {
+        type: "text",
+        text: "Referenced local directory: /tmp/workspace/报价/历史 方案 (workspace-relative path: 报价/历史 方案). This is a directory, not an uploaded file. Inspect only the files needed for this request.",
       },
     ]);
   });

@@ -34,6 +34,7 @@ import {
   AUTOMATION_SCHEDULER_DEFAULT_MS,
   nextAutomationWakeMs,
 } from "./automation-schedule-policy.js";
+import { decideAutomationWaitTick } from "./automation-wait-policy.js";
 import { defaultOpencodeClientPool } from "./opencode-client-pool.js";
 
 export type AutomationExecution = {
@@ -331,7 +332,6 @@ export async function waitForAutomationSession(
   const opencode = defaultOpencodeClientPool.get(config, workspace, execution.outputDirectory);
   const startedAt = Date.now();
   const timeoutAt = startedAt + 2 * 60 * 60 * 1000;
-  const emptyOutputGraceMs = 30_000;
   let observedActive = false;
   let inactiveSince: number | null = null;
 
@@ -340,28 +340,50 @@ export async function waitForAutomationSession(
       unwrapOpencodeResult(await opencode.session.status(), "/session/status"),
     );
     const status = statuses[execution.sessionId];
-    if (status?.type === "busy" || status?.type === "retry") {
-      observedActive = true;
-      inactiveSince = null;
-    } else if (!status || status.type === "idle") {
-      const saved = await saveAutomationSessionOutput(opencode, execution);
-      if (saved) return;
-      const sessionError = await readAutomationSessionError(opencode, execution);
-      if (sessionError) {
-        throw new ApiError(502, "automation_session_failed", sessionError);
-      }
-      inactiveSince ??= Date.now();
-      if (
-        (observedActive || Date.now() - startedAt >= 5_000) &&
-        Date.now() - inactiveSince >= emptyOutputGraceMs
-      ) {
-        throw new ApiError(
-          502,
-          "automation_empty_output",
-          "OpenCode completed without assistant output. Check that the selected model is available, then re-run the automation.",
-        );
+    const statusType =
+      status?.type === "busy" || status?.type === "retry" || status?.type === "idle"
+        ? status.type
+        : "missing";
+
+    let hasSavedOutput = false;
+    let hasSessionError = false;
+    let sessionErrorMessage: string | null = null;
+    if (statusType === "idle" || statusType === "missing") {
+      hasSavedOutput = await saveAutomationSessionOutput(opencode, execution);
+      if (!hasSavedOutput) {
+        sessionErrorMessage = await readAutomationSessionError(opencode, execution);
+        hasSessionError = Boolean(sessionErrorMessage);
       }
     }
+
+    const decision = decideAutomationWaitTick({
+      statusType,
+      observedActive,
+      inactiveSince,
+      now: Date.now(),
+      startedAt,
+      hasSavedOutput,
+      hasSessionError,
+    });
+    observedActive = decision.observedActive;
+    inactiveSince = decision.inactiveSince;
+
+    if (decision.action === "complete") return;
+    if (decision.action === "fail_error") {
+      throw new ApiError(
+        502,
+        "automation_session_failed",
+        sessionErrorMessage || "Automation session failed",
+      );
+    }
+    if (decision.action === "fail_empty") {
+      throw new ApiError(
+        502,
+        "automation_empty_output",
+        "OpenCode completed without assistant output. Check that the selected model is available, then re-run the automation.",
+      );
+    }
+
     await new Promise<void>((resolveWait) => {
       setTimeout(resolveWait, 1_000);
     });

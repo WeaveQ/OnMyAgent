@@ -3,11 +3,16 @@ import type { OnMyAgentSessionArchiveSession } from "../src/app/lib/onmyagent-se
 import {
   agentLabel,
   archiveAgentIconId,
+  archiveSessionPreviewLine,
   buildResumeRequest,
+  cleanArchiveMessageContent,
   groupSessionsByAgent,
   humanizeArchiveTitle,
+  isNoisyArchiveMessage,
   isVisibleArchiveAgent,
+  mergeArchiveSessionPages,
   RESUMABLE_AGENTS,
+  shortProjectLabel,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
 
 function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: string; agent: string }): OnMyAgentSessionArchiveSession {
@@ -26,6 +31,20 @@ function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: stri
 }
 
 describe("session archive page helpers", () => {
+  it("merges archive pages without duplicate ids (later wins)", () => {
+    const first = [
+      session({ id: "a", agent: "grok", message_count: 1 }),
+      session({ id: "b", agent: "grok", message_count: 2 }),
+    ];
+    const second = [
+      session({ id: "b", agent: "grok", message_count: 9 }),
+      session({ id: "c", agent: "opencode", message_count: 3 }),
+    ];
+    const merged = mergeArchiveSessionPages(first, second);
+    expect(merged.map((row) => row.id).sort()).toEqual(["a", "b", "c"]);
+    expect(merged.find((row) => row.id === "b")?.message_count).toBe(9);
+  });
+
   it("groups sessions by agent and sorts by size desc", () => {
     const groups = groupSessionsByAgent([
       session({ id: "a1", agent: "codex" }),
@@ -87,6 +106,99 @@ describe("session archive page helpers", () => {
     ).toBe("Hermes · sample-project");
   });
 
+  it("humanizeArchiveTitle prefers user_query over harness tags", () => {
+    const first_message = [
+      "<user_info>",
+      "OS Version: macos",
+      "Shell: /bin/zsh",
+      "</user_info>",
+      "",
+      "<user_query>",
+      "全部优化掉",
+      "</user_query>",
+    ].join("\n");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g1",
+          agent: "grok",
+          display_name: null,
+          first_message,
+          project: "/Users/work",
+        }),
+      ),
+    ).toBe("全部优化掉");
+  });
+
+  it("cleanArchiveMessageContent strips user_info and keeps user_query body", () => {
+    const raw = [
+      "<user_info>",
+      "OS Version: macos",
+      "</user_info>",
+      "",
+      "<user_query>",
+      "红框的去掉",
+      "</user_query>",
+    ].join("\n");
+    expect(cleanArchiveMessageContent(raw)).toBe("红框的去掉");
+    expect(isNoisyArchiveMessage({ role: "user", content: cleanArchiveMessageContent(raw) })).toBe(
+      false,
+    );
+    expect(
+      isNoisyArchiveMessage({
+        role: "system",
+        content: "OS Version: macos\nShell: /bin/zsh\nWorkspace Path: /Users/work",
+      }),
+    ).toBe(true);
+  });
+
+  it("archiveSessionPreviewLine uses first user question, not agent project label", () => {
+    const first_message = [
+      "<user_info>",
+      "OS Version: macos",
+      "</user_info>",
+      "<user_query>",
+      "帮我启动桌面端",
+      "</user_query>",
+    ].join("\n");
+    expect(
+      archiveSessionPreviewLine(
+        session({
+          id: "p1",
+          agent: "grok",
+          display_name: "Grok Build · onmyagent",
+          first_message,
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("帮我启动桌面端");
+  });
+
+  it("humanizeArchiveTitle skips bare system-reminder / user_info tag lines", () => {
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g2",
+          agent: "grok",
+          display_name: null,
+          first_message: "<system-reminder>\nnoise\n</system-reminder>\n\nPlease fix the flaky test",
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("Please fix the flaky test");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "g3",
+          agent: "grok",
+          display_name: "<user_info>",
+          first_message: null,
+          project: "/Users/work/code/weaveq/onmyagent",
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
+  });
+
   it("agentLabel returns friendly name or agent id", () => {
     expect(agentLabel("codex")).toBe("Codex");
     expect(agentLabel("mimocode")).toBe("MiMo Code");
@@ -113,5 +225,36 @@ describe("session archive page helpers", () => {
     expect(agentLabel("workbuddy")).toBe("WorkBuddy");
     expect(archiveAgentIconId("workbuddy")).toBe("workbuddy");
     expect(agentLabel("vscode-copilot")).toBe("VS Code Copilot");
+  });
+
+  it("shortProjectLabel and titles rewrite legacy product folder names", () => {
+    const legacy = ["open", "work"].join("");
+    const legacyAgentsPath = `/Users/work/${legacy}-agents`;
+    expect(shortProjectLabel(legacyAgentsPath)).toBe("onmyagent");
+    expect(shortProjectLabel(`/Users/work/code/${legacy}-agents`)).toBe("onmyagent");
+    expect(shortProjectLabel(legacy)).toBe("onmyagent");
+    expect(shortProjectLabel("/tmp/my-real-project")).toBe("my-real-project");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "ow1",
+          agent: "grok",
+          display_name: null,
+          first_message: null,
+          project: legacyAgentsPath,
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
+    expect(
+      humanizeArchiveTitle(
+        session({
+          id: "ow2",
+          agent: "grok",
+          display_name: `Grok Build · ${legacy}-agents`,
+          first_message: null,
+          project: legacyAgentsPath,
+        }),
+      ),
+    ).toBe("Grok Build · onmyagent");
   });
 });

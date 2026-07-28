@@ -20,7 +20,6 @@ import type {
 } from "../../../app/types";
 import { getWorkspaceTaskLoadErrorDisplay, isSandboxWorkspace } from "../../../app/utils";
 import { t } from "../../../i18n";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "../../domains/connections";
 import { createOnMyAgentServerStore, useOnMyAgentServerStoreSnapshot } from "../../domains/shared";
@@ -37,11 +36,28 @@ import {
   useDenSession,
   useElectronUpdaterState,
   useMessagingViewProps,
+  useRecoveryViewModel,
   createExtensionsStore,
   useExtensionsStoreSnapshot,
   SettingsShell,
+  useAiProvidersController,
 } from "../../domains/settings";
 import { useBootState } from "../boot-state";
+import { userErrorFromRaw } from "../../kernel/user-error";
+import { useShellInteractiveLoad } from "../use-shell-interactive-load";
+import { useFacingRouteError } from "./facing-route-error";
+import {
+  canDeleteOpenCodeProvider,
+  canDisconnectProviderRow,
+  canEditOpenCodeProvider,
+} from "./provider-disconnect-policy";
+import {
+  deleteOpenCodeManagedProvider,
+  disconnectSettingsProvider,
+} from "./provider-list-actions";
+import { buildOpenCodeProviderEditFallback } from "./open-code-provider-edit";
+import { useSettingsProvidersPrewarm } from "./providers-prewarm-hook";
+import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
   LazyAiSettingsView,
   LazyArchivedTasksView,
@@ -50,6 +66,7 @@ import {
   LazyCloudProvidersView,
   LazyConversationMemoryView,
   LazyDebugView,
+  LazyRecoveryView,
   LazyEnvironmentView,
   LazyGeneralSettingsView,
   LazyMemoryView,
@@ -57,13 +74,13 @@ import {
   LazySystemAuthorizationsView,
   LazyUpdatesView,
   LazyUsageView,
+  SettingsAiTabSuspense,
   SettingsTabSuspense,
 } from "./lazy-tab-views";
 import { usePlatform } from "../../kernel/platform";
 import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
-  agentManagementSnapshot,
   onmyagentServerInfo,
   pickDirectory,
   resolveWorkspaceListSelectedId,
@@ -71,7 +88,6 @@ import {
   type WorkspaceList,
 } from "../../../app/lib/desktop";
 import { readLocalAuthUser } from "../../../app/lib/local-auth";
-import { isBlockedProvider } from "../../../app/cloud/blocked-providers";
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import {
   useCheckDesktopRestriction,
@@ -81,11 +97,11 @@ import {
 } from "../../domains/cloud";
 import {
   isDesktopRuntime,
-  isElectronRuntime,
   resolveModelDisplayName,
   resolveProviderDisplayName,
   safeStringify,
 } from "../../../app/utils";
+import { isProviderModelFree } from "../../../app/utils/providers";
 import {
   CreateRemoteWorkspaceModal,
   CreateWorkspaceModal,
@@ -98,7 +114,10 @@ import { ShareWorkspaceModal } from "../../domains/workspace";
 import { ModelPickerModal, workspaceSwatchColor } from "../../domains/session";
 import type { ModelOption, ModelRef } from "../../../app/types";
 import { recordInspectorEvent } from "../app-inspector";
-import { normalizeSettingsProviderSource,
+import {
+  aiProvidersStatusI18nKey,
+  aiProvidersSummaryI18nKey,
+  resolveAiProvidersUiPhase,
   describeRouteError,
   describeWorkspaceCreateError,
   buildSettingsRefreshErrorEvent,
@@ -109,14 +128,18 @@ import { normalizeSettingsProviderSource,
   isOnMyAgentCloudProvider,
   mapDesktopWorkspace,
   parseSettingsPath,
+  readHistoryIndexFromWindow,
+  readNavigationPageMode,
+  readNavigationReturnTo,
   readNavigationSessionId,
   readNavigationWorkspaceId,
   reconcileSelectedWorkspaceId,
+  resolveSettingsReturnPath,
+  shouldPreferHistoryBackFromSettings,
   resolveSettingsFallbackWorkspaceId,
   resolveSettingsPreferredWorkspaceId,
   settingsPathForRoute,
   buildSettingsSessionMaps,
-  settingsMemoryHasChanges,
   toSessionGroups,
   updateSettingsWorkspaceConnectionOverrides,
   workspaceLabel,
@@ -155,7 +178,6 @@ import {
 } from "./remote-workspace-actions";
 import { abortSessionSafe } from "../../../app/lib/opencode-session";
 import { useReloadCoordinator } from "../reload-coordinator";
-import { buildFeedbackUrl } from "../../../app/lib/feedback";
 import { getDenInferenceUrl } from "../../../app/lib/den";
 import { readActiveWorkspaceId, writeActiveWorkspaceId } from "../session-memory";
 import {
@@ -166,9 +188,17 @@ import {
   SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY,
   writeStoredBoolean,
 } from "./storage";
-import { workspaceSessionRoute, workspaceSettingsRoute } from "../workspace-routes";
+import {
+  workspaceAssistantRoute,
+  workspaceSessionRoute,
+  workspaceSettingsRoute,
+} from "../workspace-routes";
 import { getReactQueryClient } from "../../infra/query-client";
-import { ensureProviderListQuery, getConnectedProviderItems, refreshProviderListQueries } from "../../domains/connections";
+import {
+  ensureProviderListQuery,
+  getConnectedProviderItems,
+  refreshProviderListQueries,
+} from "../../domains/connections";
 import { openModelPickerEvent, pendingModelPickerProviderIdsKey } from "../new-providers-toast";
 
 const ROUTE_ONMYAGENT_CAPABILITIES: OnMyAgentServerCapabilities = {
@@ -201,6 +231,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const route = props.embedded ? parseSettingsPath(`/settings/${embeddedPath}`) : parseSettingsPath(location.pathname);
   const navigationWorkspaceId = readNavigationWorkspaceId(location.state);
   const navigationSessionId = readNavigationSessionId(location.state);
+  const navigationPageMode = readNavigationPageMode(location.state);
+  const navigationReturnTo = readNavigationReturnTo(location.state);
 
   const [loading, setLoading] = useState(true);
   const [workspaces, setWorkspaces] = useState<RouteWorkspace[]>([]);
@@ -214,12 +246,57 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     redirectPath: route.redirectPath,
     setEmbeddedPath,
   });
+  // Tab switches replace (do not stack) and keep returnTo/pageMode in state.
   const navigateWorkspaceSettingsPath = useCallback(
     (path: string) => {
-      navigate(selectedWorkspaceId ? workspaceSettingsRoute(selectedWorkspaceId, path) : `/settings/${path}`);
+      navigate(
+        selectedWorkspaceId
+          ? workspaceSettingsRoute(selectedWorkspaceId, path)
+          : `/settings/${path}`,
+        { replace: true, state: location.state },
+      );
     },
-    [navigate, selectedWorkspaceId],
+    [location.state, navigate, selectedWorkspaceId],
   );
+  const handleCloseSettings = useCallback(() => {
+    if (props.onClose) {
+      props.onClose();
+      return;
+    }
+    // Prefer history.back: settings tabs replace, so -1 restores the exact
+    // pre-settings shell entry (mode + session + ?view=).
+    if (
+      shouldPreferHistoryBackFromSettings({
+        returnTo: navigationReturnTo,
+        pageMode: navigationPageMode,
+        sessionId: navigationSessionId,
+        historyIndex: readHistoryIndexFromWindow(
+          typeof window !== "undefined" ? window.history.state : null,
+        ),
+      })
+    ) {
+      navigate(-1);
+      return;
+    }
+    navigate(
+      resolveSettingsReturnPath({
+        returnTo: navigationReturnTo,
+        workspaceId: selectedWorkspaceId,
+        sessionId: navigationSessionId,
+        pageMode: navigationPageMode,
+        workspaceAssistantRoute,
+        workspaceSessionRoute,
+      }),
+      { replace: true },
+    );
+  }, [
+    navigationPageMode,
+    navigationReturnTo,
+    navigationSessionId,
+    navigate,
+    props.onClose,
+    selectedWorkspaceId,
+  ]);
   const navigateSettingsPath = useSettingsPathNavigator({
     embedded: props.embedded,
     navigatePath: navigateWorkspaceSettingsPath,
@@ -231,7 +308,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const {
+    routeError,
+    routeErrorAction,
+    setFacingRouteError,
+    clearFacingRouteError,
+  } = useFacingRouteError();
   const { workspacesRef } = useSettingsWorkspaceRefs(workspaces);
   const refreshInFlightRef = useRef(false);
   const reconnectAttemptedWorkspaceIdRef = useRef("");
@@ -243,8 +325,14 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<Record<string, string>>({});
   const [providerConnectedIds, setProviderConnectedIds] = useState<string[]>([]);
-  const [opencodeManagedProviders, setOpenCodeManagedProviders] = useState<AgentManagementManagedProvider[]>([]);
   const [openCodeProviderConfigOpen, setOpenCodeProviderConfigOpen] = useState(false);
+  const [editingOpenCodeProvider, setEditingOpenCodeProvider] =
+    useState<AgentManagementManagedProvider | null>(null);
+  const [providerActionBusyId, setProviderActionBusyId] = useState<string | null>(null);
+  /** True while post-save/delete apply + catalog refresh is in flight. */
+  const [providerSyncBusy, setProviderSyncBusy] = useState(false);
+  /** Error message for AI provider save/delete only (not success banners). */
+  const [providerActionError, setProviderActionError] = useState<string | null>(null);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
   const [developerMode, setDeveloperMode] = useState(() => readStoredBoolean(SETTINGS_DEVELOPER_MODE_KEY, false));
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
@@ -287,26 +375,17 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setConversationMemoryDraft(local.prefs.conversationMemory);
   }, [local.prefs.conversationMemory]);
 
-  const [memorySaved, setMemorySaved] = useState(false);
-
-  const profileHasChanges = useMemo(
-    () =>
-      settingsMemoryHasChanges({
-        draft: memoryDraft,
-        saved: local.prefs.onboardingProfile,
-      }),
-    [memoryDraft, local.prefs.onboardingProfile],
+  // 偏好: tone / custom instructions / profile all auto-persist (no page Save).
+  const persistMemoryDraft = useCallback(
+    (draft: OnboardingProfile) => {
+      setMemoryDraft(draft);
+      local.setPrefs((previous) => ({
+        ...previous,
+        onboardingProfile: { ...draft, updatedAt: Date.now() },
+      }));
+    },
+    [local],
   );
-
-  const handleProfileSave = useCallback(() => {
-    if (!memoryDraft) return;
-    local.setPrefs((previous) => ({
-      ...previous,
-      onboardingProfile: { ...memoryDraft, updatedAt: Date.now() },
-    }));
-    setMemorySaved(true);
-    setTimeout(() => setMemorySaved(false), 2000);
-  }, [local, memoryDraft]);
 
   const persistConversationMemory = useCallback(
     (next: typeof conversationMemoryDraft) => {
@@ -318,21 +397,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     },
     [local],
   );
-
-  // Profile (偏好) keeps an explicit save; conversation memory auto-persists.
-  const memoryToolbarSlot =
-    route.tab === "memory" ? (
-      <div className="flex items-center justify-end">
-        <Button
-          type="button"
-          size="lg"
-          disabled={!profileHasChanges && !memorySaved}
-          onClick={handleProfileSave}
-        >
-          {memorySaved ? t("settings.memory_saved") : t("settings.memory_save")}
-        </Button>
-      </div>
-    ) : undefined;
 
   const emptyWorkspaceDisplay = useMemo<WorkspaceDisplay>(
     () => ({
@@ -432,49 +496,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     [sessionsByWorkspaceId],
   );
 
-  const reloadWorkspaceEngineFromUi = useCallback(async () => {
-    const workspaceId = routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
-    if (!onmyagentClient || !workspaceId) {
-      setRouteError(t("app.error_connect_first"));
-      return false;
-    }
-
-    await onmyagentClient.reloadEngine(workspaceId);
-    await refreshProviderListQueries(getReactQueryClient());
-
-    try {
-      window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
-    } catch {
-      // ignore browser event dispatch failures
-    }
-
-    // OpenCode reconnects MCPs async after dispose — the store polls until
-    // statuses settle so users don't have to collapse/expand the card.
-    void pollMcpServersAfterReloadRef.current?.();
-
-    return true;
-  }, [onmyagentClient, selectedWorkspaceId]);
-
-  useEffect(() => {
-    return reloadCoordinator.registerWorkspaceReloadControls({
-      canReloadWorkspaceEngine: () => Boolean(onmyagentClient && (selectedWorkspace?.id || selectedWorkspaceId)),
-      reloadWorkspaceEngine: reloadWorkspaceEngineFromUi,
-      activeSessions: () => activeReloadBlockingSessions,
-      stopSession: async (sessionId) => {
-        if (!activeClient) return;
-        await abortSessionSafe(activeClient, sessionId);
-      },
-    });
-  }, [
-    activeClient,
-    activeReloadBlockingSessions,
-    onmyagentClient,
-    reloadCoordinator,
-    reloadWorkspaceEngineFromUi,
-    selectedWorkspace?.id,
-    selectedWorkspaceId,
-  ]);
-
   const onmyagentServerStore = useMemo(
     () =>
       createOnMyAgentServerStore({
@@ -560,7 +581,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         setBusy,
         setBusyLabel,
         setBusyStartedAt: () => {},
-        setError: setRouteError,
+        setError: setFacingRouteError,
         markReloadRequired: reloadCoordinator.markReloadRequired,
       }),
     [onmyagentServerStore, reloadCoordinator.markReloadRequired],
@@ -597,6 +618,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const handleOpenCustomProviderConfig = useCallback(() => {
     setConfigActionStatus(null);
+    setEditingOpenCodeProvider(null);
     setOpenCodeProviderConfigOpen(true);
   }, []);
 
@@ -608,18 +630,25 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       });
       return;
     }
-
+    // Official provider list requires a live OpenCode client; avoid a red
+    // "load failed / not connected" flash when the runtime is down.
+    if (!routeStateRef.current.activeClient) {
+      setProviderActionError(t("settings.connect_provider_runtime_required_short"));
+      return;
+    }
+    setProviderActionError(null);
     void providerAuthStore.openProviderAuthModal();
   }, [checkDesktopRestriction, providerAuthStore, restrictionNotice]);
 
   useEffect(() => {
     if (!activeClient || !selectedWorkspaceId) return;
+    // Org policy: only force-disable Zen when blocked. When allowed, do not
+    // re-enable it — users may have disconnected free OpenCode Zen themselves.
+    const zenBlocked = checkDesktopRestriction({ restriction: "allowZenModel" });
+    if (!zenBlocked) return;
 
     void providerAuthStore
-      .ensureProjectProviderDisabledState(
-        "opencode",
-        checkDesktopRestriction({ restriction: "allowZenModel" }),
-      )
+      .ensureProjectProviderDisabledState("opencode", true)
       .catch((error) => {
         console.warn("[desktop-app-restrictions] failed to sync Zen restriction", error);
       });
@@ -641,7 +670,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     onmyagentServerSnapshot,
     runtimeWorkspaceId: selectedWorkspace?.id ?? null,
     selectedWorkspaceRoot,
-    setRouteError,
+    setRouteError: setFacingRouteError,
+  });
+  const recoveryViewProps = useRecoveryViewModel({
+    anyActiveRuns: activeReloadBlockingSessions.length > 0,
+    setRouteError: setFacingRouteError,
   });
   const onReleaseChannelChange = useCallback(
     (next: "stable" | "alpha") => {
@@ -655,7 +688,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     updateAutoCheck,
     updateAutoDownload,
     desktopConfig: desktopConfig.config,
-    setError: setRouteError,
+    setError: setFacingRouteError,
   });
 
   const workspaceSessionGroups = useMemo(
@@ -685,7 +718,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   useEffect(() => {
     setActiveClient(opencodeClient);
+    // Clear connect-time errors once the workspace runtime is available again.
+    if (opencodeClient) setProviderActionError(null);
   }, [opencodeClient]);
+
+  useSettingsProvidersPrewarm({
+    opencodeClient,
+    opencodeBaseUrl,
+    selectedWorkspaceRoot,
+  });
 
   useEffect(() => {
     const openFromPending = (raw: string | null) => {
@@ -749,7 +790,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               behaviorLabel: t("settings.default_label"),
               behaviorDescription: "",
               behaviorValue: null,
-              isFree: false,
+              isFree: isProviderModelFree({
+                providerId: provider.id,
+                modelId: id,
+                model,
+              }),
               isConnected: true,
               isRecommended: isNew,
               source: /^lpr_/i.test(provider.id) ? "cloud" as const : undefined,
@@ -758,17 +803,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         }
         setModelOptions(options);
       } catch (error) {
-        setRouteError(
-          error instanceof Error
-            ? error.message
-            : t("app.unknown_error"),
+        setFacingRouteError(
+          error instanceof Error ? error.message : t("app.unknown_error"),
         );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [modelPickerOpen, opencodeBaseUrl, opencodeClient, selectedWorkspaceRoot]);
+  }, [
+    modelPickerOpen,
+    opencodeBaseUrl,
+    opencodeClient,
+    selectedWorkspaceRoot,
+    setFacingRouteError,
+  ]);
 
   useEffect(() => {
     local.setUi((previous) => ({ ...previous, view: "settings", tab: route.tab }));
@@ -788,11 +837,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [updateAutoDownload]);
 
   const { markRouteReady: markBootRouteReady } = useBootState();
+  const { shellInteractive } = useShellInteractiveLoad({
+    loading,
+    firstLoadScope: "route-settings",
+  });
   const refreshRouteState = useMemo(() => async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
     setLoading(true);
-    setRouteError(null);
+    clearFacingRouteError();
     let desktopList: WorkspaceList | null = null;
     let desktopWorkspaces = workspacesRef.current;
     try {
@@ -882,7 +935,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           preservedWorkspaceCount: desktopWorkspaces.length,
         }),
       );
-      setRouteError(message);
+      setFacingRouteError(message);
       if (desktopWorkspaces.length > 0) {
         setWorkspaces(desktopWorkspaces);
         setLegacySelectedWorkspaceId((current) => {
@@ -1017,9 +1070,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       allWorkspaces: workspaces,
     }).catch((error) => {
       const message = error instanceof Error ? error.message : describeRouteError(error);
-      setRouteError(message);
+      setFacingRouteError(message);
     });
-  }, [loading, onmyagentClient, selectedWorkspace, workspaces]);
+  }, [loading, onmyagentClient, selectedWorkspace, setFacingRouteError, workspaces]);
 
   useEffect(() => {
     void refreshRouteState();
@@ -1117,43 +1170,95 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot,
   ]);
 
+  const isProviderBlocked = useCallback(
+    (providerId: string) =>
+      isDesktopProviderBlocked({
+        providerId,
+        checkRestriction: checkDesktopRestriction,
+      }),
+    [checkDesktopRestriction],
+  );
+
+  const aiProviders = useAiProvidersController({
+    activeClient: Boolean(activeClient),
+    selectedWorkspaceRoot,
+    selectedWorkspaceId: selectedWorkspace?.id,
+    sdkProviders: providers,
+    connectedIds: providerConnectedIds,
+    isBlocked: isProviderBlocked,
+    refreshSdkProviders: () => providerAuthStore.refreshProviders(),
+    refreshMcpServers: () => {
+      void connectionsStore.refreshMcpServers();
+    },
+  });
+
+  const {
+    connectedProviders,
+    providerListHydrated,
+    opencodeInventoryReady,
+    opencodeManagedProviders,
+    setOpenCodeManagedProviders,
+    providersDiscovering,
+    inventorySyncing,
+    loadOpenCodeManagedProviders,
+    findManagedProvider,
+  } = aiProviders;
+
   useEffect(() => {
     if (!activeClient) {
       setProviders([]);
       setProviderDefaults({});
       setProviderConnectedIds([]);
       setDisabledProviders([]);
-      return;
     }
-    void providerAuthStore.refreshProviders();
-    void connectionsStore.refreshMcpServers();
-  }, [activeClient, connectionsStore, providerAuthStore, selectedWorkspace?.id]);
+  }, [activeClient]);
 
-  const loadOpenCodeManagedProviders = useCallback(async () => {
-    if (!selectedWorkspaceRoot) return [];
-    try {
-      const snapshot = await agentManagementSnapshot({ workspaceRoot: selectedWorkspaceRoot });
-      return snapshot.providers.byAgent.opencode;
-    } catch (error) {
-      console.warn("[settings] failed to load OpenCode managed providers", error);
-      return [];
-    }
-  }, [selectedWorkspaceRoot]);
+  const handleEditOpenCodeProvider = useCallback(
+    (provider: AiSettingsConnectedProvider) => {
+      if (!canEditOpenCodeProvider(provider)) return;
+      setProviderActionError(null);
+      const fallback = buildOpenCodeProviderEditFallback(provider, providers);
+      // Prefer in-memory inventory for instant open. After save, inventory is
+      // updated from the save response (opencodeProviders), so re-edit is fresh
+      // without awaiting IPC. Background refresh only updates the list for later.
+      const cached = findManagedProvider(provider.id);
 
-  useEffect(() => {
-    if (route.tab !== "ai" || !selectedWorkspaceRoot) {
-      setOpenCodeManagedProviders([]);
-      return;
-    }
-    let cancelled = false;
-    void loadOpenCodeManagedProviders().then((providers) => {
-      if (cancelled) return;
-      setOpenCodeManagedProviders(providers);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [loadOpenCodeManagedProviders, route.tab, selectedWorkspaceRoot]);
+      if (cached) {
+        setEditingOpenCodeProvider(cached);
+        setOpenCodeProviderConfigOpen(true);
+        void loadOpenCodeManagedProviders().then((next) => {
+          setOpenCodeManagedProviders(next);
+        });
+        return;
+      }
+
+      // Cold path: inventory not ready yet, or config-only install (no DB row).
+      if (providerActionBusyId) return;
+      setProviderActionBusyId(provider.id);
+      void loadOpenCodeManagedProviders()
+        .then((next) => {
+          setOpenCodeManagedProviders(next);
+          setEditingOpenCodeProvider(
+            next.find((item) => item.id === provider.id) ?? fallback,
+          );
+          setOpenCodeProviderConfigOpen(true);
+        })
+        .catch(() => {
+          setEditingOpenCodeProvider(fallback);
+          setOpenCodeProviderConfigOpen(true);
+        })
+        .finally(() => {
+          setProviderActionBusyId(null);
+        });
+    },
+    [
+      findManagedProvider,
+      loadOpenCodeManagedProviders,
+      providerActionBusyId,
+      providers,
+      setOpenCodeManagedProviders,
+    ],
+  );
 
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
   const workspaceOptions = workspaces.map((workspace) => ({
@@ -1177,33 +1282,22 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     ? `${local.prefs.defaultModel.providerID}/${local.prefs.defaultModel.modelID}`
     : t("settings.default_label");
   const defaultModelVariantLabel = local.prefs.modelVariant ?? t("settings.default_label");
-  const providerConnectedIdSet = new Set(providerConnectedIds);
-  const connectedProvidersById = new Map<string, AiSettingsConnectedProvider>();
-  for (const provider of providers) {
-    if (!providerConnectedIdSet.has(provider.id) || isBlockedProvider(provider.id)) continue;
-    connectedProvidersById.set(provider.id, {
-      id: provider.id,
-      name: provider.name ?? provider.id,
-      source: normalizeSettingsProviderSource(provider.source),
-    });
-  }
-  for (const provider of opencodeManagedProviders) {
-    if (!provider.livePresent || isBlockedProvider(provider.id)) continue;
-    connectedProvidersById.set(provider.id, {
-      id: provider.id,
-      name: provider.name || provider.id,
-      source: "custom",
-      managedBy: "opencode",
-    });
-  }
-  const connectedProviders = [...connectedProvidersById.values()];
-  const providerStatusLabel = connectedProviders.length > 0 ? t("status.connected") : t("status.disconnected_label");
-  const providerStatusStyle = connectedProviders.length > 0
-    ? "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg"
-    : "bg-dls-active text-dls-secondary border-dls-mist";
-  const providerSummary = connectedProviders.length > 0
-    ? t("status.providers_connected", { count: connectedProviders.length })
-    : t("settings.no_providers_connected");
+  // Inventory merges in the background so first paint is not blocked on desktop IPC.
+  const providersUiPhase = resolveAiProvidersUiPhase({
+    discovering: providersDiscovering,
+    providerCount: connectedProviders.length,
+  });
+  const providerStatusLabel = t(aiProvidersStatusI18nKey(providersUiPhase));
+  const providerStatusStyle =
+    providersUiPhase === "ready"
+      ? "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg"
+      : "bg-dls-active text-dls-secondary border-dls-mist";
+  const providerSummary =
+    providersUiPhase === "ready"
+      ? t(aiProvidersSummaryI18nKey(providersUiPhase), {
+          count: connectedProviders.length,
+        })
+      : t(aiProvidersSummaryI18nKey(providersUiPhase));
   const routeOnMyAgentStatus = onmyagentClient ? "connected" : "disconnected";
   const notFoundRouteError = !loading && routeWorkspaceId && !selectedWorkspace
     ? t("workspace_list.not_found_route_error")
@@ -1364,6 +1458,84 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     });
   }, [onmyagentServerStore, refreshRouteState]);
 
+  /**
+   * Apply engine config so a newly saved provider/model is usable immediately.
+   * Prefer soft OpenCode instance dispose (fast); fall back to full desktop
+   * managed-server restart when soft reload fails (stale binary / plugin mess).
+   * Declared after onmyagentServerStore + refreshRouteState to avoid TDZ crashes
+   * when opening Settings.
+   */
+  const applyEngineConfigForProviders = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      return false;
+    }
+
+    let softOk = false;
+    try {
+      await onmyagentClient.reloadEngine(workspaceId);
+      softOk = true;
+    } catch {
+      softOk = false;
+    }
+
+    if (!softOk && isDesktopRuntime()) {
+      const hardOk = await restartOnMyAgentServerAndRefresh({
+        reconnectOnMyAgentServer: onmyagentServerStore.reconnectOnMyAgentServer,
+        refreshRouteState,
+      });
+      if (!hardOk) return false;
+    } else if (!softOk) {
+      return false;
+    }
+
+    await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+    try {
+      window.dispatchEvent(new CustomEvent("onmyagent-server-settings-changed"));
+    } catch {
+      // ignore
+    }
+    void pollMcpServersAfterReloadRef.current?.();
+    return true;
+  }, [
+    onmyagentClient,
+    onmyagentServerStore.reconnectOnMyAgentServer,
+    refreshRouteState,
+    selectedWorkspaceId,
+  ]);
+
+  const reloadWorkspaceEngineFromUi = useCallback(async () => {
+    const workspaceId =
+      routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
+    if (!onmyagentClient || !workspaceId) {
+      setFacingRouteError(null, "not_connected");
+      return false;
+    }
+    return applyEngineConfigForProviders();
+  }, [applyEngineConfigForProviders, onmyagentClient, selectedWorkspaceId, setFacingRouteError]);
+
+  useEffect(() => {
+    return reloadCoordinator.registerWorkspaceReloadControls({
+      canReloadWorkspaceEngine: () =>
+        Boolean(onmyagentClient && (selectedWorkspace?.id || selectedWorkspaceId)),
+      reloadWorkspaceEngine: reloadWorkspaceEngineFromUi,
+      activeSessions: () => activeReloadBlockingSessions,
+      stopSession: async (sessionId) => {
+        if (!activeClient) return;
+        await abortSessionSafe(activeClient, sessionId);
+      },
+    });
+  }, [
+    activeClient,
+    activeReloadBlockingSessions,
+    onmyagentClient,
+    reloadCoordinator,
+    reloadWorkspaceEngineFromUi,
+    selectedWorkspace?.id,
+    selectedWorkspaceId,
+  ]);
+
   const handleRestartMessagingWorker = handleRestartOnMyAgentServerAndRefresh;
 
   const messagingViewProps = useMessagingViewProps({
@@ -1402,7 +1574,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             <LazyGeneralSettingsView
               onNavigateTab={(tab) => navigateSettingsPath(tab)}
               developerMode={developerMode}
-              onSendFeedback={() => platform.openLink(buildFeedbackUrl({ entrypoint: "settings" }))}
               onReportIssue={() => platform.openLink("https://github.com/WeaveQ/onmyagent/issues/new?template=bug.yml")}
             />
           </SettingsTabSuspense>
@@ -1441,7 +1612,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         );
       case "ai":
         return (
-          <SettingsTabSuspense>
+          <SettingsAiTabSuspense>
             <LazyAiSettingsView
               busy={busy}
               providerAuthBusy={providerAuthSnapshot.providerAuthBusy}
@@ -1450,16 +1621,61 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               providerSummary={providerSummary}
               providerConnected={connectedProviders.length > 0}
               connectedProviders={connectedProviders}
-              disconnectingProviderId={null}
-              providerConnectError={providerAuthSnapshot.providerAuthError}
-              providerDisconnectStatus={configActionStatus}
-              providerDisconnectError={null}
+              disconnectingProviderId={providerActionBusyId}
+              providerConnectError={
+                providerAuthSnapshot.providerAuthError
+                  ? userErrorFromRaw(providerAuthSnapshot.providerAuthError)
+                  : null
+              }
+              providerDisconnectStatus={null}
+              providerDisconnectError={providerActionError}
+              providerActionBusyId={providerActionBusyId}
+              providerSyncBusy={providerSyncBusy}
+              runtimeConnected={Boolean(activeClient)}
+              providersLoading={providersDiscovering}
+              inventorySyncing={inventorySyncing}
               onOpenProviderAuth={handleOpenProviderAuth}
               onOpenOpencodeConfig={handleOpenCustomProviderConfig}
-              onDisconnectProvider={async (providerId) => {
-                await providerAuthStore.disconnectProvider(providerId);
+              onDisconnectProvider={(providerId) =>
+                disconnectSettingsProvider({
+                  providerId,
+                  disconnectProvider: (id) =>
+                    providerAuthStore.disconnectProvider(id),
+                  setBusyId: setProviderActionBusyId,
+                  setError: setProviderActionError,
+                })
+              }
+              canDisconnectProvider={(provider) =>
+                canDisconnectProviderRow({
+                  provider,
+                  opencodeInventoryReady,
+                })
+              }
+              canEditProvider={canEditOpenCodeProvider}
+              onEditProvider={handleEditOpenCodeProvider}
+              canDeleteProvider={canDeleteOpenCodeProvider}
+              onDeleteProvider={async (provider) => {
+                if (providerActionBusyId || providerSyncBusy) return;
+                await deleteOpenCodeManagedProvider({
+                  providerId: provider.id,
+                  workspaceRoot: selectedWorkspaceRoot,
+                  defaultModelProviderId:
+                    local.prefs.defaultModel?.providerID ?? null,
+                  setBusyId: setProviderActionBusyId,
+                  setSyncBusy: setProviderSyncBusy,
+                  setError: setProviderActionError,
+                  setOpenCodeManagedProviders,
+                  setPrefs: local.setPrefs,
+                  applyEngineConfigForProviders,
+                  refreshProviders: (opts) =>
+                    providerAuthStore.refreshProviders(opts),
+                  loadOpenCodeManagedProviders,
+                  clearReloadRequired: () =>
+                    reloadCoordinator.clearReloadRequired(),
+                  markReloadRequired: (kind, detail) =>
+                    reloadCoordinator.markReloadRequired(kind, detail),
+                });
               }}
-              canDisconnectProvider={(provider) => provider.managedBy !== "opencode"}
               cloudProviderIds={new Set(
                 Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
               )}
@@ -1477,7 +1693,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 />
               }
             />
-          </SettingsTabSuspense>
+          </SettingsAiTabSuspense>
         );
       case "memory":
         return (
@@ -1496,11 +1712,14 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 skipped: false,
                 updatedAt: 0,
               }}
-              onDraftChange={setMemoryDraft}
+              onDraftChange={persistMemoryDraft}
               busy={busy}
               responseTone={local.prefs.responseTone}
               onResponseToneChange={(responseTone) => {
-                local.setPrefs((previous) => ({ ...previous, responseTone }));
+                local.setPrefs((previous) => ({
+                  ...previous,
+                  responseTone,
+                }));
               }}
               customInstructions={local.prefs.customInstructions}
               onCustomInstructionsChange={(customInstructions) => {
@@ -1644,6 +1863,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             />
           </SettingsTabSuspense>
         );
+      case "recovery":
+        return (
+          <SettingsTabSuspense>
+            <LazyRecoveryView {...recoveryViewProps} />
+          </SettingsTabSuspense>
+        );
       case "debug":
         return (
           <SettingsTabSuspense>
@@ -1668,11 +1893,24 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onSelectWorkspace={handleSelectSettingsWorkspace}
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
         headerStatus={routeOnMyAgentStatus}
-        busyHint={loading ? t("session.loading_detail") : busyLabel}
-        onClose={props.onClose ?? (() => navigate(selectedWorkspaceId ? workspaceSessionRoute(selectedWorkspaceId) : "/session"))}
+        busyHint={
+          loading && !shellInteractive
+            ? t("system.load_settings_route")
+            : busyLabel
+        }
+        onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
+        errorSlot={
+          routeError ? (
+            <SettingsRouteErrorSlot
+              action={routeErrorAction}
+              onRetry={() => void refreshRouteState()}
+              onOpenAiSettings={() => navigateSettingsPath("ai")}
+            />
+          ) : null
+        }
         compact={props.embedded}
-        panelToolbarSlot={memoryToolbarSlot}
+        panelToolbarSlot={undefined}
       >
         {settingsView}
       </SettingsShell>
@@ -1680,12 +1918,74 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       <OpenCodeProviderConfigDialog
         open={openCodeProviderConfigOpen}
         workspaceRoot={selectedWorkspaceRoot}
-        onOpenChange={setOpenCodeProviderConfigOpen}
-        onSaved={async () => {
-          setConfigActionStatus(t("settings.config_updated"));
-          const managedProviders = await loadOpenCodeManagedProviders();
-          setOpenCodeManagedProviders(managedProviders);
-          await providerAuthStore.refreshProviders();
+        initialProvider={editingOpenCodeProvider}
+        onOpenChange={(open) => {
+          setOpenCodeProviderConfigOpen(open);
+          if (!open) setEditingOpenCodeProvider(null);
+        }}
+        onSaved={async (saved) => {
+          setEditingOpenCodeProvider(null);
+          setProviderSyncBusy(true);
+          setProviderActionError(null);
+          try {
+            // Product path: fill form → write opencode.json → apply engine → use model.
+            // 1) Prefer the new model in UI prefs immediately (create / fill-and-use only).
+            if (saved.defaultModel?.providerID && saved.defaultModel.modelID) {
+              local.setPrefs((previous) => ({
+                ...previous,
+                defaultModel: {
+                  providerID: saved.defaultModel!.providerID,
+                  modelID: saved.defaultModel!.modelID,
+                },
+                modelVariant: null,
+              }));
+            }
+
+            // Prefer save-response inventory (already live-merged) so re-edit
+            // immediately sees added models without racing a second snapshot.
+            if (saved.opencodeProviders && saved.opencodeProviders.length > 0) {
+              setOpenCodeManagedProviders(saved.opencodeProviders);
+            } else {
+              try {
+                const managedProviders = await loadOpenCodeManagedProviders({
+                  force: true,
+                });
+                setOpenCodeManagedProviders(managedProviders);
+              } catch {
+                // best-effort inventory
+              }
+            }
+
+            // 2) Soft dispose first; hard restart only if needed.
+            let applied = false;
+            try {
+              applied = await applyEngineConfigForProviders();
+            } catch {
+              applied = false;
+            }
+
+            // 3) Refresh catalogs so composer / settings see the provider.
+            await providerAuthStore.refreshProviders({ dispose: true }).catch(() => null);
+            await refreshProviderListQueries(getReactQueryClient()).catch(() => null);
+
+            if (applied) {
+              reloadCoordinator.clearReloadRequired();
+            } else {
+              reloadCoordinator.markReloadRequired("config", {
+                type: "config",
+                name: "opencode.json",
+                action: "updated",
+              });
+            }
+          } catch (error) {
+            setProviderActionError(
+              userErrorFromRaw(
+                error instanceof Error ? error.message : String(error),
+              ),
+            );
+          } finally {
+            setProviderSyncBusy(false);
+          }
         }}
       />
 
@@ -1825,7 +2125,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           setModelPickerOpen(false);
         }}
         onBehaviorChange={() => {}}
-        onOpenSettings={() => {}}
+        onOpenSettings={() => {
+          setModelPickerOpen(false);
+          handleOpenProviderAuth();
+        }}
         onClose={() => setModelPickerOpen(false)}
       />
     </>

@@ -10,6 +10,7 @@ import {
   Cog,
   FolderLock,
   RefreshCcw,
+  RotateCcw,
   SlidersHorizontal,
   Store,
   Terminal,
@@ -75,6 +76,8 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return Brain;
     case "archived-tasks":
       return Archive;
+    case "recovery":
+      return RotateCcw;
     case "debug":
       return Bug;
     default:
@@ -106,6 +109,8 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.tab_conversation_memory");
     case "archived-tasks":
       return t("settings.tab_archived_tasks");
+    case "recovery":
+      return t("settings.tab_recovery");
     case "debug":
       return t("settings.tab_debug");
     case "general":
@@ -139,6 +144,8 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.tab_description_conversation_memory");
     case "archived-tasks":
       return t("settings.tab_description_archived_tasks");
+    case "recovery":
+      return t("settings.tab_description_recovery");
     case "debug":
       return t("settings.tab_description_debug");
     case "general":
@@ -162,8 +169,14 @@ export function getWorkspaceSettingsTabs(): SettingsTab[] {
   ];
 }
 
+/** Reset/recovery + archive — one sidebar group with two leaf tabs. */
+export function getDataSettingsTabs(): SettingsTab[] {
+  return ["recovery", "archived-tasks"];
+}
+
+/** @deprecated Use getDataSettingsTabs */
 export function getArchivedSettingsTabs(): SettingsTab[] {
-  return ["archived-tasks"];
+  return getDataSettingsTabs();
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
@@ -240,7 +253,7 @@ function SettingsNavGroup(props: {
 export function SettingsSidebar(props: SettingsSidebarProps) {
   const overviewTabs = getOverviewSettingsTabs();
   const workspaceTabs = getWorkspaceSettingsTabs();
-  const archivedTabs = getArchivedSettingsTabs();
+  const dataTabs = getDataSettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
 
   return (
@@ -280,8 +293,8 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
           onSelectTab={props.onSelectTab}
         />
         <SettingsNavGroup
-          label={t("settings.group_archived")}
-          tabs={archivedTabs}
+          label={t("settings.group_data")}
+          tabs={dataTabs}
           activeTab={props.activeTab}
           onSelectTab={props.onSelectTab}
         />

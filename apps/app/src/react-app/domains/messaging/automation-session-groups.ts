@@ -17,8 +17,11 @@ export type AutomationSessionRecord = {
 };
 
 export const automationSessionsChangedEvent = "onmyagent:automation-sessions-changed";
+export const automationArchivedRunsChangedEvent =
+  "onmyagent:automation-archived-runs-changed";
 const storageKeyPrefix = "onmyagent.automationSessions.v1:";
 const deletedStorageKeyPrefix = "onmyagent.deletedAutomationSessions.v1:";
+const archivedRunsKeyPrefix = "onmyagent.automationArchivedRuns.v1:";
 
 function storageKey(workspaceId: string) {
   return `${storageKeyPrefix}${workspaceId}`;
@@ -26,6 +29,58 @@ function storageKey(workspaceId: string) {
 
 function deletedStorageKey(workspaceId: string) {
   return `${deletedStorageKeyPrefix}${workspaceId}`;
+}
+
+function archivedRunsStorageKey(workspaceId: string) {
+  return `${archivedRunsKeyPrefix}${workspaceId}`;
+}
+
+export function readArchivedAutomationRunKeys(workspaceId: string): string[] {
+  if (typeof window === "undefined") return [];
+  const id = workspaceId.trim();
+  if (!id) return [];
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(archivedRunsStorageKey(id)) ?? "[]",
+    );
+    return Array.isArray(parsed)
+      ? parsed.filter((key): key is string => typeof key === "string" && key.trim().length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeArchivedAutomationRunKeys(
+  workspaceId: string,
+  keys: ReadonlyArray<string>,
+) {
+  if (typeof window === "undefined") return;
+  const id = workspaceId.trim();
+  if (!id) return;
+  const normalized = keys.map((key) => key.trim()).filter(Boolean);
+  if (normalized.length === 0) {
+    window.localStorage.removeItem(archivedRunsStorageKey(id));
+  } else {
+    window.localStorage.setItem(
+      archivedRunsStorageKey(id),
+      JSON.stringify(normalized),
+    );
+  }
+  window.dispatchEvent(
+    new CustomEvent(automationArchivedRunsChangedEvent, {
+      detail: { workspaceId: id },
+    }),
+  );
+}
+
+export function archiveAutomationRunKey(workspaceId: string, runKey: string) {
+  const key = runKey.trim();
+  if (!key) return false;
+  const current = readArchivedAutomationRunKeys(workspaceId);
+  if (current.includes(key)) return false;
+  writeArchivedAutomationRunKeys(workspaceId, [key, ...current]);
+  return true;
 }
 
 function readDeletedSessionIds(workspaceId: string): Set<string> {
@@ -36,12 +91,17 @@ function readDeletedSessionIds(workspaceId: string): Set<string> {
     );
     return new Set(
       Array.isArray(parsed)
-        ? parsed.filter((id): id is string => typeof id === "string")
+        ? parsed.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
         : [],
     );
   } catch {
     return new Set();
   }
+}
+
+/** Public read of soft-deleted automation session ids (sidebar sync). */
+export function readDeletedAutomationSessionIds(workspaceId: string): Set<string> {
+  return readDeletedSessionIds(workspaceId);
 }
 
 function writeDeletedSessionIds(workspaceId: string, sessionIds: Set<string>) {
@@ -123,7 +183,16 @@ export function syncAutomationSessionRecords(
   if (typeof window === "undefined" || !workspaceId.trim()) return;
   const deletedSessionIds = readDeletedSessionIds(workspaceId);
   const existing = readAutomationSessionRecords(workspaceId);
-  const records = new Map(existing.map((record) => [record.sessionId, record]));
+  const liveAutomationIds = new Set(
+    automations.map((item) => item.id).filter((id) => id.trim()),
+  );
+  // Drop local grouping for automations that no longer exist (sidebar delete /
+  // automation page delete). Otherwise the "定时" folder keeps coming back.
+  const records = new Map(
+    existing
+      .filter((record) => liveAutomationIds.has(record.automationId))
+      .map((record) => [record.sessionId, record]),
+  );
 
   for (const automation of automations) {
     const running = automation.running;

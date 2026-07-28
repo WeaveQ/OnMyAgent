@@ -205,7 +205,7 @@ test("runtime preparation excludes retired artifact packages", async () => {
   assert.match(buildSource, /@onmyagent\/artifact-runtime/);
   assert.match(buildSource, /deploy/);
   assert.match(buildSource, /artifactRuntimeWorkspaceLink/);
-  assert.match(buildSource, /"--offline", "--filter", "@onmyagent\/artifact-runtime", "deploy"/);
+  assert.match(buildSource, /"--prefer-offline", "--filter", "@onmyagent\/artifact-runtime", "deploy"/);
   assert.match(buildSource, /rmSync\(artifactRuntimeWorkspaceLink, \{ recursive: true, force: true \}\)/);
   const builderSource = await readFile(path.resolve(scriptDir, "..", "electron-builder.yml"), "utf8");
   assert.match(builderSource, /"\*\*\/node\/\*\*"/);

@@ -87,6 +87,7 @@ import {
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
 import { mergeSlashCommandsWithSkills } from "./slash-command-merge";
+import { resolveComposerLayoutClasses } from "./composer-layout";
 import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
@@ -399,26 +400,14 @@ export function ReactSessionComposer(props: ComposerProps) {
     let cancelled = false;
     void props
       .searchFiles(mentionQuery)
-      .then((files) => {
+      .then((targets) => {
         if (cancelled) return;
-        const recent = props.recentFiles.slice(0, 8);
-        const recentSet = new Set(recent);
-        const next: MentionItem[] = [
-          ...recent.map((file) => ({
-            id: `file:${file}`,
-            kind: "file" as const,
-            value: file,
-            label: file,
-          })),
-          ...files
-            .filter((file) => !recentSet.has(file))
-            .map((file) => ({
-              id: `file:${file}`,
-              kind: "file" as const,
-              value: file,
-              label: file,
-            })),
-        ];
+        const next: MentionItem[] = targets.map((target) => ({
+          id: `${target.kind}:${target.path}`,
+          kind: target.kind,
+          value: target.path,
+          label: target.path,
+        }));
         setMentionItems(next);
       })
       .catch(() => {
@@ -427,7 +416,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     return () => {
       cancelled = true;
     };
-  }, [mentionOpen, mentionQuery, props.recentFiles, props.searchFiles]);
+  }, [mentionOpen, mentionQuery, props.searchFiles]);
 
   useEffect(() => {
     if (!toolMenuOpen) return;
@@ -1013,48 +1002,31 @@ export function ReactSessionComposer(props: ComposerProps) {
   const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
   const hasConnectorMatches = filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
 
-  const homeLayout = Boolean(props.homeLayout);
-  const heroHome = Boolean(props.heroHome);
-  // Home / expert-empty: fold workspace+permission into the primary toolbar so
-  // the card stays one compact unit (no tall empty middle + sparse under-bar).
-  const inlineToolbarAccessory = homeLayout && Boolean(props.bottomAccessory);
-  const underCardAccessory = Boolean(props.bottomAccessory) && !inlineToolbarAccessory;
-  // When workspace/permission bar sits under the card, share the outer silhouette:
-  // full width + square joint (no top corners on the bar, no bottom corners on the card).
-  const panelRoundedClass =
-    mentionOpen || slashOpen
-      ? "rounded-t-[18px] border-t-transparent"
-      : underCardAccessory
-        ? "rounded-t-xl rounded-b-none"
-        : heroHome
-          ? "rounded-2xl"
-          : "rounded-xl";
-
-  // Same width for hero home, expert empty, and in-session (1120 + side pad).
-  // Hero only grows height / padding / corner radius — not column width.
-  const shellPadClass = `px-4 md:px-8 ${
-    props.compactTopSpacing ? "pt-0" : "pt-3"
-  } ${homeLayout || heroHome ? "pb-3" : "pb-5"}`;
-  const panelChromeClass = heroHome
-    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
-    : `relative overflow-visible bg-dls-surface-solid ${props.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
-  const editorPadClass =
-    props.attachments.length > 0
-      ? heroHome
-        ? "px-5 pb-2.5 pt-3"
-        : "px-4 pb-2 pt-2"
-      : heroHome
-        ? "px-5 pb-2.5 pt-4"
-        : "px-4 pb-2 pt-3";
+  const layout = resolveComposerLayoutClasses({
+    homeLayout: props.homeLayout,
+    heroHome: props.heroHome,
+    showOuterBorder: props.showOuterBorder,
+    compactTopSpacing: props.compactTopSpacing,
+    hasBottomAccessory: Boolean(props.bottomAccessory),
+    hasAttachments: props.attachments.length > 0,
+    mentionOpen,
+    slashOpen,
+  });
+  const {
+    homeLayout,
+    heroHome,
+    inlineToolbarAccessory,
+    underCardAccessory,
+    panelChromeClass,
+    editorPadClass,
+    rootChromeClass,
+    contentMaxWidthClass,
+  } = layout;
 
   return (
     <div
       ref={rootRef}
-      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${
-        homeLayout || heroHome
-          ? `bg-transparent ${shellPadClass}`
-          : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`
-      }`}
+      className={`sticky bottom-0 mac:titlebar-no-drag ${toolMenuOpen ? "z-50" : "z-20"} ${rootChromeClass}`}
       style={COMPOSER_CONTAIN_STYLE}
       onKeyDownCapture={handleKeyDownCapture}
       onCompositionStart={() => {
@@ -1064,8 +1036,7 @@ export function ReactSessionComposer(props: ComposerProps) {
         imeComposingRef.current = false;
       }}
     >
-      {/* Keep in sync with SESSION_CONTENT_MAX_WIDTH_CLASS / contentRef. */}
-      <div className="mx-auto w-full max-w-[1120px]">
+      <div className={`mx-auto w-full ${contentMaxWidthClass}`}>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div className={panelChromeClass}>
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
@@ -1293,9 +1264,9 @@ export function ReactSessionComposer(props: ComposerProps) {
               }}
             />
 
-            {/* Action row — attach/inbox/tools on the left, send on the right */}
-            <div className="mt-2 flex items-end justify-between gap-1.5">
-              <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
+            {/* Action row — tools left; reasoning + model + send as a tight right cluster */}
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <div className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible">
                 <input
                   ref={(element) => {
                     fileInputRef.current = element;
@@ -1415,6 +1386,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     onChange={props.onAccessModeChange}
                   />
                 )}
+              </div>
+
+              {/* Model controls + send stay as a tight trailing cluster so
+                  “深度 / reasoning” is not stranded mid-toolbar with empty flex. */}
+              <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5">
                 {props.modelUnavailable ? null : (
                   <ModelBehaviorSelect
                     value={props.modelVariant}
@@ -1424,15 +1400,21 @@ export function ReactSessionComposer(props: ComposerProps) {
                     disabled={props.busy}
                   />
                 )}
-              </div>
-
-              <div className="ml-auto flex shrink-0 items-center gap-1">
                 {props.modelUnavailable ? (
                   <button
                     type="button"
                     className={composerTextClass.modelUnavailable}
-                    onClick={() => props.onModelPickerOpenChange(true)}
-                    title={t("settings.model_change")}
+                    onClick={() => {
+                      // Closed loop: unavailable model → AI/provider settings
+                      // so users can reconnect credentials or pick another
+                      // default. Model select next door still switches models.
+                      if (props.onOpenSettingsSection) {
+                        props.onOpenSettingsSection("ai");
+                        return;
+                      }
+                      props.onModelPickerOpenChange(true);
+                    }}
+                    title={t("system.error_action_open_ai_settings")}
                     aria-label={t("settings.model_unavailable")}
                   >
                     <AlertCircle className="size-3.5 shrink-0" />

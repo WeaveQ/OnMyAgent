@@ -21,6 +21,8 @@ import type {
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
+  ComposerMentionKind,
+  ComposerMentionTarget,
   McpServerEntry,
   McpStatusMap,
   ModelRef,
@@ -94,6 +96,8 @@ export type SessionSurfaceViewProps = {
 
   // Transcript
   sessionId: string;
+  /** Live connected provider IDs for historical model "removed" badges. */
+  connectedProviderIds?: readonly string[] | null;
   scrollRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
   onWheel: (event: { deltaY: number; target: EventTarget }) => void;
@@ -123,6 +127,7 @@ export type SessionSurfaceViewProps = {
   onRevertToMessage?: (messageId: string) => void;
   verifiedOpenTargets: OpenTarget[];
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
+  onDownloadCodePath?: (path: string) => Promise<void>;
   workspaceRoot: string;
   assistantStatusFooter: ReactNode;
   searchQuery: string;
@@ -141,7 +146,7 @@ export type SessionSurfaceViewProps = {
 
   // Composer state + handlers
   draft: string;
-  mentions: Record<string, "agent" | "file">;
+  mentions: Record<string, ComposerMentionKind>;
   assistantScenarioTags: { id: string; label: string }[];
   personalizedPromptTemplates: ComposerPromptTemplate[] | undefined;
   onSelectPromptTemplate: (scenarioId: string, prompt: string) => void;
@@ -185,14 +190,14 @@ export type SessionSurfaceViewProps = {
   listImportedPlugins: () => Promise<CloudImportedPlugin[]>;
   importedPlugins: CloudImportedPlugin[];
   onOpenSettingsSection?:
-    | ((section: "commands" | "skills" | "mcps" | "plugins") => void)
+    | ((section: "ai" | "commands" | "skills" | "mcps" | "plugins") => void)
     | undefined;
   onOpenSkillsMarketplace?: (() => void) | undefined;
   onOpenConnectorsMarketplace?: (() => void) | undefined;
   onOpenCustomConnector?: (() => void) | undefined;
   recentFiles: string[];
-  searchFiles: (query: string) => Promise<string[]>;
-  onInsertMention: (kind: "agent" | "file", value: string) => void;
+  searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
+  onInsertMention: (kind: ComposerMentionKind, value: string) => void;
   notice: ReactComposerNotice | null;
   onNotice: (notice: ReactComposerNotice | null) => void;
   onPasteText: (text: string) => void;
@@ -342,7 +347,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                 onRevertToMessage={props.onRevertToMessage}
                 openTargets={props.verifiedOpenTargets}
                 onOpenTarget={props.onOpenTarget}
+                onDownloadCodePath={props.onDownloadCodePath}
                 workspaceRoot={props.workspaceRoot}
+                connectedProviderIds={props.connectedProviderIds}
                 footer={props.assistantStatusFooter}
                 assistantAvatar={props.chatHeaderAgent}
                 searchHighlightQuery={props.searchQuery || undefined}

@@ -43,6 +43,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function automationModelRef(
+  value: unknown,
+): NonNullable<AutomationTaskInput["model"]> | null {
+  if (!isRecord(value)) return null;
+  const providerID =
+    typeof value.providerID === "string" ? value.providerID.trim() : "";
+  const modelID = typeof value.modelID === "string" ? value.modelID.trim() : "";
+  return providerID && modelID ? { providerID, modelID } : null;
+}
+
 export function parseAutomationProposalPayload(
   raw: unknown,
 ): AutomationTaskInput | null {
@@ -97,13 +107,24 @@ export function parseAutomationProposalPayload(
   if (raw.accessMode === "default" || raw.accessMode === "full") {
     payload.accessMode = raw.accessMode;
   }
+  const model = automationModelRef(raw.model);
+  if (model) payload.model = model;
   return payload;
 }
 
 const KNOWN_PROPOSAL_BASENAMES = [
   "ar-daily-board.json",
   "fleet-daily-scan.json",
+  "fuel-weekly-scan.json",
+  "pod-overdue-scan.json",
   "warehouse-daily-brief.json",
+] as const;
+
+const CAPABILITY_PROPOSAL_DIRECTORIES = [
+  "\u56de\u5355\u5bf9\u8d26",
+  "\u56de\u6b3e\u50ac\u6536",
+  "\u6cb9\u8d39\u7a3d\u67e5",
+  "\u6302\u9760\u8f66\u7ba1\u7406",
 ] as const;
 
 /** Workspace-relative dirs that may hold expert automation proposals. */
@@ -132,15 +153,25 @@ export function automationProposalSearchRoots(input: {
   if (sessionDir) {
     const relativeDir = toWorkspaceRelativePath(input.catalogRoot, sessionDir);
     if (relativeDir) {
+      for (const capability of CAPABILITY_PROPOSAL_DIRECTORIES) {
+        push(`${relativeDir}/${capability}/automations/proposals`);
+      }
       push(`${relativeDir}/automations/proposals`);
     } else if (
       !sessionDir.startsWith("/") &&
       !/^[a-zA-Z]:[\\/]/.test(sessionDir)
     ) {
-      push(`${sessionDir.replace(/[/\\]+$/, "")}/automations/proposals`);
+      const relativeSessionDir = sessionDir.replace(/[/\\]+$/, "");
+      for (const capability of CAPABILITY_PROPOSAL_DIRECTORIES) {
+        push(`${relativeSessionDir}/${capability}/automations/proposals`);
+      }
+      push(`${relativeSessionDir}/automations/proposals`);
     }
   }
   if (input.includeWorkspaceRoot !== false) {
+    for (const capability of CAPABILITY_PROPOSAL_DIRECTORIES) {
+      push(`${capability}/automations/proposals`);
+    }
     push("automations/proposals");
   }
   return roots;
@@ -265,6 +296,52 @@ export function automationProposalsFingerprint(
     .join("|");
 }
 
+/**
+ * Drop proposals whose title already exists as a workspace automation.
+ * Prevents re-offering after create when proposal JSON files remain on disk
+ * and the user leaves/returns (in-memory offered fingerprint is gone).
+ */
+export function filterNewAutomationProposals(
+  proposals: readonly LoadedAutomationProposal[],
+  existingTitles: readonly string[],
+): LoadedAutomationProposal[] {
+  const existing = new Set(
+    existingTitles.map((title) => title.trim()).filter(Boolean),
+  );
+  if (existing.size === 0) return [...proposals];
+  return proposals.filter((item) => !existing.has(item.payload.title.trim()));
+}
+
+/** Load proposals then drop titles that already have an automation task. */
+export async function loadNewAutomationProposals(input: {
+  client: Pick<
+    AutomationProposalClient,
+    "listWorkspaceFiles" | "readWorkspaceFile" | "listAutomations"
+  >;
+  workspaceId: string;
+  catalogRoot: string;
+  sessionRoot?: string | null;
+  sessionDirectory?: string | null;
+  includeWorkspaceRoot?: boolean;
+}): Promise<{
+  proposals: LoadedAutomationProposal[];
+  errors: Array<{ path: string; message: string }>;
+}> {
+  const loaded = await loadAutomationProposals(input);
+  if (loaded.proposals.length === 0) return loaded;
+  let existingTitles: string[] = [];
+  try {
+    const listed = await input.client.listAutomations(input.workspaceId.trim());
+    existingTitles = listed.items.map((item) => item.title);
+  } catch {
+    existingTitles = [];
+  }
+  return {
+    proposals: filterNewAutomationProposals(loaded.proposals, existingTitles),
+    errors: loaded.errors,
+  };
+}
+
 export function buildAutomationPayloadFromDraft(input: {
   base: AutomationTaskInput;
   title: string;
@@ -292,6 +369,9 @@ export async function createAutomationsFromPayloads(input: {
   client: Pick<AutomationProposalClient, "listAutomations" | "createAutomation">;
   workspaceId: string;
   items: Array<{ path: string; payload: AutomationTaskInput }>;
+  defaultModel?: AutomationTaskInput["model"];
+  defaultWorkspaceDirectory?: string | null;
+  sourceSessionId?: string | null;
 }): Promise<ApplyAutomationProposalsResult> {
   const result: ApplyAutomationProposalsResult = {
     created: [],
@@ -314,8 +394,23 @@ export async function createAutomationsFromPayloads(input: {
     existingTitles = new Set();
   }
 
+  const defaultModel = automationModelRef(input.defaultModel);
+  const defaultWorkspaceDirectory =
+    typeof input.defaultWorkspaceDirectory === "string"
+      ? input.defaultWorkspaceDirectory.trim()
+      : "";
+  const sourceSessionId =
+    typeof input.sourceSessionId === "string" ? input.sourceSessionId.trim() : "";
   for (const item of input.items) {
-    const payload = item.payload;
+    const model = automationModelRef(item.payload.model) ?? defaultModel;
+    const payload: AutomationTaskInput = {
+      ...item.payload,
+      ...(model ? { model } : {}),
+      ...(defaultWorkspaceDirectory
+        ? { workspaceDirectory: defaultWorkspaceDirectory }
+        : {}),
+      ...(sourceSessionId ? { sourceSessionId } : {}),
+    };
     if (existingTitles.has(payload.title)) {
       result.skipped.push({
         title: payload.title,
@@ -349,6 +444,9 @@ export async function applyAutomationProposals(input: {
   catalogRoot: string;
   sessionRoot?: string | null;
   sessionDirectory?: string | null;
+  defaultModel?: AutomationTaskInput["model"];
+  defaultWorkspaceDirectory?: string | null;
+  sourceSessionId?: string | null;
 }): Promise<ApplyAutomationProposalsResult> {
   const loaded = await loadAutomationProposals(input);
   const result: ApplyAutomationProposalsResult = {
@@ -361,6 +459,9 @@ export async function applyAutomationProposals(input: {
     client: input.client,
     workspaceId: input.workspaceId,
     items: loaded.proposals,
+    defaultModel: input.defaultModel,
+    defaultWorkspaceDirectory: input.defaultWorkspaceDirectory,
+    sourceSessionId: input.sourceSessionId,
   });
   return {
     created: created.created,

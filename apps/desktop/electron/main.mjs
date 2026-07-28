@@ -59,6 +59,7 @@ import {
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
+import { createBrowserSkillDesktopHelpers as createBskDesktopHelpers } from "./browser-skill-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
@@ -83,6 +84,19 @@ import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
+import {
+  localWorkspaceId,
+  normalizeWorkspacePathKey,
+  onmyagentRemoteWorkspaceId,
+  parseOnMyAgentWorkspaceIdFromUrl,
+  remoteWorkspaceId,
+  sanitizeCommandName,
+  serializeCommandFrontmatter,
+  stableWorkspaceId,
+  stripOnMyAgentWorkspaceMount,
+  validateSkillName,
+  escapeYamlScalar,
+} from "./desktop-workspace-ids.mjs";
 
 // --- Global crash guards (main process) ---
 // The desktop app makes HTTPS requests from several places (channel transports
@@ -206,6 +220,7 @@ const {
   openComputerUseSetupApp,
 } = computerUseDesktopHelpers;
 
+const { checkBrowserSkillStatus, openBrowserSkillInstallPage } = createBskDesktopHelpers({ shell });
 // Production Electron shares the same on-disk state folder as the Tauri shell
 // so in-place migration is a no-op for almost every file. Dev mode uses the
 // separate dev identifier so it can run beside the production app.
@@ -311,7 +326,6 @@ const IDLE_ROUTER_INFO = Object.freeze({
 
 let mainWindow = null;
 const pendingDeepLinks = [];
-
 
 /** Populated after browserController is created (menu/ui-control call at runtime). */
 let desktopWindowController = null;
@@ -457,6 +471,7 @@ const {
 
 const {
   agentManagementFetchModels,
+  agentManagementTestModel,
   agentManagementProviderAction,
   readAgentManagementProvidersSnapshot,
 } = createAgentManagementProviders({ getRealHomeDir });
@@ -471,9 +486,6 @@ const {
   bundledSkillsRootPath,
   shell,
 });
-
-
-
 
 function builtinExpertPackageSource(packageName) {
   const safePackage = validateExpertPackageName(packageName);
@@ -512,7 +524,6 @@ function builtinSkillPackageSource(packageName) {
   ];
   return { safePackage, candidates };
 }
-
 
 async function migrateLegacyElectronWorkspaceStateIfNeeded() {
   const current = workspaceStatePath();
@@ -634,52 +645,6 @@ async function setDesktopBootstrapConfig(config) {
   return normalized;
 }
 
-function sanitizeCommandName(raw) {
-  const trimmed = String(raw ?? "")
-    .trim()
-    .replace(/^\/+/, "");
-  if (!trimmed) return null;
-  const safe = Array.from(trimmed)
-    .filter((char) => /[A-Za-z0-9_-]/.test(char))
-    .join("");
-  return safe || null;
-}
-
-function escapeYamlScalar(value) {
-  return JSON.stringify(String(value ?? ""));
-}
-
-function serializeCommandFrontmatter(command) {
-  const template = String(command?.template ?? "").trim();
-  if (!template) {
-    throw new Error("command.template is required");
-  }
-
-  let output = "---\n";
-  if (typeof command?.description === "string" && command.description.trim()) {
-    output += `description: ${escapeYamlScalar(command.description.trim())}\n`;
-  }
-  if (typeof command?.agent === "string" && command.agent.trim()) {
-    output += `agent: ${escapeYamlScalar(command.agent.trim())}\n`;
-  }
-  if (typeof command?.model === "string" && command.model.trim()) {
-    output += `model: ${escapeYamlScalar(command.model.trim())}\n`;
-  }
-  if (command?.subtask === true) {
-    output += "subtask: true\n";
-  }
-  output += `---\n\n${template}\n`;
-  return output;
-}
-
-function validateSkillName(raw) {
-  const trimmed = String(raw ?? "").trim();
-  if (!trimmed || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmed)) {
-    throw new Error("skill name must be kebab-case");
-  }
-  return trimmed;
-}
-
 function defaultWorkspaceOnMyAgentConfig(workspacePath, preset = null) {
   return {
     version: 1,
@@ -729,79 +694,6 @@ async function normalizeLocalWorkspacePath(rawPath) {
         : trimmed;
   const resolved = path.resolve(expanded);
   return realpath(resolved).catch(() => resolved);
-}
-
-function normalizeWorkspacePathKey(value) {
-  const trimmed = String(value ?? "").trim();
-  return trimmed ? path.resolve(trimmed).replace(/\\/g, "/").toLowerCase() : "";
-}
-
-function stableWorkspaceId(value) {
-  return `ws_${createHash("sha256").update(String(value)).digest("hex").slice(0, 12)}`;
-}
-
-function localWorkspaceId(workspacePath) {
-  return stableWorkspaceId(workspacePath);
-}
-
-function remoteWorkspaceId(baseUrl, directory) {
-  const key = String(directory ?? "").trim()
-    ? `remote::${baseUrl}::${String(directory).trim()}`
-    : `remote::${baseUrl}`;
-  return stableWorkspaceId(key);
-}
-
-function parseOnMyAgentWorkspaceIdFromUrl(input) {
-  const raw = String(input ?? "").trim();
-  if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    const segments = url.pathname.split("/").filter(Boolean);
-    const workspaceIndex = segments.indexOf("workspace");
-    const legacyIndex = segments.indexOf("w");
-    const mountIndex = workspaceIndex >= 0 ? workspaceIndex : legacyIndex;
-    return mountIndex >= 0 && segments[mountIndex + 1]
-      ? decodeURIComponent(segments[mountIndex + 1])
-      : null;
-  } catch {
-    const match = raw.match(/\/(?:workspace|w)\/([^/?#]+)/);
-    if (!match?.[1]) return null;
-    try {
-      return decodeURIComponent(match[1]);
-    } catch {
-      return match[1];
-    }
-  }
-}
-
-function stripOnMyAgentWorkspaceMount(input) {
-  const raw = String(input ?? "").trim();
-  if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    const segments = url.pathname.split("/").filter(Boolean);
-    const workspaceIndex = segments.indexOf("workspace");
-    const legacyIndex = segments.indexOf("w");
-    const mountIndex = workspaceIndex >= 0 ? workspaceIndex : legacyIndex;
-    if (mountIndex >= 0 && segments[mountIndex + 1]) {
-      const prefix = segments.slice(0, mountIndex).join("/");
-      url.pathname = prefix ? `/${prefix}` : "/";
-    }
-    return url.toString().replace(/\/+$/, "");
-  } catch {
-    return (
-      raw.replace(/\/(?:workspace|w)\/[^/?#]+.*$/, "").replace(/\/+$/, "") ||
-      raw
-    );
-  }
-}
-
-function onmyagentRemoteWorkspaceId(hostUrl, workspaceId) {
-  const remoteWorkspaceId =
-    String(workspaceId ?? "").trim() ||
-    parseOnMyAgentWorkspaceIdFromUrl(hostUrl);
-  if (remoteWorkspaceId) return `rem_${remoteWorkspaceId}`;
-  return `rem_${createHash("sha256").update(`onmyagent::${hostUrl}`).digest("hex").slice(0, 12)}`;
 }
 
 async function fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken) {
@@ -1553,6 +1445,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   personalAgentLegacyHarness,
   agentManagementProviderAction,
   agentManagementFetchModels,
+  agentManagementTestModel,
   agentManagementSkillAction,
   readAgentManagementProvidersSnapshot,
   // workspace
@@ -1617,6 +1510,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   myExpertPackageFiles,
   findSkillFile,
   isBundledSkillPath,
+  refreshRuntimeSkillLinks: () => runtimeManager.refreshSkillLinks(),
   // system
   userAgentRegistryPath,
   stat,
@@ -1632,6 +1526,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   revokeComputerUseAppAuthorization,
   clearComputerUseAppAuthorizations,
   openComputerUseSetupApp,
+  checkBrowserSkillStatus,
+  openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
   getDesktopBootstrapConfig,
@@ -1643,6 +1539,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
+  BrowserWindow,
 });
 
 async function dispatchDesktopCommand(event, command, ...args) {

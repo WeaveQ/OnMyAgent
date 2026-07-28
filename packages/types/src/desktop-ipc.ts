@@ -251,7 +251,7 @@ export type {
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileEntry,
   CodeWorkspaceFileContent,
-} from "./desktop-ipc-code-workspace";
+} from "./desktop-ipc-code-workspace.js";
 
 export type LocalSkillCard = {
   name: string;
@@ -938,7 +938,6 @@ export type PersonalLocalAgentConversationWarmupResult = {
   error?: string | null;
 };
 
-
 export type PersonalLocalAgentConversationConfirmationsResult = {
   conversation: PersonalLocalAgentConversation | null;
   confirmations: PersonalLocalAgentApprovalRequest[];
@@ -1297,7 +1296,6 @@ export type FeishuAccountStatus = {
   error?: string;
 };
 
-
 export type AgentManagementManagedProviderModel = {
   id: string;
   name: string;
@@ -1457,6 +1455,18 @@ export type AgentManagementAgent = PersonalLocalAgent & {
   skillCount: number;
 };
 
+/** Selective snapshot domains for lazy management loads. */
+export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp" | "providers";
+
+export type AgentManagementSnapshotInput = {
+  workspaceRoot: string;
+  /** When set, only these domains are loaded. Omit for full legacy snapshot. */
+  domains?: AgentManagementSnapshotDomain[];
+  /** Default false for domain-aware loads; true for full legacy snapshot. */
+  includeModels?: boolean;
+  includeDiscoverable?: boolean;
+};
+
 export type AgentManagementSnapshot = {
   generatedAt: number;
   workspaceRoot: string;
@@ -1464,8 +1474,9 @@ export type AgentManagementSnapshot = {
   skills: AgentManagementSkill[];
   providers: AgentManagementProvidersSnapshot;
   mcp: AgentManagementMcpSnapshot;
+  /** Domains actually populated in this response (partial loads omit others). */
+  loadedDomains?: AgentManagementSnapshotDomain[];
 };
-
 
 export type AgentManagementProviderActionInput =
   | { action: "importLive"; appType: AgentManagementManagedProvider["appType"]; workspaceRoot?: string }
@@ -1477,6 +1488,10 @@ export type AgentManagementProviderActionResult = {
   action: string;
   appType: AgentManagementManagedProvider["appType"];
   providerId?: string;
+  /** Default model id chosen for this provider after save (OpenCode etc.). */
+  defaultModelId?: string | null;
+  /** Canonical default model ref applied after save. */
+  defaultModel?: { providerID: string; modelID: string } | null;
   imported?: number;
   providers: AgentManagementProvidersSnapshot;
 };
@@ -1500,6 +1515,20 @@ export type AgentManagementFetchModelsResult = {
   models: AgentManagementFetchedModel[];
 };
 
+export type AgentManagementTestModelInput = {
+  appType: AgentManagementManagedProvider["appType"];
+  baseUrl: string;
+  apiKey?: string;
+  modelId: string;
+};
+
+export type AgentManagementTestModelResult = {
+  ok: boolean;
+  endpoint: string;
+  modelId: string;
+  elapsedMs: number;
+};
+
 export type AgentManagementSkillActionInput = {
   action: "enable" | "disable" | "import" | "open";
   agent: AgentManagementSkillAgent;
@@ -1518,7 +1547,6 @@ export type AgentManagementSkillActionResult = {
   path?: string;
   result?: string;
 };
-
 
 export type PersonalLocalAgentHostStatusInput = {
   workspaceRoot: string;
@@ -1802,6 +1830,8 @@ export type SoftwareEnvironmentInfo = {
   };
 };
 
+export type { BrowserSkillStatusResult } from "./desktop-ipc-browser-skill.js";
+
 export type SoftwareEnvironmentInstallResult = {
   ok: boolean;
   message?: string;
@@ -2017,4 +2047,4 @@ export type {
   DesktopCommandArgsOf,
   DesktopCommandResultOf,
   DesktopInvoke,
-} from "./desktop-ipc-command-map";
+} from "./desktop-ipc-command-map.js";

@@ -71,6 +71,19 @@ type PersonalUsageLongestSessionResponse = {
 };
 
 export type PersonalUsageClient = {
+  syncSessionArchive: (
+    workspaceId: string,
+    options: { mode: "incremental" },
+  ) => Promise<{
+    status?: "running" | "completed" | "failed";
+    error?: string | null;
+  }>;
+  getSessionArchiveSyncStatus: (
+    workspaceId: string,
+  ) => Promise<{
+    status: "idle" | "running" | "completed" | "failed";
+    error?: string | null;
+  }>;
   getSessionArchiveUsageSummary: (
     workspaceId: string,
     options: { from: string; to: string },
@@ -110,6 +123,40 @@ function dateDistance(left: string, right: string) {
   );
 }
 
+function waitForArchiveSyncPoll() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, 200);
+  });
+}
+
+async function refreshPersonalUsageArchive(
+  client: PersonalUsageClient,
+  workspaceId: string,
+) {
+  try {
+    const started = await client.syncSessionArchive(workspaceId, {
+      mode: "incremental",
+    });
+    if (started.status === "completed" || started.status === "failed") return;
+
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const status = await client.getSessionArchiveSyncStatus(workspaceId);
+      if (
+        status.status === "completed"
+        || status.status === "failed"
+        || status.status === "idle"
+      ) {
+        return;
+      }
+      await waitForArchiveSyncPoll();
+    }
+  } catch {
+    // Usage remains useful with the last completed archive snapshot when a
+    // background sync is temporarily unavailable.
+  }
+}
+
 /** All reported token buckets (includes prompt cache). Prefer for diagnostics only. */
 export function workspaceUsageTotal(usage: PersonalUsageTokenBreakdown) {
   return usage.inputTokens
@@ -129,6 +176,7 @@ export async function loadPersonalUsageSnapshots(input: {
   today: string;
 }): Promise<PersonalUsageLoadResult> {
   const results = await Promise.allSettled(input.workspaces.map(async (workspace) => {
+    await refreshPersonalUsageArchive(input.client, workspace.id);
     const [summary, topSessions, longestSessions] = await Promise.all([
       input.client.getSessionArchiveUsageSummary(workspace.id, {
         from: "1970-01-01",

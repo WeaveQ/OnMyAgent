@@ -1,12 +1,13 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Chrome, RefreshCw, ShieldCheck, SquareMousePointer } from "lucide-react";
+import { Globe, RefreshCw, ShieldCheck, SquareMousePointer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { busySpinClass } from "@/components/ui/busy-spin";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
-import { registerExtensionConfig } from "./extension-registry";
+import { registerExtensionConfig } from "../shared";
 
 type BrowserDiagnostics = {
   protocolVersion: number;
@@ -74,7 +75,7 @@ export function BrowserConfig() {
           <p className="mt-1 text-sm text-dls-secondary">{t("settings.browser.description")}</p>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={() => void refresh()} disabled={busy} aria-label={t("settings.browser.refresh")}>
-          <RefreshCw className={busy ? "animate-spin" : ""} />
+          <RefreshCw className={busySpinClass(busy)} />
         </Button>
       </div>
       <CapabilityCard
@@ -85,7 +86,7 @@ export function BrowserConfig() {
         ready={ready}
       />
       <CapabilityCard
-        icon={Chrome}
+        icon={Globe}
         title={t("settings.browser.chrome_title")}
         description={t("settings.browser.chrome_description")}
         status={t("settings.browser.local_package")}

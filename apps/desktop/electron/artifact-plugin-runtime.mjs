@@ -25,7 +25,6 @@ export const ARTIFACT_PLUGIN_SKILL_IDS = Object.freeze([
   "documents",
   "pdf",
   "spreadsheets",
-  // Reserved so the retired legacy skill cannot reappear through fallback materialization.
   "excel-live-control",
 ]);
 const artifactPluginAppManifestSchema = z.object({
@@ -211,12 +210,11 @@ export function artifactPluginEnablementPath(serverConfigPath) {
 }
 
 /**
- * @param {{ pluginRoot?: string, enablementPath?: string }} [options]
+ * @param {{ pluginRoot?: string, enablementPath?: string }} [input]
  */
-export async function isBrowserAutomationSkillEnabled({
-  pluginRoot,
-  enablementPath,
-} = {}) {
+export async function isBrowserAutomationSkillEnabled(input = {}) {
+  const pluginRoot = input.pluginRoot;
+  const enablementPath = input.enablementPath;
   if (!pluginRoot || !existsSync(pluginRoot)) return true;
   const catalog = await scanBundledArtifactPlugins(pluginRoot);
   const browserPlugin = catalog.items.find((plugin) => plugin.pluginId === "browser");

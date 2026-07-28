@@ -16,6 +16,10 @@ import type {
   OnboardingProfile,
 } from "../../kernel/local-provider";
 import type { AiSettingsConnectedProvider } from "../../domains/settings";
+import {
+  countOpenCodeProviderModels as countOpenCodeProviderModelsShared,
+  normalizeMergedProviderSource,
+} from "../../domains/connections";
 
 export type RouteWorkspace = OnMyAgentWorkspaceInfo & {
   displayNameResolved: string;
@@ -283,6 +287,7 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "memory":
     case "conversation-memory":
     case "archived-tasks":
+    case "recovery":
     case "debug":
       return { tab: head, redirectPath: null };
     case "cloud-marketplaces":
@@ -290,7 +295,6 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
       return { tab: head, redirectPath: null };
     // Removed stub settings pages — keep old deep links from 404ing.
     case "advanced":
-    case "recovery":
     case "skills":
     case "cloud-workers":
     case "cloud-account":
@@ -314,6 +318,92 @@ export function readNavigationSessionId(state: unknown): string | null {
   if (!state || typeof state !== "object") return null;
   const value = (state as { sessionId?: unknown }).sessionId;
   return typeof value === "string" ? value.trim() || null : null;
+}
+
+export function readNavigationPageMode(
+  state: unknown,
+): "assistant" | "expert" | null {
+  if (!state || typeof state !== "object") return null;
+  const value = (state as { pageMode?: unknown }).pageMode;
+  if (value === "assistant" || value === "expert") return value;
+  return null;
+}
+
+/** Exact shell path+search captured when opening settings. */
+export function readNavigationReturnTo(state: unknown): string | null {
+  if (!state || typeof state !== "object") return null;
+  const value = (state as { returnTo?: unknown }).returnTo;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  // Only allow in-app relative paths (no protocol / open redirect).
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  return trimmed;
+}
+
+/**
+ * Resolve where "Back to app" should land.
+ * Prefer exact returnTo; else rebuild from workspace + session + pageMode.
+ * Default pageMode is assistant (never hardcode expert-only session routes).
+ */
+export function resolveSettingsReturnPath(input: {
+  returnTo?: string | null;
+  workspaceId: string;
+  sessionId?: string | null;
+  pageMode?: "assistant" | "expert" | null;
+  workspaceAssistantRoute: (
+    workspaceId: string,
+    sessionId?: string | null,
+  ) => string;
+  workspaceSessionRoute: (
+    workspaceId: string,
+    sessionId?: string | null,
+  ) => string;
+}): string {
+  const exact = input.returnTo?.trim();
+  if (exact && exact.startsWith("/") && !exact.startsWith("//")) {
+    return exact;
+  }
+  const workspaceId = input.workspaceId.trim();
+  const mode = input.pageMode === "expert" ? "expert" : "assistant";
+  if (!workspaceId) {
+    return mode === "expert" ? "/session" : "/assistant";
+  }
+  return mode === "expert"
+    ? input.workspaceSessionRoute(workspaceId, input.sessionId)
+    : input.workspaceAssistantRoute(workspaceId, input.sessionId);
+}
+
+/**
+ * Prefer history.back when settings was opened from the shell (return state
+ * present) and the history stack has a previous entry. Tab switches use
+ * replace, so -1 lands on the pre-settings app surface.
+ */
+export function shouldPreferHistoryBackFromSettings(input: {
+  returnTo?: string | null;
+  pageMode?: "assistant" | "expert" | null;
+  sessionId?: string | null;
+  historyIndex?: number | null;
+}): boolean {
+  const hasReturnContext = Boolean(
+    input.returnTo?.trim() ||
+      input.pageMode === "assistant" ||
+      input.pageMode === "expert" ||
+      input.sessionId?.trim(),
+  );
+  if (!hasReturnContext) return false;
+  if (typeof input.historyIndex === "number") {
+    return input.historyIndex > 0;
+  }
+  // Unknown index: still prefer -1 when we captured return context from shell.
+  return true;
+}
+
+export function readHistoryIndexFromWindow(
+  historyState: unknown,
+): number | null {
+  if (!historyState || typeof historyState !== "object") return null;
+  const idx = (historyState as { idx?: unknown }).idx;
+  return typeof idx === "number" && Number.isFinite(idx) ? idx : null;
 }
 
 export function findSessionWorkspaceId(
@@ -431,17 +521,51 @@ export function settingsPathForRoute(route: SettingsRoutePath) {
   return route.tab;
 }
 
+/** Prefer normalizeMergedProviderSource from connections for new code. */
 export function normalizeSettingsProviderSource(
   source: ProviderListItem["source"],
 ): AiSettingsConnectedProvider["source"] | undefined {
-  if (
-    source === "env" ||
-    source === "api" ||
-    source === "config" ||
-    source === "custom"
-  ) {
-    return source;
-  }
-  return undefined;
+  return normalizeMergedProviderSource(source);
+}
+
+/** UI phase for Settings → Models header chrome (status + summary). */
+export type AiProvidersUiPhase = "loading" | "empty" | "ready";
+
+/**
+ * Resolve list header phase. Empty finished state is "empty" (not-configured),
+ * never the disconnected badge used for failed connections.
+ */
+export function resolveAiProvidersUiPhase(input: {
+  discovering: boolean;
+  providerCount: number;
+}): AiProvidersUiPhase {
+  if (input.discovering) return "loading";
+  if (input.providerCount > 0) return "ready";
+  return "empty";
+}
+
+/** i18n key for the status badge next to the provider summary. */
+export function aiProvidersStatusI18nKey(phase: AiProvidersUiPhase): string {
+  if (phase === "loading") return "settings.loading_providers";
+  if (phase === "ready") return "status.connected";
+  return "settings.providers_not_configured";
+}
+
+/** i18n key for the short summary line (not the empty-block body). */
+export function aiProvidersSummaryI18nKey(phase: AiProvidersUiPhase): string {
+  if (phase === "loading") return "settings.loading_providers";
+  if (phase === "ready") return "status.providers_connected";
+  return "settings.providers_empty_summary";
+}
+
+/**
+ * Model count for OpenCode-managed inventory rows.
+ * Prefer connections.countOpenCodeProviderModels for new code.
+ */
+export function countOpenCodeProviderModels(provider: {
+  models?: ReadonlyArray<{ id?: string } | string> | null;
+  settingsConfig?: Record<string, unknown> | null;
+}): number {
+  return countOpenCodeProviderModelsShared(provider);
 }
 

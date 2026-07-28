@@ -12,8 +12,7 @@ import {
 
 import type { ReloadReason, ReloadTrigger } from "../../app/types";
 import { t } from "../../i18n";
-import { ReloadWorkspaceToast } from "../domains/shell-feedback";
-import { StatusToastsViewport } from "../domains/shell-feedback";
+import { TopRightNotifications } from "../domains/shell-feedback";
 import { useSystemState } from "../kernel/system-state";
 
 type ReloadSession = { id: string; title: string };
@@ -128,17 +127,22 @@ export function ReloadCoordinatorProvider({ children }: { children: ReactNode })
   return (
     <ReloadCoordinatorContext.Provider value={value}>
       {children}
-      <ReloadWorkspaceToast
-        open={systemState.reload.reloadPending && activeSessions.length === 0 && !orgOnboardingVisible}
-        title={systemState.reloadCopy.title}
-        description={systemState.reloadCopy.body}
-        trigger={systemState.reload.reloadTrigger}
-        error={systemState.reload.reloadError}
+      {/* Production mount: reload toast + status toasts (TopRightNotifications). */}
+      <TopRightNotifications
+        reloadOpen={
+          systemState.reload.reloadPending &&
+          activeSessions.length === 0 &&
+          !orgOnboardingVisible
+        }
+        reloadTitle={systemState.reloadCopy.title}
+        reloadDescription={systemState.reloadCopy.body}
+        reloadTrigger={systemState.reload.reloadTrigger}
+        reloadError={systemState.reload.reloadError}
         reloadLabel={
           activeSessions.length > 0 ? t("app.reload_stop_tasks") : t("app.reload_now")
         }
         dismissLabel={t("app.reload_later")}
-        busy={systemState.reload.reloadBusy}
+        reloadBusy={systemState.reload.reloadBusy}
         canReload={systemState.canReloadWorkspaceEngine}
         hasActiveRuns={activeSessions.length > 0}
         onReload={() => {
@@ -146,11 +150,8 @@ export function ReloadCoordinatorProvider({ children }: { children: ReactNode })
             ? forceStopActiveSessionsAndReload()
             : systemState.reloadWorkspaceEngine());
         }}
-        onDismiss={systemState.clearReloadRequired}
+        onDismissReload={systemState.clearReloadRequired}
       />
-      <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(24rem,calc(100vw-1.5rem))] max-w-full flex-col gap-3 sm:right-6 sm:top-6">
-        <StatusToastsViewport />
-      </div>
     </ReloadCoordinatorContext.Provider>
   );
 }

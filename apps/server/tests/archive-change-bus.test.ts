@@ -41,6 +41,10 @@ describe("archive SSE change-bus wiring (structural)", () => {
       join(serverRoot, "src/routes/workspace-session-archive-routes.ts"),
       "utf8",
     );
+    const helpers = readFileSync(
+      join(serverRoot, "src/routes/workspace-session-archive-route-helpers.ts"),
+      "utf8",
+    );
     const sse = readFileSync(
       join(serverRoot, "src/routes/workspace-session-archive-sse.ts"),
       "utf8",
@@ -48,6 +52,13 @@ describe("archive SSE change-bus wiring (structural)", () => {
     expect(routes).toContain("notifyArchiveDbChanged");
     expect(routes).toContain("withSessionArchiveStore");
     expect(routes).toContain("workspace-session-archive-sse");
+    // Explicit POST /sync and auto-sync both notify.
+    expect(routes).toMatch(
+      /mode: parseSyncMode[\s\S]*?notifyArchiveDbChanged\(paths\.dbPath\)/,
+    );
+    // Mutation helpers accept notify flag; write paths pass { notify: true }.
+    expect(helpers).toContain("options?.notify");
+    expect(routes).toContain("{ notify: true }");
     expect(sse).toContain("subscribeArchiveDbChanges");
     expect(sse).toContain("archiveSessionWatchVersion");
     expect(sse).toContain("archiveStatsVersion");

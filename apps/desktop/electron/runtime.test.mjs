@@ -69,6 +69,47 @@ describe("snapshotOnMyAgentServerState", () => {
   });
 });
 
+describe("runtime skill links", () => {
+  it("makes newly installed user skills visible without restarting the engine", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-skill-refresh-"));
+    const home = path.join(root, "home");
+    const skillRoot = path.join(home, ".onmyagent", "skills", "introduce-order-dispatch");
+    await mkdir(skillRoot, { recursive: true });
+    await writeFile(
+      path.join(skillRoot, "SKILL.md"),
+      "---\nname: introduce-order-dispatch\ndescription: test\n---\n",
+      "utf8",
+    );
+    const manager = createRuntimeManager({
+      app: {
+        getPath(name) {
+          if (name === "home") return home;
+          if (name === "exe") return process.execPath;
+          return path.join(root, name);
+        },
+      },
+      desktopRoot: path.join(root, "desktop"),
+      listLocalWorkspacePaths: async () => [],
+    });
+
+    try {
+      await manager.refreshSkillLinks();
+      const linkedSkill = path.join(
+        root,
+        "userData",
+        "opencode",
+        "skills",
+        "introduce-order-dispatch",
+        "SKILL.md",
+      );
+      assert.equal(existsSync(linkedSkill), true);
+    } finally {
+      await manager.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("software environment", () => {
   it("uses bundled Node and Python and installs the bundled OpenCode CLI", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-runtime-test-"));
@@ -168,8 +209,10 @@ describe("software environment", () => {
       );
       const after = manager.softwareEnvironmentInfo();
       assert.equal(after.opencode, true);
-      assert.equal(after.details?.opencode.bundled, true);
-      assert.equal(after.details?.opencode.path, opencodeTarget);
+      // After install to ~/.opencode/bin, a version-compatible local copy may
+      // be selected; product still reports an available OpenCode runtime.
+      assert.ok(after.details?.opencode.path);
+      assert.equal(typeof after.details?.opencode.version, "string");
       assert.equal(execFileSync(installed.path, ["--version"], { encoding: "utf8" }).trim().length > 0, true);
     } finally {
       await manager.dispose();

@@ -1,7 +1,7 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   Check,
@@ -20,6 +20,7 @@ import {
   Settings2,
   Sparkles,
   Trash2,
+  Unplug,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -34,14 +35,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type {
+  AgentManagementAgent,
   AgentManagementFetchedModel,
   AgentManagementManagedProvider,
   AgentManagementProviderActionInput,
   AgentManagementSnapshot,
 } from "../../../../app/lib/desktop";
-import { agentManagementFetchModels, agentManagementProviderAction } from "../../../../app/lib/desktop";
+import {
+  agentManagementFetchModels,
+  agentManagementProviderAction,
+  agentManagementTestModel,
+} from "../../../../app/lib/desktop";
 import { t } from "../../../../i18n";
 import { AgentBrandIcon, type AgentBrandIconSize } from "../agent-brand-icon";
+import { visibleFleetConfigAgentKeys } from "./agent-fleet-model";
+import type { AgentManagementHealthResult } from "./agent-management-health";
 
 export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   opencode: "OpenCode CLI",
@@ -296,12 +304,52 @@ function codexCatalogRowsFromSettings(settings: Record<string, unknown>, fallbac
   }));
 }
 
+/**
+ * Resolve model rows for re-edit prefill.
+ * Prefer settingsConfig.models (live opencode.json truth) over provider.models,
+ * which can lag after "add model → save" when inventory rows are partially stale.
+ */
+export function modelsFromProviderSettings(
+  provider: AgentManagementManagedProvider,
+): AgentManagementManagedProvider["models"] {
+  const settings = provider.settingsConfig ?? {};
+
+  // OpenCode: settingsConfig.models is authoritative when present.
+  if (provider.appType === "opencode" && isRecordStringUnknown(settings.models)) {
+    const fromSettings = Object.entries(settings.models).map(([id, value]) => {
+      const row = isRecordStringUnknown(value) ? value : {};
+      const limit = isRecordStringUnknown(row.limit) ? row.limit : {};
+      return {
+        id,
+        name: String(row.name ?? id),
+        ...(limit.context != null ? { contextWindow: limit.context as number | string } : {}),
+        ...(limit.output != null ? { outputTokenLimit: limit.output as number | string } : {}),
+      };
+    });
+    if (fromSettings.length > 0) return fromSettings;
+  }
+
+  if (Array.isArray(settings.models) && settings.models.length > 0) {
+    return settings.models
+      .map((item) => {
+        if (!isRecordStringUnknown(item)) return null;
+        const id = String(item.id ?? item.model ?? item.name ?? "").trim();
+        if (!id) return null;
+        return { id, name: String(item.name ?? id) };
+      })
+      .filter((row): row is { id: string; name: string } => Boolean(row));
+  }
+
+  return Array.isArray(provider.models) ? provider.models : [];
+}
+
 export function providerDraftFromProvider(provider: AgentManagementManagedProvider): ProviderDraft {
   const settings = provider.settingsConfig ?? {};
   const options = isRecordStringUnknown(settings.options) ? settings.options : {};
   const env = isRecordStringUnknown(settings.env) ? settings.env : {};
   const codexAuth = isRecordStringUnknown(settings.auth) ? settings.auth : {};
   const codexConfig = typeof settings.config === "string" ? settings.config : "";
+  const modelList = modelsFromProviderSettings(provider);
   const baseUrl =
     provider.appType === "codex"
       ? extractCodexBaseUrlFromToml(codexConfig)
@@ -314,16 +362,16 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
       : "apiKey" in options
       ? String(options.apiKey ?? "")
       : String(settings.apiKey ?? settings.api_key ?? env.ANTHROPIC_AUTH_TOKEN ?? "");
-  const fallbackClaudeModel = String(env.ANTHROPIC_MODEL ?? env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? provider.models[0]?.id ?? "");
+  const fallbackClaudeModel = String(env.ANTHROPIC_MODEL ?? env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? modelList[0]?.id ?? "");
   return {
     editingId: provider.id,
     id: provider.id,
     name: provider.name,
     baseUrl,
     apiKey,
-    models: provider.models.map((model) => model.id).join("\n"),
-    modelRows: provider.models.length
-      ? provider.models.map((model) => createProviderModelDraftRow({
+    models: modelList.map((model) => model.id).join("\n"),
+    modelRows: modelList.length
+      ? modelList.map((model) => createProviderModelDraftRow({
         id: model.id,
         name: model.name || model.id,
         contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
@@ -340,7 +388,7 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
     claudeOpusName: String(env.ANTHROPIC_DEFAULT_OPUS_MODEL_NAME ?? env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? fallbackClaudeModel),
     claudeFableModel: String(env.ANTHROPIC_DEFAULT_FABLE_MODEL ?? env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? fallbackClaudeModel),
     claudeFableName: String(env.ANTHROPIC_DEFAULT_FABLE_MODEL_NAME ?? env.ANTHROPIC_DEFAULT_FABLE_MODEL ?? env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? fallbackClaudeModel),
-    codexCatalogRows: codexCatalogRowsFromSettings(settings, provider.models),
+    codexCatalogRows: codexCatalogRowsFromSettings(settings, modelList),
     settingsJson: JSON.stringify(provider.settingsConfig ?? {}, null, 2),
   };
 }
@@ -418,7 +466,19 @@ export function AgentManagementProviderModal(props: {
   const [fetchedModels, setFetchedModels] = useState<AgentManagementFetchedModel[]>([]);
   const [fetchModelsError, setFetchModelsError] = useState<string | null>(null);
   const [fetchModelsNotice, setFetchModelsNotice] = useState<string | null>(null);
+  /** Per model-row connectivity probe (rowId → result). */
+  const [modelTestByRowId, setModelTestByRowId] = useState<
+    Record<
+      string,
+      {
+        status: "idle" | "testing" | "ok" | "fail";
+        message?: string;
+      }
+    >
+  >({});
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const fetchModelsRunRef = useRef(0);
+  const modelTestRunByRowRef = useRef(new Map<string, number>());
   const modalOpenRef = useRef(props.open);
   const updateDraft = (patch: Partial<ProviderDraft>) => props.onDraftChange({ ...props.draft, ...patch });
   const canSubmit = props.draft.name.trim() && (props.draft.id.trim() || props.draft.name.trim());
@@ -427,11 +487,11 @@ export function AgentManagementProviderModal(props: {
   const fieldClass = "h-9 bg-dls-surface placeholder:text-dls-secondary disabled:bg-dls-hover disabled:text-dls-secondary";
   const textareaClass = "resize-y bg-dls-surface py-2.5 leading-5 placeholder:text-dls-secondary";
   // Compact default height so empty JSON does not dominate the modal.
-  const jsonTextareaClass = `${textareaClass} min-h-36 max-h-56 font-mono text-xs leading-5`;
+  const jsonTextareaClass = `${textareaClass} min-h-28 max-h-48 font-mono text-xs leading-5`;
   const labelClass = "text-xs font-medium text-dls-text";
   const hintClass = "text-xs leading-4 text-dls-secondary";
   const panelClass =
-    "flex h-full min-h-0 flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-4";
+    "flex h-full min-h-0 flex-col gap-4 rounded-xl border border-dls-border bg-dls-surface p-4";
   const modelSelectButtonClass = "relative flex h-9 w-9 items-center justify-center rounded-lg border border-dls-border bg-dls-surface text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text focus-within:border-dls-border";
   const requiredMark = <span className="ml-1 text-dls-status-danger-fg">*</span>;
 
@@ -442,12 +502,19 @@ export function AgentManagementProviderModal(props: {
     setFetchedModels([]);
     setFetchModelsError(null);
     setFetchModelsNotice(null);
+    setModelTestByRowId({});
+    modelTestRunByRowRef.current.clear();
+    setAdvancedOpen(false);
   }, [props.open, props.appType, props.draft.editingId]);
 
   const renderFetchedModelSelect = (onSelect: (model: AgentManagementFetchedModel) => void) => {
-    if (!fetchedModels.length) return <span className="hidden md:block" />;
+    // Return null (not a placeholder cell) so rows don't leave a blank gap.
+    if (!fetchedModels.length) return null;
     return (
-      <div className={modelSelectButtonClass} title={t("agent_manager.provider_modal.select_fetched_model")}>
+      <div
+        className={modelSelectButtonClass}
+        title={t("agent_manager.provider_modal.select_fetched_model")}
+      >
         <ChevronDown className="size-4" />
         <select
           value=""
@@ -461,10 +528,51 @@ export function AgentManagementProviderModal(props: {
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         >
           <option value="">{t("agent_manager.provider_modal.select")}</option>
-          {fetchedModels.map((model) => <option key={model.id} value={model.id}>{model.name || model.id}</option>)}
+          {fetchedModels.map((model) => (
+            <option key={model.id} value={model.id}>
+              {model.name || model.id}
+            </option>
+          ))}
         </select>
       </div>
     );
+  };
+
+  const applyFetchedModelToRow = (
+    rowId: string,
+    model: AgentManagementFetchedModel,
+  ) => {
+    updateModelRow(rowId, {
+      id: model.id,
+      name: model.name || model.id,
+      contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
+      outputTokenLimit:
+        model.outputTokenLimit == null ? "" : String(model.outputTokenLimit),
+    });
+  };
+
+  const addModelFromFetch = (model: AgentManagementFetchedModel) => {
+    const empty = props.draft.modelRows.find((row) => !row.id.trim());
+    if (empty) {
+      applyFetchedModelToRow(empty.rowId, model);
+      return;
+    }
+    props.onDraftChange({
+      ...props.draft,
+      modelRows: [
+        ...props.draft.modelRows,
+        createProviderModelDraftRow({
+          id: model.id,
+          name: model.name || model.id,
+          contextWindow:
+            model.contextWindow == null ? "" : String(model.contextWindow),
+          outputTokenLimit:
+            model.outputTokenLimit == null
+              ? ""
+              : String(model.outputTokenLimit),
+        }),
+      ],
+    });
   };
 
   const claudeMappingRows = [
@@ -520,43 +628,134 @@ export function AgentManagementProviderModal(props: {
       if (fetchModelsRunRef.current === runId && modalOpenRef.current) setFetchingModels(false);
     }
   };
+
+  /** Probe one model via chat/completions (max_tokens=1); does not change draft rows. */
+  const testModelRow = async (rowId: string, modelIdRaw: string) => {
+    const modelId = modelIdRaw.trim();
+    if (!props.draft.baseUrl.trim()) {
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "fail",
+          message: t("agent_manager.provider_modal.test_connection_need_url"),
+        },
+      }));
+      return;
+    }
+    if (!modelId) {
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "fail",
+          message: t("agent_manager.provider_modal.test_model_need_id"),
+        },
+      }));
+      return;
+    }
+    const runId = (modelTestRunByRowRef.current.get(rowId) ?? 0) + 1;
+    modelTestRunByRowRef.current.set(rowId, runId);
+    setModelTestByRowId((current) => ({
+      ...current,
+      [rowId]: { status: "testing" },
+    }));
+    try {
+      const result = await agentManagementTestModel({
+        appType: props.appType,
+        baseUrl: props.draft.baseUrl,
+        apiKey: props.draft.apiKey,
+        modelId,
+      });
+      if (
+        modelTestRunByRowRef.current.get(rowId) !== runId ||
+        !modalOpenRef.current
+      ) {
+        return;
+      }
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "ok",
+          message: t("agent_manager.provider_modal.test_model_ok", {
+            ms: result.elapsedMs,
+          }),
+        },
+      }));
+    } catch (error) {
+      if (
+        modelTestRunByRowRef.current.get(rowId) !== runId ||
+        !modalOpenRef.current
+      ) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      setModelTestByRowId((current) => ({
+        ...current,
+        [rowId]: {
+          status: "fail",
+          message: t("agent_manager.provider_modal.test_model_fail", {
+            message,
+          }),
+        },
+      }));
+    }
+  };
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="flex max-h-[90vh] !w-[min(920px,calc(100vw-32px))] !max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-surface p-0 text-dls-text sm:!max-w-none">
         <DialogHeader className="shrink-0 border-b border-dls-border bg-dls-surface px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <ProviderBrandIcon appType={props.appType} size="sm" />
-            <div className="min-w-0">
-              <DialogTitle className="truncate text-base font-medium text-dls-text">{editing ? t("agent_manager.provider_modal.edit_provider") : t("agent_manager.provider_modal.add_provider")}</DialogTitle>
-              <div className="mt-0.5 text-xs text-dls-secondary">{skillAgentLabel(props.appType)}{editing ? ` / ${props.draft.editingId}` : ""}</div>
+          <div className="min-w-0">
+            <DialogTitle className="truncate text-base font-medium text-dls-text">
+              {editing
+                ? t("agent_manager.provider_modal.edit_provider")
+                : t("agent_manager.provider_modal.add_provider")}
+            </DialogTitle>
+            <div className="mt-0.5 truncate text-xs text-dls-secondary">
+              {editing
+                ? t("agent_manager.provider_modal.edit_provider_subtitle", {
+                    id: props.draft.editingId ?? props.draft.id,
+                  })
+                : t("agent_manager.provider_modal.add_provider_subtitle")}
             </div>
           </div>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-dls-background px-5 py-4">
-          <div className="flex flex-col gap-4">
-            <div className="grid items-stretch gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-3">
+            <div className="grid items-stretch gap-3 lg:grid-cols-2">
             <section className={panelClass}>
-              <div>
-                <h3 className={providerTextClass.sectionTitle}>{t("agent_manager.provider_modal.basic_config")}</h3>
-                <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.basic_config_desc")}</p>
-              </div>
+              <h3 className={providerTextClass.sectionTitle}>
+                {t("agent_manager.provider_modal.basic_config")}
+              </h3>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1.5 sm:col-span-2">
-                  <span className={labelClass}>Provider Key{requiredMark}</span>
+              <div className="grid gap-3.5">
+                <label className="block space-y-1.5">
+                  <span className={labelClass}>
+                    {t("agent_manager.provider_modal.provider_key")}
+                    {requiredMark}
+                  </span>
                   <Input
                     value={props.draft.id}
                     onChange={(event) => updateDraft({ id: event.currentTarget.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "") })}
                     disabled={editing}
-                    placeholder="token-plan"
+                    placeholder={t("agent_manager.provider_modal.provider_key_placeholder")}
                     className={cn(fieldClass, providerKeyInvalid && "border-dls-status-danger-border focus:border-dls-status-danger")}
                   />
-                  <span className={cn(hintClass, providerKeyInvalid && "text-dls-status-danger-fg")}>{editing ? t("agent_manager.provider_modal.provider_key_locked") : providerKeyInvalid ? t("agent_manager.provider_modal.provider_key_invalid") : t("agent_manager.provider_modal.provider_key_hint")}</span>
+                  {/* Hints only when locked or invalid — keep the form quiet otherwise. */}
+                  {editing || providerKeyInvalid ? (
+                    <span className={cn(hintClass, providerKeyInvalid && "text-dls-status-danger-fg")}>
+                      {editing
+                        ? t("agent_manager.provider_modal.provider_key_locked")
+                        : t("agent_manager.provider_modal.provider_key_invalid")}
+                    </span>
+                  ) : null}
                 </label>
 
-                <label className="block space-y-1.5 sm:col-span-2">
-                  <span className={labelClass}>{t("agent_manager.provider_modal.display_name")}{requiredMark}</span>
+                <label className="block space-y-1.5">
+                  <span className={labelClass}>
+                    {t("agent_manager.provider_modal.display_name")}
+                    {requiredMark}
+                  </span>
                   <Input
                     value={props.draft.name}
                     onChange={(event) => updateDraft({ name: event.currentTarget.value })}
@@ -565,41 +764,78 @@ export function AgentManagementProviderModal(props: {
                   />
                 </label>
 
-                <label className="block space-y-1.5 sm:col-span-2">
-                  <span className={labelClass}>API Endpoint</span>
+                <label className="block space-y-1.5">
+                  <span className={labelClass}>
+                    {t("agent_manager.provider_modal.api_endpoint")}
+                  </span>
                   <Input
                     value={props.draft.baseUrl}
                     onChange={(event) => updateDraft({ baseUrl: event.currentTarget.value })}
-                    placeholder="https://api.example.com/v1"
+                    placeholder={t("agent_manager.provider_modal.api_endpoint_placeholder")}
                     className={fieldClass}
                   />
                 </label>
 
-                <label className="block space-y-1.5 sm:col-span-2">
-                  <span className={labelClass}>API Key</span>
+                <label className="block space-y-1.5">
+                  <span className={labelClass}>
+                    {t("agent_manager.provider_modal.api_key")}
+                  </span>
                   <Input
                     value={props.draft.apiKey}
                     onChange={(event) => updateDraft({ apiKey: event.currentTarget.value })}
-                    placeholder="sk-..."
+                    placeholder={t("agent_manager.provider_modal.api_key_placeholder")}
                     type="password"
                     className={fieldClass}
                   />
                 </label>
+
               </div>
             </section>
 
             <section className={panelClass}>
-              <div>
-                <h3 className={providerTextClass.sectionTitle}>{t("agent_manager.provider_modal.models_config")}</h3>
-                <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.models_config_desc")}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className={providerTextClass.sectionTitle}>
+                  {t("agent_manager.provider_modal.models_config")}
+                </h3>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {props.appType !== "claude" ? (
+                    <>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        disabled={!props.draft.baseUrl.trim() || fetchingModels}
+                        aria-busy={fetchingModels}
+                        title={
+                          props.draft.baseUrl.trim()
+                            ? t("agent_manager.provider_modal.fetch_models")
+                            : t("agent_manager.provider_modal.fetch_models_need_url")
+                        }
+                        onClick={fetchProviderModels}
+                      >
+                        {fetchingModels ? (
+                          <LoadingSpinner size="sm" className="mr-1" />
+                        ) : (
+                          <Download className="mr-1 size-3" />
+                        )}
+                        {t("agent_manager.provider_modal.fetch_models")}
+                      </Button>
+                      {props.appType === "codex" ? (
+                        <Button type="button" size="xs" variant="outline" onClick={addCodexCatalogRow}>
+                          <Plus className="mr-1 size-3" />
+                          {t("agent_manager.provider_modal.add_model")}
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
               </div>
 
               {props.appType === "claude" ? (
-                <div className="space-y-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3">
+                <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h4 className="text-xs font-medium text-dls-text">{t("agent_manager.provider_modal.claude_mapping")}</h4>
-                      <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.claude_mapping_desc")}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Button
@@ -668,27 +904,11 @@ export function AgentManagementProviderModal(props: {
                   </div>
                 </div>
               ) : props.appType === "codex" ? (
-                <div className="space-y-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-xs font-medium text-dls-text">{t("agent_manager.provider_modal.codex_mapping")}</h4>
-                      <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.codex_mapping_desc")}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button type="button" size="xs" variant="outline" disabled={!props.draft.baseUrl.trim()} aria-busy={fetchingModels} onClick={fetchProviderModels}>
-                        {fetchingModels ? <LoadingSpinner size="sm" className="mr-1" /> : <Download className="mr-1 size-3" />}
-                        {t("agent_manager.provider_modal.fetch_models")}
-                      </Button>
-                      <Button type="button" size="xs" variant="outline" onClick={addCodexCatalogRow}>
-                        <Plus className="mr-1 size-3" />
-                        {t("agent_manager.provider_modal.add_model")}
-                      </Button>
-                    </div>
-                  </div>
+                <div className="space-y-2.5">
                   {fetchModelsError ? <ProviderModelNotice tone="danger">{fetchModelsError}</ProviderModelNotice> : null}
                   {fetchModelsNotice ? <ProviderModelNotice tone="warning">{fetchModelsNotice}</ProviderModelNotice> : null}
                   {fetchedModels.length ? <ProviderModelNotice tone="success">{t("agent_manager.provider_modal.fetched_models", { count: fetchedModels.length })}</ProviderModelNotice> : null}
-                  <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_36px_32px] gap-2 px-1 text-xs font-medium text-dls-secondary md:grid">
+                  <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_36px_32px] gap-2 px-0.5 text-xs font-medium text-dls-secondary md:grid">
                     <span>{t("agent_manager.provider_modal.menu_display_name")}</span>
                     <span>{t("agent_manager.provider_modal.request_model")}</span>
                     <span>{t("agent_manager.provider_modal.context_window")}</span>
@@ -747,80 +967,234 @@ export function AgentManagementProviderModal(props: {
                       </Button>
                     ) : null}
                   </div>
-                  <span className={hintClass}>{t("agent_manager.provider_modal.codex_default_hint")}</span>
                 </div>
               ) : (
-                <div className="space-y-3 rounded-lg border border-dls-border bg-dls-surface-muted p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-xs font-medium text-dls-text">{t("agent_manager.provider_modal.model_list")}</h4>
-                      <p className="mt-1 text-xs leading-4 text-dls-secondary">{t("agent_manager.provider_modal.model_list_desc", { name: skillAgentLabel(props.appType) })}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button type="button" size="xs" variant="outline" disabled={!props.draft.baseUrl.trim()} aria-busy={fetchingModels} onClick={fetchProviderModels}>
-                        {fetchingModels ? <LoadingSpinner size="sm" className="mr-1" /> : <Download className="mr-1 size-3" />}
-                        {t("agent_manager.provider_modal.fetch_models")}
-                      </Button>
-                      <Button type="button" size="xs" variant="outline" onClick={addModelRow}>
-                        <Plus className="mr-1 size-3" />
-                        {t("agent_manager.provider_modal.add_model")}
-                      </Button>
-                    </div>
-                  </div>
-                  {fetchModelsError ? <ProviderModelNotice tone="danger">{fetchModelsError}</ProviderModelNotice> : null}
-                  {fetchModelsNotice ? <ProviderModelNotice tone="warning">{fetchModelsNotice}</ProviderModelNotice> : null}
-                  {fetchedModels.length ? <ProviderModelNotice tone="success">{t("agent_manager.provider_modal.fetched_models", { count: fetchedModels.length })}</ProviderModelNotice> : null}
-                  <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_36px_32px] gap-2 px-1 text-xs font-medium text-dls-secondary md:grid">
-                    <span>{t("agent_manager.provider_modal.model_id")}</span>
-                    <span>{t("agent_manager.provider_modal.display_name")}</span>
-                    <span />
-                    <span />
-                  </div>
-                  <div className="space-y-2">
-                    {props.draft.modelRows.map((row) => (
-                      <div key={row.rowId} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_36px_32px] md:items-center">
-                        <Input
-                          value={row.id}
-                          onChange={(event) => updateModelRow(row.rowId, {
-                            id: event.currentTarget.value,
-                            contextWindow: "",
-                            outputTokenLimit: "",
-                          })}
-                          list={fetchedModels.length ? `agent-provider-models-${props.appType}` : undefined}
-                          placeholder="qwen3.6-plus"
-                          className={fieldClass}
-                        />
-                        <Input
-                          value={row.name}
-                          onChange={(event) => updateModelRow(row.rowId, { name: event.currentTarget.value })}
-                          placeholder={row.id || t("agent_manager.provider_modal.model_display_name_placeholder")}
-                          className={fieldClass}
-                        />
-                        {renderFetchedModelSelect((model) => updateModelRow(row.rowId, {
-                          id: model.id,
-                          name: row.name.trim() ? row.name : model.name || model.id,
-                          contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
-                          outputTokenLimit: model.outputTokenLimit == null ? "" : String(model.outputTokenLimit),
-                        }))}
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeModelRow(row.rowId)} className="text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger-fg" aria-label={t("agent_manager.provider_modal.delete_model")}>
-                                <Trash2 className="size-3.5" />
-                              </Button>
-                            }
-                          />
-                          <TooltipContent side="bottom"><span>{t("agent_manager.provider_modal.delete_model")}</span></TooltipContent>
-                        </Tooltip>
+                <div className="space-y-3">
+                  {fetchModelsError ? (
+                    <ProviderModelNotice tone="danger">{fetchModelsError}</ProviderModelNotice>
+                  ) : null}
+                  {fetchModelsNotice ? (
+                    <ProviderModelNotice tone="warning">{fetchModelsNotice}</ProviderModelNotice>
+                  ) : null}
+                  {fetchedModels.length ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dls-border/80 bg-dls-background px-2.5 py-2">
+                      <span className="text-xs text-dls-secondary">
+                        {t("agent_manager.provider_modal.fetched_models", {
+                          count: fetchedModels.length,
+                        })}
+                      </span>
+                      <div className="relative ml-auto">
+                        <Button type="button" size="xs" variant="secondary">
+                          {t("agent_manager.provider_modal.select_fetched_model")}
+                          <ChevronDown className="ml-1 size-3" />
+                        </Button>
+                        <select
+                          value=""
+                          aria-label={t("agent_manager.provider_modal.select_fetched_model")}
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                          onChange={(event) => {
+                            const model = fetchedModels.find(
+                              (item) => item.id === event.currentTarget.value,
+                            );
+                            event.currentTarget.value = "";
+                            if (model) addModelFromFetch(model);
+                          }}
+                        >
+                          <option value="">
+                            {t("agent_manager.provider_modal.select")}
+                          </option>
+                          {fetchedModels.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name || model.id}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    ))}
-                    {props.draft.modelRows.length === 0 ? (
-                      <Button variant="dashed" size="sm" type="button" onClick={addModelRow} className="w-full">
-                        <Plus className="mr-1.5 size-3.5" />
-                        {t("agent_manager.provider_modal.add_first_model")}
-                      </Button>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
+
+                  {props.draft.modelRows.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={addModelRow}
+                      className={cn(
+                        "flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-dls-border",
+                        "bg-dls-background px-4 py-8 text-sm text-dls-secondary transition-colors",
+                        "hover:border-dls-accent/40 hover:bg-dls-hover/40 hover:text-dls-text",
+                      )}
+                    >
+                      <Plus className="size-5 opacity-70" />
+                      <span>{t("agent_manager.provider_modal.add_first_model")}</span>
+                      <span className="text-xs text-dls-secondary/80">
+                        {t("agent_manager.provider_modal.model_list_hint")}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 px-0.5 text-xs font-medium text-dls-secondary">
+                        <span>{t("agent_manager.provider_modal.model_id")}</span>
+                        <span>{t("agent_manager.provider_modal.display_name")}</span>
+                        <span className="w-[4.5rem]" aria-hidden="true" />
+                      </div>
+                      <ul className="space-y-2">
+                        {props.draft.modelRows.map((row, index) => {
+                          const rowTest = modelTestByRowId[row.rowId];
+                          const testingRow = rowTest?.status === "testing";
+                          return (
+                          <li key={row.rowId} className="space-y-1">
+                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
+                            <Input
+                              value={row.id}
+                              onChange={(event) => {
+                                const nextId = event.currentTarget.value;
+                                updateModelRow(row.rowId, {
+                                  id: nextId,
+                                  // Keep name in sync until the user edits it.
+                                  name:
+                                    !row.name.trim() || row.name === row.id
+                                      ? nextId
+                                      : row.name,
+                                  contextWindow: "",
+                                  outputTokenLimit: "",
+                                });
+                                // Clear stale probe when the model id changes.
+                                setModelTestByRowId((current) => {
+                                  if (!current[row.rowId]) return current;
+                                  const next = { ...current };
+                                  delete next[row.rowId];
+                                  return next;
+                                });
+                              }}
+                              list={
+                                fetchedModels.length
+                                  ? `agent-provider-models-${props.appType}`
+                                  : undefined
+                              }
+                              placeholder={t(
+                                "agent_manager.provider_modal.model_id_placeholder",
+                              )}
+                              className={fieldClass}
+                              aria-label={`${t("agent_manager.provider_modal.model_id")} ${index + 1}`}
+                            />
+                            <Input
+                              value={row.name}
+                              onChange={(event) =>
+                                updateModelRow(row.rowId, {
+                                  name: event.currentTarget.value,
+                                })
+                              }
+                              placeholder={
+                                row.id ||
+                                t(
+                                  "agent_manager.provider_modal.model_display_name_placeholder",
+                                )
+                              }
+                              className={fieldClass}
+                              aria-label={`${t("agent_manager.provider_modal.display_name")} ${index + 1}`}
+                            />
+                            <div className="flex items-center gap-0.5">
+                              {renderFetchedModelSelect((model) =>
+                                applyFetchedModelToRow(row.rowId, model),
+                              )}
+                              <Tooltip>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      disabled={
+                                        testingRow ||
+                                        fetchingModels ||
+                                        !props.draft.baseUrl.trim()
+                                      }
+                                      aria-busy={testingRow}
+                                      onClick={() =>
+                                        void testModelRow(row.rowId, row.id)
+                                      }
+                                      className={cn(
+                                        "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                                        rowTest?.status === "ok" &&
+                                          "text-dls-status-success-fg",
+                                        rowTest?.status === "fail" &&
+                                          "text-dls-status-danger-fg",
+                                      )}
+                                      aria-label={t(
+                                        "agent_manager.provider_modal.test_model",
+                                      )}
+                                    >
+                                      {testingRow ? (
+                                        <LoadingSpinner size="sm" />
+                                      ) : (
+                                        <Unplug className="size-3.5" />
+                                      )}
+                                    </Button>
+                                  }
+                                />
+                                <TooltipContent side="bottom">
+                                  <span>
+                                    {t(
+                                      "agent_manager.provider_modal.test_model",
+                                    )}
+                                  </span>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      onClick={() => removeModelRow(row.rowId)}
+                                      className="text-dls-secondary hover:bg-dls-status-danger/10 hover:text-dls-status-danger-fg"
+                                      aria-label={t(
+                                        "agent_manager.provider_modal.delete_model",
+                                      )}
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  }
+                                />
+                                <TooltipContent side="bottom">
+                                  <span>
+                                    {t("agent_manager.provider_modal.delete_model")}
+                                  </span>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            </div>
+                            {rowTest?.message ? (
+                              <ProviderModelNotice
+                                tone={
+                                  rowTest.status === "ok"
+                                    ? "success"
+                                    : rowTest.status === "fail"
+                                      ? "danger"
+                                      : "warning"
+                                }
+                              >
+                                {rowTest.message}
+                              </ProviderModelNotice>
+                            ) : null}
+                          </li>
+                          );
+                        })}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={addModelRow}
+                        className={cn(
+                          "flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-dls-border",
+                          "px-3 py-2 text-xs text-dls-secondary transition-colors",
+                          "hover:border-dls-accent/40 hover:text-dls-text",
+                        )}
+                      >
+                        <Plus className="size-3.5" />
+                        {t("agent_manager.provider_modal.add_model")}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -839,33 +1213,47 @@ export function AgentManagementProviderModal(props: {
                     placeholder={props.appType === "codex" ? "gpt-5.1" : "claude-sonnet-4-5"}
                     className={`${textareaClass} min-h-[72px]`}
                   />
-                  <span className={hintClass}>{props.appType === "codex" ? t("agent_manager.provider_modal.default_model_codex_hint") : t("agent_manager.provider_modal.default_model_claude_hint")}</span>
                 </label>
               )}
             </section>
             </div>
 
-            <section className="rounded-xl border border-dls-border bg-dls-surface p-4">
-              <label className="block space-y-1.5">
-                <span className={labelClass}>
-                  {t("agent_manager.provider_modal.advanced_json_config")}
+            <section className="rounded-xl border border-dls-border bg-dls-surface">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-xs font-medium text-dls-text hover:bg-dls-hover/50"
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((open) => !open)}
+              >
+                {advancedOpen ? (
+                  <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
+                ) : (
+                  <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+                )}
+                {t("agent_manager.provider_modal.advanced_json_config")}
+                <span className="font-normal text-dls-secondary">
+                  {t("agent_manager.provider_modal.advanced_json_optional")}
                 </span>
-                <Textarea
-                  value={props.draft.settingsJson}
-                  onChange={(event) =>
-                    updateDraft({ settingsJson: event.currentTarget.value })
-                  }
-                  placeholder={
-                    props.appType === "opencode"
-                      ? '{\n  "npm": "@ai-sdk/openai-compatible",\n  "options": {\n    "baseURL": "https://api.example.com/v1",\n    "apiKey": ""\n  },\n  "models": {}\n}'
-                      : props.appType === "openclaw"
-                        ? '{\n  "baseUrl": "https://api.example.com/v1",\n  "apiKey": "",\n  "api": "openai-completions",\n  "models": []\n}'
-                        : '{\n  "base_url": "https://api.example.com/v1",\n  "api_key": "",\n  "model": "qwen3.6-plus"\n}'
-                  }
-                  className={jsonTextareaClass}
-                  spellCheck={false}
-                />
-              </label>
+              </button>
+              {advancedOpen ? (
+                <div className="border-t border-dls-border px-4 py-3">
+                  <Textarea
+                    value={props.draft.settingsJson}
+                    onChange={(event) =>
+                      updateDraft({ settingsJson: event.currentTarget.value })
+                    }
+                    placeholder={
+                      props.appType === "opencode"
+                        ? '{\n  "npm": "@ai-sdk/openai-compatible",\n  "options": {\n    "baseURL": "https://api.example.com/v1",\n    "apiKey": ""\n  },\n  "models": {}\n}'
+                        : props.appType === "openclaw"
+                          ? '{\n  "baseUrl": "https://api.example.com/v1",\n  "apiKey": "",\n  "api": "openai-completions",\n  "models": []\n}'
+                          : '{\n  "base_url": "https://api.example.com/v1",\n  "api_key": "",\n  "model": "qwen3.6-plus"\n}'
+                    }
+                    className={jsonTextareaClass}
+                    spellCheck={false}
+                  />
+                </div>
+              ) : null}
             </section>
           </div>
         </div>
@@ -888,39 +1276,71 @@ export function AgentManagementProviderModal(props: {
   );
 }
 
+export type OpenCodeProviderSavedResult = {
+  providerId: string;
+  providerName: string;
+  modelId: string | null;
+  defaultModel: { providerID: string; modelID: string } | null;
+  /** Fresh OpenCode inventory from the save response (live-first snapshot). */
+  opencodeProviders?: AgentManagementManagedProvider[];
+};
+
 export function OpenCodeProviderConfigDialog(props: {
   workspaceRoot: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved?: () => void | Promise<void>;
+  /** When set, open as re-edit and prefill the first-entered fields. */
+  initialProvider?: AgentManagementManagedProvider | null;
+  onSaved?: (result: OpenCodeProviderSavedResult) => void | Promise<void>;
 }) {
-  const { open, onOpenChange, onSaved, workspaceRoot } = props;
+  const { open, onOpenChange, onSaved, workspaceRoot, initialProvider = null } = props;
   const [draft, setDraft] = useState<ProviderDraft>(() => defaultProviderDraft("opencode"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Seed draft only when the dialog opens (or switches provider), not when a
+  // background inventory refresh replaces initialProvider with a new object.
+  const seededForOpenKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    setDraft(defaultProviderDraft("opencode"));
+    if (!open) {
+      seededForOpenKeyRef.current = null;
+      return;
+    }
+    const key =
+      initialProvider && initialProvider.appType === "opencode"
+        ? `edit:${initialProvider.id}`
+        : "create";
+    if (seededForOpenKeyRef.current === key) return;
+    seededForOpenKeyRef.current = key;
+    setDraft(
+      initialProvider && initialProvider.appType === "opencode"
+        ? providerDraftFromProvider(initialProvider)
+        : defaultProviderDraft("opencode"),
+    );
     setError(null);
-  }, [open]);
+  }, [open, initialProvider]);
 
   const submit = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setError(null);
+    const isEdit = Boolean(draft.editingId);
     try {
-      await agentManagementProviderAction({
+      // Form fields are the source of truth. Never re-send the settingsJson
+      // snapshot from open — it freezes the pre-edit model list and makes
+      // "add model → save → re-open" show the old catalog.
+      const result = await agentManagementProviderAction({
         action: "save",
         appType: "opencode",
         syncLive: true,
+        // Create = fill-and-use; re-edit keeps the current default model selection.
+        setDefault: !isEdit,
         workspaceRoot,
         provider: {
-          id: draft.id,
+          id: draft.editingId || draft.id,
           name: draft.name,
-          settingsConfig: draft.settingsJson.trim() ? draft.settingsJson : undefined,
           simple: {
-            id: draft.id,
+            id: draft.editingId || draft.id,
             name: draft.name,
             baseUrl: draft.baseUrl,
             apiKey: draft.apiKey,
@@ -938,9 +1358,34 @@ export function OpenCodeProviderConfigDialog(props: {
           },
         },
       });
+      const providerId = String(result?.providerId ?? draft.editingId ?? draft.id).trim() || draft.id;
+      const modelId =
+        typeof result?.defaultModelId === "string" && result.defaultModelId.trim()
+          ? result.defaultModelId.trim()
+          : draft.modelRows.find((row) => row.id.trim())?.id.trim() || null;
+      const defaultModel =
+        result?.defaultModel &&
+        typeof result.defaultModel.providerID === "string" &&
+        typeof result.defaultModel.modelID === "string"
+          ? {
+              providerID: result.defaultModel.providerID,
+              modelID: result.defaultModel.modelID,
+            }
+          : !isEdit && modelId
+            ? { providerID: providerId, modelID: modelId }
+            : null;
       setDraft(defaultProviderDraft("opencode"));
       onOpenChange(false);
-      await onSaved?.();
+      const opencodeProviders = Array.isArray(result?.providers?.byAgent?.opencode)
+        ? (result.providers.byAgent.opencode as AgentManagementManagedProvider[])
+        : undefined;
+      await onSaved?.({
+        providerId,
+        providerName: draft.name.trim() || providerId,
+        modelId,
+        defaultModel,
+        opencodeProviders,
+      });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : String(saveError));
     } finally {
@@ -964,6 +1409,9 @@ export function OpenCodeProviderConfigDialog(props: {
 
 export function AgentManagementProviderPanel(props: {
   snapshot: AgentManagementSnapshot | null;
+  /** Fleet agents used to filter the left sidebar to healthy/available only. */
+  agents?: ReadonlyArray<AgentManagementAgent>;
+  healthResults?: Readonly<Record<string, AgentManagementHealthResult | undefined>>;
   /** True while parent has no snapshot yet — never show empty inventory copy. */
   loading?: boolean;
   busyKey: string | null;
@@ -974,26 +1422,67 @@ export function AgentManagementProviderPanel(props: {
   onProviderAction: (input: AgentManagementProviderActionInput, busyKey: string) => void;
 }) {
   const loading = Boolean(props.loading && !props.snapshot);
-  const providers = props.snapshot?.providers.byAgent[props.selectedApp] ?? [];
+  // Same healthy/available gate as skill matrix / MCP: hide missing, offline, needs_auth.
+  const visibleApps = useMemo(
+    () =>
+      visibleFleetConfigAgentKeys(
+        PROVIDER_APP_OPTIONS,
+        props.agents ?? props.snapshot?.agents ?? [],
+        props.healthResults,
+      ),
+    [props.agents, props.healthResults, props.snapshot?.agents],
+  );
+  const selectedApp = (
+    visibleApps.includes(props.selectedApp)
+      ? props.selectedApp
+      : (visibleApps[0] ?? props.selectedApp)
+  ) as AgentManagementProviderApp;
+
+  useEffect(() => {
+    if (visibleApps.length === 0) return;
+    if (!visibleApps.includes(props.selectedApp)) {
+      props.onSelectApp(visibleApps[0] as AgentManagementProviderApp);
+    }
+  }, [props.onSelectApp, props.selectedApp, visibleApps]);
+
+  const providers = props.snapshot?.providers.byAgent[selectedApp] ?? [];
   const activeProvider = providers.find((provider) => provider.isCurrent) ?? providers.find((provider) => provider.livePresent);
-  const appLabel = skillAgentLabel(props.selectedApp);
+  const appLabel = skillAgentLabel(selectedApp);
+  const visibleProviderCount = useMemo(
+    () =>
+      visibleApps.reduce(
+        (sum, app) => sum + (props.snapshot?.providers.byAgent[app]?.length ?? 0),
+        0,
+      ),
+    [props.snapshot?.providers.byAgent, visibleApps],
+  );
 
   return (
     <section className="grid h-full min-h-0 gap-4 lg:grid-cols-[232px_minmax(0,1fr)]">
-      {/* Agent runtime picker */}
+      {/* Agent runtime picker — healthy/available fleet only */}
       <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
         <div className="flex shrink-0 items-center justify-between border-b border-dls-border px-3 py-2.5">
           <span className="text-xs font-medium uppercase tracking-[0.06em] text-dls-secondary">
             Agent
           </span>
           <CountBadge size="dot" className="bg-dls-hover text-dls-secondary">
-            {props.snapshot?.providers.total ?? 0}
+            {visibleProviderCount}
           </CountBadge>
         </div>
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
-          {PROVIDER_APP_OPTIONS.map((app) => {
+          {loading && visibleApps.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 px-2 py-8 text-xs text-dls-secondary">
+              <LoadingSpinner size="sm" />
+              <span>{t("common.loading")}</span>
+            </div>
+          ) : visibleApps.length === 0 ? (
+            <EmptyStateBox size="compact" tone="surface" className="m-1 text-xs">
+              {t("agent_manager.provider_no_healthy_agents")}
+            </EmptyStateBox>
+          ) : (
+            visibleApps.map((app) => {
             const count = props.snapshot?.providers.byAgent[app]?.length ?? 0;
-            const selected = props.selectedApp === app;
+            const selected = selectedApp === app;
             return (
               <Tooltip key={app}>
                 <TooltipTrigger
@@ -1032,7 +1521,8 @@ export function AgentManagementProviderPanel(props: {
                 </TooltipContent>
               </Tooltip>
             );
-          })}
+          })
+          )}
         </div>
         {props.snapshot?.providers.databasePath ? (
           <div className="shrink-0 border-t border-dls-border px-3 py-2.5">
@@ -1053,7 +1543,7 @@ export function AgentManagementProviderPanel(props: {
       <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-dls-border px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <ProviderBrandIcon appType={props.selectedApp} size="sm" />
+            <ProviderBrandIcon appType={selectedApp} size="sm" />
             <div className="min-w-0">
               <h3 className="truncate text-sm font-medium text-dls-text">
                 {t("agent_manager.provider_suffix", { name: appLabel })}
@@ -1069,15 +1559,15 @@ export function AgentManagementProviderPanel(props: {
             <Button
               size="sm"
               variant="outline"
-              disabled={props.busyKey === `provider:${props.selectedApp}:import`}
+              disabled={props.busyKey === `provider:${selectedApp}:import`}
               onClick={() =>
                 props.onProviderAction(
-                  { action: "importLive", appType: props.selectedApp },
-                  `provider:${props.selectedApp}:import`,
+                  { action: "importLive", appType: selectedApp },
+                  `provider:${selectedApp}:import`,
                 )
               }
             >
-              {props.busyKey === `provider:${props.selectedApp}:import` ? (
+              {props.busyKey === `provider:${selectedApp}:import` ? (
                 <LoadingSpinner size="sm" className="mr-1.5" />
               ) : (
                 <Download className="mr-1.5 size-3.5" />
@@ -1254,15 +1744,15 @@ export function AgentManagementProviderPanel(props: {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={props.busyKey === `provider:${props.selectedApp}:import`}
+                  disabled={props.busyKey === `provider:${selectedApp}:import`}
                   onClick={() =>
                     props.onProviderAction(
-                      { action: "importLive", appType: props.selectedApp },
-                      `provider:${props.selectedApp}:import`,
+                      { action: "importLive", appType: selectedApp },
+                      `provider:${selectedApp}:import`,
                     )
                   }
                 >
-                  {props.busyKey === `provider:${props.selectedApp}:import` ? (
+                  {props.busyKey === `provider:${selectedApp}:import` ? (
                     <LoadingSpinner size="sm" className="mr-1.5" />
                   ) : (
                     <Download className="mr-1.5 size-3.5" />

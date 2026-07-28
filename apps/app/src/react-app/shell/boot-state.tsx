@@ -32,7 +32,11 @@ export type BootStateSnapshot = {
 type BootStateContextValue = BootStateSnapshot & {
   routeReady: boolean;
   setPhase: (phase: BootPhaseId, detail?: string | null) => void;
-  setError: (message: string | null) => void;
+  /**
+   * User-facing error for the overlay. Prefer i18n; optional technical detail
+   * is stored separately and not shown as the primary line.
+   */
+  setError: (message: string | null, technicalDetail?: string | null) => void;
   markReady: () => void;
   markRouteReady: () => void;
 };
@@ -46,23 +50,91 @@ const DEFAULT_STATE: BootStateSnapshot = {
   error: null,
 };
 
-const PHASE_MESSAGES: Record<BootPhaseId, string> = {
-  idle: "",
-  "bootstrapping-workspaces": "Loading your workspaces",
-  "starting-onmyagent-server": "Starting the OnMyAgent server",
-  "starting-engine": t("system.boot_preparing_workspace"),
-  "activating-workspace": t("system.boot_activating_workspace"),
-  ready: t("system.boot_ready"),
-  error: t("system.boot_error"),
-};
+/** Resolve phase copy at call time so locale switches stay correct. */
+export function bootPhaseMessage(phase: BootPhaseId): string {
+  switch (phase) {
+    case "idle":
+      return "";
+    case "bootstrapping-workspaces":
+      return t("system.boot_loading_workspaces");
+    case "starting-onmyagent-server":
+      return t("system.boot_starting_server");
+    case "starting-engine":
+      return t("system.boot_preparing_workspace");
+    case "activating-workspace":
+      return t("system.boot_activating_workspace");
+    case "ready":
+      return t("system.boot_ready");
+    case "error":
+      return t("system.boot_error");
+    default:
+      return t("system.boot_preparing_workspace");
+  }
+}
+
+/**
+ * Map unknown/raw failures to a short user-facing string. Raw stack or
+ * engine strings become a generic message; known i18n keys pass through.
+ */
+export function userFacingBootError(
+  error: unknown,
+  fallbackKey = "system.boot_start_runtime_failed",
+): { message: string; technicalDetail: string | null } {
+  if (error == null || error === "") {
+    return { message: t(fallbackKey), technicalDetail: null };
+  }
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    // Already localized product copy (zh/en short sentences without stack).
+    if (
+      trimmed &&
+      !trimmed.includes("\n") &&
+      !/Error:|at\s+\S+\s+\(|ENOENT|ECONNREFUSED|TypeError/i.test(trimmed) &&
+      trimmed.length < 160
+    ) {
+      // Prefer known friendly templates when the string matches English internals.
+      if (/did not finish starting/i.test(trimmed)) {
+        return {
+          message: t("system.boot_server_not_ready"),
+          technicalDetail: trimmed,
+        };
+      }
+      if (/Failed to start OnMyAgent runtime/i.test(trimmed)) {
+        return {
+          message: t("system.boot_start_runtime_failed"),
+          technicalDetail: trimmed,
+        };
+      }
+      return { message: trimmed, technicalDetail: null };
+    }
+    return {
+      message: t(fallbackKey),
+      technicalDetail: trimmed || null,
+    };
+  }
+  if (error instanceof Error) {
+    return userFacingBootError(error.message, fallbackKey);
+  }
+  try {
+    const serialized = JSON.stringify(error);
+    return {
+      message: t(fallbackKey),
+      technicalDetail:
+        serialized && serialized !== "{}" ? serialized.slice(0, 500) : null,
+    };
+  } catch {
+    return { message: t(fallbackKey), technicalDetail: null };
+  }
+}
 
 const BootStateContext = createContext<BootStateContextValue | null>(null);
 
 export function BootStateProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<BootStateSnapshot>(DEFAULT_STATE);
-  // Once the main route has finished its first successful refresh (workspaces
-  // + sessions fetched), we consider the app "interactive". This is a one-way
-  // latch so subsequent background refreshes never re-show the overlay.
+  // Once the main route has enough shell chrome to paint (workspace list and
+  // optionally cached sidebar titles), we consider the app interactive. This
+  // is a one-way latch so subsequent background refreshes never re-show the
+  // overlay. Session index and engine warm-up continue after this latch.
   const [routeReady, setRouteReady] = useState(false);
   const startedAtRef = useRef<number | null>(null);
 
@@ -75,7 +147,7 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
       return {
         ...current,
         phase,
-        message: PHASE_MESSAGES[phase] ?? current.message,
+        message: bootPhaseMessage(phase) || current.message,
         detail: detail ?? null,
         startedAt: nextStartedAt,
         completedAt: phase === "ready" ? Date.now() : null,
@@ -84,20 +156,27 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setError = useCallback((message: string | null) => {
-    setSnapshot((current) => ({
-      ...current,
-      error: message,
-      phase: message ? "error" : current.phase,
-      message: message ? PHASE_MESSAGES.error : current.message,
-    }));
-  }, []);
+  const setError = useCallback(
+    (message: string | null, technicalDetail?: string | null) => {
+      setSnapshot((current) => ({
+        ...current,
+        error: message,
+        phase: message ? "error" : current.phase,
+        message: message ? bootPhaseMessage("error") : current.message,
+        detail:
+          technicalDetail === undefined
+            ? current.detail
+            : technicalDetail,
+      }));
+    },
+    [],
+  );
 
   const markReady = useCallback(() => {
     setSnapshot((current) => ({
       ...current,
       phase: "ready",
-      message: PHASE_MESSAGES.ready,
+      message: bootPhaseMessage("ready"),
       detail: null,
       completedAt: Date.now(),
       error: null,
@@ -109,11 +188,20 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<BootStateContextValue>(
-    () => ({ ...snapshot, routeReady, setPhase, setError, markReady, markRouteReady }),
+    () => ({
+      ...snapshot,
+      routeReady,
+      setPhase,
+      setError,
+      markReady,
+      markRouteReady,
+    }),
     [markReady, markRouteReady, routeReady, setError, setPhase, snapshot],
   );
 
-  return <BootStateContext.Provider value={value}>{children}</BootStateContext.Provider>;
+  return (
+    <BootStateContext.Provider value={value}>{children}</BootStateContext.Provider>
+  );
 }
 
 export function useBootState(): BootStateContextValue {
@@ -125,28 +213,45 @@ export function useBootState(): BootStateContextValue {
 }
 
 /**
- * Overlay stays up until BOTH the desktop boot hook has reported `ready` AND
- * the main route has completed its first refresh (`routeReady`). After that
- * we hold for ~160ms so the fade feels intentional instead of a flicker.
+ * Boot overlay hide policy (product):
+ * 1. Keep covering while runtime is still bootstrapping / starting the engine
+ *    — otherwise users see a washed empty home behind a half-ready shell.
+ * 2. Also wait for `routeReady` (workspace chrome can paint).
+ * 3. Hold a minimum time so we never flash the empty shell for a few frames.
+ * Errors keep the overlay so retry chrome stays visible.
  */
+const BOOT_BLOCKING_PHASES: ReadonlySet<BootPhaseId> = new Set([
+  "bootstrapping-workspaces",
+  "starting-onmyagent-server",
+  "starting-engine",
+  "activating-workspace",
+]);
+
+/** Minimum overlay visibility after first paint (ms). */
+const BOOT_OVERLAY_MIN_MS = 750;
+/** Extra settle after canHide so first meaningful frame can paint under the fade. */
+const BOOT_OVERLAY_SETTLE_MS = 400;
+
 export function useBootOverlayVisible(): boolean {
-  const { phase, routeReady } = useBootState();
+  const { phase, routeReady, startedAt } = useBootState();
+  const bootStillBlocking = BOOT_BLOCKING_PHASES.has(phase);
   // HMR can remount the provider while the route tree stays mounted. In that
   // state the boot phase falls back to `idle`, but the already-rendered route
-  // is interactive and can mark itself ready again. Treat `idle + routeReady`
-  // the same as `ready + routeReady` so the full-screen boot overlay never
-  // becomes a permanent pointer-events blocker during development.
-  const canHide = routeReady && (phase === "ready" || phase === "idle");
-  const [visible, setVisible] = useState(!canHide);
+  // is interactive and can mark itself ready again.
+  const canHide =
+    routeReady && !bootStillBlocking && phase !== "error";
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (canHide) {
-      const handle = window.setTimeout(() => setVisible(false), 200);
-      return () => window.clearTimeout(handle);
+    if (!canHide) {
+      setVisible(true);
+      return undefined;
     }
-    setVisible(true);
-    return undefined;
-  }, [canHide]);
+    const elapsed = startedAt != null ? Date.now() - startedAt : 0;
+    const wait = Math.max(BOOT_OVERLAY_SETTLE_MS, BOOT_OVERLAY_MIN_MS - elapsed + BOOT_OVERLAY_SETTLE_MS);
+    const handle = window.setTimeout(() => setVisible(false), wait);
+    return () => window.clearTimeout(handle);
+  }, [canHide, startedAt]);
 
   return visible;
 }

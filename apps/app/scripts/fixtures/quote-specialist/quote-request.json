@@ -1,0 +1,43 @@
+{
+  "asOfDate": "2026-07-23",
+  "quoteId": "Q-20260723-001",
+  "currency": "CNY",
+  "inquiry": {
+    "origin": "深圳宝安",
+    "destination": "成都双流",
+    "cargoName": "注塑配件",
+    "weightKg": 1800,
+    "volumeM3": 12,
+    "vehicleType": "9.6米厢车/零担",
+    "requiredHours": 48,
+    "pickupRequired": true,
+    "deliveryRequired": true,
+    "stackable": true,
+    "taxIncluded": true,
+    "podType": "电子+原件"
+  },
+  "costBase": {
+    "linehaul": 4200,
+    "pickup": 500,
+    "delivery": 600,
+    "handling": 200,
+    "pod": 80,
+    "insurance": 120,
+    "tax": 360,
+    "other": 0
+  },
+  "pricingPolicy": {
+    "floorMarginRate": 0.08,
+    "targetMarginRate": 0.15,
+    "fastestMarkupRate": 0.12,
+    "cheapestDiscountRate": 0.2,
+    "validHours": 24
+  },
+  "optionAdjustments": {
+    "fastest": { "cost": 500, "hours": 36, "service": "优先直发" },
+    "balanced": { "cost": 0, "hours": 48, "service": "标准班次" },
+    "cheapest": { "cost": -300, "hours": 72, "service": "可拼载候车" }
+  },
+  "confirmedSurcharges": ["尾板费已含"],
+  "pendingConditions": ["进仓预约等待时长待确认"]
+}

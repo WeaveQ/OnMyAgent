@@ -9,11 +9,9 @@ import {
 import type { UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
+import { listCodeWorkspaceFiles } from "../../../../app/lib/desktop";
+import { isElectronRuntime } from "../../../../app/utils";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
-import {
-  readSessionTranscriptNotices,
-  writeSessionTranscriptNotices,
-} from "../../../../app/lib/session-transcript-notices";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { currentLocale, t } from "../../../../i18n";
 import {
@@ -25,8 +23,8 @@ import type {
 } from "../../../../app/lib/onmyagent-server";
 import type {
   ComposerAttachment,
-  ComposerCollaborationMode,
   ComposerDraft,
+  ComposerMentionTarget,
   ComposerPart,
   CollaborationGoalRuntime,
   McpServerEntry,
@@ -36,7 +34,6 @@ import type {
 } from "../../../../app/types";
 import { publishInspectorSlice, recordInspectorEvent, useReactRenderWatchdog } from "../../../shell";
 import {
-  deriveAssistantActivity,
   getAssistantActivityPhaseLabel,
 } from "./chrome/assistant-activity";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
@@ -45,21 +42,18 @@ import {
   encodeComposerMentionValue,
 } from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import { workspaceMentionTargets } from "../../../capabilities/artifacts/workspace-mention-targets";
 
 import type { ReactComposerNotice } from "./composer/notice";
 import {
   deriveRenderedSessionMessages,
   resolveRenderedSessionSnapshot,
 } from "./session-render-state";
-import {
-  type SessionTranscriptDivider,
-} from "./message-list";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
 import {
   useSessionActivityStore,
-  type SessionActivityStatus,
 } from "../status/session-activity-store";
 import {
   deriveOpenTargets,
@@ -69,20 +63,29 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
+import { SESSION_SNAPSHOT_STALE_TIME_MS } from "../sync/session-poll-policy";
 import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
   latestOutputLimitedAssistantMessage,
 } from "../sync/output-limit-recovery";
 import {
-  deriveGoalSummary,
   manualStopNoticeKind,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
-  shouldShowSessionActivity,
   summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
+import {
+  applySendDraftIntents,
+  buildGoalPauseRuntime,
+  buildGoalResumeRuntime,
+  buildPlanExecutionRequest,
+  goalResumeCollaborationMode,
+  makeSessionRunKey,
+  resolveAbortAction,
+  shouldBlockCodeDraftSend,
+} from "./session-surface-run-orchestration";
 import {
   getComposerAttachments,
   getComposerDraft,
@@ -98,9 +101,7 @@ import {
 } from "./personal-assistant-config";
 import { personalizeAssistantScenariosForMenu } from "./personalize-assistant-scenarios";
 import {
-  assistantFallbackText,
   messageToReadableText,
-  messageHasVisibleAssistantOutput,
   findTranscriptSearchMatchIds,
   transcriptToText,
 } from "./session-surface-model";
@@ -112,7 +113,6 @@ import {
 } from "./session-surface-support";
 import {
   filterCompactionMessages,
-  messageActivityFingerprint,
 } from "./transcript/message-compaction";
 import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
@@ -122,6 +122,8 @@ import { useSessionSurfacePendingAgent } from "./session-surface-pending-agent";
 import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
 import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
 import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
+import { useSessionSurfaceTranscriptNotices } from "./session-surface-transcript-notices";
+import { useSessionSurfaceActivityModel } from "./session-surface-activity-model";
 import { SessionSurfaceView } from "./session-surface-view";
 import {
   AssistantNoVisibleOutputCard,
@@ -133,13 +135,11 @@ import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
 import {
   buildGoalHiddenSystemPrompt,
   buildLocaleRuntimeInstruction,
-  buildPlanExecutionHiddenSystemPrompt,
   createSessionInterruptionNotice,
   goalElapsedMs,
   isGoalIntentRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
-  transcriptNoticeLabel,
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
 import {
@@ -349,7 +349,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
           { limit: 140, directory: props.workspaceRoot },
         )
       ).item,
-    staleTime: 500,
+    staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
   });
   const currentSnapshot =
     snapshotQuery.data?.session.id === props.sessionId
@@ -363,22 +363,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     statusQueryKey,
     currentSnapshot?.status ?? IDLE_STATUS,
   );
-  const [compactBoundaryBySessionId, setCompactBoundaryBySessionId] =
-    useState<Record<string, number>>({});
-  const [transcriptNoticesBySessionId, setTranscriptNoticesBySessionId] =
-    useState<Record<string, SessionTranscriptNotice[]>>(
-      readSessionTranscriptNotices,
-    );
-  const [stallRecoveryBySessionId, setStallRecoveryBySessionId] =
-    useState<Record<string, boolean>>({});
   const activeRunStartedAtRef = useRef<number | null>(null);
   const activeRunKeyRef = useRef<string | null>(null);
-  const compactWasActiveRef = useRef<Record<string, boolean>>({});
-  const autoApprovedPermissionNoticeRef = useRef<Record<string, string>>({});
-  useEffect(() => {
-    writeSessionTranscriptNotices(transcriptNoticesBySessionId);
-  }, [transcriptNoticesBySessionId]);
-  const compactBoundary = compactBoundaryBySessionId[props.sessionId] ?? null;
 
   useEffect(() => {
     if (!currentSnapshot) return;
@@ -493,6 +479,22 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  const {
+    compactBoundary,
+    transcriptNoticesBySessionId,
+    setTranscriptNoticesBySessionId,
+    stallRecoveryBySessionId,
+    setStallRecoveryBySessionId,
+    markStallRecovery,
+    appendTranscriptNotice,
+    interruptionDividers,
+  } = useSessionSurfaceTranscriptNotices({
+    sessionId: props.sessionId,
+    rawRenderedMessageCount: rawRenderedMessages.length,
+    renderedMessageCount: rawRenderedMessages.length,
+    sessionActivityStatus,
+    autoApprovedPermissionNoticeId: props.autoApprovedPermissionNoticeId,
+  });
   const renderedMessages = useMemo(
     () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
     [compactBoundary, rawRenderedMessages],
@@ -568,105 +570,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   ]);
   const renderedMessageCountRef = useRef(renderedMessages.length);
   renderedMessageCountRef.current = renderedMessages.length;
-  const appendTranscriptNotice = useCallback(
-    (notice: SessionTranscriptNotice) => {
-      setTranscriptNoticesBySessionId((current) => {
-        const existing = current[props.sessionId] ?? [];
-        return {
-          ...current,
-          [props.sessionId]: [...existing, notice].slice(
-            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
-          ),
-        };
-      });
-    },
-    [props.sessionId],
-  );
-  const updateLatestTranscriptNotice = useCallback(
-    (
-      predicate: (notice: SessionTranscriptNotice) => boolean,
-      update: (notice: SessionTranscriptNotice) => SessionTranscriptNotice,
-    ) => {
-      setTranscriptNoticesBySessionId((current) => {
-        const existing = current[props.sessionId] ?? [];
-        let targetIndex = -1;
-        for (let index = existing.length - 1; index >= 0; index -= 1) {
-          const notice = existing[index];
-          if (notice && predicate(notice)) {
-            targetIndex = index;
-            break;
-          }
-        }
-        if (targetIndex < 0) return current;
-        const next = [...existing];
-        const target = next[targetIndex];
-        if (!target) return current;
-        next[targetIndex] = update(target);
-        return { ...current, [props.sessionId]: next };
-      });
-    },
-    [props.sessionId],
-  );
-  useEffect(() => {
-    const noticeId = props.autoApprovedPermissionNoticeId?.trim();
-    if (!noticeId) return;
-    if (autoApprovedPermissionNoticeRef.current[props.sessionId] === noticeId) {
-      return;
-    }
-    autoApprovedPermissionNoticeRef.current = {
-      ...autoApprovedPermissionNoticeRef.current,
-      [props.sessionId]: noticeId,
-    };
-    appendTranscriptNotice({
-      id: `${props.sessionId}:permission-auto-approved:${noticeId}`,
-      kind: "permission-auto-approved",
-      afterMessageCount: renderedMessages.length,
-    });
-  }, [
-    appendTranscriptNotice,
-    props.autoApprovedPermissionNoticeId,
-    props.sessionId,
-    renderedMessages.length,
-  ]);
-  useEffect(() => {
-    const compacting = sessionActivityStatus === "compacting";
-    const wasCompacting = compactWasActiveRef.current[props.sessionId] === true;
-    if (compacting) {
-      if (!wasCompacting) {
-        setCompactBoundaryBySessionId((current) => ({
-          ...current,
-          [props.sessionId]: rawRenderedMessages.length,
-        }));
-        appendTranscriptNotice({
-          id: `${props.sessionId}:compacting:${renderedMessages.length}:${Date.now()}`,
-          kind: "compacting",
-          afterMessageCount: renderedMessages.length,
-        });
-      }
-      compactWasActiveRef.current = {
-        ...compactWasActiveRef.current,
-        [props.sessionId]: true,
-      };
-      return;
-    }
-    if (wasCompacting) {
-      compactWasActiveRef.current = {
-        ...compactWasActiveRef.current,
-        [props.sessionId]: false,
-      };
-      updateLatestTranscriptNotice(
-        (notice) => notice.kind === "compacting",
-        (notice) => ({ ...notice, kind: "compacted" }),
-      );
-    }
-  }, [
-    appendTranscriptNotice,
-    props.sessionId,
-    rawRenderedMessages.length,
-    renderedMessages.length,
-    sessionActivityStatus,
-    updateLatestTranscriptNotice,
-  ]);
   useSessionSurfacePlanGoalEffects({
     chatStreaming,
     renderedMessages,
@@ -708,39 +611,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     !snapshot &&
     snapshotQuery.isLoading &&
     renderedMessages.length === 0;
-  const assistantOutputAfterAwaitStart = useMemo(() => {
-    if (awaitingAssistantBaseline === null) return false;
-    return renderedMessages
-      .slice(awaitingAssistantBaseline)
-      .some(messageHasVisibleAssistantOutput);
-  }, [awaitingAssistantBaseline, renderedMessages]);
-  const noVisibleAssistantOutputText = useMemo(() => {
-    if (noVisibleAssistantOutputBaseline === null) return "";
-    return assistantFallbackText(
-      renderedMessages,
-      noVisibleAssistantOutputBaseline,
-    );
-  }, [noVisibleAssistantOutputBaseline, renderedMessages]);
-  const assistantOutputAfterNoVisibleFallback = useMemo(() => {
-    if (noVisibleAssistantOutputBaseline === null) return false;
-    return renderedMessages
-      .slice(noVisibleAssistantOutputBaseline)
-      .some(messageHasVisibleAssistantOutput);
-  }, [noVisibleAssistantOutputBaseline, renderedMessages]);
-  const showAssistantWaitState =
-    awaitingAssistantBaseline !== null && !assistantOutputAfterAwaitStart;
-  const showAssistantRespondingState =
-    awaitingAssistantBaseline !== null &&
-    assistantOutputAfterAwaitStart &&
-    chatStreaming;
-  const effectiveActivityStatus: SessionActivityStatus =
-    sessionActivityStatus !== "idle"
-      ? sessionActivityStatus
-      : showAssistantWaitState
-        ? "thinking"
-        : showAssistantRespondingState
-          ? "responding"
-          : "idle";
   const activePermissionNeedsApproval = Boolean(
     props.activePermission &&
       !resolveAccessModePermissionReply(
@@ -748,30 +618,30 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
         props.activePermission.permission,
       ),
   );
-  const assistantActivity = deriveAssistantActivity({
-    status: effectiveActivityStatus,
-    sending,
-    hasActivePermission: activePermissionNeedsApproval,
-    hasActiveQuestion: Boolean(props.activeQuestion),
-    messages: renderedMessages,
-  });
-  const activityFingerprint = useMemo(
-    () => messageActivityFingerprint(renderedMessages),
-    [renderedMessages],
-  );
-  const activityVisible = shouldShowSessionActivity({
+  const {
+    assistantOutputAfterAwaitStart,
+    noVisibleAssistantOutputText,
+    showAssistantWaitState,
+    showAssistantRespondingState,
+    effectiveActivityStatus,
+    assistantActivity,
+    activityFingerprint,
+    activityVisible,
+    showNoVisibleAssistantOutput,
+  } = useSessionSurfaceActivityModel({
+    renderedMessages,
+    awaitingAssistantBaseline,
+    noVisibleAssistantOutputBaseline,
+    sessionActivityStatus,
     chatStreaming,
-    activityStatus: effectiveActivityStatus,
-    goalRuntime: props.goalRuntime ?? null,
-    stopRequested: props.draftOnly ? false : storedSessionStopRequested,
-    runInterrupted:
-      !props.draftOnly &&
-      storedSessionRunKey !== null &&
-      (transcriptNoticesBySessionId[props.sessionId] ?? []).some(
-        (notice) =>
-          (notice.kind === "cancelled" || notice.kind === "stopped") &&
-          notice.runKey === storedSessionRunKey,
-      ),
+    sending,
+    activePermissionNeedsApproval,
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    goalRuntime: props.goalRuntime,
+    draftOnly: props.draftOnly,
+    stopRequested: storedSessionStopRequested,
+    storedSessionRunKey,
+    transcriptNotices: transcriptNoticesBySessionId[props.sessionId] ?? [],
   });
   const { showStalledActivityNotice, shouldInjectStallRecovery } =
     useSessionSurfaceActivityStall({
@@ -781,6 +651,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       liveStatusType: liveStatus.type,
       activityVisible,
     });
+  useEffect(() => {
+    if (!shouldInjectStallRecovery) return;
+    markStallRecovery();
+  }, [markStallRecovery, shouldInjectStallRecovery]);
   const visibleError = [
     error,
     sessionActivityError ? { message: sessionActivityError } : null,
@@ -789,27 +663,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const cancelledError =
     visibleError && isUserCancelledError(visibleError) ? visibleError : null;
   const visibleTranscriptError = cancelledError ? null : visibleError;
-  useEffect(() => {
-    if (!shouldInjectStallRecovery) return;
-    setStallRecoveryBySessionId((current) => {
-      if (current[props.sessionId]) return current;
-      return { ...current, [props.sessionId]: true };
-    });
-  }, [props.sessionId, shouldInjectStallRecovery]);
-  const interruptionDividers = useMemo<SessionTranscriptDivider[]>(() => {
-    const notices = transcriptNoticesBySessionId[props.sessionId] ?? [];
-    return notices.map((notice) => ({
-      id: notice.id,
-      afterMessageCount: notice.afterMessageCount,
-      label: transcriptNoticeLabel(notice),
-      variant: notice.kind,
-    }));
-  }, [props.sessionId, transcriptNoticesBySessionId]);
   const hasTranscriptContent =
     renderedMessages.length > 0 || interruptionDividers.length > 0;
-  const showNoVisibleAssistantOutput =
-    noVisibleAssistantOutputBaseline !== null &&
-    !assistantOutputAfterNoVisibleFallback;
   const showInlineActivityIndicator =
     hasTranscriptContent &&
     activityVisible &&
@@ -973,6 +828,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
                   label: value,
                 } satisfies ComposerDraft["parts"][number],
               ];
+            if (kind === "directory")
+              return [
+                {
+                  type: "directory",
+                  path: value,
+                  label: value,
+                } satisfies ComposerDraft["parts"][number],
+              ];
           }
           return [
             {
@@ -1098,10 +961,12 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     const text = draft.trim();
     if (!text && attachments.length === 0) return;
     if (
-      assistantCodeFeaturesActive &&
-      props.draftOnly &&
-      assistantFeatureCategoryId === "code" &&
-      !props.draftWorkspaceDirectory?.trim()
+      shouldBlockCodeDraftSend({
+        assistantCodeFeaturesActive,
+        draftOnly: props.draftOnly,
+        assistantFeatureCategoryId,
+        draftWorkspaceDirectory: props.draftWorkspaceDirectory,
+      })
     ) {
       setShowFolderRequiredBubble(true);
       window.setTimeout(() => setShowFolderRequiredBubble(false), 2600);
@@ -1121,7 +986,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setError(null);
     setDismissedErrorMessage(null);
     const startedAt = Date.now();
-    const runKey = `${props.sessionId}:${startedAt}`;
+    const runKey = makeSessionRunKey(props.sessionId, startedAt);
     activeRunStartedAtRef.current = startedAt;
     activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
@@ -1136,57 +1001,27 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
     try {
-      const nextDraft = buildDraft(text, attachments);
-      if (stallRecoveryBySessionId[props.sessionId]) {
-        nextDraft.hiddenSystemPrompt = [
-          nextDraft.hiddenSystemPrompt,
-          t("session.stall_recovery_hidden"),
-        ]
-          .filter(Boolean)
-          .join("\n\n");
+      const stallKey = props.sessionId;
+      const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
+      const { draft: nextDraft, nextGoalRuntime } = applySendDraftIntents({
+        draft: buildDraft(text, attachments),
+        text,
+        messageBaseline: renderedMessages.length,
+        startedAt,
+        effectiveCollaborationMode,
+        assistantFeatureCategoryId,
+        goalRuntime: props.goalRuntime,
+        stallRecoveryHiddenPrompt: hadStallRecovery
+          ? t("session.stall_recovery_hidden")
+          : null,
+      });
+      if (hadStallRecovery) {
         setStallRecoveryBySessionId((current) =>
           removeRecordKey(current, props.sessionId),
         );
       }
-      const goalMode =
-        resolveSessionCollaborationKind(
-          effectiveCollaborationMode,
-          assistantFeatureCategoryId,
-        ) === "goal";
-      if (
-        effectiveCollaborationMode.kind === "plan" ||
-        effectiveCollaborationMode.planning
-      ) {
-        nextDraft.planningIntent = {
-          originalPrompt: text,
-          messageBaseline: renderedMessages.length,
-        };
-      }
-      const currentGoalRuntime = isGoalIntentRuntime(props.goalRuntime)
-        ? props.goalRuntime
-        : null;
-      if (goalMode && !currentGoalRuntime) {
-        nextDraft.goalIntent = {
-          objective: nextDraft.resolvedText ?? text,
-          messageBaseline: renderedMessages.length,
-        };
-      } else if (goalMode && currentGoalRuntime) {
-        const runtimeWithSummary = currentGoalRuntime.summary
-          ? currentGoalRuntime
-          : {
-              ...currentGoalRuntime,
-              summary: deriveGoalSummary(currentGoalRuntime.objective),
-            };
-        nextDraft.hiddenSystemPrompt = buildGoalHiddenSystemPrompt(runtimeWithSummary);
-        props.onGoalRuntimeChange?.({
-          ...runtimeWithSummary,
-          status: "running",
-          waitingReason: undefined,
-          updatedAt: startedAt,
-          lastRunStartedAt: startedAt,
-          lastRunMessageBaseline: renderedMessages.length,
-          completedAt: undefined,
-        });
+      if (nextGoalRuntime) {
+        props.onGoalRuntimeChange?.(nextGoalRuntime);
       }
       await props.onSendDraft(nextDraft);
       attachments.forEach(revokeAttachmentPreview);
@@ -1233,19 +1068,19 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
 
   const executeApprovedPlan = useCallback(async () => {
     const runtime = props.planRuntime;
-    if (!runtime || runtime.status !== "awaiting_approval") return;
-    const executionMode: ComposerCollaborationMode = {
-      kind: "craft",
-      planning: false,
+    if (!runtime) return;
+    const request = buildPlanExecutionRequest({
+      planRuntime: runtime,
       pursueGoal: effectiveCollaborationMode.pursueGoal,
-    };
-    const executionSystemPrompt = buildPlanExecutionHiddenSystemPrompt(runtime);
+      messageBaseline: renderedMessages.length,
+    });
+    if (!request) return;
     const executionPrompt = t("session.plan_runtime_execute");
 
     setError(null);
     setDismissedErrorMessage(null);
     const startedAt = Date.now();
-    const runKey = `${props.sessionId}:${startedAt}`;
+    const runKey = makeSessionRunKey(props.sessionId, startedAt);
     activeRunStartedAtRef.current = startedAt;
     activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
@@ -1259,19 +1094,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setSending(true);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
-    updateCollaborationMode(executionMode);
-    props.onPlanRuntimeChange?.({
-      ...runtime,
-      status: "executing",
-      approvedAt: Date.now(),
-      executionBaseline: renderedMessages.length,
-    });
+    updateCollaborationMode(request.executionMode);
+    props.onPlanRuntimeChange?.(request.nextPlanRuntime);
     try {
       await props.onSendDraft({
         ...buildDraft(executionPrompt, []),
         messageID: `msg_onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
-        collaborationMode: executionMode,
-        hiddenSystemPrompt: executionSystemPrompt,
+        collaborationMode: request.executionMode,
+        hiddenSystemPrompt: request.executionSystemPrompt,
       });
       props.onDraftChange(buildDraft("", []));
       setSending(false);
@@ -1308,33 +1138,20 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     const runtime = isGoalIntentRuntime(props.goalRuntime)
       ? props.goalRuntime
       : null;
-    if (!runtime || runtime.status === "running" || runtime.status === "completed") return;
+    if (!runtime) return;
     const now = Date.now();
-    const totalPausedMs =
-      runtime.status === "paused" && runtime.pauseStartedAt
-        ? runtime.totalPausedMs + Math.max(0, now - runtime.pauseStartedAt)
-        : runtime.totalPausedMs;
-    const goalMode: ComposerCollaborationMode = {
-      planning: false,
-      pursueGoal: true,
-    };
-    const nextRuntime: CollaborationGoalRuntime = {
-      ...runtime,
-      summary: runtime.summary || deriveGoalSummary(runtime.objective),
-      status: "running",
-      waitingReason: undefined,
-      updatedAt: now,
-      totalPausedMs,
-      pauseStartedAt: undefined,
-      lastRunStartedAt: now,
-      lastRunMessageBaseline: renderedMessages.length,
-      completedAt: undefined,
-      lastKnownTodos: (props.todos ?? []).filter((todo) => todo.content.trim()),
-    };
+    const nextRuntime = buildGoalResumeRuntime({
+      runtime,
+      messageBaseline: renderedMessages.length,
+      now,
+      todos: props.todos,
+    });
+    if (!nextRuntime) return;
+    const goalMode = goalResumeCollaborationMode();
 
     setError(null);
     setDismissedErrorMessage(null);
-    const runKey = `${props.sessionId}:${now}`;
+    const runKey = makeSessionRunKey(props.sessionId, now);
     activeRunStartedAtRef.current = now;
     activeRunKeyRef.current = runKey;
     if (!props.draftOnly) {
@@ -1442,51 +1259,38 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
 
   const pauseGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(props.goalRuntime)
-      ? props.goalRuntime
-      : null;
-    if (
-      runtime &&
-      (runtime.status === "running" || runtime.status === "waiting")
-    ) {
-      const now = Date.now();
-      recordSessionInterruption("stopped", runtime);
-      const pausedRuntime = {
-        ...runtime,
-        status: "paused",
-        waitingReason: "user",
-        updatedAt: now,
-        pauseStartedAt: now,
-      } satisfies CollaborationGoalRuntime;
+    const now = Date.now();
+    const pausedRuntime = buildGoalPauseRuntime({
+      runtime: props.goalRuntime,
+      now,
+    });
+    if (pausedRuntime) {
+      recordSessionInterruption("stopped", pausedRuntime);
       props.onGoalRuntimeChange?.(pausedRuntime);
     }
     await stopActiveRun();
   }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
 
   const handleAbort = useCallback(async () => {
-    if (!chatStreaming) return;
     const collaborationKind = resolveSessionCollaborationKind(
       effectiveCollaborationMode,
       assistantFeatureCategoryId,
     );
-    if (collaborationKind === "goal" && isGoalIntentRuntime(props.goalRuntime)) {
+    const decision = resolveAbortAction({
+      chatStreaming,
+      collaborationKind,
+      goalRuntime: props.goalRuntime,
+      planRuntime: props.planRuntime,
+    });
+    if (decision.action === "noop") return;
+    if (decision.action === "pause-goal") {
       await pauseGoalRuntime();
       return;
     }
-    if (
-      props.planRuntime &&
-      (props.planRuntime.status === "executing" ||
-        props.planRuntime.status === "drafting")
-    ) {
-      props.onPlanRuntimeChange?.({
-        ...props.planRuntime,
-        status: "blocked",
-        blockedReason: "cancelled",
-      });
+    if (decision.nextPlanRuntime) {
+      props.onPlanRuntimeChange?.(decision.nextPlanRuntime);
     }
-    recordSessionInterruption(
-      manualStopNoticeKind(collaborationKind),
-    );
+    recordSessionInterruption(manualStopNoticeKind(collaborationKind));
     await stopActiveRun();
   }, [
     assistantFeatureCategoryId,
@@ -1561,6 +1365,28 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     client: props.client,
     opencodeClient,
   });
+
+  const searchSessionMentionTargets = useCallback(
+    async (query: string): Promise<ComposerMentionTarget[]> => {
+      if (!props.workspaceRoot.trim()) return [];
+      if (isElectronRuntime()) {
+        const result = await listCodeWorkspaceFiles({
+          workspacePath: props.workspaceRoot,
+        });
+        return workspaceMentionTargets(
+          result.items.map((item) => ({ ...item, revision: "" })),
+          query,
+        );
+      }
+      const result = await props.client.listWorkspaceFiles(props.workspaceId, {
+        includeDirs: true,
+        limit: 10_000,
+        root: props.workspaceRoot,
+      });
+      return workspaceMentionTargets(result.items, query);
+    },
+    [props.client, props.workspaceId, props.workspaceRoot],
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1662,10 +1488,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     visibleGoalRuntime,
     activeGoalWaitingReason,
   );
-  const visibleTodos = incomingHasTodos
-    ? incomingTodos
-    : lastTodosBySessionId[props.sessionId] ?? incomingTodos;
-  const hasVisibleTodos = visibleTodos.some((todo) => todo.content.trim());
+  const visibleTodos = incomingTodos;
+  const hasVisibleTodos = visibleTodos.some(
+    (todo) => todo.content.trim() && todo.status !== "completed",
+  );
   const runPolicy = resolveSessionRunPolicy({
     accessMode: effectiveAccessMode,
     collaborationMode: effectiveCollaborationMode,
@@ -1782,8 +1608,32 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
             draftOnly={false}
             workspacePath={props.workspaceRoot}
           />
-        )
-      : null;
+         )
+       : null;
+  const downloadCodePath = useCallback(async (filePath: string) => {
+    const normalizedRoot = props.workspaceRoot.replace(/[\\/]+$/, "");
+    const normalizedPath = filePath.trim();
+    const relativePath = normalizedRoot && (
+      normalizedPath === normalizedRoot ||
+      normalizedPath.startsWith(`${normalizedRoot}/`) ||
+      normalizedPath.startsWith(`${normalizedRoot}\\`)
+    )
+      ? normalizedPath.slice(normalizedRoot.length).replace(/^[\\/]+/, "")
+      : normalizedPath.replace(/^\.\//, "");
+    const result = await props.client.downloadWorkspaceFile(
+      props.workspaceId,
+      relativePath,
+    );
+    const url = URL.createObjectURL(new Blob(
+      [result.data],
+      { type: result.contentType ?? "application/octet-stream" },
+    ));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = relativePath.split(/[\\/]/).at(-1) ?? "artifact";
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }, [props.client, props.workspaceId, props.workspaceRoot]);
 
   return (
     <SessionSurfaceView
@@ -1848,7 +1698,9 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onRevertToMessage={props.onRevertToMessage}
       verifiedOpenTargets={verifiedOpenTargets}
       onOpenTarget={props.onOpenTarget}
+      onDownloadCodePath={downloadCodePath}
       workspaceRoot={props.workspaceRoot}
+      connectedProviderIds={props.connectedProviderIds}
       assistantStatusFooter={assistantStatusFooter}
       searchQuery={searchQuery}
       searchMatchIdSet={searchMatchIdSet}
@@ -1907,7 +1759,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onOpenConnectorsMarketplace={props.onOpenConnectorsMarketplace}
       onOpenCustomConnector={props.onOpenCustomConnector}
       recentFiles={props.recentFiles}
-      searchFiles={props.searchFiles}
+      searchFiles={searchSessionMentionTargets}
       onInsertMention={handleInsertMention}
       notice={notice}
       onNotice={setNotice}

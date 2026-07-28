@@ -25,6 +25,14 @@ export function isDesktopProviderBlocked(input: {
   const providerId = input.providerId.trim().toLowerCase();
   if (!providerId) return false;
 
+  // OpenCode Zen (free + paid built-in catalog): controlled by org policy
+  // allowZenModel. When allowed (restriction false), surface connected Zen
+  // models in Settings and the model picker. Other catalog IDs stay blocked
+  // as product-side noise.
+  if (providerId === DESKTOP_RESTRICTION_OPENCODE_PROVIDER_ID) {
+    return input.checkRestriction({ restriction: "allowZenModel" });
+  }
+
   return isBlockedProvider(providerId);
 }
 

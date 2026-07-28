@@ -12,6 +12,38 @@ export const STARTUP_SKELETON_ROWS = [
   { id: "final", titleWidth: "36%", bodyWidth: "74%" },
 ];
 
+/**
+ * Full-page card skeleton for cold first paint.
+ *
+ * - App cold start (`coldBootShell`): show even when workspace id is already
+ *   hydrated from cache/desktop list so the home column is not blank under or
+ *   right after the boot overlay.
+ * - Settings "Back to app" remount: `coldBootShell` is false; if a workspace id
+ *   is already known, skip the multi-second skeleton and keep draft home.
+ */
+export function shouldShowSessionStartupSkeleton(input: {
+  selectedSessionId: string | null | undefined;
+  selectedWorkspaceId: string | null | undefined;
+  clientConnected: boolean;
+  startupPhase: string | null | undefined;
+  /** True when this session-route mount began during app cold boot. */
+  coldBootShell?: boolean;
+}): boolean {
+  if (input.selectedSessionId?.trim()) return false;
+  if (input.clientConnected) return false;
+  const phase = input.startupPhase ?? "";
+  if (
+    phase === "sessionIndexReady" ||
+    phase === "firstSessionReady" ||
+    phase === "ready"
+  ) {
+    return false;
+  }
+  if (input.coldBootShell) return true;
+  if (input.selectedWorkspaceId?.trim()) return false;
+  return true;
+}
+
 export const GLOBAL_VOICE_SIDE_PANEL_KEY = "__onmyagent_voice__";
 export const AGENT_PANEL_MIN_WIDTH = 240;
 export const AGENT_PANEL_MAX_WIDTH = 360;

@@ -48,12 +48,72 @@ function addWorkspaceFileTreeEntry(
   }
 }
 
-function sortWorkspaceFileTree(node: WorkspaceFileTreeNode) {
-  node.children.sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
+/** Directory size/mtime: sum of descendants + max child mtime (catalog dir leaves often have 0). */
+function rollupWorkspaceFileTreeStats(node: WorkspaceFileTreeNode): void {
+  for (const child of node.children) {
+    rollupWorkspaceFileTreeStats(child);
+  }
+  if (node.kind !== "dir") return;
+  let size = 0;
+  let mtimeMs = node.mtimeMs || 0;
+  for (const child of node.children) {
+    size += Math.max(0, child.size || 0);
+    if ((child.mtimeMs || 0) > mtimeMs) mtimeMs = child.mtimeMs;
+  }
+  if (node.children.length > 0) {
+    node.size = size;
+  }
+  if (mtimeMs > 0) {
+    node.mtimeMs = mtimeMs;
+  }
+}
+
+export type WorkspaceFileSortKey = "name" | "updated" | "size";
+export type WorkspaceFileSortDir = "asc" | "desc";
+
+export function compareWorkspaceFileNodes(
+  a: WorkspaceFileTreeNode,
+  b: WorkspaceFileTreeNode,
+  key: WorkspaceFileSortKey,
+  dir: WorkspaceFileSortDir,
+): number {
+  const sign = dir === "asc" ? 1 : -1;
+  if (key === "updated") {
+    const byTime = (a.mtimeMs || 0) - (b.mtimeMs || 0);
+    if (byTime !== 0) return sign * byTime;
     return a.name.localeCompare(b.name);
-  });
-  for (const child of node.children) sortWorkspaceFileTree(child);
+  }
+  if (key === "size") {
+    const bySize = (a.size || 0) - (b.size || 0);
+    if (bySize !== 0) return sign * bySize;
+    return a.name.localeCompare(b.name);
+  }
+  // Name: folders first, then locale name order.
+  if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
+  return sign * a.name.localeCompare(b.name);
+}
+
+function sortWorkspaceFileTree(
+  node: WorkspaceFileTreeNode,
+  key: WorkspaceFileSortKey = "name",
+  dir: WorkspaceFileSortDir = "asc",
+) {
+  node.children.sort((a, b) => compareWorkspaceFileNodes(a, b, key, dir));
+  for (const child of node.children) sortWorkspaceFileTree(child, key, dir);
+}
+
+/** Immutable recursive sort for UI (does not mutate the source tree). */
+export function sortWorkspaceFileTreeCopy(
+  node: WorkspaceFileTreeNode,
+  key: WorkspaceFileSortKey,
+  dir: WorkspaceFileSortDir,
+): WorkspaceFileTreeNode {
+  return {
+    ...node,
+    children: node.children
+      .map((child) => sortWorkspaceFileTreeCopy(child, key, dir))
+      .sort((a, b) => compareWorkspaceFileNodes(a, b, key, dir)),
+  };
 }
 
 export function buildWorkspaceFileTree(
@@ -68,6 +128,7 @@ export function buildWorkspaceFileTree(
     children: [],
   };
   for (const entry of entries) addWorkspaceFileTreeEntry(root, entry);
+  rollupWorkspaceFileTreeStats(root);
   sortWorkspaceFileTree(root);
   return root;
 }
@@ -97,7 +158,18 @@ export function filterHiddenFromTree(
   const filteredChildren = node.children
     .filter((child) => !shouldHideNode(child))
     .map((child) => filterHiddenFromTree(child));
-  return { ...node, children: filteredChildren };
+  const next: WorkspaceFileTreeNode = { ...node, children: filteredChildren };
+  if (next.kind === "dir") {
+    let size = 0;
+    let mtimeMs = next.mtimeMs || 0;
+    for (const child of filteredChildren) {
+      size += Math.max(0, child.size || 0);
+      if ((child.mtimeMs || 0) > mtimeMs) mtimeMs = child.mtimeMs;
+    }
+    if (filteredChildren.length > 0) next.size = size;
+    if (mtimeMs > 0) next.mtimeMs = mtimeMs;
+  }
+  return next;
 }
 
 export function findWorkspaceFileNode(

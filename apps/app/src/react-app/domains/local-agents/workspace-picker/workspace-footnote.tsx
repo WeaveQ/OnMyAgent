@@ -82,6 +82,30 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
       ? t("session.choose_folder_optional")
       : t("local_agent.workspace_work_in_project");
 
+  // Session-bound workdir: static label only — a disabled button looked
+  // clickable/broken ("不能点") and still opened a useless popover shell.
+  if (readOnly) {
+    return (
+      <div
+        className="mac:titlebar-no-drag flex min-w-0 items-center gap-1.5 px-1 text-xs text-dls-secondary"
+        title={
+          trimmedRoot
+            ? `${trimmedRoot}\n${t("local_agent.workspace_locked_hint")}`
+            : t("local_agent.workspace_locked_hint")
+        }
+        data-testid="local-agent-workspace-locked"
+      >
+        <Folder className="size-3.5 shrink-0 opacity-80" aria-hidden />
+        <span className="min-w-0 truncate font-medium text-dls-secondary">
+          {chipLabel || t("local_agent.workspace_no_project")}
+        </span>
+        <span className="min-w-0 truncate text-dls-secondary/75">
+          · {t("local_agent.workspace_locked_hint_short")}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="mac:titlebar-no-drag flex min-w-0 items-center gap-0.5 text-xs text-dls-secondary">
       <Popover open={open} onOpenChange={setOpen}>
@@ -97,7 +121,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
                 compact
                   ? "h-8 max-w-52 shrink gap-1.5 rounded-lg px-2 text-xs font-normal leading-none text-dls-secondary hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5"
                   : cn(
-                      "rounded-lg border border-dls-border bg-dls-surface px-2.5 py-1 text-xs font-medium text-dls-text hover:bg-dls-hover",
+                      "rounded-lg border border-dls-border bg-dls-surface-solid px-2.5 py-1 text-xs font-medium text-dls-text hover:bg-dls-hover",
                       !trimmedRoot && "border-dashed",
                     ),
               )}
@@ -113,7 +137,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
             </button>
           }
         />
-        <PopoverContent align="start" side="top" sideOffset={6} className="w-72 p-0">
+        <PopoverContent align="start" side="top" sideOffset={6} className="w-72 border-dls-border bg-dls-surface-solid p-0">
           <div className="border-b border-dls-border p-2">
             <div className="flex items-center gap-1.5 rounded-md border border-dls-border bg-dls-surface px-2 py-1">
               <Search className="h-3.5 w-3.5 text-dls-secondary" />
@@ -168,10 +192,10 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
             <button
               type="button"
               onClick={handleClear}
-              disabled={!trimmedRoot || Boolean(readOnly)}
+              disabled={!trimmedRoot}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                trimmedRoot && !readOnly ? "text-dls-secondary hover:bg-dls-hover" : "text-dls-secondary opacity-50",
+                trimmedRoot ? "text-dls-secondary hover:bg-dls-hover" : "text-dls-secondary opacity-50",
               )}
             >
               <FolderX className="h-3.5 w-3.5" />
@@ -180,7 +204,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
           </div>
         </PopoverContent>
       </Popover>
-      {trimmedRoot && !readOnly && !compact ? (
+      {trimmedRoot && !compact ? (
         <Button
           type="button"
           size="icon-xs"
@@ -193,18 +217,6 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
         >
           <X className="h-3 w-3" />
         </Button>
-      ) : null}
-      {readOnly ? (
-        <span
-          className={cn(
-            "min-w-0 truncate text-xs text-dls-secondary",
-            compact && "max-w-[14rem]",
-          )}
-          title={t("local_agent.workspace_locked_hint")}
-        >
-          {compact ? "· " : null}
-          {t("local_agent.workspace_locked_hint")}
-        </span>
       ) : null}
     </div>
   );

@@ -16,20 +16,17 @@ const testTargets = new Map([
   ['extensions-store', ['bun', ['test', 'scripts/extensions-store.test.ts']]],
   ['expert-marketplace-ui-contract', ['bun', ['test', 'scripts/expert-marketplace-ui-contract.test.ts']]],
   ['filter-chip-contract', ['bun', ['test', 'scripts/filter-chip-contract.test.ts']]],
-  ['style-residual-ui-contract', ['bun', ['test', 'scripts/style-residual-ui-contract.test.ts']]],
+  // Stale class-snapshot style contracts removed (not in default ui-contracts gate):
+  // style-residual / assistant-navigation-*-contract / automation-typography /
+  // composer-editor-typography / composer-tool-menu-contract.
   ['session-route-facade-contract', ['bun', ['test', 'scripts/session-route-facade-contract.test.ts']]],
   ['e2e-scripts-health-binding-contract', ['bun', ['test', 'scripts/e2e-scripts-health-binding-contract.test.ts']]],
   ['main-rail-primary-icons-contract', ['bun', ['test', 'scripts/main-rail-primary-icons-contract.test.ts']]],
   ['main-rail-channel-icon-contract', ['bun', ['test', 'scripts/main-rail-channel-icon-contract.test.ts']]],
   ['assistant-draft-home-brand-contract', ['bun', ['test', 'scripts/assistant-draft-home-brand-contract.test.ts']]],
-  ['assistant-navigation-spacing-contract', ['bun', ['test', 'scripts/assistant-navigation-spacing-contract.test.ts']]],
-  ['assistant-navigation-tone-contract', ['bun', ['test', 'scripts/assistant-navigation-tone-contract.test.ts']]],
-  ['assistant-navigation-typography-contract', ['bun', ['test', 'scripts/assistant-navigation-typography-contract.test.ts']]],
   ['assistant-task-list-scroll-contract', ['bun', ['test', 'scripts/assistant-task-list-scroll-contract.test.ts']]],
   ['automation-prompt-tools-contract', ['bun', ['test', 'scripts/automation-prompt-tools-contract.test.ts']]],
   ['automation-title-required-contract', ['bun', ['test', 'scripts/automation-title-required-contract.test.ts']]],
-  ['automation-typography-contract', ['bun', ['test', 'scripts/automation-typography-contract.test.ts']]],
-  ['composer-editor-typography-contract', ['bun', ['test', 'scripts/composer-editor-typography-contract.test.ts']]],
   ['personal-usage-ui-contract', ['bun', ['test', 'scripts/personal-usage-ui-contract.test.ts']]],
   ['right-side-panel-titlebar-contract', ['bun', ['test', 'scripts/right-side-panel-titlebar-contract.test.ts']]],
   ['session-transcript-layout-contract', ['bun', ['test', 'scripts/session-transcript-layout-contract.test.ts']]],

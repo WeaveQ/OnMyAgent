@@ -1,5 +1,7 @@
 /** Client-side waybill-data.json merge for in-preview field edits. */
 
+const WAYBILL_CAPABILITY_DIRECTORY = "\u7269\u6d41\u5355";
+
 function textValue(value: unknown): string {
   if (value === null || value === undefined) return "";
   // Preview patches are string field values; keep ASCII-only so renderer CJK gate stays clean.
@@ -110,7 +112,7 @@ export function toWorkspaceRelativePath(
   return null;
 }
 
-/** Prefer session-isolated waybill-data.json, then legacy output/, then root. */
+/** Prefer the consolidated logistics capability directory, then legacy locations. */
 export function waybillDataPathCandidates(input: {
   catalogRoot: string;
   sessionRoot?: string | null;
@@ -130,13 +132,17 @@ export function waybillDataPathCandidates(input: {
   if (sessionDir) {
     const relativeDir = toWorkspaceRelativePath(input.catalogRoot, sessionDir);
     if (relativeDir) {
+      push(`${relativeDir}/${WAYBILL_CAPABILITY_DIRECTORY}/waybill-data.json`);
       push(`${relativeDir}/waybill-data.json`);
       push(`${relativeDir}/output/waybill-data.json`);
     } else if (!sessionDir.startsWith("/") && !/^[a-zA-Z]:[\\/]/.test(sessionDir)) {
-      push(`${sessionDir.replace(/[/\\]+$/, "")}/waybill-data.json`);
+      const relativeSessionDir = sessionDir.replace(/[/\\]+$/, "");
+      push(`${relativeSessionDir}/${WAYBILL_CAPABILITY_DIRECTORY}/waybill-data.json`);
+      push(`${relativeSessionDir}/waybill-data.json`);
     }
   }
 
+  push(`${WAYBILL_CAPABILITY_DIRECTORY}/waybill-data.json`);
   push("waybill-data.json");
   push("output/waybill-data.json");
   return out;
