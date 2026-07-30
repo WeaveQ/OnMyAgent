@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { chmod, copyFile, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,8 +27,6 @@ import {
 import {
   chooseOpencodeBinary,
   chooseProductRuntimeBinary,
-  compareVersions,
-  isVersionAtLeast,
   parseVersionTokens,
 } from "./opencode-binary-policy.mjs";
 
@@ -55,46 +52,62 @@ import {
   stopChild as stopChildImpl,
   truncateOutput,
 } from "./runtime-opencode-lifecycle.mjs";
+import {
+  BUNDLED_EXTENSIONS_RESOURCE_DIR,
+  BUNDLED_PLUGINS_RESOURCE_DIR,
+  BUNDLED_SKILLS_RESOURCE_DIR,
+  OPENCODE_BIN_ENV_KEYS,
+  buildBundledResourceCandidates,
+  buildLocalOpencodeBinaryCandidates,
+  buildSoftwareEnvironmentInfo,
+  collectDockerCandidatePaths,
+  deriveOrchestratorContainerName,
+  desiredOpencodePluginVersion,
+  envForcedBinaryPath,
+  filterExisting,
+  firstExisting,
+  interpretDockerInfoFailure,
+  normalizeWorkspaceKey,
+  parseDockerClientVersion,
+  parseDockerServerVersion,
+  parseManagedContainerNames,
+  productRuntimeBinaryEnvKeys,
+  productRuntimeBinaryNames,
+  productRuntimeBinaryRelativePath,
+  prioritizeWorkspacePaths,
+  selectBestLocalOpencodeFromProbed,
+  shouldAlignOpencodePluginPin,
+  shouldSkipLocalOpencodeCandidate,
+  validateStoppableSandboxContainerName,
+} from "./runtime-helpers.mjs";
 
 export { snapshotOnMyAgentServerState, DIRECT_RUNTIME, ORCHESTRATOR_RUNTIME } from "./runtime-engine-state.mjs";
-
+export { prioritizeWorkspacePaths, normalizeWorkspaceKey } from "./runtime-helpers.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
-const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
-const BUNDLED_PLUGINS_RESOURCE_DIR = "bundled-plugins";
-const BUNDLED_EXTENSIONS_RESOURCE_DIR = "onmyagent-extensions";
 
 function bundledSkillsRootPath() {
-  const candidates = [
-    process.resourcesPath
-      ? path.resolve(process.resourcesPath, BUNDLED_SKILLS_RESOURCE_DIR)
-      : null,
-    path.resolve(__runtimeDir, "..", "resources", BUNDLED_SKILLS_RESOURCE_DIR),
-  ].filter(Boolean);
-  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+  return firstExisting(
+    buildBundledResourceCandidates(__runtimeDir, BUNDLED_SKILLS_RESOURCE_DIR, process.resourcesPath),
+    existsSync,
+  );
 }
 
 export function bundledPluginsRootPath() {
-  const candidates = [
-    process.resourcesPath
-      ? path.resolve(process.resourcesPath, BUNDLED_PLUGINS_RESOURCE_DIR)
-      : null,
-    path.resolve(__runtimeDir, "..", "resources", BUNDLED_PLUGINS_RESOURCE_DIR),
-  ].filter(Boolean);
-  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+  return firstExisting(
+    buildBundledResourceCandidates(__runtimeDir, BUNDLED_PLUGINS_RESOURCE_DIR, process.resourcesPath),
+    existsSync,
+  );
 }
 
 function bundledExtensionRootPaths() {
-  const candidates = [
-    process.resourcesPath
-      ? path.resolve(process.resourcesPath, BUNDLED_EXTENSIONS_RESOURCE_DIR)
-      : null,
-    path.resolve(__runtimeDir, "..", "resources", BUNDLED_EXTENSIONS_RESOURCE_DIR),
-  ].filter(Boolean);
-  return candidates.filter((candidate) => existsSync(candidate));
+  return filterExisting(
+    buildBundledResourceCandidates(__runtimeDir, BUNDLED_EXTENSIONS_RESOURCE_DIR, process.resourcesPath),
+    existsSync,
+  );
 }
 
 /**
@@ -140,28 +153,6 @@ async function copyDirRecursive(sourceDir, targetPath) {
       await copyFile(src, dst);
     }
   }
-}
-
-function normalizeWorkspaceKey(value) {
-  const trimmed = String(value ?? "").trim();
-  if (!trimmed) return "";
-  return path.resolve(trimmed).replace(/\\/g, "/").toLowerCase();
-}
-
-export function prioritizeWorkspacePaths(preferredPath, workspacePaths = []) {
-  const preferred = String(preferredPath ?? "").trim();
-  const paths = [];
-  const seen = new Set();
-  const add = (value) => {
-    const workspacePath = String(value ?? "").trim();
-    const key = normalizeWorkspaceKey(workspacePath);
-    if (!workspacePath || !key || seen.has(key)) return;
-    paths.push(workspacePath);
-    seen.add(key);
-  };
-  add(preferred);
-  for (const workspacePath of workspacePaths) add(workspacePath);
-  return paths;
 }
 
 export function createDesktopPersonalRuntimeServices(options = {}) {
@@ -389,6 +380,8 @@ export function createRuntimeManager({
   async function ensureOpencodePluginPackagePin(configDir, opencodeVersion) {
     const pin = parseVersionTokens(opencodeVersion);
     if (!pin || !configDir) return;
+    const desired = desiredOpencodePluginVersion(opencodeVersion);
+    if (!desired) return;
     const packagePath = path.join(configDir, "package.json");
     /** @type {{ dependencies?: Record<string, string>, [key: string]: unknown }} */
     let pkg = { dependencies: {} };
@@ -404,15 +397,7 @@ export function createRuntimeManager({
       pkg.dependencies = {};
     }
     const current = String(pkg.dependencies["@opencode-ai/plugin"] ?? "").trim();
-    const desired = String(opencodeVersion).replace(/^v/i, "").trim();
-    if (!desired) return;
-    if (current && isVersionAtLeast(current, desired) && compareVersions(current, desired) === 0) {
-      return;
-    }
-    if (current && isVersionAtLeast(current, desired)) {
-      // Newer pin than product is allowed (forward compatible plugins).
-      return;
-    }
+    if (!shouldAlignOpencodePluginPin(current, desired)) return;
     pkg.dependencies["@opencode-ai/plugin"] = desired;
     await writeFile(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
     console.warn(
@@ -700,42 +685,16 @@ export function createRuntimeManager({
   }
 
   function envForcedOpencodeBinaryPath() {
-    for (const key of ["OPENCODE_BIN", "ONMYAGENT_OPENCODE_BIN", "ONMYAGENT_LOCAL_OPENCODE_BIN"]) {
-      const value = process.env[key]?.trim();
-      if (value && existsSync(value)) return value;
-    }
-    return null;
+    return envForcedBinaryPath(process.env, OPENCODE_BIN_ENV_KEYS, existsSync);
   }
 
   function localOpencodeBinaryCandidates() {
-    const binaryName = process.platform === "win32" ? "opencode.exe" : "opencode";
-    const candidates = [];
-
-    const pathEntries = (enrichedPath([], process.env.PATH) ?? "")
-      .split(path.delimiter)
-      .filter(Boolean);
-    for (const entry of pathEntries) {
-      candidates.push(path.join(entry, binaryName));
-    }
-
-    if (process.platform !== "win32") {
-      candidates.push(
-        path.join(app.getPath("home"), ".opencode", "bin", "opencode"),
-        "/opt/homebrew/bin/opencode",
-        "/usr/local/bin/opencode",
-        "/usr/bin/opencode",
-      );
-    } else {
-      if (process.env.LOCALAPPDATA) {
-        candidates.push(
-          path.join(process.env.LOCALAPPDATA, "opencode", "bin", "opencode.exe"),
-          path.join(process.env.LOCALAPPDATA, "Programs", "opencode", "opencode.exe"),
-        );
-      }
-      candidates.push(path.join(app.getPath("home"), ".opencode", "bin", "opencode.exe"));
-    }
-
-    return [...new Set(candidates.filter(Boolean))];
+    return buildLocalOpencodeBinaryCandidates({
+      platform: process.platform,
+      homeDir: app.getPath("home"),
+      pathEnv: enrichedPath([], process.env.PATH) ?? "",
+      env: process.env,
+    });
   }
 
   /**
@@ -744,35 +703,14 @@ export function createRuntimeManager({
    * before Homebrew 1.17.x) that reintroduce plugin hook failures.
    */
   function findBestLocalOpencodeBinary(bundledPath, bundledVersion) {
-    /** @type {{ path: string, version: string | null } | null} */
-    let bestCompatible = null;
-    /** @type {{ path: string, version: string | null } | null} */
-    let firstExisting = null;
     const bundledResolved = bundledPath ? path.resolve(bundledPath) : null;
-
+    const probed = [];
     for (const candidate of localOpencodeBinaryCandidates()) {
       if (!existsSync(candidate)) continue;
-      // Never treat the product sidecar itself as a "local" install.
-      if (bundledResolved && path.resolve(candidate) === bundledResolved) continue;
-      // Skip arch-suffixed sidecar copies that may appear via PATH.
-      if (candidate.includes(`${path.sep}resources${path.sep}sidecars${path.sep}`)) continue;
-
-      const version = probeVersion(candidate);
-      if (!firstExisting) firstExisting = { path: candidate, version };
-
-      if (!version) continue;
-      if (bundledVersion && !isVersionAtLeast(version, bundledVersion)) continue;
-
-      if (
-        !bestCompatible ||
-        !bestCompatible.version ||
-        (compareVersions(version, bestCompatible.version) ?? -1) > 0
-      ) {
-        bestCompatible = { path: candidate, version };
-      }
+      if (shouldSkipLocalOpencodeCandidate(candidate, bundledResolved)) continue;
+      probed.push({ path: candidate, version: probeVersion(candidate) });
     }
-
-    return { bestCompatible, firstExisting };
+    return selectBestLocalOpencodeFromProbed(probed, bundledVersion);
   }
 
   /**
@@ -875,40 +813,16 @@ export function createRuntimeManager({
 
   function bundledRuntimeBinary(tool) {
     if (!runtimeRoot) return null;
-    if (tool === "node") {
-      return path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "bin/node");
-    }
-    if (tool === "python") {
-      return path.join(runtimeRoot, "python", process.platform === "win32" ? "python.exe" : "bin/python3");
-    }
-    return null;
+    const relative = productRuntimeBinaryRelativePath(tool, process.platform);
+    return relative ? path.join(runtimeRoot, relative) : null;
   }
 
   function envForcedRuntimeBinaryPath(tool) {
-    const keys =
-      tool === "node"
-        ? ["ONMYAGENT_NODE_BIN", "NODE_BINARY"]
-        : tool === "python"
-          ? ["ONMYAGENT_PYTHON_BIN", "PYTHON_BINARY"]
-          : [];
-    for (const key of keys) {
-      const value = process.env[key]?.trim();
-      if (value && existsSync(value)) return value;
-    }
-    return null;
+    return envForcedBinaryPath(process.env, productRuntimeBinaryEnvKeys(tool), existsSync);
   }
 
   function findPathRuntimeBinary(tool) {
-    const names =
-      tool === "node"
-        ? process.platform === "win32"
-          ? ["node.exe"]
-          : ["node"]
-        : tool === "python"
-          ? process.platform === "win32"
-            ? ["python.exe", "python3.exe"]
-            : ["python3", "python"]
-          : [];
+    const names = productRuntimeBinaryNames(tool, process.platform);
     // Search the original process PATH without our runtimeBinDirs prepend so
     // we can tell "true machine local" from product-bundled copies.
     const rawPath = process.env.PATH ?? process.env.Path ?? process.env.path ?? "";
@@ -977,58 +891,10 @@ export function createRuntimeManager({
   }
 
   function resolveDockerCandidates() {
-    const candidates = [];
-    const seen = new Set();
-
-    for (const key of ["ONMYAGENT_DOCKER_BIN", "OPENWRK_DOCKER_BIN" /* legacy */, "DOCKER_BIN"]) {
-      const value = process.env[key]?.trim();
-      if (value && !seen.has(value)) {
-        seen.add(value);
-        candidates.push(value);
-      }
-    }
-
-    for (const entry of (process.env.PATH ?? "").split(path.delimiter).filter(Boolean)) {
-      const candidate = path.join(entry, process.platform === "win32" ? "docker.exe" : "docker");
-      if (!seen.has(candidate)) {
-        seen.add(candidate);
-        candidates.push(candidate);
-      }
-    }
-
-    const platformDefaults =
-      process.platform === "win32"
-        ? [
-            process.env.ProgramFiles
-              ? path.join(process.env.ProgramFiles, "Docker", "Docker", "resources", "bin", "docker.exe")
-              : null,
-            process.env["ProgramFiles(x86)"]
-              ? path.join(
-                  process.env["ProgramFiles(x86)"],
-                  "Docker",
-                  "Docker",
-                  "resources",
-                  "bin",
-                  "docker.exe",
-                )
-              : null,
-            process.env.LOCALAPPDATA
-              ? path.join(process.env.LOCALAPPDATA, "Programs", "Docker", "Docker", "resources", "bin", "docker.exe")
-              : null,
-          ].filter(Boolean)
-        : [
-            "/opt/homebrew/bin/docker",
-            "/usr/local/bin/docker",
-            "/Applications/Docker.app/Contents/Resources/bin/docker",
-          ];
-    for (const candidate of platformDefaults) {
-      if (!seen.has(candidate)) {
-        seen.add(candidate);
-        candidates.push(candidate);
-      }
-    }
-
-    return candidates.filter((candidate) => existsSync(candidate));
+    return collectDockerCandidatePaths({
+      platform: process.platform,
+      env: process.env,
+    }).filter((candidate) => existsSync(candidate));
   }
 
   function runDockerCommandDetailed(args, timeoutMs = 8000) {
@@ -1058,39 +924,13 @@ export function createRuntimeManager({
     );
   }
 
-  function parseDockerClientVersion(stdout) {
-    const line = String(stdout ?? "").split(/\r?\n/)[0]?.trim() ?? "";
-    return line.toLowerCase().startsWith("docker version") ? line : null;
-  }
-
-  function parseDockerServerVersion(stdout) {
-    for (const line of String(stdout ?? "").split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("Server Version:")) {
-        return trimmed.slice("Server Version:".length).trim() || null;
-      }
-    }
-    return null;
-  }
-
-  function deriveOrchestratorContainerName(runId) {
-    const sanitized = String(runId ?? "")
-      .replace(/[^a-zA-Z0-9_.-]+/g, "-")
-      .slice(0, 24);
-    return `onmyagent-orchestrator-${sanitized}`;
-  }
-
   async function listOnMyAgentManagedContainers() {
     const result = runDockerCommandDetailed(["ps", "-a", "--format", "{{.Names}}"], 8000);
     if (result.status !== 0) {
       const combined = `${result.stdout.trim()}\n${result.stderr.trim()}`.trim();
       throw new Error(combined || `docker ps -a failed (status ${result.status})`);
     }
-    return result.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((name) => name && (name.startsWith("onmyagent-orchestrator-") || name.startsWith("onmyagent-dev-") || name.startsWith("openwrk-")))
-      .sort();
+    return parseManagedContainerNames(result.stdout);
   }
 
   async function runShellCommand(program, args, options = {}) {
@@ -1716,54 +1556,12 @@ export function createRuntimeManager({
   }
 
   function softwareEnvironmentInfo() {
-    const node = resolveProductRuntimeBinaryDecision("node");
-    const python = resolveProductRuntimeBinaryDecision("python");
-    const opencode = resolveOpencodeBinaryDecision(null);
-    const nodeInstalled = Boolean(node?.path && (node.bundledVersion || node.localVersion || probeVersion(node.path)));
-    const pythonInstalled = Boolean(
-      python?.path && (python.bundledVersion || python.localVersion || probeVersion(python.path)),
+    return buildSoftwareEnvironmentInfo(
+      resolveProductRuntimeBinaryDecision("node"),
+      resolveProductRuntimeBinaryDecision("python"),
+      resolveOpencodeBinaryDecision(null),
+      probeVersion,
     );
-    const opencodeInstalled = Boolean(
-      opencode?.path && (opencode.bundledVersion || opencode.localVersion || probeVersion(opencode.path)),
-    );
-    return {
-      node: nodeInstalled,
-      python: pythonInstalled,
-      opencode: opencodeInstalled,
-      details: {
-        node: {
-          installed: nodeInstalled,
-          bundled: node?.source === "bundled",
-          path: node?.path ?? null,
-          version: node?.bundledVersion ?? node?.localVersion ?? (node?.path ? probeVersion(node.path) : null),
-          source: node?.source ?? null,
-          reason: node?.reason ?? null,
-          notice: node?.notice ?? null,
-        },
-        python: {
-          installed: pythonInstalled,
-          bundled: python?.source === "bundled",
-          path: python?.path ?? null,
-          version:
-            python?.bundledVersion ?? python?.localVersion ?? (python?.path ? probeVersion(python.path) : null),
-          source: python?.source ?? null,
-          reason: python?.reason ?? null,
-          notice: python?.notice ?? null,
-        },
-        opencode: {
-          installed: opencodeInstalled,
-          bundled: opencode?.source === "bundled",
-          path: opencode?.path ?? null,
-          version:
-            opencode?.bundledVersion ??
-            opencode?.localVersion ??
-            (opencode?.path ? probeVersion(opencode.path) : null),
-          source: opencode?.source ?? null,
-          reason: opencode?.reason ?? null,
-          notice: opencode?.notice ?? null,
-        },
-      },
-    };
   }
 
   async function opencodeMcpAuth(projectDir, serverName) {
@@ -1875,9 +1673,8 @@ export function createRuntimeManager({
       };
     }
 
-    const combined = `${info.stdout.trim()}\n${info.stderr.trim()}`.trim().toLowerCase();
-    const permissionOk = !combined.includes("permission denied") && !combined.includes("access is denied");
-    const daemonRunning = !combined.includes("cannot connect to the docker daemon") && !combined.includes("is the docker daemon running") && !combined.includes("connection refused") && !combined.includes("no such file or directory");
+    const errorText = `${info.stdout.trim()}\n${info.stderr.trim()}`.trim();
+    const { permissionOk, daemonRunning } = interpretDockerInfoFailure(errorText);
 
     return {
       installed: true,
@@ -1886,22 +1683,15 @@ export function createRuntimeManager({
       ready: false,
       clientVersion,
       serverVersion: null,
-      error: `${info.stdout.trim()}\n${info.stderr.trim()}`.trim() || `docker info failed (status ${info.status})`,
+      error: errorText || `docker info failed (status ${info.status})`,
       debug,
     };
   }
 
   async function sandboxStop(containerName) {
-    const name = String(containerName ?? "").trim();
-    if (!name) {
-      throw new Error("containerName is required");
-    }
-    if (!name.startsWith("onmyagent-orchestrator-")) {
-      throw new Error("Refusing to stop container: expected name starting with 'onmyagent-orchestrator-'");
-    }
-    if (!/^[A-Za-z0-9_.-]+$/.test(name)) {
-      throw new Error("containerName contains invalid characters");
-    }
+    const validated = validateStoppableSandboxContainerName(containerName);
+    if (!validated.ok) throw new Error(validated.error);
+    const name = validated.name;
     const result = runDockerCommandDetailed(["stop", name], 15_000);
     return {
       ok: result.status === 0,
