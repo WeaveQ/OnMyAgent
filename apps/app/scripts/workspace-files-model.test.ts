@@ -122,3 +122,30 @@ describe("path helpers", () => {
     ).toBe("root");
   });
 });
+
+describe("workspace-files-page host keeps required UI surfaces (structural)", () => {
+  test("defines CloudDrive, empty list, and preview drawer components used by JSX", () => {
+    const source = require("node:fs").readFileSync(
+      require("node:path").join(
+        import.meta.dir,
+        "../src/react-app/domains/workspace/workspace-files-page.tsx",
+      ),
+      "utf8",
+    );
+    for (const name of [
+      "function CloudDriveIllustration",
+      "function CloudDriveEmptyState",
+      "function FilesListEmptyState",
+      "function FilePreviewDrawer",
+    ]) {
+      expect(source).toContain(name);
+    }
+    // Call sites still present
+    expect(source).toContain("<CloudDriveEmptyState");
+    expect(source).toContain("<FilesListEmptyState");
+    expect(source).toContain("<FilePreviewDrawer");
+    // Pure helpers still live in model, not re-inlined as god-file bloat
+    expect(source).toContain('from "./workspace-files-model"');
+    expect(source).toContain("buildRootOutlineRows");
+  });
+});
