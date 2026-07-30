@@ -6,6 +6,14 @@ import { join } from "node:path";
 import type { SessionArchiveMessage, SessionArchiveSession } from "@onmyagent/types/session-archive";
 import { Database } from "../src/core/sqlite.js";
 import { openSessionArchiveStore } from "../src/services/session-archive.js";
+import {
+  backendsStatusFromConfig,
+  duckDbConfigFromConfig,
+  githubConfigFromConfig,
+  postgresConfigFromConfig,
+  remoteConfigFromConfig,
+  terminalConfigFromConfig,
+} from "../src/services/session-archive-config-api.js";
 
 function sampleSession(input: Partial<SessionArchiveSession> = {}): SessionArchiveSession {
   return {
@@ -1125,5 +1133,71 @@ describe("session-archive archive store", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("session-archive-config-api pure mappers", () => {
+  test("maps terminal/github/remote config records with defaults", () => {
+    expect(terminalConfigFromConfig({})).toEqual({ mode: "auto", custom_bin: undefined, custom_args: undefined });
+    expect(terminalConfigFromConfig({ terminal: { mode: "clipboard", custom_bin: "wt", custom_args: "-w 0" } })).toEqual({
+      mode: "clipboard",
+      custom_bin: "wt",
+      custom_args: "-w 0",
+    });
+    expect(githubConfigFromConfig({ github_token_configured: true, github_token_preview: "ghp_...abc" })).toEqual({
+      configured: true,
+      token_preview: "ghp_...abc",
+    });
+    expect(remoteConfigFromConfig({
+      remote: {
+        public_url: "https://viewer.example.test",
+        public_origins: ["https://viewer.example.test"],
+        require_auth: true,
+        auth_token_configured: true,
+      },
+    })).toMatchObject({
+      public_url: "https://viewer.example.test",
+      require_auth: true,
+      auth_configured: true,
+      remote_hosts: [],
+    });
+  });
+
+  test("maps postgres/duckdb backends and blocked status payload", () => {
+    const config = {
+      postgres: {
+        url_configured: true,
+        url_preview: "postgres://…",
+        schema: "session-archive",
+        machine_name: "dev",
+        allow_insecure: true,
+        projects: ["studio"],
+        exclude_projects: [],
+        watch: true,
+      },
+      duckdb: {
+        path: "/tmp/sessions.duckdb",
+        url_configured: false,
+        token_configured: false,
+        machine_name: "dev",
+        projects: [],
+        exclude_projects: ["noise"],
+      },
+    };
+    expect(postgresConfigFromConfig(config)).toMatchObject({
+      url_configured: true,
+      schema: "session-archive",
+      watch: true,
+      projects: ["studio"],
+    });
+    expect(duckDbConfigFromConfig(config)).toMatchObject({
+      path: "/tmp/sessions.duckdb",
+      url_configured: false,
+      exclude_projects: ["noise"],
+    });
+    const status = backendsStatusFromConfig(config);
+    expect(status.backends).toHaveLength(2);
+    expect(status.backends[0]).toMatchObject({ backend: "postgres", configured: true, mode: "push", status: "blocked" });
+    expect(status.backends[1]).toMatchObject({ backend: "duckdb", configured: true, mode: "mirror", status: "blocked" });
   });
 });
