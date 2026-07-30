@@ -186,9 +186,9 @@ export function getWorkspaceSettingsTabs(): SettingsTab[] {
   return ["preferences", "memory", "conversation-memory"];
 }
 
-/** Reset/recovery + archive — one sidebar group with two leaf tabs. */
+/** Usage + reset/recovery + archive. */
 export function getDataSettingsTabs(): SettingsTab[] {
-  return ["recovery", "archived-tasks"];
+  return ["usage", "recovery", "archived-tasks"];
 }
 
 /** @deprecated Use getDataSettingsTabs */
@@ -201,10 +201,8 @@ export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
     "ai",
     "system",
     "shortcuts",
-    "app-snapshot",
     "environment",
     "updates",
-    "usage",
   ];
   if (developerMode) tabs.push("debug");
   return tabs;

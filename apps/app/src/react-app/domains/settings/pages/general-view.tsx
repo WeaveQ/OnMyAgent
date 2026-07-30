@@ -115,11 +115,6 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       desc: t("settings.tab_description_shortcuts"),
     },
     {
-      tab: "app-snapshot",
-      title: t("settings.tab_app_snapshot"),
-      desc: t("settings.tab_description_app_snapshot"),
-    },
-    {
       tab: "environment",
       title: t("settings.tab_environment"),
       desc: t("settings.tab_environment_description"),
@@ -129,11 +124,6 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       title: t("settings.tab_updates"),
       desc: t("settings.tab_updates_description"),
     },
-    {
-      tab: "usage",
-      title: t("settings.tab_usage"),
-      desc: t("settings.tab_description_usage"),
-    },
   ];
 
   const dataCards: Array<{
@@ -141,6 +131,11 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
     title: string;
     desc: string;
   }> = [
+    {
+      tab: "usage",
+      title: t("settings.tab_usage"),
+      desc: t("settings.tab_description_usage"),
+    },
     {
       tab: "recovery",
       title: t("settings.tab_recovery"),
