@@ -80,6 +80,7 @@ const testTargets = new Map([
   ['session-snapshot-query-policy', ['bun', ['test', 'scripts/session-snapshot-query-policy.test.ts']]],
   ['session-delete-policy', ['bun', ['test', 'scripts/session-delete-policy.test.ts']]],
   ['bundled-skill-locale', ['bun', ['test', 'scripts/bundled-skill-locale.test.ts']]],
+  ['skill-chat-navigation', ['bun', ['test', 'scripts/skill-chat-navigation.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['workspace-files-model', ['bun', ['test', 'scripts/workspace-files-model.test.ts']]],
   ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],

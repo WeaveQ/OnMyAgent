@@ -410,7 +410,9 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const handleChatWithSkill = useCallback(
     (skill: { name: string }) => {
-      const name = skill.name.trim();
+      // Slash-command token must match the installed skill folder / package name
+      // (e.g. self-improving), never a localized display title.
+      const name = skill.name.trim().replace(/^\/+/, "");
       if (!name) return;
       openOfficeNewTaskWithDraft(t("session.chat_with_skill_prompt", { name }));
     },

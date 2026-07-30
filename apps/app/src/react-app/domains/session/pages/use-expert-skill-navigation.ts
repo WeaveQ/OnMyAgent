@@ -77,7 +77,8 @@ export function useExpertSkillNavigation(input: {
 
   const handleChatWithSkill = useCallback(
     (skill: { name: string }) => {
-      const name = skill.name.trim();
+      // Use package/folder name for `/name` slash token, not display titles.
+      const name = skill.name.trim().replace(/^\/+/, "");
       if (!name) return;
       goAssistantOfficeNewTaskWithDraft(
         t("session.chat_with_skill_prompt", { name }),
@@ -88,7 +89,7 @@ export function useExpertSkillNavigation(input: {
 
   const handleEditSkill = useCallback(
     (skill: { name: string }) => {
-      const name = skill.name.trim();
+      const name = skill.name.trim().replace(/^\/+/, "");
       if (!name) return;
       goAssistantOfficeNewTaskWithDraft(t("session.edit_skill_prompt", { name }));
       if (isElectronRuntime()) {
