@@ -92,12 +92,16 @@ export async function readExtensionManifest(manifestPath, source) {
   const name = textValue(parsed.name);
   if (!name) return null;
   const installRoot = path.dirname(manifestPath);
+  // Explicit defaultEnabled:false keeps demo/bundled samples out of 本地
+  // until the user turns them on (state file still wins when set).
+  const defaultEnabled = parsed.defaultEnabled === false ? false : true;
   const extension = {
     name,
     version: textValue(parsed.version) || "0.0.0",
     displayName: textValue(parsed.displayName) || name,
     description: textValue(parsed.description) || null,
     author: textValue(parsed.author) || null,
+    defaultEnabled,
     source, // "bundled" | "user"
     installRoot,
     manifestPath,
@@ -179,7 +183,12 @@ export async function loadExtensions({ bundledRoots = [] } = {}) {
   const enabledAdapters = [];
   for (const info of byName.values()) {
     const persisted = state.extensions[info.extension.name] ?? {};
-    const enabled = persisted.enabled !== false; // enabled by default
+    const defaultEnabled = info.extension.defaultEnabled !== false;
+    // Explicit user choice wins; otherwise honor manifest defaultEnabled.
+    const enabled =
+      typeof persisted.enabled === "boolean"
+        ? persisted.enabled
+        : defaultEnabled;
     const descriptor = { ...info.extension, enabled, errors: info.errors, adapterIds: info.adapters.map((a) => a.id) };
     extensions.push(descriptor);
     if (enabled) {
