@@ -14,6 +14,38 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.15
+
+### Changed
+
+- Cold-start **boot overlay / first-screen load** polish: progressive hide and quieter first paint (#187).
+
+## 0.4.14
+
+### Added
+
+- Experts: capability introductions as onboarding guides; logistics marketplace refinements.
+
+### Changed
+
+- Files, Computer Use, terminal, and archive session UX polish.
+- Desktop runtime kept within file-size baseline.
+- Session/expert stability fixes (tab selection, collapsed previews, terminal capability maps).
+
+## 0.4.13
+
+### Added
+
+- **BrowserSkill Path B**: desktop `browser-skill-desktop` discover/doctor/install guide + bundled skill `browser-skill` (external `bsk` + Chrome/Edge extension); coexists with in-app `browser-runtime` / `browser-automation` (#184).
+- Connectors UX polish alongside BrowserSkill setup (#184).
+- Experts progressive capability introductions / visualization; composer session file and folder mentions.
+
+### Changed
+
+- Expert first-send and multi-session tab selection stability.
+- Personal usage / Codex usage summary UI parity fixes.
+- Orchestrator pins `onmyagent-server` to 0.4.13 for strict release review.
+
 ## 0.4.12
 
 ### Changed

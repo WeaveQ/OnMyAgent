@@ -16,5 +16,7 @@ Session chrome lives under `session/sidebar/` (no shared-pages middleman).
 
 ## Lateral dependencies
 
-- Allowed: `domains/shared` (infra), `app/lib`, `packages/types`.
+- Allowed: `domains/shared` (infra), `domains/agents`, `domains/shell-feedback`
+  (e.g. automation archive toasts — see `domain-boundary-policy.mjs`), `app/lib`,
+  `packages/types`.
 - Prefer not depending on `session/` for new code.
