@@ -62,8 +62,8 @@ export function useExpertWaybillPatch(input: {
         ) ??
         null;
       const candidates = waybillDataPathCandidates({
-        catalogRoot: input.catalogRoot,
-        sessionRoot: input.selectedWorkspaceRoot,
+        catalogRoot: String(input.catalogRoot ?? "").trim(),
+        sessionRoot: input.selectedWorkspaceRoot ?? null,
         sessionDirectory: selectedSession?.directory ?? null,
       });
 

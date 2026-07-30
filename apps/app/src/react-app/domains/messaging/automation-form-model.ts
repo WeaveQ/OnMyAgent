@@ -175,10 +175,10 @@ export function formStateFromTemplateLocalized(
   );
 }
 
-export function selectAgentTemplateById(
-  registry: { templates: ReadonlyArray<{ id: string }> },
+export function selectAgentTemplateById<T extends { id: string }>(
+  registry: { templates: ReadonlyArray<T> },
   agentId: string,
-) {
+): T | null {
   return registry.templates.find((template) => template.id === agentId) ?? null;
 }
 

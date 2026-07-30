@@ -571,11 +571,13 @@ export function countOpenCodeProviderModels(provider: {
 }
 
 /** Merge remote workspace connection errors into override map. */
-export function buildWorkspaceConnectionStateById(input: {
-  workspaces: ReadonlyArray<{ id: string; workspaceType?: string | null }>;
+export function buildWorkspaceConnectionStateById<
+  T extends { id: string; workspaceType?: string | null },
+>(input: {
+  workspaces: ReadonlyArray<T>;
   errorsByWorkspaceId: Record<string, string | null | undefined>;
   workspaceConnectionOverrides: Record<string, WorkspaceConnectionState>;
-  errorMessageFor: (workspace: { id: string }, error: string) => string;
+  errorMessageFor: (workspace: T, error: string) => string;
 }): Record<string, WorkspaceConnectionState> {
   const next: Record<string, WorkspaceConnectionState> = {
     ...input.workspaceConnectionOverrides,
@@ -610,12 +612,12 @@ export function toSelectedWorkspaceDisplay(input: {
   if (!selected) return input.empty;
   return {
     id: selected.id,
-    name: selected.name ?? selected.displayNameResolved,
+    name: selected.name ?? selected.displayNameResolved ?? selected.id,
     path: selected.path ?? "",
     preset: "starter",
     workspaceType: selected.workspaceType ?? "local",
-    displayName: selected.displayNameResolved,
-    onmyagentWorkspaceName: selected.onmyagentWorkspaceName,
+    displayName: selected.displayNameResolved ?? undefined,
+    onmyagentWorkspaceName: selected.onmyagentWorkspaceName ?? undefined,
   };
 }
 
