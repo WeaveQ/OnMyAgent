@@ -1154,7 +1154,9 @@ async function collectGlobalSkillRoots() {
     );
   }
 
-  if (bundledRoot) candidates.push(bundledRoot);
+  // Do NOT push bundledRoot here. Bundled packages are install sources only;
+  // Agent loads skills from user/workspace roots after install (connector model).
+  void bundledRoot;
 
   for (const candidate of candidates) {
     const isDir = await isDirectory(candidate);
@@ -1216,10 +1218,51 @@ async function findSkillDirsInRoot(root) {
   return found;
 }
 
+let defaultBuiltinSkillsEnsured = false;
+
+async function ensureDefaultBuiltinSkillsOnce() {
+  if (defaultBuiltinSkillsEnsured) return { ok: true, installed: [], skipped: [], errors: [] };
+  defaultBuiltinSkillsEnsured = true;
+  try {
+    const { ensureDefaultBuiltinSkills } = await import(
+      "./ensure-default-builtin-skills.mjs"
+    );
+    const result = await ensureDefaultBuiltinSkills({
+      bundledRoot: bundledSkillsRootPath(),
+      userSkillsRoot: onmyagentUserSkillsRoot(),
+      packageSourceCandidates: (packageName) => {
+        const { candidates } = builtinSkillPackageSource(packageName);
+        return candidates;
+      },
+    });
+    if (result.installed.length > 0) {
+      await runtimeManager.refreshSkillLinks().catch(() => undefined);
+      console.info(
+        "[skills] core preinstall:",
+        result.installed.join(", "),
+      );
+    }
+    if (result.errors.length > 0) {
+      console.warn("[skills] core preinstall issues:", result.errors.join("; "));
+    }
+    return result;
+  } catch (error) {
+    console.warn("[skills] ensureDefaultBuiltinSkills failed", error);
+    return {
+      ok: false,
+      installed: [],
+      skipped: [],
+      errors: [error instanceof Error ? error.message : String(error)],
+    };
+  }
+}
+
 async function listLocalSkills(projectDir) {
   if (!String(projectDir ?? "").trim()) {
     throw new Error("projectDir is required");
   }
+
+  await ensureDefaultBuiltinSkillsOnce();
 
   const LOCALE_KEYS = ["display_name_zh", "display_name_en", "description_zh", "description_en"];
   const seen = new Set();
@@ -1254,6 +1297,80 @@ async function listLocalSkills(projectDir) {
   }
 
   return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function listBuiltinSkillCatalog() {
+  await ensureDefaultBuiltinSkillsOnce();
+  const { buildBuiltinSkillCatalogEntries } = await import(
+    "./builtin-skills-policy.mjs"
+  );
+  const bundledRoot = bundledSkillsRootPath();
+  const packageNames = [];
+  if (bundledRoot && (await isDirectory(bundledRoot))) {
+    const entries = await readdir(bundledRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith(".")) continue;
+      const skillMd = path.join(bundledRoot, entry.name, "SKILL.md");
+      if (await pathExists(skillMd)) packageNames.push(entry.name);
+    }
+  }
+  packageNames.sort((a, b) => a.localeCompare(b));
+
+  const userRoot = onmyagentUserSkillsRoot();
+  const installed = [];
+  if (await isDirectory(userRoot)) {
+    const entries = await readdir(userRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+      const skillMd = path.join(userRoot, entry.name, "SKILL.md");
+      if (await pathExists(skillMd)) installed.push(entry.name);
+    }
+  }
+
+  const base = buildBuiltinSkillCatalogEntries({
+    packageNames,
+    installedSkillNames: installed,
+  });
+
+  const LOCALE_KEYS = [
+    "display_name_zh",
+    "display_name_en",
+    "description",
+    "description_zh",
+    "description_en",
+  ];
+  const enriched = [];
+  for (const entry of base) {
+    let description;
+    let displayNameZh;
+    let displayNameEn;
+    if (bundledRoot) {
+      try {
+        const raw = await readFile(
+          path.join(bundledRoot, entry.packageName, "SKILL.md"),
+          "utf8",
+        );
+        const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
+        description =
+          localeMap.description_zh ||
+          localeMap.description ||
+          extractDescription(raw) ||
+          undefined;
+        displayNameZh = localeMap.display_name_zh;
+        displayNameEn = localeMap.display_name_en;
+      } catch {
+        /* ignore missing read */
+      }
+    }
+    enriched.push({
+      ...entry,
+      description,
+      displayNameZh,
+      displayNameEn,
+    });
+  }
+  return { skills: enriched };
 }
 
 async function findSkillFile(projectDir, name) {
@@ -1354,6 +1471,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   cp,
   writeFile,
   listLocalSkills,
+  listBuiltinSkillCatalog,
+  ensureDefaultBuiltinSkills: ensureDefaultBuiltinSkillsOnce,
   onmyagentUserSkillsRoot,
   validateExpertMarketplaceName,
   onmyagentMarketplaceRoot,

@@ -152,7 +152,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
         {open ? (
           <div
             role="menu"
-            className="absolute bottom-full left-0 z-40 mb-2 w-[min(calc(100vw-2.5rem),320px)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface p-1.5"
+            className="absolute bottom-full left-0 z-40 mb-2 w-[min(calc(100vw-2.5rem),320px)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5"
           >
             <div className="px-3 py-2 text-xs font-medium text-dls-text">
               {t("composer.collaboration_choose_mode")}
@@ -212,7 +212,7 @@ export function CollaborationModeSelect(props: CollaborationModeSelectProps) {
       {open ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-40 mb-2 w-36 overflow-hidden rounded-lg border border-dls-border bg-dls-surface p-1"
+          className="absolute bottom-full left-0 z-40 mb-2 w-36 overflow-hidden rounded-lg border border-dls-border bg-dls-surface-solid p-1"
         >
           <TooltipProvider delay={120}>
             {COLLABORATION_MODE_OPTIONS.map((option) => {

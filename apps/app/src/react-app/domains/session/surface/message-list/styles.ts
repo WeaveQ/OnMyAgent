@@ -17,7 +17,9 @@ export const messageTextClass = {
 };
 
 export const messageStateClass = {
-  skillReferenceChip: "inline-flex items-center gap-1 rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2 py-0.5 font-mono text-xs font-medium text-dls-accent",
+  // Match composer slash chips: decision-soft + icon-fg stay readable in dark.
+  skillReferenceChip:
+    "inline-flex items-center gap-1 rounded-md border border-dls-accent/50 bg-dls-decision-soft px-2 py-0.5 font-mono text-xs font-medium text-dls-icon-fg",
   toolError: "overflow-x-auto rounded-xl border border-dls-status-danger-border bg-dls-status-danger-soft px-4 py-3 text-xs leading-6 text-dls-status-danger",
   sheetBadge: "min-w-5 border border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
   activeSearchOutline: "outline outline-2 outline-amber-8/70 outline-offset-2 rounded-xl",

@@ -12,9 +12,13 @@ export const typeScale = {
 } as const;
 
 export const shellChrome = {
-  /** Standard top bar for full-height side pages */
+  /**
+   * Standard top bar for full-height side pages (市场 / 管理 / 文件).
+   * min-h-14 + py-3 matches home session chrome breathing room and avoids
+   * tabs sitting too tight under the mac traffic-light titlebar.
+   */
   pageHeader:
-    "flex h-12 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-background px-6",
+    "flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-dls-border bg-dls-background px-6 py-3",
   pageHeaderSimple:
-    "flex h-12 shrink-0 items-center border-b border-dls-border bg-dls-background px-6",
+    "flex min-h-14 shrink-0 items-center border-b border-dls-border bg-dls-background px-6 py-3",
 } as const;

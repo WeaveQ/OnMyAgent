@@ -22,7 +22,7 @@ const statusToastToneClass = {
 };
 
 const statusToastLayoutClass = {
-  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300",
+  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid animate-in fade-in slide-in-from-top-4 duration-300",
   body: "flex items-start gap-3 p-4",
   iconTile: "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",
   content: "min-w-0 flex-1",

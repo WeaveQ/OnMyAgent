@@ -1220,6 +1220,28 @@ export type BuiltinSkillPackageInstallResult = {
   skillName: string;
 };
 
+/** Built-in catalog row for the 内置 tab (install source, not Agent load root). */
+export type BuiltinSkillCatalogEntry = {
+  packageName: string;
+  skillName: string;
+  installed: boolean;
+  corePreinstall: boolean;
+  description?: string;
+  displayNameZh?: string;
+  displayNameEn?: string;
+};
+
+export type BuiltinSkillCatalogResult = {
+  skills: BuiltinSkillCatalogEntry[];
+};
+
+export type EnsureDefaultBuiltinSkillsResult = {
+  ok: boolean;
+  installed: string[];
+  skipped: string[];
+  errors: string[];
+};
+
 export type ExpertPromptTemplate = { id: string; title: string; description: string; template: string; requiredSlots: string[]; conditionalSlots: string[] };
 export type ExpertPackageListEntry = {
   id: string;
