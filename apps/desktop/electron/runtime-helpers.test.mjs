@@ -164,14 +164,12 @@ test("validateStoppableSandboxContainerName enforces prefix and charset", () => 
     ok: false,
     error: "containerName is required",
   });
-  assert.match(
-    validateStoppableSandboxContainerName("nginx").error,
-    /onmyagent-orchestrator-/,
-  );
-  assert.match(
-    validateStoppableSandboxContainerName("onmyagent-orchestrator-bad name").error,
-    /invalid characters/,
-  );
+  const nginx = validateStoppableSandboxContainerName("nginx");
+  assert.equal(nginx.ok, false);
+  if (!nginx.ok) assert.match(nginx.error, /onmyagent-orchestrator-/);
+  const badName = validateStoppableSandboxContainerName("onmyagent-orchestrator-bad name");
+  assert.equal(badName.ok, false);
+  if (!badName.ok) assert.match(badName.error, /invalid characters/);
   assert.deepEqual(
     validateStoppableSandboxContainerName("onmyagent-orchestrator-probe-1"),
     { ok: true, name: "onmyagent-orchestrator-probe-1" },

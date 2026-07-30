@@ -1,12 +1,12 @@
 /**
- * Context bag for SettingsTabBody. Typed loosely so the host can pass through
- * store snapshots without re-declaring every domain type here.
+ * Context bag for SettingsTabBody. Host-owned fields are threaded through as
+ * a single object so the tab switch stays a pure view mapping.
+ *
+ * Typed as an open host bag without the forbidden `any` keyword; property
+ * access is narrowed at use sites or via the host object shape from render.
  */
-import type { ReactNode } from "react";
 import type { SettingsTab } from "../../../app/types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SettingsTabBodyCtx = {
   tab: SettingsTab;
-  [key: string]: any;
-};
+} & Record<string, unknown>;
