@@ -1,8 +1,10 @@
 ---
 name: expert-manager
-description: |
-  专家包的全生命周期运营：转化(从开源仓库/本地项目创建专家包)、修改已有专家、合规检查、批量更新、质量审查。
-  触发词：创建专家、转化专家、转成专家、生成专家包、导入专家、convert expert、修改专家、编辑专家、更新专家、modify expert、检查专家、审查专家包、专家合规、专家运营、expert ops。
+display_name_zh: 专家管理
+display_name_en: Expert Manager
+description: Create, convert, edit, and validate OnMyAgent expert packages from conversation or source materials. Use when the user wants to create/import experts, convert a repo into an expert pack, modify expert metadata, or run expert compliance checks.
+description_zh: 创建、转化、修改与校验 OnMyAgent 专家包（从对话或资料生成，支持合规检查与批量更新）
+description_en: Create, convert, edit, and validate OnMyAgent expert packages from chat or source materials
 ---
 
 # OnMyAgent 专家包管理器
