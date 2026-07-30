@@ -1,0 +1,70 @@
+{
+  "name": "fulfillment-specialist",
+  "version": "1.0.0",
+  "description": "Organize shipment progress, draft customer updates, sort out transport problems, check signed receipts, and find frequent delays",
+  "author": { "name": "Expert Marketplace" },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "fulfillment-specialist",
+  "agents": ["./agents/fulfillment-specialist.md"],
+  "skills": [
+    "./skills/transit-update-structuring",
+    "./skills/customer-update-drafting",
+    "./skills/exception-evidence-review",
+    "./skills/pod-document-audit",
+    "./skills/fulfillment-performance-analysis"
+  ],
+  "displayName": {
+    "en": "In-Transit Fulfillment Specialist",
+    "zh": "物流管理员"
+  },
+  "profession": {
+    "en": "In-Transit Fulfillment Operations",
+    "zh": "物流管理员"
+  },
+  "displayDescription": {
+    "en": "Organize driver messages into clear shipment progress, draft customer updates, sort out transport problems, check signed receipts, and find frequent delays.",
+    "zh": "把司机群聊和位置消息整理成每票货的最新进度，写客户通知，理清运输异常，检查签收回单，并找出经常晚到或出问题的线路。"
+  },
+  "avatar": "avatars/expert.svg",
+  "categoryId": "14-Logistics",
+  "categoryIds": ["01-OPC", "14-Logistics"],
+  "defaultInitPrompt": {
+    "zh": "这些是司机群聊、位置和运输进度 XX。请按运单整理每票货现在到哪里、最后更新时间，以及还需要向司机确认什么。",
+    "en": "Here are driver chats, locations, and shipment updates XX. Organize each shipment's current location, latest update, and questions that still need driver confirmation."
+  },
+  "tags": [
+    { "zh": "整理运输进度", "en": "Organize Progress" },
+    { "zh": "写客户通知", "en": "Draft Customer Update" },
+    { "zh": "整理运输异常", "en": "Sort Out Problems" },
+    { "zh": "检查签收回单", "en": "Check Signed Receipts" },
+    { "zh": "找经常晚到", "en": "Find Frequent Delays" }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这些是司机群聊、位置和运输进度 XX。请按运单整理每票货现在到哪里、最后更新时间，以及还需要向司机确认什么。",
+      "en": "Here are driver chats, locations, and shipment updates XX. Organize each shipment's current location, latest update, and questions that still need driver confirmation."
+    },
+    {
+      "zh": "请根据已经确认的运输进度 XX，写一段客户能看懂的进度通知或延误说明，并告诉我哪些时间和承诺还需要确认。",
+      "en": "Using confirmed shipment progress XX, draft a clear customer update or delay explanation and point out any timing or promises that still need confirmation."
+    },
+    {
+      "zh": "这票货 XX 出了问题，聊天、照片和说明在这里：XX。请把事情经过理清，看看还缺哪些照片或记录，并写好下一步处理和回复客户的话。",
+      "en": "Shipment XX has a problem; chats, photos, and notes are here: XX. Put the events in order, identify missing photos or records, and draft next steps and a customer reply."
+    },
+    {
+      "zh": "这些是签收回单和对应订单 XX。请检查运单号、签收时间、签字盖章和异常备注，找出缺签、模糊、缺页或对不上订单的回单。",
+      "en": "Here are signed receipts and related orders XX. Check shipment number, delivery time, signature or stamp, and exception notes, and find missing, unclear, incomplete, or mismatched receipts."
+    },
+    {
+      "zh": "这是本月各票货的计划时间、实际到达时间和异常记录 XX。请找出哪些客户、线路或承运商经常晚到或出问题。",
+      "en": "Here are monthly planned times, actual arrival times, and problem records XX. Find customers, routes, or carriers with frequent delays or issues."
+    }
+  ],
+  "promptTemplates": "./prompt-templates.json",
+  "greeting": {
+    "zh": "我是物流管理员。司机群聊、位置记录、异常照片说明、签收回单和运输明细，都可以直接发给我。我能帮你理清货到哪里了、写客户通知、整理运输异常、检查回单，也能看看哪些线路经常晚到。说说看，今天有什么运输上的事儿需要处理？",
+    "en": "I am your Logistics Manager. Send me driver chats, location records, problem photos and notes, signed receipts, or shipment records. I can work out where each shipment is, draft customer updates, organize transport problems, check receipts, and spot routes that are often late. Tell me, what shipment work do you need help with today?"
+  }
+}

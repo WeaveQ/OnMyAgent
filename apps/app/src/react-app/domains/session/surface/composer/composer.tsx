@@ -1198,6 +1198,7 @@ export function ReactSessionComposer(props: ComposerProps) {
           <div className={editorPadClass}>
             {/* Editor */}
             <LexicalPromptEditor
+              sessionId={props.sessionId}
               value={props.draft}
               mentions={props.mentions}
               scenarioTags={props.scenarioTags}

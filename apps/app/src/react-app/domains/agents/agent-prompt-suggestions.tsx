@@ -210,14 +210,7 @@ function resolvePrompts(
   return getGenericPrompts();
 }
 
-const CAPABILITY_MAP_EXPERT_IDS = [
-  "order-dispatch-specialist",
-  "fleet-management-specialist",
-  "logistics-finance-specialist",
-];
-
 function promptsFromExpertQuickPrompts(
-  agentId: string | null | undefined,
   quickPrompts: string[] | undefined,
   promptTemplates: ExpertPromptTemplate[] | undefined,
 ): PromptSuggestion[] | null {
@@ -227,20 +220,11 @@ function promptsFromExpertQuickPrompts(
     .filter(Boolean)
     .slice(0, 3);
   if (templates.length === 0 && prompts.length === 0) return null;
-  const showCapabilityMap = CAPABILITY_MAP_EXPERT_IDS.some((id) => agentId?.includes(id));
   return [
     {
       title: t("session.expert_self_intro_prompt_title"),
-      description: t(
-        showCapabilityMap
-          ? "session.expert_self_intro_capability_map_description"
-          : "session.expert_self_intro_prompt",
-      ),
-      prompt: t(
-        showCapabilityMap
-          ? "session.expert_self_intro_capability_map_prompt"
-          : "session.expert_self_intro_prompt",
-      ),
+      description: t("session.expert_self_intro_prompt_description"),
+      prompt: t("session.expert_self_intro_prompt"),
       icon: MessageSquare,
     },
     ...(templates.length > 0
@@ -268,7 +252,6 @@ export function AgentPromptSuggestions(props: {
 }) {
   const prompts =
     promptsFromExpertQuickPrompts(
-      props.agentId,
       props.quickPrompts,
       props.promptTemplates,
     ) ??

@@ -49,6 +49,7 @@ import {
 } from "./capability-placeholder-node";
 
 type EditorProps = {
+  sessionId: string;
   value: string;
   mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
@@ -694,6 +695,7 @@ function ScenarioChipRemovePlugin() {
 }
 
 function ComposerTemplatePlugin(props: {
+  sessionId: string;
   mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;
 }) {
@@ -717,6 +719,12 @@ function ComposerTemplatePlugin(props: {
       ) {
         return;
       }
+      const targetSessionId =
+        "targetSessionId" in detail &&
+        typeof detail.targetSessionId === "string"
+          ? detail.targetSessionId
+          : null;
+      if (targetSessionId && targetSessionId !== props.sessionId) return;
       const template = detail.template;
 
       editor.update(
@@ -737,7 +745,7 @@ function ComposerTemplatePlugin(props: {
         window.removeEventListener(eventName, applyTemplate);
       }
     };
-  }, [editor, props.mentions, props.scenarioTags]);
+  }, [editor, props.mentions, props.scenarioTags, props.sessionId]);
 
   useEffect(() => {
     const focusEmptySlot = (event: MouseEvent) => {
@@ -999,6 +1007,7 @@ export function LexicalPromptEditor(props: EditorProps) {
         <SubmitPlugin onSubmit={props.onSubmit} disabled={props.disabled} />
         <ScenarioChipRemovePlugin />
         <ComposerTemplatePlugin
+          sessionId={props.sessionId}
           mentions={props.mentions}
           scenarioTags={props.scenarioTags}
         />

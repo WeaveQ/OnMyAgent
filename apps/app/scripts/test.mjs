@@ -15,6 +15,8 @@ const testTargets = new Map([
   ['automation-model', ['bun', ['test', 'scripts/automation-model.test.ts']]],
   ['extensions-store', ['bun', ['test', 'scripts/extensions-store.test.ts']]],
   ['expert-marketplace-ui-contract', ['bun', ['test', 'scripts/expert-marketplace-ui-contract.test.ts']]],
+  ['marketplace-expert-start-prompt', ['bun', ['test', 'scripts/marketplace-expert-start-prompt.test.ts']]],
+  ['document-processing-skill-contract', ['node', ['--test', '../desktop/electron/document-processing-skill.test.mjs', '../desktop/electron/builtin-skills-policy.test.mjs', '../desktop/electron/ensure-default-builtin-skills.test.mjs']]],
   ['capability-template-editor', ['bun', ['test', 'scripts/capability-template-editor.test.ts']]],
   ['filter-chip-contract', ['bun', ['test', 'scripts/filter-chip-contract.test.ts']]],
   // Stale class-snapshot style contracts removed (not in default ui-contracts gate):
@@ -124,6 +126,8 @@ const composedTargets = new Map([
   ['ui-contracts', [
     // Structural / product safety nets verified green
     'expert-marketplace-ui-contract',
+    'marketplace-expert-start-prompt',
+    'document-processing-skill-contract',
     'capability-template-editor',
     'filter-chip-contract',
     'session-route-facade-contract',
@@ -132,6 +136,7 @@ const composedTargets = new Map([
     'main-rail-channel-icon-contract',
     'session-side-panel-toggle-contract',
     'session-visual-files-contract',
+    'open-target',
     // Style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],

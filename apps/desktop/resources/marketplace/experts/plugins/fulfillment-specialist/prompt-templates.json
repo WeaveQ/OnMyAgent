@@ -1,0 +1,94 @@
+[
+  {
+    "id": "transit-update-structuring",
+    "title": {
+      "zh": "整理货现在到哪里了",
+      "en": "Organize Current Shipment Progress"
+    },
+    "description": {
+      "zh": "从司机消息里整理出每票货现在到哪、多久没更新",
+      "en": "Turn driver chats and locations into clear shipment progress"
+    },
+    "template": {
+      "zh": "这些是 <司机群聊、位置和运输记录>。请按 <运单号或你现有的进度表> 整理每票货现在到哪里、最后更新时间和下一步，并根据 <需要重点关注的票> 告诉我还要向司机确认什么。",
+      "en": "Organize <Driver chats, locations, and shipment updates> by <Shipment number or my sheet>, follow <Other requirements>, and show current location, latest update, and questions for the driver."
+    },
+    "requiredSlots": {
+      "zh": ["司机群聊、位置和运输记录", "运单号或你现有的进度表"],
+      "en": ["Driver chats, locations, and shipment updates", "Shipment number or my sheet"]
+    },
+    "conditionalSlots": {
+      "zh": ["需要重点关注的票"],
+      "en": ["Other requirements"]
+    }
+  },
+  {
+    "id": "customer-update-drafting",
+    "title": {
+      "zh": "帮我写客户进度通知",
+      "en": "Draft a Customer Progress Update"
+    },
+    "description": {
+      "zh": "把运输进度改写成客户能看懂、可以直接发送的消息",
+      "en": "Draft an update, delay explanation, or follow-up message"
+    },
+    "template": {
+      "zh": "请根据 <已经确认的运输进度>，给 <要通知的人> 写一段 <进度通知、延误说明或催办消息>，语气自然、可以直接发送，并单独告诉我哪些时间和承诺还不能确定。",
+      "en": "Using <Confirmed shipment progress>, write <A progress update, delay explanation, or follow-up message> for <Customer, driver, or internal team>, and flag timing or promises that are not yet confirmed."
+    },
+    "requiredSlots": {
+      "zh": ["已经确认的运输进度", "要通知的人"],
+      "en": ["Confirmed shipment progress", "Customer, driver, or internal team"]
+    },
+    "conditionalSlots": {
+      "zh": ["进度通知、延误说明或催办消息"],
+      "en": ["A progress update, delay explanation, or follow-up message"]
+    }
+  },
+  {
+    "id": "exception-evidence-review",
+    "title": {
+      "zh": "整理运输异常和证据",
+      "en": "Sort Out a Transport Problem"
+    },
+    "description": {
+      "zh": "把异常经过和证据理清，给出下一步处理和客户回复",
+      "en": "Put events in order and find missing photos or records"
+    },
+    "template": {
+      "zh": "这票货出了问题：<异常经过、聊天、照片和说明>。请对照 <运单和运输约定> 把事情经过按时间理清，按照 <公司的处理要求> 找出还缺哪些照片或记录，并写好下一步处理和回复客户的话。",
+      "en": "Using <Problem details, chats, photos, and notes> and <Shipment and transport terms>, follow <Company handling rules>, put events in order, find missing photos or records, and draft next steps and a customer reply."
+    },
+    "requiredSlots": {
+      "zh": ["异常经过、聊天、照片和说明", "运单和运输约定"],
+      "en": ["Problem details, chats, photos, and notes", "Shipment and transport terms"]
+    },
+    "conditionalSlots": {
+      "zh": ["公司的处理要求"],
+      "en": ["Company handling rules"]
+    }
+  },
+  {
+    "id": "pod-document-audit",
+    "title": {
+      "zh": "检查签收回单",
+      "en": "Check Signed Receipts"
+    },
+    "description": {
+      "zh": "找出缺签、模糊、缺页或对不上订单的回单",
+      "en": "Find missing, unclear, incomplete, or mismatched receipts"
+    },
+    "template": {
+      "zh": "请检查 <签收回单> 和 <对应订单>，按照 <客户或公司的回单要求> 核对运单号、签收时间、签字盖章和异常备注，并找出有问题或需要补的回单。",
+      "en": "Check <Signed receipts> against <Related orders>, follow <Customer or company receipt rules>, verify shipment number, delivery time, signature or stamp, and exception notes, and find receipts that need correction."
+    },
+    "requiredSlots": {
+      "zh": ["签收回单", "对应订单"],
+      "en": ["Signed receipts", "Related orders"]
+    },
+    "conditionalSlots": {
+      "zh": ["客户或公司的回单要求"],
+      "en": ["Customer or company receipt rules"]
+    }
+  }
+]

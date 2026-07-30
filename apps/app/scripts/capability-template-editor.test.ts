@@ -425,10 +425,11 @@ describe("capability template editor", () => {
     ).toBe("汽车配件 纸箱，数量 <数量>");
   });
 
-  test("all nine logistics prompt templates declare editable placeholders", () => {
+  test("all logistics efficiency templates keep two or three editable inputs", () => {
     const packages = [
       "order-dispatch-specialist",
       "fleet-management-specialist",
+      "fulfillment-specialist",
       "logistics-finance-specialist",
     ];
 
@@ -446,7 +447,7 @@ describe("capability template editor", () => {
       );
       expect(Array.isArray(templates)).toBe(true);
       if (!Array.isArray(templates)) continue;
-      expect(templates).toHaveLength(3);
+      expect(templates).toHaveLength(4);
       for (const template of templates) {
         expect(template).toBeObject();
         if (
@@ -463,6 +464,13 @@ describe("capability template editor", () => {
           continue;
         }
         expect(template.template.zh).toMatch(/<[^<>\r\n]+>/);
+        const placeholders = template.template.zh.match(/<[^<>\r\n]+>/g) ?? [];
+        expect(placeholders.length).toBeGreaterThanOrEqual(2);
+        expect(placeholders.length).toBeLessThanOrEqual(3);
+        expect([
+          ...template.requiredSlots.zh,
+          ...template.conditionalSlots.zh,
+        ]).toHaveLength(placeholders.length);
       }
     }
   });

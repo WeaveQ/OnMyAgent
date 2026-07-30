@@ -48,6 +48,7 @@ import {
 } from "../expert-marketplace/data";
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
+import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
 import {
   SessionPageMainColumn,
@@ -119,7 +120,9 @@ import { useStatusToasts } from "../../shell-feedback";
 import {
   appendComposerFileMention,
   setComposerDraftAfterNewTask,
+  setComposerTemplateAfterNavigation,
   setExpertComposerDraftAfterNewTask,
+  setExpertComposerTemplateAfterNewTask,
 } from "./shared-page-utils";
 import {
   expertFeatureCategoryForAgent,
@@ -724,6 +727,10 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
+      const startPrompt = resolveMarketplaceExpertStartPrompt(
+        expert,
+        initialPrompt,
+      );
       const existingConversationGroup = conversationGroups.find((group) =>
         marketplaceExpertMatchesAgentId(expert, group.agentId),
       );
@@ -733,10 +740,18 @@ export function ExpertPage(props: ExpertPageProps) {
           props.sidebar.selectedWorkspaceId,
           existingConversationGroup.latestSession.id,
         );
-        if (initialPrompt) {
+        if (startPrompt?.template) {
+          setComposerTemplateAfterNavigation(
+            existingConversationGroup.latestSession.id,
+            startPrompt.prompt,
+          );
+        } else if (startPrompt) {
           useComposerStateStore
             .getState()
-            .setDraft(existingConversationGroup.latestSession.id, initialPrompt);
+            .setDraft(
+              existingConversationGroup.latestSession.id,
+              startPrompt.prompt,
+            );
         }
         void installSummonedMarketplaceExpert(expert).catch((error) => {
           console.warn("[expert-marketplace] failed to install expert package", error);
@@ -761,11 +776,17 @@ export function ExpertPage(props: ExpertPageProps) {
       openFreshExpertDraft();
       // Re-assert after create-task's synchronous setAgent(null).
       activateDraftAgent(pendingWithStart);
-      if (initialPrompt) {
+      if (startPrompt?.template) {
+        setExpertComposerTemplateAfterNewTask(
+          props.selectedWorkspaceId,
+          pendingWithStart.id,
+          startPrompt.prompt,
+        );
+      } else if (startPrompt) {
         setExpertComposerDraftAfterNewTask(
           props.selectedWorkspaceId,
           pendingWithStart.id,
-          initialPrompt,
+          startPrompt.prompt,
         );
       }
       openRailView("chat");
@@ -904,13 +925,22 @@ export function ExpertPage(props: ExpertPageProps) {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ template?: string }>).detail;
+      const detail = (
+        event as CustomEvent<{
+          template?: string;
+          targetSessionId?: string;
+        }>
+      ).detail;
       const template = detail?.template;
       if (typeof template !== "string" || !template.trim()) return;
       const workspaceId =
         props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
       if (!workspaceId) return;
-      if (props.selectedSessionId) {
+      if (detail.targetSessionId) {
+        useComposerStateStore
+          .getState()
+          .setDraft(detail.targetSessionId, template);
+      } else if (props.selectedSessionId) {
         useComposerStateStore.getState().setDraft(
           props.selectedSessionId,
           template,

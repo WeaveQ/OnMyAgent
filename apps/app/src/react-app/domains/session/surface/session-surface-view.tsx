@@ -390,6 +390,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
         >
           <DevProfiler id="SessionComposer">
             <ReactSessionComposer
+              sessionId={props.sessionId}
               draft={props.draft}
               mentions={props.mentions}
               scenarioTags={props.assistantScenarioTags}

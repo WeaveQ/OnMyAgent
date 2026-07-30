@@ -28,7 +28,7 @@ describe("shared agent prompt suggestions contract", () => {
     });
   });
 
-  test("builds expert empty state as capability intro plus three quick prompts", () => {
+  test("builds expert empty state as a plain-text capability intro plus quick prompts", () => {
     const source = readFileSync(
       join(
         import.meta.dir,
@@ -40,11 +40,12 @@ describe("shared agent prompt suggestions contract", () => {
     expect(source).toContain("promptTemplates");
     expect(source).toContain("template: true");
     expect(source).toContain('title: t("session.expert_self_intro_prompt_title")');
-    expect(source).toContain('"order-dispatch-specialist"');
-    expect(source).toContain('"fleet-management-specialist"');
-    expect(source).toContain('"logistics-finance-specialist"');
-    expect(source).toContain('"session.expert_self_intro_capability_map_description"');
-    expect(source).toContain('"session.expert_self_intro_capability_map_prompt"');
+    expect(source).toContain(
+      'description: t("session.expert_self_intro_prompt_description")',
+    );
+    expect(source).toContain('prompt: t("session.expert_self_intro_prompt")');
+    expect(source).not.toContain("CAPABILITY_MAP_EXPERT_IDS");
+    expect(source).not.toContain("expert_self_intro_capability_map");
 
     const localeRoot = join(import.meta.dir, "../src/i18n/locales");
     const zh = readFileSync(join(localeRoot, "zh/session.ts"), "utf8");
@@ -53,17 +54,20 @@ describe("shared agent prompt suggestions contract", () => {
     expect(zh).toContain(
       '"session.expert_self_intro_prompt_title": "了解我的能力"',
     );
-    expect(zh).toContain('"session.expert_self_intro_capability_map_description":');
-    expect(zh).toContain("HTML 能力图谱");
+    expect(zh).toContain("介绍能力、适用场景和使用方法");
+    expect(zh).toContain("具备什么能力、适合哪些业务场景");
+    expect(zh).not.toContain("不要生成表格");
     expect(zhTw).toContain(
       '"session.expert_self_intro_prompt_title": "瞭解我的能力"',
     );
-    expect(zhTw).toContain('"session.expert_self_intro_capability_map_description":');
-    expect(zhTw).toContain("HTML 能力圖譜");
+    expect(zhTw).toContain("介紹能力、適用場景和使用方法");
+    expect(zhTw).toContain("具備什麼能力、適合哪些業務場景");
+    expect(zhTw).not.toContain("不要生成表格");
     expect(en).toContain(
       '"session.expert_self_intro_prompt_title": "Explore my capabilities"',
     );
-    expect(en).toContain('"session.expert_self_intro_capability_map_description":');
-    expect(en).toContain("HTML capability map");
+    expect(en).toContain("Capabilities, use cases, and how to get started");
+    expect(en).toContain("what you can do, when to use each capability");
+    expect(en).not.toContain("Do not generate tables");
   });
 });
