@@ -7,6 +7,8 @@ import { addAssistantSession, isExpertSession } from "../../domains/agents";
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
+  sessionSnapshotFetchOptions,
+  sessionSnapshotQueryKey,
 } from "../../domains/session";
 import type { RouteWorkspace } from "./model";
 import { getSessionStatus, isActiveSessionStatus } from "./state";
@@ -419,11 +421,11 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
         await input.endpoint.client.getSessionSnapshot(
           input.endpoint.workspaceId,
           input.sessionId,
-          { limit: 140, directory: input.directory },
+          sessionSnapshotFetchOptions(input.directory),
         )
       ).item;
       input.setQueryData(
-        ["react-session-snapshot", input.endpoint.workspaceId, input.sessionId],
+        sessionSnapshotQueryKey(input.endpoint.workspaceId, input.sessionId),
         snapshot,
       );
       input.seedSessionState(input.endpoint.workspaceId, snapshot);

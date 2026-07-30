@@ -41,8 +41,8 @@ describe("reload-events + session snapshot quiet policy (shipped)", () => {
     expect(shouldRunReloadEventsPoll({ documentVisible: true })).toBe(true);
   });
 
-  test("focused session snapshot staleTime is at least 5s", () => {
-    expect(SESSION_SNAPSHOT_STALE_TIME_MS).toBeGreaterThanOrEqual(5_000);
+  test("focused session snapshot staleTime is at least 30s", () => {
+    expect(SESSION_SNAPSHOT_STALE_TIME_MS).toBeGreaterThanOrEqual(30_000);
   });
 
   test("conversation history snapshot limit is sidebar-scale, not 200", () => {

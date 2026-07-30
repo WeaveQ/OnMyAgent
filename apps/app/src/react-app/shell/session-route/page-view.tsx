@@ -39,12 +39,15 @@ import type { LocalPreferences } from "../../kernel/local-provider";
 import { useBootOverlayVisible } from "../boot-state";
 import { useColdBootShell } from "./cold-boot-shell";
 import {
+  SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
+  buildSessionSnapshotPrefetchSpec,
   resetRailBookmarkToPrimary,
   type PageMode,
   type SessionAgentManagementIntent,
   type SessionPageSurfaceProps,
 } from "../../domains/session";
+import { getReactQueryClient } from "../../infra/query-client";
 
 import { loadAgentsPage } from "../../domains/agents";
 
@@ -750,7 +753,39 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               writeLastSessionFor(workspaceId, sessionId, pageMode);
               navigateToWorkspaceSession(workspaceId, sessionId);
             },
-            onPrefetchSession: () => {},
+            onPrefetchSession: (workspaceId, sessionId) => {
+              // Warm the same snapshot query SessionSurface reads so hover/focus
+              // before open can hit cache instead of a cold getSessionSnapshot.
+              const workspace = workspaces.find(
+                (item) => item.id === workspaceId,
+              );
+              if (!workspace) return;
+              const endpoint = resolveWorkspaceEndpoint(workspace, {
+                baseUrl,
+                token,
+              });
+              if (!endpoint) return;
+              const directory = workspace.path?.trim() || undefined;
+              const spec = buildSessionSnapshotPrefetchSpec({
+                // Server-side id (no rem_ prefix) must match SessionSurface keys.
+                workspaceId: endpoint.workspaceId,
+                sessionId,
+                directory,
+                staleTimeMs: SESSION_SNAPSHOT_STALE_TIME_MS,
+              });
+              void getReactQueryClient().prefetchQuery({
+                queryKey: spec.queryKey,
+                staleTime: spec.staleTime,
+                queryFn: async () =>
+                  (
+                    await endpoint.client.getSessionSnapshot(
+                      endpoint.workspaceId,
+                      sessionId,
+                      spec.fetchOptions,
+                    )
+                  ).item,
+              });
+            },
             onCreateTaskInWorkspace: (workspaceId) => {
               void handleCreateTaskInWorkspace(workspaceId);
             },

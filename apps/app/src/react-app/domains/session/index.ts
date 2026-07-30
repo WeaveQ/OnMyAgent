@@ -110,6 +110,17 @@ export {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   shouldRunReloadEventsPoll,
 } from "./sync/session-poll-policy";
+/** Focused snapshot query key/options — surface + route prefetch share this. */
+export {
+  SESSION_SNAPSHOT_MESSAGE_LIMIT,
+  buildSessionSnapshotPrefetchSpec,
+  sessionSnapshotFetchOptions,
+  sessionSnapshotQueryKey,
+} from "./sync/session-snapshot-query-policy";
+export type {
+  SessionSnapshotFetchOptions,
+  SessionSnapshotQueryKey,
+} from "./sync/session-snapshot-query-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   permissionKey,
