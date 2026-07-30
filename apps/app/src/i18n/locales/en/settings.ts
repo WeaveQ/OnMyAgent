@@ -670,7 +670,7 @@ export default {
     "When on, send a desktop notification after the assistant finishes a turn and the app is in the background. Off by default; the first time you enable it, the app will request system notification permission.",
   "settings.agent_ready_notification_title": "Assistant is ready",
   "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
-  "settings.preferences": "Configuration",
+  "settings.preferences": "Personalization",
   "settings.preferences_card_description":
     "Display size, reasoning visibility, and session habits",
   "settings.tab_description_advanced":
