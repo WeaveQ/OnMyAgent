@@ -9,6 +9,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "importSkill",
   "installSkillTemplate",
   "listLocalSkills",
+  "listBuiltinSkillCatalog",
+  "ensureDefaultBuiltinSkills",
   "onmyagentSkillsRoot",
   "onmyagentMarketplaceRoot",
   "listExpertPackages",
@@ -37,6 +39,8 @@ export function createSkillsDomainHandlers({
   readFile,
   path,
   listLocalSkills,
+  listBuiltinSkillCatalog,
+  ensureDefaultBuiltinSkills,
   onmyagentUserSkillsRoot,
   validateExpertMarketplaceName,
   onmyagentMarketplaceRoot,
@@ -101,6 +105,20 @@ export function createSkillsDomainHandlers({
 
   listLocalSkills: async (event, args) => {
     return listLocalSkills(String(args[0] ?? "").trim());
+  },
+
+  listBuiltinSkillCatalog: async () => {
+    if (typeof listBuiltinSkillCatalog === "function") {
+      return listBuiltinSkillCatalog();
+    }
+    return { skills: [] };
+  },
+
+  ensureDefaultBuiltinSkills: async () => {
+    if (typeof ensureDefaultBuiltinSkills === "function") {
+      return ensureDefaultBuiltinSkills();
+    }
+    return { ok: true, installed: [], skipped: [], errors: [] };
   },
 
   onmyagentSkillsRoot: async (event, args) => {
@@ -177,6 +195,9 @@ export function createSkillsDomainHandlers({
     await mkdir(destinationRoot, { recursive: true });
     await rm(destination, { recursive: true, force: true });
     await cp(sourceDir, destination, { recursive: true });
+    if (typeof refreshRuntimeSkillLinks === "function") {
+      await refreshRuntimeSkillLinks().catch(() => undefined);
+    }
     return { ok: true, path: destination, packageName: safePackage, skillName: safeSkillName };
   },
 

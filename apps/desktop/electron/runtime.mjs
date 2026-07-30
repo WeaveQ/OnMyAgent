@@ -419,6 +419,20 @@ export function createRuntimeManager({
       console.warn("[runtime] Failed to align @opencode-ai/plugin pin:", error);
     }
 
+    // Preinstall core product skills into the user root before materializing
+    // links so first engine start already sees expert-manager / pptx / etc.
+    try {
+      const { ensureDefaultBuiltinSkills } = await import(
+        "./ensure-default-builtin-skills.mjs"
+      );
+      await ensureDefaultBuiltinSkills({
+        bundledRoot: bundledSkillsRootPath(),
+        userSkillsRoot: onmyagentUserSkillsRoot(),
+      });
+    } catch (error) {
+      console.warn("[runtime] ensureDefaultBuiltinSkills failed:", error);
+    }
+
     const artifactSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS);
     const pluginRoot = bundledPluginsRootPath();
     if (pluginRoot) {
@@ -445,9 +459,9 @@ export function createRuntimeManager({
       }
     }
 
-    const roots = [bundledSkillsRootPath(), onmyagentUserSkillsRoot()].filter(
-      Boolean,
-    );
+    // Only materialize *installed* user skills into OpenCode config.
+    // Full bundled-skills tree is catalog/install source, not always-on Agent load.
+    const roots = [onmyagentUserSkillsRoot()].filter(Boolean);
     const legacySkillDirs = [];
     for (const root of roots) {
       for (const skillDir of collectSkillDirs(root)) {

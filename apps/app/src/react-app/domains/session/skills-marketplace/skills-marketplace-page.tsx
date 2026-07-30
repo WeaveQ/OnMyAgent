@@ -536,13 +536,11 @@ function InstalledSkillCard(props: {
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={readonly || props.uninstalling}
+                    disabled={props.uninstalling}
                     onClick={() => props.onUninstall(props.skill)}
                   >
                     <Trash2 className="size-4" />
-                    {readonly
-                      ? t("skills.builtin_readonly_uninstall")
-                      : t("skills.uninstall")}
+                    {t("skills.uninstall")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
