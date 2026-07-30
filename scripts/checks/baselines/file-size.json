@@ -11,7 +11,7 @@
     "apps/desktop/electron/runtime.mjs": 2113,
     "apps/desktop/electron/personal-agent-runtime/index.mjs": 2002,
     "apps/app/src/react-app/domains/settings/state/extensions-store.ts": 1787,
-    "packages/types/src/desktop-ipc.ts": 2052,
+    "packages/types/src/desktop-ipc.ts": 1380,
     "apps/app/src/react-app/domains/session/pages/expert.tsx": 2001,
     "apps/orchestrator/src/cli-commands/start.ts": 2007,
     "apps/app/src/react-app/domains/messaging/automation-page.tsx": 1620,
