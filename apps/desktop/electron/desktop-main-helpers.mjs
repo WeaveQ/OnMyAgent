@@ -217,6 +217,23 @@ export function extractTrigger(raw) {
   return extractFrontmatterValue(raw, ["trigger", "when"]);
 }
 
+/**
+ * First usable skill description among candidates; skips YAML block markers
+ * and empty stubs so list/catalog UI never shows ">-" / "|".
+ * @param {...unknown} values
+ * @returns {string | undefined}
+ */
+export function pickUsableSkillDescription(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (!text) continue;
+    if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text) || /^>$/.test(text)) continue;
+    if (text.length < 3) continue;
+    return text;
+  }
+  return undefined;
+}
+
 export function extractDescription(raw) {
   const fm = extractFrontmatterMap(raw, ["description", "name"]);
   if (fm.description) {
