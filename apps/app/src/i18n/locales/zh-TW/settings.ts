@@ -977,4 +977,12 @@ export default {
   "settings.shortcuts_recording_hint": "請按下新的快捷鍵組合…",
   "settings.shortcuts_reset_one": "還原此項預設",
   "settings.system_options_section_title": "應用選項",
+  "settings.shortcuts_count": "共 {count} 條",
+  "settings.shortcuts_reset_all": "全部還原預設",
+  "settings.shortcuts_col_command": "命令",
+  "settings.shortcuts_col_binding": "按鍵綁定",
+  "settings.shortcuts_col_actions": "操作",
+  "settings.shortcuts_clear": "清除綁定",
+  "settings.shortcuts_unbound": "未設置",
+  "settings.shortcuts_empty": "沒有符合的快捷鍵",
 } as const;
