@@ -1,5 +1,6 @@
 export { AutomationPage } from "./automation-page";
 export * from "./automation-list-model";
+export * from "./automation-form-model";
 export { MessagingChannelsPage } from "./messaging-channels-page";
 export {
   automationArchivedRunsChangedEvent,

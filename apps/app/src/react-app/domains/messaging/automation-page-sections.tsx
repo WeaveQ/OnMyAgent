@@ -10,35 +10,14 @@ import { StatusDot } from "@/components/ui/status-dot";
 import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import type { AutomationTemplate } from "./automation-model";
+import { nextRunLabel, scheduleLabel } from "./automation-form-model";
 
 export type CompletedRun = {
   task: OnMyAgentAutomationTaskItem;
   run: OnMyAgentAutomationTaskItem["runs"][number];
 };
 
-export function scheduleLabel(schedule: OnMyAgentAutomationTaskItem["schedule"]) {
-  if (schedule.mode === "once") {
-    return schedule.onceAt
-      ? t("automation.schedule_once_datetime", { time: new Date(schedule.onceAt).toLocaleString() })
-      : t("automation.schedule_once_at", { time: schedule.time });
-  }
-  if (schedule.mode === "interval") {
-    return t("automation.schedule_interval_minutes", { minutes: schedule.intervalMinutes ?? 60 });
-  }
-  return schedule.day === "weekly"
-    ? t("automation.schedule_weekly_at", { time: schedule.time })
-    : t("automation.schedule_daily_at", { time: schedule.time });
-}
-
-export function nextRunLabel(item: OnMyAgentAutomationTaskItem) {
-  if (!item.enabled) return t("automation.status_paused");
-  if (!item.nextRunAt) return t("automation.no_next_run");
-  const delta = Math.max(0, item.nextRunAt - Date.now());
-  const hours = Math.floor(delta / 3_600_000);
-  if (hours >= 24) return t("automation.starts_in_days", { days: Math.ceil(hours / 24) });
-  if (hours > 0) return t("automation.starts_in_hours", { hours });
-  return t("automation.starts_in_minutes", { minutes: Math.max(1, Math.ceil(delta / 60_000)) });
-}
+export { nextRunLabel, scheduleLabel };
 
 export function AutomationField(props: { label: string; hint?: string; children: ReactNode }) {
   return (

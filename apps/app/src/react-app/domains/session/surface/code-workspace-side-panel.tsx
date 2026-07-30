@@ -44,6 +44,12 @@ import {
   codeTerminalSnapshotIntervalMs,
   shouldRunActivePoll,
 } from "../sync/session-poll-policy";
+import {
+  isDocumentHidden,
+  nextPollDelayMs,
+  shouldRunPollTick,
+  type VisibilityPollPolicy,
+} from "../../../infra/visibility-poll";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { MenuRowButton, TreeRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -945,6 +951,13 @@ function SessionAutomationsPanel(props: {
     }
 
     let cancelled = false;
+    let intervalId: number | undefined;
+    // 15s while focused; pause while the document is hidden.
+    const policy: VisibilityPollPolicy = {
+      focusedIntervalMs: 15_000,
+      hiddenIntervalMs: 0,
+    };
+
     const load = async (initial: boolean) => {
       if (initial) setLoading(true);
       try {
@@ -959,11 +972,46 @@ function SessionAutomationsPanel(props: {
       }
     };
 
+    const run = () => {
+      if (cancelled) return;
+      if (!shouldRunPollTick(isDocumentHidden())) return;
+      void load(false);
+    };
+
+    const clearPollInterval = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+
+    const schedulePoll = () => {
+      clearPollInterval();
+      const delayMs = nextPollDelayMs(policy, isDocumentHidden());
+      if (delayMs == null) return;
+      intervalId = window.setInterval(run, delayMs);
+    };
+
+    const onVisibilityChange = () => {
+      if (cancelled) return;
+      const hidden = isDocumentHidden();
+      if (hidden) {
+        // Pause while hidden (hiddenIntervalMs === 0).
+        clearPollInterval();
+        return;
+      }
+      // Visible again: run once and restart focused interval.
+      run();
+      schedulePoll();
+    };
+
     void load(true);
-    const interval = window.setInterval(() => void load(false), 15_000);
+    schedulePoll();
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      clearPollInterval();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [props.client, props.sessionId, props.workspaceId]);
 

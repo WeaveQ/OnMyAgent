@@ -74,3 +74,45 @@ describe("extensions-store pure helpers (shipped)", () => {
     expect(state.pluginScope).toBe("project");
   });
 });
+
+import {
+  hubSkillCardsFromDirectoryNames,
+  mapHubSkillListItems,
+  parseGithubSkillDirectoryListing,
+  sortHubSkillCardsByName,
+} from "../src/react-app/domains/settings/state/extensions-store-model";
+
+describe("hub skill pure mappers", () => {
+  test("mapHubSkillListItems maps API items", () => {
+    expect(mapHubSkillListItems(null)).toEqual([]);
+    expect(
+      mapHubSkillListItems([
+        { name: "a", description: "d", trigger: "t", source: { path: "x" } },
+        { name: 1 },
+      ]),
+    ).toEqual([
+      { name: "a", description: "d", trigger: "t", source: { path: "x" } },
+      { name: "1", description: undefined, trigger: undefined, source: undefined },
+    ]);
+  });
+
+  test("parseGithubSkillDirectoryListing keeps dirs only", () => {
+    expect(
+      parseGithubSkillDirectoryListing([
+        { type: "dir", name: "skill-a" },
+        { type: "file", name: "README.md" },
+        { type: "dir", name: "" },
+      ]),
+    ).toEqual(["skill-a"]);
+  });
+
+  test("hubSkillCardsFromDirectoryNames + sort", () => {
+    const cards = hubSkillCardsFromDirectoryNames(["b", "a"], {
+      owner: "o",
+      repo: "r",
+      ref: "main",
+    });
+    expect(cards[0].source.path).toBe("skills/b");
+    expect(sortHubSkillCardsByName(cards).map((c) => c.name)).toEqual(["a", "b"]);
+  });
+});

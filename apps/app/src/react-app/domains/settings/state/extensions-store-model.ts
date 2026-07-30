@@ -706,3 +706,59 @@ export function resolveOnMyAgentGateway<TClient>(input: {
   }
   return { ok: true, client: input.client, workspaceId };
 }
+
+/** Map hub list API items into HubSkillCard rows. */
+export function mapHubSkillListItems(
+  items: unknown,
+): Array<{
+  name: string;
+  description?: string;
+  trigger?: string;
+  source?: unknown;
+}> {
+  if (!Array.isArray(items)) return [];
+  return items.map((entry) => {
+    const row = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+    return {
+      name: String(row.name ?? ""),
+      description: typeof row.description === "string" ? row.description : undefined,
+      trigger: typeof row.trigger === "string" ? row.trigger : undefined,
+      source: row.source,
+    };
+  });
+}
+
+/** Parse GitHub contents API listing into skill directory names. */
+export function parseGithubSkillDirectoryListing(listing: unknown): string[] {
+  if (!Array.isArray(listing)) return [];
+  return listing.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || (entry as { type?: string }).type !== "dir") {
+      return [];
+    }
+    const name = String((entry as { name?: string }).name ?? "");
+    return name ? [name] : [];
+  });
+}
+
+/** Build hub skill cards from GitHub skill directory names. */
+export function hubSkillCardsFromDirectoryNames(
+  dirs: string[],
+  repo: { owner: string; repo: string; ref: string },
+): Array<{
+  name: string;
+  source: { owner: string; repo: string; ref: string; path: string };
+}> {
+  return dirs.map((dirName) => ({
+    name: dirName,
+    source: {
+      owner: repo.owner,
+      repo: repo.repo,
+      ref: repo.ref,
+      path: `skills/${dirName}`,
+    },
+  }));
+}
+
+export function sortHubSkillCardsByName<T extends { name: string }>(cards: T[]): T[] {
+  return cards.toSorted((a, b) => a.name.localeCompare(b.name));
+}

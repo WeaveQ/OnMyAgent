@@ -98,6 +98,20 @@ import {
   validateSkillName,
   escapeYamlScalar,
 } from "./desktop-workspace-ids.mjs";
+import {
+  defaultWorkspaceOnMyAgentConfig,
+  envFlagEnabled,
+  execResult,
+  extractDescription,
+  extractFrontmatterMap,
+  extractTrigger,
+  forwardedDeepLinks,
+  isTransientNetworkError,
+  normalizeDesktopBootstrapConfig,
+  normalizeWorkspaceEntry,
+  resolveCommandsDir as resolveCommandsDirPure,
+  resolveOpencodeConfigPath as resolveOpencodeConfigPathPure,
+} from "./desktop-main-helpers.mjs";
 
 // --- Global crash guards (main process) ---
 // The desktop app makes HTTPS requests from several places (channel transports
@@ -108,17 +122,6 @@ import {
 // otherwise surfaces as an Uncaught Exception and takes the whole app down.
 // These handlers keep the app alive for transient network/TLS blips (log only),
 // and only hard-exit for genuinely unexpected errors.
-function isTransientNetworkError(error) {
-  if (!error) return false;
-  const message = String(error.message ?? "");
-  const code = String(error.code ?? error.cause?.code ?? "");
-  return (
-    /client network socket disconnected|secure tls connection|socket hang up|econnreset|etimedout|enotfound|econnrefused|und_err|proxy/i.test(
-      message
-    ) ||
-    /^(ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR)$/i.test(code)
-  );
-}
 
 process.on("unhandledRejection", (reason) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
@@ -267,10 +270,6 @@ const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("ONMYAGENT_FORCE_SIGNIN");
 const DEFAULT_DESKTOP_REQUIRE_SIGNIN = FORCE_DESKTOP_REQUIRE_SIGNIN;
-function envFlagEnabled(name) {
-  const value = process.env[name]?.trim().toLowerCase();
-  return value === "1" || value === "true" || value === "yes" || value === "on";
-}
 
 const EMPTY_WORKSPACE_LIST = Object.freeze({
   selectedId: "",
@@ -426,25 +425,6 @@ const uiControlBridge = createUiControlServer({
   appIdentifier: APP_IDENTIFIER,
   createMainWindow,
 });
-function normalizePlatform(value) {
-  if (value === "darwin" || value === "linux") return value;
-  if (value === "win32") return "windows";
-  return "linux";
-}
-
-function forwardedDeepLinks(argv) {
-  return argv
-    .slice(1)
-    .map((entry) => entry.trim())
-    .filter(
-      (entry) =>
-        entry.startsWith("onmyagent://") ||
-        entry.startsWith("onmyagent-dev://") ||
-        entry.startsWith("https://") ||
-        entry.startsWith("http://"),
-    );
-}
-
 function queueDeepLinks(urls) {
   const nextUrls = urls.filter(Boolean);
   if (nextUrls.length === 0) return;
@@ -548,10 +528,6 @@ async function migrateLegacyElectronWorkspaceStateIfNeeded() {
   }
 }
 
-function execResult(ok, stdout = "", stderr = "", status = ok ? 0 : 1) {
-  return { ok, status, stdout, stderr };
-}
-
 async function pathExists(targetPath) {
   try {
     await stat(targetPath);
@@ -569,31 +545,17 @@ async function isDirectory(targetPath) {
   }
 }
 
-function normalizeDesktopBootstrapConfig(input) {
-  const baseUrl =
-    typeof input?.baseUrl === "string" ? input.baseUrl.trim() : "";
-  if (!baseUrl) {
-    throw new Error("baseUrl is required");
-  }
-
-  const apiBaseUrl =
-    typeof input?.apiBaseUrl === "string" && input.apiBaseUrl.trim().length > 0
-      ? input.apiBaseUrl.trim()
-      : null;
-
-  return {
-    baseUrl,
-    apiBaseUrl,
-    requireSignin:
-      FORCE_DESKTOP_REQUIRE_SIGNIN || input?.requireSignin === true,
-  };
+function bootstrapNormalize(input) {
+  return normalizeDesktopBootstrapConfig(input, {
+    forceRequireSignin: FORCE_DESKTOP_REQUIRE_SIGNIN,
+  });
 }
 
 async function getDesktopBootstrapConfig() {
   const configPath = desktopBootstrapPath();
   try {
     const raw = await readFile(configPath, "utf8");
-    return normalizeDesktopBootstrapConfig(JSON.parse(raw));
+    return bootstrapNormalize(JSON.parse(raw));
   } catch (error) {
     if (error?.code !== "ENOENT") {
       console.warn("[desktop-bootstrap] falling back to defaults", {
@@ -626,7 +588,7 @@ async function debugDesktopBootstrapConfig() {
   try {
     result.raw = await readFile(configPath, "utf8");
     result.parsed = JSON.parse(result.raw);
-    result.normalized = normalizeDesktopBootstrapConfig(result.parsed);
+    result.normalized = bootstrapNormalize(result.parsed);
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error);
   }
@@ -635,7 +597,7 @@ async function debugDesktopBootstrapConfig() {
 }
 
 async function setDesktopBootstrapConfig(config) {
-  const normalized = normalizeDesktopBootstrapConfig(config);
+  const normalized = bootstrapNormalize(config);
   const outputPath = desktopBootstrapPath();
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(
@@ -644,21 +606,6 @@ async function setDesktopBootstrapConfig(config) {
     "utf8",
   );
   return normalized;
-}
-
-function defaultWorkspaceOnMyAgentConfig(workspacePath, preset = null) {
-  return {
-    version: 1,
-    workspace: workspacePath
-      ? {
-          name: path.basename(workspacePath) || "Workspace",
-          createdAt: Date.now(),
-          preset: preset || null,
-        }
-      : null,
-    authorizedRoots: workspacePath ? [workspacePath] : [],
-    reload: null,
-  };
 }
 
 async function workspaceOpencodeConfigPath(workspacePath) {
@@ -1049,29 +996,6 @@ function ensureRuntimeBootstrap() {
   return runtimeBootstrapPromise;
 }
 
-function normalizeWorkspaceEntry(input) {
-  return {
-    id: String(input.id),
-    name: String(input.name ?? "Workspace"),
-    path: String(input.path ?? ""),
-    preset: String(input.preset ?? "starter"),
-    workspaceType: input.workspaceType === "remote" ? "remote" : "local",
-    remoteType: input.remoteType ?? null,
-    baseUrl: input.baseUrl ?? null,
-    directory: input.directory ?? null,
-    displayName: input.displayName ?? null,
-    onmyagentHostUrl: input.onmyagentHostUrl ?? null,
-    onmyagentToken: input.onmyagentToken ?? null,
-    onmyagentClientToken: input.onmyagentClientToken ?? null,
-    onmyagentHostToken: input.onmyagentHostToken ?? null,
-    onmyagentWorkspaceId: input.onmyagentWorkspaceId ?? null,
-    onmyagentWorkspaceName: input.onmyagentWorkspaceName ?? null,
-    sandboxBackend: input.sandboxBackend ?? null,
-    sandboxRunId: input.sandboxRunId ?? null,
-    sandboxContainerName: input.sandboxContainerName ?? null,
-  };
-}
-
 async function mutateWorkspaceState(mutator) {
   const current = await readWorkspaceState();
   const next = await mutator({
@@ -1082,21 +1006,7 @@ async function mutateWorkspaceState(mutator) {
 }
 
 function resolveOpencodeConfigPath(scope, projectDir) {
-  let root;
-  if (scope === "project") {
-    if (!String(projectDir ?? "").trim()) {
-      throw new Error("projectDir is required");
-    }
-    root = projectDir;
-  } else if (scope === "global") {
-    root = globalOpencodeRoot();
-  } else {
-    throw new Error("scope must be 'project' or 'global'");
-  }
-
-  const jsoncPath = path.join(root, "opencode.jsonc");
-  const jsonPath = path.join(root, "opencode.json");
-  return { jsoncPath, jsonPath };
+  return resolveOpencodeConfigPathPure(scope, projectDir, globalOpencodeRoot());
 }
 
 async function readOpencodeConfig(scope, projectDir) {
@@ -1127,16 +1037,7 @@ async function writeOpencodeConfig(scope, projectDir, content) {
 }
 
 function resolveCommandsDir(scope, projectDir) {
-  if (scope === "workspace") {
-    if (!String(projectDir ?? "").trim()) {
-      throw new Error("projectDir is required");
-    }
-    return path.join(projectDir, ".opencode", "commands");
-  }
-  if (scope === "global") {
-    return path.join(globalOpencodeRoot(), "commands");
-  }
-  throw new Error("scope must be 'workspace' or 'global'");
+  return resolveCommandsDirPure(scope, projectDir, globalOpencodeRoot());
 }
 
 async function listCommandNames(scope, projectDir) {
@@ -1300,65 +1201,6 @@ async function findSkillDirsInRoot(root) {
 
   console.log(`[DEBUG] findSkillDirsInRoot - found ${found.length} skill dirs in ${root}`);
   return found;
-}
-
-function extractFrontmatterValue(raw, keys) {
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  for (const line of match[1].split(/\r?\n/)) {
-    const separator = line.indexOf(":");
-    if (separator <= 0) continue;
-    const key = line.slice(0, separator).trim().toLowerCase();
-    if (!keys.includes(key)) continue;
-    const value = line
-      .slice(separator + 1)
-      .trim()
-      .replace(/^['"]|['"]$/g, "");
-    if (value) return value;
-  }
-  return null;
-}
-
-function extractFrontmatterMap(raw, keys) {
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return {};
-  const out = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const separator = line.indexOf(":");
-    if (separator <= 0) continue;
-    const key = line.slice(0, separator).trim().toLowerCase();
-    if (!keys.includes(key)) continue;
-    const value = line
-      .slice(separator + 1)
-      .trim()
-      .replace(/^['"]|['"]$/g, "");
-    if (value) out[key] = value;
-  }
-  return out;
-}
-
-function extractTrigger(raw) {
-  return extractFrontmatterValue(raw, ["trigger", "when"]);
-}
-
-function extractDescription(raw) {
-  const fm = extractFrontmatterMap(raw, ["description", "name"]);
-  if (fm.description) {
-    return fm.description.length > 180 ? `${fm.description.slice(0, 180)}...` : fm.description;
-  }
-  let inFrontmatter = false;
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (trimmed === "---") {
-      inFrontmatter = !inFrontmatter;
-      continue;
-    }
-    if (inFrontmatter || trimmed.startsWith("#")) continue;
-    const cleaned = trimmed.replace(/`/g, "");
-    return cleaned.length > 180 ? `${cleaned.slice(0, 180)}...` : cleaned;
-  }
-  return null;
 }
 
 async function listLocalSkills(projectDir) {

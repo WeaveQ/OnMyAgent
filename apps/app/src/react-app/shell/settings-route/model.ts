@@ -5,6 +5,7 @@ import type {
   SettingsTab,
   SidebarSessionItem,
   WorkspaceConnectionState,
+  WorkspaceDisplay,
   WorkspaceSessionGroup,
 } from "../../../app/types";
 // ProviderListItem used by normalizeSettingsProviderSource
@@ -567,5 +568,120 @@ export function countOpenCodeProviderModels(provider: {
   settingsConfig?: Record<string, unknown> | null;
 }): number {
   return countOpenCodeProviderModelsShared(provider);
+}
+
+/** Merge remote workspace connection errors into override map. */
+export function buildWorkspaceConnectionStateById<
+  T extends { id: string; workspaceType?: string | null },
+>(input: {
+  workspaces: ReadonlyArray<T>;
+  errorsByWorkspaceId: Record<string, string | null | undefined>;
+  workspaceConnectionOverrides: Record<string, WorkspaceConnectionState>;
+  errorMessageFor: (workspace: T, error: string) => string;
+}): Record<string, WorkspaceConnectionState> {
+  const next: Record<string, WorkspaceConnectionState> = {
+    ...input.workspaceConnectionOverrides,
+  };
+  for (const workspace of input.workspaces) {
+    if (workspace.workspaceType !== "remote") continue;
+    const error = input.errorsByWorkspaceId[workspace.id]?.trim();
+    if (!error || next[workspace.id]?.status === "connecting") continue;
+    next[workspace.id] ??= {
+      status: "error",
+      message: input.errorMessageFor(workspace, error) || error,
+      checkedAt: null,
+    };
+  }
+  return next;
+}
+
+/** Map a route workspace row into WorkspaceDisplay chrome. */
+export function toSelectedWorkspaceDisplay(input: {
+  selectedWorkspace: {
+    id: string;
+    name?: string | null;
+    displayNameResolved?: string | null;
+    path?: string | null;
+    workspaceType?: "local" | "remote" | null;
+    displayName?: string | null;
+    onmyagentWorkspaceName?: string | null;
+  } | null;
+  empty: WorkspaceDisplay;
+}): WorkspaceDisplay {
+  const selected = input.selectedWorkspace;
+  if (!selected) return input.empty;
+  return {
+    id: selected.id,
+    name: selected.name ?? selected.displayNameResolved ?? selected.id,
+    path: selected.path ?? "",
+    preset: "starter",
+    workspaceType: selected.workspaceType ?? "local",
+    displayName: selected.displayNameResolved ?? undefined,
+    onmyagentWorkspaceName: selected.onmyagentWorkspaceName ?? undefined,
+  };
+}
+
+/** Sessions that should block reload while still active. */
+export function listActiveReloadBlockingSessions(
+  sessionsByWorkspaceId: Record<string, ReadonlyArray<SidebarSessionItem | null | undefined>>,
+  untitledTitle: string,
+): Array<{ id: string; title: string }> {
+  return Object.values(sessionsByWorkspaceId)
+    .flat()
+    .flatMap((session) => {
+      if (!session || !isActiveSessionStatus(getSessionStatus(session))) return [];
+      const id = String(session?.id ?? "");
+      if (!id) return [];
+      return [
+        {
+          id,
+          title:
+            String(session?.title ?? session?.slug ?? session?.id ?? "").trim() ||
+            untitledTitle,
+        },
+      ];
+    });
+}
+
+export function buildSettingsWorkspaceOptions(
+  workspaces: ReadonlyArray<{ id: string; displayNameResolved: string }>,
+  colorFor: (id: string) => string,
+): Array<{ id: string; name: string; color: string }> {
+  return workspaces.map((workspace) => ({
+    id: workspace.id,
+    name: workspace.displayNameResolved,
+    color: colorFor(workspace.id),
+  }));
+}
+
+/** Human label for default model prefs, or a fallback when unset. */
+export function formatDefaultModelLabel(input: {
+  defaultModel: { providerID: string; modelID: string } | null | undefined;
+  providers: ReadonlyArray<{
+    id: string;
+    name?: string | null;
+    models?: Record<string, { name?: string | null } | undefined> | null;
+  }>;
+  resolveProviderDisplayName: (id: string) => string;
+  resolveModelDisplayName: (id: string) => string;
+  fallback: string;
+}): string {
+  const ref = input.defaultModel;
+  if (!ref) return input.fallback;
+  const provider = input.providers.find((item) => item.id === ref.providerID);
+  const model = provider?.models?.[ref.modelID];
+  const providerLabel =
+    provider?.name ?? input.resolveProviderDisplayName(ref.providerID);
+  const modelLabel = model?.name ?? input.resolveModelDisplayName(ref.modelID);
+  return `${providerLabel} - ${modelLabel}`;
+}
+
+export function formatDefaultModelRefLabel(input: {
+  defaultModel: { providerID: string; modelID: string } | null | undefined;
+  fallback: string;
+}): string {
+  const ref = input.defaultModel;
+  if (!ref) return input.fallback;
+  return `${ref.providerID}/${ref.modelID}`;
 }
 

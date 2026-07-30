@@ -23,4 +23,3 @@ export {
   type RestrictionNoticeController,
   type RestrictionNoticePayload,
 } from "./restriction-notice-provider";
-export { useCloudProviderAutoSync } from "./use-cloud-provider-auto-sync";

@@ -70,7 +70,6 @@ import {
 } from "../../capabilities/artifacts/open-artifact-for-editing";
 import { ArtifactSpreadsheetEditor } from "../../capabilities/artifacts/artifact-spreadsheet-editor";
 import {
-  canPreviewOpenTargetInline,
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
 import {
@@ -97,6 +96,29 @@ import {
   type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
+import {
+  FILE_CATEGORIES,
+  buildRootOutlineRows,
+  canPreviewWorkspaceFileInline,
+  collectMatchingFilesUnder,
+  countDirsInNode,
+  countFilesInNode,
+  fileCategoryI18nKey,
+  filterWorkspaceFileTree,
+  getFileCategory,
+  relativeDisplayPath,
+  resolveToolWorkspaceFileRoot,
+  usesLocalFileRenderer,
+  type FileCategory,
+  type OutlineRow,
+} from "./workspace-files-model";
+
+function fileCategoryLabel(category: FileCategory) {
+  return t(fileCategoryI18nKey(category));
+}
+
+// Re-export pure root resolver for existing callers/tests.
+export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
 
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
@@ -123,160 +145,6 @@ function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) 
       className="size-4 shrink-0"
     />
   );
-}
-
-type FileCategory = "all" | "document" | "spreadsheet" | "presentation" | "pdf" | "image" | "video" | "audio" | "website" | "markdown" | "code" | "other";
-
-const FILE_CATEGORIES: FileCategory[] = [
-  "all", "document", "spreadsheet", "presentation", "pdf", "image", "video", "audio", "website", "markdown", "code", "other",
-];
-
-function getFileCategory(name: string): FileCategory {
-  const ext = name.lastIndexOf(".") > 0 ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : "";
-  const categoryMap: Record<string, FileCategory> = {
-    md: "markdown", markdown: "markdown",
-    txt: "document", doc: "document", docx: "document", rtf: "document",
-    xls: "spreadsheet", xlsx: "spreadsheet", csv: "spreadsheet", tsv: "spreadsheet",
-    ppt: "presentation", pptx: "presentation", key: "presentation",
-    pdf: "pdf",
-    png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", svg: "image", bmp: "image", ico: "image", tiff: "image", tif: "image", avif: "image",
-    mp4: "video", avi: "video", mov: "video", mkv: "video", wmv: "video", flv: "video", webm: "video",
-    mp3: "audio", wav: "audio", flac: "audio", aac: "audio", ogg: "audio", m4a: "audio", wma: "audio",
-    html: "website", css: "website", htm: "website",
-    js: "code", ts: "code", jsx: "code", tsx: "code", py: "code", rs: "code", go: "code", java: "code",
-    c: "code", cpp: "code", h: "code", hpp: "code", rb: "code", php: "code", swift: "code", kt: "code",
-    sh: "code", bash: "code", zsh: "code", sql: "code", r: "code",
-    json: "code", yaml: "code", yml: "code", toml: "code", xml: "code", ini: "code", env: "code",
-    scss: "code", sass: "code", less: "code",
-  };
-  return categoryMap[ext] || "other";
-}
-
-function fileCategoryLabel(category: FileCategory) {
-  switch (category) {
-    case "all":
-      return t("files.category_all");
-    case "document":
-      return t("files.category_document");
-    case "spreadsheet":
-      return t("files.category_spreadsheet");
-    case "presentation":
-      return t("files.category_presentation");
-    case "pdf":
-      return t("files.category_pdf");
-    case "image":
-      return t("files.category_image");
-    case "video":
-      return t("files.category_video");
-    case "audio":
-      return t("files.category_audio");
-    case "website":
-      return t("files.category_website");
-    case "markdown":
-      return t("files.category_markdown");
-    case "code":
-      return t("files.category_code");
-    case "other":
-      return t("files.category_other");
-  }
-}
-
-function countFilesInNode(node: WorkspaceFileTreeNode): number {
-  if (node.kind === "file") return 1;
-  return node.children.reduce((sum, child) => sum + countFilesInNode(child), 0);
-}
-
-function countDirsInNode(node: WorkspaceFileTreeNode): number {
-  return node.children.filter((child) => child.kind === "dir").length;
-}
-
-/** Outline rows for root: collapsible folders (project) + nested task/file rows. */
-type OutlineRow =
-  | {
-      type: "project";
-      node: WorkspaceFileTreeNode;
-      taskCount: number;
-      fileCount: number;
-      expanded: boolean;
-    }
-  | {
-      type: "task";
-      node: WorkspaceFileTreeNode;
-      fileCount: number;
-      expanded: boolean;
-      depth: number;
-    }
-  | {
-      type: "file";
-      node: WorkspaceFileTreeNode;
-      depth: number;
-    }
-  | {
-      type: "loose-file";
-      node: WorkspaceFileTreeNode;
-    };
-
-function buildRootOutlineRows(
-  children: WorkspaceFileTreeNode[],
-  expanded: ReadonlySet<string>,
-): OutlineRow[] {
-  const rows: OutlineRow[] = [];
-  // Preserve caller order (name / updated / size sort) — do not force dirs first.
-  for (const child of children) {
-    if (child.kind === "file") {
-      rows.push({ type: "loose-file", node: child });
-      continue;
-    }
-
-    const project = child;
-    const projectExpanded = expanded.has(project.path);
-    const taskCount = countDirsInNode(project);
-    const fileCount = countFilesInNode(project);
-    rows.push({
-      type: "project",
-      node: project,
-      taskCount,
-      fileCount,
-      expanded: projectExpanded,
-    });
-    if (!projectExpanded) continue;
-
-    // Nested rows also keep the sorted children order.
-    for (const nested of project.children) {
-      if (nested.kind === "file") {
-        rows.push({ type: "file", node: nested, depth: 1 });
-        continue;
-      }
-      const taskExpanded = expanded.has(nested.path);
-      rows.push({
-        type: "task",
-        node: nested,
-        fileCount: countFilesInNode(nested),
-        expanded: taskExpanded,
-        depth: 1,
-      });
-      if (!taskExpanded) continue;
-      for (const taskChild of nested.children) {
-        if (taskChild.kind === "file") {
-          rows.push({ type: "file", node: taskChild, depth: 2 });
-          continue;
-        }
-        rows.push({
-          type: "task",
-          node: taskChild,
-          fileCount: countFilesInNode(taskChild),
-          expanded: expanded.has(taskChild.path),
-          depth: 2,
-        });
-        if (expanded.has(taskChild.path)) {
-          for (const file of taskChild.children.filter((c) => c.kind === "file")) {
-            rows.push({ type: "file", node: file, depth: 3 });
-          }
-        }
-      }
-    }
-  }
-  return rows;
 }
 
 /** Cloud + docs — monochrome line icon, same language as devices empty state. */
@@ -372,94 +240,6 @@ type FilePreviewState =
   | { status: "external" }
   | { status: "browser" }
   | { status: "error"; message: string };
-
-function canPreviewWorkspaceFileInline(target: OpenTarget) {
-  return canPreviewOpenTargetInline(target);
-}
-
-function usesLocalFileRenderer(target: OpenTarget) {
-  return canEditArtifactTarget(target) || target.preview === "audio" || target.preview === "video";
-}
-
-function filterWorkspaceFileTree(
-  node: WorkspaceFileTreeNode,
-  query: string,
-  typeFilter: FileCategory,
-): WorkspaceFileTreeNode | null {
-  const normalizedQuery = query.trim().toLowerCase();
-  const filteredChildren = node.children
-    .map((child) => filterWorkspaceFileTree(child, normalizedQuery, typeFilter))
-    .filter((child): child is WorkspaceFileTreeNode => child !== null);
-  if (!node.path) return { ...node, children: filteredChildren };
-
-  const matchesQuery =
-    !normalizedQuery ||
-    node.name.toLowerCase().includes(normalizedQuery) ||
-    node.path.toLowerCase().includes(normalizedQuery);
-  if (node.kind === "dir") {
-    if (!matchesQuery && filteredChildren.length === 0) return null;
-    return { ...node, children: filteredChildren };
-  }
-  if (!matchesQuery) return null;
-  if (typeFilter !== "all" && getFileCategory(node.name) !== typeFilter) return null;
-  return { ...node, children: [] };
-}
-
-/**
- * Flatten matching files under a directory node (all depths).
- * Used when type/search filters are active so results are not limited to one level.
- */
-function collectMatchingFilesUnder(
-  node: WorkspaceFileTreeNode,
-  query: string,
-  typeFilter: FileCategory,
-  sortKey: WorkspaceFileSortKey = "updated",
-  sortDir: WorkspaceFileSortDir = "desc",
-): WorkspaceFileTreeNode[] {
-  const normalizedQuery = query.trim().toLowerCase();
-  const out: WorkspaceFileTreeNode[] = [];
-
-  const walk = (current: WorkspaceFileTreeNode) => {
-    if (current.kind === "file") {
-      const matchesQuery =
-        !normalizedQuery ||
-        current.name.toLowerCase().includes(normalizedQuery) ||
-        current.path.toLowerCase().includes(normalizedQuery);
-      if (!matchesQuery) return;
-      if (typeFilter !== "all" && getFileCategory(current.name) !== typeFilter) return;
-      out.push(current);
-      return;
-    }
-    for (const child of current.children) walk(child);
-  };
-
-  for (const child of node.children) walk(child);
-
-  out.sort((left, right) => {
-    if (sortKey === "updated") {
-      const byTime = (left.mtimeMs || 0) - (right.mtimeMs || 0);
-      if (byTime !== 0) return sortDir === "asc" ? byTime : -byTime;
-    } else if (sortKey === "size") {
-      const bySize = (left.size || 0) - (right.size || 0);
-      if (bySize !== 0) return sortDir === "asc" ? bySize : -bySize;
-    } else {
-      const byName = left.name.localeCompare(right.name);
-      if (byName !== 0) return sortDir === "asc" ? byName : -byName;
-    }
-    return left.path.localeCompare(right.path);
-  });
-  return out;
-}
-
-function relativeDisplayPath(filePath: string, directoryPath: string): string {
-  const base = directoryPath.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
-  const full = filePath.replace(/\\/g, "/");
-  if (!base) return full;
-  if (full === base) return full;
-  if (full.startsWith(`${base}/`)) return full.slice(base.length + 1);
-  return full;
-}
-
 function FilePreviewDrawer(props: {
   open: boolean;
   file: FileNode | null;
@@ -670,21 +450,6 @@ function FilesListEmptyState(props: {
   );
 }
 
-/**
- * Legacy helper for tool/session-scoped roots. The Files rail no longer uses
- * this — it always lists the OnMyAgent-selected workspace folder.
- */
-export function resolveToolWorkspaceFileRoot(input: {
-  draftWorkspaceDirectory?: string | null;
-  sessionFileRoot?: string | null;
-  workspaceRoot: string;
-}): string {
-  const draft = input.draftWorkspaceDirectory?.trim() ?? "";
-  if (draft) return draft;
-  const session = input.sessionFileRoot?.trim() ?? "";
-  if (session) return session;
-  return input.workspaceRoot.trim();
-}
 
 function FileRowActionsMenu(props: {
   name: string;

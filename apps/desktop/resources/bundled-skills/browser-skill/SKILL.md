@@ -14,6 +14,14 @@ description: >
 Use the **external** BrowserSkill stack (`bsk` CLI + Chrome/Edge extension). This is **not**
 OnMyAgent's in-app browser (`browser-automation`) and **not** Computer Use (desktop AX).
 
+## Choose the right surface
+
+| Surface | What it is | Prefer when |
+|---------|------------|-------------|
+| **browser-automation** | OnMyAgent in-app browser (right rail Browser panel) | Web work without needing the user's real Chrome/Edge logins; in-app preview |
+| **browser-skill** (this skill) | Real Chrome/Edge via external `bsk` + extension | Sites already signed into in the user's browser; setup/doctor: **Extensions → BrowserSkill** |
+| **computer-use** | Native macOS app UI (accessibility / screenshots) | Controlling desktop apps — **not** web page automation |
+
 ## Prerequisites (user setup — do not dump shell unless asked)
 
 If `bsk --version` fails or extension is disconnected, **guide the user** to:

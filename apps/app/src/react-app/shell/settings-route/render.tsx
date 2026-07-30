@@ -57,6 +57,7 @@ import {
 } from "./provider-list-actions";
 import { buildOpenCodeProviderEditFallback } from "./open-code-provider-edit";
 import { useSettingsProvidersPrewarm } from "./providers-prewarm-hook";
+import { SettingsTabBody } from "./settings-tab-body";
 import { SettingsRouteErrorSlot } from "./route-error-slot";
 import {
   LazyAiSettingsView,
@@ -93,7 +94,6 @@ import {
   useCheckDesktopRestriction,
   useDesktopConfig,
   useRestrictionNotice,
-  useCloudProviderAutoSync,
 } from "../../domains/cloud";
 import {
   isDesktopRuntime,
@@ -123,9 +123,12 @@ import {
   buildSettingsRefreshErrorEvent,
   buildSettingsWorkspaceBootstrapErrorEvent,
   buildSettingsEnvironmentWorkspacePaths,
-  getSessionStatus,
-  isActiveSessionStatus,
+  buildSettingsWorkspaceOptions,
+  buildWorkspaceConnectionStateById,
+  formatDefaultModelLabel,
+  formatDefaultModelRefLabel,
   isOnMyAgentCloudProvider,
+  listActiveReloadBlockingSessions,
   mapDesktopWorkspace,
   parseSettingsPath,
   readHistoryIndexFromWindow,
@@ -140,6 +143,7 @@ import {
   resolveSettingsPreferredWorkspaceId,
   settingsPathForRoute,
   buildSettingsSessionMaps,
+  toSelectedWorkspaceDisplay,
   toSessionGroups,
   updateSettingsWorkspaceConnectionOverrides,
   workspaceLabel,
@@ -430,34 +434,24 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? (selectedWorkspaceId ? null : workspaces[0] ?? null),
     [selectedWorkspaceId, workspaces],
   );
-  const workspaceConnectionStateById = useMemo(() => {
-    const next: Record<string, WorkspaceConnectionState> = { ...workspaceConnectionOverrides };
-    for (const workspace of workspaces) {
-      if (workspace.workspaceType !== "remote") continue;
-      const error = errorsByWorkspaceId[workspace.id]?.trim();
-      if (!error || next[workspace.id]?.status === "connecting") continue;
-      next[workspace.id] ??= {
-        status: "error",
-        message: getWorkspaceTaskLoadErrorDisplay(workspace, error).message || error,
-        checkedAt: null,
-      };
-    }
-    return next;
-  }, [errorsByWorkspaceId, workspaceConnectionOverrides, workspaces]);
+  const workspaceConnectionStateById = useMemo(
+    () =>
+      buildWorkspaceConnectionStateById({
+        workspaces,
+        errorsByWorkspaceId,
+        workspaceConnectionOverrides,
+        errorMessageFor: (workspace, error) =>
+          getWorkspaceTaskLoadErrorDisplay(workspace, error).message || error,
+      }),
+    [errorsByWorkspaceId, workspaceConnectionOverrides, workspaces],
+  );
   const selectedWorkspaceRoot = selectedWorkspace?.path?.trim() || "";
   const selectedWorkspaceDisplay = useMemo<WorkspaceDisplay>(
     () =>
-      selectedWorkspace
-        ? {
-            id: selectedWorkspace.id,
-            name: selectedWorkspace.name ?? selectedWorkspace.displayNameResolved,
-            path: selectedWorkspace.path ?? "",
-            preset: "starter",
-            workspaceType: selectedWorkspace.workspaceType ?? "local",
-            displayName: selectedWorkspace.displayNameResolved,
-            onmyagentWorkspaceName: selectedWorkspace.onmyagentWorkspaceName,
-          }
-        : emptyWorkspaceDisplay,
+      toSelectedWorkspaceDisplay({
+        selectedWorkspace,
+        empty: emptyWorkspaceDisplay,
+      }),
     [emptyWorkspaceDisplay, selectedWorkspace],
   );
 
@@ -480,19 +474,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const activeReloadBlockingSessions = useMemo(
     () =>
-      Object.values(sessionsByWorkspaceId)
-        .flat()
-        .flatMap((session) => {
-          if (!isActiveSessionStatus(getSessionStatus(session))) return [];
-          const id = String(session?.id ?? "");
-          if (!id) return [];
-          return [{
-            id,
-            title:
-              String(session?.title ?? session?.slug ?? session?.id ?? "").trim() ||
-              t("session.untitled"),
-          }];
-        }),
+      listActiveReloadBlockingSessions(
+        sessionsByWorkspaceId,
+        t("session.untitled"),
+      ),
     [sessionsByWorkspaceId],
   );
 
@@ -1144,16 +1129,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     };
   }, [connectionsStore, extensionsStore, onmyagentServerStore, providerAuthStore]);
 
-  // Periodically reconcile workspace-imported cloud providers from Den while
-  // signed in (dev #1509 "auto-sync cloud providers"). Mounted here because
-  // the settings route owns the provider-auth store.
-  useCloudProviderAutoSync(providerAuthStore.runCloudProviderSync);
-
-  useEffect(() => {
-    if (route.tab !== "cloud-providers") return;
-    void providerAuthStore.runCloudProviderSync("settings_cloud_opened");
-  }, [providerAuthStore, route.tab]);
-
   useEffect(() => {
     onmyagentServerStore.syncFromOptions();
     connectionsStore.syncFromOptions();
@@ -1261,26 +1236,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   );
 
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
-  const workspaceOptions = workspaces.map((workspace) => ({
-    id: workspace.id,
-    name: workspace.displayNameResolved,
-    color: workspaceSwatchColor(workspace.id),
-  }));
+  const workspaceOptions = buildSettingsWorkspaceOptions(workspaces, workspaceSwatchColor);
   const selectedWorkspaceColor = workspaceSwatchColor(selectedWorkspaceId);
   const workspaceType = selectedWorkspace?.workspaceType ?? "local";
   const isRemoteWorkspace = workspaceType === "remote";
-  const defaultModelLabel = local.prefs.defaultModel
-    ? (() => {
-        const provider = providers.find((item) => item.id === local.prefs.defaultModel?.providerID);
-        const model = provider?.models?.[local.prefs.defaultModel.modelID];
-        const providerLabel = provider?.name ?? resolveProviderDisplayName(local.prefs.defaultModel.providerID);
-        const modelLabel = model?.name ?? resolveModelDisplayName(local.prefs.defaultModel.modelID);
-        return `${providerLabel} - ${modelLabel}`;
-      })()
-    : t("session.default_model");
-  const defaultModelRef = local.prefs.defaultModel
-    ? `${local.prefs.defaultModel.providerID}/${local.prefs.defaultModel.modelID}`
-    : t("settings.default_label");
+  const defaultModelLabel = formatDefaultModelLabel({
+    defaultModel: local.prefs.defaultModel,
+    providers,
+    resolveProviderDisplayName,
+    resolveModelDisplayName,
+    fallback: t("session.default_model"),
+  });
+  const defaultModelRef = formatDefaultModelRefLabel({
+    defaultModel: local.prefs.defaultModel,
+    fallback: t("settings.default_label"),
+  });
   const defaultModelVariantLabel = local.prefs.modelVariant ?? t("settings.default_label");
   // Inventory merges in the background so first paint is not blocked on desktop IPC.
   const providersUiPhase = resolveAiProvidersUiPhase({
@@ -1566,319 +1536,71 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     navigateSettingsPath("ai");
   };
 
-  const settingsView = (() => {
-    switch (route.tab) {
-      case "general":
-        return (
-          <SettingsTabSuspense>
-            <LazyGeneralSettingsView
-              onNavigateTab={(tab) => navigateSettingsPath(tab)}
-              developerMode={developerMode}
-              onReportIssue={() => platform.openLink("https://github.com/WeaveQ/onmyagent/issues/new?template=bug.yml")}
-            />
-          </SettingsTabSuspense>
-        );
-      case "permissions":
-        return (
-          <SettingsTabSuspense>
-            <SettingsStack>
-              <LazyAuthorizedFoldersPanel
-                onmyagentServerClient={onmyagentClient}
-                onmyagentServerStatus={routeOnMyAgentStatus}
-                onmyagentServerCapabilities={routeOnMyAgentCapabilities}
-                runtimeWorkspaceId={runtimeWorkspaceId}
-                selectedWorkspaceRoot={selectedWorkspaceRoot}
-                activeWorkspaceType={workspaceType}
-                onConfigUpdated={() => {
-                  setConfigActionStatus(t("settings.config_updated"));
-                  void providerAuthStore.refreshProviders();
-                  void connectionsStore.refreshMcpServers();
-                }}
-              />
-              <LazySystemAuthorizationsView
-                busy={busy}
-                desktopNotifyOnAgentReady={
-                  local.prefs.desktopNotifyOnAgentReady === true
-                }
-                onDesktopNotifyOnAgentReadyChange={(enabled) => {
-                  local.setPrefs((previous) => ({
-                    ...previous,
-                    desktopNotifyOnAgentReady: enabled,
-                  }));
-                }}
-              />
-            </SettingsStack>
-          </SettingsTabSuspense>
-        );
-      case "ai":
-        return (
-          <SettingsAiTabSuspense>
-            <LazyAiSettingsView
-              busy={busy}
-              providerAuthBusy={providerAuthSnapshot.providerAuthBusy}
-              providerStatusLabel={providerStatusLabel}
-              providerStatusStyle={providerStatusStyle}
-              providerSummary={providerSummary}
-              providerConnected={connectedProviders.length > 0}
-              connectedProviders={connectedProviders}
-              disconnectingProviderId={providerActionBusyId}
-              providerConnectError={
-                providerAuthSnapshot.providerAuthError
-                  ? userErrorFromRaw(providerAuthSnapshot.providerAuthError)
-                  : null
-              }
-              providerDisconnectStatus={null}
-              providerDisconnectError={providerActionError}
-              providerActionBusyId={providerActionBusyId}
-              providerSyncBusy={providerSyncBusy}
-              runtimeConnected={Boolean(activeClient)}
-              providersLoading={providersDiscovering}
-              inventorySyncing={inventorySyncing}
-              onOpenProviderAuth={handleOpenProviderAuth}
-              onOpenOpencodeConfig={handleOpenCustomProviderConfig}
-              onDisconnectProvider={(providerId) =>
-                disconnectSettingsProvider({
-                  providerId,
-                  disconnectProvider: (id) =>
-                    providerAuthStore.disconnectProvider(id),
-                  setBusyId: setProviderActionBusyId,
-                  setError: setProviderActionError,
-                })
-              }
-              canDisconnectProvider={(provider) =>
-                canDisconnectProviderRow({
-                  provider,
-                  opencodeInventoryReady,
-                })
-              }
-              canEditProvider={canEditOpenCodeProvider}
-              onEditProvider={handleEditOpenCodeProvider}
-              canDeleteProvider={canDeleteOpenCodeProvider}
-              onDeleteProvider={async (provider) => {
-                if (providerActionBusyId || providerSyncBusy) return;
-                await deleteOpenCodeManagedProvider({
-                  providerId: provider.id,
-                  workspaceRoot: selectedWorkspaceRoot,
-                  defaultModelProviderId:
-                    local.prefs.defaultModel?.providerID ?? null,
-                  setBusyId: setProviderActionBusyId,
-                  setSyncBusy: setProviderSyncBusy,
-                  setError: setProviderActionError,
-                  setOpenCodeManagedProviders,
-                  setPrefs: local.setPrefs,
-                  applyEngineConfigForProviders,
-                  refreshProviders: (opts) =>
-                    providerAuthStore.refreshProviders(opts),
-                  loadOpenCodeManagedProviders,
-                  clearReloadRequired: () =>
-                    reloadCoordinator.clearReloadRequired(),
-                  markReloadRequired: (kind, detail) =>
-                    reloadCoordinator.markReloadRequired(kind, detail),
-                });
-              }}
-              cloudProviderIds={new Set(
-                Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
-              )}
-              showOnMyAgentModelsSubscribe={showOnMyAgentModelsSubscribe}
-              onSubscribeOnMyAgentModels={subscribeToOnMyAgentModels}
-              cloudProvidersView={
-                <LazyCloudProvidersView
-                  embedded
-                  cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
-                  connectCloudProvider={providerAuthStore.connectCloudProvider}
-                  importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
-                  refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
-                  removeCloudProvider={providerAuthStore.removeCloudProvider}
-                  session={denSession}
-                />
-              }
-            />
-          </SettingsAiTabSuspense>
-        );
-      case "memory":
-        return (
-          <SettingsTabSuspense>
-            <LazyMemoryView
-              draft={memoryDraft ?? {
-                userName: "",
-                assistantName: "",
-                mbti: "",
-                roles: [],
-                industries: [],
-                tools: [],
-                tasks: [],
-                docPreference: "",
-                terminology: "",
-                skipped: false,
-                updatedAt: 0,
-              }}
-              onDraftChange={persistMemoryDraft}
-              busy={busy}
-              responseTone={local.prefs.responseTone}
-              onResponseToneChange={(responseTone) => {
-                local.setPrefs((previous) => ({
-                  ...previous,
-                  responseTone,
-                }));
-              }}
-              customInstructions={local.prefs.customInstructions}
-              onCustomInstructionsChange={(customInstructions) => {
-                local.setPrefs((previous) => ({
-                  ...previous,
-                  customInstructions,
-                }));
-              }}
-            />
-          </SettingsTabSuspense>
-        );
-      case "conversation-memory":
-        return (
-          <SettingsTabSuspense>
-            <LazyConversationMemoryView
-              conversationMemory={conversationMemoryDraft}
-              onConversationMemoryChange={persistConversationMemory}
-            />
-          </SettingsTabSuspense>
-        );
-      case "preferences":
-        return (
-          <SettingsTabSuspense>
-            <LazyPreferencesView
-              busy={busy}
-              showThinking={local.prefs.showThinking}
-              onToggleShowThinking={() => {
-                local.setPrefs((previous) => ({ ...previous, showThinking: !previous.showThinking }));
-              }}
-              autoCompactContext={autoCompactContext}
-              autoCompactContextBusy={autoCompactContextBusy}
-              onToggleAutoCompactContext={toggleAutoCompactContext}
-              autoNewSessionOnIdle={local.prefs.autoNewSessionOnIdle === true}
-              autoNewSessionIdleHours={local.prefs.autoNewSessionIdleHours ?? 6}
-              onAutoNewSessionOnIdleChange={(enabled) => {
-                local.setPrefs((previous) => ({
-                  ...previous,
-                  autoNewSessionOnIdle: enabled,
-                }));
-              }}
-              onAutoNewSessionIdleHoursChange={(hours) => {
-                local.setPrefs((previous) => ({
-                  ...previous,
-                  autoNewSessionIdleHours: hours,
-                }));
-              }}
-            />
-          </SettingsTabSuspense>
-        );
-      case "cloud-marketplaces":
-        return (
-          <SettingsTabSuspense>
-            <LazyCloudMarketplacesView
-              extensions={extensionsStore}
-              session={denSession}
-            />
-          </SettingsTabSuspense>
-        );
-      case "cloud-providers":
-        return (
-          <SettingsTabSuspense>
-            <LazyCloudProvidersView
-              cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
-              connectCloudProvider={providerAuthStore.connectCloudProvider}
-              importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
-              refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
-              removeCloudProvider={providerAuthStore.removeCloudProvider}
-              session={denSession}
-            />
-          </SettingsTabSuspense>
-        );
-      case "updates":
-        return (
-          <SettingsTabSuspense>
-            <LazyUpdatesView
-              busy={busy}
-              webDeployment={platform.platform === "web"}
-              appVersion={electronUpdaterState.appVersion}
-              updateEnv={electronUpdaterState.updateEnv}
-              updateAutoCheck={updateAutoCheck}
-              toggleUpdateAutoCheck={() => setUpdateAutoCheck((current) => !current)}
-              updateAutoDownload={updateAutoDownload}
-              toggleUpdateAutoDownload={() => setUpdateAutoDownload((current) => !current)}
-              updateStatus={electronUpdaterState.updateStatus}
-              anyActiveRuns={activeReloadBlockingSessions.length > 0}
-              checkForUpdates={electronUpdaterState.checkForUpdates}
-              downloadUpdate={electronUpdaterState.downloadUpdate}
-              installUpdateAndRestart={electronUpdaterState.installUpdateAndRestart}
-              releaseChannel={local.prefs.releaseChannel ?? "stable"}
-              onReleaseChannelChange={electronUpdaterState.setReleaseChannel}
-              alphaChannelSupported={electronUpdaterState.alphaSupported === true}
-            />
-          </SettingsTabSuspense>
-        );
-      case "usage": {
-        const localAuthUser = readLocalAuthUser();
-        const profileName =
-          memoryDraft?.userName?.trim()
-          || local.prefs.onboardingProfile?.userName?.trim()
-          || "";
-        return (
-          <SettingsTabSuspense>
-            <LazyUsageView
-              client={onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient}
-              workspaces={workspaces}
-              identity={{
-                name:
-                  profileName
-                  || localAuthUser?.username
-                  || localAuthUser?.email
-                  || t("session.current_user"),
-                email: localAuthUser?.email ?? null,
-              }}
-            />
-          </SettingsTabSuspense>
-        );
-      }
-      case "archived-tasks":
-        return (
-          <SettingsTabSuspense>
-            <LazyArchivedTasksView
-              client={onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient}
-              workspaceId={runtimeWorkspaceId?.trim() || selectedWorkspaceId}
-            />
-          </SettingsTabSuspense>
-        );
-      case "environment":
-        return (
-          <SettingsTabSuspense>
-            <LazyEnvironmentView
-              client={onmyagentServerSnapshot.onmyagentServerClient}
-              isRemoteWorkspace={isRemoteWorkspace}
-              onApplyChanges={isDesktopRuntime() && !isRemoteWorkspace ? handleApplyEnvironmentChanges : undefined}
-              applyBlocked={activeReloadBlockingSessions.length > 0}
-              applyBlockedReason={
-                activeReloadBlockingSessions.length > 0
-                  ? t("settings.environment.apply_blocked_active_tasks")
-                  : null
-              }
-              runtimeKey={environmentRuntimeKey}
-            />
-          </SettingsTabSuspense>
-        );
-      case "recovery":
-        return (
-          <SettingsTabSuspense>
-            <LazyRecoveryView {...recoveryViewProps} />
-          </SettingsTabSuspense>
-        );
-      case "debug":
-        return (
-          <SettingsTabSuspense>
-            <LazyDebugView {...debugViewProps} />
-          </SettingsTabSuspense>
-        );
-      default:
-        return null;
-    }
-  })();
+  const settingsView = SettingsTabBody({
+    tab: route.tab,
+    navigateSettingsPath,
+    developerMode,
+    platform,
+    onmyagentClient,
+    routeOnMyAgentStatus,
+    routeOnMyAgentCapabilities,
+    runtimeWorkspaceId,
+    selectedWorkspaceRoot,
+    workspaceType,
+    busy,
+    local,
+    setConfigActionStatus,
+    providerAuthStore,
+    connectionsStore,
+    providerAuthSnapshot,
+    providerStatusLabel,
+    providerStatusStyle,
+    providerSummary,
+    connectedProviders,
+    providerActionBusyId,
+    providerActionError,
+    providerSyncBusy,
+    activeClient,
+    providersDiscovering,
+    inventorySyncing,
+    handleOpenProviderAuth,
+    handleOpenCustomProviderConfig,
+    setProviderActionBusyId,
+    setProviderActionError,
+    opencodeInventoryReady,
+    handleEditOpenCodeProvider,
+    setProviderSyncBusy,
+    setOpenCodeManagedProviders,
+    applyEngineConfigForProviders,
+    loadOpenCodeManagedProviders,
+    reloadCoordinator,
+    showOnMyAgentModelsSubscribe,
+    subscribeToOnMyAgentModels,
+    denSession,
+    memoryDraft,
+    persistMemoryDraft,
+    conversationMemoryDraft,
+    persistConversationMemory,
+    autoCompactContext,
+    autoCompactContextBusy,
+    toggleAutoCompactContext,
+    extensionsStore,
+    electronUpdaterState,
+    updateAutoCheck,
+    setUpdateAutoCheck,
+    updateAutoDownload,
+    setUpdateAutoDownload,
+    activeReloadBlockingSessions,
+    workspaces,
+    selectedWorkspaceId,
+    isRemoteWorkspace,
+    handleApplyEnvironmentChanges,
+    environmentRuntimeKey,
+    recoveryViewProps,
+    debugViewProps,
+    onmyagentServerSnapshot,
+  });
+
 
   return (
     <>

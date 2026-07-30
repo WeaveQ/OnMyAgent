@@ -64,6 +64,32 @@ import {
   normalizeRunTimeoutMs,
   normalizeAccessibleWorkspaceRoots,
 } from "./artifact-tracking.mjs";
+import {
+  buildApprovalRecord,
+  buildFinalizedOrphanMeta,
+  buildRestoredRunSnapshot,
+  buildRunMeta,
+  buildRunSnapshot,
+  buildStartupStalledDebugSummary,
+  buildStartupStalledErrorInfo,
+  classifyRestoredRunMeta,
+  classifySpawnErrorStep,
+  collectSkillRootOverrides,
+  defaultConnectionMode,
+  isStartupStalled,
+  mapProbeStepToTestStep,
+  mergeMcpServers,
+  normalizeApprovalMode,
+  parseRunLogContent,
+  parseStatusInput,
+  resolveAdapterFactoryForProvider,
+  rewriteOrphanRunLogContent,
+} from "./run-helpers.mjs";
+
+const runSnapshotDeps = {
+  visibleArtifacts,
+  runEventsToConversationMessages,
+};
 
 export function createPersonalAgentRuntime(options) {
   configurePersonalAgentRuntimeState(options ?? {});
@@ -113,52 +139,18 @@ export function createPersonalAgentRuntime(options) {
   };
 
   function adapterFactoryForProvider(provider, agent = null) {
-    if (Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) return adapterFactories[provider];
-    if (provider === "remote") return createRemoteAcpAdapter;
-    if (provider === "hermes" || provider === "opencode" || provider === "openclaw" || provider === "codex" || provider === "claude") return createGenericAcpAdapter;
-    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) return createGenericAcpAdapter;
-    return adapterFactories[provider];
-  }
-
-  function defaultConnectionMode(provider, agent = null) {
-    if (provider === "opencode") return "OpenCode ACP session";
-    if (provider === "codex") return "Codex ACP session";
-    if (provider === "hermes") return "Hermes ACP session";
-    if (provider === "claude") return "Claude Code ACP session";
-    if (provider === "openclaw") return "OpenClaw ACP session";
-    if (provider === "remote") return "Remote ACP WebSocket session";
-    if (provider === "custom" && agent && agent.connectionType === "cli" && agent.supportsAcp !== false) {
-      const name = agent && typeof agent.name === "string" && agent.name.trim() ? agent.name.trim() : null;
-      return `${name ?? "Custom"} ACP session`;
-    }
-    return "本地 Agent harness session";
+    return resolveAdapterFactoryForProvider(
+      provider,
+      agent,
+      injectedAdapters,
+      adapterFactories,
+      createGenericAcpAdapter,
+      createRemoteAcpAdapter,
+    );
   }
 
   async function persistRun(state) {
-    const meta = {
-      type: "run_meta",
-      at: Date.now(),
-      runId: state.runId,
-      agentId: state.agentId,
-      agentProvider: state.agentProvider,
-      status: state.status,
-      connectionMode: state.connectionMode,
-      startedAt: state.startedAt,
-      finishedAt: state.finishedAt,
-      pid: state.pid,
-      command: state.command,
-      providerSessionId: state.providerSessionId,
-      resumeKey: state.resumeKey,
-      metadata: state.metadata,
-      workdir: state.workdir,
-      conversationId: state.conversationId ?? null,
-      debugSummary: state.debugSummary,
-      errorInfo: state.errorInfo,
-      approvalMode: state.approvalMode,
-      pendingApprovals: state.pendingApprovals,
-      artifacts: visibleArtifacts(state.artifacts),
-      fileChanges: [...(state.fileChanges ?? [])],
-    };
+    const meta = buildRunMeta(state, { visibleArtifacts });
     const lines = [meta, ...state.events].map((entry) => JSON.stringify(entry)).join("\n");
     if (!state.logPath) return;
     await mkdir(path.dirname(state.logPath), { recursive: true });
@@ -176,50 +168,7 @@ export function createPersonalAgentRuntime(options) {
   }
 
   function snapshot(state) {
-    return {
-      ok: state.status === "completed",
-      runId: state.runId,
-      agentId: state.agentId,
-      agentProvider: state.agentProvider,
-      connectionMode: state.connectionMode,
-      status: state.status,
-      startedAt: state.startedAt,
-      finishedAt: state.finishedAt,
-      pid: state.pid,
-      command: state.command,
-      output: state.outputParts.join("\n").trim(),
-      error: state.error,
-      events: [...state.events],
-      conversationMessages: runEventsToConversationMessages(state.events),
-      logPath: state.logPath,
-      conversationId: state.conversationId ?? null,
-      providerSessionId: state.providerSessionId,
-      resumeKey: state.resumeKey,
-      metadata: state.metadata,
-      workdir: state.workdir,
-      debugSummary: state.debugSummary,
-      errorInfo: state.errorInfo,
-      approvalMode: state.approvalMode,
-      pendingApprovals: [...(state.pendingApprovals ?? [])],
-      artifacts: visibleArtifacts(state.artifacts),
-      fileChanges: [...(state.fileChanges ?? [])],
-    };
-  }
-
-  function normalizeApprovalMode(value) {
-    const mode = String(value ?? "ask").trim();
-    if (mode === "auto" || mode === "ask" || mode === "read-only-auto") return mode;
-    return "ask";
-  }
-
-  function parseStatusInput(input) {
-    if (input && typeof input === "object") {
-      return {
-        runId: String(input.runId ?? input.id ?? "").trim(),
-        workspaceRoot: String(input.workspaceRoot ?? "").trim(),
-      };
-    }
-    return { runId: String(input ?? "").trim(), workspaceRoot: "" };
+    return buildRunSnapshot(state, runSnapshotDeps);
   }
 
   function isProcessAlive(pid) {
@@ -241,34 +190,10 @@ export function createPersonalAgentRuntime(options) {
   async function finalizeStaleRunLog(logPath, meta) {
     try {
       const content = await readFile(logPath, "utf8");
-      const lines = content.split(/\r?\n/).filter((line) => line.trim());
-      const finalizedMeta = {
-        ...meta,
-        status: "failed",
-        finishedAt: Date.now(),
-        debugSummary: "orphaned run: persisted log still 'running' but no active runtime record after process restart (patched by reconcile)",
-        errorInfo: {
-          code: "orphaned",
-          message: "该 run 因主进程重启/崩溃而中断：恢复时已无对应的活跃执行记录，属历史残留（孤儿 run），并未真正执行失败。",
-          debug: "run existed only in persisted log; active runtime state was missing after process restart",
-        },
-      };
-      let changed = false;
-      const outLines = lines.map((line) => {
-        try {
-          const parsed = JSON.parse(line);
-          if (parsed?.type === "run_meta") {
-            changed = true;
-            return JSON.stringify(finalizedMeta);
-          }
-        } catch {
-          // Keep non-JSON / corrupt lines as-is.
-        }
-        return line;
-      });
-      if (!changed) return;
-      outLines.push(JSON.stringify({ type: "error", text: finalizedMeta.errorInfo.message, at: Date.now() }));
-      await writeFile(logPath, `${outLines.join("\n")}\n`, "utf8");
+      const finalizedMeta = buildFinalizedOrphanMeta(meta);
+      const rewritten = rewriteOrphanRunLogContent(content, finalizedMeta);
+      if (!rewritten) return;
+      await writeFile(logPath, rewritten.content, "utf8");
     } catch {
       // Best effort: never block run restore on a log write failure.
     }
@@ -334,95 +259,24 @@ export function createPersonalAgentRuntime(options) {
     if (!raw) {
       return null;
     }
-    let meta = null;
-    const events = [];
-    for (const line of raw.split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      try {
-        const parsed = JSON.parse(line);
-        if (parsed?.type === "run_meta") meta = parsed;
-        else events.push(parsed);
-      } catch {
-        // Ignore corrupt log lines; keep the rest of the run inspectable.
-      }
-    }
+    const { meta, events } = parseRunLogContent(raw);
     if (!meta) return null;
     // Finalized orphaned runs (previous process crashed mid-run) must be
     // invisible to the UI: they carry a misleading "failed / orphaned" status
     // that reappears every time the renderer polls a stale runId cached in
     // localStorage. Returning null lets status() fall through to legacy /
     // not-found, and pollRun then clears the stale activeRunId.
-    if (meta.status === "failed" && meta.errorInfo?.code === "orphaned") return null;
-    const assistantText = events
-      .filter((event) => event.type === "assistant")
-      .map((event) => String(event.text ?? "").trim())
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-    const staleRunning = meta.status === "running";
-    if (staleRunning) {
+    const classification = classifyRestoredRunMeta(meta);
+    if (classification === "orphaned") return null;
+    if (classification === "stale_running") {
       if (logPath) void finalizeStaleRunLog(logPath, meta);
       return null;
     }
-    const status = meta.status;
-    const errorInfo = meta.errorInfo ?? null;
-    const error = errorInfo?.message ?? null;
-    const restoredEvents = events;
-    return {
-      ok: status === "completed",
-      runId: meta.runId ?? id,
-      agentId: meta.agentId ?? "unknown",
-      agentProvider: meta.agentProvider ?? "custom",
-      connectionMode: meta.connectionMode ?? "本地 Agent harness session",
-      status,
-      startedAt: meta.startedAt ?? null,
-      finishedAt: meta.finishedAt ?? null,
-      pid: meta.pid ?? null,
-      command: meta.command ?? "",
-      output: assistantText,
-      error,
-      events: restoredEvents,
-      conversationMessages: runEventsToConversationMessages(restoredEvents),
-      logPath,
-      providerSessionId: meta.providerSessionId ?? null,
-      resumeKey: meta.resumeKey ?? null,
-      metadata: meta.metadata ?? null,
-      workdir: meta.workdir ?? null,
-      conversationId: meta.conversationId ?? null,
-      debugSummary: meta.debugSummary ?? null,
-      errorInfo,
-      approvalMode: meta.approvalMode ?? "ask",
-      pendingApprovals: Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : [],
-      artifacts: visibleArtifacts(meta.artifacts),
-      fileChanges: Array.isArray(meta.fileChanges) ? [...meta.fileChanges] : [],
-    };
-  }
-
-  function sanitizeApprovalParams(params) {
-    if (!params || typeof params !== "object") return null;
-    try {
-      return JSON.parse(JSON.stringify(params));
-    } catch {
-      return { raw: String(params) };
-    }
+    return buildRestoredRunSnapshot(meta, events, id, logPath, runSnapshotDeps);
   }
 
   async function requestRunApproval(state, request = {}) {
-    const approvalId = String(request.id ?? `${state.runId}-approval-${Date.now()}-${Math.random().toString(16).slice(2)}`).trim();
-    const approval = {
-      id: approvalId,
-      runId: state.runId,
-      provider: state.agentProvider,
-      method: String(request.method ?? "unknown"),
-      kind: request.kind ?? "unknown",
-      title: String(request.title ?? "需要用户审批"),
-      summary: String(request.summary ?? "本地 Agent 请求执行受限操作。"),
-      command: request.command ? String(request.command) : null,
-      cwd: request.cwd ? String(request.cwd) : state.workspaceRoot,
-      readonly: Boolean(request.readonly),
-      params: sanitizeApprovalParams(request.params),
-      createdAt: Date.now(),
-    };
+    const approval = buildApprovalRecord(state, request);
     const stored = await getStoredApprovalDecision(state.workspaceRoot, { provider: state.agentProvider, agentId: state.agentId, approval });
     if (stored) {
       appendContractEvent(state.events, {
@@ -860,26 +714,12 @@ export function createPersonalAgentRuntime(options) {
     const { runId: id, workspaceRoot } = parseStatusInput(input);
     const state = runs.get(id);
     if (state) {
-      const meaningfulEvents = state.events.filter((event) => {
-        const text = String(event.text ?? "");
-        return !(event.type === "status" && /(?:harness|ACP) flow started/.test(text));
-      });
-      const startupStalled = state.status === "running" && meaningfulEvents.length === 0 && Date.now() - state.startedAt > 30_000;
-      if (startupStalled) {
+      if (isStartupStalled(state)) {
         state.status = "failed";
         state.finishedAt = Date.now();
-        state.errorInfo = {
-          code: "timeout",
-          message: "本地 Agent 启动阶段已中断：没有产生进程 PID 或可追踪输出。",
-          debug: "runtime startup stalled before adapter reported pid",
-        };
+        state.errorInfo = buildStartupStalledErrorInfo();
         state.error = state.errorInfo.message;
-        state.debugSummary = [
-          `provider=${state.agentProvider}`,
-          `connection=${state.connectionMode}`,
-          `runId=${state.runId}`,
-          "startupStalled=true",
-        ].join("\n");
+        state.debugSummary = buildStartupStalledDebugSummary(state);
         appendContractEvent(state.events, { type: "error", text: state.error });
         appendContractEvent(state.events, buildErrorTip(state.errorInfo));
         state.updatedAt = Date.now();
@@ -1785,14 +1625,13 @@ export function createPersonalAgentRuntime(options) {
       // - "fail_cli" -> "fail_cli"
       // - "fail_acp" -> "fail_acp"
       // - "needs_auth" -> "fail_acp" (auth error is still an ACP-layer issue)
-      const step = probe.step === "online" ? "success" : probe.step === "needs_auth" ? "fail_acp" : probe.step;
+      const step = mapProbeStepToTestStep(probe.step);
       return { step, error: probe.error ?? null, durationMs };
     } catch (error) {
       const durationMs = Date.now() - startedAt;
       const message = error instanceof Error ? error.message : String(error);
       // Spawn errors are CLI-layer; JSON-RPC errors are ACP-layer.
-      const step = /ENOENT|spawn|command not found|not found/i.test(message) ? "fail_cli" : "fail_acp";
-      return { step, error: message, durationMs };
+      return { step: classifySpawnErrorStep(message), error: message, durationMs };
     }
   }
 
@@ -1867,16 +1706,11 @@ export function createPersonalAgentRuntime(options) {
     //    (~/.codex/skills, ~/.claude/skills, ~/.opencode/skills, ~/.gemini)
     // 2. explicit overrides on the agent metadata (native_skills_dirs)
     // 3. additionalSkillRoots the caller wants scanned
-    const overrides = [];
-    if (agent) {
-      const metadata = personalAgentMetadataFromAgent(agent);
-      if (Array.isArray(metadata.native_skills_dirs)) overrides.push(...metadata.native_skills_dirs);
-    }
-    if (Array.isArray(input.additionalSkillRoots)) {
-      for (const root of input.additionalSkillRoots) {
-        if (typeof root === "string" && root.trim().length) overrides.push(root);
-      }
-    }
+    const agentMetadata = agent ? personalAgentMetadataFromAgent(agent) : null;
+    const overrides = collectSkillRootOverrides(
+      agentMetadata?.native_skills_dirs,
+      input.additionalSkillRoots,
+    );
     const nativeSkillsDirs = agent
       ? await resolveNativeSkillRoots(agent, workspaceRoot, overrides)
       : [];
@@ -1885,11 +1719,9 @@ export function createPersonalAgentRuntime(options) {
       ? await getConversationStatus({ workspaceRoot, agent, conversationId: input.conversationId }).catch(() => null)
       : null;
     const conversationMessages = status?.conversationMessages ?? [];
-    const availableCommands = (() => {
-      if (!agent) return [];
-      const metadata = personalAgentMetadataFromAgent(agent);
-      return Array.isArray(metadata.handshake?.available_commands) ? metadata.handshake.available_commands : [];
-    })();
+    const availableCommands = Array.isArray(agentMetadata?.handshake?.available_commands)
+      ? agentMetadata.handshake.available_commands
+      : [];
     const remembered = workspaceRoot ? await listRememberedApprovalDecisions(workspaceRoot) : [];
     const nativeMcp = agent
       ? await readNativeMcpConfig(agent, workspaceRoot).catch((error) => ({ servers: [], errors: [{ file: "<readNativeMcpConfig>", message: String(error?.message || error) }] }))
@@ -1905,32 +1737,8 @@ export function createPersonalAgentRuntime(options) {
     ]);
     // Merge config-file MCP servers with live tool-call observations.
     // Config wins on transport; live wins on toolCount + connected.
-    const mergedByName = new Map();
-    for (const s of nativeMcp.servers) {
-      const key = String(s.name || "").toLowerCase();
-      if (!key) continue;
-      mergedByName.set(key, {
-        name: s.name,
-        transport: s.transport || s.type || null,
-        connected: false,
-        toolCount: 0,
-        source: s.source,
-        sourceFile: s.sourceFile,
-      });
-    }
-    for (const s of liveMcp.servers) {
-      const key = String(s.name || "").toLowerCase();
-      if (!key) continue;
-      const prev = mergedByName.get(key) || { name: s.name, transport: null, connected: true, toolCount: 0 };
-      mergedByName.set(key, {
-        ...prev,
-        transport: prev.transport || s.transport || null,
-        connected: true,
-        toolCount: (prev.toolCount || 0) + (s.toolCount || 0),
-      });
-    }
     const mcp = {
-      servers: [...mergedByName.values()],
+      servers: mergeMcpServers(nativeMcp.servers, liveMcp.servers),
       error: liveMcp.error || null,
       sourceErrors: nativeMcp.errors,
     };
