@@ -11,6 +11,7 @@ import {
 
 import {
   installBuiltinSkillPackage,
+  listBuiltinSkillCatalog,
   listLocalSkills,
   openDesktopPath,
   uninstallSkill,
@@ -18,7 +19,11 @@ import {
 import type { LocalSkillCard } from "@/app/lib/desktop";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
-import { FilterChip } from "@/components/ui/action-row";
+import {
+  FilterChip,
+  SegmentedTabButton,
+  SegmentedTabGroup,
+} from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -455,6 +460,8 @@ function InstalledSkillCard(props: {
   enabled: boolean;
   opening: boolean;
   uninstalling: boolean;
+  /** Product-packaged origin (core preinstall / builtin catalog). */
+  originBuiltin?: boolean;
   onEnabledChange: (skill: LocalSkillCard, enabled: boolean) => void;
   onOpenFolder: (skill: LocalSkillCard) => void;
   onOpen?: (skill: LocalSkillCard) => void;
@@ -463,7 +470,6 @@ function InstalledSkillCard(props: {
   const description = skillDescription(props.skill);
   const name = skillDisplayName(props.skill);
   const chips = props.marketplaceSkill ? skillCardChips(props.marketplaceSkill) : [];
-  const readonly = Boolean(props.skill.readonly);
 
   return (
     <div
@@ -493,8 +499,19 @@ function InstalledSkillCard(props: {
               onClick={() => props.onOpen?.(props.skill)}
               disabled={!props.onOpen}
             >
-              <div className="truncate text-sm font-semibold leading-5 text-dls-text">
-                {name}
+              <div className="flex min-w-0 items-center gap-1.5">
+                <div className="truncate text-sm font-semibold leading-5 text-dls-text">
+                  {name}
+                </div>
+                {props.originBuiltin ? (
+                  <StatusBadge
+                    tone="neutral"
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    {t("skills.source_builtin")}
+                  </StatusBadge>
+                ) : null}
               </div>
             </button>
             <div className="flex shrink-0 items-center gap-0.5">
@@ -546,7 +563,6 @@ function InstalledSkillCard(props: {
               </DropdownMenu>
               <Switch
                 checked={props.enabled}
-                disabled={readonly}
                 aria-label={t("skills_marketplace.toggle_enabled", { name })}
                 onCheckedChange={(next) => props.onEnabledChange(props.skill, next)}
               />
@@ -743,6 +759,8 @@ function ImportSkillDialog(props: {
   );
 }
 
+type InstalledSkillsSubTab = "builtin" | "installed";
+
 export function SkillsMarketplacePage(props: {
   workspaceId: string;
   workspaceRoot?: string | null;
@@ -758,6 +776,12 @@ export function SkillsMarketplacePage(props: {
   const [installedSkillNames, setInstalledSkillNames] = useState<Set<string>>(
     () => new Set(),
   );
+  /** Product bundled package names (catalog) — used to split 内置 vs 已安装. */
+  const [builtinPackageNames, setBuiltinPackageNames] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [installedSubTab, setInstalledSubTab] =
+    useState<InstalledSkillsSubTab>("builtin");
   const [installingSkillName, setInstallingSkillName] = useState<string | null>(null);
   const [openingSkillPath, setOpeningSkillPath] = useState<string | null>(null);
   const [uninstallingSkillName, setUninstallingSkillName] = useState<string | null>(null);
@@ -771,20 +795,32 @@ export function SkillsMarketplacePage(props: {
   useEffect(() => {
     if (!isDesktopRuntime() || !props.workspaceRoot) return undefined;
     let cancelled = false;
-    listLocalSkills(props.workspaceRoot)
-      .then((response) => {
-        if (cancelled || !Array.isArray(response)) return;
+    void Promise.all([
+      listLocalSkills(props.workspaceRoot),
+      listBuiltinSkillCatalog().catch(() => ({ skills: [] })),
+    ])
+      .then(([response, catalog]) => {
+        if (cancelled) return;
         const names = new Set<string>();
         const skills: LocalSkillCard[] = [];
-        for (const entry of response) {
-          if (isOnmyagentSkillPath(entry.path)) {
-            names.add(entry.name);
-            skills.push(entry);
+        if (Array.isArray(response)) {
+          for (const entry of response) {
+            if (isOnmyagentSkillPath(entry.path)) {
+              names.add(entry.name);
+              skills.push(entry);
+            }
           }
         }
         setInstalledSkillNames(names);
         setInstalledSkills(skills);
         props.onInstalledCountChange?.(skills.length);
+
+        const builtinNames = new Set<string>();
+        for (const entry of catalog?.skills ?? []) {
+          if (entry.skillName) builtinNames.add(entry.skillName);
+          if (entry.packageName) builtinNames.add(entry.packageName);
+        }
+        setBuiltinPackageNames(builtinNames);
       })
       .catch((error) => {
         console.warn("[skills-marketplace] failed to list installed skills", error);
@@ -941,10 +977,25 @@ export function SkillsMarketplacePage(props: {
     }
   };
 
+  const isBuiltinOriginSkill = (skill: LocalSkillCard) =>
+    builtinPackageNames.has(skill.name);
+
+  const { builtinInstalled, userInstalled } = useMemo(() => {
+    const builtin: LocalSkillCard[] = [];
+    const user: LocalSkillCard[] = [];
+    for (const skill of installedSkills) {
+      if (isBuiltinOriginSkill(skill)) builtin.push(skill);
+      else user.push(skill);
+    }
+    return { builtinInstalled: builtin, userInstalled: user };
+  }, [installedSkills, builtinPackageNames]);
+
   const filteredInstalledSkills = useMemo(() => {
+    const source =
+      installedSubTab === "builtin" ? builtinInstalled : userInstalled;
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
-    if (!normalizedQuery) return installedSkills;
-    return installedSkills.filter((skill) => {
+    if (!normalizedQuery) return source;
+    return source.filter((skill) => {
       const text = [
         skillDisplayName(skill),
         skill.name,
@@ -954,9 +1005,18 @@ export function SkillsMarketplacePage(props: {
         .toLowerCase();
       return text.includes(normalizedQuery);
     });
-  }, [installedSkills, props.query]);
+  }, [
+    builtinInstalled,
+    userInstalled,
+    installedSubTab,
+    props.query,
+  ]);
 
   if (props.view === "installed") {
+    const emptyForSubTab =
+      installedSubTab === "builtin"
+        ? builtinInstalled.length === 0
+        : userInstalled.length === 0;
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
         <MarketplaceSkillDetailDialog
@@ -972,13 +1032,41 @@ export function SkillsMarketplacePage(props: {
           }}
           onInstall={handleInstallSkill}
         />
-        <div className="flex shrink-0 items-center justify-between gap-3 px-6 pb-1 pt-1">
+        <div className="flex shrink-0 flex-col gap-2 px-6 pb-1 pt-1">
           <div className="flex min-w-0 items-center gap-2">
             <h2 className="truncate text-base font-semibold leading-6 text-dls-text">
               {t("store.my_installed")}
             </h2>
             <CountBadge size="dot">{installedSkills.length}</CountBadge>
           </div>
+          <SegmentedTabGroup density="filter" className="mac:titlebar-no-drag">
+            <SegmentedTabButton
+              type="button"
+              active={installedSubTab === "builtin"}
+              size="compact"
+              width="hug"
+              className="items-center gap-1.5"
+              onClick={() => setInstalledSubTab("builtin")}
+            >
+              <span>{t("skills.mine_tab_builtin")}</span>
+              <span className="text-xs text-dls-secondary">
+                {builtinInstalled.length}
+              </span>
+            </SegmentedTabButton>
+            <SegmentedTabButton
+              type="button"
+              active={installedSubTab === "installed"}
+              size="compact"
+              width="hug"
+              className="items-center gap-1.5"
+              onClick={() => setInstalledSubTab("installed")}
+            >
+              <span>{t("skills.mine_tab_installed")}</span>
+              <span className="text-xs text-dls-secondary">
+                {userInstalled.length}
+              </span>
+            </SegmentedTabButton>
+          </SegmentedTabGroup>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
           {filteredInstalledSkills.length > 0 ? (
@@ -986,12 +1074,14 @@ export function SkillsMarketplacePage(props: {
               {filteredInstalledSkills.map((skill) => {
                 const market = marketplaceSkillForLocalSkill(skill);
                 const enabled = skillEnabledMap[skill.name] !== false;
+                const originBuiltin = isBuiltinOriginSkill(skill);
                 return (
                   <InstalledSkillCard
                     key={skill.name}
                     skill={skill}
                     marketplaceSkill={market}
                     enabled={enabled}
+                    originBuiltin={originBuiltin}
                     opening={openingSkillPath === skill.path}
                     uninstalling={uninstallingSkillName === skill.name}
                     onEnabledChange={handleSkillEnabledChange}
@@ -1008,8 +1098,10 @@ export function SkillsMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full min-h-0 items-center justify-center px-6 text-center text-sm text-dls-secondary">
-              {installedSkills.length === 0
-                ? t("store.no_skills_installed")
+              {emptyForSubTab
+                ? installedSubTab === "builtin"
+                  ? t("skills.mine_builtin_empty")
+                  : t("skills.mine_user_empty")
                 : t("skills_marketplace.installed_no_match")}
             </div>
           )}
