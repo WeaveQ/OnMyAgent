@@ -100,3 +100,25 @@ describe("server-provider health poll wiring", () => {
     expect(source).not.toMatch(/setInterval\(\s*run\s*,\s*10_000\s*\)/);
   });
 });
+
+describe("code-workspace-side-panel automations poll wiring", () => {
+  test("imports visibility-poll helpers and no longer uses bare 15s setInterval", () => {
+    const source = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain('from "../../../infra/visibility-poll"');
+    expect(source).toContain("nextPollDelayMs");
+    expect(source).toContain("shouldRunPollTick");
+    expect(source).toContain("isDocumentHidden");
+    expect(source).toContain('addEventListener("visibilitychange"');
+    expect(source).toContain("focusedIntervalMs: 15_000");
+    // No fixed always-on 15s automations load interval without visibility pause.
+    expect(source).not.toMatch(
+      /setInterval\(\s*\(\)\s*=>\s*void\s*load\(false\)\s*,\s*15_000\s*\)/,
+    );
+  });
+});
