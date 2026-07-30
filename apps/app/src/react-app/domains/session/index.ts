@@ -123,7 +123,14 @@ export type {
 } from "./sync/session-snapshot-query-policy";
 /** Delete policy: directory resolution + dirty/ghost remote failure tolerance. */
 export {
+  SESSION_DELETE_REMOTE_BUDGET_MS,
+  SESSION_RECENTLY_DELETED_TTL_MS,
+  clearRecentlyDeletedSessionsForTests,
+  filterRecentlyDeletedSessions,
+  isSessionRecentlyDeleted,
   isTolerableSessionDeleteFailure,
+  markSessionRecentlyDeleted,
+  raceSessionDeleteRemote,
   resolveSessionDeleteDirectory,
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
 } from "./sync/session-delete-policy";

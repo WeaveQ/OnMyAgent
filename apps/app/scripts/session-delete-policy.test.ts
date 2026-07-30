@@ -1,17 +1,27 @@
 /**
  * Dirty/ghost session delete policy — pure helpers + page-view wiring.
  */
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  SESSION_DELETE_REMOTE_BUDGET_MS,
+  clearRecentlyDeletedSessionsForTests,
+  filterRecentlyDeletedSessions,
+  isSessionRecentlyDeleted,
   isTolerableSessionDeleteFailure,
+  markSessionRecentlyDeleted,
+  raceSessionDeleteRemote,
   resolveSessionDeleteDirectory,
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
 } from "../src/react-app/domains/session/sync/session-delete-policy";
 
 const appRoot = join(import.meta.dir, "..");
+
+afterEach(() => {
+  clearRecentlyDeletedSessionsForTests();
+});
 
 describe("resolveSessionDeleteDirectory (shipped)", () => {
   test("prefers assistant directory, then session item, then workspace root", () => {
@@ -73,7 +83,6 @@ describe("isTolerableSessionDeleteFailure (shipped)", () => {
   });
 
   test("does not treat arbitrary 500 without known markers as tolerable by status alone when message is clean", () => {
-    // status 500 alone is not in the allowlist; message without markers fails.
     expect(
       isTolerableSessionDeleteFailure({
         status: 500,
@@ -96,22 +105,83 @@ describe("isTolerableSessionDeleteFailure (shipped)", () => {
   });
 });
 
-describe("page-view delete wiring for dirty sessions", () => {
-  test("uses shared policy, optimistic list remove, and bounded refresh", () => {
+describe("recently-deleted tombstones (shipped)", () => {
+  test("filters ids within TTL and expires them", () => {
+    const now = 1_000_000;
+    markSessionRecentlyDeleted("ses_dirty", now, 1_000);
+    expect(isSessionRecentlyDeleted("ses_dirty", now + 10)).toBe(true);
+    expect(
+      filterRecentlyDeletedSessions(
+        [{ id: "ses_dirty" }, { id: "ses_keep" }],
+        now + 10,
+      ),
+    ).toEqual([{ id: "ses_keep" }]);
+    expect(isSessionRecentlyDeleted("ses_dirty", now + 1_001)).toBe(false);
+    expect(
+      filterRecentlyDeletedSessions([{ id: "ses_dirty" }], now + 1_001),
+    ).toEqual([{ id: "ses_dirty" }]);
+  });
+});
+
+describe("raceSessionDeleteRemote (shipped)", () => {
+  test("resolves when remote is slow beyond budget", async () => {
+    expect(SESSION_DELETE_REMOTE_BUDGET_MS).toBeLessThanOrEqual(5_000);
+    const started = Date.now();
+    let remoteSettled = false;
+    const remote = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        remoteSettled = true;
+        resolve();
+      }, 80);
+    });
+    await raceSessionDeleteRemote(remote, 15);
+    const elapsed = Date.now() - started;
+    expect(elapsed).toBeLessThan(70);
+    expect(remoteSettled).toBe(false);
+  });
+
+  test("resolves when remote finishes first", async () => {
+    const started = Date.now();
+    await raceSessionDeleteRemote(Promise.resolve("ok"), 200);
+    expect(Date.now() - started).toBeLessThan(100);
+  });
+});
+
+describe("page-view + group delete wiring", () => {
+  test("uses local-first budgeted remote delete and tombstones", () => {
     const pageView = readFileSync(
       join(appRoot, "src/react-app/shell/session-route/page-view.tsx"),
       "utf8",
     );
     expect(pageView).toContain("resolveSessionDeleteDirectory");
-    expect(pageView).toContain("isTolerableSessionDeleteFailure");
+    expect(pageView).toContain("markSessionRecentlyDeleted");
+    expect(pageView).toContain("raceSessionDeleteRemote");
+    expect(pageView).toContain("SESSION_DELETE_REMOTE_BUDGET_MS");
+    expect(pageView).toContain("writeCachedSidebarSessionsForWorkspace");
     expect(pageView).toContain("setSessionsByWorkspaceId");
-    expect(pageView).toContain("local cleanup continues");
-    expect(pageView).toContain("Promise.race");
-    // Must consider sidebar session.directory (expert isolated roots).
+    // Refresh must not block dialog close with a long await race.
+    expect(pageView).toContain("void Promise.resolve(refreshRouteState())");
     expect(pageView).toContain("sessionDirectory: listedDirectory");
-    // Must not hard-require only assistant workspace directory.
-    expect(pageView).not.toMatch(
-      /deleteSession\(\s*endpoint\.workspaceId,\s*sessionId,\s*\{\s*directory:\s*assistantSessionWorkspace\?\.directory/,
+  });
+
+  test("list merge filters recently deleted ids", () => {
+    const sessions = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/sessions.ts"),
+      "utf8",
     );
+    expect(sessions).toContain("filterRecentlyDeletedSessions");
+  });
+
+  test("expert and assistant group deletes run sessions in parallel", () => {
+    const expert = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/expert.tsx"),
+      "utf8",
+    );
+    const assistant = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/assistant.tsx"),
+      "utf8",
+    );
+    expect(expert).toContain("Promise.allSettled");
+    expect(assistant).toContain("Promise.allSettled");
   });
 });

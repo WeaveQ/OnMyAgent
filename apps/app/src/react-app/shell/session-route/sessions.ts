@@ -7,6 +7,7 @@ import { addAssistantSession, isExpertSession } from "../../domains/agents";
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
+  filterRecentlyDeletedSessions,
   sessionSnapshotFetchOptions,
   sessionSnapshotQueryKey,
 } from "../../domains/session";
@@ -264,7 +265,11 @@ export function mergeWorkspaceFetchedSessions(input: {
   fetched: SidebarSessionItem[];
   merge: (fetched: SidebarSessionItem[], current: SidebarSessionItem[]) => SidebarSessionItem[];
 }) {
-  const nextItems = input.merge(input.fetched, input.current[input.workspaceId] ?? []);
+  // Drop ids the user just deleted so a racing listSessions cannot resurrect
+  // ghost/dirty rows while remote delete is still in flight or failed soft.
+  const nextItems = filterRecentlyDeletedSessions(
+    input.merge(input.fetched, input.current[input.workspaceId] ?? []),
+  );
   return { ...input.current, [input.workspaceId]: nextItems };
 }
 

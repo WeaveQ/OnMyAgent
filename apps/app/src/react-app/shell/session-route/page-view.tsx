@@ -39,10 +39,13 @@ import type { LocalPreferences } from "../../kernel/local-provider";
 import { useBootOverlayVisible } from "../boot-state";
 import { useColdBootShell } from "./cold-boot-shell";
 import {
+  SESSION_DELETE_REMOTE_BUDGET_MS,
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
   isTolerableSessionDeleteFailure,
+  markSessionRecentlyDeleted,
+  raceSessionDeleteRemote,
   resetRailBookmarkToPrimary,
   resolveSessionDeleteDirectory,
   type PageMode,
@@ -50,6 +53,7 @@ import {
   type SessionPageSurfaceProps,
 } from "../../domains/session";
 import { getReactQueryClient } from "../../infra/query-client";
+import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 
 import { loadAgentsPage } from "../../domains/agents";
 
@@ -955,45 +959,29 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                       null,
                   });
 
-                  // Drop the row immediately so dirty/ghost entries leave the UI
-                  // even if OpenCode hangs or returns a non-missing error.
+                  // 1) Local-first: tombstone + optimistic remove so dirty rows
+                  // leave the UI even if remote DELETE hangs for 12s.
+                  markSessionRecentlyDeleted(sessionId);
+                  let nextListForCache: SidebarSessionItem[] | null = null;
                   setSessionsByWorkspaceId((current) => {
                     const list = current[selectedWorkspaceId];
                     if (!list?.some((item) => item.id === sessionId)) {
                       return current;
                     }
+                    const nextList = list.filter(
+                      (item) => item.id !== sessionId,
+                    );
+                    nextListForCache = nextList;
                     return {
                       ...current,
-                      [selectedWorkspaceId]: list.filter(
-                        (item) => item.id !== sessionId,
-                      ),
+                      [selectedWorkspaceId]: nextList,
                     };
                   });
-
-                  if (endpoint) {
-                    try {
-                      await endpoint.client.deleteSession(
-                        endpoint.workspaceId,
-                        sessionId,
-                        { directory },
-                      );
-                    } catch (error) {
-                      // Always continue local cleanup for dirty data. Log
-                      // unexpected failures; tolerate known ghost/timeout cases.
-                      if (!isTolerableSessionDeleteFailure(error)) {
-                        console.warn(
-                          "[session-route] deleteSession remote failed; local cleanup continues",
-                          sessionId,
-                          error,
-                        );
-                      } else {
-                        console.warn(
-                          "[session-route] deleteSession ignored missing/failed session",
-                          sessionId,
-                          error,
-                        );
-                      }
-                    }
+                  if (nextListForCache) {
+                    writeCachedSidebarSessionsForWorkspace(
+                      selectedWorkspaceId,
+                      nextListForCache,
+                    );
                   }
 
                   removeAssistantSession(sessionId);
@@ -1015,21 +1003,43 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   if (selectedSessionId === sessionId) {
                     navigateToWorkspaceSession(selectedWorkspaceId);
                   }
-                  // Do not block the confirm dialog on a hung list refresh.
-                  try {
-                    await Promise.race([
-                      Promise.resolve(refreshRouteState()),
-                      new Promise<void>((resolve) => {
-                        window.setTimeout(resolve, 4_000);
-                      }),
-                    ]);
-                  } catch (error) {
+
+                  // 2) Remote best-effort with a short UI budget (not full 12s
+                  // client timeout) so the confirm dialog never sticks.
+                  if (endpoint) {
+                    const remote = endpoint.client
+                      .deleteSession(endpoint.workspaceId, sessionId, {
+                        directory,
+                      })
+                      .catch((error: unknown) => {
+                        if (!isTolerableSessionDeleteFailure(error)) {
+                          console.warn(
+                            "[session-route] deleteSession remote failed; local cleanup already done",
+                            sessionId,
+                            error,
+                          );
+                        } else {
+                          console.warn(
+                            "[session-route] deleteSession ignored missing/failed session",
+                            sessionId,
+                            error,
+                          );
+                        }
+                      });
+                    await raceSessionDeleteRemote(
+                      remote,
+                      SESSION_DELETE_REMOTE_BUDGET_MS,
+                    );
+                  }
+
+                  // 3) Refresh in background; tombstones keep ghosts out.
+                  void Promise.resolve(refreshRouteState()).catch((error) => {
                     console.warn(
                       "[session-route] refresh after delete failed",
                       sessionId,
                       error,
                     );
-                  }
+                  });
                 }
               : undefined
           }
