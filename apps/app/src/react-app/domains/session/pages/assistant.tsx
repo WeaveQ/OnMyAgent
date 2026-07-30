@@ -391,7 +391,7 @@ export function AssistantPage(props: AssistantPageProps) {
     [openAssistantNewTask, props.selectedWorkspaceId],
   );
 
-  /** 创建技能 → 新任务 + skill-creator 草稿（不复用上次对话） */
+  /** Create skill → new task + skill-creator draft (do not reuse last chat). */
   const handleCreateSkill = useCallback(() => {
     openOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
     if (isElectronRuntime()) {

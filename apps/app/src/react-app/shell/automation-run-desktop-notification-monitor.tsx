@@ -12,6 +12,7 @@ import {
   collectAutomationRunNotifications,
   type AutomationRunNotifyCandidate,
 } from "../domains/shell-feedback";
+import { useLocal } from "../kernel/local-provider";
 import { usePlatform } from "../kernel/platform";
 import { loadSessionOnMyAgentConnectionState } from "./session-route/server-actions";
 import { workspaceAssistantRoute } from "./workspace-routes";
@@ -23,11 +24,18 @@ const POLL_MS_ACTIVE = 5_000;
  * Polls workspace automations and shows an OS desktop notification when a
  * scheduled/manual run finishes (success or failed). Click opens the run
  * session in assistant mode.
+ *
+ * Honors LocalPreferences.desktopNotificationsEnabled (system settings master).
  */
 export function AutomationRunDesktopNotificationMonitor() {
+  const local = useLocal();
   const platform = usePlatform();
   const platformRef = useRef(platform);
   platformRef.current = platform;
+  const notifyEnabledRef = useRef(
+    local.prefs.desktopNotificationsEnabled !== false,
+  );
+  notifyEnabledRef.current = local.prefs.desktopNotificationsEnabled !== false;
 
   const seenRef = useRef<Set<string>>(new Set());
   const seededWorkspacesRef = useRef<Set<string>>(new Set());
@@ -54,6 +62,9 @@ export function AutomationRunDesktopNotificationMonitor() {
           candidate.scene === "code" ? "code" : "office",
         );
       }
+
+      // System settings master switch for desktop notifications.
+      if (!notifyEnabledRef.current) return;
 
       const copy = buildAutomationRunNotificationCopy({
         title: candidate.title,

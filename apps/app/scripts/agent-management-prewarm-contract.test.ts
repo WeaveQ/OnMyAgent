@@ -29,12 +29,6 @@ function emptySnapshot(workspaceRoot: string): AgentManagementSnapshot {
         hermes: [],
       },
     },
-    mcp: {
-      databasePath: "",
-      apps: {} as AgentManagementSnapshot["mcp"]["apps"],
-      servers: [],
-      countsByApp: {} as AgentManagementSnapshot["mcp"]["countsByApp"],
-    },
     loadedDomains: ["core"],
   };
 }

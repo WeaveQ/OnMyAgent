@@ -13,7 +13,14 @@ import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
-import { getSettingsTabIcon } from "../shell/settings-page";
+import {
+  getDataSettingsTabs,
+  getGlobalSettingsTabs,
+  getSettingsTabDescription,
+  getSettingsTabIcon,
+  getSettingsTabLabel,
+  getWorkspaceSettingsTabs,
+} from "../shell/settings-page";
 
 const settingsOverviewTextClass = {
   groupLabel: "text-sm font-medium text-dls-secondary",
@@ -71,125 +78,57 @@ function OverviewSection(props: {
   );
 }
 
+function OverviewTabGrid(props: {
+  tabs: SettingsTab[];
+  onNavigateTab: (tab: SettingsTab) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {props.tabs.map((tab, index) => {
+        const isLastOdd =
+          props.tabs.length % 2 === 1 && index === props.tabs.length - 1;
+        return (
+          <OverviewNavCard
+            key={tab}
+            icon={getSettingsTabIcon(tab)}
+            title={getSettingsTabLabel(tab)}
+            desc={getSettingsTabDescription(tab)}
+            onClick={() => props.onNavigateTab(tab)}
+            className={isLastOdd ? "sm:col-span-2" : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Settings overview — cards are generated from the same tab lists as the
+ * sidebar so 总览 never drifts (e.g. after fusing permissions / moving usage).
+ */
 export function GeneralSettingsView(props: GeneralSettingsViewProps) {
-  const workspaceCards: Array<{
-    tab: SettingsTab;
-    title: string;
-    desc: string;
-  }> = [
-    {
-      tab: "preferences",
-      title: t("settings.preferences"),
-      desc: t("settings.preferences_card_description"),
-    },
-    {
-      tab: "memory",
-      title: t("settings.tab_memory"),
-      desc: t("settings.tab_description_memory"),
-    },
-    {
-      tab: "conversation-memory",
-      title: t("settings.tab_conversation_memory"),
-      desc: t("settings.tab_description_conversation_memory"),
-    },
-    {
-      tab: "permissions",
-      title: t("settings.permissions"),
-      desc: t("settings.permissions_card_description"),
-    },
-  ];
-
-  const globalCards: Array<{
-    tab: SettingsTab;
-    title: string;
-    desc: string;
-  }> = [
-    {
-      tab: "ai",
-      title: t("settings.ai_providers"),
-      desc: t("settings.ai_providers_card_description"),
-    },
-    {
-      tab: "environment",
-      title: t("settings.tab_environment"),
-      desc: t("settings.tab_environment_description"),
-    },
-    {
-      tab: "updates",
-      title: t("settings.tab_updates"),
-      desc: t("settings.tab_updates_description"),
-    },
-    {
-      tab: "usage",
-      title: t("settings.tab_usage"),
-      desc: t("settings.tab_description_usage"),
-    },
-  ];
-
-  const dataCards: Array<{
-    tab: SettingsTab;
-    title: string;
-    desc: string;
-  }> = [
-    {
-      tab: "recovery",
-      title: t("settings.tab_recovery"),
-      desc: t("settings.tab_recovery_description"),
-    },
-    {
-      tab: "archived-tasks",
-      title: t("settings.tab_archived_tasks"),
-      desc: t("settings.tab_description_archived_tasks"),
-    },
-  ];
+  const workspaceTabs = getWorkspaceSettingsTabs();
+  const globalTabs = getGlobalSettingsTabs(props.developerMode);
+  const dataTabs = getDataSettingsTabs();
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <OverviewSection label={t("settings.workspace_title")}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {workspaceCards.map((card) => (
-            <OverviewNavCard
-              key={card.tab}
-              icon={getSettingsTabIcon(card.tab)}
-              title={card.title}
-              desc={card.desc}
-              onClick={() => props.onNavigateTab(card.tab)}
-            />
-          ))}
-        </div>
+        <OverviewTabGrid
+          tabs={workspaceTabs}
+          onNavigateTab={props.onNavigateTab}
+        />
       </OverviewSection>
 
       <OverviewSection label={t("settings.global_title")}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {globalCards.map((card, index) => {
-            const isLastOdd =
-              globalCards.length % 2 === 1 && index === globalCards.length - 1;
-            return (
-              <OverviewNavCard
-                key={card.tab}
-                icon={getSettingsTabIcon(card.tab)}
-                title={card.title}
-                desc={card.desc}
-                onClick={() => props.onNavigateTab(card.tab)}
-                className={isLastOdd ? "sm:col-span-2" : undefined}
-              />
-            );
-          })}
-        </div>
+        <OverviewTabGrid
+          tabs={globalTabs}
+          onNavigateTab={props.onNavigateTab}
+        />
       </OverviewSection>
 
       <OverviewSection label={t("settings.group_data")}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {dataCards.map((card) => (
-            <OverviewNavCard
-              key={card.tab}
-              icon={getSettingsTabIcon(card.tab)}
-              title={card.title}
-              desc={card.desc}
-              onClick={() => props.onNavigateTab(card.tab)}
-            />
-          ))}
-        </div>
+        <OverviewTabGrid tabs={dataTabs} onNavigateTab={props.onNavigateTab} />
       </OverviewSection>
 
       <OverviewSection label={t("settings.help_title")}>

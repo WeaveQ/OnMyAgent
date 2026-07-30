@@ -1,15 +1,28 @@
 /** @jsxImportSource react */
-import { useEffect, useState, useCallback } from "react";
+/**
+ * System authorizations — security-center style list with status badges.
+ * Status is tri-state: granted | denied | unknown (needs confirmation).
+ */
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   CheckCircle2,
   ExternalLink,
+  HardDrive,
   HelpCircle,
+  Keyboard,
+  Mic,
+  MonitorPlay,
   RefreshCw,
+  Shield,
+  Bell,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { IconTile } from "@/components/ui/action-row";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +49,7 @@ import type {
   SystemPermissionType,
 } from "../../../../app/lib/desktop-types";
 import { t } from "../../../../i18n";
+import { cn } from "@/lib/utils";
 
 export type SystemAuthorizationsViewProps = {
   busy?: boolean;
@@ -43,17 +57,26 @@ export type SystemAuthorizationsViewProps = {
   onDesktopNotifyOnAgentReadyChange: (
     enabled: boolean,
   ) => void | Promise<void>;
+  /**
+   * When false, hide the in-page “task completion alerts” switch
+   * (e.g. fused System settings page already owns notification toggles).
+   */
+  showAgentReadyNotifications?: boolean;
 };
 
 type PermissionItem = {
   id: SystemPermissionType;
   label: string;
   description: string;
+  icon: LucideIcon;
 };
+
+type PermissionStatus = "granted" | "denied" | "unknown";
 
 const PERMISSIONS: PermissionItem[] = [
   {
     id: "full-disk-access",
+    icon: HardDrive,
     get label() {
       return t("settings.permission_full_disk_label");
     },
@@ -62,7 +85,18 @@ const PERMISSIONS: PermissionItem[] = [
     },
   },
   {
+    id: "screen-recording",
+    icon: MonitorPlay,
+    get label() {
+      return t("settings.permission_screen_recording_label");
+    },
+    get description() {
+      return t("settings.permission_screen_recording_desc");
+    },
+  },
+  {
     id: "accessibility",
+    icon: Keyboard,
     get label() {
       return t("settings.permission_accessibility_label");
     },
@@ -71,7 +105,18 @@ const PERMISSIONS: PermissionItem[] = [
     },
   },
   {
+    id: "microphone",
+    icon: Mic,
+    get label() {
+      return t("settings.permission_microphone_label");
+    },
+    get description() {
+      return t("settings.permission_microphone_desc");
+    },
+  },
+  {
     id: "automation",
+    icon: Shield,
     get label() {
       return t("settings.permission_automation_label");
     },
@@ -81,6 +126,7 @@ const PERMISSIONS: PermissionItem[] = [
   },
   {
     id: "notifications",
+    icon: Bell,
     get label() {
       return t("settings.permission_notifications_label");
     },
@@ -90,16 +136,53 @@ const PERMISSIONS: PermissionItem[] = [
   },
 ];
 
+/** macOS-only TCC rows — hidden on Windows/Linux. */
+const MAC_ONLY_PERMISSIONS = new Set<SystemPermissionType>([
+  "full-disk-access",
+  "accessibility",
+  "automation",
+]);
+
+function permissionsForPlatform(
+  platform: string | null | undefined,
+): PermissionItem[] {
+  if (platform === "windows" || platform === "linux") {
+    return PERMISSIONS.filter((item) => !MAC_ONLY_PERMISSIONS.has(item.id));
+  }
+  return PERMISSIONS;
+}
+
+/** Overlay OS Notification.permission onto main-process result. */
+function applyNotificationOverlay(
+  permissions: SystemPermissionResult["permissions"],
+): SystemPermissionResult["permissions"] {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return permissions;
+  }
+  const next = { ...permissions };
+  if (Notification.permission === "granted") {
+    next.notifications = "granted";
+  } else if (Notification.permission === "denied") {
+    next.notifications = "denied";
+  } else {
+    // "default" — not yet decided; do not treat as denied.
+    next.notifications = "unknown";
+  }
+  return next;
+}
+
 type RefreshFeedback = "idle" | "loading" | "success";
 
 const MIN_REFRESH_SPIN_MS = 400;
 const REFRESH_SUCCESS_MS = 1600;
+const POST_AUTHORIZE_REFRESH_MS = 2500;
 
 export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
   const {
     busy = false,
     desktopNotifyOnAgentReady,
     onDesktopNotifyOnAgentReadyChange,
+    showAgentReadyNotifications = true,
   } = props;
   const [result, setResult] = useState<SystemPermissionResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,6 +190,8 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     useState<RefreshFeedback>("idle");
   const [opening, setOpening] = useState<SystemPermissionType | null>(null);
   const [hintDialogHint, setHintDialogHint] = useState<string | null>(null);
+  /** After user opens System Settings, refresh once when window regains focus. */
+  const pendingFocusRefreshRef = useRef(false);
 
   const checkPermissions = useCallback(
     async (options?: { showSuccess?: boolean }) => {
@@ -117,40 +202,23 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
       try {
         const data =
           (await desktopBridge.checkSystemPermissions()) as SystemPermissionResult;
-        const permissions = { ...data.permissions };
-
-        // Detect notification permission in the renderer (Web Notification API).
-        if (
-          data.platform === "macos" &&
-          typeof window !== "undefined" &&
-          "Notification" in window
-        ) {
-          const notifPerm = Notification.permission;
-          if (notifPerm === "granted") {
-            permissions.notifications = "granted";
-          } else if (notifPerm === "denied") {
-            permissions.notifications = "denied";
-          } else {
-            permissions.notifications = "denied";
-          }
-        }
-
+        const permissions = applyNotificationOverlay({ ...data.permissions });
         setResult({ ...data, permissions });
-
-        if (showSuccess) {
-          const elapsed = Date.now() - startedAt;
-          if (elapsed < MIN_REFRESH_SPIN_MS) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, MIN_REFRESH_SPIN_MS - elapsed),
-            );
-          }
-          setRefreshFeedback("success");
-        }
       } catch (e) {
         console.error("Failed to check system permissions:", e);
-        if (showSuccess) setRefreshFeedback("idle");
       } finally {
-        setLoading(false);
+        const elapsed = Date.now() - startedAt;
+        const wait = Math.max(0, MIN_REFRESH_SPIN_MS - elapsed);
+        window.setTimeout(() => {
+          setLoading(false);
+          if (showSuccess) {
+            setRefreshFeedback("success");
+            window.setTimeout(
+              () => setRefreshFeedback("idle"),
+              REFRESH_SUCCESS_MS,
+            );
+          }
+        }, wait);
       }
     },
     [],
@@ -160,54 +228,55 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     void checkPermissions();
   }, [checkPermissions]);
 
+  // Re-check when user returns from System Settings (focus / visible again).
   useEffect(() => {
-    if (refreshFeedback !== "success") return;
-    const timer = setTimeout(
-      () => setRefreshFeedback("idle"),
-      REFRESH_SUCCESS_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [refreshFeedback]);
-
-  useEffect(() => {
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => void checkPermissions(), 200);
+    const maybeRefresh = () => {
+      if (!pendingFocusRefreshRef.current) return;
+      pendingFocusRefreshRef.current = false;
+      void checkPermissions();
     };
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        scheduleRefresh();
-      }
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
     };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", scheduleRefresh);
+    window.addEventListener("focus", maybeRefresh);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", scheduleRefresh);
+      window.removeEventListener("focus", maybeRefresh);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [checkPermissions]);
 
   const handleAuthorize = async (type: SystemPermissionType) => {
     setOpening(type);
     try {
+      // Notifications: first ask the browser/Electron prompt when undecided.
       if (
         type === "notifications" &&
         typeof window !== "undefined" &&
         "Notification" in window &&
         Notification.permission === "default"
       ) {
-        await Notification.requestPermission().catch(() => undefined);
+        const perm = await Notification.requestPermission().catch(
+          () => "default" as NotificationPermission,
+        );
+        if (perm === "granted") {
+          void checkPermissions();
+          return;
+        }
+        // denied / still default → fall through to open System Settings
       }
+
       const response = (await desktopBridge.openSystemPermissionSettings(
         type,
       )) as { success: boolean; hint?: string | null; error?: string };
       if (response.hint) {
         setHintDialogHint(response.hint);
       }
-      setTimeout(() => void checkPermissions(), 3000);
+      pendingFocusRefreshRef.current = true;
+      window.setTimeout(
+        () => void checkPermissions(),
+        POST_AUTHORIZE_REFRESH_MS,
+      );
     } catch (e) {
       console.error("Failed to open system preferences:", e);
     } finally {
@@ -215,156 +284,174 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     }
   };
 
-  const getStatusLabel = (type: SystemPermissionType) => {
-    if (!result) return t("settings.permission_checking");
-    const status = result.permissions[type];
-    switch (status) {
-      case "granted":
-        return t("settings.permission_authorized");
-      case "denied":
-        return t("settings.permission_authorize");
-      case "unknown":
-      default:
-        return t("settings.system_authorizations_go_configure");
-    }
-  };
+  const items = permissionsForPlatform(result?.platform);
 
   return (
     <LayoutStack>
-      <SettingsPageSection
-        title={
-          <span className="inline-flex items-center gap-2">
-            {t("settings.system_authorizations")}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <HelpCircle className="size-4 cursor-help text-dls-secondary hover:text-dls-text" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t("settings.permission_revoke_hint")}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </span>
-        }
-        description={t("settings.system_authorizations_description")}
-        actions={
-          <span className="inline-flex items-center gap-1.5">
-            {refreshFeedback === "success" ? (
-              <span className="text-xs text-dls-accent">
-                {t("settings.permission_refresh_success")}
-              </span>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-dls-secondary"
-              onClick={() => void checkPermissions({ showSuccess: true })}
-              disabled={loading || refreshFeedback === "success"}
-              aria-label={
-                refreshFeedback === "success"
-                  ? t("settings.permission_refresh_success")
-                  : loading
-                    ? t("settings.permission_checking")
-                    : t("settings.permission_refresh")
-              }
-              title={
-                refreshFeedback === "success"
-                  ? t("settings.permission_refresh_success")
+      <section className="flex w-full max-w-3xl flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h3 className="inline-flex items-center gap-2 text-lg font-medium leading-7 text-dls-text">
+              <Shield className="size-5 text-dls-secondary" aria-hidden />
+              {t("settings.system_authorizations")}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <HelpCircle className="size-4 cursor-help text-dls-secondary hover:text-dls-text" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t("settings.permission_revoke_hint")}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </h3>
+            <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
+              {t("settings.system_authorizations_description")}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 text-dls-secondary"
+            onClick={() => void checkPermissions({ showSuccess: true })}
+            disabled={loading || refreshFeedback === "success"}
+            aria-label={
+              refreshFeedback === "success"
+                ? t("settings.permission_refresh_success")
+                : loading
+                  ? t("settings.permission_checking")
                   : t("settings.permission_refresh")
-              }
-            >
-              {refreshFeedback === "success" ? (
-                <CheckCircle2 className="size-4 text-dls-accent" />
-              ) : (
-                <RefreshCw
-                  className={loading ? "size-4 animate-spin" : "size-4"}
-                />
-              )}
-            </Button>
-          </span>
-        }
-      >
-        <SettingsBlock>
-          {PERMISSIONS.map((perm) => {
-            const status = result?.permissions[perm.id];
+            }
+            title={
+              refreshFeedback === "success"
+                ? t("settings.permission_refresh_success")
+                : t("settings.permission_refresh")
+            }
+          >
+            {refreshFeedback === "success" ? (
+              <CheckCircle2 className="size-4 text-dls-accent" />
+            ) : (
+              <RefreshCw
+                className={loading ? "size-4 animate-spin" : "size-4"}
+              />
+            )}
+          </Button>
+        </div>
+
+        <div
+          className={cn(
+            "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
+            "divide-y divide-dls-border",
+          )}
+        >
+          {items.map((perm) => {
+            const status = (result?.permissions[perm.id] ??
+              "unknown") as PermissionStatus;
             const isGranted = status === "granted";
+            const isUnknown = status === "unknown";
             const isOpening = opening === perm.id;
+            const Icon = perm.icon;
 
             return (
-              <SettingsBlockRow
+              <div
                 key={perm.id}
-                title={perm.label}
-                description={perm.description}
-                actions={
-                  isGranted ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-dls-accent">
-                      <CheckCircle2 className="size-4" />
-                      {getStatusLabel(perm.id)}
-                    </span>
+                className="flex items-center gap-3 px-4 py-3.5"
+              >
+                <IconTile border className="size-9 shrink-0">
+                  <Icon size={16} className="text-dls-secondary" />
+                </IconTile>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium leading-5 text-dls-text">
+                    {perm.label}
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
+                    {perm.description}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!result || loading ? (
+                    <StatusBadge tone="neutral" size="sm">
+                      {t("settings.permission_checking")}
+                    </StatusBadge>
+                  ) : isGranted ? (
+                    <StatusBadge tone="success" size="sm">
+                      {t("settings.permission_status_granted")}
+                    </StatusBadge>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 whitespace-nowrap"
-                      onClick={() => void handleAuthorize(perm.id)}
-                      disabled={isOpening || !result}
-                    >
-                      {isOpening ? (
-                        <LoadingSpinner size="sm" />
+                    <>
+                      {isUnknown ? (
+                        <StatusBadge tone="warning" size="sm">
+                          {t("settings.permission_status_unknown")}
+                        </StatusBadge>
                       ) : (
-                        <ExternalLink className="size-3.5" />
+                        <StatusBadge tone="danger" size="sm">
+                          {t("settings.permission_status_denied")}
+                        </StatusBadge>
                       )}
-                      <span className="leading-none">
-                        {isOpening
-                          ? t("settings.permission_opening")
-                          : getStatusLabel(perm.id)}
-                      </span>
-                    </Button>
-                  )
-                }
-              />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 whitespace-nowrap"
+                        onClick={() => void handleAuthorize(perm.id)}
+                        disabled={isOpening || busy}
+                      >
+                        {isOpening ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <ExternalLink className="size-3.5" />
+                        )}
+                        <span className="leading-none">
+                          {isOpening
+                            ? t("settings.permission_opening")
+                            : t("settings.permission_authorize")}
+                        </span>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             );
           })}
-        </SettingsBlock>
-      </SettingsPageSection>
+        </div>
+      </section>
 
-      <SettingsPageSection
-        title={t("settings.notifications_section_title")}
-        description={t("settings.notifications_section_desc")}
-      >
-        <SettingsBlock>
-          <SettingsBlockRow
-            title={t("settings.agent_ready_notifications_label")}
-            description={t("settings.agent_ready_notifications_desc")}
-            actions={
-              <Switch
-                aria-label={t("settings.agent_ready_notifications_label")}
-                checked={desktopNotifyOnAgentReady}
-                disabled={busy}
-                onCheckedChange={(checked) => {
-                  void (async () => {
-                    if (checked) {
-                      if (
-                        typeof window !== "undefined" &&
-                        "Notification" in window &&
-                        Notification.permission === "default"
-                      ) {
-                        await Notification.requestPermission().catch(
-                          () => undefined,
-                        );
+      {showAgentReadyNotifications ? (
+        <SettingsPageSection
+          title={t("settings.notifications_section_title")}
+          description={t("settings.notifications_section_desc")}
+        >
+          <SettingsBlock>
+            <SettingsBlockRow
+              title={t("settings.agent_ready_notifications_label")}
+              description={t("settings.agent_ready_notifications_desc")}
+              actions={
+                <Switch
+                  aria-label={t("settings.agent_ready_notifications_label")}
+                  checked={desktopNotifyOnAgentReady}
+                  disabled={busy}
+                  onCheckedChange={(checked) => {
+                    void (async () => {
+                      if (checked) {
+                        if (
+                          typeof window !== "undefined" &&
+                          "Notification" in window &&
+                          Notification.permission === "default"
+                        ) {
+                          await Notification.requestPermission().catch(
+                            () => undefined,
+                          );
+                        }
+                        void checkPermissions();
                       }
-                      // Keep system permission status in sync after OS prompt.
-                      void checkPermissions();
-                    }
-                    await onDesktopNotifyOnAgentReadyChange(checked === true);
-                  })();
-                }}
-              />
-            }
-          />
-        </SettingsBlock>
-      </SettingsPageSection>
+                      await onDesktopNotifyOnAgentReadyChange(checked === true);
+                    })();
+                  }}
+                />
+              }
+            />
+          </SettingsBlock>
+        </SettingsPageSection>
+      ) : null}
 
       <Dialog
         open={Boolean(hintDialogHint)}
@@ -391,6 +478,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
             <Button
               onClick={() => {
                 setHintDialogHint(null);
+                pendingFocusRefreshRef.current = false;
                 void checkPermissions();
               }}
             >

@@ -48,9 +48,14 @@ export function authorizedFoldersReducer(
     case "loadStart":
       return { ...state, draft: "", loading: true, error: null, status: null };
     case "loadSuccess":
-      return { ...state, folders: action.folders, status: action.status };
+      return {
+        ...state,
+        folders: action.folders,
+        status: action.status,
+        loading: false,
+      };
     case "loadError":
-      return { ...state, folders: [], error: action.message };
+      return { ...state, folders: [], error: action.message, loading: false };
     case "loadDone":
       return { ...state, loading: false };
   }

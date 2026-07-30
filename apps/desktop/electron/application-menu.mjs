@@ -13,6 +13,8 @@ export function createApplicationMenuController(input) {
   // On Windows/Linux hide the native File/Edit/View strip by default — the app
   // chrome already has settings/navigation, and the native bar looks redundant.
   let applicationMenuVisible = process.platform === "darwin";
+  /** @type {Record<string, string>} */
+  let acceleratorOverrides = {};
 
   async function openSettingsFromNativeMenu() {
     const win = await createMainWindow();
@@ -27,13 +29,24 @@ export function createApplicationMenuController(input) {
     win.webContents.send(toggleSidebarEvent);
   }
 
+  function accel(actionId, fallback) {
+    const raw = acceleratorOverrides[actionId];
+    if (typeof raw === "string" && raw.trim()) {
+      // Menu items accept a single accelerator; take first of multi-binds.
+      return raw.split("|")[0].trim();
+    }
+    return fallback;
+  }
+
   function installApplicationMenu() {
     const isMac = process.platform === "darwin";
+    const settingsAccel = accel("openSettings", "CommandOrControl+,");
+    const sidebarAccel = accel("toggleSidebar", "CommandOrControl+B");
     const fileSubmenu = isMac
       ? [
           {
             label: "Settings...",
-            accelerator: "CommandOrControl+,",
+            accelerator: settingsAccel,
             click: () => {
               void openSettingsFromNativeMenu();
             },
@@ -44,7 +57,7 @@ export function createApplicationMenuController(input) {
       : [
           {
             label: "Settings...",
-            accelerator: "CommandOrControl+,",
+            accelerator: settingsAccel,
             click: () => {
               void openSettingsFromNativeMenu();
             },
@@ -55,7 +68,7 @@ export function createApplicationMenuController(input) {
     const viewSubmenu = [
       {
         label: "Toggle Sidebar",
-        accelerator: "CommandOrControl+B",
+        accelerator: sidebarAccel,
         click: () => {
           void toggleSidebarFromNativeMenu();
         },
@@ -87,7 +100,7 @@ export function createApplicationMenuController(input) {
                 { type: "separator" },
                 {
                   label: "Settings...",
-                  accelerator: "CommandOrControl+,",
+                  accelerator: settingsAccel,
                   click: () => {
                     void openSettingsFromNativeMenu();
                   },
@@ -171,9 +184,21 @@ export function createApplicationMenuController(input) {
     return applicationMenuVisible;
   }
 
+  /**
+   * Apply renderer keymap overrides to native menu accelerators and rebuild menu.
+   * @param {Record<string, string> | null | undefined} overrides
+   */
+  function setKeymapAcceleratorOverrides(overrides) {
+    acceleratorOverrides =
+      overrides && typeof overrides === "object" ? { ...overrides } : {};
+    installApplicationMenu();
+    return { ok: true, keys: Object.keys(acceleratorOverrides) };
+  }
+
   return {
     installApplicationMenu,
     applyApplicationMenuVisibility,
     setApplicationMenuVisible,
+    setKeymapAcceleratorOverrides,
   };
 }

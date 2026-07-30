@@ -13,6 +13,9 @@ export const loadConversationMemoryView = () =>
   import("./pages/conversation-memory-view");
 export const loadSystemAuthorizationsView = () =>
   import("./pages/system-authorizations-view");
+export const loadSystemSettingsView = () =>
+  import("./pages/system-settings-view");
+export const loadShortcutsView = () => import("./pages/shortcuts-view");
 export const loadAiSettingsView = () => import("./pages/ai-view");
 export const loadEnvironmentView = () => import("./pages/environment-view");
 export const loadUpdatesView = () => import("./pages/updates-view");

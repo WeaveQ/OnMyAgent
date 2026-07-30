@@ -26,6 +26,15 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "openComputerUsePermissionSettings",
   "checkSystemPermissions",
   "openSystemPermissionSettings",
+  "getLaunchAtLogin",
+  "setLaunchAtLogin",
+  "getKeepSystemAwake",
+  "setKeepSystemAwake",
+  "setDockUnreadBadge",
+  "getAgentReadySoundPath",
+  "registerAppSnapshotHotkey",
+  "unregisterAppSnapshotHotkey",
+  "setKeymapAcceleratorOverrides",
   "getDesktopBootstrapConfig",
   "debugDesktopBootstrapConfig",
   "setDesktopBootstrapConfig",
@@ -78,6 +87,15 @@ export function createSystemDomainHandlers({
   openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
+  getLaunchAtLogin,
+  setLaunchAtLogin,
+  getKeepSystemAwake,
+  setKeepSystemAwake,
+  setDockUnreadBadge,
+  getAgentReadySoundPath,
+  registerAppSnapshotHotkey,
+  unregisterAppSnapshotHotkey,
+  setKeymapAcceleratorOverrides,
   getDesktopBootstrapConfig,
   debugDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
@@ -88,6 +106,7 @@ export function createSystemDomainHandlers({
   applyNativeTheme,
   setApplicationMenuVisible,
   BrowserWindow,
+  onAppSnapshotHotkey,
 } = {}) {
   return {
   userAgentRegistryRead: async (event, args) => {
@@ -206,9 +225,26 @@ export function createSystemDomainHandlers({
 
   openSystemPermissionSettings: async (event, args) => {
     const type = args[0];
-    const result = openSystemPermissionSettings(type);
-    return result;
+    return await openSystemPermissionSettings(type);
   },
+
+  getLaunchAtLogin: async () => getLaunchAtLogin(),
+  setLaunchAtLogin: async (event, args) => setLaunchAtLogin(Boolean(args[0])),
+  getKeepSystemAwake: async () => getKeepSystemAwake(),
+  setKeepSystemAwake: async (event, args) => setKeepSystemAwake(Boolean(args[0])),
+  setDockUnreadBadge: async (event, args) => setDockUnreadBadge(args[0]),
+  getAgentReadySoundPath: async () => getAgentReadySoundPath(),
+  registerAppSnapshotHotkey: async (event, args) =>
+    registerAppSnapshotHotkey(args[0], () => {
+      try {
+        onAppSnapshotHotkey?.();
+      } catch (error) {
+        console.error("[registerAppSnapshotHotkey] callback failed", error);
+      }
+    }),
+  unregisterAppSnapshotHotkey: async () => unregisterAppSnapshotHotkey(),
+  setKeymapAcceleratorOverrides: async (event, args) =>
+    setKeymapAcceleratorOverrides(args[0] ?? {}),
 
   getDesktopBootstrapConfig: async (event, args) => {
     return getDesktopBootstrapConfig();

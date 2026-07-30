@@ -474,7 +474,7 @@ export function OnMyAgentRouteControlActions() {
       label: t("system.control_open_folders_settings"),
       description: t("system.control_open_folders_settings_desc"),
       sideEffect: "navigation",
-      execute: () => openSettingsTab("permissions"),
+      execute: () => openSettingsTab("system"),
     },
   ];
   }, [location.pathname, location.search, location.state, navigate]);

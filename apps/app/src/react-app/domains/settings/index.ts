@@ -11,6 +11,8 @@ export type { MemoryViewProps } from "./pages/memory-view";
 export type { ConversationMemoryViewProps } from "./pages/conversation-memory-view";
 export type { GeneralSettingsViewProps } from "./pages/general-view";
 export type { SystemAuthorizationsViewProps } from "./pages/system-authorizations-view";
+export type { SystemSettingsViewProps } from "./pages/system-settings-view";
+export type { ShortcutsViewProps } from "./pages/shortcuts-view";
 export type { CloudMarketplacesViewProps } from "./pages/cloud-marketplaces-view";
 export type { CloudProvidersViewProps } from "./pages/cloud-providers-view";
 export type { DebugViewProps } from "./pages/debug-view";
@@ -42,6 +44,8 @@ export {
   loadMessagingView,
   loadPreferencesView,
   loadSystemAuthorizationsView,
+  loadSystemSettingsView,
+  loadShortcutsView,
   loadUpdatesView,
   loadUsageView,
 } from "./lazy-pages";
@@ -135,6 +139,35 @@ export type { ExtensionsStore } from "./state/extensions-store";
 export { CloudSessionProvider, useCloudSession } from "./cloud/cloud-session-provider";
 export { useDenSession } from "./cloud/use-den-session";
 export type { UseDenSessionProps } from "./cloud/use-den-session";
+
+/** Keymap pure helpers (owned in kernel; re-exported for shell barrel access). */
+export {
+  COMPOSER_SCOPED_ACTIONS,
+  DEFAULT_KEYMAP_ACTIONS,
+  acceleratorToKeyGroups,
+  clearPressedCodes,
+  detectKeymapPlatform,
+  eventToAccelerator,
+  formatAcceleratorForDisplay,
+  isDoubleCommandPressed,
+  isDoubleControlPressed,
+  isEditableShortcutTarget,
+  matchAccelerator,
+  matchChord,
+  matchKeymapAction,
+  matchSpecialAppSnapshot,
+  noteKeyDownCode,
+  noteKeyUpCode,
+  parseBinding,
+  resolveAccelerator,
+  resolveDefaultAccelerator,
+  shouldIgnoreForTarget,
+  type KeymapActionDef,
+  type KeymapActionId,
+  type KeymapGroupId,
+  type KeymapPlatform,
+  type NormalizedChord,
+} from "./keymap";
 
 export { SettingsShell } from "./shell/settings-shell";
 export type { SettingsShellProps } from "./shell/settings-shell";

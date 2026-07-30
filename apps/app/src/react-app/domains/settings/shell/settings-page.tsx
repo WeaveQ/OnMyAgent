@@ -5,10 +5,13 @@ import {
   ArrowLeft,
   Bug,
   Brain,
+  Camera,
   ChartNoAxesCombined,
   CloudCog,
   Cog,
   FolderLock,
+  Keyboard,
+  MonitorSmartphone,
   RefreshCcw,
   RotateCcw,
   SlidersHorizontal,
@@ -60,6 +63,12 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return SlidersHorizontal;
     case "permissions":
       return FolderLock;
+    case "system":
+      return MonitorSmartphone;
+    case "shortcuts":
+      return Keyboard;
+    case "app-snapshot":
+      return Camera;
     case "cloud-marketplaces":
       return Store;
     case "cloud-providers":
@@ -93,6 +102,12 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.preferences");
     case "permissions":
       return t("settings.permissions");
+    case "system":
+      return t("settings.tab_system");
+    case "shortcuts":
+      return t("settings.tab_shortcuts");
+    case "app-snapshot":
+      return t("settings.tab_app_snapshot");
     case "cloud-marketplaces":
       return t("settings.tab_cloud_marketplaces");
     case "cloud-providers":
@@ -128,6 +143,12 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.preferences_card_description");
     case "permissions":
       return t("settings.permissions_card_description");
+    case "system":
+      return t("settings.tab_description_system");
+    case "shortcuts":
+      return t("settings.tab_description_shortcuts");
+    case "app-snapshot":
+      return t("settings.tab_description_app_snapshot");
     case "cloud-marketplaces":
       return t("settings.tab_description_cloud_marketplaces");
     case "cloud-providers":
@@ -161,17 +182,13 @@ export function getOverviewSettingsTabs(): SettingsTab[] {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  return [
-    "preferences",
-    "memory",
-    "conversation-memory",
-    "permissions",
-  ];
+  // Models + personalization/memory; system auth lives under Global → System.
+  return ["ai", "preferences", "memory", "conversation-memory"];
 }
 
-/** Reset/recovery + archive — one sidebar group with two leaf tabs. */
+/** Usage + reset/recovery + archive. */
 export function getDataSettingsTabs(): SettingsTab[] {
-  return ["recovery", "archived-tasks"];
+  return ["usage", "recovery", "archived-tasks"];
 }
 
 /** @deprecated Use getDataSettingsTabs */
@@ -180,7 +197,12 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  const tabs: SettingsTab[] = ["ai", "environment", "updates", "usage"];
+  const tabs: SettingsTab[] = [
+    "system",
+    "shortcuts",
+    "environment",
+    "updates",
+  ];
   if (developerMode) tabs.push("debug");
   return tabs;
 }

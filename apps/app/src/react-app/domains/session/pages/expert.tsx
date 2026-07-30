@@ -31,12 +31,6 @@ import { useComposerStateStore } from "../surface/composer-state-store";
 import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
 import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
-import {
-  isElectronRuntime,
-} from "../../../../app/utils";
-import {
-  installBuiltinSkillPackage,
-} from "../../../../app/lib/desktop";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
@@ -55,17 +49,10 @@ import {
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import { writeAssistantSelectionMemory } from "../sidebar/session-chrome";
-import {
-  writeAssistantCategoryMemory,
-} from "../sidebar/rail-navigation-memory";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
-import { resetRailBookmarkToPrimary } from "./use-rail-location";
-import { workspaceAssistantRoute } from "../../../shell/workspace-routes";
-import { useNavigate } from "react-router-dom";
 
 import type { SessionPageProps } from "./session-page-types";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
@@ -164,12 +151,11 @@ import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
+import { useExpertSkillNavigation } from "./use-expert-skill-navigation";
 
 const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
-const CREATE_EXPERT_SKILL_NAME = "expert-manager";
-const CREATE_SKILL_PACKAGE_NAME = "skill-creator";
 
 type ExpertGroupDeleteTarget = {
   kind: "expert";
@@ -183,7 +169,6 @@ export type ExpertPageProps = SessionPageProps & {
 };
 
 export function ExpertPage(props: ExpertPageProps) {
-  const navigate = useNavigate();
   const { showToast } = useStatusToasts();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [agentSearch, setAgentSearch] = useState("");
@@ -716,69 +701,16 @@ export function ExpertPage(props: ExpertPageProps) {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
   }, [props.selectedWorkspaceId, props.sidebar]);
 
-  const handleCreateExpert = useCallback(async () => {
-    if (isElectronRuntime()) {
-      try {
-        await installBuiltinSkillPackage({
-          source: "builtin",
-          packageName: CREATE_EXPERT_SKILL_NAME,
-          skillName: CREATE_EXPERT_SKILL_NAME,
-        });
-      } catch (error) {
-        console.warn("[expert-marketplace] failed to install expert-manager", error);
-      }
-    }
-    writeAssistantSelectionMemory(
-      props.selectedWorkspaceId,
-      "office",
-      { kind: "newTask" },
-    );
-    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-    setComposerDraftAfterNewTask(
-      props.selectedWorkspaceId,
-      t("session.create_expert_prompt"),
-    );
-    props.onNavigateToMode("assistant");
-  }, [props.onNavigateToMode, props.selectedWorkspaceId, props.sidebar]);
-
-  /**
-   * Skill create/chat land on assistant office 新任务 (empty composer), never
-   * the previous conversation.
-   *
-   * Do NOT use onNavigateToMode("assistant") alone — mode switch restores the
-   * last assistant session by design. Navigate directly to the assistant
-   * workspace route with no session id (new-task home).
-   */
-  const goAssistantOfficeNewTaskWithDraft = useCallback(
-    (draft: string) => {
-      const workspaceId = props.selectedWorkspaceId.trim();
-      if (!workspaceId) return;
-      writeAssistantSelectionMemory(workspaceId, "office", { kind: "newTask" });
-      writeAssistantCategoryMemory(workspaceId, "office");
-      resetRailBookmarkToPrimary("assistant", workspaceId);
-      usePendingAgentStore.getState().setAgent(null);
-      setComposerDraftAfterNewTask(workspaceId, draft);
-      // Blank assistant compose surface — no session segment in the URL.
-      navigate(workspaceAssistantRoute(workspaceId));
-    },
-    [navigate, props.selectedWorkspaceId],
-  );
-
-  const handleCreateSkill = useCallback(() => {
-    goAssistantOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
-    if (isElectronRuntime()) {
-      void installBuiltinSkillPackage({
-        source: "builtin",
-        packageName: CREATE_SKILL_PACKAGE_NAME,
-        skillName: CREATE_SKILL_PACKAGE_NAME,
-      }).catch((error) => {
-        console.warn(
-          `[skills-marketplace] failed to install ${CREATE_SKILL_PACKAGE_NAME}`,
-          error,
-        );
-      });
-    }
-  }, [goAssistantOfficeNewTaskWithDraft]);
+  const {
+    handleCreateExpert,
+    handleCreateSkill,
+    handleChatWithSkill,
+    handleEditSkill,
+  } = useExpertSkillNavigation({
+    workspaceId: props.selectedWorkspaceId,
+    onNavigateToMode: props.onNavigateToMode,
+    onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
+  });
 
   const seedChatDraft = useCallback(
     (draft: string) => {
@@ -788,38 +720,6 @@ export function ExpertPage(props: ExpertPageProps) {
       openRailView("chat");
     },
     [openRailView, props.selectedWorkspaceId, props.sidebar],
-  );
-
-  const handleChatWithSkill = useCallback(
-    (skill: { name: string }) => {
-      const name = skill.name.trim();
-      if (!name) return;
-      goAssistantOfficeNewTaskWithDraft(
-        t("session.chat_with_skill_prompt", { name }),
-      );
-    },
-    [goAssistantOfficeNewTaskWithDraft],
-  );
-
-  const handleEditSkill = useCallback(
-    (skill: { name: string }) => {
-      const name = skill.name.trim();
-      if (!name) return;
-      goAssistantOfficeNewTaskWithDraft(t("session.edit_skill_prompt", { name }));
-      if (isElectronRuntime()) {
-        void installBuiltinSkillPackage({
-          source: "builtin",
-          packageName: CREATE_SKILL_PACKAGE_NAME,
-          skillName: CREATE_SKILL_PACKAGE_NAME,
-        }).catch((error) => {
-          console.warn(
-            "[skills-marketplace] failed to install skill-creator",
-            error,
-          );
-        });
-      }
-    },
-    [goAssistantOfficeNewTaskWithDraft],
   );
 
   const handleStartMarketplaceExpert = useCallback(

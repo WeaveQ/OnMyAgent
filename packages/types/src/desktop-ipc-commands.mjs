@@ -28,6 +28,11 @@ const commandGroups = /** @type {const} */ ({
     "revokeComputerUseAppAuthorization", "clearComputerUseAppAuthorizations",
     "openComputerUsePermissionSetup", "openComputerUsePermissionSettings",
     "checkSystemPermissions", "openSystemPermissionSettings",
+    "getLaunchAtLogin", "setLaunchAtLogin",
+    "getKeepSystemAwake", "setKeepSystemAwake",
+    "setDockUnreadBadge", "getAgentReadySoundPath",
+    "registerAppSnapshotHotkey", "unregisterAppSnapshotHotkey",
+    "setKeymapAcceleratorOverrides",
     "getDesktopBootstrapConfig", "debugDesktopBootstrapConfig",
     "setDesktopBootstrapConfig", "pickDirectory", "pickFile", "saveFile",
     "exportVisualSnapshot",
@@ -86,7 +91,6 @@ const commandGroups = /** @type {const} */ ({
   agentManagement: [
     "agentManagementSnapshot", "agentManagementProviderAction",
     "agentManagementFetchModels", "agentManagementTestModel", "agentManagementSkillAction",
-    "agentManagementMcpSnapshot", "agentManagementMcpAction",
   ],
   opencode: [
     "opencodeCommandList", "opencodeCommandWrite", "opencodeCommandDelete",

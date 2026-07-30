@@ -32,7 +32,8 @@ describe("session content column contract", () => {
   test("content-column module exports the canonical width", () => {
     const src = readFileSync(contentColumnPath, "utf8");
     expect(src).toContain("SESSION_CONTENT_MAX_WIDTH_PX = 1120");
-    expect(src).toContain('SESSION_CONTENT_MAX_WIDTH_CLASS = "max-w-[1120px]"');
+    expect(src).toContain("SESSION_CONTENT_MAX_WIDTH_CLASS");
+    expect(src).toContain("--session-content-max-w");
   });
 
   test("no product UI scatters max-w-[1120px] outside content-column", () => {

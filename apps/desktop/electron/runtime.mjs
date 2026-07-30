@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
-import { chmod, copyFile, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +29,7 @@ import {
   chooseProductRuntimeBinary,
   parseVersionTokens,
 } from "./opencode-binary-policy.mjs";
+import { linkOrCopyDir } from "./runtime-dir-mirror.mjs";
 
 import {
   DIRECT_RUNTIME,
@@ -108,51 +109,6 @@ function bundledExtensionRootPaths() {
     buildBundledResourceCandidates(__runtimeDir, BUNDLED_EXTENSIONS_RESOURCE_DIR, process.resourcesPath),
     existsSync,
   );
-}
-
-/**
- * Create a directory link (symlink on POSIX, junction on Windows). If the
- * link cannot be created (typically Windows without symlink privilege, or a
- * cross-volume junction target), fall back to recursively copying the
- * directory so the destination is usable.
- */
-async function linkOrCopyDir(sourceDir, targetPath) {
-  const type = process.platform === "win32" ? "junction" : "dir";
-  try {
-    await symlink(sourceDir, targetPath, type);
-    return { mode: "symlink" };
-  } catch (linkError) {
-    if (linkError && linkError.code === "EEXIST") {
-      return { mode: "existing" };
-    }
-    try {
-      await copyDirRecursive(sourceDir, targetPath);
-      return { mode: "copy" };
-    } catch (copyError) {
-      const detail = linkError?.message ?? String(linkError);
-      const nested = copyError?.message ?? String(copyError);
-      throw new Error(
-        `Failed to mirror ${sourceDir} to ${targetPath}: link=${detail} copy=${nested}`,
-      );
-    }
-  }
-}
-
-async function copyDirRecursive(sourceDir, targetPath) {
-  await mkdir(targetPath, { recursive: true });
-  const entries = await readdir(sourceDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const src = path.join(sourceDir, entry.name);
-    const dst = path.join(targetPath, entry.name);
-    if (entry.isDirectory()) {
-      await copyDirRecursive(src, dst);
-    } else if (entry.isSymbolicLink()) {
-      const linkTarget = await stat(src).then(() => src).catch(() => null);
-      if (linkTarget) await copyFile(src, dst);
-    } else if (entry.isFile()) {
-      await copyFile(src, dst);
-    }
-  }
 }
 
 export function createDesktopPersonalRuntimeServices(options = {}) {
@@ -419,24 +375,16 @@ export function createRuntimeManager({
       console.warn("[runtime] Failed to align @opencode-ai/plugin pin:", error);
     }
 
-    // Preinstall core product skills into the user root before materializing
-    // links so first engine start already sees expert-manager / pptx / etc.
-    try {
-      const { ensureDefaultBuiltinSkills } = await import(
-        "./ensure-default-builtin-skills.mjs"
+    await import("./ensure-default-builtin-skills.mjs")
+      .then((m) =>
+        m.ensureDefaultBuiltinSkillsFromRoots(
+          bundledSkillsRootPath,
+          onmyagentUserSkillsRoot,
+        ),
+      )
+      .catch((error) =>
+        console.warn("[runtime] ensureDefaultBuiltinSkills failed:", error),
       );
-      // firstExisting + existsSync can widen to PathLike under checkJs; pin to string.
-      const bundledRoot = bundledSkillsRootPath();
-      await ensureDefaultBuiltinSkills({
-        bundledRoot:
-          bundledRoot == null ? null : typeof bundledRoot === "string"
-            ? bundledRoot
-            : String(bundledRoot),
-        userSkillsRoot: String(onmyagentUserSkillsRoot()),
-      });
-    } catch (error) {
-      console.warn("[runtime] ensureDefaultBuiltinSkills failed:", error);
-    }
 
     const artifactSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS);
     const pluginRoot = bundledPluginsRootPath();

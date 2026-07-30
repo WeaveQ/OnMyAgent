@@ -19,15 +19,14 @@ import {
 } from "../src/react-app/domains/local-agents/agent-management/agent-management-load-cache";
 
 describe("agent-management-load-cache", () => {
-  it("maps panels to independent domain needs (agents/providers skip skills+mcp)", () => {
+  it("maps panels to independent domain needs (agents/providers skip skills)", () => {
     expect(domainsForPanel("agents")).toEqual(["core"]);
     expect(domainsForPanel("providers")).toEqual(["core"]);
     expect(domainsForPanel("skills")).toEqual(["core", "skills"]);
-    expect(domainsForPanel("mcp")).toEqual(["mcp"]);
     expect(domainsForPanel("archive")).toEqual([]);
   });
 
-  it("scopes mutations so auto-adopt does not require skills+mcp", () => {
+  it("scopes mutations so auto-adopt does not require skills", () => {
     expect(domainsForAgentMutation()).toEqual(["core"]);
     expect(domainsForSkillMutation()).toEqual(["skills", "core"]);
   });
@@ -35,7 +34,7 @@ describe("agent-management-load-cache", () => {
   it("normalizes domain lists and drops unknowns", () => {
     expect(normalizeManagementDomains(undefined)).toBeNull();
     expect(normalizeManagementDomains([])).toBeNull();
-    expect(normalizeManagementDomains(["core", "skills", "nope", "core"])).toEqual([
+    expect(normalizeManagementDomains(["core", "skills", "mcp", "nope", "core"])).toEqual([
       "core",
       "skills",
     ]);
@@ -47,9 +46,9 @@ describe("agent-management-load-cache", () => {
     const loaded = markDomainsFetched({}, ["core"], now - 1_000);
     expect(isDomainFresh(loaded, "core", now, ttl)).toBe(true);
     expect(isDomainFresh(loaded, "skills", now, ttl)).toBe(false);
-    expect(missingDomains(loaded, ["core", "skills", "mcp"], now, ttl)).toEqual([
+    expect(missingDomains(loaded, ["core", "skills", "providers"], now, ttl)).toEqual([
       "skills",
-      "mcp",
+      "providers",
     ]);
     const stale = markDomainsFetched({}, ["core"], now - ttl - 1);
     expect(missingDomains(stale, ["core"], now, ttl)).toEqual(["core"]);
@@ -62,8 +61,7 @@ describe("agent-management-load-cache", () => {
       agents: [{ id: "a1", provider: "claude", skillCount: 0 }],
       skills: [{ name: "old", agents: ["claude"] }],
       providers: { total: 1, byAgent: {}, databasePath: "/db" },
-      mcp: { total: 2, servers: [{ id: "m1" }], generatedAt: 1, databasePath: "", apps: {}, countsByApp: {} },
-      loadedDomains: ["core", "skills", "mcp"] as const,
+      loadedDomains: ["core", "skills"] as const,
     };
     const partialCore = {
       generatedAt: 2,
@@ -71,16 +69,14 @@ describe("agent-management-load-cache", () => {
       agents: [{ id: "a2", provider: "codex", skillCount: 0 }],
       skills: [],
       providers: { total: 3, byAgent: {}, databasePath: "/db" },
-      mcp: { total: 0, servers: [], generatedAt: 2, databasePath: "", apps: {}, countsByApp: {} },
       loadedDomains: ["core"] as const,
     };
     const merged = mergeManagementDomainSnapshot(previous, partialCore, ["core"]);
     expect(merged.agents).toEqual(partialCore.agents);
     expect(merged.providers.total).toBe(3);
-    // skills + mcp preserved from previous when not in loadedDomains
+    // skills preserved from previous when not in loadedDomains
     expect(merged.skills).toEqual(previous.skills);
-    expect(merged.mcp.total).toBe(2);
-    expect(merged.loadedDomains).toEqual(["core", "skills", "mcp"]);
+    expect(merged.loadedDomains).toEqual(["core", "skills"]);
   });
 
   it("applies skill counts after deferred skills load", () => {
@@ -105,51 +101,51 @@ describe("agent-management-load-cache", () => {
 
   it("gates overlapping domain flights per-domain (not one global flight key)", () => {
     const flying = addInFlightDomains([], ["core"]);
-    expect(domainsNotInFlight(["core", "mcp"], flying)).toEqual(["mcp"]);
+    expect(domainsNotInFlight(["core", "skills"], flying)).toEqual(["skills"]);
     expect(domainsNotInFlight(["core"], flying)).toEqual([]);
-    const afterMcp = addInFlightDomains(flying, ["mcp"]);
-    expect([...afterMcp].sort()).toEqual(["core", "mcp"]);
-    const afterCoreDone = removeInFlightDomains(afterMcp, ["core"]);
-    expect([...afterCoreDone]).toEqual(["mcp"]);
-    expect(domainsNotInFlight(["core", "skills"], afterCoreDone)).toEqual([
+    const afterSkills = addInFlightDomains(flying, ["skills"]);
+    expect([...afterSkills].sort()).toEqual(["core", "skills"]);
+    const afterCoreDone = removeInFlightDomains(afterSkills, ["core"]);
+    expect([...afterCoreDone]).toEqual(["skills"]);
+    expect(domainsNotInFlight(["core", "providers"], afterCoreDone)).toEqual([
       "core",
-      "skills",
+      "providers",
     ]);
   });
 
-  it("re-read latest merge: late mcp does not wipe agents written by concurrent core", () => {
+  it("re-read latest merge: late skills does not wipe agents written by concurrent core", () => {
     const corePartial = {
       generatedAt: 10,
       workspaceRoot: "/ws",
       agents: [{ id: "claude", provider: "claude", skillCount: 0 }],
       skills: [] as Array<{ name: string; agents: string[] }>,
       providers: { total: 1, byAgent: {}, databasePath: "/db" },
-      mcp: { total: 0, servers: [] as Array<{ id: string }>, generatedAt: 10, databasePath: "", apps: {}, countsByApp: {} },
       loadedDomains: ["core"] as const,
     };
     // Simulate core completing first and writing the map.
     const afterCore = applyPartialDomainSnapshotToLatest(null, corePartial, ["core"]);
     expect(afterCore.agents).toHaveLength(1);
 
-    // Late mcp response has empty agents[] (skills-only/mcp-only path); must merge onto latest.
-    const mcpPartial = {
+    // Late skills response has empty agents[] (skills-only path); must merge onto latest.
+    const skillsPartial = {
       generatedAt: 20,
       workspaceRoot: "/ws",
       agents: [] as typeof corePartial.agents,
-      skills: [] as typeof corePartial.skills,
+      skills: [{ name: "s1", agents: ["claude"] }],
       providers: { total: 0, byAgent: {}, databasePath: "" },
-      mcp: { total: 3, servers: [{ id: "s1" }], generatedAt: 20, databasePath: "/mcp", apps: {}, countsByApp: {} },
-      loadedDomains: ["mcp"] as const,
+      loadedDomains: ["skills"] as const,
     };
-    // Bug pattern: merge against start-of-request null would base on mcpPartial → agents:[].
-    const wipedIfStale = mergeManagementDomainSnapshot(null, mcpPartial, ["mcp"]);
+    // Bug pattern: merge against start-of-request null would base on skillsPartial → agents:[].
+    const wipedIfStale = mergeManagementDomainSnapshot(null, skillsPartial, ["skills"]);
     expect(wipedIfStale.agents).toEqual([]);
 
     // Fixed path: re-read latest (afterCore) before merge.
-    const afterMcp = applyPartialDomainSnapshotToLatest(afterCore, mcpPartial, ["mcp"]);
-    expect(afterMcp.agents).toEqual(corePartial.agents);
-    expect(afterMcp.mcp.total).toBe(3);
-    expect(afterMcp.loadedDomains).toEqual(["core", "mcp"]);
+    const afterSkills = applyPartialDomainSnapshotToLatest(afterCore, skillsPartial, ["skills"]);
+    expect(afterSkills.agents).toEqual(
+      applySkillCountsToAgents(corePartial.agents, skillsPartial.skills),
+    );
+    expect(afterSkills.skills).toHaveLength(1);
+    expect(afterSkills.loadedDomains).toEqual(["core", "skills"]);
   });
 
   it("re-read latest merge: late skills preserves agents and applies skillCount", () => {
@@ -161,7 +157,6 @@ describe("agent-management-load-cache", () => {
         agents: [{ id: "claude", provider: "claude", skillCount: 0 }],
         skills: [],
         providers: { total: 0, byAgent: {}, databasePath: "" },
-        mcp: { total: 0, servers: [], generatedAt: 1, databasePath: "", apps: {}, countsByApp: {} },
         loadedDomains: ["core"],
       },
       ["core"],
@@ -174,7 +169,6 @@ describe("agent-management-load-cache", () => {
         agents: [],
         skills: [{ name: "x", agents: ["claude"] }, { name: "y", agents: ["claude"] }],
         providers: { total: 0, byAgent: {}, databasePath: "" },
-        mcp: { total: 0, servers: [], generatedAt: 2, databasePath: "", apps: {}, countsByApp: {} },
         loadedDomains: ["skills"],
       },
       ["skills"],

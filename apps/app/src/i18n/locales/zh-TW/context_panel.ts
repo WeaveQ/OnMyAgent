@@ -29,4 +29,6 @@ export default {
   "context_panel.workspace_root_available": "工作區根目錄已可用。",
   "context_panel.workspace_root_badge": "工作區根目錄",
   "context_panel.writable_workspace_required": `需要可寫的${APP_NAME}服務器工作區才能更新已授權文件夾。`,
+  "context_panel.remote_workspace_no_folders": "遠程工作區無法在本機授權本機資料夾。",
+  "context_panel.loading_folders": "正在載入已授權資料夾…",
 } as const;

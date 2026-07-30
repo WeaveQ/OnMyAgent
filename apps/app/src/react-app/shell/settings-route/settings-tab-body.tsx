@@ -30,6 +30,8 @@ import {
   LazyMemoryView,
   LazyPreferencesView,
   LazySystemAuthorizationsView,
+  LazySystemSettingsView,
+  LazyShortcutsView,
   LazyUpdatesView,
   LazyUsageView,
   SettingsAiTabSuspense,
@@ -53,9 +55,76 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
         </SettingsTabSuspense>
       );
     case "permissions":
+      // Fused into System settings — deep links should redirect via parseSettingsPath.
+      // Fall through to same body if redirect missed.
+    case "system":
       return (
         <SettingsTabSuspense>
           <SettingsStack>
+            <LazySystemSettingsView
+              busy={ctx.busy}
+              launchAtLogin={ctx.local.prefs.launchAtLogin !== false}
+              keepSystemAwake={ctx.local.prefs.keepSystemAwake === true}
+              desktopNotificationsEnabled={
+                ctx.local.prefs.desktopNotificationsEnabled !== false
+              }
+              dockUnreadBadge={ctx.local.prefs.dockUnreadBadge !== false}
+              soundNotifyOnAgentReady={
+                ctx.local.prefs.soundNotifyOnAgentReady !== false
+              }
+              desktopNotifyOnAgentReady={
+                ctx.local.prefs.desktopNotifyOnAgentReady === true
+              }
+              onLaunchAtLoginChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  launchAtLogin: enabled,
+                }));
+              }}
+              onKeepSystemAwakeChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  keepSystemAwake: enabled,
+                }));
+              }}
+              onDesktopNotificationsEnabledChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  desktopNotificationsEnabled: enabled,
+                }));
+              }}
+              onDockUnreadBadgeChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  dockUnreadBadge: enabled,
+                }));
+              }}
+              onSoundNotifyOnAgentReadyChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  soundNotifyOnAgentReady: enabled,
+                }));
+              }}
+              onDesktopNotifyOnAgentReadyChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  desktopNotifyOnAgentReady: enabled,
+                }));
+              }}
+            />
+            <LazySystemAuthorizationsView
+              busy={ctx.busy}
+              showAgentReadyNotifications={false}
+              desktopNotifyOnAgentReady={
+                ctx.local.prefs.desktopNotifyOnAgentReady === true
+              }
+              onDesktopNotifyOnAgentReadyChange={(enabled) => {
+                ctx.local.setPrefs((previous) => ({
+                  ...previous,
+                  desktopNotifyOnAgentReady: enabled,
+                }));
+              }}
+            />
             <LazyAuthorizedFoldersPanel
               onmyagentServerClient={ctx.onmyagentClient}
               onmyagentServerStatus={ctx.routeOnMyAgentStatus}
@@ -67,18 +136,6 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 ctx.setConfigActionStatus(t("settings.config_updated"));
                 void ctx.providerAuthStore.refreshProviders();
                 void ctx.connectionsStore.refreshMcpServers();
-              }}
-            />
-            <LazySystemAuthorizationsView
-              busy={ctx.busy}
-              desktopNotifyOnAgentReady={
-                ctx.local.prefs.desktopNotifyOnAgentReady === true
-              }
-              onDesktopNotifyOnAgentReadyChange={(enabled) => {
-                ctx.local.setPrefs((previous) => ({
-                  ...previous,
-                  desktopNotifyOnAgentReady: enabled,
-                }));
               }}
             />
           </SettingsStack>
@@ -246,6 +303,30 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
               ctx.local.setPrefs((previous) => ({
                 ...previous,
                 autoNewSessionIdleHours: hours,
+              }));
+            }}
+            conversationWidth={
+              ctx.local.prefs.conversationWidth === "wide" ? "wide" : "fixed"
+            }
+            onConversationWidthChange={(mode) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                conversationWidth: mode,
+              }));
+            }}
+          />
+        </SettingsTabSuspense>
+      );
+    case "shortcuts":
+      return (
+        <SettingsTabSuspense>
+          <LazyShortcutsView
+            busy={ctx.busy}
+            keymapOverrides={ctx.local.prefs.keymapOverrides ?? {}}
+            onKeymapOverridesChange={(next) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                keymapOverrides: next,
               }));
             }}
           />

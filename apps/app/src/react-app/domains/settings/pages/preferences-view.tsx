@@ -26,6 +26,8 @@ export type PreferencesViewProps = {
   autoNewSessionIdleHours: number;
   onAutoNewSessionOnIdleChange: (enabled: boolean) => void;
   onAutoNewSessionIdleHoursChange: (hours: number) => void;
+  conversationWidth: "fixed" | "wide";
+  onConversationWidthChange: (mode: "fixed" | "wide") => void;
 };
 
 export function PreferencesView(props: PreferencesViewProps) {
@@ -88,6 +90,29 @@ export function PreferencesView(props: PreferencesViewProps) {
                 disabled={props.busy || props.autoCompactContextBusy}
                 onCheckedChange={props.onToggleAutoCompactContext}
               />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.conversation_width_label")}
+            description={t("settings.conversation_width_desc")}
+            actions={
+              <select
+                className="h-9 rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text"
+                aria-label={t("settings.conversation_width_label")}
+                disabled={props.busy}
+                value={props.conversationWidth}
+                onChange={(event) => {
+                  const value = event.target.value === "wide" ? "wide" : "fixed";
+                  props.onConversationWidthChange(value);
+                }}
+              >
+                <option value="fixed">
+                  {t("settings.conversation_width_fixed")}
+                </option>
+                <option value="wide">
+                  {t("settings.conversation_width_wide")}
+                </option>
+              </select>
             }
           />
         </SettingsBlock>
