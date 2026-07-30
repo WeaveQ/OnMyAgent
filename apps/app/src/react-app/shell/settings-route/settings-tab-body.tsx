@@ -32,7 +32,6 @@ import {
   LazySystemAuthorizationsView,
   LazySystemSettingsView,
   LazyShortcutsView,
-  LazyAppSnapshotView,
   LazyUpdatesView,
   LazyUsageView,
   SettingsAiTabSuspense,
@@ -328,23 +327,6 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
               ctx.local.setPrefs((previous) => ({
                 ...previous,
                 keymapOverrides: next,
-              }));
-            }}
-          />
-        </SettingsTabSuspense>
-      );
-    case "app-snapshot":
-      return (
-        <SettingsTabSuspense>
-          <LazyAppSnapshotView
-            busy={ctx.busy}
-            appSnapshotHotkey={
-              ctx.local.prefs.appSnapshotHotkey || "double-command"
-            }
-            onAppSnapshotHotkeyChange={(hotkey) => {
-              ctx.local.setPrefs((previous) => ({
-                ...previous,
-                appSnapshotHotkey: hotkey,
               }));
             }}
           />

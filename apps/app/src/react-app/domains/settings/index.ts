@@ -13,7 +13,6 @@ export type { GeneralSettingsViewProps } from "./pages/general-view";
 export type { SystemAuthorizationsViewProps } from "./pages/system-authorizations-view";
 export type { SystemSettingsViewProps } from "./pages/system-settings-view";
 export type { ShortcutsViewProps } from "./pages/shortcuts-view";
-export type { AppSnapshotViewProps } from "./pages/app-snapshot-view";
 export type { CloudMarketplacesViewProps } from "./pages/cloud-marketplaces-view";
 export type { CloudProvidersViewProps } from "./pages/cloud-providers-view";
 export type { DebugViewProps } from "./pages/debug-view";
@@ -47,7 +46,6 @@ export {
   loadSystemAuthorizationsView,
   loadSystemSettingsView,
   loadShortcutsView,
-  loadAppSnapshotView,
   loadUpdatesView,
   loadUsageView,
 } from "./lazy-pages";

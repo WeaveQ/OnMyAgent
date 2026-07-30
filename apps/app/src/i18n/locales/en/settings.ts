@@ -640,7 +640,7 @@ export default {
     "Manage folder and system access",
   "settings.system_authorizations": "System Authorizations",
   "settings.system_authorizations_description":
-    "Manage system permissions required for the app to run",
+    "Manage OS permissions used by app snapshot, automation, and notifications",
   "settings.system_authorizations_go_configure": "Go to settings",
   "settings.ai_providers": "Models",
   "settings.ai_providers_card_description":
@@ -925,7 +925,7 @@ export default {
   "settings.workspace_debug_events_label": "Workspace debug events",
   "settings.custom_provider_config": "Custom model provider configuration",
   "settings.permission_accessibility_desc":
-    "Allow keyboard shortcuts and quick access features",
+    "Required for global shortcuts and app snapshot (frontmost-app capture)",
   "settings.permission_accessibility_label": "Accessibility",
   "settings.permission_authorize": "Authorize",
   "settings.permission_authorized": "Authorized",
@@ -998,7 +998,7 @@ export default {
   "settings.provider_reload_now": "Reload now",
 
   "settings.tab_system": "System",
-  "settings.tab_description_system": "Launch at login, notifications, system permissions, and authorized folders",
+  "settings.tab_description_system": "Launch options, notifications, system permissions (including app snapshot), and authorized folders",
   "settings.tab_shortcuts": "Keyboard shortcuts",
   "settings.tab_description_shortcuts": "Customize general, task, and session shortcuts",
   "settings.tab_app_snapshot": "App snapshot",
@@ -1047,7 +1047,7 @@ export default {
   "settings.app_snapshot_open_accessibility": "Open Accessibility",
   "settings.app_snapshot_capture_now": "Capture now",
   "settings.permission_screen_recording_label": "Screen recording",
-  "settings.permission_screen_recording_desc": "Allow screen capture for app snapshot and screen understanding",
+  "settings.permission_screen_recording_desc": "Required for app snapshot and screen understanding features",
   "settings.permission_microphone_label": "Microphone",
   "settings.permission_microphone_desc": "Allow microphone access for voice input",
   "settings.permission_status_granted": "Granted",
