@@ -14,7 +14,7 @@
     "packages/types/src/desktop-ipc.ts": 2052,
     "apps/app/src/react-app/domains/session/pages/expert.tsx": 2001,
     "apps/orchestrator/src/cli-commands/start.ts": 2007,
-    "apps/app/src/react-app/domains/messaging/automation-page.tsx": 1913,
+    "apps/app/src/react-app/domains/messaging/automation-page.tsx": 1620,
     "apps/app/src/react-app/domains/session/surface/session-surface.tsx": 1910,
     "apps/orchestrator/src/cli-shared.ts": 1750,
     "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx": 1906,
