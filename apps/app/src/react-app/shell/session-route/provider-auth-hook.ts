@@ -7,7 +7,6 @@ import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "
 import type { DesktopAppRestrictionChecker } from "../../../app/cloud/desktop-app-restrictions";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import type { Client, ProviderListItem } from "../../../app/types";
-import { useCloudProviderAutoSync } from "../../domains/cloud";
 import { useProviderAuthStoreSnapshot } from "../../domains/connections";
 import type { RouteWorkspace } from "./model";
 import {
@@ -126,9 +125,9 @@ export function useSessionRouteProviderAuth(input: Input) {
     store,
   ]);
 
-  // Session is where forced sign-in lands. Keep org-managed cloud providers in
-  // sync here so sign-in applies opencode.json changes before Settings opens.
-  useCloudProviderAutoSync(store.runCloudProviderSync);
+  // Cloud provider reconciliation is no longer polled on an interval.
+  // store.runCloudProviderSync still runs on app_launch / sign_in inside the
+  // provider-auth store, and when Settings opens the cloud-providers tab.
   const snapshot = useProviderAuthStoreSnapshot(store);
 
   return {
