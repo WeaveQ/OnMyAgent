@@ -121,6 +121,12 @@ export type {
   SessionSnapshotFetchOptions,
   SessionSnapshotQueryKey,
 } from "./sync/session-snapshot-query-policy";
+/** Delete policy: directory resolution + dirty/ghost remote failure tolerance. */
+export {
+  isTolerableSessionDeleteFailure,
+  resolveSessionDeleteDirectory,
+  shouldContinueLocalSessionCleanupAfterRemoteDelete,
+} from "./sync/session-delete-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   permissionKey,

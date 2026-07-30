@@ -78,6 +78,7 @@ const testTargets = new Map([
   ['session-snapshot-error', ['bun', ['test', 'scripts/session-snapshot-error.test.ts']]],
   ['session-poll-policy', ['bun', ['test', 'scripts/session-poll-policy.test.ts']]],
   ['session-snapshot-query-policy', ['bun', ['test', 'scripts/session-snapshot-query-policy.test.ts']]],
+  ['session-delete-policy', ['bun', ['test', 'scripts/session-delete-policy.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['workspace-files-model', ['bun', ['test', 'scripts/workspace-files-model.test.ts']]],
   ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],
