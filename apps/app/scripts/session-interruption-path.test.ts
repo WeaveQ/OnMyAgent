@@ -40,11 +40,11 @@ describe("session interruption path", () => {
     const pauseEnd = source.indexOf("const handleAbort", pauseStart);
     const pauseBlock = source.slice(pauseStart, pauseEnd);
 
+    // Goal-intent gate lives in buildGoalPauseRuntime; host records the paused runtime.
+    expect(pauseBlock).toContain("buildGoalPauseRuntime");
+    expect(pauseBlock).toContain("runtime: props.goalRuntime");
     expect(pauseBlock).toContain(
-      "isGoalIntentRuntime(props.goalRuntime)",
-    );
-    expect(pauseBlock).toContain(
-      'recordSessionInterruption("stopped", runtime)',
+      'recordSessionInterruption("stopped", pausedRuntime)',
     );
   });
 });
