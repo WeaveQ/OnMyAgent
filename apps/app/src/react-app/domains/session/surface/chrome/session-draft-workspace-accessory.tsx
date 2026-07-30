@@ -227,14 +227,14 @@ export function SessionDraftWorkspaceAccessory(props: {
     <div className="flex min-w-0 items-center gap-0.5 text-sm font-normal leading-none text-dls-secondary">
       <div className="relative inline-flex min-w-0 items-center">
         {props.showFolderRequiredBubble ? (
-          <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface px-3 py-2 text-sm leading-5 text-dls-text">
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-dls-accent/30 bg-dls-surface-solid px-3 py-2 text-sm leading-5 text-dls-text">
             <div className="font-medium text-dls-accent">
               {t("session.choose_folder_required_title")}
             </div>
             <div className="mt-0.5 text-dls-secondary">
               {t("session.choose_folder_required_desc")}
             </div>
-            <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/30 bg-dls-surface" />
+            <div className="absolute -bottom-1 left-5 size-2 rotate-45 border-b border-r border-dls-accent/30 bg-dls-surface-solid" />
           </div>
         ) : null}
 

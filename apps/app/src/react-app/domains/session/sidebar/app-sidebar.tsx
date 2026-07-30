@@ -1045,7 +1045,7 @@ function SidebarAccountSubMenu(props: {
       <DropdownMenuSubContent
         sideOffset={8}
         alignOffset={0}
-        className="w-48 rounded-lg border-sidebar-border/70 bg-dls-surface p-1.5"
+        className="w-48 rounded-lg border-sidebar-border/70 bg-dls-surface-solid p-1.5"
       >
         {props.items.map((item) => {
           const ItemIcon = item.icon;

@@ -214,6 +214,8 @@ export type DesktopCommandName =
   | "importSkill"
   | "installSkillTemplate"
   | "listLocalSkills"
+  | "listBuiltinSkillCatalog"
+  | "ensureDefaultBuiltinSkills"
   | "onmyagentSkillsRoot"
   | "onmyagentMarketplaceRoot"
   | "listExpertPackages"

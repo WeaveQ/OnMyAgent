@@ -536,7 +536,7 @@ function FrequencyFields(props: {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               sideOffset={6}
-              className="min-w-28 rounded-xl border border-dls-border bg-dls-surface p-1 text-dls-text"
+              className="min-w-28 rounded-xl border border-dls-border bg-dls-surface-solid p-1 text-dls-text"
             >
               {automationCycles.map((cycle) => (
                 <DropdownMenuItem

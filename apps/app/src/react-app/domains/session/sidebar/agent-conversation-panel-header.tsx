@@ -95,7 +95,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           <Plus className="size-4" strokeWidth={2} />
         </Button>
         {props.showAgentSelectionTip ? (
-          <div className="absolute left-1/2 top-10 z-30 w-60 rounded-lg border border-dls-accent/30 bg-dls-surface p-3">
+          <div className="absolute left-1/2 top-10 z-30 w-60 rounded-lg border border-dls-accent/30 bg-dls-surface-solid p-3">
             <span className="absolute -top-1.5 left-3 size-3 rotate-45 border-l border-t border-dls-accent/30 bg-dls-surface" aria-hidden="true" />
             <div className="text-xs font-medium leading-5 text-dls-accent">
               {t("session.choose_expert_agent_tip_title")}

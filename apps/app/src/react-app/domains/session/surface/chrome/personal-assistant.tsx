@@ -56,8 +56,9 @@ export function AssistantScenarioPill(props: {
       className={cn(
         "h-8 shrink-0 rounded-lg text-xs",
         props.active
-          ? "text-dls-accent-foreground"
-          : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+          ? "border-dls-accent bg-dls-decision text-white hover:bg-dls-decision-hover"
+          : // outline + secondary is nearly invisible on dark surfaces
+            "border-dls-border-strong bg-dls-surface-solid text-dls-text hover:bg-dls-hover hover:text-dls-text",
       )}
     >
       <Icon className="size-3.5" />

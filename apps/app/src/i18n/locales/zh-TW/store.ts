@@ -2,6 +2,17 @@ import { APP_NAME } from "../brand";
 
 export default {
   "store.add_skill": "添加技能",
+  "store.find_skill": "查找技能",
+  "store.find_skill_title": "查找技能",
+  "store.find_skill_placeholder": "搜尋技能名稱或描述…",
+  "store.find_skill_empty": "沒有匹配的技能",
+  "store.find_skill_hint": "從技能市場中搜尋並安裝",
+  "store.upload_skill": "上傳技能",
+  "store.create_skill": "創建技能",
+  "store.skill_go_chat": "去對話",
+  "store.skill_edit": "編輯",
+  "store.skill_pin": "置頂",
+  "store.skill_unpin": "取消置頂",
   "store.all_experts": "全部專家",
   "store.experts_marketplace": "專家市場",
   "store.experts_tab": "專家",

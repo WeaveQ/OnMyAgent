@@ -23,10 +23,10 @@ export default {
   "plugins.suggested": "建議的插件",
   "plugins.suggested_heading": "建議的插件",
   "plugins.title": "連接器",
-  "plugins.artifact_title": "檔案工具（系統自帶）",
+  "plugins.artifact_title": "檔案工具",
   "plugins.artifact_tab": "連接器",
   "plugins.artifact_description":
-    "系統內建的瀏覽器與文件/試算表/PDF 技能，隨產品安裝，可單獨開關；與上方「內建擴充功能」不同。",
+    "瀏覽器與文件/試算表/PDF 等系統檔案能力，隨產品安裝，可單獨開關。",
   "plugins.custom_connector": "自訂連接器",
   "plugins.custom_connector_title": "MCP 服務管理",
   "plugins.custom_connector_subtitle": "安裝 MCP 服務，為 AI 擴展更多工具能力",
@@ -72,11 +72,14 @@ export default {
   "plugins.artifact_plugin_pdf_desc": "檢查與產生 PDF 檔案。",
   "plugins.artifact_plugin_spreadsheets_name": "試算表",
   "plugins.artifact_plugin_spreadsheets_desc": "分析與編輯試算表資料。",
-  "plugins.sample_section_title": "即將推出",
-  "plugins.sample_section_hint": "第三方服務示意，目前僅預覽，暫不可安裝。",
-  "plugins.builtin_section_title": "內建擴展",
-  "plugins.builtin_section_hint":
-    "產品能力擴展（桌面操控、真實瀏覽器、語音、本機模型等）。與助理「+ → 連接器」共用開關。",
+  "plugins.sample_section_title": "推薦安裝",
+  "plugins.sample_section_hint":
+    "精選第三方連接器，安裝後即可擴展能力。目前為預覽，暫不可安裝。",
+  "plugins.recommend_badge": "預覽",
+  "plugins.builtin_section_title": "內建",
+  "plugins.builtin_section_hint": "系統自帶能力，開箱可用。",
+  "plugins.builtin_product_label": "產品擴展",
+  "plugins.builtin_file_label": "文件工具",
   "plugins.mcp_section_title": "已設定 MCP",
   "plugins.page_manage_hint": "探索與管理連接器；工作階段內開/關請用輸入框 + 選單。",
 } as const;

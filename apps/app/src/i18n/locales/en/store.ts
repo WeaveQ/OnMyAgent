@@ -2,6 +2,17 @@ import { APP_NAME } from "../brand";
 
 export default {
   "store.add_skill": "Add skill",
+  "store.find_skill": "Find skill",
+  "store.find_skill_title": "Find skill",
+  "store.find_skill_placeholder": "Search skill name or description…",
+  "store.find_skill_empty": "No matching skills",
+  "store.find_skill_hint": "Search the marketplace and install",
+  "store.upload_skill": "Upload skill",
+  "store.create_skill": "Create skill",
+  "store.skill_go_chat": "Chat",
+  "store.skill_edit": "Edit",
+  "store.skill_pin": "Pin",
+  "store.skill_unpin": "Unpin",
   "store.all_experts": "All experts",
   "store.experts_marketplace": "Expert marketplace",
   "store.experts_tab": "Experts",
