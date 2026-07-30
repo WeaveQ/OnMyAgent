@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Boxes, Cpu, MessagesSquare, Monitor, Plus, Puzzle, RefreshCw } from "lucide-react";
+import { Bot, Cpu, MessagesSquare, Monitor, Plus, Puzzle, RefreshCw } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,6 @@ import { shellChrome } from "@/react-app/design-system/type-scale";
 import { cn } from "@/lib/utils";
 import { useStatusToasts } from "../../shell-feedback";
 import {
-  agentManagementFetchModels,
-  agentManagementProviderAction,
   agentManagementSkillAction,
   agentManagementSnapshot,
   personalLocalAgentTestConnection,
@@ -23,7 +21,6 @@ import {
   personalLocalAgentDeleteCustomAgent,
   type AgentManagementAgent,
   type PersonalLocalAgentTestConnectionResult,
-  type AgentManagementManagedProvider,
   type AgentManagementSkill,
   type AgentManagementSkillAgent,
   type AgentManagementSnapshot,
@@ -74,24 +71,12 @@ import {
   setAgentManagerDomainInFlight,
   writeCachedAgentManagerSnapshot,
 } from "./agent-management-snapshot-store";
-import {
-  AgentManagementProviderModal,
-  AgentManagementProviderPanel,
-  AGENT_MANAGER_PROVIDER_LABELS,
-  defaultProviderDraft,
-  providerDraftFromProvider,
-  serializeCodexCatalogRows,
-  serializeProviderModelRows,
-  type AgentManagementProviderApp,
-  type ProviderDraft,
-} from "./agent-management-providers";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
 
-type AgentManagementPanel = "providers" | "agents" | "skills" | "archive";
+type AgentManagementPanel = "agents" | "skills" | "archive";
 
 type AgentManagementUiCache = {
   activePanel: AgentManagementPanel;
-  providerApp: AgentManagementProviderApp;
   skillColumnFilter: AgentManagementSkillAgent[];
   skillSearch: string;
   selectedSkillKey: string | null;
@@ -103,11 +88,7 @@ const AGENT_MANAGER_PANEL_STORAGE_KEY = "onmyagent.agentManagement.activePanel";
 const AGENT_MANAGER_UI_CACHE = new Map<string, AgentManagementUiCache>();
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
-  return value === "providers" || value === "agents" || value === "skills" || value === "archive";
-}
-
-function isAgentManagementProviderApp(value: unknown): value is AgentManagementProviderApp {
-  return value === "opencode" || value === "claude" || value === "codex" || value === "openclaw" || value === "hermes";
+  return value === "agents" || value === "skills" || value === "archive";
 }
 
 function isAgentManagementSkillAgent(value: unknown): value is AgentManagementSkillAgent {
@@ -117,7 +98,6 @@ function isAgentManagementSkillAgent(value: unknown): value is AgentManagementSk
 function defaultAgentManagementUiCache(): AgentManagementUiCache {
   return {
     activePanel: "agents",
-    providerApp: "opencode",
     skillColumnFilter: [],
     skillSearch: "",
     selectedSkillKey: null,
@@ -161,7 +141,6 @@ function coerceAgentManagementUiCache(input: unknown): AgentManagementUiCache {
   if (!isRecordStringUnknown(input)) return fallback;
   return {
     activePanel: isAgentManagementPanel(input.activePanel) ? input.activePanel : fallback.activePanel,
-    providerApp: isAgentManagementProviderApp(input.providerApp) ? input.providerApp : fallback.providerApp,
     skillColumnFilter: Array.isArray(input.skillColumnFilter) ? input.skillColumnFilter.filter(isAgentManagementSkillAgent) : fallback.skillColumnFilter,
     skillSearch: typeof input.skillSearch === "string" ? input.skillSearch : fallback.skillSearch,
     selectedSkillKey: typeof input.selectedSkillKey === "string" ? input.selectedSkillKey : null,
@@ -213,9 +192,8 @@ const PANEL_TABS: Array<{
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  // Compact labels: 本地 / 模型 / 技能 / 会话
+  // Compact labels: 本地 / 技能 / 会话
   { id: "agents", icon: Monitor, labelKey: "agent_manager.tab_agents" },
-  { id: "providers", icon: Boxes, labelKey: "agent_manager.tab_providers" },
   { id: "skills", icon: Puzzle, labelKey: "agent_manager.tab_skills" },
   { id: "archive", icon: MessagesSquare, labelKey: "agent_manager.tab_archive", archiveOnly: true },
 ];
@@ -223,7 +201,7 @@ const PANEL_TABS: Array<{
 export function AgentManagementPage(props: {
   workspaceRoot: string;
   sessionArchiveSlot?: ReactNode;
-  intent?: { key: string; action: "createProvider" | "openPanel"; panel?: AgentManagementPanel; focus?: "custom" | "detected" } | null;
+  intent?: { key: string; action: "openPanel"; panel?: AgentManagementPanel; focus?: "custom" | "detected" } | null;
 }) {
   const { showToast } = useStatusToasts();
   const cacheKey = agentManagerCacheKey(props.workspaceRoot);
@@ -236,10 +214,6 @@ export function AgentManagementPage(props: {
   /** Quiet revalidate / manual refresh while content stays visible. */
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [providerActionKey, setProviderActionKey] = useState<string | null>(null);
-  const [providerApp, setProviderApp] = useState<AgentManagementProviderApp>(() => initialUi.providerApp);
-  const [providerDraft, setProviderDraft] = useState<ProviderDraft>(() => defaultProviderDraft(initialUi.providerApp));
-  const [providerModalOpen, setProviderModalOpen] = useState(false);
   const [checkingAgentId, setCheckingAgentId] = useState<string | null>(null);
   const [skillActionKey, setSkillActionKey] = useState<string | null>(null);
   const [healthResults, setHealthResults] = useState<Record<string, AgentManagementHealthResult>>(() => initialUi.healthResults);
@@ -351,7 +325,7 @@ export function AgentManagementPage(props: {
   }, [activePanel, cacheKey, props.workspaceRoot]);
 
   // Workspace entry + tab switch: load only missing domains for the active panel.
-  // agents/providers → core; skills → core+skills; archive → none.
+  // agents → core; skills → core+skills; archive → none.
   useEffect(() => {
     const needed = domainsForPanel(activePanel);
     if (needed.length === 0) {
@@ -367,13 +341,12 @@ export function AgentManagementPage(props: {
   useEffect(() => {
     writeAgentManagementUi(cacheKey, {
       activePanel,
-      providerApp,
       skillColumnFilter,
       skillSearch,
       selectedSkillKey,
       healthResults,
     });
-  }, [activePanel, cacheKey, healthResults, providerApp, selectedSkillKey, skillColumnFilter, skillSearch]);
+  }, [activePanel, cacheKey, healthResults, selectedSkillKey, skillColumnFilter, skillSearch]);
 
   /** Mutually exclusive filters aligned with card badges: healthy / needs-auth / offline / not-installed. */
   const [agentFilter, setAgentFilter] = useState<"all" | "online" | "needs_auth" | "offline" | "missing">("all");
@@ -628,12 +601,7 @@ export function AgentManagementPage(props: {
     const intent = props.intent;
     if (!intent || consumedIntentRef.current === intent.key) return;
     consumedIntentRef.current = intent.key;
-    if (intent.action === "createProvider") {
-      setActivePanel("providers");
-      setProviderApp("opencode");
-      setProviderDraft(defaultProviderDraft("opencode"));
-      setProviderModalOpen(true);
-    } else if (intent.action === "openPanel" && intent.panel && isAgentManagementPanel(intent.panel)) {
+    if (intent.action === "openPanel" && intent.panel && isAgentManagementPanel(intent.panel)) {
       setActivePanel(intent.panel);
       setCustomFocusPending(intent.focus === "custom");
     }
@@ -645,77 +613,6 @@ export function AgentManagementPage(props: {
       setCustomFocusPending(false);
     }
   }, [customFocusPending, activePanel]);
-
-  const selectProviderApp = useCallback((app: AgentManagementProviderApp) => {
-    setProviderApp(app);
-    setProviderDraft(defaultProviderDraft(app));
-    setProviderModalOpen(false);
-  }, []);
-
-  const openCreateProvider = useCallback(() => {
-    setProviderDraft(defaultProviderDraft(providerApp));
-    setProviderModalOpen(true);
-  }, [providerApp]);
-
-  const openEditProvider = useCallback((provider: AgentManagementManagedProvider) => {
-    setProviderApp(provider.appType);
-    setProviderDraft(providerDraftFromProvider(provider));
-    setProviderModalOpen(true);
-  }, []);
-
-  const runProviderAction = useCallback(async (
-    input: Parameters<typeof agentManagementProviderAction>[0],
-    busyKey: string,
-  ) => {
-    setProviderActionKey(busyKey);
-    setError(null);
-    try {
-      const result = await agentManagementProviderAction({ ...input, workspaceRoot: props.workspaceRoot });
-      setSnapshot((current) => {
-        if (!current) return current;
-        const nextSnapshot = { ...current, providers: result.providers };
-        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot, ["core"]);
-        return nextSnapshot;
-      });
-      if (input.action === "save") {
-        setProviderDraft(defaultProviderDraft(input.appType));
-        setProviderModalOpen(false);
-      }
-    } catch (providerError) {
-      setError(providerError instanceof Error ? providerError.message : String(providerError));
-    } finally {
-      setProviderActionKey(null);
-    }
-  }, [cacheKey, props.workspaceRoot]);
-
-  const submitProviderDraft = useCallback(() => {
-    runProviderAction({
-      action: "save",
-      appType: providerApp,
-      syncLive: true,
-      provider: {
-        id: providerDraft.id,
-        name: providerDraft.name,
-        settingsConfig: providerDraft.settingsJson.trim() ? providerDraft.settingsJson : undefined,
-        simple: {
-          id: providerDraft.id,
-          name: providerDraft.name,
-          baseUrl: providerDraft.baseUrl,
-          apiKey: providerDraft.apiKey,
-          models: providerApp === "claude" || providerApp === "codex" ? providerDraft.models : serializeProviderModelRows(providerDraft.modelRows),
-          claudeHaikuModel: providerDraft.claudeHaikuModel,
-          claudeHaikuName: providerDraft.claudeHaikuName,
-          claudeSonnetModel: providerDraft.claudeSonnetModel,
-          claudeSonnetName: providerDraft.claudeSonnetName,
-          claudeOpusModel: providerDraft.claudeOpusModel,
-          claudeOpusName: providerDraft.claudeOpusName,
-          claudeFableModel: providerDraft.claudeFableModel,
-          claudeFableName: providerDraft.claudeFableName,
-          codexCatalog: serializeCodexCatalogRows(providerDraft.codexCatalogRows),
-        },
-      },
-    }, `provider:${providerApp}:save`);
-  }, [providerApp, providerDraft, runProviderAction]);
 
   // Lightweight connection probe that works for ANY agent status (online /
   // needs_auth / offline / missing). Unlike the old health-check which only ran
@@ -867,8 +764,6 @@ export function AgentManagementPage(props: {
 
   const totalRuns = snapshot?.agents.reduce((sum, agent) => sum + agent.usage.runs, 0) ?? 0;
   const onlineAgents = snapshot?.agents.filter((agent) => agent.status === "online").length ?? 0;
-  const managedProviderTotal = snapshot?.providers.total ?? 0;
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Store-style top chrome: segmented switch only (no page title). */}
@@ -928,14 +823,6 @@ export function AgentManagementPage(props: {
                       : t("agent_manager.metric_pending")
                 }
               />
-              <AgentManagementMetric
-                label={t("agent_manager.managed_providers")}
-                value={
-                  snapshotPending
-                    ? t("agent_manager.metric_pending")
-                    : managedProviderTotal
-                }
-              />
             </>
           ) : null}
           <Button
@@ -965,7 +852,7 @@ export function AgentManagementPage(props: {
       </header>
 
       {/*
-        Shared content gutter for every tab (本地 / 模型 / 技能 / 会话).
+        Shared content gutter for every tab (本地 / 技能 / 会话).
         Must match shellChrome.pageHeaderSimple (px-6) so left/right inset is identical
         when switching panels — no full-bleed archive vs max-w-6xl agents mismatch.
       */}
@@ -973,7 +860,6 @@ export function AgentManagementPage(props: {
         className={cn(
           "min-h-0 flex-1 px-6 py-4",
           activePanel === "archive" ||
-            activePanel === "providers" ||
             activePanel === "skills"
             ? "overflow-hidden"
             : "overflow-y-auto",
@@ -992,30 +878,6 @@ export function AgentManagementPage(props: {
 
           {activePanel === "archive" && props.sessionArchiveSlot ? (
             <div className="min-h-0 flex-1 overflow-hidden">{props.sessionArchiveSlot}</div>
-          ) : activePanel === "providers" ? (
-            <>
-              <AgentManagementProviderPanel
-                snapshot={snapshot}
-                agents={snapshot?.agents ?? []}
-                healthResults={healthResults}
-                loading={snapshotPending}
-                busyKey={providerActionKey}
-                selectedApp={providerApp}
-                onCreateProvider={openCreateProvider}
-                onEditProvider={openEditProvider}
-                onSelectApp={selectProviderApp}
-                onProviderAction={runProviderAction}
-              />
-              <AgentManagementProviderModal
-                open={providerModalOpen}
-                appType={providerApp}
-                draft={providerDraft}
-                busy={providerActionKey === `provider:${providerApp}:save`}
-                onOpenChange={setProviderModalOpen}
-                onDraftChange={setProviderDraft}
-                onSubmit={submitProviderDraft}
-              />
-            </>
           ) : activePanel === "agents" ? (
             <section className="space-y-6">
               {/* Primary: managed fleet */}

@@ -6,7 +6,6 @@
 export type ManagementLoadDomain = "core" | "skills" | "providers";
 
 export type AgentManagementPanelId =
-  | "providers"
   | "agents"
   | "skills"
   | "archive";
@@ -38,7 +37,6 @@ export function domainsForPanel(
     case "skills":
       // Matrix columns come from managed agents (core); inventory is skills.
       return ["core", "skills"];
-    case "providers":
     case "agents":
       return ["core"];
     case "archive":
