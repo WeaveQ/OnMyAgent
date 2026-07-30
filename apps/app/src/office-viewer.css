@@ -6,6 +6,7 @@ body { background: #f7f7f8; }
 .office-viewer-status { display: grid; place-items: center; color: #71717a; font-size: 13px; }
 
 .spreadsheet-viewer {
+  color-scheme: light;
   position: relative;
   width: 100%;
   height: 100%;
@@ -325,20 +326,6 @@ body { background: #f7f7f8; }
 }
 
 @media (prefers-color-scheme: dark) {
-  .spreadsheet-viewer,
-  .spreadsheet-grid-extension-right,
-  .spreadsheet-grid-extension-bottom,
-  .spreadsheet-grid-extension-body,
-  .spreadsheet-grid-extension-cells { background-color: #111827; }
-  .spreadsheet-grid-extension-columns,
-  .spreadsheet-grid-extension-rows { border-color: #374151; background: #1f2937; color: #cbd5e1; }
-  .spreadsheet-grid-extension-columns > span,
-  .spreadsheet-grid-extension-rows > span { border-color: #374151; }
-  .spreadsheet-viewer .excel-wrapper .toolbar { border-top-color: #374151; background: #111827; }
-  .spreadsheet-viewer .excel-wrapper .sheet-tab { color: #cbd5e1; }
-  .spreadsheet-viewer .excel-wrapper .sheet-tab:hover { background: #1f2937; }
-  .spreadsheet-viewer .excel-wrapper .sheet-tab.active { background: transparent; color: #5b96ff; }
-  .spreadsheet-viewer .excel-wrapper .sheet-tab.active::after { background: #5b96ff; }
   .presentation-viewer { background: #101820; }
   .presentation-outline { border-right-color: rgba(148, 163, 184, .2); background: #111827; }
   .presentation-outline-tab { border-color: #3a3a3a; background: rgba(44, 44, 44, .96); color: #cbd5e1; }
