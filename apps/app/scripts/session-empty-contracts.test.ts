@@ -84,26 +84,18 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(src).toContain("matrix_loading");
   });
 
-  test("agent management fleet/discover/mcp/providers distinguish loading from empty", () => {
+  test("agent management fleet/discover/providers distinguish loading from empty", () => {
     const page = read(
       "src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
     );
     expect(page).toContain("const snapshotPending = loading && !snapshot");
     expect(page).toContain("loading={snapshotPending}");
-    // Fleet/discover: spinner branch before inventory-empty copy.
+    // Fleet/discover: skeleton branch before inventory-empty copy.
     expect(page).toMatch(
-      /\{snapshotPending \? \([\s\S]*?common\.loading[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
+      /\{snapshotPending \? \([\s\S]*?AgentManagementFleetSkeleton[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
     );
     expect(page).toMatch(
-      /\{snapshotPending \? \([\s\S]*?common\.loading[\s\S]*?\) : discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
-    );
-
-    const mcp = read(
-      "src/react-app/domains/local-agents/agent-management/agent-management-mcp-panel.tsx",
-    );
-    expect(mcp).toContain("loading?: boolean");
-    expect(mcp).toMatch(
-      /loading \? \([\s\S]*?common\.loading[\s\S]*?\) : servers\.length === 0 \?[\s\S]*?agent_manager\.mcp\.empty/,
+      /snapshotPending \? \([\s\S]*?AgentManagementFleetSkeleton[\s\S]*?\) : discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
     );
 
     const providers = read(

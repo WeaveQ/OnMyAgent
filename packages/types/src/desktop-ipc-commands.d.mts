@@ -184,8 +184,6 @@ export type DesktopCommandName =
   | "agentManagementFetchModels"
   | "agentManagementTestModel"
   | "agentManagementSkillAction"
-  | "agentManagementMcpSnapshot"
-  | "agentManagementMcpAction"
   | "opencodeCommandList"
   | "opencodeCommandWrite"
   | "opencodeCommandDelete"

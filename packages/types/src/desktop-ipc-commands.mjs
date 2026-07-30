@@ -91,7 +91,6 @@ const commandGroups = /** @type {const} */ ({
   agentManagement: [
     "agentManagementSnapshot", "agentManagementProviderAction",
     "agentManagementFetchModels", "agentManagementTestModel", "agentManagementSkillAction",
-    "agentManagementMcpSnapshot", "agentManagementMcpAction",
   ],
   opencode: [
     "opencodeCommandList", "opencodeCommandWrite", "opencodeCommandDelete",

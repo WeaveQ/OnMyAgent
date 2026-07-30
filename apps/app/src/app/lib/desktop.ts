@@ -71,7 +71,6 @@ import type {
   AgentManagementProviderActionInput,
   AgentManagementFetchModelsInput,
   AgentManagementTestModelInput,
-  AgentManagementMcpActionInput,
   AgentManagementSkillActionInput,
   BuiltinSkillPackageInstallInput,
   ExpertMarketplaceName,
@@ -876,12 +875,6 @@ export const agentManagementTestModel = (
 export const agentManagementSkillAction = (
   input: AgentManagementSkillActionInput,
 ) => invokeDesktopCommand("agentManagementSkillAction", input);
-
-export const agentManagementMcpSnapshot = () =>
-  invokeDesktopCommand("agentManagementMcpSnapshot");
-
-export const agentManagementMcpAction = (input: AgentManagementMcpActionInput) =>
-  invokeDesktopCommand("agentManagementMcpAction", input);
 
 export {
   engineStart,

@@ -3,13 +3,12 @@
  * Keep free of React / Electron so unit tests can run under bun.
  */
 
-export type ManagementLoadDomain = "core" | "skills" | "mcp" | "providers";
+export type ManagementLoadDomain = "core" | "skills" | "providers";
 
 export type AgentManagementPanelId =
   | "providers"
   | "agents"
   | "skills"
-  | "mcp"
   | "archive";
 
 export type DomainFreshnessMap = Partial<
@@ -20,14 +19,12 @@ export type DomainSnapshotFields = {
   agents?: unknown[];
   skills?: unknown[];
   providers?: unknown;
-  mcp?: unknown;
   loadedDomains?: ManagementLoadDomain[];
 };
 
 export const MANAGEMENT_LOAD_DOMAINS: readonly ManagementLoadDomain[] = [
   "core",
   "skills",
-  "mcp",
   "providers",
 ] as const;
 
@@ -41,8 +38,6 @@ export function domainsForPanel(
     case "skills":
       // Matrix columns come from managed agents (core); inventory is skills.
       return ["core", "skills"];
-    case "mcp":
-      return ["mcp"];
     case "providers":
     case "agents":
       return ["core"];
@@ -70,12 +65,7 @@ export function normalizeManagementDomains(
   if (!Array.isArray(input) || input.length === 0) return null;
   const out: ManagementLoadDomain[] = [];
   for (const item of input) {
-    if (
-      item === "core" ||
-      item === "skills" ||
-      item === "mcp" ||
-      item === "providers"
-    ) {
+    if (item === "core" || item === "skills" || item === "providers") {
       if (!out.includes(item)) out.push(item);
     }
   }
@@ -155,9 +145,6 @@ export function mergeManagementDomainSnapshot<T extends DomainSnapshotFields>(
   if (loaded.includes("skills") && Array.isArray(partial.skills)) {
     next.skills = partial.skills;
   }
-  if (loaded.includes("mcp") && partial.mcp != null) {
-    next.mcp = partial.mcp;
-  }
 
   const prevLoaded = normalizeManagementDomains(
     (previous as DomainSnapshotFields | null | undefined)?.loadedDomains,
@@ -202,7 +189,7 @@ export function applySkillCountsToAgents<
   });
 }
 
-/** True when first paint of agents panel can proceed without skills/mcp. */
+/** True when first paint of agents panel can proceed without skills. */
 export function coreReadyForAgentsPanel(
   loaded: DomainFreshnessMap | null | undefined,
   now = Date.now(),
@@ -214,7 +201,7 @@ export function coreReadyForAgentsPanel(
 
 /**
  * Domains from `needed` that are not already in flight.
- * Overlapping concurrent loads must gate per-domain so a late mcp response
+ * Overlapping concurrent loads must gate per-domain so a late skills response
  * does not start a second core fetch, and vice versa.
  */
 export function domainsNotInFlight(
