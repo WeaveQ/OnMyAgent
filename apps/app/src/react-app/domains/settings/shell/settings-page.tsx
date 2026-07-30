@@ -182,12 +182,8 @@ export function getOverviewSettingsTabs(): SettingsTab[] {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  return [
-    "preferences",
-    "memory",
-    "conversation-memory",
-    "permissions",
-  ];
+  // System authorizations + folders live under Global → System (fused).
+  return ["preferences", "memory", "conversation-memory"];
 }
 
 /** Reset/recovery + archive — one sidebar group with two leaf tabs. */

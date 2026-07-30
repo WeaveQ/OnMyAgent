@@ -919,7 +919,7 @@ export default {
   "settings.provider_reload_now": "立即重新加载",
 
   "settings.tab_system": "系统设置",
-  "settings.tab_description_system": "开机自启动、保持唤醒、通知等系统级选项",
+  "settings.tab_description_system": "开机自启动、通知、系统权限与授权文件夹",
   "settings.tab_shortcuts": "快捷键",
   "settings.tab_description_shortcuts": "自定义通用、任务与会话操作的快捷键",
   "settings.tab_app_snapshot": "应用快照",
@@ -976,4 +976,5 @@ export default {
 
   "settings.shortcuts_recording_hint": "请按下新的快捷键组合…",
   "settings.shortcuts_reset_one": "恢复此项默认",
+  "settings.system_options_section_title": "应用选项",
 } as const;

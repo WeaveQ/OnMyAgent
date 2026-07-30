@@ -998,7 +998,7 @@ export default {
   "settings.provider_reload_now": "Reload now",
 
   "settings.tab_system": "System",
-  "settings.tab_description_system": "Launch at login, keep awake, notifications, and other system options",
+  "settings.tab_description_system": "Launch at login, notifications, system permissions, and authorized folders",
   "settings.tab_shortcuts": "Keyboard shortcuts",
   "settings.tab_description_shortcuts": "Customize general, task, and session shortcuts",
   "settings.tab_app_snapshot": "App snapshot",
@@ -1055,4 +1055,5 @@ export default {
 
   "settings.shortcuts_recording_hint": "Press a new key combination…",
   "settings.shortcuts_reset_one": "Reset this shortcut",
+  "settings.system_options_section_title": "App options",
 } as const;

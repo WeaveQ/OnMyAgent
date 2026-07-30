@@ -919,7 +919,7 @@ export default {
   "settings.provider_reload_now": "立即重新載入",
 
   "settings.tab_system": "系統設置",
-  "settings.tab_description_system": "開機自啟動、保持喚醒、通知等系統級選項",
+  "settings.tab_description_system": "開機自啟動、通知、系統權限與授權資料夾",
   "settings.tab_shortcuts": "快捷鍵",
   "settings.tab_description_shortcuts": "自訂通用、任務與會話操作的快捷鍵",
   "settings.tab_app_snapshot": "應用快照",
@@ -976,4 +976,5 @@ export default {
 
   "settings.shortcuts_recording_hint": "請按下新的快捷鍵組合…",
   "settings.shortcuts_reset_one": "還原此項預設",
+  "settings.system_options_section_title": "應用選項",
 } as const;

@@ -43,6 +43,11 @@ export type SystemAuthorizationsViewProps = {
   onDesktopNotifyOnAgentReadyChange: (
     enabled: boolean,
   ) => void | Promise<void>;
+  /**
+   * When false, hide the in-page “task completion alerts” switch
+   * (e.g. fused System settings page already owns notification toggles).
+   */
+  showAgentReadyNotifications?: boolean;
 };
 
 type PermissionItem = {
@@ -134,6 +139,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     busy = false,
     desktopNotifyOnAgentReady,
     onDesktopNotifyOnAgentReadyChange,
+    showAgentReadyNotifications = true,
   } = props;
   const [result, setResult] = useState<SystemPermissionResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -363,42 +369,43 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
         </SettingsBlock>
       </SettingsPageSection>
 
-      <SettingsPageSection
-        title={t("settings.notifications_section_title")}
-        description={t("settings.notifications_section_desc")}
-      >
-        <SettingsBlock>
-          <SettingsBlockRow
-            title={t("settings.agent_ready_notifications_label")}
-            description={t("settings.agent_ready_notifications_desc")}
-            actions={
-              <Switch
-                aria-label={t("settings.agent_ready_notifications_label")}
-                checked={desktopNotifyOnAgentReady}
-                disabled={busy}
-                onCheckedChange={(checked) => {
-                  void (async () => {
-                    if (checked) {
-                      if (
-                        typeof window !== "undefined" &&
-                        "Notification" in window &&
-                        Notification.permission === "default"
-                      ) {
-                        await Notification.requestPermission().catch(
-                          () => undefined,
-                        );
+      {showAgentReadyNotifications ? (
+        <SettingsPageSection
+          title={t("settings.notifications_section_title")}
+          description={t("settings.notifications_section_desc")}
+        >
+          <SettingsBlock>
+            <SettingsBlockRow
+              title={t("settings.agent_ready_notifications_label")}
+              description={t("settings.agent_ready_notifications_desc")}
+              actions={
+                <Switch
+                  aria-label={t("settings.agent_ready_notifications_label")}
+                  checked={desktopNotifyOnAgentReady}
+                  disabled={busy}
+                  onCheckedChange={(checked) => {
+                    void (async () => {
+                      if (checked) {
+                        if (
+                          typeof window !== "undefined" &&
+                          "Notification" in window &&
+                          Notification.permission === "default"
+                        ) {
+                          await Notification.requestPermission().catch(
+                            () => undefined,
+                          );
+                        }
+                        void checkPermissions();
                       }
-                      // Keep system permission status in sync after OS prompt.
-                      void checkPermissions();
-                    }
-                    await onDesktopNotifyOnAgentReadyChange(checked === true);
-                  })();
-                }}
-              />
-            }
-          />
-        </SettingsBlock>
-      </SettingsPageSection>
+                      await onDesktopNotifyOnAgentReadyChange(checked === true);
+                    })();
+                  }}
+                />
+              }
+            />
+          </SettingsBlock>
+        </SettingsPageSection>
+      ) : null}
 
       <Dialog
         open={Boolean(hintDialogHint)}
