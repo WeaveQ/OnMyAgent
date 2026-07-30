@@ -30,6 +30,9 @@ import {
   LazyMemoryView,
   LazyPreferencesView,
   LazySystemAuthorizationsView,
+  LazySystemSettingsView,
+  LazyShortcutsView,
+  LazyAppSnapshotView,
   LazyUpdatesView,
   LazyUsageView,
   SettingsAiTabSuspense,
@@ -246,6 +249,103 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
               ctx.local.setPrefs((previous) => ({
                 ...previous,
                 autoNewSessionIdleHours: hours,
+              }));
+            }}
+            conversationWidth={
+              ctx.local.prefs.conversationWidth === "wide" ? "wide" : "fixed"
+            }
+            onConversationWidthChange={(mode) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                conversationWidth: mode,
+              }));
+            }}
+          />
+        </SettingsTabSuspense>
+      );
+    case "system":
+      return (
+        <SettingsTabSuspense>
+          <LazySystemSettingsView
+            busy={ctx.busy}
+            launchAtLogin={ctx.local.prefs.launchAtLogin !== false}
+            keepSystemAwake={ctx.local.prefs.keepSystemAwake === true}
+            desktopNotificationsEnabled={
+              ctx.local.prefs.desktopNotificationsEnabled !== false
+            }
+            dockUnreadBadge={ctx.local.prefs.dockUnreadBadge !== false}
+            soundNotifyOnAgentReady={
+              ctx.local.prefs.soundNotifyOnAgentReady !== false
+            }
+            desktopNotifyOnAgentReady={
+              ctx.local.prefs.desktopNotifyOnAgentReady === true
+            }
+            onLaunchAtLoginChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                launchAtLogin: enabled,
+              }));
+            }}
+            onKeepSystemAwakeChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                keepSystemAwake: enabled,
+              }));
+            }}
+            onDesktopNotificationsEnabledChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                desktopNotificationsEnabled: enabled,
+              }));
+            }}
+            onDockUnreadBadgeChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                dockUnreadBadge: enabled,
+              }));
+            }}
+            onSoundNotifyOnAgentReadyChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                soundNotifyOnAgentReady: enabled,
+              }));
+            }}
+            onDesktopNotifyOnAgentReadyChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                desktopNotifyOnAgentReady: enabled,
+              }));
+            }}
+          />
+        </SettingsTabSuspense>
+      );
+    case "shortcuts":
+      return (
+        <SettingsTabSuspense>
+          <LazyShortcutsView
+            busy={ctx.busy}
+            keymapOverrides={ctx.local.prefs.keymapOverrides ?? {}}
+            onKeymapOverridesChange={(next) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                keymapOverrides: next,
+              }));
+            }}
+          />
+        </SettingsTabSuspense>
+      );
+    case "app-snapshot":
+      return (
+        <SettingsTabSuspense>
+          <LazyAppSnapshotView
+            busy={ctx.busy}
+            appSnapshotHotkey={
+              ctx.local.prefs.appSnapshotHotkey || "double-command"
+            }
+            onAppSnapshotHotkeyChange={(hotkey) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                appSnapshotHotkey: hotkey,
               }));
             }}
           />

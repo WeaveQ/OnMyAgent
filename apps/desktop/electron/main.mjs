@@ -59,6 +59,16 @@ import {
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
+import {
+  getLaunchAtLogin,
+  setLaunchAtLogin,
+  getKeepSystemAwake,
+  setKeepSystemAwake,
+  setDockUnreadBadge,
+  getAgentReadySoundPath,
+  registerAppSnapshotHotkey,
+  unregisterAppSnapshotHotkey,
+} from "./desktop-system-prefs.mjs";
 import { createBrowserSkillDesktopHelpers as createBskDesktopHelpers } from "./browser-skill-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
@@ -360,6 +370,7 @@ const {
   installApplicationMenu,
   applyApplicationMenuVisibility,
   setApplicationMenuVisible,
+  setKeymapAcceleratorOverrides,
 } = applicationMenuController;
 
 const browserController = createElectronBrowserController({
@@ -1374,6 +1385,14 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   openBrowserSkillInstallPage,
   checkSystemPermissions,
   openSystemPermissionSettings,
+  getLaunchAtLogin,
+  setLaunchAtLogin,
+  getKeepSystemAwake,
+  setKeepSystemAwake,
+  setDockUnreadBadge,
+  getAgentReadySoundPath,
+  registerAppSnapshotHotkey,
+  unregisterAppSnapshotHotkey,
   getDesktopBootstrapConfig,
   debugDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
@@ -1383,7 +1402,20 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
+  setKeymapAcceleratorOverrides:
+    applicationMenuController.setKeymapAcceleratorOverrides,
   BrowserWindow,
+  onAppSnapshotHotkey: () => {
+    const wins = BrowserWindow.getAllWindows();
+    for (const win of wins) {
+      if (win.isDestroyed()) continue;
+      try {
+        win.webContents.send("onmyagent:app-snapshot-hotkey");
+      } catch {
+        // ignore
+      }
+    }
+  },
 });
 
 async function dispatchDesktopCommand(event, command, ...args) {

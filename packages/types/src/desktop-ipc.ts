@@ -294,7 +294,9 @@ export type SystemPermissionType =
   | "full-disk-access"
   | "accessibility"
   | "automation"
-  | "notifications";
+  | "notifications"
+  | "screen-recording"
+  | "microphone";
 
 export type SystemPermissionStatus = {
   [key in SystemPermissionType]: "granted" | "denied" | "unknown";

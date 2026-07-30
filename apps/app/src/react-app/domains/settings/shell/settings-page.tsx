@@ -5,10 +5,13 @@ import {
   ArrowLeft,
   Bug,
   Brain,
+  Camera,
   ChartNoAxesCombined,
   CloudCog,
   Cog,
   FolderLock,
+  Keyboard,
+  MonitorSmartphone,
   RefreshCcw,
   RotateCcw,
   SlidersHorizontal,
@@ -60,6 +63,12 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return SlidersHorizontal;
     case "permissions":
       return FolderLock;
+    case "system":
+      return MonitorSmartphone;
+    case "shortcuts":
+      return Keyboard;
+    case "app-snapshot":
+      return Camera;
     case "cloud-marketplaces":
       return Store;
     case "cloud-providers":
@@ -93,6 +102,12 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.preferences");
     case "permissions":
       return t("settings.permissions");
+    case "system":
+      return t("settings.tab_system");
+    case "shortcuts":
+      return t("settings.tab_shortcuts");
+    case "app-snapshot":
+      return t("settings.tab_app_snapshot");
     case "cloud-marketplaces":
       return t("settings.tab_cloud_marketplaces");
     case "cloud-providers":
@@ -128,6 +143,12 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.preferences_card_description");
     case "permissions":
       return t("settings.permissions_card_description");
+    case "system":
+      return t("settings.tab_description_system");
+    case "shortcuts":
+      return t("settings.tab_description_shortcuts");
+    case "app-snapshot":
+      return t("settings.tab_description_app_snapshot");
     case "cloud-marketplaces":
       return t("settings.tab_description_cloud_marketplaces");
     case "cloud-providers":
@@ -180,7 +201,15 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  const tabs: SettingsTab[] = ["ai", "environment", "updates", "usage"];
+  const tabs: SettingsTab[] = [
+    "ai",
+    "system",
+    "shortcuts",
+    "app-snapshot",
+    "environment",
+    "updates",
+    "usage",
+  ];
   if (developerMode) tabs.push("debug");
   return tabs;
 }
