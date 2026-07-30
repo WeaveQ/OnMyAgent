@@ -62,6 +62,10 @@ export default {
   "skills.installed_desc": "已安装技能存储在此工作区中，可以编辑或分享。",
   "skills.installed_status": "已安装",
   "skills.builtin_tab": "内置技能",
+  "skills.mine_tab_builtin": "内置",
+  "skills.mine_tab_installed": "已安装",
+  "skills.mine_builtin_empty": "暂无内置技能（核心预装未就绪时可稍后刷新）",
+  "skills.mine_user_empty": "暂无自行安装的技能，可从技能市场安装",
   "skills.mine_tab": "我的技能",
   "skills.installing": "添加skill",
   "skills.installing_prefix": "正在安装{name}…",
@@ -194,5 +198,6 @@ export default {
   "skills.scope_onmyagent": "OnMyAgent 安装技能",
   "skills.readonly": "只读",
   "skills.source_builtin": "内置",
+  "skills.source_user_installed": "安装",
   "skills.source_local": "本地",
 } as const;

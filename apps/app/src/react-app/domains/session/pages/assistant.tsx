@@ -91,6 +91,7 @@ import {
   readAssistantCategoryMemory,
   writeAssistantCategoryMemory,
 } from "../sidebar/rail-navigation-memory";
+import { resetRailBookmarkToPrimary } from "./use-rail-location";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
@@ -134,6 +135,7 @@ import { isStreamingSessionStatus } from "../sidebar/utils";
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
+const CREATE_SKILL_PACKAGE_NAME = "skill-creator";
 
 type AssistantGroupDeleteTarget = {
   kind: "automation";
@@ -340,11 +342,16 @@ export function AssistantPage(props: AssistantPageProps) {
       if (isElectronRuntime()) {
         void window.__ONMYAGENT_ELECTRON__?.browser?.hide?.();
       }
-      openAssistantSessionView();
+      // Reset rail bookmark so cold start does not reopen store/files.
+      resetRailBookmarkToPrimary("assistant", props.selectedWorkspaceId);
+      // ONLY createTask — navigates to /workspace/.../assistant with no sessionId.
+      // Do NOT call openRailView/openAssistantSessionView afterward: it rebuilds
+      // the path from the still-current location.pathname (which still embeds the
+      // previous session id when we are on store/?view=store) and overwrites the
+      // new-task URL, landing the user back on the last chat.
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
     },
     [
-      openAssistantSessionView,
       props.selectedWorkspaceId,
       props.sidebar,
       setSidePanelState,
@@ -370,6 +377,66 @@ export function AssistantPage(props: AssistantPageProps) {
       t("session.create_expert_prompt"),
     );
   }, [openAssistantNewTask, props.selectedWorkspaceId]);
+
+  /**
+   * Always open a fresh 新任务 first (sync), then install packages in background.
+   * Awaiting install before navigate left the previous session selected.
+   */
+  const openOfficeNewTaskWithDraft = useCallback(
+    (draft: string) => {
+      setAssistantCategoryId("office");
+      openAssistantNewTask("office");
+      setComposerDraftAfterNewTask(props.selectedWorkspaceId, draft);
+    },
+    [openAssistantNewTask, props.selectedWorkspaceId],
+  );
+
+  /** 创建技能 → 新任务 + skill-creator 草稿（不复用上次对话） */
+  const handleCreateSkill = useCallback(() => {
+    openOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
+    if (isElectronRuntime()) {
+      void installBuiltinSkillPackage({
+        source: "builtin",
+        packageName: CREATE_SKILL_PACKAGE_NAME,
+        skillName: CREATE_SKILL_PACKAGE_NAME,
+      }).catch((error) => {
+        console.warn(
+          `[skills-marketplace] failed to install ${CREATE_SKILL_PACKAGE_NAME}`,
+          error,
+        );
+      });
+    }
+  }, [openOfficeNewTaskWithDraft]);
+
+  const handleChatWithSkill = useCallback(
+    (skill: { name: string }) => {
+      const name = skill.name.trim();
+      if (!name) return;
+      openOfficeNewTaskWithDraft(t("session.chat_with_skill_prompt", { name }));
+    },
+    [openOfficeNewTaskWithDraft],
+  );
+
+  const handleEditSkill = useCallback(
+    (skill: { name: string }) => {
+      const name = skill.name.trim();
+      if (!name) return;
+      openOfficeNewTaskWithDraft(t("session.edit_skill_prompt", { name }));
+      if (isElectronRuntime()) {
+        void installBuiltinSkillPackage({
+          source: "builtin",
+          packageName: CREATE_SKILL_PACKAGE_NAME,
+          skillName: CREATE_SKILL_PACKAGE_NAME,
+        }).catch((error) => {
+          console.warn(
+            "[skills-marketplace] failed to install skill-creator",
+            error,
+          );
+        });
+      }
+    },
+    [openOfficeNewTaskWithDraft],
+  );
 
   const applyAssistantSelection = useCallback(
     (
@@ -925,6 +992,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                           onCreateExpert={handleCreateExpert}
+                          onCreateSkill={handleCreateSkill}
+                          onChatWithSkill={handleChatWithSkill}
+                          onEditSkill={handleEditSkill}
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),

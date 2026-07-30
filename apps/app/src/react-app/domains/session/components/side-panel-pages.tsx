@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import {
   Bot,
+  ChevronDown,
   ChevronLeft,
   Clock3,
   FileText,
@@ -8,9 +9,11 @@ import {
   MonitorSmartphone,
   Network,
   Package,
+  Plus,
   Puzzle,
   Search,
   Sparkles,
+  Upload,
   UserRound,
   Zap,
 } from "lucide-react";
@@ -19,6 +22,12 @@ import { useEffect, useState } from "react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { CountBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -342,6 +351,12 @@ export function StorePage(props: {
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
   onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
   onCreateExpert?: () => void;
+  /** Leave store → assistant office home + seed create-skill draft (new task). */
+  onCreateSkill?: () => void;
+  /** Open chat with a skill slash chip for usage. */
+  onChatWithSkill?: (skill: { name: string }) => void;
+  /** Open chat to edit a skill via skill-creator. */
+  onEditSkill?: (skill: { name: string }) => void;
   onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
   /** Parent-owned custom MCP dialog opener (shared with Composer configure). */
   onOpenCustomConnector?: () => void;
@@ -440,21 +455,66 @@ export function StorePage(props: {
             </Button>
           ) : null}
           {activeTab === "skills" && skillView === "market" ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSkillView("installed");
-                setQuery("");
-              }}
-              className="rounded-md mac:titlebar-no-drag"
-            >
-              {t("store.my_installed")}
-              <CountBadge size="dot" className="ml-1.5">
-                {installedSkillCount}
-              </CountBadge>
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSkillView("installed");
+                  setQuery("");
+                }}
+                className="rounded-md mac:titlebar-no-drag"
+              >
+                {t("store.my_installed")}
+                <CountBadge size="dot" className="ml-1.5">
+                  {installedSkillCount}
+                </CountBadge>
+              </Button>
+              {/* Far right of skills market toolbar — find / upload / create. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-md mac:titlebar-no-drag"
+                    >
+                      {t("store.add_skill")}
+                      <ChevronDown className="size-3.5 opacity-70" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={6}
+                  className="min-w-40 border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
+                >
+                  <DropdownMenuItem
+                    className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                    onClick={() => setSkillImportOpen(true)}
+                  >
+                    <Upload className="size-4 shrink-0 text-dls-secondary" />
+                    {t("store.upload_skill")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                    onClick={() => {
+                      // Jump to new task with skill-creator draft.
+                      if (props.onCreateSkill) {
+                        props.onCreateSkill();
+                        return;
+                      }
+                      showComingSoonToast();
+                    }}
+                  >
+                    <Plus className="size-4 shrink-0 text-dls-secondary" />
+                    {t("store.create_skill")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : null}
           {activeTab === "plugins" ? (
             <CustomConnectorEntryButton onClick={openCustomConnector} />
@@ -482,6 +542,8 @@ export function StorePage(props: {
             importOpen={skillImportOpen}
             onImportOpenChange={setSkillImportOpen}
             onInstalledCountChange={setInstalledSkillCount}
+            onChatWithSkill={props.onChatWithSkill}
+            onEditSkill={props.onEditSkill}
           />
         ) : activeTab === "plugins" ? (
           <PluginsPage

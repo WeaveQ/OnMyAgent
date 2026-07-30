@@ -92,7 +92,7 @@ export function FileCard(props: {
           {menuOpen ? (
             <>
               <button type="button" className="fixed inset-0 z-30 cursor-default border-0 bg-transparent p-0" aria-label={t("message.close_file_actions")} onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full z-40 mt-1 w-48 rounded-xl border border-dls-border bg-dls-surface p-1.5">
+              <div className="absolute right-0 top-full z-40 mt-1 w-48 rounded-xl border border-dls-border bg-dls-surface-solid p-1.5">
                 <MenuRowButton align="center"
                   type="button"
                   className="gap-2.5 py-2 text-dls-text hover:bg-dls-surface-muted"

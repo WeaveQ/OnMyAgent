@@ -244,7 +244,7 @@ function ActivityGrid(props: {
       </div>
       {hovered ? (
         <div
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-dls-border bg-dls-surface px-3 py-1.5 text-xs text-dls-text shadow-md"
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-dls-border bg-dls-surface-solid px-3 py-1.5 text-xs text-dls-text shadow-md"
           style={{ left: hovered.x, top: hovered.y - 8 }}
         >
           {activityTooltip({

@@ -423,7 +423,7 @@ export function CloudMarketplacesView({
             <summary className="flex h-7 cursor-pointer list-none items-center rounded-md border border-dls-border px-2.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text">
               Filters
             </summary>
-            <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-dls-border bg-dls-surface p-3">
+            <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-dls-border bg-dls-surface-solid p-3">
               <label className="grid gap-1.5 text-xs text-dls-secondary">
                 {t("settings.marketplace")}
                 <SelectMenu

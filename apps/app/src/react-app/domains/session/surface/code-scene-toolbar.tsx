@@ -315,7 +315,7 @@ export function CodeSceneToolbar(props: {
         <DropdownMenuContent
           align="end"
           sideOffset={8}
-          className="w-56 border border-dls-border bg-dls-surface p-2 text-dls-text"
+          className="w-56 border border-dls-border bg-dls-surface-solid p-2 text-dls-text"
         >
           {openTargets.map((target) => {
             return (
@@ -480,7 +480,7 @@ export function CodeSceneToolbar(props: {
       {noticeText ? (
         <div
           role="status"
-          className="absolute right-0 top-10 z-60 w-72 rounded-xl border border-dls-border bg-dls-surface px-3 py-2 text-xs leading-5 text-dls-secondary ring-1 ring-dls-border/60"
+          className="absolute right-0 top-10 z-60 w-72 rounded-xl border border-dls-border bg-dls-surface-solid px-3 py-2 text-xs leading-5 text-dls-secondary ring-1 ring-dls-border/60"
         >
           {noticeText}
         </div>
