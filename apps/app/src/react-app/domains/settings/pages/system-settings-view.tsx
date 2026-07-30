@@ -3,7 +3,7 @@
  * System options — security-center style: 2-column toggle cards, then stack
  * of section panels (authorizations / folders are siblings in the host).
  */
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
@@ -113,32 +113,8 @@ export function SystemSettingsView(props: SystemSettingsViewProps) {
       ? t("settings.taskbar_unread_badge_desc")
       : t("settings.dock_unread_badge_desc");
 
-  const applyLaunch = useCallback(
-    async (enabled: boolean) => {
-      await props.onLaunchAtLoginChange(enabled);
-      if (!desktop) return;
-      try {
-        await desktopBridge.setLaunchAtLogin(enabled);
-      } catch {
-        // bridge may be unavailable
-      }
-    },
-    [desktop, props],
-  );
-
-  const applyAwake = useCallback(
-    async (enabled: boolean) => {
-      await props.onKeepSystemAwakeChange(enabled);
-      if (!desktop) return;
-      try {
-        await desktopBridge.setKeepSystemAwake(enabled);
-      } catch {
-        // bridge may be unavailable
-      }
-    },
-    [desktop, props],
-  );
-
+  // Launch / keep-awake IPC is owned by SystemPrefsRuntime (boot sync +
+  // agent-busy linkage). Settings only writes LocalPreferences.
   const options: OptionCard[] = [
     {
       id: "launch",
@@ -147,7 +123,7 @@ export function SystemSettingsView(props: SystemSettingsViewProps) {
       description: t("settings.launch_at_login_desc"),
       checked: props.launchAtLogin,
       disabled: props.busy || !desktop,
-      onChange: (v) => void applyLaunch(v),
+      onChange: (v) => void props.onLaunchAtLoginChange(v),
     },
     {
       id: "awake",
@@ -156,7 +132,7 @@ export function SystemSettingsView(props: SystemSettingsViewProps) {
       description: t("settings.keep_system_awake_desc"),
       checked: props.keepSystemAwake,
       disabled: props.busy || !desktop,
-      onChange: (v) => void applyAwake(v),
+      onChange: (v) => void props.onKeepSystemAwakeChange(v),
     },
     {
       id: "notify-master",
