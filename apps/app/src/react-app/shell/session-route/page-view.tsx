@@ -42,7 +42,9 @@ import {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
+  isTolerableSessionDeleteFailure,
   resetRailBookmarkToPrimary,
+  resolveSessionDeleteDirectory,
   type PageMode,
   type SessionAgentManagementIntent,
   type SessionPageSurfaceProps,
@@ -937,52 +939,63 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             client && selectedWorkspaceId
               ? async (sessionId) => {
                   const endpoint = endpointForWorkspace(selectedWorkspace);
-                  if (!endpoint) return;
                   const assistantSessionWorkspace =
                     readAssistantSessionWorkspace(sessionId);
-                  try {
-                    await endpoint.client.deleteSession(
-                      endpoint.workspaceId,
-                      sessionId,
-                      {
-                        directory: assistantSessionWorkspace?.directory,
-                      },
-                    );
-                  } catch (error) {
-                    // Ghost rows (OpenCode session already gone / 502 empty
-                    // upstream) still need local list cleanup so automation
-                    // folders and 定时 groups can be removed.
-                    const status =
-                      error &&
-                      typeof error === "object" &&
-                      "status" in error &&
-                      typeof (error as { status?: unknown }).status === "number"
-                        ? (error as { status: number }).status
-                        : null;
-                    const code =
-                      error &&
-                      typeof error === "object" &&
-                      "code" in error &&
-                      typeof (error as { code?: unknown }).code === "string"
-                        ? (error as { code: string }).code
-                        : "";
-                    const message =
-                      error instanceof Error ? error.message : String(error);
-                    const missing =
-                      status === 404 ||
-                      status === 410 ||
-                      status === 502 ||
-                      code === "session_not_found" ||
-                      code === "opencode_request_failed" ||
-                      code === "opencode_empty_response" ||
-                      /not found|session_not_found|404|502/i.test(message);
-                    if (!missing) throw error;
-                    console.warn(
-                      "[session-route] deleteSession ignored missing/failed session",
-                      sessionId,
-                      error,
-                    );
+                  const listedDirectory =
+                    sessionsByWorkspaceId[selectedWorkspaceId]?.find(
+                      (item) => item.id === sessionId,
+                    )?.directory ?? null;
+                  const directory = resolveSessionDeleteDirectory({
+                    assistantDirectory: assistantSessionWorkspace?.directory,
+                    // Expert isolated dirs live on the sidebar item, not assistant map.
+                    sessionDirectory: listedDirectory,
+                    workspaceRoot:
+                      selectedWorkspaceRoot ||
+                      selectedWorkspace?.path ||
+                      null,
+                  });
+
+                  // Drop the row immediately so dirty/ghost entries leave the UI
+                  // even if OpenCode hangs or returns a non-missing error.
+                  setSessionsByWorkspaceId((current) => {
+                    const list = current[selectedWorkspaceId];
+                    if (!list?.some((item) => item.id === sessionId)) {
+                      return current;
+                    }
+                    return {
+                      ...current,
+                      [selectedWorkspaceId]: list.filter(
+                        (item) => item.id !== sessionId,
+                      ),
+                    };
+                  });
+
+                  if (endpoint) {
+                    try {
+                      await endpoint.client.deleteSession(
+                        endpoint.workspaceId,
+                        sessionId,
+                        { directory },
+                      );
+                    } catch (error) {
+                      // Always continue local cleanup for dirty data. Log
+                      // unexpected failures; tolerate known ghost/timeout cases.
+                      if (!isTolerableSessionDeleteFailure(error)) {
+                        console.warn(
+                          "[session-route] deleteSession remote failed; local cleanup continues",
+                          sessionId,
+                          error,
+                        );
+                      } else {
+                        console.warn(
+                          "[session-route] deleteSession ignored missing/failed session",
+                          sessionId,
+                          error,
+                        );
+                      }
+                    }
                   }
+
                   removeAssistantSession(sessionId);
                   removeExpertSession(sessionId);
                   writeCustomAgentIdForSession(sessionId, null);
@@ -1002,7 +1015,21 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   if (selectedSessionId === sessionId) {
                     navigateToWorkspaceSession(selectedWorkspaceId);
                   }
-                  await refreshRouteState();
+                  // Do not block the confirm dialog on a hung list refresh.
+                  try {
+                    await Promise.race([
+                      Promise.resolve(refreshRouteState()),
+                      new Promise<void>((resolve) => {
+                        window.setTimeout(resolve, 4_000);
+                      }),
+                    ]);
+                  } catch (error) {
+                    console.warn(
+                      "[session-route] refresh after delete failed",
+                      sessionId,
+                      error,
+                    );
+                  }
                 }
               : undefined
           }
