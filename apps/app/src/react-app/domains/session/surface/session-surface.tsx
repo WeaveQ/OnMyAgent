@@ -16,7 +16,7 @@ import {
 import { isElectronRuntime } from "../../../../app/utils";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
-import { currentLocale, t } from "../../../../i18n";
+import { t } from "../../../../i18n";
 import {
   readWorkspaceCloudImports,
   type CloudImportedPlugin,
@@ -28,7 +28,6 @@ import type {
   ComposerAttachment,
   ComposerDraft,
   ComposerMentionTarget,
-  ComposerPart,
   CollaborationGoalRuntime,
   McpServerEntry,
   McpStatusMap,
@@ -40,10 +39,6 @@ import {
   getAssistantActivityPhaseLabel,
 } from "./chrome/assistant-activity";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
-import {
-  decodeComposerMentionValue,
-  encodeComposerMentionValue,
-} from "./composer/mention-encoding";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
   workspaceDirectoryTargets,
@@ -79,7 +74,6 @@ import {
   manualStopNoticeKind,
   resolveSessionCollaborationKind,
   resolveSessionRunPolicy,
-  summarizeGoalObjective,
   hasRepeatedGoalAssistantOutput,
 } from "./session-run-controller";
 import {
@@ -108,7 +102,6 @@ import {
 import { personalizeAssistantScenariosForMenu } from "./personalize-assistant-scenarios";
 import {
   messageToReadableText,
-  findTranscriptSearchMatchIds,
   transcriptToText,
 } from "./session-surface-model";
 import {
@@ -120,7 +113,7 @@ import {
 import {
   filterCompactionMessages,
 } from "./transcript/message-compaction";
-import { useSharedQueryState, waitForControl } from "./session-surface-hooks";
+import { useSharedQueryState } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import { useSessionSurfaceCollaboration } from "./session-surface-collaboration";
@@ -140,13 +133,11 @@ import {
 import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
 import {
   buildGoalHiddenSystemPrompt,
-  buildLocaleRuntimeInstruction,
   createSessionInterruptionNotice,
   goalElapsedMs,
   isGoalIntentRuntime,
   removeRecordKey,
   shouldRecordSessionInterruption,
-  type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
 import {
   assistantScenarioDraftToken,
@@ -163,34 +154,31 @@ import {
   applyGoalWaitingReason,
   resolveVisibleGoalRuntime,
 } from "./session-surface-goal";
+import {
+  COMPOSER_NOTICE_TIMEOUT_MS,
+  DELAYED_SESSION_LOADING_MS,
+  FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
+  NO_VISIBLE_ASSISTANT_OUTPUT_DELAY_MS,
+  buildComposerDraft,
+  deriveActiveGoalWaitingReason,
+  deriveChatStreaming,
+  derivePendingSessionLoad,
+  hasIncompleteTodos,
+  isRemoteSessionBusy,
+  openTargetsFingerprint,
+  pickVisibleSessionError,
+  resolveCollaborationModeVariant,
+  resolveWorkspaceRelativeDownloadPath,
+  shouldShowCodeSceneToolbar,
+  snapshotQueryErrorMessage,
+  workspaceAttachmentContentType,
+} from "./session-surface-helpers";
 
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
 import { flattenSessionSurfaceProps } from "./session-surface-types";
 import { useSessionSurfaceSearch } from "./session-surface-search";
-
-function workspaceAttachmentContentType(path: string) {
-  const extension = path.toLowerCase().split(".").pop() ?? "";
-  const contentTypes: Record<string, string> = {
-    csv: "text/csv",
-    doc: "application/msword",
-    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    gif: "image/gif",
-    jpeg: "image/jpeg",
-    jpg: "image/jpeg",
-    json: "application/json",
-    md: "text/markdown",
-    pdf: "application/pdf",
-    png: "image/png",
-    svg: "image/svg+xml",
-    txt: "text/plain",
-    webp: "image/webp",
-    xls: "application/vnd.ms-excel",
-    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  };
-  return contentTypes[extension] ?? "application/octet-stream";
-}
 
 export function SessionSurface(bagProps: SessionSurfaceProps) {
   const props = flattenSessionSurfaceProps(bagProps);
@@ -415,7 +403,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
 
   useEffect(() => {
     if (!notice) return;
-    const id = window.setTimeout(() => setNotice(null), 2400);
+    const id = window.setTimeout(() => setNotice(null), COMPOSER_NOTICE_TIMEOUT_MS);
     return () => window.clearTimeout(id);
   }, [notice]);
 
@@ -497,12 +485,12 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   // User stop must clear the red stop button immediately. Backend may keep
   // reporting busy/retry briefly after abort (especially failed skill runs),
   // so respect stopRequested and don't keep the composer locked.
-  const remoteBusy =
-    liveStatus.type === "busy" || liveStatus.type === "retry";
-  const stopHidesRemoteBusy =
-    !props.draftOnly && storedSessionStopRequested;
-  const chatStreaming =
-    sending || (remoteBusy && !stopHidesRemoteBusy);
+  const chatStreaming = deriveChatStreaming({
+    sending,
+    remoteBusy: isRemoteSessionBusy(liveStatus.type),
+    draftOnly: props.draftOnly,
+    stopRequested: storedSessionStopRequested,
+  });
   const rawRenderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
@@ -617,11 +605,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     () => deriveOpenTargets(renderedMessages, { includeFileMentions: true }),
     [renderedMessages],
   );
-  const openTargetsFingerprint = useMemo(
-    () =>
-      openTargets
-        .map((target) => `${target.kind}:${target.value}:${target.confidence}`)
-        .join("|"),
+  const openTargetsFingerprintValue = useMemo(
+    () => openTargetsFingerprint(openTargets),
     [openTargets],
   );
   const { verifiedOpenTargets } = useSessionSurfaceOpenTargets({
@@ -629,16 +614,17 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     workspaceId: props.workspaceId,
     client: props.client,
     openTargets,
-    openTargetsFingerprint,
+    openTargetsFingerprint: openTargetsFingerprintValue,
     chatStreaming,
     onOpenTarget: props.onOpenTarget,
     onOpenTargetsChange: props.onOpenTargetsChange,
   });
-  const pendingSessionLoad =
-    !props.draftOnly &&
-    !snapshot &&
-    snapshotQuery.isLoading &&
-    renderedMessages.length === 0;
+  const pendingSessionLoad = derivePendingSessionLoad({
+    draftOnly: props.draftOnly,
+    hasSnapshot: Boolean(snapshot),
+    isLoading: snapshotQuery.isLoading,
+    messageCount: renderedMessages.length,
+  });
   const activePermissionNeedsApproval = Boolean(
     props.activePermission &&
       !resolveAccessModePermissionReply(
@@ -683,11 +669,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     if (!shouldInjectStallRecovery) return;
     markStallRecovery();
   }, [markStallRecovery, shouldInjectStallRecovery]);
-  const visibleError = [
-    error,
-    sessionActivityError ? { message: sessionActivityError } : null,
-    snapshotSessionError,
-  ].find((item) => item && item.message !== dismissedErrorMessage) ?? null;
+  const visibleError = pickVisibleSessionError(
+    [
+      error,
+      sessionActivityError ? { message: sessionActivityError } : null,
+      snapshotSessionError,
+    ],
+    dismissedErrorMessage,
+  );
   const cancelledError =
     visibleError && isUserCancelledError(visibleError) ? visibleError : null;
   const visibleTranscriptError = cancelledError ? null : visibleError;
@@ -763,7 +752,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       setShowDelayedLoading(false);
       return;
     }
-    const id = window.setTimeout(() => setShowDelayedLoading(true), 2000);
+    const id = window.setTimeout(
+      () => setShowDelayedLoading(true),
+      DELAYED_SESSION_LOADING_MS,
+    );
     return () => window.clearTimeout(id);
   }, [pendingSessionLoad]);
 
@@ -792,7 +784,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     const id = window.setTimeout(() => {
       setNoVisibleAssistantOutputBaseline(awaitingAssistantBaseline);
       setAwaitingAssistantBaseline(null);
-    }, 1000);
+    }, NO_VISIBLE_ASSISTANT_OUTPUT_DELAY_MS);
     return () => window.clearTimeout(id);
   }, [
     assistantOutputAfterAwaitStart,
@@ -813,95 +805,16 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   });
 
   const buildDraft = useCallback(
-    (text: string, nextAttachments: ComposerAttachment[]): ComposerDraft => {
-      const parts: ComposerPart[] = text
-        .split(/(\[\[assistant-scenario:[^\]]+\]\]|\[pasted text [^\]]+\]|@[^\s@]+)/)
-        .flatMap((segment) => {
-          if (!segment) return [] as ComposerDraft["parts"];
-          if (/^\[\[assistant-scenario:[^\]]+\]\]$/.test(segment)) {
-            return [] as ComposerDraft["parts"];
-          }
-          const pasteMatch = segment.match(/^\[pasted text (.+)\]$/);
-          if (pasteMatch) {
-            const target = pasteParts.find(
-              (item) => item.label === pasteMatch[1],
-            );
-            if (target) {
-              return [
-                {
-                  type: "paste",
-                  id: target.id,
-                  label: target.label,
-                  text: target.text,
-                  lines: target.lines,
-                },
-              ];
-            }
-          }
-          if (segment.startsWith("@")) {
-            const value = decodeComposerMentionValue(segment.slice(1));
-            const kind = mentions[value];
-            if (kind === "agent")
-              return [
-                {
-                  type: "agent",
-                  name: value,
-                } satisfies ComposerDraft["parts"][number],
-              ];
-            if (kind === "file")
-              return [
-                {
-                  type: "file",
-                  path: value,
-                  label: value,
-                } satisfies ComposerDraft["parts"][number],
-              ];
-            if (kind === "directory")
-              return [
-                {
-                  type: "directory",
-                  path: value,
-                  label: value,
-                } satisfies ComposerDraft["parts"][number],
-              ];
-          }
-          return [
-            {
-              type: "text",
-              text: segment,
-            } satisfies ComposerDraft["parts"][number],
-          ];
-        });
-      // Expand paste placeholders in resolvedText so the model receives
-      // the actual pasted content instead of "[pasted text <label>]".
-      let resolved = text;
-      for (const part of pasteParts) {
-        resolved = resolved.replace(`[pasted text ${part.label}]`, part.text);
-      }
-      for (const value of Object.keys(mentions)) {
-        resolved = resolved.replaceAll(
-          `@${encodeComposerMentionValue(value)}`,
-          `@${value}`,
-        );
-      }
-      const resolvedSlashMatch = resolved.trim().match(/^\/([^\s]+)\s*(.*)$/);
-      return {
-        mode: "prompt",
-        parts,
+    (text: string, nextAttachments: ComposerAttachment[]): ComposerDraft =>
+      buildComposerDraft({
+        text,
         attachments: nextAttachments,
+        pasteParts,
+        mentions,
         accessMode: effectiveAccessMode,
         collaborationMode: effectiveCollaborationMode,
-        text,
-        resolvedText: resolved,
-        command: resolvedSlashMatch
-          ? {
-              name: resolvedSlashMatch[1] ?? "",
-              arguments: resolvedSlashMatch[2] ?? "",
-            }
-          : undefined,
-      };
-    },
-    [assistantFeatureCategoryId, assistantOfficeFeaturesActive, effectiveAccessMode, effectiveCollaborationMode, mentions, pasteParts],
+      }),
+    [effectiveAccessMode, effectiveCollaborationMode, mentions, pasteParts],
   );
 
   const handleComposerDraftChange = useCallback(
@@ -997,7 +910,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       })
     ) {
       setShowFolderRequiredBubble(true);
-      window.setTimeout(() => setShowFolderRequiredBubble(false), 2600);
+      window.setTimeout(
+        () => setShowFolderRequiredBubble(false),
+        FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
+      );
       return;
     }
     // Intentionally allow sending while the assistant is still streaming.
@@ -1555,22 +1471,17 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     goalRuntime: props.goalRuntime,
     dismissed: goalDismissedForSession,
   });
-  const activeGoalWaitingReason: CollaborationGoalRuntime["waitingReason"] | null =
-    activePermissionNeedsApproval
-      ? "permission"
-      : props.activeQuestion
-        ? "question"
-        : effectiveActivityStatus === "compacting"
-          ? "compacting"
-          : null;
+  const activeGoalWaitingReason = deriveActiveGoalWaitingReason({
+    activePermissionNeedsApproval,
+    hasActiveQuestion: Boolean(props.activeQuestion),
+    effectiveActivityStatus,
+  });
   const visibleGoalRuntimeForUi = applyGoalWaitingReason(
     visibleGoalRuntime,
     activeGoalWaitingReason,
   );
   const visibleTodos = incomingTodos;
-  const hasVisibleTodos = visibleTodos.some(
-    (todo) => todo.content.trim() && todo.status !== "completed",
-  );
+  const hasVisibleTodos = hasIncompleteTodos(visibleTodos);
   const runPolicy = resolveSessionRunPolicy({
     accessMode: effectiveAccessMode,
     collaborationMode: effectiveCollaborationMode,
@@ -1677,28 +1588,24 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
         };
   // Code toolbar (打开位置 / git) is for an active code session — not the empty
   // "新建任务" draft home (draftOnly), where only the open-location chip would show.
-  const codeSceneToolbar =
-    assistantCodeFeaturesActive &&
-    assistantFeatureCategoryId === "code" &&
-    !(props.draftOnly ?? false)
-      ? (
-          <CodeSceneToolbar
-            sessionId={props.sessionId}
-            draftOnly={false}
-            workspacePath={props.workspaceRoot}
-          />
-         )
-       : null;
+  const codeSceneToolbar = shouldShowCodeSceneToolbar({
+    assistantCodeFeaturesActive,
+    assistantFeatureCategoryId,
+    draftOnly: props.draftOnly,
+  })
+    ? (
+        <CodeSceneToolbar
+          sessionId={props.sessionId}
+          draftOnly={false}
+          workspacePath={props.workspaceRoot}
+        />
+      )
+    : null;
   const downloadCodePath = useCallback(async (filePath: string) => {
-    const normalizedRoot = props.workspaceRoot.replace(/[\\/]+$/, "");
-    const normalizedPath = filePath.trim();
-    const relativePath = normalizedRoot && (
-      normalizedPath === normalizedRoot ||
-      normalizedPath.startsWith(`${normalizedRoot}/`) ||
-      normalizedPath.startsWith(`${normalizedRoot}\\`)
-    )
-      ? normalizedPath.slice(normalizedRoot.length).replace(/^[\\/]+/, "")
-      : normalizedPath.replace(/^\.\//, "");
+    const relativePath = resolveWorkspaceRelativeDownloadPath(
+      props.workspaceRoot,
+      filePath,
+    );
     const result = await props.client.downloadWorkspaceFile(
       props.workspaceId,
       relativePath,
@@ -1731,11 +1638,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       showDelayedLoading={showDelayedLoading}
       pendingSessionLoad={pendingSessionLoad}
       snapshotQueryError={snapshotQuery.isError}
-      snapshotErrorMessage={
-        snapshotQuery.error instanceof Error
-          ? snapshotQuery.error.message
-          : "Failed to load session."
-      }
+      snapshotErrorMessage={snapshotQueryErrorMessage(snapshotQuery.error)}
       snapshot={snapshot}
       model={model}
       developerMode={props.developerMode}
@@ -1803,11 +1706,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onAccessModeChange={updateAccessMode}
       effectiveCollaborationMode={effectiveCollaborationMode}
       onCollaborationModeChange={updateCollaborationMode}
-      collaborationModeVariant={
-        assistantOfficeFeaturesActive && assistantFeatureCategoryId === "office"
-          ? "office"
-          : "legacy"
-      }
+      collaborationModeVariant={resolveCollaborationModeVariant({
+        assistantOfficeFeaturesActive,
+        assistantFeatureCategoryId,
+      })}
       modelPickerOpen={props.modelPickerOpen}
       selectedModel={props.selectedModel}
       onModelPickerOpenChange={props.onModelPickerOpenChange}

@@ -102,7 +102,9 @@ export default {
   "extensions.browser_skill_status_ready": "Ready",
   "extensions.browser_skill_status_setup": "Needs setup",
   "extensions.browser_skill_vs_in_app":
-    "Not the in-app Browser, and not Computer Use. Best for already-signed-in sites.",
+    "Choose the right surface: in-app Browser (no real Chrome logins), BrowserSkill (real Chrome/Edge via bsk + extension), or Computer Use (native macOS apps). This panel is BrowserSkill.",
+  "extensions.browser_skill_choose_surface":
+    "In-app Browser · BrowserSkill (real Chrome) · Computer Use (native apps)",
   "extensions.browser_skill_install_cli_title": "Install CLI",
   "extensions.browser_skill_setup_intro":
     "Finish the steps below. You only need this once per machine.",

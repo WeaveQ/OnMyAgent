@@ -515,3 +515,55 @@ export function resolveDropSlot(
   const slot = before ? rowIndex : rowIndex + 1;
   return Math.max(0, Math.min(count, slot));
 }
+
+/** Last path segment of a directory (spaces / automation folders). */
+export function assistantDirectoryName(directory: string): string {
+  return (
+    directory
+      .replace(/\\/g, "/")
+      .replace(/\/+$/, "")
+      .split("/")
+      .filter(Boolean)
+      .pop() ?? directory
+  );
+}
+
+export function assistantTaskSelected(
+  group: AgentConversationGroup,
+  selectedSessionId: string | null,
+): boolean {
+  return group.sessions.some((session) => session.id === selectedSessionId);
+}
+
+export function groupIncludesSession(
+  groups: AgentConversationGroup[],
+  selectedSessionId: string | null,
+): boolean {
+  if (!selectedSessionId) return false;
+  return groups.some((group) => assistantTaskSelected(group, selectedSessionId));
+}
+
+/** Whether a global pin owns the currently selected session. */
+export function pinOwnsSession(
+  pin: AssistantGlobalPin,
+  selectedSessionId: string | null,
+  groupsBySessionId: Map<string, AgentConversationGroup>,
+  spaceItemsByDirectory: Map<string, AgentConversationGroup[]>,
+  automationItemsById: Map<string, AgentConversationGroup[]>,
+): boolean {
+  if (!selectedSessionId) return false;
+  if (pin.kind === "session") {
+    const group = groupsBySessionId.get(pin.id);
+    return group ? assistantTaskSelected(group, selectedSessionId) : false;
+  }
+  if (pin.kind === "automation") {
+    return groupIncludesSession(
+      automationItemsById.get(pin.id) ?? [],
+      selectedSessionId,
+    );
+  }
+  return groupIncludesSession(
+    spaceItemsByDirectory.get(pin.id) ?? [],
+    selectedSessionId,
+  );
+}

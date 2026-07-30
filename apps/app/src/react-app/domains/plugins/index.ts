@@ -27,6 +27,11 @@ export {
 } from "./artifact-plugin-client";
 export { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 export {
+  recommendBrowserSurface,
+  type BrowserSurfaceId,
+  type BrowserSurfaceIntent,
+} from "./browser-surface-selection";
+export {
   ALL_SKILLS,
   LEGACY_SKILLS,
   type SkillCategory,

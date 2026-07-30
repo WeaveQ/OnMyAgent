@@ -9,6 +9,14 @@ description: >
 
 # Browser
 
+## Choose the right surface
+
+| Surface | What it is | Prefer when |
+|---------|------------|-------------|
+| **browser-automation** (this skill) | OnMyAgent in-app browser (right rail Browser panel) | Web work without needing the user's real Chrome/Edge logins; in-app preview |
+| **browser-skill** | Real Chrome/Edge via external `bsk` + extension | Sites already signed into in the user's browser; setup/doctor: **Extensions → BrowserSkill** |
+| **computer-use** | Native macOS app UI (accessibility / screenshots) | Controlling desktop apps — **not** web page automation |
+
 ## Hard rule (read first)
 
 | Do | Do not |

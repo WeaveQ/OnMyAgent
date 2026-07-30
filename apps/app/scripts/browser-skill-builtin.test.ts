@@ -87,6 +87,7 @@ describe("built-in BrowserSkill (Path B)", () => {
         "extensions.browser_skill_install_extension",
         "extensions.browser_skill_run_doctor",
         "extensions.browser_skill_vs_in_app",
+        "extensions.browser_skill_choose_surface",
       ]) {
         expect(messages).toContain(`"${key}"`);
       }

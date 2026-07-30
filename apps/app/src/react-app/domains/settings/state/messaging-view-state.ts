@@ -13,6 +13,10 @@ import {
   type OnMyAgentWorkspaceFileContent,
 } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
+import {
+  isDocumentHidden,
+  shouldRunPollTick,
+} from "../../../infra/visibility-poll";
 import type {
   MessagingChannel,
   MessagingViewExpandedChannel,
@@ -837,6 +841,7 @@ export function useMessagingViewProps(
   useEffect(() => {
     void refreshAllRef.current({ force: true });
     const interval = window.setInterval(() => {
+      if (!shouldRunPollTick(isDocumentHidden())) return;
       void refreshAllRef.current();
     }, 10_000);
     return () => window.clearInterval(interval);

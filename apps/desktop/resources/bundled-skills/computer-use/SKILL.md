@@ -7,6 +7,14 @@ description: Control local macOS apps through OnMyAgent Computer Use. Use for ta
 
 Use the bundled `computer-use` MCP server. Prefer a purpose-built connector, API, or CLI when one can complete the task more directly.
 
+## Choose the right surface
+
+| Surface | What it is | Prefer when |
+|---------|------------|-------------|
+| **browser-automation** | OnMyAgent in-app browser (right rail Browser panel) | Web work without needing the user's real Chrome/Edge logins; in-app preview |
+| **browser-skill** | Real Chrome/Edge via external `bsk` + extension | Sites already signed into in the user's browser; setup/doctor: **Extensions → BrowserSkill** |
+| **computer-use** (this skill) | Native macOS app UI (accessibility / screenshots) | Controlling desktop apps — **not** web page automation |
+
 ## Sky session contract
 
 1. When the user names an application, call `get_app_state` with that name directly. Use `list_apps` only when the application is unclear or name resolution fails. It includes running apps and apps used in the last 14 days. If a display-name call fails, retry with the bundle identifier from `list_apps` before debugging further.

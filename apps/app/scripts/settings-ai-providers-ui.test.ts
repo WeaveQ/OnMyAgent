@@ -190,14 +190,24 @@ describe("settings AI view wiring (structural)", () => {
       ),
       "utf8",
     );
+    const tabBody = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/shell/settings-route/settings-tab-body.tsx",
+      ),
+      "utf8",
+    );
+    const surface = `${route}\n${tabBody}`;
     expect(route).toContain("resolveAiProvidersUiPhase");
     expect(route).toContain("aiProvidersStatusI18nKey");
     expect(route).toContain("useAiProvidersController");
-    expect(route).toContain("providersLoading={providersDiscovering}");
-    expect(route).toContain("inventorySyncing={inventorySyncing}");
-    expect(route).toContain("SettingsAiTabSuspense");
+    expect(route).toContain("SettingsTabBody");
+    // AI tab wiring lives in settings-tab-body after host thin-out.
+    expect(tabBody).toContain("providersLoading={ctx.providersDiscovering}");
+    expect(tabBody).toContain("inventorySyncing={ctx.inventorySyncing}");
+    expect(tabBody).toContain("SettingsAiTabSuspense");
     // Empty branch must not hard-code disconnected for finished empty list.
-    expect(route).not.toMatch(
+    expect(surface).not.toMatch(
       /providerCount:\s*connectedProviders\.length[\s\S]{0,200}status\.disconnected_label/,
     );
   });
