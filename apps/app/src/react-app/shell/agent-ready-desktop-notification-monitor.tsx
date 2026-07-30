@@ -78,11 +78,13 @@ export function AgentReadyDesktopNotificationMonitor() {
           if (wantSound) {
             try {
               // Short system-style beep via Web Audio; no asset required for v1.
-              type WindowWithWebkitAudio = Window & {
-                webkitAudioContext?: typeof AudioContext;
-              };
-              const audioWindow = window as WindowWithWebkitAudio;
-              const Ctx = audioWindow.AudioContext || audioWindow.webkitAudioContext;
+              const legacyCtor = Reflect.get(window, "webkitAudioContext");
+              const Ctx: typeof AudioContext | undefined =
+                typeof AudioContext !== "undefined"
+                  ? AudioContext
+                  : typeof legacyCtor === "function"
+                    ? (legacyCtor as typeof AudioContext)
+                    : undefined;
               if (Ctx) {
                 const ctx = new Ctx();
                 const osc = ctx.createOscillator();
