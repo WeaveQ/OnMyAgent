@@ -140,6 +140,35 @@ export { CloudSessionProvider, useCloudSession } from "./cloud/cloud-session-pro
 export { useDenSession } from "./cloud/use-den-session";
 export type { UseDenSessionProps } from "./cloud/use-den-session";
 
+/** Keymap pure helpers (owned in kernel; re-exported for shell barrel access). */
+export {
+  COMPOSER_SCOPED_ACTIONS,
+  DEFAULT_KEYMAP_ACTIONS,
+  acceleratorToKeyGroups,
+  clearPressedCodes,
+  detectKeymapPlatform,
+  eventToAccelerator,
+  formatAcceleratorForDisplay,
+  isDoubleCommandPressed,
+  isDoubleControlPressed,
+  isEditableShortcutTarget,
+  matchAccelerator,
+  matchChord,
+  matchKeymapAction,
+  matchSpecialAppSnapshot,
+  noteKeyDownCode,
+  noteKeyUpCode,
+  parseBinding,
+  resolveAccelerator,
+  resolveDefaultAccelerator,
+  shouldIgnoreForTarget,
+  type KeymapActionDef,
+  type KeymapActionId,
+  type KeymapGroupId,
+  type KeymapPlatform,
+  type NormalizedChord,
+} from "./keymap";
+
 export { SettingsShell } from "./shell/settings-shell";
 export type { SettingsShellProps } from "./shell/settings-shell";
 

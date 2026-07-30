@@ -3,7 +3,7 @@ import {
   DEFAULT_KEYMAP_ACTIONS,
   formatAcceleratorForDisplay,
   resolveAccelerator,
-} from "../src/react-app/domains/settings/keymap";
+} from "../src/react-app/kernel/keymap";
 import {
   SESSION_CONTENT_MAX_WIDTH_PX,
   applyConversationWidthCssVar,
