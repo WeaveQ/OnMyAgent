@@ -66,6 +66,10 @@ import {
 } from "../sync/session-sync";
 import { SESSION_SNAPSHOT_STALE_TIME_MS } from "../sync/session-poll-policy";
 import {
+  sessionSnapshotFetchOptions,
+  sessionSnapshotQueryKey,
+} from "../sync/session-snapshot-query-policy";
+import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
   latestOutputLimitedAssistantMessage,
@@ -343,7 +347,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   );
 
   const snapshotQueryKey = useMemo(
-    () => ["react-session-snapshot", props.workspaceId, props.sessionId],
+    () => sessionSnapshotQueryKey(props.workspaceId, props.sessionId),
     [props.workspaceId, props.sessionId],
   );
   const transcriptQueryKey = useMemo(
@@ -362,7 +366,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
         await props.client.getSessionSnapshot(
           props.workspaceId,
           props.sessionId,
-          { limit: 140, directory: props.workspaceRoot },
+          sessionSnapshotFetchOptions(props.workspaceRoot),
         )
       ).item,
     staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,

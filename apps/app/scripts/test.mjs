@@ -76,6 +76,8 @@ const testTargets = new Map([
   ['session-side-panel-toggle-contract', ['bun', ['test', 'scripts/session-side-panel-toggle-contract.test.ts']]],
   ['session-visual-files-contract', ['bun', ['test', 'scripts/session-visual-files-contract.test.ts']]],
   ['session-snapshot-error', ['bun', ['test', 'scripts/session-snapshot-error.test.ts']]],
+  ['session-poll-policy', ['bun', ['test', 'scripts/session-poll-policy.test.ts']]],
+  ['session-snapshot-query-policy', ['bun', ['test', 'scripts/session-snapshot-query-policy.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['workspace-files-model', ['bun', ['test', 'scripts/workspace-files-model.test.ts']]],
   ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],
