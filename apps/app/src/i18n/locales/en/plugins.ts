@@ -24,10 +24,10 @@ export default {
   "plugins.suggested": "Suggested plugins",
   "plugins.suggested_heading": "Suggested plugins",
   "plugins.title": "Connectors",
-  "plugins.artifact_title": "File tools (built-in)",
+  "plugins.artifact_title": "File tools",
   "plugins.artifact_tab": "Connectors",
   "plugins.artifact_description":
-    "System browser and document / spreadsheet / PDF skills shipped with the app. Separate from product extensions above.",
+    "Browser and document / spreadsheet / PDF capabilities shipped with the app. Toggle individually.",
   "plugins.custom_connector": "Custom connector",
   "plugins.custom_connector_title": "MCP services",
   "plugins.custom_connector_subtitle": "Install MCP servers to extend AI with more tools",
@@ -73,11 +73,14 @@ export default {
   "plugins.artifact_plugin_pdf_desc": "Inspect and produce PDF files.",
   "plugins.artifact_plugin_spreadsheets_name": "Spreadsheets",
   "plugins.artifact_plugin_spreadsheets_desc": "Analyze and edit spreadsheet data.",
-  "plugins.sample_section_title": "Coming soon",
-  "plugins.sample_section_hint": "Third-party services preview — not installable yet.",
-  "plugins.builtin_section_title": "Built-in extensions",
-  "plugins.builtin_section_hint":
-    "Product capabilities (desktop control, real browser, voice, local models). Same toggles as Composer + → Connectors.",
+  "plugins.sample_section_title": "Recommended",
+  "plugins.sample_section_hint":
+    "Curated third-party connectors. Preview only for now — install coming soon.",
+  "plugins.recommend_badge": "Preview",
+  "plugins.builtin_section_title": "Built-in",
+  "plugins.builtin_section_hint": "Built-in capabilities, ready to use.",
+  "plugins.builtin_product_label": "Product extensions",
+  "plugins.builtin_file_label": "File tools",
   "plugins.mcp_section_title": "Configured MCP",
   "plugins.page_manage_hint":
     "Discover and manage connectors. Toggle per-session use from the Composer + menu.",

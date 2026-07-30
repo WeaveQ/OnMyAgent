@@ -7,7 +7,7 @@ export function SessionDebugPanel(props: {
   snapshot: OnMyAgentSessionSnapshot | null;
 }) {
   return (
-    <div className="fixed bottom-20 right-4 z-30 w-[280px] rounded-xl border border-dls-border bg-dls-surface p-3 text-xs text-dls-secondary backdrop-blur-md">
+    <div className="fixed bottom-20 right-4 z-30 w-[280px] rounded-xl border border-dls-border bg-dls-surface-solid p-3 text-xs text-dls-secondary">
       <div className="mb-2 text-xs font-medium text-dls-text">React Session Debug</div>
       <div className="space-y-1.5">
         <div>intendedSessionId: <span className="text-dls-text">{props.model.intendedSessionId || "-"}</span></div>

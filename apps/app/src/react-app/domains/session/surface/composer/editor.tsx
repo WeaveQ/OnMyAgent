@@ -66,15 +66,23 @@ type EditorProps = {
   onDragLeave?: React.DragEventHandler<HTMLDivElement>;
 };
 
+/**
+ * Composer inline tokens. Dark mode: avoid accent/10 + accent/30 (too dim on
+ * #1f1f1f). Prefer decision-soft fill + icon-fg text (light #005DFF / dark #7FB0FF).
+ */
 const composerEditorTokenClass = {
-  fileMention: "inline-flex items-center rounded-md border border-dls-border bg-dls-hover px-2.5 py-1 text-xs font-medium text-dls-secondary",
-  agentMention: "inline-flex items-center rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
+  fileMention:
+    "inline-flex items-center rounded-md border border-dls-border-strong bg-dls-surface-muted px-2.5 py-1 text-xs font-medium text-dls-text",
+  agentMention:
+    "inline-flex items-center rounded-md border border-dls-accent/50 bg-dls-decision-soft px-2.5 py-1 text-xs font-medium text-dls-icon-fg",
   slashCommand:
-    "inline-flex items-center gap-0.5 rounded-md border border-dls-accent/30 bg-dls-accent/10 py-1 pe-1 ps-2.5 text-xs font-medium text-dls-accent",
+    "inline-flex items-center gap-0.5 rounded-md border border-dls-accent/50 bg-dls-decision-soft py-1 pe-1 ps-2.5 text-xs font-medium text-dls-icon-fg",
   slashCommandButton:
-    "inline-flex size-4 shrink-0 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/15 hover:text-dls-accent",
-  scenario: "inline-flex items-center gap-1 rounded-md border border-dls-accent/30 bg-dls-accent/10 px-2.5 py-1 text-xs font-medium text-dls-accent",
-  scenarioButton: "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-accent transition-colors hover:bg-dls-accent/10 hover:text-dls-accent",
+    "inline-flex size-4 shrink-0 items-center justify-center rounded-full text-dls-icon-fg transition-colors hover:bg-dls-accent/20 hover:text-dls-icon-fg",
+  scenario:
+    "inline-flex items-center gap-1 rounded-md border border-dls-accent/50 bg-dls-decision-soft px-2.5 py-1 text-xs font-medium text-dls-icon-fg",
+  scenarioButton:
+    "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-dls-icon-fg transition-colors hover:bg-dls-accent/20 hover:text-dls-icon-fg",
 };
 
 type SerializedComposerMentionNode = Spread<

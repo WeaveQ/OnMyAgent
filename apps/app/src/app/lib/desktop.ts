@@ -55,8 +55,10 @@ export type {
   SystemPermissionType,
   SystemPermissionStatus,
   SystemPermissionResult,
+  BuiltinSkillCatalogResult,
   BuiltinSkillPackageInstallInput,
   BuiltinSkillPackageInstallResult,
+  EnsureDefaultBuiltinSkillsResult,
   DesktopChannelEventHistoryEntry,
   ExpertMarketplaceName,
   ExpertPackageInstallInput,
@@ -684,6 +686,12 @@ export const installExpertPackage = (input: ExpertPackageInstallInput) =>
 export const installBuiltinSkillPackage = (
   input: BuiltinSkillPackageInstallInput,
 ) => invokeDesktopCommand("installBuiltinSkillPackage", input);
+
+export const listBuiltinSkillCatalog = () =>
+  invokeDesktopCommand("listBuiltinSkillCatalog");
+
+export const ensureDefaultBuiltinSkills = () =>
+  invokeDesktopCommand("ensureDefaultBuiltinSkills");
 
 export const onmyagentMarketplaceRoot = (marketplace: ExpertMarketplaceName) =>
   invokeDesktopCommand("onmyagentMarketplaceRoot", marketplace);

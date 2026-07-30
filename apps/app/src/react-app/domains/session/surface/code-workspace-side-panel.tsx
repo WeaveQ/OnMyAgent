@@ -921,7 +921,7 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
         data-code-terminal="true"
       />
       {error ? (
-        <div className="absolute bottom-3 left-3 right-3 rounded-lg border border-dls-border bg-dls-surface px-3 py-2 text-xs text-dls-status-danger-fg">
+        <div className="absolute bottom-3 left-3 right-3 rounded-lg border border-dls-border bg-dls-surface-solid px-3 py-2 text-xs text-dls-status-danger-fg">
           {error}
         </div>
       ) : null}
