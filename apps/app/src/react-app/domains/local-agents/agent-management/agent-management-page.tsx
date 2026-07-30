@@ -689,7 +689,7 @@ export function AgentManagementPage(props: {
         agent,
         directory: skill.name,
         sourcePath: skill.path,
-        displayName: skill.displayNameZh || skill.displayNameEn || skill.name,
+        displayName: skill.displayNameEn || skill.name,
         description: skill.descriptionZh || skill.descriptionEn || skill.description,
         kind: skill.kind,
       });

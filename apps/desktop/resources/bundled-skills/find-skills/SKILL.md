@@ -1,6 +1,6 @@
 ---
 name: find-skills
-display_name_zh: 发现技能
+display_name_zh: Find Skills
 display_name_en: Find Skills
 description: Discover which OnMyAgent skills are installed and when to use them. Use when the user asks what skills are available, how to find a skill for a task, or which installed skill covers writing, coding, analysis, office files, or automation. Prefer listing installed skills over inventing capabilities that are not installed.
 description_zh: 发现已安装技能及适用场景；按任务推荐技能，不编造未安装能力
