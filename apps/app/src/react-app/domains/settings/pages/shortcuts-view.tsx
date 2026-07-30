@@ -14,6 +14,7 @@ import { t } from "../../../../i18n";
 import {
   DEFAULT_KEYMAP_ACTIONS,
   acceleratorToKeyGroups,
+  detectKeymapPlatform,
   eventToAccelerator,
   resolveAccelerator,
   type KeymapActionId,
@@ -78,7 +79,7 @@ function AcceleratorKeys(props: {
 }
 
 export function ShortcutsView(props: ShortcutsViewProps) {
-  const platform = props.platform ?? "macos";
+  const platform = props.platform ?? detectKeymapPlatform();
   const [query, setQuery] = useState("");
   const [recordingId, setRecordingId] = useState<KeymapActionId | null>(null);
 
@@ -97,10 +98,11 @@ export function ShortcutsView(props: ShortcutsViewProps) {
       const accel = resolveAccelerator(
         action.id,
         props.keymapOverrides,
+        platform,
       ).toLowerCase();
       return title.includes(q) || accel.includes(q);
     });
-  }, [query, props.keymapOverrides]);
+  }, [query, props.keymapOverrides, platform]);
 
   const total = DEFAULT_KEYMAP_ACTIONS.length;
   const hasOverrides = Object.keys(props.keymapOverrides ?? {}).length > 0;
@@ -199,6 +201,7 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                 const accel = resolveAccelerator(
                   action.id,
                   props.keymapOverrides,
+                  platform,
                 );
                 const overridden = Object.prototype.hasOwnProperty.call(
                   props.keymapOverrides ?? {},

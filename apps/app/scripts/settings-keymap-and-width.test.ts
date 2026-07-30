@@ -18,13 +18,19 @@ describe("settings keymap defaults", () => {
     expect(ids).toContain("openSettings");
     expect(ids).toContain("appSnapshot");
     expect(ids).not.toContain("quickPick" as never);
-    expect(DEFAULT_KEYMAP_ACTIONS.length).toBeGreaterThanOrEqual(9);
+    expect(DEFAULT_KEYMAP_ACTIONS.length).toBe(7);
   });
 
   test("resolveAccelerator prefers overrides", () => {
-    expect(resolveAccelerator("openSettings", {})).toBe("CommandOrControl+,");
+    expect(resolveAccelerator("openSettings", {}, "macos")).toBe(
+      "CommandOrControl+,",
+    );
     expect(
-      resolveAccelerator("openSettings", { openSettings: "CommandOrControl+;" }),
+      resolveAccelerator(
+        "openSettings",
+        { openSettings: "CommandOrControl+;" },
+        "macos",
+      ),
     ).toBe("CommandOrControl+;");
   });
 

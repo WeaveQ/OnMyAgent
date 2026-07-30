@@ -32,6 +32,10 @@ import {
 } from "lexical";
 import type { InitialConfigType } from "@lexical/react/LexicalComposer.js";
 import type { ComposerMentionKind } from "../../../../../app/types";
+import {
+  detectKeymapPlatform,
+  matchKeymapAction,
+} from "../../../../domains/settings/keymap";
 import { decodeComposerMentionValue, encodeComposerMentionValue } from "./mention-encoding";
 import {
   COMPOSER_TEMPLATE_EVENTS,
@@ -561,13 +565,39 @@ function SubmitPlugin(props: { onSubmit: () => void | Promise<void>; disabled: b
         // must always fall through to the editor so the composition can
         // commit.
         if (event?.isComposing === true || event?.keyCode === 229) return false;
-        // Shift+Enter inserts a newline — let the editor handle it.
-        if (event?.shiftKey) return false;
+        if (!event) return false;
+
+        // Settings keymap: send vs insertNewline (Win-safe Shift+Enter only).
+        const platform = detectKeymapPlatform();
+        let overrides: Record<string, string> = {};
+        try {
+          const raw = window.localStorage.getItem("onmyagent.preferences");
+          if (raw) {
+            const parsed = JSON.parse(raw) as {
+              keymapOverrides?: Record<string, string>;
+            };
+            overrides = parsed.keymapOverrides ?? {};
+          }
+        } catch {
+          // ignore
+        }
+        const action = matchKeymapAction(event, overrides, platform);
+        if (action === "insertNewline") {
+          return false; // let Lexical insert newline
+        }
+        if (action === "sendMessage") {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return false;
+          event.preventDefault();
+          void onSubmitRef.current();
+          return true;
+        }
+
+        // Legacy fallback if no keymap match (e.g. cleared bindings).
+        if (event.shiftKey) return false;
         const selection = $getSelection();
         if (!$isRangeSelection(selection)) return false;
-        // Plain Enter submits. Cmd/Ctrl+Enter also submits for muscle
-        // memory compatibility.
-        event?.preventDefault();
+        event.preventDefault();
         void onSubmitRef.current();
         return true;
       },
