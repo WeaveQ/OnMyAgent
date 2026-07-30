@@ -973,6 +973,7 @@ export default {
   "settings.permission_microphone_desc": "允许访问麦克风，用于语音输入",
   "settings.permission_status_granted": "已授权",
   "settings.permission_status_denied": "未授权",
+  "settings.permission_status_unknown": "需确认",
 
   "settings.shortcuts_recording_hint": "请按下新的快捷键组合…",
   "settings.shortcuts_reset_one": "恢复此项默认",

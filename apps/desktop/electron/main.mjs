@@ -23,6 +23,7 @@ import {
   Notification,
   WebContentsView,
   clipboard,
+  desktopCapturer,
   dialog,
   ipcMain,
   nativeImage,
@@ -213,6 +214,7 @@ const computerUseDesktopHelpers = createComputerUseDesktopHelpers({
   shell,
   dialog,
   systemPreferences,
+  desktopCapturer,
   dirname: __dirname,
 });
 const {

@@ -225,8 +225,7 @@ export function createSystemDomainHandlers({
 
   openSystemPermissionSettings: async (event, args) => {
     const type = args[0];
-    const result = openSystemPermissionSettings(type);
-    return result;
+    return await openSystemPermissionSettings(type);
   },
 
   getLaunchAtLogin: async () => getLaunchAtLogin(),
