@@ -29,4 +29,6 @@ export default {
   "context_panel.workspace_root_available": "工作区根目录已可用。",
   "context_panel.workspace_root_badge": "工作区根目录",
   "context_panel.writable_workspace_required": `需要可写的${APP_NAME}服务器工作区才能更新已授权文件夹。`,
+  "context_panel.remote_workspace_no_folders": "远程工作区无法在本机授权本地文件夹。",
+  "context_panel.loading_folders": "正在加载已授权文件夹…",
 } as const;

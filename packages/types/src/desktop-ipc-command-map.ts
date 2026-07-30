@@ -387,8 +387,8 @@ type TypedDesktopCommandMap = {
     DesktopBootstrapConfig
   >;
   pickDirectory: DesktopCommandContract<
-    [{ title?: string; defaultPath?: string }?],
-    string | null
+    [{ title?: string; defaultPath?: string; multiple?: boolean }?],
+    string | string[] | null
   >;
   pickFile: DesktopCommandContract<
     [{ title?: string; defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }?],
