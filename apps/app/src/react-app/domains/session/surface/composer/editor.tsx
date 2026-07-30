@@ -35,7 +35,7 @@ import type { ComposerMentionKind } from "../../../../../app/types";
 import {
   detectKeymapPlatform,
   matchKeymapAction,
-} from "../../../../domains/settings/keymap";
+} from "../../../../kernel/keymap";
 import { decodeComposerMentionValue, encodeComposerMentionValue } from "./mention-encoding";
 import {
   COMPOSER_TEMPLATE_EVENTS,

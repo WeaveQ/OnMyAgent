@@ -8,7 +8,7 @@ import {
   resolveAccelerator,
   resolveDefaultAccelerator,
   type KeymapActionId,
-} from "../src/react-app/domains/settings/keymap";
+} from "../src/react-app/kernel/keymap";
 
 function fakeEvent(partial: {
   key: string;

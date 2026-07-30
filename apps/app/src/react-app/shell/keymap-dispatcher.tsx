@@ -24,7 +24,7 @@ import {
   resolveAccelerator,
   shouldIgnoreForTarget,
   type KeymapActionId,
-} from "../domains/settings/keymap";
+} from "../domains/settings";
 import { useUiStateStore } from "./ui-state-store";
 
 export const KEYMAP_EVENT_NEW_TASK = "onmyagent:keymap:new-task";

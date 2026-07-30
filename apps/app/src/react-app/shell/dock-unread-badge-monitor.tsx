@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 
 import { desktopBridge } from "../../app/lib/desktop";
 import { isDesktopRuntime } from "../../app/utils";
-import { useExpertUnreadStore } from "../domains/session/status/expert-unread-store";
+import { useExpertUnreadStore } from "../domains/session";
 import { useLocal } from "../kernel/local-provider";
 
 function totalUnreadCount(
