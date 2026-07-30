@@ -18,7 +18,7 @@ async function writeSkill(dir, name) {
 }
 
 describe("ensureDefaultBuiltinSkills", () => {
-  it("installs core packages including find-skills, pptx, self-improving", async () => {
+  it("installs core packages including document processing, pptx, and self-improving", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "oma-skills-"));
     const bundled = path.join(root, "bundled");
     const user = path.join(root, "user");
@@ -27,6 +27,7 @@ describe("ensureDefaultBuiltinSkills", () => {
       "create-automation",
       "skill-creator",
       "find-skills",
+      "document-processing",
       "pptx",
       "self-improving",
       "weather",
@@ -45,6 +46,7 @@ describe("ensureDefaultBuiltinSkills", () => {
       "create-automation",
       "skill-creator",
       "find-skills",
+      "document-processing",
       "pptx",
       "self-improving",
     ]) {
