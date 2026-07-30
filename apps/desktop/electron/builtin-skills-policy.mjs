@@ -14,6 +14,7 @@ export const BUNDLED_SKILL_PACKAGE_NAMES = Object.freeze([
   "computer-use",
   "create-automation",
   "doc-coauthoring",
+  "document-processing",
   "expert-manager",
   "find-skills",
   "frontend-design",
@@ -40,7 +41,8 @@ export const CORE_PREINSTALL_SKILLS = Object.freeze([
   { packageName: "create-automation", skillName: "create-automation" },
   { packageName: "skill-creator", skillName: "skill-creator" },
   { packageName: "find-skills", skillName: "find-skills" },
-  /** Office core (bundled has pptx; docx/xlsx live in market for now). */
+  /** Unified office-document entry; format runtimes are provided by artifact skills and pptx. */
+  { packageName: "document-processing", skillName: "document-processing" },
   { packageName: "pptx", skillName: "pptx" },
   { packageName: "self-improving", skillName: "self-improving" },
 ]);
