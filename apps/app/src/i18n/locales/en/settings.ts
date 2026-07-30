@@ -1056,4 +1056,12 @@ export default {
   "settings.shortcuts_recording_hint": "Press a new key combination…",
   "settings.shortcuts_reset_one": "Reset this shortcut",
   "settings.system_options_section_title": "App options",
+  "settings.shortcuts_count": "Total {count}",
+  "settings.shortcuts_reset_all": "Restore all defaults",
+  "settings.shortcuts_col_command": "Command",
+  "settings.shortcuts_col_binding": "Keybinding",
+  "settings.shortcuts_col_actions": "Actions",
+  "settings.shortcuts_clear": "Clear binding",
+  "settings.shortcuts_unbound": "Not set",
+  "settings.shortcuts_empty": "No matching shortcuts",
 } as const;

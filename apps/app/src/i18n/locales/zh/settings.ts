@@ -977,4 +977,12 @@ export default {
   "settings.shortcuts_recording_hint": "请按下新的快捷键组合…",
   "settings.shortcuts_reset_one": "恢复此项默认",
   "settings.system_options_section_title": "应用选项",
+  "settings.shortcuts_count": "共 {count} 条",
+  "settings.shortcuts_reset_all": "全部恢复默认",
+  "settings.shortcuts_col_command": "命令",
+  "settings.shortcuts_col_binding": "按键绑定",
+  "settings.shortcuts_col_actions": "操作",
+  "settings.shortcuts_clear": "清除绑定",
+  "settings.shortcuts_unbound": "未设置",
+  "settings.shortcuts_empty": "没有匹配的快捷键",
 } as const;
