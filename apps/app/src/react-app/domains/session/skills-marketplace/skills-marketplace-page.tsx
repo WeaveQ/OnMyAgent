@@ -937,7 +937,7 @@ export function SkillsMarketplacePage(props: {
   const [installedSkillNames, setInstalledSkillNames] = useState<Set<string>>(
     () => new Set(),
   );
-  /** Product bundled package names (catalog) — used to split 内置 vs 已安装. */
+  /** Product bundled package names (catalog) — used to split built-in vs installed. */
   const [builtinPackageNames, setBuiltinPackageNames] = useState<Set<string>>(
     () => new Set(),
   );
@@ -1225,7 +1225,7 @@ export function SkillsMarketplacePage(props: {
           }}
           onInstall={handleInstallSkill}
         />
-        {/* Free-float pills like files「我的 / 网盘」— no track, inverted active fill. */}
+        {/* Free-float pills like files Mine / Drive tabs — no track, inverted active fill. */}
         <div className="flex shrink-0 items-center px-6 pb-1 pt-1">
           <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
             <NavTabButton

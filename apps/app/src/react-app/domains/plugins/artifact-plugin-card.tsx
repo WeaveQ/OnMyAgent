@@ -59,7 +59,7 @@ function localizedPluginCopy(plugin: ArtifactPluginCatalogItem) {
 
 /**
  * Skill-style vertical card: icon + title + switch, description, bottom
- * “view detail”. Whole card opens detail (cursor + hover like 我的技能).
+ * “view detail”. Whole card opens detail (cursor + hover like My Skills).
  */
 export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const { plugin } = props;
