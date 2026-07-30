@@ -103,7 +103,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
       {open ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),20rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5"
+          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),20rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 shadow-lg"
           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
         >
           {ACCESS_PERMISSION_OPTIONS.map((option) => {

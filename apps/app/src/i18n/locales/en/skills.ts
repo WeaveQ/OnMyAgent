@@ -192,6 +192,7 @@ export default {
   "skills.scope_onmyagent": "OnMyAgent-installed skills",
   "skills.readonly": "Read-only",
   "skills.source_builtin": "Built-in",
+  "skills.source_user_installed": "Installed",
   "skills.source_local": "Local",
   "skills.share_title": "Share skill",
   "skills.shown_count": "{count} shown",

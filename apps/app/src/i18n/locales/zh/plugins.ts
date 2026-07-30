@@ -23,10 +23,10 @@ export default {
   "plugins.suggested": "建议的插件",
   "plugins.suggested_heading": "建议的插件",
   "plugins.title": "连接器",
-  "plugins.artifact_title": "文件工具（系统自带）",
+  "plugins.artifact_title": "文件工具",
   "plugins.artifact_tab": "连接器",
   "plugins.artifact_description":
-    "系统内置的浏览器与文档/表格/PDF 技能，随产品安装，可单独开关；与上方「内置扩展」不同。",
+    "浏览器与文档/表格/PDF 等系统文件能力，随产品安装，可单独开关。",
   "plugins.custom_connector": "自定义连接器",
   "plugins.custom_connector_title": "MCP 服务管理",
   "plugins.custom_connector_subtitle": "安装 MCP 服务，为 AI 扩展更多工具能力",
@@ -72,11 +72,14 @@ export default {
   "plugins.artifact_plugin_pdf_desc": "检查与生成 PDF 文件。",
   "plugins.artifact_plugin_spreadsheets_name": "表格",
   "plugins.artifact_plugin_spreadsheets_desc": "分析与编辑电子表格数据。",
-  "plugins.sample_section_title": "即将推出",
-  "plugins.sample_section_hint": "第三方服务示意，当前仅预览，暂不可安装。",
-  "plugins.builtin_section_title": "内置扩展",
-  "plugins.builtin_section_hint":
-    "产品能力扩展（桌面操控、真实浏览器、语音、本地模型等）。与助理「+ → 连接器」共用开关。",
+  "plugins.sample_section_title": "推荐安装",
+  "plugins.sample_section_hint":
+    "精选第三方连接器，安装后即可扩展能力。当前为预览，暂不可安装。",
+  "plugins.recommend_badge": "预览",
+  "plugins.builtin_section_title": "内置",
+  "plugins.builtin_section_hint": "系统自带能力，开箱可用。",
+  "plugins.builtin_product_label": "产品扩展",
+  "plugins.builtin_file_label": "文件工具",
   "plugins.mcp_section_title": "已配置 MCP",
   "plugins.page_manage_hint": "发现与管理连接器；会话内开/关请用输入框 + 菜单。",
 } as const;

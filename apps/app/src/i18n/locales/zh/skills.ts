@@ -198,5 +198,6 @@ export default {
   "skills.scope_onmyagent": "OnMyAgent 安装技能",
   "skills.readonly": "只读",
   "skills.source_builtin": "内置",
+  "skills.source_user_installed": "安装",
   "skills.source_local": "本地",
 } as const;

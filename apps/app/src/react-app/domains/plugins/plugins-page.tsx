@@ -60,7 +60,14 @@ import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
-import { connectorTileClassName } from "./connector-tile";
+import {
+  connectorTileClassName,
+  connectorTileDescClassName,
+  connectorTileEnabledClass,
+  connectorTileFooterClassName,
+  connectorTileHeaderClassName,
+  connectorTileOrderClass,
+} from "./connector-tile";
 import {
   loadArtifactPluginCatalog,
   loadArtifactPluginDetail,
@@ -124,29 +131,6 @@ type PluginItem = {
   iconKey: string;
 };
 
-type CategoryDefinition = {
-  id: PluginCategory;
-  title: string;
-};
-
-const PLUGIN_CATEGORY_IDS = [
-  "commerce",
-  "productivity",
-  "social",
-  "communication",
-  "developer",
-] as const satisfies readonly PluginCategory[];
-
-function getPluginCategories(): CategoryDefinition[] {
-  return [
-    { id: "commerce", title: t("session.plugins_category_commerce") },
-    { id: "productivity", title: t("session.plugins_category_productivity") },
-    { id: "social", title: t("session.plugins_category_social") },
-    { id: "communication", title: t("session.plugins_category_communication") },
-    { id: "developer", title: t("session.plugins_category_developer") },
-  ];
-}
-
 const pluginsTextClass = {
   cardTitle: "truncate text-sm font-medium leading-5 text-dls-text",
   featuredTitle: "truncate text-sm font-medium leading-5 text-dls-text",
@@ -154,7 +138,8 @@ const pluginsTextClass = {
   cardDescriptionClamp: "mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary",
   statusMeta: "flex items-center gap-1 pt-0.5 text-xs font-medium text-dls-secondary",
   sectionTitle: "mb-2 text-sm font-medium leading-5 text-dls-text",
-  sectionLead: "max-w-2xl text-xs leading-5 text-dls-secondary",
+  // text-balance reduces mid-phrase wraps in long section hints.
+  sectionLead: "max-w-3xl text-pretty text-xs leading-5 text-dls-secondary",
   emptyTitle: "text-sm font-medium text-dls-text",
   emptyDescription: "mt-1.5 text-xs text-dls-secondary",
   helper: "text-xs text-dls-secondary",
@@ -163,15 +148,15 @@ const pluginsTextClass = {
 };
 
 /**
- * Shared product grid: max 4 columns so rows stay even (4 file tools fill one
- * row; 5 built-ins wrap cleanly as 4+1 without a lonely stretched tile).
+ * Built-in product + file tools share one continuous 4-col grid
+ * (equal card heights via auto-rows-fr + h-full tiles).
  */
 const PRODUCT_CONNECTOR_GRID =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  "grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
-/** Coming-soon catalog can stay denser. */
+/** Coming-soon / recommend catalog can stay denser. */
 const PLUGIN_CARD_GRID =
-  "grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  "grid auto-rows-fr grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 /** File-processing plugins: browser + Office suite in product order. */
 const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
@@ -348,8 +333,9 @@ function PluginLogoLobeOrFallback(props: {
 }
 
 function PluginLogo(props: { iconKey: string; className?: string }) {
+  // size-9 matches connector tile header (IconTile default / ArtifactPluginIcon sm).
   const shared =
-    "flex size-10 shrink-0 items-center justify-center rounded-xl border border-black/5";
+    "flex size-9 shrink-0 items-center justify-center rounded-xl border border-black/5";
   const uploadedIconSrc = CONNECTOR_ICON_SRC[props.iconKey];
   if (uploadedIconSrc) {
     return (
@@ -616,33 +602,32 @@ function PluginStoreCard(props: {
 }
 
 function PluginCard(props: { item: PluginItem }) {
-  // Preview-only: not installable. Expert-style vertical tile (dashed = coming soon).
+  // Preview-only under 推荐安装 — same size recipe, no interactive hover/cursor.
   return (
     <div
       className={cn(
-        "flex h-full min-h-36 cursor-default flex-col rounded-2xl border border-dashed border-dls-border/60 bg-dls-surface/50 px-4 py-3.5 text-left",
-        "opacity-100",
-        "mac:titlebar-no-drag",
+        connectorTileClassName,
+        "cursor-default border-dashed border-dls-border/60 bg-dls-surface/50 shadow-none",
+        "hover:border-dls-border/60 hover:bg-dls-surface/50 hover:shadow-none",
+        "dark:hover:border-dls-border/60 dark:hover:bg-dls-surface/50 dark:hover:shadow-none",
       )}
     >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-md" />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <div className={cn(pluginsTextClass.featuredTitle, "min-w-0 font-semibold")}>
-              {props.item.name}
-            </div>
-            <StatusBadge tone="neutral" size="tiny" className="shrink-0">
-              {t("common.coming_soon_short")}
-            </StatusBadge>
+      <div className={connectorTileHeaderClassName}>
+        <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-xl" />
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <div className={cn(pluginsTextClass.featuredTitle, "min-w-0 font-semibold")}>
+            {props.item.name}
           </div>
+          <StatusBadge tone="neutral" size="tiny" className="shrink-0">
+            {t("plugins.recommend_badge")}
+          </StatusBadge>
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-xs leading-5 text-dls-secondary">
-        {props.item.description}
+      <p className={connectorTileDescClassName} title={props.item.description}>
+        {props.item.description || "\u00a0"}
       </p>
-      {/* Spacer so coming-soon cards share the same bottom baseline as artifact cards. */}
-      <div className="mt-auto min-h-5 pt-3" aria-hidden />
+      {/* Spacer matches 查看详情 footer on built-in cards. */}
+      <div className={connectorTileFooterClassName} aria-hidden />
     </div>
   );
 }
@@ -659,7 +644,12 @@ function artifactPluginLabels(): ArtifactPluginDetailLabels {
   };
 }
 
-function ArtifactPluginsCatalog(props: PluginsPageProps) {
+function ArtifactPluginsCatalog(
+  props: PluginsPageProps & {
+    /** When true, omit section chrome — parent band provides title (内置). */
+    embedded?: boolean;
+  },
+) {
   const [pluginState] = useState(() => createArtifactPluginState([]));
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -702,15 +692,15 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
   }, [pluginState, props.client, props.workspaceId]);
 
   const plugins = useMemo(() => {
-    // Product order: 浏览器 → 文档 → 表格 → PDF (suite together; avoids PDF before 表格).
+    // Enabled first, then product order: 浏览器 → 文档 → 表格 → PDF.
     void revision;
     const items = pluginState.list();
     return [...items].sort((left, right) => {
+      if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
       const byOrder =
         rankById(ARTIFACT_PLUGIN_DISPLAY_ORDER, left.id) -
         rankById(ARTIFACT_PLUGIN_DISPLAY_ORDER, right.id);
       if (byOrder !== 0) return byOrder;
-      if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
       return left.id.localeCompare(right.id);
     });
   }, [pluginState, revision]);
@@ -781,6 +771,103 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
     ?? selectedPlugin?.manifest.interface.shortDescription
     ?? t("plugins.artifact_detail_loading");
 
+  const cards =
+    loading || loadError || plugins.length === 0
+      ? null
+      : plugins.map((plugin) => (
+          <ArtifactPluginCard
+            key={plugin.id}
+            plugin={plugin}
+            openLabel={t("plugins.artifact_open")}
+            toggleLabel={t("plugins.artifact_card_toggle", {
+              name: plugin.manifest.interface.displayName,
+            })}
+            onOpen={() => void openPlugin(plugin.id)}
+            onEnabledChange={(enabled) => setPluginEnabled(plugin.id, enabled)}
+          />
+        ));
+
+  const detailDialog = (
+    <Dialog
+      open={Boolean(selectedPluginId)}
+      onOpenChange={(open) => {
+        if (!open) closePluginDetail();
+      }}
+    >
+      <DialogContent
+        className="flex max-h-[min(88vh,40rem)] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>{detailTitle}</DialogTitle>
+          <DialogDescription>{detailDescription}</DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-12">
+          {detailLoading ? (
+            <div
+              className="flex min-h-32 items-center justify-center"
+              role="status"
+              aria-label={t("plugins.artifact_detail_loading")}
+            >
+              <LoadingSpinner />
+            </div>
+          ) : detailError ? (
+            <NoticeBox tone="error" role="alert">
+              {t("plugins.artifact_load_error")}
+            </NoticeBox>
+          ) : selectedPlugin && selectedDetail ? (
+            <ArtifactPluginDetail
+              plugin={{ ...selectedPlugin, connection: selectedDetail.connection }}
+              labels={labels}
+              onSelectPrompt={(pluginId, skillId, prompt) => {
+                props.onSelectArtifactPrompt?.({ pluginId, skillId, prompt });
+                closePluginDetail();
+              }}
+              starterPromptsDisabled={!props.onSelectArtifactPrompt}
+              onPluginEnabledChange={(enabled) => setPluginEnabled(selectedPlugin.id, enabled)}
+              onSkillEnabledChange={(skillId, enabled) =>
+                setSkillEnabled(selectedPlugin.id, skillId, enabled)
+              }
+            />
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Embedded: cards only into parent 4-col grid (no「文件工具」subtitle).
+  if (props.embedded) {
+    return (
+      <>
+        {mutationError ? (
+          <div className="col-span-full">
+            <NoticeBox tone="error" role="alert">
+              {t("plugins.artifact_update_error")}
+            </NoticeBox>
+          </div>
+        ) : null}
+        {loading ? (
+          <div
+            className="col-span-full flex min-h-16 items-center justify-center"
+            role="status"
+            aria-label={t("plugins.artifact_loading")}
+          >
+            <LoadingSpinner />
+          </div>
+        ) : loadError ? (
+          <div className="col-span-full">
+            <NoticeBox tone="error" role="alert">
+              {t("plugins.artifact_load_error")}
+            </NoticeBox>
+          </div>
+        ) : (
+          cards
+        )}
+        {detailDialog}
+      </>
+    );
+  }
+
   return (
     <section
       className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
@@ -794,13 +881,11 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
           {t("plugins.artifact_description")}
         </p>
       </div>
-
       {mutationError ? (
         <NoticeBox tone="error" role="alert">
           {t("plugins.artifact_update_error")}
         </NoticeBox>
       ) : null}
-
       {loading ? (
         <div
           className="flex min-h-16 items-center justify-center"
@@ -816,68 +901,9 @@ function ArtifactPluginsCatalog(props: PluginsPageProps) {
       ) : plugins.length === 0 ? (
         <EmptyStateBox size="comfortable">{t("plugins.artifact_empty")}</EmptyStateBox>
       ) : (
-        <div className={pluginsLayoutClass.artifactCardGrid}>
-          {plugins.map((plugin) => (
-            <ArtifactPluginCard
-              key={plugin.id}
-              plugin={plugin}
-              openLabel={t("plugins.artifact_open")}
-              toggleLabel={t("plugins.artifact_card_toggle", {
-                name: plugin.manifest.interface.displayName,
-              })}
-              onOpen={() => void openPlugin(plugin.id)}
-              onEnabledChange={(enabled) => setPluginEnabled(plugin.id, enabled)}
-            />
-          ))}
-        </div>
+        <div className={pluginsLayoutClass.artifactCardGrid}>{cards}</div>
       )}
-
-      <Dialog
-        open={Boolean(selectedPluginId)}
-        onOpenChange={(open) => {
-          if (!open) closePluginDetail();
-        }}
-      >
-        <DialogContent
-          className="flex max-h-[min(88vh,40rem)] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-        >
-          {/* Visible chrome lives in ArtifactPluginDetail; title/description stay for a11y. */}
-          <DialogHeader className="sr-only">
-            <DialogTitle>{detailTitle}</DialogTitle>
-            <DialogDescription>{detailDescription}</DialogDescription>
-          </DialogHeader>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-12">
-            {detailLoading ? (
-              <div
-                className="flex min-h-32 items-center justify-center"
-                role="status"
-                aria-label={t("plugins.artifact_detail_loading")}
-              >
-                <LoadingSpinner />
-              </div>
-            ) : detailError ? (
-              <NoticeBox tone="error" role="alert">
-                {t("plugins.artifact_load_error")}
-              </NoticeBox>
-            ) : selectedPlugin && selectedDetail ? (
-              <ArtifactPluginDetail
-                plugin={{ ...selectedPlugin, connection: selectedDetail.connection }}
-                labels={labels}
-                onSelectPrompt={(pluginId, skillId, prompt) => {
-                  props.onSelectArtifactPrompt?.({ pluginId, skillId, prompt });
-                  closePluginDetail();
-                }}
-                starterPromptsDisabled={!props.onSelectArtifactPrompt}
-                onPluginEnabledChange={(enabled) => setPluginEnabled(selectedPlugin.id, enabled)}
-                onSkillEnabledChange={(skillId, enabled) =>
-                  setSkillEnabled(selectedPlugin.id, skillId, enabled)
-                }
-              />
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {detailDialog}
     </section>
   );
 }
@@ -909,6 +935,8 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
 function BuiltinExtensionsSection(props: {
   workspaceId: string;
   client?: OnMyAgentServerClient | null;
+  /** When true, omit section chrome — parent band provides title (内置). */
+  embedded?: boolean;
 }) {
   const local = useLocal();
   const [revision, setRevision] = useState(0);
@@ -1115,8 +1143,11 @@ function BuiltinExtensionsSection(props: {
     const visible = ONMYAGENT_EXTENSION_CATALOG.filter(
       (entry) => !isOnMyAgentExtensionHidden(entry),
     );
-    // Stable product order only — do not jump cards when the user toggles enable.
+    // Enabled / on first; off / unavailable last. Then product order.
     return [...visible].sort((left, right) => {
+      const leftOn = isOnMyAgentExtensionEnabled(left);
+      const rightOn = isOnMyAgentExtensionEnabled(right);
+      if (leftOn !== rightOn) return leftOn ? -1 : 1;
       const leftId = left.id ?? left.serverName ?? left.name;
       const rightId = right.id ?? right.serverName ?? right.name;
       const byOrder =
@@ -1136,6 +1167,47 @@ function BuiltinExtensionsSection(props: {
   const detailEnabled =
     detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
 
+  const cards = entries.map((entry) => (
+    <BuiltinExtensionCard
+      key={entry.id ?? entry.serverName ?? entry.name}
+      entry={entry}
+      onOpenDetails={() => setDetailEntry(entry)}
+    />
+  ));
+
+  const detailModal = detailEntry ? (
+    <ExtensionDetailModal
+      open
+      onClose={() => setDetailEntry(null)}
+      name={detailEntry.name}
+      description={detailEntry.description?.trim() || detailEntry.name}
+      kind="extension"
+      preview={detailEntry.preview === true}
+      connected={detailEnabled}
+      connectedLabel={t("plugins.artifact_enabled")}
+      disconnectedLabel={t("plugins.artifact_disabled")}
+      setupInstructions={
+        detailConfig
+          ? undefined
+          : detailEntry.extensionManifest?.setup?.instructions
+      }
+      showEnablementCard={false}
+      showDetailsCard={!detailConfig}
+      size="wide"
+      configSlot={detailConfig}
+    />
+  ) : null;
+
+  // Embedded: only cards (parent owns the continuous 4-col grid).
+  if (props.embedded) {
+    return (
+      <>
+        {cards}
+        {detailModal}
+      </>
+    );
+  }
+
   return (
     <section className={pluginsLayoutClass.section}>
       <div className={pluginsLayoutClass.sectionHeader}>
@@ -1146,38 +1218,8 @@ function BuiltinExtensionsSection(props: {
           {t("plugins.builtin_section_hint")}
         </p>
       </div>
-      <div className={pluginsLayoutClass.connectorCardGrid}>
-        {entries.map((entry) => (
-          <BuiltinExtensionCard
-            key={entry.id ?? entry.serverName ?? entry.name}
-            entry={entry}
-            onOpenDetails={() => setDetailEntry(entry)}
-          />
-        ))}
-      </div>
-      {detailEntry ? (
-        <ExtensionDetailModal
-          open
-          onClose={() => setDetailEntry(null)}
-          name={detailEntry.name}
-          description={detailEntry.description?.trim() || detailEntry.name}
-          kind="extension"
-          preview={detailEntry.preview === true}
-          connected={detailEnabled}
-          connectedLabel={t("plugins.artifact_enabled")}
-          disconnectedLabel={t("plugins.artifact_disabled")}
-          // Config panel is the setup surface — skip duplicate setup/details chrome.
-          setupInstructions={
-            detailConfig
-              ? undefined
-              : detailEntry.extensionManifest?.setup?.instructions
-          }
-          showEnablementCard={false}
-          showDetailsCard={!detailConfig}
-          size="wide"
-          configSlot={detailConfig}
-        />
-      ) : null}
+      <div className={pluginsLayoutClass.connectorCardGrid}>{cards}</div>
+      {detailModal}
     </section>
   );
 }
@@ -1200,11 +1242,39 @@ function BuiltinExtensionCard(props: {
   const description = props.entry.description?.trim() ?? "";
   const canOpenDetails = hasExtensionConfig(props.entry);
 
+  const openDetails = canOpenDetails ? props.onOpenDetails : undefined;
+
   return (
     <article
-      className={cn(connectorTileClassName, !enabled && "opacity-80")}
+      role={openDetails ? "button" : undefined}
+      tabIndex={openDetails ? 0 : undefined}
+      data-enabled={enabled ? "true" : "false"}
+      className={cn(
+        connectorTileClassName,
+        connectorTileOrderClass(enabled),
+        connectorTileEnabledClass(enabled),
+        // No detail panel: keep hover lift but default cursor (switch still works).
+        !openDetails && "cursor-default",
+      )}
+      onClick={openDetails}
+      onKeyDown={
+        openDetails
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openDetails();
+              }
+            }
+          : undefined
+      }
+      aria-label={
+        openDetails
+          ? `${props.entry.name}. ${t("plugins.artifact_open")}`
+          : props.entry.name
+      }
     >
-      <div className="flex min-w-0 items-start gap-2.5">
+      <div className={connectorTileHeaderClassName}>
         <IconTile
           size="default"
           shape="xl"
@@ -1214,63 +1284,48 @@ function BuiltinExtensionCard(props: {
         >
           {extensionIcon(props.entry, 18)}
         </IconTile>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-              {props.entry.name}
-            </h3>
-            <div className="shrink-0 pt-0.5">
-              <Switch
-                checked={enabled}
-                onCheckedChange={(next) => {
-                  setOnMyAgentExtensionEnabled(props.entry, next);
-                  setRevision((value) => value + 1);
-                }}
-                aria-label={props.entry.name}
-              />
-            </div>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
+            {props.entry.name}
+          </h3>
+          <div
+            className="shrink-0"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <Switch
+              checked={enabled}
+              onCheckedChange={(next) => {
+                setOnMyAgentExtensionEnabled(props.entry, next);
+                setRevision((value) => value + 1);
+              }}
+              aria-label={props.entry.name}
+            />
           </div>
         </div>
       </div>
-      {description ? (
-        <p className="mt-2 line-clamp-2 text-xs leading-5 text-dls-secondary">
-          {description}
-        </p>
-      ) : (
-        <div className="mt-2 min-h-10" aria-hidden />
-      )}
-      {canOpenDetails ? (
-        <button
-          type="button"
-          className="mt-auto inline-flex items-center gap-0.5 pt-2 text-xs text-dls-secondary transition-colors hover:text-dls-text"
-          onClick={props.onOpenDetails}
-          aria-label={`${props.entry.name}. ${t("plugins.artifact_open")}`}
-        >
-          {t("plugins.artifact_open")}
-          <ChevronRight className="size-3.5" aria-hidden="true" />
-        </button>
-      ) : (
-        <div className="mt-auto pt-2 text-xs leading-5 text-transparent" aria-hidden>
-          —
-        </div>
-      )}
+      <p className={connectorTileDescClassName} title={description || undefined}>
+        {description || "\u00a0"}
+      </p>
+      <div className={connectorTileFooterClassName}>
+        {canOpenDetails ? (
+          <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
+            {t("plugins.artifact_open")}
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-0.5 text-xs leading-5 text-transparent" aria-hidden>
+            {t("plugins.artifact_open")}
+            <ChevronRight className="size-3.5" />
+          </span>
+        )}
+      </div>
     </article>
   );
 }
 
 export function PluginsPage(props: PluginsPageProps) {
-  const categories = useMemo(() => getPluginCategories(), []);
   const samplePlugins = useMemo(() => getSamplePlugins(), []);
-  const filteredByCategory = useMemo(() => {
-    const map = new Map<PluginCategory, PluginItem[]>();
-    for (const category of categories) {
-      map.set(
-        category.id,
-        samplePlugins.filter((item) => item.category === category.id),
-      );
-    }
-    return map;
-  }, [categories, samplePlugins]);
 
   return (
     <div
@@ -1278,38 +1333,57 @@ export function PluginsPage(props: PluginsPageProps) {
       data-workspace-id={props.workspaceId}
     >
       <div className={pluginsLayoutClass.scrollArea}>
-        <div className={pluginsLayoutClass.pluginPageContainer}>
-          <BuiltinExtensionsSection
-            workspaceId={props.workspaceId}
-            client={props.client}
-          />
-          <ArtifactPluginsCatalog {...props} />
+        {/*
+          Two clear bands only:
+          1) 内置 — product extensions + file tools
+          2) 推荐安装 — third-party preview catalog (flat, no nested categories)
+        */}
+        <div className={cn(pluginsLayoutClass.pluginPageContainer, "space-y-10")}>
           <section
-            className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
+            className={pluginsLayoutClass.section}
+            aria-labelledby="connectors-builtin-heading"
           >
             <div className={pluginsLayoutClass.sectionHeader}>
-              <h2 className={pluginsLayoutClass.sectionTitle}>
+              <h2
+                id="connectors-builtin-heading"
+                className={pluginsLayoutClass.sectionTitle}
+              >
+                {t("plugins.builtin_section_title")}
+              </h2>
+              <p className={pluginsTextClass.sectionLead}>
+                {t("plugins.builtin_section_hint")}
+              </p>
+            </div>
+            {/* One continuous 4-col grid: product extensions + file tools, no sub-titles. */}
+            <div className={pluginsLayoutClass.connectorCardGrid}>
+              <BuiltinExtensionsSection
+                workspaceId={props.workspaceId}
+                client={props.client}
+                embedded
+              />
+              <ArtifactPluginsCatalog {...props} embedded />
+            </div>
+          </section>
+
+          <section
+            className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
+            aria-labelledby="connectors-recommend-heading"
+          >
+            <div className={pluginsLayoutClass.sectionHeader}>
+              <h2
+                id="connectors-recommend-heading"
+                className={pluginsLayoutClass.sectionTitle}
+              >
                 {t("plugins.sample_section_title")}
               </h2>
               <p className={pluginsTextClass.sectionLead}>
                 {t("plugins.sample_section_hint")}
               </p>
             </div>
-            <div className="space-y-5">
-              {categories.map((category) => {
-                const items = filteredByCategory.get(category.id) ?? [];
-                if (items.length === 0) return null;
-                return (
-                  <section key={category.id} className="space-y-2">
-                    <h3 className={pluginsTextClass.categoryTitle}>{category.title}</h3>
-                    <div className={pluginsLayoutClass.cardGrid}>
-                      {items.map((item) => (
-                        <PluginCard key={item.id} item={item} />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
+            <div className={pluginsLayoutClass.connectorCardGrid}>
+              {samplePlugins.map((item) => (
+                <PluginCard key={item.id} item={item} />
+              ))}
             </div>
           </section>
         </div>

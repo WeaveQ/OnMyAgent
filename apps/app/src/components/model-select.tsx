@@ -147,7 +147,7 @@ export function ModelSelectView({
         <ChevronDown className="size-3.5 shrink-0 opacity-70" />
       </PopoverTrigger>
       <PopoverContent
-        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
+        className="h-80 max-h-(--available-height) w-72 gap-0 overflow-hidden border border-dls-mist bg-dls-surface-solid p-px ring-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-0.5"
         align="start"
         initialFocus={false}
       >
