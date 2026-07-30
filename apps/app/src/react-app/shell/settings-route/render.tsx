@@ -94,7 +94,6 @@ import {
   useCheckDesktopRestriction,
   useDesktopConfig,
   useRestrictionNotice,
-  useCloudProviderAutoSync,
 } from "../../domains/cloud";
 import {
   isDesktopRuntime,
@@ -1130,11 +1129,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     };
   }, [connectionsStore, extensionsStore, onmyagentServerStore, providerAuthStore]);
 
-  // Periodically reconcile workspace-imported cloud providers from Den while
-  // signed in (dev #1509 "auto-sync cloud providers"). Mounted here because
-  // the settings route owns the provider-auth store.
-  useCloudProviderAutoSync(providerAuthStore.runCloudProviderSync);
-
+  // Explicit sync when the user opens Cloud providers (no background interval).
   useEffect(() => {
     if (route.tab !== "cloud-providers") return;
     void providerAuthStore.runCloudProviderSync("settings_cloud_opened");

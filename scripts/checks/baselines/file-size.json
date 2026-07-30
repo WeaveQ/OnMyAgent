@@ -5,7 +5,7 @@
     "apps/server/src/services/session-archive.ts": 1650,
     "apps/server/src/services/automations.ts": 926,
     "apps/server/src/routes/workspace-session-archive-routes.ts": 784,
-    "apps/app/src/react-app/shell/settings-route/render.tsx": 1881,
+    "apps/app/src/react-app/shell/settings-route/render.tsx": 1876,
     "apps/app/src/react-app/domains/connections/provider-auth/store.ts": 1598,
     "apps/app/src/react-app/shell/session-route/render.tsx": 1221,
     "apps/desktop/electron/runtime.mjs": 1903,
