@@ -170,6 +170,8 @@ export function parseComputerUseActivity(value) {
 
 export function createComputerUseDesktopHelpers(input) {
   const { app, shell, dialog, systemPreferences, dirname } = input;
+  /** Optional; used to surface the app in Screen Recording privacy list. */
+  const desktopCapturer = input.desktopCapturer ?? null;
   const spawnProcess = input.spawnProcess ?? spawn;
   const readFile = input.readFile ?? readFileSync;
   const resolveComputerUseExecutableOverride = input.resolveComputerUseExecutable;
@@ -627,12 +629,118 @@ function watchComputerUseActivity(onActivity) {
 }
 
 // ─── System permissions ───────────────────────────────────────────────────────
+
+/** @type {"granted"|"denied"|"unknown"|null} */
+let automationStatusCache = null;
+/** @type {number} */
+let automationStatusCacheAt = 0;
+const AUTOMATION_CACHE_MS = 15_000;
+
+function mediaStatusToPermission(status) {
+  if (status === "granted") return "granted";
+  if (status === "denied" || status === "restricted") return "denied";
+  // "not-determined" | "unknown" | …
+  return "unknown";
+}
+
+/**
+ * Probe Calendar via osascript. On modern macOS the *parent* (Electron /
+ * OnMyAgent) is the Automation client, so -1743 means our app is denied.
+ * System Events is avoided (first-party tools often always pass).
+ * @returns {"granted"|"denied"|"unknown"}
+ */
+function probeAutomationPermission() {
+  if (process.platform !== "darwin") return "unknown";
+  const now = Date.now();
+  if (
+    automationStatusCache &&
+    now - automationStatusCacheAt < AUTOMATION_CACHE_MS
+  ) {
+    return automationStatusCache;
+  }
+
+  try {
+    const result = spawnSync(
+      "osascript",
+      [
+        "-e",
+        [
+          'try',
+          '  tell application "Calendar" to get name',
+          '  return "granted"',
+          "on error errMsg number errNum",
+          // -1743 not authorized to send Apple events
+          // -600 application not running (still means we could send — treat as unknown)
+          '  if errNum is -1743 then',
+          '    return "denied"',
+          "  else",
+          '    return "unknown:" & errNum',
+          "  end if",
+          "end try",
+        ].join("\n"),
+      ],
+      {
+        encoding: "utf8",
+        timeout: 8_000,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    const out = String(result.stdout || "").trim();
+    const err = String(result.stderr || "").trim();
+    if (out === "granted") {
+      automationStatusCache = "granted";
+    } else if (out === "denied" || /not authorized|-1743/i.test(err)) {
+      automationStatusCache = "denied";
+    } else if (out.startsWith("unknown:")) {
+      // Calendar missing / other AE errors — not a clear deny
+      automationStatusCache = "unknown";
+    } else if (result.status === 0 && out) {
+      automationStatusCache = "granted";
+    } else {
+      automationStatusCache = "unknown";
+    }
+  } catch (error) {
+    console.warn(
+      "[Automation] probe failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+    automationStatusCache = "unknown";
+  }
+  automationStatusCacheAt = now;
+  return automationStatusCache;
+}
+
+function checkFullDiskAccess() {
+  const protectedDirs = [
+    path.join(os.homedir(), "Library", "Mail"),
+    path.join(os.homedir(), "Library", "Messages"),
+    path.join(os.homedir(), "Library", "Safari"),
+  ];
+  for (const dir of protectedDirs) {
+    try {
+      readdirSync(dir);
+      return "granted";
+    } catch (err) {
+      if (err?.code === "ENOENT" || err?.code === "ENOTDIR") {
+        // Directory not present (e.g. Mail never used) — try next.
+        continue;
+      }
+      // EACCES / EPERM / other open-time errors → FDA not granted.
+      return "denied";
+    }
+  }
+  // No TCC-protected dirs exist on this machine — cannot conclude denied.
+  return "unknown";
+}
+
 function checkSystemPermissions() {
-  console.log("[checkSystemPermissions] Function called, platform:", process.platform);
+  console.log(
+    "[checkSystemPermissions] Function called, platform:",
+    process.platform,
+  );
   const platform = process.platform;
 
-  // Windows / Linux: never fake "granted". macOS-only rows stay absent from UI;
-  // for shared rows use real media checks where Electron exposes them.
+  // Windows / Linux: never fake "granted".
   if (platform !== "darwin") {
     const permissions = {
       "full-disk-access": "unknown",
@@ -644,27 +752,30 @@ function checkSystemPermissions() {
     };
     try {
       if (typeof systemPreferences?.getMediaAccessStatus === "function") {
-        const mic = systemPreferences.getMediaAccessStatus("microphone");
-        permissions.microphone =
-          mic === "granted" ? "granted" : mic === "denied" ? "denied" : "unknown";
-        // screen status is best-effort on non-mac (may be unsupported)
+        permissions.microphone = mediaStatusToPermission(
+          systemPreferences.getMediaAccessStatus("microphone"),
+        );
         try {
-          const screen = systemPreferences.getMediaAccessStatus("screen");
-          permissions["screen-recording"] =
-            screen === "granted"
-              ? "granted"
-              : screen === "denied"
-                ? "denied"
-                : "unknown";
+          permissions["screen-recording"] = mediaStatusToPermission(
+            systemPreferences.getMediaAccessStatus("screen"),
+          );
         } catch {
           permissions["screen-recording"] = "unknown";
         }
       }
     } catch (err) {
-      console.warn("[checkSystemPermissions] non-darwin media check failed", err);
+      console.warn(
+        "[checkSystemPermissions] non-darwin media check failed",
+        err,
+      );
     }
     return {
-      platform: platform === "win32" ? "windows" : platform === "linux" ? "linux" : "unknown",
+      platform:
+        platform === "win32"
+          ? "windows"
+          : platform === "linux"
+            ? "linux"
+            : "unknown",
       permissions,
     };
   }
@@ -678,92 +789,53 @@ function checkSystemPermissions() {
     microphone: "unknown",
   };
 
-  // Accessibility: systemPreferences.isTrustedAccessibilityClient(false)
-  // - Pass false so we only READ status (NOT trigger the consent prompt).
   try {
-    console.log("[checkSystemPermissions] Checking accessibility...");
     const isAccessible = systemPreferences.isTrustedAccessibilityClient(false);
-    console.log("[checkSystemPermissions] Accessibility result:", isAccessible);
     permissions.accessibility = isAccessible === true ? "granted" : "denied";
   } catch (err) {
     console.error("[checkSystemPermissions] Accessibility check failed:", err);
     permissions.accessibility = "unknown";
   }
 
-  // Full Disk Access: probe a TCC-protected directory via readdirSync.
-  //
-  // IMPORTANT: existsSync/stat/accessSync do NOT trigger macOS TCC checks.
-  // Only fs operations that call open() (readdirSync, readFileSync, etc.)
-  // trigger the Full Disk Access TCC check. So we MUST attempt to read the
-  // contents of a protected directory to detect whether FDA is granted.
   try {
-    console.log("[checkSystemPermissions] Checking Full Disk Access...");
-    const protectedDirs = [
-      path.join(os.homedir(), "Library", "Mail"),
-      path.join(os.homedir(), "Library", "Messages"),
-      path.join(os.homedir(), "Library", "Safari"),
-    ];
-
-    let fdaStatus = "denied"; // default: not granted
-
-    for (const dir of protectedDirs) {
-      console.log(`[FDA] Trying: ${dir}`);
-      try {
-        // readdirSync calls open() which triggers TCC check
-        const entries = readdirSync(dir);
-        console.log(`[FDA] ✓ Can read ${dir} (${entries.length} entries)`);
-        fdaStatus = "granted";
-        break;
-      } catch (err) {
-        if (err.code === "ENOENT" || err.code === "ENOTDIR") {
-          // Directory doesn't exist (e.g. user never opened Mail) — try next
-          console.log(`[FDA] Path not found: ${dir} (${err.code})`);
-          continue;
-        }
-        // EACCES / EPERM / any other error → FDA not granted
-        console.log(`[FDA] Access denied for ${dir}: ${err.code}`);
-        fdaStatus = "denied";
-        break;
-      }
-    }
-
-    console.log(`[FDA] Final status: ${fdaStatus}`);
-    permissions["full-disk-access"] = fdaStatus;
+    permissions["full-disk-access"] = checkFullDiskAccess();
   } catch (err) {
     console.error("[checkSystemPermissions] FDA check failed:", err);
     permissions["full-disk-access"] = "unknown";
   }
 
-  // Automation: macOS does NOT expose an API for an app to query its own
-  // Automation permission status. The naive approach of calling osascript
-  // (`OSAScript`) to probe "System Events" was previously used, but it
-  // executed AS the osascript binary — which is a first-party Apple tool
-  // and therefore already has full Automation access for every target.
-  // That made the check ALWAYS report "granted", even when OnMyAgent had
-  // no Automation permissions and never even appeared in the System
-  // Settings → Automation list. Mark as unknown and let the user verify
-  // manually via the "Go to settings" button.
-  permissions.automation = "unknown";
+  permissions.automation = probeAutomationPermission();
 
-  // Notifications: macOS Notification permission status cannot be queried
-  // reliably from the Electron main process (only the renderer has
-  // `Notification.permission`). Mark as unknown and let the UI show a
-  // "Go to settings" button that opens System Settings > Notifications.
-  permissions.notifications = "unknown";
+  // Notifications: renderer overlays with Notification.permission (more accurate).
+  // Best-effort main-process hint when Electron exposes it.
+  try {
+    if (typeof systemPreferences?.getNotificationSettings === "function") {
+      const ns = systemPreferences.getNotificationSettings();
+      // Electron shape varies; treat authorizationStatus if present.
+      const status =
+        ns?.authorizationStatus ?? ns?.authStatus ?? ns?.status ?? null;
+      if (status === "authorized" || status === "provisional") {
+        permissions.notifications = "granted";
+      } else if (status === "denied") {
+        permissions.notifications = "denied";
+      } else {
+        permissions.notifications = "unknown";
+      }
+    } else {
+      permissions.notifications = "unknown";
+    }
+  } catch {
+    permissions.notifications = "unknown";
+  }
 
-  // Screen recording + microphone via Electron media access helpers.
   try {
     if (typeof systemPreferences?.getMediaAccessStatus === "function") {
-      const screen = systemPreferences.getMediaAccessStatus("screen");
-      permissions["screen-recording"] =
-        screen === "granted"
-          ? "granted"
-          : screen === "denied"
-            ? "denied"
-            : "unknown";
-      const mic = systemPreferences.getMediaAccessStatus("microphone");
-      permissions.microphone =
-        mic === "granted" ? "granted" : mic === "denied" ? "denied" : "unknown";
+      permissions["screen-recording"] = mediaStatusToPermission(
+        systemPreferences.getMediaAccessStatus("screen"),
+      );
+      permissions.microphone = mediaStatusToPermission(
+        systemPreferences.getMediaAccessStatus("microphone"),
+      );
     }
   } catch (err) {
     console.warn("[checkSystemPermissions] media status failed", err);
@@ -829,14 +901,14 @@ function triggerAutomationPermissionPrompt() {
   }
 }
 
-function openSystemPermissionSettings(type) {
+async function openSystemPermissionSettings(type) {
   // Windows: open real settings panes; do not no-op success.
   if (process.platform === "win32") {
     const winUrls = {
       notifications: "ms-settings:notifications",
       microphone: "ms-settings:privacy-microphone",
-      "screen-recording": "ms-settings:privacy-webcam",
-      // No FDA / Automation / Accessibility TCC equivalents
+      // Closest system surface for capture-related privacy.
+      "screen-recording": "ms-settings:privacy-graphicscaptureprogrammatic",
     };
     const url = winUrls[type];
     if (!url) {
@@ -846,7 +918,7 @@ function openSystemPermissionSettings(type) {
       };
     }
     try {
-      shell.openExternal(url);
+      await shell.openExternal(url);
       return { success: true };
     } catch (e) {
       return {
@@ -863,26 +935,21 @@ function openSystemPermissionSettings(type) {
     };
   }
 
-  // For Full Disk Access, trigger a request first so the app appears in the list
+  // Full Disk Access: touch protected dirs so the app appears in the list.
   if (type === "full-disk-access") {
     try {
-      // Attempt to read a protected directory to trigger macOS FDA dialog
       const protectedPaths = [
         path.join(os.homedir(), "Library", "Mail"),
         path.join(os.homedir(), "Library", "Messages"),
         path.join(os.homedir(), "Library", "Safari"),
       ];
-
       for (const protectedPath of protectedPaths) {
-        if (existsSync(protectedPath)) {
-          // Try to read the directory (will fail but triggers FDA request)
-          try {
-            readdirSync(protectedPath);
-          } catch (e) {
-            // Expected to fail - this triggers the FDA dialog
-            console.log(`[FDA] Triggered request by accessing: ${protectedPath}`);
-            break;
-          }
+        if (!existsSync(protectedPath)) continue;
+        try {
+          readdirSync(protectedPath);
+        } catch {
+          console.log(`[FDA] Triggered request by accessing: ${protectedPath}`);
+          break;
         }
       }
     } catch (e) {
@@ -890,7 +957,7 @@ function openSystemPermissionSettings(type) {
     }
   }
 
-  // Accessibility: prompt via system API (false = read-only elsewhere).
+  // Accessibility: prompt via system API.
   if (type === "accessibility") {
     try {
       systemPreferences.isTrustedAccessibilityClient(true);
@@ -899,9 +966,50 @@ function openSystemPermissionSettings(type) {
     }
   }
 
-  // Automation: must attempt Apple Events before Privacy_Automation shows us.
+  // Microphone: system dialog when not determined; skip Settings if already granted.
+  if (type === "microphone") {
+    try {
+      if (typeof systemPreferences?.askForMediaAccess === "function") {
+        const granted = await systemPreferences.askForMediaAccess("microphone");
+        if (granted === true) {
+          return {
+            success: true,
+            hint: null,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(`[Microphone] askForMediaAccess failed:`, e.message);
+    }
+  }
+
+  // Screen recording: touch desktopCapturer to surface the app in the list,
+  // then open Privacy → Screen Recording (no askForMediaAccess for screen).
+  if (type === "screen-recording") {
+    try {
+      if (desktopCapturer?.getSources) {
+        void desktopCapturer
+          .getSources({
+            types: ["screen"],
+            thumbnailSize: { width: 1, height: 1 },
+          })
+          .catch(() => undefined);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Automation: register in Privacy → Automation list, then re-probe cache.
   if (type === "automation") {
     triggerAutomationPermissionPrompt();
+    automationStatusCache = null;
+    automationStatusCacheAt = 0;
+    try {
+      probeAutomationPermission();
+    } catch {
+      // ignore
+    }
   }
 
   const appName = app.getName();
@@ -909,10 +1017,14 @@ function openSystemPermissionSettings(type) {
   const listName = isDevMode ? "Electron" : appName;
 
   const urlMap = {
-    "full-disk-access": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
-    accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-    automation: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
-    notifications: "x-apple.systempreferences:com.apple.preference.notifications",
+    "full-disk-access":
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+    accessibility:
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+    automation:
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+    notifications:
+      "x-apple.systempreferences:com.apple.preference.notifications",
     "screen-recording":
       "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
     microphone:
@@ -925,24 +1037,32 @@ function openSystemPermissionSettings(type) {
   }
 
   try {
-    shell.openExternal(url);
+    await shell.openExternal(url);
     const listHint = isDevMode
       ? `开发模式提示：系统设置中请找 “Electron”，而不是 “${appName}”。若列表仍没有，请先点系统弹窗里的“好/允许”，再返回本页刷新；也可点左下角锁后用“+”手动添加 Electron。`
-      : `若列表中没有 “${listName}”，请先处理系统弹出的授权对话框（允许控制日历/提醒/备忘录），再返回本页点刷新。仍没有时可解锁后用“+”手动添加 ${listName}。`;
+      : `若列表中没有 “${listName}”，请先处理系统弹出的授权对话框，再返回本页点刷新。仍没有时可解锁后用“+”手动添加 ${listName}。`;
 
     const hint =
-      type === "full-disk-access" || type === "automation"
+      type === "full-disk-access" ||
+      type === "automation" ||
+      type === "accessibility" ||
+      type === "screen-recording"
         ? listHint
-        : type === "accessibility"
-          ? listHint
-          : null;
+        : type === "notifications"
+          ? "授权系统通知后返回本页点刷新。"
+          : type === "microphone"
+            ? "在系统弹窗中允许麦克风，或到「隐私与安全性 → 麦克风」中开启，然后返回本页刷新。"
+            : null;
 
     return {
       success: true,
       hint,
     };
   } catch (e) {
-    return { success: false, error: e.message };
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 

@@ -1,8 +1,9 @@
 /** @jsxImportSource react */
 /**
  * System authorizations — security-center style list with status badges.
+ * Status is tri-state: granted | denied | unknown (needs confirmation).
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   CheckCircle2,
   ExternalLink,
@@ -69,6 +70,8 @@ type PermissionItem = {
   description: string;
   icon: LucideIcon;
 };
+
+type PermissionStatus = "granted" | "denied" | "unknown";
 
 const PERMISSIONS: PermissionItem[] = [
   {
@@ -149,10 +152,30 @@ function permissionsForPlatform(
   return PERMISSIONS;
 }
 
+/** Overlay OS Notification.permission onto main-process result. */
+function applyNotificationOverlay(
+  permissions: SystemPermissionResult["permissions"],
+): SystemPermissionResult["permissions"] {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return permissions;
+  }
+  const next = { ...permissions };
+  if (Notification.permission === "granted") {
+    next.notifications = "granted";
+  } else if (Notification.permission === "denied") {
+    next.notifications = "denied";
+  } else {
+    // "default" — not yet decided; do not treat as denied.
+    next.notifications = "unknown";
+  }
+  return next;
+}
+
 type RefreshFeedback = "idle" | "loading" | "success";
 
 const MIN_REFRESH_SPIN_MS = 400;
 const REFRESH_SUCCESS_MS = 1600;
+const POST_AUTHORIZE_REFRESH_MS = 2500;
 
 export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
   const {
@@ -167,6 +190,8 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     useState<RefreshFeedback>("idle");
   const [opening, setOpening] = useState<SystemPermissionType | null>(null);
   const [hintDialogHint, setHintDialogHint] = useState<string | null>(null);
+  /** After user opens System Settings, refresh once when window regains focus. */
+  const pendingFocusRefreshRef = useRef(false);
 
   const checkPermissions = useCallback(
     async (options?: { showSuccess?: boolean }) => {
@@ -177,19 +202,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
       try {
         const data =
           (await desktopBridge.checkSystemPermissions()) as SystemPermissionResult;
-        const permissions = { ...data.permissions };
-        if (
-          typeof window !== "undefined" &&
-          "Notification" in window
-        ) {
-          if (Notification.permission === "granted") {
-            permissions.notifications = "granted";
-          } else if (Notification.permission === "denied") {
-            permissions.notifications = "denied";
-          } else {
-            permissions.notifications = "denied";
-          }
-        }
+        const permissions = applyNotificationOverlay({ ...data.permissions });
         setResult({ ...data, permissions });
       } catch (e) {
         console.error("Failed to check system permissions:", e);
@@ -215,24 +228,55 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
     void checkPermissions();
   }, [checkPermissions]);
 
+  // Re-check when user returns from System Settings (focus / visible again).
+  useEffect(() => {
+    const maybeRefresh = () => {
+      if (!pendingFocusRefreshRef.current) return;
+      pendingFocusRefreshRef.current = false;
+      void checkPermissions();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
+    };
+    window.addEventListener("focus", maybeRefresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", maybeRefresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [checkPermissions]);
+
   const handleAuthorize = async (type: SystemPermissionType) => {
     setOpening(type);
     try {
+      // Notifications: first ask the browser/Electron prompt when undecided.
       if (
         type === "notifications" &&
         typeof window !== "undefined" &&
         "Notification" in window &&
         Notification.permission === "default"
       ) {
-        await Notification.requestPermission().catch(() => undefined);
+        const perm = await Notification.requestPermission().catch(
+          () => "default" as NotificationPermission,
+        );
+        if (perm === "granted") {
+          void checkPermissions();
+          return;
+        }
+        // denied / still default → fall through to open System Settings
       }
+
       const response = (await desktopBridge.openSystemPermissionSettings(
         type,
       )) as { success: boolean; hint?: string | null; error?: string };
       if (response.hint) {
         setHintDialogHint(response.hint);
       }
-      setTimeout(() => void checkPermissions(), 3000);
+      pendingFocusRefreshRef.current = true;
+      window.setTimeout(
+        () => void checkPermissions(),
+        POST_AUTHORIZE_REFRESH_MS,
+      );
     } catch (e) {
       console.error("Failed to open system preferences:", e);
     } finally {
@@ -301,8 +345,10 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
           )}
         >
           {items.map((perm) => {
-            const status = result?.permissions[perm.id];
+            const status = (result?.permissions[perm.id] ??
+              "unknown") as PermissionStatus;
             const isGranted = status === "granted";
+            const isUnknown = status === "unknown";
             const isOpening = opening === perm.id;
             const Icon = perm.icon;
 
@@ -322,7 +368,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
                     {perm.description}
                   </p>
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   {!result || loading ? (
                     <StatusBadge tone="neutral" size="sm">
                       {t("settings.permission_checking")}
@@ -332,24 +378,35 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
                       {t("settings.permission_status_granted")}
                     </StatusBadge>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 whitespace-nowrap"
-                      onClick={() => void handleAuthorize(perm.id)}
-                      disabled={isOpening || busy}
-                    >
-                      {isOpening ? (
-                        <LoadingSpinner size="sm" />
+                    <>
+                      {isUnknown ? (
+                        <StatusBadge tone="warning" size="sm">
+                          {t("settings.permission_status_unknown")}
+                        </StatusBadge>
                       ) : (
-                        <ExternalLink className="size-3.5" />
+                        <StatusBadge tone="danger" size="sm">
+                          {t("settings.permission_status_denied")}
+                        </StatusBadge>
                       )}
-                      <span className="leading-none">
-                        {isOpening
-                          ? t("settings.permission_opening")
-                          : t("settings.permission_status_denied")}
-                      </span>
-                    </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 whitespace-nowrap"
+                        onClick={() => void handleAuthorize(perm.id)}
+                        disabled={isOpening || busy}
+                      >
+                        {isOpening ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <ExternalLink className="size-3.5" />
+                        )}
+                        <span className="leading-none">
+                          {isOpening
+                            ? t("settings.permission_opening")
+                            : t("settings.permission_authorize")}
+                        </span>
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
@@ -421,6 +478,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
             <Button
               onClick={() => {
                 setHintDialogHint(null);
+                pendingFocusRefreshRef.current = false;
                 void checkPermissions();
               }}
             >
