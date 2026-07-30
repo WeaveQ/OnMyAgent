@@ -20,6 +20,22 @@ import {
  *   copyDir?: (src: string, dest: string) => Promise<void>,
  * }} input
  */
+/**
+ * Runtime helper: coerce firstExisting PathLike roots to string before install.
+ * @param {() => unknown} getBundledRoot
+ * @param {() => unknown} getUserSkillsRoot
+ */
+export async function ensureDefaultBuiltinSkillsFromRoots(
+  getBundledRoot,
+  getUserSkillsRoot,
+) {
+  const bundledRoot = getBundledRoot();
+  return ensureDefaultBuiltinSkills({
+    bundledRoot: bundledRoot == null ? null : String(bundledRoot),
+    userSkillsRoot: String(getUserSkillsRoot() ?? ""),
+  });
+}
+
 export async function ensureDefaultBuiltinSkills(input) {
   const userRoot = String(input.userSkillsRoot ?? "").trim();
   if (!userRoot) {
