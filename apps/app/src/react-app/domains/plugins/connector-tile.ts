@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * Fixed height (not min-h): grid only equalizes *within* a row.
  * Compact budget (9.25rem ≈ 148px).
  *
- * Hover matches 我的技能 InstalledSkillCard: list-selected lift + cursor-pointer
+ * Hover matches InstalledSkillCard: list-selected lift + cursor-pointer
  * (bg-dls-hover is nearly invisible on dark canvas).
  *
  * Cross-source “enabled first” uses CSS order on each tile.
@@ -22,7 +22,7 @@ export const connectorTileClassName = cn(
   "mac:titlebar-no-drag",
 );
 
-/** Enabled tiles before disabled across the continuous 内置 grid. */
+/** Enabled tiles before disabled across the continuous built-in grid. */
 export function connectorTileOrderClass(enabled: boolean): string {
   return enabled ? "order-1" : "order-2";
 }
@@ -42,6 +42,6 @@ export const connectorTileHeaderClassName =
 export const connectorTileDescClassName =
   "mt-1.5 line-clamp-2 h-9 shrink-0 overflow-hidden text-xs leading-[1.125rem] text-dls-secondary";
 
-/** Footer under description — “查看详情” / spacer, aligned across cards. */
+/** Footer under description — “View details” / spacer, aligned across cards. */
 export const connectorTileFooterClassName =
   "mt-auto flex h-6 shrink-0 items-center";

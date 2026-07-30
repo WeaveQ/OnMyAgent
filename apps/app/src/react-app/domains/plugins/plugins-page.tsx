@@ -602,7 +602,7 @@ function PluginStoreCard(props: {
 }
 
 function PluginCard(props: { item: PluginItem }) {
-  // Preview-only under 推荐安装 — same size recipe, no interactive hover/cursor.
+  // Preview-only under Recommended — same size recipe, no interactive hover/cursor.
   return (
     <div
       className={cn(
@@ -626,7 +626,7 @@ function PluginCard(props: { item: PluginItem }) {
       <p className={connectorTileDescClassName} title={props.item.description}>
         {props.item.description || "\u00a0"}
       </p>
-      {/* Spacer matches 查看详情 footer on built-in cards. */}
+      {/* Spacer matches View details footer on built-in cards. */}
       <div className={connectorTileFooterClassName} aria-hidden />
     </div>
   );
@@ -646,7 +646,7 @@ function artifactPluginLabels(): ArtifactPluginDetailLabels {
 
 function ArtifactPluginsCatalog(
   props: PluginsPageProps & {
-    /** When true, omit section chrome — parent band provides title (内置). */
+    /** When true, omit section chrome — parent band provides title (Built-in). */
     embedded?: boolean;
   },
 ) {
@@ -835,7 +835,7 @@ function ArtifactPluginsCatalog(
     </Dialog>
   );
 
-  // Embedded: cards only into parent 4-col grid (no「文件工具」subtitle).
+  // Embedded: cards only into parent 4-col grid (no File tools subtitle).
   if (props.embedded) {
     return (
       <>
@@ -935,7 +935,7 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
 function BuiltinExtensionsSection(props: {
   workspaceId: string;
   client?: OnMyAgentServerClient | null;
-  /** When true, omit section chrome — parent band provides title (内置). */
+  /** When true, omit section chrome — parent band provides title (Built-in). */
   embedded?: boolean;
 }) {
   const local = useLocal();
@@ -1335,8 +1335,8 @@ export function PluginsPage(props: PluginsPageProps) {
       <div className={pluginsLayoutClass.scrollArea}>
         {/*
           Two clear bands only:
-          1) 内置 — product extensions + file tools
-          2) 推荐安装 — third-party preview catalog (flat, no nested categories)
+          1) Built-in — product extensions + file tools
+          2) Recommended — third-party preview catalog (flat, no nested categories)
         */}
         <div className={cn(pluginsLayoutClass.pluginPageContainer, "space-y-10")}>
           <section
@@ -1392,11 +1392,11 @@ export function PluginsPage(props: PluginsPageProps) {
   );
 }
 
-// 子 tab 状态类型（"我的" = 本地已装 / "商城" = 全量/未装）
+// Store sub-tab: mine = locally installed, marketplace = full catalog / not installed.
 type StoreSubTab = "mine" | "marketplace";
 
-// 通过 OnMyAgent server 扫描出来的技能完整列表。每次 refreshKey 变化时
-// 都会重新拉取一遍，因此切到"我的技能"时调用方只需递增 refreshKey。
+// Skills scanned via OnMyAgent server. Increment refreshKey when switching to
+// the Mine tab so the list is re-scanned.
 type ScannedSkill = {
   name: string;
   description: string;
@@ -1570,7 +1570,7 @@ export function SkillsPage(props: PluginsPageProps) {
   const [subTab, setSubTab] = useState<StoreSubTab>(
     props.marketOnly ? "marketplace" : "mine",
   );
-  // refreshKey 每次切到"我的技能"时递增，触发重扫
+  // Increment refreshKey when switching to Mine to force a re-scan.
   const [refreshKey, setRefreshKey] = useState(0);
 
   const {
@@ -1583,9 +1583,8 @@ export function SkillsPage(props: PluginsPageProps) {
     props.client,
     refreshKey,
   );
-  // 切换 tab：每次点击"我的技能"都强制重新扫描一次
+  // Tab switch: every click on Mine re-scans even if already on that tab.
   const handleSubTabChange = (value: StoreSubTab) => {
-    // 只要点击"我的技能"，无论是否已经在该 tab，都强制刷新
     if (value === "mine") {
       setRefreshKey((k) => k + 1);
     }
