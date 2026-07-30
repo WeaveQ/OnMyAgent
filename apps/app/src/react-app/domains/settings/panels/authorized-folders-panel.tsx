@@ -165,9 +165,47 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
     return null;
   }, [canReadConfig, canWriteConfig, onmyagentServerReady, onmyagentServerWorkspaceReady]);
 
+  // Local (and any non-remote) desktop workspaces can add external folders.
+  // Do not treat missing type as remote — that permanently disables the button.
+  const isRemoteWorkspace = props.activeWorkspaceType === "remote";
   const canPickAuthorizedFolder =
-    isDesktopRuntime() && canWriteConfig && props.activeWorkspaceType === "local";
+    isDesktopRuntime() && canWriteConfig && !isRemoteWorkspace;
+
+  const pickDisabledReason = useMemo(() => {
+    if (!isDesktopRuntime()) return t("settings.desktop_only_hint");
+    if (isRemoteWorkspace) return t("context_panel.remote_workspace_no_folders");
+    if (!onmyagentServerReady) return t("context_panel.server_disconnected");
+    if (!onmyagentServerWorkspaceReady) return t("context_panel.no_server_workspace");
+    if (!canWriteConfig) {
+      return (
+        authorizedFoldersHint ?? t("context_panel.config_read_only")
+      );
+    }
+    if (authorizedFoldersLoading) return t("context_panel.loading_folders");
+    if (authorizedFoldersSaving) return t("context_panel.saving_folders");
+    return null;
+  }, [
+    authorizedFoldersHint,
+    authorizedFoldersLoading,
+    authorizedFoldersSaving,
+    canWriteConfig,
+    isRemoteWorkspace,
+    onmyagentServerReady,
+    onmyagentServerWorkspaceReady,
+  ]);
+
   const workspaceRootFolder = props.selectedWorkspaceRoot.trim();
+  const workspaceRootNormalized =
+    normalizeAuthorizedFolderPath(workspaceRootFolder);
+  const authorizedNormalized = useMemo(
+    () =>
+      new Set(
+        authorizedFolders
+          .map((f) => normalizeAuthorizedFolderPath(f))
+          .filter(Boolean),
+      ),
+    [authorizedFolders],
+  );
   const visibleAuthorizedFolders = useMemo(() => {
     const root = workspaceRootFolder;
     return root ? [root, ...authorizedFolders] : authorizedFolders;
@@ -263,53 +301,96 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
   }, [authorizedFolders, persistAuthorizedFolders]);
 
   const pickAuthorizedFolder = useCallback(async () => {
-    if (!isDesktopRuntime()) return;
+    if (!canPickAuthorizedFolder) return;
     try {
+      // multiSelections: user can authorize several folders in one dialog.
       const selection = await pickDirectory({
         title: t("onboarding.authorize_folder"),
+        multiple: true,
       });
-      const folder =
-        typeof selection === "string"
-          ? selection
-          : Array.isArray(selection)
-            ? selection[0]
-            : null;
-      const normalized = normalizeAuthorizedFolderPath(folder);
-      const workspaceRoot = normalizeAuthorizedFolderPath(workspaceRootFolder);
-      if (!normalized) return;
-      if (workspaceRoot && normalized === workspaceRoot) {
-        setAuthorizedFoldersStatus(t("context_panel.workspace_root_available"));
-        setAuthorizedFoldersError(null);
+      const folders: string[] = Array.isArray(selection)
+        ? selection
+        : typeof selection === "string"
+          ? [selection]
+          : [];
+      if (!folders.length) return;
+
+      const next = [...authorizedFolders];
+      let added = 0;
+      let skippedRoot = 0;
+      let skippedDup = 0;
+
+      for (const folder of folders) {
+        const normalized = normalizeAuthorizedFolderPath(folder);
+        if (!normalized) continue;
+        if (workspaceRootNormalized && normalized === workspaceRootNormalized) {
+          skippedRoot += 1;
+          continue;
+        }
+        if (
+          authorizedNormalized.has(normalized) ||
+          next.some((f) => normalizeAuthorizedFolderPath(f) === normalized)
+        ) {
+          skippedDup += 1;
+          continue;
+        }
+        next.push(normalized);
+        added += 1;
+      }
+
+      setAuthorizedFoldersError(null);
+      if (added === 0) {
+        if (skippedRoot > 0 && skippedDup === 0) {
+          setAuthorizedFoldersStatus(t("context_panel.workspace_root_available"));
+        } else if (skippedDup > 0) {
+          setAuthorizedFoldersStatus(t("context_panel.folder_already_authorized"));
+        }
         return;
       }
-      if (authorizedFolders.includes(normalized)) {
-        setAuthorizedFoldersStatus(t("context_panel.folder_already_authorized"));
-        setAuthorizedFoldersError(null);
-        return;
-      }
-      await persistAuthorizedFolders([...authorizedFolders, normalized]);
+      await persistAuthorizedFolders(next);
     } catch (error) {
       const message = error instanceof Error ? error.message : safeStringify(error);
       setAuthorizedFoldersError(message);
     }
-  }, [authorizedFolders, persistAuthorizedFolders, workspaceRootFolder]);
+  }, [
+    authorizedFolders,
+    authorizedNormalized,
+    canPickAuthorizedFolder,
+    persistAuthorizedFolders,
+    workspaceRootNormalized,
+  ]);
 
   return (
     <SettingsPageSection
       title={t("context_panel.authorized_folders")}
       description={t("context_panel.authorized_folders_desc")}
       actions={
-        <Button
-          onClick={() => void pickAuthorizedFolder()}
-          disabled={
-            authorizedFoldersLoading ||
-            authorizedFoldersSaving ||
-            !canPickAuthorizedFolder
-          }
-        >
-          <Plus className="size-4" />
-          {t("context_panel.add_folder_button")}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={(
+              <span className="inline-flex">
+                <Button
+                  onClick={() => void pickAuthorizedFolder()}
+                  disabled={
+                    authorizedFoldersLoading ||
+                    authorizedFoldersSaving ||
+                    !canPickAuthorizedFolder
+                  }
+                >
+                  <Plus className="size-4" />
+                  {t("context_panel.add_folder_button")}
+                </Button>
+              </span>
+            )}
+          />
+          {pickDisabledReason ? (
+            <TooltipContent>{pickDisabledReason}</TooltipContent>
+          ) : (
+            <TooltipContent>
+              {t("context_panel.add_folder_hint")}
+            </TooltipContent>
+          )}
+        </Tooltip>
       }
     >
       {!canReadConfig ? (
