@@ -6,6 +6,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createEmptyFormState,
   formStateFromAutomation,
+  formStateFromTemplateLocalized,
   hasAutomationModel,
   intervalMinutes,
   intervalParts,
@@ -15,6 +16,7 @@ import {
   onceAt,
   optimizeAutomationPrompt,
   scheduleLabel,
+  selectAgentTemplateById,
   workspaceDirectoryLabel,
 } from "../src/react-app/domains/messaging/automation-form-model";
 
@@ -141,5 +143,29 @@ describe("automation form model (shipped)", () => {
   test("workspaceDirectoryLabel falls back for empty path", () => {
     expect(workspaceDirectoryLabel("")).toBeTruthy();
     expect(workspaceDirectoryLabel("/Users/me/project")).toBe("project");
+  });
+
+  test("selectAgentTemplateById finds template by id", () => {
+    const registry = {
+      templates: [{ id: "a" }, { id: "b" }],
+    };
+    expect(selectAgentTemplateById(registry, "b")).toEqual({ id: "b" });
+    expect(selectAgentTemplateById(registry, "missing")).toBeNull();
+  });
+
+  test("formStateFromTemplateLocalized builds schedule from template", () => {
+    const form = formStateFromTemplateLocalized(
+      {
+        id: "t1",
+        titleKey: "automation.template_title",
+        promptKey: "automation.template_prompt",
+        defaultSchedule: { mode: "weekly", day: "daily", time: "08:00" },
+      } as any,
+      { providerID: "p", modelID: "m" },
+    );
+    expect(form.frequencyMode).toBe("weekly");
+    expect(form.time).toBe("08:00");
+    expect(form.model).toEqual({ providerID: "p", modelID: "m" });
+    expect(form.title.length).toBeGreaterThan(0);
   });
 });

@@ -46,7 +46,11 @@ import type {
   AssistantSpaceFolder,
 } from "./assistant-list-model";
 import {
+  assistantDirectoryName,
+  assistantTaskSelected,
   dropSlotToIndex,
+  groupIncludesSession,
+  pinOwnsSession,
   reorderSpaceFolderDirectories,
   resolveDropSlot,
 } from "./assistant-list-model";
@@ -143,32 +147,6 @@ type AssistantConversationSectionsProps = {
     sessionIds: string[];
   }) => void;
 };
-
-function assistantDirectoryName(directory: string) {
-  return (
-    directory
-      .replace(/\\/g, "/")
-      .replace(/\/+$/, "")
-      .split("/")
-      .filter(Boolean)
-      .pop() ?? directory
-  );
-}
-
-function assistantTaskSelected(
-  group: AgentConversationGroup,
-  selectedSessionId: string | null,
-) {
-  return group.sessions.some((session) => session.id === selectedSessionId);
-}
-
-function groupIncludesSession(
-  groups: AgentConversationGroup[],
-  selectedSessionId: string | null,
-) {
-  if (!selectedSessionId) return false;
-  return groups.some((group) => assistantTaskSelected(group, selectedSessionId));
-}
 
 /** Insertion slot from a drag-over event on a row (Codex-style half-row split). */
 function dropSlotFromEvent(
@@ -1080,30 +1058,6 @@ function FolderTaskShowMore(props: {
 /** Nested task list under a folder — no extra py so row heights stay even. */
 function FolderChildren(props: { children: ReactNode }) {
   return <div className="ml-5 flex flex-col gap-0.5">{props.children}</div>;
-}
-
-function pinOwnsSession(
-  pin: AssistantGlobalPin,
-  selectedSessionId: string | null,
-  groupsBySessionId: Map<string, AgentConversationGroup>,
-  spaceItemsByDirectory: Map<string, AgentConversationGroup[]>,
-  automationItemsById: Map<string, AgentConversationGroup[]>,
-): boolean {
-  if (!selectedSessionId) return false;
-  if (pin.kind === "session") {
-    const group = groupsBySessionId.get(pin.id);
-    return group ? assistantTaskSelected(group, selectedSessionId) : false;
-  }
-  if (pin.kind === "automation") {
-    return groupIncludesSession(
-      automationItemsById.get(pin.id) ?? [],
-      selectedSessionId,
-    );
-  }
-  return groupIncludesSession(
-    spaceItemsByDirectory.get(pin.id) ?? [],
-    selectedSessionId,
-  );
 }
 
 export function AssistantConversationSections(

@@ -132,6 +132,48 @@ describe("personal-local-agent host poll wiring", () => {
   });
 });
 
+describe("deferred high-value network/status poll wiring", () => {
+  test("messaging-view-state pauses 10s refresh while hidden", () => {
+    const source = readFileSync(
+      join(appRoot, "src/react-app/domains/settings/state/messaging-view-state.ts"),
+      "utf8",
+    );
+    expect(source).toContain('from "../../../infra/visibility-poll"');
+    expect(source).toContain("shouldRunPollTick");
+    expect(source).toContain("isDocumentHidden");
+  });
+
+  test("desktop-config-provider pauses signed-in config refresh while hidden", () => {
+    const source = readFileSync(
+      join(appRoot, "src/react-app/domains/cloud/desktop-config-provider.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('from "../../infra/visibility-poll"');
+    expect(source).toContain("shouldRunPollTick");
+    expect(source).toContain("isDocumentHidden");
+  });
+
+  test("session-route refresh-hook pauses reload-event poll while hidden", () => {
+    const source = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/refresh-hook.ts"),
+      "utf8",
+    );
+    expect(source).toContain('from "../../infra/visibility-poll"');
+    expect(source).toContain("shouldRunPollTick");
+    expect(source).toContain("isDocumentHidden");
+  });
+
+  test("automation-page pauses status poll while hidden", () => {
+    const source = readFileSync(
+      join(appRoot, "src/react-app/domains/messaging/automation-page.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('from "../../infra/visibility-poll"');
+    expect(source).toContain("shouldRunPollTick");
+    expect(source).toContain("isDocumentHidden");
+  });
+});
+
 describe("code-workspace-side-panel automations poll wiring", () => {
   test("imports visibility-poll helpers and no longer uses bare 15s setInterval", () => {
     const source = readFileSync(

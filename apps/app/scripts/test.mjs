@@ -77,6 +77,8 @@ const testTargets = new Map([
   ['session-visual-files-contract', ['bun', ['test', 'scripts/session-visual-files-contract.test.ts']]],
   ['session-snapshot-error', ['bun', ['test', 'scripts/session-snapshot-error.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
+  ['workspace-files-model', ['bun', ['test', 'scripts/workspace-files-model.test.ts']]],
+  ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],
   ['settings-lazy-pages', ['bun', ['test', 'scripts/settings-lazy-pages.test.ts']]],
   ['session-transcript-virtual-window', ['bun', ['test', 'scripts/session-transcript-virtual-window.test.ts']]],
   ['ui-state-store', ['bun', ['test', 'scripts/ui-state-store.test.ts']]],
