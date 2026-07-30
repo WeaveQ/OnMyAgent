@@ -1,59 +1,94 @@
 [
   {
-    "id": "pod-reconciliation",
-    "title": { "zh": "回单对账", "en": "POD Reconciliation" },
+    "id": "settlement-data-consolidation",
+    "title": {
+      "zh": "把运单和账单合到一起",
+      "en": "Match Shipments and Bills"
+    },
     "description": {
-      "zh": "补齐双方账单和回单资料并逐票核对",
-      "en": "Collect both ledgers and reconcile every shipment"
+      "zh": "把几份运单和账单自动对到一起，直接得到对账表",
+      "en": "Build one clear reconciliation sheet by shipment number"
     },
     "template": {
-      "zh": "请补齐以下回单对账资料：\n\n1. 对账范围：对账对象 <客户、承运商或司机名称>，账期 <对账月份或周期>，币种 <币种>\n2. 对齐规则：优先按 <运单号、客户单号或车牌＋发车日＋线路> 对齐\n3. 我方运单费用：@<我方运单费用表>\n4. 我方费用表应包含：<运单号或对齐键>、<线路>、<基础运费及各项附加费>、<我方应付或应收金额>\n5. 回单资料：@<回单登记或回单文件>\n6. 回单资料应包含：<运单号>、<回单状态>、<应回日期>、<实际回收日期或当前持有人>\n7. 对方账单：@<客户或承运商账单>\n8. 结算规则：<必须原件、认可电子回单或无需回单>\n9. 差异规则：普通差异阈值 <差异阈值> 元，大额差异阈值 <大额差异阈值> 元\n\n请逐票匹配并核对，单列费用差异、缺失回单、超期回单和无法匹配项，生成对账单草稿；暂不入账、付款或修改回单状态。",
-      "en": "Please complete the following POD reconciliation details:\n\n1. Scope: counterparty <Customer, carrier, or driver>, period <Reconciliation period>, currency <Currency>\n2. Match key: <Waybill, customer reference, or plate plus date plus route>\n3. Our charges: @<Internal shipment charge file>\n4. The file must include <Waybill or match key>, <Route>, <Base freight and surcharges>, <Our payable or receivable>\n5. POD data: @<POD register or files>\n6. POD data must include <Waybill number>, <POD status>, <POD due date>, <Received date or current holder>\n7. Counterparty bill: @<Customer or carrier bill>\n8. Settlement rule: <Original required, electronic accepted, or POD not required>\n9. Variance rules: standard <Variance threshold>, large <Large variance threshold>\n\nMatch and reconcile each shipment, listing fee variances, missing and overdue PODs, and unmatched items. Generate a draft statement without posting, paying, or changing POD status."
+      "zh": "这些是 <运单、报价、客户账单、承运商账单和回单表>。请按 <运单号或其他对应方法> 合成一张对账表，套用 <你要使用的对账模板>，并标出对不上、重复或缺少信息的记录。",
+      "en": "Match <Shipment, quote, customer bill, carrier bill, and receipt sheets> using <Shipment number or another matching method>, follow <My template>, and flag unmatched, duplicate, or missing records."
     },
     "requiredSlots": {
-      "zh": ["客户、承运商或司机名称", "对账月份或周期", "币种", "运单号、客户单号或车牌＋发车日＋线路", "我方运单费用表", "运单号或对齐键", "线路", "基础运费及各项附加费", "我方应付或应收金额", "回单登记或回单文件", "运单号", "回单状态", "应回日期", "实际回收日期或当前持有人", "客户或承运商账单", "必须原件、认可电子回单或无需回单", "差异阈值", "大额差异阈值"],
-      "en": ["Customer, carrier, or driver", "Reconciliation period", "Currency", "Waybill, customer reference, or plate plus date plus route", "Internal shipment charge file", "Waybill or match key", "Route", "Base freight and surcharges", "Our payable or receivable", "POD register or files", "Waybill number", "POD status", "POD due date", "Received date or current holder", "Customer or carrier bill", "Original required, electronic accepted, or POD not required", "Variance threshold", "Large variance threshold"]
-    },
-    "conditionalSlots": { "zh": [], "en": [] }
-  },
-  {
-    "id": "billing",
-    "title": { "zh": "开票管理", "en": "Billing" },
-    "description": {
-      "zh": "补齐开票资料和运单明细并生成申请草稿",
-      "en": "Collect invoice data and prepare an application"
-    },
-    "template": {
-      "zh": "请补齐以下开票资料：\n\n1. 开票客户：客户全称 <客户开票抬头>，本次涉及 <运单票数> 票\n2. 发票要求：发票类型 <增值税专票、普票或电子普票>，货物或服务名称 <开票项目名称>\n3. 金额税率：开票金额 <开票金额> 元，金额口径 <含税或未税>，税率 <税率>%\n4. 运单对应：@<运单号、单票金额和线路清单>\n5. 基础资料：税号 <纳税人识别号>，注册地址 <注册地址>，联系电话 <开票联系电话>\n6. 银行资料：开户行 <开户行全称>，银行账号 <银行账号>\n7. 专票资料：一般纳税人资格及资料 @<专票资质文件；非专票填不适用>\n8. 交付方式：<电子票接收邮箱，或纸票收件人、电话和邮寄地址>\n9. 账期进度：期望开票日期 <期望开票日期>，客户账期 <客户账期>\n10. 开票依据：@<确认对账单、合同或其他开票依据>\n\n请先检查资料完整性以及运单金额合计是否与开票金额一致，再生成开票清单、申请内容和进度表；暂不正式提交开票。",
-      "en": "Please complete the following billing details:\n\n1. Customer: legal invoice name <Invoice title>, shipments <Shipment count>\n2. Invoice: <VAT special, general, or electronic general>, item <Invoice item name>\n3. Amount: <Invoice amount>, basis <Tax-inclusive or tax-exclusive>, rate <Tax rate>%\n4. Shipment mapping: @<Waybill, per-shipment amount, and route list>\n5. Registration: tax ID <Tax ID>, address <Registered address>, phone <Invoice phone>\n6. Bank: <Bank name>, account <Bank account>\n7. Special VAT documents: @<VAT qualification file or not applicable>\n8. Delivery: <Electronic email or paper recipient, phone, and address>\n9. Progress: desired issue date <Desired invoice date>, terms <Customer terms>\n10. Basis: @<Confirmed statement, contract, or other billing basis>\n\nCheck completeness and that shipment totals match the invoice amount, then prepare the billing list, application, and tracker. Do not submit the invoice."
-    },
-    "requiredSlots": {
-      "zh": ["客户开票抬头", "运单票数", "增值税专票、普票或电子普票", "开票项目名称", "开票金额", "含税或未税", "税率", "运单号、单票金额和线路清单", "纳税人识别号", "注册地址", "开票联系电话", "开户行全称", "银行账号", "电子票接收邮箱，或纸票收件人、电话和邮寄地址", "期望开票日期", "客户账期", "确认对账单、合同或其他开票依据"],
-      "en": ["Invoice title", "Shipment count", "VAT special, general, or electronic general", "Invoice item name", "Invoice amount", "Tax-inclusive or tax-exclusive", "Tax rate", "Waybill, per-shipment amount, and route list", "Tax ID", "Registered address", "Invoice phone", "Bank name", "Bank account", "Electronic email or paper recipient, phone, and address", "Desired invoice date", "Customer terms", "Confirmed statement, contract, or other billing basis"]
+      "zh": ["运单、报价、客户账单、承运商账单和回单表", "运单号或其他对应方法"],
+      "en": ["Shipment, quote, customer bill, carrier bill, and receipt sheets", "Shipment number or another matching method"]
     },
     "conditionalSlots": {
-      "zh": ["专票资质文件；非专票填不适用"],
-      "en": ["VAT qualification file or not applicable"]
+      "zh": ["你要使用的对账模板"],
+      "en": ["My template"]
     }
   },
   {
-    "id": "receivables-collection",
-    "title": { "zh": "回款催收", "en": "Receivables Collection" },
+    "id": "charge-variance-audit",
+    "title": {
+      "zh": "找出哪些金额对不上",
+      "en": "Find Amount Differences"
+    },
     "description": {
-      "zh": "补齐应收和账期信息并生成催收方案",
-      "en": "Collect receivable facts and prepare a collection plan"
+      "zh": "把金额差额一次找出来，并算清一共差多少钱",
+      "en": "Find undercharges, overpayments, duplicates, and unsupported fees"
     },
     "template": {
-      "zh": "请补齐以下回款催收资料：\n\n1. 客户信息：客户 <客户名称>，内部负责人 <业务或财务负责人>\n2. 发票信息：发票号或账单号 <发票号或账单号>，开票日期 <开票日期>\n3. 应收金额：开票金额 <开票金额> 元，已回款 <已回款金额> 元，币种 <币种>\n4. 账期规则：<开票后、对账确认后、月结固定日或回单齐全后起算>\n5. 起算到期：起算日 <账期起算日>，账期 <账期天数或付款规则>，约定到期日 <到期日>\n6. 回款情况：最近回款日期和金额 <最近回款情况；没有则填无>\n7. 沟通记录：最后跟进日期 <最后跟进日期>，客户最近回复或付款承诺 <最近回复或承诺>\n8. 争议情况：<金额、回单、发票或服务争议；没有则填无>\n9. 付款方式：<电汇、承兑或其他>；如为承兑，补充 <票号、承兑到期日和是否兑付>\n10. 关联资料：@<发票、对账单、运单或历史沟通记录>\n\n请计算未收余额、账龄、当前节点和下一跟进时间，生成分阶段催收话术及风险提示；暂不发送消息、升级法务或创建定时任务。",
-      "en": "Please complete the following collection details:\n\n1. Customer: <Customer name>, owner <Business or finance owner>\n2. Invoice: <Invoice or statement number>, issue date <Invoice date>\n3. Receivable: invoiced <Invoiced amount>, paid <Paid amount>, currency <Currency>\n4. Terms basis: <Invoice date, reconciliation date, fixed monthly date, or POD completion>\n5. Due calculation: start <Terms start date>, terms <Terms or net days>, due <Due date>\n6. Payments: <Latest payment date and amount or none>\n7. Follow-up: last contact <Last follow-up date>, latest response or promise <Latest response or promise>\n8. Disputes: <Amount, POD, invoice, service dispute, or none>\n9. Payment method: <Wire, acceptance, or other>; if acceptance, <Acceptance number, maturity, and redemption status>\n10. Related records: @<Invoice, statement, waybill, or communication history>\n\nCalculate open balance, aging, current node, and next follow-up, then draft staged collection scripts and risks. Do not message, escalate legally, or create automations."
+      "zh": "请把 <报价、合同和账单> 放在一起对账，按照 <公司的收费和付款规则> 找出少收、多付、重复收费、漏收或没有凭证的费用，并按 <需要重点查看的客户、线路或金额范围> 算清一共差多少钱。",
+      "en": "Compare <Quotes, contracts, and bills>, follow <Company charging and payment rules>, find undercharges, overpayments, duplicates, missed charges, or unsupported fees, and use <Amount range or focus> to calculate the difference."
     },
     "requiredSlots": {
-      "zh": ["客户名称", "业务或财务负责人", "发票号或账单号", "开票日期", "开票金额", "已回款金额", "币种", "开票后、对账确认后、月结固定日或回单齐全后起算", "账期起算日", "账期天数或付款规则", "到期日", "最后跟进日期", "最近回复或承诺", "电汇、承兑或其他", "发票、对账单、运单或历史沟通记录"],
-      "en": ["Customer name", "Business or finance owner", "Invoice or statement number", "Invoice date", "Invoiced amount", "Paid amount", "Currency", "Invoice date, reconciliation date, fixed monthly date, or POD completion", "Terms start date", "Terms or net days", "Due date", "Last follow-up date", "Latest response or promise", "Wire, acceptance, or other", "Invoice, statement, waybill, or communication history"]
+      "zh": ["报价、合同和账单", "公司的收费和付款规则"],
+      "en": ["Quotes, contracts, and bills", "Company charging and payment rules"]
     },
     "conditionalSlots": {
-      "zh": ["最近回款情况；没有则填无", "金额、回单、发票或服务争议；没有则填无", "票号、承兑到期日和是否兑付"],
-      "en": ["Latest payment date and amount or none", "Amount, POD, invoice, service dispute, or none", "Acceptance number, maturity, and redemption status"]
+      "zh": ["需要重点查看的客户、线路或金额范围"],
+      "en": ["Amount range or focus"]
+    }
+  },
+  {
+    "id": "settlement-readiness-audit",
+    "title": {
+      "zh": "检查每票能不能结账",
+      "en": "Check Whether Each Job Can Be Settled"
+    },
+    "description": {
+      "zh": "逐票判断能不能结账，并列清还缺什么、该找谁补",
+      "en": "Find missing receipts, cost evidence, and approvals"
+    },
+    "template": {
+      "zh": "请按 <公司的结算要求> 检查 <每票货的回单、费用凭证和审批资料>，按照 <你习惯的分组方式> 告诉我哪些能结账、哪些暂时不能、分别缺什么，以及该找谁补。",
+      "en": "Using <Company settlement requirements>, check <Receipts, cost evidence, and approvals for each shipment>, follow <My grouping method>, and show what can be settled, what cannot, what is missing, and who should provide it."
+    },
+    "requiredSlots": {
+      "zh": ["公司的结算要求", "每票货的回单、费用凭证和审批资料"],
+      "en": ["Company settlement requirements", "Receipts, cost evidence, and approvals for each shipment"]
+    },
+    "conditionalSlots": {
+      "zh": ["你习惯的分组方式"],
+      "en": ["My grouping method"]
+    }
+  },
+  {
+    "id": "invoice-information-audit",
+    "title": {
+      "zh": "检查开票资料并写申请",
+      "en": "Check Invoice Details and Draft the Request"
+    },
+    "description": {
+      "zh": "核对公司名称、税号、金额和对应运单",
+      "en": "Check company name, tax ID, amount, and related shipments"
+    },
+    "template": {
+      "zh": "请检查 <客户开票资料> 和 <已经确认的运单及金额>，按照 <公司的开票申请模板> 核对公司名称、税号、税率、金额和对应运单，并写好开票申请。",
+      "en": "Check <Customer invoice details> against <Confirmed shipments and amounts>, follow <Company invoice request template>, verify company name, tax ID, tax rate, amount, and related shipments, and draft the request."
+    },
+    "requiredSlots": {
+      "zh": ["客户开票资料", "已经确认的运单及金额"],
+      "en": ["Customer invoice details", "Confirmed shipments and amounts"]
+    },
+    "conditionalSlots": {
+      "zh": ["公司的开票申请模板"],
+      "en": ["Company invoice request template"]
     }
   }
 ]

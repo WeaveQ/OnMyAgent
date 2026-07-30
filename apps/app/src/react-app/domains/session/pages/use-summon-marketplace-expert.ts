@@ -6,8 +6,12 @@ import { useCallback } from "react";
 import { usePendingAgentStore } from "../../agents";
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
+import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import { setExpertComposerDraftAfterNewTask } from "./shared-page-utils";
+import {
+  setExpertComposerDraftAfterNewTask,
+  setExpertComposerTemplateAfterNewTask,
+} from "./shared-page-utils";
 
 export function useSummonMarketplaceExpert(options: {
   selectedWorkspaceId: string;
@@ -19,6 +23,10 @@ export function useSummonMarketplaceExpert(options: {
 
   return useCallback(
     (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
+      const startPrompt = resolveMarketplaceExpertStartPrompt(
+        expert,
+        initialPrompt,
+      );
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn(
           "[expert-marketplace] failed to install expert package",
@@ -29,11 +37,17 @@ export function useSummonMarketplaceExpert(options: {
       usePendingAgentStore
         .getState()
         .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
-      if (initialPrompt) {
+      if (startPrompt?.template) {
+        setExpertComposerTemplateAfterNewTask(
+          selectedWorkspaceId,
+          expert.id,
+          startPrompt.prompt,
+        );
+      } else if (startPrompt) {
         setExpertComposerDraftAfterNewTask(
           selectedWorkspaceId,
           expert.id,
-          initialPrompt,
+          startPrompt.prompt,
         );
       }
       onNavigateToMode("expert");

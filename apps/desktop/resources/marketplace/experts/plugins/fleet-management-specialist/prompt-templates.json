@@ -1,62 +1,94 @@
 [
   {
-    "id": "fuel-audit",
-    "title": { "zh": "油费稽查", "en": "Fuel Audit" },
+    "id": "fleet-data-consolidation",
+    "title": {
+      "zh": "整理车辆和司机表",
+      "en": "Organize Vehicle and Driver Sheets"
+    },
     "description": {
-      "zh": "补齐油耗数据并筛查异常线索",
-      "en": "Collect fuel data and screen for anomaly leads"
+      "zh": "把车辆、司机和证件资料合成一张能直接使用的表",
+      "en": "Combine sheets and find expired, duplicate, or missing details"
     },
     "template": {
-      "zh": "请补齐以下油费稽查资料：\n\n1. 稽查范围：统计周期 <统计周期>，车辆 <车牌号或车辆清单>\n2. 车辆信息：车型 <车型>，动力类型 <柴油、燃气等>，司机 <司机姓名>\n3. 里程数据：期初里程 <期初里程> 公里，期末里程 <期末里程> 公里；或直接提供周期里程 <周期里程> 公里\n4. 加油记录：@<加油记录文件或明细>\n5. 每笔加油记录应包含：<加油时间>、<油站>、<升数>、<金额>、<支付方式或油卡流水号>\n6. 核查基准：企业油耗基准 <基准下限>–<基准上限> 升/百公里；没有企业基准时填“使用示意基准”\n7. 异常核查资料：@<油卡流水、GPS轨迹、固定油站名单或任务记录>\n8. 核查口径：<按自然周期或加满到加满>，其他说明 <其他核查规则；没有则填无>\n\n请计算单车油耗，检查异常偏离、重复加油、非定点加油、时空矛盾等线索，并生成稽查报告；异常只作为核查线索，不直接认定违规。",
-      "en": "Please complete the following fuel-audit details:\n\n1. Scope: period <Audit period>, vehicles <Plate number or vehicle list>\n2. Vehicle: type <Vehicle type>, powertrain <Diesel, gas, or other>, driver <Driver name>\n3. Mileage: opening <Opening odometer> km, closing <Closing odometer> km, or period distance <Period distance> km\n4. Fuel records: @<Fuel record file or details>\n5. Each fill should include <Fill time>, <Station>, <Litres>, <Amount>, <Payment method or fuel-card transaction ID>\n6. Baseline: <Baseline low>–<Baseline high> L/100km; enter “illustrative baseline” if unavailable\n7. Anomaly evidence: @<Fuel-card flow, GPS, approved stations, or job records>\n8. Method: <Natural period or full-to-full>, notes <Other audit rules or none>\n\nCalculate per-vehicle consumption, screen deviation, repeated fills, off-network fills, and time-location conflicts, and generate an audit report. Treat anomalies as leads only."
+      "zh": "这些是 <车辆、司机、证件和任务资料>。请按 <车牌号或司机手机号> 合成一张清楚的车队表，套用 <你要使用的车队表模板>，并标出重复、过期、缺少或前后对不上的内容。",
+      "en": "Combine <Vehicle, driver, credential, and assignment records> using <Plate number or driver phone>, follow <My template>, and flag duplicates, expired items, missing details, or conflicts."
     },
     "requiredSlots": {
-      "zh": ["统计周期", "车牌号或车辆清单", "车型", "柴油、燃气等", "司机姓名", "期初里程", "期末里程", "周期里程", "加油记录文件或明细", "加油时间", "油站", "升数", "金额", "支付方式或油卡流水号", "基准下限", "基准上限", "按自然周期或加满到加满"],
-      "en": ["Audit period", "Plate number or vehicle list", "Vehicle type", "Diesel, gas, or other", "Driver name", "Opening odometer", "Closing odometer", "Period distance", "Fuel record file or details", "Fill time", "Station", "Litres", "Amount", "Payment method or fuel-card transaction ID", "Baseline low", "Baseline high", "Natural period or full-to-full"]
+      "zh": ["车辆、司机、证件和任务资料", "车牌号或司机手机号"],
+      "en": ["Vehicle, driver, credential, and assignment records", "Plate number or driver phone"]
     },
     "conditionalSlots": {
-      "zh": ["油卡流水、GPS轨迹、固定油站名单或任务记录", "其他核查规则；没有则填无"],
-      "en": ["Fuel-card flow, GPS, approved stations, or job records", "Other audit rules or none"]
+      "zh": ["你要使用的车队表模板"],
+      "en": ["My template"]
     }
   },
   {
-    "id": "affiliate-fleet",
-    "title": { "zh": "挂靠车管理", "en": "Affiliated Fleet" },
+    "id": "vehicle-candidate-ranking",
+    "title": {
+      "zh": "帮我挑合适的车",
+      "en": "Help Me Pick a Suitable Vehicle"
+    },
     "description": {
-      "zh": "补齐人车证照并建立合规台账",
-      "en": "Collect people, vehicle, and compliance records"
+      "zh": "拿订单对照车队表，挑出最合适和可备选的车",
+      "en": "Pick preferred, backup, and unsuitable vehicles"
     },
     "template": {
-      "zh": "请补齐以下挂靠车资料：\n\n1. 车辆信息：车牌 <车牌号>，车型 <车型>，挂靠单位 <挂靠单位>，车辆状态 <在营、停运或退出>\n2. 所有人信息：登记所有人 <登记所有人>，实际车主或控制人 <实际车主>\n3. 司机信息：姓名 <司机姓名>，电话 <司机电话>，准驾车型 <准驾车型>\n4. 司机证件：驾驶证到期日 <驾驶证到期日>，从业资格证到期日 <从业资格证到期日>\n5. 车辆证件：行驶证检验有效期 <行驶证检验有效期>，营运证或审验到期日 <营运证到期日>\n6. 保险年检：交强险到期日 <交强险到期日>，商业险到期日 <商业险到期日>，年检到期日 <年检到期日>\n7. 违章情况：未处理违章 <未处理条数> 条，未处理记分 <未处理记分> 分\n8. 原始资料：@<证照、保险、合同、年检和违章资料>\n9. 其他风险：<证照不一致、合同异常或其他说明；没有则填无>\n\n请建立挂靠车合规台账，标出已过期、D-30、D-15、D-7 和高风险事项，并生成催补资料建议；暂不自动停运、处罚或创建提醒任务。",
-      "en": "Please complete the following affiliated-fleet details:\n\n1. Vehicle: plate <Plate number>, type <Vehicle type>, affiliate <Affiliate organization>, status <Active, suspended, or exited>\n2. Ownership: registered owner <Registered owner>, actual owner or controller <Actual owner>\n3. Driver: <Driver name>, phone <Driver phone>, licence class <Licence class>\n4. Driver documents: licence expiry <Driver licence expiry>, qualification expiry <Driver qualification expiry>\n5. Vehicle documents: licence inspection expiry <Vehicle licence inspection expiry>, operating permit expiry <Operating permit expiry>\n6. Insurance and inspection: compulsory insurance <Compulsory insurance expiry>, commercial insurance <Commercial insurance expiry>, annual inspection <Annual inspection expiry>\n7. Violations: <Open violation count> open, <Open points> points\n8. Source documents: @<Licences, insurance, contract, inspection, and violation records>\n9. Other risks: <Document mismatch, contract issue, other risk, or none>\n\nBuild the compliance ledger, flag expired, D-30, D-15, D-7, and high-risk items, and draft document-chasing advice. Do not suspend, penalize, or create reminders automatically."
+      "zh": "请根据 <这张订单> 和 <车辆司机表>，结合 <距离、价格、熟悉线路或其他偏好>，挑出优先、备选和不建议的车辆，并用简单的话说明原因和还要向司机确认什么。",
+      "en": "Using <This order> and <Vehicle and driver sheet>, consider <My preference for distance, price, route experience, or other factors>, and pick preferred, backup, and unsuitable vehicles with reasons."
     },
     "requiredSlots": {
-      "zh": ["车牌号", "车型", "挂靠单位", "在营、停运或退出", "登记所有人", "实际车主", "司机姓名", "司机电话", "准驾车型", "驾驶证到期日", "从业资格证到期日", "行驶证检验有效期", "营运证到期日", "交强险到期日", "商业险到期日", "年检到期日", "未处理条数", "未处理记分", "证照、保险、合同、年检和违章资料"],
-      "en": ["Plate number", "Vehicle type", "Affiliate organization", "Active, suspended, or exited", "Registered owner", "Actual owner", "Driver name", "Driver phone", "Licence class", "Driver licence expiry", "Driver qualification expiry", "Vehicle licence inspection expiry", "Operating permit expiry", "Compulsory insurance expiry", "Commercial insurance expiry", "Annual inspection expiry", "Open violation count", "Open points", "Licences, insurance, contract, inspection, and violation records"]
+      "zh": ["这张订单", "车辆司机表"],
+      "en": ["This order", "Vehicle and driver sheet"]
     },
     "conditionalSlots": {
-      "zh": ["证照不一致、合同异常或其他说明；没有则填无"],
-      "en": ["Document mismatch, contract issue, other risk, or none"]
+      "zh": ["距离、价格、熟悉线路或其他偏好"],
+      "en": ["My preference for distance, price, route experience, or other factors"]
     }
   },
   {
-    "id": "cargo-claim",
-    "title": { "zh": "货损理赔", "en": "Cargo Claim" },
+    "id": "dispatch-audit-and-brief",
+    "title": {
+      "zh": "派车前帮我检查",
+      "en": "Check Before Dispatch"
+    },
     "description": {
-      "zh": "补齐案件和证据资料并准备理赔作业包",
-      "en": "Collect case evidence and prepare a claim workpack"
+      "zh": "派车前查一遍遗漏，并写好可以直接发给司机的任务",
+      "en": "Check key details and draft the driver task"
     },
     "template": {
-      "zh": "请补齐以下理赔案件资料：\n\n1. 运单信息：运单号 <运单号>，运输线路 <装货地到卸货地>\n2. 货物信息：品名 <货物名称>，数量 <数量> <单位>，声明货值 <声明货值> 元\n3. 保险保价：是否保价或投保 <保价或保险情况>，保单号 <保单号；没有则填无>\n4. 异常情况：类型 <破损、水湿、延误、丢件或其他>，发现时间 <发现时间>，发现地点或环节 <发现地点或环节>\n5. 事件经过：<提货、装车、运输、卸货、签收和客诉的时间线>\n6. 各方说法：客户说明 <客户说明>，司机或承运方说明 <司机或承运方说明>\n7. 客户诉求：<赔付金额、补发、维修、道歉或其他要求>\n8. 基础证据：@<运单、托运约定、货值证明和书面沟通>\n9. 现场证据：@<现场照片视频、交接单、签收单、司机说明和监控资料>\n10. 类型专项证据：@<包装照片、轨迹、天气、件数交接或损失证明等与本案类型相关的资料>\n\n请建立案件卡和时间线，检查证据缺口，给出条件式责任初判、各方沟通话术及理赔进度表；暂不认责、报案、承诺赔付或发送消息。",
-      "en": "Please complete the following claim details:\n\n1. Waybill: <Waybill number>, route <Loading-to-delivery route>\n2. Cargo: <Cargo name>, quantity <Quantity> <Unit>, declared value <Declared value>\n3. Cover: <Insurance or declared-cover status>, policy <Policy number or none>\n4. Incident: <Damage, wetting, delay, loss, or other>, found <Discovery time>, at <Discovery location or stage>\n5. Timeline: <Pickup, loading, transit, unloading, signing, and complaint timeline>\n6. Statements: customer <Customer statement>, driver or carrier <Driver or carrier statement>\n7. Demand: <Compensation, replacement, repair, apology, or other demand>\n8. Core evidence: @<Waybill, transport terms, value proof, and written communications>\n9. Scene evidence: @<Photos, video, handover, POD, driver statement, and CCTV>\n10. Type-specific evidence: @<Packaging, tracking, weather, quantity handover, or loss proof>\n\nBuild the case card and timeline, identify evidence gaps, draft a conditional liability view, communications, and a claim tracker. Do not admit liability, report, promise payment, or send messages."
+      "zh": "车辆和司机已经选好：<车辆和司机信息>。请按 <这张订单> 检查证件、载重、时间、预约和装卸要求有没有遗漏，再套用 <公司的司机任务模板> 写好可以直接发给司机的任务信息。",
+      "en": "Using <This order> and <Selected vehicle and driver>, follow <Company dispatch rules or template>, check credentials, capacity, timing, appointments, and loading requirements, then draft the driver task message."
     },
     "requiredSlots": {
-      "zh": ["运单号", "装货地到卸货地", "货物名称", "数量", "单位", "声明货值", "保价或保险情况", "破损、水湿、延误、丢件或其他", "发现时间", "发现地点或环节", "提货、装车、运输、卸货、签收和客诉的时间线", "客户说明", "司机或承运方说明", "赔付金额、补发、维修、道歉或其他要求", "运单、托运约定、货值证明和书面沟通", "现场照片视频、交接单、签收单、司机说明和监控资料", "包装照片、轨迹、天气、件数交接或损失证明等与本案类型相关的资料"],
-      "en": ["Waybill number", "Loading-to-delivery route", "Cargo name", "Quantity", "Unit", "Declared value", "Insurance or declared-cover status", "Damage, wetting, delay, loss, or other", "Discovery time", "Discovery location or stage", "Pickup, loading, transit, unloading, signing, and complaint timeline", "Customer statement", "Driver or carrier statement", "Compensation, replacement, repair, apology, or other demand", "Waybill, transport terms, value proof, and written communications", "Photos, video, handover, POD, driver statement, and CCTV", "Packaging, tracking, weather, quantity handover, or loss proof"]
+      "zh": ["车辆和司机信息", "这张订单"],
+      "en": ["This order", "Selected vehicle and driver"]
     },
     "conditionalSlots": {
-      "zh": ["保单号；没有则填无"],
-      "en": ["Policy number or none"]
+      "zh": ["公司的司机任务模板"],
+      "en": ["Company dispatch rules or template"]
+    }
+  },
+  {
+    "id": "fleet-efficiency-analysis",
+    "title": {
+      "zh": "看看哪里空跑和等待太多",
+      "en": "Find Empty Trips and Long Waiting"
+    },
+    "description": {
+      "zh": "找出长期闲置、空跑多或不划算的车辆和线路",
+      "en": "Find underused vehicles, empty trips, and poor-return routes"
+    },
+    "template": {
+      "zh": "请查看 <车辆趟次、里程、等待、收入和成本记录>，按照 <车辆、线路或月份> 比较，并根据 <我最关心的问题> 找出空跑多、等待久、长期闲置或不划算的车辆和线路。",
+      "en": "Review <Trips, mileage, waiting, revenue, and cost records>, compare by <Vehicle, route, or month>, and use <My main concern> to find excessive empty trips, long waiting, low use, or poor returns."
+    },
+    "requiredSlots": {
+      "zh": ["车辆趟次、里程、等待、收入和成本记录", "车辆、线路或月份"],
+      "en": ["Trips, mileage, waiting, revenue, and cost records", "Vehicle, route, or month"]
+    },
+    "conditionalSlots": {
+      "zh": ["我最关心的问题"],
+      "en": ["My main concern"]
     }
   }
 ]
