@@ -7,7 +7,14 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import { ArtifactPluginIcon } from "./artifact-plugin-detail";
-import { connectorTileClassName } from "./connector-tile";
+import {
+  connectorTileClassName,
+  connectorTileDescClassName,
+  connectorTileEnabledClass,
+  connectorTileFooterClassName,
+  connectorTileHeaderClassName,
+  connectorTileOrderClass,
+} from "./connector-tile";
 
 export type ArtifactPluginCardProps = {
   plugin: ArtifactPluginCatalogItem;
@@ -51,8 +58,8 @@ function localizedPluginCopy(plugin: ArtifactPluginCatalogItem) {
 }
 
 /**
- * Expert/skill-style vertical card: icon + title + switch, description,
- * bottom “view detail”. Default border transparent; hover reveals edge.
+ * Skill-style vertical card: icon + title + switch, description, bottom
+ * “view detail”. Whole card opens detail (cursor + hover like 我的技能).
  */
 export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const { plugin } = props;
@@ -60,36 +67,53 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const copy = localizedPluginCopy(plugin);
 
   return (
-    <article className={cn(connectorTileClassName, !enabled && "opacity-80")}>
-      <div className="flex min-w-0 items-start gap-2.5">
+    <article
+      role="button"
+      tabIndex={0}
+      data-enabled={enabled ? "true" : "false"}
+      className={cn(
+        connectorTileClassName,
+        connectorTileOrderClass(enabled),
+        connectorTileEnabledClass(enabled),
+      )}
+      onClick={props.onOpen}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onOpen();
+        }
+      }}
+      aria-label={`${copy.name}. ${props.openLabel}`}
+    >
+      <div className={connectorTileHeaderClassName}>
         <ArtifactPluginIcon pluginId={plugin.id} size="sm" />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-              {copy.name}
-            </h3>
-            <div className="shrink-0 pt-0.5">
-              <Switch
-                checked={enabled}
-                aria-label={props.toggleLabel}
-                onCheckedChange={(next) => void props.onEnabledChange(next)}
-              />
-            </div>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
+            {copy.name}
+          </h3>
+          <div
+            className="shrink-0"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <Switch
+              checked={enabled}
+              aria-label={props.toggleLabel}
+              onCheckedChange={(next) => void props.onEnabledChange(next)}
+            />
           </div>
         </div>
       </div>
-      <p className="mt-2 line-clamp-2 text-xs leading-5 text-dls-secondary">
-        {copy.description}
+      <p className={connectorTileDescClassName} title={copy.description}>
+        {copy.description || "\u00a0"}
       </p>
-      <button
-        type="button"
-        className="mt-auto inline-flex items-center gap-0.5 pt-2 text-xs text-dls-secondary transition-colors hover:text-dls-text"
-        onClick={props.onOpen}
-        aria-label={`${copy.name}. ${props.openLabel}`}
-      >
-        {props.openLabel}
-        <ChevronRight className="size-3.5" aria-hidden="true" />
-      </button>
+      <div className={connectorTileFooterClassName}>
+        <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
+          {props.openLabel}
+          <ChevronRight className="size-3.5" aria-hidden="true" />
+        </span>
+      </div>
     </article>
   );
 }

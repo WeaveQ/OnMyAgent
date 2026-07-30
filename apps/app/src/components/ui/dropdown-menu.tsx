@@ -22,6 +22,7 @@ function DropdownMenuContent({
   side = "bottom",
   sideOffset = 4,
   className,
+  style,
   ...props
 }: MenuPrimitive.Popup.Props &
   Pick<
@@ -40,12 +41,16 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-                                            // Destructive items must stay danger-colored (not
-                                            // forced to accent-foreground). Parent !important
-                                            // used to wipe text-dls-danger on every menu item.
-                                            "dark z-50 max-h-(--available-height) w-(--anchor-width) min-w-48 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl p-1.5 bg-dls-surface-solid text-popover-foreground ring-1 ring-foreground/5 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-start-2 data-[side=inline-start]:slide-in-from-end-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95 animate-none! relative **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:text-dls-danger! **:data-[variant=destructive]:**:text-dls-danger! **:data-[variant=destructive]:focus:bg-dls-danger-soft! **:data-[variant=destructive]:data-highlighted:bg-dls-danger-soft!",
-                                            className
-                                          )}
+            // Opaque solid only — mac glass mixes --dls-surface with transparency.
+            // Call-site `bg-dls-surface` must not win (tailwind-merge); use solid + inline.
+            // Destructive items keep danger color (not forced to accent-foreground).
+            "dark relative z-50 max-h-(--available-height) w-(--anchor-width) min-w-48 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-dls-surface-solid p-1.5 text-popover-foreground ring-1 ring-foreground/5 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-start-2 data-[side=inline-start]:slide-in-from-end-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95 animate-none! **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:text-dls-danger! **:data-[variant=destructive]:**:text-dls-danger! **:data-[variant=destructive]:focus:bg-dls-danger-soft! **:data-[variant=destructive]:data-highlighted:bg-dls-danger-soft!",
+            className,
+          )}
+          style={{
+            backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
+            ...(typeof style === "object" && style ? style : null),
+          }}
           {...props}
         />
       </MenuPrimitive.Positioner>

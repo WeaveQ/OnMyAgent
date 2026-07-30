@@ -7,6 +7,7 @@ import {
   NavTabButton,
   SegmentedTabGroup,
 } from "@/components/ui/action-row";
+import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
@@ -55,8 +56,8 @@ export function AssistantCategorySwitch(props: {
   return (
     <div className="mb-3.5 flex w-full justify-center mac:titlebar-no-drag">
       {/*
-        Same free-float pill as store 「专家」: density bare + shape tab (rounded-lg),
-        inverted active fill — no track, so L/R radius stays uniform.
+        Free-float pills (no track). Dark: solid elevated active fill + stronger
+        idle ink — glass-mixed bg-dls-text / secondary were too dim on #1f1f1f.
       */}
       <SegmentedTabGroup
         density="bare"
@@ -76,7 +77,12 @@ export function AssistantCategorySwitch(props: {
               active={active}
               size="tab"
               shape="tab"
-              className="relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3.5 text-sm"
+              className={cn(
+                "relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3.5 text-sm",
+                active
+                  ? "bg-white text-neutral-900 shadow-sm dark:bg-white dark:text-neutral-900 dark:[&_svg]:opacity-100"
+                  : "text-dls-secondary hover:bg-dls-hover/80 hover:text-dls-text dark:text-dls-text/80 dark:hover:text-dls-text",
+              )}
             >
               <Icon className="size-3.5 shrink-0" />
               <span className="leading-none">{item.label}</span>

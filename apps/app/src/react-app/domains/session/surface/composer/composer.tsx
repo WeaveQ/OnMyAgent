@@ -1391,7 +1391,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="max-w-40 shrink-0 gap-1.5 bg-dls-hover px-2 text-dls-text hover:bg-dls-active"
+                    className="max-w-40 shrink-0 gap-1.5 border border-dls-border-strong bg-dls-surface-solid px-2 text-dls-text hover:bg-dls-hover"
                     onClick={clearCollaborationModeSelection}
                     title={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
                     aria-label={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}

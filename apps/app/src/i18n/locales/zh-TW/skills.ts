@@ -66,6 +66,7 @@ export default {
   "skills.mine_tab_installed": "已安裝",
   "skills.mine_builtin_empty": "暫無內置技能（核心預裝未就緒時可稍後重新整理）",
   "skills.mine_user_empty": "暫無自行安裝的技能，可從技能市場安裝",
+  "skills.source_user_installed": "安裝",
   "skills.mine_tab": "我的技能",
   "skills.installing": "添加skill",
   "skills.installing_prefix": "正在安裝{name}…",
