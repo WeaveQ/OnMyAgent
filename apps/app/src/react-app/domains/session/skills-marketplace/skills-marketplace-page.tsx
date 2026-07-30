@@ -567,13 +567,16 @@ function InstalledSkillCard(props: {
     : t("skills.source_user_installed");
 
   const handleCardActivate = () => {
-    if (props.onOpen) {
-      props.onOpen(props.skill);
+    // Product: installed/builtin cards always start a chat when possible.
+    // Detail dialog (onOpen) is secondary and must not steal the primary click —
+    // previously any marketplace catalog match opened detail and blocked “去对话”.
+    if (props.onChat) {
+      props.onChat(props.skill);
       return;
     }
-    props.onChat?.(props.skill);
+    props.onOpen?.(props.skill);
   };
-  const cardInteractive = Boolean(props.onOpen || props.onChat);
+  const cardInteractive = Boolean(props.onChat || props.onOpen);
 
   return (
     <div
@@ -1379,11 +1382,24 @@ export function SkillsMarketplacePage(props: {
                     uninstalling={uninstallingSkillName === skill.name}
                     onEnabledChange={handleSkillEnabledChange}
                     onPinnedChange={handleSkillPinnedChange}
-                    onChat={props.onChatWithSkill}
+                    onChat={
+                      props.onChatWithSkill
+                        ? (target) => {
+                            // Disabled skills are still chat-able: turn on so
+                            // slash `/name` can load, then open a new office task.
+                            if (skillEnabledMap[target.name] === false) {
+                              handleSkillEnabledChange(target, true);
+                            }
+                            props.onChatWithSkill?.(target);
+                          }
+                        : undefined
+                    }
                     onEdit={props.onEditSkill}
                     onUninstall={handleUninstallSkill}
+                    // Card click goes to chat; detail is optional via market match
+                    // only when chat is unavailable (should not block primary path).
                     onOpen={
-                      market
+                      !props.onChatWithSkill && market
                         ? () => setDetailSkill(market)
                         : undefined
                     }
