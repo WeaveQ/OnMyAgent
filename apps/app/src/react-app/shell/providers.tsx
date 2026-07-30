@@ -11,6 +11,7 @@ import { ServerProvider } from "../kernel/server-provider";
 import { AgentReadyDesktopNotificationMonitor } from "./agent-ready-desktop-notification-monitor";
 import { AutomationRunDesktopNotificationMonitor } from "./automation-run-desktop-notification-monitor";
 import { DockUnreadBadgeMonitor } from "./dock-unread-badge-monitor";
+import { SystemPrefsRuntime } from "./system-prefs-runtime";
 import { UpdateAvailableNoticeMonitor } from "./update-available-notice-monitor";
 import { ArchitectureMismatchGate } from "./architecture-mismatch-gate";
 import { BootStateProvider, useBootState } from "./boot-state";
@@ -68,6 +69,7 @@ function DeferredDesktopMonitors() {
   if (!enabled) return null;
   return (
     <>
+      <SystemPrefsRuntime />
       <AgentReadyDesktopNotificationMonitor />
       <AutomationRunDesktopNotificationMonitor />
       <DockUnreadBadgeMonitor />
