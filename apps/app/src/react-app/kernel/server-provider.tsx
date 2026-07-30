@@ -14,6 +14,12 @@ import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 import { desktopFetch } from "../../app/lib/desktop";
 import { isWebDeployment } from "../../app/lib/onmyagent-deployment";
 import { isDesktopRuntime } from "../../app/utils";
+import {
+  DEFAULT_VISIBILITY_POLL_POLICY,
+  isDocumentHidden,
+  nextPollDelayMs,
+  shouldRunPollTick,
+} from "../infra/visibility-poll";
 import { initialServerState, serverReducer } from "./server-provider-state";
 
 export function normalizeServerUrl(input: string): string | undefined {
@@ -152,8 +158,12 @@ export function ServerProvider({ children, defaultUrl }: ServerProviderProps) {
 
     let cancelled = false;
     let busy = false;
+    let intervalId: number | undefined;
+    const policy = DEFAULT_VISIBILITY_POLL_POLICY;
 
     const run = () => {
+      if (cancelled) return;
+      if (!shouldRunPollTick(isDocumentHidden())) return;
       if (busy) return;
       busy = true;
       void checkHealth(active)
@@ -166,12 +176,41 @@ export function ServerProvider({ children, defaultUrl }: ServerProviderProps) {
         });
     };
 
+    const clearPollInterval = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+
+    const schedulePoll = () => {
+      clearPollInterval();
+      const delayMs = nextPollDelayMs(policy, isDocumentHidden());
+      if (delayMs == null) return;
+      intervalId = window.setInterval(run, delayMs);
+    };
+
+    const onVisibilityChange = () => {
+      if (cancelled) return;
+      const hidden = isDocumentHidden();
+      if (hidden) {
+        // Pause while hidden (hiddenIntervalMs === 0).
+        clearPollInterval();
+        return;
+      }
+      // Visible again: run once and restart focused interval.
+      run();
+      schedulePoll();
+    };
+
     run();
-    const interval = window.setInterval(run, 10_000);
+    schedulePoll();
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      clearPollInterval();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [active]);
 
