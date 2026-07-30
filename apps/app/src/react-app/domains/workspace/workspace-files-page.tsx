@@ -147,6 +147,310 @@ function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) 
   );
 }
 
+/** Cloud + docs — monochrome line icon, same language as devices empty state. */
+function CloudDriveIllustration() {
+  return (
+    <div className="flex h-36 w-full max-w-[240px] items-center justify-center">
+      <svg
+        viewBox="0 0 96 80"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        className="h-24 w-28 text-dls-secondary"
+      >
+        {/* Cloud outline */}
+        <path
+          d="M28 52h42c7.2 0 13-5.8 13-13 0-6.4-4.7-11.8-10.9-12.8A16 16 0 0 0 48 12c-7.5 0-13.8 5.1-15.6 12A12 12 0 0 0 16 36c0 8.8 7.2 16 16 16Z"
+          fill="currentColor"
+          fillOpacity="0.1"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        {/* Back sheet */}
+        <rect
+          x="52"
+          y="36"
+          width="22"
+          height="28"
+          rx="3"
+          fill="currentColor"
+          fillOpacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          transform="rotate(6 63 50)"
+        />
+        {/* Front sheet */}
+        <rect
+          x="38"
+          y="38"
+          width="24"
+          height="30"
+          rx="3"
+          fill="var(--dls-background, #fff)"
+          stroke="currentColor"
+          strokeWidth="1.75"
+        />
+        <path
+          d="M44 48h12M44 54h12M44 60h8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          opacity="0.5"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function CloudDriveEmptyState() {
+  return (
+    <div className="flex h-full min-h-[420px] items-center justify-center px-6 py-12 text-center">
+      <div className="flex w-full max-w-xl flex-col items-center">
+        <CloudDriveIllustration />
+        <h1 className="mt-6 text-lg font-medium text-dls-text">
+          {t("files.cloud_empty_title")}
+        </h1>
+        <p className="mt-2 max-w-md text-sm leading-6 text-dls-secondary">
+          {t("files.cloud_empty_description")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type FileNode = {
+  name: string;
+  path: string;
+  kind: "file" | "dir";
+  size: number;
+  mtimeMs: number;
+};
+
+type FilePreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; content: string }
+  | { status: "binary"; url: string }
+  | {
+      status: "local";
+      filePath: string;
+      revision: number;
+    }
+  | { status: "external" }
+  | { status: "browser" }
+  | { status: "error"; message: string };
+function FilePreviewDrawer(props: {
+  open: boolean;
+  file: FileNode | null;
+  target: OpenTarget | null;
+  state: FilePreviewState;
+  copied: boolean;
+  onClose: () => void;
+  onCopyPath: () => void;
+  onEdit?: () => void;
+  onOpenInFolder?: () => void;
+  onOpenExternally?: () => void;
+}) {
+  const { open, file, target, state, copied, onClose, onCopyPath, onEdit, onOpenInFolder, onOpenExternally } = props;
+
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "pointer-events-none fixed inset-0 z-[300] transition-opacity duration-200",
+        open && "pointer-events-auto",
+      )}
+    >
+      <div
+        onClick={onClose}
+        className={cn(
+          "absolute inset-0 bg-black/25 opacity-0 transition-opacity duration-200 supports-backdrop-filter:backdrop-blur-[2px]",
+          open && "opacity-100",
+        )}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={!open}
+        aria-label={file?.name ?? t("files.preview_empty")}
+        className={cn(
+          "absolute inset-y-0 right-0 flex w-full max-w-[560px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
+          open && "translate-x-0",
+        )}
+      >
+        {file && target ? (
+          <>
+            <header className="flex items-start gap-3 border-b border-dls-border px-5 py-4">
+              <ArtifactIcon type={target.preview} name={file.name} className="mt-0.5 size-5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
+                  {file.name}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-dls-secondary">
+                  <span>{formatWorkspaceFileSize(file.size)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatWorkspaceFileTime(file.mtimeMs)}</span>
+                </div>
+                <div
+                  className="mt-1 truncate font-mono text-xs text-dls-secondary/80"
+                  title={file.path}
+                >
+                  {file.path}
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={onClose}
+                aria-label={t("files.close_preview")}
+                title={t("files.close_preview")}
+              >
+                <X className="size-4" />
+              </Button>
+            </header>
+
+            <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
+              {onEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onEdit}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <Pencil data-icon="inline-start" className="size-3.5" aria-hidden="true" />
+                  {t("files.edit_file")}
+                </Button>
+              ) : null}
+              {onOpenExternally ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenExternally}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <ExternalLink data-icon="inline-start" className="size-3.5" />
+                  {t("files.open_file")}
+                </Button>
+              ) : null}
+              {onOpenInFolder ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenInFolder}
+                  className="text-dls-secondary hover:text-dls-text"
+                >
+                  <Folder data-icon="inline-start" className="size-3.5" />
+                  {t("files.open_in_folder")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onCopyPath}
+                className="text-dls-secondary hover:text-dls-text"
+              >
+                <Copy data-icon="inline-start" className="size-3.5" />
+                {copied ? t("files.copied") : t("files.copy_path")}
+              </Button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden bg-dls-surface">
+              {state.status === "loading" ? (
+                <PreviewLoading />
+              ) : state.status === "error" ? (
+                <PreviewError message={state.message} />
+              ) : state.status === "local" ? (
+                <OfficeFilePreview
+                  filePath={state.filePath}
+                  name={file.name}
+                  revision={state.revision}
+                />
+              ) : state.status === "ready" && target.preview === "markdown" ? (
+                <MarkdownPreview content={state.content} />
+              ) : state.status === "ready" && target.preview === "html" ? (
+                <HTMLPreview type="text" title={file.name} content={state.content} />
+              ) : state.status === "ready" &&
+                target.preview === "sheet" &&
+                /\.(csv|tsv)$/i.test(file.name) ? (
+                <ArtifactSpreadsheetEditor
+                  className="h-full min-h-0"
+                  name={file.name}
+                  content={{ kind: "text", data: state.content }}
+                  readOnly
+                  onSave={async () => {}}
+                />
+              ) : state.status === "ready" ? (
+                <PlainText content={state.content} />
+              ) : state.status === "binary" && target.preview === "image" ? (
+                <ImagePreview src={state.url} alt={file.name} />
+              ) : state.status === "browser" ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {t("files.preview_opened_in_browser")}
+                </div>
+              ) : state.status === "external" ? (
+                <PreviewUnavailable />
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
+                  {t("files.preview_empty")}
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+      </aside>
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
+}
+
+function FilesListEmptyState(props: {
+  filtered: boolean;
+  sessionScoped: boolean;
+}) {
+  const Icon = props.filtered ? FileSearch : props.sessionScoped ? FileStack : FolderOpen;
+  const title = props.filtered
+    ? t("files.no_matching_files")
+    : props.sessionScoped
+      ? t("files.no_session_files")
+      : t("files.no_files");
+  const description = props.filtered
+    ? t("files.no_matching_files_hint")
+    : props.sessionScoped
+      ? t("files.no_session_files_hint")
+      : t("files.no_files_hint");
+
+  return (
+    <div className="flex min-h-56 flex-1 items-center justify-center px-6 py-12">
+      <Empty className="max-w-sm flex-none border-0 bg-transparent p-0" variant="ghost">
+        <EmptyHeader>
+          <EmptyMedia
+            variant="icon"
+            className="mb-3 size-14 rounded-2xl bg-dls-surface-muted/80 text-dls-secondary shadow-sm ring-1 ring-dls-border/60 [&_svg]:size-7"
+          >
+            <Icon aria-hidden="true" strokeWidth={1.5} />
+          </EmptyMedia>
+          <EmptyTitle className="text-sm font-medium text-dls-text">
+            {title}
+          </EmptyTitle>
+          <EmptyDescription className="mt-1 text-xs leading-5 text-dls-secondary">
+            {description}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </div>
+  );
+}
+
+
 function FileRowActionsMenu(props: {
   name: string;
   pathCopied: boolean;
