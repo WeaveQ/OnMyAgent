@@ -63,6 +63,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | --- | --- |
 | Root command surface | `Architecture.md` + `AGENTS.md` + `README*` |
 | New domain folder | `Architecture.md` + `react-app/ARCHITECTURE.md` + domain `README.md` |
+| New capability under `react-app/capabilities/` | `react-app/ARCHITECTURE.md` + monorepo summary in `Architecture.md` |
+| External CLI / sidecar / skill bridge (e.g. BrowserSkill) | `Architecture.md` Feature→Transport table + desktop skeleton note; keep product skills under `apps/desktop/resources/bundled-skills/` |
 | Tokens / UI contract | `DESIGN.md` only → `pnpm task check design` |
 | Packaging steps | `BUILD.md` |
 | Release flow | `release.md` |

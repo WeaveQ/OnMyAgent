@@ -24,6 +24,7 @@ src/react-app/
 ├── capabilities/              Cross-domain application capabilities with neutral ownership
 │   ├── artifacts/             Markdown, Office preview, open-target and artifact contracts
 │   ├── conversation/          Dual-runtime timeline / item VM (OpenCode + Personal → one UI shape)
+│   ├── layout/                Session content-column / transcript layout contracts (pure helpers)
 │   ├── model-selection/       Shared model selection container + hidden-model state
 │   └── session-identity/      Session/workspace identity persistence shared by domains
 ├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
@@ -163,6 +164,8 @@ reusable product composites belong in `design-system/`.
 | `shell/route-load-registry.ts` | Nested load scopes (`desktop-boot`, `route-session`, `route-settings`, `session-refresh`, …) |
 | `shell/load-surface.tsx` | Shared `LoadSurface` + `useLoadScope` for boot/route/inset chrome |
 | `shell/session-memory.ts` | Workspace prefs + **sidebar session title cache** for cold-start paint |
+| `shell/session-route/prewarm-hook.ts` | Idle-deferred provider/inventory prewarm (must not race first `listSessions` / snapshot) |
+| `shell/settings-route/providers-prewarm-hook.ts` | Settings AI tab inventory prewarm (same idle policy) |
 
 Rules for implementers:
 
@@ -170,6 +173,8 @@ Rules for implementers:
   refreshes use quieter scopes (e.g. `session-refresh`) and must not re-blank page chrome.
 - Mark boot `routeReady` as soon as workspace chrome can paint (desktop workspace list + optional
   cached sidebar titles); do not wait for full engine warm-up to dismiss the overlay.
+- Prewarm is **idle / deferred only** (e.g. `requestIdleCallback` + timeout fallback). Do not block
+  first paint or re-issue a full `provider.list` that duplicates the cold session path.
 - User-visible load copy keys live under `system.load_*` / `system.boot_*` in i18n — do not reuse
   session message-pulling copy for workspace/route loads.
 - Product errors: classify through `kernel/user-error` before showing route banners; wire recovery

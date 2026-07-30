@@ -8,10 +8,11 @@ pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `pac
 
 ```text
 apps/
-  desktop/      Electron shell：main.mjs（composition）+ runtime.mjs + desktop-command-router.mjs + `electron/desktop-handlers/*` 域 IPC handlers；sidecar 管理与打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / skills / expert-marketplace、architecture-info、application-menu、startup-flags、Computer Use、Code workspace actions、browser-runtime、UI control bridge、lightweight GitHub Releases updater 均为独立模块
+  desktop/      Electron shell：main.mjs（composition）+ runtime.mjs + desktop-command-router.mjs + `electron/desktop-handlers/*` 域 IPC handlers；sidecar 管理与打包；`electron/personal-agent-runtime/` 托管 multi-agent Personal Local Agent 内核与 adapters；agent-management-providers / skills / expert-marketplace、architecture-info、application-menu、startup-flags、Computer Use、Code workspace actions、browser-runtime、browser-skill-desktop（外部 Tencent BrowserSkill / `bsk` 探测与安装引导）、UI control bridge、lightweight GitHub Releases updater 均为独立模块
     resources/marketplace/ 本地内置 marketplace 内容包：experts/skills 原始资源，打包为 Electron extraResources
+    resources/bundled-skills/  产品内置 skills（含 `browser-automation` in-app 与 `browser-skill` 真实浏览器桥）
   app/          React UI：src/app/lib/ 兼容层 + src/react-app/ 域架构
-  server/       本地 HTTP API：workspace/session/skill/MCP/审批，SQLite，SSE；archive store pool + change-bus（见 Server Archive Runtime）；server.ts 为 composition root + OpenCode/配置 helper，路由按 system/dev-ui/runtime/workspace/file/session/import-export/blueprint 等模块注册
+  server/       本地 HTTP API：workspace/session/skill/MCP/审批/自动化，SQLite，SSE；archive store pool + change-bus（见 Server Archive Runtime）；automation wait policy（busy→idle settle）；server.ts 为 composition root + OpenCode/配置 helper，路由按 system/dev-ui/runtime/workspace/file/session/import-export/blueprint/automation 等模块注册
     src/        运行时代码：core/routes/services/workspace 分层，根目录只保留入口与编排文件
     tests/      单元/集成测试
     e2e/        HTTP/API 端到端测试
@@ -36,12 +37,12 @@ apps/app/src/react-app/
   kernel/          Zustand store + platform/sdk/server provider + user-error 产品错误模板
   shell/           路由 + progressive boot + route-load-registry + layout + command-palette（只编排，不深链 domain 子路径）
   infra/           React-only 运行时基建（如 QueryClient）
-  capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ model-selection / session-identity
+  capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ layout（content-column）/ model-selection / session-identity
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
     session/       **OpenCode 主轨**会话：composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/voice/goal；expert/skills marketplace
     local-agents/  **Personal 辅轨**：ACP / 本地 agent 编辑、卡片、agent-management、personal host
-    messaging/     自动化 + 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
+    messaging/     自动化（含 list model / wait-complete UX）+ 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
     workspace/     workspace CRUD + remote + share + files page
     settings/      设置 shell + pages + state stores（含全局 Updates、AI providers controller）
@@ -305,12 +306,17 @@ pnpm check:boundaries
 - **域间依赖**（`A → B` 是否允许）写在
   `scripts/checks/domain-boundary-policy.mjs` 的 `allowedDomainDependencies`；
   `shared` 始终可读，其余跨域边必须登记。
+  当前已登记方向包括（摘要，以 policy 文件为准）：
+  `agents→connections|plugins|shell-feedback`、`local-agents→shell-feedback`、
+  `messaging→agents|shell-feedback`（自动化 archive toast 等）、
+  `session→agents|connections|local-agents|messaging|plugins|shell-feedback|workspace`、
+  `settings→session|connections|plugins|shell-feedback`。
 - **文件级深链过渡白名单** `allowedDomainImports`（`scripts/checks/check-boundaries.mjs`）
   **已清零**（Set 为空）：历史 `file|importPath` 例外已收完。该 Set 仍保留为文档 +
   可选再启用位；**只减不增**（不得再写入新例外）。跨域 import 必须走目标域一级 barrel。
   活跃边界由 `domain-boundary-policy.mjs` 与 public-barrel 规则强制。
   `local-agents` / `messaging` / `workspace` 不再作为「可随意反向依赖 session」的例外；
-  artifact、model selection、session identity、conversation timeline 与复合 UI 分别由
+  artifact、model selection、session identity、conversation timeline、layout 与复合 UI 分别由
   `capabilities/` / `design-system/` 中立所有者承接。
 
 ### Feature → Domain → Transport
@@ -323,9 +329,13 @@ pnpm check:boundaries
 | Workspace CRUD / remote | `domains/workspace` | Desktop IPC `workspace` + HTTP workspace |
 | MCP / providers | `domains/connections` | HTTP extensions + Desktop agent-management |
 | Messaging channels | `domains/messaging` | Desktop IPC `messaging` |
+| Automations (schedule / run / archive) | `domains/messaging` | HTTP automations + server `automation-wait-policy` |
 | Skills / plugins / marketplace | `domains/plugins` | HTTP extensions + Desktop `skills` |
+| In-app browser automation | session browser + skill `browser-automation` | Desktop `browser-runtime` (in-app / chrome backends) |
+| Real logged-in browser (BrowserSkill) | skill `browser-skill` + settings/setup UX | External `bsk` CLI + Chrome/Edge extension；desktop `browser-skill-desktop` 只做发现/doctor/安装引导（不替代 browser-runtime） |
 | Engine / orchestrator / sandbox | shell / settings advanced | Desktop IPC `runtime` |
 | Shared transcript items | `capabilities/conversation` | pure mappers (no I/O) |
+| Content column / transcript layout | `capabilities/layout` | pure helpers (no I/O) |
 
 ## Dev Command Surface
 
@@ -403,6 +413,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 9. **已完成一轮（shell 冷启动 / 加载 UX）**：`route-load-registry` + `LoadSurface` 统一 boot/route 加载文案；progressive boot（壳可画即收全屏遮罩）；侧栏会话标题 localStorage 缓存；`kernel/user-error` 主失败路径模板 + 设置错误条恢复动作；settings AI 列表 skeleton / `useAiProvidersController` + `mergeConnectedProviders`。细节见 `apps/app/src/react-app/ARCHITECTURE.md` **Shell load / boot**。
 10. **已完成一轮（P1-C import cycles）**：`madge --circular` 在 `apps/app/src` 与 `apps/server/src` 为 **0**。主要断环：pool↔proxy → `opencode-workspace-client.ts`；den↔events → `den-types.ts`；shared/kernel → 直引 profile-option-aliases；session pages / sidebar / shell-feedback / local-agent composer → leaf types；`types.ts` 不再 type-import `./lib/opencode`。
 11. **已完成一轮（P2 hygiene）**：`den-url-parse.ts` 抽出纯 URL 归一化；message-list 已模块化在 `message-list/*`。agents-page / extensions-store 大体量页仍可继续拆。
+12. **已完成一轮（0.4.10–0.4.15）**：automation wait policy（busy→idle settle）+ automation UX；session/settings **idle prewarm**；`capabilities/layout`；**BrowserSkill Path B**（`browser-skill-desktop` 探测/引导 + `bundled-skills/browser-skill`，与 in-app `browser-runtime` 并列）；cold-start boot overlay / first-screen load polish。
 
 ## Personal Local Agent Runtime
 
