@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import type { AgentManagementMcpApp, AgentManagementSkillAgent } from "../../app/lib/desktop";
+import type { AgentManagementSkillAgent } from "../../app/lib/desktop";
 import onmyagentIconUrl from "../../../../desktop/resources/icons/icon.png";
 import claudeIconUrl from "@/assets/agent-icons/claude.svg";
 import codexIconUrl from "@/assets/agent-icons/openai.svg";
@@ -24,7 +24,7 @@ import augmentIconUrl from "@/assets/agent-icons/augment.svg";
 import { cn } from "@/lib/utils";
 
 /** Skill matrix keys + archive/scanner aliases (mimocode, vscode-copilot, grok…). */
-type AgentIconId = AgentManagementSkillAgent | AgentManagementMcpApp | string;
+type AgentIconId = AgentManagementSkillAgent | string;
 
 const ICONS: Record<string, string> = {
   opencode: opencodeIconUrl,

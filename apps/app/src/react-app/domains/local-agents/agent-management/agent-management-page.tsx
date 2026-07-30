@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Boxes, Cpu, MessagesSquare, Monitor, Plug, Plus, Puzzle, RefreshCw } from "lucide-react";
+import { Bot, Boxes, Cpu, MessagesSquare, Monitor, Plus, Puzzle, RefreshCw } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 import { useStatusToasts } from "../../shell-feedback";
 import {
   agentManagementFetchModels,
-  agentManagementMcpAction,
   agentManagementProviderAction,
   agentManagementSkillAction,
   agentManagementSnapshot,
@@ -86,10 +85,9 @@ import {
   type AgentManagementProviderApp,
   type ProviderDraft,
 } from "./agent-management-providers";
-import { AgentManagementMcpPanel } from "./agent-management-mcp-panel";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
 
-type AgentManagementPanel = "providers" | "agents" | "skills" | "mcp" | "archive";
+type AgentManagementPanel = "providers" | "agents" | "skills" | "archive";
 
 type AgentManagementUiCache = {
   activePanel: AgentManagementPanel;
@@ -105,7 +103,7 @@ const AGENT_MANAGER_PANEL_STORAGE_KEY = "onmyagent.agentManagement.activePanel";
 const AGENT_MANAGER_UI_CACHE = new Map<string, AgentManagementUiCache>();
 
 function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
-  return value === "providers" || value === "agents" || value === "skills" || value === "mcp" || value === "archive";
+  return value === "providers" || value === "agents" || value === "skills" || value === "archive";
 }
 
 function isAgentManagementProviderApp(value: unknown): value is AgentManagementProviderApp {
@@ -215,11 +213,10 @@ const PANEL_TABS: Array<{
   labelKey: string;
   archiveOnly?: boolean;
 }> = [
-  // Compact labels: 本地 / 模型 / 技能 / MCP / 会话
+  // Compact labels: 本地 / 模型 / 技能 / 会话
   { id: "agents", icon: Monitor, labelKey: "agent_manager.tab_agents" },
   { id: "providers", icon: Boxes, labelKey: "agent_manager.tab_providers" },
   { id: "skills", icon: Puzzle, labelKey: "agent_manager.tab_skills" },
-  { id: "mcp", icon: Plug, labelKey: "agent_manager.tab_mcp" },
   { id: "archive", icon: MessagesSquare, labelKey: "agent_manager.tab_archive", archiveOnly: true },
 ];
 
@@ -245,23 +242,22 @@ export function AgentManagementPage(props: {
   const [providerModalOpen, setProviderModalOpen] = useState(false);
   const [checkingAgentId, setCheckingAgentId] = useState<string | null>(null);
   const [skillActionKey, setSkillActionKey] = useState<string | null>(null);
-  const [mcpActionKey, setMcpActionKey] = useState<string | null>(null);
   const [healthResults, setHealthResults] = useState<Record<string, AgentManagementHealthResult>>(() => initialUi.healthResults);
   const [skillColumnFilter, setSkillColumnFilter] = useState<AgentManagementSkillAgent[]>(() => initialUi.skillColumnFilter);
   const [skillSearch, setSkillSearch] = useState(() => initialUi.skillSearch);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string | null>(() => initialUi.selectedSkillKey);
   /** Default fleet: only skills tied to managed agents (not full-disk 155). */
   const [skillInventoryScope, setSkillInventoryScope] = useState<SkillInventoryScope>("fleet");
-  /** Per-domain loading (skills/mcp tabs can spin without blanking agents). */
+  /** Per-domain loading (skills tab can spin without blanking agents). */
   const [domainLoading, setDomainLoading] = useState<Partial<Record<ManagementLoadDomain, boolean>>>({});
 
   /**
    * Load only the requested snapshot domains.
-   * Default path for 本地: core only (no skill scan / MCP).
+   * Default path for 本地: core only (no skill scan).
    *
    * Concurrency: domains already mid-fetch in the shared store are skipped
    * (per-domain gate, shared with shell prewarm). After await, merge re-reads
-   * the store so a late mcp/skills response cannot wipe concurrent core load.
+   * the store so a late skills response cannot wipe concurrent core load.
    */
   const refresh = useCallback(async (options?: {
     force?: boolean;
@@ -355,7 +351,7 @@ export function AgentManagementPage(props: {
   }, [activePanel, cacheKey, props.workspaceRoot]);
 
   // Workspace entry + tab switch: load only missing domains for the active panel.
-  // agents/providers → core; skills → core+skills; mcp → mcp; archive → none.
+  // agents/providers → core; skills → core+skills; archive → none.
   useEffect(() => {
     const needed = domainsForPanel(activePanel);
     if (needed.length === 0) {
@@ -560,7 +556,7 @@ export function AgentManagementPage(props: {
       }
       autoAdoptInFlightRef.current = false;
       if (adoptedNames.length > 0) {
-        // Agents-only refresh: do not rescan skills/mcp after auto-adopt.
+        // Agents-only refresh: do not rescan skills after auto-adopt.
         await refresh({ force: true, domains: domainsForAgentMutation() });
         showToast({
           tone: "success",
@@ -808,27 +804,6 @@ export function AgentManagementPage(props: {
     }
   }, [refresh]);
 
-  const runMcpAction = useCallback(async (
-    input: Parameters<typeof agentManagementMcpAction>[0],
-    busyKey: string,
-  ) => {
-    setMcpActionKey(busyKey);
-    setError(null);
-    try {
-      const result = await agentManagementMcpAction(input);
-      setSnapshot((current) => {
-        if (!current) return current;
-        const nextSnapshot = { ...current, mcp: result.snapshot };
-        writeCachedAgentManagerSnapshot(cacheKey, nextSnapshot, ["mcp"]);
-        return nextSnapshot;
-      });
-    } catch (mcpError) {
-      setError(mcpError instanceof Error ? mcpError.message : String(mcpError));
-    } finally {
-      setMcpActionKey(null);
-    }
-  }, [cacheKey]);
-
   const matrixAgents = useMemo(() => {
     const keys = visibleSkillMatrixAgents(
       STUDIO_SWITCH_SKILL_AGENT_OPTIONS,
@@ -990,7 +965,7 @@ export function AgentManagementPage(props: {
       </header>
 
       {/*
-        Shared content gutter for every tab (本地 / 模型 / 技能 / MCP / 会话).
+        Shared content gutter for every tab (本地 / 模型 / 技能 / 会话).
         Must match shellChrome.pageHeaderSimple (px-6) so left/right inset is identical
         when switching panels — no full-bleed archive vs max-w-6xl agents mismatch.
       */}
@@ -999,8 +974,7 @@ export function AgentManagementPage(props: {
           "min-h-0 flex-1 px-6 py-4",
           activePanel === "archive" ||
             activePanel === "providers" ||
-            activePanel === "skills" ||
-            activePanel === "mcp"
+            activePanel === "skills"
             ? "overflow-hidden"
             : "overflow-y-auto",
         )}
@@ -1010,7 +984,6 @@ export function AgentManagementPage(props: {
             "flex h-full min-h-0 w-full flex-col",
             activePanel === "skills" && "gap-4",
             activePanel === "agents" && "space-y-4",
-            activePanel === "mcp" && "min-h-0",
           )}
         >
           {error && activePanel !== "archive" ? (
@@ -1043,13 +1016,6 @@ export function AgentManagementPage(props: {
                 onSubmit={submitProviderDraft}
               />
             </>
-          ) : activePanel === "mcp" ? (
-            <AgentManagementMcpPanel
-              snapshot={snapshot?.mcp ?? null}
-              loading={Boolean(domainLoading.mcp) || !readCachedAgentManagerDomains(cacheKey).mcp}
-              busyKey={mcpActionKey}
-              onMcpAction={runMcpAction}
-            />
           ) : activePanel === "agents" ? (
             <section className="space-y-6">
               {/* Primary: managed fleet */}

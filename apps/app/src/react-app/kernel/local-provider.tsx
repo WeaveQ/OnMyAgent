@@ -13,6 +13,7 @@ import {
 import { THINKING_PREF_KEY } from "../../app/constants";
 import { coerceReleaseChannel } from "../../app/lib/release-channels";
 import type { ModelRef, ReleaseChannel, SettingsTab, View } from "../../app/types";
+import { applyConversationWidthCssVar } from "../capabilities/layout/content-column";
 import { canonicalizeProfileOptionValues } from "../domains/shared/personalization/profile-option-aliases";
 import { readStoredDefaultModel } from "./model-config";
 import type { ResponseToneId } from "./response-tone";
@@ -146,6 +147,33 @@ export type LocalPreferences = {
    */
   desktopNotifyOnAgentReady: boolean;
   /**
+   * Master toggle for OS desktop notifications (settings → system).
+   * Agent-ready alerts still require desktopNotifyOnAgentReady.
+   */
+  desktopNotificationsEnabled: boolean;
+  /** Play a short sound when an agent turn completes. */
+  soundNotifyOnAgentReady: boolean;
+  /** Launch app when the user logs into the OS (desktop only). */
+  launchAtLogin: boolean;
+  /** Keep display awake while an agent run is active (desktop only). */
+  keepSystemAwake: boolean;
+  /** Show unread count on Dock (mac) / taskbar (win). */
+  dockUnreadBadge: boolean;
+  /**
+   * Conversation column max width: fixed product max, or fill the main pane.
+   */
+  conversationWidth: "fixed" | "wide";
+  /**
+   * Custom keymap overrides (action id → accelerator string).
+   * Empty object means defaults.
+   */
+  keymapOverrides: Record<string, string>;
+  /**
+   * App snapshot global hotkey (Electron accelerator or special token
+   * "double-command" / "double-control").
+   */
+  appSnapshotHotkey: string;
+  /**
    * Release channel the desktop app is subscribed to. Defaults to
    * "stable". Alpha is only honored on macOS; the updater helper falls
    * back to stable elsewhere.
@@ -194,6 +222,14 @@ const INITIAL_PREFS: LocalPreferences = {
   modelVariant: null,
   defaultModel: null,
   desktopNotifyOnAgentReady: false,
+  desktopNotificationsEnabled: true,
+  soundNotifyOnAgentReady: true,
+  launchAtLogin: true,
+  keepSystemAwake: false,
+  dockUnreadBadge: true,
+  conversationWidth: "fixed",
+  keymapOverrides: {},
+  appSnapshotHotkey: "double-command",
   releaseChannel: "stable",
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,
@@ -263,6 +299,10 @@ export function LocalProvider({ children }: LocalProviderProps) {
   useEffect(() => {
     writePersisted(PREFS_STORAGE_KEY, prefs);
   }, [prefs]);
+
+  useEffect(() => {
+    applyConversationWidthCssVar(prefs.conversationWidth ?? "fixed");
+  }, [prefs.conversationWidth]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

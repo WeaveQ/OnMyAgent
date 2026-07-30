@@ -1,8 +1,11 @@
 /**
- * Cmd/Ctrl+N create-task and Cmd/Ctrl+K command palette shortcuts.
+ * Session-route shortcut listeners:
+ * - KEYMAP_EVENT_NEW_TASK from unified keymap dispatcher (⌘/Ctrl+N)
+ * - Cmd/Ctrl+K command palette (not in settings keymap table)
  */
 import { useEffect, useEffectEvent, type Dispatch, type SetStateAction } from "react";
 
+import { KEYMAP_EVENT_NEW_TASK } from "../keymap-dispatcher";
 import { resolveSessionRouteGlobalShortcut } from "./control";
 
 type Input = {
@@ -20,10 +23,13 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
     setCommandPaletteOpen,
   } = input;
 
-  // Global shortcuts:
-  //   Cmd/Ctrl+N  -> new task in selected workspace
-  //   Cmd/Ctrl+K  -> toggle command palette
-  const handleGlobalShortcut = useEffectEvent((event: KeyboardEvent) => {
+  const onNewTaskFromKeymap = useEffectEvent(() => {
+    if (!canCreateTask || !selectedWorkspaceId) return;
+    void handleCreateTaskInWorkspace(selectedWorkspaceId);
+  });
+
+  // Cmd/Ctrl+K stays here (not a settings-table action).
+  const handlePaletteShortcut = useEffectEvent((event: KeyboardEvent) => {
     const shortcut = resolveSessionRouteGlobalShortcut({
       key: event.key,
       metaKey: event.metaKey,
@@ -32,17 +38,9 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
       altKey: event.altKey,
       platform: typeof navigator !== "undefined" ? navigator.platform : null,
       target: event.target,
-      canCreateTask,
-      selectedWorkspaceId,
+      canCreateTask: false,
+      selectedWorkspaceId: "",
     });
-
-    if (shortcut.action === "create-task") {
-      event.preventDefault();
-      if (shortcut.workspaceId) {
-        void handleCreateTaskInWorkspace(shortcut.workspaceId);
-      }
-      return;
-    }
     if (shortcut.action === "toggle-command-palette") {
       event.preventDefault();
       setCommandPaletteOpen((value) => !value);
@@ -50,10 +48,13 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
   });
 
   useEffect(() => {
-    const handler = (event: KeyboardEvent) => handleGlobalShortcut(event);
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    const onNewTask = () => onNewTaskFromKeymap();
+    window.addEventListener(KEYMAP_EVENT_NEW_TASK, onNewTask);
+    const onKeyDown = (event: KeyboardEvent) => handlePaletteShortcut(event);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener(KEYMAP_EVENT_NEW_TASK, onNewTask);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, []);
-
-
 }

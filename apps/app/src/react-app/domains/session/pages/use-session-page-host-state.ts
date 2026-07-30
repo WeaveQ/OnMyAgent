@@ -186,17 +186,21 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
     setHistoryActiveMatch(0);
   }, [historySearchQuery, historyComposerSessionId]);
 
+  // Search-in-task: unified keymap dispatcher emits KEYMAP_EVENT_SEARCH_IN_TASK
+  // (default ⌘/Ctrl+F). Also keep a local match for when host mounts before dispatcher.
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-        if (historySearchViews.includes(activeSidebarView)) {
-          event.preventDefault();
-          openHistorySearch();
-        }
+    const onSearchEvent = () => {
+      if (historySearchViews.includes(activeSidebarView)) {
+        openHistorySearch();
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("onmyagent:keymap:search-in-task", onSearchEvent);
+    return () => {
+      window.removeEventListener(
+        "onmyagent:keymap:search-in-task",
+        onSearchEvent,
+      );
+    };
   }, [activeSidebarView, historySearchViews, openHistorySearch]);
 
   const commitBrowserPanelWidth = useCallback(() => {

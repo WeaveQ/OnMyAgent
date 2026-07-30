@@ -32,4 +32,6 @@ export default {
     "Workspace root is already available.",
   "context_panel.workspace_root_badge": "Workspace root",
   "context_panel.writable_workspace_required": `A writable ${APP_NAME} server workspace is required to update authorized folders.`,
+  "context_panel.remote_workspace_no_folders": "Remote workspaces cannot authorize local folders on this device.",
+  "context_panel.loading_folders": "Loading authorized folders…",
 } as const;

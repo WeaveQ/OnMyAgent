@@ -161,7 +161,7 @@ export type PageMode = "assistant" | "expert";
 export type SessionAgentManagementIntent = {
   key: string;
   action: "createProvider" | "openPanel";
-  panel?: "providers" | "agents" | "skills" | "mcp";
+  panel?: "providers" | "agents" | "skills";
 };
 
 export type SessionPageWithModeProps = Omit<SessionPageProps, never> & {

@@ -21,6 +21,8 @@ import {
   loadMemoryView,
   loadPreferencesView,
   loadSystemAuthorizationsView,
+  loadSystemSettingsView,
+  loadShortcutsView,
   loadUpdatesView,
   loadUsageView,
 } from "../../domains/settings";
@@ -76,6 +78,19 @@ export const LazySystemAuthorizationsView = lazy(() =>
     default: module.SystemAuthorizationsView,
   })),
 );
+
+export const LazySystemSettingsView = lazy(() =>
+  loadSystemSettingsView().then((module) => ({
+    default: module.SystemSettingsView,
+  })),
+);
+
+export const LazyShortcutsView = lazy(() =>
+  loadShortcutsView().then((module) => ({
+    default: module.ShortcutsView,
+  })),
+);
+
 
 export const LazyAuthorizedFoldersPanel = lazy(() =>
   loadAuthorizedFoldersPanel().then((module) => ({
