@@ -6,7 +6,6 @@ import {
   app,
   globalShortcut,
   powerSaveBlocker,
-  BrowserWindow,
 } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,7 +20,12 @@ let powerSaveBlockerId = null;
 let registeredAppSnapshotAccelerator = null;
 
 /**
- * @returns {{ enabled: boolean; openAtLogin: boolean; openAsHidden: boolean }}
+ * @returns {{
+ *   enabled: boolean;
+ *   openAtLogin: boolean;
+ *   openAsHidden: boolean;
+ *   error?: string;
+ * }}
  */
 export function getLaunchAtLogin() {
   try {
@@ -43,6 +47,12 @@ export function getLaunchAtLogin() {
 
 /**
  * @param {boolean} enabled
+ * @returns {{
+ *   enabled: boolean;
+ *   openAtLogin: boolean;
+ *   openAsHidden: boolean;
+ *   error?: string;
+ * }}
  */
 export function setLaunchAtLogin(enabled) {
   try {
@@ -113,19 +123,7 @@ export function setDockUnreadBadge(count) {
     }
 
     if (process.platform === "win32") {
-      const wins = BrowserWindow.getAllWindows();
-      for (const win of wins) {
-        if (win.isDestroyed()) continue;
-        // Overlay text is limited; use badge count API when available (Electron 39+).
-        if (typeof win.setBadgeCount === "function") {
-          win.setBadgeCount(value);
-        } else if (typeof app.setBadgeCount === "function") {
-          app.setBadgeCount(value);
-        }
-        if (value > 0 && typeof win.flashFrame === "function") {
-          // Do not force flash every update — only when count appears.
-        }
-      }
+      // Badge count is on app, not BrowserWindow (Electron typings).
       if (typeof app.setBadgeCount === "function") {
         app.setBadgeCount(value);
       }
