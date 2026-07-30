@@ -35,8 +35,10 @@ import type {
   AgentManagementSnapshotInput,
   AppBuildInfo,
   BrowserSkillStatusResult,
+  BuiltinSkillCatalogResult,
   BuiltinSkillPackageInstallInput,
   BuiltinSkillPackageInstallResult,
+  EnsureDefaultBuiltinSkillsResult,
   CacheResetResult,
   ChannelProbeResult,
   ComputerUseAppshotResult,
@@ -969,6 +971,11 @@ type TypedDesktopCommandMap = {
     ExecResult
   >;
   listLocalSkills: DesktopCommandContract<[string?], LocalSkillCard[]>;
+  listBuiltinSkillCatalog: DesktopCommandContract<[], BuiltinSkillCatalogResult>;
+  ensureDefaultBuiltinSkills: DesktopCommandContract<
+    [],
+    EnsureDefaultBuiltinSkillsResult
+  >;
   onmyagentSkillsRoot: DesktopCommandContract<[], string>;
   onmyagentMarketplaceRoot: DesktopCommandContract<
     [ExpertMarketplaceName],
