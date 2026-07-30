@@ -919,7 +919,7 @@ export default {
   "settings.provider_reload_now": "立即重新加载",
 
   "settings.tab_system": "系统设置",
-  "settings.tab_description_system": "开机自启动、通知、系统权限（含应用快照）与授权文件夹",
+  "settings.tab_description_system": "开机自启、通知与系统权限",
   "settings.tab_shortcuts": "快捷键",
   "settings.tab_description_shortcuts": "自定义通用、任务与会话操作的快捷键",
   "settings.tab_app_snapshot": "应用快照",

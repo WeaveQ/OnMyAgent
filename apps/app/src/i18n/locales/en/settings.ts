@@ -998,7 +998,7 @@ export default {
   "settings.provider_reload_now": "Reload now",
 
   "settings.tab_system": "System",
-  "settings.tab_description_system": "Launch options, notifications, system permissions (including app snapshot), and authorized folders",
+  "settings.tab_description_system": "Startup, notifications, and permissions",
   "settings.tab_shortcuts": "Keyboard shortcuts",
   "settings.tab_description_shortcuts": "Customize general, task, and session shortcuts",
   "settings.tab_app_snapshot": "App snapshot",
