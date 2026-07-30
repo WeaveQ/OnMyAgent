@@ -170,8 +170,9 @@ export function extractFrontmatterValue(raw, keys) {
  */
 export function extractFrontmatterMap(raw, keys) {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return {};
-  const out = {};
+  /** @type {Record<string, string>} */
+  const out = Object.create(null);
+  if (!match) return out;
   const lines = match[1].split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
