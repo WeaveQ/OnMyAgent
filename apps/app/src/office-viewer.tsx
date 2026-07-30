@@ -175,11 +175,14 @@ function OfficeViewer() {
 
   const options = useMemo(
     () => ({
-      theme: payload?.theme ?? "light",
+      theme: isSpreadsheet ? "light" : payload?.theme ?? "light",
       locale: "auto" as const,
       rendererMode: "replace" as const,
       renderers: [wordRenderer, spreadsheetRenderer, presentationRenderer],
-      fit: { mode: "auto" as const, resize: "until-interaction" as const },
+      fit: {
+        mode: isSpreadsheet ? ("actual" as const) : ("auto" as const),
+        resize: "until-interaction" as const,
+      },
       ui: { density: "compact" as const },
       docx: { visualPagination: true },
       toolbar: {
@@ -192,7 +195,7 @@ function OfficeViewer() {
         position: "bottom-right" as const,
       },
     }),
-    [payload?.theme],
+    [isSpreadsheet, payload?.theme],
   );
 
   useEffect(() => {

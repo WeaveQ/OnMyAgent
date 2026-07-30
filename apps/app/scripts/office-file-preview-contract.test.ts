@@ -104,3 +104,26 @@ test("extends sparse spreadsheets with native-looking grid chrome", () => {
   expect(styles).toMatch(/\.sheet-tab\.active::after\s*\{/);
   expect(styles).toMatch(/\.summary\s*\{\s*display:\s*none/);
 });
+
+test("renders spreadsheet documents on a light canvas so workbook colors stay readable", () => {
+  expect(existsSync(viewerPath)).toBe(true);
+  expect(existsSync(viewerStylesPath)).toBe(true);
+  if (!existsSync(viewerPath) || !existsSync(viewerStylesPath)) return;
+
+  const viewer = readFileSync(viewerPath, "utf8");
+  const styles = readFileSync(viewerStylesPath, "utf8");
+  expect(viewer).toContain('theme: isSpreadsheet ? "light" : payload?.theme ?? "light"');
+  expect(styles).toContain("color-scheme: light;");
+  expect(styles).not.toMatch(
+    /@media \(prefers-color-scheme: dark\)[\s\S]*?\.spreadsheet-viewer[\s\S]*?background-color:\s*#111827/,
+  );
+});
+
+test("opens spreadsheets at actual size instead of shrinking the whole sheet to fit", () => {
+  expect(existsSync(viewerPath)).toBe(true);
+  if (!existsSync(viewerPath)) return;
+
+  const viewer = readFileSync(viewerPath, "utf8");
+  expect(viewer).toContain('mode: isSpreadsheet ? ("actual" as const) : ("auto" as const)');
+  expect(viewer).toContain('resize: "until-interaction" as const');
+});
