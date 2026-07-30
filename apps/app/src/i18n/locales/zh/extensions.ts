@@ -104,7 +104,9 @@ export default {
   "extensions.browser_skill_status_ready": "就绪",
   "extensions.browser_skill_status_setup": "需要配置",
   "extensions.browser_skill_vs_in_app":
-    "不是应用内 Browser，也不是 Computer Use。适合已登录站点。",
+    "选择合适的界面：应用内 Browser（无需真实 Chrome 登录）、BrowserSkill（真实 Chrome/Edge，经 bsk + 扩展）、或 Computer Use（原生 macOS 应用）。本面板是 BrowserSkill。",
+  "extensions.browser_skill_choose_surface":
+    "应用内 Browser · BrowserSkill（真实 Chrome）· Computer Use（原生应用）",
   "extensions.browser_skill_install_cli_title": "安装 CLI",
   "extensions.browser_skill_setup_intro": "按下面三步操作即可，每台机器只需一次。",
   "extensions.browser_skill_step_cli_title": "1. 安装 bsk CLI",
