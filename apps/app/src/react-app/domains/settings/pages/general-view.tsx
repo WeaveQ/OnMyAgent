@@ -92,11 +92,6 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       title: t("settings.tab_conversation_memory"),
       desc: t("settings.tab_description_conversation_memory"),
     },
-    {
-      tab: "permissions",
-      title: t("settings.permissions"),
-      desc: t("settings.permissions_card_description"),
-    },
   ];
 
   const globalCards: Array<{
@@ -108,6 +103,21 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       tab: "ai",
       title: t("settings.ai_providers"),
       desc: t("settings.ai_providers_card_description"),
+    },
+    {
+      tab: "system",
+      title: t("settings.tab_system"),
+      desc: t("settings.tab_description_system"),
+    },
+    {
+      tab: "shortcuts",
+      title: t("settings.tab_shortcuts"),
+      desc: t("settings.tab_description_shortcuts"),
+    },
+    {
+      tab: "app-snapshot",
+      title: t("settings.tab_app_snapshot"),
+      desc: t("settings.tab_description_app_snapshot"),
     },
     {
       tab: "environment",

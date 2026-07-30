@@ -84,7 +84,7 @@ export function SystemSettingsView(props: SystemSettingsViewProps) {
   return (
     <LayoutStack>
       <SettingsPageSection
-        title={t("settings.system_section_title")}
+        title={t("settings.system_options_section_title")}
         description={t("settings.system_section_desc")}
       >
         {!desktop ? (
