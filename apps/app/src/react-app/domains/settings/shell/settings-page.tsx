@@ -182,8 +182,8 @@ export function getOverviewSettingsTabs(): SettingsTab[] {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // System authorizations + folders live under Global → System (fused).
-  return ["preferences", "memory", "conversation-memory"];
+  // Models + personalization/memory; system auth lives under Global → System.
+  return ["ai", "preferences", "memory", "conversation-memory"];
 }
 
 /** Usage + reset/recovery + archive. */
@@ -198,7 +198,6 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
   const tabs: SettingsTab[] = [
-    "ai",
     "system",
     "shortcuts",
     "environment",
