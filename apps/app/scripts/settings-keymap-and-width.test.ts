@@ -35,7 +35,7 @@ describe("settings keymap defaults", () => {
     expect(
       formatAcceleratorForDisplay("CommandOrControl+,", "windows"),
     ).toContain("Ctrl");
-    expect(formatAcceleratorForDisplay("double-command", "macos")).toBe("⌘+⌘");
+    expect(formatAcceleratorForDisplay("double-command", "macos")).toBe("⌘⌘");
   });
 });
 

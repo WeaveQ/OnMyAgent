@@ -87,33 +87,59 @@ export function resolveAccelerator(
   return def?.defaultAccelerator ?? "";
 }
 
-/** Display helper: CommandOrControl → ⌘ (mac) / Ctrl (else). */
+function mapToken(
+  token: string,
+  platform: "macos" | "windows" | "linux" | "unknown",
+): string {
+  const isMac = platform === "macos";
+  const t = token.trim();
+  if (/^CommandOrControl$/i.test(t)) return isMac ? "⌘" : "Ctrl";
+  if (/^Command$/i.test(t)) return isMac ? "⌘" : "Ctrl";
+  if (/^Control$/i.test(t)) return isMac ? "⌃" : "Ctrl";
+  if (/^Shift$/i.test(t)) return isMac ? "⇧" : "Shift";
+  if (/^(Alt|Option)$/i.test(t)) return isMac ? "⌥" : "Alt";
+  if (/^Enter$/i.test(t)) return "↵";
+  if (/^Tab$/i.test(t)) return "Tab";
+  if (/^Space$/i.test(t)) return "Space";
+  if (/^Backslash$/i.test(t) || t === "\\") return "\\";
+  if (/^Comma$/i.test(t) || t === ",") return ",";
+  if (/^Slash$/i.test(t) || t === "/") return "/";
+  if (t.length === 1) return t.toUpperCase();
+  return t;
+}
+
+/**
+ * Split one binding into key labels for kbd chips.
+ * Multi-bindings (`A|B`) become separate alternatives (array of arrays).
+ */
+export function acceleratorToKeyGroups(
+  accelerator: string,
+  platform: "macos" | "windows" | "linux" | "unknown" = "macos",
+): string[][] {
+  if (!accelerator) return [["—"]];
+  if (accelerator === "double-command") {
+    return platform === "windows" || platform === "linux"
+      ? [["Ctrl", "Ctrl"]]
+      : [["⌘", "⌘"]];
+  }
+  if (accelerator === "double-control") return [["Ctrl", "Ctrl"]];
+
+  return accelerator.split("|").map((binding) =>
+    binding
+      .trim()
+      .split("+")
+      .map((part) => mapToken(part, platform))
+      .filter(Boolean),
+  );
+}
+
+/** Display helper: CommandOrControl → ⌘ (mac) / Ctrl (else). Compact, no extra spaces. */
 export function formatAcceleratorForDisplay(
   accelerator: string,
   platform: "macos" | "windows" | "linux" | "unknown" = "macos",
 ): string {
-  if (!accelerator) return "—";
-  if (accelerator === "double-command") {
-    return platform === "windows" || platform === "linux"
-      ? "Ctrl+Ctrl"
-      : "⌘+⌘";
-  }
-  if (accelerator === "double-control") return "Ctrl+Ctrl";
-
-  const isMac = platform === "macos";
-  return accelerator
-    .split("|")
-    .map((part) =>
-      part
-        .trim()
-        .replace(/CommandOrControl/gi, isMac ? "⌘" : "Ctrl")
-        .replace(/Command/gi, isMac ? "⌘" : "Ctrl")
-        .replace(/Control/gi, isMac ? "⌃" : "Ctrl")
-        .replace(/Shift/gi, isMac ? "⇧" : "Shift")
-        .replace(/Alt|Option/gi, isMac ? "⌥" : "Alt")
-        .replace(/Enter/gi, "↵")
-        .replace(/\+/g, " + "),
-    )
+  return acceleratorToKeyGroups(accelerator, platform)
+    .map((keys) => keys.join(""))
     .join(" / ");
 }
 

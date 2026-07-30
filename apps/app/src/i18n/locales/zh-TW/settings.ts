@@ -973,4 +973,7 @@ export default {
   "settings.permission_microphone_desc": "允許存取麥克風，用於語音輸入",
   "settings.permission_status_granted": "已授權",
   "settings.permission_status_denied": "未授權",
+
+  "settings.shortcuts_recording_hint": "請按下新的快捷鍵組合…",
+  "settings.shortcuts_reset_one": "還原此項預設",
 } as const;
