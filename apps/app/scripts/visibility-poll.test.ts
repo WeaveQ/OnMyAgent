@@ -101,6 +101,37 @@ describe("server-provider health poll wiring", () => {
   });
 });
 
+describe("personal-local-agent host poll wiring", () => {
+  test("page uses visibility-aware interval helpers for heartbeats and run polls", () => {
+    const page = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
+      ),
+      "utf8",
+    );
+    expect(page).toContain('from "../../../infra/visibility-poll"');
+    expect(page).toContain("shouldRunPollTick");
+    expect(page).toContain("isDocumentHidden");
+    expect(page).toContain("useVisibilityInterval");
+    expect(page).toContain("usePersonalLocalAgentProcessSync");
+  });
+
+  test("process-sync hook pauses ACP process list polling while hidden", () => {
+    const source = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/local-agents/host/use-personal-local-agent-process-sync.ts",
+      ),
+      "utf8",
+    );
+    expect(source).toContain('from "../../../infra/visibility-poll"');
+    expect(source).toContain("shouldRunPollTick");
+    expect(source).toContain("isDocumentHidden");
+    expect(source).toContain("personalLocalAgentAcpProcessesList");
+  });
+});
+
 describe("code-workspace-side-panel automations poll wiring", () => {
   test("imports visibility-poll helpers and no longer uses bare 15s setInterval", () => {
     const source = readFileSync(

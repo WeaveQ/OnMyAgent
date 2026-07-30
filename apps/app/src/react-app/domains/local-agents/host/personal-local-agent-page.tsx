@@ -2,6 +2,12 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
+  isDocumentHidden,
+  shouldRunPollTick,
+} from "../../../infra/visibility-poll";
+import { useVisibilityInterval } from "../../../infra/use-visibility-interval";
+import { usePersonalLocalAgentProcessSync } from "./use-personal-local-agent-process-sync";
+import {
   Activity,
   CircleStop,
   Clock3,
@@ -26,7 +32,6 @@ import { useStatusToasts } from "../../shell-feedback";
 import {
   personalLocalAgentAcpCancel,
   personalLocalAgentAcpAgentsList,
-  personalLocalAgentAcpProcessesList,
   personalLocalAgentAcpResolveApproval,
   personalLocalAgentAcpSend,
   personalLocalAgentConversationCreate,
@@ -137,7 +142,6 @@ import {
   localAgentTextClass,
   messageTextForRun,
   nowId,
-  placeholderRunFromProcess,
 } from "./personal-local-agent-page-helpers";
 import { PersonalLocalAgentModelSelector } from "./personal-local-agent-model-selector";
 import { useArchiveResume } from "./use-archive-resume";
@@ -461,47 +465,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       })
       .filter((item): item is { chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult } => Boolean(item));
   }, [activeRunIdByAgent, agents, messagesByAgent]);
-  useEffect(() => {
-    let cancelled = false;
-    const syncBackgroundProcesses = async () => {
-      try {
-        const result = await personalLocalAgentAcpProcessesList();
-        if (cancelled) return;
-        for (const process of result.processes) {
-          const run = placeholderRunFromProcess(process);
-          if (!run) continue;
-          const chatKey = localAgentChatKey(run.agentId, process.conversationId || undefined);
-          setActiveRunIdByAgent((current) => current[chatKey] === run.runId ? current : { ...current, [chatKey]: run.runId });
-          setMessagesByAgent((current) => {
-            const existing = current[chatKey] ?? [];
-            if (existing.some((message) => message.run?.runId === run.runId)) return current;
-            const agent = agents.find((item) => item.id === run.agentId) ?? null;
-            return {
-              ...current,
-              [chatKey]: [
-                ...(existing.length ? existing : agent ? [welcomeMessageForAgent(agent)] : []),
-                {
-                  id: nowId("assistant"),
-                  role: "assistant",
-                  text: messageTextForRun(run, t("local_agent.running")),
-                  createdAt: Date.now(),
-                  run,
-                },
-              ],
-            };
-          });
-        }
-      } catch {
-        // Background process sync is best-effort; run polling still owns final status.
-      }
-    };
-    void syncBackgroundProcesses();
-    const timer = window.setInterval(() => void syncBackgroundProcesses(), 5_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [agents]);
+  usePersonalLocalAgentProcessSync({
+    agents,
+    setActiveRunIdByAgent,
+    setMessagesByAgent,
+  });
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(personalAgentApprovalModeKey(props.workspaceRoot), approvalMode);
@@ -610,11 +578,10 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   }, [props.workspaceRoot]);
   useEffect(() => {
     void loadHeartbeats();
-    const timer = window.setInterval(() => {
-      void loadHeartbeats();
-    }, 10_000);
-    return () => window.clearInterval(timer);
   }, [loadHeartbeats]);
+  useVisibilityInterval(() => {
+    void loadHeartbeats();
+  }, 10_000, [loadHeartbeats]);
   useEffect(() => {
     if (!heartbeatJobs.length) return;
     setMessagesByAgent((current) => {
@@ -884,6 +851,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       if (runId) pollRun(chatKey, runId);
     }
     const timer = window.setInterval(() => {
+      if (!shouldRunPollTick(isDocumentHidden())) return;
       for (const [chatKey, runId] of activeEntries) {
         if (runId) pollRun(chatKey, runId);
       }
