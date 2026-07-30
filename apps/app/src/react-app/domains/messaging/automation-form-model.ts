@@ -162,6 +162,26 @@ export function formStateFromTemplate(
   };
 }
 
+/** Localized title/prompt wrapper used by the automation page host. */
+export function formStateFromTemplateLocalized(
+  template: AutomationTemplate,
+  defaultModel: ModelRef | null = null,
+): AutomationFormState {
+  return formStateFromTemplate(
+    template,
+    defaultModel,
+    t(template.titleKey),
+    t(template.promptKey),
+  );
+}
+
+export function selectAgentTemplateById(
+  registry: { templates: ReadonlyArray<{ id: string }> },
+  agentId: string,
+) {
+  return registry.templates.find((template) => template.id === agentId) ?? null;
+}
+
 export function formStateFromAutomation(
   item: OnMyAgentAutomationTaskItem,
   fallbackModel: ModelRef | null = null,

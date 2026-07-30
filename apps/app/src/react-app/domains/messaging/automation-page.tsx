@@ -64,6 +64,10 @@ import type {
   OnMyAgentServerClient,
 } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
+import {
+  isDocumentHidden,
+  shouldRunPollTick,
+} from "../../infra/visibility-poll";
 import { useLocal } from "../../kernel/local-provider";
 import {
   automationPayloadFromTemplate,
@@ -118,7 +122,8 @@ import {
   createEmptyFormState,
   effectiveRangeLabel,
   formStateFromAutomation,
-  formStateFromTemplate as formStateFromTemplateKeys,
+  formStateFromTemplateLocalized,
+  selectAgentTemplateById,
   hasAutomationModel,
   intervalMinutes,
   isFormValid,
@@ -146,18 +151,6 @@ const weekdays = [...ALL_WEEKDAYS];
 const automationStatusTabs: AutomationStatusTab[] = ["tasks", "runs"];
 const riskAcceptedStorageKey = "onmyagent.automationFullAccessRiskAccepted.v1";
 
-function formStateFromTemplate(
-  template: AutomationTemplate,
-  defaultModel: ModelRef | null = null,
-): AutomationFormState {
-  return formStateFromTemplateKeys(
-    template,
-    defaultModel,
-    t(template.titleKey),
-    t(template.promptKey),
-  );
-}
-
 function AutomationField(props: {
   label: string;
   hint?: string;
@@ -184,10 +177,6 @@ function openNativePicker(event: MouseEvent<HTMLInputElement>) {
   const input = event.currentTarget;
   input.focus();
   input.showPicker?.();
-}
-
-function selectedAgentTemplate(registry: AgentRegistry, agentId: string) {
-  return registry.templates.find((template) => template.id === agentId) ?? null;
 }
 
 function WorkspaceField(props: {
@@ -1047,7 +1036,10 @@ export function AutomationPage(props: {
   }, [props.client, props.workspaceId]);
   useEffect(() => {
     const timer = window.setInterval(
-      () => refreshAutomations({ silent: true }),
+      () => {
+        if (!shouldRunPollTick(isDocumentHidden())) return;
+        refreshAutomations({ silent: true });
+      },
       running.length > 0 ? 2_000 : 15_000,
     );
     return () => window.clearInterval(timer);
@@ -1099,7 +1091,7 @@ export function AutomationPage(props: {
   const openTemplateDialog = (template: AutomationTemplate) => {
     setDialogMode("create");
     setEditingAutomationId(null);
-    setForm(formStateFromTemplate(template, local.prefs.defaultModel ?? null));
+    setForm(formStateFromTemplateLocalized(template, local.prefs.defaultModel ?? null));
     setDialogOpen(true);
   };
 
@@ -1113,7 +1105,7 @@ export function AutomationPage(props: {
   const payload = () => {
     const interval = intervalMinutes(form);
     const timestamp = onceAt(form);
-    const agentTemplate = selectedAgentTemplate(registry, form.agentId);
+    const agentTemplate = selectAgentTemplateById(registry, form.agentId);
     const pendingAgent = agentTemplate ? buildPendingAgentFromRecord(agentTemplate, registry) : null;
     return {
       scene: props.scene,

@@ -77,12 +77,15 @@ import {
   resolveOnMyAgentGateway,
   formatSkillPath,
   hubRepoKey,
+  hubSkillCardsFromDirectoryNames,
   isRecord,
+  mapHubSkillListItems,
   mapSkillCard,
   mergeHubRepoList,
   normalizeHubRepo,
   OPENCODE_MCP_IMPORT_PATH_PREFIX,
   OPENCODE_MCP_NAME_RE,
+  parseGithubSkillDirectoryListing,
   parseJsonRecord,
   readNonEmptyString,
   readStringArray,
@@ -90,6 +93,7 @@ import {
   isStaleExtensionsLoad,
   shouldResetExtensionsLoadedForKey,
   shouldSkipExtensionsRefresh,
+  sortHubSkillCardsByName,
   toConfigPluginListEntries,
   toProjectPluginListEntries,
   type PluginListEntry,
@@ -432,14 +436,7 @@ export function createExtensionsStore(options: {
           },
         });
         if (refreshHubSkillsAborted) return;
-        const next: HubSkillCard[] = Array.isArray(response?.items)
-          ? response.items.map((entry) => ({
-              name: String(entry.name ?? ""),
-              description: typeof entry.description === "string" ? entry.description : undefined,
-              trigger: typeof entry.trigger === "string" ? entry.trigger : undefined,
-              source: entry.source,
-            }))
-          : [];
+        const next = mapHubSkillListItems(response?.items) as HubSkillCard[];
         mutateState((current) => ({
           ...current,
           hubSkills: next,
@@ -459,21 +456,11 @@ export function createExtensionsStore(options: {
         throw new Error(`Failed to fetch hub catalog (${listingRes.status})`);
       }
       const listing = (await listingRes.json()) as unknown;
-      const dirs: string[] = Array.isArray(listing)
-        ? listing.flatMap((entry) => {
-            if (!entry || typeof entry !== "object" || (entry as { type?: string }).type !== "dir") return [];
-            const name = String((entry as { name?: string }).name ?? "");
-            return name ? [name] : [];
-          })
-        : [];
-
-      const next: HubSkillCard[] = dirs.map((dirName) => ({
-        name: dirName,
-        source: { owner: repo.owner, repo: repo.repo, ref: repo.ref, path: `skills/${dirName}` },
-      }));
+      const dirs = parseGithubSkillDirectoryListing(listing);
+      const next = hubSkillCardsFromDirectoryNames(dirs, repo) as HubSkillCard[];
 
       if (refreshHubSkillsAborted) return;
-      const sorted = next.toSorted((a, b) => a.name.localeCompare(b.name));
+      const sorted = sortHubSkillCardsByName(next);
       mutateState((current) => ({
         ...current,
         hubSkills: sorted,

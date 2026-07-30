@@ -124,9 +124,12 @@ import {
   buildSettingsRefreshErrorEvent,
   buildSettingsWorkspaceBootstrapErrorEvent,
   buildSettingsEnvironmentWorkspacePaths,
-  getSessionStatus,
-  isActiveSessionStatus,
+  buildSettingsWorkspaceOptions,
+  buildWorkspaceConnectionStateById,
+  formatDefaultModelLabel,
+  formatDefaultModelRefLabel,
   isOnMyAgentCloudProvider,
+  listActiveReloadBlockingSessions,
   mapDesktopWorkspace,
   parseSettingsPath,
   readHistoryIndexFromWindow,
@@ -141,6 +144,7 @@ import {
   resolveSettingsPreferredWorkspaceId,
   settingsPathForRoute,
   buildSettingsSessionMaps,
+  toSelectedWorkspaceDisplay,
   toSessionGroups,
   updateSettingsWorkspaceConnectionOverrides,
   workspaceLabel,
@@ -431,34 +435,24 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? (selectedWorkspaceId ? null : workspaces[0] ?? null),
     [selectedWorkspaceId, workspaces],
   );
-  const workspaceConnectionStateById = useMemo(() => {
-    const next: Record<string, WorkspaceConnectionState> = { ...workspaceConnectionOverrides };
-    for (const workspace of workspaces) {
-      if (workspace.workspaceType !== "remote") continue;
-      const error = errorsByWorkspaceId[workspace.id]?.trim();
-      if (!error || next[workspace.id]?.status === "connecting") continue;
-      next[workspace.id] ??= {
-        status: "error",
-        message: getWorkspaceTaskLoadErrorDisplay(workspace, error).message || error,
-        checkedAt: null,
-      };
-    }
-    return next;
-  }, [errorsByWorkspaceId, workspaceConnectionOverrides, workspaces]);
+  const workspaceConnectionStateById = useMemo(
+    () =>
+      buildWorkspaceConnectionStateById({
+        workspaces,
+        errorsByWorkspaceId,
+        workspaceConnectionOverrides,
+        errorMessageFor: (workspace, error) =>
+          getWorkspaceTaskLoadErrorDisplay(workspace, error).message || error,
+      }),
+    [errorsByWorkspaceId, workspaceConnectionOverrides, workspaces],
+  );
   const selectedWorkspaceRoot = selectedWorkspace?.path?.trim() || "";
   const selectedWorkspaceDisplay = useMemo<WorkspaceDisplay>(
     () =>
-      selectedWorkspace
-        ? {
-            id: selectedWorkspace.id,
-            name: selectedWorkspace.name ?? selectedWorkspace.displayNameResolved,
-            path: selectedWorkspace.path ?? "",
-            preset: "starter",
-            workspaceType: selectedWorkspace.workspaceType ?? "local",
-            displayName: selectedWorkspace.displayNameResolved,
-            onmyagentWorkspaceName: selectedWorkspace.onmyagentWorkspaceName,
-          }
-        : emptyWorkspaceDisplay,
+      toSelectedWorkspaceDisplay({
+        selectedWorkspace,
+        empty: emptyWorkspaceDisplay,
+      }),
     [emptyWorkspaceDisplay, selectedWorkspace],
   );
 
@@ -481,19 +475,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const activeReloadBlockingSessions = useMemo(
     () =>
-      Object.values(sessionsByWorkspaceId)
-        .flat()
-        .flatMap((session) => {
-          if (!isActiveSessionStatus(getSessionStatus(session))) return [];
-          const id = String(session?.id ?? "");
-          if (!id) return [];
-          return [{
-            id,
-            title:
-              String(session?.title ?? session?.slug ?? session?.id ?? "").trim() ||
-              t("session.untitled"),
-          }];
-        }),
+      listActiveReloadBlockingSessions(
+        sessionsByWorkspaceId,
+        t("session.untitled"),
+      ),
     [sessionsByWorkspaceId],
   );
 
@@ -1262,26 +1247,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   );
 
   const selectedWorkspaceName = selectedWorkspace?.displayNameResolved ?? t("session.workspace_fallback");
-  const workspaceOptions = workspaces.map((workspace) => ({
-    id: workspace.id,
-    name: workspace.displayNameResolved,
-    color: workspaceSwatchColor(workspace.id),
-  }));
+  const workspaceOptions = buildSettingsWorkspaceOptions(workspaces, workspaceSwatchColor);
   const selectedWorkspaceColor = workspaceSwatchColor(selectedWorkspaceId);
   const workspaceType = selectedWorkspace?.workspaceType ?? "local";
   const isRemoteWorkspace = workspaceType === "remote";
-  const defaultModelLabel = local.prefs.defaultModel
-    ? (() => {
-        const provider = providers.find((item) => item.id === local.prefs.defaultModel?.providerID);
-        const model = provider?.models?.[local.prefs.defaultModel.modelID];
-        const providerLabel = provider?.name ?? resolveProviderDisplayName(local.prefs.defaultModel.providerID);
-        const modelLabel = model?.name ?? resolveModelDisplayName(local.prefs.defaultModel.modelID);
-        return `${providerLabel} - ${modelLabel}`;
-      })()
-    : t("session.default_model");
-  const defaultModelRef = local.prefs.defaultModel
-    ? `${local.prefs.defaultModel.providerID}/${local.prefs.defaultModel.modelID}`
-    : t("settings.default_label");
+  const defaultModelLabel = formatDefaultModelLabel({
+    defaultModel: local.prefs.defaultModel,
+    providers,
+    resolveProviderDisplayName,
+    resolveModelDisplayName,
+    fallback: t("session.default_model"),
+  });
+  const defaultModelRef = formatDefaultModelRefLabel({
+    defaultModel: local.prefs.defaultModel,
+    fallback: t("settings.default_label"),
+  });
   const defaultModelVariantLabel = local.prefs.modelVariant ?? t("settings.default_label");
   // Inventory merges in the background so first paint is not blocked on desktop IPC.
   const providersUiPhase = resolveAiProvidersUiPhase({

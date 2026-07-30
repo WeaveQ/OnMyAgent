@@ -1,14 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  assistantDirectoryName,
+  assistantTaskSelected,
   buildAssistantListModel,
   buildAssistantSidebarModel,
   buildAutomationLocalPinsMap,
   dropSlotToIndex,
   globalPinKey,
+  groupIncludesSession,
   localPinMapsEqual,
   mergeVisibleReorderIntoFull,
   partitionCategoryGroupsForSidebar,
+  pinOwnsSession,
   reorderList,
   orderedSpaceDirectories,
   reorderSpaceFolderDirectories,
@@ -451,5 +455,63 @@ describe("SpaceFolderDragList uses shared reorder helper", () => {
     expect(source).not.toMatch(
       /allSpaceDirectories\s*=\s*Array\.from\(\s*spaceItemsByDirectory\.keys/,
     );
+  });
+});
+
+describe("assistant conversation section pure helpers", () => {
+  test("assistantDirectoryName takes last path segment", () => {
+    expect(assistantDirectoryName("/a/b/c/")).toBe("c");
+    expect(assistantDirectoryName("C:\\\\users\\\\docs")).toBe("docs");
+  });
+
+  test("assistantTaskSelected and groupIncludesSession", () => {
+    const g = group("s1", 1);
+    expect(assistantTaskSelected(g, "s1")).toBe(true);
+    expect(assistantTaskSelected(g, "other")).toBe(false);
+    expect(groupIncludesSession([g], "s1")).toBe(true);
+    expect(groupIncludesSession([g], null)).toBe(false);
+  });
+
+  test("pinOwnsSession covers session / space / automation pins", () => {
+    const g = group("s1", 1);
+    const bySession = new Map([["s1", g]]);
+    const spaces = new Map([["/space", [g]]]);
+    const automations = new Map([["auto-1", [g]]]);
+    expect(
+      pinOwnsSession(
+        { kind: "session", id: "s1" },
+        "s1",
+        bySession,
+        spaces,
+        automations,
+      ),
+    ).toBe(true);
+    expect(
+      pinOwnsSession(
+        { kind: "folder", id: "/space" },
+        "s1",
+        bySession,
+        spaces,
+        automations,
+      ),
+    ).toBe(true);
+    expect(
+      pinOwnsSession(
+        { kind: "automation", id: "auto-1" },
+        "s1",
+        bySession,
+        spaces,
+        automations,
+      ),
+    ).toBe(true);
+    expect(
+      pinOwnsSession(
+        { kind: "session", id: "missing" },
+        "s1",
+        bySession,
+        spaces,
+        automations,
+      ),
+    ).toBe(false);
   });
 });

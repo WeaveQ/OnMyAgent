@@ -16,6 +16,10 @@ import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpo
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type { SidebarSessionItem } from "../../../app/types";
 import { getReactQueryClient } from "../../infra/query-client";
+import {
+  isDocumentHidden,
+  shouldRunPollTick,
+} from "../../infra/visibility-poll";
 import { refreshProviderListQueries } from "../../domains/connections";
 import { useRemoteAccessRestart } from "../../domains/workspace";
 import {
@@ -526,10 +530,10 @@ export function useSessionRouteRefresh(input: Input) {
     };
 
     void pollReloadEvents();
-    const interval = window.setInterval(
-      () => void pollReloadEvents(),
-      RELOAD_EVENTS_POLL_INTERVAL_MS,
-    );
+    const interval = window.setInterval(() => {
+      if (!shouldRunPollTick(isDocumentHidden())) return;
+      void pollReloadEvents();
+    }, RELOAD_EVENTS_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(interval);

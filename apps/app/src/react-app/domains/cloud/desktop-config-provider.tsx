@@ -26,6 +26,10 @@ import {
   denSessionUpdatedEvent,
   denSettingsChangedEvent,
 } from "../../../app/lib/den-session-events";
+import {
+  isDocumentHidden,
+  shouldRunPollTick,
+} from "../../infra/visibility-poll";
 import { useDenAuth } from "./den-auth-provider";
 import {
   DesktopConfigContext,
@@ -258,6 +262,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
 
     const interval = window.setInterval(() => {
       if (!isSignedIn) return;
+      if (!shouldRunPollTick(isDocumentHidden())) return;
       void desktopConfigHandler();
     }, DESKTOP_CONFIG_REFRESH_MS);
 
