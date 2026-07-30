@@ -92,6 +92,30 @@ test("loadExtensions merges bundled + user extensions and honors disabled state"
   assert.equal(result.enabledAdapters[0].fullyQualifiedId, "ext:user.b:u1");
 }));
 
+test("loadExtensions honors manifest defaultEnabled:false until user enables", (t) => serial(async () => {
+  await tempRuntimeStateRoot();
+  const bundledRoot = await mkdtemp(path.join(os.tmpdir(), "onmyagent-ext-default-off-"));
+  await writeBundledManifest(bundledRoot, "demo-off", {
+    name: "onmyagent.example-acp-adapter",
+    version: "1.0.0",
+    defaultEnabled: false,
+    contributes: {
+      acpAdapters: [{ id: "example-codex-acp", connectionType: "cli", cliCommand: "codex" }],
+    },
+  });
+
+  let result = await loadExtensions({ bundledRoots: [bundledRoot] });
+  assert.equal(result.extensions.length, 1);
+  assert.equal(result.extensions[0].enabled, false);
+  assert.equal(result.enabledAdapters.length, 0);
+
+  await setExtensionEnabled("onmyagent.example-acp-adapter", true);
+  result = await loadExtensions({ bundledRoots: [bundledRoot] });
+  assert.equal(result.extensions[0].enabled, true);
+  assert.equal(result.enabledAdapters.length, 1);
+  assert.equal(result.enabledAdapters[0].id, "example-codex-acp");
+}));
+
 test("adapterToCustomAgent produces provider=custom virtual agent", () => {
   const adapter = normalizeAcpAdapterContribution({
     id: "buddy",
