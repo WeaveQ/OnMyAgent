@@ -2,7 +2,6 @@ import { APP_NAME } from "../brand";
 
 export default {
   "agent_manager.add_provider": "Add model provider",
-  "agent_manager.tab_providers": "Models",
   "agent_manager.tab_agents": "Local",
   "agent_manager.tab_skills": "Skills",
   "agent_manager.tab_archive": "Sessions",
