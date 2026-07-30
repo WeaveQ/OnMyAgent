@@ -71,6 +71,7 @@ const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>([
   "video",
   "pdf",
   "html",
+  "text",
 ]);
 const DISCOVERY_TOOL_NAMES = new Set(["glob", "grep", "search", "find"]);
 const WRITE_TOOL_NAMES = new Set([
