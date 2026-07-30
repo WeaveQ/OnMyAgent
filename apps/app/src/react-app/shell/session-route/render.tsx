@@ -21,7 +21,6 @@ import {
 import {
   buildSelectedWorkspaceRouteState,
   describeRouteError,
-  emptyWorkspaceDisplay,
   toSessionGroups,
   workspaceLabel,
   type RouteWorkspace,
@@ -48,6 +47,7 @@ import {
   resolveSidebarActiveWorkspaceId,
 } from "./sidebar-model";
 import {
+  findFirstSessionIdMatching,
   getActiveReloadBlockingSessions,
   getActiveSessionIds,
   sessionListOwnsSession,
@@ -62,13 +62,11 @@ import {
 import { useEnsureAgentRegistry } from "../../domains/agents";
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type {
-  Client,
   PendingPermission,
   PendingQuestion,
   SidebarSessionItem,
   TodoItem,
   WorkspaceConnectionState,
-  WorkspaceDisplay,
 } from "../../../app/types";
 import { isDesktopRuntime } from "../../../app/utils";
 import { usePlatform } from "../../kernel/platform";
@@ -78,12 +76,7 @@ import {
   useShareWorkspaceState,
 } from "../../domains/workspace";
 import {
-  createProviderAuthStore,
-  useProviderAuthStoreSnapshot,
-} from "../../domains/connections";
-import {
   useCheckDesktopRestriction,
-  useCloudProviderAutoSync,
   useRestrictionNotice,
 } from "../../domains/cloud";
 import { useBootState } from "../boot-state";
@@ -127,6 +120,13 @@ import {
   shouldRedirectSessionRouteToWelcome,
 } from "./control";
 import { useControlAction } from "../control/control-provider";
+import {
+  applyRuntimeSessionInfoUpdate,
+  applyRuntimeSessionStatusUpdate,
+  resolveSessionRouteCanCreateTask,
+  resolveSessionRouteShowPreparingStatus,
+} from "./runtime-session-state";
+import { useSessionRouteProviderAuth } from "./provider-auth-hook";
 
 export function SessionRouteRender() {
   const {
@@ -215,14 +215,11 @@ export function SessionRouteRender() {
     [pageMode],
   );
   const firstSessionIdForPageMode = useCallback(
-    (workspaceId: string) => {
-      const sessions = sessionsByWorkspaceId[workspaceId] ?? [];
-      const match = sessions.find((session: { id?: unknown }) => {
-        const id = typeof session?.id === "string" ? session.id : "";
-        return Boolean(id && sessionMatchesPageMode(id));
-      });
-      return typeof match?.id === "string" ? match.id : null;
-    },
+    (workspaceId: string) =>
+      findFirstSessionIdMatching(
+        sessionsByWorkspaceId[workspaceId] ?? [],
+        sessionMatchesPageMode,
+      ),
     [sessionMatchesPageMode, sessionsByWorkspaceId],
   );
   const remoteWorkspaceCheckRunRef = useRef<Record<string, string>>({});
@@ -391,21 +388,12 @@ export function SessionRouteRender() {
     (update: { sessionId: string; info: Record<string, unknown> }) => {
       if (!selectedWorkspaceId) return;
       setSessionsByWorkspaceId((current) => {
-        const list = current[selectedWorkspaceId] ?? [];
-        const index = list.findIndex(
-          (session) => session.id === update.sessionId,
+        const next = applyRuntimeSessionInfoUpdate(
+          current,
+          selectedWorkspaceId,
+          update,
         );
-        if (index < 0) return current;
-        const nextSession = {
-          ...list[index],
-          ...update.info,
-          id: update.sessionId,
-        };
-        if (JSON.stringify(nextSession) === JSON.stringify(list[index]))
-          return current;
-        const nextList = [...list];
-        nextList[index] = nextSession;
-        const next = { ...current, [selectedWorkspaceId]: nextList };
+        if (next === current) return current;
         sessionsByWorkspaceIdRef.current = next;
         return next;
       });
@@ -417,17 +405,13 @@ export function SessionRouteRender() {
   const handleRuntimeSessionStatus = useCallback(
     (update: { sessionId: string; status: unknown }) => {
       if (!selectedWorkspaceId) return;
-      const sessionId = update.sessionId?.trim() ?? "";
-      if (!sessionId) return;
       setSessionsByWorkspaceId((current) => {
-        const list = current[selectedWorkspaceId] ?? [];
-        const index = list.findIndex((session) => session.id === sessionId);
-        if (index < 0) return current;
-        const prev = list[index];
-        if (prev.status === update.status) return current;
-        const nextList = [...list];
-        nextList[index] = { ...prev, status: update.status };
-        const next = { ...current, [selectedWorkspaceId]: nextList };
+        const next = applyRuntimeSessionStatusUpdate(
+          current,
+          selectedWorkspaceId,
+          update,
+        );
+        if (next === current) return current;
         sessionsByWorkspaceIdRef.current = next;
         return next;
       });
@@ -782,140 +766,40 @@ export function SessionRouteRender() {
   // (including the app default ghost opencode/big-pickle). Do not hide the
   // banner for signed-in users — the model menu would still show "未找到模型".
   const modelAvailabilityBlocksTask = selectedModelUnavailable;
-  const canCreateTask = Boolean(
-    opencodeClient &&
-      selectedWorkspaceId &&
-      !loading &&
-      !selectedWorkspaceError &&
-      !modelAvailabilityBlocksTask,
-  );
-
-  const sessionProviderAuthStateRef = useRef({
-    opencodeClient: opencodeClient as Client | null,
-    providers,
-    providerDefaults,
-    providerConnectedIds,
-    disabledProviderIds,
-    selectedWorkspace,
-    selectedWorkspaceEndpoint,
-    selectedWorkspaceRoot: sessionWorkspaceRoot,
-  });
-  sessionProviderAuthStateRef.current = {
-    opencodeClient,
-    providers,
-    providerDefaults,
-    providerConnectedIds,
-    disabledProviderIds,
-    selectedWorkspace,
-    selectedWorkspaceEndpoint,
-    selectedWorkspaceRoot: sessionWorkspaceRoot,
-  };
-
-  const sessionProviderAuthStore = useMemo(
-    () =>
-      createProviderAuthStore({
-        client: () => sessionProviderAuthStateRef.current.opencodeClient,
-        providers: () => sessionProviderAuthStateRef.current.providers,
-        providerDefaults: () =>
-          sessionProviderAuthStateRef.current.providerDefaults,
-        providerConnectedIds: () =>
-          sessionProviderAuthStateRef.current.providerConnectedIds,
-        disabledProviders: () =>
-          sessionProviderAuthStateRef.current.disabledProviderIds,
-        checkDesktopAppRestriction: checkDesktopRestriction,
-        selectedWorkspaceDisplay: () =>
-          sessionProviderAuthStateRef.current.selectedWorkspace
-            ? ({
-                ...sessionProviderAuthStateRef.current.selectedWorkspace,
-                name: workspaceLabel(
-                  sessionProviderAuthStateRef.current.selectedWorkspace,
-                ),
-              } as WorkspaceDisplay)
-            : emptyWorkspaceDisplay,
-        selectedWorkspaceRoot: () =>
-          sessionProviderAuthStateRef.current.selectedWorkspaceRoot,
-        runtimeWorkspaceId: () =>
-          sessionProviderAuthStateRef.current.selectedWorkspaceEndpoint
-            ?.workspaceId ?? null,
-        onmyagentServer: {
-          getSnapshot: () => ({
-            onmyagentServerStatus: sessionProviderAuthStateRef.current
-              .selectedWorkspaceEndpoint
-              ? "connected"
-              : "disconnected",
-            onmyagentServerClient:
-              sessionProviderAuthStateRef.current.selectedWorkspaceEndpoint
-                ?.client ?? null,
-            onmyagentServerCapabilities: sessionProviderAuthStateRef.current
-              .selectedWorkspaceEndpoint
-              ? {
-                  config: { read: true, write: true },
-                }
-              : null,
-          }),
-        } as never,
-        setProviders,
-        setProviderDefaults,
-        setProviderConnectedIds,
-        setDisabledProviders: setDisabledProviderIds,
-        markOpencodeConfigReloadRequired: () => {
-          reloadCoordinator.markReloadRequired("config", {
-            type: "config",
-            name: "opencode.json",
-            action: "updated",
-          });
-        },
-      }),
-    [checkDesktopRestriction, reloadCoordinator],
-  );
-
-  useEffect(() => {
-    sessionProviderAuthStore.start();
-    return () => {
-      sessionProviderAuthStore.dispose();
-    };
-  }, [sessionProviderAuthStore]);
-
-  useEffect(() => {
-    if (!opencodeClient || !selectedWorkspaceId) return;
-
-    void sessionProviderAuthStore
-      .ensureProjectProviderDisabledState(
-        "opencode",
-        checkDesktopRestriction({ restriction: "allowZenModel" }),
-      )
-      .catch((error) => {
-        console.warn(
-          "[desktop-app-restrictions] failed to sync Zen restriction",
-          error,
-        );
-      });
-  }, [
-    checkDesktopRestriction,
-    disabledProviderIds,
-    opencodeClient,
+  const canCreateTask = resolveSessionRouteCanCreateTask({
+    hasOpencodeClient: Boolean(opencodeClient),
     selectedWorkspaceId,
-    sessionWorkspaceRoot,
-    sessionProviderAuthStore,
-  ]);
+    loading,
+    selectedWorkspaceError,
+    modelAvailabilityBlocksTask,
+  });
 
-  useEffect(() => {
-    sessionProviderAuthStore.syncFromOptions();
-  }, [
-    opencodeClient,
-    selectedWorkspace?.id,
-    selectedWorkspace?.workspaceType,
-    selectedWorkspaceEndpoint?.workspaceId,
-    sessionWorkspaceRoot,
-    sessionProviderAuthStore,
-  ]);
+  const markOpencodeConfigReloadRequired = useCallback(() => {
+    reloadCoordinator.markReloadRequired("config", {
+      type: "config",
+      name: "opencode.json",
+      action: "updated",
+    });
+  }, [reloadCoordinator]);
 
-  // Session is where forced sign-in lands. Keep org-managed cloud providers in
-  // sync here so sign-in applies opencode.json changes before Settings opens.
-  useCloudProviderAutoSync(sessionProviderAuthStore.runCloudProviderSync);
-  const sessionProviderAuthSnapshot = useProviderAuthStoreSnapshot(
-    sessionProviderAuthStore,
-  );
+  const { sessionProviderAuthStore, sessionProviderAuthSnapshot } =
+    useSessionRouteProviderAuth({
+      checkDesktopRestriction,
+      disabledProviderIds,
+      markOpencodeConfigReloadRequired,
+      opencodeClient,
+      providerConnectedIds,
+      providerDefaults,
+      providers,
+      selectedWorkspace,
+      selectedWorkspaceEndpoint,
+      selectedWorkspaceId,
+      sessionWorkspaceRoot,
+      setDisabledProviderIds,
+      setProviderConnectedIds,
+      setProviderDefaults,
+      setProviders,
+    });
   const permissionQueryKey = useMemo(
     () => permissionQueryKeyForSession(selectedWorkspaceId, selectedSessionId),
     [selectedSessionId, selectedWorkspaceId],
@@ -1032,9 +916,12 @@ export function SessionRouteRender() {
     autoApprovedPermissionNoticeBySessionId,
   });
 
-  const showPreparingStatus =
-    effectiveLoading ||
-    (!canCreateTask && !routeError && !selectedWorkspaceError);
+  const showPreparingStatus = resolveSessionRouteShowPreparingStatus({
+    effectiveLoading,
+    canCreateTask,
+    routeError,
+    selectedWorkspaceError,
+  });
 
   const surfaceProps = useSessionRouteSurfaceProps({
     assistantDraftWorkspaceRoot,
