@@ -118,9 +118,16 @@ describe("session transcript scroll intent", () => {
     expect(surface).toContain("onPointerDown={(event) =>");
     expect(surface).toContain("event.target !== event.currentTarget");
     // Stop button must not stay red after cancel while backend lags on idle.
-    expect(surface).toContain("stopHidesRemoteBusy");
+    // Streaming flag is pure-helper derived; host still wires stopRequested.
+    expect(surface).toContain("deriveChatStreaming");
     expect(surface).toContain("storedSessionStopRequested");
-    expect(surface).toContain("remoteBusy && !stopHidesRemoteBusy");
+    expect(surface).toContain("stopRequested: storedSessionStopRequested");
+    const helpers = await Bun.file(new URL(
+      "../src/react-app/domains/session/surface/session-surface-helpers.ts",
+      import.meta.url,
+    )).text();
+    expect(helpers).toContain("stopHidesRemoteBusy");
+    expect(helpers).toContain("input.remoteBusy && !stopHidesRemoteBusy");
     expect(controller).toContain("observer.observe(content)");
     expect(controller).toContain("mutationObserver.observe(content");
     expect(controller).toContain("const stickToMutatedGrowth");
