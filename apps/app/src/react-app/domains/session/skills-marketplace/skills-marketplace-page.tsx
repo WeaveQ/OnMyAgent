@@ -1032,13 +1032,7 @@ export function SkillsMarketplacePage(props: {
           }}
           onInstall={handleInstallSkill}
         />
-        <div className="flex shrink-0 flex-col gap-2 px-6 pb-1 pt-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="truncate text-base font-semibold leading-6 text-dls-text">
-              {t("store.my_installed")}
-            </h2>
-            <CountBadge size="dot">{installedSkills.length}</CountBadge>
-          </div>
+        <div className="flex shrink-0 items-center px-6 pb-1 pt-1">
           <SegmentedTabGroup density="filter" className="mac:titlebar-no-drag">
             <SegmentedTabButton
               type="button"
