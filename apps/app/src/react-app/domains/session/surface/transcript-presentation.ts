@@ -1,6 +1,8 @@
 import {
   SESSION_CONTENT_MAX_WIDTH_PX,
   sessionContentHorizontalPadPx,
+  sessionContentMaxWidthPx,
+  type ConversationWidthMode,
 } from "../../../capabilities/layout/content-column";
 
 /** @deprecated Prefer SESSION_CONTENT_MAX_WIDTH_PX — kept for existing imports. */
@@ -8,14 +10,18 @@ export const DEFAULT_TRANSCRIPT_MAX_CONTENT_WIDTH = SESSION_CONTENT_MAX_WIDTH_PX
 
 /**
  * @param containerWidth Scroll port clientWidth (includes horizontal padding).
+ * @param mode Conversation width preference (`fixed` default for layout contracts).
  * @returns Max content width for the transcript root, matching the composer column.
  */
-export function computeTranscriptMaxContentWidth(containerWidth: number) {
+export function computeTranscriptMaxContentWidth(
+  containerWidth: number,
+  mode: ConversationWidthMode | null | undefined = "fixed",
+) {
   const available = Math.max(
     0,
     containerWidth - sessionContentHorizontalPadPx(containerWidth),
   );
-  return Math.min(SESSION_CONTENT_MAX_WIDTH_PX, available);
+  return sessionContentMaxWidthPx(mode, available);
 }
 
 export function formatTranscriptDuration(durationMs: number) {

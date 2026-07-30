@@ -626,20 +626,46 @@ function watchComputerUseActivity(onActivity) {
   };
 }
 
-// ─── System permissions (macOS only) ─────────────────────────────────────────
+// ─── System permissions ───────────────────────────────────────────────────────
 function checkSystemPermissions() {
   console.log("[checkSystemPermissions] Function called, platform:", process.platform);
   const platform = process.platform;
 
+  // Windows / Linux: never fake "granted". macOS-only rows stay absent from UI;
+  // for shared rows use real media checks where Electron exposes them.
   if (platform !== "darwin") {
+    const permissions = {
+      "full-disk-access": "unknown",
+      accessibility: "unknown",
+      automation: "unknown",
+      notifications: "unknown",
+      "screen-recording": "unknown",
+      microphone: "unknown",
+    };
+    try {
+      if (typeof systemPreferences?.getMediaAccessStatus === "function") {
+        const mic = systemPreferences.getMediaAccessStatus("microphone");
+        permissions.microphone =
+          mic === "granted" ? "granted" : mic === "denied" ? "denied" : "unknown";
+        // screen status is best-effort on non-mac (may be unsupported)
+        try {
+          const screen = systemPreferences.getMediaAccessStatus("screen");
+          permissions["screen-recording"] =
+            screen === "granted"
+              ? "granted"
+              : screen === "denied"
+                ? "denied"
+                : "unknown";
+        } catch {
+          permissions["screen-recording"] = "unknown";
+        }
+      }
+    } catch (err) {
+      console.warn("[checkSystemPermissions] non-darwin media check failed", err);
+    }
     return {
       platform: platform === "win32" ? "windows" : platform === "linux" ? "linux" : "unknown",
-      permissions: {
-        "full-disk-access": "granted",
-        accessibility: "granted",
-        automation: "granted",
-        notifications: "granted",
-      },
+      permissions,
     };
   }
 
@@ -648,6 +674,8 @@ function checkSystemPermissions() {
     accessibility: "unknown",
     automation: "unknown",
     notifications: "unknown",
+    "screen-recording": "unknown",
+    microphone: "unknown",
   };
 
   // Accessibility: systemPreferences.isTrustedAccessibilityClient(false)
@@ -723,6 +751,24 @@ function checkSystemPermissions() {
   // "Go to settings" button that opens System Settings > Notifications.
   permissions.notifications = "unknown";
 
+  // Screen recording + microphone via Electron media access helpers.
+  try {
+    if (typeof systemPreferences?.getMediaAccessStatus === "function") {
+      const screen = systemPreferences.getMediaAccessStatus("screen");
+      permissions["screen-recording"] =
+        screen === "granted"
+          ? "granted"
+          : screen === "denied"
+            ? "denied"
+            : "unknown";
+      const mic = systemPreferences.getMediaAccessStatus("microphone");
+      permissions.microphone =
+        mic === "granted" ? "granted" : mic === "denied" ? "denied" : "unknown";
+    }
+  } catch (err) {
+    console.warn("[checkSystemPermissions] media status failed", err);
+  }
+
   return {
     platform: "macos",
     permissions,
@@ -784,8 +830,37 @@ function triggerAutomationPermissionPrompt() {
 }
 
 function openSystemPermissionSettings(type) {
+  // Windows: open real settings panes; do not no-op success.
+  if (process.platform === "win32") {
+    const winUrls = {
+      notifications: "ms-settings:notifications",
+      microphone: "ms-settings:privacy-microphone",
+      "screen-recording": "ms-settings:privacy-webcam",
+      // No FDA / Automation / Accessibility TCC equivalents
+    };
+    const url = winUrls[type];
+    if (!url) {
+      return {
+        success: false,
+        error: `Permission type not applicable on Windows: ${type ?? "(none)"}`,
+      };
+    }
+    try {
+      shell.openExternal(url);
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
   if (process.platform !== "darwin") {
-    return { success: true };
+    return {
+      success: false,
+      error: `Opening system permission settings is not supported on ${process.platform}`,
+    };
   }
 
   // For Full Disk Access, trigger a request first so the app appears in the list
@@ -838,6 +913,10 @@ function openSystemPermissionSettings(type) {
     accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
     automation: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
     notifications: "x-apple.systempreferences:com.apple.preference.notifications",
+    "screen-recording":
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+    microphone:
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
   };
 
   const url = urlMap[type];

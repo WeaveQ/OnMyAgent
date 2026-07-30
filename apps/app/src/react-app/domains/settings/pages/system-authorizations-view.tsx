@@ -62,12 +62,30 @@ const PERMISSIONS: PermissionItem[] = [
     },
   },
   {
+    id: "screen-recording",
+    get label() {
+      return t("settings.permission_screen_recording_label");
+    },
+    get description() {
+      return t("settings.permission_screen_recording_desc");
+    },
+  },
+  {
     id: "accessibility",
     get label() {
       return t("settings.permission_accessibility_label");
     },
     get description() {
       return t("settings.permission_accessibility_desc");
+    },
+  },
+  {
+    id: "microphone",
+    get label() {
+      return t("settings.permission_microphone_label");
+    },
+    get description() {
+      return t("settings.permission_microphone_desc");
     },
   },
   {
@@ -89,6 +107,22 @@ const PERMISSIONS: PermissionItem[] = [
     },
   },
 ];
+
+/** macOS-only TCC rows — hidden on Windows/Linux (plan #6). */
+const MAC_ONLY_PERMISSIONS = new Set<SystemPermissionType>([
+  "full-disk-access",
+  "accessibility",
+  "automation",
+]);
+
+function permissionsForPlatform(
+  platform: string | null | undefined,
+): PermissionItem[] {
+  if (platform === "windows" || platform === "linux") {
+    return PERMISSIONS.filter((item) => !MAC_ONLY_PERMISSIONS.has(item.id));
+  }
+  return PERMISSIONS;
+}
 
 type RefreshFeedback = "idle" | "loading" | "success";
 
@@ -286,7 +320,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
         }
       >
         <SettingsBlock>
-          {PERMISSIONS.map((perm) => {
+          {permissionsForPlatform(result?.platform).map((perm) => {
             const status = result?.permissions[perm.id];
             const isGranted = status === "granted";
             const isOpening = opening === perm.id;

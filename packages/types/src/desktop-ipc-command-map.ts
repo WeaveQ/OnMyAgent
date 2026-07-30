@@ -350,6 +350,36 @@ type TypedDesktopCommandMap = {
     [SystemPermissionType?],
     void
   >;
+  getLaunchAtLogin: DesktopCommandContract<
+    [],
+    { enabled: boolean; openAtLogin: boolean; openAsHidden: boolean; error?: string }
+  >;
+  setLaunchAtLogin: DesktopCommandContract<
+    [boolean],
+    { enabled: boolean; openAtLogin: boolean; openAsHidden: boolean; error?: string }
+  >;
+  getKeepSystemAwake: DesktopCommandContract<
+    [],
+    { enabled: boolean; id: number | null }
+  >;
+  setKeepSystemAwake: DesktopCommandContract<
+    [boolean],
+    { enabled: boolean; id: number | null; error?: string }
+  >;
+  setDockUnreadBadge: DesktopCommandContract<
+    [number | string | null | undefined],
+    { ok: boolean; platform: string; value: number; error?: string }
+  >;
+  getAgentReadySoundPath: DesktopCommandContract<[], string | null>;
+  registerAppSnapshotHotkey: DesktopCommandContract<
+    [string | null | undefined],
+    { ok: boolean; registered?: boolean; mode?: string; note?: string; error?: string }
+  >;
+  unregisterAppSnapshotHotkey: DesktopCommandContract<[], { ok: boolean }>;
+  setKeymapAcceleratorOverrides: DesktopCommandContract<
+    [Record<string, string>?],
+    { ok: boolean; keys: string[] }
+  >;
   getDesktopBootstrapConfig: DesktopCommandContract<[], DesktopBootstrapConfig>;
   debugDesktopBootstrapConfig: DesktopCommandContract<[], DesktopBootstrapConfig>;
   setDesktopBootstrapConfig: DesktopCommandContract<

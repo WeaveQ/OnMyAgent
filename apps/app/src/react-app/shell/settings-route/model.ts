@@ -282,6 +282,9 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "ai":
     case "preferences":
     case "permissions":
+    case "system":
+    case "shortcuts":
+    case "app-snapshot":
     case "environment":
     case "updates":
     case "usage":
