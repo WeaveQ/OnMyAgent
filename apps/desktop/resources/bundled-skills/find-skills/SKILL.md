@@ -2,17 +2,9 @@
 name: find-skills
 display_name_zh: 发现技能
 display_name_en: Find Skills
-description: >-
-  Discover which OnMyAgent skills are installed and when to use them. Use when
-  the user asks what skills are available, how to find a skill for a task, or
-  which installed skill covers writing, coding, analysis, office files, or
-  automation. Prefer listing installed skills over inventing capabilities that
-  are not installed. Do not use this as a substitute for actually performing a
-  task — after finding the right skill, load or follow that skill.
-description_zh: >-
-  发现当前已安装的 OnMyAgent 技能及适用场景。当用户问有哪些技能、想找能写文档/
-  编码/分析/办公/自动化的技能时使用。优先基于已安装列表回答，不要编造未安装能力。
-  找到合适技能后应加载或遵循该技能，而不是只停留在罗列。
+description: Discover which OnMyAgent skills are installed and when to use them. Use when the user asks what skills are available, how to find a skill for a task, or which installed skill covers writing, coding, analysis, office files, or automation. Prefer listing installed skills over inventing capabilities that are not installed.
+description_zh: 发现已安装技能及适用场景；按任务推荐技能，不编造未安装能力
+description_en: Discover installed skills and recommend the right one for a task
 ---
 
 # Find Skills
