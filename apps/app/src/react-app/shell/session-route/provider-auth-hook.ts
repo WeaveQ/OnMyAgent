@@ -125,9 +125,6 @@ export function useSessionRouteProviderAuth(input: Input) {
     store,
   ]);
 
-  // Cloud provider reconciliation is no longer polled on an interval.
-  // store.runCloudProviderSync still runs on app_launch / sign_in inside the
-  // provider-auth store, and when Settings opens the cloud-providers tab.
   const snapshot = useProviderAuthStoreSnapshot(store);
 
   return {
