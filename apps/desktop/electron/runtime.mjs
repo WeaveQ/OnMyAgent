@@ -425,9 +425,14 @@ export function createRuntimeManager({
       const { ensureDefaultBuiltinSkills } = await import(
         "./ensure-default-builtin-skills.mjs"
       );
+      // firstExisting + existsSync can widen to PathLike under checkJs; pin to string.
+      const bundledRoot = bundledSkillsRootPath();
       await ensureDefaultBuiltinSkills({
-        bundledRoot: bundledSkillsRootPath(),
-        userSkillsRoot: onmyagentUserSkillsRoot(),
+        bundledRoot:
+          bundledRoot == null ? null : typeof bundledRoot === "string"
+            ? bundledRoot
+            : String(bundledRoot),
+        userSkillsRoot: String(onmyagentUserSkillsRoot()),
       });
     } catch (error) {
       console.warn("[runtime] ensureDefaultBuiltinSkills failed:", error);
