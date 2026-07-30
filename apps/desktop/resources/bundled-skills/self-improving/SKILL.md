@@ -3,7 +3,7 @@ name: self-improving
 slug: self-improving
 version: 1.2.16
 homepage: https://clawic.com/skills/self-improving
-display_name_zh: 自改进型主动智能体
+display_name_zh: Self-Improving Agent
 display_name_en: Self-Improving Agent
 description: Self-reflection, self-criticism, self-learning, and self-organizing memory. Use when a command or tool fails, the user corrects you, knowledge is outdated, or a better approach is found.
 description_zh: 自我反思与批判、自我学习、自组织记忆，可持续评估并改进自身工作

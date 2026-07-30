@@ -1,6 +1,6 @@
 ---
 name: pptx
-display_name_zh: PPT
+display_name_zh: Presentations
 display_name_en: Presentations
 description: Use this skill any time a .pptx file is involved — create, read, edit, merge, or split PowerPoint decks and slides. Trigger on deck, slides, presentation, or .pptx filenames.
 description_zh: 创建、解析、编辑、合并、拆分和更新 PowerPoint 幻灯片与演示文稿

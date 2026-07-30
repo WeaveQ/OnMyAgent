@@ -1,6 +1,6 @@
 ---
 name: create-automation
-display_name_zh: 创建自动化
+display_name_zh: Create Automation
 display_name_en: Create Automation
 description: Create accurate OnMyAgent scheduled or one-time automation proposals from expert or ordinary conversations. Use when the user asks to automate, schedule, repeat, remind, periodically run, or execute a task later, including daily/weekly/monthly intervals and one-time runs.
 description_zh: 从对话创建定时或一次性自动化任务提案（日/周/月与提醒）

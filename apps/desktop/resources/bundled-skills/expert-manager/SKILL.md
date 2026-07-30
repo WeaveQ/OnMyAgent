@@ -1,6 +1,6 @@
 ---
 name: expert-manager
-display_name_zh: 专家管理
+display_name_zh: Expert Manager
 display_name_en: Expert Manager
 description: Create, convert, edit, and validate OnMyAgent expert packages from conversation or source materials. Use when the user wants to create/import experts, convert a repo into an expert pack, modify expert metadata, or run expert compliance checks.
 description_zh: 创建、转化、修改与校验 OnMyAgent 专家包（从对话或资料生成，支持合规检查与批量更新）

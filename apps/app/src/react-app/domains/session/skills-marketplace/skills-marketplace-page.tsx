@@ -168,8 +168,9 @@ function isOnmyagentSkillPath(path: string): boolean {
   return normalized.includes("/.onmyagent/skills/") || normalized.includes("/onmyagent/skills/");
 }
 
+/** Skill titles stay English (package / EN display). Do not localize names to zh. */
 function skillDisplayName(skill: LocalSkillCard): string {
-  return skill.displayNameZh || skill.displayNameEn || skill.name;
+  return skill.displayNameEn || skill.name;
 }
 
 function skillDescription(skill: LocalSkillCard): string {
