@@ -160,7 +160,6 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   let cloudOrgProvidersInFlight: Promise<DenOrgLlmProvider[]> | null = null;
   let cloudProviderSyncInFlight: Promise<void> | null = null;
   let cloudProviderSyncQueuedReason: CloudProviderSyncReason | null = null;
-  let cloudProviderSyncContextKey = "";
 
   const emitChange = () => {
     for (const listener of listeners) listener();
@@ -1171,20 +1170,6 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     return message;
   };
 
-  const getCloudProviderSyncContextKey = () => {
-    const settings = readDenSettings();
-    return [
-      settings.baseUrl,
-      settings.apiBaseUrl ?? "",
-      settings.activeOrgId?.trim() ?? "",
-      settings.authToken?.trim() ?? "",
-      options.selectedWorkspaceDisplay().workspaceType,
-      options.selectedWorkspaceRoot().trim(),
-      options.runtimeWorkspaceId() ?? "",
-      options.client() ? "connected" : "disconnected",
-    ].join("::");
-  };
-
   const hasCloudProviderSyncPrerequisites = () => {
     const settings = readDenSettings();
     const workspaceTarget =
@@ -1429,20 +1414,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     refreshSnapshot();
     emitChange();
     if (workspaceChanged) {
+      // Refresh local import bookkeeping only — do not auto-reconcile Den →
+      // opencode.jsonc (product no longer runs background cloud provider sync).
       void refreshImportedCloudProviders();
     }
-    if (!hasCloudProviderSyncPrerequisites()) {
-      cloudProviderSyncContextKey = "";
-      return;
-    }
-
-    const nextSyncContextKey = getCloudProviderSyncContextKey();
-    if (nextSyncContextKey === cloudProviderSyncContextKey) {
-      return;
-    }
-
-    cloudProviderSyncContextKey = nextSyncContextKey;
-    void runCloudProviderSync("app_launch");
   };
 
   const start = () => {
@@ -1459,12 +1434,13 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         const detail = (event as CustomEvent<DenSessionUpdatedDetail>).detail;
 
         if (detail?.status === "success") {
+          // Sign-in: clear cached org provider list so the Settings cloud tab
+          // can load fresh if opened. Do not auto-import into opencode.jsonc.
           mutateState((current) => ({
             ...current,
             cloudOrgProviders: [],
             providerAuthMethods: {},
           }));
-          void runCloudProviderSync("sign_in");
         } else {
           // Sign-out or error: remove all cloud-imported providers from the workspace
           // Capture the full import records BEFORE clearing state

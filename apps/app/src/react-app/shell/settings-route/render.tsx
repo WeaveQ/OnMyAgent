@@ -1129,12 +1129,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     };
   }, [connectionsStore, extensionsStore, onmyagentServerStore, providerAuthStore]);
 
-  // Explicit sync when the user opens Cloud providers (no background interval).
-  useEffect(() => {
-    if (route.tab !== "cloud-providers") return;
-    void providerAuthStore.runCloudProviderSync("settings_cloud_opened");
-  }, [providerAuthStore, route.tab]);
-
   useEffect(() => {
     onmyagentServerStore.syncFromOptions();
     connectionsStore.syncFromOptions();
