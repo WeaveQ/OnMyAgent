@@ -356,6 +356,83 @@ describe("deriveOpenTargets", () => {
     expect(isCollectibleArtifactTarget({ ...target, exists: true })).toBe(true);
   });
 
+  it("shows verified text files as generated artifacts", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "reports/customer-message.txt" },
+        { filePath: "reports/customer-message.txt" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "Created reports/customer-message.txt.",
+      ),
+    ] satisfies UIMessage[];
+    const verified = deriveOpenTargets(messages).map((target) => ({
+      ...target,
+      exists: true,
+    }));
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["reports/customer-message.txt"]);
+  });
+
+  it("does not treat an assistant file mention without write provenance as a generated artifact", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        "已生成 发货需求与报价补充.xlsx。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [{
+      ...fileTarget(
+        "/Users/demo/work/接单报价客服/1785423406407/发货需求与报价补充.xlsx",
+      ),
+      exists: true,
+      size: 7_884,
+    }];
+
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("shows only files written in the current assistant turn", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "本轮生成的报价结果.xlsx" },
+        { filePath: "本轮生成的报价结果.xlsx" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "已根据 用户上传的完整业务.xlsx 生成 本轮生成的报价结果.xlsx。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      {
+        ...fileTarget("/workspace/用户上传的完整业务.xlsx"),
+        exists: true,
+      },
+      {
+        ...fileTarget("/workspace/上一轮生成的报价.xlsx"),
+        exists: true,
+      },
+      {
+        ...fileTarget("/workspace/本轮生成的报价结果.xlsx"),
+        exists: true,
+      },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["/workspace/本轮生成的报价结果.xlsx"]);
+  });
+
   it("does not auto-open generated html files or localhost browser previews", () => {
     const targets = deriveOpenTargets([
       toolMessage("msg_tool", "write", { filePath: "public/index.html" }, { filePath: "public/index.html" }),

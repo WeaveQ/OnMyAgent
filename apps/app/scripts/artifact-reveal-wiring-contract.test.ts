@@ -25,20 +25,34 @@ describe("artifact reveal wiring contract", () => {
     expect(surface).toContain("workspaceRoot={props.workspaceRoot}");
   });
 
-  test("OpenableTargetsStrip always receives workspaceRoot on both render paths", () => {
+  test("OpenableTargetsStrip sends every generated file to the in-app preview", () => {
     const list = read("src/react-app/domains/session/surface/message-list/message-block-row.tsx");
     const stripUsages = list.match(/<OpenableTargetsStrip[\s\S]*?\/>/g) ?? [];
     expect(stripUsages.length).toBeGreaterThanOrEqual(2);
     for (const usage of stripUsages) {
-      expect(usage).toContain("workspaceRoot={props.workspaceRoot}");
+      expect(usage).toContain("onOpenTarget={props.onOpenTarget}");
     }
+    expect(list).toContain("onClick={() => props.onOpenTarget(target)}");
+    expect(list).toContain("session-generated-artifact-card");
+    expect(list).toContain("props.targets.length > 1 && \"sm:grid-cols-2\"");
+    expect(list).toContain("<ArrowUpRight");
+    expect(list).not.toContain("const openInFolder = async");
   });
 
-  test("markdown reveal and strip use multi-candidate desktop reveal", () => {
-    const list = [
-      read("src/react-app/domains/session/surface/message-list.tsx"),
-      read("src/react-app/domains/session/surface/message-list/message-block-row.tsx"),
-    ].join("\n");
+  test("generated file cards require current-turn write provenance", () => {
+    const targetSelection = read(
+      "src/react-app/domains/session/surface/message-list/open-targets.ts",
+    );
+    expect(targetSelection).toContain(
+      "deriveOpenTargets(messages, { includeFileMentions: false })",
+    );
+    expect(targetSelection).not.toContain(
+      "deriveOpenTargets(messages, { includeFileMentions: true })",
+    );
+  });
+
+  test("markdown reveal keeps multi-candidate desktop reveal as a separate action", () => {
+    const list = read("src/react-app/domains/session/surface/message-list.tsx");
     expect(list).toContain("resolveArtifactRevealCandidates");
     expect(list).toContain("revealDesktopItemCandidates");
     expect(list).not.toMatch(/function absoluteArtifactPath\(/);
