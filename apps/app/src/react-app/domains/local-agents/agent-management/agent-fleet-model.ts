@@ -1,7 +1,7 @@
 /**
  * Managed fleet vs discover (catalog) boundary.
  *
- * Discover → install / adopt → Managed fleet → configure (skills / MCP / models)
+ * Discover → install / adopt → Managed fleet → configure (skills / models)
  */
 
 import type { AgentManagementAgent } from "../../../../app/lib/desktop";
@@ -182,7 +182,7 @@ export function collectUnavailableSkillAgents<T extends string>(
 }
 
 /**
- * Ordered config keys for skills / MCP / model-provider sidebars.
+ * Ordered config keys for skills / model-provider sidebars.
  * = catalog of supported keys ∩ real fleet members (no invented columns).
  */
 export function visibleFleetConfigAgentKeys<T extends string>(
@@ -227,7 +227,7 @@ export function visibleSkillMatrixAgents(
 }
 
 /**
- * MCP / model-provider sidebars: every managed fleet member, ordered like the
+ * Model-provider sidebars: every managed fleet member, ordered like the
  * product skill catalog then custom ids. Does not invent columns for missing
  * product agents — only what is already in the fleet list.
  *

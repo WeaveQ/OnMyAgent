@@ -3,16 +3,8 @@
  * Factories receive services/helpers constructed in main.mjs.
  *
  * Snapshot supports domain-selective loads so the agents (本地) first paint
- * does not block on skill directory scan or MCP inventory.
+ * does not block on skill directory scan.
  */
-
-import {
-  agentManagementMcpSnapshot,
-  deleteMcpServerAction,
-  importMcpFromApps,
-  toggleMcpServerApp,
-  upsertMcpServer,
-} from "../agent-management-mcp.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "agentManagementSnapshot",
@@ -20,22 +12,20 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "agentManagementFetchModels",
   "agentManagementTestModel",
   "agentManagementSkillAction",
-  "agentManagementMcpSnapshot",
-  "agentManagementMcpAction",
 ]);
 
-const ALL_DOMAINS = Object.freeze(["core", "skills", "mcp", "providers"]);
+const ALL_DOMAINS = Object.freeze(["core", "skills", "providers"]);
 
 /**
  * @param {unknown} input
- * @returns {null | Array<"core"|"skills"|"mcp"|"providers">}
+ * @returns {null | Array<"core"|"skills"|"providers">}
  */
 function normalizeDomains(input) {
   if (!Array.isArray(input) || input.length === 0) return null;
   const out = [];
   for (const item of input) {
     if (
-      (item === "core" || item === "skills" || item === "mcp" || item === "providers") &&
+      (item === "core" || item === "skills" || item === "providers") &&
       !out.includes(item)
     ) {
       out.push(item);
@@ -55,17 +45,6 @@ function emptyProvidersSnapshot() {
       openclaw: [],
       hermes: [],
     },
-  };
-}
-
-function emptyMcpSnapshot() {
-  return {
-    generatedAt: Date.now(),
-    databasePath: "",
-    apps: {},
-    servers: [],
-    total: 0,
-    countsByApp: {},
   };
 }
 
@@ -130,7 +109,7 @@ export function createAgentManagementDomainHandlers({
   /**
    * @param {{
    *   workspaceRoot?: string,
-   *   domains?: Array<"core"|"skills"|"mcp"|"providers">,
+   *   domains?: Array<"core"|"skills"|"providers">,
    *   includeModels?: boolean,
    *   includeDiscoverable?: boolean,
    * }} [input]
@@ -143,7 +122,6 @@ export function createAgentManagementDomainHandlers({
     // Omitted domains → full legacy snapshot (settings + older clients).
     const wantCore = !domains || domains.includes("core");
     const wantSkills = !domains || domains.includes("skills");
-    const wantMcp = !domains || domains.includes("mcp");
     // Settings AI custom-provider inventory: providers only, no fleet agent scan.
     const wantProvidersOnly = Boolean(domains?.includes("providers")) && !wantCore;
 
@@ -159,10 +137,9 @@ export function createAgentManagementDomainHandlers({
     /** @type {Map<string, any>} */
     let usageByProvider = new Map();
     let providers = emptyProvidersSnapshot();
-    let mcp = emptyMcpSnapshot();
     /** @type {any[]} */
     let managedSkills = [];
-    /** @type {Array<"core"|"skills"|"mcp"|"providers">} */
+    /** @type {Array<"core"|"skills"|"providers">} */
     const loadedDomains = [];
 
     if (wantProvidersOnly) {
@@ -197,21 +174,11 @@ export function createAgentManagementDomainHandlers({
       }
     }
 
-    // Skills + MCP are independent once agents (if needed) are ready; run in parallel when both wanted.
-    if (wantSkills && wantMcp) {
-      const [skillsResult, mcpResult] = await Promise.all([
-        scanAgentManagementSkills(workspaceRoot, { fleetAgents: agents }),
-        agentManagementMcpSnapshot(),
-      ]);
-      managedSkills = skillsResult;
-      mcp = mcpResult;
-      loadedDomains.push("skills", "mcp");
-    } else if (wantSkills) {
-      managedSkills = await scanAgentManagementSkills(workspaceRoot, { fleetAgents: agents });
+    if (wantSkills) {
+      managedSkills = await scanAgentManagementSkills(workspaceRoot, {
+        fleetAgents: agents,
+      });
       loadedDomains.push("skills");
-    } else if (wantMcp) {
-      mcp = await agentManagementMcpSnapshot();
-      loadedDomains.push("mcp");
     }
 
     const skillCounts = buildSkillCountMap(managedSkills);
@@ -230,7 +197,6 @@ export function createAgentManagementDomainHandlers({
       agents: mappedAgents,
       skills: wantSkills ? managedSkills : [],
       providers,
-      mcp,
       loadedDomains: domains ? loadedDomains : [...ALL_DOMAINS],
     };
   }
@@ -254,20 +220,6 @@ export function createAgentManagementDomainHandlers({
 
   agentManagementSkillAction: async (event, args) => {
     return agentManagementSkillAction(args[0] ?? {});
-  },
-
-  agentManagementMcpSnapshot: async (event, args) => {
-    return agentManagementMcpSnapshot();
-  },
-
-  agentManagementMcpAction: async (event, args) => {
-    const input = args[0] ?? {};
-    const action = String(input.action ?? "").trim();
-    if (action === "import") return importMcpFromApps(input);
-    if (action === "save") return upsertMcpServer(input.server ?? input);
-    if (action === "delete") return deleteMcpServerAction(input);
-    if (action === "toggle") return toggleMcpServerApp(input);
-    throw new Error(`Unsupported MCP action: ${action}`);
   },
 
   };

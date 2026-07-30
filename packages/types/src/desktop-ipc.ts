@@ -662,65 +662,6 @@ export type AgentManagementProvidersSnapshot = {
   byAgent: Record<"opencode" | "codex" | "claude" | "openclaw" | "hermes", AgentManagementManagedProvider[]>;
 };
 
-export type AgentManagementMcpApp = "claude" | "codex" | "gemini" | "opencode" | "hermes";
-
-export type AgentManagementMcpSpec = {
-  type?: "stdio" | "http" | "sse";
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  cwd?: string;
-  url?: string;
-  headers?: Record<string, string>;
-  [key: string]: unknown;
-};
-
-export type AgentManagementMcpServer = {
-  id: string;
-  name: string;
-  description: string | null;
-  homepage: string | null;
-  docs: string | null;
-  tags: string[];
-  server: AgentManagementMcpSpec;
-  apps: Record<AgentManagementMcpApp, boolean>;
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type AgentManagementMcpAppStatus = {
-  app: AgentManagementMcpApp;
-  label: string;
-  configPath: string;
-  configExists: boolean;
-  configDirExists: boolean;
-  syncSupported: boolean;
-};
-
-export type AgentManagementMcpSnapshot = {
-  generatedAt: number;
-  databasePath: string;
-  apps: Record<AgentManagementMcpApp, AgentManagementMcpAppStatus>;
-  servers: AgentManagementMcpServer[];
-  total: number;
-  countsByApp: Record<AgentManagementMcpApp, number>;
-};
-
-export type AgentManagementMcpActionInput =
-  | { action: "import"; app?: AgentManagementMcpApp; apps?: AgentManagementMcpApp[] }
-  | { action: "save"; server: Partial<AgentManagementMcpServer> & { id: string; server: AgentManagementMcpSpec } }
-  | { action: "delete"; id: string }
-  | { action: "toggle"; id: string; app: AgentManagementMcpApp; enabled: boolean };
-
-export type AgentManagementMcpActionResult = {
-  ok: boolean;
-  snapshot: AgentManagementMcpSnapshot;
-  imported?: number;
-  updated?: number;
-  removed?: boolean;
-  server?: AgentManagementMcpServer;
-};
-
 export type AgentManagementUsageSummary = {
   runs: number;
   completed: number;
@@ -786,7 +727,7 @@ export type AgentManagementAgent = PersonalLocalAgent & {
 };
 
 /** Selective snapshot domains for lazy management loads. */
-export type AgentManagementSnapshotDomain = "core" | "skills" | "mcp" | "providers";
+export type AgentManagementSnapshotDomain = "core" | "skills" | "providers";
 
 export type AgentManagementSnapshotInput = {
   workspaceRoot: string;
@@ -803,7 +744,6 @@ export type AgentManagementSnapshot = {
   agents: AgentManagementAgent[];
   skills: AgentManagementSkill[];
   providers: AgentManagementProvidersSnapshot;
-  mcp: AgentManagementMcpSnapshot;
   /** Domains actually populated in this response (partial loads omit others). */
   loadedDomains?: AgentManagementSnapshotDomain[];
 };

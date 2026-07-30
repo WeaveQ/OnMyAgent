@@ -24,9 +24,6 @@ import type {
   AgentManagementFetchModelsResult,
   AgentManagementTestModelInput,
   AgentManagementTestModelResult,
-  AgentManagementMcpActionInput,
-  AgentManagementMcpActionResult,
-  AgentManagementMcpSnapshot,
   AgentManagementProviderActionInput,
   AgentManagementProviderActionResult,
   AgentManagementSkillActionInput,
@@ -898,11 +895,6 @@ type TypedDesktopCommandMap = {
   agentManagementSkillAction: DesktopCommandContract<
     [AgentManagementSkillActionInput],
     AgentManagementSkillActionResult
-  >;
-  agentManagementMcpSnapshot: DesktopCommandContract<[], AgentManagementMcpSnapshot>;
-  agentManagementMcpAction: DesktopCommandContract<
-    [AgentManagementMcpActionInput],
-    AgentManagementMcpActionResult
   >;
 
   // opencode config / commands

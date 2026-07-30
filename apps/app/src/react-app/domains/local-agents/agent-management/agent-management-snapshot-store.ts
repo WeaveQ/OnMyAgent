@@ -22,7 +22,7 @@ import {
 
 export type AgentManagerSnapshotCacheEntry = {
   snapshot: AgentManagementSnapshot;
-  /** Per-domain freshness; independent TTL so skills/mcp can lag core. */
+  /** Per-domain freshness; independent TTL so skills can lag core. */
   domains: DomainFreshnessMap;
 };
 
@@ -36,7 +36,7 @@ const AGENT_MANAGER_SNAPSHOT_CACHE = new Map<
 
 /**
  * Per-workspace domains currently mid-fetch. Concurrent tab loads + prewarm
- * gate here so a late mcp response never races a second core fetch.
+ * gate here so a late skills response never races a second core fetch.
  */
 const AGENT_MANAGER_DOMAIN_INFLIGHT = new Map<
   string,
@@ -71,7 +71,7 @@ export function writeCachedAgentManagerSnapshot(
       (snapshot.loadedDomains as ManagementLoadDomain[] | undefined) ?? [
         "core",
         "skills",
-        "mcp",
+        "providers",
       ],
   );
   AGENT_MANAGER_SNAPSHOT_CACHE.set(cacheKey, { snapshot, domains });

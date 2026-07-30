@@ -1422,7 +1422,7 @@ export function AgentManagementProviderPanel(props: {
   onProviderAction: (input: AgentManagementProviderActionInput, busyKey: string) => void;
 }) {
   const loading = Boolean(props.loading && !props.snapshot);
-  // Same healthy/available gate as skill matrix / MCP: hide missing, offline, needs_auth.
+  // Same healthy/available gate as skill matrix: hide missing, offline, needs_auth.
   const visibleApps = useMemo(
     () =>
       visibleFleetConfigAgentKeys(

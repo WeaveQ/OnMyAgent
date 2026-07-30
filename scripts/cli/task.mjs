@@ -25,7 +25,6 @@ const testTargets = new Map([
   ['unit', { command: 'pnpm', args: ['test:unit'] }],
   ['api', { command: 'pnpm', args: ['test:api'] }],
   ['runtime', { command: 'pnpm', args: ['test:runtime'] }],
-  ['desktop:agent-management-mcp', { command: 'node', args: ['--test', 'apps/desktop/electron/agent-management-mcp.test.mjs'] }],
   ['release-smoke', { command: 'pnpm', args: ['test:release-smoke'] }],
   ['ui', { command: 'pnpm', args: ['test:ui'] }],
   ['health', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'test:app', 'health'] }],
