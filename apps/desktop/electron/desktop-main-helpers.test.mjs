@@ -111,7 +111,10 @@ test("resolveOpencodeConfigPath and resolveCommandsDir", () => {
     path.join(globalRoot, "commands"),
   );
   assert.throws(() => resolveOpencodeConfigPath("project", "", globalRoot), /projectDir/);
-  assert.throws(() => resolveCommandsDir("other", "/p", globalRoot), /workspace/);
+  assert.throws(
+    () => resolveCommandsDir(/** @type {any} */ ("other"), "/p", globalRoot),
+    /workspace/,
+  );
 });
 
 test("skill frontmatter extractors", () => {

@@ -252,6 +252,10 @@ export function interpretDockerInfoFailure(combinedText) {
  * @param {string | null | undefined} containerName
  * @returns {{ ok: true, name: string } | { ok: false, error: string }}
  */
+/**
+ * @param {unknown} containerName
+ * @returns {{ ok: true, name: string } | { ok: false, error: string }}
+ */
 export function validateStoppableSandboxContainerName(containerName) {
   const name = String(containerName ?? "").trim();
   if (!name) {
@@ -399,23 +403,27 @@ export function softwareToolDetail(decision, probeVersion) {
 }
 
 /**
- * Map Node/Python/OpenCode binary decisions into softwareEnvironmentInfo shape.
- * @param {{
+ * @typedef {{
  *   path?: string | null,
  *   source?: string | null,
  *   reason?: string | null,
  *   notice?: string | null,
  *   bundledVersion?: string | null,
  *   localVersion?: string | null,
- * } | null | undefined} node
- * @param {typeof node} python
- * @param {typeof node} opencode
+ * } | null | undefined} SoftwareBinaryDecision
+ */
+
+/**
+ * Map Node/Python/OpenCode binary decisions into softwareEnvironmentInfo shape.
+ * @param {SoftwareBinaryDecision} nodeDecision
+ * @param {SoftwareBinaryDecision} pythonDecision
+ * @param {SoftwareBinaryDecision} opencodeDecision
  * @param {(binary: string) => string | null} probeVersion
  */
-export function buildSoftwareEnvironmentInfo(node, python, opencode, probeVersion) {
-  const nodeDetail = softwareToolDetail(node, probeVersion);
-  const pythonDetail = softwareToolDetail(python, probeVersion);
-  const opencodeDetail = softwareToolDetail(opencode, probeVersion);
+export function buildSoftwareEnvironmentInfo(nodeDecision, pythonDecision, opencodeDecision, probeVersion) {
+  const nodeDetail = softwareToolDetail(nodeDecision, probeVersion);
+  const pythonDetail = softwareToolDetail(pythonDecision, probeVersion);
+  const opencodeDetail = softwareToolDetail(opencodeDecision, probeVersion);
   return {
     node: nodeDetail.installed,
     python: pythonDetail.installed,

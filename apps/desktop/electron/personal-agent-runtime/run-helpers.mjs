@@ -19,9 +19,10 @@ export function normalizeApprovalMode(value) {
  */
 export function parseStatusInput(input) {
   if (input && typeof input === "object") {
+    const row = /** @type {Record<string, unknown>} */ (input);
     return {
-      runId: String(input.runId ?? input.id ?? "").trim(),
-      workspaceRoot: String(input.workspaceRoot ?? "").trim(),
+      runId: String(row.runId ?? row.id ?? "").trim(),
+      workspaceRoot: String(row.workspaceRoot ?? "").trim(),
     };
   }
   return { runId: String(input ?? "").trim(), workspaceRoot: "" };
@@ -61,10 +62,11 @@ export function defaultConnectionMode(provider, agent = null) {
 /**
  * @param {string} provider
  * @param {{ connectionType?: string, supportsAcp?: boolean } | null} agent
- * @param {Record<string, unknown>} injectedAdapters
- * @param {Record<string, unknown>} adapterFactories
- * @param {(provider: string) => unknown} createGenericAcp
- * @param {() => unknown} createRemoteAcp
+ * @param {Record<string, any>} injectedAdapters
+ * @param {Record<string, any>} adapterFactories
+ * @param {any} createGenericAcp
+ * @param {any} createRemoteAcp
+ * @returns {any}
  */
 export function resolveAdapterFactoryForProvider(
   provider,
@@ -358,9 +360,6 @@ export function isStartupStalled(state, now = Date.now(), stallMs = 30_000) {
   return meaningful.length === 0 && now - state.startedAt > stallMs;
 }
 
-/**
- * @param {object} state
- */
 export function buildStartupStalledErrorInfo() {
   return {
     code: "timeout",

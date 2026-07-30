@@ -39,26 +39,27 @@ export function execResult(ok, stdout = "", stderr = "", status = ok ? 0 : 1) {
 }
 
 /**
- * @param {unknown} input
+ * @param {Record<string, unknown> | null | undefined} input
  * @param {{ forceRequireSignin?: boolean }} [options]
  */
 export function normalizeDesktopBootstrapConfig(input, options = {}) {
+  const raw = input && typeof input === "object" ? input : {};
   const baseUrl =
-    typeof input?.baseUrl === "string" ? input.baseUrl.trim() : "";
+    typeof raw.baseUrl === "string" ? raw.baseUrl.trim() : "";
   if (!baseUrl) {
     throw new Error("baseUrl is required");
   }
 
   const apiBaseUrl =
-    typeof input?.apiBaseUrl === "string" && input.apiBaseUrl.trim().length > 0
-      ? input.apiBaseUrl.trim()
+    typeof raw.apiBaseUrl === "string" && raw.apiBaseUrl.trim().length > 0
+      ? raw.apiBaseUrl.trim()
       : null;
 
   return {
     baseUrl,
     apiBaseUrl,
     requireSignin:
-      options.forceRequireSignin === true || input?.requireSignin === true,
+      options.forceRequireSignin === true || raw.requireSignin === true,
   };
 }
 
@@ -102,7 +103,7 @@ export function normalizeWorkspaceEntry(input) {
 
 /**
  * @param {"project" | "global"} scope
- * @param {string} [projectDir]
+ * @param {string | null | undefined} projectDir
  * @param {string} globalRoot — result of globalOpencodeRoot()
  */
 export function resolveOpencodeConfigPath(scope, projectDir, globalRoot) {
@@ -125,7 +126,7 @@ export function resolveOpencodeConfigPath(scope, projectDir, globalRoot) {
 
 /**
  * @param {"workspace" | "global"} scope
- * @param {string} [projectDir]
+ * @param {string | null | undefined} projectDir
  * @param {string} globalRoot — result of globalOpencodeRoot()
  */
 export function resolveCommandsDir(scope, projectDir, globalRoot) {

@@ -1690,7 +1690,7 @@ export function createRuntimeManager({
 
   async function sandboxStop(containerName) {
     const validated = validateStoppableSandboxContainerName(containerName);
-    if (!validated.ok) throw new Error(validated.error);
+    if (validated.ok !== true) throw new Error(validated.error);
     const name = validated.name;
     const result = runDockerCommandDetailed(["stop", name], 15_000);
     return {
