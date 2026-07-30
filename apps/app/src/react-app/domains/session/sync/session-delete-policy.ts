@@ -1,7 +1,15 @@
 /**
- * Session delete policy: resolve directory + decide which remote failures
- * still allow local sidebar/expert cleanup (dirty / ghost rows).
+ * Session delete policy: resolve directory, classify remote failures, and
+ * keep recently-deleted ids out of sidebar re-hydration (dirty / ghost rows).
  */
+
+/** Max time the delete confirm dialog waits on remote DELETE before closing. */
+export const SESSION_DELETE_REMOTE_BUDGET_MS = 3_000;
+
+/** How long a deleted id is filtered out of listSessions merges. */
+export const SESSION_RECENTLY_DELETED_TTL_MS = 60_000;
+
+const recentlyDeletedUntilById = new Map<string, number>();
 
 export function resolveSessionDeleteDirectory(input: {
   assistantDirectory?: string | null;
@@ -17,6 +25,65 @@ export function resolveSessionDeleteDirectory(input: {
     if (trimmed) return trimmed;
   }
   return undefined;
+}
+
+/** Mark id so a racing listSessions cannot resurrect a dirty row. */
+export function markSessionRecentlyDeleted(
+  sessionId: string,
+  nowMs: number = Date.now(),
+  ttlMs: number = SESSION_RECENTLY_DELETED_TTL_MS,
+): void {
+  const id = sessionId.trim();
+  if (!id) return;
+  recentlyDeletedUntilById.set(id, nowMs + ttlMs);
+}
+
+export function isSessionRecentlyDeleted(
+  sessionId: string,
+  nowMs: number = Date.now(),
+): boolean {
+  const id = sessionId.trim();
+  if (!id) return false;
+  const until = recentlyDeletedUntilById.get(id);
+  if (until == null) return false;
+  if (nowMs >= until) {
+    recentlyDeletedUntilById.delete(id);
+    return false;
+  }
+  return true;
+}
+
+export function filterRecentlyDeletedSessions<T extends { id: string }>(
+  items: readonly T[],
+  nowMs: number = Date.now(),
+): T[] {
+  return items.filter((item) => !isSessionRecentlyDeleted(item.id, nowMs));
+}
+
+/** Test/helper: clear in-memory tombstones. */
+export function clearRecentlyDeletedSessionsForTests(): void {
+  recentlyDeletedUntilById.clear();
+}
+
+/**
+ * Race a remote delete against a UI budget. Never throws; returns when either
+ * the request settles or the budget elapses (request may continue in flight).
+ */
+export function raceSessionDeleteRemote<T>(
+  remote: Promise<T>,
+  budgetMs: number = SESSION_DELETE_REMOTE_BUDGET_MS,
+): Promise<void> {
+  return Promise.race([
+    remote.then(
+      () => undefined,
+      () => undefined,
+    ),
+    new Promise<void>((resolve) => {
+      const timer =
+        typeof window !== "undefined" ? window.setTimeout : setTimeout;
+      timer(resolve, budgetMs);
+    }),
+  ]);
 }
 
 function readErrorFields(error: unknown): {

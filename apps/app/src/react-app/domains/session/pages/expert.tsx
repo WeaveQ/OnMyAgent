@@ -961,9 +961,12 @@ export function ExpertPage(props: ExpertPageProps) {
         return;
       }
       if (props.onDeleteSession) {
-        for (const sessionId of target.sessionIds) {
-          await props.onDeleteSession(sessionId);
-        }
+        // Parallel: each session is local-first + budgeted remote; serial N×
+        // waits made multi-session expert deletes feel stuck.
+        const deleteOne = props.onDeleteSession;
+        await Promise.allSettled(
+          target.sessionIds.map((sessionId) => deleteOne(sessionId)),
+        );
       }
       // Drop local expert pin + unread for this agent after sessions are gone.
       try {
