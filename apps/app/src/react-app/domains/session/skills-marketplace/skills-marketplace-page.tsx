@@ -173,8 +173,87 @@ function skillDisplayName(skill: LocalSkillCard): string {
   return skill.displayNameEn || skill.name;
 }
 
+/** Drop leaked YAML block markers and empty stubs from skill descriptions. */
+function isUsableSkillDescription(value: string | undefined | null): boolean {
+  if (value == null) return false;
+  const text = value.trim();
+  if (!text) return false;
+  if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text) || /^>$/.test(text)) {
+    return false;
+  }
+  if (text.length < 3) return false;
+  return true;
+}
+
+function firstUsableSkillDescription(
+  ...candidates: Array<string | undefined | null>
+): string {
+  for (const candidate of candidates) {
+    if (isUsableSkillDescription(candidate)) return String(candidate).trim();
+  }
+  return "";
+}
+
 function skillDescription(skill: LocalSkillCard): string {
-  return skill.descriptionZh || skill.descriptionEn || skill.description || skill.trigger || "";
+  return firstUsableSkillDescription(
+    skill.descriptionZh,
+    skill.descriptionEn,
+    skill.description,
+    skill.trigger,
+  );
+}
+
+/** Prefer local fields; fill gaps from bundled catalog (fixes stale installs). */
+function mergeLocalSkillWithCatalog(
+  skill: LocalSkillCard,
+  catalog: {
+    description?: string;
+    displayNameEn?: string;
+    displayNameZh?: string;
+  } | null,
+): LocalSkillCard {
+  if (!catalog) {
+    // Still sanitize broken local-only fields (e.g. literal ">-").
+    const cleaned = firstUsableSkillDescription(
+      skill.descriptionZh,
+      skill.descriptionEn,
+      skill.description,
+      skill.trigger,
+    );
+    if (cleaned === (skill.descriptionZh || skill.descriptionEn || skill.description || "")) {
+      return skill;
+    }
+    return {
+      ...skill,
+      description: cleaned,
+      descriptionZh: firstUsableSkillDescription(skill.descriptionZh) || undefined,
+      descriptionEn: firstUsableSkillDescription(skill.descriptionEn) || undefined,
+    };
+  }
+  const description = firstUsableSkillDescription(
+    skill.descriptionZh,
+    skill.descriptionEn,
+    skill.description,
+    catalog.description,
+    skill.trigger,
+  );
+  return {
+    ...skill,
+    displayNameEn:
+      skill.displayNameEn?.trim() ||
+      catalog.displayNameEn ||
+      skill.displayNameEn,
+    description,
+    descriptionZh:
+      firstUsableSkillDescription(skill.descriptionZh, catalog.description) ||
+      skill.descriptionZh,
+    descriptionEn:
+      firstUsableSkillDescription(
+        skill.descriptionEn,
+        skill.description,
+        catalog.description,
+      ) || skill.descriptionEn,
+  };
 }
 
 const builtinMarketplaceSkillByName = new Map(
@@ -966,13 +1045,24 @@ export function SkillsMarketplacePage(props: {
     ])
       .then(([response, catalog]) => {
         if (cancelled) return;
+        const catalogByName = new Map(
+          (catalog?.skills ?? []).map((entry) => [
+            entry.skillName || entry.packageName,
+            entry,
+          ]),
+        );
         const names = new Set<string>();
         const skills: LocalSkillCard[] = [];
         if (Array.isArray(response)) {
           for (const entry of response) {
             if (isOnmyagentSkillPath(entry.path)) {
               names.add(entry.name);
-              skills.push(entry);
+              skills.push(
+                mergeLocalSkillWithCatalog(
+                  entry,
+                  catalogByName.get(entry.name) ?? null,
+                ),
+              );
             }
           }
         }

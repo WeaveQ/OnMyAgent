@@ -1281,17 +1281,35 @@ async function listLocalSkills(projectDir) {
         raw = "";
       }
       const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
+      const usableDesc = (...values) => {
+        for (const value of values) {
+          const text = String(value ?? "").trim();
+          if (!text) continue;
+          if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text)) continue;
+          if (text.length < 3) continue;
+          return text;
+        }
+        return undefined;
+      };
       out.push({
         name,
         path: skillDir,
-        description: extractDescription(raw) ?? undefined,
+        description: usableDesc(
+          localeMap.description_zh,
+          localeMap.description_en,
+          localeMap.description,
+          extractDescription(raw),
+        ),
         trigger: extractTrigger(raw) ?? undefined,
         root,
         readonly: bundledSkillsRootPath() === root,
         displayNameZh: localeMap.display_name_zh,
         displayNameEn: localeMap.display_name_en,
-        descriptionZh: localeMap.description_zh,
-        descriptionEn: localeMap.description_en,
+        descriptionZh: usableDesc(localeMap.description_zh),
+        descriptionEn: usableDesc(
+          localeMap.description_en,
+          localeMap.description,
+        ),
       });
     }
   }
@@ -1352,11 +1370,24 @@ async function listBuiltinSkillCatalog() {
           "utf8",
         );
         const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
-        description =
-          localeMap.description_zh ||
-          localeMap.description ||
-          extractDescription(raw) ||
-          undefined;
+        // Prefer short locale description fields; fold long `description` last.
+        // Skip YAML block markers if an older parser path left them through.
+        const pickDesc = (...values) => {
+          for (const value of values) {
+            const text = String(value ?? "").trim();
+            if (!text) continue;
+            if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text)) continue;
+            if (text.length < 3) continue;
+            return text;
+          }
+          return undefined;
+        };
+        description = pickDesc(
+          localeMap.description_zh,
+          localeMap.description_en,
+          localeMap.description,
+          extractDescription(raw),
+        );
         displayNameZh = localeMap.display_name_zh;
         displayNameEn = localeMap.display_name_en;
       } catch {
