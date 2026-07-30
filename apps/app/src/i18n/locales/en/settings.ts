@@ -1052,4 +1052,7 @@ export default {
   "settings.permission_microphone_desc": "Allow microphone access for voice input",
   "settings.permission_status_granted": "Granted",
   "settings.permission_status_denied": "Not granted",
+
+  "settings.shortcuts_recording_hint": "Press a new key combination…",
+  "settings.shortcuts_reset_one": "Reset this shortcut",
 } as const;
