@@ -60,9 +60,12 @@ describe("session visual and file contracts", () => {
     }
   });
 
-  test("workspace files page preserves text, HTML, image, and Office preview branches", () => {
+  test("workspace files page hosts three-source IA; session hosts still open artifacts", () => {
     const filesPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
+    );
+    const uploadsPanel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
     );
     const chatPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/chat/session-page.tsx",
@@ -74,15 +77,13 @@ describe("session visual and file contracts", () => {
       "apps/app/src/react-app/domains/session/pages/expert.tsx",
     );
 
-    expect(filesPage).toContain("workspaceFileOpenTarget");
-    expect(filesPage).toContain("readWorkspaceFile(props.workspaceId, selectedTarget.value)");
-    expect(filesPage).toContain("downloadWorkspaceFile(props.workspaceId, selectedTarget.value)");
-    expect(filesPage).toContain("props.onOpenArtifact?.(target)");
-    expect(filesPage).toContain("MarkdownPreview content={state.content}");
-    expect(filesPage).toContain('<HTMLPreview type="text"');
-    expect(filesPage).toContain("<ImagePreview");
-    expect(filesPage).toContain("PlainText content={state.content}");
-    expect(filesPage).toContain("<OfficeFilePreview");
+    // P0 Files rail: source tabs + uploads import; preview drawer deferred with provenance browser.
+    expect(filesPage).toContain("FILES_SOURCE_TABS");
+    expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
+    expect(filesPage).toContain("FilesSourcePendingEmpty");
+    expect(uploadsPanel).toContain("uploadInbox");
+    expect(uploadsPanel).toContain("listInbox");
+    expect(uploadsPanel).toContain("ArtifactIcon");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");
@@ -116,7 +117,7 @@ describe("session visual and file contracts", () => {
 
   test("every filename-bearing app surface uses the shared type-aware file icon", () => {
     const expectedUsageByFile = new Map<string, string>([
-      ["apps/app/src/react-app/domains/workspace/workspace-files-page.tsx", "name={props.node.name}"],
+      ["apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx", "name={row.name}"],
       ["apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx", "name={props.node.name}"],
       ["apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx", "name={item.name || item.value}"],
       ["apps/app/src/react-app/domains/session/surface/message-list/file-card.tsx", "name={title}"],
