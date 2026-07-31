@@ -21,9 +21,36 @@ export type AutomationListTask = {
   scene: AutomationListScene;
   enabled: boolean;
   schedule: { mode: "once" | "interval" | "weekly" | string };
-  running?: { sessionId?: string } | null;
+  running?: {
+    sessionId?: string;
+    startedAt?: number;
+    expiresAt?: number;
+  } | null;
   runs: AutomationListRun[];
 };
+
+/** True while a run lease is held and not past expiresAt. */
+export function isAutomationLeaseActive(
+  running: AutomationListTask["running"] | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!running) return false;
+  if (typeof running.expiresAt === "number" && Number.isFinite(running.expiresAt)) {
+    return running.expiresAt > now;
+  }
+  // Missing expiresAt: treat as active (legacy rows).
+  return true;
+}
+
+/** Elapsed run time for display (startedAt → now), or null if unknown. */
+export function automationRunElapsedMs(
+  running: AutomationListTask["running"] | null | undefined,
+  now = Date.now(),
+): number | null {
+  if (!running || typeof running.startedAt !== "number") return null;
+  if (!Number.isFinite(running.startedAt)) return null;
+  return Math.max(0, now - running.startedAt);
+}
 
 export type CompletedRunEntry<T extends AutomationListTask = AutomationListTask> = {
   task: T;
@@ -62,6 +89,7 @@ export function shouldShowAutomationListLoading(input: {
 export function partitionAutomationTasks<T extends AutomationListTask>(
   tasks: readonly T[],
   scene: AutomationListScene,
+  now = Date.now(),
 ): {
   visible: T[];
   scheduled: T[];
@@ -69,14 +97,14 @@ export function partitionAutomationTasks<T extends AutomationListTask>(
   completed: CompletedRunEntry<T>[];
 } {
   const visible = tasks.filter((item) => item.scene === scene);
+  const running = visible.filter((item) => isAutomationLeaseActive(item.running, now));
   const scheduled = visible.filter(
     (item) =>
-      !item.running &&
+      !isAutomationLeaseActive(item.running, now) &&
       (item.schedule.mode !== "once" ||
         item.enabled ||
         !item.runs.some((run) => run.source === "scheduled")),
   );
-  const running = visible.filter((item) => Boolean(item.running));
   const completed = visible
     .flatMap((task) => task.runs.map((run) => ({ task, run })))
     .sort((left, right) => right.run.ranAt - left.run.ranAt);
@@ -151,13 +179,16 @@ export function resolveRunDayLabel(input: {
 
 /**
  * After runAutomation returns, which status tab should the UI land on?
- * Keep "running" while the lease is still held.
+ * Keep "running" while an active (non-expired) lease is still held.
  */
-export function resolvePostRunStatusTab(item: {
-  running?: unknown;
-  lastRun?: { status?: string } | null;
-}): "running" | "completed" {
-  if (item.running) return "running";
+export function resolvePostRunStatusTab(
+  item: {
+    running?: AutomationListTask["running"] | null;
+    lastRun?: { status?: string } | null;
+  },
+  now = Date.now(),
+): "running" | "completed" {
+  if (isAutomationLeaseActive(item.running, now)) return "running";
   return "completed";
 }
 

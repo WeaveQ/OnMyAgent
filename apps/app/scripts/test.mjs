@@ -82,6 +82,7 @@ const testTargets = new Map([
   ['bundled-skill-locale', ['bun', ['test', 'scripts/bundled-skill-locale.test.ts']]],
   ['skill-chat-navigation', ['bun', ['test', 'scripts/skill-chat-navigation.test.ts']]],
   ['automation-primary-rail', ['bun', ['test', 'scripts/automation-primary-rail.test.ts']]],
+  ['automation-list-model', ['bun', ['test', 'scripts/automation-list-model.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['workspace-files-model', ['bun', ['test', 'scripts/workspace-files-model.test.ts']]],
   ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],
