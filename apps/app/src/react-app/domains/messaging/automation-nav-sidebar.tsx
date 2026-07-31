@@ -119,8 +119,9 @@ export function AutomationNavSidebar(props: {
       <div className="flex shrink-0 flex-col px-3 pb-2 pt-3.5">
         <Button
           type="button"
+          variant="outline"
           size="default"
-          className="h-10 w-full justify-center gap-2 rounded-xl text-sm font-medium shadow-none"
+          className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
           onClick={props.onCreate}
         >
           <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
