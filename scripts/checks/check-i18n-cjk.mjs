@@ -45,6 +45,9 @@ const fileAllowlist = new Set([
   'apps/app/src/react-app/domains/session/skills-marketplace/categories.ts',
   // Legacy value normalizer: CJK map keys are backend value keys, not UI copy.
   'apps/app/src/react-app/domains/settings/pages/legacy-profile-options.ts',
+  // Agent-output matching heuristics (product cards / follow-up chips), not UI copy.
+  'apps/app/src/react-app/capabilities/artifacts/open-target.ts',
+  'apps/app/src/react-app/domains/session/surface/follow-up-suggestions.ts',
 ])
 
 const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
