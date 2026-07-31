@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ChevronDown,
@@ -68,6 +69,7 @@ import {
   type AutomationNavKey,
 } from "../../messaging";
 import { useAutomationNavGroups } from "./use-automation-nav-groups";
+import { buildAutomationEmbeddedSessionPath } from "./open-automation-embedded-session";
 import {
   consumeAutomationFocus,
   writeAutomationFocus,
@@ -95,6 +97,7 @@ import {
 import {
   readAssistantCategoryMemory,
   writeAssistantCategoryMemory,
+  writeRailView,
 } from "../sidebar/rail-navigation-memory";
 import { resetRailBookmarkToPrimary } from "./use-rail-location";
 import {
@@ -152,6 +155,7 @@ type AssistantGroupDeleteTarget = {
 
 export function AssistantPage(props: AssistantPageProps) {
   const { showToast } = useStatusToasts();
+  const navigate = useNavigate();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const agentManagementIntent = props.agentManagementIntent;
   const onAgentManagementIntentConsumed =
@@ -274,26 +278,38 @@ export function AssistantPage(props: AssistantPageProps) {
   const openAutomationEmbeddedSession = useCallback(
     (workspaceId: string, sessionId: string) => {
       const id = sessionId.trim();
-      if (!id) return;
+      const ws = workspaceId.trim();
+      if (!id || !ws) return;
       addAssistantSession(id);
       writeAssistantSessionCategory(id, assistantCategoryId);
-      writeAssistantSelectionMemory(workspaceId, assistantCategoryId, {
+      writeAssistantSelectionMemory(ws, assistantCategoryId, {
         kind: "session",
         sessionId: id,
       });
+      writeRailView("assistant", ws, "automation");
       setAutomationEmbeddedSessionId(id);
-      // Stay on automation rail — do not openRailView("assistant").
-      props.sidebar.onOpenSession(workspaceId, id);
+      // Navigate with ?view=automation. sidebar.onOpenSession strips the view
+      // param and resolves as 首页 — that is the jump the user saw.
+      const path = buildAutomationEmbeddedSessionPath({
+        workspaceId: ws,
+        sessionId: id,
+      });
+      if (path) navigate(path);
     },
-    [assistantCategoryId, props.sidebar],
+    [assistantCategoryId, navigate],
   );
 
   const closeAutomationEmbeddedSession = useCallback(() => {
     setAutomationEmbeddedSessionId(null);
-  }, []);
+    // Stay on automation list surface (do not clear ?view=).
+    if (!isAutomationRailView(activeSidebarView)) {
+      openRailView("automation");
+    }
+  }, [activeSidebarView, openRailView]);
 
   useEffect(() => {
     if (!isAutomationRailView(activeSidebarView)) {
+      // Leaving the automation rail drops the embedded run chrome.
       setAutomationEmbeddedSessionId(null);
       return;
     }
@@ -309,6 +325,7 @@ export function AssistantPage(props: AssistantPageProps) {
     props.selectedWorkspaceId,
     setAssistantCategoryAndRemember,
   ]);
+
 
   const assistantWorkspaceSessions = useMemo(
     () =>
