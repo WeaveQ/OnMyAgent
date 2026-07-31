@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { ChevronRight, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -61,10 +61,9 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="relative flex shrink-0 flex-col gap-2 pb-2 pt-2">
+    <div className="relative flex h-14 shrink-0 items-center pt-2">
       {/*
-        Expert chrome: search then primary create — same control height (h-9)
-        and outline language as home 新建任务. No bottom rule (list continues).
+        Expert list: search only. Create expert lives in store market header.
       */}
       <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="w-full">
         <InputGroupAddon align="inline-start" inset="tight">
@@ -77,43 +76,6 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           className="h-9 text-sm placeholder:text-dls-secondary/75"
         />
       </InputGroup>
-      <Button
-        type="button"
-        variant="outline"
-        size="default"
-        onClick={props.onOpenAgents}
-        className={SIDEBAR_PRIMARY_CTA_CLASS}
-        title={t("session.create_expert")}
-        aria-label={t("session.create_expert")}
-      >
-        <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-        {t("session.create_expert")}
-      </Button>
-      {props.showAgentSelectionTip ? (
-        <div className="absolute left-0 right-0 top-[5.5rem] z-30 rounded-lg border border-dls-accent/30 bg-dls-surface-solid p-3">
-          <span
-            className="absolute -top-1.5 left-6 size-3 rotate-45 border-l border-t border-dls-accent/30 bg-dls-surface"
-            aria-hidden="true"
-          />
-          <div className="text-xs font-medium leading-5 text-dls-accent">
-            {t("session.choose_expert_agent_tip_title")}
-          </div>
-          <div className="mt-1 text-xs leading-5 text-dls-secondary">
-            {t("session.choose_expert_agent_tip_desc")}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={props.onOpenAgents}
-            className="mt-2 bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10 hover:text-dls-accent"
-          >
-            <Plus className="size-3" strokeWidth={2} />
-            {t("session.choose_expert_agent_tip_action")}
-            <ChevronRight className="size-3" />
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
