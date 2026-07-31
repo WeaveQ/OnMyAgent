@@ -113,6 +113,12 @@ import {
 import {
   filterCompactionMessages,
 } from "./transcript/message-compaction";
+import { FollowUpSuggestionChips } from "./follow-up-suggestion-chips";
+import {
+  latestAssistantText,
+  latestUserTextBeforeAssistant,
+  resolveFollowUpSuggestions,
+} from "./follow-up-suggestions";
 import { useSharedQueryState } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
@@ -1420,6 +1426,55 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     jumpToLatest: sessionScroll.jumpToLatest,
   });
 
+  const followUpSuggestions = useMemo(() => {
+    if (
+      chatStreaming ||
+      sending ||
+      showInlineActivityIndicator ||
+      showNoVisibleAssistantOutput ||
+      Boolean(outputLimitedAssistantMessage) ||
+      props.draftOnly ||
+      renderedMessages.length === 0
+    ) {
+      return [];
+    }
+    return resolveFollowUpSuggestions({
+      lastAssistantText: latestAssistantText(renderedMessages),
+      lastUserText: latestUserTextBeforeAssistant(renderedMessages),
+      agentId: effectiveAgent?.id,
+      quickPrompts: effectiveAgent?.quickPrompts,
+    });
+  }, [
+    chatStreaming,
+    effectiveAgent?.id,
+    effectiveAgent?.quickPrompts,
+    outputLimitedAssistantMessage,
+    props.draftOnly,
+    renderedMessages,
+    sending,
+    showInlineActivityIndicator,
+    showNoVisibleAssistantOutput,
+  ]);
+
+  const transcriptStatusFooter = useMemo(() => {
+    const chips =
+      followUpSuggestions.length > 0 ? (
+        <FollowUpSuggestionChips
+          suggestions={followUpSuggestions}
+          onSelect={(prompt) => {
+            void typeComposerText(prompt);
+          }}
+        />
+      ) : null;
+    if (!assistantStatusFooter && !chips) return null;
+    return (
+      <>
+        {assistantStatusFooter}
+        {chips}
+      </>
+    );
+  }, [assistantStatusFooter, followUpSuggestions, typeComposerText]);
+
   const selectAssistantPromptTemplate = useCallback(
     (scenarioId: string, prompt: string) => {
       const scenario = assistantCategory.scenarios.find((item) => item.id === scenarioId);
@@ -1684,7 +1739,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onDownloadCodePath={downloadCodePath}
       workspaceRoot={props.workspaceRoot}
       connectedProviderIds={props.connectedProviderIds}
-      assistantStatusFooter={assistantStatusFooter}
+      assistantStatusFooter={transcriptStatusFooter}
       searchQuery={searchQuery}
       searchMatchIdSet={searchMatchIdSet}
       activeSearchMessageId={activeSearchMessageId}
