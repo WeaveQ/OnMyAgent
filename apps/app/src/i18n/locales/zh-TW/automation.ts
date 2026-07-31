@@ -172,6 +172,7 @@ export default {
   "automation.status_running": "運行中",
   "automation.stop_run": "停止",
   "automation.stop_run_done": "已停止「{title}」本次執行",
+  "automation.run_started_background": "「{title}」已開始，正在背景執行",
   "automation.running_elapsed": "已執行 {elapsed}",
   "automation.running_long_hint": "已執行 {elapsed}，可開啟會話查看進度",
   "automation.running_elapsed_seconds": "不到 1 分鐘",

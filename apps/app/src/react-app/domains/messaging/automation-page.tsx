@@ -778,14 +778,22 @@ export function AutomationPage(props: {
       return;
     }
     if (!options?.silent) setLoading(true);
-    // Don't clear error on silent poll — keeps failed-load banner stable.
     if (!options?.silent) setError(null);
     void props.client.listAutomations(workspaceId)
       .then((result) => {
         setAutomations(result.items);
         syncAutomationSessionRecords(workspaceId, result.items);
+        // Background poll recovered — clear transient timeout banners only.
+        if (options?.silent) {
+          setError((current) =>
+            current && /timed out/i.test(current) ? null : current,
+          );
+        }
       })
       .catch((cause: unknown) => {
+        // Silent polls must not paint a red banner over a still-usable list
+        // (e.g. 2s poll while a long run is open).
+        if (options?.silent) return;
         const message = cause instanceof Error ? cause.message : String(cause);
         setError(message.trim() || t("automation.list_load_failed"));
       })
@@ -1045,8 +1053,20 @@ export function AutomationPage(props: {
         setActiveStatusTab("runs");
       })
       .catch((cause: unknown) => {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        // Server may still be running after a client wait timeout — do not
+        // flash a hard error and jump tabs; poll will pick up 运行中.
+        if (/timed out/i.test(message)) {
+          showToast({
+            tone: "info",
+            title: t("automation.run_started_background", { title: item.title }),
+          });
+          setActiveStatusTab("tasks");
+          refreshAutomations({ silent: true });
+          return;
+        }
         setActiveStatusTab("runs");
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(message.trim() || t("automation.run_failed"));
         refreshAutomations({ silent: true });
       })
       .finally(() => setBusy(false));
