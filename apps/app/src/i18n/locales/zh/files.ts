@@ -31,21 +31,21 @@ export default {
   "files.source_uploads_desc":
     "已导入工作区的资料。编辑只影响工作区副本，不会自动改本机原文件。",
   "files.source_task_desc":
-    "首页临时任务产生的内容。完成写入来源打标后才会出现在此列表。",
+    "首页临时任务产物，以及尚未完成来源打标前的工作区历史文件（保证旧文件仍可访问）。",
   "files.source_expert_desc":
-    "专家会话产生的内容，可按专家浏览。完成写入来源打标后才会出现在此列表。",
+    "专家会话产物，可按专家浏览。在写入打标上线前本列表为空，避免把历史文件误标为专家文件；历史文件请在「任务文件」中查看。",
   "files.search_uploads_placeholder": "搜索上传文件",
   "files.search_task_placeholder": "搜索任务文件",
   "files.search_expert_placeholder": "搜索专家文件",
   "files.uploads_empty_title": "暂无上传",
   "files.uploads_empty_hint":
     "从本机导入文件。OnMyAgent 会复制到工作区，供对话安全引用。",
-  "files.task_empty_title": "暂无已归因的任务文件",
+  "files.task_empty_title": "当前工作区暂无文件",
   "files.task_empty_hint":
-    "首页临时任务的产物将在启用写入来源打标后显示。未打标的历史文件不会误归入此处。",
+    "任务产物与工作区文件会显示在这里。个人资料请到「用户上传」导入。",
   "files.expert_empty_title": "暂无已归因的专家文件",
   "files.expert_empty_hint":
-    "专家会话的产物将在启用写入来源打标后显示。未打标的历史文件不会误标为专家文件。",
+    "专家会话产物将在启用写入来源打标后显示。现有工作区历史文件请在「任务文件」中查看，避免误归类。",
   "files.import_to_workspace": "导入到工作区",
   "files.uploading": "正在导入…",
   "files.upload_copy_success":

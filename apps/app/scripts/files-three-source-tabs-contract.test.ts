@@ -23,7 +23,8 @@ describe("files three-source tabs (P0)", () => {
     expect(DEFAULT_FILES_SOURCE_TAB).toBe("task");
     expect([...FILES_SOURCE_TABS]).toEqual(["uploads", "task", "expert"]);
     expect(isFilesSourceListReady("uploads")).toBe(true);
-    expect(isFilesSourceListReady("task")).toBe(false);
+    // Task tab hosts workspace browser for historical compatibility (P0).
+    expect(isFilesSourceListReady("task")).toBe(true);
     expect(isFilesSourceListReady("expert")).toBe(false);
   });
 
@@ -58,7 +59,8 @@ describe("files three-source tabs (P0)", () => {
     expect(page).toContain("FILES_SOURCE_TABS");
     expect(page).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(page).toContain("WorkspaceFilesUploadsPanel");
-    expect(page).toContain("FilesSourcePendingEmpty");
+    expect(page).toContain("WorkspaceFilesBrowserPanel");
+    expect(page).toContain("FilesExpertPendingEmpty");
     expect(page).toContain('density="bare"');
     expect(page).toContain('size="tab"');
     expect(page).toContain('shape="tab"');
@@ -70,6 +72,13 @@ describe("files three-source tabs (P0)", () => {
     expect(uploads).toContain("listInbox");
     expect(uploads).toContain("buildUserUploadRelativePath");
     expect(uploads).toContain("mapInboxItemsToUploadRows");
+
+    const browser = read(
+      "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+    );
+    expect(browser).toContain("listCodeWorkspaceFiles");
+    expect(browser).toContain("data-workspace-file-breadcrumb");
+    expect(browser).toContain("FilePreviewDrawer");
   });
 
   test("i18n locales define three source tabs and upload copy semantics", () => {

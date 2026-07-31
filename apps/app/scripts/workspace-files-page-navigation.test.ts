@@ -17,11 +17,26 @@ describe("workspace files page navigation", () => {
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(source).toContain("FILES_SOURCE_TABS");
     expect(source).toContain('activeTab === "uploads"');
+    expect(source).toContain('activeTab === "task"');
     expect(source).toContain("WorkspaceFilesUploadsPanel");
-    expect(source).toContain("FilesSourcePendingEmpty");
+    expect(source).toContain("WorkspaceFilesBrowserPanel");
+    expect(source).toContain("FilesExpertPendingEmpty");
     // Cloud tab removed in P0 three-source IA
-    expect(source).not.toContain("<Cloud aria-hidden");
     expect(source).not.toContain('activeTab === "cloud"');
+
+    const browser = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+      ),
+      "utf8",
+    );
+    // Historical workspace catalog remains reachable under Task files.
+    expect(browser).toContain("const [currentDirectoryPath, setCurrentDirectoryPath]");
+    expect(browser).toContain("workspaceFileBreadcrumbs(currentDirectoryPath)");
+    expect(browser).toContain('data-workspace-file-breadcrumb="true"');
+    expect(browser).toContain("listCodeWorkspaceFiles");
+    expect(browser).toContain("collectMatchingFilesUnder");
   });
 
   test("matches the compact shell tab switcher (bare SegmentedTabGroup + tab NavTab)", () => {
