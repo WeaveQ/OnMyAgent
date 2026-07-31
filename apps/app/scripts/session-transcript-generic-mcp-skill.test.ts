@@ -114,7 +114,7 @@ describe("session transcript WorkBuddy compact generic, MCP, and skill tools", (
     });
     const skill = buildTranscriptToolPresentation({
       toolName: "use_skill",
-      toolInput: { command: "frontend-design" },
+      toolInput: { command: "document-processing" },
       toolOutput: { result: { success: true } },
     });
 
@@ -126,7 +126,7 @@ describe("session transcript WorkBuddy compact generic, MCP, and skill tools", (
       downloadPath: "/tmp/guide.md",
       presentation: "http",
     });
-    expect(skill.details).toEqual({ kind: "skill", skillName: "frontend-design" });
+    expect(skill.details).toEqual({ kind: "skill", skillName: "document-processing" });
   });
 
   test("classifies MCP resources using WorkBuddy's HTTP, image, download, and text order", () => {

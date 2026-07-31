@@ -17,8 +17,8 @@ export const BUNDLED_SKILL_PACKAGE_NAMES = Object.freeze([
   "document-processing",
   "expert-manager",
   "find-skills",
-  "frontend-design",
-  "github",
+  // Office-first: engineering packages (github / frontend-design / webapp-testing /
+  // web-artifacts-builder) removed from the shipped catalog.
   "pptx",
   "qcc-company",
   "self-improving",
@@ -27,8 +27,6 @@ export const BUNDLED_SKILL_PACKAGE_NAMES = Object.freeze([
   "tencent-docs",
   "tencent-meeting-skill",
   "weather",
-  "web-artifacts-builder",
-  "webapp-testing",
   "wecom-unified",
 ]);
 
