@@ -36,7 +36,7 @@
 
 页标题与主栏短名统一为 **文件**（i18n：`files.title` / `nav.files` 应对齐，避免「我的文件」双轨）。
 
-默认打开 Tab：**任务文件**（deep link `?view=files` 无子参数时落此 Tab）。
+默认打开 Tab：**用户上传**（deep link `?view=files` 无子参数时落此 Tab）。
 
 ---
 
@@ -237,6 +237,30 @@
 - 专家 L0：`groupBy(agentId | 展示名快照)`。  
 - 会话删除：更新索引，默认不 unlink。
 
+### 8.3 工作区目录约定（v1 落盘）
+
+工作区根下固定四分区（与三 Tab 对齐；`projects/` 在任务 Tab 一并展示）：
+
+```text
+workspace/
+  uploads/                         # 用户导入副本（Files → 用户上传）
+  tasks/                           # 首页临时任务 / 自动化任务产物（→ 任务文件）
+    自动化任务-YYYY-MM-DD-HH-mm-ss/
+  experts/                         # 专家归档（→ 专家文件）
+    {展示名-slug}/
+      {sessionKey}/
+  projects/                        # 用户自建项目夹（→ 任务文件，非专家）
+```
+
+| 来源 | 写入路径 | Files Tab |
+|---|---|---|
+| 用户上传 / 对话附件 | `uploads/`（inbox 传输后落此逻辑区） | 用户上传 |
+| 首页临时任务 / 自动化 | `tasks/…` | 任务文件 |
+| 专家会话（未选手动文件夹） | `experts/{agentSegment}/{sessionKey}/` | 专家文件 |
+| 用户自建项目 | `projects/…` 或用户显式选择的路径 | 任务文件 |
+
+**历史清洗：** 扁平根下的专家夹 / `自动化任务-*` / 散落文件，用 `scripts/migrate-workspace-files-layout.mjs` 迁入上表；未识别的目录进 `projects/`。
+
 ### 8.3 历史文件（backfill / 兼容）
 
 - **不删内容**。  
@@ -304,8 +328,9 @@
 | 2 | 本地 Agent 产物 | v1 不进三 Tab 主列表 | 待产品确认 |
 | 3 | 自动化任务产物 | 同本地 Agent | 待产品确认 |
 | 4 | 会话内 @/树是否完全跟三 Tab 过滤 | v1 可不同，主栏严格三分 | 待产品确认 |
-| 5 | uploads 最终目录名 | `uploads/` 或 inbox 二选一 | 待工程定一种 |
+| 5 | uploads 最终目录名 | 产品布局见 §8.3；inbox 仍为传输层 | **已定** |
 | 6 | 「写回本机」是否进 P2 | 进 P2 | 已建议 |
+| 7 | 自动化任务产物目录 | 归入 `tasks/`（任务文件 Tab） | **已定** |
 
 ---
 

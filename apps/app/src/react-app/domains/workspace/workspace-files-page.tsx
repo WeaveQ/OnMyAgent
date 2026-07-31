@@ -1,12 +1,14 @@
 /** @jsxImportSource react */
 /**
  * Primary-rail Files page (P0 three-source IA + path heuristics).
- * - Uploads: inbox list + import-by-copy
- * - Task files: workspace browser excluding expert agent folders
- * - Expert files: workspace browser of expert agent folders only
+ * Rail: 我的 · 任务 · 专家 · 项目(coming soon, disabled)
+ * - 我的: inbox list + import-by-copy
+ * - 任务: workspace browser excluding expert agent folders
+ * - 专家: workspace browser of expert agent folders only
+ * - 项目: not yet open
  */
 import { useState } from "react";
-import { Bot, FileStack, FileUp } from "lucide-react";
+import { Bot, FileStack, FileUp, FolderKanban } from "lucide-react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
@@ -16,8 +18,9 @@ import { t } from "../../../i18n";
 import type { OpenTarget } from "../../capabilities/artifacts/open-target";
 import {
   DEFAULT_FILES_SOURCE_TAB,
-  FILES_SOURCE_TABS,
+  FILES_SOURCE_RAIL_TABS,
   filesSourceTabLabelKey,
+  isFilesSourceRailTabEnabled,
   type FilesSourceTab,
 } from "./workspace-files-model";
 import { WorkspaceFilesBrowserPanel } from "./workspace-files-browser-panel";
@@ -26,7 +29,7 @@ import { WorkspaceFilesUploadsPanel } from "./workspace-files-uploads-panel";
 // Re-export pure root resolver for existing callers/tests.
 export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
 
-function filesSourceTabIcon(tab: FilesSourceTab) {
+function filesSourceTabIcon(tab: (typeof FILES_SOURCE_RAIL_TABS)[number]) {
   switch (tab) {
     case "uploads":
       return FileUp;
@@ -34,6 +37,8 @@ function filesSourceTabIcon(tab: FilesSourceTab) {
       return FileStack;
     case "expert":
       return Bot;
+    case "project":
+      return FolderKanban;
   }
 }
 
@@ -59,20 +64,35 @@ export function WorkspaceFilesPage(props: {
       <div className={cn(shellChrome.pageHeaderSimple, "border-b-0")}>
         {/* Free-float source pills — NavTab active fill only (no raw bg-white). */}
         <SegmentedTabGroup density="bare" role="tablist">
-          {FILES_SOURCE_TABS.map((tab) => {
+          {FILES_SOURCE_RAIL_TABS.map((tab) => {
             const Icon = filesSourceTabIcon(tab);
-            const active = activeTab === tab;
+            const enabled = isFilesSourceRailTabEnabled(tab);
+            const active = enabled && activeTab === tab;
             return (
               <NavTabButton
                 key={tab}
                 active={active}
                 type="button"
                 role="tab"
-                onClick={() => setActiveTab(tab)}
+                disabled={!enabled}
+                title={
+                  enabled
+                    ? undefined
+                    : t("files.source_project_coming_soon")
+                }
+                onClick={() => {
+                  if (!enabled) return;
+                  setActiveTab(tab);
+                }}
                 size="tab"
                 shape="tab"
                 aria-selected={active}
+                aria-disabled={!enabled}
                 aria-current={active ? "page" : undefined}
+                className={cn(
+                  !enabled &&
+                    "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-dls-secondary",
+                )}
               >
                 <Icon aria-hidden />
                 <span>{t(filesSourceTabLabelKey(tab))}</span>

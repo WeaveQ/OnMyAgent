@@ -41,6 +41,9 @@ import {
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
+  WORKSPACE_PROJECTS_DIR,
+  WORKSPACE_TASKS_DIR,
+  mergeTaskSourceDirectoryTargets,
   workspaceDirectoryTargets,
   workspaceMentionTargets,
 } from "../../../capabilities/artifacts/workspace-mention-targets";
@@ -1333,23 +1336,42 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const listSessionMentionFolder = useCallback(
     async (path: string): Promise<ComposerMentionTarget[]> => {
       if (!props.workspaceRoot.trim()) return [];
-      if (isElectronRuntime()) {
-        const result = await listCodeWorkspaceFiles({
-          workspacePath: props.workspaceRoot,
-          relativePath: path,
-        });
-        return workspaceDirectoryTargets(
-          result.items.map((item) => ({ ...item, revision: "" })),
+
+      const listShallow = async (
+        relativePath: string,
+      ): Promise<ComposerMentionTarget[]> => {
+        if (isElectronRuntime()) {
+          const result = await listCodeWorkspaceFiles({
+            workspacePath: props.workspaceRoot,
+            relativePath,
+          });
+          return workspaceDirectoryTargets(
+            result.items.map((item) => ({ ...item, revision: "" })),
+          );
+        }
+        const result = await props.client.listWorkspaceFiles(
+          props.workspaceId,
+          {
+            includeDirs: true,
+            limit: 10_000,
+            prefix: relativePath,
+            root: props.workspaceRoot,
+            shallow: true,
+          },
         );
+        return workspaceDirectoryTargets(result.items);
+      };
+
+      // Task source root also surfaces projects/ (same Files → 任务文件 bucket).
+      if (path === WORKSPACE_TASKS_DIR) {
+        const [taskTargets, projectTargets] = await Promise.all([
+          listShallow(WORKSPACE_TASKS_DIR),
+          listShallow(WORKSPACE_PROJECTS_DIR).catch(() => []),
+        ]);
+        return mergeTaskSourceDirectoryTargets(taskTargets, projectTargets);
       }
-      const result = await props.client.listWorkspaceFiles(props.workspaceId, {
-        includeDirs: true,
-        limit: 10_000,
-        prefix: path,
-        root: props.workspaceRoot,
-        shallow: true,
-      });
-      return workspaceDirectoryTargets(result.items);
+
+      return listShallow(path);
     },
     [props.client, props.workspaceId, props.workspaceRoot],
   );

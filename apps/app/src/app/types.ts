@@ -103,6 +103,10 @@ export type ComposerMentionKind = "agent" | "file" | "directory";
 export type ComposerMentionTarget = {
   path: string;
   kind: "file" | "directory";
+  /** Human label for the @ menu (defaults to basename of path). */
+  label?: string;
+  /** Secondary line: source trail or kind. */
+  subtitle?: string;
 };
 
 export type ComposerPart =

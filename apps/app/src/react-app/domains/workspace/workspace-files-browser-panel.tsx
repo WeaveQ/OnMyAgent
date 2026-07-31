@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -38,6 +39,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Empty,
   EmptyDescription,
@@ -88,11 +94,13 @@ import {
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 import {
   buildWorkspaceFileTree,
+  pruneEmptyDirectoriesFromTree,
   filterHiddenFromTree,
   findWorkspaceFileNode,
   formatWorkspaceFileSize,
   formatWorkspaceFileTime,
   shouldHideEntry,
+  sortTaskSourceTreeCopy,
   sortWorkspaceFileTreeCopy,
   workspaceFileBreadcrumbs,
   workspaceNameFromRoot,
@@ -109,8 +117,10 @@ import {
   countFilesInNode,
   fileCategoryI18nKey,
   filesSourceTabSubtitleKey,
+  filesSourceTabTitleKey,
   filterWorkspaceFileTree,
   filterWorkspaceTreeBySourceTab,
+  formatWorkspaceFolderDisplayName,
   getFileCategory,
   relativeDisplayPath,
   usesLocalFileRenderer,
@@ -380,11 +390,140 @@ function FilesListEmptyState(props: {
 }
 
 
+const FILE_FAVORITES_STORAGE_KEY = "onmyagent.files.favorites.v1";
+
+function readFavoritePaths(workspaceId: string): Set<string> {
+  if (typeof window === "undefined" || !workspaceId.trim()) return new Set();
+  try {
+    const raw = window.localStorage.getItem(FILE_FAVORITES_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as Record<string, string[]>;
+    const list = parsed[workspaceId.trim()];
+    return new Set(Array.isArray(list) ? list.filter((p) => typeof p === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeFavoritePaths(workspaceId: string, paths: Set<string>) {
+  if (typeof window === "undefined" || !workspaceId.trim()) return;
+  try {
+    const raw = window.localStorage.getItem(FILE_FAVORITES_STORAGE_KEY);
+    const parsed =
+      raw && raw.trim()
+        ? (JSON.parse(raw) as Record<string, string[]>)
+        : {};
+    parsed[workspaceId.trim()] = Array.from(paths);
+    window.localStorage.setItem(FILE_FAVORITES_STORAGE_KEY, JSON.stringify(parsed));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/** Inline quick actions after the file/folder name (hover row → show; hover icon → tooltip).
+ * Add-to-conversation is only for concrete files, not folders.
+ */
+function FileNameQuickActions(props: {
+  path: string;
+  favorited: boolean;
+  /** Files only — folders omit the add-to-conversation control. */
+  showAddToTask?: boolean;
+  onAddToTask?: () => void;
+  onOpenInFolder: () => void;
+  onToggleFavorite: () => void;
+}) {
+  const quickBtnClass =
+    "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-dls-secondary opacity-0 transition-[opacity,color,background-color,transform] duration-150 hover:bg-dls-hover hover:text-dls-text hover:scale-105 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30";
+  const iconClass = "size-4";
+  const favoriteLabel = props.favorited
+    ? t("files.unfavorite")
+    : t("files.favorite");
+  const showAdd = Boolean(props.showAddToTask && props.onAddToTask);
+
+  return (
+    <span className="ms-1 inline-flex shrink-0 items-center gap-1.5">
+      {showAdd ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className={quickBtnClass}
+                aria-label={t("files.add_to_task")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onAddToTask?.();
+                }}
+              />
+            }
+          >
+            <CirclePlus className={iconClass} strokeWidth={1.75} aria-hidden />
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={6}>
+            {t("files.add_to_task")}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className={quickBtnClass}
+              aria-label={t("files.open_folder")}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onOpenInFolder();
+              }}
+            />
+          }
+        >
+          <FolderOpen className={iconClass} strokeWidth={1.75} aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          {t("files.open_folder")}
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className={cn(
+                quickBtnClass,
+                props.favorited && "text-dls-accent opacity-100",
+              )}
+              aria-label={favoriteLabel}
+              aria-pressed={props.favorited}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onToggleFavorite();
+              }}
+            />
+          }
+        >
+          <Star
+            className={iconClass}
+            strokeWidth={1.75}
+            aria-hidden
+            fill={props.favorited ? "currentColor" : "none"}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          {favoriteLabel}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
+
 function FileRowActionsMenu(props: {
   name: string;
   pathCopied: boolean;
+  favorited: boolean;
   onOpenInFolder: () => void;
   onAddToTask: () => void;
+  onToggleFavorite: () => void;
   onCopyPath: () => void;
   onDelete: () => void;
 }) {
@@ -405,7 +544,7 @@ function FileRowActionsMenu(props: {
         }
       />
       <DropdownMenuContent align="end" className="min-w-44">
-        {/* Hope-style order: cloud first, then add-to-task / open folder */}
+        {/* Hope-style order: cloud first, then add-to-task / open folder / favorite */}
         <DropdownMenuItem disabled className="opacity-60">
           <Cloud />
           {t("files.upload_to_cloud_soon")}
@@ -427,6 +566,15 @@ function FileRowActionsMenu(props: {
         >
           <FolderOpen />
           {t("files.open_folder")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onToggleFavorite();
+          }}
+        >
+          <Star fill={props.favorited ? "currentColor" : "none"} />
+          {props.favorited ? t("files.unfavorite") : t("files.favorite")}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={(event) => {
@@ -492,10 +640,12 @@ export function WorkspaceFilesBrowserPanel(props: {
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
   const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
-  /** Expanded project/task paths for root outline view (Hope-style tree). */
+  /** Expanded project/task paths for root outline view; default all collapsed. */
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
-  const outlineExpandSeededRef = useRef(false);
   const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
+  const [favoritePaths, setFavoritePaths] = useState<Set<string>>(
+    () => readFavoritePaths(props.workspaceId),
+  );
   /** Default: newest first so folders with recent activity rise to the top. */
   const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("updated");
   const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("desc");
@@ -618,7 +768,6 @@ export function WorkspaceFilesBrowserPanel(props: {
     setSelectedFile(null);
     setPreviewState({ status: "idle" });
     setCurrentDirectoryPath("");
-    outlineExpandSeededRef.current = false;
     setExpandedPaths(new Set());
   }, [fileRoot, props.workspaceId, sourceTab]);
 
@@ -700,8 +849,14 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [fileRoot, props.client, props.workspaceId, selectedFile, selectedTarget]);
 
   const visibleFileTree = useMemo(() => {
-    const tree = filterHiddenFromTree(
-      buildWorkspaceFileTree(entries.filter((entry) => !shouldHideEntry(entry.path))),
+    // Hide system markers, then drop empty dirs (e.g. expert sessions with only
+    // onmyagent-session.json) so Files only shows folders with real content.
+    const tree = pruneEmptyDirectoriesFromTree(
+      filterHiddenFromTree(
+        buildWorkspaceFileTree(
+          entries.filter((entry) => !shouldHideEntry(entry.path)),
+        ),
+      ),
     );
     const bySource = filterWorkspaceTreeBySourceTab(
       tree,
@@ -712,6 +867,10 @@ export function WorkspaceFilesBrowserPanel(props: {
       ...bySource,
       children: [],
     };
+    // Task tab: keep user spaces (projects/) above 自动化任务-* runs.
+    if (sourceTab === "task") {
+      return sortTaskSourceTreeCopy(filtered, sortKey, sortDir);
+    }
     return sortWorkspaceFileTreeCopy(filtered, sortKey, sortDir);
   }, [
     entries,
@@ -756,23 +915,6 @@ export function WorkspaceFilesBrowserPanel(props: {
     if (!useOutlineRoot) return [] as OutlineRow[];
     return buildRootOutlineRows(listedNodes, expandedPaths);
   }, [expandedPaths, listedNodes, useOutlineRoot]);
-
-  // Hope-style default: expand workspace projects and their task folders once.
-  useEffect(() => {
-    if (!useOutlineRoot) return;
-    if (outlineExpandSeededRef.current || listedNodes.length === 0) return;
-    const next = new Set<string>();
-    for (const child of listedNodes) {
-      if (child.kind !== "dir") continue;
-      next.add(child.path);
-      for (const nested of child.children) {
-        if (nested.kind === "dir") next.add(nested.path);
-      }
-    }
-    if (next.size === 0) return;
-    outlineExpandSeededRef.current = true;
-    setExpandedPaths(next);
-  }, [listedNodes, useOutlineRoot]);
 
   const toggleExpanded = useCallback((path: string) => {
     setExpandedPaths((current) => {
@@ -870,6 +1012,25 @@ export function WorkspaceFilesBrowserPanel(props: {
     [handleCopyFilePath, props],
   );
 
+  useEffect(() => {
+    setFavoritePaths(readFavoritePaths(props.workspaceId));
+  }, [props.workspaceId]);
+
+  const handleToggleFavorite = useCallback(
+    (path: string) => {
+      const key = path.trim();
+      if (!key) return;
+      setFavoritePaths((current) => {
+        const next = new Set(current);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        writeFavoritePaths(props.workspaceId, next);
+        return next;
+      });
+    },
+    [props.workspaceId],
+  );
+
   const handleEditFile = useCallback(
     async (filePath: string) => {
       try {
@@ -961,7 +1122,7 @@ export function WorkspaceFilesBrowserPanel(props: {
           <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 max-w-xl">
               <h1 className={typeScale.pageTitle}>
-                {t("files.title")}
+                {t(filesSourceTabTitleKey(sourceTab))}
               </h1>
               <p className={cn(typeScale.pageSubtitle, "mt-1 truncate")}>
                 {t(filesSourceTabSubtitleKey(sourceTab))}
@@ -1099,7 +1260,9 @@ export function WorkspaceFilesBrowserPanel(props: {
                               )}
                               onClick={() => setCurrentDirectoryPath(item.path)}
                             >
-                              <span className="truncate">{item.name}</span>
+                              <span className="truncate">
+                                {formatWorkspaceFolderDisplayName(item.name)}
+                              </span>
                             </Button>
                           </span>
                         );
@@ -1274,11 +1437,24 @@ export function WorkspaceFilesBrowserPanel(props: {
                                             aria-hidden
                                           />
                                           <span className="min-w-0 truncate text-sm font-semibold text-dls-text">
-                                            {row.node.name}
+                                            {formatWorkspaceFolderDisplayName(
+                                              row.node.name,
+                                              row.node.mtimeMs,
+                                            )}
                                           </span>
                                           <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
                                             {badge}
                                           </span>
+                                          <FileNameQuickActions
+                                            path={row.node.path}
+                                            favorited={favoritePaths.has(row.node.path)}
+                                            onOpenInFolder={() =>
+                                              void handleOpenFile(row.node.path)
+                                            }
+                                            onToggleFavorite={() =>
+                                              handleToggleFavorite(row.node.path)
+                                            }
+                                          />
                                         </span>
                                       </TableCell>
                                       <TableCell className="py-2 text-xs text-dls-secondary">
@@ -1292,22 +1468,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                       <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
                                         {formatWorkspaceFileSize(row.node.size)}
                                       </TableCell>
-                                      <TableCell className="py-2">
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon-xs"
-                                          className="text-dls-secondary opacity-0 group-hover:opacity-100"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            setCurrentDirectoryPath(row.node.path);
-                                          }}
-                                          aria-label={t("files.open_folder")}
-                                          title={t("files.open_folder")}
-                                        >
-                                          <FolderOpen className="size-3.5" />
-                                        </Button>
-                                      </TableCell>
+                                      <TableCell className="py-2" />
                                     </TableRow>
                                   );
                                 }
@@ -1336,13 +1497,26 @@ export function WorkspaceFilesBrowserPanel(props: {
                                             aria-hidden
                                           />
                                           <span className="min-w-0 truncate text-sm text-dls-text">
-                                            {row.node.name}
+                                            {formatWorkspaceFolderDisplayName(
+                                              row.node.name,
+                                              row.node.mtimeMs,
+                                            )}
                                           </span>
                                           {row.fileCount > 0 ? (
                                             <span className="shrink-0 text-[11px] text-dls-secondary">
                                               {t("files.file_count", { count: row.fileCount })}
                                             </span>
                                           ) : null}
+                                          <FileNameQuickActions
+                                            path={row.node.path}
+                                            favorited={favoritePaths.has(row.node.path)}
+                                            onOpenInFolder={() =>
+                                              void handleOpenFile(row.node.path)
+                                            }
+                                            onToggleFavorite={() =>
+                                              handleToggleFavorite(row.node.path)
+                                            }
+                                          />
                                         </span>
                                       </TableCell>
                                       <TableCell className="py-1.5 text-xs text-dls-secondary">
@@ -1356,21 +1530,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                       <TableCell className="py-1.5 text-xs text-dls-secondary tabular-nums">
                                         {formatWorkspaceFileSize(row.node.size)}
                                       </TableCell>
-                                      <TableCell className="py-1.5">
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon-xs"
-                                          className="text-dls-secondary opacity-0 group-hover:opacity-100"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            setCurrentDirectoryPath(row.node.path);
-                                          }}
-                                          aria-label={t("files.open_folder")}
-                                        >
-                                          <FolderOpen className="size-3.5" />
-                                        </Button>
-                                      </TableCell>
+                                      <TableCell className="py-1.5" />
                                     </TableRow>
                                   );
                                 }
@@ -1407,18 +1567,16 @@ export function WorkspaceFilesBrowserPanel(props: {
                                         >
                                           {fileNode.name}
                                         </span>
-                                        <button
-                                          type="button"
-                                          className="inline-flex shrink-0 rounded-md p-0.5 text-dls-secondary opacity-0 transition-opacity hover:bg-dls-hover hover:text-dls-text group-hover:opacity-100"
-                                          title={t("files.add_to_task")}
-                                          aria-label={t("files.add_to_task")}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            void handleAddToTask(fileNode.path);
-                                          }}
-                                        >
-                                          <CirclePlus className="size-3.5" aria-hidden />
-                                        </button>
+                                        <FileNameQuickActions
+                                          path={fileNode.path}
+                                          favorited={favoritePaths.has(fileNode.path)}
+                                          showAddToTask
+                                          onAddToTask={() => void handleAddToTask(fileNode.path)}
+                                          onOpenInFolder={() => void handleOpenFile(fileNode.path)}
+                                          onToggleFavorite={() =>
+                                            handleToggleFavorite(fileNode.path)
+                                          }
+                                        />
                                       </span>
                                     </TableCell>
                                     <TableCell className="py-2 text-xs text-dls-secondary">
@@ -1436,8 +1594,12 @@ export function WorkspaceFilesBrowserPanel(props: {
                                       <FileRowActionsMenu
                                         name={fileNode.name}
                                         pathCopied={pathCopiedFlash === fileNode.path}
+                                        favorited={favoritePaths.has(fileNode.path)}
                                         onOpenInFolder={() => void handleOpenFile(fileNode.path)}
                                         onAddToTask={() => void handleAddToTask(fileNode.path)}
+                                        onToggleFavorite={() =>
+                                          handleToggleFavorite(fileNode.path)
+                                        }
                                         onCopyPath={() => void handleCopyFilePath(fileNode.path)}
                                         onDelete={() => handleDeleteFile(fileNode)}
                                       />
@@ -1449,7 +1611,12 @@ export function WorkspaceFilesBrowserPanel(props: {
                             const nestedPathLabel =
                               deepListingActive && node.kind === "file"
                                 ? relativeDisplayPath(node.path, currentDirectoryPath)
-                                : node.name;
+                                : node.kind === "dir"
+                                  ? formatWorkspaceFolderDisplayName(
+                                      node.name,
+                                      node.mtimeMs,
+                                    )
+                                  : node.name;
                             return (
                           <TableRow
                             key={node.path}
@@ -1491,9 +1658,18 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 >
                                   {nestedPathLabel}
                                 </span>
-                                {node.kind === "dir" ? (
-                                  <ChevronRight className="ml-auto size-3.5 shrink-0 text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100" />
-                                ) : null}
+                                <FileNameQuickActions
+                                  path={node.path}
+                                  favorited={favoritePaths.has(node.path)}
+                                  showAddToTask={node.kind === "file"}
+                                  onAddToTask={
+                                    node.kind === "file"
+                                      ? () => void handleAddToTask(node.path)
+                                      : undefined
+                                  }
+                                  onOpenInFolder={() => void handleOpenFile(node.path)}
+                                  onToggleFavorite={() => handleToggleFavorite(node.path)}
+                                />
                               </span>
                             </TableCell>
                             <TableCell className="py-2 text-xs text-dls-secondary">
@@ -1512,8 +1688,10 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 <FileRowActionsMenu
                                   name={node.name}
                                   pathCopied={pathCopiedFlash === node.path}
+                                  favorited={favoritePaths.has(node.path)}
                                   onOpenInFolder={() => void handleOpenFile(node.path)}
                                   onAddToTask={() => void handleAddToTask(node.path)}
+                                  onToggleFavorite={() => handleToggleFavorite(node.path)}
                                   onCopyPath={() => void handleCopyFilePath(node.path)}
                                   onDelete={() => handleDeleteFile(node)}
                                 />

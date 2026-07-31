@@ -75,7 +75,7 @@ Token management (scoped tokens):
 File injection / artifacts:
 
 - `ONMYAGENT_INBOX_ENABLED` (`1` | `0`)
-- `ONMYAGENT_INBOX_MAX_BYTES` (default: 50MB, capped)
+- `ONMYAGENT_INBOX_MAX_BYTES` (default: 200MB, hard-capped at 250MB)
 - `ONMYAGENT_OUTBOX_ENABLED` (`1` | `0`)
 
 Sandbox advertisement (for capability discovery):

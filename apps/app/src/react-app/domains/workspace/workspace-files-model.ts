@@ -8,11 +8,31 @@ import {
   canPreviewOpenTargetInline,
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
-import type {
-  WorkspaceFileSortDir,
-  WorkspaceFileSortKey,
-  WorkspaceFileTreeNode,
+import {
+  formatWorkspaceFileTime,
+  type WorkspaceFileSortDir,
+  type WorkspaceFileSortKey,
+  type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
+import { t } from "../../../i18n";
+import {
+  WORKSPACE_EXPERTS_DIR,
+  WORKSPACE_PROJECTS_DIR,
+  WORKSPACE_TASKS_DIR,
+  WORKSPACE_UPLOADS_DIR,
+  isAutomationTaskFolderName,
+  isWorkspaceLayoutTopDir,
+  isWorkspaceSystemTopDir,
+} from "./workspace-files-layout";
+
+export {
+  WORKSPACE_EXPERTS_DIR,
+  WORKSPACE_PROJECTS_DIR,
+  WORKSPACE_TASKS_DIR,
+  WORKSPACE_UPLOADS_DIR,
+  isAutomationTaskFolderName,
+  isWorkspaceLayoutTopDir,
+} from "./workspace-files-layout";
 
 export type FileCategory =
   | "all"
@@ -164,6 +184,87 @@ export function countFilesInNode(node: WorkspaceFileTreeNode): number {
 
 export function countDirsInNode(node: WorkspaceFileTreeNode): number {
   return node.children.filter((child) => child.kind === "dir").length;
+}
+
+/**
+ * Expert archive folder label: "财报研究员-earnings-reviewer" → "财报研究员".
+ * Also cleans glued slugs: "报价作业-quote-specialistquote-specialist" → "报价作业".
+ * Pure package slugs stay as-is.
+ */
+export function formatExpertFolderDisplayName(folderName: string): string {
+  const n = folderName.trim();
+  if (!n) return n;
+  // Prefer: non-ASCII display name + trailing ascii kebab (slug may be doubled/glued).
+  const withDisplay = n.match(
+    /^(.*[^\u0000-\u007f].*?)-([a-z][a-z0-9-]+)$/i,
+  );
+  if (withDisplay?.[1]?.trim()) return withDisplay[1].trim();
+  return n;
+}
+
+/** Session isolation dirs: Date.now() ms, short hex, or 2026-07-23_155052. */
+export function isLikelySessionFolderName(name: string): boolean {
+  const n = name.trim();
+  if (!n) return false;
+  if (/^\d{10,16}$/.test(n)) return true;
+  if (/^[a-f0-9]{8,12}$/i.test(n)) return true;
+  if (/^\d{4}-\d{2}-\d{2}[_-]\d{4,6}$/.test(n)) return true;
+  return false;
+}
+
+/** Best-effort timestamp for a session folder (folder name first, then mtime). */
+export function resolveSessionFolderTimeMs(
+  name: string,
+  mtimeMs = 0,
+): number {
+  const n = name.trim();
+  if (/^\d{10,16}$/.test(n)) {
+    const ms = Number(n);
+    if (Number.isFinite(ms) && ms > 1e11) return ms;
+  }
+  const stamp = n.match(
+    /^(\d{4})-(\d{2})-(\d{2})[_-](\d{2})(\d{2})(\d{2})?$/,
+  );
+  if (stamp) {
+    const date = new Date(
+      Number(stamp[1]),
+      Number(stamp[2]) - 1,
+      Number(stamp[3]),
+      Number(stamp[4]),
+      Number(stamp[5]),
+      Number(stamp[6] ?? "0"),
+    );
+    if (!Number.isNaN(date.getTime())) return date.getTime();
+  }
+  if (Number.isFinite(mtimeMs) && mtimeMs > 0) return mtimeMs;
+  return 0;
+}
+
+/**
+ * Fixed session title for Files UI: "会话 · 07/26 14:32".
+ * Does not use first user message (product: fixed title).
+ */
+export function formatSessionFolderDisplayName(
+  name: string,
+  mtimeMs = 0,
+): string {
+  const whenMs = resolveSessionFolderTimeMs(name, mtimeMs);
+  const when =
+    whenMs > 0
+      ? formatWorkspaceFileTime(whenMs)
+      : name.trim() || t("common.unknown");
+  return t("files.session_folder_title", { when });
+}
+
+/** Folder label in Files tree: session dirs get fixed title; experts get clean name. */
+export function formatWorkspaceFolderDisplayName(
+  name: string,
+  mtimeMs = 0,
+): string {
+  if (isLikelySessionFolderName(name)) {
+    return formatSessionFolderDisplayName(name, mtimeMs);
+  }
+  return formatExpertFolderDisplayName(name);
 }
 
 /** Outline rows for root: collapsible folders (project) + nested task/file rows. */
@@ -363,11 +464,17 @@ export function resolveToolWorkspaceFileRoot(input: {
 
 // --- Files page three-source tabs (product draft §2 / P0) -----------------
 
-/** Provenance tabs on the primary-rail Files page. */
+/** Active provenance tabs on the primary-rail Files page. */
 export type FilesSourceTab = "uploads" | "task" | "expert";
 
-/** Default tab when opening Files (product: task files). */
-export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "task";
+/**
+ * Rail pills including coming-soon **项目** (not selectable).
+ * Content still uses {@link FilesSourceTab} only.
+ */
+export type FilesSourceRailTab = FilesSourceTab | "project";
+
+/** Default tab when opening Files (product: 我的 / uploads). */
+export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "uploads";
 
 export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
   "uploads",
@@ -375,14 +482,29 @@ export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
   "expert",
 ] as const;
 
+/** Full rail order: 我的 · 任务 · 专家 · 项目(待开放). */
+export const FILES_SOURCE_RAIL_TABS: readonly FilesSourceRailTab[] = [
+  "uploads",
+  "task",
+  "expert",
+  "project",
+] as const;
+
+export function isFilesSourceRailTabEnabled(
+  tab: FilesSourceRailTab,
+): tab is FilesSourceTab {
+  return tab !== "project";
+}
+
 /**
  * Relative workspace directory for user import-by-copy (inbox upload path prefix).
  * Server inbox stores under this logical area; UI lists via listInbox.
+ * Aligns with product layout root `uploads/`.
  */
-export const USER_UPLOADS_RELATIVE_DIR = "uploads";
+export const USER_UPLOADS_RELATIVE_DIR = WORKSPACE_UPLOADS_DIR;
 
 /**
- * uploads: inbox API; task/expert: workspace browser with path heuristics until P1 tags.
+ * uploads: inbox API; task/expert: workspace browser with path layout + heuristics.
  */
 export function isFilesSourceListReady(tab: FilesSourceTab): boolean {
   return tab === "uploads" || tab === "task" || tab === "expert";
@@ -391,29 +513,23 @@ export function isFilesSourceListReady(tab: FilesSourceTab): boolean {
 /** Pure package slug with 3+ segments: fleet-management-specialist (avoids home-notes). */
 const EXPERT_PACKAGE_SLUG_LONG_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+){2,}$/;
 
-const RESERVED_NON_EXPERT_TOP_DIRS = new Set([
-  "uploads",
-  "inbox",
-  "tmp",
-  "temp",
-  ".onmyagent",
-  ".opencode",
-]);
-
 /**
- * Heuristic: top-level folder is an expert agent archive (not a Home temp task).
+ * Heuristic: folder name is an expert agent archive (not a Home temp task).
  * Optional knownPackageSlugs strengthens matching (packageName from marketplace).
  *
  * Matches:
  * - pure slug (known or 3+ kebab parts): fleet-management-specialist
  * - DisplayName-slug with non-ASCII prefix: 财报研究员-earnings-reviewer
+ * - CJK-only expert display names that already lived at root historically
  */
 export function isLikelyExpertAgentFolderName(
   name: string,
   knownPackageSlugs: readonly string[] = [],
 ): boolean {
   const n = name.trim();
-  if (!n || RESERVED_NON_EXPERT_TOP_DIRS.has(n.toLowerCase())) return false;
+  if (!n || isWorkspaceSystemTopDir(n) || isAutomationTaskFolderName(n)) {
+    return false;
+  }
   const lower = n.toLowerCase();
   for (const slug of knownPackageSlugs) {
     const s = slug.trim().toLowerCase();
@@ -426,44 +542,166 @@ export function isLikelyExpertAgentFolderName(
   if (EXPERT_PACKAGE_SLUG_LONG_RE.test(n)) return true;
   // Display name (often CJK) + kebab slug
   const m = n.match(/^(.*)-([a-z][a-z0-9]*(?:-[a-z0-9]+)+)$/);
-  if (!m) return false;
-  const prefix = m[1];
-  const slug = m[2];
-  if (knownPackageSlugs.some((s) => s.trim().toLowerCase() === slug)) return true;
-  // Non-ASCII display name is a strong expert signal (screenshot folders)
-  if (/[^\u0000-\u007f]/.test(prefix)) return true;
-  // Long slug after any prefix
-  if (slug.split("-").length >= 3) return true;
+  if (m) {
+    const prefix = m[1];
+    const slug = m[2];
+    if (knownPackageSlugs.some((s) => s.trim().toLowerCase() === slug)) return true;
+    // Non-ASCII display name is a strong expert signal (screenshot folders)
+    if (/[^\u0000-\u007f]/.test(prefix)) return true;
+    // Long slug after any prefix
+    if (slug.split("-").length >= 3) return true;
+  }
+  // Display names that end with 专家 (common marketplace naming)
+  if (/专家$/.test(n) && n.length >= 4) return true;
   return false;
+}
+
+function findTopDir(
+  root: WorkspaceFileTreeNode,
+  name: string,
+): WorkspaceFileTreeNode | null {
+  const lower = name.toLowerCase();
+  for (const child of root.children) {
+    if (child.kind === "dir" && child.name.trim().toLowerCase() === lower) {
+      return child;
+    }
+  }
+  return null;
+}
+
+/**
+ * Merge sibling expert folders that share the same display label.
+ * e.g. `报价作业` + `报价作业-quote-specialistquote-specialist` → one "报价作业"
+ * with sessions from both (deduped by session folder name).
+ */
+export function mergeExpertSiblingFolders(
+  nodes: readonly WorkspaceFileTreeNode[],
+): WorkspaceFileTreeNode[] {
+  const looseFiles: WorkspaceFileTreeNode[] = [];
+  const groups = new Map<string, WorkspaceFileTreeNode[]>();
+  const order: string[] = [];
+
+  for (const node of nodes) {
+    if (node.kind === "file") {
+      looseFiles.push(node);
+      continue;
+    }
+    const key = formatExpertFolderDisplayName(node.name).trim().toLowerCase();
+    if (!key) {
+      looseFiles.push(node);
+      continue;
+    }
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(node);
+  }
+
+  const merged: WorkspaceFileTreeNode[] = [];
+  for (const key of order) {
+    const group = groups.get(key) ?? [];
+    if (group.length === 0) continue;
+    if (group.length === 1) {
+      const only = group[0];
+      merged.push({
+        ...only,
+        name: formatExpertFolderDisplayName(only.name),
+      });
+      continue;
+    }
+
+    // Prefer the longer disk name (usually DisplayName-slug) as path base.
+    const primary = [...group].sort(
+      (a, b) => b.name.length - a.name.length || b.mtimeMs - a.mtimeMs,
+    )[0];
+    const childByName = new Map<string, WorkspaceFileTreeNode>();
+    for (const folder of group) {
+      for (const child of folder.children) {
+        const existing = childByName.get(child.name);
+        if (!existing || (child.mtimeMs || 0) >= (existing.mtimeMs || 0)) {
+          childByName.set(child.name, child);
+        }
+      }
+    }
+    const children = [...childByName.values()].sort(
+      (a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0) || a.name.localeCompare(b.name),
+    );
+    let size = 0;
+    let mtimeMs = 0;
+    for (const child of children) {
+      size += Math.max(0, child.size || 0);
+      mtimeMs = Math.max(mtimeMs, child.mtimeMs || 0);
+    }
+    merged.push({
+      ...primary,
+      name: formatExpertFolderDisplayName(primary.name),
+      children,
+      size,
+      mtimeMs,
+    });
+  }
+
+  return [...merged, ...looseFiles];
 }
 
 /**
  * Filter a workspace root tree for Task vs Expert tabs.
- * Only top-level children are classified; nested structure is preserved.
+ *
+ * Preferred layout (after migration / new writes):
+ * - Expert: children of `experts/`
+ * - Task: children of `tasks/` + `projects/` + loose non-layout leftovers
+ *
+ * Legacy flat roots still classified by path heuristics until migrated.
  */
 export function filterWorkspaceTreeBySourceTab(
   root: WorkspaceFileTreeNode,
   tab: "task" | "expert",
   knownPackageSlugs: readonly string[] = [],
 ): WorkspaceFileTreeNode {
-  const children = root.children.filter((child) => {
+  const expertsRoot = findTopDir(root, WORKSPACE_EXPERTS_DIR);
+  const tasksRoot = findTopDir(root, WORKSPACE_TASKS_DIR);
+  const projectsRoot = findTopDir(root, WORKSPACE_PROJECTS_DIR);
+
+  if (tab === "expert") {
+    const children: WorkspaceFileTreeNode[] = [];
+    if (expertsRoot) {
+      children.push(...expertsRoot.children.filter((c) => c.kind === "dir" || c.kind === "file"));
+    }
+    // Legacy unmigrated expert archives still at workspace root
+    for (const child of root.children) {
+      if (child.kind !== "dir") continue;
+      if (isWorkspaceLayoutTopDir(child.name)) continue;
+      if (isLikelyExpertAgentFolderName(child.name, knownPackageSlugs)) {
+        children.push(child);
+      }
+    }
+    return { ...root, children: mergeExpertSiblingFolders(children) };
+  }
+
+  // task tab: spaces (projects/) first in source order; sort layer keeps them above automation.
+  const children: WorkspaceFileTreeNode[] = [];
+  if (projectsRoot) {
+    children.push(...projectsRoot.children);
+  }
+  if (tasksRoot) {
+    children.push(...tasksRoot.children);
+  }
+  for (const child of root.children) {
+    if (isWorkspaceLayoutTopDir(child.name)) continue;
+    if (isWorkspaceSystemTopDir(child.name)) continue;
     if (child.kind === "file") {
-      // Loose root files: show under task only (not expert archives).
-      return tab === "task";
+      // Loose root files stay visible under task until migrated into uploads/tasks
+      children.push(child);
+      continue;
     }
-    const isExpert = isLikelyExpertAgentFolderName(child.name, knownPackageSlugs);
-    if (tab === "expert") return isExpert;
-    // task: exclude expert agent folders and reserved upload dirs
-    if (isExpert) return false;
-    if (RESERVED_NON_EXPERT_TOP_DIRS.has(child.name.trim().toLowerCase())) {
-      return false;
-    }
-    return true;
-  });
+    if (isLikelyExpertAgentFolderName(child.name, knownPackageSlugs)) continue;
+    children.push(child);
+  }
   return { ...root, children };
 }
 
-export function filesSourceTabLabelKey(tab: FilesSourceTab): string {
+export function filesSourceTabLabelKey(tab: FilesSourceRailTab): string {
   switch (tab) {
     case "uploads":
       return "files.source_uploads";
@@ -471,6 +709,20 @@ export function filesSourceTabLabelKey(tab: FilesSourceTab): string {
       return "files.source_task";
     case "expert":
       return "files.source_expert";
+    case "project":
+      return "files.source_project";
+  }
+}
+
+/** Page h1 under the rail pills: 我的文件 / 任务文件 / 专家文件. */
+export function filesSourceTabTitleKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.source_uploads_title";
+    case "task":
+      return "files.source_task_title";
+    case "expert":
+      return "files.source_expert_title";
   }
 }
 

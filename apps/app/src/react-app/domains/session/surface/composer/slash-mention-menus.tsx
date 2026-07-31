@@ -13,6 +13,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 import type { SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
+import { formatWorkspaceFolderDisplayName } from "../../../workspace/workspace-files-model";
 import {
   composerMenuClass,
   type MentionItem,
@@ -21,6 +22,16 @@ import { skillMenuDescription } from "./tool-menu-model";
 
 /** ~5 rows visible (py-2 + line + gap ≈ 2.25rem each). */
 const SLASH_LIST_MAX_HEIGHT = "max-h-[11.25rem]";
+
+function mentionFolderTitle(folderPath: string): string {
+  if (folderPath === "uploads") return t("files.source_uploads");
+  if (folderPath === "tasks" || folderPath === "projects") {
+    return t("files.source_task");
+  }
+  if (folderPath === "experts") return t("files.source_expert");
+  const segment = folderPath.split("/").filter(Boolean).at(-1) ?? folderPath;
+  return formatWorkspaceFolderDisplayName(segment);
+}
 
 function partitionSlashCommands(commands: SlashCommandOption[]) {
   const skills: SlashCommandOption[] = [];
@@ -207,8 +218,7 @@ export function ComposerMentionMenu(props: {
 }) {
   if (!props.open) return null;
   if (props.folderPath) {
-    const folderName =
-      props.folderPath.split("/").filter(Boolean).at(-1) ?? props.folderPath;
+    const folderTitle = mentionFolderTitle(props.folderPath);
     return (
       <div className={composerMenuClass.anchor}>
         <div className={composerMenuClass.panelWithoutBottomBorder}>
@@ -231,7 +241,7 @@ export function ComposerMentionMenu(props: {
             </Button>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-dls-text">
-                {folderName}
+                {folderTitle}
               </div>
               <div className="truncate text-xs text-dls-secondary">
                 {t("composer.folder_files_hint")}
@@ -297,8 +307,7 @@ export function ComposerMentionMenu(props: {
                     >
                       <Folder className="size-3.5 shrink-0 text-dls-secondary" />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-dls-text">
-                        {item.value.split("/").filter(Boolean).at(-1) ??
-                          item.label}
+                        {item.label}
                       </span>
                       <ChevronRight className="size-3.5 text-dls-secondary" />
                     </MenuRowButton>
@@ -316,8 +325,7 @@ export function ComposerMentionMenu(props: {
                         className="size-3.5 shrink-0"
                       />
                       <span className="min-w-0 flex-1 truncate">
-                        {item.value.split("/").filter(Boolean).at(-1) ??
-                          item.label}
+                        {item.label}
                       </span>
                     </label>
                   ),
@@ -363,10 +371,15 @@ export function ComposerMentionMenu(props: {
                 )}
                 <div className="min-w-0 flex-1 overflow-hidden text-left">
                   <div className="truncate text-sm font-medium leading-5 text-dls-text">
-                    @{item.label}
+                    {item.kind === "directory" ? item.label : `@${item.label}`}
                   </div>
                   <div className="truncate text-sm leading-5 text-dls-secondary">
-                    {t(item.kind === "directory" ? "composer.folder_kind" : "composer.file_kind")}
+                    {item.subtitle ||
+                      t(
+                        item.kind === "directory"
+                          ? "composer.folder_kind"
+                          : "composer.file_kind",
+                      )}
                   </div>
                 </div>
               </MenuRowButton>

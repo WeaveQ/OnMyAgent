@@ -32,7 +32,7 @@ describe("@ folder file selection contract", () => {
     expect(composer).toContain("mentionBrowser.selectedFilePaths");
     expect(browser).toContain("const files = await loadFiles(paths)");
     expect(browser).toContain("return (await addFiles(files)) > 0");
-    expect(surface).toContain("prefix: path");
+    expect(surface).toContain("prefix: relativePath");
     expect(surface).toContain("shallow: true");
     expect(surface).toContain("readCodeWorkspaceBinaryFile");
     expect(surface).toContain("workspacePath: props.workspaceRoot");
@@ -51,5 +51,26 @@ describe("@ folder file selection contract", () => {
     expect(menu).toContain("props.onAddSelectedFiles();");
     expect(menu).toContain("if (event.detail === 0) props.onAddSelectedFiles()");
     expect(menu).toContain('role="alert"');
+  });
+
+  test("mention roots use three-source targets with labels not raw disk dump", () => {
+    const targets = read(
+      "src/react-app/capabilities/artifacts/workspace-mention-targets.ts",
+    );
+    const browser = read(
+      "src/react-app/domains/session/surface/composer/use-mention-folder-browser.ts",
+    );
+    const surface = read(
+      "src/react-app/domains/session/surface/session-surface.tsx",
+    );
+    expect(targets).toContain("workspaceMentionRootTargets");
+    expect(targets).toContain("files.source_uploads");
+    expect(targets).toContain("files.source_task");
+    expect(targets).toContain("files.source_expert");
+    expect(targets).toContain("SYSTEM_ROOT_FILES");
+    expect(browser).toContain("target.label");
+    expect(browser).toContain("subtitle");
+    expect(surface).toContain("mergeTaskSourceDirectoryTargets");
+    expect(surface).toContain("WORKSPACE_TASKS_DIR");
   });
 });
