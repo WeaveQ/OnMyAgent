@@ -39,6 +39,7 @@ import {
   messageBlockRowPropsEqual,
   type MessageBlockRowMemoProps,
 } from "./message-block-row-equality";
+import { stripFollowUpMarkers } from "../follow-up-suggestions";
 
 function messageGroupKey(messageId: string, group: MessageGroup) {
   if (group.kind === "steps") return `${messageId}:steps:${group.id}`;
@@ -458,7 +459,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
 
                 return (
                   <MarkdownBlock
-                    text={text}
+                    text={stripFollowUpMarkers(text)}
                     streaming={isStreamingLatestAssistant}
                     showStreamingCursor={false}
                     highlightQuery={highlightQuery}

@@ -321,6 +321,8 @@ describe("order-dispatch-specialist agent contract (refactored)", () => {
     expect(agentText).toContain("用户问“你能做什么”");
     expect(agentText).toContain("不要背诵技能英文名");
     expect(agentText).toContain("允许按对话情境微调");
+    expect(agentText).toContain(":::followups");
+    expect(agentText).toContain("可点击选项");
 
     // Colleague tone without legacy forced phrases
     expect(agentText).toContain("行，我先把这票信息捋一下");
