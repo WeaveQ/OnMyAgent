@@ -7,11 +7,11 @@ import { t } from "../../../../i18n";
 
 /**
  * Full-width sidebar primary create CTA (新建任务 / 创建专家 / 添加).
- * Black/primary border + tighter radius (lg 10, not xl 14 pill).
+ * Soft outline frame: h-9 + rounded-xl + hairline border (matches list-row height).
  * Keep in sync with automation-nav-sidebar SIDEBAR_PRIMARY_CTA_CLASS.
  */
 export const SIDEBAR_PRIMARY_CTA_CLASS =
-  "w-full justify-center gap-2 rounded-lg border border-dls-text bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-list-hover hover:border-dls-text before:rounded-lg";
+  "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
@@ -38,7 +38,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           <Button
             type="button"
             variant="outline"
-            size="lg"
+            size="default"
             onClick={props.onCreateTask}
             className={SIDEBAR_PRIMARY_CTA_CLASS}
           >
@@ -67,7 +67,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
       <Button
         type="button"
         variant="outline"
-        size="lg"
+        size="default"
         onClick={props.onOpenAgents}
         className={SIDEBAR_PRIMARY_CTA_CLASS}
         title={t("session.create_expert")}

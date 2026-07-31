@@ -37,7 +37,7 @@ import { t } from "../../../i18n";
 
 /** Keep in sync with session sidebar SIDEBAR_PRIMARY_CTA_CLASS (no cross-domain import). */
 const SIDEBAR_PRIMARY_CTA_CLASS =
-  "w-full justify-center gap-2 rounded-lg border border-dls-text bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-list-hover hover:border-dls-text before:rounded-lg";
+  "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
 
 // Local copies of task-row action chrome (avoid messaging → session import).
 const TASK_ROW_ACTION_CLASS =
@@ -197,7 +197,7 @@ export function AutomationNavSidebar(props: {
           <Button
             type="button"
             variant="outline"
-            size="lg"
+            size="default"
             className={SIDEBAR_PRIMARY_CTA_CLASS}
             onClick={props.onCreate}
           >
