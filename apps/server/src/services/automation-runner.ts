@@ -558,11 +558,16 @@ async function reconcileStuckRunningLease(
   }
 }
 
+/** Product layout root for task / automation outputs (Files → 任务文件). */
+const TASKS_LAYOUT_DIR = "tasks";
+
 async function createAutomationOutputDirectory(workspaceRoot: string) {
   let timestamp = Date.now();
+  const tasksRoot = join(workspaceRoot, TASKS_LAYOUT_DIR);
+  await mkdir(tasksRoot, { recursive: true });
   while (true) {
     const groupName = automationGroupName(timestamp);
-    const outputDirectory = join(workspaceRoot, groupName);
+    const outputDirectory = join(tasksRoot, groupName);
     if (!(await exists(outputDirectory))) {
       await mkdir(outputDirectory, { recursive: false });
       return { groupName, outputDirectory };

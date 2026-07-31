@@ -16,17 +16,19 @@ describe("expert session directory isolation", () => {
     expect(sanitizePathSegment("...")).toBe("expert");
   });
 
-  test("builds AgentName-agentId/sessionKey under the workspace root", () => {
+  test("builds experts/AgentName-agentId/sessionKey under the workspace root", () => {
     const isolated = buildIsolatedExpertSessionDirectory({
       workspaceRoot: "/Users/me/Workspace",
       agentName: "物流单专家",
       agentId: "order-entry-clerk",
       sessionKey: "1753456789000",
     });
-    expect(isolated.directory).toBe("/Users/me/Workspace/物流单专家-order-entry-clerk/1753456789000");
+    expect(isolated.directory).toBe(
+      "/Users/me/Workspace/experts/物流单专家-order-entry-clerk/1753456789000",
+    );
     expect(isolated.agentSegment).toBe("物流单专家-order-entry-clerk");
     expect(isolated.markerRelativePath).toBe(
-      "物流单专家-order-entry-clerk/1753456789000/onmyagent-session.json",
+      "experts/物流单专家-order-entry-clerk/1753456789000/onmyagent-session.json",
     );
     expect(isolated.markerContent).toContain("expert-session");
   });
@@ -38,7 +40,9 @@ describe("expert session directory isolation", () => {
       sessionKey: "1753456789000",
     });
     expect(isolated.agentSegment).toBe("油费稽核员");
-    expect(isolated.directory).toBe("/Users/me/Workspace/油费稽核员/1753456789000");
+    expect(isolated.directory).toBe(
+      "/Users/me/Workspace/experts/油费稽核员/1753456789000",
+    );
   });
 
   test("resolves marker payload for an existing absolute session directory", () => {

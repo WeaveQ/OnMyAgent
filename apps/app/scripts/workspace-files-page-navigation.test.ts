@@ -5,7 +5,7 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 
 describe("workspace files page navigation", () => {
-  test("renders a breadcrumb and replaces the list with the selected folder children", () => {
+  test("P0 renders three-source tabs and routes uploads vs pending empty", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -14,20 +14,32 @@ describe("workspace files page navigation", () => {
       "utf8",
     );
 
-    expect(source).toContain("const [currentDirectoryPath, setCurrentDirectoryPath]");
-    expect(source).toContain("workspaceFileBreadcrumbs(currentDirectoryPath)");
-    expect(source).toContain("setCurrentDirectoryPath(node.path)");
-    expect(source).toContain('data-workspace-file-breadcrumb="true"');
-    expect(source).toContain('data-workspace-file-row={node.kind}');
-    expect(source).toContain("listCodeWorkspaceFiles");
-    // Browse stays shallow; type/search filters walk all descendants under the current folder.
-    expect(source).toContain("shallow: !deepListing");
-    expect(source).toContain("recursive: deepListing");
-    expect(source).toContain("collectMatchingFilesUnder");
-    expect(source).toContain("currentDirectoryPath");
+    expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
+    expect(source).toContain("FILES_SOURCE_RAIL_TABS");
+    expect(source).toContain('activeTab === "uploads"');
+    expect(source).toContain("WorkspaceFilesUploadsPanel");
+    expect(source).toContain("WorkspaceFilesBrowserPanel");
+    expect(source).toContain('sourceTab={activeTab === "expert" ? "expert" : "task"}');
+    // Cloud tab removed in P0 three-source IA
+    expect(source).not.toContain('activeTab === "cloud"');
+
+    const browser = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+      ),
+      "utf8",
+    );
+    // Task/expert browsers share catalog UI; filter splits expert agent folders.
+    expect(browser).toContain("const [currentDirectoryPath, setCurrentDirectoryPath]");
+    expect(browser).toContain("workspaceFileBreadcrumbs(currentDirectoryPath)");
+    expect(browser).toContain('data-workspace-file-breadcrumb="true"');
+    expect(browser).toContain("listCodeWorkspaceFiles");
+    expect(browser).toContain("collectMatchingFilesUnder");
+    expect(browser).toContain("filterWorkspaceTreeBySourceTab");
   });
 
-  test("matches the compact shell tab switcher and surface list chrome", () => {
+  test("matches the compact shell tab switcher (bare SegmentedTabGroup + tab NavTab)", () => {
     const source = readFileSync(
       join(
         repoRoot,
@@ -35,16 +47,20 @@ describe("workspace files page navigation", () => {
       ),
       "utf8",
     );
+    const browser = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+      ),
+      "utf8",
+    );
 
-    // Same pattern as agent management / marketplace: bare SegmentedTabGroup + tab NavTabButton
     expect(source).toContain("shellChrome.pageHeaderSimple");
-    expect(source).toContain('<SegmentedTabGroup density="bare">');
+    expect(source).toContain('density="bare"');
     expect(source).toContain('size="tab"');
     expect(source).toContain('shape="tab"');
-    expect(source).toContain("<Cloud aria-hidden />");
-    // List lives in a surface card; file rows use typed icons
-    expect(source).toContain("rounded-xl border border-dls-border bg-dls-surface-solid");
-    expect(source).toContain("FileKindIcon");
-    expect(source).toContain("max-w-6xl");
+    expect(browser).toContain("max-w-6xl");
+    // No raw white active override (dark theme remaps bg-white)
+    expect(source).not.toMatch(/className=\{?["'`][^"'`]*bg-white/);
   });
 });

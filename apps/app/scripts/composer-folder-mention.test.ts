@@ -32,12 +32,18 @@ describe("@ folder file selection contract", () => {
     expect(composer).toContain("mentionBrowser.selectedFilePaths");
     expect(browser).toContain("const files = await loadFiles(paths)");
     expect(browser).toContain("return (await addFiles(files)) > 0");
-    expect(surface).toContain("prefix: path");
-    expect(surface).toContain("shallow: true");
-    expect(surface).toContain("readCodeWorkspaceBinaryFile");
-    expect(surface).toContain("workspacePath: props.workspaceRoot");
-    expect(surface).toContain("downloadWorkspaceFile");
-    expect(surface).toContain("return new File([result.data], name");
+    expect(surface).toContain("listSessionMentionFolderImpl");
+    expect(surface).toContain("loadSessionMentionFilesImpl");
+    expect(surface).toContain("searchSessionMentionTargetsImpl");
+    const mentionFiles = read(
+      "src/react-app/domains/session/surface/session-surface-mention-files.ts",
+    );
+    expect(mentionFiles).toContain("prefix: relativePath");
+    expect(mentionFiles).toContain("shallow: true");
+    expect(mentionFiles).toContain("readCodeWorkspaceBinaryFile");
+    expect(mentionFiles).toContain("workspacePath: workspaceRoot");
+    expect(mentionFiles).toContain("downloadWorkspaceFile");
+    expect(mentionFiles).toContain("return new File([result.data], name");
   });
 
   test("uses shared row, checkbox, button, and loading primitives", () => {
@@ -51,5 +57,30 @@ describe("@ folder file selection contract", () => {
     expect(menu).toContain("props.onAddSelectedFiles();");
     expect(menu).toContain("if (event.detail === 0) props.onAddSelectedFiles()");
     expect(menu).toContain('role="alert"');
+  });
+
+  test("mention roots use three-source targets with labels not raw disk dump", () => {
+    const targets = read(
+      "src/react-app/capabilities/artifacts/workspace-mention-targets.ts",
+    );
+    const browser = read(
+      "src/react-app/domains/session/surface/composer/use-mention-folder-browser.ts",
+    );
+    const surface = read(
+      "src/react-app/domains/session/surface/session-surface.tsx",
+    );
+    const mentionFiles = read(
+      "src/react-app/domains/session/surface/session-surface-mention-files.ts",
+    );
+    expect(targets).toContain("workspaceMentionRootTargets");
+    expect(targets).toContain("files.source_uploads");
+    expect(targets).toContain("files.source_task");
+    expect(targets).toContain("files.source_expert");
+    expect(targets).toContain("SYSTEM_ROOT_FILES");
+    expect(browser).toContain("target.label");
+    expect(browser).toContain("subtitle");
+    expect(surface).toContain("listSessionMentionFolderImpl");
+    expect(mentionFiles).toContain("mergeTaskSourceDirectoryTargets");
+    expect(mentionFiles).toContain("WORKSPACE_TASKS_DIR");
   });
 });

@@ -38,17 +38,22 @@ test("adds local Office and media preview inside the existing session Files tool
   expect(sessionPanel).toContain("<BrowserPanel");
 });
 
-test("uses the same local preview capability in the workspace Files drawer", () => {
-  expect(filesPage).toContain('import { OfficeFilePreview }');
-  expect(filesPage).toContain('status: "local" as const');
-  expect(filesPage).toContain("usesLocalFileRenderer");
-  expect(filesPage).toContain('target.preview === "audio"');
-  expect(filesPage).toContain('target.preview === "video"');
-  expect(filesPage).toContain("filePath={state.filePath}");
-  expect(filesPage).toContain('<OfficeFilePreview');
-  expect(filesPage).toContain("onOpenExternally");
-  expect(filesPage).toContain("onOpenInFolder");
-  expect(filesPage).toContain("onCopyPath");
+test("workspace Files browser keeps local Office/media preview under Task files", () => {
+  expect(sessionPanel).toContain('import { OfficeFilePreview }');
+  expect(sessionPanel).toContain("usesLocalFileRenderer");
+  expect(sessionPanel).toContain('<OfficeFilePreview');
+  expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
+  expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
+  expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
+  expect(filesPage).not.toContain("CloudDriveEmptyState");
+  const browser = readFileSync(
+    resolve(appRoot, "src/react-app/domains/workspace/workspace-files-browser-panel.tsx"),
+    "utf8",
+  );
+  expect(browser).toContain('import { OfficeFilePreview }');
+  expect(browser).toContain("usesLocalFileRenderer");
+  expect(browser).toContain('<OfficeFilePreview');
+  expect(browser).toContain("filePath={state.filePath}");
 });
 
 test("detaches the native preview before a full renderer reload", () => {

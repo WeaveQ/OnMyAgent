@@ -26,7 +26,7 @@ export default {
   "nav.channels": "消息渠道",
   "nav.experts": "专家",
   "nav.experts_short": "专家",
-  "nav.files": "我的文件",
+  "nav.files": "文件",
   "nav.files_short": "文件",
   "nav.knowledge_inspiration_short": "资料库 · 灵感",
   "nav.local_agent": "本地 AI",

@@ -11,12 +11,17 @@ type MentionFolderBrowserInput = {
   listFolderFiles: (path: string) => Promise<ComposerMentionTarget[]>;
 };
 
+function basename(path: string) {
+  return path.split("/").filter(Boolean).at(-1) ?? path;
+}
+
 function toMentionItems(targets: ComposerMentionTarget[]): MentionItem[] {
   return targets.map((target) => ({
     id: `${target.kind}:${target.path}`,
     kind: target.kind,
     value: target.path,
-    label: target.path,
+    label: target.label?.trim() || basename(target.path),
+    subtitle: target.subtitle?.trim() || undefined,
   }));
 }
 
@@ -82,9 +87,10 @@ export function useMentionFolderBrowser(input: MentionFolderBrowserInput) {
 
   const filtered = useMemo(() => {
     if (!input.open) return [];
-    if (!input.query) return items.slice(0, 8);
+    // Root / search results already curated by workspaceMentionTargets.
+    if (!input.query) return items.slice(0, 12);
     return fuzzysort
-      .go(input.query, items, { keys: ["label"], limit: 8 })
+      .go(input.query, items, { keys: ["label", "value", "subtitle"], limit: 12 })
       .map((entry) => entry.obj);
   }, [input.open, input.query, items]);
 

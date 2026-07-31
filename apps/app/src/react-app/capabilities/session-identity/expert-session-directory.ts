@@ -2,11 +2,14 @@
  * Per-expert-session artifact directory helpers.
  *
  * When the user does not pick a folder for a new expert conversation, isolate
- * artifacts under: `{workspaceRoot}/{agentName-agentId}/{timestamp}/`
+ * artifacts under: `{workspaceRoot}/experts/{agentName-agentId}/{timestamp}/`
  * so different experts and sessions never share the same dump folder.
  * The agentName-agentId segment is stable across sessions for the same expert;
  * the timestamp is deterministic at send time (no UUID generation race).
  */
+
+/** Product layout root for expert archives (see workspace-files-layout). */
+export const EXPERTS_LAYOUT_DIR = "experts";
 
 export function sanitizePathSegment(raw: string, fallback = "expert"): string {
   const cleaned = raw
@@ -30,7 +33,8 @@ export function createExpertSessionKey(): string {
 
 /**
  * True for auto-isolated expert session dirs:
- * `{workspaceRoot}/{agentName-agentId}/{Date.now()}/`
+ * `{workspaceRoot}/experts/{agentName-agentId}/{Date.now()}/`
+ * (legacy without `experts/` also matches by trailing timestamp key).
  *
  * Used to keep these out of the composer "选择工作空间" picker — they are
  * session artifact roots, not user-named spaces.
@@ -82,7 +86,8 @@ export const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
  * Build an isolated session directory under the workspace when the user did
  * not pick an explicit folder.
  *
- * Structure: `{workspaceRoot}/{agentName-agentId}/{timestamp}/`
+ * Structure: `{workspaceRoot}/experts/{agentName-agentId}/{timestamp}/`
+ * - experts/: product layout root for Expert files tab
  * - agentName-agentId: stable per expert, reused across sessions
  * - timestamp: deterministic at send time, no UUID race
  *
@@ -111,8 +116,14 @@ export function buildIsolatedExpertSessionDirectory(input: {
   const agentSegment = idSegment
     ? `${nameSegment}-${idSegment}`
     : nameSegment;
-  const directory = joinWorkspacePath(input.workspaceRoot, agentSegment, sessionKey);
+  const directory = joinWorkspacePath(
+    input.workspaceRoot,
+    EXPERTS_LAYOUT_DIR,
+    agentSegment,
+    sessionKey,
+  );
   const markerRelativePath = relativePosixPath(
+    EXPERTS_LAYOUT_DIR,
     agentSegment,
     sessionKey,
     EXPERT_SESSION_MARKER_NAME,
@@ -122,6 +133,7 @@ export function buildIsolatedExpertSessionDirectory(input: {
       kind: "expert-session",
       agent: agentSegment,
       sessionKey,
+      layout: EXPERTS_LAYOUT_DIR,
     },
     null,
     2,

@@ -137,18 +137,30 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
 
       if (!result.ok) {
         let message = result.text.trim();
+        let code = "request_failed";
+        let details: unknown;
         try {
           const json = message ? JSON.parse(message) : null;
-          if (json && typeof json.message === "string") {
-            message = json.message;
+          if (json && typeof json === "object") {
+            const body = json as { message?: unknown; code?: unknown; details?: unknown };
+            if (typeof body.message === "string" && body.message.trim()) {
+              message = body.message;
+            }
+            if (typeof body.code === "string" && body.code.trim()) {
+              code = body.code;
+            }
+            if (body.details !== undefined) {
+              details = body.details;
+            }
           }
         } catch {
-          // ignore
+          // ignore invalid JSON error bodies
         }
         throw new OnMyAgentServerError(
           result.status,
-          "request_failed",
+          code,
           message || "Shared folder upload failed",
+          details,
         );
       }
 
