@@ -1,5 +1,5 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
-import { ApiError } from "../core/errors.js";
+import { ApiError, isApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import { getWorkspaceOpencodeClient } from "./opencode-client-pool.js";
 import { unwrapOpencodeResult } from "./opencode-proxy.js";
@@ -23,7 +23,7 @@ import {
 } from "./session-snapshot-policy.js";
 
 function remapSessionReadError(error: unknown): never {
-  if (error instanceof ApiError && error.code === "opencode_request_failed") {
+  if (isApiError(error) && error.code === "opencode_request_failed") {
     const details = error.details;
     const upstreamStatus =
       details && typeof details === "object" && "status" in details

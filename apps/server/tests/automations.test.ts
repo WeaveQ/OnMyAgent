@@ -601,6 +601,36 @@ describe("automations", () => {
     expect(impossibleWeekday).toBeNull();
   });
 
+  test("weekly cycle with weekdays picks the next allowed weekday", () => {
+    // Friday 2026-06-26 10:00 → next Mon-Fri slot at 09:00 is Monday 06-29
+    const fridayMorning = new Date(2026, 5, 26, 10, 0, 0, 0).getTime();
+    expect(
+      nextRunAt(
+        {
+          mode: "weekly",
+          day: "weekly",
+          time: "09:00",
+          weekdays: [1, 2, 3, 4, 5],
+        },
+        fridayMorning,
+      ),
+    ).toBe(new Date(2026, 5, 29, 9, 0, 0, 0).getTime());
+
+    // Monday before 09:00 → same day
+    const mondayEarly = new Date(2026, 5, 22, 8, 0, 0, 0).getTime();
+    expect(
+      nextRunAt(
+        {
+          mode: "weekly",
+          day: "weekly",
+          time: "09:00",
+          weekdays: [1, 2, 3, 4, 5],
+        },
+        mondayEarly,
+      ),
+    ).toBe(new Date(2026, 5, 22, 9, 0, 0, 0).getTime());
+  });
+
   test("calculates daily weekly biweekly monthly and yearly cycles", () => {
     const beforeTime = new Date(2026, 0, 15, 8, 0, 0, 0).getTime();
     const atTime = new Date(2026, 0, 15, 9, 0, 0, 0).getTime();

@@ -6,17 +6,18 @@ import {
   Archive,
   Check,
   CircleAlert,
+  Clock,
   FileText,
   Pause,
   Pencil,
   Play,
+  Square,
   Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { StatusDot } from "@/components/ui/status-dot";
 import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import {
@@ -25,9 +26,6 @@ import {
   type DayGroupedRuns,
 } from "./automation-list-model";
 import {
-  automationDisplayId,
-  effectiveRangeLabel,
-  nextRunLabel,
   relativeRunTime,
   scheduleLabel,
 } from "./automation-form-model";
@@ -35,19 +33,63 @@ import { RunningAutomationRow } from "./automation-page-sections";
 
 export type CompletedRun = CompletedRunEntry<OnMyAgentAutomationTaskItem>;
 
-function AutomationTaskMeta(props: {
-  item: OnMyAgentAutomationTaskItem;
-  groupName?: string;
+function AutomationTaskStatusBadge(props: {
+  enabled: boolean;
+  running?: boolean;
 }) {
+  // Running: a run is in progress for this task.
+  if (props.running) {
+    return (
+      <StatusBadge tone="success" size="sm" shape="soft">
+        <Square className="size-2.5 fill-current" aria-hidden />
+        {t("automation.status_running")}
+      </StatusBadge>
+    );
+  }
+  // Paused: schedule is disabled.
+  if (!props.enabled) {
+    return (
+      <StatusBadge tone="warning" size="sm" shape="soft">
+        <Pause className="size-2.5" aria-hidden />
+        {t("automation.status_paused")}
+      </StatusBadge>
+    );
+  }
+  // Enabled: schedule is on, not currently running.
   return (
-    <>
-      <StatusBadge tone="neutral" size="tiny" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
-        {automationDisplayId(props.item, props.groupName)}
-      </StatusBadge>
-      <StatusBadge tone="neutral" size="tiny" shape="soft" className="shrink-0 font-medium">
-        {scheduleLabel(props.item.schedule)}
-      </StatusBadge>
-    </>
+    <StatusBadge tone="accent" size="sm" shape="soft">
+      <Clock className="size-2.5" aria-hidden />
+      {t("automation.status_active")}
+    </StatusBadge>
+  );
+}
+
+function AutomationTaskCardMeta(props: { item: OnMyAgentAutomationTaskItem }) {
+  const agentName = props.item.agent?.name?.trim();
+  const agentInitial = agentName ? agentName.charAt(0).toUpperCase() : "";
+  const runCount = props.item.runs?.length ?? 0;
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-dls-secondary">
+      {agentName ? (
+        <span className="inline-flex min-w-0 max-w-40 items-center gap-1.5">
+          <span
+            className="flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-icon-muted-bg text-2xs font-semibold text-dls-text"
+            aria-hidden
+          >
+            {agentInitial}
+          </span>
+          <span className="truncate">{agentName}</span>
+        </span>
+      ) : null}
+      <span className="inline-flex min-w-0 items-center gap-1">
+        <Clock className="size-3.5 shrink-0" aria-hidden />
+        <span className="truncate">{scheduleLabel(props.item.schedule)}</span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1">
+        <Play className="size-3.5 shrink-0" aria-hidden />
+        {t("automation.run_count", { count: runCount })}
+      </span>
+    </div>
   );
 }
 
@@ -59,95 +101,77 @@ export function ScheduledAutomationRow(props: {
   onToggleEnabled: (item: OnMyAgentAutomationTaskItem) => void;
   onDelete: (item: OnMyAgentAutomationTaskItem) => void;
 }) {
-  const rangeLabel = effectiveRangeLabel(props.item);
   const enabled = props.item.enabled;
+  const promptPreview = props.item.prompt.trim().replace(/\s+/g, " ");
   return (
-    <div className="group flex min-h-14 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-dls-hover">
+    <div className="group rounded-xl border border-dls-border bg-dls-surface px-4 py-3 transition-colors hover:bg-dls-hover/60">
+      <div className="flex items-start justify-between gap-2">
+        <AutomationTaskStatusBadge enabled={enabled} />
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={props.busy}
+            className="h-7 px-2 text-xs text-dls-secondary"
+            onClick={() => props.onEdit(props.item)}
+          >
+            <Pencil className="size-3.5" />
+            {t("automation.edit")}
+          </Button>
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              disabled={props.busy}
+              title={t("automation.test_run")}
+              aria-label={t("automation.test_run")}
+              onClick={() => props.onRunNow(props.item)}
+            >
+              <Play className="size-3.5 text-dls-secondary" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              disabled={props.busy}
+              title={enabled ? t("automation.pause") : t("automation.resume")}
+              aria-label={enabled ? t("automation.pause") : t("automation.resume")}
+              onClick={() => props.onToggleEnabled(props.item)}
+            >
+              {enabled ? (
+                <Pause className="size-3.5 text-dls-secondary" />
+              ) : (
+                <Play className="size-3.5 text-dls-secondary" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              disabled={props.busy}
+              title={t("automation.delete")}
+              aria-label={t("automation.delete")}
+              onClick={() => props.onDelete(props.item)}
+            >
+              <Trash2 className="size-3.5 text-dls-secondary" />
+            </Button>
+          </div>
+        </div>
+      </div>
       <button
         type="button"
         onClick={() => props.onEdit(props.item)}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1.5 text-left text-sm text-dls-text focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+        className="mt-2 block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
       >
-        <StatusDot size="md" tone={enabled ? "muted" : "warning"} />
-        <span className="min-w-0 flex flex-1 items-center gap-2">
-          <span className="truncate text-sm font-medium">{props.item.title}</span>
-          <AutomationTaskMeta item={props.item} groupName={props.item.running?.groupName} />
-          {rangeLabel ? (
-            <span className="shrink-0 text-xs text-dls-secondary">
-              {t("automation.effective_range_list", { range: rangeLabel })}
-            </span>
-          ) : null}
-          {!enabled ? (
-            <StatusBadge tone="warning" size="tiny" shape="soft">
-              {t("automation.status_paused")}
-            </StatusBadge>
-          ) : null}
-        </span>
-        <span className="shrink-0 text-xs text-dls-secondary group-hover:hidden">
-          {nextRunLabel(props.item)}
-        </span>
+        <div className="truncate text-sm font-semibold text-dls-text">{props.item.title}</div>
+        {promptPreview ? (
+          <div className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">{promptPreview}</div>
+        ) : null}
       </button>
-      <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={props.busy}
-          title={t("automation.test_run")}
-          aria-label={t("automation.test_run")}
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onRunNow(props.item);
-          }}
-        >
-          <Play className="size-3.5 text-dls-secondary" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={props.busy}
-          title={enabled ? t("automation.pause") : t("automation.resume")}
-          aria-label={enabled ? t("automation.pause") : t("automation.resume")}
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onToggleEnabled(props.item);
-          }}
-        >
-          {enabled ? (
-            <Pause className="size-3.5 text-dls-secondary" />
-          ) : (
-            <Play className="size-3.5 text-dls-secondary" />
-          )}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={props.busy}
-          title={t("automation.edit")}
-          aria-label={t("automation.edit")}
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onEdit(props.item);
-          }}
-        >
-          <Pencil className="size-3.5 text-dls-secondary" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={props.busy}
-          title={t("automation.delete")}
-          aria-label={t("automation.delete")}
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onDelete(props.item);
-          }}
-        >
-          <Trash2 className="size-3.5 text-dls-secondary" />
-        </Button>
+      <div className="mt-3">
+        <AutomationTaskCardMeta item={props.item} />
       </div>
     </div>
   );
@@ -286,7 +310,7 @@ export function AutomationTasksListBody(props: {
   return (
     <div className="space-y-4">
       {hasCurrent ? (
-        <div className="space-y-1">
+        <div className="space-y-2.5">
           <div className="px-1 text-xs font-medium text-dls-secondary">
             {t("automation.section_current")}
           </div>
@@ -313,7 +337,7 @@ export function AutomationTasksListBody(props: {
         </div>
       ) : null}
       {paused.length > 0 ? (
-        <div className="space-y-1">
+        <div className="space-y-2.5">
           <div className="px-1 text-xs font-medium text-dls-secondary">
             {t("automation.section_paused")}
           </div>

@@ -952,9 +952,11 @@ export function AssistantPage(props: AssistantPageProps) {
     ? "automation"
     : activeSidebarView;
   // SessionSurface paints on primary home OR when a run is opened inside automation.
+  // Do NOT gate on showDelayedSessionLoadingState — hiding the keep-alive pane
+  // (display:none) zeros the scroll parent and can blank the transcript after
+  // rail switches (e.g. 自动 → 首页). Loading skeleton still shows in `middle`.
   const sessionSurfaceActive =
-    (isPrimarySessionView || showAutomationEmbeddedSession) &&
-    !showDelayedSessionLoadingState;
+    isPrimarySessionView || showAutomationEmbeddedSession;
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
@@ -1126,7 +1128,12 @@ export function AssistantPage(props: AssistantPageProps) {
                     assistantCategoryId,
                     { kind: "session", sessionId },
                   );
-                  openAssistantSessionView();
+                  // Leave automation/other rails for home session open.
+                  // Do not openRailView first — it navigates with the current
+                  // pathname and can race with onOpenSession (blank middle).
+                  if (!isPrimarySessionView) {
+                    openAssistantSessionView();
+                  }
                   props.sidebar.onOpenSession(workspaceId, sessionId);
                 }}
                 onPrefetchSession={props.sidebar.onPrefetchSession}
