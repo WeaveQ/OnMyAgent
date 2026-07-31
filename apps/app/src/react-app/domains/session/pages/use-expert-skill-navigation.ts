@@ -41,23 +41,23 @@ export function useExpertSkillNavigation(input: {
     [navigate, workspaceId],
   );
 
-  const handleCreateExpert = useCallback(async () => {
+  const handleCreateExpert = useCallback(() => {
+    // Navigate first (same as create-skill). Awaiting skill install used to
+    // swallow the first click / leave the user on Expert store until a second tap.
+    goAssistantOfficeNewTaskWithDraft(t("session.create_expert_prompt"));
     if (isElectronRuntime()) {
-      try {
-        await installBuiltinSkillPackage({
-          source: "builtin",
-          packageName: CREATE_EXPERT_SKILL_NAME,
-          skillName: CREATE_EXPERT_SKILL_NAME,
-        });
-      } catch (error) {
-        console.warn("[expert-marketplace] failed to install expert-manager", error);
-      }
+      void installBuiltinSkillPackage({
+        source: "builtin",
+        packageName: CREATE_EXPERT_SKILL_NAME,
+        skillName: CREATE_EXPERT_SKILL_NAME,
+      }).catch((error) => {
+        console.warn(
+          "[expert-marketplace] failed to install expert-manager",
+          error,
+        );
+      });
     }
-    writeAssistantSelectionMemory(workspaceId, "office", { kind: "newTask" });
-    input.onCreateTaskInWorkspace(workspaceId);
-    setComposerDraftAfterNewTask(workspaceId, t("session.create_expert_prompt"));
-    input.onNavigateToMode("assistant");
-  }, [input, workspaceId]);
+  }, [goAssistantOfficeNewTaskWithDraft]);
 
   const handleCreateSkill = useCallback(() => {
     goAssistantOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
