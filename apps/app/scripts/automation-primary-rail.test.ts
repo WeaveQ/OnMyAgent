@@ -10,6 +10,7 @@ import {
   isKnownRailView,
   parseRailViewFromSearch,
 } from "../src/react-app/domains/session/navigation/app-location";
+import { buildAutomationNavGroups } from "../src/react-app/domains/session/pages/use-automation-nav-groups";
 
 const appRoot = join(import.meta.dir, "..");
 
@@ -72,6 +73,52 @@ describe("primary rail + assistant wiring", () => {
     expect(assistant).toContain("absolute inset-0 z-[1]");
     // Home session list still present for assistant (not removed this goal).
     expect(assistant).toContain("AgentConversationPanel");
+    // Left nav also shows home-style automation run groups.
+    expect(assistant).toContain("useAutomationNavGroups");
+    expect(assistant).toContain("groups={automationNavGroups}");
+  });
+
+  test("buildAutomationNavGroups folds runs under one task", () => {
+    const now = Date.now();
+    const groups = buildAutomationNavGroups({
+      records: [
+        {
+          sessionId: "s1",
+          automationId: "a1",
+          title: "家人联系提醒",
+          groupName: "g",
+          outputDirectory: "",
+          category: "office",
+          createdAt: now,
+        },
+        {
+          sessionId: "s2",
+          automationId: "a1",
+          title: "家人联系提醒",
+          groupName: "g",
+          outputDirectory: "",
+          category: "office",
+          createdAt: now - 1000,
+        },
+      ],
+      sessions: [
+        {
+          id: "s1",
+          title: "家人联系提醒",
+          time: { created: now, updated: now },
+        },
+        {
+          id: "s2",
+          title: "家人联系提醒",
+          time: { created: now - 1000, updated: now - 1000 },
+        },
+      ] as never,
+      categoryId: "office",
+      excludedSessionIds: new Set(),
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.title).toBe("家人联系提醒");
+    expect(groups[0]?.sessions).toHaveLength(2);
   });
 
   test("expert rail opens assistant automation URL (does not crash on expert)", () => {
