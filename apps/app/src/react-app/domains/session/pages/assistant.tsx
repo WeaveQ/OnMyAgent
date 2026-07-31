@@ -1114,65 +1114,73 @@ export function AssistantPage(props: AssistantPageProps) {
                     }}
                     middle={
                       <>
+                      {/* Absolute fill like other secondary rails — in-flow middle
+                          collapses under keep-alive absolute panes. */}
                       {isAutomationRailView(activeSidebarView) ? (
-                        <AutomationPage
-                          scene={assistantCategoryId}
-                          client={props.onmyagentServerClient}
-                          workspaceId={props.selectedWorkspaceId}
-                          focusAutomationId={focusAutomationId}
-                          onFocusAutomationConsumed={() => setFocusAutomationId(null)}
-                          hideStatusTabs
-                          statusTab={
-                            automationNav === "runs" ? "runs" : "tasks"
-                          }
-                          onStatusTabChange={(tab) => {
-                            setAutomationNav(tab === "runs" ? "runs" : "tasks");
-                            setAutomationTemplateViewOpen(false);
-                          }}
-                          templateViewOpen={automationTemplateViewOpen}
-                          onTemplateViewOpenChange={(open) => {
-                            setAutomationTemplateViewOpen(open);
-                            if (open) setAutomationNav("templates");
-                          }}
-                          createRequestId={automationCreateRequestId}
-                          // Same OpenCode command.list + skill sources as session + menu.
-                          listOpenCodeCommands={props.surface?.listCommands}
-                          listSkills={
-                            props.onmyagentServerClient && props.selectedWorkspaceId
-                              ? () =>
-                                  props
-                                    .onmyagentServerClient!.listSkills(
-                                      props.selectedWorkspaceId,
-                                      { includeGlobal: true },
-                                    )
-                                    .then((result) => result.items)
-                              : undefined
-                          }
-                          listMcp={
-                            props.onmyagentServerClient && props.selectedWorkspaceId
-                              ? () =>
-                                  props
-                                    .onmyagentServerClient!.listMcp(
-                                      props.selectedWorkspaceId,
-                                    )
-                                    .then((result) => ({
-                                      servers: result.items.map((item) => ({
-                                        name: item.name,
-                                        id: item.name,
-                                      })),
-                                    }))
-                              : undefined
-                          }
-                          onOpenSession={(workspaceId, sessionId) => {
-                            writeAssistantSelectionMemory(
-                              workspaceId,
-                              assistantCategoryId,
-                              { kind: "session", sessionId },
-                            );
-                            openAssistantSessionView();
-                            props.sidebar.onOpenSession(workspaceId, sessionId);
-                          }}
-                        />
+                        <div className="absolute inset-0 z-[1] min-h-0 min-w-0 overflow-hidden">
+                          <AutomationPage
+                            scene={assistantCategoryId}
+                            client={props.onmyagentServerClient}
+                            workspaceId={props.selectedWorkspaceId}
+                            focusAutomationId={focusAutomationId}
+                            onFocusAutomationConsumed={() => setFocusAutomationId(null)}
+                            hideStatusTabs
+                            statusTab={
+                              automationNav === "runs" ? "runs" : "tasks"
+                            }
+                            onStatusTabChange={(tab) => {
+                              setAutomationNav(tab === "runs" ? "runs" : "tasks");
+                              setAutomationTemplateViewOpen(false);
+                            }}
+                            templateViewOpen={automationTemplateViewOpen}
+                            onTemplateViewOpenChange={(open) => {
+                              setAutomationTemplateViewOpen(open);
+                              if (open) {
+                                setAutomationNav("templates");
+                              } else if (automationNav === "templates") {
+                                setAutomationNav("tasks");
+                              }
+                            }}
+                            createRequestId={automationCreateRequestId}
+                            // Same OpenCode command.list + skill sources as session + menu.
+                            listOpenCodeCommands={props.surface?.listCommands}
+                            listSkills={
+                              props.onmyagentServerClient && props.selectedWorkspaceId
+                                ? () =>
+                                    props
+                                      .onmyagentServerClient!.listSkills(
+                                        props.selectedWorkspaceId,
+                                        { includeGlobal: true },
+                                      )
+                                      .then((result) => result.items)
+                                : undefined
+                            }
+                            listMcp={
+                              props.onmyagentServerClient && props.selectedWorkspaceId
+                                ? () =>
+                                    props
+                                      .onmyagentServerClient!.listMcp(
+                                        props.selectedWorkspaceId,
+                                      )
+                                      .then((result) => ({
+                                        servers: result.items.map((item) => ({
+                                          name: item.name,
+                                          id: item.name,
+                                        })),
+                                      }))
+                                : undefined
+                            }
+                            onOpenSession={(workspaceId, sessionId) => {
+                              writeAssistantSelectionMemory(
+                                workspaceId,
+                                assistantCategoryId,
+                                { kind: "session", sessionId },
+                              );
+                              openAssistantSessionView();
+                              props.sidebar.onOpenSession(workspaceId, sessionId);
+                            }}
+                          />
+                        </div>
                       ) : null}
 
                       {activePlaceholderView &&
