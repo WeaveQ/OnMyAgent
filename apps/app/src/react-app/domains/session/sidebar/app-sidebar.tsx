@@ -959,7 +959,7 @@ export function SidebarAccountButton(props: {
               type="button"
               variant="ghost"
               size="icon-lg"
-              className="text-dls-secondary hover:text-dls-accent"
+              className="text-dls-text hover:text-dls-accent"
               title={t("account_menu.settings")}
               aria-label={t("account_menu.settings")}
             >

@@ -223,8 +223,11 @@ const railButtonVariants = cva(
       active: {
         // Free-float pill: light lifts with surface; dark uses rail-active
         // (stronger than surface-on-rail). No shadow-sm — muddy fringe on glass.
+        // Active vs idle is the pill surface, not ink color — both use primary text
+        // so light idle reads near-black and dark idle near-white (not slate secondary).
         true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active",
-        false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text",
+        false:
+          "text-dls-text hover:bg-black/5 dark:hover:bg-white/5",
       },
       size: {
         // Free-float chip: 48px wide (was 56) so the active pill reads slimmer

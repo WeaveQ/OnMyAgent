@@ -305,7 +305,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         ) : (
           <span
             className={cn(
-              "tabular-nums text-xs font-normal leading-none text-dls-secondary/55",
+              "tabular-nums text-xs font-normal leading-none text-dls-text-tertiary",
               !singleLine && "leading-5",
             )}
           >

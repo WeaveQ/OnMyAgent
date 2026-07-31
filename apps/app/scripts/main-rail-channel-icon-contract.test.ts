@@ -48,8 +48,12 @@ describe("main rail channel icon contract", () => {
     expect(primitiveSource).toContain(
       'true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active"',
     );
+    // Idle uses primary ink (near-black light / near-white dark); pill surface marks active.
     expect(primitiveSource).toContain(
-      'false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text"',
+      'false:\n          "text-dls-text hover:bg-black/5 dark:hover:bg-white/5"',
+    );
+    expect(primitiveSource).not.toContain(
+      "text-dls-secondary hover:bg-black/5 hover:text-dls-text",
     );
     expect(primitiveSource).toContain(
       'top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none"',
