@@ -73,9 +73,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -133,12 +130,6 @@ const appSidebarStateClass = {
 const sidebarAccountMenuGridClass = cn(
   "grid grid-cols-[16px_minmax(0,1fr)_12px]",
   sidebarAccountMenuRowClass,
-);
-
-const sidebarAccountSubTriggerClass = cn(
-  sidebarAccountMenuGridClass,
-  // Soft surface highlight — avoid dark-mode decision-soft navy slabs.
-  "data-popup-open:!bg-dls-surface-muted data-popup-open:!text-dls-text data-open:!bg-dls-surface-muted data-open:!text-dls-text aria-expanded:!bg-dls-surface-muted aria-expanded:!text-dls-text [&>svg:last-child]:hidden",
 );
 
 function SessionStatusIndicator(props: {
@@ -972,66 +963,6 @@ export function SidebarAccountButton(props: {
         }}
       />
     </DropdownMenu>
-  );
-}
-
-function SidebarAccountSubMenu(props: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  items: Array<{
-    value: string;
-    label: string;
-    icon?: React.ComponentType<{ className?: string }>;
-  }>;
-  selectedValue: string;
-  onSelect: (value: string) => void;
-}) {
-  const Icon = props.icon;
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger className={sidebarAccountSubTriggerClass}>
-        <Icon className="size-3.5 justify-self-center" />
-        <span className="min-w-0 truncate">{props.label}</span>
-        <ChevronRight className="size-3 justify-self-center text-dls-secondary" />
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent
-        sideOffset={8}
-        alignOffset={0}
-        className="w-48 rounded-lg border-sidebar-border/70 bg-dls-surface-solid p-1.5"
-      >
-        {props.items.map((item) => {
-          const ItemIcon = item.icon;
-          const selected = item.value === props.selectedValue;
-          return (
-            <DropdownMenuItem
-              key={item.value}
-              onClick={() => props.onSelect(item.value)}
-              className={cn(
-                sidebarAccountMenuGridClass,
-                selected
-                  ? "!bg-dls-list-selected !text-dls-text data-highlighted:!bg-dls-list-selected"
-                  : "",
-              )}
-            >
-              {ItemIcon ? (
-                <ItemIcon className="size-3.5 justify-self-center" />
-              ) : (
-                <span aria-hidden="true" />
-              )}
-              <span className="min-w-0 truncate">{item.label}</span>
-              {selected ? (
-                <StatusDot
-                  size="xs"
-                  tone="current"
-                  className="justify-self-center bg-dls-accent"
-                />
-              ) : null}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
   );
 }
 
