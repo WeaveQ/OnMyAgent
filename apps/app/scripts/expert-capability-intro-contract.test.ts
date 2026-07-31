@@ -103,7 +103,8 @@ const PLAYBOOK_HARD_MARKERS = [
   "extract-sheets",
   "write-xlsx",
   "产物卡才会出现",
-  "禁止**只写「已生成 xxx.xlsx」",
+  "禁止**只写「已生成/生成了 xxx.xlsx」",
+  "每一轮（含跟进轮）",
   "不要列长 bullet",
   "也不要再往后面加边界段",
 ] as const;
