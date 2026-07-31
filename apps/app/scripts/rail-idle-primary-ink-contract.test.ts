@@ -87,9 +87,11 @@ describe("rail idle primary ink contract", () => {
     expect(end).toBeGreaterThan(start);
     const navTab = actionRow.slice(start, end);
 
-    // Active: inverted dark pill + pure white label/icon in light.
+    // Active: dark pill + pure white label/icon in light and dark.
     expect(navTab).toContain("bg-dls-text text-white");
+    expect(navTab).toContain("dark:text-white");
     expect(navTab).toContain("[&_svg]:text-white");
+    expect(navTab).toContain("dark:[&_svg]:text-white");
     // Idle: primary ink, not secondary slate.
     expect(navTab).toContain(
       'false:\n          "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:text-current"',

@@ -37,11 +37,11 @@ const navTabButtonVariants = cva(
   {
     variants: {
       active: {
-        // Inverted pill: dark fill + pure white label/icon (light). Dark theme
-        // flips to light fill + canvas ink so active stays readable.
-        // Idle uses primary black ink (not slate secondary).
+        // Selected free-float pill: always dark surface + pure white label/icon
+        // (light uses primary ink fill; dark uses elevated solid so white stays readable).
+        // Idle uses primary ink (not slate secondary).
         true:
-          "bg-dls-text text-white shadow-none dark:text-dls-background [&_svg]:text-white dark:[&_svg]:text-dls-background",
+          "bg-dls-text text-white shadow-none dark:bg-dls-surface-solid dark:text-white dark:ring-1 dark:ring-white/12 [&_svg]:text-white dark:[&_svg]:text-white",
         false:
           "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:text-current",
       },
