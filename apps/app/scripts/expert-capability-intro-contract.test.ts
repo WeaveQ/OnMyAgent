@@ -323,8 +323,10 @@ describe("order-dispatch-specialist agent contract (refactored)", () => {
     expect(agentText).toContain("一票货交付骨架");
     expect(agentText).toContain("## 这票结论");
     expect(agentText).toContain("用户问“你能做什么”");
-    expect(agentText).toContain("不要背诵技能英文名");
-    expect(agentText).toContain("允许按对话情境微调");
+    expect(agentText).toContain("只输出约三小段口语");
+    expect(agentText).toContain("禁止在自我介绍里出现");
+    expect(agentText).toContain("不要列长 bullet");
+    expect(agentText).toContain("也不要再往后面加边界段");
     expect(agentText).toContain(":::followups");
     expect(agentText).toContain("可点击选项");
 
