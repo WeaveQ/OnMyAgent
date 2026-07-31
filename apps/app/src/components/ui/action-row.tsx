@@ -37,11 +37,13 @@ const navTabButtonVariants = cva(
   {
     variants: {
       active: {
-        // Inverted pill: dark surface + white label/icon in light; flipped in dark.
-        // Idle uses primary ink (not slate secondary) so free-float tabs stay high-contrast.
-        true: "bg-dls-text text-dls-background shadow-none [&_svg]:opacity-100 [&_svg]:text-current",
+        // Inverted pill: dark fill + pure white label/icon (light). Dark theme
+        // flips to light fill + canvas ink so active stays readable.
+        // Idle uses primary black ink (not slate secondary).
+        true:
+          "bg-dls-text text-white shadow-none dark:text-dls-background [&_svg]:text-white dark:[&_svg]:text-dls-background",
         false:
-          "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:opacity-100 [&_svg]:text-current",
+          "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:text-current",
       },
       size: {
         // ~+2px horizontal padding vs prior px-* for a less tight pill.
