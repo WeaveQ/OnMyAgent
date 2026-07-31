@@ -63,6 +63,20 @@ function segmentDisplayName(segment: string): string {
   return formatWorkspaceFolderDisplayName(segment);
 }
 
+/** Folder browser header for @ mention drill-in. */
+export function resolveMentionFolderTitle(folderPath: string): string {
+  if (folderPath === WORKSPACE_UPLOADS_DIR) return t("files.source_uploads");
+  if (
+    folderPath === WORKSPACE_TASKS_DIR ||
+    folderPath === WORKSPACE_PROJECTS_DIR
+  ) {
+    return t("files.source_task");
+  }
+  if (folderPath === WORKSPACE_EXPERTS_DIR) return t("files.source_expert");
+  const segment = folderPath.split("/").filter(Boolean).at(-1) ?? folderPath;
+  return formatWorkspaceFolderDisplayName(segment);
+}
+
 /** Human subtitle trail: source tab label / expert / session. */
 export function formatMentionPathSubtitle(path: string): string {
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
