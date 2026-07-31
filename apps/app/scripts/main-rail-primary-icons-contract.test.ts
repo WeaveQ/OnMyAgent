@@ -38,12 +38,15 @@ describe("main rail primary icon contract", () => {
 
     expect(railSource).toContain("icon: AssistantRailIcon");
     expect(railSource).toContain("icon: ExpertRailIcon");
-    // Local agents live under the account/settings menu, not the top rail.
+    // Local agents + management live under the account/settings menu, not the top rail.
     expect(railSource).not.toContain("icon: LocalAgentRailIcon");
+    expect(railSource).not.toContain("icon: ManageRailIcon");
     expect(railSource).toContain('onOpenLocalAgent={() => props.onOpenView("localAgent")}');
+    expect(railSource).toContain(
+      'onOpenAgentManagement={() => props.onOpenView("agentManagement")}',
+    );
     expect(railSource).toContain("icon: FilesRailIcon");
     expect(railSource).toContain("icon: StoreRailIcon");
-    expect(railSource).toContain("icon: ManageRailIcon");
     expect(railSource).toContain("icon: AutomationRailIcon");
 
     // Outline set — no solid fill glyphs in the primary rail icon module.

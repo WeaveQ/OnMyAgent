@@ -23,6 +23,7 @@ import {
   RefreshCw,
   RotateCcw,
   Settings,
+  Settings2,
   Network,
   Sun,
   UserRound,
@@ -822,6 +823,8 @@ export function SidebarAccountButton(props: {
   onOpenDevices?: () => void;
   /** Open local agents page (moved off the main rail into this menu). */
   onOpenLocalAgent?: () => void;
+  /** Open agent management center (moved off the main rail into this menu). */
+  onOpenAgentManagement?: () => void;
   onOpenSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -899,6 +902,16 @@ export function SidebarAccountButton(props: {
             onSelect={() => {
               setOpen(false);
               props.onOpenLocalAgent?.();
+            }}
+          />
+        ) : null}
+        {props.onOpenAgentManagement ? (
+          <SidebarAccountMenuItem
+            icon={Settings2}
+            label={t("nav.management")}
+            onSelect={() => {
+              setOpen(false);
+              props.onOpenAgentManagement?.();
             }}
           />
         ) : null}
