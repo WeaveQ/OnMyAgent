@@ -17,11 +17,11 @@ import {
   Folder,
   FolderOpen,
   Maximize2,
-  MessageCirclePlus,
   Minimize2,
   MoreHorizontal,
   Pin,
   PinOff,
+  Plus,
   Trash2,
 } from "lucide-react";
 
@@ -692,7 +692,7 @@ function SpaceDirectoryRow(props: {
                     props.onCreateTask?.(props.directory);
                   }}
                 >
-                  <MessageCirclePlus strokeWidth={1.75} />
+                  <Plus strokeWidth={1.75} />
                 </button>
               </IconHoverTip>
             ) : null}
