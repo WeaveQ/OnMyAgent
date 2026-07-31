@@ -38,13 +38,6 @@ const EFFICIENCY_EXPERTS = {
   ],
 } as const;
 
-/** Still using the shared colleague-intro package shape (not yet refactored). */
-const LEGACY_COLLEAGUE_INTRO_EXPERTS = [
-  "fleet-management-specialist",
-  "fulfillment-specialist",
-  "logistics-finance-specialist",
-] as const;
-
 const SCRIPT_SKILLS = new Map([
   ["shipment-data-structuring", "normalize_shipments.py"],
   ["fleet-data-consolidation", "consolidate_fleet.py"],
@@ -75,19 +68,132 @@ const FIRST_TASK_CARDS: Record<string, string[]> = {
   ],
 };
 
-const NATURAL_GREETING_ENDINGS: Record<string, string> = {
-  "fleet-management-specialist":
-    "说说看，今天有什么车队或派车上的事儿需要处理？",
-  "fulfillment-specialist":
-    "说说看，今天有什么运输上的事儿需要处理？",
-  "logistics-finance-specialist":
-    "说说看，今天有什么对账或结算上的事儿需要处理？",
+/** Shared playbook sections every logistics expert must keep. */
+const PLAYBOOK_SECTIONS = [
+  "## 身份与风格",
+  "## 能力",
+  "## 自我介绍",
+  "## 必须遵守",
+  "## 按诉求交付（重要）",
+  "## 定时任务（用户需要时）",
+  "## 沟通范例",
+  "## 专业知识",
+  "## 工作流程",
+  "## 文档能力（用户需要时）",
+  "## 交付标准",
+  "## 与其他专家的边界",
+  "## 成功标准",
+] as const;
+
+const PLAYBOOK_HARD_MARKERS = [
+  "只输出约三小段口语",
+  "禁止在自我介绍里出现",
+  "我都能帮你搞定",
+  "外部动作用户拍板",
+  "严格边界",
+  "对内说法日常化",
+  "按用户本轮诉求交付，不擅自加戏",
+  ":::followups",
+  "可点击选项",
+  "`document-processing`",
+  "`create-automation`",
+  "automations/proposals",
+  "只有用户在 OnMyAgent 里确认后才算真正创建",
+  "文件路径：",
+  "extract-sheets",
+  "write-xlsx",
+  "不要列长 bullet",
+  "也不要再往后面加边界段",
+] as const;
+
+const PLAYBOOK_BANNED = [
+  "把它当成新同事见面，直接回复下面三段话",
+  "无需调用技能",
+  "实际文件统一由会话底部的本轮产物卡片展示和打开",
+  "如果生成了文件，在最终回复里清楚写出文件名和保存位置",
+  "工作目录",
+] as const;
+
+const DOMAIN_KEYWORDS: Record<string, string[]> = {
+  "order-dispatch-specialist": [
+    "专线",
+    "城配",
+    "冷链",
+    "3PL",
+    "计费重",
+    "成本参考",
+    "最低可报",
+    "建议客户价",
+    "温度区间",
+    "多点",
+    "货运客服专家",
+    "车队管理",
+    "物流运输",
+    "货运财务",
+    "无依据不瞎报",
+    "一票货交付骨架",
+  ],
+  "fleet-management-specialist": [
+    "专线",
+    "城配",
+    "冷链",
+    "3PL",
+    "挑车",
+    "派车前检查",
+    "证件",
+    "空驶",
+    "车队管理专家",
+    "货运客服",
+    "物流运输",
+    "货运财务",
+    "无依据不瞎派",
+    "一票派车交付骨架",
+  ],
+  "fulfillment-specialist": [
+    "专线",
+    "城配",
+    "冷链",
+    "3PL",
+    "在途",
+    "签收回单",
+    "异常",
+    "物流运输专家",
+    "货运客服",
+    "车队管理",
+    "货运财务",
+    "无依据不瞎报点",
+    "一票在途交付骨架",
+  ],
+  "logistics-finance-specialist": [
+    "专线",
+    "城配",
+    "冷链",
+    "3PL",
+    "对账",
+    "差额",
+    "结算",
+    "开票",
+    "货运财务专家",
+    "货运客服",
+    "车队管理",
+    "物流运输",
+    "无依据不瞎算",
+    "一批结算交付骨架",
+  ],
 };
 
 const COLLEAGUE_OPENINGS: Record<string, string> = {
+  "order-dispatch-specialist": "行，我先把这票信息捋一下",
   "fleet-management-specialist": "行，我先按这张单挑几辆合适的",
   "fulfillment-specialist": "我先把群里的时间线捋出来",
   "logistics-finance-specialist": "行，我先按运单号把这几张表对起来",
+};
+
+const GREETING_TITLE: Record<string, string> = {
+  "order-dispatch-specialist": "货运客服专家",
+  "fleet-management-specialist": "车队管理专家",
+  "fulfillment-specialist": "物流运输专家",
+  "logistics-finance-specialist": "货运财务专家",
 };
 
 const JARGON_TO_AVOID = [
@@ -130,6 +236,7 @@ type ExpertManifest = {
   tags: Array<{ zh: string }>;
   skills: string[];
   promptTemplates: string;
+  avatar: string;
 };
 
 type PromptTemplate = {
@@ -168,6 +275,8 @@ function assertPackageShape(packageName: string, skillNames: readonly string[]) 
   expect(manifest.skills).toEqual(
     skillNames.map((skillName) => `./skills/${skillName}`),
   );
+  expect(manifest.avatar).toBe("avatars/expert.png");
+  expect(existsSync(join(packageRoot, "avatars", "expert.png"))).toBe(true);
 
   const templates = JSON.parse(
     readFileSync(join(packageRoot, manifest.promptTemplates), "utf8"),
@@ -229,12 +338,13 @@ function assertPackageShape(packageName: string, skillNames: readonly string[]) 
   const frontmatterSkills = agentText.match(/skills:\s*\[([^\]]+)\]/);
   const declaredSkills =
     frontmatterSkills?.[1].split(",").map((value) => value.trim()) ?? [];
-  const expectedShared =
-    packageName === "order-dispatch-specialist"
-      ? (["document-processing", "create-automation"] as const)
-      : (["document-processing"] as const);
-  expect(declaredSkills).toEqual([...skillNames, ...expectedShared]);
+  expect(declaredSkills).toEqual([
+    ...skillNames,
+    "document-processing",
+    "create-automation",
+  ]);
   expect(agentText).toContain("document-processing");
+  expect(agentText).toContain("create-automation");
 
   for (const [index, skillName] of skillNames.entries()) {
     const skillRoot = join(packageRoot, "skills", skillName);
@@ -258,6 +368,38 @@ function assertPackageShape(packageName: string, skillNames: readonly string[]) 
   return { manifest, agentText, skillTexts, templates };
 }
 
+function assertPlaybookContract(packageName: string) {
+  const skillNames = EFFICIENCY_EXPERTS[packageName as keyof typeof EFFICIENCY_EXPERTS];
+  const { manifest, agentText } = assertPackageShape(packageName, skillNames);
+
+  for (const section of PLAYBOOK_SECTIONS) {
+    expect(agentText).toContain(section);
+  }
+  for (const marker of PLAYBOOK_HARD_MARKERS) {
+    expect(agentText).toContain(marker);
+  }
+  for (const banned of PLAYBOOK_BANNED) {
+    expect(agentText).not.toContain(banned);
+  }
+  for (const keyword of DOMAIN_KEYWORDS[packageName] ?? []) {
+    expect(agentText).toContain(keyword);
+  }
+
+  expect(agentText).toContain(COLLEAGUE_OPENINGS[packageName] ?? "");
+  expect(agentText).toContain("先接住事情，再开始干活");
+  // Delivery skeleton variants: per-load vs batch settlement.
+  expect(
+    agentText.includes("## 这票结论") || agentText.includes("## 这批结论"),
+  ).toBe(true);
+
+  expect(manifest.greeting.zh).toStartWith("你好！");
+  expect(manifest.greeting.zh).toContain(GREETING_TITLE[packageName] ?? "");
+  expect(manifest.greeting.zh).toContain("\n\n无论是");
+  expect(manifest.greeting.zh).toContain("我都能帮你搞定");
+  expect(manifest.greeting.zh.length).toBeGreaterThan(40);
+  expect(manifest.displayDescription.zh).toContain("定时");
+}
+
 describe("logistics AI efficiency expert capabilities", () => {
   for (const [packageName, skillNames] of Object.entries(EFFICIENCY_EXPERTS)) {
     test(`${packageName} package shape stays consistent`, () => {
@@ -275,95 +417,16 @@ describe("logistics AI efficiency expert capabilities", () => {
   });
 });
 
-describe("order-dispatch-specialist agent contract (refactored)", () => {
-  const packageName = "order-dispatch-specialist";
-  const skillNames = EFFICIENCY_EXPERTS[packageName];
+describe("logistics expert playbook contract (refactored)", () => {
+  for (const packageName of Object.keys(EFFICIENCY_EXPERTS)) {
+    test(`${packageName} uses shared playbook structure`, () => {
+      assertPlaybookContract(packageName);
+    });
+  }
 
-  test("agent.md uses playbook structure with hard rules and delivery skeleton", () => {
-    const { manifest, agentText } = assertPackageShape(packageName, skillNames);
-
-    for (const section of [
-      "## 身份与风格",
-      "## 能力",
-      "## 自我介绍",
-      "## 必须遵守",
-      "## 沟通范例",
-      "## 专业知识",
-      "## 工作流程",
-      "## 交付标准",
-      "## 与其他专家的边界",
-      "## 成功标准",
-    ]) {
-      expect(agentText).toContain(section);
-    }
-
-    // Domain coverage for linehaul / city / cold-chain / 3PL CS work
-    for (const keyword of [
-      "专线",
-      "城配",
-      "冷链",
-      "3PL",
-      "计费重",
-      "成本参考",
-      "最低可报",
-      "建议客户价",
-      "温度区间",
-      "多点",
-      "车队管理",
-      "物流运输",
-      "货运财务",
-    ]) {
-      expect(agentText).toContain(keyword);
-    }
-
-    // Hard rules + self-intro protocol (not a fixed three-paragraph script)
-    expect(agentText).toContain("无依据不瞎报");
-    expect(agentText).toContain("外部动作用户拍板");
-    expect(agentText).toContain("严格边界");
-    expect(agentText).toContain("一票货交付骨架");
-    expect(agentText).toContain("## 这票结论");
-    expect(agentText).toContain("用户问“你能做什么”");
-    expect(agentText).toContain("只输出约三小段口语");
-    expect(agentText).toContain("禁止在自我介绍里出现");
-    expect(agentText).toContain("不要列长 bullet");
-    expect(agentText).toContain("也不要再往后面加边界段");
-    expect(agentText).toContain(":::followups");
-    expect(agentText).toContain("可点击选项");
-    expect(agentText).toContain("按用户本轮诉求交付，不擅自加戏");
-    expect(agentText).toContain("## 按诉求交付（重要）");
-    expect(agentText).toContain("客服侧一句话快速判断");
-
-    // Colleague tone without legacy forced phrases
-    expect(agentText).toContain("行，我先把这票信息捋一下");
-    expect(agentText).toContain("先接住事情，再开始干活");
-    expect(agentText).not.toContain("把它当成新同事见面，直接回复下面三段话");
-    expect(agentText).not.toContain("无需调用技能");
-    expect(agentText).not.toContain(
-      "实际文件统一由会话底部的本轮产物卡片展示和打开",
-    );
-    expect(agentText).not.toContain("如果生成了文件，在最终回复里清楚写出文件名和保存位置");
-    expect(agentText).not.toContain("工作目录");
-
-    // Marketplace greeting stays natural and points users to send materials
-    expect(manifest.greeting.zh).toStartWith("你好！");
-    expect(manifest.greeting.zh).toContain("货运客服专家");
-    expect(manifest.greeting.zh).toContain("聊天");
-    expect(manifest.greeting.zh.length).toBeGreaterThan(40);
-    expect(agentText).toContain("货运客服专家");
-  });
-
-  test("skills stay aligned to four CS capabilities plus shared document-processing and automation", () => {
-    const agentText = readAgent(packageName);
-    expect(agentText).toContain("整理发货信息");
-    expect(agentText).toContain("检查缺项");
-    expect(agentText).toContain("建议报价");
-    expect(agentText).toContain("核对订单");
-    expect(agentText).toContain("`document-processing`");
-    expect(agentText).toContain("`create-automation`");
-    expect(agentText).toContain("## 定时任务（用户需要时）");
-    expect(agentText).toContain("automations/proposals");
-    expect(agentText).toContain("只有用户在 OnMyAgent 里确认后才算真正创建");
-
+  test("order-dispatch-specialist keeps CS skill boundary hints", () => {
+    const packageName = "order-dispatch-specialist";
+    const skillNames = EFFICIENCY_EXPERTS[packageName];
     const skillBoundaryHints: Record<string, string[]> = {
       "shipment-data-structuring": ["提取与归表", "## 边界"],
       "shipment-information-audit": ["补问", "## 边界", "不编造报价"],
@@ -387,56 +450,4 @@ describe("order-dispatch-specialist agent contract (refactored)", () => {
       }
     }
   });
-});
-
-
-describe("legacy logistics colleague-intro experts", () => {
-  for (const packageName of LEGACY_COLLEAGUE_INTRO_EXPERTS) {
-    test(`${packageName} keeps shared colleague-intro contract`, () => {
-      const skillNames = EFFICIENCY_EXPERTS[packageName];
-      const { manifest, agentText } = assertPackageShape(
-        packageName,
-        skillNames,
-      );
-
-      expect(agentText).toContain("## 对话引导");
-      expect(agentText).toContain("## 像同事一样协作");
-      expect(agentText).toContain("物流部里一起");
-      expect(agentText).toContain("先接住事情，再开始干活");
-      expect(agentText).toContain("不用客服腔、培训口吻或系统提示口吻");
-      expect(agentText).toContain("不用每轮重新介绍能力或复述整段需求");
-      expect(agentText).toContain(
-        "直接根据本文件的“能力”回答，无需调用技能",
-      );
-      expect(agentText).toContain("一次问清最关键的两三个问题");
-      expect(agentText).toContain("不过度寒暄");
-      expect(agentText).toContain(COLLEAGUE_OPENINGS[packageName] ?? "");
-      expect(agentText).toContain("最多三个选项");
-      expect(agentText).toContain("完成后只推荐最多两个");
-      expect(agentText).toContain("不向用户展示内部技能英文名");
-      expect(agentText).toContain(
-        "实际文件统一由会话底部的本轮产物卡片展示和打开",
-      );
-      expect(agentText).not.toContain(
-        "如果生成了文件，在最终回复里清楚写出文件名和保存位置",
-      );
-      expect(agentText).not.toContain("输出文件");
-      expect(agentText).not.toContain("打开产物");
-      expect(agentText).not.toContain("工作目录");
-      expect(manifest.greeting.zh).toEndWith(
-        NATURAL_GREETING_ENDINGS[packageName] ?? "",
-      );
-      expect(manifest.greeting.zh).toStartWith("你好！");
-      expect(manifest.greeting.zh).toContain("我是你的");
-      expect(manifest.greeting.zh).toContain("\n\n无论是");
-      expect(agentText).toContain(manifest.greeting.zh);
-      expect(agentText).toContain(
-        "把它当成新同事见面，直接回复下面三段话",
-      );
-      expect(agentText).toContain(
-        "使用 `document-processing` 技能处理文件",
-      );
-      expect(agentText).toContain("仍按本专家的业务技能判断");
-    });
-  }
 });
