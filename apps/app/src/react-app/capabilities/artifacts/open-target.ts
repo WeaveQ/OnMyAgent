@@ -413,6 +413,38 @@ function isShellTool(toolName: string) {
   return SHELL_TOOL_NAMES.has(normalizedToolName(toolName));
 }
 
+function shellCommandText(input: unknown): string {
+  if (typeof input === "string") return input;
+  if (!isObject(input)) return "";
+  for (const key of ["command", "cmd", "script", "code"]) {
+    const value = input[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "";
+}
+
+/**
+ * True when a shell tool likely *wrote* a deliverable (node/python scripts),
+ * not merely listed/found files (find/ls/glob).
+ */
+export function shellToolLooksLikeWrite(input: unknown, output: unknown): boolean {
+  const command = shellCommandText(input);
+  const out = typeof output === "string" ? output : "";
+  const blob = `${command}\n${out}`;
+  if (
+    /\b(find|ls|glob|rg|grep|cat|head|tail|stat|file|mdfind)\b/i.test(command) &&
+    !/\b(writeFile|write_file|XLSX\.write|exceljs|toFile|fs\.write|>>?|tee)\b/i.test(command)
+  ) {
+    return false;
+  }
+  return (
+    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|toFile|fs\.write|saveAs|saveas)\b/i.test(
+      blob,
+    ) ||
+    /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
+  );
+}
+
 /** True for paths that look like session user-upload inbox copies, not agent deliverables. */
 export function isLikelyUserUploadArtifactPath(value: string): boolean {
   const normalized = normalizePath(value);
@@ -422,6 +454,34 @@ export function isLikelyUserUploadArtifactPath(value: string): boolean {
     return true;
   }
   return INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized));
+}
+
+/**
+ * Paths the assistant explicitly presents as deliverables in prose
+ * (e.g. "文件路径：发货需求与报价补充.xlsx").
+ */
+export function extractDeclaredDeliverablePaths(text: string): string[] {
+  if (!text.trim()) return [];
+  const paths: string[] = [];
+  const patterns = [
+    /文件路径\s*[:：]\s*[`「"'“]?([^\s`」"'”]+)[`」"'”]?/gi,
+    /(?:已生成|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
+    /(?:Created|Wrote|Saved)\s+[`"'“]?([^\s`"'”]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
+  ];
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      const raw = (match[1] ?? "")
+        .trim()
+        // "发货需求与报价补充.xlsx（工作目录根下）"
+        .replace(/[（(].*$/u, "")
+        .replace(/[，。；;）)\s]+$/gu, "");
+      if (!raw || !/\.[a-z][a-z0-9]{0,9}$/i.test(raw)) continue;
+      if (isLikelyUserUploadArtifactPath(raw)) continue;
+      paths.push(raw);
+    }
+  }
+  return paths;
 }
 
 function collectFileMetadataValues(value: unknown) {
@@ -494,7 +554,6 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
           scanText(targets, part.output, 90, "write tool output", { includeFiles: true });
         }
       } else if (shellTool) {
-        // Explicit path metadata only — never scrape find/ls/read stdout for files.
         addFileValues(
           targets,
           [part.input, part.output].flatMap(collectFileMetadataValues),
@@ -502,7 +561,11 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
           "shell tool metadata",
         );
         if (typeof part.output === "string") {
-          scanText(targets, part.output, 70, "shell tool output", { includeFiles: false });
+          const wrote = shellToolLooksLikeWrite(part.input, part.output);
+          // Recover node/python script deliverables; never scrape pure find/ls listings.
+          scanText(targets, part.output, wrote ? 90 : 70, "shell tool output", {
+            includeFiles: wrote,
+          });
         }
       }
 

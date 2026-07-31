@@ -380,22 +380,42 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["reports/customer-message.txt"]);
   });
 
-  it("does not treat an assistant file mention without write provenance as a generated artifact", () => {
+  it("shows verified deliverables when assistant declares 文件路径 / 已生成", () => {
     const messages = [
       message(
         "msg_final",
         "assistant",
-        "已生成 发货需求与报价补充.xlsx。",
+        "已完成。\n\n交付\n文件路径：发货需求与报价补充.xlsx（工作目录根下）",
       ),
     ] satisfies UIMessage[];
     const verified = [{
       ...fileTarget(
         "/Users/demo/work/货运客服专家/1785423406407/发货需求与报价补充.xlsx",
+        "sheet",
       ),
       exists: true,
       size: 7_884,
     }];
 
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual([
+      "/Users/demo/work/货运客服专家/1785423406407/发货需求与报价补充.xlsx",
+    ]);
+  });
+
+  it("ignores casual file mentions without deliverable wording", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        "可以参考 历史报价.xlsx 里的口径，我还没生成新文件。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [{
+      ...fileTarget("/Users/demo/work/历史报价.xlsx", "sheet"),
+      exists: true,
+    }];
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
   });
 
@@ -506,9 +526,7 @@ describe("deriveOpenTargets", () => {
     );
   });
 
-  it("does not mint artifact cards from bash/shell stdout file paths", () => {
-    // Shell often prints paths it only read or found (find/ls/glob). Free-text
-    // extraction would wrongly surface user uploads as generated artifacts.
+  it("does not mint artifact cards from pure find/ls shell listings", () => {
     const targets = deriveOpenTargets([
       toolMessage(
         "msg_tool",
@@ -521,6 +539,18 @@ describe("deriveOpenTargets", () => {
       "1785466093426-0-07-四Agent完整业务演练材料.xlsx",
     );
     expect(targets.map((target) => target.value)).not.toContain("agents/ledger.xlsx");
+  });
+
+  it("collects spreadsheet paths from write-like shell script output", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        { command: "node gen_xlsx.cjs" },
+        "Wrote 发货需求与报价补充.xlsx\n",
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("发货需求与报价补充.xlsx");
   });
 
   it("still collects paths from real write-tool metadata", () => {

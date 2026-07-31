@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import {
   deriveOpenTargets,
+  extractDeclaredDeliverablePaths,
   isCollectibleArtifactTarget,
   isLikelyUserUploadArtifactPath,
   isUserFacingLocalPreviewTarget,
@@ -11,6 +12,10 @@ function basenameOf(path: string) {
   const normalized = path.replace(/[\\]+/g, "/");
   const parts = normalized.split("/").filter(Boolean);
   return parts[parts.length - 1] || path;
+}
+
+function normalizePathKey(path: string) {
+  return path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
 }
 
 /** Basenames from user message file parts (composer attachments). */
@@ -41,6 +46,44 @@ function matchesUserAttachment(path: string, userBasenames: Set<string>): boolea
   return false;
 }
 
+function isBlockedUserPath(path: string, userBasenames: Set<string>): boolean {
+  return (
+    isLikelyUserUploadArtifactPath(path) || matchesUserAttachment(path, userBasenames)
+  );
+}
+
+function findVerifiedFile(
+  path: string,
+  verifiedById: Map<string, OpenTarget>,
+  verifiedFiles: OpenTarget[],
+): OpenTarget | undefined {
+  const normalizedCandidate = normalizePathKey(path);
+  const byId = verifiedById.get(`file:${normalizedCandidate}`)
+    ?? verifiedById.get(`file:${path}`);
+  if (byId) return byId;
+  return verifiedFiles.find((target) => {
+    const normalizedTarget = normalizePathKey(target.value);
+    return (
+      normalizedTarget === normalizedCandidate
+      || normalizedTarget.endsWith(`/${normalizedCandidate}`)
+      || normalizedCandidate.endsWith(`/${normalizedTarget}`)
+      || basenameOf(normalizedTarget).toLowerCase()
+        === basenameOf(normalizedCandidate).toLowerCase()
+    );
+  });
+}
+
+function assistantTextBlob(messages: UIMessage[]): string {
+  return messages
+    .filter((message) => message.role === "assistant")
+    .flatMap((message) =>
+      message.parts.flatMap((part) =>
+        part.type === "text" && typeof part.text === "string" ? [part.text] : [],
+      ),
+    )
+    .join("\n");
+}
+
 export function selectTurnOpenTargets(
   messages: UIMessage[],
   verifiedTargets: OpenTarget[] | undefined,
@@ -51,45 +94,34 @@ export function selectTurnOpenTargets(
   );
   const userBasenames = userAttachmentBasenames(messages);
   const inlineTargets = new Map<string, OpenTarget>();
-  // File cards are deliverables, not a recap of every path mentioned in the
-  // assistant text. Restrict file candidates to write-tool provenance from
-  // this assistant turn so user uploads and artifacts from other turns do not
-  // leak into the generated-artifact strip. Local preview URLs can still be
-  // discovered from assistant text.
-  for (const candidate of deriveOpenTargets(messages, { includeFileMentions: false })) {
-    const normalizedCandidate = candidate.value.replace(/[\\]+/g, "/").replace(/^\.\//, "");
-    if (
-      candidate.kind === "file" &&
-      (isLikelyUserUploadArtifactPath(candidate.value) ||
-        matchesUserAttachment(candidate.value, userBasenames))
-    ) {
-      continue;
-    }
-    const verified = verifiedById.get(candidate.id)
-      ?? (candidate.kind === "file"
-        ? verifiedFiles.find((target) => {
-          const normalizedTarget = target.value.replace(/[\\]+/g, "/").replace(/^\.\//, "");
-          return normalizedTarget === normalizedCandidate
-            || normalizedTarget.endsWith(`/${normalizedCandidate}`)
-            || normalizedCandidate.endsWith(`/${normalizedTarget}`);
-        })
+
+  const addVerifiedFile = (candidatePath: string, candidate?: OpenTarget) => {
+    if (isBlockedUserPath(candidatePath, userBasenames)) return;
+    const verified = findVerifiedFile(candidatePath, verifiedById, verifiedFiles)
+      ?? (candidate && isCollectibleArtifactTarget({ ...candidate, exists: true })
+        ? { ...candidate, exists: true as const }
         : undefined);
-    if (
-      verified?.kind === "file" &&
-      (isLikelyUserUploadArtifactPath(verified.value) ||
-        matchesUserAttachment(verified.value, userBasenames))
-    ) {
-      continue;
-    }
-    // Only intentional local previews (`localhost:port`), never internal
-    // 127.0.0.1 bridges that leak from browser tool JSON.
+    if (!verified || !isCollectibleArtifactTarget(verified)) return;
+    if (isBlockedUserPath(verified.value, userBasenames)) return;
+    inlineTargets.set(verified.id, verified);
+  };
+
+  // 1) Write-tool / write-like shell provenance from this turn.
+  for (const candidate of deriveOpenTargets(messages, { includeFileMentions: false })) {
     if (candidate.kind === "url" && isUserFacingLocalPreviewTarget(candidate)) {
-      inlineTargets.set(candidate.id, verified ?? candidate);
+      inlineTargets.set(candidate.id, candidate);
       continue;
     }
-    if (verified && isCollectibleArtifactTarget(verified)) {
-      inlineTargets.set(verified.id, verified);
+    if (candidate.kind === "file") {
+      addVerifiedFile(candidate.value, candidate);
     }
   }
+
+  // 2) Assistant explicitly declares a deliverable path in prose (spreadsheet
+  //    scripts often write via node/shell without write-tool metadata).
+  for (const declared of extractDeclaredDeliverablePaths(assistantTextBlob(messages))) {
+    addVerifiedFile(declared);
+  }
+
   return Array.from(inlineTargets.values()).slice(0, 4);
 }
