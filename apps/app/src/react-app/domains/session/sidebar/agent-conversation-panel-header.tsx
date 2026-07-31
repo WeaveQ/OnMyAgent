@@ -7,11 +7,18 @@ import { t } from "../../../../i18n";
 
 /**
  * Full-width sidebar primary create CTA (新建任务 / 创建专家 / 添加).
- * Soft outline frame: h-9 + rounded-xl + hairline border (matches list-row height).
+ * Soft outline: h-9 + rounded-xl + hairline border.
  * Keep in sync with automation-nav-sidebar SIDEBAR_PRIMARY_CTA_CLASS.
  */
 export const SIDEBAR_PRIMARY_CTA_CLASS =
   "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
+
+/**
+ * Top strip for sidebar primary CTA — same h-12 as SessionSurfaceHeader
+ * so list-lane “新建任务” and main “助手” title row share one baseline.
+ */
+export const SIDEBAR_PRIMARY_HEADER_CLASS =
+  "flex h-12 shrink-0 items-center";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
@@ -29,30 +36,31 @@ type AgentConversationPanelHeaderProps = {
 export function AgentConversationPanelHeader(props: AgentConversationPanelHeaderProps) {
   if (props.mode === "assistant") {
     return (
-      <div className="flex shrink-0 flex-col px-0 pb-2.5 pt-3.5">
+      <div
+        className={SIDEBAR_PRIMARY_HEADER_CLASS}
+        data-assistant-primary-actions="true"
+      >
         {/*
-          Match automation left-rail primary CTA: full-width outline pill
-          (+ icon + label), not a selected NavList row.
+          Full-width outline pill, vertically centered in the shared h-12
+          chrome row (aligns with SessionSurfaceHeader / automation CTA).
         */}
-        <div data-assistant-primary-actions="true">
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            onClick={props.onCreateTask}
-            className={SIDEBAR_PRIMARY_CTA_CLASS}
-          >
-            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            {t("session.new_task")}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="default"
+          onClick={props.onCreateTask}
+          className={SIDEBAR_PRIMARY_CTA_CLASS}
+        >
+          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          {t("session.new_task")}
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="relative flex shrink-0 flex-col gap-2.5 border-b border-dls-mist px-3 pb-2.5 pt-3.5">
-      {/* Search first — scan list; create is a secondary outline action below. */}
+    <div className="relative flex shrink-0 flex-col gap-2 border-b border-dls-mist px-0 pb-2.5 pt-2">
+      {/* Search + create share compact chrome; h-9 controls match primary CTA. */}
       <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="w-full">
         <InputGroupAddon align="inline-start" inset="tight">
           <Search className="size-4" />
