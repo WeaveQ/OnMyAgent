@@ -13,7 +13,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 import type { SlashCommandOption } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
-import { formatWorkspaceFolderDisplayName } from "../../../workspace/workspace-files-model";
+import { resolveMentionFolderTitle } from "../../../../capabilities/artifacts/workspace-mention-targets";
 import {
   composerMenuClass,
   type MentionItem,
@@ -22,16 +22,6 @@ import { skillMenuDescription } from "./tool-menu-model";
 
 /** ~5 rows visible (py-2 + line + gap ≈ 2.25rem each). */
 const SLASH_LIST_MAX_HEIGHT = "max-h-[11.25rem]";
-
-function mentionFolderTitle(folderPath: string): string {
-  if (folderPath === "uploads") return t("files.source_uploads");
-  if (folderPath === "tasks" || folderPath === "projects") {
-    return t("files.source_task");
-  }
-  if (folderPath === "experts") return t("files.source_expert");
-  const segment = folderPath.split("/").filter(Boolean).at(-1) ?? folderPath;
-  return formatWorkspaceFolderDisplayName(segment);
-}
 
 function partitionSlashCommands(commands: SlashCommandOption[]) {
   const skills: SlashCommandOption[] = [];
@@ -218,7 +208,7 @@ export function ComposerMentionMenu(props: {
 }) {
   if (!props.open) return null;
   if (props.folderPath) {
-    const folderTitle = mentionFolderTitle(props.folderPath);
+    const folderTitle = resolveMentionFolderTitle(props.folderPath);
     return (
       <div className={composerMenuClass.anchor}>
         <div className={composerMenuClass.panelWithoutBottomBorder}>
