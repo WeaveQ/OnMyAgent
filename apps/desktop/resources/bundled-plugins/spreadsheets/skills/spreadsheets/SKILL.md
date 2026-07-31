@@ -11,14 +11,14 @@ Work only with standalone local files. Do not claim control of a live Excel sess
 
 | Role | Allowed location | Product card |
 |------|------------------|--------------|
-| **Business deliverable** (`.xlsx` / `.csv` / `.tsv` / …) | Session / workspace folder (or `output/`) | Yes — declare with `文件路径：…` |
+| **Business deliverable** (`.xlsx` / `.csv` / `.tsv` / …) | Session / workspace folder (or `output/`) | Yes — via runtime write commands |
 | **Process helper** (`.cjs` / `.py` / scratch scripts) | `os.tmpdir()` or `.opencode/tmp/` only | Never |
 | **User upload** | `session-uploads/` / inbox (read-only) | Never |
 
 - Prefer first-class runtime commands over inventing `extract_sheets.cjs` / `gen_xlsx.py`.
 - Never write helper scripts into the session root or next to business outputs.
-- After writing a business file: `verify` it, then report **only** that path as `文件路径：…`.
-- Do not put helper script paths in `文件路径：`.
+- After writing a business file: `verify` it. In the user reply, **briefly name the deliverable** (e.g. “已生成发货需求表与报价补充表”); **do not** print `文件路径：…` lines — the session product cards open the files.
+- Never put helper script paths in the user-facing reply.
 
 ## Required workflow
 
@@ -56,11 +56,7 @@ Work only with standalone local files. Do not claim control of a live Excel sess
    ```
    Prefer `require("xlsx")` for tabular values; use `exceljs` only for rich formatting/charts. Never `require("exceljs")` without `NODE_PATH` / `ONMYAGENT_ARTIFACT_RUNTIME_ROOT`.
 7. Preserve formulas and cached results when possible. Never replace a requested formula model with unexplained hard-coded numbers.
-8. Finish with `node runtime/artifact_runtime.cjs verify <business-output>` and report only business paths:
-   ```text
-   文件路径：发货需求.xlsx
-   文件路径：报价补充.xlsx
-   ```
+8. Finish with `node runtime/artifact_runtime.cjs verify <business-output>`. In the user reply, only briefly say what was generated (product cards handle open/download). **Do not** emit `文件路径：` lines.
 
 ## Formula boundary
 

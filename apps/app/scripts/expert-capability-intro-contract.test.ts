@@ -99,7 +99,7 @@ const PLAYBOOK_HARD_MARKERS = [
   "`create-automation`",
   "automations/proposals",
   "只有用户在 OnMyAgent 里确认后才算真正创建",
-  "文件路径：",
+  "不要再写 `文件路径：",
   "extract-sheets",
   "write-xlsx",
   "不要列长 bullet",
