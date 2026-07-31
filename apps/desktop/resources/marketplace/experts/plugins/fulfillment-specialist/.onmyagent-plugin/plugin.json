@@ -2,11 +2,15 @@
   "name": "fulfillment-specialist",
   "version": "1.0.0",
   "description": "Organize shipment progress, draft customer updates, sort out transport problems, check signed receipts, and find frequent delays",
-  "author": { "name": "Expert Marketplace" },
+  "author": {
+    "name": "Expert Marketplace"
+  },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "fulfillment-specialist",
-  "agents": ["./agents/fulfillment-specialist.md"],
+  "agents": [
+    "./agents/fulfillment-specialist.md"
+  ],
   "skills": [
     "./skills/transit-update-structuring",
     "./skills/customer-update-drafting",
@@ -23,22 +27,40 @@
     "zh": "物流运输专家"
   },
   "displayDescription": {
-    "en": "Organize driver messages into clear shipment progress, draft customer updates, sort out transport problems, check signed receipts, and find frequent delays.",
-    "zh": "把司机群聊和位置消息整理成每票货的最新进度，写客户通知，理清运输异常，检查签收回单，并找出经常晚到或出问题的线路。"
+    "en": "For linehaul, city delivery, cold chain and 3PL: organize in-transit progress, draft customer updates, sort exceptions and evidence, check POD, and find frequent delays. Can also draft scheduled task proposals.",
+    "zh": "面向专线、干线、城配、冷链：整理在途进度、写客户通知、梳理异常证据、检查签收回单、分析延误；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.svg",
   "categoryId": "14-Logistics",
-  "categoryIds": ["01-OPC", "14-Logistics"],
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
   "defaultInitPrompt": {
     "zh": "这些是司机群聊、位置和运输进度 XX。请按运单整理每票货现在到哪里、最后更新时间，以及还需要向司机确认什么。",
     "en": "Here are driver chats, locations, and shipment updates XX. Organize each shipment's current location, latest update, and questions that still need driver confirmation."
   },
   "tags": [
-    { "zh": "整理运输进度", "en": "Organize Progress" },
-    { "zh": "写客户通知", "en": "Draft Customer Update" },
-    { "zh": "整理运输异常", "en": "Sort Out Problems" },
-    { "zh": "检查签收回单", "en": "Check Signed Receipts" },
-    { "zh": "找经常晚到", "en": "Find Frequent Delays" }
+    {
+      "zh": "整理运输进度",
+      "en": "Organize Progress"
+    },
+    {
+      "zh": "写客户通知",
+      "en": "Draft Customer Update"
+    },
+    {
+      "zh": "整理运输异常",
+      "en": "Sort Out Problems"
+    },
+    {
+      "zh": "检查签收回单",
+      "en": "Check Signed Receipts"
+    },
+    {
+      "zh": "找经常晚到",
+      "en": "Find Frequent Delays"
+    }
   ],
   "quickPrompts": [
     {
@@ -64,7 +86,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！📍 我是你的物流运输专家，擅长从发车到签收一路跟进运输进度和处理异常。\n\n无论是整理司机消息和货物进度、回复客户、说明延误、梳理运输异常、检查签收回单，还是分析哪些线路经常晚到，我都能帮你搞定。\n\n说说看，今天有什么运输上的事儿需要处理？",
-    "en": "I am your Logistics Manager. Send me driver chats, location records, problem photos and notes, signed receipts, or shipment records. I can work out where each shipment is, draft customer updates, organize transport problems, check receipts, and spot routes that are often late. Tell me, what shipment work do you need help with today?"
+    "zh": "你好！📍 我是你的物流运输专家，帮专线、干线、城配、冷链从发车盯到签收。\n\n无论是整理在途进度、写客户通知、说明延误、梳理异常证据，还是检查签收回单、分析哪些线路经常晚到，我都能帮你搞定。\n\n手头有群聊、轨迹或回单直接丢过来，或者说下今天要跟哪几票。",
+    "en": "Hi! I am your in-transit fulfillment specialist. I can organize shipment progress, draft customer updates, sort exceptions and evidence, check signed receipts, and spot frequent delays. Drop chats, tracks, or PODs, or tell me which loads to follow today."
   }
 }
