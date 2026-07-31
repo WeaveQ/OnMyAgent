@@ -9,11 +9,6 @@ import {
 import type { UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
-import {
-  listCodeWorkspaceFiles,
-  readCodeWorkspaceBinaryFile,
-} from "../../../../app/lib/desktop";
-import { isElectronRuntime } from "../../../../app/utils";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { t } from "../../../../i18n";
@@ -27,7 +22,6 @@ import type {
 import type {
   ComposerAttachment,
   ComposerDraft,
-  ComposerMentionTarget,
   CollaborationGoalRuntime,
   McpServerEntry,
   McpStatusMap,
@@ -41,12 +35,10 @@ import {
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
-  WORKSPACE_PROJECTS_DIR,
-  WORKSPACE_TASKS_DIR,
-  mergeTaskSourceDirectoryTargets,
-  workspaceDirectoryTargets,
-  workspaceMentionTargets,
-} from "../../../capabilities/artifacts/workspace-mention-targets";
+  listSessionMentionFolder as listSessionMentionFolderImpl,
+  loadSessionMentionFiles as loadSessionMentionFilesImpl,
+  searchSessionMentionTargets as searchSessionMentionTargetsImpl,
+} from "./session-surface-mention-files";
 
 import type { ReactComposerNotice } from "./composer/notice";
 import {
@@ -175,7 +167,6 @@ import {
   resolveWorkspaceRelativeDownloadPath,
   shouldShowCodeSceneToolbar,
   snapshotQueryErrorMessage,
-  workspaceAttachmentContentType,
 } from "./session-surface-helpers";
 
 
@@ -221,8 +212,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     props.assistantFeatureCategoryId ?? assistantCategoryId;
   const assistantOfficeFeaturesActive =
     props.personalAssistantHome || props.assistantFeatureCategoryId === "office";
-  const assistantCodeFeaturesActive =
-    props.personalAssistantHome || props.assistantFeatureCategoryId === "code";
+  /** Code track removed — never enable code-only chrome. */
+  const assistantCodeFeaturesActive = false;
   const setAssistantCategoryId =
     props.onPersonalAssistantCategoryChange ?? setInternalAssistantCategoryId;
   const [assistantScenarioId, setAssistantScenarioId] = useState<string | null>(
@@ -278,7 +269,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const assistantCategory =
     PERSONAL_ASSISTANT_CATEGORIES.find(
       (category) => category.id === assistantCategoryId,
-    ) ?? PERSONAL_ASSISTANT_CATEGORIES[1]!;
+    ) ?? PERSONAL_ASSISTANT_CATEGORIES[0]!;
   const assistantScenarioTags = assistantCategory.scenarios.map((scenario) => ({
     id: scenario.id,
     label: scenario.label,
@@ -1312,93 +1303,35 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   });
 
   const searchSessionMentionTargets = useCallback(
-    async (query: string): Promise<ComposerMentionTarget[]> => {
-      if (!props.workspaceRoot.trim()) return [];
-      if (isElectronRuntime()) {
-        const result = await listCodeWorkspaceFiles({
-          workspacePath: props.workspaceRoot,
-        });
-        return workspaceMentionTargets(
-          result.items.map((item) => ({ ...item, revision: "" })),
-          query,
-        );
-      }
-      const result = await props.client.listWorkspaceFiles(props.workspaceId, {
-        includeDirs: true,
-        limit: 10_000,
-        root: props.workspaceRoot,
-      });
-      return workspaceMentionTargets(result.items, query);
-    },
+    (query: string) =>
+      searchSessionMentionTargetsImpl({
+        client: props.client,
+        workspaceId: props.workspaceId,
+        workspaceRoot: props.workspaceRoot,
+        query,
+      }),
     [props.client, props.workspaceId, props.workspaceRoot],
   );
 
   const listSessionMentionFolder = useCallback(
-    async (path: string): Promise<ComposerMentionTarget[]> => {
-      if (!props.workspaceRoot.trim()) return [];
-
-      const listShallow = async (
-        relativePath: string,
-      ): Promise<ComposerMentionTarget[]> => {
-        if (isElectronRuntime()) {
-          const result = await listCodeWorkspaceFiles({
-            workspacePath: props.workspaceRoot,
-            relativePath,
-          });
-          return workspaceDirectoryTargets(
-            result.items.map((item) => ({ ...item, revision: "" })),
-          );
-        }
-        const result = await props.client.listWorkspaceFiles(
-          props.workspaceId,
-          {
-            includeDirs: true,
-            limit: 10_000,
-            prefix: relativePath,
-            root: props.workspaceRoot,
-            shallow: true,
-          },
-        );
-        return workspaceDirectoryTargets(result.items);
-      };
-
-      // Task source root also surfaces projects/ (same Files → 任务文件 bucket).
-      if (path === WORKSPACE_TASKS_DIR) {
-        const [taskTargets, projectTargets] = await Promise.all([
-          listShallow(WORKSPACE_TASKS_DIR),
-          listShallow(WORKSPACE_PROJECTS_DIR).catch(() => []),
-        ]);
-        return mergeTaskSourceDirectoryTargets(taskTargets, projectTargets);
-      }
-
-      return listShallow(path);
-    },
+    (path: string) =>
+      listSessionMentionFolderImpl({
+        client: props.client,
+        workspaceId: props.workspaceId,
+        workspaceRoot: props.workspaceRoot,
+        path,
+      }),
     [props.client, props.workspaceId, props.workspaceRoot],
   );
 
   const loadSessionMentionFiles = useCallback(
-    async (paths: string[]): Promise<File[]> =>
-      Promise.all(
-        paths.map(async (path) => {
-          const name = path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
-          if (isElectronRuntime()) {
-            const result = await readCodeWorkspaceBinaryFile({
-              workspacePath: props.workspaceRoot,
-              relativePath: path,
-            });
-            return new File([new Uint8Array(result.data)], name, {
-              type: workspaceAttachmentContentType(path),
-            });
-          }
-          const result = await props.client.downloadWorkspaceFile(
-            props.workspaceId,
-            path,
-          );
-          return new File([result.data], name, {
-            type: result.contentType ?? "application/octet-stream",
-          });
-        }),
-      ),
+    (paths: string[]) =>
+      loadSessionMentionFilesImpl({
+        client: props.client,
+        workspaceId: props.workspaceId,
+        workspaceRoot: props.workspaceRoot,
+        paths,
+      }),
     [props.client, props.workspaceId, props.workspaceRoot],
   );
 
