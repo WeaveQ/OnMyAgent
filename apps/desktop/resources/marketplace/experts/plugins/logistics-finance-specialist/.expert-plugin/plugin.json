@@ -2,11 +2,15 @@
   "name": "logistics-finance-specialist",
   "version": "1.0.0",
   "description": "Match shipments with bills, find amount differences, check whether each job can be settled, prepare invoice requests, and calculate profit",
-  "author": { "name": "Expert Marketplace" },
+  "author": {
+    "name": "Expert Marketplace"
+  },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "logistics-finance-specialist",
-  "agents": ["./agents/logistics-finance-specialist.md"],
+  "agents": [
+    "./agents/logistics-finance-specialist.md"
+  ],
   "skills": [
     "./skills/settlement-data-consolidation",
     "./skills/charge-variance-audit",
@@ -23,22 +27,40 @@
     "zh": "货运财务专家"
   },
   "displayDescription": {
-    "en": "Match shipments with customer and carrier bills, find amount differences and missing documents, prepare invoice requests, and calculate which jobs make or lose money.",
-    "zh": "把运单和客户、承运商的账单对到一起，找出金额差额和缺少的资料，检查开票信息，并算出哪些单子赚钱或亏钱。"
+    "en": "For linehaul, city delivery, cold chain and 3PL: match shipments with bills, find amount differences, check settlement readiness, prepare invoice requests, and calculate profit. Can also draft scheduled task proposals.",
+    "zh": "面向专线、干线、城配、冷链：合并运单与账单、查金额差额、检查结算资料、核对开票信息、分析利润；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
-  "categoryIds": ["01-OPC", "14-Logistics"],
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
   "defaultInitPrompt": {
     "zh": "这些是运单、报价、承运商账单、客户账单和回单表 XX。请按运单号合到一张对账表里，并标出哪些对不上、重复或缺少信息。",
     "en": "Here are shipment, quote, carrier bill, customer bill, and receipt sheets XX. Match them by shipment number into one reconciliation sheet and flag unmatched, duplicate, or missing information."
   },
   "tags": [
-    { "zh": "合并账单", "en": "Match Bills" },
-    { "zh": "找金额差额", "en": "Find Differences" },
-    { "zh": "检查能否结账", "en": "Check Settlement" },
-    { "zh": "检查开票资料", "en": "Check Invoice Details" },
-    { "zh": "算赚不赚钱", "en": "Calculate Profit" }
+    {
+      "zh": "合并账单",
+      "en": "Match Bills"
+    },
+    {
+      "zh": "找金额差额",
+      "en": "Find Differences"
+    },
+    {
+      "zh": "检查能否结账",
+      "en": "Check Settlement"
+    },
+    {
+      "zh": "检查开票资料",
+      "en": "Check Invoice Details"
+    },
+    {
+      "zh": "算赚不赚钱",
+      "en": "Calculate Profit"
+    }
   ],
   "quickPrompts": [
     {
@@ -64,7 +86,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！💰 我是你的货运财务专家，擅长运费对账、结算、开票和利润核算。\n\n无论是合并运单与账单、查金额差额、检查结算资料、核对开票信息、写开票申请，还是分析每票、客户和线路赚不赚钱，我都能帮你搞定。\n\n说说看，今天有什么对账或结算上的事儿需要处理？",
-    "en": "I am your Freight Settlement Manager. Send me shipment records, quotes, customer bills, carrier bills, signed receipts, or invoice details. I can match the bills, find amount differences, check whether each job can be settled, draft invoice requests, and calculate profit. Tell me, what billing or settlement work do you need help with today?"
+    "zh": "你好！💰 我是你的货运财务专家，帮专线、干线、城配、冷链把运费对账和结算理清楚。\n\n无论是合并运单与账单、查金额差额、检查结算资料、核对开票信息，还是写开票申请、分析每票和线路赚不赚钱，我都能帮你搞定。\n\n手头有运单、账单或回单直接丢过来，或者说下今天要对哪几票。",
+    "en": "Hi! I am your freight finance specialist. I can match shipments with bills, find amount differences, check settlement readiness, prepare invoice requests, and calculate which jobs make or lose money. Drop waybills, bills, or PODs, or tell me which loads to reconcile today."
   }
 }
