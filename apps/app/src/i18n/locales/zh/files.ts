@@ -31,9 +31,9 @@ export default {
   "files.source_uploads_desc":
     "已导入工作区的资料。编辑只影响工作区副本，不会自动改本机原文件。",
   "files.source_task_desc":
-    "首页临时任务产物，以及尚未完成来源打标前的工作区历史文件（保证旧文件仍可访问）。",
+    "首页临时任务产物，以及非专家目录下的工作区文件。专家归档目录在「专家文件」中查看。",
   "files.source_expert_desc":
-    "专家会话产物，可按专家浏览。在写入打标上线前本列表为空，避免把历史文件误标为专家文件；历史文件请在「任务文件」中查看。",
+    "专家目录及其任务产物（按文件夹命名识别；写入打标上线后将更精确）。",
   "files.search_uploads_placeholder": "搜索上传文件",
   "files.search_task_placeholder": "搜索任务文件",
   "files.search_expert_placeholder": "搜索专家文件",

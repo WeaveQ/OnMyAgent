@@ -108,7 +108,9 @@ import {
   countDirsInNode,
   countFilesInNode,
   fileCategoryI18nKey,
+  filesSourceTabSubtitleKey,
   filterWorkspaceFileTree,
+  filterWorkspaceTreeBySourceTab,
   getFileCategory,
   relativeDisplayPath,
   usesLocalFileRenderer,
@@ -460,11 +462,18 @@ export function WorkspaceFilesBrowserPanel(props: {
    * When omitted, falls back to `workspaceRoot`.
    */
   fileRoot?: string | null;
+  /**
+   * Split top-level folders: task = non-expert archives; expert = expert agent dirs.
+   */
+  sourceTab?: "task" | "expert";
+  /** Optional marketplace packageName slugs for stronger expert-folder matching. */
+  knownExpertPackageSlugs?: readonly string[];
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
   /** Optional: attach file into a new/current task (composer). */
   onAddToTask?: (relativePath: string) => void;
 }) {
+  const sourceTab = props.sourceTab ?? "task";
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>(
     [],
@@ -611,7 +620,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     setCurrentDirectoryPath("");
     outlineExpandSeededRef.current = false;
     setExpandedPaths(new Set());
-  }, [fileRoot, props.workspaceId]);
+  }, [fileRoot, props.workspaceId, sourceTab]);
 
   useEffect(() => {
     setCurrentDirectoryPath("");
@@ -694,12 +703,25 @@ export function WorkspaceFilesBrowserPanel(props: {
     const tree = filterHiddenFromTree(
       buildWorkspaceFileTree(entries.filter((entry) => !shouldHideEntry(entry.path))),
     );
-    const filtered = filterWorkspaceFileTree(tree, query, typeFilter) ?? {
-      ...tree,
+    const bySource = filterWorkspaceTreeBySourceTab(
+      tree,
+      sourceTab,
+      props.knownExpertPackageSlugs ?? [],
+    );
+    const filtered = filterWorkspaceFileTree(bySource, query, typeFilter) ?? {
+      ...bySource,
       children: [],
     };
     return sortWorkspaceFileTreeCopy(filtered, sortKey, sortDir);
-  }, [entries, query, sortDir, sortKey, typeFilter]);
+  }, [
+    entries,
+    props.knownExpertPackageSlugs,
+    query,
+    sortDir,
+    sortKey,
+    sourceTab,
+    typeFilter,
+  ]);
 
   const currentDirectory =
     findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ?? visibleFileTree;
@@ -942,7 +964,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                 {t("files.title")}
               </h1>
               <p className={cn(typeScale.pageSubtitle, "mt-1 truncate")}>
-                {t("files.source_task_desc")}
+                {t(filesSourceTabSubtitleKey(sourceTab))}
               </p>
             </div>
             <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-md">
