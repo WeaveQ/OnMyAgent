@@ -97,8 +97,8 @@ function inferCategoryIds(entry: {
       category.keywords.some((keyword) => haystack.includes(keyword.toLowerCase())),
     )
     .map((category) => category.id);
-  // "deploy" was merged into "developer"; never emit the legacy id on new inference.
-  return [...new Set(categoryIds.map((id) => (id === "deploy" ? "developer" : id)))].slice(0, 3);
+  // Engineering filter tabs retired — drop stale developer/deploy tags from inference.
+  return [...new Set(categoryIds.filter((id) => id !== "developer" && id !== "deploy"))].slice(0, 3);
 }
 
 export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
