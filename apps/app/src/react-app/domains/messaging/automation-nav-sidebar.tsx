@@ -210,9 +210,6 @@ export function AutomationNavSidebar(props: {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-          <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
-            {t("automation.nav_section_browse")}
-          </div>
           <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
             {items.map((item) => {
               const Icon = item.icon;
