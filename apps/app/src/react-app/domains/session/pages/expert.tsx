@@ -45,19 +45,11 @@ import {
   LazyVoicePanel,
 } from "./lazy-session-side-panels";
 import {
-  findBuiltinMarketplaceExpertById,
-} from "../expert-marketplace/data";
-import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
-import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
-import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
 
 import type { SessionPageProps } from "./session-page-types";
-import type { AgentConversationGroup } from "../sidebar/session-chrome";
 
 import type { AgentCardItem } from "../../agents";
 import {
@@ -66,7 +58,6 @@ import {
   type PendingAgentContext,
   usePendingAgentStore,
 } from "../../agents";
-import { buildPendingAgentFromRecord } from "../../agents";
 import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
@@ -126,14 +117,10 @@ import { useStatusToasts } from "../../shell-feedback";
 import {
   appendComposerFileMention,
   setComposerDraftAfterNewTask,
-  setComposerTemplateAfterNavigation,
   setExpertComposerDraftAfterNewTask,
-  setExpertComposerTemplateAfterNewTask,
 } from "./shared-page-utils";
 import {
   expertFeatureCategoryForAgent,
-  marketplaceExpertMatchesAgentId,
-  pendingAgentMatchesMarketplaceExpert,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
@@ -157,7 +144,8 @@ import {
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundNewSessionDraft,
 } from "./expert-draft-session";
-import { readExpertSidebarOrderIds } from "../sidebar/expert-list-order";
+import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
+import { useExpertSessionStarters } from "./use-expert-session-starters";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
@@ -466,52 +454,18 @@ export function ExpertPage(props: ExpertPageProps) {
     const selectedId = props.selectedSessionId?.trim() ?? "";
     if (selectedId && isExpertSession(selectedId)) return;
 
-    // Cold open with no selection: open a remembered tab, but never while a
-    // "+ 新会话" draft is active (handled above). Prefer stable left-rail order
-    // over conversationGroups[0] (insertion/recency order — that stole focus to
-    // the last-chatted expert when creating a new session on another agent).
-    const orderedGroups = (() => {
-      const ledger = readExpertSidebarOrderIds(workspaceId);
-      if (ledger.length === 0) return conversationGroups;
-      const byId = new Map(
-        conversationGroups.map((group) => [group.agentId, group] as const),
-      );
-      const ordered: typeof conversationGroups = [];
-      for (const id of ledger) {
-        const group = byId.get(id);
-        if (group) ordered.push(group);
-      }
-      for (const group of conversationGroups) {
-        if (!ordered.some((item) => item.agentId === group.agentId)) {
-          ordered.push(group);
-        }
-      }
-      return ordered.length > 0 ? ordered : conversationGroups;
-    })();
-    const firstGroup = orderedGroups[0];
-    if (firstGroup) {
-      const agentId = firstGroup.agentId?.trim() ?? "";
-      const sessionIds = firstGroup.sessions.map((session) => session.id);
-      const resolved =
-        (agentId
-          ? resolveExpertSessionSelection({
-              rememberedSessionId: readExpertSessionSelection(
-                workspaceId,
-                agentId,
-              ),
-              sessionIds,
-              orderIds:
-                sessionTabOrderIdsByScope[`${workspaceId}:${agentId}`] ?? [],
-            })
-          : null) ?? firstGroup.latestSession.id;
-      if (resolved) {
-        props.sidebar.onOpenSession(workspaceId, resolved);
-      }
+    // Cold open: stable left-rail order + remembered tab (not recency group[0]).
+    const resolved = resolveColdOpenExpertSessionId({
+      workspaceId,
+      conversationGroups,
+      sessionTabOrderIdsByScope,
+    });
+    if (resolved) {
+      props.sidebar.onOpenSession(workspaceId, resolved);
       return;
     }
 
-    // No summoned experts: leave non-expert sessions (e.g. 默认智能体) so the
-    // empty state can show instead of the default agent chat.
+    // No summoned experts: leave non-expert sessions so empty state can show.
     if (selectedId && !isExpertSession(selectedId)) {
       props.sidebar.onCreateTaskInWorkspace(workspaceId);
     }
@@ -843,163 +797,28 @@ export function ExpertPage(props: ExpertPageProps) {
     [openRailView, props.selectedWorkspaceId, props.sidebar],
   );
 
-  const handleStartMarketplaceExpert = useCallback(
-    (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
-      const startPrompt = resolveMarketplaceExpertStartPrompt(
-        expert,
-        initialPrompt,
-      );
-      const existingConversationGroup = conversationGroups.find((group) =>
-        marketplaceExpertMatchesAgentId(expert, group.agentId),
-      );
-      if (existingConversationGroup) {
-        usePendingAgentStore.getState().setAgent(null);
-        const agentId = existingConversationGroup.agentId?.trim() ?? "";
-        const sessionIds = existingConversationGroup.sessions.map(
-          (session) => session.id,
-        );
-        const resolvedSessionId =
-          (agentId
-            ? resolveSessionTabForAgent(agentId, sessionIds)
-            : null) ?? existingConversationGroup.latestSession.id;
-        handleOpenExpertSession(
-          props.sidebar.selectedWorkspaceId,
-          resolvedSessionId,
-        );
-        if (startPrompt?.template) {
-          setComposerTemplateAfterNavigation(
-            resolvedSessionId,
-            startPrompt.prompt,
-          );
-        } else if (startPrompt) {
-          useComposerStateStore
-            .getState()
-            .setDraft(resolvedSessionId, startPrompt.prompt);
-        }
-        void installSummonedMarketplaceExpert(expert).catch((error) => {
-          console.warn("[expert-marketplace] failed to install expert package", error);
-        });
-        return;
-      }
-
-      const existingDraftAgent = Object.values(draftAgentContexts).find(
-        (agent) => pendingAgentMatchesMarketplaceExpert(agent, expert),
-      );
-      // Build pending first. onCreateTaskInWorkspace clears pendingAgent for
-      // plain "+新任务", so we re-apply the draft agent after that clear.
-      const pending =
-        existingDraftAgent ?? buildPendingAgentFromMarketplaceExpert(expert);
-      const pendingWithStart: PendingAgentContext = {
-        ...pending,
-        boundSessionId: undefined,
-        conversationStartId: Date.now(),
-        draftSource: "agent-selection",
-      };
-      activateDraftAgent(pendingWithStart);
-      openFreshExpertDraft();
-      // Re-assert after create-task's synchronous setAgent(null).
-      activateDraftAgent(pendingWithStart);
-      if (startPrompt?.template) {
-        setExpertComposerTemplateAfterNewTask(
-          props.selectedWorkspaceId,
-          pendingWithStart.id,
-          startPrompt.prompt,
-        );
-      } else if (startPrompt) {
-        setExpertComposerDraftAfterNewTask(
-          props.selectedWorkspaceId,
-          pendingWithStart.id,
-          startPrompt.prompt,
-        );
-      }
-      openRailView("chat");
-      void installSummonedMarketplaceExpert(expert).catch((error) => {
-        console.warn("[expert-marketplace] failed to install expert package", error);
-      });
-    },
-    [
-      activateDraftAgent,
-      conversationGroups,
-      draftAgentContexts,
-      handleOpenExpertSession,
-      openFreshExpertDraft,
-      props.selectedWorkspaceId,
-      props.sidebar.selectedWorkspaceId,
-      resolveSessionTabForAgent,
-    ],
-  );
-
-  const handleCreateCurrentAgentSession = useCallback(() => {
-    // Prefer the expert currently shown (tab strip / left selection), never the
-    // globally most-recent expert session.
-    const agentId =
-      activeConversationAgentId ??
-      currentConversationAgentId ??
-      activeAgentContext?.id ??
-      draftAgentId;
-    if (!agentId) {
-      openExpertMarket();
-      return;
-    }
-    let nextAgent: PendingAgentContext | null = null;
-    if (activeAgentContext?.id === agentId) {
-      nextAgent = {
-        ...activeAgentContext,
-        boundSessionId: undefined,
-        conversationStartId: Date.now(),
-        draftSource: "new-session",
-      };
-    } else if (registry) {
-      const agent =
-        registry.agents.find((item) => item.id === agentId) ??
-        registry.templates.find((item) => item.id === agentId);
-      const restored = agent
-        ? buildPendingAgentFromRecord(agent, registry)
-        : null;
-      if (restored) {
-        nextAgent = {
-          ...restored,
-          conversationStartId: Date.now(),
-          draftSource: "new-session",
-        };
-      }
-    }
-    if (!nextAgent && pendingAgent?.id === agentId) {
-      nextAgent = {
-        ...pendingAgent,
-        boundSessionId: undefined,
-        conversationStartId: Date.now(),
-        draftSource: "new-session",
-      };
-    }
-    if (nextAgent) {
-      // Same pattern as marketplace summon: create-task clears pendingAgent and
-      // selectedSessionId. Re-assert draft after so the recency-sorted
-      // conversationGroups[0] fallback cannot steal focus to the last-chatted
-      // expert (e.g. open agent 1 "+ 新会话" → land on agent 3's recent tab).
-      activateDraftAgent(nextAgent);
-      openFreshExpertDraft();
-      activateDraftAgent(nextAgent);
-    } else if (props.onCreateFreshSessionForAgent) {
-      void Promise.resolve(
-        props.onCreateFreshSessionForAgent(props.selectedWorkspaceId),
-      );
-    }
-    openRailView("chat");
-  }, [
+  const {
+    handleStartMarketplaceExpert,
+    handleCreateCurrentAgentSession,
+  } = useExpertSessionStarters({
+    conversationGroups,
+    draftAgentContexts,
+    registry,
+    pendingAgent,
     activeAgentContext,
     activeConversationAgentId,
-    activateDraftAgent,
     currentConversationAgentId,
     draftAgentId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    sidebarSelectedWorkspaceId: props.sidebar.selectedWorkspaceId,
+    onCreateFreshSessionForAgent: props.onCreateFreshSessionForAgent,
+    activateDraftAgent,
     openFreshExpertDraft,
-    pendingAgent,
+    openRailView,
     openExpertMarket,
-    props.onCreateFreshSessionForAgent,
-    props.selectedWorkspaceId,
-    registry,
-  ]);
-
+    handleOpenExpertSession,
+    resolveSessionTabForAgent,
+  });
   const {
     automationOfferFlow,
     effectiveActiveQuestion,
