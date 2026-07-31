@@ -891,11 +891,17 @@ export function SidebarAccountButton(props: {
               type="button"
               variant="ghost"
               size="icon-lg"
-              className="text-dls-text hover:text-dls-accent"
+              // Match bottom RailButton: primary ink idle; open = free-float
+              // surface / rail-active pill — never accent blue on the dark rail.
+              className={cn(
+                "size-9 shrink-0 rounded-2xl text-dls-text shadow-none hover:bg-dls-rail-pill-hover hover:text-dls-text",
+                "aria-expanded:bg-dls-surface aria-expanded:text-dls-text dark:aria-expanded:bg-dls-rail-active",
+                "data-popup-open:bg-dls-surface data-popup-open:text-dls-text dark:data-popup-open:bg-dls-rail-active",
+              )}
               title={t("account_menu.settings")}
               aria-label={t("account_menu.settings")}
             >
-              <Settings className="size-5" />
+              <Settings className="size-5.5 text-current" strokeWidth={1.75} />
             </Button>
           }
         />

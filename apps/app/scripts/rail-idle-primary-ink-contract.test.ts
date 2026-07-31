@@ -40,8 +40,14 @@ describe("rail idle primary ink contract", () => {
       ),
       "utf8",
     );
-    // Compact settings trigger (primary rail foot) — primary ink, not secondary.
-    expect(sidebar).toContain('className="text-dls-text hover:text-dls-accent"');
+    // Compact settings trigger (primary rail foot) — primary ink + free-float
+    // open pill (surface / rail-active), never accent blue on the rail foot.
+    const compactIdx = sidebar.indexOf("if (props.compact)");
+    expect(compactIdx).toBeGreaterThanOrEqual(0);
+    const compactBlock = sidebar.slice(compactIdx, compactIdx + 1200);
+    expect(compactBlock).toContain("hover:bg-dls-rail-pill-hover");
+    expect(compactBlock).toContain("dark:aria-expanded:bg-dls-rail-active");
+    expect(compactBlock).not.toContain("hover:text-dls-accent");
   });
 
   test("home and automation primary CTAs share outline lg + strong border surface", () => {
