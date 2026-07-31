@@ -73,6 +73,7 @@ safelist: [
         rail: "var(--dls-rail-bg)",
         "rail-active": "var(--dls-rail-active)",
         "rail-hover": "var(--dls-rail-hover)",
+        "rail-pill-active": "var(--dls-rail-pill-active)",
         "rail-pill-hover": "var(--dls-rail-pill-hover)",
         "rail-border": "var(--dls-border)",
         border: "var(--dls-border)",

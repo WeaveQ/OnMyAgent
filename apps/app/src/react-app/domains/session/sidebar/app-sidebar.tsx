@@ -895,8 +895,8 @@ export function SidebarAccountButton(props: {
               // surface / rail-active pill — never accent blue on the dark rail.
               className={cn(
                 "size-9 shrink-0 rounded-2xl text-dls-text shadow-none hover:bg-dls-rail-pill-hover hover:text-dls-text",
-                "aria-expanded:bg-dls-surface aria-expanded:text-dls-text dark:aria-expanded:bg-dls-rail-active",
-                "data-popup-open:bg-dls-surface data-popup-open:text-dls-text dark:data-popup-open:bg-dls-rail-active",
+                "aria-expanded:bg-dls-rail-pill-active aria-expanded:text-dls-text",
+                "data-popup-open:bg-dls-rail-pill-active data-popup-open:text-dls-text",
               )}
               title={t("account_menu.settings")}
               aria-label={t("account_menu.settings")}

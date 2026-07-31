@@ -379,6 +379,9 @@ const INTENTIONAL_EXCEPTIONS = [
   // not the color YAML ladder.
   /^--dls-rail-width$/,
   /^--dls-rail-pill-width$/,
+  // Free-float pill fill — platform glass uses white frost; solid dark is
+  // elevated gray. Documented under rail-button, not the solid color ladder.
+  /^--dls-rail-pill-active$/,
 ]
 
 function isException(cssName) {
