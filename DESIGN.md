@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-18
+last-reviewed: 2026-07-31
 
 colors:
   light:
@@ -32,6 +32,8 @@ colors:
     # soft brand wash for selected sidebar rows
     rail-active: "#EAF2FF"
     rail-hover: "#E2E2E2"
+    # Free-float chip hover base hue — CSS applies 5% mix (index.css).
+    rail-pill-hover: "#000000"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"
     # Neutral grays — the earlier blue-tinted pair (#EEF4FF / #DDEBFF)
@@ -79,8 +81,12 @@ colors:
     app-bg: "#1F1F1F"
     sidebar: "#2A2A2A"
     rail-bg: "#141414"
-    rail-active: "#2E2E2E"
-    rail-hover: "#222222"
+    # Free-float rail pill + sidebar row active — must clear rail-bg #141414
+    # (#2E2E2E was near-invisible). Mac glass remixes the same base hex.
+    rail-active: "#404040"
+    rail-hover: "#2A2A2A"
+    # Free-float chip hover base hue — CSS applies 5% mix (index.css).
+    rail-pill-hover: "#FFFFFF"
     border: "#3A3A3A"
     border-strong: "#4A4A4A"
     hover: "#323232"
@@ -182,8 +188,8 @@ spacing:
     default: 36 # h-9 — default in-page action
     lg: 40     # h-10 — primary CTA
     xl: 44     # h-11 — touch-target-safe CTA (also used for mobile)
-    chrome: 48 # h-12 / min-h-12 — RailButton top / panel titlebar / composer footer chrome
-    2xl: 56    # h-14 — Level-3 nav / IconTile lg / avatar-lg
+    chrome: 48 # h-12 / min-h-12 — panel titlebar / composer footer / media-icon outer (RailButton height is content; pill width is 48)
+    2xl: 56    # h-14 — Level-3 nav / IconTile lg / avatar-lg / sidebar CTA header strip
   hero-scale:
     # Padding values for empty-state hero / marketing / plugin index
     # sections. NEVER use for row-level UI.
@@ -398,6 +404,9 @@ buttons:
   sm:      { family: inline, height: 32, padding: "px-3", radius: lg, text: sm, use: "compact action inside cards / toolbars" }
   default: { family: inline, height: 36, padding: "px-3", radius: lg, text: sm, use: "default in-page action" }
   lg:      { family: cta,    height: 40, padding: "px-6", radius: xl, text: sm, use: "primary CTA / dialog footer" }
+  # Full-width list-lane create (新建任务 / 添加): same height as lg CTA but
+  # radius stays lg so it does not read as a sausage pill in the sidebar.
+  sidebar-cta: { family: cta-outline, height: 40, padding: "px-3", radius: lg, text: sm, width: full, use: "list-lane primary create outline" }
   icon-xs: { family: inline, size: 24, radius: lg }
   icon-sm: { family: inline, size: 32, radius: lg }
   icon:    { family: inline, size: 36, radius: lg }
@@ -501,16 +510,37 @@ components:
       text: "{typography.scale.sm}"                   # 14
       padding-x: "{spacing.scale.lg}"                 # 24 (px-6)
     # --- Chrome tier (family: chrome) --------------------------------
-    # Primary app rail (left): reference-scale free-float chips.
-    # w-16 column + w-14 chips; size-5.5 icons + text-xs; gap-3 between items.
+    # Primary app rail (left): free-float chips.
+    # Column 68px + pill w-12 (48); icons size-5-ish + text-xs; gap-2.5 between items.
     rail-button:
-      height: "content"                               # icon + label + py-2
+      height: "content"                               # icon + label + py-1.5
       radius: "{rounded.xl}"                          # 14 → rounded-2xl visual
       surface: "{colors.rail-bg}"
-      surface-active: "{colors.surface}"              # light + dark: bright free-float
-      surface-hover: "black/5"
-      width: 64                                       # w-16 rail column
-      pill-width: 56                                  # w-14 free-float chip
+      # Free-float selected fill: --dls-rail-pill-active (not sidebar rail-active).
+      surface-active: "var(--dls-rail-pill-active)"
+      surface-hover: "var(--dls-rail-pill-hover)"
+      # Idle ink = primary text (near-black light / near-white dark), not secondary slate.
+      # Active distinction is the pill surface, not a greyer idle glyph.
+      idle-text: "{colors.text-primary}"
+      active-text: "{colors.text-primary}"
+      width: 68                                       # --dls-rail-width / w-rail
+      pill-width: 48                                  # --dls-rail-pill-width / w-rail-pill
+      item-gap: 10                                    # gap-2.5
+      # Hover wash: 5% of colors.rail-pill-hover via --dls-rail-pill-hover
+      pill-hover-alpha: 0.05
+    # Full-width outline create in list lanes (home 新建任务 / automation 添加).
+    # Button size="sidebar-cta" + shared SIDEBAR_PRIMARY_CTA_CLASS surface overrides
+    # (components/ui/sidebar-chrome.ts).
+    sidebar-primary-cta:
+      height: "{spacing.button-heights.lg}"          # 40 (h-10)
+      radius: "{rounded.lg}"                          # 10 — tighter than pill xl
+      width: full
+      surface: "{colors.surface-solid}"
+      border: "{colors.border}"
+      text: "{typography.scale.sm}"                   # 14
+      hover-surface: "{colors.hover}"
+      # List-lane create strip — share baseline with SessionSurfaceHeader (h-14).
+      header-height: "{spacing.button-heights.2xl}"  # 56 h-14
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40
@@ -1480,6 +1510,22 @@ OnMyAgent is a **rail + panel** shell.
 - Dense but calm: minimum row height is the primitive default (24 / 32 /
   36). Do not shrink below the primitive's declared size for cosmetic
   purposes.
+
+### Selection surface ladder (do not mix)
+
+Three **different** selected looks — pick by context, not by taste:
+
+| Context | Primitive | Active surface | Active ink |
+|---------|-----------|----------------|------------|
+| Primary rail free-float chip | `RailButton` | `bg-dls-rail-pill-active` (light white / dark lift / glass frost) | `text-dls-text` (same idle/active) |
+| Free-float page/header tabs (store/files) | `NavTabButton` | light: `bg-dls-text`; dark: `bg-dls-surface-solid` + ring | pure `text-white` |
+| Soft category filters | `FilterChip` | `bg-dls-list-selected` | `text-dls-text` |
+| Sidebar list rows / menu active | sidebar menu | `bg-dls-rail-active` (light brand wash / dark lift) | `text-dls-text` |
+| Session / list selected rows | task rows etc. | `bg-dls-list-selected` | `text-dls-text` |
+
+- Do **not** put inverted black/white NavTab styling on primary-rail chips.
+- Do **not** use soft `list-selected` for primary-rail active pills (too weak on dark rail).
+- Opaque overlays (menus, dialogs, tooltips) always use `bg-dls-surface-solid`, never glass-mixed `--dls-surface`.
 
 ### Spacing System
 

@@ -53,15 +53,15 @@ function AgentStarterRow(props: {
   return (
     <SessionRowButton
       type="button"
+      size="expert"
       onClick={() => props.onOpenStarter?.(props.item.agentId)}
     >
       <div className="relative shrink-0">
-        {/* Match local AgentBrandIcon size="md" / expert list tiles. */}
         <div
           className={cn(
             "flex size-10 items-center justify-center overflow-hidden rounded-md text-sm font-medium",
             "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60",
-            "dark:bg-white dark:text-neutral-700 dark:ring-black/10",
+            "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
           )}
           style={
             props.item.avatarUrl
@@ -244,7 +244,7 @@ export function AgentConversationList(props: AgentConversationListProps) {
   if (props.groups.length === 0) {
     if (props.hasAnyConversation && props.starterItems?.length) {
       return (
-        <div>
+        <div className="flex flex-col gap-1">
           {props.starterItems.map((item) => (
             <AgentStarterRow
               key={item.key}
@@ -265,7 +265,7 @@ export function AgentConversationList(props: AgentConversationListProps) {
   }
 
   return (
-    <div>
+    <div className="flex flex-col gap-1">
       {orderedGroups.map(({ group, unread, unreadRecord, unreadCount, pinned }) => (
         <AgentConversationItem
           key={group.key}

@@ -448,15 +448,29 @@ export function StorePage(props: {
             </InputGroup>
           ) : null}
           {activeTab === "experts" && expertView === "market" ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setExpertView("mine")}
-              className="mac:titlebar-no-drag"
-            >
-              {t("session.my_experts")}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  (props.onCreateExpert ?? showComingSoonToast)()
+                }
+                className="mac:titlebar-no-drag"
+              >
+                <Plus data-icon="inline-start" className="size-3.5" />
+                {t("session.create_expert")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setExpertView("mine")}
+                className="mac:titlebar-no-drag"
+              >
+                {t("session.my_experts")}
+              </Button>
+            </>
           ) : null}
           {activeTab === "skills" && skillView === "market" ? (
             <>

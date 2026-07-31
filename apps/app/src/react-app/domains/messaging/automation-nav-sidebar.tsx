@@ -35,9 +35,12 @@ import {
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 
-// Local copies of task-row action chrome (avoid messaging → session import).
-const TASK_ROW_ACTION_CLASS =
-  "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5";
+import {
+  SIDEBAR_PRIMARY_CTA_CLASS,
+  SIDEBAR_PRIMARY_HEADER_CLASS,
+  TASK_ROW_ACTION_CLASS,
+} from "@/components/ui/sidebar-chrome";
+
 const TASK_CONTEXT_MENU_CLASS =
   "fixed z-[100] min-w-[11.5rem] overflow-hidden rounded-2xl border border-dls-border/70 bg-dls-surface-solid p-1.5 text-sm text-dls-text shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.45)]";
 const TASK_CONTEXT_MENU_ITEM_CLASS =
@@ -189,12 +192,12 @@ export function AutomationNavSidebar(props: {
         className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
         style={{ width: props.width }}
       >
-        <div className="flex shrink-0 flex-col px-3 pb-2 pt-3.5">
+        <div className={cn(SIDEBAR_PRIMARY_HEADER_CLASS, "px-3")}>
           <Button
             type="button"
             variant="outline"
-            size="default"
-            className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
+            size="sidebar-cta"
+            className={SIDEBAR_PRIMARY_CTA_CLASS}
             onClick={props.onCreate}
           >
             <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
@@ -202,7 +205,7 @@ export function AutomationNavSidebar(props: {
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-1">
           <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
             {items.map((item) => {
               const Icon = item.icon;
@@ -217,16 +220,16 @@ export function AutomationNavSidebar(props: {
                     "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors",
                     active
                       ? "bg-dls-list-selected font-medium text-dls-text"
-                      : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                      : "text-dls-text hover:bg-dls-hover",
                   )}
                 >
-                  <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
+                  <Icon className="size-4 shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {typeof item.count === "number" ? (
                     <span
                       className={cn(
                         "tabular-nums text-xs font-medium",
-                        active ? "opacity-70" : "text-dls-secondary",
+                        active ? "opacity-70" : "text-dls-text",
                       )}
                     >
                       {item.count}
@@ -239,7 +242,7 @@ export function AutomationNavSidebar(props: {
 
           {groups.length > 0 ? (
             <div className="mt-4">
-              <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
+              <div className="px-2 pb-1.5 pt-1 text-2xs font-semibold uppercase tracking-wide text-dls-secondary">
                 {t("automation.tab_tasks")}
               </div>
               <div className="flex flex-col gap-0.5">
@@ -372,14 +375,14 @@ function AutomationNavSessionRowView(props: {
           "group flex w-full cursor-pointer items-center gap-1 rounded-xl py-1 pl-7 pr-1.5 text-left text-sm transition-colors",
           props.selected
             ? "bg-dls-list-selected font-medium text-dls-text"
-            : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+            : "text-dls-text hover:bg-dls-hover",
           menuOpen && "bg-dls-list-hover text-dls-text",
         )}
       >
         <span className="min-w-0 flex-1 truncate">{props.session.title}</span>
         <span
           className={cn(
-            "shrink-0 tabular-nums text-[11px] text-dls-secondary group-hover:hidden",
+            "shrink-0 tabular-nums text-2xs text-dls-secondary group-hover:hidden",
             menuOpen && "hidden",
           )}
         >
@@ -398,7 +401,7 @@ function AutomationNavSessionRowView(props: {
               <button
                 ref={anchorRef}
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -428,7 +431,7 @@ function AutomationNavSessionRowView(props: {
                     TASK_ROW_ACTION_CLASS,
                     props.session.pinned
                       ? "text-dls-accent hover:text-dls-accent"
-                      : "text-dls-text/50",
+                      : "text-dls-secondary",
                   )}
                   aria-label={
                     props.session.pinned
@@ -456,7 +459,7 @@ function AutomationNavSessionRowView(props: {
               <IconHoverTip label={t("session.archive_task")}>
                 <button
                   type="button"
-                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  className={TASK_ROW_ACTION_CLASS}
                   aria-label={t("session.archive_task")}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -632,7 +635,7 @@ function AutomationNavGroupHeader(props: {
             />
           )}
           <CalendarClock
-            className="size-3.5 shrink-0 text-dls-text/55"
+            className="size-3.5 shrink-0 text-dls-secondary"
             strokeWidth={1.6}
             aria-hidden
           />
@@ -651,7 +654,7 @@ function AutomationNavGroupHeader(props: {
               <button
                 ref={anchorRef}
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -680,7 +683,7 @@ function AutomationNavGroupHeader(props: {
                   TASK_ROW_ACTION_CLASS,
                   props.pinned
                     ? "text-dls-accent hover:text-dls-accent"
-                    : "text-dls-text/50",
+                    : "text-dls-secondary",
                 )}
                 aria-label={
                   props.pinned ? t("session.unpin") : t("session.pin")
@@ -703,7 +706,7 @@ function AutomationNavGroupHeader(props: {
             <IconHoverTip label={t("session.archive_task")}>
               <button
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.archive_task")}
                 onClick={(event) => {
                   event.stopPropagation();

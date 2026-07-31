@@ -14,7 +14,6 @@ import {
   ChannelsRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
-  ManageRailIcon,
   StoreRailIcon,
 } from "./primary-rail-icons";
 
@@ -54,15 +53,14 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Automation → Files → Store → Manage
-// Local agents live under the account/settings menu (above language/theme).
+// Order: Home → Experts → Automation → Files → Store
+// Local agents + agent management live under the account/settings menu.
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
   { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
-  { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
 ];
 
 // Bottom strip: channels only (devices entry removed — settings stays via account gear).
@@ -136,10 +134,10 @@ export function OnMyAgentRail(props: {
   onOpenBilling?: () => void;
 }) {
   // pt-14 only on macOS (traffic lights / hidden titlebar). Windows keeps compact top padding.
-  // Column 68px; free-float chips are w-12 so side air stays even.
+  // Column = --dls-rail-width; free-float chips = --dls-rail-pill-width.
   // Single soft right edge only — avoid double seam next to the list panel.
   return (
-    <aside className="flex w-[68px] shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
+    <aside className="flex w-rail shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
       <div className="flex min-h-0 w-full flex-1 flex-col items-center">
         <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TOP_RAIL_ITEMS.map((item) => (
@@ -165,6 +163,7 @@ export function OnMyAgentRail(props: {
           compact
           account={props.account || undefined}
           onOpenLocalAgent={() => props.onOpenView("localAgent")}
+          onOpenAgentManagement={() => props.onOpenView("agentManagement")}
           onOpenSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenBilling={props.onOpenBilling}

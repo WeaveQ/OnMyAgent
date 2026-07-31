@@ -34,7 +34,9 @@ describe("assistant task context menu contract", () => {
     expect(item).toContain("TASK_CONTEXT_MENU_CLASS");
     expect(item).toContain("TASK_CONTEXT_MENU_SEPARATOR_CLASS");
     expect(item).toContain('data-task-context-menu="true"');
-    expect(item).toContain("align=\"start\"");
+    // Shared row-action chrome (single source in sidebar-chrome).
+    expect(item).toContain("TASK_ROW_ACTION_CLASS");
+    expect(item).toContain('from "@/components/ui/sidebar-chrome"');
 
     // Forbidden product actions for this goal (menu labels / i18n keys only)
     expect(item).not.toMatch(/session\.share/i);
@@ -43,21 +45,21 @@ describe("assistant task context menu contract", () => {
     expect(item).not.toContain("分享");
     expect(item).not.toContain("导出");
 
-    // Expert strip shares chrome
+    // Expert strip shares chrome (delete key is agent-tab specific)
     expect(tabs).toContain("TASK_CONTEXT_MENU_CLASS");
     expect(tabs).toContain("TASK_CONTEXT_MENU_SEPARATOR_CLASS");
-    expect(tabs).toContain('t("session.delete_task")');
+    expect(tabs).toContain('t("session.agent_tab_delete")');
 
     // Panel wires archive + open folder + filters archived from main list
     expect(panel).toContain("handleArchiveAssistantSession");
     expect(panel).toContain("handleOpenFolder");
-    expect(panel).toContain("filterGroupsExcludingArchived");
+    expect(panel).toContain("archivedSessionIdSet");
     expect(panel).toContain("revealDesktopItemInDir");
 
     // Settings restore / permanent delete for assistant archives
     expect(settings).toContain("restoreAssistantArchivedTask");
     expect(settings).toContain("permanentlyRemoveAssistantArchivedTask");
-    expect(settings).toContain("data-assistant-archived-list");
+    expect(settings).toContain('data-archived-task-list="true"');
     expect(settings).toContain("deleteSession");
   });
 });

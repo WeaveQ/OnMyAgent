@@ -17,11 +17,11 @@ import {
   Folder,
   FolderOpen,
   Maximize2,
-  MessageCirclePlus,
   Minimize2,
   MoreHorizontal,
   Pin,
   PinOff,
+  Plus,
   Trash2,
 } from "lucide-react";
 
@@ -94,8 +94,11 @@ const FOLDER_TASK_PREVIEW_LIMIT = 5;
 /**
  * Unified sidebar row rhythm (section / folder / task / show-more).
  * Strict fixed height so Chinese text, icons, and hover actions never drift.
+ * 34px = prior h-8 (32) + 2px block height (not inter-row gap).
  */
-const LIST_ROW_H = "h-8 min-h-8 max-h-8";
+const LIST_ROW_H = "h-[34px] min-h-[34px] max-h-[34px]";
+/** Inter-row gap unchanged (2px). */
+const LIST_STACK_GAP = "gap-0.5";
 const LIST_ROW_CLASS = cn(
   "flex w-full shrink-0 items-center overflow-hidden rounded-md px-2",
   "text-sm font-normal leading-none",
@@ -163,7 +166,7 @@ function AssistantListEmptyState(props: { label: string }) {
     <div
       className={cn(
         LIST_ROW_CLASS,
-        "px-2 text-xs text-dls-secondary/70",
+        "px-2 text-xs text-dls-text-tertiary",
       )}
       data-assistant-list-empty="true"
     >
@@ -329,7 +332,7 @@ function SpaceFolderDragList(props: {
 
   return (
     <div
-      className="flex flex-col gap-0.5"
+      className={cn("flex flex-col", LIST_STACK_GAP)}
       onDragLeave={(event) => {
         if (event.currentTarget.contains(event.relatedTarget as Node)) return;
         setDropSlot(null);
@@ -350,7 +353,8 @@ function SpaceFolderDragList(props: {
             */}
             <div
               className={cn(
-                "relative flex flex-col gap-0.5",
+                "relative flex flex-col",
+                LIST_STACK_GAP,
                 isDragging && "opacity-40",
               )}
               onDragOver={(event) => {
@@ -483,7 +487,7 @@ function SectionHeader(props: {
     <div
       className={cn(
         LIST_ROW_CLASS,
-        "group/section gap-0.5 text-dls-secondary/80",
+        "group/section gap-0.5 text-dls-secondary",
       )}
       data-assistant-section-header="true"
     >
@@ -504,13 +508,13 @@ function SectionHeader(props: {
         </span>
         {props.expanded ? (
           <ChevronDown
-            className="size-3 shrink-0 opacity-40"
+            className="size-3 shrink-0 text-dls-secondary"
             strokeWidth={2}
             aria-hidden
           />
         ) : (
           <ChevronRight
-            className="size-3 shrink-0 opacity-40"
+            className="size-3 shrink-0 text-dls-secondary"
             strokeWidth={2}
             aria-hidden
           />
@@ -563,13 +567,13 @@ function FolderRowShell(props: {
           <span className="min-w-0 truncate leading-none">{props.title}</span>
           {props.expanded ? (
             <ChevronDown
-              className="size-3 shrink-0 text-dls-text/40"
+              className="size-3 shrink-0 text-dls-secondary"
               strokeWidth={2}
               aria-hidden
             />
           ) : (
             <ChevronRight
-              className="size-3 shrink-0 text-dls-text/40"
+              className="size-3 shrink-0 text-dls-secondary"
               strokeWidth={2}
               aria-hidden
             />
@@ -646,7 +650,7 @@ function SpaceDirectoryRow(props: {
         className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
         icon={
           <Folder
-            className="size-3.5 shrink-0 text-dls-text/55"
+            className="size-3.5 shrink-0 text-dls-secondary"
             strokeWidth={1.6}
           />
         }
@@ -662,7 +666,7 @@ function SpaceDirectoryRow(props: {
               <button
                 ref={anchorRef}
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -684,7 +688,7 @@ function SpaceDirectoryRow(props: {
               <IconHoverTip label={t("session.new_task_in_space")}>
                 <button
                   type="button"
-                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  className={TASK_ROW_ACTION_CLASS}
                   aria-label={t("session.new_task_in_space")}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -692,7 +696,7 @@ function SpaceDirectoryRow(props: {
                     props.onCreateTask?.(props.directory);
                   }}
                 >
-                  <MessageCirclePlus strokeWidth={1.75} />
+                  <Plus strokeWidth={1.75} />
                 </button>
               </IconHoverTip>
             ) : null}
@@ -700,7 +704,7 @@ function SpaceDirectoryRow(props: {
               <IconHoverTip label={t("session.archive_space")}>
                 <button
                   type="button"
-                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
+                  className={TASK_ROW_ARCHIVE_CHIP_CLASS}
                   aria-label={t("session.archive_space")}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -852,7 +856,7 @@ function FolderTaskShowMore(props: {
 
 /** Nested task list under a folder — no extra py so row heights stay even. */
 function FolderChildren(props: { children: ReactNode }) {
-  return <div className="ml-5 flex flex-col gap-0.5">{props.children}</div>;
+  return <div className={cn("ml-5 flex flex-col", LIST_STACK_GAP)}>{props.children}</div>;
 }
 
 export function AssistantConversationSections(
@@ -1118,7 +1122,7 @@ export function AssistantConversationSections(
     return (
       <div
         key={`pin-folder:${pin.id}`}
-        className={cn("flex flex-col gap-0.5", isDragging && "opacity-40")}
+        className={cn("flex flex-col", LIST_STACK_GAP, isDragging && "opacity-40")}
         onDragOver={surface.onDragOver}
         onDrop={surface.onDrop}
       >
@@ -1183,14 +1187,14 @@ export function AssistantConversationSections(
   return (
     <TooltipProvider delay={200}>
       <div
-        className="mt-1 flex flex-col gap-0.5 pt-1"
+        className={cn("mt-1 flex flex-col pt-1", LIST_STACK_GAP)}
         data-assistant-task-list="true"
       >
         {/* Global pins — sessions + folders; Codex-style drag insert line */}
         {pinnedCount > 0 ? (
           <div
             data-assistant-section="pinned"
-            className="flex flex-col gap-0.5"
+            className={cn("flex flex-col", LIST_STACK_GAP)}
           >
             <SectionHeader
               label={t("session.pinned_section")}
@@ -1200,7 +1204,7 @@ export function AssistantConversationSections(
             />
             {expandedSections.pinned ? (
               <div
-                className="flex flex-col gap-0.5 pb-1"
+                className={cn("flex flex-col pb-1", LIST_STACK_GAP)}
                 onDragLeave={(event) => {
                   if (
                     event.currentTarget.contains(event.relatedTarget as Node)
@@ -1227,7 +1231,7 @@ export function AssistantConversationSections(
         ) : null}
 
         {/* Recent — unpinned non-space sessions (single list; no separate tasks) */}
-        <div data-assistant-section="recent" className="flex flex-col gap-0.5">
+        <div data-assistant-section="recent" className={cn("flex flex-col", LIST_STACK_GAP)}>
           <SectionHeader
             label={t("session.recent_section")}
             expanded={expandedSections.recent}
@@ -1235,7 +1239,7 @@ export function AssistantConversationSections(
             quiet
           />
           {expandedSections.recent ? (
-            <div className="flex flex-col gap-0.5 pb-1">
+            <div className={cn("flex flex-col pb-1", LIST_STACK_GAP)}>
               {recentCount === 0 ? (
                 <AssistantListEmptyState label={emptyTasksLabel} />
               ) : (
@@ -1269,7 +1273,7 @@ export function AssistantConversationSections(
         </div>
 
         {/* Spaces — folders not in global pins */}
-        <div data-assistant-section="spaces" className="flex flex-col gap-0.5">
+        <div data-assistant-section="spaces" className={cn("flex flex-col", LIST_STACK_GAP)}>
           <SectionHeader
             label={t("session.task_filter_space_tasks")}
             expanded={expandedSections.spaces}
@@ -1324,7 +1328,7 @@ export function AssistantConversationSections(
             }
           />
           {expandedSections.spaces ? (
-            <div className="flex flex-col gap-0.5 pb-1">
+            <div className={cn("flex flex-col pb-1", LIST_STACK_GAP)}>
               {spaceDirectoryCount === 0 ? (
                 <AssistantListEmptyState label={t("session.no_space_tasks")} />
               ) : (

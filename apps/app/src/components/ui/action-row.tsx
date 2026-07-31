@@ -37,10 +37,13 @@ const navTabButtonVariants = cva(
   {
     variants: {
       active: {
-        // Both themes: high-contrast inverted pill so free-float header tabs stay readable.
-        true: "bg-dls-text text-dls-background shadow-none [&_svg]:opacity-100",
+        // Selected free-float pill: always dark surface + pure white label/icon
+        // (light uses primary ink fill; dark uses elevated solid so white stays readable).
+        // Idle uses primary ink (not slate secondary).
+        true:
+          "bg-dls-text text-white shadow-none dark:bg-dls-surface-solid dark:text-white dark:ring-1 dark:ring-white/12 [&_svg]:text-white dark:[&_svg]:text-white",
         false:
-          "bg-transparent text-dls-secondary hover:bg-dls-hover/70 hover:text-dls-text [&_svg]:opacity-90",
+          "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:text-current",
       },
       size: {
         // ~+2px horizontal padding vs prior px-* for a less tight pill.
@@ -221,15 +224,14 @@ const railButtonVariants = cva(
   {
     variants: {
       active: {
-        // Free-float pill: light lifts with surface; dark uses rail-active
-        // (stronger than surface-on-rail). No shadow-sm — muddy fringe on glass.
-        true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active",
-        false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text",
+        // Free-float selected: dedicated pill-active (white light / lifted dark /
+        // frosted glass) — not rail-active sidebar wash (reads black on glass).
+        true: "bg-dls-rail-pill-active text-dls-text",
+        false: "text-dls-text hover:bg-dls-rail-pill-hover",
       },
       size: {
-        // Free-float chip: 48px wide (was 56) so the active pill reads slimmer
-        // in the 68px rail. Fixed width so every top item matches.
-        top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
+        // Free-float chip: --dls-rail-pill-width (48) inside --dls-rail-width (68).
+        top: "w-rail-pill gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
         bottom: "size-9 gap-0.5 rounded-2xl text-2xs",
       },
     },
@@ -265,6 +267,8 @@ const sessionRowButtonVariants = cva(
       },
       size: {
         conversation: "flex h-[68px] items-center gap-3 px-4",
+        // Expert sidebar list — roomy avatar + two-line title/subtitle.
+        expert: "flex h-16 items-center gap-3 rounded-xl px-2.5 py-1",
         // Agent session strip: solid chip (contrast vs outline "+ 新会话"); radius matches search.
         tab: "flex h-7 w-[116px] items-center gap-1 rounded-md border-0 px-3 pr-7 text-xs",
       },
@@ -286,6 +290,11 @@ const sessionRowButtonVariants = cva(
         // Soft solid chip when idle — still distinct from outline "new session" action.
         className:
           "bg-dls-surface-muted/70 text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
+      },
+      {
+        size: "expert",
+        active: true,
+        className: "bg-dls-list-selected font-medium text-dls-text shadow-none",
       },
     ],
     defaultVariants: {

@@ -137,7 +137,6 @@ export default {
   "local_agent.tips_ownership_provider": "Provider",
   "local_agent.tips_ownership_platform": "Platform",
   "local_agent.calling": "Calling the local agent...",
-  "local_agent.search": "Search local agents...",
   "local_agent.add": "Add local agent",
   "local_agent.redetect": "Detect local agents again",
   "local_agent.redetect_success": "Local agents updated",
