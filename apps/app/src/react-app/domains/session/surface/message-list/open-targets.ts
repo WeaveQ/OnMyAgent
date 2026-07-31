@@ -18,6 +18,32 @@ function normalizePathKey(path: string) {
   return path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
 }
 
+/** Agent helper scripts — never show as session deliverable cards. */
+const INTERMEDIATE_SCRIPT_EXTENSIONS = new Set([
+  ".cjs",
+  ".mjs",
+  ".js",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".py",
+  ".sh",
+  ".bash",
+  ".zsh",
+  ".rb",
+  ".pl",
+  ".ps1",
+  ".cmd",
+  ".bat",
+]);
+
+function isIntermediateAgentScript(path: string): boolean {
+  const base = basenameOf(path).toLowerCase();
+  const dot = base.lastIndexOf(".");
+  if (dot < 0) return false;
+  return INTERMEDIATE_SCRIPT_EXTENSIONS.has(base.slice(dot));
+}
+
 /** Basenames from user message file parts (composer attachments). */
 function userAttachmentBasenames(messages: UIMessage[]): Set<string> {
   const names = new Set<string>();
@@ -97,12 +123,14 @@ export function selectTurnOpenTargets(
 
   const addVerifiedFile = (candidatePath: string, candidate?: OpenTarget) => {
     if (isBlockedUserPath(candidatePath, userBasenames)) return;
+    if (isIntermediateAgentScript(candidatePath)) return;
     const verified = findVerifiedFile(candidatePath, verifiedById, verifiedFiles)
       ?? (candidate && isCollectibleArtifactTarget({ ...candidate, exists: true })
         ? { ...candidate, exists: true as const }
         : undefined);
     if (!verified || !isCollectibleArtifactTarget(verified)) return;
     if (isBlockedUserPath(verified.value, userBasenames)) return;
+    if (isIntermediateAgentScript(verified.value)) return;
     inlineTargets.set(verified.id, verified);
   };
 
