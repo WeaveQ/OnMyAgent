@@ -553,10 +553,14 @@ function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
   }
   const blob = `${command}\n${out}`;
   return (
-    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|toFile|fs\.write|saveAs|saveas)\b/i.test(
+    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|xlsxwriter|openpyxl|to_excel|toFile|fs\.write|saveAs|saveas)\b/i.test(
       blob,
     )
-    || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
+    // Common CLI/script out flags when paired with a content extension.
+    || /(?:^|[\s])(?:--out(?:put)?|-o)(?:\s+|=)["']?[^"'\s]+\.(?:xlsx|xlsm|xls|csv|tsv|docx|pdf|pptx|html|md|png|zip)\b/i.test(
+      command,
+    )
+    || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为|输出文件)\b/i.test(out)
   );
 }
 
@@ -724,6 +728,13 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
             90,
             "shell write metadata",
           );
+          const commandText = shellCommandText(part.input);
+          if (commandText) {
+            // Paths often only appear in args (to_excel('a.xlsx'), --output b.csv).
+            scanText(targets, commandText, 88, "shell write command", {
+              includeFiles: true,
+            });
+          }
           const outText = shellOutputText(part.output);
           if (outText) {
             scanText(targets, outText, 90, "shell write output", {

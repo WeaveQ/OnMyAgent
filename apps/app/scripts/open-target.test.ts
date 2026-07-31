@@ -840,6 +840,27 @@ describe("deriveOpenTargets", () => {
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
   });
 
+  it("detects pandas/openpyxl shell writes as deliverable provenance", () => {
+    const messages = [
+      toolMessage(
+        "msg_shell",
+        "bash",
+        {
+          command:
+            'python3 -c "import pandas as pd; df.to_excel(\'实时运力与在途轨迹.xlsx\')"',
+        },
+        "wrote workbook\n",
+      ),
+      message("msg_final", "assistant", "表已写好。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("实时运力与在途轨迹.xlsx", "sheet"), exists: true, size: 9_000 },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["实时运力与在途轨迹.xlsx"]);
+  });
+
   it("hides intermediate oma-summary.json and tmp JSON from product cards", () => {
     const messages = [
       toolMessage(
