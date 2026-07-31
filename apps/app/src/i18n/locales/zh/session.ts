@@ -48,7 +48,7 @@ export default {
   "session.expert_self_intro_prompt_title": "了解我的能力",
   "session.expert_self_intro_prompt_description": "介绍能力、适用场景和使用方法",
   "session.expert_self_intro_prompt": "请介绍你具备什么能力、适合哪些业务场景，以及我该怎么使用（需要提供什么资料、可以得到什么结果）。",
-  "session.logistics_expert_self_intro_prompt": "请像物流部新同事第一次见面一样，用自然的三小段介绍你自己：先问好并说明你是谁、最擅长什么；再用“无论是……”通俗概括你能帮忙处理的事情；最后问我今天有什么相关工作需要处理。直接在对话里回复，然后等我交代具体事情。",
+  "session.logistics_expert_self_intro_prompt": "介绍一下你自己，你能帮我做什么？",
   "session.try_ask_expert": "试试这样问我",
   "session.summon": "召唤",
   "session.summon_expert": "召唤 {name}",

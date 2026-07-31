@@ -61,22 +61,30 @@ describe("shared agent prompt suggestions contract", () => {
     );
     expect(zh).toContain("介绍能力、适用场景和使用方法");
     expect(zh).toContain("具备什么能力、适合哪些业务场景");
-    expect(zh).toContain("像物流部新同事第一次见面一样");
-    expect(zh).toContain("直接在对话里回复");
+    expect(zh).toContain(
+      '"session.logistics_expert_self_intro_prompt": "介绍一下你自己，你能帮我做什么？"',
+    );
+    expect(zh).not.toContain("像物流部新同事第一次见面一样");
     expect(zh).not.toContain("不要生成表格");
     expect(zhTw).toContain(
       '"session.expert_self_intro_prompt_title": "瞭解我的能力"',
     );
     expect(zhTw).toContain("介紹能力、適用場景和使用方法");
     expect(zhTw).toContain("具備什麼能力、適合哪些業務場景");
-    expect(zhTw).toContain("像物流部新同事第一次見面一樣");
+    expect(zhTw).toContain(
+      '"session.logistics_expert_self_intro_prompt": "介紹一下你自己，你能幫我做什麼？"',
+    );
+    expect(zhTw).not.toContain("像物流部新同事第一次見面一樣");
     expect(zhTw).not.toContain("不要生成表格");
     expect(en).toContain(
       '"session.expert_self_intro_prompt_title": "Explore my capabilities"',
     );
     expect(en).toContain("Capabilities, use cases, and how to get started");
     expect(en).toContain("what you can do, when to use each capability");
-    expect(en).toContain("like a new teammate in the logistics department");
+    expect(en).toContain(
+      '"session.logistics_expert_self_intro_prompt": "Introduce yourself — what can you help me with?"',
+    );
+    expect(en).not.toContain("like a new teammate in the logistics department");
     expect(en).not.toContain("Do not generate tables");
   });
 });
