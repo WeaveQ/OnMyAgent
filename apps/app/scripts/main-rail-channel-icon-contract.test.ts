@@ -44,9 +44,14 @@ describe("main rail channel icon contract", () => {
     expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
     expect(iconSource).not.toContain('fill="currentColor"');
 
-    // Free-float selected pill: surface on light; rail-active on dark (no shadow-sm).
+    // Top free-float: surface on light; rail-active on dark (no shadow-sm).
     expect(primitiveSource).toContain(
       'true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active"',
+    );
+    // Bottom strip active never uses bright surface (white disk on glass).
+    expect(primitiveSource).toContain('size: "bottom"');
+    expect(primitiveSource).toContain(
+      "bg-dls-rail-active text-dls-text shadow-none dark:bg-dls-rail-active",
     );
     // Idle uses primary ink; hover uses named rail-pill-hover token.
     expect(primitiveSource).toContain(
