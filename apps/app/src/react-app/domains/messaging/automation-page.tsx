@@ -99,7 +99,6 @@ import {
   groupCompletedRunsByDay,
   partitionAutomationTasks,
   resolvePostRunStatusTab,
-  resolveRunDayLabel,
   shouldShowAutomationListLoading,
   shouldShowAutomationTemplates,
   type CompletedRunEntry,
