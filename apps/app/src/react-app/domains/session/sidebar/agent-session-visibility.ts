@@ -5,27 +5,6 @@ export type VisibleAgentSessionEntry = {
   agentId: string;
 };
 
-/**
- * Local-only inject from agent↔session index before inventory arrives, or a
- * dead binding that never existed on the server. Empty title + no timestamps.
- * Tab chrome shows “加载中…” for these and send/snapshot cannot work.
- */
-export function isPlaceholderExpertSession(session: {
-  id: string;
-  title?: string | null;
-  time?: { created?: number | null; updated?: number | null } | null;
-}): boolean {
-  if (session.id.startsWith("draft:")) return false;
-  const title = session.title?.trim() ?? "";
-  if (title) return false;
-  const created = session.time?.created;
-  const updated = session.time?.updated;
-  const hasTime =
-    (typeof created === "number" && Number.isFinite(created)) ||
-    (typeof updated === "number" && Number.isFinite(updated));
-  return !hasTime;
-}
-
 export function ensureSelectedAgentSessionVisible(input: {
   sessions: WorkspaceSessionGroup["sessions"];
   selectedSessionId: string | null;

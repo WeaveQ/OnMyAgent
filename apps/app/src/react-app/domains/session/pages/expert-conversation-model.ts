@@ -16,12 +16,11 @@ import {
   ensureAgentSessionsVisible,
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
-  isPlaceholderExpertSession,
   type AgentConversationGroup,
 } from "../sidebar/session-chrome";
 import { findBuiltinMarketplaceExpertById } from "../expert-marketplace/data";
 
-export { buildAgentConversationGroups, isPlaceholderExpertSession };
+export { buildAgentConversationGroups };
 
 export function selectRawWorkspaceSessions(
   groups: WorkspaceSessionGroup[],
@@ -114,8 +113,6 @@ export function buildCurrentAgentSessions(input: {
   selectedWorkspaceId: string;
   draftSessionActive: boolean;
   activeDraftSessionId: string | null;
-  /** Keep a just-created session chip visible before inventory fills time/title. */
-  pendingSessionId?: string | null;
 }): SidebarSessionItem[] {
   let sessions: SidebarSessionItem[];
   if (!input.activeConversationAgentId) {
@@ -130,13 +127,6 @@ export function buildCurrentAgentSessions(input: {
           input.activeConversationAgentId && isExpertSession(session.id),
     );
   }
-  // Drop ghost injects ("加载中…") so tabs only show real inventory sessions.
-  // Keep pending create id so the handoff chip does not flash away.
-  const pendingId = input.pendingSessionId?.trim() ?? "";
-  sessions = sessions.filter(
-    (session) =>
-      !isPlaceholderExpertSession(session) || session.id === pendingId,
-  );
   if (input.draftSessionActive) {
     return [
       {
