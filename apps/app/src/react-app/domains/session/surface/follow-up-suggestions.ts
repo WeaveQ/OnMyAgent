@@ -12,8 +12,26 @@ const MAX_SUGGESTIONS = 4;
 const MIN_LABEL_LEN = 2;
 const MAX_LABEL_LEN = 48;
 
-export function stripFollowUpMarkers(text: string): string {
+/**
+ * Standalone "文件路径：xxx.xlsx" lines are redundant with the product-card strip.
+ * Keep them out of the bubble; open-target may still scan raw message text.
+ */
+function isDeclaredDeliverablePathLine(line: string): boolean {
+  return /^(?:文件路径|File path)\s*[:：]\s*\S+\s*$/iu.test(line.trim());
+}
+
+export function stripDeclaredDeliverablePathLines(text: string): string {
+  if (!text) return text;
   return text
+    .split("\n")
+    .filter((line) => !isDeclaredDeliverablePathLine(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+}
+
+export function stripFollowUpMarkers(text: string): string {
+  return stripDeclaredDeliverablePathLines(text)
     .replace(FOLLOWUPS_FENCE_RE, "\n")
     .replace(FOLLOWUPS_COMMENT_RE, "")
     .replace(/\n{3,}/g, "\n\n")

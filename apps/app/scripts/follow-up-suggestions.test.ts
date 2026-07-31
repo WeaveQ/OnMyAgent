@@ -24,6 +24,20 @@ describe("follow-up suggestions", () => {
     expect(stripFollowUpMarkers(text)).toBe("这票信息基本齐了。");
   });
 
+  test("strips standalone 文件路径 lines redundant with product cards", () => {
+    const text = [
+      "两个 sheet 已分别提取成单独文件。",
+      "",
+      "文件路径：发货需求.xlsx",
+      "文件路径：报价补充.xlsx",
+      "",
+      "表里关键信息就是这些。",
+    ].join("\n");
+    expect(stripFollowUpMarkers(text)).toBe(
+      "两个 sheet 已分别提取成单独文件。\n\n表里关键信息就是这些。",
+    );
+  });
+
   test("parses html comment markers", () => {
     const text = "结论如下。\n<!-- followups\n- 导出成 Excel\n- 再核对订单\n-->";
     expect(parseFollowUpMarkers(text)).toEqual([
