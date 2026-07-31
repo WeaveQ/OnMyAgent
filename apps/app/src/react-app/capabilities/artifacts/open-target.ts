@@ -74,34 +74,24 @@ const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>([
   "text",
 ]);
 const DISCOVERY_TOOL_NAMES = new Set(["glob", "grep", "search", "find"]);
-/** Intentional file editors — stdout/metadata may name deliverables. */
 const WRITE_TOOL_NAMES = new Set([
   "apply_patch",
+  "bash",
   "edit",
   "edit_file",
+  "execute",
   "multi_edit",
   "multiedit",
   "patch",
+  "run_terminal_cmd",
+  "shell",
   "str_replace_editor",
   "write",
   "write_file",
 ]);
-/**
- * Shell/run tools often print paths they only read or discovered (find, ls,
- * glob). Free-text path extraction from their stdout must not mint artifact
- * cards — that incorrectly surfaces user uploads mid-turn.
- */
-const SHELL_TOOL_NAMES = new Set([
-  "bash",
-  "execute",
-  "run_terminal_cmd",
-  "shell",
-]);
 const FILE_METADATA_KEYS = ["path", "file", "filePath", "filepath"];
 const PATCH_FILE_PATTERN = /^\*\*\* (?:Add File|Update File):\s*(.+)$/gmi;
 const PATCH_MOVE_TO_PATTERN = /^\*\*\* Move to:\s*(.+)$/gmi;
-/** Session inbox uploads: `{timestampMs}-{index}-{originalName}`. */
-const INBOX_UPLOAD_BASENAME_PATTERN = /^\d{10,}-\d+-.+/;
 
 type DeriveOpenTargetsOptions = {
   includeFileMentions?: boolean;
@@ -409,81 +399,6 @@ function isWriteTool(toolName: string) {
   return WRITE_TOOL_NAMES.has(normalizedToolName(toolName));
 }
 
-function isShellTool(toolName: string) {
-  return SHELL_TOOL_NAMES.has(normalizedToolName(toolName));
-}
-
-function shellCommandText(input: unknown): string {
-  if (typeof input === "string") return input;
-  if (!isObject(input)) return "";
-  for (const key of ["command", "cmd", "script", "code"]) {
-    const value = input[key];
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  return "";
-}
-
-/**
- * True when a shell tool likely *wrote* a deliverable (node/python scripts),
- * not merely listed/found files (find/ls/glob).
- */
-export function shellToolLooksLikeWrite(input: unknown, output: unknown): boolean {
-  const command = shellCommandText(input);
-  const out = typeof output === "string" ? output : "";
-  const blob = `${command}\n${out}`;
-  if (
-    /\b(find|ls|glob|rg|grep|cat|head|tail|stat|file|mdfind)\b/i.test(command) &&
-    !/\b(writeFile|write_file|XLSX\.write|exceljs|toFile|fs\.write|>>?|tee)\b/i.test(command)
-  ) {
-    return false;
-  }
-  return (
-    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|toFile|fs\.write|saveAs|saveas)\b/i.test(
-      blob,
-    ) ||
-    /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
-  );
-}
-
-/** True for paths that look like session user-upload inbox copies, not agent deliverables. */
-export function isLikelyUserUploadArtifactPath(value: string): boolean {
-  const normalized = normalizePath(value);
-  if (!normalized) return false;
-  if (/(^|\/)\.opencode\/onmyagent\/inbox(\/|$)/i.test(normalized)) return true;
-  if (/(^|\/)inbox\//i.test(normalized) && INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized))) {
-    return true;
-  }
-  return INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized));
-}
-
-/**
- * Paths the assistant explicitly presents as deliverables in prose
- * (e.g. "文件路径：发货需求与报价补充.xlsx").
- */
-export function extractDeclaredDeliverablePaths(text: string): string[] {
-  if (!text.trim()) return [];
-  const paths: string[] = [];
-  const patterns = [
-    /文件路径\s*[:：]\s*[`「"'“]?([^\s`」"'”]+)[`」"'”]?/gi,
-    /(?:已生成|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
-    /(?:Created|Wrote|Saved)\s+[`"'“]?([^\s`"'”]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
-  ];
-  for (const pattern of patterns) {
-    pattern.lastIndex = 0;
-    for (const match of text.matchAll(pattern)) {
-      const raw = (match[1] ?? "")
-        .trim()
-        // "发货需求与报价补充.xlsx（工作目录根下）"
-        .replace(/[（(].*$/u, "")
-        .replace(/[，。；;）)\s]+$/gu, "");
-      if (!raw || !/\.[a-z][a-z0-9]{0,9}$/i.test(raw)) continue;
-      if (isLikelyUserUploadArtifactPath(raw)) continue;
-      paths.push(raw);
-    }
-  }
-  return paths;
-}
-
 function collectFileMetadataValues(value: unknown) {
   if (!isObject(value)) return [];
   const values: string[] = [];
@@ -540,7 +455,6 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
 
       const discoveryTool = isDiscoveryTool(part.toolName);
       const writeTool = isWriteTool(part.toolName);
-      const shellTool = isShellTool(part.toolName);
 
       if (writeTool) {
         addFileValues(
@@ -553,23 +467,9 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
         if (typeof part.output === "string") {
           scanText(targets, part.output, 90, "write tool output", { includeFiles: true });
         }
-      } else if (shellTool) {
-        addFileValues(
-          targets,
-          [part.input, part.output].flatMap(collectFileMetadataValues),
-          90,
-          "shell tool metadata",
-        );
-        if (typeof part.output === "string") {
-          const wrote = shellToolLooksLikeWrite(part.input, part.output);
-          // Recover node/python script deliverables; never scrape pure find/ls listings.
-          scanText(targets, part.output, wrote ? 90 : 70, "shell tool output", {
-            includeFiles: wrote,
-          });
-        }
       }
 
-      if (!discoveryTool && !writeTool && !shellTool) {
+      if (!discoveryTool) {
         scanText(targets, JSON.stringify(part.output ?? part.input ?? ""), 75, "tool output", { includeFiles: false });
       }
     }
@@ -577,7 +477,6 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
 
   return Array.from(targets.values())
     .filter(isArtifactTarget)
-    .filter((target) => target.kind !== "file" || !isLikelyUserUploadArtifactPath(target.value))
     .sort((left, right) => right.confidence - left.confidence);
 }
 
