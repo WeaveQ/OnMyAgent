@@ -565,6 +565,35 @@ describe("deriveOpenTargets", () => {
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
   });
 
+  it("hides intermediate agent scripts like extract_sheets.cjs from the turn strip", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      toolMessage(
+        "msg_xlsx",
+        "write",
+        { filePath: "发货需求与报价补充.xlsx" },
+        { filePath: "发货需求与报价补充.xlsx" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "文件路径：发货需求与报价补充.xlsx",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+      { ...fileTarget("发货需求与报价补充.xlsx", "sheet"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["发货需求与报价补充.xlsx"]);
+  });
+
   it("drops inbox-style user upload basenames from derived targets", () => {
     const targets = deriveOpenTargets([
       toolMessage(
