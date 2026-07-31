@@ -21,7 +21,7 @@ import asset19 from "../../../../../../desktop/resources/marketplace/experts/plu
 import asset20 from "../../../../../../desktop/resources/marketplace/experts/plugins/fleet-management-specialist/avatars/expert.png?url";
 import asset21 from "../../../../../../desktop/resources/marketplace/experts/plugins/fortune-consultant/avatars/expert.png?url";
 import asset22 from "../../../../../../desktop/resources/marketplace/experts/plugins/frontend-developer/avatars/expert.png?url";
-import asset23 from "../../../../../../desktop/resources/marketplace/experts/plugins/fulfillment-specialist/avatars/expert.svg?url";
+import asset23 from "../../../../../../desktop/resources/marketplace/experts/plugins/fulfillment-specialist/avatars/expert.png?url";
 import asset24 from "../../../../../../desktop/resources/marketplace/experts/plugins/game-audio-engineer/avatars/expert.png?url";
 import asset25 from "../../../../../../desktop/resources/marketplace/experts/plugins/game-designer/avatars/expert.png?url";
 import asset26 from "../../../../../../desktop/resources/marketplace/experts/plugins/gaokao-advisor/avatars/gaokao-advisor.png?url";
