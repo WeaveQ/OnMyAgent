@@ -24,6 +24,17 @@ describe("follow-up suggestions", () => {
     expect(stripFollowUpMarkers(text)).toBe("这票信息基本齐了。");
   });
 
+
+  test("strips 已生成 foo.xlsx announcement lines redundant with product cards", () => {
+    const text = [
+      "已生成 **车辆与司机调度建议.xlsx**。5 辆车已提取成独立清单，每辆附调度建议和注意事项。",
+      "",
+      "关键发现：",
+      "今日可派 4 辆。",
+    ].join("\n");
+    expect(stripFollowUpMarkers(text)).toBe("关键发现：\n今日可派 4 辆。");
+  });
+
   test("strips standalone 文件路径 lines redundant with product cards", () => {
     const text = [
       "两个 sheet 已分别提取成单独文件。",

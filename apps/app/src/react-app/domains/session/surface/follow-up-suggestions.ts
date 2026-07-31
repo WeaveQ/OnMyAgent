@@ -20,14 +20,28 @@ function isDeclaredDeliverablePathLine(line: string): boolean {
   return /^(?:文件路径|File path)\s*[:：]\s*\S+\s*$/iu.test(line.trim());
 }
 
+/**
+ * "已生成 **foo.xlsx**。…" announcements without useful body — cards already show files.
+ * Strip whole lines that are primarily a generated-file claim.
+ */
+function isGeneratedFileClaimLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  // 已生成 车辆与司机调度建议.xlsx。… / 已生成 **foo.xlsx**
+  return (
+    /^(?:已生成|已写出|已导出)\s+/u.test(t)
+    && /\.(?:xlsx|xls|xlsm|csv|tsv|docx|doc|pdf|pptx|txt)\b/i.test(t)
+  );
+}
+
 export function stripDeclaredDeliverablePathLines(text: string): string {
   if (!text) return text;
   return text
     .split("\n")
-    .filter((line) => !isDeclaredDeliverablePathLine(line))
+    .filter((line) => !isDeclaredDeliverablePathLine(line) && !isGeneratedFileClaimLine(line))
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
+    .trim();
 }
 
 export function stripFollowUpMarkers(text: string): string {
