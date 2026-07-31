@@ -26,7 +26,33 @@ export default {
   "files.column_updated": "Updated",
   "files.current_workspace": "Current workspace",
   "files.description":
-    "Browse the workspace folder selected in OnMyAgent.",
+    "Browse files in the current workspace by how they were created.",
+  "files.source_uploads": "Uploads",
+  "files.source_task": "Task files",
+  "files.source_expert": "Expert files",
+  "files.source_uploads_desc":
+    "Files you imported into the workspace. Edits apply to the workspace copy, not the original on disk.",
+  "files.source_task_desc":
+    "Files from temporary tasks on Home. Provenance tagging is required before items appear here.",
+  "files.source_expert_desc":
+    "Files from expert sessions, grouped by expert. Provenance tagging is required before items appear here.",
+  "files.search_uploads_placeholder": "Search uploads",
+  "files.search_task_placeholder": "Search task files",
+  "files.search_expert_placeholder": "Search expert files",
+  "files.uploads_empty_title": "No uploads yet",
+  "files.uploads_empty_hint":
+    "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely.",
+  "files.task_empty_title": "No attributed task files yet",
+  "files.task_empty_hint":
+    "Outputs from Home temporary tasks will show here once write-time source tagging is enabled. Untagged history is not listed to avoid mis-bucketing.",
+  "files.expert_empty_title": "No attributed expert files yet",
+  "files.expert_empty_hint":
+    "Outputs from expert sessions will show here once write-time source tagging is enabled. Untagged history is not listed as expert files.",
+  "files.import_to_workspace": "Import to workspace",
+  "files.uploading": "Importing…",
+  "files.upload_copy_success":
+    "Saved a workspace copy. Edits in chat apply to that copy, not your original file.",
+  "files.upload_failed": "Could not import the file into the workspace",
   "files.no_tool_folder": "No workspace selected",
   "files.no_tool_folder_hint":
     "Select a workspace in the app to list its files here.",
@@ -67,8 +93,8 @@ export default {
   "files.resize_tree": "Resize file tree",
   "files.copied": "Copied",
   "files.search_placeholder": "Search files, tasks, or workspaces",
-  "files.task_results": "Mine",
-  "files.title": "My files",
+  "files.task_results": "Task files",
+  "files.title": "Files",
   "files.type_file": "File",
   "files.type_folder": "Folder",
   "files.ungrouped": "Ungrouped",

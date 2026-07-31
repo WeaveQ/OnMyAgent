@@ -360,3 +360,149 @@ export function resolveToolWorkspaceFileRoot(input: {
   if (session) return session;
   return input.workspaceRoot.trim();
 }
+
+// --- Files page three-source tabs (product draft §2 / P0) -----------------
+
+/** Provenance tabs on the primary-rail Files page. */
+export type FilesSourceTab = "uploads" | "task" | "expert";
+
+/** Default tab when opening Files (product: task files). */
+export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "task";
+
+export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
+  "uploads",
+  "task",
+  "expert",
+] as const;
+
+/**
+ * Relative workspace directory for user import-by-copy (inbox upload path prefix).
+ * Server inbox stores under this logical area; UI lists via listInbox.
+ */
+export const USER_UPLOADS_RELATIVE_DIR = "uploads";
+
+/**
+ * P0: only uploads have a real data path (inbox). Task/expert wait for
+ * write-time provenance — do not mis-bucket untagged history.
+ */
+export function isFilesSourceListReady(tab: FilesSourceTab): boolean {
+  return tab === "uploads";
+}
+
+export function filesSourceTabLabelKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.source_uploads";
+    case "task":
+      return "files.source_task";
+    case "expert":
+      return "files.source_expert";
+  }
+}
+
+export function filesSourceTabSubtitleKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.source_uploads_desc";
+    case "task":
+      return "files.source_task_desc";
+    case "expert":
+      return "files.source_expert_desc";
+  }
+}
+
+export function filesSourceTabSearchPlaceholderKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.search_uploads_placeholder";
+    case "task":
+      return "files.search_task_placeholder";
+    case "expert":
+      return "files.search_expert_placeholder";
+  }
+}
+
+export function filesSourceEmptyTitleKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.uploads_empty_title";
+    case "task":
+      return "files.task_empty_title";
+    case "expert":
+      return "files.expert_empty_title";
+  }
+}
+
+export function filesSourceEmptyHintKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.uploads_empty_hint";
+    case "task":
+      return "files.task_empty_hint";
+    case "expert":
+      return "files.expert_empty_hint";
+  }
+}
+
+/** Normalize a user-facing file name into an inbox relative path under uploads/. */
+export function buildUserUploadRelativePath(fileName: string): string {
+  const base = fileName.trim().replace(/\\/g, "/").split("/").pop() || "file";
+  const safe = base.replace(/^\.+/, "") || "file";
+  return `${USER_UPLOADS_RELATIVE_DIR}/${safe}`;
+}
+
+export type InboxListItemLike = {
+  id: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  updatedAt?: number;
+};
+
+export type UserUploadRow = {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  updatedAt: number;
+};
+
+/** Map inbox API items into stable upload rows (import-by-copy list). */
+export function mapInboxItemsToUploadRows(
+  items: readonly InboxListItemLike[],
+): UserUploadRow[] {
+  const rows: UserUploadRow[] = [];
+  for (const item of items) {
+    const id = item.id?.trim();
+    if (!id) continue;
+    const path = (item.path ?? item.name ?? id).trim();
+    if (!path) continue;
+    const name =
+      (item.name ?? path.replace(/\\/g, "/").split("/").pop() ?? path).trim() ||
+      path;
+    rows.push({
+      id,
+      name,
+      path,
+      size: typeof item.size === "number" && Number.isFinite(item.size) ? item.size : 0,
+      updatedAt:
+        typeof item.updatedAt === "number" && Number.isFinite(item.updatedAt)
+          ? item.updatedAt
+          : 0,
+    });
+  }
+  rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || a.name.localeCompare(b.name));
+  return rows;
+}
+
+export function filterUploadRows(
+  rows: readonly UserUploadRow[],
+  query: string,
+): UserUploadRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...rows];
+  return rows.filter(
+    (row) =>
+      row.name.toLowerCase().includes(q) || row.path.toLowerCase().includes(q),
+  );
+}
