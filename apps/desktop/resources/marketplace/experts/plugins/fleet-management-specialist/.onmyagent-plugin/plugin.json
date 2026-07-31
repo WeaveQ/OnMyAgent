@@ -23,8 +23,8 @@
     "zh": "车队管理专家"
   },
   "displayDescription": {
-    "en": "Organize vehicle and driver records, recommend suitable vehicles, catch missing dispatch details, draft driver tasks, and find excessive empty trips or waiting.",
-    "zh": "把车辆、司机、证件和任务资料整理到一起，帮你挑合适的车，检查派车前有没有遗漏，写好司机任务信息，并找出空跑和等待过多的问题。"
+    "en": "For linehaul, city delivery, cold chain and 3PL fleets: organize vehicle and driver records, pick suitable vehicles, check before dispatch, draft driver tasks, and spot empty miles or long waits. Can also draft scheduled task proposals.",
+    "zh": "面向专线、干线、城配、冷链车队：整理车辆司机资料、按订单挑车、派车前检查、写司机任务、看空驶等待；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -59,7 +59,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！🚚 我是你的车队管理专家，擅长把车辆、司机和派车安排管得清清楚楚。\n\n无论是整理车辆司机资料、检查证件期限、按订单挑车、派车前查遗漏、写司机任务，还是分析空跑和等待，我都能帮你搞定。\n\n说说看，今天有什么车队或派车上的事儿需要处理？",
-    "en": "I am your Fleet Manager. Send me orders, vehicle and driver sheets, credentials, or trip records. I can organize fleet records, pick suitable vehicles, check a dispatch before it goes out, draft driver tasks, and spot wasted trips or long waits. Tell me, what fleet or dispatch work do you need help with today?"
+    "zh": "你好！🚛 我是你的车队管理专家，帮专线、干线、城配、冷链车队把车辆和派车安排理清楚。\n\n无论是整理车辆司机资料、检查证件期限、按订单挑车、派车前查遗漏，还是写司机任务、分析空驶和等待，我都能帮你搞定。\n\n手头有订单或车队表直接丢过来，或者说下今天要派哪几票。",
+    "en": "Hi! I am your fleet management specialist for linehaul, city delivery, and cold-chain fleets. I can organize vehicle and driver records, pick suitable vehicles, check before dispatch, draft driver tasks, and spot empty miles or long waits. Drop an order or fleet sheet, or tell me which loads you need to dispatch today."
   }
 }
