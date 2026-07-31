@@ -434,6 +434,10 @@ type TypedServerClientMethodMap = {
     [workspaceId: string, automationId: string],
     { item: AutomationTaskItem; items: AutomationTaskItem[] }
   >;
+  cancelAutomationRun: ServerClientMethodContract<
+    [workspaceId: string, automationId: string],
+    { item: AutomationTaskItem; items: AutomationTaskItem[] }
+  >;
   deleteAutomation: ServerClientMethodContract<
     [workspaceId: string, automationId: string],
     { ok: boolean; items: AutomationTaskItem[] }

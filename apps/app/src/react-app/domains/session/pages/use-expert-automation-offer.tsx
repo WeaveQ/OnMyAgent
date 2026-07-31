@@ -41,6 +41,7 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import { workspaceAssistantRoute } from "../../../shell";
 import { buildPathWithRailView } from "../navigation/app-location";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useStatusToasts } from "../../shell-feedback";
@@ -428,28 +429,23 @@ export function useExpertAutomationOffer(
       writeAssistantSelectionMemory(workspaceId, row.scene, {
         kind: "automation",
       });
-      // Bookmark + history-backed rail URL so Back leaves scheduled tasks.
-      writeRailView("assistant", workspaceId, "scheduledTasks");
-      if (location.pathname.includes("/assistant")) {
-        navigate(
-          buildPathWithRailView({
-            mode: "assistant",
-            pathname: location.pathname,
-            search: location.search,
-            view: "scheduledTasks",
-          }),
-        );
-        return;
-      }
-      input.onNavigateToMode("assistant");
+      // Bookmark + history-backed rail URL. Always navigate with ?view=automation —
+      // onNavigateToMode() resets the target mode bookmark to primary and would
+      // land on assistant home instead of the automation workspace.
+      writeRailView("assistant", workspaceId, "automation");
+      const onAssistant = location.pathname.includes("/assistant");
+      navigate(
+        buildPathWithRailView({
+          mode: "assistant",
+          pathname: onAssistant
+            ? location.pathname
+            : workspaceAssistantRoute(workspaceId),
+          search: onAssistant ? location.search : "",
+          view: "automation",
+        }),
+      );
     },
-    [
-      input.onNavigateToMode,
-      input.selectedWorkspaceId,
-      location.pathname,
-      location.search,
-      navigate,
-    ],
+    [input.selectedWorkspaceId, location.pathname, location.search, navigate],
   );
 
   const automationResultAccessory =

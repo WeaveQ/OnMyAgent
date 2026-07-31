@@ -6,6 +6,7 @@ export default {
   "nav.session_archive_short": "Archive",
   "nav.agents_desc": "Local agents and expert profiles",
   "nav.automation": "Automation",
+  "nav.automation_short": "Auto",
   "nav.automation_desc": "Automation",
   "nav.channels_desc": "IM integrations",
   "nav.connectors": "MCP Connectors",

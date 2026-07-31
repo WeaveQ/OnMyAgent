@@ -11,7 +11,6 @@ import {
 } from "react";
 import {
   Archive,
-  CalendarClock,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -792,210 +791,6 @@ function SpaceDirectoryRow(props: {
   );
 }
 
-/** Scheduled-task group row — clock icon + ⋯ / pin / archive actions. */
-function AutomationGroupRow(props: {
-  title: string;
-  groupId: string;
-  expanded: boolean;
-  pinned?: boolean;
-  onToggle: () => void;
-  onTogglePinned?: (groupId: string) => void;
-  onArchive?: (groupId: string) => void;
-  onDelete?: (groupId: string) => void;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const anchorRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPosition, setMenuPosition] = useState<{
-    left: number;
-    top: number;
-  } | null>(null);
-  const hasMenu =
-    Boolean(props.onTogglePinned) ||
-    Boolean(props.onArchive) ||
-    Boolean(props.onDelete);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = () => setMenuOpen(false);
-    window.addEventListener("click", close);
-    window.addEventListener("blur", close);
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("blur", close);
-    };
-  }, [menuOpen]);
-
-  useLayoutEffect(() => {
-    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
-    const anchor = anchorRef.current.getBoundingClientRect();
-    const menu = menuRef.current;
-    setMenuPosition(
-      positionTaskContextMenu(anchor, {
-        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
-        estimatedHeight: menu.offsetHeight || 180,
-      }),
-    );
-  }, [menuOpen]);
-
-  return (
-    <>
-      <FolderRowShell
-        title={props.title}
-        expanded={props.expanded}
-        onToggle={props.onToggle}
-        className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
-        icon={
-          <CalendarClock
-            className="size-3.5 shrink-0 text-dls-text/55"
-            strokeWidth={1.6}
-          />
-        }
-        trailing={
-          <div
-            data-no-drag
-            className={cn(
-              "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
-              menuOpen && "opacity-100",
-            )}
-          >
-            {hasMenu ? (
-              <IconHoverTip label={t("session.task_actions")}>
-                <button
-                  ref={anchorRef}
-                  type="button"
-                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
-                  aria-label={t("session.task_actions")}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (anchorRef.current) {
-                      setMenuPosition(
-                        positionTaskContextMenu(
-                          anchorRef.current.getBoundingClientRect(),
-                          { estimatedHeight: 180 },
-                        ),
-                      );
-                    }
-                    setMenuOpen((value) => !value);
-                  }}
-                >
-                  <MoreHorizontal strokeWidth={1.75} />
-                </button>
-              </IconHoverTip>
-            ) : null}
-            {props.onTogglePinned ? (
-              <IconHoverTip
-                label={props.pinned ? t("session.unpin") : t("session.pin")}
-              >
-                <button
-                  type="button"
-                  className={cn(
-                    TASK_ROW_ACTION_CLASS,
-                    props.pinned
-                      ? "text-dls-accent hover:text-dls-accent"
-                      : "text-dls-text/50",
-                  )}
-                  aria-label={
-                    props.pinned ? t("session.unpin") : t("session.pin")
-                  }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    props.onTogglePinned?.(props.groupId);
-                  }}
-                >
-                  {props.pinned ? (
-                    <PinOff strokeWidth={1.75} />
-                  ) : (
-                    <Pin strokeWidth={1.75} />
-                  )}
-                </button>
-              </IconHoverTip>
-            ) : null}
-            {props.onArchive ? (
-              <IconHoverTip label={t("session.archive_task")}>
-                <button
-                  type="button"
-                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
-                  aria-label={t("session.archive_task")}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    props.onArchive?.(props.groupId);
-                  }}
-                >
-                  <Archive strokeWidth={1.75} />
-                </button>
-              </IconHoverTip>
-            ) : null}
-          </div>
-        }
-      />
-      {menuOpen && menuPosition ? (
-        <div
-          ref={menuRef}
-          className={TASK_CONTEXT_MENU_CLASS}
-          data-task-context-menu="true"
-          style={{ left: menuPosition.left, top: menuPosition.top }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {props.onTogglePinned ? (
-            <button
-              type="button"
-              className={TASK_CONTEXT_MENU_ITEM_CLASS}
-              onClick={() => {
-                setMenuOpen(false);
-                props.onTogglePinned?.(props.groupId);
-              }}
-            >
-              {props.pinned ? (
-                <PinOff strokeWidth={1.75} />
-              ) : (
-                <Pin strokeWidth={1.75} />
-              )}
-              {props.pinned ? t("session.unpin") : t("session.pin")}
-            </button>
-          ) : null}
-          {props.onArchive ? (
-            <button
-              type="button"
-              className={TASK_CONTEXT_MENU_ITEM_CLASS}
-              onClick={() => {
-                setMenuOpen(false);
-                props.onArchive?.(props.groupId);
-              }}
-            >
-              <Archive strokeWidth={1.75} />
-              {t("session.archive_task")}
-            </button>
-          ) : null}
-          {props.onDelete ? (
-            <>
-              {props.onArchive || props.onTogglePinned ? (
-                <div
-                  className={TASK_CONTEXT_MENU_SEPARATOR_CLASS}
-                  role="separator"
-                />
-              ) : null}
-              <button
-                type="button"
-                className={TASK_CONTEXT_MENU_ITEM_CLASS}
-                onClick={() => {
-                  setMenuOpen(false);
-                  props.onDelete?.(props.groupId);
-                }}
-              >
-                <Trash2 strokeWidth={1.75} />
-                {t("session.delete_task")}
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </>
-  );
-}
-
 function SectionShowMore(props: {
   overflow: boolean;
   showAll: boolean;
@@ -1108,26 +903,11 @@ export function AssistantConversationSections(
     allSpaceDirectories,
   } = props.listModel;
 
-  const automationGroupsAll =
-    props.automationGroupsAll ?? props.automationGroups;
-  const automationLocalPinsById = props.automationLocalPinsById ?? {};
-  const automationItemsById = useMemo(() => {
-    const map = new Map<string, AgentConversationGroup[]>();
-    for (const group of automationGroupsAll) {
-      map.set(group.id, group.items);
-    }
-    return map;
-  }, [automationGroupsAll]);
-  const automationGroupById = useMemo(() => {
-    const map = new Map<
-      string,
-      AssistantAutomationGroup<AgentConversationGroup>
-    >();
-    for (const group of automationGroupsAll) {
-      map.set(group.id, group);
-    }
-    return map;
-  }, [automationGroupsAll]);
+  // Home no longer lists automation groups; empty map keeps pin ownership helpers typed.
+  const automationItemsById = useMemo(
+    () => new Map<string, AgentConversationGroup[]>(),
+    [],
+  );
 
   const pinnedCount = globalPins.length;
   const recentCount = recentGroups.length;
@@ -1143,17 +923,6 @@ export function AssistantConversationSections(
     );
   // allSpaceDirectories comes from listModel (spaceFolderOrder storage order),
   // not Map.keys() discovery order — required for correct pin-slot merge.
-  const automationsCount = props.automationGroups.reduce(
-    (count, group) => count + group.items.length,
-    0,
-  );
-  const automationGroupCount = props.automationGroups.length;
-  const allAutomationGroupsExpanded =
-    automationGroupCount > 0 &&
-    props.automationGroups.every((group) =>
-      props.expandedAutomationDirectories.includes(group.id),
-    );
-
   // Which top-level section owns the selected session (stable string key).
   // Computed in render so the expand effect only depends on this primitive —
   // unstable Map/array deps previously re-fired setExpandedSections every paint.
@@ -1181,17 +950,8 @@ export function AssistantConversationSections(
     ) {
       return "spaces";
     }
-    if (
-      groupIncludesSession(
-        automationGroupsAll.flatMap((group) => group.items),
-        selected,
-      )
-    ) {
-      return "automations";
-    }
     return null;
   }, [
-    automationGroupsAll,
     automationItemsById,
     globalPins,
     groupsBySessionId,
@@ -1350,87 +1110,8 @@ export function AssistantConversationSections(
       );
     }
 
-    if (pin.kind === "automation") {
-      const autoGroup = automationGroupById.get(pin.id);
-      if (!autoGroup) return null;
-      const groupLabel = t("automation.session_group_title", {
-        title: autoGroup.title,
-      });
-      const expandedAuto =
-        props.expandedAutomationDirectories.includes(pin.id);
-      return (
-        <div
-          key={`pin-automation:${pin.id}`}
-          className={cn("flex flex-col gap-0.5", isDragging && "opacity-40")}
-          onDragOver={surface.onDragOver}
-          onDrop={surface.onDrop}
-        >
-          {/*
-            Only the group header is draggable — nested run rows stay outside
-            so open-session clicks are not swallowed by HTML5 drag.
-          */}
-          <div
-            className={cn("min-w-0", surface.className)}
-            draggable={surface.draggable}
-            onDragStart={surface.onDragStart}
-            onDragEnd={surface.onDragEnd}
-          >
-            <AutomationGroupRow
-              title={groupLabel}
-              groupId={pin.id}
-              expanded={expandedAuto}
-              pinned
-              onToggle={() =>
-                props.onExpandedAutomationDirectoriesChange((current) =>
-                  current.includes(pin.id)
-                    ? current.filter((item) => item !== pin.id)
-                    : [...current, pin.id],
-                )
-              }
-              onTogglePinned={props.onToggleAutomationGroupPinned}
-              onArchive={props.onArchiveAutomationGroup}
-              onDelete={
-                props.onDeleteAutomationGroup
-                  ? () =>
-                      props.onDeleteAutomationGroup?.({
-                        groupId: pin.id,
-                        title: autoGroup.title,
-                        sessionIds: autoGroup.items.map(
-                          (item) => item.latestSession.id,
-                        ),
-                      })
-                  : undefined
-              }
-            />
-          </div>
-          {expandedAuto ? (
-            <FolderChildren>
-              <div data-no-drag>
-                <AssistantTaskRows
-                  groups={autoGroup.items}
-                  workspaceId={props.workspaceId}
-                  selectedSessionId={props.selectedSessionId}
-                  sessionStatusById={props.sessionStatusById}
-                  singleLine
-                  pinnable
-                  pinnedSessionIds={
-                    new Set(automationLocalPinsById[pin.id] ?? [])
-                  }
-                  folderPathBySessionId={folderPathBySessionId}
-                  onOpenSession={props.onOpenSession}
-                  onPrefetchSession={props.onPrefetchSession}
-                  onTogglePinned={props.onTogglePinned}
-                  onRenameSession={props.onRenameSession}
-                  onArchiveSession={props.onArchiveSession}
-                  onDeleteSession={props.onDeleteSession}
-                  onOpenFolder={props.onOpenFolder}
-                />
-              </div>
-            </FolderChildren>
-          ) : null}
-        </div>
-      );
-    }
+    // Automation pins moved to the primary-rail Automation workspace.
+    if (pin.kind === "automation") return null;
 
     const items = spaceItemsByDirectory.get(pin.id) ?? [];
     const name = assistantDirectoryName(pin.id);
@@ -1682,165 +1363,7 @@ export function AssistantConversationSections(
           ) : null}
         </div>
 
-        {/* Schedules */}
-        <div
-          data-assistant-section="automations"
-          className="flex flex-col gap-0.5"
-        >
-          <SectionHeader
-            label={t("session.task_filter_automation_tasks")}
-            expanded={expandedSections.automations}
-            onToggle={() => toggleSection("automations")}
-            quiet
-            trailing={
-              automationsCount > 0 ? (
-                <IconHoverTip
-                  label={
-                    allAutomationGroupsExpanded
-                      ? t("session.collapse_all_automations")
-                      : t("session.expand_all_automations")
-                  }
-                >
-                  <button
-                    type="button"
-                    className={cn(
-                      TASK_ROW_ACTION_CLASS,
-                      "opacity-0 transition-opacity group-hover/section:opacity-100",
-                      expandedSections.automations && "opacity-100",
-                    )}
-                    aria-label={
-                      allAutomationGroupsExpanded
-                        ? t("session.collapse_all_automations")
-                        : t("session.expand_all_automations")
-                    }
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (!expandedSections.automations) {
-                        setExpandedSections((current) => ({
-                          ...current,
-                          automations: true,
-                        }));
-                      }
-                      if (allAutomationGroupsExpanded) {
-                        props.onExpandedAutomationDirectoriesChange(() => []);
-                        return;
-                      }
-                      const allIds = props.automationGroups.map(
-                        (group) => group.id,
-                      );
-                      props.onExpandedAutomationDirectoriesChange(
-                        () => allIds,
-                      );
-                    }}
-                  >
-                    {allAutomationGroupsExpanded ? (
-                      <Minimize2 strokeWidth={1.75} />
-                    ) : (
-                      <Maximize2 strokeWidth={1.75} />
-                    )}
-                  </button>
-                </IconHoverTip>
-              ) : null
-            }
-          />
-          {expandedSections.automations ? (
-            <div className="flex flex-col gap-0.5 pb-1">
-              {automationsCount === 0 ? (
-                <AssistantListEmptyState
-                  label={t("session.no_automation_tasks")}
-                />
-              ) : (
-                props.automationGroups.map((group) => {
-                  const expandedAuto =
-                    props.expandedAutomationDirectories.includes(group.id);
-                  const groupLabel = t("automation.session_group_title", {
-                    title: group.title,
-                  });
-                  return (
-                    <div key={group.id} className="flex flex-col gap-0.5">
-                      <AutomationGroupRow
-                        title={groupLabel}
-                        groupId={group.id}
-                        expanded={expandedAuto}
-                        onToggle={() =>
-                          props.onExpandedAutomationDirectoriesChange(
-                            (current) =>
-                              current.includes(group.id)
-                                ? current.filter((item) => item !== group.id)
-                                : [...current, group.id],
-                          )
-                        }
-                        onTogglePinned={props.onToggleAutomationGroupPinned}
-                        onArchive={props.onArchiveAutomationGroup}
-                        onDelete={
-                          props.onDeleteAutomationGroup
-                            ? () =>
-                                props.onDeleteAutomationGroup?.({
-                                  groupId: group.id,
-                                  title: group.title,
-                                  sessionIds: group.items.map(
-                                    (item) => item.latestSession.id,
-                                  ),
-                                })
-                            : undefined
-                        }
-                      />
-                      {expandedAuto ? (
-                        <FolderChildren>
-                          {(() => {
-                            const folderKey = `auto:${group.id}`;
-                            const showAll =
-                              showAllByFolder[folderKey] === true;
-                            const items = group.items;
-                            const visibleItems =
-                              showAll ||
-                              items.length <= FOLDER_TASK_PREVIEW_LIMIT
-                                ? items
-                                : items.slice(0, FOLDER_TASK_PREVIEW_LIMIT);
-                            return (
-                              <>
-                                <AssistantTaskRows
-                                  groups={visibleItems}
-                                  workspaceId={props.workspaceId}
-                                  selectedSessionId={props.selectedSessionId}
-                                  sessionStatusById={props.sessionStatusById}
-                                  singleLine
-                                  pinnable
-                                  pinnedSessionIds={
-                                    new Set(
-                                      automationLocalPinsById[group.id] ?? [],
-                                    )
-                                  }
-                                  folderPathBySessionId={folderPathBySessionId}
-                                  onOpenSession={props.onOpenSession}
-                                  onPrefetchSession={props.onPrefetchSession}
-                                  onTogglePinned={props.onTogglePinned}
-                                  onRenameSession={props.onRenameSession}
-                                  onArchiveSession={props.onArchiveSession}
-                                  onDeleteSession={props.onDeleteSession}
-                                  onOpenFolder={props.onOpenFolder}
-                                  // Scheduled runs stay in automation history —
-                                  // do not offer "save to space" from this list.
-                                />
-                                <FolderTaskShowMore
-                                  total={items.length}
-                                  showAll={showAll}
-                                  onToggle={() =>
-                                    toggleShowAllFolder(folderKey)
-                                  }
-                                />
-                              </>
-                            );
-                          })()}
-                        </FolderChildren>
-                      ) : null}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ) : null}
-        </div>
+        {/* Schedules / automation groups live on the primary-rail Automation page. */}
       </div>
     </TooltipProvider>
   );

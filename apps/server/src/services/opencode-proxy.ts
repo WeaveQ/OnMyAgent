@@ -119,12 +119,16 @@ export function unwrapOpencodeResult<T, E>(
       { path },
     );
   }
+  const status =
+    result.response && typeof result.response === "object" && "status" in result.response
+      ? Number((result.response as { status?: unknown }).status)
+      : undefined;
   throw new ApiError(
     502,
     "opencode_request_failed",
     describeOpencodeClientError(result.error),
     {
-      status: result.response.status,
+      ...(Number.isFinite(status) ? { status } : {}),
       body: result.error,
       path,
     },

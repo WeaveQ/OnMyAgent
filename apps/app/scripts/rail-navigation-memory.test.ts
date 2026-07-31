@@ -176,12 +176,20 @@ describe("rail keep-alive contract", () => {
     const expertHost = readPage("expert.tsx");
     expect(hostState).toContain("isPrimarySessionRailView");
     expect(hostState).toContain("isPrimarySessionView");
+    // Expert: primary only when chat rail is selected.
+    expect(expertHost).toContain("isPrimarySessionView");
+    expect(expertHost).toMatch(
+      /primarySessionActive=\{\s*isPrimarySessionView\s*&&/,
+    );
+    // Assistant: primary home OR embedded automation run (sessionSurfaceActive).
+    expect(assistantHost).toContain("isPrimarySessionView");
+    expect(assistantHost).toMatch(
+      /primarySessionActive=\{sessionSurfaceActive\}/,
+    );
+    expect(assistantHost).toMatch(
+      /sessionSurfaceActive\s*=\s*\n?\s*\(isPrimarySessionView\s*\|\|\s*showAutomationEmbeddedSession\)/,
+    );
     for (const host of [assistantHost, expertHost]) {
-      expect(host).toContain("isPrimarySessionView");
-      // Hosts gate primary keep-alive with primary rail + delayed loading.
-      expect(host).toMatch(
-        /primarySessionActive=\{\s*isPrimarySessionView\s*&&/,
-      );
       expect(host).toContain("SessionSurface");
       expect(host).toContain("SessionRailKeepAliveStack");
     }

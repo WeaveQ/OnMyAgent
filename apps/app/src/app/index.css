@@ -557,8 +557,9 @@ select:disabled {
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #333333;
   --dls-rail-bg: #141414;
-  --dls-rail-active: #2E2E2E;
-  --dls-rail-hover: #222222;
+  /* Active pill must clear rail #141414 — #2E2E2E was near-invisible. */
+  --dls-rail-active: #404040;
+  --dls-rail-hover: #2A2A2A;
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most
      dls-* semantic aliases (dls-primary / dls-danger / dls-warning /
      dls-success-fg / dls-slate) inherit through the
@@ -1561,8 +1562,9 @@ html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] {
   --background: transparent;
   --dls-list-selected: color-mix(in srgb, #454545 92%, transparent);
   --dls-list-hover: color-mix(in srgb, #323232 58%, transparent);
-  --dls-rail-active: color-mix(in srgb, #2e2e2e 56%, transparent);
-  --dls-rail-hover: color-mix(in srgb, #222222 40%, transparent);
+  /* White lift on open glass rail — gray mix at 56% read as empty. */
+  --dls-rail-active: color-mix(in srgb, #ffffff 14%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #ffffff 6%, transparent);
   --dls-hover: color-mix(in srgb, #323232 58%, transparent);
   --dls-active: color-mix(in srgb, #3a3a3a 68%, transparent);
 }

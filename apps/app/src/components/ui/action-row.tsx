@@ -221,15 +221,16 @@ const railButtonVariants = cva(
   {
     variants: {
       active: {
-        // Light: bright white free-float pill (reference). Dark: elevated surface.
-        true: "bg-dls-surface text-dls-text shadow-sm dark:bg-dls-surface dark:shadow-none",
+        // Free-float pill: light lifts with surface; dark uses rail-active
+        // (stronger than surface-on-rail). No shadow-sm — muddy fringe on glass.
+        true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active",
         false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text",
       },
       size: {
-        // Reference-scale free-float chip: 56px wide, roomy icon+label stack.
-        // Fixed width so every top item matches (active never stretches).
-        top: "w-14 gap-1.5 rounded-2xl px-1 py-2 text-xs leading-none",
-        bottom: "size-10 gap-0.5 rounded-2xl text-2xs",
+        // Free-float chip: 48px wide (was 56) so the active pill reads slimmer
+        // in the 68px rail. Fixed width so every top item matches.
+        top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
+        bottom: "size-9 gap-0.5 rounded-2xl text-2xs",
       },
     },
     defaultVariants: {

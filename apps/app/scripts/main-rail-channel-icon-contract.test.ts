@@ -44,15 +44,15 @@ describe("main rail channel icon contract", () => {
     expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
     expect(iconSource).not.toContain('fill="currentColor"');
 
-    // Free-float selected pill uses surface (bright white on light rail).
+    // Free-float selected pill: surface on light; rail-active on dark (no shadow-sm).
     expect(primitiveSource).toContain(
-      'true: "bg-dls-surface text-dls-text shadow-sm dark:bg-dls-surface dark:shadow-none"',
+      'true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active"',
     );
     expect(primitiveSource).toContain(
       'false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text"',
     );
     expect(primitiveSource).toContain(
-      'top: "w-14 gap-1.5 rounded-2xl px-1 py-2 text-xs leading-none"',
+      'top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none"',
     );
   });
 });

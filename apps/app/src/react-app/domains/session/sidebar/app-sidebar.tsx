@@ -820,6 +820,8 @@ export function AppSidebar(props: AppSidebarProps) {
 export function SidebarAccountButton(props: {
   account?: SidebarAccountInfo;
   onOpenDevices?: () => void;
+  /** Open local agents page (moved off the main rail into this menu). */
+  onOpenLocalAgent?: () => void;
   onOpenSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -890,6 +892,16 @@ export function SidebarAccountButton(props: {
         </button>
       </div>
       <div className="px-1.5 py-1.5">
+        {props.onOpenLocalAgent ? (
+          <SidebarAccountMenuItem
+            icon={Bot}
+            label={t("nav.local_agent")}
+            onSelect={() => {
+              setOpen(false);
+              props.onOpenLocalAgent?.();
+            }}
+          />
+        ) : null}
         <SidebarAccountSubMenu
           icon={Globe2}
           label={t("account_menu.language")}
