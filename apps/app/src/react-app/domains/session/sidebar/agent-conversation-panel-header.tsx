@@ -1,51 +1,43 @@
 /** @jsxImportSource react */
-import { ChevronRight, MessageCirclePlus, Plus, Search } from "lucide-react";
+import { ChevronRight, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { NavListButton } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { t } from "../../../../i18n";
-import type { AssistantCategoryId } from "../surface/personal-assistant-config";
-import { AssistantCategorySwitch } from "./assistant-sidebar-controls";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
   selectedSessionId: string | null;
   showAgentSelectionTip?: boolean;
-  assistantCategoryId?: AssistantCategoryId;
   automationActive?: boolean;
   onQueryChange: (value: string) => void;
   onOpenAgents: () => void;
   onCreateTask?: () => void;
   onOpenAssistant?: () => void;
-  onAssistantCategoryChange?: (id: AssistantCategoryId) => void;
   onOpenAutomation?: () => void;
 };
 
 export function AgentConversationPanelHeader(props: AgentConversationPanelHeaderProps) {
   if (props.mode === "assistant") {
     return (
-      <div className="space-y-0 pb-2.5 pt-3.5">
-        {props.assistantCategoryId && props.onAssistantCategoryChange ? (
-          <AssistantCategorySwitch
-            value={props.assistantCategoryId}
-            onChange={props.onAssistantCategoryChange}
-          />
-        ) : null}
-        <div className="grid gap-1.5" data-assistant-primary-actions="true">
-          {/*
-            Automation is a top-level primary rail entry — home only keeps 新建任务.
-          */}
-          <NavListButton
+      <div className="flex shrink-0 flex-col px-0 pb-2.5 pt-3.5">
+        {/*
+          Match automation left-rail primary CTA: full-width outline pill
+          (+ icon + label), not a selected NavList row.
+        */}
+        <div data-assistant-primary-actions="true">
+          <Button
             type="button"
+            variant="outline"
+            size="default"
             onClick={props.onCreateTask}
-            active={!props.selectedSessionId && !props.automationActive}
-            size="sidebar"
+            aria-pressed={!props.selectedSessionId && !props.automationActive}
+            className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
           >
-            <MessageCirclePlus className="size-4 shrink-0" strokeWidth={1.75} />
+            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
             {t("session.new_task")}
-          </NavListButton>
+          </Button>
         </div>
       </div>
     );

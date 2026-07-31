@@ -65,7 +65,7 @@ describe("personalization plan (shipped)", () => {
     });
 
     expect(plan.primaryVerticalId).toBe("software-product");
-    expect(plan.workbench).toBe("code");
+    expect(plan.workbench).toBe("office");
     expect(plan.defaultAutoInstallExpert).toBeTruthy();
     expect(
       plan.experts.some((e) => e.packageName === "software-architect"),
@@ -75,11 +75,10 @@ describe("personalization plan (shipped)", () => {
     for (const logisticsId of LOGISTICS_AUTOMATION_TEMPLATE_IDS) {
       expect(autoCreate.has(logisticsId)).toBe(false);
     }
-    expect(
-      plan.defaultAutoCreateTemplateIds.some(
-        (id) => id.startsWith("code-") || id === "weekly-work-report",
-      ),
-    ).toBe(true);
+    expect(plan.defaultAutoCreateTemplateIds.some((id) => id.startsWith("code-"))).toBe(
+      false,
+    );
+    expect(plan.defaultAutoCreateTemplateIds.includes("weekly-work-report")).toBe(true);
   });
 
   test("logistics industry + operations → logistics vertical and logistics templates", () => {

@@ -871,10 +871,6 @@ export default {
   "session.agent_initial": "A",
   "session.assistant_intro": "I'm your AI assistant. I can help you",
   "session.assistant_office_composer_placeholder": "Organize research notes, draft slides, analyze spreadsheets, and turn everyday work into polished outputs.",
-  "session.assistant_code_composer_placeholder": "Write code, debug issues, optimize performance, and deliver production-ready artifacts.",
-  "session.assistant_code_title": "Code with OnMyAgent",
-  "session.assistant_code_subtitle":
-    "Read code, debug issues, plan changes, and produce implementation steps you can verify.",
   "session.assistant_work_title": "Work with OnMyAgent",
   "session.assistant_work_subtitle":
     "Organize research notes, draft slides, analyze spreadsheets, and turn everyday work into polished outputs.",
@@ -970,8 +966,6 @@ export default {
   "session.pinned_section": "Pinned",
   "session.recent_section": "Recent",
   "session.code_tasks_count": "Code ({count})",
-  "session.no_code_tasks": "No code tasks yet",
-  "session.no_code_tasks_desc": "Start a task in Code mode and it will appear here.",
   "session.no_space_tasks": "No space tasks yet",
   "session.no_space_tasks_desc": "Sessions created with a selected workspace are grouped here by space.",
   "session.no_automation_tasks": "No automation tasks yet",

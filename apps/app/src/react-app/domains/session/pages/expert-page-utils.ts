@@ -7,17 +7,13 @@ import {
   isBuiltinMarketplaceExpertAgentId,
 } from "../expert-marketplace/data";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import { normalizeExpertMarketplaceCategoryId } from "../expert-marketplace/categories";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { PendingAgentContext } from "../../agents";
 
 export function expertFeatureCategoryForCategoryId(
-  categoryId: string | null | undefined,
+  _categoryId: string | null | undefined,
 ): AssistantCategoryId {
-  return normalizeExpertMarketplaceCategoryId(categoryId) ===
-    "product-development"
-    ? "code"
-    : "office";
+  return "office";
 }
 
 export function expertFeatureCategoryForAgent(

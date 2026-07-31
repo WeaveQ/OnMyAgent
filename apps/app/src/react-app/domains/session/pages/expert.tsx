@@ -1707,7 +1707,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   {/* Single 1px rule — avoid base bg-border + before: double line. */}
                   <ResizableHandle className="hidden lg:flex" />
                   <ResizablePanel
-                    key={activeExpertFeatureCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
+                    key="office-side-panel"
                     panelRef={browserPanelRef}
                     defaultSize={`${EXPERT_SIDE_PANEL_DEFAULT_WIDTH}px`}
                     minSize={

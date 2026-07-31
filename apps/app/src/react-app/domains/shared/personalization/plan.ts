@@ -34,7 +34,7 @@ export type PersonalizationAutomationRec = {
 export type PersonalizationPlan = {
   primaryVerticalId: PersonalizationVerticalId;
   secondaryVerticalIds: PersonalizationVerticalId[];
-  workbench: "office" | "code";
+  workbench: "office";
   experts: PersonalizationExpertRec[];
   automations: PersonalizationAutomationRec[];
   /** Max 3 template ids suggested for default auto-create. */
@@ -136,19 +136,10 @@ function scoreVertical(
 }
 
 function pickWorkbench(
-  vertical: PersonalizationVertical,
-  profile: PersonalizationProfileSnapshot,
-): "office" | "code" {
-  const roles = normalizeList(profile.roles);
-  const tasks = normalizeList(profile.tasks);
-  const tools = normalizeList(profile.tools);
-  if (tasks.includes("code") || tools.includes("codex") || tools.includes("claude-code")) {
-    return "code";
-  }
-  if (roles.includes("technology") && vertical.defaultWorkbench === "code") {
-    return "code";
-  }
-  return vertical.defaultWorkbench;
+  _vertical: PersonalizationVertical,
+  _profile: PersonalizationProfileSnapshot,
+): "office" {
+  return "office";
 }
 
 /**
@@ -209,12 +200,7 @@ export function buildPersonalizationPlan(
   if (tasks.includes("meeting-notes")) {
     templatePriority.set("meeting-prep", (templatePriority.get("meeting-prep") ?? 0) + 15);
   }
-  if (tasks.includes("code")) {
-    templatePriority.set(
-      "code-daily-review",
-      (templatePriority.get("code-daily-review") ?? 0) + 20,
-    );
-  }
+
   if (tasks.includes("dispatch")) {
     for (const id of [
       "logistics-dispatch-brief",

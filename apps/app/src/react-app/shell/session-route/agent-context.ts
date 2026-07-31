@@ -112,7 +112,7 @@ export function registerCreatedSessionStartIntent(input: {
   addExpertSession: (sessionId: string) => void;
   writeAssistantSessionCategory: (
     sessionId: string,
-    category: "code" | "office",
+    category: "office",
   ) => void;
 }) {
   const mode =

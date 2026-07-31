@@ -40,7 +40,7 @@ export function writeAutomationFocus(target: AutomationFocusTarget) {
   const record = readRecord();
   record[workspaceId] = {
     automationId,
-    scene: target.scene === "code" ? "code" : "office",
+    scene: "office",
   };
   writeRecord(record);
 }
@@ -58,7 +58,5 @@ export function consumeAutomationFocus(
   if (!("automationId" in raw) || typeof raw.automationId !== "string") return null;
   const automationId = raw.automationId.trim();
   if (!automationId) return null;
-  const scene =
-    "scene" in raw && raw.scene === "code" ? "code" : "office";
-  return { workspaceId: id, automationId, scene };
+  return { workspaceId: id, automationId, scene: "office" };
 }

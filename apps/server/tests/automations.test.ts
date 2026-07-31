@@ -75,7 +75,7 @@ describe("automations", () => {
   test("updates enabled state and records run summary", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "onmyagent-automations-"));
     const task = await createAutomation(workspace, {
-      scene: "code",
+      scene: "office",
       title: "Review changes",
       prompt: "Review repository changes.",
       schedule: { mode: "interval", day: "daily", time: "09:00" },

@@ -73,18 +73,18 @@ function planRuntime(
 describe("session run controller", () => {
   test("resolves collaboration kinds for execute, ask, plan, and code goal", () => {
     expect(resolveSessionCollaborationKind(executeMode, "office")).toBe("execute");
-    expect(resolveSessionCollaborationKind(executeMode, "code")).toBe("execute");
+    expect(resolveSessionCollaborationKind(executeMode, "office")).toBe("execute");
     expect(
       resolveSessionCollaborationKind(
         { kind: "ask", planning: false, pursueGoal: false },
         "office",
       ),
     ).toBe("ask");
-    expect(resolveSessionCollaborationKind(planMode, "code")).toBe("plan");
+    expect(resolveSessionCollaborationKind(planMode, "office")).toBe("plan");
     expect(
       resolveSessionCollaborationKind(
         { planning: false, pursueGoal: true },
-        "code",
+        "office",
       ),
     ).toBe("goal");
   });
@@ -93,7 +93,7 @@ describe("session run controller", () => {
     const policy = resolveSessionRunPolicy({
       accessMode: "default",
       collaborationMode: executeMode,
-      categoryId: "code",
+      categoryId: "office",
       activityStatus: "waiting",
       assistantActive: true,
       hasActivePermission: true,
@@ -112,7 +112,7 @@ describe("session run controller", () => {
     expect(
       shouldShowGoalRuntime({
         mode: executeMode,
-        categoryId: "code",
+        categoryId: "office",
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
@@ -120,7 +120,7 @@ describe("session run controller", () => {
     expect(
       shouldShowGoalRuntime({
         mode: { planning: false, pursueGoal: true },
-        categoryId: "code",
+        categoryId: "office",
         goalRuntime: explicitGoalRuntime("waiting"),
         dismissed: false,
       }),
@@ -206,7 +206,7 @@ describe("session run controller", () => {
     const policy = resolveSessionRunPolicy({
       accessMode: "full",
       collaborationMode: executeMode,
-      categoryId: "code",
+      categoryId: "office",
       activityStatus: "idle",
       assistantActive: false,
       hasActivePermission: true,
@@ -323,7 +323,7 @@ describe("session run controller", () => {
     const idlePolicy = resolveSessionRunPolicy({
       accessMode: "default",
       collaborationMode: executeMode,
-      categoryId: "code",
+      categoryId: "office",
       activityStatus: "idle",
       assistantActive: false,
       hasActivePermission: false,
@@ -335,7 +335,7 @@ describe("session run controller", () => {
     const waitingQuestionPolicy = resolveSessionRunPolicy({
       accessMode: "default",
       collaborationMode: executeMode,
-      categoryId: "code",
+      categoryId: "office",
       activityStatus: "idle",
       assistantActive: false,
       hasActivePermission: false,
@@ -354,7 +354,7 @@ describe("session run controller", () => {
     const policy = resolveSessionRunPolicy({
       accessMode: "default",
       collaborationMode: planMode,
-      categoryId: "code",
+      categoryId: "office",
       activityStatus: "waiting",
       assistantActive: true,
       hasActivePermission: false,
@@ -372,7 +372,7 @@ describe("session run controller", () => {
     const policy = resolveSessionRunPolicy({
       accessMode: "default",
       collaborationMode: executeMode,
-      categoryId: "code",
+      categoryId: "office",
       activityStatus: "idle",
       assistantActive: false,
       hasActivePermission: false,

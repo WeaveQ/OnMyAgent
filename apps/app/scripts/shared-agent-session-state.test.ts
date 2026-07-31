@@ -84,10 +84,10 @@ describe("shared agent session state", () => {
     expect(readAssistantSessionCategory("ses-1")).toBe("office");
 
     addAssistantSession("ses-1");
-    writeAssistantSessionCategory("ses-1", "code");
+    writeAssistantSessionCategory("ses-1", "office");
 
     expect(isAssistantSession("ses-1")).toBe(true);
-    expect(readAssistantSessionCategory("ses-1")).toBe("code");
+    expect(readAssistantSessionCategory("ses-1")).toBe("office");
 
     removeAssistantSession("ses-1");
 
@@ -274,7 +274,7 @@ describe("shared agent session state", () => {
   test("renames automation session records for sidebar display", () => {
     const automation = {
       id: "automation-1",
-      scene: "code",
+      scene: "office",
       title: "每日代码巡检",
       prompt: "巡检代码",
       schedule: {
