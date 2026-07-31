@@ -23,7 +23,7 @@
   },
   "displayDescription": {
     "en": "For linehaul, city delivery, cold chain and 3PL teams: organize customer chats and files into a clear shipment sheet, find missing details, work out a quote, and catch order mistakes before dispatch.",
-    "zh": "面向专线、干线、城配、冷链和 3PL：把客户聊天、截图和文件整理成发货表，检查还缺什么，帮你计算怎么报价，并核对订单有没有写错。"
+    "zh": "面向专线、干线、城配、冷链和 3PL：整理发货信息、检查缺项、计算报价、核对订单；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",

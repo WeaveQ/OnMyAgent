@@ -227,9 +227,13 @@ function assertPackageShape(packageName: string, skillNames: readonly string[]) 
   }
 
   const frontmatterSkills = agentText.match(/skills:\s*\[([^\]]+)\]/);
-  expect(
-    frontmatterSkills?.[1].split(",").map((value) => value.trim()),
-  ).toEqual([...skillNames, "document-processing"]);
+  const declaredSkills =
+    frontmatterSkills?.[1].split(",").map((value) => value.trim()) ?? [];
+  const expectedShared =
+    packageName === "order-dispatch-specialist"
+      ? (["document-processing", "create-automation"] as const)
+      : (["document-processing"] as const);
+  expect(declaredSkills).toEqual([...skillNames, ...expectedShared]);
   expect(agentText).toContain("document-processing");
 
   for (const [index, skillName] of skillNames.entries()) {
@@ -343,13 +347,17 @@ describe("order-dispatch-specialist agent contract (refactored)", () => {
     expect(agentText).toContain("货运客服专家");
   });
 
-  test("skills stay aligned to four CS capabilities plus shared document-processing", () => {
+  test("skills stay aligned to four CS capabilities plus shared document-processing and automation", () => {
     const agentText = readAgent(packageName);
     expect(agentText).toContain("整理发货信息");
     expect(agentText).toContain("检查缺项");
     expect(agentText).toContain("建议报价");
     expect(agentText).toContain("核对订单");
     expect(agentText).toContain("`document-processing`");
+    expect(agentText).toContain("`create-automation`");
+    expect(agentText).toContain("## 定时任务（用户需要时）");
+    expect(agentText).toContain("automations/proposals");
+    expect(agentText).toContain("只有用户在 OnMyAgent 里确认后才算真正创建");
 
     const skillBoundaryHints: Record<string, string[]> = {
       "shipment-data-structuring": ["提取与归表", "## 边界"],
