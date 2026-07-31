@@ -71,7 +71,7 @@ describe("expert marketplace UI contract", () => {
     );
   });
 
-  test("ships the logistics verticals plus three consolidated operations experts", () => {
+  test("ships the logistics verticals plus four consolidated operations experts", () => {
     const categories = readMarketplaceFile("categories.ts");
     expect(categories).toContain('id: "14-Logistics"');
     expect(categories).toContain("session.expert_marketplace_category_logistics");
@@ -95,6 +95,7 @@ describe("expert marketplace UI contract", () => {
       "logistics-cold-chain",
       "order-dispatch-specialist",
       "fleet-management-specialist",
+      "fulfillment-specialist",
       "logistics-finance-specialist",
     ] as const;
     const verticalSkillMarkers: Record<string, string> = {
@@ -140,6 +141,7 @@ describe("expert marketplace UI contract", () => {
         manifest?: {
           categoryId?: string;
           categoryIds?: string[];
+          profession?: { zh?: string };
           skills?: string[];
           quickPrompts?: Array<{ en?: string; zh?: string }>;
         };
@@ -157,14 +159,59 @@ describe("expert marketplace UI contract", () => {
     }
 
     const consolidatedSkills: Record<string, string[]> = {
-      "order-dispatch-specialist": ["./skills/order-entry", "./skills/freight-quote", "./skills/capacity-pool", "./skills/introduce-order-dispatch"],
-      "fleet-management-specialist": ["./skills/fuel-audit", "./skills/affiliate-fleet", "./skills/claims-case", "./skills/introduce-fleet-management"],
-      "logistics-finance-specialist": ["./skills/pod-recon", "./skills/billing-case", "./skills/ar-collection", "./skills/introduce-logistics-finance"],
+      "order-dispatch-specialist": [
+        "./skills/shipment-data-structuring",
+        "./skills/shipment-information-audit",
+        "./skills/freight-quote-analysis",
+        "./skills/order-quote-consistency",
+      ],
+      "fleet-management-specialist": [
+        "./skills/fleet-data-consolidation",
+        "./skills/vehicle-candidate-ranking",
+        "./skills/dispatch-readiness-audit",
+        "./skills/dispatch-brief-drafting",
+        "./skills/fleet-efficiency-analysis",
+      ],
+      "fulfillment-specialist": [
+        "./skills/transit-update-structuring",
+        "./skills/customer-update-drafting",
+        "./skills/exception-evidence-review",
+        "./skills/pod-document-audit",
+        "./skills/fulfillment-performance-analysis",
+      ],
+      "logistics-finance-specialist": [
+        "./skills/settlement-data-consolidation",
+        "./skills/charge-variance-audit",
+        "./skills/settlement-readiness-audit",
+        "./skills/invoice-information-audit",
+        "./skills/freight-profit-analysis",
+      ],
+    };
+    const consolidatedProfessions: Record<string, string> = {
+      "order-dispatch-specialist": "货运客服专家",
+      "fleet-management-specialist": "车队管理专家",
+      "fulfillment-specialist": "物流运输专家",
+      "logistics-finance-specialist": "货运财务专家",
+    };
+    const alignedCardSubtitles: Record<string, string> = {
+      "order-dispatch-specialist": "货运客服专家",
+      "fleet-management-specialist": "车队管理专家",
+      "fulfillment-specialist": "物流运输专家",
+      "logistics-finance-specialist": "货运财务专家",
     };
     for (const [packageName, skills] of Object.entries(consolidatedSkills)) {
       const entry = (expertManifest.experts ?? []).find((item) => item.packageName === packageName);
       expect(entry?.manifest?.skills).toEqual(skills);
-      expect(entry?.manifest?.quickPrompts).toHaveLength(3);
+      expect(entry?.manifest?.quickPrompts?.length).toBeGreaterThanOrEqual(4);
+      expect(entry?.manifest?.quickPrompts?.length).toBeLessThanOrEqual(5);
+      expect(entry?.manifest?.profession?.zh).toBe(
+        consolidatedProfessions[packageName],
+      );
+      if (packageName in alignedCardSubtitles) {
+        expect(entry?.manifest?.displayName?.zh).toBe(
+          alignedCardSubtitles[packageName],
+        );
+      }
     }
 
     const removedPackages = [
@@ -191,27 +238,38 @@ describe("expert marketplace UI contract", () => {
     }
   });
 
-  test("keeps every consolidated skill inside its fixed capability directory", () => {
-    const capabilitySkills: Array<[string, string, string]> = [
-      ["order-dispatch-specialist", "order-entry", "物流单"],
-      ["order-dispatch-specialist", "freight-quote", "报价"],
-      ["order-dispatch-specialist", "capacity-pool", "运力调配"],
-      ["fleet-management-specialist", "fuel-audit", "油费稽查"],
-      ["fleet-management-specialist", "affiliate-fleet", "挂靠车管理"],
-      ["fleet-management-specialist", "claims-case", "货损理赔"],
-      ["logistics-finance-specialist", "pod-recon", "回单对账"],
-      ["logistics-finance-specialist", "billing-case", "开票管理"],
-      ["logistics-finance-specialist", "ar-collection", "回款催收"],
+  test("keeps every practical logistics skill concise and preview-free", () => {
+    const capabilitySkills: Array<[string, string]> = [
+      ["order-dispatch-specialist", "shipment-data-structuring"],
+      ["order-dispatch-specialist", "shipment-information-audit"],
+      ["order-dispatch-specialist", "freight-quote-analysis"],
+      ["order-dispatch-specialist", "order-quote-consistency"],
+      ["fleet-management-specialist", "fleet-data-consolidation"],
+      ["fleet-management-specialist", "vehicle-candidate-ranking"],
+      ["fleet-management-specialist", "dispatch-readiness-audit"],
+      ["fleet-management-specialist", "dispatch-brief-drafting"],
+      ["fleet-management-specialist", "fleet-efficiency-analysis"],
+      ["fulfillment-specialist", "transit-update-structuring"],
+      ["fulfillment-specialist", "customer-update-drafting"],
+      ["fulfillment-specialist", "exception-evidence-review"],
+      ["fulfillment-specialist", "pod-document-audit"],
+      ["fulfillment-specialist", "fulfillment-performance-analysis"],
+      ["logistics-finance-specialist", "settlement-data-consolidation"],
+      ["logistics-finance-specialist", "charge-variance-audit"],
+      ["logistics-finance-specialist", "settlement-readiness-audit"],
+      ["logistics-finance-specialist", "invoice-information-audit"],
+      ["logistics-finance-specialist", "freight-profit-analysis"],
     ];
 
-    for (const [packageName, skillName, directory] of capabilitySkills) {
+    for (const [packageName, skillName] of capabilitySkills) {
       const skill = readFileSync(
         join(builtinPluginsRoot, packageName, "skills", skillName, "SKILL.md"),
         "utf8",
       );
-      expect(skill).toContain(`${directory}/`);
-      expect(skill).toContain(`artifact:${directory}/`);
-      expect(skill).toContain(".process/");
+      expect(skill).toContain(`name: ${skillName}`);
+      expect(skill).not.toContain("inlineWidget");
+      expect(skill).not.toContain(".process/");
+      expect(skill).not.toContain("artifact:");
     }
   });
 
@@ -294,7 +352,10 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("activeTab={storeActiveTab}");
     expect(expertPage).toContain("onSummonMarketplaceExpert={handleStartMarketplaceExpert}");
     // Install + my-experts list live in shared hooks (expert still installs on summon path).
-    expect(expertPage).toContain("installSummonedMarketplaceExpert(expert)");
+    const sessionStarters = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-expert-session-starters.ts",
+    );
+    expect(sessionStarters).toContain("installSummonedMarketplaceExpert(expert)");
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
     expect(summonHook).toContain("installSummonedMarketplaceExpert(expert)");
     expect(myExpertsHook).toContain('listExpertPackages("my-experts")');
@@ -346,6 +407,9 @@ describe("expert marketplace UI contract", () => {
     const summonHook = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
     );
+    const sessionStarters = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-expert-session-starters.ts",
+    );
 
     // Assistant summon path: shared hook creates task + pending agent, then switches mode.
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
@@ -354,16 +418,21 @@ describe("expert marketplace UI contract", () => {
     expect(summonHook).toContain(
       "setExpertComposerDraftAfterNewTask(",
     );
+    expect(summonHook).toContain("resolveMarketplaceExpertStartPrompt(");
+    expect(summonHook).toContain(
+      "setExpertComposerTemplateAfterNewTask(",
+    );
     expect(summonHook).toContain('onNavigateToMode("expert")');
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
-    expect(expertPage).toContain("openFreshExpertDraft();");
-    // Build pending first, activate, open draft (+ 新任务 clears pending), re-activate.
-    expect(expertPage).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
-    expect(expertPage).toContain("activateDraftAgent(pendingWithStart)");
-    expect(expertPage).toContain(
-      ".setDraft(existingConversationGroup.latestSession.id, initialPrompt)",
-    );
-    expect(expertPage).toContain("setExpertComposerDraftAfterNewTask(");
+    expect(expertPage).toContain("useExpertSessionStarters");
+    // Build pending first, activate, open draft (new-task clears pending), re-activate.
+    expect(sessionStarters).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
+    expect(sessionStarters).toContain("input.activateDraftAgent(pendingWithStart)");
+    expect(sessionStarters).toContain("input.openFreshExpertDraft()");
+    expect(sessionStarters).toContain("resolveMarketplaceExpertStartPrompt(");
+    expect(sessionStarters).toContain("setComposerTemplateAfterNavigation(");
+    expect(sessionStarters).toContain("setExpertComposerDraftAfterNewTask(");
+    expect(sessionStarters).toContain("setExpertComposerTemplateAfterNewTask(");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {
@@ -407,6 +476,9 @@ describe("expert marketplace UI contract", () => {
     const conversationModel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
     );
+    const sessionStarters = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-expert-session-starters.ts",
+    );
     const surface = readWorkspaceFile("apps/app/src/react-app/domains/session/surface/session-surface.tsx");
     const pendingAgent = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/surface/session-surface-pending-agent.ts",
@@ -415,14 +487,15 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/surface/session-surface-types.ts",
     );
     const surfaceSources = [surface, pendingAgent].join("\n");
-    const expertHost = [expertPage, conversationModel].join("\n");
+    const expertHost = [expertPage, conversationModel, sessionStarters].join("\n");
 
     // Active agent identity resolves via pure conversation model (wired from ExpertPage).
     expect(expertPage).toContain("resolveActiveAgentContext");
     expect(expertPage).toContain("const activeAgentContext = useMemo");
     expect(conversationModel).toContain("export function resolveActiveAgentContext");
     expect(conversationModel).toContain("findBuiltinMarketplaceExpertById(");
-    expect(expertHost).toContain("activeAgentContext?.id ??");
+    expect(expertHost).toContain("activeAgentContext?.id");
+    expect(sessionStarters).toContain("input.activeAgentContext?.id");
     expect(expertPage).toContain("agentContext={activeAgentContext}");
     expect(expertPage).toContain("assistantFeatureCategoryId={activeExpertFeatureCategoryId}");
     expect(expertPage).not.toContain("DEFAULT_AGENT_TEMPLATE_ID");

@@ -453,4 +453,35 @@ describe("session route composer", () => {
       "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf",
     );
   });
+
+  test("resolves inbox absolute paths against catalog workspace, not expert session dir", async () => {
+    // Expert cwd is isolated under workspace/agent/session while inbox files
+    // still land in workspace/.opencode/onmyagent/inbox/.
+    const parts = await draftToParts(
+      draft({
+        attachments: [
+          attachment({
+            name: "演练材料.xlsx",
+            kind: "file",
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          }),
+        ],
+      }),
+      "/tmp/workspace/货运客服专家-id/1785000000000",
+      {
+        inboxWorkspaceRoot: "/tmp/workspace",
+        uploadAttachment: async () => ({
+          path: "session-uploads/1785000000000-0-演练材料.xlsx",
+        }),
+      },
+    );
+
+    expect(parts[0]?.text).toContain(
+      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/1785000000000-0-演练材料.xlsx",
+    );
+    expect(parts[0]?.text).not.toContain(
+      "/tmp/workspace/货运客服专家-id/1785000000000/.opencode/onmyagent/inbox",
+    );
+  });
 });

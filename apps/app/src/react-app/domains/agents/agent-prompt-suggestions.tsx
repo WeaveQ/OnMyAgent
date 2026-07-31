@@ -127,6 +127,21 @@ function getTemplatePrompts(): PromptTemplates {
 }
 
 const EXPERT_PROMPT_ICONS = [Sparkles, FileText, Target];
+const LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS = new Set([
+  "order-dispatch-specialist",
+  "fleet-management-specialist",
+  "fulfillment-specialist",
+  "logistics-finance-specialist",
+]);
+
+function isLogisticsColleagueIntroExpert(
+  agentId: string | null | undefined,
+): boolean {
+  if (!agentId) return false;
+  return [...LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS].some(
+    (expertId) => agentId === expertId || agentId.endsWith(`:${expertId}`),
+  );
+}
 
 function getCodePrompts(): PromptSuggestion[] {
   return [
@@ -210,12 +225,6 @@ function resolvePrompts(
   return getGenericPrompts();
 }
 
-const CAPABILITY_MAP_EXPERT_IDS = [
-  "order-dispatch-specialist",
-  "fleet-management-specialist",
-  "logistics-finance-specialist",
-];
-
 function promptsFromExpertQuickPrompts(
   agentId: string | null | undefined,
   quickPrompts: string[] | undefined,
@@ -227,18 +236,13 @@ function promptsFromExpertQuickPrompts(
     .filter(Boolean)
     .slice(0, 3);
   if (templates.length === 0 && prompts.length === 0) return null;
-  const showCapabilityMap = CAPABILITY_MAP_EXPERT_IDS.some((id) => agentId?.includes(id));
   return [
     {
       title: t("session.expert_self_intro_prompt_title"),
-      description: t(
-        showCapabilityMap
-          ? "session.expert_self_intro_capability_map_description"
-          : "session.expert_self_intro_prompt",
-      ),
+      description: t("session.expert_self_intro_prompt_description"),
       prompt: t(
-        showCapabilityMap
-          ? "session.expert_self_intro_capability_map_prompt"
+        isLogisticsColleagueIntroExpert(agentId)
+          ? "session.logistics_expert_self_intro_prompt"
           : "session.expert_self_intro_prompt",
       ),
       icon: MessageSquare,

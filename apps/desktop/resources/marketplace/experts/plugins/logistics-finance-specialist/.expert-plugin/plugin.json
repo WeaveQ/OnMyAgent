@@ -1,59 +1,92 @@
 {
   "name": "logistics-finance-specialist",
   "version": "1.0.0",
-  "description": "Handle POD reconciliation, billing preparation, and receivables collection for logistics operations",
-  "author": { "name": "Expert Marketplace" },
+  "description": "Match shipments with bills, find amount differences, check whether each job can be settled, prepare invoice requests, and calculate profit",
+  "author": {
+    "name": "Expert Marketplace"
+  },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "logistics-finance-specialist",
-  "agents": ["./agents/logistics-finance-specialist.md"],
+  "agents": [
+    "./agents/logistics-finance-specialist.md"
+  ],
   "skills": [
-    "./skills/pod-recon",
-    "./skills/billing-case",
-    "./skills/ar-collection",
-    "./skills/introduce-logistics-finance"
+    "./skills/settlement-data-consolidation",
+    "./skills/charge-variance-audit",
+    "./skills/settlement-readiness-audit",
+    "./skills/invoice-information-audit",
+    "./skills/freight-profit-analysis"
   ],
   "displayName": {
     "en": "Finance Specialist",
-    "zh": "财务专员"
+    "zh": "货运财务专家"
   },
   "profession": {
-    "en": "Logistics Settlement & Receivables",
-    "zh": "财务结算作业"
+    "en": "Freight Settlement & Billing",
+    "zh": "货运财务专家"
   },
   "displayDescription": {
-    "en": "Connect POD reconciliation, invoice preparation, and receivables collection into one traceable settlement workflow.",
-    "zh": "把回单对账、开票资料和回款催收串成一条可追踪的结算流程，差异、账龄和下一节点一目了然。"
+    "en": "For linehaul, city delivery, cold chain and 3PL: match shipments with bills, find amount differences, check settlement readiness, prepare invoice requests, and calculate profit. Can also draft scheduled task proposals.",
+    "zh": "面向专线、干线、城配、冷链：合并运单与账单、查金额差额、检查结算资料、核对开票信息、分析利润；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
-  "categoryIds": ["01-OPC", "14-Logistics"],
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
   "defaultInitPrompt": {
-    "zh": "这是 XX 月运单费用表和回单登记：XX。请逐票对账，标出费用差异、缺回单票，并生成对账单草稿。",
-    "en": "Here are the XX-month waybill charges and POD log: XX. Reconcile each shipment, flag fee variances and missing PODs, and draft a statement."
+    "zh": "这些是运单、报价、承运商账单、客户账单和回单表 XX。请按运单号合到一张对账表里，并标出哪些对不上、重复或缺少信息。",
+    "en": "Here are shipment, quote, carrier bill, customer bill, and receipt sheets XX. Match them by shipment number into one reconciliation sheet and flag unmatched, duplicate, or missing information."
   },
   "tags": [
-    { "zh": "回单对账", "en": "POD Reconciliation" },
-    { "zh": "开票管理", "en": "Billing" },
-    { "zh": "回款催收", "en": "Collections" }
+    {
+      "zh": "合并账单",
+      "en": "Match Bills"
+    },
+    {
+      "zh": "利润分析",
+      "en": "Profit Analysis"
+    },
+    {
+      "zh": "找金额差额",
+      "en": "Find Differences"
+    },
+    {
+      "zh": "检查能否结账",
+      "en": "Check Settlement"
+    },
+    {
+      "zh": "检查开票资料",
+      "en": "Check Invoice Details"
+    },
+    {
+      "zh": "算赚不赚钱",
+      "en": "Calculate Profit"
+    }
   ],
   "quickPrompts": [
     {
-      "zh": "这是 XX 月运单费用表和回单登记：XX。请逐票对账，标出费用差异、缺回单票，并生成对账单草稿。",
-      "en": "Here are the XX-month waybill charges and POD log: XX. Reconcile each shipment, flag fee variances and missing PODs, and draft a statement."
+      "zh": "这些是 <运单、报价、客户账单、承运商账单和回单表>。请按 <运单号或其他对应方法> 合成一张对账表，套用 <你要使用的对账模板>，并标出对不上、重复或缺少信息的记录。",
+      "en": "Match <Shipment, quote, customer bill, carrier bill, and receipt sheets> using <Shipment number or another matching method>, follow <My template>, and flag unmatched, duplicate, or missing records."
     },
     {
-      "zh": "客户 XX 本月有 XX 票需要开票，开票资料如下：XX。请整理开票清单、生成申请内容，并建立开票进度表。",
-      "en": "Customer XX has XX shipments to invoice this month; billing details: XX. Prepare the invoice checklist, request content, and progress tracker."
+      "zh": "请把 <报价、合同和账单> 放在一起对账，按照 <公司的收费和付款规则> 找出少收、多付、重复收费、漏收或没有凭证的费用，并按 <需要重点查看的客户、线路或金额范围> 算清一共差多少钱。",
+      "en": "Compare <Quotes, contracts, and bills>, follow <Company charging and payment rules>, find undercharges, overpayments, duplicates, missed charges, or unsupported fees, and use <Amount range or focus> to calculate the difference."
     },
     {
-      "zh": "客户 XX 账期 XX 天，已开票 XX 元、已回款 XX 元。请计算账龄，给出下一催收节点和分阶段话术。",
-      "en": "Customer XX has XX-day terms, XX invoiced, and XX received. Calculate aging and provide the next collection milestone with staged scripts."
+      "zh": "请按 <公司的结算要求> 检查 <每票货的回单、费用凭证和审批资料>，按照 <你习惯的分组方式> 告诉我哪些能结账、哪些暂时不能、分别缺什么，以及该找谁补。",
+      "en": "Using <Company settlement requirements>, check <Receipts, cost evidence, and approvals for each shipment>, follow <My grouping method>, and show what can be settled, what cannot, what is missing, and who should provide it."
+    },
+    {
+      "zh": "请检查 <客户开票资料> 和 <已经确认的运单及金额>，按照 <公司的开票申请模板> 核对公司名称、税号、税率、金额和对应运单，并写好开票申请。",
+      "en": "Check <Customer invoice details> against <Confirmed shipments and amounts>, follow <Company invoice request template>, verify company name, tax ID, tax rate, amount, and related shipments, and draft the request."
     }
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "老板好，我是【财务专员】。我负责回单对账、开票管理和回款催收：先逐票核对回单与费用，再整理开票资料，最后维护应收账龄与催收节点。无法匹配的票据和金额差异会单列；不会自动入账、开票、付款或向客户发消息。",
-    "en": "Hi, I am your Finance Specialist. I handle POD reconciliation, billing preparation, and receivables collection as one traceable workflow. Unmatched shipments and amount variances stay visible. I never post entries, issue invoices, make payments, or message customers automatically."
+    "zh": "你好！💰 我是你的货运财务专家，帮专线、干线、城配、冷链把运费对账和结算理清楚。\n\n无论是合并运单与账单、查金额差额、检查结算资料、核对开票信息，还是写开票申请、分析每票和线路赚不赚钱，我都能帮你搞定。\n\n手头有运单、账单或回单直接丢过来，或者说下今天要对哪几票。",
+    "en": "Hi! I am your freight finance specialist. I can match shipments with bills, find amount differences, check settlement readiness, prepare invoice requests, and calculate which jobs make or lose money. Drop waybills, bills, or PODs, or tell me which loads to reconcile today."
   }
 }

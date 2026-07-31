@@ -1,18 +1,15 @@
 /** @jsxImportSource react */
 import { memo, type CSSProperties } from "react";
 import {
-  ChevronRight,
+  ArrowUpRight,
   CircleAlert,
 } from "lucide-react";
 
-import {
-  revealDesktopItemCandidates,
-} from "../../../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { currentLocale, t } from "@/i18n";
-import { cn } from "@/lib/utils";
+import { cn, formatFileSize } from "@/lib/utils";
 import {
   SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX,
   type MessageGroup,
@@ -20,10 +17,7 @@ import {
 import { isOutputLimitContinuationMessageId } from "../../sync/output-limit-recovery";
 import { MarkdownBlock } from "../markdown";
 import { TranscriptResourceChip } from "../transcript-resource-chip";
-import {
-  resolveArtifactRevealCandidates,
-  type OpenTarget,
-} from "../../artifacts/open-target";
+import type { OpenTarget } from "../../artifacts/open-target";
 import { ArtifactIcon } from "../../artifacts/artifact-icon";
 import {
   messageBlockStyle,
@@ -45,6 +39,7 @@ import {
   messageBlockRowPropsEqual,
   type MessageBlockRowMemoProps,
 } from "./message-block-row-equality";
+import { stripFollowUpMarkers } from "../follow-up-suggestions";
 
 function messageGroupKey(messageId: string, group: MessageGroup) {
   if (group.kind === "steps") return `${messageId}:steps:${group.id}`;
@@ -52,7 +47,7 @@ function messageGroupKey(messageId: string, group: MessageGroup) {
   return `${messageId}:text:${group.segment}:${partId}`;
 }
 
-function openTargetDisplay(target: OpenTarget): { title: string; action: string } {
+function openTargetDisplay(target: OpenTarget): { title: string; detail?: string } {
   if (target.kind === "url") {
     const raw = (target.name || target.value || "").trim();
     let title = raw;
@@ -65,76 +60,63 @@ function openTargetDisplay(target: OpenTarget): { title: string; action: string 
     }
     return {
       title: title || t("session.open_browser"),
-      action: t("session.open_browser"),
+      detail: t("session.open_browser"),
     };
   }
   return {
     title: target.name || target.value || t("session.open_artifact"),
-    action: t("session.open_artifact"),
+    detail:
+      typeof target.size === "number"
+        ? formatFileSize(target.size)
+        : undefined,
   };
 }
 
 function OpenableTargetsStrip(props: {
   targets: OpenTarget[];
   onOpenTarget: (target: OpenTarget) => void;
-  workspaceRoot?: string;
 }) {
   if (!props.targets.length) return null;
-  const openInFolder = async (target: OpenTarget) => {
-    if (target.kind !== "file") {
-      props.onOpenTarget(target);
-      return;
-    }
-    const candidates = resolveArtifactRevealCandidates(target.value, {
-      workspaceRoot: props.workspaceRoot,
-      verifiedValue: target.value,
-    });
-    try {
-      await revealDesktopItemCandidates(candidates);
-    } catch (error) {
-      console.error("Failed to open artifact in folder:", error, candidates);
-      // Always give the user a working path: open in-app artifact panel.
-      props.onOpenTarget(target);
-    }
-  };
   return (
-    <div className="mt-3 flex w-full max-w-sm flex-col gap-2">
-      {props.targets.length > 1 ? (
-        <div className="text-xs font-medium text-dls-secondary">
-          {t("session.openable_items")}
-        </div>
-      ) : null}
+    <div
+      className={cn(
+        "mt-3 grid w-full max-w-3xl grid-cols-1 gap-2",
+        props.targets.length > 1 && "sm:grid-cols-2",
+      )}
+    >
       {props.targets.map((target) => {
-        const { title, action } = openTargetDisplay(target);
+        const { title, detail } = openTargetDisplay(target);
         return (
           <button
             key={target.id}
             type="button"
             className={cn(
-              "session-generated-artifact-card group flex w-full min-w-0 items-center gap-3 rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5 text-left transition-colors",
+              "session-generated-artifact-card group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-md border border-dls-border bg-dls-surface p-3 text-left transition-colors",
               "hover:bg-dls-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
             )}
             title={target.value}
-            aria-label={`${title} · ${action}`}
-            onClick={() => void openInFolder(target)}
+            aria-label={detail ? `${title} · ${detail}` : title}
+            onClick={() => props.onOpenTarget(target)}
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-dls-surface text-dls-secondary">
               <ArtifactIcon
                 type={target.preview}
                 name={target.name || target.value}
-                className="size-4"
+                className="size-5"
               />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium leading-snug text-dls-text">
                 {title}
               </span>
-              <span className="mt-0.5 block truncate text-xs text-dls-secondary">
-                {action}
-              </span>
+              {detail ? (
+                <span className="mt-0.5 block truncate text-xs text-dls-secondary">
+                  {detail}
+                </span>
+              ) : null}
             </span>
-            <ChevronRight
-              className="size-3.5 shrink-0 text-dls-secondary opacity-50 transition-opacity group-hover:opacity-100"
+            <ArrowUpRight
+              className="size-4 shrink-0 text-dls-secondary opacity-60 transition-opacity group-hover:opacity-100"
               aria-hidden
             />
           </button>
@@ -221,7 +203,6 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
             <OpenableTargetsStrip
               targets={turnOpenTargets}
               onOpenTarget={props.onOpenTarget}
-              workspaceRoot={props.workspaceRoot}
             />
           ) : null}
         </div>
@@ -478,7 +459,7 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
 
                 return (
                   <MarkdownBlock
-                    text={text}
+                    text={stripFollowUpMarkers(text)}
                     streaming={isStreamingLatestAssistant}
                     showStreamingCursor={false}
                     highlightQuery={highlightQuery}
@@ -516,7 +497,6 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
           <OpenableTargetsStrip
             targets={turnOpenTargets}
             onOpenTarget={props.onOpenTarget}
-            workspaceRoot={props.workspaceRoot}
           />
         ) : null}
       </div>

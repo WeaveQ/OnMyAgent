@@ -11,6 +11,13 @@ import { existsSync } from "node:fs";
 import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 
+const RETIRED_EXPERT_PACKAGE_SKILLS = new Map([
+  ["order-dispatch-specialist", ["introduce-order-dispatch"]],
+  ["fleet-management-specialist", ["introduce-fleet-management"]],
+  ["fulfillment-specialist", ["introduce-fulfillment"]],
+  ["logistics-finance-specialist", ["introduce-logistics-finance"]],
+]);
+
 /**
  * @param {string} packageDir
  * @returns {Promise<Array<{ skillName: string, sourceDir: string }>>}
@@ -75,6 +82,30 @@ export async function materializeExpertPackageSkills(input) {
 }
 
 /**
+ * Remove known retired skills that older releases materialized globally.
+ * The package-name allowlist keeps cleanup scoped to legacy expert-owned
+ * folders and leaves every unrelated user skill untouched.
+ * @param {{ packageDir: string, skillsRoot: string }} input
+ * @returns {Promise<string[]>} removed skill names
+ */
+export async function removeRetiredExpertPackageSkills(input) {
+  const packageDir = String(input?.packageDir ?? "").trim();
+  const skillsRoot = String(input?.skillsRoot ?? "").trim();
+  if (!packageDir || !skillsRoot) return [];
+
+  const packageName = path.basename(packageDir);
+  const retiredSkills = RETIRED_EXPERT_PACKAGE_SKILLS.get(packageName) ?? [];
+  const removed = [];
+  for (const skillName of retiredSkills) {
+    const destination = path.join(skillsRoot, skillName);
+    if (!existsSync(destination)) continue;
+    await rm(destination, { recursive: true, force: true });
+    removed.push(skillName);
+  }
+  return removed;
+}
+
+/**
  * Materialize expert-owned skills and expose them to an already-running
  * OpenCode config without requiring an engine restart.
  * @param {{
@@ -85,8 +116,12 @@ export async function materializeExpertPackageSkills(input) {
  * @returns {Promise<string[]>} installed skill names
  */
 export async function materializeExpertPackageSkillsAndRefresh(input) {
+  const removed = await removeRetiredExpertPackageSkills(input);
   const installed = await materializeExpertPackageSkills(input);
-  if (installed.length > 0 && typeof input?.refreshSkillLinks === "function") {
+  if (
+    (installed.length > 0 || removed.length > 0) &&
+    typeof input?.refreshSkillLinks === "function"
+  ) {
     await input.refreshSkillLinks();
   }
   return installed;

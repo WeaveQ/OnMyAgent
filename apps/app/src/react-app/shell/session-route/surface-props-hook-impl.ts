@@ -857,6 +857,10 @@ export function useSessionRouteSurfaceProps(
                     { path: uploadPath },
                   )
               : undefined,
+          // Inbox lives on the catalog workspace; expert task cwd may be an
+          // isolated session subdir — never join inbox under that subdir.
+          inboxWorkspaceRoot:
+            workspaceRootForSession || taskWorkspaceRoot || undefined,
         });
         const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
           baseUrl: client?.baseUrl ?? null,

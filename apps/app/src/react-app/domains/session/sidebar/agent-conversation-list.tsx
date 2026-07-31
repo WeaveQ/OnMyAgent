@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
@@ -13,6 +13,12 @@ import {
   writeExpertPinnedAgentIds,
 } from "./conversation-model";
 import { AgentConversationItem } from "./agent-conversation-item";
+import {
+  readExpertSidebarOrderIds,
+  resolveExpertListOrderIds,
+  sortExpertListByOrderIds,
+  writeExpertSidebarOrderIds,
+} from "./expert-list-order";
 import { pickAggregateSessionStatus } from "./utils";
 import { useExpertUnreadStore } from "../status/expert-unread-store";
 
@@ -161,11 +167,25 @@ export function AgentConversationList(props: AgentConversationListProps) {
 
   const pinnedSet = useMemo(() => new Set(pinnedAgentIds), [pinnedAgentIds]);
 
+  // Always-stable order ledger (localStorage + ref). Session snapshot loads,
+  // tab switches, and open clicks must not reshuffle by time.updated.
+  const orderIdsRef = useRef<string[] | null>(null);
+  const orderWorkspaceIdRef = useRef(props.workspaceId);
+
   const orderedGroups = useMemo(() => {
     // Depend on store snapshots so list re-renders when unread / pin changes.
     void byWorkspace;
     void sessionUnreadByWorkspace;
     void focused;
+
+    if (
+      orderIdsRef.current === null ||
+      orderWorkspaceIdRef.current !== props.workspaceId
+    ) {
+      orderWorkspaceIdRef.current = props.workspaceId;
+      orderIdsRef.current = readExpertSidebarOrderIds(props.workspaceId);
+    }
+
     const withFlags = props.groups.map((group) => {
       const agentId = group.agentId ?? "";
       const unread =
@@ -177,7 +197,7 @@ export function AgentConversationList(props: AgentConversationListProps) {
         ? getUnreadCount(props.workspaceId, agentId)
         : 0;
       const pinned = Boolean(agentId) && pinnedSet.has(agentId);
-      // Recency: newest activity among all sessions under this expert.
+      // Seed / newcomer only — never drives reorder of known experts.
       const updated = group.sessions.reduce((max, session) => {
         const ts =
           session.time?.updated ?? session.time?.created ?? 0;
@@ -185,14 +205,30 @@ export function AgentConversationList(props: AgentConversationListProps) {
       }, 0);
       return { group, unread, unreadRecord, unreadCount, pinned, updated };
     });
-    // Order: pinned block first, then pure recency. Unread is badge-only — never reorders.
-    withFlags.sort((left, right) => {
-      if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
-      if (left.updated !== right.updated) return right.updated - left.updated;
-      // Stable tie-break by name so equal timestamps don’t jump.
-      return left.group.name.localeCompare(right.group.name, "zh");
+
+    const orderIds = resolveExpertListOrderIds({
+      items: withFlags.flatMap(({ group, updated, pinned }) => {
+        const agentId = group.agentId?.trim() ?? "";
+        if (!agentId) return [];
+        return [
+          {
+            agentId,
+            name: group.name,
+            updated,
+            pinned,
+          },
+        ];
+      }),
+      previousOrderIds: orderIdsRef.current ?? [],
     });
-    return withFlags;
+    const previousJoined = (orderIdsRef.current ?? []).join("\0");
+    const nextJoined = orderIds.join("\0");
+    if (previousJoined !== nextJoined) {
+      orderIdsRef.current = orderIds;
+      writeExpertSidebarOrderIds(props.workspaceId, orderIds);
+    }
+    // Unread is badge-only — never reorders.
+    return sortExpertListByOrderIds(withFlags, orderIds);
   }, [
     byWorkspace,
     focused,

@@ -175,6 +175,7 @@ export function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
 }
 
 export type ComposerProps = {
+  sessionId: string;
   draft: string;
   mentions: Record<string, ComposerMentionKind>;
   scenarioTags?: Array<{ id: string; label: string }>;

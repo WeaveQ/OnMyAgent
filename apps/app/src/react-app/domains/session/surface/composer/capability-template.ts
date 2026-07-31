@@ -7,10 +7,13 @@ export const COMPOSER_TEMPLATE_EVENTS = [
 export const CAPABILITY_TEMPLATE_MESSAGE = "onmyagent:capability-template";
 export const COMPOSER_TEMPLATE_MESSAGE = "onmyagent:prompt-template";
 
-export function dispatchComposerTemplate(template: string): void {
+export function dispatchComposerTemplate(
+  template: string,
+  targetSessionId?: string,
+): void {
   window.dispatchEvent(
     new CustomEvent(COMPOSER_TEMPLATE_EVENT, {
-      detail: { template },
+      detail: { template, targetSessionId },
     }),
   );
 }

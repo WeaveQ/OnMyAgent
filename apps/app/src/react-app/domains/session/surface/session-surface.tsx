@@ -114,6 +114,7 @@ import {
 import {
   filterCompactionMessages,
 } from "./transcript/message-compaction";
+import { useSessionFollowUpFooter } from "./use-session-follow-up-footer";
 import { useSharedQueryState } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
@@ -144,7 +145,6 @@ import {
   assistantScenarioDraftToken,
   isUserCancelledError,
 } from "./chrome/personal-assistant";
-
 import {
   EMPTY_TRANSCRIPT,
   IDLE_STATUS,
@@ -174,7 +174,6 @@ import {
   snapshotQueryErrorMessage,
   workspaceAttachmentContentType,
 } from "./session-surface-helpers";
-
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
@@ -303,7 +302,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     if (draft.includes(assistantScenarioDraftToken(assistantScenarioId))) return;
     setAssistantScenarioId(null);
   }, [assistantScenarioId, draft]);
-
   const { effectiveAgent } = useSessionSurfacePendingAgent({
     personalAssistantHome: props.personalAssistantHome,
     sessionId: props.sessionId,
@@ -342,7 +340,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       }),
     [props.opencodeBaseUrl, props.onmyagentToken],
   );
-
   const snapshotQueryKey = sessionSnapshotQueryKey(
     props.workspaceId,
     props.sessionId,
@@ -472,7 +469,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     hydratedKeyRef.current = key;
     seedSessionState(props.workspaceId, currentSnapshot);
   }, [props.sessionId, currentSnapshot, props.workspaceId]);
-
   const snapshot = resolveRenderedSessionSnapshot({
     sessionId: props.sessionId,
     currentSnapshot,
@@ -790,7 +786,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     renderedMessages.length,
     sending,
   ]);
-
   const model = deriveSessionRenderModel({
     intendedSessionId: props.sessionId,
     renderedSessionId:
@@ -800,7 +795,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     isError:
       (!props.draftOnly && snapshotQuery.isError) || Boolean(visibleError),
   });
-
   const buildDraft = useCallback(
     (text: string, nextAttachments: ComposerAttachment[]): ComposerDraft =>
       buildComposerDraft({
@@ -1307,7 +1301,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     client: props.client,
     opencodeClient,
   });
-
   const searchSessionMentionTargets = useCallback(
     async (query: string): Promise<ComposerMentionTarget[]> => {
       if (!props.workspaceRoot.trim()) return [];
@@ -1416,7 +1409,12 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     renderedMessages,
     jumpToLatest: sessionScroll.jumpToLatest,
   });
-
+  const transcriptStatusFooter = useSessionFollowUpFooter({
+    chatStreaming, sending, showInlineActivityIndicator, showNoVisibleAssistantOutput,
+    outputLimitedAssistantMessage, draftOnly: props.draftOnly, renderedMessages,
+    agentId: effectiveAgent?.id, quickPrompts: effectiveAgent?.quickPrompts,
+    assistantStatusFooter, reserveAssistantStatusSpace, typeComposerText,
+  });
   const selectAssistantPromptTemplate = useCallback(
     (scenarioId: string, prompt: string) => {
       const scenario = assistantCategory.scenarios.find((item) => item.id === scenarioId);
@@ -1682,7 +1680,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onDownloadCodePath={downloadCodePath}
       workspaceRoot={props.workspaceRoot}
       connectedProviderIds={props.connectedProviderIds}
-      assistantStatusFooter={assistantStatusFooter}
+      assistantStatusFooter={transcriptStatusFooter}
       searchQuery={searchQuery}
       searchMatchIdSet={searchMatchIdSet}
       activeSearchMessageId={activeSearchMessageId}

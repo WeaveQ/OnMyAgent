@@ -1,59 +1,87 @@
 {
   "name": "order-dispatch-specialist",
   "version": "1.0.0",
-  "description": "Handle order entry, auditable freight quoting, and capacity dispatch for small and midsize logistics teams",
-  "author": { "name": "Expert Marketplace" },
+  "description": "Organize customer shipment details for linehaul, city delivery, cold chain and 3PL, find missing information, work out freight quotes, and catch order mistakes",
+  "author": {
+    "name": "Expert Marketplace"
+  },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "order-dispatch-specialist",
-  "agents": ["./agents/order-dispatch-specialist.md"],
+  "agents": [
+    "./agents/order-dispatch-specialist.md"
+  ],
   "skills": [
-    "./skills/order-entry",
-    "./skills/freight-quote",
-    "./skills/capacity-pool",
-    "./skills/introduce-order-dispatch"
+    "./skills/shipment-data-structuring",
+    "./skills/shipment-information-audit",
+    "./skills/freight-quote-analysis",
+    "./skills/order-quote-consistency"
   ],
   "displayName": {
     "en": "Order & Dispatch Specialist",
-    "zh": "接单调度专员"
+    "zh": "货运客服专家"
   },
   "profession": {
-    "en": "Order, Quote & Dispatch Operations",
-    "zh": "接单调度作业"
+    "en": "Order Entry & Freight Quoting",
+    "zh": "货运客服专家"
   },
   "displayDescription": {
-    "en": "Turn customer requests into waybills, auditable three-option quotes, and ranked dispatch plans without inventing missing data or locking vehicles automatically.",
-    "zh": "从客户发货信息开始，完成物流单、三档报价与运力匹配；缺项集中追问，底价和最终锁车均由你确认。"
+    "en": "For linehaul, city delivery, cold chain and 3PL teams: organize customer chats and files into a clear shipment sheet, find missing details, work out a quote, and catch order mistakes before dispatch.",
+    "zh": "面向专线、干线、城配、冷链和 3PL：整理发货信息、检查缺项、计算报价、核对订单；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
-  "categoryIds": ["01-OPC", "14-Logistics"],
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
   "defaultInitPrompt": {
-    "zh": "客户微信发来：'明天上午从 XX 发 XX 到 XX，收货人 XX，需要 XX 车型。'请帮我识别信息、生成物流单，并列出待确认项。",
-    "en": "A customer messaged: 'Ship XX from XX to XX tomorrow morning, consignee XX, vehicle type XX.' Extract the details, create the waybill, and list missing confirmations."
+    "zh": "这些是客户发来的聊天、截图和表格：XX。请帮我整理成一张清楚的发货表，按这个模板填写：XX，并标出看不清或前后对不上的内容；如有冷链、城配多点或专线班期要求也一并整理。",
+    "en": "Here are customer chats, screenshots, and sheets: XX. Organize them into one clear shipment sheet using template XX, flag unclear or conflicting details, and capture cold-chain, multi-stop, or linehaul schedule requirements if present."
   },
   "tags": [
-    { "zh": "物流单", "en": "Waybills" },
-    { "zh": "报价", "en": "Quoting" },
-    { "zh": "运力调配", "en": "Dispatch" }
+    {
+      "zh": "整理发货信息",
+      "en": "Organize Shipment Details"
+    },
+    {
+      "zh": "冷链城配专线",
+      "en": "Cold-chain / City / Linehaul"
+    },
+    {
+      "zh": "看看缺什么",
+      "en": "Find Missing Details"
+    },
+    {
+      "zh": "计算报价",
+      "en": "Work Out a Quote"
+    },
+    {
+      "zh": "检查订单",
+      "en": "Check the Order"
+    }
   ],
   "quickPrompts": [
     {
-      "zh": "客户微信发来：'明天上午从 XX 发 XX 到 XX，收货人 XX，需要 XX 车型。'请帮我识别信息、生成物流单，并列出待确认项。",
-      "en": "A customer messaged: 'Ship XX from XX to XX tomorrow morning, consignee XX, vehicle type XX.' Extract the details, create the waybill, and list missing confirmations."
+      "zh": "这些是客户发来的 <聊天、截图和表格>。请帮我整理成一张清楚的发货表，按 <你要使用的发货表模板> 填写，并根据 <特别要检查的内容> 标出看不清、缺少或前后对不上的地方。",
+      "en": "Organize <Customer chats, images, or files> into <My shipment sheet or template>, follow <Other requirements>, and flag unclear, missing, or conflicting details."
     },
     {
-      "zh": "客户询价：XX → XX，货物 XX，约 XX 吨 / XX 方，要求 XX 小时送达。请按最快 / 平衡 / 最便宜给三档报价，并列明附加费和底价提醒。",
-      "en": "Quote request: XX to XX, cargo XX, about XX tonnes / XX m³, due within XX hours. Give fastest, balanced, and cheapest options with surcharges and floor-price warnings."
+      "zh": "请看看 <这票发货信息> 要用来做 <询价、报价或录单> 时还缺什么。对照 <公司的必填要求> 找出说不清或前后对不上的地方，并写一段我可以直接发给客户补问的话。",
+      "en": "Check whether <Customer shipment details> are enough to <Request a rate, quote, or create an order>, use <Company rules or my template>, and draft one message asking for missing details."
     },
     {
-      "zh": "待调度订单：XX → XX，货物 XX，装货时间 XX；现有车辆：XX。请给我 1–3 套配载或派车方案并说明理由。",
-      "en": "Dispatch order: XX to XX, cargo XX, load time XX; available vehicles: XX. Give 1–3 loading or dispatch plans with reasons."
+      "zh": "请根据 <这票货和线路>，把 <成本、底价、合同价和准备报给客户的价格> 放在一起比较，按照 <公司的利润要求或报价规则> 算出大概能赚多少，并给我一个可以采用的报价方案。",
+      "en": "For <Shipment, route, and service>, compare <Company cost, minimum price, contract price, and planned customer price>, follow <Company profit requirement>, and suggest a quote."
+    },
+    {
+      "zh": "请把 <客户确认内容和订单> 与 <报价和合同> 放在一起核对，按照 <公司的检查要求> 找出价格、地址、时间、货物或服务内容对不上的地方。",
+      "en": "Compare <Customer confirmation and order> with <Quote and contract>, follow <Company checking rules>, and find differences in price, address, timing, cargo, or service."
     }
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "老板好，我是【接单调度专员】。我负责物流单录入、运费报价和运力调配：先把客户需求整理清楚，再按企业成本守住底价，最后根据实时运力给出候选车辆与理由。缺少的信息我会集中追问，不编造地址、价格或车辆状态；报价发送和最终锁车都由你拍板。",
-    "en": "Hi, I am your Order & Dispatch Specialist. I handle waybills, freight quotes, and capacity dispatch from one conversation. I consolidate missing questions, protect your floor price, and rank candidate vehicles with reasons. I never invent addresses, prices, or fleet status; you approve every customer quote and final vehicle assignment."
+    "zh": "你好！🚚 我是你的货运客服专家，帮专线、干线、城配、冷链和 3PL 把客户发货信息理清楚。\n\n无论是整理发货信息、检查缺项补问、核价报价、核对订单，还是标清冷链温控、专线时效、城配多点要求，我都能帮你搞定。\n\n手头有资料直接丢过来，或者说下今天要处理哪票货。",
+    "en": "Hi! I am your freight CS specialist for linehaul, city delivery, cold chain and 3PL. I can structure shipment details, find missing fields, work quotes, and check orders. Drop chats, screenshots, or sheets, or tell me which load to handle today."
   }
 }

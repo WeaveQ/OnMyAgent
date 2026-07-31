@@ -1,59 +1,88 @@
 {
   "name": "fleet-management-specialist",
   "version": "1.0.0",
-  "description": "Manage fleet fuel anomalies, affiliated-vehicle compliance, and cargo claims from one operational desk",
-  "author": { "name": "Expert Marketplace" },
+  "description": "Organize fleet records, run freight dispatch analysis, pick vehicles, check before dispatch, draft driver tasks, and spot empty miles",
+  "author": {
+    "name": "Expert Marketplace"
+  },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "fleet-management-specialist",
-  "agents": ["./agents/fleet-management-specialist.md"],
+  "agents": [
+    "./agents/fleet-management-specialist.md"
+  ],
   "skills": [
-    "./skills/fuel-audit",
-    "./skills/affiliate-fleet",
-    "./skills/claims-case",
-    "./skills/introduce-fleet-management"
+    "./skills/fleet-data-consolidation",
+    "./skills/vehicle-candidate-ranking",
+    "./skills/dispatch-readiness-audit",
+    "./skills/dispatch-brief-drafting",
+    "./skills/fleet-efficiency-analysis"
   ],
   "displayName": {
     "en": "Fleet Management Specialist",
-    "zh": "车队管理专员"
+    "zh": "车队管理专家"
   },
   "profession": {
-    "en": "Fleet Control & Risk Operations",
-    "zh": "车队管理作业"
+    "en": "Fleet Dispatch & Readiness",
+    "zh": "车队管理专家"
   },
   "displayDescription": {
-    "en": "Audit fuel use, maintain affiliated vehicle compliance, and prepare evidence-led cargo claims without automatic penalties, suspensions, or liability admissions.",
-    "zh": "统一处理油费稽查、挂靠车证照合规和货损理赔，输出风险清单与材料草稿，不自动处罚、停运或认责。"
+    "en": "For linehaul, city delivery and cold-chain fleets: organize vehicle/driver records, run freight dispatch analysis, pick vehicles, check before dispatch, and draft driver tasks.",
+    "zh": "面向专线、干线、城配、冷链车队：整理车辆司机、货运调度分析、按单挑车、派车前检查、写司机任务；业务文件须真写入才有产物卡；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
-  "categoryIds": ["01-OPC", "14-Logistics"],
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
   "defaultInitPrompt": {
-    "zh": "这是车辆 XX 的加油记录、里程和油卡流水：XX。请计算油耗，标出异常并生成稽查报告。",
-    "en": "Here are vehicle XX's fuel fills, mileage, and fuel-card transactions: XX. Calculate consumption, flag anomalies, and prepare an audit report."
+    "zh": "这些是车辆、司机、证件和任务表 XX。请帮我合成一张清楚的车队表，并标出重复、过期、缺少或前后对不上的内容。",
+    "en": "Here are vehicle, driver, credential, and assignment sheets XX. Combine them into one clear fleet sheet and flag duplicates, expired items, missing details, and conflicts."
   },
   "tags": [
-    { "zh": "油费稽查", "en": "Fuel Audit" },
-    { "zh": "挂靠车管理", "en": "Affiliate Fleet" },
-    { "zh": "货损理赔", "en": "Cargo Claims" }
+    {
+      "zh": "整理车队表",
+      "en": "Organize Fleet Sheet"
+    },
+    {
+      "zh": "货运调度分析",
+      "en": "Dispatch Analysis"
+    },
+    {
+      "zh": "挑合适车辆",
+      "en": "Pick Suitable Vehicles"
+    },
+    {
+      "zh": "派车前检查",
+      "en": "Check Before Dispatch"
+    },
+    {
+      "zh": "找空跑和等待",
+      "en": "Find Empty Trips and Waiting"
+    }
   ],
   "quickPrompts": [
     {
-      "zh": "这是车辆 XX 的加油记录、里程和油卡流水：XX。请计算油耗，标出异常并生成稽查报告。",
-      "en": "Here are vehicle XX's fuel fills, mileage, and fuel-card transactions: XX. Calculate consumption, flag anomalies, and prepare an audit report."
+      "zh": "这些是 <车辆、司机、证件和任务资料>。请按 <车牌号或司机手机号> 合成一张清楚的车队表，套用 <你要使用的车队表模板>，并标出重复、过期、缺少或前后对不上的内容。",
+      "en": "Combine <Vehicle, driver, credential, and assignment records> using <Plate number or driver phone>, follow <My template>, and flag duplicates, expired items, missing details, or conflicts."
     },
     {
-      "zh": "这是挂靠车 XX 的司机证件、保险、年检和违章资料：XX。请建台账并标出已过期、30/15/7 天内到期及高风险项。",
-      "en": "Here are affiliated vehicle XX's driver documents, insurance, inspection, and violations: XX. Build a ledger and flag expired, D-30/15/7, and high-risk items."
+      "zh": "请根据 <这张订单> 和 <车辆司机表>，结合 <距离、价格、熟悉线路或其他偏好>，挑出优先、备选和不建议的车辆，并用简单的话说明原因和还要向司机确认什么。",
+      "en": "Using <This order> and <Vehicle and driver sheet>, consider <My preference for distance, price, route experience, or other factors>, and pick preferred, backup, and unsuitable vehicles with reasons."
     },
     {
-      "zh": "运单 XX 发生货损、延误或丢件：XX，现有证据 XX，客户诉求 XX。请列证据缺口、责任初判、沟通话术和理赔进度表。",
-      "en": "Waybill XX has damage, delay, or loss: XX; available evidence XX; customer demand XX. List evidence gaps, conditional liability direction, scripts, and a claim tracker."
+      "zh": "车辆和司机已经选好：<车辆和司机信息>。请按 <这张订单> 检查证件、载重、时间、预约和装卸要求有没有遗漏，再套用 <公司的司机任务模板> 写好可以直接发给司机的任务信息。",
+      "en": "Using <This order> and <Selected vehicle and driver>, follow <Company dispatch rules or template>, check credentials, capacity, timing, appointments, and loading requirements, then draft the driver task message."
+    },
+    {
+      "zh": "这些是 <车辆、司机、可用时间和位置资料>。请做货运调度分析：标出今日实际可派车辆、每车调度定位和注意事项，并列出 <你最关心的风险，如载重/冷链/证件> 相关问题。",
+      "en": "Using <Fleet, driver, availability, and location records>, run dispatch analysis: today's available vehicles, positioning per truck, notes, and issues about <Risks I care about, e.g. capacity/cold-chain/credentials>."
     }
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "老板好，我是【车队管理专员】。我负责油费稽查、挂靠车管理和货损理赔：核对油耗与油卡异常，维护人车证照保险到期台账，并按证据链整理货损、延误或丢件案件。所有异常只作为核查线索，不自动扣款、停运、认责、报案或承诺赔付。",
-    "en": "Hi, I am your Fleet Management Specialist. I audit fuel use, maintain affiliated-fleet compliance, and prepare evidence-led cargo claims. Findings are investigation leads only: I never impose penalties, suspend vehicles, admit liability, file claims, or promise payment automatically."
+    "zh": "你好！🚛 我是你的车队管理专家，帮专线、干线、城配、冷链车队把车辆和调度安排理清楚。\n\n无论是整理车辆司机资料、做货运调度分析、按订单挑车、派车前查遗漏，还是写司机任务、分析空驶和等待，我都能帮你搞定。\n\n手头有订单或车队表直接丢过来，或者说下今天要派哪几票。",
+    "en": "Hi! I am your fleet management specialist. I organize fleet data, run dispatch analysis, pick vehicles, check readiness, and draft driver tasks. Drop fleet sheets or orders to start."
   }
 }

@@ -532,10 +532,18 @@ export async function draftToParts(
       attachment: ComposerAttachment,
       uploadPath: string,
     ) => Promise<{ path: string }>;
+    /**
+     * Physical root of the workspace inbox (`uploadInbox` target). Expert
+     * sessions often bind the model cwd to an isolated session directory while
+     * inbox files still land under the catalog workspace root — pass that root
+     * here so absolute paths in the upload instruction stay correct.
+     */
+    inboxWorkspaceRoot?: string;
   },
 ) {
   const parts: Array<TextPartInput | FilePartInput | AgentPartInput> = [];
   const root = workspaceRoot.trim();
+  const inboxRoot = (options?.inboxWorkspaceRoot ?? workspaceRoot).trim();
 
   const toAbsolutePath = (path: string) => {
     const trimmed = path.trim();
@@ -610,7 +618,7 @@ export async function draftToParts(
       name: attachment.name,
       mimeType: attachment.mimeType,
       relativePath: inboxRelativePath(uploaded.path),
-      absolutePath: inboxAbsolutePath(root, uploaded.path),
+      absolutePath: inboxAbsolutePath(inboxRoot, uploaded.path),
     });
   }
 

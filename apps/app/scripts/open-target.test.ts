@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import {
   canPreviewOpenTargetInline,
   classifyOpenTarget,
+  collectRuntimeRegisteredDeliverablePaths,
   deriveOpenTargets,
   isCollectibleArtifactTarget,
   isUserFacingLocalPreviewTarget,
@@ -356,6 +357,83 @@ describe("deriveOpenTargets", () => {
     expect(isCollectibleArtifactTarget({ ...target, exists: true })).toBe(true);
   });
 
+  it("shows verified text files as generated artifacts", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "reports/customer-message.txt" },
+        { filePath: "reports/customer-message.txt" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "Created reports/customer-message.txt.",
+      ),
+    ] satisfies UIMessage[];
+    const verified = deriveOpenTargets(messages).map((target) => ({
+      ...target,
+      exists: true,
+    }));
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["reports/customer-message.txt"]);
+  });
+
+  it("does not treat an assistant file mention without write provenance as a generated artifact", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        "已生成 发货需求与报价补充.xlsx。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [{
+      ...fileTarget(
+        "/Users/demo/work/货运客服专家/1785423406407/发货需求与报价补充.xlsx",
+      ),
+      exists: true,
+      size: 7_884,
+    }];
+
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("shows only files written in the current assistant turn", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "本轮生成的报价结果.xlsx" },
+        { filePath: "本轮生成的报价结果.xlsx" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "已根据 用户上传的完整业务.xlsx 生成 本轮生成的报价结果.xlsx。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      {
+        ...fileTarget("/workspace/用户上传的完整业务.xlsx"),
+        exists: true,
+      },
+      {
+        ...fileTarget("/workspace/上一轮生成的报价.xlsx"),
+        exists: true,
+      },
+      {
+        ...fileTarget("/workspace/本轮生成的报价结果.xlsx"),
+        exists: true,
+      },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["/workspace/本轮生成的报价结果.xlsx"]);
+  });
+
   it("does not auto-open generated html files or localhost browser previews", () => {
     const targets = deriveOpenTargets([
       toolMessage("msg_tool", "write", { filePath: "public/index.html" }, { filePath: "public/index.html" }),
@@ -429,7 +507,7 @@ describe("deriveOpenTargets", () => {
     );
   });
 
-  it("collects spreadsheet paths from bash/shell tool outputs", () => {
+  it("collects spreadsheet paths from write-like bash outputs only", () => {
     const targets = deriveOpenTargets([
       toolMessage(
         "msg_tool",
@@ -439,6 +517,293 @@ describe("deriveOpenTargets", () => {
       ),
     ]);
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
+  });
+
+  it("collects paths from first-class extract-sheets runtime command", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command:
+            "node runtime/artifact_runtime.cjs extract-sheets source.xlsx --sheet 发货需求 --out 发货需求.xlsx",
+        },
+        JSON.stringify({
+          status: "success",
+          wrote: ["发货需求.xlsx"],
+          message: "Wrote 发货需求.xlsx",
+        }) + "\nWrote 发货需求.xlsx\n",
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("发货需求.xlsx");
+  });
+
+  it("does not treat artifact_runtime inspect/read as writes", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command: "node runtime/artifact_runtime.cjs inspect session-uploads/upload.xlsx",
+        },
+        JSON.stringify({
+          status: "success",
+          source: "session-uploads/1785468349196-0-upload.xlsx",
+        }),
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).not.toContain(
+      "session-uploads/1785468349196-0-upload.xlsx",
+    );
+  });
+
+  it("does not treat shell inspect/find of a user upload as a generated artifact", () => {
+    // Root cause of upload cards: bash was classified as a write tool, so any
+    // path in inspect/find stdout (including session-uploads/…) became a card.
+    const upload =
+      ".opencode/onmyagent/inbox/session-uploads/1785468349196-0-07-四Agent完整业务演练材料.xlsx";
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_inspect",
+        "bash",
+        {
+          command: `node runtime/artifact_runtime.cjs inspect ${upload}`,
+        },
+        JSON.stringify({
+          status: "success",
+          source: `/Users/demo/work/${upload}`,
+          sheet_count: 12,
+        }),
+      ),
+      toolMessage(
+        "msg_find",
+        "bash",
+        { command: "find . -name '*.xlsx'" },
+        `${upload}\n发货需求.xlsx\n`,
+      ),
+      toolMessage(
+        "msg_write",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "Wrote 发货需求.xlsx\nWrote 报价补充.xlsx\n",
+      ),
+    ]);
+    const values = targets.map((target) => target.value);
+    expect(values.some((value) => value.includes("session-uploads"))).toBe(false);
+    expect(values.some((value) => value.includes("1785468349196"))).toBe(false);
+    expect(values).toContain("发货需求.xlsx");
+    expect(values).toContain("报价补充.xlsx");
+  });
+
+  it("hides process helper scripts when declared xlsx are the real deliverables", () => {
+    // Screenshot regression: only extract_sheets.cjs card while body lists
+    // 文件路径: …/发货需求.xlsx and …/报价补充.xlsx.
+    const ship =
+      "/Users/demo/.onmyagent/workspaces/货运客服专家/sid/session-uploads/upload.xlsx/发货需求.xlsx";
+    const quote =
+      "/Users/demo/.onmyagent/workspaces/货运客服专家/sid/session-uploads/upload.xlsx/报价补充.xlsx";
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      toolMessage(
+        "msg_run",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "done\n",
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        `发货需求表与报价补充已生成。\n文件路径: ${ship}\n文件路径: ${quote}`,
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+      { ...fileTarget(ship, "sheet"), exists: true },
+      { ...fileTarget(quote, "sheet"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.name).sort(),
+    ).toEqual(["发货需求.xlsx", "报价补充.xlsx"].sort());
+  });
+
+  it("hides process helper scripts when a business file is the real deliverable", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      toolMessage(
+        "msg_run",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "Wrote 发货需求与报价补充.xlsx\n",
+      ),
+      toolMessage(
+        "msg_xlsx",
+        "write",
+        { filePath: "发货需求与报价补充.xlsx" },
+        { filePath: "发货需求与报价补充.xlsx" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "文件路径：发货需求与报价补充.xlsx",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+      { ...fileTarget("发货需求与报价补充.xlsx", "sheet"), exists: true },
+      { ...fileTarget("preview.png", "image"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["发货需求与报价补充.xlsx"]);
+  });
+
+  it("hides unnamed process helpers that were only written (not declared)", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      message("msg_final", "assistant", "已完成，校验通过。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+    ];
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("shows intentional code deliverables when declared as 文件路径", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "export_orders.py" },
+        { filePath: "export_orders.py" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "脚本写好了。\n文件路径：export_orders.py",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("export_orders.py", "text"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["export_orders.py"]);
+  });
+
+  it("shows png/html/txt content deliverables from write tools", () => {
+    const messages = [
+      toolMessage("msg_1", "write", { filePath: "chart.png" }, { filePath: "chart.png" }),
+      toolMessage("msg_2", "write", { filePath: "summary.html" }, { filePath: "summary.html" }),
+      toolMessage("msg_3", "write", { filePath: "notes.txt" }, { filePath: "notes.txt" }),
+      message("msg_final", "assistant", "图和摘要都生成好了。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("chart.png", "image"), exists: true },
+      { ...fileTarget("summary.html", "html"), exists: true },
+      { ...fileTarget("notes.txt", "text"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["chart.png", "notes.txt", "summary.html"].sort());
+  });
+
+  it("drops inbox-style user upload basenames from derived targets", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "1785466093426-0-07-四Agent完整业务演练材料.xlsx" },
+        { filePath: "1785466093426-0-07-四Agent完整业务演练材料.xlsx" },
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).not.toContain(
+      "1785466093426-0-07-四Agent完整业务演练材料.xlsx",
+    );
+  });
+
+  it("mints product cards from ONMYAGENT_DELIVERABLE runtime registration", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command:
+            "node runtime/artifact_runtime.cjs write-xlsx --out 运单账单合并对账表.xlsx --sheet 对账 --json /tmp/rows.json",
+        },
+        [
+          JSON.stringify({
+            status: "success",
+            deliverable: true,
+            path: "运单账单合并对账表.xlsx",
+            wrote: ["运单账单合并对账表.xlsx"],
+          }),
+          "ONMYAGENT_DELIVERABLE: 运单账单合并对账表.xlsx",
+          "Wrote 运单账单合并对账表.xlsx",
+        ].join("\n"),
+      ),
+      message("msg_final", "assistant", "已合并完成，生成了「运单账单合并对账表.xlsx」"),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("运单账单合并对账表.xlsx");
+    expect(
+      targets.find((target) => target.value === "运单账单合并对账表.xlsx")?.reason,
+    ).toBe("runtime deliverable");
+  });
+
+  it("collects write-xlsx --out even when stdout only has the marker", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      {
+        command:
+          "node runtime/artifact_runtime.cjs write-xlsx --out 合并对账.xlsx --sheet S --json /tmp/a.json",
+      },
+      "ONMYAGENT_DELIVERABLE: 合并对账.xlsx\n",
+    );
+    expect(paths).toContain("合并对账.xlsx");
+  });
+
+  it("shows pdf/html/md content deliverables written by write tools", () => {
+    const messages = [
+      toolMessage("msg_pdf", "write", { filePath: "回单核对.pdf" }, { filePath: "回单核对.pdf" }),
+      toolMessage("msg_html", "write", { filePath: "进度看板.html" }, { filePath: "进度看板.html" }),
+      toolMessage("msg_md", "write", { filePath: "客户通知草稿.md" }, { filePath: "客户通知草稿.md" }),
+      message("msg_final", "assistant", "文件都写好了，可在下方产物卡打开。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("回单核对.pdf", "pdf"), exists: true },
+      { ...fileTarget("进度看板.html", "html"), exists: true },
+      { ...fileTarget("客户通知草稿.md", "markdown"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["回单核对.pdf", "客户通知草稿.md", "进度看板.html"].sort());
+  });
+
+  it("still hides soft prose claims without write provenance on follow-up turns", () => {
+    const messages = [
+      message(
+        "msg_followup",
+        "assistant",
+        "已合并完成，生成了「运单账单合并对账表.xlsx」，含两张表。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("运单账单合并对账表.xlsx", "sheet"), exists: true, size: 18_400 },
+    ];
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
   });
 });
 
