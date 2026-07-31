@@ -152,7 +152,9 @@ import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
+  shouldKeepUnboundNewSessionDraft,
 } from "./expert-draft-session";
+import { readExpertSidebarOrderIds } from "../sidebar/expert-list-order";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
@@ -460,8 +462,29 @@ export function ExpertPage(props: ExpertPageProps) {
     const selectedId = props.selectedSessionId?.trim() ?? "";
     if (selectedId && isExpertSession(selectedId)) return;
 
-    // Prefer first summoned expert's remembered tab (else first tab), not latest.
-    const firstGroup = conversationGroups[0];
+    // Cold open with no selection: open a remembered tab, but never while a
+    // "+ 新会话" draft is active (handled above). Prefer stable left-rail order
+    // over conversationGroups[0] (insertion/recency order — that stole focus to
+    // the last-chatted expert when creating a new session on another agent).
+    const orderedGroups = (() => {
+      const ledger = readExpertSidebarOrderIds(workspaceId);
+      if (ledger.length === 0) return conversationGroups;
+      const byId = new Map(
+        conversationGroups.map((group) => [group.agentId, group] as const),
+      );
+      const ordered: typeof conversationGroups = [];
+      for (const id of ledger) {
+        const group = byId.get(id);
+        if (group) ordered.push(group);
+      }
+      for (const group of conversationGroups) {
+        if (!ordered.some((item) => item.agentId === group.agentId)) {
+          ordered.push(group);
+        }
+      }
+      return ordered.length > 0 ? ordered : conversationGroups;
+    })();
+    const firstGroup = orderedGroups[0];
     if (firstGroup) {
       const agentId = firstGroup.agentId?.trim() ?? "";
       const sessionIds = firstGroup.sessions.map((session) => session.id);
@@ -903,11 +926,13 @@ export function ExpertPage(props: ExpertPageProps) {
   );
 
   const handleCreateCurrentAgentSession = useCallback(() => {
+    // Prefer the expert currently shown (tab strip / left selection), never the
+    // globally most-recent expert session.
     const agentId =
-      activeAgentContext?.id ??
       activeConversationAgentId ??
-      draftAgentId ??
-      currentConversationAgentId;
+      currentConversationAgentId ??
+      activeAgentContext?.id ??
+      draftAgentId;
     if (!agentId) {
       openExpertMarket();
       return;
@@ -944,6 +969,12 @@ export function ExpertPage(props: ExpertPageProps) {
       };
     }
     if (nextAgent) {
+      // Same pattern as marketplace summon: create-task clears pendingAgent and
+      // selectedSessionId. Re-assert draft after so the recency-sorted
+      // conversationGroups[0] fallback cannot steal focus to the last-chatted
+      // expert (e.g. open agent 1 "+ 新会话" → land on agent 3's recent tab).
+      activateDraftAgent(nextAgent);
+      openFreshExpertDraft();
       activateDraftAgent(nextAgent);
     } else if (props.onCreateFreshSessionForAgent) {
       void Promise.resolve(
@@ -957,6 +988,7 @@ export function ExpertPage(props: ExpertPageProps) {
     activateDraftAgent,
     currentConversationAgentId,
     draftAgentId,
+    openFreshExpertDraft,
     pendingAgent,
     openExpertMarket,
     props.onCreateFreshSessionForAgent,
@@ -1069,11 +1101,36 @@ export function ExpertPage(props: ExpertPageProps) {
   ]);
 
   useEffect(() => {
-    if (props.selectedSessionId) {
-      setDraftSessionActive(false);
-      setDraftAgentId(null);
+    const sessionId = props.selectedSessionId?.trim() ?? "";
+    // Empty / draft route: keep the in-progress "+ 新会话" draft.
+    if (!sessionId || sessionId.startsWith("draft:")) return;
+
+    // Unbound new-session drafts must survive the previous tab still being on
+    // the route (or a brief restore) until the first send binds a real session.
+    // Only drop when the user opens a *different* expert's real session.
+    if (
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive,
+        draftAgentId,
+        pendingDraftSource: pendingAgent?.draftSource,
+        pendingAgentId: pendingAgent?.id,
+        pendingBoundSessionId: pendingAgent?.boundSessionId,
+        selectedSessionAgentId: readCustomAgentIdForSession(sessionId),
+      })
+    ) {
+      return;
     }
-  }, [props.selectedSessionId]);
+
+    setDraftSessionActive(false);
+    setDraftAgentId(null);
+  }, [
+    draftAgentId,
+    draftSessionActive,
+    pendingAgent?.boundSessionId,
+    pendingAgent?.draftSource,
+    pendingAgent?.id,
+    props.selectedSessionId,
+  ]);
 
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
