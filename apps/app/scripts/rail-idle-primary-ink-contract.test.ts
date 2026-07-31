@@ -72,6 +72,28 @@ describe("rail idle primary ink contract", () => {
     expect(automation).toContain("automation.add");
   });
 
+  test("NavTab free-float idle uses primary ink; active inverted label stays on contrast surface", () => {
+    const actionRow = readFileSync(
+      resolve(root, "apps/app/src/components/ui/action-row.tsx"),
+      "utf8",
+    );
+    const start = actionRow.indexOf("const navTabButtonVariants = cva(");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = actionRow.indexOf("const segmentedTabButtonVariants", start);
+    expect(end).toBeGreaterThan(start);
+    const navTab = actionRow.slice(start, end);
+
+    // Active: inverted pill (dark surface in light) + background/white label.
+    expect(navTab).toContain("bg-dls-text text-dls-background");
+    // Idle: primary ink, not secondary slate.
+    expect(navTab).toContain(
+      'false:\n          "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:opacity-100 [&_svg]:text-current"',
+    );
+    expect(navTab).not.toContain(
+      "bg-transparent text-dls-secondary hover:bg-dls-hover/70",
+    );
+  });
+
   test("sidebar idle chrome avoids stacked opacity on section/timestamps/actions", () => {
     const sections = readFileSync(
       resolve(
