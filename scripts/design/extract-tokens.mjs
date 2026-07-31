@@ -374,6 +374,14 @@ const INTENTIONAL_EXCEPTIONS = [
   // is a low-level primitive with no direct YAML counterpart — it
   // is diffed indirectly via the `border` key (see COLOR_NAME_ALIASES).
   /^--ow-mist$/,
+  // Shell geometry (DESIGN.md rail-button width / pill-width) — length
+  // tokens, not colors. Diffed by contract docs + Tailwind `w-rail*`,
+  // not the color YAML ladder.
+  /^--dls-rail-width$/,
+  /^--dls-rail-pill-width$/,
+  // Free-float pill fill — platform glass uses white frost; solid dark is
+  // elevated gray. Documented under rail-button, not the solid color ladder.
+  /^--dls-rail-pill-active$/,
 ]
 
 function isException(cssName) {
@@ -447,6 +455,7 @@ const COLOR_NAME_ALIASES = {
   'rail-bg': ['--dls-rail-bg'],
   'rail-active': ['--dls-rail-active'],
   'rail-hover': ['--dls-rail-hover'],
+  'rail-pill-hover': ['--dls-rail-pill-hover'],
   border: ['--dls-border'],
   'border-strong': ['--dls-border-strong'],
   hover: ['--dls-hover'],

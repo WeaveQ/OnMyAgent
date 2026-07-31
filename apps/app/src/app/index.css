@@ -379,10 +379,16 @@ select:disabled {
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
   --dls-rail-bg: #E4E2E3;
-  /* Soft brand wash — selected sidebar rows (e.g. 新建任务) should read as
-     highlighted, not a muddy mid-gray on the gray sidebar. */
+  /* Soft brand wash for sidebar list selected rows (not free-float chips). */
   --dls-rail-active: #EAF2FF;
   --dls-rail-hover: #E2E2E2;
+  /* Geometry (DESIGN.md components.contracts.rail-button). */
+  --dls-rail-width: 68px;
+  --dls-rail-pill-width: 48px;
+  /* Free-float chip selected pill (light = white lift on gray rail). */
+  --dls-rail-pill-active: #FFFFFF;
+  /* Free-float chip hover wash (light). Dark redeclares below. */
+  --dls-rail-pill-hover: color-mix(in srgb, #000000 5%, transparent);
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
      public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
      dls-text-tertiary / dls-app-bg / dls-slate / dls-success-fg) and
@@ -557,9 +563,12 @@ select:disabled {
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #333333;
   --dls-rail-bg: #141414;
-  /* Active pill must clear rail #141414 — #2E2E2E was near-invisible. */
+  /* Sidebar list data-active (still needs clear vs rail-bg). */
   --dls-rail-active: #404040;
   --dls-rail-hover: #2A2A2A;
+  /* Free-float selected pill — lighter than rail-active so chips do not read black. */
+  --dls-rail-pill-active: #555555;
+  --dls-rail-pill-hover: color-mix(in srgb, #ffffff 5%, transparent);
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most
      dls-* semantic aliases (dls-primary / dls-danger / dls-warning /
      dls-success-fg / dls-slate) inherit through the
@@ -1562,9 +1571,12 @@ html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] {
   --background: transparent;
   --dls-list-selected: color-mix(in srgb, #454545 92%, transparent);
   --dls-list-hover: color-mix(in srgb, #323232 58%, transparent);
-  /* White lift on open glass rail — gray mix at 56% read as empty. */
-  --dls-rail-active: color-mix(in srgb, #ffffff 14%, transparent);
-  --dls-rail-hover: color-mix(in srgb, #ffffff 6%, transparent);
+  /* Sidebar row active — contract hex base for extract-tokens. */
+  --dls-rail-active: color-mix(in srgb, #404040 88%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #2a2a2a 72%, transparent);
+  /* Free-float chip selected: soft white frost on open glass (not near-black). */
+  --dls-rail-pill-active: color-mix(in srgb, #ffffff 18%, transparent);
+  --dls-rail-pill-hover: color-mix(in srgb, #ffffff 5%, transparent);
   --dls-hover: color-mix(in srgb, #323232 58%, transparent);
   --dls-active: color-mix(in srgb, #3a3a3a 68%, transparent);
 }

@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useMemo, useState } from "react";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -191,31 +191,23 @@ export function ExpertMarketplacePage(props: {
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            {/* Create expert lives in the store header (market view), not here. */}
             <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-              <button
-                type="button"
-                className="min-h-36 rounded-2xl border border-dashed border-dls-border bg-dls-surface px-4 py-3.5 text-left transition-colors hover:bg-dls-hover mac:titlebar-no-drag"
-                onClick={props.onCreateExpert}
-              >
-                <span className="inline-flex size-9 items-center justify-center rounded-md bg-dls-accent/10 text-dls-accent ring-1 ring-dls-border">
-                  <Plus className="size-4" />
-                </span>
-                <div className="mt-3 text-sm font-semibold text-dls-text">
-                  {t("session.create_expert")}
+              {props.myExperts.length === 0 ? (
+                <div className="col-span-full rounded-2xl border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
+                  {t("session.no_expert_conversations")}
                 </div>
-                <div className="mt-1 text-xs leading-5 text-dls-secondary">
-                  {t("session.create_expert_desc")}
-                </div>
-              </button>
-              {props.myExperts.map((expert) => (
-                <ExpertCard
-                  key={expert.id}
-                  expert={expert}
-                  active={selectedExpert?.id === expert.id}
-                  onOpen={setSelectedExpert}
-                  onSummon={props.onSummonMarketplaceExpert}
-                />
-              ))}
+              ) : (
+                props.myExperts.map((expert) => (
+                  <ExpertCard
+                    key={expert.id}
+                    expert={expert}
+                    active={selectedExpert?.id === expert.id}
+                    onOpen={setSelectedExpert}
+                    onSummon={props.onSummonMarketplaceExpert}
+                  />
+                ))
+              )}
             </div>
           </div>
         )}

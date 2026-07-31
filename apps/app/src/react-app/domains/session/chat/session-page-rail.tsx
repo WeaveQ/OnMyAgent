@@ -49,7 +49,7 @@ export function OnMyAgentRail(props: {
   onOpenBilling?: () => void;
 }) {
   return (
-    <aside className="flex w-[68px] shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
+    <aside className="flex w-rail shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
       <div className="flex w-full flex-col items-center">
         <nav className="mt-4 flex w-full flex-col items-center gap-2.5">
           {TOP_RAIL_ITEMS.map((item) => (

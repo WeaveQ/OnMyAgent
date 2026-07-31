@@ -32,11 +32,15 @@ describe("right side panel toggle contract", () => {
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
     );
 
-    // Header base chrome; bottom rule is optional so expanded session tabs
-    // can own the single divider (avoid double lines).
+    // Header base chrome shares list-lane h-14 (sidebar-chrome); bottom rule is
+    // optional so expanded session tabs can own the single divider.
     expect(surfaceChromeBarrel).toContain("./chrome/session-surface-header");
+    expect(surfaceHeader).toContain("LIST_LANE_HEADER_CLASS");
     expect(surfaceHeader).toContain(
-      '"flex h-12 shrink-0 items-center justify-between bg-dls-background px-5"',
+      'from "@/components/ui/sidebar-chrome"',
+    );
+    expect(surfaceHeader).toContain(
+      '"justify-between bg-dls-background px-5"',
     );
     expect(surfaceHeader).toContain("showBottomBorder?: boolean");
     expect(surfaceHeader).toContain(
@@ -45,13 +49,13 @@ describe("right side panel toggle contract", () => {
     expect(surface).toContain("export function SessionSurface");
     expect(surface).toContain("showBottomBorder={!sessionTabsExpanded}");
     expect(surfaceHeader).not.toContain(
-      'className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
+      'className="flex h-14 shrink-0 items-center justify-between border-b border-dls-mist bg-dls-surface px-5"',
     );
     expect(sessionPage).toContain(
-      "flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist",
+      "flex h-14 shrink-0 items-center justify-end gap-1 border-b border-dls-mist",
     );
     expect(workspacePanel).toContain(
-      "flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist",
+      "flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist",
     );
   });
 
@@ -135,11 +139,11 @@ describe("right side panel toggle contract", () => {
     );
 
     expect(sessionPage).toContain('data-code-side-panel-close="true"');
-    expect(sessionPage).toContain("flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist");
+    expect(sessionPage).toContain("flex h-14 shrink-0 items-center justify-end gap-1 border-b border-dls-mist");
     expect(workspacePanel).toContain('data-code-side-panel-close="true"');
     expect(workspacePanel).toContain('className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"');
     expect(workspacePanel).toContain('<PanelRight className="size-3.5" />');
-    expect(workspacePanel).toContain("flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist");
+    expect(workspacePanel).toContain("flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist");
   });
 
   test("workspace tool tabs activate content without relying on setState updater side-effects", () => {

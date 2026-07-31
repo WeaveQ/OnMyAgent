@@ -283,8 +283,11 @@ describe("expert marketplace UI contract", () => {
     expect(data).toContain("systemPrompt: agentMarkdown || readme");
   });
 
-  test("renders marketplace, my experts, create card, detail dialog, and summon CTA contracts", () => {
+  test("renders marketplace, my experts, detail dialog, and summon CTA contracts", () => {
     const dialog = readMarketplaceFile("expert-marketplace-dialog.tsx");
+    const storePage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
+    );
 
     expect(dialog).toContain('export type ExpertMarketplaceView = "market" | "mine"');
     expect(dialog).toContain("BUILTIN_MARKETPLACE_EXPERTS.filter");
@@ -292,7 +295,10 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("myExperts: ExpertMarketplaceEntry[]");
     expect(dialog).toContain("onOpen={setSelectedExpert}");
     expect(dialog).toContain("onSummon={props.onSummonMarketplaceExpert}");
-    expect(dialog).toContain('t("session.create_expert")');
+    // Create expert CTA is on the store market header, not mine grid.
+    expect(dialog).not.toContain('t("session.create_expert")');
+    expect(storePage).toContain('t("session.create_expert")');
+    expect(storePage).toContain("onCreateExpert");
     expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
     expect(dialog).toContain("max-h-[calc(100vh-48px)]");
@@ -386,8 +392,11 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("useExpertSkillNavigation");
     expect(expertPage).toContain("onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace");
     expect(expertSkillNav).toContain('t("session.create_expert_prompt")');
+    // Navigate first (goAssistantOfficeNewTaskWithDraft); do not await install before jump.
+    expect(expertSkillNav).toContain("goAssistantOfficeNewTaskWithDraft");
     expect(expertSkillNav).toContain("setComposerDraftAfterNewTask(");
-    expect(expertSkillNav).toContain('input.onNavigateToMode("assistant")');
+    expect(expertSkillNav).toContain("navigate(workspaceAssistantRoute(id))");
+    expect(expertSkillNav).not.toContain("await installBuiltinSkillPackage");
     expect(expertSkillNav).toContain('packageName: CREATE_EXPERT_SKILL_NAME');
     expect(expertSkillNav).toContain('skillName: CREATE_EXPERT_SKILL_NAME');
     expect(assistantPage).toContain('t("session.create_expert_prompt")');

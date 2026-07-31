@@ -23,14 +23,14 @@ export function FollowUpSuggestionChips(props: {
       <div className="text-xs font-medium leading-4 text-dls-secondary">
         {t("session.try_ask_expert")}
       </div>
-      <div className="flex flex-col items-start gap-2">
+      <div className="flex max-w-full flex-row flex-wrap items-center gap-2">
         {props.suggestions.map((suggestion) => (
           <button
             key={suggestion}
             type="button"
             className={cn(
-              "mac:titlebar-no-drag group inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-lg",
-              "border border-dls-border bg-dls-surface-muted px-3 py-2 text-left text-sm leading-5 text-dls-text",
+              "mac:titlebar-no-drag group inline-flex max-w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-lg",
+              "border border-dls-border bg-dls-surface-muted px-3 py-1.5 text-left text-sm leading-5 text-dls-text",
               "shadow-sm transition-colors duration-150",
               "hover:border-dls-secondary hover:bg-dls-hover hover:text-dls-text",
               "active:bg-dls-hover active:border-dls-secondary",
@@ -38,7 +38,9 @@ export function FollowUpSuggestionChips(props: {
             )}
             onClick={() => props.onSelect(suggestion)}
           >
-            <span className="line-clamp-2 min-w-0">{suggestion}</span>
+            <span className="line-clamp-1 min-w-0 max-w-[14rem] truncate sm:max-w-[16rem]">
+              {suggestion}
+            </span>
             <ArrowUpRight
               className="size-3.5 shrink-0 text-dls-secondary transition-colors group-hover:text-dls-text"
               aria-hidden

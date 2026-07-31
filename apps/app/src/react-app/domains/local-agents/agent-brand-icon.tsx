@@ -53,7 +53,7 @@ const FALLBACK_ICON_SIZE: Record<AgentBrandIconSize, string> = {
 
 /** Shared light/dark plate — use for any agent brand mark surface. */
 export const agentBrandIconTileClass =
-  "flex shrink-0 items-center justify-center overflow-hidden bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60 dark:bg-white dark:ring-black/10 dark:text-neutral-700";
+  "flex shrink-0 items-center justify-center overflow-hidden bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60 dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border";
 
 export function AgentBrandIcon(props: {
   /** Explicit icon URL (wins over id/provider lookup). */

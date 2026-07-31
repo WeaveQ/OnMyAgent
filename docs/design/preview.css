@@ -15,10 +15,18 @@
   --pv-background: #FAFAFA;
   --pv-sidebar: #F0F0F0;
   --pv-rail-bg: #E4E2E3;
+  /* Sidebar list active / hover (not free-float pill). */
+  --pv-rail-active: #EAF2FF;
+  --pv-rail-hover: #E2E2E2;
+  /* Free-float rail selected pill (light solid white). */
+  --pv-rail-pill-active: #FFFFFF;
   --pv-border: #E5E7EB;
   --pv-border-strong: #CBD5E1;
-  --pv-hover: #EEF4FF;
-  --pv-active: #DDEBFF;
+  /* Neutral grays — blue-tinted hover/active read as selected chips (DESIGN.md). */
+  --pv-hover: #F0F0F1;
+  --pv-active: #E6E6E8;
+  --pv-list-selected: #D4D4D4;
+  --pv-list-hover: #E8E8E8;
   --pv-danger: #EF4444;
   --pv-danger-soft: #FEE2E2;
   --pv-danger-fg: #B91C1C;
@@ -44,8 +52,16 @@
   --dls-surface: var(--pv-surface);
   --dls-surface-muted: var(--pv-surface-muted);
   --dls-app-bg: var(--pv-background);
+  --dls-rail-bg: var(--pv-rail-bg);
+  --dls-rail-active: var(--pv-rail-active);
+  --dls-rail-hover: var(--pv-rail-hover);
+  --dls-rail-pill-active: var(--pv-rail-pill-active);
   --dls-border: var(--pv-border);
   --dls-border-strong: var(--pv-border-strong);
+  --dls-hover: var(--pv-hover);
+  --dls-active: var(--pv-active);
+  --dls-list-selected: var(--pv-list-selected);
+  --dls-list-hover: var(--pv-list-hover);
   --dls-text-primary: var(--pv-ink);
   --dls-text-secondary: var(--pv-slate);
   --dls-text-tertiary: #94A3B8;
@@ -69,10 +85,16 @@
   --pv-background: #1F1F1F;
   --pv-sidebar: #2A2A2A;
   --pv-rail-bg: #141414;
+  --pv-rail-active: #404040;
+  --pv-rail-hover: #2A2A2A;
+  /* Free-float selected pill — lighter than rail-active so chips do not read black. */
+  --pv-rail-pill-active: #555555;
   --pv-border: #3A3A3A;
   --pv-border-strong: #4A4A4A;
   --pv-hover: #323232;
   --pv-active: #3A3A3A;
+  --pv-list-selected: #454545;
+  --pv-list-hover: #323232;
   --pv-danger: #F87171;
   --pv-danger-soft: #3F1518;
   --pv-danger-fg: #FCA5A5;
@@ -98,8 +120,16 @@
   --dls-surface: var(--pv-surface);
   --dls-surface-muted: var(--pv-surface-muted);
   --dls-app-bg: var(--pv-background);
+  --dls-rail-bg: var(--pv-rail-bg);
+  --dls-rail-active: var(--pv-rail-active);
+  --dls-rail-hover: var(--pv-rail-hover);
+  --dls-rail-pill-active: var(--pv-rail-pill-active);
   --dls-border: var(--pv-border);
   --dls-border-strong: var(--pv-border-strong);
+  --dls-hover: var(--pv-hover);
+  --dls-active: var(--pv-active);
+  --dls-list-selected: var(--pv-list-selected);
+  --dls-list-hover: var(--pv-list-hover);
   --dls-text-primary: var(--pv-ink);
   --dls-text-secondary: var(--pv-slate);
   --dls-text-tertiary: #64748B;
@@ -378,7 +408,8 @@ code {
   cursor: pointer;
 }
 .pv-menu-row:hover { background: var(--pv-hover); }
-.pv-menu-row-active, .pv-menu-row-active:hover { background: var(--pv-primary-soft); color: var(--pv-primary); }
+/* Neutral list selection — not primary-soft (DESIGN.md hover/active contract). */
+.pv-menu-row-active, .pv-menu-row-active:hover { background: var(--pv-list-selected); color: var(--pv-ink); }
 .pv-menu-icon {
   width: 20px;
   height: 20px;

@@ -7,6 +7,7 @@ import { Settings2 } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
+import { LIST_LANE_HEADER_CLASS } from "@/components/ui/sidebar-chrome";
 import { cn } from "@/lib/utils";
 import { PendingAgentAvatar } from "./avatars";
 import { sessionSurfaceTextClass } from "../surface-styles";
@@ -33,7 +34,9 @@ export function SessionSurfaceHeader(props: {
   return (
     <header
       className={cn(
-        "flex h-12 shrink-0 items-center justify-between bg-dls-background px-5",
+        // Shared list-lane h-14 (sidebar-chrome) — matches 新建任务 strip.
+        LIST_LANE_HEADER_CLASS,
+        "justify-between bg-dls-background px-5",
         // Align with side-panel header when this is the only chrome rule.
         showBottomBorder && "border-b border-dls-mist",
       )}

@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { TASK_ROW_ACTION_CLASS } from "@/components/ui/sidebar-chrome";
 import {
   Tooltip,
   TooltipContent,
@@ -33,6 +34,9 @@ import {
 import { ExpertStatusDots } from "./expert-status-dots";
 import { resolveTaskRowTrailingStatus } from "./task-row-trailing-status";
 import { resolveOpenFolderPath } from "../../shared";
+
+// Re-export shared row-action chrome for session sidebar consumers.
+export { TASK_ROW_ACTION_CLASS };
 
 function IconHoverTip(props: {
   label: string;
@@ -112,13 +116,6 @@ export function positionTaskContextMenu(
 /** Quiet outline row — icon + label, soft hover wash (matches reference). */
 export const TASK_CONTEXT_MENU_ITEM_CLASS =
   "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm font-normal text-dls-text outline-none transition-colors hover:bg-dls-surface-muted focus-visible:bg-dls-surface-muted [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-dls-secondary";
-
-/**
- * Row hover actions — plain button (not Button primitive) so icon chrome
- * (size/padding/baseline) never fights the fixed 24×24 flex center box.
- */
-export const TASK_ROW_ACTION_CLASS =
-  "inline-flex size-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 leading-none text-dls-secondary outline-none transition-colors hover:text-dls-text focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0";
 
 /** Archive control: icon-only (same footprint as pin); label via tooltip / aria. */
 export const TASK_ROW_ARCHIVE_CHIP_CLASS = TASK_ROW_ACTION_CLASS;
@@ -237,8 +234,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         // WorkBuddy task card: soft pill selection, single-line dense row.
         "group relative flex w-full cursor-pointer gap-1 rounded-lg px-2 transition-colors mac:titlebar-no-drag",
         singleLine
-          ? // Match LIST_ROW_H in assistant-conversation-sections (strict 32px).
-            "h-8 min-h-8 max-h-8 shrink-0 items-center overflow-hidden py-0"
+          ? // Match LIST_ROW_H in assistant-conversation-sections (strict 34px).
+            "h-[34px] min-h-[34px] max-h-[34px] shrink-0 items-center overflow-hidden py-0"
           : "items-start py-1.5",
         props.selected
           ? "bg-dls-list-selected/75 text-dls-text"
@@ -305,7 +302,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         ) : (
           <span
             className={cn(
-              "tabular-nums text-xs font-normal leading-none text-dls-secondary/55",
+              "tabular-nums text-xs font-normal leading-none text-dls-text-tertiary",
               !singleLine && "leading-5",
             )}
           >

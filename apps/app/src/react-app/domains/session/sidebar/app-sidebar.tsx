@@ -9,22 +9,19 @@ import {
   Clock3,
   CircleHelp,
   FileText,
-  Globe2,
   Info,
   KeyRound,
   LogOut,
   MonitorSmartphone,
-  Moon,
   MoreHorizontal,
-  Palette,
   Pencil,
   Plus,
   Trash2,
   RefreshCw,
   RotateCcw,
   Settings,
+  Settings2,
   Network,
-  Sun,
   UserRound,
 } from "lucide-react";
 
@@ -33,12 +30,6 @@ import {
   isGeneratedSessionTitle,
 } from "../../../../app/lib/session-title";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
-import {
-  getInitialThemeMode,
-  setThemeMode as setAppThemeMode,
-  subscribeToTheme,
-  type ThemeMode,
-} from "../../../../app/theme";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
@@ -52,13 +43,7 @@ import {
   getWorkspaceTaskLoadErrorDisplay,
   isRemoteConnectionWorkspace,
 } from "../../../../app/utils";
-import {
-  currentLocale,
-  LANGUAGE_OPTIONS,
-  setLocale,
-  t,
-  type Language,
-} from "../../../../i18n";
+import { t } from "../../../../i18n";
 
 import {
   Sidebar,
@@ -88,9 +73,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -148,12 +130,6 @@ const appSidebarStateClass = {
 const sidebarAccountMenuGridClass = cn(
   "grid grid-cols-[16px_minmax(0,1fr)_12px]",
   sidebarAccountMenuRowClass,
-);
-
-const sidebarAccountSubTriggerClass = cn(
-  sidebarAccountMenuGridClass,
-  // Soft surface highlight — avoid dark-mode decision-soft navy slabs.
-  "data-popup-open:!bg-dls-surface-muted data-popup-open:!text-dls-text data-open:!bg-dls-surface-muted data-open:!text-dls-text aria-expanded:!bg-dls-surface-muted aria-expanded:!text-dls-text [&>svg:last-child]:hidden",
 );
 
 function SessionStatusIndicator(props: {
@@ -822,6 +798,8 @@ export function SidebarAccountButton(props: {
   onOpenDevices?: () => void;
   /** Open local agents page (moved off the main rail into this menu). */
   onOpenLocalAgent?: () => void;
+  /** Open agent management center (moved off the main rail into this menu). */
+  onOpenAgentManagement?: () => void;
   onOpenSettings?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
@@ -829,12 +807,6 @@ export function SidebarAccountButton(props: {
 }) {
   const [open, setOpen] = React.useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
-  const [language, setLanguageState] = React.useState<Language>(() =>
-    currentLocale(),
-  );
-  const [themeMode, setThemeModeState] = React.useState<ThemeMode>(() =>
-    getInitialThemeMode(),
-  );
   const [localUser] = React.useState(() => readLocalAuthUser());
   const account = localUser
     ? { name: localUser.username, email: localUser.email }
@@ -842,21 +814,6 @@ export function SidebarAccountButton(props: {
   const initial = (account?.name || account?.email || "xxx")
     .charAt(0)
     .toUpperCase();
-
-  React.useEffect(
-    () => subscribeToTheme(() => setThemeModeState(getInitialThemeMode())),
-    [],
-  );
-
-  const setLanguage = (value: Language) => {
-    setLocale(value);
-    setLanguageState(value);
-  };
-
-  const setThemeMode = (value: ThemeMode) => {
-    setAppThemeMode(value);
-    setThemeModeState(value);
-  };
 
   const menuContent = (
     <>
@@ -902,42 +859,17 @@ export function SidebarAccountButton(props: {
             }}
           />
         ) : null}
-        <SidebarAccountSubMenu
-          icon={Globe2}
-          label={t("account_menu.language")}
-          items={LANGUAGE_OPTIONS.map((option) => ({
-            value: option.value,
-            label:
-              option.value === "zh"
-                ? t("account_menu.language_chinese")
-                : option.nativeName,
-          }))}
-          selectedValue={language}
-          onSelect={(value) => setLanguage(value as Language)}
-        />
-        <SidebarAccountSubMenu
-          icon={Palette}
-          label={t("account_menu.theme")}
-          items={[
-            {
-              value: "light",
-              label: t("account_menu.theme_light"),
-              icon: Sun,
-            },
-            {
-              value: "dark",
-              label: t("account_menu.theme_dark"),
-              icon: Moon,
-            },
-            {
-              value: "system",
-              label: t("account_menu.theme_system"),
-              icon: Globe2,
-            },
-          ]}
-          selectedValue={themeMode}
-          onSelect={(value) => setThemeMode(value as ThemeMode)}
-        />
+        {props.onOpenAgentManagement ? (
+          <SidebarAccountMenuItem
+            icon={Settings2}
+            label={t("nav.management")}
+            onSelect={() => {
+              setOpen(false);
+              props.onOpenAgentManagement?.();
+            }}
+          />
+        ) : null}
+        {/* Language + theme live under Settings → Personalization. */}
         <SidebarAccountMenuItem
           icon={Settings}
           label={t("account_menu.settings")}
@@ -959,11 +891,17 @@ export function SidebarAccountButton(props: {
               type="button"
               variant="ghost"
               size="icon-lg"
-              className="text-dls-secondary hover:text-dls-accent"
+              // Match bottom RailButton: primary ink idle; open = free-float
+              // surface / rail-active pill — never accent blue on the dark rail.
+              className={cn(
+                "size-9 shrink-0 rounded-2xl text-dls-text shadow-none hover:bg-dls-rail-pill-hover hover:text-dls-text",
+                "aria-expanded:bg-dls-rail-pill-active aria-expanded:text-dls-text",
+                "data-popup-open:bg-dls-rail-pill-active data-popup-open:text-dls-text",
+              )}
               title={t("account_menu.settings")}
               aria-label={t("account_menu.settings")}
             >
-              <Settings className="size-5" />
+              <Settings className="size-5.5 text-current" strokeWidth={1.75} />
             </Button>
           }
         />
@@ -1031,66 +969,6 @@ export function SidebarAccountButton(props: {
         }}
       />
     </DropdownMenu>
-  );
-}
-
-function SidebarAccountSubMenu(props: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  items: Array<{
-    value: string;
-    label: string;
-    icon?: React.ComponentType<{ className?: string }>;
-  }>;
-  selectedValue: string;
-  onSelect: (value: string) => void;
-}) {
-  const Icon = props.icon;
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger className={sidebarAccountSubTriggerClass}>
-        <Icon className="size-3.5 justify-self-center" />
-        <span className="min-w-0 truncate">{props.label}</span>
-        <ChevronRight className="size-3 justify-self-center text-dls-secondary" />
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent
-        sideOffset={8}
-        alignOffset={0}
-        className="w-48 rounded-lg border-sidebar-border/70 bg-dls-surface-solid p-1.5"
-      >
-        {props.items.map((item) => {
-          const ItemIcon = item.icon;
-          const selected = item.value === props.selectedValue;
-          return (
-            <DropdownMenuItem
-              key={item.value}
-              onClick={() => props.onSelect(item.value)}
-              className={cn(
-                sidebarAccountMenuGridClass,
-                selected
-                  ? "!bg-dls-list-selected !text-dls-text data-highlighted:!bg-dls-list-selected"
-                  : "",
-              )}
-            >
-              {ItemIcon ? (
-                <ItemIcon className="size-3.5 justify-self-center" />
-              ) : (
-                <span aria-hidden="true" />
-              )}
-              <span className="min-w-0 truncate">{item.label}</span>
-              {selected ? (
-                <StatusDot
-                  size="xs"
-                  tone="current"
-                  className="justify-self-center bg-dls-accent"
-                />
-              ) : null}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
   );
 }
 

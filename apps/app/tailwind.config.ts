@@ -6,6 +6,19 @@ safelist: [
     tailwindSafelist
   ],
   theme: {
+    extend: {
+      // Shell geometry (DESIGN.md rail-button) — prefer over w-[68px] arbitrary.
+      width: {
+        rail: "var(--dls-rail-width)",
+        "rail-pill": "var(--dls-rail-pill-width)",
+      },
+      minWidth: {
+        rail: "var(--dls-rail-width)",
+      },
+      maxWidth: {
+        rail: "var(--dls-rail-width)",
+      },
+    },
     borderRadius: {
       none: "0",
       inherit: "inherit",
@@ -60,6 +73,8 @@ safelist: [
         rail: "var(--dls-rail-bg)",
         "rail-active": "var(--dls-rail-active)",
         "rail-hover": "var(--dls-rail-hover)",
+        "rail-pill-active": "var(--dls-rail-pill-active)",
+        "rail-pill-hover": "var(--dls-rail-pill-hover)",
         "rail-border": "var(--dls-border)",
         border: "var(--dls-border)",
         "border-strong": "var(--dls-border-strong)",

@@ -7,7 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { normalizeIdleHours } from "../../../kernel/local-provider";
 
 import { t } from "@/i18n";
+import { SelectMenu } from "../../../design-system/select-menu";
 import { FontSizeBlockRow } from "../appearance/font-size-section";
+import { LanguageBlockRow } from "../appearance/language-section";
+import { ThemeBlockRow } from "../appearance/theme-section";
 import {
   SettingsBlock,
   SettingsBlockRow,
@@ -65,9 +68,46 @@ export function PreferencesView(props: PreferencesViewProps) {
 
   return (
     <LayoutStack>
+      {/* 1. Interface — language + theme (chrome). */}
+      <SettingsPageSection title={t("settings.interface_settings_title")}>
+        <SettingsBlock>
+          <LanguageBlockRow />
+          <ThemeBlockRow />
+        </SettingsBlock>
+      </SettingsPageSection>
+
+      {/* 2. Display — size, chat chrome, reasoning visibility. */}
       <SettingsPageSection title={t("settings.display_settings_title")}>
         <SettingsBlock>
           <FontSizeBlockRow />
+          <SettingsBlockRow
+            title={t("settings.conversation_width_label")}
+            description={t("settings.conversation_width_desc")}
+            actions={
+              <div className="w-[11rem]">
+                <SelectMenu
+                  ariaLabel={t("settings.conversation_width_label")}
+                  disabled={props.busy}
+                  options={[
+                    {
+                      value: "fixed",
+                      label: t("settings.conversation_width_fixed"),
+                    },
+                    {
+                      value: "wide",
+                      label: t("settings.conversation_width_wide"),
+                    },
+                  ]}
+                  value={props.conversationWidth}
+                  onChange={(next: string) => {
+                    props.onConversationWidthChange(
+                      next === "wide" ? "wide" : "fixed",
+                    );
+                  }}
+                />
+              </div>
+            }
+          />
           <SettingsBlockRow
             title={t("settings.show_model_reasoning")}
             description={t("settings.show_model_reasoning_desc")}
@@ -80,6 +120,12 @@ export function PreferencesView(props: PreferencesViewProps) {
               />
             }
           />
+        </SettingsBlock>
+      </SettingsPageSection>
+
+      {/* 3. Session habits. */}
+      <SettingsPageSection title={t("settings.session_management_title")}>
+        <SettingsBlock>
           <SettingsBlockRow
             title={t("settings.auto_compact")}
             description={t("settings.auto_compact_desc")}
@@ -92,34 +138,6 @@ export function PreferencesView(props: PreferencesViewProps) {
               />
             }
           />
-          <SettingsBlockRow
-            title={t("settings.conversation_width_label")}
-            description={t("settings.conversation_width_desc")}
-            actions={
-              <select
-                className="h-9 rounded-lg border border-dls-border bg-dls-surface px-2 text-sm text-dls-text"
-                aria-label={t("settings.conversation_width_label")}
-                disabled={props.busy}
-                value={props.conversationWidth}
-                onChange={(event) => {
-                  const value = event.target.value === "wide" ? "wide" : "fixed";
-                  props.onConversationWidthChange(value);
-                }}
-              >
-                <option value="fixed">
-                  {t("settings.conversation_width_fixed")}
-                </option>
-                <option value="wide">
-                  {t("settings.conversation_width_wide")}
-                </option>
-              </select>
-            }
-          />
-        </SettingsBlock>
-      </SettingsPageSection>
-
-      <SettingsPageSection title={t("settings.session_management_title")}>
-        <SettingsBlock>
           <SettingsBlockRow
             align="start"
             title={t("settings.auto_new_session_title")}

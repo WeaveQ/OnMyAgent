@@ -27,7 +27,7 @@ const agentConversationTextClass = {
   itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text",
   // Tabular time hugs the trailing edge — avoid a dead column beside it.
   itemMeta:
-    "shrink-0 tabular-nums text-xs leading-none text-dls-secondary/70",
+    "shrink-0 tabular-nums text-xs leading-none text-dls-text-tertiary",
   itemDescription: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary",
   activity:
     "inline-flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-dls-accent",
@@ -284,6 +284,7 @@ export function AgentConversationItem(props: {
     >
       <SessionRowButton
         type="button"
+        size="expert"
         onClick={openConversation}
         onPointerEnter={() =>
           isDraftSession
@@ -296,15 +297,14 @@ export function AgentConversationItem(props: {
             : props.onPrefetchSession?.(props.workspaceId, latestSession.id)
         }
         active={props.selected}
-        // Same footprint as local-agent list: h-68 / gap-3 / px-4 (SessionRow default).
       >
         <div className="relative shrink-0">
-          {/* size-10 + rounded-md matches AgentBrandIcon size="md". */}
+          {/* size-10 + rounded-md — comfortable expert list tile. */}
           <div
             className={cn(
               "flex size-10 items-center justify-center overflow-hidden rounded-md text-sm font-medium",
               "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60",
-              "dark:bg-white dark:text-neutral-700 dark:ring-black/10",
+              "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
             )}
             style={
               props.group.avatarUrl

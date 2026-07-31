@@ -1374,7 +1374,7 @@ export function CodeWorkspaceSidePanel(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-workspace-side-panel="true">
       <header
         data-panel-titlebar="true"
-        className="flex h-12 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
+        className="flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
       >
         {/*
           Empty header chrome stays draggable. Tabs/buttons already use

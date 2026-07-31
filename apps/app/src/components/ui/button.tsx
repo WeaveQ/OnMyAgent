@@ -28,6 +28,13 @@ const buttonVariants = cva(
         "pill-xs": "h-6 gap-1 rounded-full px-3 text-xs font-medium has-data-[icon=inline-end]:pe-2.5 has-data-[icon=inline-start]:ps-2.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1 px-3 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2 rounded-lg",
         lg: "h-10 gap-1.5 px-6 has-data-[icon=inline-end]:pe-4 has-data-[icon=inline-start]:ps-3 rounded-xl",
+        /**
+         * Full-width list-lane create CTA (新建任务 / 添加).
+         * Taller than default (h-10) but radius stays lg (10) — not pill xl.
+         * DESIGN.md components.contracts.sidebar-primary-cta.
+         */
+        "sidebar-cta":
+          "h-10 w-full justify-center gap-2 rounded-lg px-3 text-sm font-medium has-data-[icon=inline-end]:pe-3 has-data-[icon=inline-start]:ps-3",
         xl: "h-11 gap-1.5 px-6 text-sm font-medium rounded-xl has-data-[icon=inline-end]:pe-4 has-data-[icon=inline-start]:ps-4",
         icon: "size-9",
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
