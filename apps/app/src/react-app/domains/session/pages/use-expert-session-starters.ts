@@ -101,9 +101,11 @@ export function useExpertSessionStarters(input: {
         conversationStartId: Date.now(),
         draftSource: "agent-selection",
       };
-      input.activateDraftAgent(pendingWithStart);
+      // Clear the previous expert's route first so draft-kill effects do not
+      // see "selected agent A + draft agent B" and drop the new draft.
+      // create-task also clears pendingAgent — re-assert draft after.
       input.openFreshExpertDraft();
-      // Re-assert after create-task's synchronous setAgent(null).
+      input.activateDraftAgent(pendingWithStart);
       input.activateDraftAgent(pendingWithStart);
       if (startPrompt?.template) {
         setExpertComposerTemplateAfterNewTask(

@@ -90,8 +90,30 @@ describe("expert draft session activation", () => {
     ).toBe(true);
   });
 
-  test("drops +新会话 draft when user opens another expert's real session", () => {
-    // Regression: agent1 "+ 新会话" must not land on agent3's recently-chatted tab.
+  test("keeps marketplace summon draft while previous expert is still on the route", () => {
+    // Regression: summon fleet while freight CS session is selected must keep draft.
+    expect(
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive: true,
+        draftAgentId: "fleet-management-specialist",
+        pendingDraftSource: "agent-selection",
+        pendingAgentId: "fleet-management-specialist",
+        selectedSessionAgentId: "order-dispatch-specialist",
+      }),
+    ).toBe(true);
+
+    // create-task briefly clears pending before re-activate
+    expect(
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive: true,
+        draftAgentId: "fleet-management-specialist",
+        pendingDraftSource: null,
+        pendingAgentId: null,
+        selectedSessionAgentId: "order-dispatch-specialist",
+      }),
+    ).toBe(true);
+
+    // +新会话 also survives previous expert still on route for a tick
     expect(
       shouldKeepUnboundNewSessionDraft({
         draftSessionActive: true,
@@ -100,7 +122,7 @@ describe("expert draft session activation", () => {
         pendingAgentId: "fulfillment-specialist",
         selectedSessionAgentId: "logistics-finance-specialist",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   test("does not keep draft after first send binds a real session", () => {
