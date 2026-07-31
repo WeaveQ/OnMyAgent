@@ -101,6 +101,7 @@ describe("primary rail + assistant wiring", () => {
   test("buildAutomationNavGroups folds runs under one task", () => {
     const now = Date.now();
     const groups = buildAutomationNavGroups({
+      workspaceId: "ws-test",
       records: [
         {
           sessionId: "s1",
