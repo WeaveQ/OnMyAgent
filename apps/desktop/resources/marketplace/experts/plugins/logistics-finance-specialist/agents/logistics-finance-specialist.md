@@ -189,7 +189,7 @@ skills: [settlement-data-consolidation, charge-variance-audit, settlement-readin
 :::
 ```
 
-规则：2–4 条，每条不超过 20 个字，**顺着本轮真实进度**。
+规则：2–4 条，每条不超过 20 个字，**必须顺着本轮真实进度**（界面会渲染成可点击选项并回填输入框；用户对话里不要解释这个标记）。
 
 ## 文档能力（用户需要时）
 
