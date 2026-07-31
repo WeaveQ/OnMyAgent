@@ -14,14 +14,12 @@ import {
   MessageSquare,
   Plus,
   RefreshCw,
-  Search,
   Settings2,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ActionRowButton, SessionRowButton } from "@/components/ui/action-row";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { StatusPing } from "@/components/ui/status-dot";
@@ -197,7 +195,6 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const initialAgents = initialAgentsRef.current;
   const [agents, setAgents] = useState<PersonalLocalAgent[]>(initialAgents);
   const [selectedAgentId, setSelectedAgentId] = useState(persistedState.selectedAgentId || "opencode");
-  const [query, setQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [agentListCollapsed, setAgentListCollapsed] = useState(false);
   const [agentListWidth, setAgentListWidth] = useState(LOCAL_AGENT_LIST_DEFAULT_WIDTH);
@@ -366,19 +363,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   }, [props.workspaceRoot, sidebarOrder]);
 
   const filteredAgents = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
     // The synthetic channel agent is rendered in its own section below, not as
-    // a normal agent row.
-    let realAgents = allAgents.filter((agent) => agent.id !== CHANNEL_AGENT_ID);
-    if (normalized) {
-      realAgents = realAgents.filter((agent) =>
-        `${agent.name} ${agent.executablePath} ${agent.version ?? ""}`
-          .toLowerCase()
-          .includes(normalized),
-      );
-    }
+    // a normal agent row. Search field removed from list chrome — show full set.
+    const realAgents = allAgents.filter((agent) => agent.id !== CHANNEL_AGENT_ID);
     return sortLocalAgentsBySidebarOrder(realAgents, sidebarOrder);
-  }, [allAgents, query, sidebarOrder]);
+  }, [allAgents, sidebarOrder]);
   const startAgentListResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -1359,34 +1348,9 @@ return (
           {/*
             mac:titlebar-no-drag + z-10: top 28px is a global Electron drag strip
             on macOS; interactive chrome must opt out or clicks are swallowed.
-            Two rows: narrow list panes (~240px) crush search when 5 icon
-            buttons share one row with the field.
+            List chrome only (runs / redetect / manage) — search field removed.
           */}
-          <div className="relative z-10 flex shrink-0 flex-col gap-2 border-b border-dls-mist px-3 pb-2.5 pt-2.5 mac:titlebar-no-drag">
-            <InputGroup
-              controlSize="sm"
-              radius="md"
-              tone="surfaceMuted"
-              className="w-full min-w-0 mac:titlebar-no-drag"
-            >
-              <InputGroupAddon align="inline-start" inset="tight">
-                <Search className="size-4" />
-              </InputGroupAddon>
-
-              <InputGroupInput
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("local_agent.search")}
-                className="text-sm placeholder:text-dls-secondary/75"
-              />
-            </InputGroup>
-
-            {/*
-              List chrome: runs / redetect / manage.
-              New conversation lives only next to the conversation picker in the
-              main header — avoid a second + in this narrow list toolbar.
-            */}
-            <div className="flex items-center gap-1">
+          <div className="relative z-10 flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist px-3 pt-1.5 mac:titlebar-no-drag">
               <Button
                 type="button"
                 variant="ghost"
@@ -1440,7 +1404,6 @@ return (
                   <span className="truncate">{t("local_agent.manage_agents")}</span>
                 </Button>
               ) : null}
-            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
