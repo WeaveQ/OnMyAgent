@@ -13,81 +13,77 @@
 | UI / visual contract | [`DESIGN.md`](./DESIGN.md) |
 | Full doc map | [`docs/README.md`](./docs/README.md) |
 
-**One workspace to manage all your local agents.**
+**Local office workspace. Work stays on your machine; pick any model.**
 
-OnMyAgent is an open-source desktop workspace and local control plane for agentic work.
+OnMyAgent is an open-source **desktop office agent workspace** — drafts, sheets, automations, and approvals on your computer, not another cloud chat window.
 
-It does not replace Codex, Claude Code, OpenCode, or other coding agents.
-It manages them.
+- **Office-first**: home chat, files, automations, and channels for everyday work deliverables.
+- **Local-first**: workspace and outputs default to this machine; sensitive actions can require approval.
+- **Any model (BYOK)**: hosted providers, compatible APIs, local Ollama, and more — not locked to one vendor.
+- **Experts & verticals later**: marketplace and industry experts keep improving; the current promise is a solid office path, not unfinished verticals.
 
-OnMyAgent brings local agents, MCP tools, skills, memory, automations, sessions, logs, diffs, and artifacts into one desktop workspace — turning scattered agent tools into trackable, reviewable, and deliverable AI Worker flows.
+Advanced access (local coding CLIs, MCP, multi-agent) remains available under settings / advanced entry points, not as the default home story.
 
 ## Why OnMyAgent?
 
-AI agents are getting powerful. The problem is no longer the lack of agents.
-The problem is that agent work is scattered:
+Models are strong enough for office work. What’s missing is finishing work **locally**, keeping it, and running it again on a schedule:
 
-- Codex, Claude Code, OpenCode, and other agent CLIs live in separate terminals.
-- MCP tools, model keys, project context, and permissions live in different config files.
-- Sessions, tasks, logs, diffs, and artifacts are hard to review together.
-- Agents can execute, but you still need a control plane to queue, monitor, approve, resume, and deliver work.
-- Local-first workflows need clear security and approval boundaries.
+- Chat apps are great at talk, but files, schedules, approvals, and channels are often scattered.
+- Many office agents lock you to one model or cloud with opaque data paths.
+- Developer CLIs are powerful, but they are not a default office entry.
+- You need a local workspace: read/write files, resumable sessions, reviewable artifacts.
 
-OnMyAgent is not another agent.
-
-It is the local control plane that turns scattered agent runs into manageable Worker workflows.
+OnMyAgent is **local office + bring-your-own-model** — not a chat clone and not a cloud workflow canvas.
 
 ## What It Is
 
 OnMyAgent is:
 
-- An open-source Worker workspace for developers and AI power users.
-- A local agent control plane for Codex, Claude Code, OpenCode, and OpenCode-compatible runtimes.
-- A desktop workspace for work queues, sessions, logs, diffs, artifacts, MCP tools, skills, memory, and approvals.
-- A local-first, BYOK, auditable project that aims to stay extensible and provider-neutral.
+- A **local office desktop workspace** for knowledge workers and AI users.
+- One place for sessions, files, automations, skills/experts, messaging channels, and approvals.
+- A **local-first, BYOK, provider-neutral** open-source project.
 
 OnMyAgent is not:
 
-- A replacement for Codex, Claude Code, OpenCode, or every coding agent CLI.
-- A cloud workflow automation platform like n8n, Dify, or Zapier.
-- A hosted enterprise governance product.
 - A generic chat clone.
+- A cloud workflow platform like n8n, Dify, or Zapier.
+- A full hosted enterprise governance suite (org features may grow; not the main path today).
+- A replacement for Cursor / Claude Code as a coding IDE (local coding agents are advanced attach points).
 
-## How It Relates to Other Agent Tools
+## How It Relates to Other Tools
 
 | Tool | What it does | How OnMyAgent relates |
 |------|--------------|----------------------|
-| Codex | Coding agent runtime | Managed as a local Worker |
-| Claude Code | Coding agent CLI | Managed as a local Worker |
-| OpenCode | Open-source coding agent runtime | **Primary runtime / main session stack** (server, archive, SSE) |
-| Personal Local Agent | Local CLI/ACP harness (Claude Code, Codex, …) | **Auxiliary path**: unified desktop access; does not replace OpenCode |
-| MCP servers | External tool connectors | Configured, inspected, and controlled from OnMyAgent |
-| Skills | Reusable agent capabilities | Installed, organized, and invoked through the workspace |
-| ChatGPT / LibreChat | Chat interface | Different category: OnMyAgent is a local control plane, not a chat clone |
-| n8n / Dify / Zapier | Cloud workflow automation | Different category: OnMyAgent focuses on local-first agent work |
+| Hosted models / compatible APIs / Ollama | Inference | **Bring your own**; keys and default model live in Settings |
+| ChatGPT / consumer chat apps | Conversation UI | Different category: we emphasize **local workspace + files/automations/approvals** |
+| WorkBuddy-class office agents | Ecosystem office assistants | Similar job-to-be-done; we stress **local + model choice** |
+| OpenCode | Local agent runtime | **Main session / server stack** (implementation detail under the local workspace) |
+| Codex / Claude Code CLIs | Coding agents | **Advanced attach** (Personal auxiliary path), not the office home default |
+| MCP / Skills | Tools and reusable capabilities | Configured and invoked in the workspace |
+| n8n / Dify / Zapier | Cloud workflows | Different category: we focus on **local office tasks**, not canvas orchestration |
 
 ## Core Concepts
 
-- **Agent**: A tool that can reason and act, such as Codex, Claude Code, or OpenCode.
-- **Worker**: An agent with task context, permissions, execution state, logs, and deliverables.
-- **Control Plane**: The desktop layer that connects, monitors, approves, and reviews local Workers.
-- **Session**: A resumable unit of agent work.
-- **Artifact**: The output of work: files, diffs, reports, screenshots, documents, or other deliverables.
+- **Workspace**: A local folder where tasks and outputs land by default.
+- **Session**: A resumable office collaboration.
+- **Provider / model**: Any inference service you connect; the default model powers new chats and automations.
+- **Automation**: Scheduled or triggered office work (digests, summaries, reminders).
+- **Artifact**: Deliverables such as docs, sheets, reports, screenshots — open or edit externally from Files.
+- **Experts / skills (extensions)**: Installable capability packs; vertical experts ship as they become ready.
 
 ## Features
 
-- **Agent Registry**: Register and manage local agents such as Codex, Claude Code, and OpenCode.
-- **Worker Workspace**: Queue, run, pause, resume, and review agent tasks.
-- **Session Manager**: Track and restore local agent sessions across projects.
-- **Automations**: Schedule recurring local agent runs and review their history.
-- **MCP Control**: Configure MCP servers and expose UI actions through MCP.
-- **Skills & Memory**: Organize reusable capabilities and project context.
-- **Software & Environment Settings**: Manage bundled runtimes, API keys, local environment variables, and platform permissions (macOS Accessibility / Screen Recording where required).
-- **Artifact Review**: Review logs, diffs, files, screenshots, and deliverables in one place.
-- **Permission & Approval**: Add explicit approval surfaces for risky local actions.
-- **Local-first / BYOK**: Keep work on your machine and use your own model/provider keys.
-- **Desktop Packaging**: Electron packaging for macOS (primary) and Windows NSIS (developer preview).
-- **Internationalization**: English, Simplified Chinese, and Traditional Chinese locale files.
+- **Home sessions**: Dispatch office work and follow progress.
+- **Experts & store**: Capability extensions (verticals ship by readiness; not the primary promise pre-launch).
+- **Automations**: Schedule recurring office runs and review history.
+- **Files**: Workspace files, task outputs, preview / open-in-app.
+- **Channels**: Feishu / Weixin-style reach (platform-dependent).
+- **Models & settings**: Any provider, default model, env vars, system permissions, preferences.
+- **Skills / MCP / Memory**: Reusable capabilities, external tools, long-lived preferences.
+- **Permission & approval**: Explicit confirmation for risky local actions.
+- **Local-first / BYOK**: Work stays local; you own the keys.
+- **Desktop packaging**: macOS primary; Windows NSIS developer preview.
+- **Internationalization**: English, Simplified Chinese, Traditional Chinese.
 
 ## Platform Support
 
@@ -101,15 +97,15 @@ OnMyAgent is not:
 ## Workflow
 
 ```text
-Connect local agents
+Pick a local workspace folder
         ↓
-Create or import a task
+Connect any model (hosted / compatible API / local)
         ↓
-Run it as a Worker
+Dispatch office work (chat / automation)
         ↓
-Track sessions, logs, diffs, and approvals
+Approve sensitive actions when needed
         ↓
-Review artifacts
+Open or edit outputs in Files
         ↓
 Deliver or continue
 ```
@@ -225,21 +221,26 @@ For vulnerability reporting and project security boundaries, see `SECURITY.md`.
 
 ## Current Capabilities And Roadmap
 
-### Available Today
+### Main path (office)
 
-- OpenCode primary-path sessions, tasks, automations, artifacts, logs, permissions, and approvals (server + archive).
-- Local agent registry and provider switching (Personal auxiliary path: Codex, Claude Code, and other CLI/ACP agents).
-- Skill, MCP, provider, model, memory, software environment, and workspace management in the desktop UI.
-- Local messaging channels for personal-agent workflows, including Weixin and Feishu desktop integration paths.
-- UI control bridge and local-first server/orchestrator runtime for desktop and headless development.
+- Local workspace sessions, file artifacts, office automations, permissions and approvals.
+- **Any model**: hosted providers, compatible APIs, local models; default model and empty-state guidance in Settings.
+- Skills / MCP / Memory, software environment, and system permissions (platform-dependent).
+- Messaging channels (Feishu / Weixin and similar) on desktop integration paths.
+- Experts / store: extension surface; vertical experts ship by readiness — **not a full pre-launch promise**.
 
-### Next Milestones
+### Advanced / engineering (not the default home)
 
-- Keep reducing cold-start cost (lazy settings/Skill/highlight chunks); progressive boot and unified load chrome already land first paint sooner.
-- Harden real external-channel E2E coverage for Feishu and Weixin when credentials and callback access are available.
-- Continue modularizing desktop main-process and further thin session host surfaces (message-list split, deeper runtime hooks).
-- Expand work detail views, audit trails, and safer approval policy presets.
-- Prepare the team worker layer: shared workspaces, team permissions, organization audit, Skill Packs, and enterprise deployment options.
+- OpenCode as the local main session stack (server + archive); Personal auxiliary path can attach Codex / Claude Code CLIs.
+- UI control bridge and headless / orchestrator developer paths.
+
+### Next milestones
+
+- Keep shrinking **folder → connect model → first successful office task**.
+- Productize empty states, default-model status, and failure copy (less engine jargon).
+- Grade the expert shelf by readiness; ship verticals in waves.
+- Channel E2E, Windows office main path, approval and audit polish.
+- Optional team collaboration layer — without blocking the personal office line.
 
 ## Contributing
 

@@ -88,11 +88,11 @@ export default {
   "settings.custom_provider_syncing":
     "Applying configuration and refreshing the model list…",
   "settings.configure": "Configure",
-  "settings.connect_provider": "Connect provider",
+  "settings.connect_provider": "Connect model provider",
   "settings.connect_provider_runtime_required":
-    "Connect a workspace runtime first (open a chat from the main app and wait for the engine). Official provider sign-in needs a live connection.",
+    "The local workspace is still starting. Open a chat from Home once it is ready, then connect hosted providers. Custom compatible APIs can usually be configured first.",
   "settings.connect_provider_runtime_required_short":
-    "Runtime not connected — cannot load the official provider list",
+    "Workspace not ready — cannot load the official provider list yet",
   "settings.connection": "Connection",
   "settings.connection_failed": "Connection failed",
   "settings.connection_title": "Connection",
@@ -410,19 +410,19 @@ export default {
     "Choose the default chat model and reasoning mode",
   "settings.model_title": "Model",
   "settings.no_active_workspace": "No active local workspace.",
-  "settings.no_providers_connected": "No providers available yet.",
+  "settings.no_providers_connected": "No models available yet.",
   "settings.providers_not_configured": "Not configured",
-  "settings.providers_empty_summary": "No model providers added yet",
+  "settings.providers_empty_summary": "No model connected yet",
   "settings.connect_provider_empty_hint":
-    "Use “Custom model provider configuration” above for a compatible API, or “Connect model provider” to sign in to a hosted service.",
-  "settings.providers_empty_title": "Add a model provider to get started",
+    "Sign in to a hosted provider, or use Custom configuration for a compatible API / local model. Keys stay on your machine.",
+  "settings.providers_empty_title": "Connect any model before office work",
   "settings.providers_empty_body":
-    "Connect a hosted service, or add a compatible API with custom configuration. You can set the default chat model after at least one provider is ready.",
+    "Not locked to one vendor: connect a hosted service, or add an OpenAI-compatible API / Ollama. Set the default chat model after at least one provider is ready.",
   "settings.providers_empty_cta_connect": "Connect model provider",
   "settings.providers_empty_cta_custom": "Custom configuration",
-  "settings.providers_empty_runtime_title": "Workspace service is offline",
+  "settings.providers_empty_runtime_title": "Local workspace is not ready yet",
   "settings.providers_empty_runtime_body":
-    "Custom configuration still works. Connecting hosted providers needs the local workspace service to be running.",
+    "Custom configuration can still be edited. Hosted provider sign-in needs the local workspace running — open a chat from Home once, then try again.",
   "settings.provider_error_retry": "Try again",
   "settings.provider_model_count": "{count} models",
   "settings.no_audit_entries": "No audit entries yet.",
