@@ -14,11 +14,12 @@ export const SIDEBAR_PRIMARY_CTA_CLASS =
   "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
 
 /**
- * Top strip for sidebar primary CTA — same h-12 as SessionSurfaceHeader
- * so list-lane “新建任务” and main “助手” title row share one baseline.
+ * Top strip for sidebar primary CTA — same h-14 as SessionSurfaceHeader
+ * so list-lane “新建任务” and main “助手” title row share one baseline
+ * with a bit more vertical air under the mac titlebar.
  */
 export const SIDEBAR_PRIMARY_HEADER_CLASS =
-  "flex h-12 shrink-0 items-center";
+  "flex h-14 shrink-0 items-center";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
