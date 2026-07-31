@@ -17,10 +17,9 @@ describe("workspace files page navigation", () => {
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(source).toContain("FILES_SOURCE_TABS");
     expect(source).toContain('activeTab === "uploads"');
-    expect(source).toContain('activeTab === "task"');
     expect(source).toContain("WorkspaceFilesUploadsPanel");
     expect(source).toContain("WorkspaceFilesBrowserPanel");
-    expect(source).toContain("FilesExpertPendingEmpty");
+    expect(source).toContain('sourceTab={activeTab === "expert" ? "expert" : "task"}');
     // Cloud tab removed in P0 three-source IA
     expect(source).not.toContain('activeTab === "cloud"');
 
@@ -31,12 +30,13 @@ describe("workspace files page navigation", () => {
       ),
       "utf8",
     );
-    // Historical workspace catalog remains reachable under Task files.
+    // Task/expert browsers share catalog UI; filter splits expert agent folders.
     expect(browser).toContain("const [currentDirectoryPath, setCurrentDirectoryPath]");
     expect(browser).toContain("workspaceFileBreadcrumbs(currentDirectoryPath)");
     expect(browser).toContain('data-workspace-file-breadcrumb="true"');
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("collectMatchingFilesUnder");
+    expect(browser).toContain("filterWorkspaceTreeBySourceTab");
   });
 
   test("matches the compact shell tab switcher (bare SegmentedTabGroup + tab NavTab)", () => {
@@ -47,12 +47,19 @@ describe("workspace files page navigation", () => {
       ),
       "utf8",
     );
+    const browser = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+      ),
+      "utf8",
+    );
 
     expect(source).toContain("shellChrome.pageHeaderSimple");
     expect(source).toContain('density="bare"');
     expect(source).toContain('size="tab"');
     expect(source).toContain('shape="tab"');
-    expect(source).toContain("max-w-6xl");
+    expect(browser).toContain("max-w-6xl");
     // No raw white active override (dark theme remaps bg-white)
     expect(source).not.toMatch(/className=\{?["'`][^"'`]*bg-white/);
   });

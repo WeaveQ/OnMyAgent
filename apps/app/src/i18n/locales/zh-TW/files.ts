@@ -31,9 +31,9 @@ export default {
   "files.source_uploads_desc":
     "已匯入工作區的資料。編輯只影響工作區副本，不會自動改本機原檔。",
   "files.source_task_desc":
-    "首頁臨時任務產物，以及尚未完成來源標記前的工作區歷史檔案（確保舊檔仍可存取）。",
+    "首頁臨時任務產物，以及非專家目錄下的工作區檔案。專家歸檔目錄在「專家檔案」中查看。",
   "files.source_expert_desc":
-    "專家會話產物，可依專家瀏覽。在寫入標記上線前本列表為空，避免把歷史檔誤標為專家檔；歷史檔請在「任務檔案」中查看。",
+    "專家目錄及其任務產物（依資料夾命名識別；寫入標記上線後將更精確）。",
   "files.search_uploads_placeholder": "搜尋上傳檔案",
   "files.search_task_placeholder": "搜尋任務檔案",
   "files.search_expert_placeholder": "搜尋專家檔案",

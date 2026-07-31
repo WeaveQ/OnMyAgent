@@ -44,7 +44,7 @@ describe("session shared page layouts", () => {
     expect(filesPage).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
     expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
-    expect(filesPage).toContain("FilesExpertPendingEmpty");
+    expect(filesPage).toContain('sourceTab={activeTab === "expert" ? "expert" : "task"}');
     expect(filesPage).not.toContain("CloudDriveEmptyState");
     expect(filesPage).not.toContain("CloudDriveIllustration");
     expect(filesPage).not.toContain('activeTab === "cloud"');

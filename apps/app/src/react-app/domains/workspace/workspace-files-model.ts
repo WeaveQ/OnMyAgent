@@ -382,12 +382,85 @@ export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
 export const USER_UPLOADS_RELATIVE_DIR = "uploads";
 
 /**
- * P0: only uploads have a real data path (inbox). Task/expert wait for
- * write-time provenance — do not mis-bucket untagged history.
+ * uploads: inbox API; task/expert: workspace browser with path heuristics until P1 tags.
  */
 export function isFilesSourceListReady(tab: FilesSourceTab): boolean {
-  // uploads: inbox; task: workspace browser (history compat); expert: pending P1
-  return tab === "uploads" || tab === "task";
+  return tab === "uploads" || tab === "task" || tab === "expert";
+}
+
+/** Pure package slug with 3+ segments: fleet-management-specialist (avoids home-notes). */
+const EXPERT_PACKAGE_SLUG_LONG_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+){2,}$/;
+
+const RESERVED_NON_EXPERT_TOP_DIRS = new Set([
+  "uploads",
+  "inbox",
+  "tmp",
+  "temp",
+  ".onmyagent",
+  ".opencode",
+]);
+
+/**
+ * Heuristic: top-level folder is an expert agent archive (not a Home temp task).
+ * Optional knownPackageSlugs strengthens matching (packageName from marketplace).
+ *
+ * Matches:
+ * - pure slug (known or 3+ kebab parts): fleet-management-specialist
+ * - DisplayName-slug with non-ASCII prefix: 财报研究员-earnings-reviewer
+ */
+export function isLikelyExpertAgentFolderName(
+  name: string,
+  knownPackageSlugs: readonly string[] = [],
+): boolean {
+  const n = name.trim();
+  if (!n || RESERVED_NON_EXPERT_TOP_DIRS.has(n.toLowerCase())) return false;
+  const lower = n.toLowerCase();
+  for (const slug of knownPackageSlugs) {
+    const s = slug.trim().toLowerCase();
+    if (!s) continue;
+    if (lower === s || lower.endsWith(`-${s}`) || lower.startsWith(`${s}-`)) {
+      return true;
+    }
+  }
+  // Pure long english package slug at root
+  if (EXPERT_PACKAGE_SLUG_LONG_RE.test(n)) return true;
+  // Display name (often CJK) + kebab slug
+  const m = n.match(/^(.*)-([a-z][a-z0-9]*(?:-[a-z0-9]+)+)$/);
+  if (!m) return false;
+  const prefix = m[1];
+  const slug = m[2];
+  if (knownPackageSlugs.some((s) => s.trim().toLowerCase() === slug)) return true;
+  // Non-ASCII display name is a strong expert signal (screenshot folders)
+  if (/[^\u0000-\u007f]/.test(prefix)) return true;
+  // Long slug after any prefix
+  if (slug.split("-").length >= 3) return true;
+  return false;
+}
+
+/**
+ * Filter a workspace root tree for Task vs Expert tabs.
+ * Only top-level children are classified; nested structure is preserved.
+ */
+export function filterWorkspaceTreeBySourceTab(
+  root: WorkspaceFileTreeNode,
+  tab: "task" | "expert",
+  knownPackageSlugs: readonly string[] = [],
+): WorkspaceFileTreeNode {
+  const children = root.children.filter((child) => {
+    if (child.kind === "file") {
+      // Loose root files: show under task only (not expert archives).
+      return tab === "task";
+    }
+    const isExpert = isLikelyExpertAgentFolderName(child.name, knownPackageSlugs);
+    if (tab === "expert") return isExpert;
+    // task: exclude expert agent folders and reserved upload dirs
+    if (isExpert) return false;
+    if (RESERVED_NON_EXPERT_TOP_DIRS.has(child.name.trim().toLowerCase())) {
+      return false;
+    }
+    return true;
+  });
+  return { ...root, children };
 }
 
 export function filesSourceTabLabelKey(tab: FilesSourceTab): string {

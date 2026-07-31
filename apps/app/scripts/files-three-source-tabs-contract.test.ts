@@ -8,9 +8,12 @@ import {
   USER_UPLOADS_RELATIVE_DIR,
   buildUserUploadRelativePath,
   filterUploadRows,
+  filterWorkspaceTreeBySourceTab,
   isFilesSourceListReady,
+  isLikelyExpertAgentFolderName,
   mapInboxItemsToUploadRows,
 } from "../src/react-app/domains/workspace/workspace-files-model";
+import type { WorkspaceFileTreeNode } from "../src/react-app/capabilities/artifacts/workspace-file-tree";
 
 const repoRoot = join(import.meta.dir, "../../..");
 
@@ -23,9 +26,70 @@ describe("files three-source tabs (P0)", () => {
     expect(DEFAULT_FILES_SOURCE_TAB).toBe("task");
     expect([...FILES_SOURCE_TABS]).toEqual(["uploads", "task", "expert"]);
     expect(isFilesSourceListReady("uploads")).toBe(true);
-    // Task tab hosts workspace browser for historical compatibility (P0).
     expect(isFilesSourceListReady("task")).toBe(true);
-    expect(isFilesSourceListReady("expert")).toBe(false);
+    expect(isFilesSourceListReady("expert")).toBe(true);
+  });
+
+  test("expert folder heuristics split task vs expert top-level dirs", () => {
+    expect(isLikelyExpertAgentFolderName("财报研究员-earnings-reviewer")).toBe(
+      true,
+    );
+    expect(
+      isLikelyExpertAgentFolderName("B站内容策略师-bilibili-content-strategist"),
+    ).toBe(true);
+    expect(isLikelyExpertAgentFolderName("fleet-management-specialist")).toBe(
+      true,
+    );
+    expect(
+      isLikelyExpertAgentFolderName("创业教练-chuangye-manor", [
+        "chuangye-manor",
+      ]),
+    ).toBe(true);
+    expect(isLikelyExpertAgentFolderName("uploads")).toBe(false);
+    expect(isLikelyExpertAgentFolderName("我的草稿")).toBe(false);
+
+    const root: WorkspaceFileTreeNode = {
+      name: "",
+      path: "",
+      kind: "dir",
+      size: 0,
+      mtimeMs: 0,
+      children: [
+        {
+          name: "财报研究员-earnings-reviewer",
+          path: "财报研究员-earnings-reviewer",
+          kind: "dir",
+          size: 0,
+          mtimeMs: 1,
+          children: [],
+        },
+        {
+          name: "home-notes",
+          path: "home-notes",
+          kind: "dir",
+          size: 0,
+          mtimeMs: 2,
+          children: [],
+        },
+        {
+          name: "loose.md",
+          path: "loose.md",
+          kind: "file",
+          size: 1,
+          mtimeMs: 3,
+          children: [],
+        },
+      ],
+    };
+    const taskTree = filterWorkspaceTreeBySourceTab(root, "task");
+    const expertTree = filterWorkspaceTreeBySourceTab(root, "expert");
+    expect(taskTree.children.map((c) => c.name).sort()).toEqual([
+      "home-notes",
+      "loose.md",
+    ]);
+    expect(expertTree.children.map((c) => c.name)).toEqual([
+      "财报研究员-earnings-reviewer",
+    ]);
   });
 
   test("import-by-copy paths land under uploads/", () => {
@@ -60,7 +124,7 @@ describe("files three-source tabs (P0)", () => {
     expect(page).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(page).toContain("WorkspaceFilesUploadsPanel");
     expect(page).toContain("WorkspaceFilesBrowserPanel");
-    expect(page).toContain("FilesExpertPendingEmpty");
+    expect(page).toContain('sourceTab={activeTab === "expert" ? "expert" : "task"}');
     expect(page).toContain('density="bare"');
     expect(page).toContain('size="tab"');
     expect(page).toContain('shape="tab"');
@@ -77,6 +141,7 @@ describe("files three-source tabs (P0)", () => {
       "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
     expect(browser).toContain("listCodeWorkspaceFiles");
+    expect(browser).toContain("filterWorkspaceTreeBySourceTab");
     expect(browser).toContain("data-workspace-file-breadcrumb");
     expect(browser).toContain("FilePreviewDrawer");
   });

@@ -148,16 +148,14 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
     );
     expect(source).toContain("<WorkspaceFilesUploadsPanel");
     expect(source).toContain("<WorkspaceFilesBrowserPanel");
-    expect(source).toContain("FilesExpertPendingEmpty");
+    expect(source).toContain('sourceTab={activeTab === "expert" ? "expert" : "task"}');
     expect(source).not.toContain("CloudDriveEmptyState");
     expect(source).toContain('from "./workspace-files-model"');
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(uploads).toContain("uploadInbox");
     expect(uploads).toContain("listInbox");
-    // History browser (former Mine tree) restored under Task files for compatibility
     expect(browser).toContain("function FilePreviewDrawer");
-    expect(browser).toContain("function FilesListEmptyState");
-    expect(browser).toContain("<FilePreviewDrawer");
+    expect(browser).toContain("filterWorkspaceTreeBySourceTab");
     expect(browser).toContain("buildRootOutlineRows");
   });
 });

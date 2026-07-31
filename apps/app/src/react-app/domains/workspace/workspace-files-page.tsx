@@ -1,33 +1,23 @@
 /** @jsxImportSource react */
 /**
- * Primary-rail Files page (P0 three-source IA + history compatibility).
+ * Primary-rail Files page (P0 three-source IA + path heuristics).
  * - Uploads: inbox list + import-by-copy
- * - Task files: workspace catalog browser (historical files until provenance P1)
- * - Expert files: honest empty until write-time provenance (no mis-bucket)
+ * - Task files: workspace browser excluding expert agent folders
+ * - Expert files: workspace browser of expert agent folders only
  */
 import { useState } from "react";
 import { Bot, FileStack, FileUp } from "lucide-react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
-import { shellChrome, typeScale } from "@/react-app/design-system/type-scale";
+import { shellChrome } from "@/react-app/design-system/type-scale";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import type { OpenTarget } from "../../capabilities/artifacts/open-target";
 import {
   DEFAULT_FILES_SOURCE_TAB,
   FILES_SOURCE_TABS,
-  filesSourceEmptyHintKey,
-  filesSourceEmptyTitleKey,
   filesSourceTabLabelKey,
-  filesSourceTabSubtitleKey,
   type FilesSourceTab,
 } from "./workspace-files-model";
 import { WorkspaceFilesBrowserPanel } from "./workspace-files-browser-panel";
@@ -45,31 +35,6 @@ function filesSourceTabIcon(tab: FilesSourceTab) {
     case "expert":
       return Bot;
   }
-}
-
-/** Expert tab: no provenance yet — do not list untagged history as expert files. */
-function FilesExpertPendingEmpty() {
-  return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
-      <div className="mb-4 shrink-0">
-        <h1 className={typeScale.pageTitle}>{t("files.title")}</h1>
-        <p className={cn(typeScale.pageSubtitle, "mt-1")}>
-          {t(filesSourceTabSubtitleKey("expert"))}
-        </p>
-      </div>
-      <Empty className="min-h-[320px] flex-1 border border-dashed border-dls-border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Bot className="size-5" aria-hidden />
-          </EmptyMedia>
-          <EmptyTitle>{t(filesSourceEmptyTitleKey("expert"))}</EmptyTitle>
-          <EmptyDescription>
-            {t(filesSourceEmptyHintKey("expert"))}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    </div>
-  );
 }
 
 export function WorkspaceFilesPage(props: {
@@ -123,18 +88,17 @@ export function WorkspaceFilesPage(props: {
             client={props.client}
             workspaceId={props.workspaceId}
           />
-        ) : activeTab === "task" ? (
+        ) : (
           <WorkspaceFilesBrowserPanel
             client={props.client}
             workspaceId={props.workspaceId}
             workspaceRoot={props.workspaceRoot}
             fileRoot={props.fileRoot}
+            sourceTab={activeTab === "expert" ? "expert" : "task"}
             onOpenArtifact={props.onOpenArtifact}
             onEditError={props.onEditError}
             onAddToTask={props.onAddToTask}
           />
-        ) : (
-          <FilesExpertPendingEmpty />
         )}
       </div>
     </div>
