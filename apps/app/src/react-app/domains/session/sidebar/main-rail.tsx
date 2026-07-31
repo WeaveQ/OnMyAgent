@@ -1,6 +1,5 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
-import { MonitorSmartphone } from "lucide-react";
 
 import { RailButton } from "@/components/ui/action-row";
 import { t } from "../../../../i18n";
@@ -11,10 +10,10 @@ import {
 } from "./app-sidebar";
 import {
   AssistantRailIcon,
+  AutomationRailIcon,
   ChannelsRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
-  LocalAgentRailIcon,
   ManageRailIcon,
   StoreRailIcon,
 } from "./primary-rail-icons";
@@ -26,7 +25,19 @@ export type OnMyAgentPrimaryView =
   | "store"
   | "projects"
   | "localAgent"
-  | "agentManagement";
+  | "agentManagement"
+  /** Primary rail automation workspace (schedule definitions + run history). */
+  | "automation"
+  /**
+   * Legacy alias for automation (assistant “定时任务”). Prefer writing
+   * `automation`; keep reading for bookmarks / deep links.
+   */
+  | "scheduledTasks";
+
+/** True for the automation primary surface (new id or legacy scheduledTasks). */
+export function isAutomationRailView(view: string): boolean {
+  return view === "automation" || view === "scheduledTasks";
+}
 
 type RailItem = {
   id: OnMyAgentPrimaryView;
@@ -43,30 +54,23 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: 助理 → 专家 → 文件 → 市场 → 本地 → 管理
+// Order: Home → Experts → Automation → Files → Store → Manage
+// Local agents live under the account/settings menu (above language/theme).
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
+  { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
-  { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: LocalAgentRailIcon },
   { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
 ];
 
-function DevicesRailIcon(props: { active?: boolean; className?: string }) {
-  return <MonitorSmartphone className={props.className} aria-hidden="true" />;
-}
-
+// Bottom strip: channels only (devices entry removed — settings stays via account gear).
 const BOTTOM_RAIL_ITEMS: BottomRailItem[] = [
   {
     id: "channels",
     get label() { return t("nav.channels"); },
     icon: ChannelsRailIcon,
-  },
-  {
-    id: "devices",
-    get label() { return t("nav.devices"); },
-    icon: DevicesRailIcon,
   },
 ];
 
@@ -86,10 +90,18 @@ function TopRailButton(props: {
       aria-label={props.item.label}
       aria-pressed={props.active}
     >
-      <Icon className="size-5" />
-      <span className="w-full truncate text-center text-xs leading-none">{props.item.shortLabel}</span>
+      <Icon className="size-5.5" />
+      <span className="w-full truncate text-center text-xs font-medium leading-none tracking-tight">{props.item.shortLabel}</span>
     </RailButton>
   );
+}
+
+function isTopRailItemActive(
+  itemId: OnMyAgentPrimaryView,
+  activeView: OnMyAgentPrimaryView,
+): boolean {
+  if (itemId === "automation") return isAutomationRailView(activeView);
+  return activeView === itemId;
 }
 
 function BottomRailButton(props: {
@@ -109,7 +121,7 @@ function BottomRailButton(props: {
       aria-label={props.item.label}
       aria-pressed={props.active}
     >
-      <Icon active={props.active} className="size-5" />
+      <Icon active={props.active} className="size-5.5" />
     </RailButton>
   );
 }
@@ -124,21 +136,23 @@ export function OnMyAgentRail(props: {
   onOpenBilling?: () => void;
 }) {
   // pt-14 only on macOS (traffic lights / hidden titlebar). Windows keeps compact top padding.
+  // Column 68px; free-float chips are w-12 so side air stays even.
+  // Single soft right edge only — avoid double seam next to the list panel.
   return (
-    <aside className="flex w-16 shrink-0 flex-col items-center bg-dls-rail pb-4 pt-3 mac:pt-14 text-dls-text">
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5">
-        <nav className="flex min-h-0 w-full -translate-y-0.5 flex-1 flex-col items-center gap-2 overflow-y-auto pb-2">
+    <aside className="flex w-[68px] shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center">
+        <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TOP_RAIL_ITEMS.map((item) => (
             <TopRailButton
               key={item.id}
               item={item}
-              active={item.id === "chat" ? props.activeView === "chat" : props.activeView === item.id}
+              active={isTopRailItemActive(item.id, props.activeView)}
               onClick={() => props.onOpenView(item.id)}
             />
           ))}
         </nav>
       </div>
-      <div className="mt-auto flex w-full flex-col items-center gap-1">
+      <div className="mt-auto flex w-full flex-col items-center gap-2">
         {BOTTOM_RAIL_ITEMS.map((item) => (
           <BottomRailButton
             key={item.id}
@@ -150,6 +164,7 @@ export function OnMyAgentRail(props: {
         <SidebarAccountButton
           compact
           account={props.account || undefined}
+          onOpenLocalAgent={() => props.onOpenView("localAgent")}
           onOpenSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
           onOpenBilling={props.onOpenBilling}

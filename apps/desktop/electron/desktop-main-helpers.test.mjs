@@ -137,3 +137,34 @@ Body line.
     "First body line",
   );
 });
+
+test("skill frontmatter folds YAML block scalars (no literal >-)", () => {
+  const raw = `---
+name: find-skills
+display_name_zh: 发现技能
+description: >-
+  Discover which OnMyAgent skills are installed
+  and when to use them.
+description_zh: >-
+  发现已安装技能
+  及适用场景
+---
+
+# Find Skills
+`;
+  const map = extractFrontmatterMap(raw, [
+    "name",
+    "display_name_zh",
+    "description",
+    "description_zh",
+  ]);
+  assert.equal(map.display_name_zh, "发现技能");
+  assert.match(map.description, /Discover which OnMyAgent skills/);
+  assert.doesNotMatch(map.description, /^>-?$/);
+  assert.match(map.description_zh, /发现已安装技能/);
+  assert.doesNotMatch(map.description_zh ?? "", /^>-?$/);
+  assert.equal(
+    extractDescription(raw).startsWith("Discover which OnMyAgent skills"),
+    true,
+  );
+});

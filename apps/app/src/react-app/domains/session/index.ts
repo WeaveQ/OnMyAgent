@@ -110,6 +110,30 @@ export {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   shouldRunReloadEventsPoll,
 } from "./sync/session-poll-policy";
+/** Focused snapshot query key/options — surface + route prefetch share this. */
+export {
+  SESSION_SNAPSHOT_MESSAGE_LIMIT,
+  buildSessionSnapshotPrefetchSpec,
+  sessionSnapshotFetchOptions,
+  sessionSnapshotQueryKey,
+} from "./sync/session-snapshot-query-policy";
+export type {
+  SessionSnapshotFetchOptions,
+  SessionSnapshotQueryKey,
+} from "./sync/session-snapshot-query-policy";
+/** Delete policy: directory resolution + dirty/ghost remote failure tolerance. */
+export {
+  SESSION_DELETE_REMOTE_BUDGET_MS,
+  SESSION_RECENTLY_DELETED_TTL_MS,
+  clearRecentlyDeletedSessionsForTests,
+  filterRecentlyDeletedSessions,
+  isSessionRecentlyDeleted,
+  isTolerableSessionDeleteFailure,
+  markSessionRecentlyDeleted,
+  raceSessionDeleteRemote,
+  resolveSessionDeleteDirectory,
+  shouldContinueLocalSessionCleanupAfterRemoteDelete,
+} from "./sync/session-delete-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   permissionKey,

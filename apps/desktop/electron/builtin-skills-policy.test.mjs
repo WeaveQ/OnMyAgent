@@ -11,6 +11,37 @@ import {
 } from "./builtin-skills-policy.mjs";
 
 describe("builtin-skills-policy", () => {
+  it("rejects YAML block markers and empty stubs as skill descriptions", async () => {
+    const {
+      isUsableSkillDescriptionText,
+      shouldRefreshCoreSkillMarkdown,
+    } = await import("./builtin-skills-policy.mjs");
+    assert.equal(isUsableSkillDescriptionText(">-"), false);
+    assert.equal(isUsableSkillDescriptionText("|"), false);
+    assert.equal(isUsableSkillDescriptionText(""), false);
+    assert.equal(isUsableSkillDescriptionText("ab"), false);
+    assert.equal(
+      isUsableSkillDescriptionText("Discover installed skills"),
+      true,
+    );
+    assert.equal(
+      shouldRefreshCoreSkillMarkdown({
+        packageName: "find-skills",
+        skillName: "find-skills",
+        destinationExists: true,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldRefreshCoreSkillMarkdown({
+        packageName: "find-skills",
+        skillName: "find-skills",
+        destinationExists: false,
+      }),
+      false,
+    );
+  });
+
   it("core preinstall includes finder, document processing, office pptx, self-improving, and product cores", () => {
     const names = CORE_PREINSTALL_SKILLS.map((e) => e.packageName);
     for (const required of [

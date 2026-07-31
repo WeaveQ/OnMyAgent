@@ -217,16 +217,20 @@ const navListButtonVariants = cva(
 )
 
 const railButtonVariants = cva(
-  "flex flex-col items-center justify-center font-semibold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex flex-col items-center justify-center font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       active: {
-        true: "text-dls-accent",
-        false: "text-dls-secondary hover:text-dls-accent",
+        // Free-float pill: light lifts with surface; dark uses rail-active
+        // (stronger than surface-on-rail). No shadow-sm — muddy fringe on glass.
+        true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active",
+        false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text",
       },
       size: {
-        top: "min-h-12 w-[60px] gap-1 rounded-xl px-1.5 text-xs",
-        bottom: "size-10 gap-1 rounded-lg text-2xs",
+        // Free-float chip: 48px wide (was 56) so the active pill reads slimmer
+        // in the 68px rail. Fixed width so every top item matches.
+        top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
+        bottom: "size-9 gap-0.5 rounded-2xl text-2xs",
       },
     },
     defaultVariants: {

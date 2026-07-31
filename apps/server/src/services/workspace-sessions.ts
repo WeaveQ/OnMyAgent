@@ -1,5 +1,5 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
-import { ApiError } from "../core/errors.js";
+import { ApiError, isApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import { getWorkspaceOpencodeClient } from "./opencode-client-pool.js";
 import { unwrapOpencodeResult } from "./opencode-proxy.js";
@@ -23,7 +23,7 @@ import {
 } from "./session-snapshot-policy.js";
 
 function remapSessionReadError(error: unknown): never {
-  if (error instanceof ApiError && error.code === "opencode_request_failed") {
+  if (isApiError(error) && error.code === "opencode_request_failed") {
     const details = error.details;
     const upstreamStatus =
       details && typeof details === "object" && "status" in details
@@ -232,8 +232,8 @@ export async function deleteWorkspaceSession(
     );
   } catch (error) {
     // Idempotent delete: sidebar/automation lists can retain rows whose
-    // OpenCode session is already gone (snapshot 404). Treat as success so
-    // "删除任务" can finish local cleanup + automation definition removal.
+    // OpenCode session is already gone (snapshot 404) or engine is wedged.
+    // Treat as success so "删除任务/会话" can finish local cleanup.
     if (error instanceof ApiError && error.code === "opencode_request_failed") {
       const details = error.details;
       const upstreamStatus =
@@ -243,13 +243,37 @@ export async function deleteWorkspaceSession(
       if (
         upstreamStatus === 404 ||
         upstreamStatus === 400 ||
-        upstreamStatus === 410
+        upstreamStatus === 408 ||
+        upstreamStatus === 410 ||
+        upstreamStatus === 502 ||
+        upstreamStatus === 503 ||
+        upstreamStatus === 504
+      ) {
+        return;
+      }
+      const detailMessage =
+        details && typeof details === "object" && "message" in details
+          ? String((details as { message?: unknown }).message ?? "")
+          : "";
+      if (
+        /not found|session_not_found|timeout|timed out|empty response/i.test(
+          `${error.message} ${detailMessage}`,
+        )
       ) {
         return;
       }
     }
     if (error instanceof ApiError && error.code === "opencode_empty_response") {
       // Some OpenCode builds return empty body on successful delete.
+      return;
+    }
+    // Network / abort style failures from the OpenCode client layer.
+    if (
+      error instanceof Error &&
+      /timeout|timed out|abort|econnrefused|econnreset|fetch failed|network/i.test(
+        error.message,
+      )
+    ) {
       return;
     }
     throw error;

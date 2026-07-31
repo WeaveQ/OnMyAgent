@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ChevronDown,
   ChevronUp,
@@ -95,8 +96,10 @@ import {
   AGENT_PANEL_MIN_WIDTH,
   shouldShowSessionStartupSkeleton,
   workspaceTaskStatus,
+  isAutomationRailView,
   type OnMyAgentPrimaryView,
 } from "../sidebar/session-chrome";
+import { openAutomationRailPath } from "./open-automation-rail";
 import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   readExpertPinnedAgentIds,
@@ -178,6 +181,7 @@ export type ExpertPageProps = SessionPageProps & {
 
 export function ExpertPage(props: ExpertPageProps) {
   const { showToast } = useStatusToasts();
+  const navigate = useNavigate();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
@@ -1146,9 +1150,12 @@ export function ExpertPage(props: ExpertPageProps) {
         return;
       }
       if (props.onDeleteSession) {
-        for (const sessionId of target.sessionIds) {
-          await props.onDeleteSession(sessionId);
-        }
+        // Parallel: each session is local-first + budgeted remote; serial N×
+        // waits made multi-session expert deletes feel stuck.
+        const deleteOne = props.onDeleteSession;
+        await Promise.allSettled(
+          target.sessionIds.map((sessionId) => deleteOne(sessionId)),
+        );
       }
       // Drop local expert pin + unread for this agent after sessions are gone.
       try {
@@ -1318,7 +1325,8 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
     activeSidebarView === "skills" ||
-    activeSidebarView === "connectors"
+    activeSidebarView === "connectors" ||
+    isAutomationRailView(activeSidebarView)
       ? null
       : activeSidebarView;
   useEffect(() => {
@@ -1420,27 +1428,28 @@ export function ExpertPage(props: ExpertPageProps) {
       */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <OnMyAgentRail
-          activeView={activeSidebarView}
+          activeView={
+            isAutomationRailView(activeSidebarView) ? "automation" : activeSidebarView
+          }
           account={props.account}
           onOpenView={(view) => {
             if (view === "assistant") {
               props.onNavigateToMode("assistant");
               return;
             }
-            // Rail changes push history via ?view= (bookmark for cold start).
-            openRailView(view);
-            if (view === "chat") {
-              setAgentPanelCollapsed(false);
+            // Automation hosts on assistant only — leave expert with ?view=automation.
+            if (isAutomationRailView(view)) {
+              const path = openAutomationRailPath(props.selectedWorkspaceId);
+              if (path) navigate(path);
+              return;
             }
+            openRailView(view);
+            if (view === "chat") setAgentPanelCollapsed(false);
           }}
           onOpenAccountSettings={props.onOpenAccountSettings}
           onSignOut={props.onSignOut}
-          onOpenDevices={() => {
-            openRailView("devices");
-          }}
-          onOpenBilling={() => {
-            openRailView("billing");
-          }}
+          onOpenDevices={() => openRailView("devices")}
+          onOpenBilling={() => openRailView("billing")}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
@@ -1529,9 +1538,7 @@ export function ExpertPage(props: ExpertPageProps) {
                     activeSidebarView={activeSidebarView}
                     visitedRailViews={visitedRailViews}
                     isPrimarySessionView={isPrimarySessionView}
-                    primarySessionActive={
-                      isPrimarySessionView && !showDelayedSessionLoadingState
-                    }
+                    primarySessionActive={isPrimarySessionView}
                     panes={{
                       agents: props.renderAgentsPage({
                         workspaceId: props.selectedWorkspaceId,
@@ -1708,9 +1715,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             workspaceId={props.runtimeWorkspaceId!}
                             sessionId={renderedSessionId}
                             draftOnly={isDraftSession}
-                            surfaceVisible={
-                              isPrimarySessionView && !showDelayedSessionLoadingState
-                            }
+                            surfaceVisible={isPrimarySessionView}
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}

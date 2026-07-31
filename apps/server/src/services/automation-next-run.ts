@@ -41,6 +41,17 @@ export function nextRunAt(
     return endAt != null && schedule.onceAt > endAt ? null : schedule.onceAt;
   }
 
+  const weekdays = schedule.weekdays ?? [];
+  // Weekly / biweekly (+ optional daily) with selected weekdays: next slot on an allowed day.
+  if (
+    weekdays.length > 0 &&
+    (schedule.day === "weekly" || schedule.day === "biweekly" || schedule.day === "daily")
+  ) {
+    const timestamp = nextWeekdayOccurrence(base, hour, minute, weekdays, schedule.day);
+    if (timestamp == null) return null;
+    return endAt != null && timestamp > endAt ? null : timestamp;
+  }
+
   const next = nextCycleOccurrence(schedule.day, base, hour, minute);
   const timestamp = next.getTime();
   if (schedule.mode === "once") {
@@ -146,6 +157,31 @@ function nextCycleOccurrence(
   candidate.setMonth(targetMonth);
   candidate.setDate(Math.min(targetDay, daysInMonth(candidate.getFullYear(), targetMonth)));
   return candidate;
+}
+
+/**
+ * Next run on one of the allowed weekdays (1=Mon … 7=Sun) at hour:minute.
+ * For biweekly, after the first matching day we still advance by calendar weekdays
+ * the same way as weekly (weekday filter is the product intent for multi-day picks).
+ */
+function nextWeekdayOccurrence(
+  base: number,
+  hour: number,
+  minute: number,
+  weekdays: number[],
+  _cycle: AutomationSchedule["day"],
+): number | null {
+  const allowed = new Set(weekdays);
+  // Scan up to two weeks of calendar days for a matching slot after `base`.
+  for (let offset = 0; offset < 14; offset += 1) {
+    const candidate = new Date(base);
+    candidate.setHours(hour, minute, 0, 0);
+    candidate.setDate(candidate.getDate() + offset);
+    if (candidate.getTime() <= base) continue;
+    if (!allowed.has(normalizedWeekday(candidate.getTime()))) continue;
+    return candidate.getTime();
+  }
+  return null;
 }
 
 function daysInMonth(year: number, month: number) {

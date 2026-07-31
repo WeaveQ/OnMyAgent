@@ -14,15 +14,6 @@ export {
   agentManagerCacheKey,
   resetAgentManagerSnapshotStoreForTests,
 } from "./agent-management/agent-management-snapshot-store";
-export {
-  AgentManagementProviderModal,
-  defaultProviderDraft,
-  providerDraftFromProvider,
-  serializeProviderModelRows,
-  serializeProviderModelCapabilities,
-  type AgentManagementProviderApp,
-  type ProviderDraft,
-} from "./agent-management/agent-management-providers";
 
 // Host-page building blocks
 export { LocalAgentStatusRail } from "./local-agent-status-rail";

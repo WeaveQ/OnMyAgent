@@ -5,7 +5,7 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 
 describe("main rail channel icon contract", () => {
-  test("uses a clean fill channels glyph aligned with primary rail icons", () => {
+  test("uses outline channel/device glyphs aligned with primary rail icons", () => {
     const railSource = readFileSync(
       join(
         repoRoot,
@@ -28,26 +28,32 @@ describe("main rail channel icon contract", () => {
     expect(railSource).toContain("icon: ChannelsRailIcon");
     expect(railSource).toContain("ChannelsRailIcon");
     expect(railSource).not.toContain("WeChatBubblesIcon");
-    expect(railSource).not.toContain("MessagesSquare");
     expect(railSource).not.toContain("wechat.png");
+    // Lucide names live in the icon module, not inlined in main-rail.
+    expect(railSource).not.toContain("MessagesSquare");
     expect(railSource).toContain('get label() { return t("nav.channels"); }');
-    expect(railSource).toContain('id: "devices"');
-    expect(railSource).toContain("icon: DevicesRailIcon");
+    // Devices entry removed from bottom rail (settings remains on account gear).
+    expect(railSource).not.toContain('id: "devices"');
+    expect(railSource).not.toContain("DevicesRailIcon");
     expect(railSource).toContain(
-      '<Icon active={props.active} className="size-5" />',
+      '<Icon active={props.active} className="size-5.5" />',
     );
 
     expect(iconSource).toContain("export function ChannelsRailIcon");
-    expect(iconSource).toContain('viewBox="0 0 16 16"');
-    expect(iconSource).toContain('fill="currentColor"');
+    expect(iconSource).toContain("MessagesSquare");
+    expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
+    expect(iconSource).not.toContain('fill="currentColor"');
 
-    expect(primitiveSource).toContain('true: "text-dls-accent"');
-    expect(primitiveSource).not.toContain(
-      'true: "bg-dls-rail-active text-dls-text"',
+    // Free-float selected pill: surface on light; rail-active on dark (no shadow-sm).
+    expect(primitiveSource).toContain(
+      'true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active"',
     );
     expect(primitiveSource).toContain(
-      'false: "text-dls-secondary hover:text-dls-accent"',
+      'false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text"',
     );
-    expect(primitiveSource).not.toContain("hover:bg-dls-rail-hover");
+    expect(primitiveSource).toContain(
+      'top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none"',
+    );
   });
 });
+

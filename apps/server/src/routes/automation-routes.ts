@@ -14,6 +14,7 @@ import {
   runAutomationManually,
   updateAutomation,
 } from "../services/automations.js";
+import { cancelAutomationRun } from "../services/automation-cancel.js";
 import { recordAudit } from "../services/audit.js";
 import { ApiError } from "../core/errors.js";
 import { shortId } from "../core/utils.js";
@@ -160,6 +161,31 @@ export function registerAutomationRoutes(input: {
     }
     const items = await listAutomations(workspace.path);
     return systemJsonResponse({ item: result.item, items });
+  });
+
+  addRoute(routes, "POST", "/workspace/:id/automations/:automationId/cancel", "client", async (ctx) => {
+    ensureWritable(config);
+    requireClientScope(ctx, "collaborator");
+    const workspace = await resolveWorkspace(config, ctx.params.id);
+    const automationId = ctx.params.automationId ?? "";
+    await requireApproval(ctx, {
+      workspaceId: workspace.id,
+      action: "automations.cancel",
+      summary: `Cancel automation run ${automationId}`,
+      paths: [automationStoreAuditPath(workspace.path)],
+    });
+    const item = await cancelAutomationRun(workspace.path, automationId);
+    await recordAudit(workspace.path, {
+      id: shortId(),
+      workspaceId: workspace.id,
+      actor: ctx.actor ?? { type: "remote" },
+      action: "automations.cancel",
+      target: item.id,
+      summary: `Cancelled automation run ${item.title}`,
+      timestamp: Date.now(),
+    });
+    const items = await listAutomations(workspace.path);
+    return systemJsonResponse({ item, items });
   });
 
   addRoute(routes, "DELETE", "/workspace/:id/automations/:automationId", "client", async (ctx) => {
