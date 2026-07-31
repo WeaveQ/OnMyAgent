@@ -353,7 +353,8 @@ function SpaceFolderDragList(props: {
             */}
             <div
               className={cn(
-                cn("relative flex flex-col", LIST_STACK_GAP),
+                "relative flex flex-col",
+                LIST_STACK_GAP,
                 isDragging && "opacity-40",
               )}
               onDragOver={(event) => {
