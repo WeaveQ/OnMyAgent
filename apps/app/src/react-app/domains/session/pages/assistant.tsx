@@ -65,6 +65,7 @@ import {
   AutomationNavSidebar,
   AutomationPage,
   MessagingChannelsPage,
+  removeAutomationSessionRecord,
   syncAutomationSessionRecords,
   type AutomationNavKey,
 } from "../../messaging";
@@ -76,7 +77,10 @@ import {
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
-import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
+import {
+  archiveAssistantTask,
+  permanentlyRemoveAssistantArchivedTask,
+} from "../../shared";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
@@ -94,6 +98,10 @@ import {
   type OnMyAgentPrimaryView,
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
+import {
+  readAssistantGlobalPins,
+  writeAssistantGlobalPins,
+} from "../sidebar/conversation-model";
 import {
   readAssistantCategoryMemory,
   writeAssistantCategoryMemory,
@@ -338,12 +346,65 @@ export function AssistantPage(props: AssistantPageProps) {
     ],
   );
 
+  const [automationPinRevision, setAutomationPinRevision] = useState(0);
   const automationNavGroups = useAutomationNavGroups({
     workspaceId: props.selectedWorkspaceId,
     categoryId: assistantCategoryId,
     sessions: assistantWorkspaceSessions,
     enabled: isAutomationRailView(activeSidebarView),
+    pinRevision: automationPinRevision,
   });
+
+  const toggleAutomationNavGroupPinned = useCallback(
+    (groupId: string) => {
+      const id = groupId.trim();
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!id || !workspaceId) return;
+      const current = readAssistantGlobalPins(workspaceId);
+      const exists = current.some(
+        (pin) => pin.kind === "automation" && pin.id === id,
+      );
+      const next = exists
+        ? current.filter((pin) => !(pin.kind === "automation" && pin.id === id))
+        : [{ kind: "automation" as const, id }, ...current];
+      writeAssistantGlobalPins(workspaceId, next);
+      setAutomationPinRevision((value) => value + 1);
+    },
+    [props.selectedWorkspaceId],
+  );
+
+  const archiveAutomationNavGroup = useCallback(
+    (groupId: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const group = automationNavGroups.find((item) => item.id === groupId);
+      if (!workspaceId || !group || group.sessions.length === 0) return;
+      for (const session of group.sessions) {
+        removeAutomationSessionRecord(workspaceId, session.id);
+        archiveAssistantTask(workspaceId, {
+          sessionId: session.id,
+          title: session.title || group.title,
+          directory: session.directory ?? null,
+          archivedAt: Date.now(),
+          category: assistantCategoryId,
+        });
+      }
+      const pins = readAssistantGlobalPins(workspaceId).filter(
+        (pin) => !(pin.kind === "automation" && pin.id === groupId),
+      );
+      writeAssistantGlobalPins(workspaceId, pins);
+      setAutomationPinRevision((value) => value + 1);
+      showToast({
+        tone: "success",
+        title: t("session.archive_space_done"),
+      });
+    },
+    [
+      assistantCategoryId,
+      automationNavGroups,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
+  );
 
   const selectedAssistantSessionDirectory =
     assistantWorkspaceSessions.find(
@@ -1044,6 +1105,9 @@ export function AssistantPage(props: AssistantPageProps) {
                 }
                 workspaceId={props.selectedWorkspaceId}
                 onOpenSession={openAutomationEmbeddedSession}
+                onToggleGroupPinned={toggleAutomationNavGroupPinned}
+                onArchiveGroup={archiveAutomationNavGroup}
+                onDeleteGroup={openDeleteAutomationGroupModal}
               />
             ) : null}
             {(activeSidebarView === "chat" ||

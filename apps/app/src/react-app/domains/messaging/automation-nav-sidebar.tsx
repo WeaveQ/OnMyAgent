@@ -1,21 +1,68 @@
 /** @jsxImportSource react */
 /**
  * Option-B left column for the primary-rail Automation workspace.
- * Browse filters + create, plus the same scheduled-task run groups as home.
+ * Browse filters + create, plus scheduled-run groups with home-parity actions
+ * (pin / archive / delete).
  */
-import { useEffect, useState } from "react";
 import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
+import {
+  Archive,
   CalendarClock,
   ChevronDown,
   ChevronRight,
   History,
   LayoutTemplate,
+  MoreHorizontal,
+  Pin,
+  PinOff,
   Plus,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
+
+// Local copies of task-row action chrome (avoid messaging → session import).
+const TASK_ROW_ACTION_CLASS =
+  "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5";
+const TASK_CONTEXT_MENU_CLASS =
+  "fixed z-[100] min-w-[11.5rem] overflow-hidden rounded-2xl border border-dls-border/70 bg-dls-surface-solid p-1.5 text-sm text-dls-text shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.45)]";
+const TASK_CONTEXT_MENU_ITEM_CLASS =
+  "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover";
+const TASK_CONTEXT_MENU_SEPARATOR_CLASS = "my-1 h-px bg-dls-border/80";
+const TASK_CONTEXT_MENU_WIDTH = 184;
+
+function positionTaskContextMenu(
+  anchor: Pick<DOMRect, "top" | "bottom" | "left" | "right">,
+  options?: { width?: number; estimatedHeight?: number },
+): { left: number; top: number } {
+  const width = options?.width ?? TASK_CONTEXT_MENU_WIDTH;
+  const height = options?.estimatedHeight ?? 180;
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1280;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
+  let left = anchor.right - width;
+  left = Math.min(Math.max(8, left), viewportWidth - width - 8);
+  const below = anchor.bottom + 4;
+  const above = anchor.top - height - 4;
+  const top =
+    below + height > viewportHeight - 8 && above > 8 ? above : below;
+  return { left, top };
+}
 
 /** Match home task-row trailing time (today clock / N days ago). */
 function relativeTimeLabel(value: number | null): string {
@@ -36,18 +83,34 @@ function relativeTimeLabel(value: number | null): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+function IconHoverTip(props: {
+  label: string;
+  children: ReactElement;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={props.children} />
+      <TooltipContent side="left" sideOffset={6}>
+        {props.label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export type AutomationNavKey = "tasks" | "runs" | "templates";
 
 export type AutomationNavSessionRow = {
   id: string;
   title: string;
   updatedAt: number | null;
+  directory?: string | null;
 };
 
 export type AutomationNavGroupRow = {
   id: string;
   title: string;
   sessions: AutomationNavSessionRow[];
+  pinned?: boolean;
 };
 
 export function AutomationNavSidebar(props: {
@@ -57,22 +120,30 @@ export function AutomationNavSidebar(props: {
   onCreate: () => void;
   taskCount?: number;
   runCount?: number;
-  /** Same scheduled-run groups as the home 定时 list. */
   groups?: AutomationNavGroupRow[];
   selectedSessionId?: string | null;
   workspaceId?: string;
   onOpenSession?: (workspaceId: string, sessionId: string) => void;
+  onToggleGroupPinned?: (groupId: string) => void;
+  onArchiveGroup?: (groupId: string) => void;
+  onDeleteGroup?: (target: {
+    groupId: string;
+    title: string;
+    sessionIds: string[];
+  }) => void;
 }) {
   const groups = props.groups ?? [];
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
-  // Expand first groups once they load (home 定时 list is usually open).
   useEffect(() => {
     if (groups.length === 0) return;
     setExpandedIds((current) => {
       if (current.length > 0) {
-        // Drop ids that disappeared; keep user toggles for still-present groups.
-        const next = current.filter((id) => groups.some((group) => group.id === id));
-        return next.length > 0 ? next : groups.slice(0, 3).map((group) => group.id);
+        const next = current.filter((id) =>
+          groups.some((group) => group.id === id),
+        );
+        return next.length > 0
+          ? next
+          : groups.slice(0, 3).map((group) => group.id);
       }
       return groups.slice(0, 3).map((group) => group.id);
     });
@@ -112,139 +183,366 @@ export function AutomationNavSidebar(props: {
   };
 
   return (
-    <aside
-      className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
-      style={{ width: props.width }}
-    >
-      <div className="flex shrink-0 flex-col px-3 pb-2 pt-3.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="default"
-          className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
-          onClick={props.onCreate}
-        >
-          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-          {t("automation.add")}
-        </Button>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-        <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
-          {t("automation.nav_section_browse")}
+    <TooltipProvider>
+      <aside
+        className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
+        style={{ width: props.width }}
+      >
+        <div className="flex shrink-0 flex-col px-3 pb-2 pt-3.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
+            onClick={props.onCreate}
+          >
+            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            {t("automation.add")}
+          </Button>
         </div>
-        <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
-          {items.map((item) => {
-            const Icon = item.icon;
-            const active = props.active === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => props.onChange(item.key)}
-                aria-pressed={active}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors",
-                  active
-                    ? "bg-dls-list-selected font-medium text-dls-text"
-                    : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-                )}
-              >
-                <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {typeof item.count === "number" ? (
-                  <span
-                    className={cn(
-                      "tabular-nums text-xs font-medium",
-                      active ? "opacity-70" : "text-dls-secondary",
-                    )}
-                  >
-                    {item.count}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </nav>
 
-        {groups.length > 0 ? (
-          <div className="mt-4">
-            <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
-              {t("automation.tab_tasks")}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {groups.map((group) => {
-                const expanded = expandedIds.includes(group.id);
-                const groupLabel = t("automation.session_group_title", {
-                  title: group.title,
-                });
-                const Chevron = expanded ? ChevronDown : ChevronRight;
-                return (
-                  <div key={group.id} className="flex min-w-0 flex-col gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleExpanded(group.id)}
-                      className="group flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover"
-                      aria-expanded={expanded}
-                    >
-                      <Chevron
-                        className="size-3.5 shrink-0 text-dls-secondary"
-                        strokeWidth={1.75}
-                        aria-hidden
-                      />
-                      <CalendarClock
-                        className="size-3.5 shrink-0 text-dls-text/55"
-                        strokeWidth={1.6}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 truncate font-medium">
-                        {groupLabel}
-                      </span>
-                      <span className="tabular-nums text-[11px] text-dls-secondary">
-                        {group.sessions.length}
-                      </span>
-                    </button>
-                    {expanded
-                      ? group.sessions.map((session) => {
-                          const selected =
-                            props.selectedSessionId === session.id;
-                          return (
-                            <button
-                              key={session.id}
-                              type="button"
-                              onClick={() => {
-                                if (!props.workspaceId || !props.onOpenSession) {
-                                  return;
-                                }
-                                props.onOpenSession(
-                                  props.workspaceId,
-                                  session.id,
-                                );
-                              }}
-                              className={cn(
-                                "flex w-full items-center gap-2 rounded-xl py-1.5 pl-8 pr-2.5 text-left text-sm transition-colors",
-                                selected
-                                  ? "bg-dls-list-selected font-medium text-dls-text"
-                                  : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-                              )}
-                            >
-                              <span className="min-w-0 flex-1 truncate">
-                                {session.title}
-                              </span>
-                              <span className="shrink-0 tabular-nums text-[11px] text-dls-secondary">
-                                {relativeTimeLabel(session.updatedAt)}
-                              </span>
-                            </button>
-                          );
-                        })
-                      : null}
-                  </div>
-                );
-              })}
-            </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+          <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
+            {t("automation.nav_section_browse")}
           </div>
-        ) : null}
+          <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
+            {items.map((item) => {
+              const Icon = item.icon;
+              const active = props.active === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => props.onChange(item.key)}
+                  aria-pressed={active}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors",
+                    active
+                      ? "bg-dls-list-selected font-medium text-dls-text"
+                      : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {typeof item.count === "number" ? (
+                    <span
+                      className={cn(
+                        "tabular-nums text-xs font-medium",
+                        active ? "opacity-70" : "text-dls-secondary",
+                      )}
+                    >
+                      {item.count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </nav>
+
+          {groups.length > 0 ? (
+            <div className="mt-4">
+              <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
+                {t("automation.tab_tasks")}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {groups.map((group) => {
+                  const expanded = expandedIds.includes(group.id);
+                  const groupLabel = t("automation.session_group_title", {
+                    title: group.title,
+                  });
+                  const Chevron = expanded ? ChevronDown : ChevronRight;
+                  return (
+                    <div key={group.id} className="flex min-w-0 flex-col gap-0.5">
+                      <AutomationNavGroupHeader
+                        title={groupLabel}
+                        groupId={group.id}
+                        expanded={expanded}
+                        pinned={Boolean(group.pinned)}
+                        sessionIds={group.sessions.map((session) => session.id)}
+                        onToggle={() => toggleExpanded(group.id)}
+                        onTogglePinned={props.onToggleGroupPinned}
+                        onArchive={props.onArchiveGroup}
+                        onDelete={
+                          props.onDeleteGroup
+                            ? () =>
+                                props.onDeleteGroup?.({
+                                  groupId: group.id,
+                                  title: group.title,
+                                  sessionIds: group.sessions.map(
+                                    (session) => session.id,
+                                  ),
+                                })
+                            : undefined
+                        }
+                      />
+                      {expanded
+                        ? group.sessions.map((session) => {
+                            const selected =
+                              props.selectedSessionId === session.id;
+                            return (
+                              <button
+                                key={session.id}
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    !props.workspaceId ||
+                                    !props.onOpenSession
+                                  ) {
+                                    return;
+                                  }
+                                  props.onOpenSession(
+                                    props.workspaceId,
+                                    session.id,
+                                  );
+                                }}
+                                className={cn(
+                                  "flex w-full items-center gap-2 rounded-xl py-1.5 pl-8 pr-2.5 text-left text-sm transition-colors",
+                                  selected
+                                    ? "bg-dls-list-selected font-medium text-dls-text"
+                                    : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                                )}
+                              >
+                                <span className="min-w-0 flex-1 truncate">
+                                  {session.title}
+                                </span>
+                                <span className="shrink-0 tabular-nums text-[11px] text-dls-secondary">
+                                  {relativeTimeLabel(session.updatedAt)}
+                                </span>
+                              </button>
+                            );
+                          })
+                        : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </aside>
+    </TooltipProvider>
+  );
+}
+
+function AutomationNavGroupHeader(props: {
+  title: string;
+  groupId: string;
+  expanded: boolean;
+  pinned?: boolean;
+  sessionIds: string[];
+  onToggle: () => void;
+  onTogglePinned?: (groupId: string) => void;
+  onArchive?: (groupId: string) => void;
+  onDelete?: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const hasMenu =
+    Boolean(props.onTogglePinned) ||
+    Boolean(props.onArchive) ||
+    Boolean(props.onDelete);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("click", close);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen || !anchorRef.current || !menuRef.current) return;
+    const menu = menuRef.current;
+    setMenuPosition(
+      positionTaskContextMenu(anchorRef.current.getBoundingClientRect(), {
+        width: menu.offsetWidth || TASK_CONTEXT_MENU_WIDTH,
+        estimatedHeight: menu.offsetHeight || 180,
+      }),
+    );
+  }, [menuOpen]);
+
+  return (
+    <>
+      <div
+        className={cn(
+          "group flex w-full items-center gap-1 rounded-xl px-1 py-1 text-sm text-dls-text transition-colors hover:bg-dls-hover",
+          menuOpen && "bg-dls-list-hover",
+        )}
+      >
+        <button
+          type="button"
+          onClick={props.onToggle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-0.5 text-left"
+          aria-expanded={props.expanded}
+        >
+          {props.expanded ? (
+            <ChevronDown
+              className="size-3.5 shrink-0 text-dls-secondary"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+          ) : (
+            <ChevronRight
+              className="size-3.5 shrink-0 text-dls-secondary"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+          )}
+          <CalendarClock
+            className="size-3.5 shrink-0 text-dls-text/55"
+            strokeWidth={1.6}
+            aria-hidden
+          />
+          <span className="min-w-0 flex-1 truncate font-medium">
+            {props.title}
+          </span>
+        </button>
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
+            menuOpen && "opacity-100",
+          )}
+        >
+          {hasMenu ? (
+            <IconHoverTip label={t("session.task_actions")}>
+              <button
+                ref={anchorRef}
+                type="button"
+                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                aria-label={t("session.task_actions")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (anchorRef.current) {
+                    setMenuPosition(
+                      positionTaskContextMenu(
+                        anchorRef.current.getBoundingClientRect(),
+                        { estimatedHeight: 180 },
+                      ),
+                    );
+                  }
+                  setMenuOpen((value) => !value);
+                }}
+              >
+                <MoreHorizontal strokeWidth={1.75} />
+              </button>
+            </IconHoverTip>
+          ) : null}
+          {props.onTogglePinned ? (
+            <IconHoverTip
+              label={props.pinned ? t("session.unpin") : t("session.pin")}
+            >
+              <button
+                type="button"
+                className={cn(
+                  TASK_ROW_ACTION_CLASS,
+                  props.pinned
+                    ? "text-dls-accent hover:text-dls-accent"
+                    : "text-dls-text/50",
+                )}
+                aria-label={
+                  props.pinned ? t("session.unpin") : t("session.pin")
+                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen(false);
+                  props.onTogglePinned?.(props.groupId);
+                }}
+              >
+                {props.pinned ? (
+                  <PinOff strokeWidth={1.75} />
+                ) : (
+                  <Pin strokeWidth={1.75} />
+                )}
+              </button>
+            </IconHoverTip>
+          ) : null}
+          {props.onArchive ? (
+            <IconHoverTip label={t("session.archive_task")}>
+              <button
+                type="button"
+                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                aria-label={t("session.archive_task")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen(false);
+                  props.onArchive?.(props.groupId);
+                }}
+              >
+                <Archive strokeWidth={1.75} />
+              </button>
+            </IconHoverTip>
+          ) : null}
+        </div>
       </div>
-    </aside>
+      {menuOpen && menuPosition ? (
+        <div
+          ref={menuRef}
+          className={TASK_CONTEXT_MENU_CLASS}
+          data-task-context-menu="true"
+          style={{ left: menuPosition.left, top: menuPosition.top }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {props.onTogglePinned ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onTogglePinned?.(props.groupId);
+              }}
+            >
+              {props.pinned ? (
+                <PinOff strokeWidth={1.75} />
+              ) : (
+                <Pin strokeWidth={1.75} />
+              )}
+              {props.pinned ? t("session.unpin") : t("session.pin")}
+            </button>
+          ) : null}
+          {props.onArchive ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                setMenuOpen(false);
+                props.onArchive?.(props.groupId);
+              }}
+            >
+              <Archive strokeWidth={1.75} />
+              {t("session.archive_task")}
+            </button>
+          ) : null}
+          {props.onDelete ? (
+            <>
+              {props.onArchive || props.onTogglePinned ? (
+                <div
+                  className={TASK_CONTEXT_MENU_SEPARATOR_CLASS}
+                  role="separator"
+                />
+              ) : null}
+              <button
+                type="button"
+                className={TASK_CONTEXT_MENU_ITEM_CLASS}
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onDelete?.();
+                }}
+              >
+                <Trash2 strokeWidth={1.75} />
+                {t("session.delete_task")}
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   );
 }

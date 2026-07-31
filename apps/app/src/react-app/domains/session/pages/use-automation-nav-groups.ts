@@ -18,25 +18,21 @@ import {
 } from "../../shared";
 import { groupAssistantAutomationItems } from "../sidebar/assistant-automation-groups";
 import { mergeAutomationSessions } from "../sidebar/agent-conversation-panel";
+import { readAssistantGlobalPins } from "../sidebar/conversation-model";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
+import type {
+  AutomationNavGroupRow,
+  AutomationNavSessionRow,
+} from "../../messaging";
 
-export type AutomationNavSessionRow = {
-  id: string;
-  title: string;
-  updatedAt: number | null;
-};
-
-export type AutomationNavGroupRow = {
-  id: string;
-  title: string;
-  sessions: AutomationNavSessionRow[];
-};
+export type { AutomationNavGroupRow, AutomationNavSessionRow };
 
 export function buildAutomationNavGroups(input: {
   records: ReturnType<typeof readAutomationSessionRecords>;
   sessions: readonly SidebarSessionItem[];
   categoryId: AssistantCategoryId;
   excludedSessionIds: ReadonlySet<string>;
+  pinnedGroupIds?: ReadonlySet<string>;
 }): AutomationNavGroupRow[] {
   const sessionById = new Map(
     input.sessions.map((session) => [session.id, session] as const),
@@ -60,6 +56,10 @@ export function buildAutomationNavGroups(input: {
           id: record.sessionId,
           title,
           updatedAt: typeof updatedAt === "number" ? updatedAt : null,
+          directory:
+            session?.directory?.trim() ||
+            record.outputDirectory?.trim() ||
+            null,
         },
         automationId: record.automationId,
         title: record.title.trim() || record.automationId,
@@ -67,9 +67,11 @@ export function buildAutomationNavGroups(input: {
       };
     });
 
+  const pinned = input.pinnedGroupIds ?? new Set<string>();
   return groupAssistantAutomationItems(entries).map((group) => ({
     id: group.id,
     title: group.title,
+    pinned: pinned.has(group.id),
     sessions: [...group.items].sort(
       (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
     ),
@@ -81,6 +83,8 @@ export function useAutomationNavGroups(input: {
   categoryId: AssistantCategoryId;
   sessions: readonly SidebarSessionItem[];
   enabled: boolean;
+  /** Bump when global pin set changes so pin icons refresh. */
+  pinRevision?: number;
 }): AutomationNavGroupRow[] {
   const [revision, setRevision] = useState(0);
 
@@ -118,15 +122,22 @@ export function useAutomationNavGroups(input: {
       records,
       excluded,
     );
+    const pinnedGroupIds = new Set(
+      readAssistantGlobalPins(input.workspaceId)
+        .filter((pin) => pin.kind === "automation")
+        .map((pin) => pin.id),
+    );
     return buildAutomationNavGroups({
       records,
       sessions,
       categoryId: input.categoryId,
       excludedSessionIds: excluded,
+      pinnedGroupIds,
     });
   }, [
     input.categoryId,
     input.enabled,
+    input.pinRevision,
     input.sessions,
     input.workspaceId,
     revision,
