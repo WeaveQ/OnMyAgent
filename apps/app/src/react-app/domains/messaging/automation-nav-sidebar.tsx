@@ -49,18 +49,15 @@ export function AutomationNavSidebar(props: {
       className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
       style={{ width: props.width }}
     >
-      <div className="flex shrink-0 flex-col gap-3 px-3 pb-3 pt-5">
-        <h2 className="truncate px-1 text-base font-semibold tracking-tight">
-          {t("nav.automation")}
-        </h2>
+      <div className="flex shrink-0 flex-col px-3 pb-2 pt-3.5">
         <Button
           type="button"
-          size="sm"
-          className="w-full justify-center gap-1.5"
+          size="default"
+          className="h-10 w-full justify-center gap-2 rounded-xl text-sm font-medium shadow-none"
           onClick={props.onCreate}
         >
-          <Plus className="size-3.5 shrink-0" aria-hidden />
-          {t("automation.add_with_plus")}
+          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          {t("automation.add")}
         </Button>
       </div>
 
