@@ -10,7 +10,10 @@ import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pe
 import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
 import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
 import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
-import type { AgentConversationGroup } from "../sidebar/session-chrome";
+import type {
+  AgentConversationGroup,
+  OnMyAgentPrimaryView,
+} from "../sidebar/session-chrome";
 import {
   marketplaceExpertMatchesAgentId,
   pendingAgentMatchesMarketplaceExpert,
@@ -35,7 +38,7 @@ export function useExpertSessionStarters(input: {
   onCreateFreshSessionForAgent?: (workspaceId: string) => void | Promise<void>;
   activateDraftAgent: (agent: PendingAgentContext) => void;
   openFreshExpertDraft: () => void;
-  openRailView: (view: "chat" | string) => void;
+  openRailView: (view: OnMyAgentPrimaryView) => void;
   openExpertMarket: () => void;
   handleOpenExpertSession: (workspaceId: string, sessionId: string) => void;
   resolveSessionTabForAgent: (
