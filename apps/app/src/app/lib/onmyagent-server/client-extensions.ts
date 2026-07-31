@@ -272,11 +272,12 @@ export function createExtensionsClientMethods(ctx: OnMyAgentServerClientContext)
         hostToken,
         method: "DELETE",
       }),
+    // List may reconcile stuck runs (OpenCode status) — allow longer than status.
     listAutomations: (workspaceId: string) =>
       requestJson<{ items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations`,
-        { token, hostToken, timeoutMs: timeouts.status },
+        { token, hostToken, timeoutMs: Math.max(timeouts.status, 20_000) },
       ),
     listAutomationRuns: (workspaceId: string, automationId: string) =>
       requestJson<OnMyAgentAutomationRunHistoryResult>(
@@ -296,17 +297,24 @@ export function createExtensionsClientMethods(ctx: OnMyAgentServerClientContext)
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}`,
         { token, hostToken, method: "PATCH", body: payload, timeoutMs: timeouts.status },
       ),
+    // Server waits for the full OpenCode session (up to lease TTL). Short status
+    // timeouts made the UI show "Request timed out" while the run kept going.
     runAutomation: (workspaceId: string, automationId: string) =>
       requestJson<{ item: OnMyAgentAutomationTaskItem; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}/run`,
-        { token, hostToken, method: "POST", timeoutMs: timeouts.status },
+        {
+          token,
+          hostToken,
+          method: "POST",
+          timeoutMs: Math.max(timeouts.binary, 30 * 60_000),
+        },
       ),
     cancelAutomationRun: (workspaceId: string, automationId: string) =>
       requestJson<{ item: OnMyAgentAutomationTaskItem; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}/cancel`,
-        { token, hostToken, method: "POST", timeoutMs: timeouts.status },
+        { token, hostToken, method: "POST", timeoutMs: Math.max(timeouts.status, 15_000) },
       ),
     deleteAutomation: (workspaceId: string, automationId: string) =>
       requestJson<{ ok: boolean; items: OnMyAgentAutomationTaskItem[] }>(
