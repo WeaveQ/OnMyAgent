@@ -509,6 +509,10 @@ components:
       surface: "{colors.rail-bg}"
       surface-active: "{colors.surface}"              # light + dark: bright free-float
       surface-hover: "black/5"
+      # Idle ink = primary text (near-black light / near-white dark), not secondary slate.
+      # Active distinction is the free-float pill surface, not a greyer idle glyph.
+      idle-text: "{colors.text-primary}"
+      active-text: "{colors.text-primary}"
       width: 64                                       # w-16 rail column
       pill-width: 56                                  # w-14 free-float chip
     # --- Inputs (all share radius: lg for vertical alignment) --------

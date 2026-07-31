@@ -163,7 +163,7 @@ function AssistantListEmptyState(props: { label: string }) {
     <div
       className={cn(
         LIST_ROW_CLASS,
-        "px-2 text-xs text-dls-secondary/70",
+        "px-2 text-xs text-dls-text-tertiary",
       )}
       data-assistant-list-empty="true"
     >
@@ -483,7 +483,7 @@ function SectionHeader(props: {
     <div
       className={cn(
         LIST_ROW_CLASS,
-        "group/section gap-0.5 text-dls-secondary/80",
+        "group/section gap-0.5 text-dls-secondary",
       )}
       data-assistant-section-header="true"
     >
@@ -504,13 +504,13 @@ function SectionHeader(props: {
         </span>
         {props.expanded ? (
           <ChevronDown
-            className="size-3 shrink-0 opacity-40"
+            className="size-3 shrink-0 text-dls-secondary"
             strokeWidth={2}
             aria-hidden
           />
         ) : (
           <ChevronRight
-            className="size-3 shrink-0 opacity-40"
+            className="size-3 shrink-0 text-dls-secondary"
             strokeWidth={2}
             aria-hidden
           />
@@ -563,13 +563,13 @@ function FolderRowShell(props: {
           <span className="min-w-0 truncate leading-none">{props.title}</span>
           {props.expanded ? (
             <ChevronDown
-              className="size-3 shrink-0 text-dls-text/40"
+              className="size-3 shrink-0 text-dls-secondary"
               strokeWidth={2}
               aria-hidden
             />
           ) : (
             <ChevronRight
-              className="size-3 shrink-0 text-dls-text/40"
+              className="size-3 shrink-0 text-dls-secondary"
               strokeWidth={2}
               aria-hidden
             />
@@ -646,7 +646,7 @@ function SpaceDirectoryRow(props: {
         className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
         icon={
           <Folder
-            className="size-3.5 shrink-0 text-dls-text/55"
+            className="size-3.5 shrink-0 text-dls-secondary"
             strokeWidth={1.6}
           />
         }
@@ -662,7 +662,7 @@ function SpaceDirectoryRow(props: {
               <button
                 ref={anchorRef}
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -684,7 +684,7 @@ function SpaceDirectoryRow(props: {
               <IconHoverTip label={t("session.new_task_in_space")}>
                 <button
                   type="button"
-                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  className={TASK_ROW_ACTION_CLASS}
                   aria-label={t("session.new_task_in_space")}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -700,7 +700,7 @@ function SpaceDirectoryRow(props: {
               <IconHoverTip label={t("session.archive_space")}>
                 <button
                   type="button"
-                  className={cn(TASK_ROW_ARCHIVE_CHIP_CLASS, "text-dls-text/50")}
+                  className={TASK_ROW_ARCHIVE_CHIP_CLASS}
                   aria-label={t("session.archive_space")}
                   onClick={(event) => {
                     event.stopPropagation();

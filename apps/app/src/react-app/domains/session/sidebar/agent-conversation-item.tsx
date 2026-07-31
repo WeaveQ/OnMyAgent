@@ -27,7 +27,7 @@ const agentConversationTextClass = {
   itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text",
   // Tabular time hugs the trailing edge — avoid a dead column beside it.
   itemMeta:
-    "shrink-0 tabular-nums text-xs leading-none text-dls-secondary/70",
+    "shrink-0 tabular-nums text-xs leading-none text-dls-text-tertiary",
   itemDescription: "min-w-0 flex-1 truncate text-xs leading-5 text-dls-secondary",
   activity:
     "inline-flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-dls-accent",

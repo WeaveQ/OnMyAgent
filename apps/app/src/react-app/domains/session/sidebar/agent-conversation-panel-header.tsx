@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { t } from "../../../../i18n";
 
+/** Full-width outline pill — shared with automation-nav-sidebar primary create. */
+export const SIDEBAR_PRIMARY_CTA_CLASS =
+  "w-full justify-center gap-2 border-dls-border-strong bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-list-hover hover:border-dls-border-strong";
+
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
@@ -30,10 +34,9 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           <Button
             type="button"
             variant="outline"
-            size="default"
+            size="lg"
             onClick={props.onCreateTask}
-            aria-pressed={!props.selectedSessionId && !props.automationActive}
-            className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
+            className={SIDEBAR_PRIMARY_CTA_CLASS}
           >
             <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
             {t("session.new_task")}
@@ -60,9 +63,9 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
       <Button
         type="button"
         variant="outline"
-        size="default"
+        size="lg"
         onClick={props.onOpenAgents}
-        className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
+        className={SIDEBAR_PRIMARY_CTA_CLASS}
         title={t("session.create_expert")}
         aria-label={t("session.create_expert")}
       >

@@ -35,6 +35,10 @@ import {
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 
+/** Keep in sync with session sidebar SIDEBAR_PRIMARY_CTA_CLASS (no cross-domain import). */
+const SIDEBAR_PRIMARY_CTA_CLASS =
+  "w-full justify-center gap-2 border-dls-border-strong bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-list-hover hover:border-dls-border-strong";
+
 // Local copies of task-row action chrome (avoid messaging → session import).
 const TASK_ROW_ACTION_CLASS =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5";
@@ -193,8 +197,8 @@ export function AutomationNavSidebar(props: {
           <Button
             type="button"
             variant="outline"
-            size="default"
-            className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
+            size="lg"
+            className={SIDEBAR_PRIMARY_CTA_CLASS}
             onClick={props.onCreate}
           >
             <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
@@ -398,7 +402,7 @@ function AutomationNavSessionRowView(props: {
               <button
                 ref={anchorRef}
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -428,7 +432,7 @@ function AutomationNavSessionRowView(props: {
                     TASK_ROW_ACTION_CLASS,
                     props.session.pinned
                       ? "text-dls-accent hover:text-dls-accent"
-                      : "text-dls-text/50",
+                      : "text-dls-secondary",
                   )}
                   aria-label={
                     props.session.pinned
@@ -456,7 +460,7 @@ function AutomationNavSessionRowView(props: {
               <IconHoverTip label={t("session.archive_task")}>
                 <button
                   type="button"
-                  className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                  className={TASK_ROW_ACTION_CLASS}
                   aria-label={t("session.archive_task")}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -632,7 +636,7 @@ function AutomationNavGroupHeader(props: {
             />
           )}
           <CalendarClock
-            className="size-3.5 shrink-0 text-dls-text/55"
+            className="size-3.5 shrink-0 text-dls-secondary"
             strokeWidth={1.6}
             aria-hidden
           />
@@ -651,7 +655,7 @@ function AutomationNavGroupHeader(props: {
               <button
                 ref={anchorRef}
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.task_actions")}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -680,7 +684,7 @@ function AutomationNavGroupHeader(props: {
                   TASK_ROW_ACTION_CLASS,
                   props.pinned
                     ? "text-dls-accent hover:text-dls-accent"
-                    : "text-dls-text/50",
+                    : "text-dls-secondary",
                 )}
                 aria-label={
                   props.pinned ? t("session.unpin") : t("session.pin")
@@ -703,7 +707,7 @@ function AutomationNavGroupHeader(props: {
             <IconHoverTip label={t("session.archive_task")}>
               <button
                 type="button"
-                className={cn(TASK_ROW_ACTION_CLASS, "text-dls-text/50")}
+                className={TASK_ROW_ACTION_CLASS}
                 aria-label={t("session.archive_task")}
                 onClick={(event) => {
                   event.stopPropagation();
