@@ -41,8 +41,8 @@ import {
   writeAssistantCategoryMemory,
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
+import { workspaceAssistantRoute } from "../../../shell";
 import { buildPathWithRailView } from "../navigation/app-location";
-import { workspaceAssistantRoute } from "../../../shell/workspace-routes";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useStatusToasts } from "../../shell-feedback";
 
