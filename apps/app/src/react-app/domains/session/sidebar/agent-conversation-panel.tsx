@@ -1248,7 +1248,6 @@ export function AgentConversationPanel(props: {
         onOpenAgents={props.onOpenAgents}
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
-        showAgentSelectionTip={false}
         onOpenAutomation={props.onOpenAutomation}
       />
 

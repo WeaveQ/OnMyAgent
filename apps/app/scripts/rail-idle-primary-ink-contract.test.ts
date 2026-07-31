@@ -84,7 +84,10 @@ describe("rail idle primary ink contract", () => {
       "utf8",
     );
     expect(chrome).toContain("border border-dls-border bg-dls-surface-solid");
-    expect(chrome).toContain("flex h-14 shrink-0 items-center pt-1.5");
+    expect(chrome).toContain('LIST_LANE_HEADER_CLASS = "flex h-14 shrink-0 items-center"');
+    expect(chrome).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
+    expect(chrome).toContain("pt-1.5");
+    expect(chrome).toContain("TASK_ROW_ACTION_CLASS");
 
     // Token: Button size sidebar-cta = h-10 + rounded-lg (not sausage xl).
     const button = readFileSync(
@@ -94,6 +97,97 @@ describe("rail idle primary ink contract", () => {
     expect(button).toContain('"sidebar-cta"');
     expect(button).toContain("h-10 w-full");
     expect(button).toContain("rounded-lg");
+  });
+
+  test("automation nav session row idle uses primary ink, not secondary", () => {
+    const automation = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/messaging/automation-nav-sidebar.tsx",
+      ),
+      "utf8",
+    );
+    // Idle row title: primary ink family.
+    expect(automation).toContain('"text-dls-text hover:bg-dls-hover"');
+    // Must not reintroduce secondary as the idle session-row label color.
+    expect(automation).not.toContain(
+      '"text-dls-secondary hover:bg-dls-hover hover:text-dls-text"',
+    );
+    // Shared TASK_ROW action chrome from sidebar-chrome (no local duplicate string).
+    expect(automation).toContain("TASK_ROW_ACTION_CLASS");
+    expect(automation).toContain('from "@/components/ui/sidebar-chrome"');
+    expect(automation).not.toMatch(
+      /const TASK_ROW_ACTION_CLASS\s*=/,
+    );
+    // Section / timestamp chrome uses type-scale token, not text-[11px].
+    expect(automation).not.toMatch(/text-\[1[01]px\]/);
+    expect(automation).toContain("text-2xs");
+  });
+
+  test("list-lane h-14 chrome is shared across home CTA, expert band, automation content header", () => {
+    const header = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel-header.tsx",
+      ),
+      "utf8",
+    );
+    const automationPage = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/messaging/automation-page.tsx",
+      ),
+      "utf8",
+    );
+    const sessionHeader = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/surface/chrome/session-surface-header.tsx",
+      ),
+      "utf8",
+    );
+    const typeScale = readFileSync(
+      resolve(root, "apps/app/src/react-app/design-system/type-scale.ts"),
+      "utf8",
+    );
+
+    // Home CTA + expert list band both use SIDEBAR_PRIMARY_HEADER_CLASS.
+    expect(header).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
+    expect(header).not.toMatch(/flex h-14 shrink-0 items-center pt-2/);
+    // Automation content header + session surface use LIST_LANE_HEADER_CLASS.
+    expect(automationPage).toContain("LIST_LANE_HEADER_CLASS");
+    expect(sessionHeader).toContain("LIST_LANE_HEADER_CLASS");
+    // design-system re-exports for discoverability.
+    expect(typeScale).toContain("listLaneHeader");
+    expect(typeScale).toContain("listLaneHeaderCta");
+    expect(typeScale).toContain("LIST_LANE_HEADER_CLASS");
+  });
+
+  test("dead surface APIs removed: showAgentSelectionTip and local_agent.search", () => {
+    const header = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel-header.tsx",
+      ),
+      "utf8",
+    );
+    const panel = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx",
+      ),
+      "utf8",
+    );
+    expect(header).not.toContain("showAgentSelectionTip");
+    expect(panel).not.toContain("showAgentSelectionTip");
+
+    for (const locale of ["en", "zh", "zh-TW"] as const) {
+      const src = readFileSync(
+        resolve(root, `apps/app/src/i18n/locales/${locale}/local_agent.ts`),
+        "utf8",
+      );
+      expect(src).not.toContain('"local_agent.search"');
+    }
   });
 
   test("NavTab free-float idle uses primary ink; active inverted label stays on contrast surface", () => {

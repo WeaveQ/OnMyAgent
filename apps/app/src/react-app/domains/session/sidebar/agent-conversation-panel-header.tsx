@@ -7,6 +7,7 @@ import {
   SIDEBAR_PRIMARY_HEADER_CLASS,
 } from "@/components/ui/sidebar-chrome";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 
 // Re-export for callers that imported chrome from this header module.
@@ -16,7 +17,6 @@ type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
   selectedSessionId: string | null;
-  showAgentSelectionTip?: boolean;
   automationActive?: boolean;
   onQueryChange: (value: string) => void;
   onOpenAgents: () => void;
@@ -51,9 +51,10 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="relative flex h-14 shrink-0 items-center pt-2">
+    <div className={cn("relative", SIDEBAR_PRIMARY_HEADER_CLASS)}>
       {/*
         Expert list: search only. Create expert lives in store market header.
+        Same h-14 + pt bias as home CTA strip (LIST_LANE / SIDEBAR_PRIMARY).
       */}
       <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="w-full">
         <InputGroupAddon align="inline-start" inset="tight">

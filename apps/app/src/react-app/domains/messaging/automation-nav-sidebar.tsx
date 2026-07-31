@@ -38,11 +38,9 @@ import { t } from "../../../i18n";
 import {
   SIDEBAR_PRIMARY_CTA_CLASS,
   SIDEBAR_PRIMARY_HEADER_CLASS,
+  TASK_ROW_ACTION_CLASS,
 } from "@/components/ui/sidebar-chrome";
 
-// Local copies of task-row action chrome (avoid messaging → session import).
-const TASK_ROW_ACTION_CLASS =
-  "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text [&_svg]:size-3.5";
 const TASK_CONTEXT_MENU_CLASS =
   "fixed z-[100] min-w-[11.5rem] overflow-hidden rounded-2xl border border-dls-border/70 bg-dls-surface-solid p-1.5 text-sm text-dls-text shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.45)]";
 const TASK_CONTEXT_MENU_ITEM_CLASS =
@@ -244,7 +242,7 @@ export function AutomationNavSidebar(props: {
 
           {groups.length > 0 ? (
             <div className="mt-4">
-              <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
+              <div className="px-2 pb-1.5 pt-1 text-2xs font-semibold uppercase tracking-wide text-dls-secondary">
                 {t("automation.tab_tasks")}
               </div>
               <div className="flex flex-col gap-0.5">
@@ -377,14 +375,14 @@ function AutomationNavSessionRowView(props: {
           "group flex w-full cursor-pointer items-center gap-1 rounded-xl py-1 pl-7 pr-1.5 text-left text-sm transition-colors",
           props.selected
             ? "bg-dls-list-selected font-medium text-dls-text"
-            : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+            : "text-dls-text hover:bg-dls-hover",
           menuOpen && "bg-dls-list-hover text-dls-text",
         )}
       >
         <span className="min-w-0 flex-1 truncate">{props.session.title}</span>
         <span
           className={cn(
-            "shrink-0 tabular-nums text-[11px] text-dls-secondary group-hover:hidden",
+            "shrink-0 tabular-nums text-2xs text-dls-secondary group-hover:hidden",
             menuOpen && "hidden",
           )}
         >
