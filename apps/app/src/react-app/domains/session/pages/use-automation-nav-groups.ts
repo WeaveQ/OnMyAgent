@@ -18,7 +18,11 @@ import {
 } from "../../shared";
 import { groupAssistantAutomationItems } from "../sidebar/assistant-automation-groups";
 import { mergeAutomationSessions } from "../sidebar/agent-conversation-panel";
-import { readAssistantGlobalPins } from "../sidebar/conversation-model";
+import {
+  automationLocalPinScope,
+  readAssistantGlobalPins,
+  readAssistantSpaceLocalPins,
+} from "../sidebar/conversation-model";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type {
   AutomationNavGroupRow,
@@ -28,6 +32,7 @@ import type {
 export type { AutomationNavGroupRow, AutomationNavSessionRow };
 
 export function buildAutomationNavGroups(input: {
+  workspaceId: string;
   records: ReturnType<typeof readAutomationSessionRecords>;
   sessions: readonly SidebarSessionItem[];
   categoryId: AssistantCategoryId;
@@ -60,6 +65,7 @@ export function buildAutomationNavGroups(input: {
             session?.directory?.trim() ||
             record.outputDirectory?.trim() ||
             null,
+          pinned: false,
         },
         automationId: record.automationId,
         title: record.title.trim() || record.automationId,
@@ -68,14 +74,30 @@ export function buildAutomationNavGroups(input: {
     });
 
   const pinned = input.pinnedGroupIds ?? new Set<string>();
-  return groupAssistantAutomationItems(entries).map((group) => ({
-    id: group.id,
-    title: group.title,
-    pinned: pinned.has(group.id),
-    sessions: [...group.items].sort(
-      (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
-    ),
-  }));
+  return groupAssistantAutomationItems(entries).map((group) => {
+    const scope = automationLocalPinScope(group.id);
+    const localPins = new Set(
+      scope && input.workspaceId.trim()
+        ? readAssistantSpaceLocalPins(input.workspaceId, scope)
+        : [],
+    );
+    const sessions = [...group.items]
+      .map((item) => ({
+        ...item,
+        pinned: localPins.has(item.id),
+      }))
+      .sort((left, right) => {
+        // Local pins first (home parity), then recency.
+        if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+        return (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
+      });
+    return {
+      id: group.id,
+      title: group.title,
+      pinned: pinned.has(group.id),
+      sessions,
+    };
+  });
 }
 
 export function useAutomationNavGroups(input: {
@@ -128,6 +150,7 @@ export function useAutomationNavGroups(input: {
         .map((pin) => pin.id),
     );
     return buildAutomationNavGroups({
+      workspaceId: input.workspaceId,
       records,
       sessions,
       categoryId: input.categoryId,

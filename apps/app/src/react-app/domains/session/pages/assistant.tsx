@@ -99,8 +99,11 @@ import {
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
 import {
+  automationLocalPinScope,
   readAssistantGlobalPins,
+  readAssistantSpaceLocalPins,
   writeAssistantGlobalPins,
+  writeAssistantSpaceLocalPins,
 } from "../sidebar/conversation-model";
 import {
   readAssistantCategoryMemory,
@@ -404,6 +407,57 @@ export function AssistantPage(props: AssistantPageProps) {
       props.selectedWorkspaceId,
       showToast,
     ],
+  );
+
+  const archiveAutomationNavSession = useCallback(
+    (sessionId: string, title: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const id = sessionId.trim();
+      if (!workspaceId || !id) return;
+      const group = automationNavGroups.find((item) =>
+        item.sessions.some((session) => session.id === id),
+      );
+      const directory =
+        group?.sessions.find((session) => session.id === id)?.directory ?? null;
+      removeAutomationSessionRecord(workspaceId, id);
+      archiveAssistantTask(workspaceId, {
+        sessionId: id,
+        title: title.trim() || id,
+        directory,
+        archivedAt: Date.now(),
+        category: assistantCategoryId,
+      });
+      if (automationEmbeddedSessionId === id) {
+        setAutomationEmbeddedSessionId(null);
+      }
+      showToast({
+        tone: "success",
+        title: t("session.archive_task_done"),
+      });
+    },
+    [
+      assistantCategoryId,
+      automationEmbeddedSessionId,
+      automationNavGroups,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
+  );
+
+  const toggleAutomationNavSessionPinned = useCallback(
+    (groupId: string, sessionId: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const scope = automationLocalPinScope(groupId);
+      const id = sessionId.trim();
+      if (!workspaceId || !scope || !id) return;
+      const current = readAssistantSpaceLocalPins(workspaceId, scope);
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [id, ...current.filter((item) => item !== id)];
+      writeAssistantSpaceLocalPins(workspaceId, scope, next);
+      setAutomationPinRevision((value) => value + 1);
+    },
+    [props.selectedWorkspaceId],
   );
 
   const selectedAssistantSessionDirectory =
@@ -1108,6 +1162,10 @@ export function AssistantPage(props: AssistantPageProps) {
                 onToggleGroupPinned={toggleAutomationNavGroupPinned}
                 onArchiveGroup={archiveAutomationNavGroup}
                 onDeleteGroup={openDeleteAutomationGroupModal}
+                onRenameSession={openRenameModal}
+                onArchiveSession={archiveAutomationNavSession}
+                onDeleteSession={openDeleteModal}
+                onToggleSessionPinned={toggleAutomationNavSessionPinned}
               />
             ) : null}
             {(activeSidebarView === "chat" ||
