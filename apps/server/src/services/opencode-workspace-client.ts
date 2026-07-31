@@ -13,7 +13,10 @@ export function buildOpencodeDirectoryHeader(directory: string) {
     : directory;
 }
 
-export function createOpencodeDirectoryFetch(directory: string): typeof fetch {
+export function createOpencodeDirectoryFetch(
+  directory: string,
+  authHeader?: string,
+): typeof fetch {
   return Object.assign(
     (
       input: Parameters<typeof fetch>[0],
@@ -21,11 +24,20 @@ export function createOpencodeDirectoryFetch(directory: string): typeof fetch {
     ) => {
       const request =
         input instanceof Request ? input : new Request(input, init);
-      const headers = new Headers(init?.headers ?? request.headers);
+      // Merge request headers first, then init overrides — never drop Authorization.
+      const headers = new Headers(request.headers);
+      if (init?.headers) {
+        new Headers(init.headers).forEach((value, key) => {
+          headers.set(key, value);
+        });
+      }
       headers.set(
         "x-opencode-directory",
         buildOpencodeDirectoryHeader(directory),
       );
+      if (authHeader && !headers.has("Authorization")) {
+        headers.set("Authorization", authHeader);
+      }
       return fetch(new Request(request, { headers }));
     },
     { preconnect: fetch.preconnect },
@@ -63,7 +75,7 @@ export function createWorkspaceOpencodeClient(
   const connection = resolveWorkspaceOpencodeConnection(config, workspace);
   const directory = directoryOverride?.trim() || resolveOpencodeDirectory(workspace);
   const directoryFetch = directory
-    ? createOpencodeDirectoryFetch(directory)
+    ? createOpencodeDirectoryFetch(directory, connection.authHeader)
     : undefined;
 
   return createOpencodeClient({

@@ -14,10 +14,10 @@ describe("main rail primary icon contract", () => {
       "utf8",
     );
 
-    expect(railSource).toContain('className="flex w-16 shrink-0');
-    expect(railSource).toContain("flex-1 flex-col items-center gap-2");
+    // 68px column (+4px over classic w-16) for even free-float chip air.
+    expect(railSource).toContain("w-[68px] shrink-0");
+    expect(railSource).toContain("flex-1 flex-col items-center gap-2.5");
     expect(railSource).not.toContain("w-12 shrink-0");
-    expect(railSource).not.toContain("w-14 shrink-0");
   });
 
   test("top rail entries use unified Lucide outline icons (stroke language)", () => {
@@ -38,10 +38,13 @@ describe("main rail primary icon contract", () => {
 
     expect(railSource).toContain("icon: AssistantRailIcon");
     expect(railSource).toContain("icon: ExpertRailIcon");
-    expect(railSource).toContain("icon: LocalAgentRailIcon");
+    // Local agents live under the account/settings menu, not the top rail.
+    expect(railSource).not.toContain("icon: LocalAgentRailIcon");
+    expect(railSource).toContain('onOpenLocalAgent={() => props.onOpenView("localAgent")}');
     expect(railSource).toContain("icon: FilesRailIcon");
     expect(railSource).toContain("icon: StoreRailIcon");
     expect(railSource).toContain("icon: ManageRailIcon");
+    expect(railSource).toContain("icon: AutomationRailIcon");
 
     // Outline set — no solid fill glyphs in the primary rail icon module.
     expect(iconSource).toContain('from "lucide-react"');
@@ -52,6 +55,7 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("Settings2");
     expect(iconSource).toContain("MonitorSmartphone");
     expect(iconSource).toContain("MessagesSquare");
+    expect(iconSource).toContain("CalendarClock");
     expect(iconSource).toContain("RAIL_ICON_STROKE");
     expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
     expect(iconSource).not.toContain('fill="currentColor"');
@@ -62,5 +66,6 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("export function StoreRailIcon");
     expect(iconSource).toContain("export function ManageRailIcon");
     expect(iconSource).toContain("export function DevicesRailIcon");
+    expect(iconSource).toContain("export function AutomationRailIcon");
   });
 });

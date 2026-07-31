@@ -5,6 +5,7 @@
  */
 import {
   Bot,
+  CalendarClock,
   Folder,
   House,
   MessagesSquare,
@@ -63,6 +64,11 @@ export function ManageRailIcon(props: PrimaryRailIconProps) {
 /** Message channels / IM — chat bubbles outline. */
 export function ChannelsRailIcon(props: PrimaryRailIconProps) {
   return <MessagesSquare {...railIconProps(props.className)} />;
+}
+
+/** Automation / scheduled work — calendar + clock outline. */
+export function AutomationRailIcon(props: PrimaryRailIconProps) {
+  return <CalendarClock {...railIconProps(props.className)} />;
 }
 
 /** Devices — same monitor glyph as local agent family. */

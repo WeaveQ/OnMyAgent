@@ -1630,6 +1630,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       personalAssistantHome={props.personalAssistantHome}
       onOpenAgentSettings={props.onOpenAgentSettings}
       headerActions={props.headerActions}
+      surfaceVisible={props.surfaceVisible !== false}
       transitionState={model.transitionState}
       renderSource={model.renderSource}
       showDelayedLoading={showDelayedLoading}

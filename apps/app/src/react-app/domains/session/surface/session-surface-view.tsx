@@ -82,6 +82,8 @@ export type SessionSurfaceViewProps = {
   personalAssistantHome?: boolean;
   onOpenAgentSettings?: () => void;
   headerActions?: ReactNode;
+  /** Keep-alive rail visibility — remeasure transcript when becoming true. */
+  surfaceVisible?: boolean;
 
   // Transition / load
   transitionState: SessionRenderModel["transitionState"];
@@ -352,6 +354,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                 showThinking={props.showThinking}
                 dividers={props.interruptionDividers}
                 scrollElement={props.resolveTranscriptScrollElement}
+                surfaceVisible={props.surfaceVisible !== false}
                 onRevertToMessage={props.onRevertToMessage}
                 openTargets={props.verifiedOpenTargets}
                 onOpenTarget={props.onOpenTarget}

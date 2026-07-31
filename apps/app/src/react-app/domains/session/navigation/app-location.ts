@@ -29,6 +29,7 @@ const KNOWN_RAIL_VIEWS = new Set<string>([
   "devices",
   "channels",
   "billing",
+  "automation",
   "scheduledTasks",
   "agents",
   "skills",

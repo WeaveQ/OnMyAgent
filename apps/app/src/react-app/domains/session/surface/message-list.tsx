@@ -126,6 +126,11 @@ type SessionTranscriptProps = {
   searchHighlightQuery?: string;
   scrollElement?: () => HTMLElement | null | undefined;
   /**
+   * When the keep-alive surface becomes visible again (rail switch), force a
+   * virtualizer remeasure — display:none zeros the scroll parent.
+   */
+  surfaceVisible?: boolean;
+  /**
    * Prefer a stable ref over a register callback so parent re-renders
    * (composer typing, sending flag) do not bust SessionTranscript memo.
    */
@@ -754,6 +759,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     }
     virtualizer.measure();
   }, [props.isStreaming, shouldVirtualize, virtualizer]);
+
+  // Keep-alive hide/show: scroll parent was display:none — remeasure when visible.
+  const surfaceVisible = props.surfaceVisible !== false;
+  const previousSurfaceVisibleRef = useRef(surfaceVisible);
+  useLayoutEffect(() => {
+    const wasVisible = previousSurfaceVisibleRef.current;
+    previousSurfaceVisibleRef.current = surfaceVisible;
+    if (!shouldVirtualize || !surfaceVisible || wasVisible) return;
+    virtualizer.measure();
+  }, [shouldVirtualize, surfaceVisible, virtualizer]);
 
   // Starting a new turn moves the previous detached tail (often a tall preview)
   // into virtual history. TanStack can retain the row's pre-transition size
