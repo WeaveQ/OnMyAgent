@@ -124,7 +124,7 @@ describe("path helpers", () => {
 });
 
 describe("workspace-files-page host keeps required UI surfaces (structural)", () => {
-  test("P0 three-source shell: uploads panel + pending empty; pure helpers in model", () => {
+  test("P0 three-source shell: uploads + task browser + expert pending empty", () => {
     const source = require("node:fs").readFileSync(
       require("node:path").join(
         import.meta.dir,
@@ -139,26 +139,25 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
       ),
       "utf8",
     );
-    expect(source).toContain("function FilesSourcePendingEmpty");
+    const browser = require("node:fs").readFileSync(
+      require("node:path").join(
+        import.meta.dir,
+        "../src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+      ),
+      "utf8",
+    );
     expect(source).toContain("<WorkspaceFilesUploadsPanel");
-    expect(source).toContain("<FilesSourcePendingEmpty");
+    expect(source).toContain("<WorkspaceFilesBrowserPanel");
+    expect(source).toContain("FilesExpertPendingEmpty");
     expect(source).not.toContain("CloudDriveEmptyState");
-    expect(source).not.toContain("FilePreviewDrawer");
     expect(source).toContain('from "./workspace-files-model"');
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(uploads).toContain("uploadInbox");
     expect(uploads).toContain("listInbox");
-    // Pure tree helpers remain in model for P1 browser restore / unit tests
-    expect(
-      require("node:fs")
-        .readFileSync(
-          require("node:path").join(
-            import.meta.dir,
-            "../src/react-app/domains/workspace/workspace-files-model.ts",
-          ),
-          "utf8",
-        )
-        .includes("buildRootOutlineRows"),
-    ).toBe(true);
+    // History browser (former Mine tree) restored under Task files for compatibility
+    expect(browser).toContain("function FilePreviewDrawer");
+    expect(browser).toContain("function FilesListEmptyState");
+    expect(browser).toContain("<FilePreviewDrawer");
+    expect(browser).toContain("buildRootOutlineRows");
   });
 });

@@ -67,6 +67,9 @@ describe("session visual and file contracts", () => {
     const uploadsPanel = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
     );
+    const browserPanel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+    );
     const chatPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/chat/session-page.tsx",
     );
@@ -77,13 +80,16 @@ describe("session visual and file contracts", () => {
       "apps/app/src/react-app/domains/session/pages/expert.tsx",
     );
 
-    // P0 Files rail: source tabs + uploads import; preview drawer deferred with provenance browser.
     expect(filesPage).toContain("FILES_SOURCE_TABS");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
-    expect(filesPage).toContain("FilesSourcePendingEmpty");
+    expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
     expect(uploadsPanel).toContain("uploadInbox");
     expect(uploadsPanel).toContain("listInbox");
     expect(uploadsPanel).toContain("ArtifactIcon");
+    // Task-files browser keeps preview branches for historical workspace files
+    expect(browserPanel).toContain("workspaceFileOpenTarget");
+    expect(browserPanel).toContain("MarkdownPreview content={state.content}");
+    expect(browserPanel).toContain("<OfficeFilePreview");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");
@@ -118,6 +124,7 @@ describe("session visual and file contracts", () => {
   test("every filename-bearing app surface uses the shared type-aware file icon", () => {
     const expectedUsageByFile = new Map<string, string>([
       ["apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx", "name={row.name}"],
+      ["apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx", "name={props.node.name}"],
       ["apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx", "name={props.node.name}"],
       ["apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx", "name={item.name || item.value}"],
       ["apps/app/src/react-app/domains/session/surface/message-list/file-card.tsx", "name={title}"],

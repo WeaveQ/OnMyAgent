@@ -31,21 +31,21 @@ export default {
   "files.source_uploads_desc":
     "已匯入工作區的資料。編輯只影響工作區副本，不會自動改本機原檔。",
   "files.source_task_desc":
-    "首頁臨時任務產生的內容。完成寫入來源標記後才會出現在此列表。",
+    "首頁臨時任務產物，以及尚未完成來源標記前的工作區歷史檔案（確保舊檔仍可存取）。",
   "files.source_expert_desc":
-    "專家會話產生的內容，可依專家瀏覽。完成寫入來源標記後才會出現在此列表。",
+    "專家會話產物，可依專家瀏覽。在寫入標記上線前本列表為空，避免把歷史檔誤標為專家檔；歷史檔請在「任務檔案」中查看。",
   "files.search_uploads_placeholder": "搜尋上傳檔案",
   "files.search_task_placeholder": "搜尋任務檔案",
   "files.search_expert_placeholder": "搜尋專家檔案",
   "files.uploads_empty_title": "尚無上傳",
   "files.uploads_empty_hint":
     "從本機匯入檔案。OnMyAgent 會複製到工作區，供對話安全引用。",
-  "files.task_empty_title": "尚無已歸屬的任務檔案",
+  "files.task_empty_title": "目前工作區尚無檔案",
   "files.task_empty_hint":
-    "首頁臨時任務的產物將在啟用寫入來源標記後顯示。未標記的歷史檔案不會誤歸入此處。",
+    "任務產物與工作區檔案會顯示在這裡。個人資料請到「使用者上傳」匯入。",
   "files.expert_empty_title": "尚無已歸屬的專家檔案",
   "files.expert_empty_hint":
-    "專家會話的產物將在啟用寫入來源標記後顯示。未標記的歷史檔案不會誤標為專家檔案。",
+    "專家會話產物將在啟用寫入來源標記後顯示。現有工作區歷史檔請在「任務檔案」中查看，避免誤歸類。",
   "files.import_to_workspace": "匯入到工作區",
   "files.uploading": "正在匯入…",
   "files.upload_copy_success":

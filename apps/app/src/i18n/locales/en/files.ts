@@ -33,21 +33,21 @@ export default {
   "files.source_uploads_desc":
     "Files you imported into the workspace. Edits apply to the workspace copy, not the original on disk.",
   "files.source_task_desc":
-    "Files from temporary tasks on Home. Provenance tagging is required before items appear here.",
+    "Workspace files from Home temporary tasks, plus existing workspace files until source tagging can separate them. Edits apply to workspace copies.",
   "files.source_expert_desc":
-    "Files from expert sessions, grouped by expert. Provenance tagging is required before items appear here.",
+    "Files from expert sessions, grouped by expert. Until write-time tagging ships, this list stays empty so untagged history is not mislabeled as expert.",
   "files.search_uploads_placeholder": "Search uploads",
   "files.search_task_placeholder": "Search task files",
   "files.search_expert_placeholder": "Search expert files",
   "files.uploads_empty_title": "No uploads yet",
   "files.uploads_empty_hint":
     "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely.",
-  "files.task_empty_title": "No attributed task files yet",
+  "files.task_empty_title": "No files in this workspace yet",
   "files.task_empty_hint":
-    "Outputs from Home temporary tasks will show here once write-time source tagging is enabled. Untagged history is not listed to avoid mis-bucketing.",
+    "Task outputs and other workspace files will appear here. Upload personal materials under Uploads.",
   "files.expert_empty_title": "No attributed expert files yet",
   "files.expert_empty_hint":
-    "Outputs from expert sessions will show here once write-time source tagging is enabled. Untagged history is not listed as expert files.",
+    "Expert session outputs will show here once write-time source tagging is enabled. Existing workspace files stay under Task files so they remain accessible.",
   "files.import_to_workspace": "Import to workspace",
   "files.uploading": "Importing…",
   "files.upload_copy_success":

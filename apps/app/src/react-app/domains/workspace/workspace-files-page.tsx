@@ -1,8 +1,9 @@
 /** @jsxImportSource react */
 /**
- * Primary-rail Files page (P0 three-source IA).
- * Uploads: inbox list + import-by-copy.
- * Task / Expert: honest empty until write-time provenance (P1).
+ * Primary-rail Files page (P0 three-source IA + history compatibility).
+ * - Uploads: inbox list + import-by-copy
+ * - Task files: workspace catalog browser (historical files until provenance P1)
+ * - Expert files: honest empty until write-time provenance (no mis-bucket)
  */
 import { useState } from "react";
 import { Bot, FileStack, FileUp } from "lucide-react";
@@ -29,6 +30,7 @@ import {
   filesSourceTabSubtitleKey,
   type FilesSourceTab,
 } from "./workspace-files-model";
+import { WorkspaceFilesBrowserPanel } from "./workspace-files-browser-panel";
 import { WorkspaceFilesUploadsPanel } from "./workspace-files-uploads-panel";
 
 // Re-export pure root resolver for existing callers/tests.
@@ -45,25 +47,24 @@ function filesSourceTabIcon(tab: FilesSourceTab) {
   }
 }
 
-/** Honest empty for tabs without write-time provenance (P0). */
-function FilesSourcePendingEmpty(props: { tab: FilesSourceTab }) {
-  const Icon = props.tab === "expert" ? Bot : FileStack;
+/** Expert tab: no provenance yet — do not list untagged history as expert files. */
+function FilesExpertPendingEmpty() {
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
       <div className="mb-4 shrink-0">
         <h1 className={typeScale.pageTitle}>{t("files.title")}</h1>
         <p className={cn(typeScale.pageSubtitle, "mt-1")}>
-          {t(filesSourceTabSubtitleKey(props.tab))}
+          {t(filesSourceTabSubtitleKey("expert"))}
         </p>
       </div>
       <Empty className="min-h-[320px] flex-1 border border-dashed border-dls-border">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Icon className="size-5" aria-hidden />
+            <Bot className="size-5" aria-hidden />
           </EmptyMedia>
-          <EmptyTitle>{t(filesSourceEmptyTitleKey(props.tab))}</EmptyTitle>
+          <EmptyTitle>{t(filesSourceEmptyTitleKey("expert"))}</EmptyTitle>
           <EmptyDescription>
-            {t(filesSourceEmptyHintKey(props.tab))}
+            {t(filesSourceEmptyHintKey("expert"))}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -77,24 +78,16 @@ export function WorkspaceFilesPage(props: {
   workspaceRoot: string;
   /**
    * Directory to list. Callers should pass the OnMyAgent-selected workspace
-   * folder (`workspaceRoot`). Kept for API compatibility with session hosts.
+   * folder (`workspaceRoot`).
    */
   fileRoot?: string | null;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
-  /** Optional: attach file into a new/current task (composer). */
   onAddToTask?: (relativePath: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<FilesSourceTab>(
     DEFAULT_FILES_SOURCE_TAB,
   );
-
-  // Keep props referenced so host APIs stay stable for P1 browser restore.
-  void props.workspaceRoot;
-  void props.fileRoot;
-  void props.onOpenArtifact;
-  void props.onEditError;
-  void props.onAddToTask;
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-dls-background text-dls-text">
@@ -130,8 +123,18 @@ export function WorkspaceFilesPage(props: {
             client={props.client}
             workspaceId={props.workspaceId}
           />
+        ) : activeTab === "task" ? (
+          <WorkspaceFilesBrowserPanel
+            client={props.client}
+            workspaceId={props.workspaceId}
+            workspaceRoot={props.workspaceRoot}
+            fileRoot={props.fileRoot}
+            onOpenArtifact={props.onOpenArtifact}
+            onEditError={props.onEditError}
+            onAddToTask={props.onAddToTask}
+          />
         ) : (
-          <FilesSourcePendingEmpty tab={activeTab} />
+          <FilesExpertPendingEmpty />
         )}
       </div>
     </div>

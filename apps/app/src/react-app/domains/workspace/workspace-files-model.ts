@@ -386,7 +386,8 @@ export const USER_UPLOADS_RELATIVE_DIR = "uploads";
  * write-time provenance — do not mis-bucket untagged history.
  */
 export function isFilesSourceListReady(tab: FilesSourceTab): boolean {
-  return tab === "uploads";
+  // uploads: inbox; task: workspace browser (history compat); expert: pending P1
+  return tab === "uploads" || tab === "task";
 }
 
 export function filesSourceTabLabelKey(tab: FilesSourceTab): string {
