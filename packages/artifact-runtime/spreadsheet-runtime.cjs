@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("node:fs");
 const path = require("node:path");
 const {
   dependencyReport,
@@ -19,14 +20,25 @@ const CAPABILITIES = Object.freeze([
   "convert-to-xlsx",
   "inspect",
   "verify",
+  "extract-sheets",
+  "write-xlsx",
 ]);
 const EXTENSIONS = new Set([
   ".xlsx", ".xlsm", ".xlsb", ".xltx", ".xltm", ".xls", ".csv", ".tsv", ".ods",
 ]);
+const WORKBOOK_WRITE_EXTENSIONS = new Set([".xlsx", ".xlsm", ".xls", ".csv", ".tsv"]);
 const FORMULA_ERRORS = ["#VALUE!", "#DIV/0!", "#REF!", "#NAME?", "#NULL!", "#NUM!", "#N/A"];
 const DEPENDENCIES = ["exceljs", "xlsx", "jszip", "fast-xml-parser"];
 const DEFAULT_MAX_ROWS = 500;
 const HARD_MAX_ROWS = 5000;
+const COMMANDS = Object.freeze([
+  "doctor",
+  "inspect",
+  "read",
+  "verify",
+  "extract-sheets",
+  "write-xlsx",
+]);
 
 function loadWorkbook(source) {
   const XLSX = require("xlsx");
@@ -157,7 +169,204 @@ function readSpreadsheet(input, options = {}) {
     sheets,
     max_rows: maxRows,
     note:
-      "Use `read` for content. For advanced edits write CommonJS scripts and run with NODE_PATH=$ONMYAGENT_ARTIFACT_RUNTIME_ROOT/node_modules.",
+      "Prefer runtime `extract-sheets` / `write-xlsx` for exports. Ad-hoc helper scripts must live under os.tmpdir() or .opencode/tmp/ — never as user deliverables.",
+  };
+}
+
+function ensureParentDir(filePath) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+}
+
+function resolveOutputPath(raw, label) {
+  if (!raw || typeof raw !== "string" || !raw.trim()) {
+    throw new Error(`${label} requires an output path`);
+  }
+  const resolved = path.resolve(raw.trim());
+  const ext = path.extname(resolved).toLowerCase();
+  if (!WORKBOOK_WRITE_EXTENSIONS.has(ext)) {
+    throw new Error(
+      `${label} output must be one of ${[...WORKBOOK_WRITE_EXTENSIONS].join(", ")} (got ${ext || "(none)"})`,
+    );
+  }
+  return resolved;
+}
+
+function parseSheetList(raw) {
+  if (!raw || typeof raw !== "string") return [];
+  return raw
+    .split(/[,|]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function sanitizeSheetFileName(name) {
+  const cleaned = String(name)
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return cleaned || "sheet";
+}
+
+function copySheet(XLSX, sourceSheet, name) {
+  // Clone via JSON so extracted workbooks do not share mutable refs with the source.
+  const cloned = JSON.parse(JSON.stringify(sourceSheet));
+  return { sheet: cloned, name: name.slice(0, 31) || "Sheet1" };
+}
+
+/**
+ * Extract one or more sheets into business deliverable workbooks.
+ *
+ * Modes:
+ * - `--sheet Name --out file.xlsx` → single sheet workbook
+ * - `--sheets a,b --out file.xlsx` → multi-sheet workbook
+ * - `--sheets a,b --out-dir dir/` or `--all --out-dir dir/` → one xlsx per sheet
+ */
+function extractSheets(input, options = {}) {
+  const source = requireInput(input, EXTENSIONS, "extract-sheets");
+  const XLSX = require("xlsx");
+  const workbook = loadWorkbook(source);
+  const all = options.all === true || options.all === "true";
+  const single = typeof options.sheet === "string" ? options.sheet.trim() : "";
+  const many = parseSheetList(options.sheets);
+  let names;
+  if (all) {
+    names = [...workbook.SheetNames];
+  } else if (single) {
+    names = [single];
+  } else if (many.length) {
+    names = many;
+  } else {
+    throw new Error(
+      "extract-sheets requires --sheet <name>, --sheets a,b, or --all",
+    );
+  }
+
+  for (const name of names) {
+    if (!workbook.SheetNames.includes(name)) {
+      throw new Error(
+        `Sheet not found: ${name}. Available: ${workbook.SheetNames.join(", ")}`,
+      );
+    }
+  }
+
+  const outDirRaw = typeof options.outDir === "string" ? options.outDir.trim() : "";
+  const outRaw = typeof options.out === "string" ? options.out.trim() : "";
+  const outputs = [];
+
+  if (outDirRaw || (!outRaw && names.length > 1)) {
+    const outDir = path.resolve(outDirRaw || ".");
+    fs.mkdirSync(outDir, { recursive: true });
+    for (const name of names) {
+      const { sheet, name: safeName } = copySheet(XLSX, workbook.Sheets[name], name);
+      const dest = path.join(outDir, `${sanitizeSheetFileName(name)}.xlsx`);
+      const next = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(next, sheet, safeName);
+      XLSX.writeFile(next, dest);
+      outputs.push({ sheet: name, path: dest, mode: "per-sheet" });
+    }
+  } else {
+    const dest = resolveOutputPath(outRaw, "extract-sheets --out");
+    ensureParentDir(dest);
+    const next = XLSX.utils.book_new();
+    for (const name of names) {
+      const { sheet, name: safeName } = copySheet(XLSX, workbook.Sheets[name], name);
+      XLSX.utils.book_append_sheet(next, sheet, safeName);
+    }
+    XLSX.writeFile(next, dest);
+    outputs.push({
+      sheet: names.join(","),
+      path: dest,
+      mode: names.length === 1 ? "single-sheet" : "multi-sheet",
+    });
+  }
+
+  return {
+    status: "success",
+    runtime: "spreadsheets",
+    source,
+    outputs,
+    wrote: outputs.map((item) => item.path),
+    // Human markers so shell write-like scanners mint product cards for outputs only.
+    message: outputs.map((item) => `Wrote ${item.path}`).join("\n"),
+  };
+}
+
+function loadRowsFromJson(jsonPath) {
+  const resolved = path.resolve(jsonPath);
+  if (!fs.statSync(resolved, { throwIfNoEntry: false })?.isFile()) {
+    throw new Error(`JSON rows file does not exist: ${resolved}`);
+  }
+  const parsed = JSON.parse(fs.readFileSync(resolved, "utf8"));
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object" && Array.isArray(parsed.rows)) return parsed.rows;
+  throw new Error("JSON rows file must be an array or { rows: [...] }");
+}
+
+function loadRowsFromCsv(csvPath) {
+  const resolved = path.resolve(csvPath);
+  if (!fs.statSync(resolved, { throwIfNoEntry: false })?.isFile()) {
+    throw new Error(`CSV file does not exist: ${resolved}`);
+  }
+  const XLSX = require("xlsx");
+  const workbook = XLSX.readFile(resolved, { raw: false });
+  const first = workbook.SheetNames[0];
+  if (!first) throw new Error(`CSV has no sheets: ${resolved}`);
+  return XLSX.utils.sheet_to_json(workbook.Sheets[first], {
+    defval: "",
+    raw: false,
+    blankrows: false,
+  });
+}
+
+/**
+ * Create a business xlsx/csv deliverable from JSON rows or a CSV source.
+ *
+ * write-xlsx --out out.xlsx --sheet Name --json rows.json
+ * write-xlsx --out out.xlsx --sheet Name --csv data.csv
+ */
+function writeXlsx(options = {}) {
+  const XLSX = require("xlsx");
+  const out = resolveOutputPath(options.out, "write-xlsx --out");
+  const sheetName = (typeof options.sheet === "string" && options.sheet.trim())
+    ? options.sheet.trim().slice(0, 31)
+    : "Sheet1";
+  const jsonPath = typeof options.json === "string" ? options.json.trim() : "";
+  const csvPath = typeof options.csv === "string" ? options.csv.trim() : "";
+  if (!jsonPath && !csvPath) {
+    throw new Error("write-xlsx requires --json <rows.json> or --csv <file.csv>");
+  }
+  if (jsonPath && csvPath) {
+    throw new Error("write-xlsx accepts only one of --json or --csv");
+  }
+
+  const rows = jsonPath ? loadRowsFromJson(jsonPath) : loadRowsFromCsv(csvPath);
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("write-xlsx rows are empty");
+  }
+
+  let worksheet;
+  if (Array.isArray(rows[0])) {
+    worksheet = XLSX.utils.aoa_to_sheet(rows);
+  } else if (rows[0] && typeof rows[0] === "object") {
+    worksheet = XLSX.utils.json_to_sheet(rows);
+  } else {
+    throw new Error("write-xlsx rows must be objects or arrays");
+  }
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  ensureParentDir(out);
+  XLSX.writeFile(workbook, out);
+
+  return {
+    status: "success",
+    runtime: "spreadsheets",
+    path: out,
+    sheet: sheetName,
+    row_count: rows.length,
+    wrote: [out],
+    message: `Wrote ${out}`,
   };
 }
 
@@ -171,8 +380,13 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
         runtime: "spreadsheets",
         language: "javascript",
         capabilities: CAPABILITIES,
-        commands: ["doctor", "inspect", "read", "verify"],
+        commands: [...COMMANDS],
         runtime_root: process.env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT || null,
+        deliverable_contract: {
+          prefer_runtime_commands: ["extract-sheets", "write-xlsx", "read", "inspect", "verify"],
+          helper_scripts_dir: ["os.tmpdir()", ".opencode/tmp/"],
+          never_deliver: ["*.cjs helper scripts", "session-uploads originals"],
+        },
       });
     }
     if (command === "doctor") {
@@ -186,6 +400,7 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
         language: "javascript",
         dependencies,
         capabilities: CAPABILITIES,
+        commands: [...COMMANDS],
         runtime_root: runtimeRoot,
         node_modules: path.join(runtimeRoot, "node_modules"),
         node_path_hint: path.join(runtimeRoot, "node_modules"),
@@ -201,8 +416,35 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
       );
     }
     if (command === "verify") return emit(verifySpreadsheet(positional[1]));
+    if (command === "extract-sheets") {
+      const result = extractSheets(positional[1], {
+        sheet: flags.get("sheet"),
+        sheets: flags.get("sheets"),
+        all: flags.get("all"),
+        out: flags.get("out"),
+        outDir: flags.get("out-dir") ?? flags.get("outDir"),
+      });
+      // Also print human Wrote lines after JSON for shell scanners that only
+      // regex free text (emit already JSON-stringifies the payload).
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+      if (result.message) process.stdout.write(`${result.message}\n`);
+      process.exitCode = 0;
+      return result;
+    }
+    if (command === "write-xlsx") {
+      const result = writeXlsx({
+        out: flags.get("out"),
+        sheet: flags.get("sheet"),
+        json: flags.get("json"),
+        csv: flags.get("csv"),
+      });
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+      if (result.message) process.stdout.write(`${result.message}\n`);
+      process.exitCode = 0;
+      return result;
+    }
     throw new Error(
-      "A command is required: capabilities, doctor, inspect, read, or verify",
+      `A command is required: ${COMMANDS.join(", ")}, or capabilities`,
     );
   } catch (error) {
     return emit({
@@ -214,10 +456,12 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
 }
 
 module.exports = {
+  extractSheets,
   inspectSpreadsheet,
   readSpreadsheet,
   runSpreadsheetRuntime,
   verifySpreadsheet,
+  writeXlsx,
 };
 
 if (require.main === module) {

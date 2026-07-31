@@ -103,6 +103,8 @@ const SHELL_TOOL_NAMES = new Set([
 const FILE_METADATA_KEYS = ["path", "file", "filePath", "filepath"];
 const PATCH_FILE_PATTERN = /^\*\*\* (?:Add File|Update File):\s*(.+)$/gmi;
 const PATCH_MOVE_TO_PATTERN = /^\*\*\* Move to:\s*(.+)$/gmi;
+/** Session inbox uploads: `{timestampMs}-{index}-{originalName}`. */
+const INBOX_UPLOAD_BASENAME_PATTERN = /^\d{10,}-\d+-.+/;
 
 type DeriveOpenTargetsOptions = {
   includeFileMentions?: boolean;
@@ -426,19 +428,36 @@ function shellCommandText(input: unknown): string {
 
 /**
  * Whether a shell invocation looks like it *created* files (node/python write
- * scripts), not merely inspected or listed paths (find/ls/inspect).
+ * scripts or first-class artifact-runtime write commands), not merely
+ * inspected or listed paths (find/ls/inspect/read).
  */
 function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
   const command = shellCommandText(input);
   const out = typeof output === "string" ? output : "";
+  // First-class spreadsheet runtime write commands always mint deliverables.
+  if (/\b(extract-sheets|write-xlsx)\b/i.test(command)) {
+    return true;
+  }
   // Pure discovery / read-style commands never mint deliverable cards.
+  // Match artifact_runtime subcommands carefully: `read`/`inspect`/`verify`
+  // are readers; do not treat them as writes even if paths appear in JSON.
   if (
-    /\b(find|ls|glob|rg|grep|cat|head|tail|stat|mdfind|inspect|doctor|verify|read)\b/i.test(
-      command,
+    /\b(find|ls|glob|rg|grep|cat|head|tail|stat|mdfind)\b/i.test(command)
+    || /artifact_runtime\.cjs\s+(inspect|doctor|verify|read|capabilities)\b/i.test(command)
+    || (
+      /\b(inspect|doctor|verify)\b/i.test(command)
+      && !/\b(writeFile|write_file|XLSX\.write|exceljs|\.write\(|toFile|fs\.write|extract-sheets|write-xlsx|>>?|tee)\b/i.test(
+        command,
+      )
     )
-    && !/\b(writeFile|write_file|XLSX\.write|exceljs|\.write\(|toFile|fs\.write|>>?|tee)\b/i.test(
-      command,
-    )
+  ) {
+    return false;
+  }
+  // Bare `read` as shell command (not extract-sheets) — keep as non-write when
+  // it is clearly a reader and not a write API.
+  if (
+    /(?:^|[\s;&|])(?:cat|head|tail|less|more)\b/i.test(command)
+    && !/\b(writeFile|write_file|XLSX\.write|exceljs|extract-sheets|write-xlsx)\b/i.test(command)
   ) {
     return false;
   }
@@ -449,6 +468,68 @@ function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
     )
     || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
   );
+}
+
+/** True for paths that look like session user-upload inbox copies, not agent deliverables. */
+export function isLikelyUserUploadArtifactPath(value: string): boolean {
+  const normalized = normalizePath(value);
+  if (!normalized) return false;
+  if (/(^|\/)\.opencode\/onmyagent\/inbox(\/|$)/i.test(normalized)) return true;
+  if (
+    /(^|\/)(?:session-uploads|inbox)\//i.test(normalized)
+    && INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized))
+  ) {
+    return true;
+  }
+  return INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized));
+}
+
+function collectDeclaredPathsFromPatterns(text: string, patterns: RegExp[]): string[] {
+  if (!text.trim()) return [];
+  const paths: string[] = [];
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      const raw = (match[1] ?? "")
+        .trim()
+        // "发货需求.xlsx（工作目录根下）"
+        .replace(/[（(].*$/u, "")
+        .replace(/[，。；;）)\s]+$/gu, "");
+      if (!raw || !/\.[a-z][a-z0-9]{0,9}$/i.test(raw)) continue;
+      if (isLikelyUserUploadArtifactPath(raw)) continue;
+      paths.push(raw);
+    }
+  }
+  return paths;
+}
+
+const HARD_DECLARED_PATH_PATTERNS = [
+  /文件路径\s*[:：]\s*[`「"'“]?([^\s`」"'”]+)[`」"'”]?/gi,
+];
+
+const SOFT_DECLARED_PATH_PATTERNS = [
+  /(?:已生成|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
+  /(?:Created|Wrote|Saved)\s+[`"'“]?([^\s`"'”]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
+];
+
+/**
+ * Hard deliverable declarations (`文件路径: …`). These may mint product cards
+ * even without a write-tool entry in the same turn.
+ */
+export function extractHardDeclaredDeliverablePaths(text: string): string[] {
+  return collectDeclaredPathsFromPatterns(text, HARD_DECLARED_PATH_PATTERNS);
+}
+
+/**
+ * Paths the assistant presents as deliverables in prose (hard + soft).
+ * Soft forms (`已生成 foo.xlsx`) help intentional-code matching but alone do
+ * not mint cards without write provenance.
+ */
+export function extractDeclaredDeliverablePaths(text: string): string[] {
+  return collectDeclaredPathsFromPatterns(text, [
+    ...HARD_DECLARED_PATH_PATTERNS,
+    ...SOFT_DECLARED_PATH_PATTERNS,
+  ]);
 }
 
 function collectFileMetadataValues(value: unknown) {
@@ -549,6 +630,7 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
 
   return Array.from(targets.values())
     .filter(isArtifactTarget)
+    .filter((target) => target.kind !== "file" || !isLikelyUserUploadArtifactPath(target.value))
     .sort((left, right) => right.confidence - left.confidence);
 }
 
