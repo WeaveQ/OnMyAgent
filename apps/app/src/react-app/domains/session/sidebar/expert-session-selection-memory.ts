@@ -63,6 +63,29 @@ export function writeExpertSessionSelection(
   }
 }
 
+/** Drop a remembered tab (dead/ghost session). */
+export function clearExpertSessionSelection(
+  workspaceId: string,
+  agentId: string,
+): void {
+  if (typeof window === "undefined") return;
+  const ws = workspaceId.trim();
+  const agent = agentId.trim();
+  if (!ws || !agent) return;
+  try {
+    const record = readRecord();
+    const key = memoryKey(ws, agent);
+    if (!(key in record)) return;
+    delete record[key];
+    window.localStorage.setItem(
+      EXPERT_SESSION_SELECTION_KEY,
+      JSON.stringify(record),
+    );
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Resolve which session tab to open for an expert:
  * 1. remembered session id if still present
