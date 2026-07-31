@@ -1,5 +1,6 @@
 "use strict";
 
+const path = require("node:path");
 const {
   dependencyReport,
   emit,
@@ -24,16 +25,24 @@ const EXTENSIONS = new Set([
 ]);
 const FORMULA_ERRORS = ["#VALUE!", "#DIV/0!", "#REF!", "#NAME?", "#NULL!", "#NUM!", "#N/A"];
 const DEPENDENCIES = ["exceljs", "xlsx", "jszip", "fast-xml-parser"];
+const DEFAULT_MAX_ROWS = 500;
+const HARD_MAX_ROWS = 5000;
+
+function loadWorkbook(source) {
+  const XLSX = require("xlsx");
+  return XLSX.readFile(source, {
+    cellFormula: true,
+    cellNF: true,
+    cellStyles: true,
+    cellDates: true,
+    dense: false,
+  });
+}
 
 function inspectSpreadsheet(input) {
   const source = requireInput(input, EXTENSIONS, "spreadsheet inspection");
   const XLSX = require("xlsx");
-  const workbook = XLSX.readFile(source, {
-    cellFormula: true,
-    cellNF: true,
-    cellStyles: true,
-    dense: false,
-  });
+  const workbook = loadWorkbook(source);
   const sheets = [];
   const formulaErrors = [];
   const formulasWithoutCachedValues = [];
@@ -97,6 +106,61 @@ function verifySpreadsheet(input) {
   };
 }
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, HARD_MAX_ROWS);
+}
+
+/**
+ * Read sheet rows as JSON objects (header row → keys). Prefer this over ad-hoc
+ * agent scripts that `require("exceljs")` from a random cwd.
+ */
+function readSpreadsheet(input, options = {}) {
+  const source = requireInput(input, EXTENSIONS, "spreadsheet read");
+  const XLSX = require("xlsx");
+  const workbook = loadWorkbook(source);
+  const maxRows = parsePositiveInt(options.maxRows, DEFAULT_MAX_ROWS);
+  const requested = typeof options.sheet === "string" ? options.sheet.trim() : "";
+  const names = requested
+    ? [requested]
+    : workbook.SheetNames.slice(0, 20);
+  if (requested && !workbook.SheetNames.includes(requested)) {
+    throw new Error(
+      `Sheet not found: ${requested}. Available: ${workbook.SheetNames.join(", ")}`,
+    );
+  }
+
+  const sheets = {};
+  for (const name of names) {
+    const sheet = workbook.Sheets[name];
+    if (!sheet) continue;
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      defval: "",
+      raw: false,
+      blankrows: false,
+    });
+    const truncated = rows.length > maxRows;
+    sheets[name] = {
+      row_count: rows.length,
+      returned_rows: truncated ? maxRows : rows.length,
+      truncated,
+      rows: truncated ? rows.slice(0, maxRows) : rows,
+    };
+  }
+
+  return {
+    status: "success",
+    runtime: "spreadsheets",
+    source,
+    sheet_names: workbook.SheetNames,
+    sheets,
+    max_rows: maxRows,
+    note:
+      "Use `read` for content. For advanced edits write CommonJS scripts and run with NODE_PATH=$ONMYAGENT_ARTIFACT_RUNTIME_ROOT/node_modules.",
+  };
+}
+
 async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
   const { positional, flags } = parseArgs(argv);
   const command = flags.has("capabilities") ? "capabilities" : positional[0];
@@ -107,23 +171,39 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
         runtime: "spreadsheets",
         language: "javascript",
         capabilities: CAPABILITIES,
-        commands: ["doctor", "inspect", "verify"],
+        commands: ["doctor", "inspect", "read", "verify"],
+        runtime_root: process.env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT || null,
       });
     }
     if (command === "doctor") {
       const dependencies = dependencyReport(DEPENDENCIES);
       const ready = Object.values(dependencies).every(Boolean);
+      const runtimeRoot =
+        process.env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT?.trim() || path.resolve(__dirname);
       return emit({
         status: ready ? "ready" : "degraded",
         runtime: "spreadsheets",
         language: "javascript",
         dependencies,
         capabilities: CAPABILITIES,
+        runtime_root: runtimeRoot,
+        node_modules: path.join(runtimeRoot, "node_modules"),
+        node_path_hint: path.join(runtimeRoot, "node_modules"),
       }, ready ? 0 : 1);
     }
     if (command === "inspect") return emit(inspectSpreadsheet(positional[1]));
+    if (command === "read") {
+      return emit(
+        readSpreadsheet(positional[1], {
+          sheet: flags.get("sheet"),
+          maxRows: flags.get("max-rows") ?? flags.get("maxRows"),
+        }),
+      );
+    }
     if (command === "verify") return emit(verifySpreadsheet(positional[1]));
-    throw new Error("A command is required: capabilities, doctor, inspect, or verify");
+    throw new Error(
+      "A command is required: capabilities, doctor, inspect, read, or verify",
+    );
   } catch (error) {
     return emit({
       status: "error",
@@ -133,4 +213,13 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
   }
 }
 
-module.exports = { inspectSpreadsheet, runSpreadsheetRuntime, verifySpreadsheet };
+module.exports = {
+  inspectSpreadsheet,
+  readSpreadsheet,
+  runSpreadsheetRuntime,
+  verifySpreadsheet,
+};
+
+if (require.main === module) {
+  void runSpreadsheetRuntime();
+}

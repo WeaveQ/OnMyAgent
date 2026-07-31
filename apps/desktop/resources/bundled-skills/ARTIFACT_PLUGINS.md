@@ -9,7 +9,7 @@ The launchers resolve the packaged `@onmyagent/artifact-runtime`, which contains
 - Presentations: `pptxgenjs`, `jszip`, `fast-xml-parser`.
 - PDF: `pdf-lib`.
 
-Every runtime exposes `capabilities`, `doctor`, `inspect`, and `verify` as single-line JSON commands. Agent task scripts must be CommonJS so the packaged modules resolve through `NODE_PATH` without a workspace install.
+Every runtime exposes `capabilities`, `doctor`, `inspect`, and `verify` as single-line JSON commands. Spreadsheets also exposes `read` for sheet rows as JSON (prefer this over ad-hoc `require("exceljs")` scripts). Agent task scripts must be CommonJS and run with `NODE_PATH=$ONMYAGENT_ARTIFACT_RUNTIME_ROOT/node_modules` so packaged modules resolve without a workspace install.
 
 Human preview is independent from the editing libraries: Chromium opens PDF directly through a validated local `file://` URL, while a sandboxed local Office viewer renders Word, spreadsheet, and presentation files. Both preview paths are restricted to registered local workspace roots.
 
