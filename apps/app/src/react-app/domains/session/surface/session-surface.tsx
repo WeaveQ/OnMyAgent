@@ -1466,14 +1466,24 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
           }}
         />
       ) : null;
-    if (!assistantStatusFooter && !chips) return null;
+    // AssistantStatusSpacer is invisible but still occupies waiting-card height.
+    // When follow-up chips fill this slot, drop the spacer so it does not leave
+    // a blank gap between turn actions and the chips.
+    const statusNode =
+      chips && reserveAssistantStatusSpace ? null : assistantStatusFooter;
+    if (!statusNode && !chips) return null;
     return (
       <>
-        {assistantStatusFooter}
+        {statusNode}
         {chips}
       </>
     );
-  }, [assistantStatusFooter, followUpSuggestions, typeComposerText]);
+  }, [
+    assistantStatusFooter,
+    followUpSuggestions,
+    reserveAssistantStatusSpace,
+    typeComposerText,
+  ]);
 
   const selectAssistantPromptTemplate = useCallback(
     (scenarioId: string, prompt: string) => {
