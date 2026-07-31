@@ -74,24 +74,34 @@ const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>([
   "text",
 ]);
 const DISCOVERY_TOOL_NAMES = new Set(["glob", "grep", "search", "find"]);
+/** Intentional file editors — stdout/metadata may name deliverables. */
 const WRITE_TOOL_NAMES = new Set([
   "apply_patch",
-  "bash",
   "edit",
   "edit_file",
-  "execute",
   "multi_edit",
   "multiedit",
   "patch",
-  "run_terminal_cmd",
-  "shell",
   "str_replace_editor",
   "write",
   "write_file",
 ]);
+/**
+ * Shell/run tools often print paths they only read or discovered (find, ls,
+ * glob). Free-text path extraction from their stdout must not mint artifact
+ * cards — that incorrectly surfaces user uploads mid-turn.
+ */
+const SHELL_TOOL_NAMES = new Set([
+  "bash",
+  "execute",
+  "run_terminal_cmd",
+  "shell",
+]);
 const FILE_METADATA_KEYS = ["path", "file", "filePath", "filepath"];
 const PATCH_FILE_PATTERN = /^\*\*\* (?:Add File|Update File):\s*(.+)$/gmi;
 const PATCH_MOVE_TO_PATTERN = /^\*\*\* Move to:\s*(.+)$/gmi;
+/** Session inbox uploads: `{timestampMs}-{index}-{originalName}`. */
+const INBOX_UPLOAD_BASENAME_PATTERN = /^\d{10,}-\d+-.+/;
 
 type DeriveOpenTargetsOptions = {
   includeFileMentions?: boolean;
@@ -399,6 +409,21 @@ function isWriteTool(toolName: string) {
   return WRITE_TOOL_NAMES.has(normalizedToolName(toolName));
 }
 
+function isShellTool(toolName: string) {
+  return SHELL_TOOL_NAMES.has(normalizedToolName(toolName));
+}
+
+/** True for paths that look like session user-upload inbox copies, not agent deliverables. */
+export function isLikelyUserUploadArtifactPath(value: string): boolean {
+  const normalized = normalizePath(value);
+  if (!normalized) return false;
+  if (/(^|\/)\.opencode\/onmyagent\/inbox(\/|$)/i.test(normalized)) return true;
+  if (/(^|\/)inbox\//i.test(normalized) && INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized))) {
+    return true;
+  }
+  return INBOX_UPLOAD_BASENAME_PATTERN.test(basename(normalized));
+}
+
 function collectFileMetadataValues(value: unknown) {
   if (!isObject(value)) return [];
   const values: string[] = [];
@@ -455,6 +480,7 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
 
       const discoveryTool = isDiscoveryTool(part.toolName);
       const writeTool = isWriteTool(part.toolName);
+      const shellTool = isShellTool(part.toolName);
 
       if (writeTool) {
         addFileValues(
@@ -467,9 +493,20 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
         if (typeof part.output === "string") {
           scanText(targets, part.output, 90, "write tool output", { includeFiles: true });
         }
+      } else if (shellTool) {
+        // Explicit path metadata only — never scrape find/ls/read stdout for files.
+        addFileValues(
+          targets,
+          [part.input, part.output].flatMap(collectFileMetadataValues),
+          90,
+          "shell tool metadata",
+        );
+        if (typeof part.output === "string") {
+          scanText(targets, part.output, 70, "shell tool output", { includeFiles: false });
+        }
       }
 
-      if (!discoveryTool) {
+      if (!discoveryTool && !writeTool && !shellTool) {
         scanText(targets, JSON.stringify(part.output ?? part.input ?? ""), 75, "tool output", { includeFiles: false });
       }
     }
@@ -477,6 +514,7 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
 
   return Array.from(targets.values())
     .filter(isArtifactTarget)
+    .filter((target) => target.kind !== "file" || !isLikelyUserUploadArtifactPath(target.value))
     .sort((left, right) => right.confidence - left.confidence);
 }
 

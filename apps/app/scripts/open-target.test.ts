@@ -506,16 +506,47 @@ describe("deriveOpenTargets", () => {
     );
   });
 
-  it("collects spreadsheet paths from bash/shell tool outputs", () => {
+  it("does not mint artifact cards from bash/shell stdout file paths", () => {
+    // Shell often prints paths it only read or found (find/ls/glob). Free-text
+    // extraction would wrongly surface user uploads as generated artifacts.
     const targets = deriveOpenTargets([
       toolMessage(
         "msg_tool",
         "bash",
-        { command: "python gen_xlsx.py" },
-        "Wrote agents/ledger.xlsx\n",
+        { command: "find . -name '*.xlsx'" },
+        "1785466093426-0-07-四Agent完整业务演练材料.xlsx\nagents/ledger.xlsx\n",
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).not.toContain(
+      "1785466093426-0-07-四Agent完整业务演练材料.xlsx",
+    );
+    expect(targets.map((target) => target.value)).not.toContain("agents/ledger.xlsx");
+  });
+
+  it("still collects paths from real write-tool metadata", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "agents/ledger.xlsx" },
+        { filePath: "agents/ledger.xlsx" },
       ),
     ]);
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
+  });
+
+  it("drops inbox-style user upload basenames from derived targets", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "1785466093426-0-07-四Agent完整业务演练材料.xlsx" },
+        { filePath: "1785466093426-0-07-四Agent完整业务演练材料.xlsx" },
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).not.toContain(
+      "1785466093426-0-07-四Agent完整业务演练材料.xlsx",
+    );
   });
 });
 
