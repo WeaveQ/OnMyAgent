@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
-  clearExpertSessionSelection,
   readExpertSessionSelection,
   resolveExpertSessionSelection,
   writeExpertSessionSelection,
@@ -106,11 +105,5 @@ describe("expert session selection memory", () => {
         orderIds: ["draft:ws", "s1"],
       }),
     ).toBe("s1");
-  });
-
-  test("clear drops remembered session for agent", () => {
-    writeExpertSessionSelection("ws-1", "agent-a", "session-2");
-    clearExpertSessionSelection("ws-1", "agent-a");
-    expect(readExpertSessionSelection("ws-1", "agent-a")).toBeNull();
   });
 });

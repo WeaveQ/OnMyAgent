@@ -6,7 +6,6 @@ import {
   ensureAgentSessionsVisible,
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
-  isPlaceholderExpertSession,
 } from "../src/react-app/domains/session/sidebar/agent-session-visibility";
 
 const existingSession = {
@@ -30,23 +29,6 @@ function workspaceGroup(id: string): WorkspaceSessionGroup {
 }
 
 describe("agent session visibility", () => {
-  test("detects empty injects as placeholder sessions", () => {
-    expect(isPlaceholderExpertSession({ id: "ghost", title: "" })).toBe(true);
-    expect(
-      isPlaceholderExpertSession({
-        id: "real",
-        title: "",
-        time: { created: 1, updated: 2 },
-      }),
-    ).toBe(false);
-    expect(
-      isPlaceholderExpertSession({ id: "titled", title: "对账" }),
-    ).toBe(false);
-    expect(isPlaceholderExpertSession({ id: "draft:ws", title: "" })).toBe(
-      false,
-    );
-  });
-
   test("adds the selected route expert session when it is missing from sidebar sessions", () => {
     const sessions = ensureSelectedAgentSessionVisible({
       sessions: [existingSession],

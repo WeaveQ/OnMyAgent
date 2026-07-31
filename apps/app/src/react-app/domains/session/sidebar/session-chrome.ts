@@ -17,7 +17,6 @@ export {
   ensureAgentSessionsVisible,
   ensureSelectedAgentSessionGroupVisible,
   ensureSelectedAgentSessionVisible,
-  isPlaceholderExpertSession,
 } from "./agent-session-visibility";
 
 export {
@@ -49,7 +48,6 @@ export {
 export type { ExpertListOrderItem } from "./expert-list-order";
 
 export {
-  clearExpertSessionSelection,
   readExpertSessionSelection,
   resolveExpertSessionSelection,
   writeExpertSessionSelection,
