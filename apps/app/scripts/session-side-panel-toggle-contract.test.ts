@@ -32,11 +32,15 @@ describe("right side panel toggle contract", () => {
       "apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
     );
 
-    // Header base chrome; bottom rule is optional so expanded session tabs
-    // can own the single divider (avoid double lines).
+    // Header base chrome shares list-lane h-14 (sidebar-chrome); bottom rule is
+    // optional so expanded session tabs can own the single divider.
     expect(surfaceChromeBarrel).toContain("./chrome/session-surface-header");
+    expect(surfaceHeader).toContain("LIST_LANE_HEADER_CLASS");
     expect(surfaceHeader).toContain(
-      '"flex h-14 shrink-0 items-center justify-between bg-dls-background px-5"',
+      'from "@/components/ui/sidebar-chrome"',
+    );
+    expect(surfaceHeader).toContain(
+      '"justify-between bg-dls-background px-5"',
     );
     expect(surfaceHeader).toContain("showBottomBorder?: boolean");
     expect(surfaceHeader).toContain(
