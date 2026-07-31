@@ -32,6 +32,8 @@ colors:
     # soft brand wash for selected sidebar rows
     rail-active: "#EAF2FF"
     rail-hover: "#E2E2E2"
+    # Free-float chip hover base hue — CSS applies 5% mix (index.css).
+    rail-pill-hover: "#000000"
     border: "#E5E7EB"
     border-strong: "#CBD5E1"
     # Neutral grays — the earlier blue-tinted pair (#EEF4FF / #DDEBFF)
@@ -80,9 +82,11 @@ colors:
     sidebar: "#2A2A2A"
     rail-bg: "#141414"
     # Free-float rail pill + sidebar row active — must clear rail-bg #141414
-    # (#2E2E2E was near-invisible). Mac glass uses white 14% mix instead (index.css).
+    # (#2E2E2E was near-invisible). Mac glass remixes the same base hex.
     rail-active: "#404040"
     rail-hover: "#2A2A2A"
+    # Free-float chip hover base hue — CSS applies 5% mix (index.css).
+    rail-pill-hover: "#FFFFFF"
     border: "#3A3A3A"
     border-strong: "#4A4A4A"
     hover: "#323232"
@@ -521,9 +525,11 @@ components:
       # Active distinction is the pill surface, not a greyer idle glyph.
       idle-text: "{colors.text-primary}"
       active-text: "{colors.text-primary}"
-      width: 68                                       # w-[68px] rail column
-      pill-width: 48                                  # w-12 free-float chip
+      width: 68                                       # --dls-rail-width / w-rail
+      pill-width: 48                                  # --dls-rail-pill-width / w-rail-pill
       item-gap: 10                                    # gap-2.5
+      # Hover wash: 5% of colors.rail-pill-hover via --dls-rail-pill-hover
+      pill-hover-alpha: 0.05
     # Full-width outline create in list lanes (home 新建任务 / automation 添加).
     # Button size="sidebar-cta" + shared SIDEBAR_PRIMARY_CTA_CLASS surface overrides
     # (components/ui/sidebar-chrome.ts).

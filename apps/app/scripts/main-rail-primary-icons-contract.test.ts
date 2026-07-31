@@ -14,10 +14,10 @@ describe("main rail primary icon contract", () => {
       "utf8",
     );
 
-    // 68px column (+4px over classic w-16) for even free-float chip air.
-    expect(railSource).toContain("w-[68px] shrink-0");
+    // Named rail width token (--dls-rail-width via w-rail), not arbitrary 68px.
+    expect(railSource).toContain("w-rail shrink-0");
     expect(railSource).toContain("flex-1 flex-col items-center gap-2.5");
-    expect(railSource).not.toContain("w-12 shrink-0");
+    expect(railSource).not.toContain("w-[68px]");
   });
 
   test("top rail entries use unified Lucide outline icons (stroke language)", () => {
