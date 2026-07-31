@@ -1,7 +1,7 @@
 {
   "name": "order-dispatch-specialist",
   "version": "1.0.0",
-  "description": "Organize customer shipment details, find missing information, work out freight quotes, and catch order mistakes",
+  "description": "Organize customer shipment details for linehaul, city delivery, cold chain and 3PL, find missing information, work out freight quotes, and catch order mistakes",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
@@ -15,22 +15,22 @@
   ],
   "displayName": {
     "en": "Order & Dispatch Specialist",
-    "zh": "接单报价客服"
+    "zh": "货运客服专家"
   },
   "profession": {
     "en": "Order Entry & Freight Quoting",
-    "zh": "接单报价客服"
+    "zh": "货运客服专家"
   },
   "displayDescription": {
-    "en": "Organize customer chats and files into a clear shipment sheet, find missing details, work out a quote, and catch order mistakes before dispatch.",
-    "zh": "把客户发来的聊天、截图和文件整理成清楚的发货表，找出还缺什么，帮你计算怎么报价，并在交给调度前检查订单有没有写错。"
+    "en": "For linehaul, city delivery, cold chain and 3PL teams: organize customer chats and files into a clear shipment sheet, find missing details, work out a quote, and catch order mistakes before dispatch.",
+    "zh": "面向专线、干线、城配、冷链和 3PL：把客户聊天、截图和文件整理成发货表，检查还缺什么，帮你计算怎么报价，并核对订单有没有写错。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
   "categoryIds": ["01-OPC", "14-Logistics"],
   "defaultInitPrompt": {
-    "zh": "这些是客户发来的聊天、截图和表格：XX。请帮我整理成一张清楚的发货表，按这个模板填写：XX，并标出看不清或前后对不上的内容。",
-    "en": "Here are customer chats, screenshots, and sheets: XX. Organize them into one clear shipment sheet using template XX, and flag unclear or conflicting details."
+    "zh": "这些是客户发来的聊天、截图和表格：XX。请帮我整理成一张清楚的发货表，按这个模板填写：XX，并标出看不清或前后对不上的内容；如有冷链、城配多点或专线班期要求也一并整理。",
+    "en": "Here are customer chats, screenshots, and sheets: XX. Organize them into one clear shipment sheet using template XX, flag unclear or conflicting details, and capture cold-chain, multi-stop, or linehaul schedule requirements if present."
   },
   "tags": [
     { "zh": "整理发货信息", "en": "Organize Shipment Details" },
@@ -40,25 +40,25 @@
   ],
   "quickPrompts": [
     {
-      "zh": "这些是客户发来的聊天、截图和表格：XX。请帮我整理成一张清楚的发货表，按这个模板填写：XX，并标出看不清或前后对不上的内容。",
-      "en": "Here are customer chats, screenshots, and sheets: XX. Organize them into one clear shipment sheet using template XX, and flag unclear or conflicting details."
+      "zh": "这些是客户发来的聊天、截图和表格：XX。请帮我整理成一张清楚的发货表，按这个模板填写：XX，并标出看不清或前后对不上的内容；如有冷链、城配多点或专线班期要求也一并整理。",
+      "en": "Here are customer chats, screenshots, and sheets: XX. Organize them into one clear shipment sheet using template XX, flag unclear or conflicting details, and capture cold-chain, multi-stop, or linehaul schedule requirements if present."
     },
     {
-      "zh": "请看看这些发货信息 XX 还缺什么、哪里说不清或前后对不上，并写一段我可以直接发给客户补问的话。",
-      "en": "Check shipment details XX for missing, unclear, or conflicting information, and draft one message I can send to the customer."
+      "zh": "请看看这些发货信息 XX 还缺什么、哪里说不清或前后对不上，重点检查冷链温度、城配时间窗和专线班期，并写一段我可以直接发给客户补问的话。",
+      "en": "Check shipment details XX for missing, unclear, or conflicting information, prioritize cold-chain temperature, multi-stop time windows, and linehaul schedules, and draft one message I can send to the customer."
     },
     {
-      "zh": "请根据这票货和线路 XX，对比公司的成本、最低可报价格、合同价和准备报给客户的价格 XX，算出大概能赚多少并建议怎么报价。",
-      "en": "For shipment and route XX, compare company cost, minimum acceptable price, contract price, and planned customer price XX, then estimate profit and suggest a quote."
+      "zh": "请根据这票货和线路 XX，对比公司的成本、最低可报价格、合同价和准备报给客户的价格 XX，算清冷链或城配附加费后，给出大概能赚多少和报价建议。",
+      "en": "For shipment and route XX, compare company cost, minimum acceptable price, contract price, and planned customer price XX, include cold-chain or multi-stop surcharges, then estimate profit and suggest a quote."
     },
     {
-      "zh": "请把客户确认内容、报价、合同和订单 XX 放在一起检查，找出价格、地址、时间或服务内容对不上的地方。",
-      "en": "Compare customer confirmation, quote, contract, and order XX, and find differences in price, address, timing, or service."
+      "zh": "请把客户确认内容、报价、合同和订单 XX 放在一起检查，找出价格、地址、时间、温控或多点服务对不上的地方。",
+      "en": "Compare customer confirmation, quote, contract, and order XX, and find differences in price, address, timing, temperature control, or multi-stop service."
     }
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "我是接单报价客服。客户发来的聊天、截图、表格、报价和合同，都可以直接发给我。我能帮你把发货信息理清楚、找出还缺什么、算一算怎么报价，也能在交给调度前检查订单。说说看，今天有什么接单或报价上的事儿需要处理？",
-    "en": "I am your Order & Quote Specialist. Send me customer chats, screenshots, sheets, quotes, or contracts. I can sort out shipment details, find what is missing, work out a quote, and check the order before dispatch. Tell me, what order or quoting work do you need help with today?"
+    "zh": "你好！🚚 我是你的货运客服专家，擅长帮专线、干线、城配、冷链和 3PL 把客户发货信息理清楚。\n\n无论是整理客户聊天和文件、检查还缺什么、算报价、核对订单，还是处理冷链温控、专线时效、城配多点，我都能接着干。\n\n手头有聊天、截图或表格的话直接丢过来；也可以说下今天要处理哪票货。",
+    "en": "I am your Order & Quote Specialist for linehaul, city delivery, cold chain, and 3PL. Send me customer chats, screenshots, sheets, quotes, or contracts — I can sort out shipment details, find what is missing, work out a quote, and check the order. What order or quoting work do you need help with today?"
   }
 }

@@ -51,6 +51,7 @@ export default {
   "session.expert_self_intro_prompt_title": "Explore my capabilities",
   "session.expert_self_intro_prompt_description": "Capabilities, use cases, and how to get started",
   "session.expert_self_intro_prompt": "Explain what you can do, when to use each capability, and how I should use it (what information to provide and what result to expect).",
+  "session.logistics_expert_self_intro_prompt": "Introduce yourself naturally in three short paragraphs, like a new teammate in the logistics department: greet me and say who you are and what you do best; summarize the everyday work you can help with; then ask what related work I need handled today. Reply directly in the conversation and wait for the specific task.",
   "session.try_ask_expert": "Try asking",
   "session.summon": "Summon",
   "session.summon_expert": "Summon {name}",

@@ -390,7 +390,7 @@ describe("deriveOpenTargets", () => {
     ] satisfies UIMessage[];
     const verified = [{
       ...fileTarget(
-        "/Users/demo/work/接单报价客服/1785423406407/发货需求与报价补充.xlsx",
+        "/Users/demo/work/货运客服专家/1785423406407/发货需求与报价补充.xlsx",
       ),
       exists: true,
       size: 7_884,

@@ -24,8 +24,8 @@ describe("fulfillment specialist expert contract", () => {
     expect(JSON.parse(readExpertFile(".onmyagent-plugin/plugin.json"))).toEqual(
       manifest,
     );
-    expect(manifest.displayName.zh).toBe("物流管理员");
-    expect(manifest.profession.zh).toBe("物流管理员");
+    expect(manifest.displayName.zh).toBe("物流运输专家");
+    expect(manifest.profession.zh).toBe("物流运输专家");
     expect(manifest.skills).toEqual([
       "./skills/transit-update-structuring",
       "./skills/customer-update-drafting",

@@ -16,11 +16,11 @@
   ],
   "displayName": {
     "en": "Fleet Management Specialist",
-    "zh": "车队管理员"
+    "zh": "车队管理专家"
   },
   "profession": {
     "en": "Fleet Dispatch & Readiness",
-    "zh": "车队管理员"
+    "zh": "车队管理专家"
   },
   "displayDescription": {
     "en": "Organize vehicle and driver records, recommend suitable vehicles, catch missing dispatch details, draft driver tasks, and find excessive empty trips or waiting.",
@@ -59,7 +59,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "我是车队管理员。订单、车辆司机表、证件和趟次记录，都可以直接发给我。我能帮你整理车队资料、挑合适的车、做派车前检查、写司机任务，也能看看哪些车空跑或等得太久。说说看，今天有什么车队或派车上的事儿需要处理？",
+    "zh": "你好！🚚 我是你的车队管理专家，擅长把车辆、司机和派车安排管得清清楚楚。\n\n无论是整理车辆司机资料、检查证件期限、按订单挑车、派车前查遗漏、写司机任务，还是分析空跑和等待，我都能帮你搞定。\n\n说说看，今天有什么车队或派车上的事儿需要处理？",
     "en": "I am your Fleet Manager. Send me orders, vehicle and driver sheets, credentials, or trip records. I can organize fleet records, pick suitable vehicles, check a dispatch before it goes out, draft driver tasks, and spot wasted trips or long waits. Tell me, what fleet or dispatch work do you need help with today?"
   }
 }
