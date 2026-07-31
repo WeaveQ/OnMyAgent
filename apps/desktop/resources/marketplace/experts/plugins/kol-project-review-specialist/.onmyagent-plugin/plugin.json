@@ -1,0 +1,83 @@
+{
+  "name": "kol-project-review-specialist",
+  "version": "1.0.0",
+  "description": "Project review specialist for review frameworks, margin/effect analysis, data prep, and report risk checks",
+  "author": {
+    "name": "Expert Marketplace"
+  },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "kol-project-review-specialist",
+  "agents": [
+    "./agents/kol-project-review-specialist.md"
+  ],
+  "skills": [
+    "./skills/kol-project-review-framework",
+    "./skills/kol-margin-effect-analysis",
+    "./skills/kol-data-clean-merge",
+    "./skills/kol-content-risk-checklist"
+  ],
+  "displayName": {
+    "en": "Project Review Specialist",
+    "zh": "项目复盘专家"
+  },
+  "profession": {
+    "en": "Campaign Review & Effect Analysis",
+    "zh": "项目复盘专家"
+  },
+  "displayDescription": {
+    "en": "Build review frameworks, analyze margin and effect in three layers, clean review data, and check report gaps.",
+    "zh": "面向达人项目结案：复盘框架生成、毛利与效果三层分析、复盘前数据清洗合并，以及复盘报告风控遗漏检查。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "15-CreatorOps",
+  "categoryIds": [
+    "01-OPC",
+    "15-CreatorOps"
+  ],
+  "defaultInitPrompt": {
+    "zh": "这是项目数据与执行材料：XX。请按我们的复盘模板（如有）生成框架或毛利效果分析，缺数标待补。",
+    "en": "Here are project materials: XX. Build a review framework or margin/effect analysis using our template if provided; mark missing data."
+  },
+  "tags": [
+    {
+      "zh": "复盘框架",
+      "en": "Review Framework"
+    },
+    {
+      "zh": "毛利效果",
+      "en": "Margin & Effect"
+    },
+    {
+      "zh": "数据清洗",
+      "en": "Data Cleanup"
+    },
+    {
+      "zh": "报告检查",
+      "en": "Report Check"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "请根据 <项目目标、执行过程、数据与客户反馈>，按 <复盘模板> 生成完整复盘框架（背景、目标完成、亮点、问题、原因、优化建议）。",
+      "en": "From <Goals, execution, data, feedback>, build a full review using <Review template>."
+    },
+    {
+      "zh": "请用 <收入、K金额、广告金额、返点、其他成本与效果数据> 做纯K前端、投流潜力、总投入效果三层分析，给出结论与风险；模板：<可选>。",
+      "en": "Using <Revenue, K cost, ads, rebate, other costs, effect data>, analyze pure-K, amplification potential, and total-investment effect with risks."
+    },
+    {
+      "zh": "请把这些 <复盘相关多表> 清洗合并，按 <对齐字段> 去重统一格式，并输出基础可量化指标，方便写复盘。",
+      "en": "Clean/merge <Review-related sheets> by <Join keys> and output basic metrics for the review."
+    },
+    {
+      "zh": "请检查这份 <复盘报告> 的风险与遗漏项，按 <检查清单> 列出问题与修改建议。",
+      "en": "Risk-check <Review report> against <Checklist> and list issues with fixes."
+    }
+  ],
+  "promptTemplates": "./prompt-templates.json",
+  "greeting": {
+    "zh": "你好！📊 我是你的项目复盘专家，帮达人项目把结案总结和效果分析做扎实。\n\n无论是生成复盘框架、做毛利与效果三层分析、清洗合并复盘数据，还是检查复盘报告有没有漏项，我都能帮你搞定。\n\n手头有项目数据、反馈或你们复盘模板直接丢过来。",
+    "en": "Hi! I am your project review specialist. I build review frameworks, analyze margin/effect, clean data, and check report gaps. Drop data or your template to start."
+  }
+}
