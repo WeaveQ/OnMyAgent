@@ -5,6 +5,7 @@ import {
   buildFileHierarchy,
   buildWorkspaceFileTree,
   filterHiddenFromTree,
+  pruneEmptyDirectoriesFromTree,
   filterWorkspaceFileTree,
   findWorkspaceFileNode,
   formatWorkspaceFileSize,
@@ -94,44 +95,65 @@ describe("session page files model", () => {
       .toEqual(["task"]);
   });
 
+  test("prunes empty session dirs that only had hidden markers", () => {
+    const tree = buildWorkspaceFileTree([
+      entry("experts/短途/1785215025659/onmyagent-session.json"),
+      entry("experts/短途/1785214357010/onmyagent-session.json"),
+      entry("experts/短途/with-files/report.md"),
+      entry("experts/other-empty/999/onmyagent-session.json"),
+    ]);
+    const visible = pruneEmptyDirectoriesFromTree(filterHiddenFromTree(tree));
+    const experts = visible.children.find((c) => c.name === "experts");
+    expect(experts?.children.map((c) => c.name)).toEqual(["短途"]);
+    const short = experts?.children.find((c) => c.name === "短途");
+    expect(short?.children.map((c) => c.name)).toEqual(["with-files"]);
+    expect(short?.children[0]?.children.map((c) => c.name)).toEqual(["report.md"]);
+  });
+
   test("builds session mention targets for bare and searched @ queries", () => {
     const entries = [
-      entry("报价", "dir"),
-      entry("报价/历史 方案", "dir"),
-      entry("报价/历史 方案/报价单 XX.xlsx"),
-      entry("物流单", "dir"),
-      entry("README.md"),
+      entry("uploads/台账.xlsx"),
+      entry("experts/报价作业-quote-specialist/1785/报价单.xlsx"),
+      entry("tasks/自动化任务-1/任务说明.md"),
+      entry("registry.json"),
       entry(".process", "dir"),
       entry(".process/draft.json"),
       entry("onmyagent-session.json"),
     ];
 
-    expect(workspaceMentionTargets(entries, "")).toEqual([
-      { path: "报价", kind: "directory" },
-      { path: "物流单", kind: "directory" },
-      { path: "README.md", kind: "file" },
+    // Empty @: product three-source roots only (no disk dump / system files).
+    const root = workspaceMentionTargets(entries, "");
+    expect(root.map((item) => item.path)).toEqual([
+      "uploads",
+      "tasks",
+      "experts",
     ]);
-    expect(workspaceMentionTargets(entries, "历史")).toEqual([
-      { path: "报价/历史 方案", kind: "directory" },
-      { path: "报价/历史 方案/报价单 XX.xlsx", kind: "file" },
-    ]);
+    expect(root.every((item) => item.kind === "directory")).toBe(true);
+    expect(root[0]?.label).toBeTruthy();
+
+    const quoteHits = workspaceMentionTargets(entries, "报价");
+    expect(quoteHits.some((item) => item.path.includes("报价单.xlsx"))).toBe(
+      true,
+    );
+    expect(quoteHits.some((item) => item.path === "registry.json")).toBe(false);
+
     expect(workspaceMentionTargets(entries, "process")).toEqual([]);
   });
 
   test("builds sorted direct-child targets for @ folder browsing", () => {
-    expect(
-      workspaceDirectoryTargets([
-        entry("物流单/回单.pdf"),
-        entry("物流单/历史", "dir"),
-        entry("物流单/.secret"),
-        entry("物流单/opencode.jsonc"),
-        entry("物流单/运单.xlsx"),
-      ]),
-    ).toEqual([
-      { path: "物流单/历史", kind: "directory" },
-      { path: "物流单/回单.pdf", kind: "file" },
-      { path: "物流单/运单.xlsx", kind: "file" },
+    const targets = workspaceDirectoryTargets([
+      entry("物流单/回单.pdf"),
+      entry("物流单/历史", "dir"),
+      entry("物流单/.secret"),
+      entry("物流单/opencode.jsonc"),
+      entry("物流单/运单.xlsx"),
     ]);
+    expect(targets.map((item) => item.path)).toEqual([
+      "物流单/历史",
+      "物流单/回单.pdf",
+      "物流单/运单.xlsx",
+    ]);
+    expect(targets.every((item) => item.label)).toBe(true);
   });
 
   test("groups root, agent, and task files for the workspace file hierarchy", () => {

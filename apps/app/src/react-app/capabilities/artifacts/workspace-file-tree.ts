@@ -93,6 +93,48 @@ export function compareWorkspaceFileNodes(
   return sign * a.name.localeCompare(b.name);
 }
 
+/**
+ * Task tab top-level rank: user spaces (projects/) first, other folders next,
+ * automation runs (自动化任务-*) last — then apply the normal sort key.
+ */
+export function taskSourceBucketRank(node: WorkspaceFileTreeNode): number {
+  const path = node.path.replace(/\\/g, "/").replace(/^\/+/, "");
+  const name = node.name.trim();
+  if (path === "projects" || path.startsWith("projects/")) return 0;
+  if (
+    name.startsWith("自动化任务-") ||
+    /(?:^|\/)自动化任务-/.test(path)
+  ) {
+    return 2;
+  }
+  return 1;
+}
+
+export function compareTaskSourceNodes(
+  a: WorkspaceFileTreeNode,
+  b: WorkspaceFileTreeNode,
+  key: WorkspaceFileSortKey,
+  dir: WorkspaceFileSortDir,
+): number {
+  const byBucket = taskSourceBucketRank(a) - taskSourceBucketRank(b);
+  if (byBucket !== 0) return byBucket;
+  return compareWorkspaceFileNodes(a, b, key, dir);
+}
+
+/** Like sortWorkspaceFileTreeCopy but keeps projects/spaces above automation runs. */
+export function sortTaskSourceTreeCopy(
+  node: WorkspaceFileTreeNode,
+  key: WorkspaceFileSortKey,
+  dir: WorkspaceFileSortDir,
+): WorkspaceFileTreeNode {
+  return {
+    ...node,
+    children: node.children
+      .map((child) => sortTaskSourceTreeCopy(child, key, dir))
+      .sort((a, b) => compareTaskSourceNodes(a, b, key, dir)),
+  };
+}
+
 function sortWorkspaceFileTree(
   node: WorkspaceFileTreeNode,
   key: WorkspaceFileSortKey = "name",
@@ -167,6 +209,37 @@ export function filterHiddenFromTree(
       if ((child.mtimeMs || 0) > mtimeMs) mtimeMs = child.mtimeMs;
     }
     if (filteredChildren.length > 0) next.size = size;
+    if (mtimeMs > 0) next.mtimeMs = mtimeMs;
+  }
+  return next;
+}
+
+/**
+ * Drop directories that have no remaining visible children.
+ * Hides empty expert session folders (marker-only) and empty intermediate paths.
+ * Workspace root (path "") is always kept so the page can show an empty state.
+ */
+export function pruneEmptyDirectoriesFromTree(
+  node: WorkspaceFileTreeNode,
+): WorkspaceFileTreeNode {
+  if (node.kind === "file") return node;
+
+  const children = node.children
+    .map((child) => pruneEmptyDirectoriesFromTree(child))
+    .filter((child) => {
+      if (child.kind === "file") return true;
+      return child.children.length > 0;
+    });
+
+  const next: WorkspaceFileTreeNode = { ...node, children };
+  if (next.kind === "dir" && children.length > 0) {
+    let size = 0;
+    let mtimeMs = next.mtimeMs || 0;
+    for (const child of children) {
+      size += Math.max(0, child.size || 0);
+      if ((child.mtimeMs || 0) > mtimeMs) mtimeMs = child.mtimeMs;
+    }
+    next.size = size;
     if (mtimeMs > 0) next.mtimeMs = mtimeMs;
   }
   return next;

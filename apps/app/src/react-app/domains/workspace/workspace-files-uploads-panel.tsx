@@ -23,7 +23,10 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { typeScale } from "@/react-app/design-system/type-scale";
-import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import {
+  OnMyAgentServerError,
+  type OnMyAgentServerClient,
+} from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 import { formatWorkspaceFileSize, formatWorkspaceFileTime } from "../../capabilities/artifacts/workspace-file-tree";
@@ -33,6 +36,53 @@ import {
   mapInboxItemsToUploadRows,
   type UserUploadRow,
 } from "./workspace-files-model";
+
+/** Matches server DEFAULT_INBOX_MAX_BYTES (local precheck before upload). */
+const CLIENT_INBOX_MAX_BYTES_DEFAULT = 200_000_000;
+
+function readUploadLimitDetails(error: unknown): {
+  maxBytes?: number;
+  size?: number;
+} {
+  if (!(error instanceof OnMyAgentServerError) || !error.details || typeof error.details !== "object") {
+    return {};
+  }
+  const details = error.details as { maxBytes?: unknown; size?: unknown };
+  return {
+    maxBytes:
+      typeof details.maxBytes === "number" && Number.isFinite(details.maxBytes)
+        ? details.maxBytes
+        : undefined,
+    size:
+      typeof details.size === "number" && Number.isFinite(details.size)
+        ? details.size
+        : undefined,
+  };
+}
+
+function formatUploadError(error: unknown, file?: File): string {
+  if (error instanceof OnMyAgentServerError && error.code === "file_too_large") {
+    const details = readUploadLimitDetails(error);
+    const maxBytes = details.maxBytes ?? CLIENT_INBOX_MAX_BYTES_DEFAULT;
+    const size = details.size ?? file?.size ?? 0;
+    return t("files.upload_too_large", {
+      name: file?.name?.trim() || "file",
+      size: formatWorkspaceFileSize(size),
+      max: formatWorkspaceFileSize(maxBytes),
+    });
+  }
+  if (error instanceof Error && /exceeds upload limit|file_too_large|too large/i.test(error.message)) {
+    return t("files.upload_too_large", {
+      name: file?.name?.trim() || "file",
+      size: formatWorkspaceFileSize(file?.size ?? 0),
+      max: formatWorkspaceFileSize(CLIENT_INBOX_MAX_BYTES_DEFAULT),
+    });
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return t("files.upload_failed");
+}
 
 export function WorkspaceFilesUploadsPanel(props: {
   client: OnMyAgentServerClient | null;
@@ -94,19 +144,27 @@ export function WorkspaceFilesUploadsPanel(props: {
       setUploading(true);
       setUploadNotice(null);
       setError(null);
+      let currentFile: File | undefined;
       try {
         for (const file of files) {
+          currentFile = file;
+          if (file.size > CLIENT_INBOX_MAX_BYTES_DEFAULT) {
+            setError(
+              t("files.upload_too_large", {
+                name: file.name.trim() || "file",
+                size: formatWorkspaceFileSize(file.size),
+                max: formatWorkspaceFileSize(CLIENT_INBOX_MAX_BYTES_DEFAULT),
+              }),
+            );
+            return;
+          }
           const path = buildUserUploadRelativePath(file.name);
           await props.client.uploadInbox(workspaceId, file, { path });
         }
         setUploadNotice(t("files.upload_copy_success"));
         setRefreshKey((key) => key + 1);
       } catch (uploadError) {
-        setError(
-          uploadError instanceof Error
-            ? uploadError.message
-            : t("files.upload_failed"),
-        );
+        setError(formatUploadError(uploadError, currentFile));
       } finally {
         setUploading(false);
       }
@@ -125,7 +183,9 @@ export function WorkspaceFilesUploadsPanel(props: {
     <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
       <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 max-w-xl">
-          <h1 className={typeScale.pageTitle}>{t("files.title")}</h1>
+          <h1 className={typeScale.pageTitle}>
+            {t("files.source_uploads_title")}
+          </h1>
           <p className={cn(typeScale.pageSubtitle, "mt-1")}>
             {t("files.source_uploads_desc")}
           </p>
