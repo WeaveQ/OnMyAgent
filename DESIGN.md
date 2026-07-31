@@ -398,6 +398,9 @@ buttons:
   sm:      { family: inline, height: 32, padding: "px-3", radius: lg, text: sm, use: "compact action inside cards / toolbars" }
   default: { family: inline, height: 36, padding: "px-3", radius: lg, text: sm, use: "default in-page action" }
   lg:      { family: cta,    height: 40, padding: "px-6", radius: xl, text: sm, use: "primary CTA / dialog footer" }
+  # Full-width list-lane create (新建任务 / 添加): same height as lg CTA but
+  # radius stays lg so it does not read as a sausage pill in the sidebar.
+  sidebar-cta: { family: cta-outline, height: 40, padding: "px-3", radius: lg, text: sm, width: full, use: "list-lane primary create outline" }
   icon-xs: { family: inline, size: 24, radius: lg }
   icon-sm: { family: inline, size: 32, radius: lg }
   icon:    { family: inline, size: 36, radius: lg }
@@ -515,6 +518,17 @@ components:
       active-text: "{colors.text-primary}"
       width: 64                                       # w-16 rail column
       pill-width: 56                                  # w-14 free-float chip
+    # Full-width outline create in list lanes (home 新建任务 / automation 添加).
+    # Button size="sidebar-cta" + SIDEBAR_PRIMARY_CTA_CLASS surface overrides.
+    sidebar-primary-cta:
+      height: "{spacing.button-heights.lg}"          # 40 (h-10)
+      radius: "{rounded.lg}"                          # 10 — tighter than pill xl
+      width: full
+      surface: "{colors.surface-solid}"
+      border: "{colors.border}"
+      text: "{typography.scale.sm}"                   # 14
+      hover-surface: "{colors.hover}"
+      header-height: "{spacing.button-heights.chrome}" # 48→56 h-14 strip
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40
