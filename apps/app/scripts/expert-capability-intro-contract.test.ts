@@ -159,6 +159,8 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
     "冷链",
     "3PL",
     "在途",
+    "送达风险",
+    "路况",
     "签收回单",
     "异常",
     "物流运输专家",
