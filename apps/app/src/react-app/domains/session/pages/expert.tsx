@@ -451,20 +451,13 @@ export function ExpertPage(props: ExpertPageProps) {
     const workspaceId = props.sidebar.selectedWorkspaceId?.trim();
     if (!workspaceId) return;
 
-    // Valid selection = expert session bound to a summoned agent (left list).
+    // Lock: never steal focus while an expert session is already selected.
+    // List recency thrash / brief agent-binding gaps must not jump to
+    // conversationGroups[0].latestSession (that was reordering tabs too).
     const selectedId = props.selectedSessionId?.trim() ?? "";
-    const selectedAgentId = selectedId
-      ? readCustomAgentIdForSession(selectedId)
-      : null;
-    const hasValidSummonedSelection = Boolean(
-      selectedId &&
-        isExpertSession(selectedId) &&
-        selectedAgentId &&
-        conversationGroups.some((group) => group.agentId === selectedAgentId),
-    );
-    if (hasValidSummonedSelection) return;
+    if (selectedId && isExpertSession(selectedId)) return;
 
-    // Prefer first summoned expert in the left list.
+    // Prefer first summoned expert in the left list only when nothing selected.
     const firstSummonedSession = conversationGroups[0]?.latestSession;
     if (firstSummonedSession?.id) {
       props.sidebar.onOpenSession(workspaceId, firstSummonedSession.id);
