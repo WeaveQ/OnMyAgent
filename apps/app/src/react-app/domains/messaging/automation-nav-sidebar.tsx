@@ -221,16 +221,16 @@ export function AutomationNavSidebar(props: {
                     "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors",
                     active
                       ? "bg-dls-list-selected font-medium text-dls-text"
-                      : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                      : "text-dls-text hover:bg-dls-hover",
                   )}
                 >
-                  <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
+                  <Icon className="size-4 shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {typeof item.count === "number" ? (
                     <span
                       className={cn(
                         "tabular-nums text-xs font-medium",
-                        active ? "opacity-70" : "text-dls-secondary",
+                        active ? "opacity-70" : "text-dls-text",
                       )}
                     >
                       {item.count}
