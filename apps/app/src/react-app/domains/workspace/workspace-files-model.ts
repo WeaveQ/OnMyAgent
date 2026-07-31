@@ -473,7 +473,7 @@ export type FilesSourceTab = "uploads" | "task" | "expert";
  */
 export type FilesSourceRailTab = FilesSourceTab | "project";
 
-/** Default tab when opening Files (product: 我的 / uploads). */
+/** Default tab when opening Files (product: Mine / uploads). */
 export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "uploads";
 
 export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
@@ -482,7 +482,7 @@ export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
   "expert",
 ] as const;
 
-/** Full rail order: 我的 · 任务 · 专家 · 项目(待开放). */
+/** Full rail order: Mine · Tasks · Experts · Projects (coming soon). */
 export const FILES_SOURCE_RAIL_TABS: readonly FilesSourceRailTab[] = [
   "uploads",
   "task",
@@ -551,8 +551,8 @@ export function isLikelyExpertAgentFolderName(
     // Long slug after any prefix
     if (slug.split("-").length >= 3) return true;
   }
-  // Display names that end with 专家 (common marketplace naming)
-  if (/专家$/.test(n) && n.length >= 4) return true;
+  // Display names that end with "expert" character pair (marketplace naming).
+  if (/\u4e13\u5bb6$/.test(n) && n.length >= 4) return true;
   return false;
 }
 
@@ -714,7 +714,7 @@ export function filesSourceTabLabelKey(tab: FilesSourceRailTab): string {
   }
 }
 
-/** Page h1 under the rail pills: 我的文件 / 任务文件 / 专家文件. */
+/** Page h1 under the rail pills (Mine / Task / Expert files). */
 export function filesSourceTabTitleKey(tab: FilesSourceTab): string {
   switch (tab) {
     case "uploads":

@@ -15,7 +15,7 @@ describe("workspace files page navigation", () => {
     );
 
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
-    expect(source).toContain("FILES_SOURCE_TABS");
+    expect(source).toContain("FILES_SOURCE_RAIL_TABS");
     expect(source).toContain('activeTab === "uploads"');
     expect(source).toContain("WorkspaceFilesUploadsPanel");
     expect(source).toContain("WorkspaceFilesBrowserPanel");

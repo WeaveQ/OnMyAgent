@@ -95,18 +95,20 @@ export function compareWorkspaceFileNodes(
 
 /**
  * Task tab top-level rank: user spaces (projects/) first, other folders next,
- * automation runs (自动化任务-*) last — then apply the normal sort key.
+ * automation runs last — then apply the normal sort key.
+ * Automation prefix is the product disk name for scheduled runs (see layout helper).
  */
-export function taskSourceBucketRank(node: WorkspaceFileTreeNode): number {
+export function taskSourceBucketRank(
+  node: WorkspaceFileTreeNode,
+  isAutomationFolder: (name: string) => boolean,
+): number {
   const path = node.path.replace(/\\/g, "/").replace(/^\/+/, "");
   const name = node.name.trim();
   if (path === "projects" || path.startsWith("projects/")) return 0;
-  if (
-    name.startsWith("自动化任务-") ||
-    /(?:^|\/)自动化任务-/.test(path)
-  ) {
-    return 2;
-  }
+  if (isAutomationFolder(name)) return 2;
+  // Nested path segments may still be automation run folders.
+  const segments = path.split("/").filter(Boolean);
+  if (segments.some((segment) => isAutomationFolder(segment))) return 2;
   return 1;
 }
 
@@ -115,8 +117,11 @@ export function compareTaskSourceNodes(
   b: WorkspaceFileTreeNode,
   key: WorkspaceFileSortKey,
   dir: WorkspaceFileSortDir,
+  isAutomationFolder: (name: string) => boolean,
 ): number {
-  const byBucket = taskSourceBucketRank(a) - taskSourceBucketRank(b);
+  const byBucket =
+    taskSourceBucketRank(a, isAutomationFolder) -
+    taskSourceBucketRank(b, isAutomationFolder);
   if (byBucket !== 0) return byBucket;
   return compareWorkspaceFileNodes(a, b, key, dir);
 }
@@ -126,12 +131,13 @@ export function sortTaskSourceTreeCopy(
   node: WorkspaceFileTreeNode,
   key: WorkspaceFileSortKey,
   dir: WorkspaceFileSortDir,
+  isAutomationFolder: (name: string) => boolean,
 ): WorkspaceFileTreeNode {
   return {
     ...node,
     children: node.children
-      .map((child) => sortTaskSourceTreeCopy(child, key, dir))
-      .sort((a, b) => compareTaskSourceNodes(a, b, key, dir)),
+      .map((child) => sortTaskSourceTreeCopy(child, key, dir, isAutomationFolder))
+      .sort((a, b) => compareTaskSourceNodes(a, b, key, dir, isAutomationFolder)),
   };
 }
 

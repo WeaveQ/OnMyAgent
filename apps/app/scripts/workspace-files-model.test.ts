@@ -119,22 +119,19 @@ describe("folder display names", () => {
 
 describe("task tab sort buckets", () => {
   test("ranks projects/spaces above automation runs", () => {
+    const isAuto = (name: string) => name.startsWith("auto-run-");
     const space = dir("demo", "projects/demo", []);
-    const auto = dir(
-      "自动化任务-2026-07-31-12-42-47",
-      "tasks/自动化任务-2026-07-31-12-42-47",
-      [],
-    );
+    const auto = dir("auto-run-2026-07-31", "tasks/auto-run-2026-07-31", []);
     const other = dir("notes", "tasks/notes", []);
-    expect(taskSourceBucketRank(space)).toBe(0);
-    expect(taskSourceBucketRank(other)).toBe(1);
-    expect(taskSourceBucketRank(auto)).toBe(2);
+    expect(taskSourceBucketRank(space, isAuto)).toBe(0);
+    expect(taskSourceBucketRank(other, isAuto)).toBe(1);
+    expect(taskSourceBucketRank(auto, isAuto)).toBe(2);
     // Even when auto is newer, space sorts first.
     space.mtimeMs = 1;
     auto.mtimeMs = 99;
-    expect(compareTaskSourceNodes(space, auto, "updated", "desc")).toBeLessThan(
-      0,
-    );
+    expect(
+      compareTaskSourceNodes(space, auto, "updated", "desc", isAuto),
+    ).toBeLessThan(0);
   });
 });
 

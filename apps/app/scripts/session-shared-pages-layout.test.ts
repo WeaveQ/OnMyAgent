@@ -40,7 +40,7 @@ describe("session shared page layouts", () => {
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
 
-    expect(filesPage).toContain("FILES_SOURCE_TABS");
+    expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
     expect(filesPage).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
     expect(filesPage).toContain("WorkspaceFilesBrowserPanel");

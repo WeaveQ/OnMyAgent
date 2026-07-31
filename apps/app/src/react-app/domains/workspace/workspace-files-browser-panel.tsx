@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 /**
- * Workspace catalog browser — used under 任务文件 for historical compatibility
+ * Workspace catalog browser — used under Task files for historical compatibility
  * until write-time provenance (P1) can filter assistant_task vs expert.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -122,6 +122,7 @@ import {
   filterWorkspaceTreeBySourceTab,
   formatWorkspaceFolderDisplayName,
   getFileCategory,
+  isAutomationTaskFolderName,
   relativeDisplayPath,
   usesLocalFileRenderer,
   type FileCategory,
@@ -867,9 +868,14 @@ export function WorkspaceFilesBrowserPanel(props: {
       ...bySource,
       children: [],
     };
-    // Task tab: keep user spaces (projects/) above 自动化任务-* runs.
+    // Task tab: keep user spaces (projects/) above automation runs.
     if (sourceTab === "task") {
-      return sortTaskSourceTreeCopy(filtered, sortKey, sortDir);
+      return sortTaskSourceTreeCopy(
+        filtered,
+        sortKey,
+        sortDir,
+        isAutomationTaskFolderName,
+      );
     }
     return sortWorkspaceFileTreeCopy(filtered, sortKey, sortDir);
   }, [
