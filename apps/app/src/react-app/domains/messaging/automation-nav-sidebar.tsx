@@ -1,15 +1,54 @@
 /** @jsxImportSource react */
 /**
  * Option-B left column for the primary-rail Automation workspace.
- * Not assistant sessions — browse filters + create entry points only.
+ * Browse filters + create, plus the same scheduled-task run groups as home.
  */
-import { CalendarClock, History, LayoutTemplate, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  CalendarClock,
+  ChevronDown,
+  ChevronRight,
+  History,
+  LayoutTemplate,
+  Plus,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 
+/** Match home task-row trailing time (today clock / N days ago). */
+function relativeTimeLabel(value: number | null): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "";
+  const ms = value < 10_000_000_000 ? value * 1000 : value;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDelta = Math.round(
+    (today.getTime() - targetDay.getTime()) / 86_400_000,
+  );
+  if (dayDelta === 0) {
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+  if (dayDelta > 0) return t("time.days_ago", { count: dayDelta });
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 export type AutomationNavKey = "tasks" | "runs" | "templates";
+
+export type AutomationNavSessionRow = {
+  id: string;
+  title: string;
+  updatedAt: number | null;
+};
+
+export type AutomationNavGroupRow = {
+  id: string;
+  title: string;
+  sessions: AutomationNavSessionRow[];
+};
 
 export function AutomationNavSidebar(props: {
   width: number;
@@ -18,7 +57,27 @@ export function AutomationNavSidebar(props: {
   onCreate: () => void;
   taskCount?: number;
   runCount?: number;
+  /** Same scheduled-run groups as the home 定时 list. */
+  groups?: AutomationNavGroupRow[];
+  selectedSessionId?: string | null;
+  workspaceId?: string;
+  onOpenSession?: (workspaceId: string, sessionId: string) => void;
 }) {
+  const groups = props.groups ?? [];
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  // Expand first groups once they load (home 定时 list is usually open).
+  useEffect(() => {
+    if (groups.length === 0) return;
+    setExpandedIds((current) => {
+      if (current.length > 0) {
+        // Drop ids that disappeared; keep user toggles for still-present groups.
+        const next = current.filter((id) => groups.some((group) => group.id === id));
+        return next.length > 0 ? next : groups.slice(0, 3).map((group) => group.id);
+      }
+      return groups.slice(0, 3).map((group) => group.id);
+    });
+  }, [groups]);
+
   const items: Array<{
     key: AutomationNavKey;
     label: string;
@@ -43,6 +102,14 @@ export function AutomationNavSidebar(props: {
       icon: LayoutTemplate,
     },
   ];
+
+  const toggleExpanded = (groupId: string) => {
+    setExpandedIds((current) =>
+      current.includes(groupId)
+        ? current.filter((id) => id !== groupId)
+        : [...current, groupId],
+    );
+  };
 
   return (
     <aside
@@ -98,6 +165,84 @@ export function AutomationNavSidebar(props: {
             );
           })}
         </nav>
+
+        {groups.length > 0 ? (
+          <div className="mt-4">
+            <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">
+              {t("automation.tab_tasks")}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {groups.map((group) => {
+                const expanded = expandedIds.includes(group.id);
+                const groupLabel = t("automation.session_group_title", {
+                  title: group.title,
+                });
+                const Chevron = expanded ? ChevronDown : ChevronRight;
+                return (
+                  <div key={group.id} className="flex min-w-0 flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(group.id)}
+                      className="group flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover"
+                      aria-expanded={expanded}
+                    >
+                      <Chevron
+                        className="size-3.5 shrink-0 text-dls-secondary"
+                        strokeWidth={1.75}
+                        aria-hidden
+                      />
+                      <CalendarClock
+                        className="size-3.5 shrink-0 text-dls-text/55"
+                        strokeWidth={1.6}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {groupLabel}
+                      </span>
+                      <span className="tabular-nums text-[11px] text-dls-secondary">
+                        {group.sessions.length}
+                      </span>
+                    </button>
+                    {expanded
+                      ? group.sessions.map((session) => {
+                          const selected =
+                            props.selectedSessionId === session.id;
+                          return (
+                            <button
+                              key={session.id}
+                              type="button"
+                              onClick={() => {
+                                if (!props.workspaceId || !props.onOpenSession) {
+                                  return;
+                                }
+                                props.onOpenSession(
+                                  props.workspaceId,
+                                  session.id,
+                                );
+                              }}
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded-xl py-1.5 pl-8 pr-2.5 text-left text-sm transition-colors",
+                                selected
+                                  ? "bg-dls-list-selected font-medium text-dls-text"
+                                  : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                              )}
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {session.title}
+                              </span>
+                              <span className="shrink-0 tabular-nums text-[11px] text-dls-secondary">
+                                {relativeTimeLabel(session.updatedAt)}
+                              </span>
+                            </button>
+                          );
+                        })
+                      : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

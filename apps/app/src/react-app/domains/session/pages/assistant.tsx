@@ -66,6 +66,7 @@ import {
   syncAutomationSessionRecords,
   type AutomationNavKey,
 } from "../../messaging";
+import { useAutomationNavGroups } from "./use-automation-nav-groups";
 import {
   consumeAutomationFocus,
   writeAutomationFocus,
@@ -288,6 +289,13 @@ export function AssistantPage(props: AssistantPageProps) {
       props.sidebar.workspaceSessionGroups,
     ],
   );
+
+  const automationNavGroups = useAutomationNavGroups({
+    workspaceId: props.selectedWorkspaceId,
+    categoryId: assistantCategoryId,
+    sessions: assistantWorkspaceSessions,
+    enabled: isAutomationRailView(activeSidebarView),
+  });
 
   const selectedAssistantSessionDirectory =
     assistantWorkspaceSessions.find(
@@ -954,6 +962,20 @@ export function AssistantPage(props: AssistantPageProps) {
                 onCreate={() =>
                   setAutomationCreateRequestId((value) => value + 1)
                 }
+                groups={automationNavGroups}
+                selectedSessionId={props.selectedSessionId}
+                workspaceId={props.selectedWorkspaceId}
+                onOpenSession={(workspaceId, sessionId) => {
+                  addAssistantSession(sessionId);
+                  writeAssistantSessionCategory(sessionId, assistantCategoryId);
+                  writeAssistantSelectionMemory(
+                    workspaceId,
+                    assistantCategoryId,
+                    { kind: "session", sessionId },
+                  );
+                  openAssistantSessionView();
+                  props.sidebar.onOpenSession(workspaceId, sessionId);
+                }}
               />
             ) : null}
             {(activeSidebarView === "chat" ||
