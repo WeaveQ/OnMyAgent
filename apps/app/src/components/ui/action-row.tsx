@@ -229,13 +229,11 @@ const railButtonVariants = cva(
         // Active vs idle is the pill surface, not ink color — both use primary text
         // so light idle reads near-black and dark idle near-white (not slate secondary).
         true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active",
-        false:
-          "text-dls-text hover:bg-black/5 dark:hover:bg-white/5",
+        false: "text-dls-text hover:bg-dls-rail-pill-hover",
       },
       size: {
-        // Free-float chip: 48px wide (was 56) so the active pill reads slimmer
-        // in the 68px rail. Fixed width so every top item matches.
-        top: "w-12 gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
+        // Free-float chip: --dls-rail-pill-width (48) inside --dls-rail-width (68).
+        top: "w-rail-pill gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
         bottom: "size-9 gap-0.5 rounded-2xl text-2xs",
       },
     },

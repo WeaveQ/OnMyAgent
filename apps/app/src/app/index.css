@@ -383,6 +383,11 @@ select:disabled {
      chips use surface (not rail-active) in light — see DESIGN.md selection ladder. */
   --dls-rail-active: #EAF2FF;
   --dls-rail-hover: #E2E2E2;
+  /* Geometry (DESIGN.md components.contracts.rail-button). */
+  --dls-rail-width: 68px;
+  --dls-rail-pill-width: 48px;
+  /* Free-float chip hover wash (light). Dark redeclares below. */
+  --dls-rail-pill-hover: color-mix(in srgb, #000000 5%, transparent);
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
      public tokens (dls-primary / dls-danger / dls-warning / dls-mist /
      dls-text-tertiary / dls-app-bg / dls-slate / dls-success-fg) and
@@ -561,6 +566,7 @@ select:disabled {
      Must clear rail #141414 (#2E2E2E was near-invisible). DESIGN.md colors.dark. */
   --dls-rail-active: #404040;
   --dls-rail-hover: #2A2A2A;
+  --dls-rail-pill-hover: color-mix(in srgb, #ffffff 5%, transparent);
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most
      dls-* semantic aliases (dls-primary / dls-danger / dls-warning /
      dls-success-fg / dls-slate) inherit through the
@@ -1563,9 +1569,11 @@ html.onmyagent-electron.onmyagent-platform-mac[data-theme="dark"] {
   --background: transparent;
   --dls-list-selected: color-mix(in srgb, #454545 92%, transparent);
   --dls-list-hover: color-mix(in srgb, #323232 58%, transparent);
-  /* White lift on open glass rail — gray mix at 56% read as empty. */
-  --dls-rail-active: color-mix(in srgb, #ffffff 14%, transparent);
-  --dls-rail-hover: color-mix(in srgb, #ffffff 6%, transparent);
+  /* Glass lift keeps DESIGN.md dark base hex (#404040 / #2A2A2A) so
+     extract-tokens matches the solid contract; high mix opacity for contrast. */
+  --dls-rail-active: color-mix(in srgb, #404040 88%, transparent);
+  --dls-rail-hover: color-mix(in srgb, #2a2a2a 72%, transparent);
+  --dls-rail-pill-hover: color-mix(in srgb, #ffffff 5%, transparent);
   --dls-hover: color-mix(in srgb, #323232 58%, transparent);
   --dls-active: color-mix(in srgb, #3a3a3a 68%, transparent);
 }

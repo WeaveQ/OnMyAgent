@@ -21,9 +21,9 @@ describe("rail idle primary ink contract", () => {
     expect(end).toBeGreaterThan(start);
     const railBlock = actionRow.slice(start, end);
 
-    // Idle (active: false) must use primary ink.
+    // Idle (active: false) must use primary ink + named hover wash token.
     expect(railBlock).toContain(
-      'false:\n          "text-dls-text hover:bg-black/5 dark:hover:bg-white/5"',
+      'false: "text-dls-text hover:bg-dls-rail-pill-hover"',
     );
     // Idle must not reintroduce secondary as the default ink.
     expect(railBlock).not.toContain("text-dls-secondary hover:bg-black/5");

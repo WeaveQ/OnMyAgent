@@ -134,10 +134,10 @@ export function OnMyAgentRail(props: {
   onOpenBilling?: () => void;
 }) {
   // pt-14 only on macOS (traffic lights / hidden titlebar). Windows keeps compact top padding.
-  // Column 68px; free-float chips are w-12 so side air stays even.
+  // Column = --dls-rail-width; free-float chips = --dls-rail-pill-width.
   // Single soft right edge only — avoid double seam next to the list panel.
   return (
-    <aside className="flex w-[68px] shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
+    <aside className="flex w-rail shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
       <div className="flex min-h-0 w-full flex-1 flex-col items-center">
         <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TOP_RAIL_ITEMS.map((item) => (
