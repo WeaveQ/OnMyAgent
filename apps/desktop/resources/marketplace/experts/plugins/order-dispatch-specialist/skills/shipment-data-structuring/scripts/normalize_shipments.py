@@ -23,8 +23,14 @@ ALIASES = {
     "weight_kg": {"weight_kg", "weight", "重量", "重量kg"},
     "volume_m3": {"volume_m3", "volume", "体积", "方数"},
     "pickup_time": {"pickup_time", "提货时间", "装货时间"},
-    "delivery_requirement": {"delivery_requirement", "到达要求", "送达要求"},
+    "delivery_requirement": {"delivery_requirement", "到达要求", "送达要求", "时效要求"},
     "vehicle_type": {"vehicle_type", "车型"},
+    "transport_mode": {"transport_mode", "运输方式", "业务类型"},
+    "payment_method": {"payment_method", "付款方式", "结算方式"},
+    "temperature_range": {"temperature_range", "温度要求", "温控区间", "温度区间"},
+    "cold_chain": {"cold_chain", "全程冷链", "是否冷链"},
+    "multi_stop": {"multi_stop", "卸货点", "多点卸货", "卸货顺序"},
+    "time_window": {"time_window", "时间窗", "送达时间窗"},
     "special_requirements": {"special_requirements", "运输要求", "特殊要求"},
 }
 

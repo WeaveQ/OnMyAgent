@@ -188,15 +188,16 @@ describe("expert marketplace UI contract", () => {
       ],
     };
     const consolidatedProfessions: Record<string, string> = {
-      "order-dispatch-specialist": "接单报价客服",
-      "fleet-management-specialist": "车队管理员",
-      "fulfillment-specialist": "物流管理员",
-      "logistics-finance-specialist": "运费结算管理员",
+      "order-dispatch-specialist": "货运客服专家",
+      "fleet-management-specialist": "车队管理专家",
+      "fulfillment-specialist": "物流运输专家",
+      "logistics-finance-specialist": "货运财务专家",
     };
     const alignedCardSubtitles: Record<string, string> = {
-      "order-dispatch-specialist": "接单报价客服",
-      "fleet-management-specialist": "车队管理员",
-      "fulfillment-specialist": "物流管理员",
+      "order-dispatch-specialist": "货运客服专家",
+      "fleet-management-specialist": "车队管理专家",
+      "fulfillment-specialist": "物流运输专家",
+      "logistics-finance-specialist": "货运财务专家",
     };
     for (const [packageName, skills] of Object.entries(consolidatedSkills)) {
       const entry = (expertManifest.experts ?? []).find((item) => item.packageName === packageName);

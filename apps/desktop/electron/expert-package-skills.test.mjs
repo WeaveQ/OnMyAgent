@@ -12,6 +12,7 @@ import {
   listExpertPackageSkillSources,
   materializeExpertPackageSkills,
   materializeExpertPackageSkillsAndRefresh,
+  removeRetiredExpertPackageSkills,
 } from "./expert-package-skills.mjs";
 
 async function withTempDir(run) {
@@ -101,6 +102,69 @@ describe("expert-package-skills", () => {
           path.join(skillsRoot, "introduce-order-dispatch", "SKILL.md"),
         ),
         true,
+      );
+    });
+  });
+
+  it("removes only the retired self-introduction skill for an updated logistics expert", async () => {
+    await withTempDir(async (root) => {
+      const packageDir = path.join(root, "order-dispatch-specialist");
+      const skillsRoot = path.join(root, ".onmyagent", "skills");
+      await writeExpertPackage(packageDir, "shipment-data-structuring");
+      await mkdir(path.join(skillsRoot, "introduce-order-dispatch"), {
+        recursive: true,
+      });
+      await mkdir(path.join(skillsRoot, "keep-user-skill"), {
+        recursive: true,
+      });
+
+      const removed = await removeRetiredExpertPackageSkills({
+        packageDir,
+        skillsRoot,
+      });
+
+      assert.deepEqual(removed, ["introduce-order-dispatch"]);
+      assert.equal(
+        existsSync(path.join(skillsRoot, "introduce-order-dispatch")),
+        false,
+      );
+      assert.equal(existsSync(path.join(skillsRoot, "keep-user-skill")), true);
+    });
+  });
+
+  it("refreshes runtime skill links when a retired self-introduction skill is removed", async () => {
+    await withTempDir(async (root) => {
+      const packageDir = path.join(root, "fulfillment-specialist");
+      const skillsRoot = path.join(root, ".onmyagent", "skills");
+      await mkdir(path.join(packageDir, ".onmyagent-plugin"), {
+        recursive: true,
+      });
+      await writeFile(
+        path.join(packageDir, ".onmyagent-plugin", "plugin.json"),
+        `${JSON.stringify({
+          name: "fulfillment-specialist",
+          skills: [],
+        })}\n`,
+        "utf8",
+      );
+      await mkdir(path.join(skillsRoot, "introduce-fulfillment"), {
+        recursive: true,
+      });
+      let refreshCount = 0;
+
+      const installed = await materializeExpertPackageSkillsAndRefresh({
+        packageDir,
+        skillsRoot,
+        refreshSkillLinks: async () => {
+          refreshCount += 1;
+        },
+      });
+
+      assert.deepEqual(installed, []);
+      assert.equal(refreshCount, 1);
+      assert.equal(
+        existsSync(path.join(skillsRoot, "introduce-fulfillment")),
+        false,
       );
     });
   });

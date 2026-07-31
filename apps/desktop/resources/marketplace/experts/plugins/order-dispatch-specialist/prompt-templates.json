@@ -6,8 +6,8 @@
       "en": "Organize Shipment Details"
     },
     "description": {
-      "zh": "把客户发来的零散内容直接整理成可用的发货表",
-      "en": "Turn chats, images, and files into one clear sheet"
+      "zh": "把客户发来的零散内容整理成可用的发货表，含冷链/城配/专线字段",
+      "en": "Turn chats, images, and files into one clear sheet with scene fields"
     },
     "template": {
       "zh": "这些是客户发来的 <聊天、截图和表格>。请帮我整理成一张清楚的发货表，按 <你要使用的发货表模板> 填写，并根据 <特别要检查的内容> 标出看不清、缺少或前后对不上的地方。",
@@ -33,12 +33,12 @@
       "en": "Find missing, unclear, and conflicting details at once"
     },
     "template": {
-      "zh": "请看看 <这票发货信息> 要用来做 <询价、报价、建单或派车> 时还缺什么。对照 <公司的必填要求> 找出说不清或前后对不上的地方，并写一段我可以直接发给客户补问的话。",
-      "en": "Check whether <Customer shipment details> are enough to <Request a rate, quote, create an order, or dispatch>, use <Company rules or my template>, and draft one message asking for missing details."
+      "zh": "请看看 <这票发货信息> 要用来做 <询价、报价或录单> 时还缺什么。对照 <公司的必填要求> 找出说不清或前后对不上的地方，并写一段我可以直接发给客户补问的话。",
+      "en": "Check whether <Customer shipment details> are enough to <Request a rate, quote, or create an order>, use <Company rules or my template>, and draft one message asking for missing details."
     },
     "requiredSlots": {
-      "zh": ["这票发货信息", "询价、报价、建单或派车"],
-      "en": ["Customer shipment details", "Request a rate, quote, create an order, or dispatch"]
+      "zh": ["这票发货信息", "询价、报价或录单"],
+      "en": ["Customer shipment details", "Request a rate, quote, or create an order"]
     },
     "conditionalSlots": {
       "zh": ["公司的必填要求"],
