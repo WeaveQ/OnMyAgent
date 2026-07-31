@@ -516,11 +516,9 @@ components:
       height: "content"                               # icon + label + py-1.5
       radius: "{rounded.xl}"                          # 14 → rounded-2xl visual
       surface: "{colors.rail-bg}"
-      # Light: surface lift (white on gray rail). Dark: rail-active (see colors.dark).
-      surface-active-light: "{colors.surface}"
-      surface-active-dark: "{colors.rail-active}"
-      surface-hover-light: "black/5"
-      surface-hover-dark: "white/5"
+      # Free-float selected fill: --dls-rail-pill-active (not sidebar rail-active).
+      surface-active: "var(--dls-rail-pill-active)"
+      surface-hover: "var(--dls-rail-pill-hover)"
       # Idle ink = primary text (near-black light / near-white dark), not secondary slate.
       # Active distinction is the pill surface, not a greyer idle glyph.
       idle-text: "{colors.text-primary}"
@@ -1519,7 +1517,7 @@ Three **different** selected looks — pick by context, not by taste:
 
 | Context | Primitive | Active surface | Active ink |
 |---------|-----------|----------------|------------|
-| Primary rail free-float chip | `RailButton` | light: `bg-dls-surface`; dark: `bg-dls-rail-active` | `text-dls-text` (same idle/active) |
+| Primary rail free-float chip | `RailButton` | `bg-dls-rail-pill-active` (light white / dark lift / glass frost) | `text-dls-text` (same idle/active) |
 | Free-float page/header tabs (store/files) | `NavTabButton` | light: `bg-dls-text`; dark: `bg-dls-surface-solid` + ring | pure `text-white` |
 | Soft category filters | `FilterChip` | `bg-dls-list-selected` | `text-dls-text` |
 | Sidebar list rows / menu active | sidebar menu | `bg-dls-rail-active` (light brand wash / dark lift) | `text-dls-text` |

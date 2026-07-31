@@ -27,9 +27,8 @@ describe("rail idle primary ink contract", () => {
     );
     // Idle must not reintroduce secondary as the default ink.
     expect(railBlock).not.toContain("text-dls-secondary hover:bg-black/5");
-    // Active still lifts with surface / rail-active.
-    expect(railBlock).toContain("bg-dls-surface text-dls-text");
-    expect(railBlock).toContain("dark:bg-dls-rail-active");
+    // Active uses dedicated free-float pill-active (not near-black rail-active).
+    expect(railBlock).toContain("bg-dls-rail-pill-active text-dls-text");
   });
 
   test("compact account gear on rail uses primary ink idle", () => {
@@ -46,7 +45,7 @@ describe("rail idle primary ink contract", () => {
     expect(compactIdx).toBeGreaterThanOrEqual(0);
     const compactBlock = sidebar.slice(compactIdx, compactIdx + 1200);
     expect(compactBlock).toContain("hover:bg-dls-rail-pill-hover");
-    expect(compactBlock).toContain("dark:aria-expanded:bg-dls-rail-active");
+    expect(compactBlock).toContain("aria-expanded:bg-dls-rail-pill-active");
     expect(compactBlock).not.toContain("hover:text-dls-accent");
   });
 

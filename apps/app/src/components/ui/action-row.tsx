@@ -224,9 +224,9 @@ const railButtonVariants = cva(
   {
     variants: {
       active: {
-        // Top free-float: light lifts with surface; dark uses rail-active.
-        // Active vs idle is the pill surface, not ink color — both use primary text.
-        true: "bg-dls-surface text-dls-text dark:bg-dls-rail-active",
+        // Free-float selected: dedicated pill-active (white light / lifted dark /
+        // frosted glass) — not rail-active sidebar wash (reads black on glass).
+        true: "bg-dls-rail-pill-active text-dls-text",
         false: "text-dls-text hover:bg-dls-rail-pill-hover",
       },
       size: {
@@ -235,16 +235,6 @@ const railButtonVariants = cva(
         bottom: "size-9 gap-0.5 rounded-2xl text-2xs",
       },
     },
-    compoundVariants: [
-      {
-        // Bottom strip (channels…): soft rail-active only — never bright white
-        // surface pill on dark glass rail (reads as a white disk).
-        active: true,
-        size: "bottom",
-        className:
-          "bg-dls-rail-active text-dls-text shadow-none dark:bg-dls-rail-active",
-      },
-    ],
     defaultVariants: {
       active: false,
       size: "top",
