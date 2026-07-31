@@ -19,7 +19,8 @@ export const SIDEBAR_PRIMARY_CTA_CLASS =
  * with a bit more vertical air under the mac titlebar.
  */
 export const SIDEBAR_PRIMARY_HEADER_CLASS =
-  "flex h-14 shrink-0 items-center";
+  // pt bias so the h-9 CTA sits slightly below vertical center (less titlebar-tight).
+  "flex h-14 shrink-0 items-center pt-2";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
