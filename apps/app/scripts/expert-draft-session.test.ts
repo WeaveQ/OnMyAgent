@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
+  shouldKeepUnboundNewSessionDraft,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
 
 describe("expert draft session activation", () => {
@@ -63,5 +64,55 @@ describe("expert draft session activation", () => {
         boundSessionId: "ses_new",
       },
     })).toBe("ses_new");
+  });
+
+  test("keeps unbound +新会话 draft even when route still points at prior tab", () => {
+    expect(
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive: true,
+        draftAgentId: "fulfillment-specialist",
+        pendingDraftSource: "new-session",
+        pendingAgentId: "fulfillment-specialist",
+        pendingBoundSessionId: undefined,
+        selectedSessionAgentId: "fulfillment-specialist",
+      }),
+    ).toBe(true);
+
+    // Prior tab of the same expert must not kill the new draft.
+    expect(
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive: true,
+        draftAgentId: "fulfillment-specialist",
+        pendingDraftSource: "new-session",
+        pendingAgentId: "fulfillment-specialist",
+        selectedSessionAgentId: "fulfillment-specialist",
+      }),
+    ).toBe(true);
+  });
+
+  test("drops +新会话 draft when user opens another expert's real session", () => {
+    // Regression: agent1 "+ 新会话" must not land on agent3's recently-chatted tab.
+    expect(
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive: true,
+        draftAgentId: "fulfillment-specialist",
+        pendingDraftSource: "new-session",
+        pendingAgentId: "fulfillment-specialist",
+        selectedSessionAgentId: "logistics-finance-specialist",
+      }),
+    ).toBe(false);
+  });
+
+  test("does not keep draft after first send binds a real session", () => {
+    expect(
+      shouldKeepUnboundNewSessionDraft({
+        draftSessionActive: true,
+        draftAgentId: "fulfillment-specialist",
+        pendingDraftSource: "new-session",
+        pendingAgentId: "fulfillment-specialist",
+        pendingBoundSessionId: "ses_created",
+        selectedSessionAgentId: "fulfillment-specialist",
+      }),
+    ).toBe(false);
   });
 });

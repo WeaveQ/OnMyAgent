@@ -20,6 +20,7 @@ import {
   getComposerMentions,
   useComposerStateStore,
 } from "../surface/composer-state-store";
+import { dispatchComposerTemplate } from "../surface/composer/capability-template";
 
 /**
  * 判断专家包是否可见（过滤掉.expert-plugin目录）
@@ -107,4 +108,30 @@ export function setExpertComposerDraftAfterNewTask(
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(apply);
   });
+}
+
+export function setComposerTemplateAfterNavigation(
+  sessionId: string,
+  template: string,
+) {
+  useComposerStateStore.getState().setDraft(sessionId, template);
+  window.setTimeout(() => {
+    dispatchComposerTemplate(template, sessionId);
+  }, 0);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      dispatchComposerTemplate(template, sessionId);
+    });
+  });
+}
+
+export function setExpertComposerTemplateAfterNewTask(
+  workspaceId: string,
+  agentId: string,
+  template: string,
+) {
+  setComposerTemplateAfterNavigation(
+    `draft:${workspaceId}:${agentId}`,
+    template,
+  );
 }

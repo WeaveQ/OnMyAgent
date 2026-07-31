@@ -18,6 +18,11 @@ import {
 } from "./process-fold";
 import { WorkBuddyProcessFold } from "./process-fold-ui";
 import { StepRow } from "./step-row";
+import { stripFollowUpMarkers } from "../follow-up-suggestions";
+
+function displayTurnText(text: string) {
+  return stripFollowUpMarkers(text);
+}
 
 export function WorkBuddyTurnContent(props: {
   presentation: TurnContentPresentation;
@@ -174,7 +179,7 @@ export function WorkBuddyTurnContent(props: {
                 ? (
                     <MarkdownBlock
                       key={`${segment.id}:text:${index}`}
-                      text={bodySegment.text}
+                      text={displayTurnText(bodySegment.text)}
                       streaming={running && segment.id === lastBodyId}
                       showStreamingCursor={false}
                       highlightQuery={props.highlightQuery}
@@ -191,7 +196,7 @@ export function WorkBuddyTurnContent(props: {
     return (
       <div key={segment.id} className="session-workbuddy-turn-body">
         <MarkdownBlock
-          text={segment.text}
+          text={displayTurnText(segment.text)}
           streaming={running && segment.id === lastBodyId}
           showStreamingCursor={false}
           highlightQuery={props.highlightQuery}
@@ -222,7 +227,7 @@ export function WorkBuddyTurnContent(props: {
                 ? (
                     <MarkdownBlock
                       key={`${segment.id}:text:${index}`}
-                      text={bodySegment.text}
+                      text={displayTurnText(bodySegment.text)}
                       highlightQuery={props.highlightQuery}
                       locale={currentLocale()}
                       onOpenCodePath={props.onOpenCodePath}
@@ -237,7 +242,7 @@ export function WorkBuddyTurnContent(props: {
     return (
       <div key={segment.id} className="session-workbuddy-turn-body">
         <MarkdownBlock
-          text={segment.text}
+          text={displayTurnText(segment.text)}
           highlightQuery={props.highlightQuery}
           locale={currentLocale()}
           onOpenCodePath={props.onOpenCodePath}

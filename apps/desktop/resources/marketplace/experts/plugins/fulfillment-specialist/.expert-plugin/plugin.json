@@ -1,0 +1,92 @@
+{
+  "name": "fulfillment-specialist",
+  "version": "1.0.0",
+  "description": "Organize in-transit progress, assess delivery and road risks, draft customer updates, review exceptions, check PODs, and find delay patterns",
+  "author": {
+    "name": "Expert Marketplace"
+  },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "fulfillment-specialist",
+  "agents": [
+    "./agents/fulfillment-specialist.md"
+  ],
+  "skills": [
+    "./skills/transit-update-structuring",
+    "./skills/customer-update-drafting",
+    "./skills/exception-evidence-review",
+    "./skills/pod-document-audit",
+    "./skills/fulfillment-performance-analysis"
+  ],
+  "displayName": {
+    "en": "In-Transit Fulfillment Specialist",
+    "zh": "物流运输专家"
+  },
+  "profession": {
+    "en": "In-Transit Fulfillment Operations",
+    "zh": "物流运输专家"
+  },
+  "displayDescription": {
+    "en": "For linehaul, city delivery and cold chain: track progress, assess on-time and road risks, draft customer updates, review exceptions, and check PODs.",
+    "zh": "面向专线、干线、城配、冷链：整理在途进度、识别送达与路况风险、写客户通知、梳理异常、检查回单；需要时也可写定时任务提案。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "14-Logistics",
+  "categoryIds": [
+    "01-OPC",
+    "14-Logistics"
+  ],
+  "defaultInitPrompt": {
+    "zh": "这些是司机群聊、位置和运输进度 XX。请按运单整理每票货现在到哪里、最后更新时间，以及还需要向司机确认什么。",
+    "en": "Here are driver chats, locations, and shipment updates XX. Organize each shipment's current location, latest update, and questions that still need driver confirmation."
+  },
+  "tags": [
+    {
+      "zh": "整理运输进度",
+      "en": "Organize Progress"
+    },
+    {
+      "zh": "路况风险识别",
+      "en": "Road Risk"
+    },
+    {
+      "zh": "送达风险识别",
+      "en": "On-time Risk"
+    },
+    {
+      "zh": "写客户通知",
+      "en": "Draft Customer Update"
+    },
+    {
+      "zh": "整理运输异常",
+      "en": "Sort Out Problems"
+    },
+    {
+      "zh": "检查签收回单",
+      "en": "Check Signed Receipts"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这些是 <司机群聊、位置和运输记录>。请按 <运单号或你现有的进度表> 整理每票货现在到哪里、最后更新时间和下一步，并根据 <需要重点关注的票> 告诉我还要向司机确认什么。",
+      "en": "Organize <Driver chats, locations, and shipment updates> by <Shipment number or my sheet>, follow <Other requirements>, and show current location, latest update, and questions for the driver."
+    },
+    {
+      "zh": "请根据 <已经确认的运输进度>，给 <要通知的人> 写一段 <进度通知、延误说明或催办消息>，语气自然、可以直接发送，并单独告诉我哪些时间和承诺还不能确定。",
+      "en": "Using <Confirmed shipment progress>, write <A progress update, delay explanation, or follow-up message> for <Customer, driver, or internal team>, and flag timing or promises that are not yet confirmed."
+    },
+    {
+      "zh": "这票货出了问题：<异常经过、聊天、照片和说明>。请对照 <运单和运输约定> 把事情经过按时间理清，按照 <公司的处理要求> 找出还缺哪些照片或记录，并写好下一步处理和回复客户的话。",
+      "en": "Using <Problem details, chats, photos, and notes> and <Shipment and transport terms>, follow <Company handling rules>, put events in order, find missing photos or records, and draft next steps and a customer reply."
+    },
+    {
+      "zh": "这些是 <在途进度、司机消息或轨迹说明>。请评估这票的送达风险和路况风险：给出风险等级、触发因素、依据来源和建议动作；承诺时效是 <客户要求的到达时间或窗口>。",
+      "en": "Using <In-transit updates, driver messages, or track notes>, assess on-time and road risks: level, triggers, evidence, and actions. Promised window: <Customer due time or window>."
+    }
+  ],
+  "promptTemplates": "./prompt-templates.json",
+  "greeting": {
+    "zh": "你好！📍 我是你的物流运输专家，帮专线、干线、城配、冷链从发车盯到签收。\n\n无论是整理在途进度、识别送达和路况风险、写客户通知、梳理异常证据，还是检查签收回单、分析哪些线路经常晚到，我都能帮你搞定。\n\n手头有群聊、轨迹或回单直接丢过来，或者说下今天要跟哪几票。",
+    "en": "Hi! I am your in-transit specialist. I organize progress, assess delivery and road risks, draft updates, review exceptions, and check PODs. Drop chats or tracks to start."
+  }
+}

@@ -42,13 +42,14 @@ describe("builtin-skills-policy", () => {
     );
   });
 
-  it("core preinstall includes finder, office pptx, self-improving, and product cores", () => {
+  it("core preinstall includes finder, document processing, office pptx, self-improving, and product cores", () => {
     const names = CORE_PREINSTALL_SKILLS.map((e) => e.packageName);
     for (const required of [
       "expert-manager",
       "create-automation",
       "skill-creator",
       "find-skills",
+      "document-processing",
       "pptx",
       "self-improving",
     ]) {
@@ -77,6 +78,14 @@ describe("builtin-skills-policy", () => {
   });
 
   it("shouldInstallCoreSkill skips existing destinations", () => {
+    assert.equal(
+      shouldInstallCoreSkill({
+        packageName: "document-processing",
+        skillName: "document-processing",
+        destinationExists: false,
+      }),
+      true,
+    );
     assert.equal(
       shouldInstallCoreSkill({
         packageName: "pptx",
