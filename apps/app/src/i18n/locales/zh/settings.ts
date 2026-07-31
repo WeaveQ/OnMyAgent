@@ -571,7 +571,7 @@ export default {
   "settings.system_authorizations_description": "管理应用快照、自动化与通知等所需的系统权限",
   "settings.system_authorizations_go_configure": "去设置",
   "settings.preferences": "个性化",
-  "settings.preferences_card_description": "显示大小、推理展示与会话习惯",
+  "settings.preferences_card_description": "语言、显示大小、推理展示与会话习惯",
   "settings.session_management_title": "会话管理",
   "settings.auto_new_session_title": "自动新起会话",
   "settings.auto_new_session_desc": "超过设定时间未对话，自动开启新对话",

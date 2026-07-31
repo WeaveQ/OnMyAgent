@@ -672,7 +672,7 @@ export default {
   "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
   "settings.preferences": "Personalization",
   "settings.preferences_card_description":
-    "Display size, reasoning visibility, and session habits",
+    "Language, display size, reasoning visibility, and session habits",
   "settings.tab_description_advanced":
     "Inspect runtime, connection state, and developer controls",
   "settings.tab_description_appearance": `Adjust how ${APP_NAME} looks across desktop, system theme, and app frame`,

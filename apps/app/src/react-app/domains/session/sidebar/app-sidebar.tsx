@@ -53,13 +53,7 @@ import {
   getWorkspaceTaskLoadErrorDisplay,
   isRemoteConnectionWorkspace,
 } from "../../../../app/utils";
-import {
-  currentLocale,
-  LANGUAGE_OPTIONS,
-  setLocale,
-  t,
-  type Language,
-} from "../../../../i18n";
+import { t } from "../../../../i18n";
 
 import {
   Sidebar,
@@ -832,9 +826,6 @@ export function SidebarAccountButton(props: {
 }) {
   const [open, setOpen] = React.useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
-  const [language, setLanguageState] = React.useState<Language>(() =>
-    currentLocale(),
-  );
   const [themeMode, setThemeModeState] = React.useState<ThemeMode>(() =>
     getInitialThemeMode(),
   );
@@ -850,11 +841,6 @@ export function SidebarAccountButton(props: {
     () => subscribeToTheme(() => setThemeModeState(getInitialThemeMode())),
     [],
   );
-
-  const setLanguage = (value: Language) => {
-    setLocale(value);
-    setLanguageState(value);
-  };
 
   const setThemeMode = (value: ThemeMode) => {
     setAppThemeMode(value);
@@ -915,19 +901,7 @@ export function SidebarAccountButton(props: {
             }}
           />
         ) : null}
-        <SidebarAccountSubMenu
-          icon={Globe2}
-          label={t("account_menu.language")}
-          items={LANGUAGE_OPTIONS.map((option) => ({
-            value: option.value,
-            label:
-              option.value === "zh"
-                ? t("account_menu.language_chinese")
-                : option.nativeName,
-          }))}
-          selectedValue={language}
-          onSelect={(value) => setLanguage(value as Language)}
-        />
+        {/* Language lives under Settings → Personalization → Display. */}
         <SidebarAccountSubMenu
           icon={Palette}
           label={t("account_menu.theme")}
