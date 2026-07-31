@@ -3,7 +3,7 @@
  * Kept free of React so unit tests can exercise real branching.
  */
 
-export type AutomationListScene = "office" | "code";
+export type AutomationListScene = "office";
 
 export type AutomationListRun = {
   status: "success" | "failed" | "skipped";

@@ -224,7 +224,7 @@ export interface CommandItem {
   scope: "workspace" | "global";
 }
 
-export type AutomationScene = "office" | "code";
+export type AutomationScene = "office";
 export type AutomationFrequencyMode = "weekly" | "interval" | "once";
 export type AutomationCycle = "daily" | "weekly" | "biweekly" | "monthly" | "yearly";
 export type AutomationAccessMode = "default" | "full";

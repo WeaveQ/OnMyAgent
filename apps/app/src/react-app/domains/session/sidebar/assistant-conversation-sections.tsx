@@ -1178,10 +1178,7 @@ export function AssistantConversationSections(
     );
   };
 
-  const emptyTasksLabel =
-    props.categoryId === "code"
-      ? t("session.no_code_tasks")
-      : t("session.no_tasks");
+  const emptyTasksLabel = t("session.no_tasks");
 
   return (
     <TooltipProvider delay={200}>

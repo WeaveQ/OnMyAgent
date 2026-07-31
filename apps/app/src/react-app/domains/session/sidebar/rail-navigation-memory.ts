@@ -85,23 +85,20 @@ export function writeRailView(
 }
 
 export function readAssistantCategoryMemory(
-  workspaceId: string,
-  fallback: AssistantCategoryId = "office",
+  _workspaceId: string,
+  _fallback: AssistantCategoryId = "office",
 ): AssistantCategoryId {
-  const id = workspaceId.trim();
-  if (!id) return fallback;
-  const value = readJsonRecord(ASSISTANT_CATEGORY_STORAGE_KEY)[id];
-  return value === "code" || value === "office" ? value : fallback;
+  return "office";
 }
 
 export function writeAssistantCategoryMemory(
   workspaceId: string,
-  categoryId: AssistantCategoryId,
+  _categoryId: AssistantCategoryId = "office",
 ) {
   const id = workspaceId.trim();
   if (!id) return;
   const record = readJsonRecord(ASSISTANT_CATEGORY_STORAGE_KEY);
-  record[id] = categoryId;
+  record[id] = "office";
   writeJsonRecord(ASSISTANT_CATEGORY_STORAGE_KEY, record);
 }
 

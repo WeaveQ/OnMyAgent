@@ -12,13 +12,13 @@ export type AutomationRunNotifyCandidate = {
   status: AutomationRunNotifyStatus;
   ranAt: number;
   sessionId?: string;
-  scene?: "office" | "code";
+  scene?: "office";
 };
 
 export type AutomationRunSnapshotItem = {
   id: string;
   title: string;
-  scene?: "office" | "code";
+  scene?: "office";
   lastRun: {
     status: string;
     ranAt: number;
@@ -83,9 +83,7 @@ export function collectAutomationRunNotifications(
       status: lastRun.status,
       ranAt: lastRun.ranAt,
       ...(sessionId ? { sessionId } : {}),
-      ...(task.scene === "office" || task.scene === "code"
-        ? { scene: task.scene }
-        : {}),
+      scene: "office",
     });
   }
 

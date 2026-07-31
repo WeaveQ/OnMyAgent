@@ -5,7 +5,7 @@ export const CANVAS_MAX_COMMANDS_PER_RUN = 24;
 export const CANVAS_MAX_TEXT_LENGTH = 2_000;
 export const CANVAS_MAX_DIMENSION = 4_000;
 
-export type CanvasSurfaceKind = "assistant-office" | "assistant-code" | "expert";
+export type CanvasSurfaceKind = "assistant-office" | "expert";
 
 export type CanvasSessionKey = {
   workspaceId: string;

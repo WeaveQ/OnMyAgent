@@ -70,36 +70,34 @@ function sessions(...ids: string[]): WorkspaceSessionGroup["sessions"] {
 }
 
 describe("assistant selection memory", () => {
-  test("defaults each assistant category to new task before the user chooses", () => {
+  test("defaults office home to new task before the user chooses", () => {
     expect(readAssistantSelectionMemory("ws-1", "office")).toEqual({ kind: "newTask" });
-    expect(readAssistantSelectionMemory("ws-1", "code")).toEqual({ kind: "newTask" });
   });
 
-  test("keeps office and code selections independent per workspace", () => {
+  test("stores office selection per workspace", () => {
     writeAssistantSelectionMemory("ws-1", "office", {
       kind: "session",
       sessionId: "office-session",
     });
-    writeAssistantSelectionMemory("ws-1", "code", { kind: "automation" });
+    writeAssistantSelectionMemory("ws-2", "office", { kind: "automation" });
 
     expect(readAssistantSelectionMemory("ws-1", "office")).toEqual({
       kind: "session",
       sessionId: "office-session",
     });
-    expect(readAssistantSelectionMemory("ws-1", "code")).toEqual({ kind: "automation" });
-    expect(readAssistantSelectionMemory("ws-2", "office")).toEqual({ kind: "newTask" });
+    expect(readAssistantSelectionMemory("ws-2", "office")).toEqual({ kind: "automation" });
   });
 
-  test("restores a remembered session only when it exists in the same category", () => {
+  test("restores a remembered session only when it still exists", () => {
     writeAssistantSessionCategory("office-session", "office");
-    writeAssistantSessionCategory("code-session", "code");
+    writeAssistantSessionCategory("other-session", "office");
 
     expect(
       resolveAssistantSelectionMemory({
         workspaceId: "ws-1",
         categoryId: "office",
         selection: { kind: "session", sessionId: "office-session" },
-        sessions: sessions("office-session", "code-session"),
+        sessions: sessions("office-session", "other-session"),
       }),
     ).toEqual({ kind: "session", sessionId: "office-session" });
 
@@ -107,17 +105,8 @@ describe("assistant selection memory", () => {
       resolveAssistantSelectionMemory({
         workspaceId: "ws-1",
         categoryId: "office",
-        selection: { kind: "session", sessionId: "code-session" },
-        sessions: sessions("office-session", "code-session"),
-      }),
-    ).toEqual({ kind: "newTask" });
-
-    expect(
-      resolveAssistantSelectionMemory({
-        workspaceId: "ws-1",
-        categoryId: "code",
         selection: { kind: "session", sessionId: "missing-session" },
-        sessions: sessions("office-session", "code-session"),
+        sessions: sessions("office-session", "other-session"),
       }),
     ).toEqual({ kind: "newTask" });
   });
@@ -132,9 +121,10 @@ describe("assistant return navigation contract", () => {
       ),
       "utf8",
     );
-    // Must restore selection memory instead of always creating a draft.
-    expect(assistantPage).toContain("readAssistantSelectionMemory(");
-    expect(assistantPage).toContain("Returning to 助理 must NOT force a new task");
+    // Selection memory helpers remain wired for office home restore.
+    expect(assistantPage).toContain("readAssistantSelectionMemory");
+    expect(assistantPage).toContain("writeAssistantSelectionMemory");
+    expect(assistantPage).toContain("resolveAssistantSelectionMemory");
     // The rail handler must not call create-task when view === assistant.
     const railHandler = assistantPage.slice(
       assistantPage.indexOf("onOpenView={(view) => {"),

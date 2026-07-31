@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import {
   Check,
   Clock3,
-  Code2,
   BookOpenCheck,
   Goal,
   Minimize2,
@@ -91,7 +90,7 @@ const AGENT_AVATAR_PALETTES = [
 // ============================================================================
 
 export function AssistantDraftHomeMark(props: { categoryId: AssistantCategoryId }) {
-  const Icon = props.categoryId === "code" ? Code2 : BookOpenCheck;
+  const Icon = BookOpenCheck;
 
   return (
     <span className="inline-flex size-6 shrink-0 items-center justify-center text-current">

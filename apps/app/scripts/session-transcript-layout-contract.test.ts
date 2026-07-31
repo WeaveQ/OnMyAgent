@@ -222,7 +222,6 @@ describe("session transcript layout contract", () => {
 
     expect(sessionPage.match(/<SessionSurface/g)?.length).toBe(1);
     expect(sessionPage).toContain('useState<AssistantCategoryId>("office")');
-    expect(sessionPage).toContain('activeAssistantCategoryId === "code"');
     expect(sessionPage).toContain("agentPanel.activeSidebarView");
     expect(sessionSurface).toContain("<SessionTranscript");
     expect(sessionSurface).toMatch(

@@ -57,7 +57,7 @@ export function parseAutomationProposalPayload(
   raw: unknown,
 ): AutomationTaskInput | null {
   if (!isRecord(raw)) return null;
-  const scene = raw.scene === "code" || raw.scene === "office" ? raw.scene : null;
+  const scene = raw.scene === "office" || raw.scene === "code" ? "office" : null;
   const title = typeof raw.title === "string" ? raw.title.trim() : "";
   const prompt = typeof raw.prompt === "string" ? raw.prompt.trim() : "";
   const schedule = isRecord(raw.schedule) ? raw.schedule : null;
