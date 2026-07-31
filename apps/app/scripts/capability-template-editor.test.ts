@@ -447,7 +447,9 @@ describe("capability template editor", () => {
       );
       expect(Array.isArray(templates)).toBe(true);
       if (!Array.isArray(templates)) continue;
-      expect(templates).toHaveLength(4);
+      // Freight CS / fleet keep 4 cards; transit (+risk) and finance (+profit) have 5.
+      expect(templates.length).toBeGreaterThanOrEqual(4);
+      expect(templates.length).toBeLessThanOrEqual(5);
       for (const template of templates) {
         expect(template).toBeObject();
         if (

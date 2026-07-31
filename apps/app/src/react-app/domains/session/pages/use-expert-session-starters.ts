@@ -1,0 +1,192 @@
+import { useCallback } from "react";
+import { useComposerStateStore } from "../surface/composer-state-store";
+import {
+  buildPendingAgentFromRecord,
+  type AgentRegistry,
+  type PendingAgentContext,
+  usePendingAgentStore,
+} from "../../agents";
+import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
+import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
+import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
+import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import type { AgentConversationGroup } from "../sidebar/session-chrome";
+import {
+  marketplaceExpertMatchesAgentId,
+  pendingAgentMatchesMarketplaceExpert,
+} from "./expert-page-utils";
+import {
+  setComposerTemplateAfterNavigation,
+  setExpertComposerDraftAfterNewTask,
+  setExpertComposerTemplateAfterNewTask,
+} from "./shared-page-utils";
+
+export function useExpertSessionStarters(input: {
+  conversationGroups: AgentConversationGroup[];
+  draftAgentContexts: Record<string, PendingAgentContext>;
+  registry: AgentRegistry | null | undefined;
+  pendingAgent: PendingAgentContext | null;
+  activeAgentContext: PendingAgentContext | null;
+  activeConversationAgentId: string | null;
+  currentConversationAgentId: string | null;
+  draftAgentId: string | null;
+  selectedWorkspaceId: string;
+  sidebarSelectedWorkspaceId: string;
+  onCreateFreshSessionForAgent?: (workspaceId: string) => void | Promise<void>;
+  activateDraftAgent: (agent: PendingAgentContext) => void;
+  openFreshExpertDraft: () => void;
+  openRailView: (view: "chat" | string) => void;
+  openExpertMarket: () => void;
+  handleOpenExpertSession: (workspaceId: string, sessionId: string) => void;
+  resolveSessionTabForAgent: (
+    agentId: string,
+    sessionIds: readonly string[],
+  ) => string | null;
+}) {
+  const handleStartMarketplaceExpert = useCallback(
+    (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
+      const startPrompt = resolveMarketplaceExpertStartPrompt(
+        expert,
+        initialPrompt,
+      );
+      const existingConversationGroup = input.conversationGroups.find((group) =>
+        marketplaceExpertMatchesAgentId(expert, group.agentId),
+      );
+      if (existingConversationGroup) {
+        usePendingAgentStore.getState().setAgent(null);
+        const agentId = existingConversationGroup.agentId?.trim() ?? "";
+        const sessionIds = existingConversationGroup.sessions.map(
+          (session) => session.id,
+        );
+        const resolvedSessionId =
+          (agentId
+            ? input.resolveSessionTabForAgent(agentId, sessionIds)
+            : null) ?? existingConversationGroup.latestSession.id;
+        input.handleOpenExpertSession(
+          input.sidebarSelectedWorkspaceId,
+          resolvedSessionId,
+        );
+        if (startPrompt?.template) {
+          setComposerTemplateAfterNavigation(
+            resolvedSessionId,
+            startPrompt.prompt,
+          );
+        } else if (startPrompt) {
+          useComposerStateStore
+            .getState()
+            .setDraft(resolvedSessionId, startPrompt.prompt);
+        }
+        void installSummonedMarketplaceExpert(expert).catch((error) => {
+          console.warn(
+            "[expert-marketplace] failed to install expert package",
+            error,
+          );
+        });
+        return;
+      }
+
+      const existingDraftAgent = Object.values(input.draftAgentContexts).find(
+        (agent) => pendingAgentMatchesMarketplaceExpert(agent, expert),
+      );
+      // Build pending first. onCreateTaskInWorkspace clears pendingAgent for
+      // plain new-task, so we re-apply the draft agent after that clear.
+      const pending =
+        existingDraftAgent ?? buildPendingAgentFromMarketplaceExpert(expert);
+      const pendingWithStart: PendingAgentContext = {
+        ...pending,
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "agent-selection",
+      };
+      input.activateDraftAgent(pendingWithStart);
+      input.openFreshExpertDraft();
+      // Re-assert after create-task's synchronous setAgent(null).
+      input.activateDraftAgent(pendingWithStart);
+      if (startPrompt?.template) {
+        setExpertComposerTemplateAfterNewTask(
+          input.selectedWorkspaceId,
+          pendingWithStart.id,
+          startPrompt.prompt,
+        );
+      } else if (startPrompt) {
+        setExpertComposerDraftAfterNewTask(
+          input.selectedWorkspaceId,
+          pendingWithStart.id,
+          startPrompt.prompt,
+        );
+      }
+      input.openRailView("chat");
+      void installSummonedMarketplaceExpert(expert).catch((error) => {
+        console.warn(
+          "[expert-marketplace] failed to install expert package",
+          error,
+        );
+      });
+    },
+    [input],
+  );
+
+  const handleCreateCurrentAgentSession = useCallback(() => {
+    // Prefer the expert currently shown (tab strip / left selection), never the
+    // globally most-recent expert session.
+    const agentId =
+      input.activeConversationAgentId
+      ?? input.currentConversationAgentId
+      ?? input.activeAgentContext?.id
+      ?? input.draftAgentId;
+    if (!agentId) {
+      input.openExpertMarket();
+      return;
+    }
+    let nextAgent: PendingAgentContext | null = null;
+    if (input.activeAgentContext?.id === agentId) {
+      nextAgent = {
+        ...input.activeAgentContext,
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "new-session",
+      };
+    } else if (input.registry) {
+      const agent =
+        input.registry.agents.find((item) => item.id === agentId)
+        ?? input.registry.templates.find((item) => item.id === agentId);
+      const restored = agent
+        ? buildPendingAgentFromRecord(agent, input.registry)
+        : null;
+      if (restored) {
+        nextAgent = {
+          ...restored,
+          conversationStartId: Date.now(),
+          draftSource: "new-session",
+        };
+      }
+    }
+    if (!nextAgent && input.pendingAgent?.id === agentId) {
+      nextAgent = {
+        ...input.pendingAgent,
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "new-session",
+      };
+    }
+    if (nextAgent) {
+      // Same pattern as marketplace summon: create-task clears pendingAgent and
+      // selectedSessionId. Re-assert draft after so the recency-sorted
+      // conversationGroups[0] fallback cannot steal focus to the last-chatted
+      // expert (e.g. open agent 1 New Session → land on agent 3's recent tab).
+      input.activateDraftAgent(nextAgent);
+      input.openFreshExpertDraft();
+      input.activateDraftAgent(nextAgent);
+    } else if (input.onCreateFreshSessionForAgent) {
+      void Promise.resolve(
+        input.onCreateFreshSessionForAgent(input.selectedWorkspaceId),
+      );
+    }
+    input.openRailView("chat");
+  }, [input]);
+
+  return {
+    handleStartMarketplaceExpert,
+    handleCreateCurrentAgentSession,
+  };
+}
