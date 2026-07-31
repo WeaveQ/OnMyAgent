@@ -1,7 +1,7 @@
 {
   "name": "fulfillment-specialist",
   "version": "1.0.0",
-  "description": "Organize shipment progress, draft customer updates, sort out transport problems, check signed receipts, and find frequent delays",
+  "description": "Organize in-transit progress, assess delivery and road risks, draft customer updates, review exceptions, check PODs, and find delay patterns",
   "author": {
     "name": "Expert Marketplace"
   },
@@ -27,8 +27,8 @@
     "zh": "物流运输专家"
   },
   "displayDescription": {
-    "en": "For linehaul, city delivery, cold chain and 3PL: organize in-transit progress, draft customer updates, sort exceptions and evidence, check POD, and find frequent delays. Can also draft scheduled task proposals.",
-    "zh": "面向专线、干线、城配、冷链：整理在途进度、写客户通知、梳理异常证据、检查签收回单、分析延误；需要时也可写定时任务提案。"
+    "en": "For linehaul, city delivery and cold chain: track progress, assess on-time and road risks, draft customer updates, review exceptions, and check PODs.",
+    "zh": "面向专线、干线、城配、冷链：整理在途进度、识别送达与路况风险、写客户通知、梳理异常、检查回单；需要时也可写定时任务提案。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
@@ -44,6 +44,14 @@
     {
       "zh": "整理运输进度",
       "en": "Organize Progress"
+    },
+    {
+      "zh": "路况风险识别",
+      "en": "Road Risk"
+    },
+    {
+      "zh": "送达风险识别",
+      "en": "On-time Risk"
     },
     {
       "zh": "写客户通知",
@@ -86,7 +94,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！📍 我是你的物流运输专家，帮专线、干线、城配、冷链从发车盯到签收。\n\n无论是整理在途进度、写客户通知、说明延误、梳理异常证据，还是检查签收回单、分析哪些线路经常晚到，我都能帮你搞定。\n\n手头有群聊、轨迹或回单直接丢过来，或者说下今天要跟哪几票。",
-    "en": "Hi! I am your in-transit fulfillment specialist. I can organize shipment progress, draft customer updates, sort exceptions and evidence, check signed receipts, and spot frequent delays. Drop chats, tracks, or PODs, or tell me which loads to follow today."
+    "zh": "你好！📍 我是你的物流运输专家，帮专线、干线、城配、冷链从发车盯到签收。\n\n无论是整理在途进度、识别送达和路况风险、写客户通知、梳理异常证据，还是检查签收回单、分析哪些线路经常晚到，我都能帮你搞定。\n\n手头有群聊、轨迹或回单直接丢过来，或者说下今天要跟哪几票。",
+    "en": "Hi! I am your in-transit specialist. I organize progress, assess delivery and road risks, draft updates, review exceptions, and check PODs. Drop chats or tracks to start."
   }
 }
