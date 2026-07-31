@@ -1,5 +1,7 @@
 /**
- * Build the left-rail automation task/run list (same source as home 定时 groups).
+ * Build the left-rail automation task/run list.
+ * Same data source + grouping as the former home 「定时任务」 section
+ * (automation session records + mergeAutomationSessions + group by task id).
  */
 import { useEffect, useMemo, useState } from "react";
 
@@ -15,6 +17,7 @@ import {
   readAssistantArchivedTasks,
 } from "../../shared";
 import { groupAssistantAutomationItems } from "../sidebar/assistant-automation-groups";
+import { mergeAutomationSessions } from "../sidebar/agent-conversation-panel";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 export type AutomationNavSessionRow = {
@@ -104,13 +107,20 @@ export function useAutomationNavGroups(input: {
   return useMemo(() => {
     if (!input.enabled || !input.workspaceId.trim()) return [];
     void revision;
+    const records = readAutomationSessionRecords(input.workspaceId);
     const excluded = new Set<string>([
       ...readDeletedAutomationSessionIds(input.workspaceId),
       ...archivedSessionIdSet(readAssistantArchivedTasks(input.workspaceId)),
     ]);
+    // Same merge as home AgentConversationPanel: record-only runs still appear.
+    const sessions = mergeAutomationSessions(
+      [...input.sessions],
+      records,
+      excluded,
+    );
     return buildAutomationNavGroups({
-      records: readAutomationSessionRecords(input.workspaceId),
-      sessions: input.sessions,
+      records,
+      sessions,
       categoryId: input.categoryId,
       excludedSessionIds: excluded,
     });

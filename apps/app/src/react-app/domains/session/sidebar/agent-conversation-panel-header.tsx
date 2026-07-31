@@ -1,16 +1,12 @@
 /** @jsxImportSource react */
-import { ChevronRight, Clock3, MessageCirclePlus, Plus, Search } from "lucide-react";
+import { ChevronRight, MessageCirclePlus, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NavListButton } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { t } from "../../../../i18n";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
-import {
-  AssistantCategorySwitch,
-  AssistantMenuRow,
-  type AssistantMenuItem,
-} from "./assistant-sidebar-controls";
+import { AssistantCategorySwitch } from "./assistant-sidebar-controls";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
@@ -28,10 +24,6 @@ type AgentConversationPanelHeaderProps = {
 };
 
 export function AgentConversationPanelHeader(props: AgentConversationPanelHeaderProps) {
-  const assistantMenuItems: AssistantMenuItem[] = [
-    { id: "automation", label: t("nav.automation"), icon: Clock3 },
-  ];
-
   if (props.mode === "assistant") {
     return (
       <div className="space-y-0 pb-2.5 pt-3.5">
@@ -43,10 +35,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
         ) : null}
         <div className="grid gap-1.5" data-assistant-primary-actions="true">
           {/*
-            XOR selection: only the current view gets soft wash.
-            - New task: draft home (no session, not on automation)
-            - Automation: scheduledTasks rail
-            Never force permanent muted fill — that made both rows look selected.
+            Automation is a top-level primary rail entry — home only keeps 新建任务.
           */}
           <NavListButton
             type="button"
@@ -57,14 +46,6 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             <MessageCirclePlus className="size-4 shrink-0" strokeWidth={1.75} />
             {t("session.new_task")}
           </NavListButton>
-          {assistantMenuItems.map((item) => (
-            <AssistantMenuRow
-              key={item.id}
-              item={item}
-              active={item.id === "automation" && props.automationActive}
-              onClick={item.id === "automation" ? props.onOpenAutomation : props.onOpenAssistant}
-            />
-          ))}
         </div>
       </div>
     );

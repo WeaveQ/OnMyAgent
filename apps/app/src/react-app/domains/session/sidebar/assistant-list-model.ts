@@ -405,7 +405,8 @@ export function buildAssistantSidebarModel(input: {
     spaceLocalPinsByDirectory: input.spaceLocalPinsByDirectory,
     spaceFolderOrder: input.spaceFolderOrder,
     workspaceBySessionId: input.workspaceBySessionId,
-    automationIds: automationGroupsAll.map((group) => group.id),
+    // Automation lives on the primary-rail Automation page — not home pins.
+    automationIds: [],
   });
 
   return {
