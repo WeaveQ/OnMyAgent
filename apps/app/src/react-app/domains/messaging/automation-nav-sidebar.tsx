@@ -16,7 +16,6 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
-  History,
   LayoutTemplate,
   MoreHorizontal,
   Pencil,
@@ -98,7 +97,8 @@ function IconHoverTip(props: {
   );
 }
 
-export type AutomationNavKey = "tasks" | "runs" | "templates";
+/** Left filters only — run history lives under 全部任务 / session groups (no duplicate nav). */
+export type AutomationNavKey = "tasks" | "templates";
 
 export type AutomationNavSessionRow = {
   id: string;
@@ -122,7 +122,6 @@ export function AutomationNavSidebar(props: {
   onChange: (key: AutomationNavKey) => void;
   onCreate: () => void;
   taskCount?: number;
-  runCount?: number;
   groups?: AutomationNavGroupRow[];
   selectedSessionId?: string | null;
   workspaceId?: string;
@@ -168,12 +167,6 @@ export function AutomationNavSidebar(props: {
       label: t("automation.nav_all_tasks"),
       icon: CalendarClock,
       count: props.taskCount,
-    },
-    {
-      key: "runs",
-      label: t("automation.nav_runs"),
-      icon: History,
-      count: props.runCount,
     },
     {
       key: "templates",

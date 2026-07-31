@@ -1337,11 +1337,10 @@ export function AssistantPage(props: AssistantPageProps) {
                             focusAutomationId={focusAutomationId}
                             onFocusAutomationConsumed={() => setFocusAutomationId(null)}
                             hideStatusTabs
-                            statusTab={
-                              automationNav === "runs" ? "runs" : "tasks"
-                            }
-                            onStatusTabChange={(tab) => {
-                              setAutomationNav(tab === "runs" ? "runs" : "tasks");
+                            statusTab="tasks"
+                            onStatusTabChange={() => {
+                              // Left nav is tasks | templates only (no separate runs entry).
+                              setAutomationNav("tasks");
                               setAutomationTemplateViewOpen(false);
                             }}
                             templateViewOpen={automationTemplateViewOpen}
