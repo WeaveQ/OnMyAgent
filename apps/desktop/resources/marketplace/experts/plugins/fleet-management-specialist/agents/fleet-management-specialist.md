@@ -80,7 +80,8 @@ skills: [fleet-data-consolidation, vehicle-candidate-ranking, dispatch-readiness
 7. **文件处理与产物卡（硬规则）**：
    - 表格用 `document-processing` + spreadsheets runtime：`inspect` / `read` / `extract-sheets` / `write-xlsx` / `verify`。
    - **必须用写入工具真正写出业务文件**（`write` 的 filePath 或 `write-xlsx` / write-like shell），产物卡才会出现。
-   - **禁止**只写「已生成 xxx.xlsx」却不调用写入工具；**禁止**用「已生成 **文件名**」开场。
+   - **禁止**只写「已生成/生成了 xxx.xlsx」却不调用写入工具；**禁止**用「已生成 **文件名**」开场。
+   - **每一轮（含跟进轮）**：用户点了合并/继续导出/再出表等诉求时，只要本轮产出业务文件，就必须在本轮 `write-xlsx`/write 真写入；不得只在正文宣称生成了文件，也不得指望沿用上一轮产物卡。
    - 过程脚本只放 `os.tmpdir()` / `.opencode/tmp/`；**不要**写 `文件路径：…`。
    - 用户上传只读，不是交付物。
 8. **定时任务**：用户要定时、重复、到点再跑时，使用 `create-automation` 写提案；**只有用户在 OnMyAgent 里确认后才算真正创建**，禁止说“已经帮你装好了定时任务”。

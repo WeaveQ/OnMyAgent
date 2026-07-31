@@ -426,6 +426,92 @@ function shellCommandText(input: unknown): string {
   return "";
 }
 
+function shellOutputText(output: unknown): string {
+  if (typeof output === "string") return output;
+  if (output == null) return "";
+  try {
+    return JSON.stringify(output);
+  } catch {
+    return "";
+  }
+}
+
+/** Machine marker printed by artifact-runtime after a successful write. */
+const RUNTIME_DELIVERABLE_MARKER =
+  /(?:^|\n)ONMYAGENT_DELIVERABLE:\s*(.+?)(?=\s*(?:\n|$))/g;
+
+/**
+ * Paths registered by first-class artifact-runtime writes:
+ * - `ONMYAGENT_DELIVERABLE: path` lines
+ * - JSON payloads with `deliverable: true` + `wrote[]` / `path`
+ * - `write-xlsx` / `extract-sheets --out <file>` command args
+ */
+export function collectRuntimeRegisteredDeliverablePaths(
+  input: unknown,
+  output: unknown,
+): string[] {
+  const command = shellCommandText(input);
+  const out = shellOutputText(output);
+  const paths: string[] = [];
+
+  RUNTIME_DELIVERABLE_MARKER.lastIndex = 0;
+  for (const match of out.matchAll(RUNTIME_DELIVERABLE_MARKER)) {
+    const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
+    if (raw) paths.push(raw);
+  }
+
+  for (const line of out.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) continue;
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (!isObject(parsed)) continue;
+      const isDeliverable =
+        parsed.deliverable === true
+        || (
+          parsed.status === "success"
+          && (
+            Array.isArray(parsed.wrote)
+            || (typeof parsed.path === "string" && /\b(write-xlsx|extract-sheets)\b/i.test(command))
+          )
+        );
+      if (!isDeliverable) continue;
+      if (Array.isArray(parsed.wrote)) {
+        for (const item of parsed.wrote) {
+          if (typeof item === "string" && item.trim()) paths.push(item.trim());
+        }
+      }
+      if (typeof parsed.path === "string" && parsed.path.trim()) {
+        paths.push(parsed.path.trim());
+      }
+      if (Array.isArray(parsed.outputs)) {
+        for (const item of parsed.outputs) {
+          if (isObject(item) && typeof item.path === "string" && item.path.trim()) {
+            paths.push(item.path.trim());
+          }
+        }
+      }
+    } catch {
+      // ignore non-JSON lines
+    }
+  }
+
+  // Fallback: first-class write commands always declare --out <file>.
+  // Do not treat --out-dir as a file deliverable.
+  if (/\b(write-xlsx|extract-sheets)\b/i.test(command)) {
+    const outFile = command.match(/(?:^|[\s])--out(?:\s+|=)(?!-dir)(["']?)([^"'\s]+)\1/i);
+    if (outFile?.[2]) paths.push(outFile[2]);
+  }
+
+  const seen = new Set<string>();
+  return paths.filter((value) => {
+    if (!value || seen.has(value)) return false;
+    if (isLikelyUserUploadArtifactPath(value)) return false;
+    seen.add(value);
+    return true;
+  });
+}
+
 /**
  * Whether a shell invocation looks like it *created* files (node/python write
  * scripts or first-class artifact-runtime write commands), not merely
@@ -433,7 +519,11 @@ function shellCommandText(input: unknown): string {
  */
 function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
   const command = shellCommandText(input);
-  const out = typeof output === "string" ? output : "";
+  const out = shellOutputText(output);
+  // Runtime-registered deliverables always mint product cards.
+  if (/ONMYAGENT_DELIVERABLE:/i.test(out)) {
+    return true;
+  }
   // First-class spreadsheet runtime write commands always mint deliverables.
   if (/\b(extract-sheets|write-xlsx)\b/i.test(command)) {
     return true;
@@ -608,12 +698,19 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
         if (shellToolLooksLikeFileWrite(part.input, part.output)) {
           addFileValues(
             targets,
+            collectRuntimeRegisteredDeliverablePaths(part.input, part.output),
+            98,
+            "runtime deliverable",
+          );
+          addFileValues(
+            targets,
             [part.input, part.output].flatMap(collectFileMetadataValues),
             90,
             "shell write metadata",
           );
-          if (typeof part.output === "string") {
-            scanText(targets, part.output, 90, "shell write output", {
+          const outText = shellOutputText(part.output);
+          if (outText) {
+            scanText(targets, outText, 90, "shell write output", {
               includeFiles: true,
             });
           }

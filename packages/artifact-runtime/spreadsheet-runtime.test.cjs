@@ -39,8 +39,10 @@ assert.throws(() => readSpreadsheet(file, { sheet: "missing" }), /Sheet not foun
 const singleOut = path.join(dir, "发货需求.xlsx");
 const extractedOne = extractSheets(file, { sheet: "发货需求", out: singleOut });
 assert.equal(extractedOne.status, "success");
+assert.equal(extractedOne.deliverable, true);
 assert.equal(extractedOne.outputs.length, 1);
 assert.equal(extractedOne.outputs[0].path, singleOut);
+assert.deepEqual(extractedOne.wrote, [singleOut]);
 assert.ok(fs.existsSync(singleOut));
 assert.match(extractedOne.message, /Wrote /);
 
@@ -66,8 +68,31 @@ const created = writeXlsx({
   json: rowsJson,
 });
 assert.equal(created.status, "success");
+assert.equal(created.deliverable, true);
+assert.deepEqual(created.wrote, [written]);
 assert.ok(fs.existsSync(written));
 const roundTrip = readSpreadsheet(written, { sheet: "报价" });
 assert.equal(roundTrip.sheets["报价"].row_count, 2);
+
+// CLI path must print ONMYAGENT_DELIVERABLE markers for product-card registration.
+const { spawnSync } = require("node:child_process");
+const cli = spawnSync(
+  process.execPath,
+  [
+    path.join(__dirname, "spreadsheet-runtime.cjs"),
+    "write-xlsx",
+    "--out",
+    path.join(dir, "cli-deliverable.xlsx"),
+    "--sheet",
+    "报价",
+    "--json",
+    rowsJson,
+  ],
+  { encoding: "utf8" },
+);
+assert.equal(cli.status, 0, cli.stderr || cli.stdout);
+assert.match(cli.stdout, /ONMYAGENT_DELIVERABLE:/);
+assert.match(cli.stdout, /cli-deliverable\.xlsx/);
+assert.match(cli.stdout, /"deliverable":true/);
 
 console.log("spreadsheet-runtime.test.cjs ok");

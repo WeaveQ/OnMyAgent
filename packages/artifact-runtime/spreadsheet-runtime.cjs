@@ -5,6 +5,7 @@ const path = require("node:path");
 const {
   dependencyReport,
   emit,
+  emitDeliverableResult,
   parseArgs,
   requireInput,
 } = require("./runtime-common.cjs");
@@ -287,6 +288,7 @@ function extractSheets(input, options = {}) {
     source,
     outputs,
     wrote: outputs.map((item) => item.path),
+    deliverable: true,
     // Human markers so shell write-like scanners mint product cards for outputs only.
     message: outputs.map((item) => `Wrote ${item.path}`).join("\n"),
   };
@@ -366,6 +368,7 @@ function writeXlsx(options = {}) {
     sheet: sheetName,
     row_count: rows.length,
     wrote: [out],
+    deliverable: true,
     message: `Wrote ${out}`,
   };
 }
@@ -417,31 +420,27 @@ async function runSpreadsheetRuntime(argv = process.argv.slice(2)) {
     }
     if (command === "verify") return emit(verifySpreadsheet(positional[1]));
     if (command === "extract-sheets") {
-      const result = extractSheets(positional[1], {
-        sheet: flags.get("sheet"),
-        sheets: flags.get("sheets"),
-        all: flags.get("all"),
-        out: flags.get("out"),
-        outDir: flags.get("out-dir") ?? flags.get("outDir"),
-      });
-      // Also print human Wrote lines after JSON for shell scanners that only
-      // regex free text (emit already JSON-stringifies the payload).
-      process.stdout.write(`${JSON.stringify(result)}\n`);
-      if (result.message) process.stdout.write(`${result.message}\n`);
-      process.exitCode = 0;
-      return result;
+      // Registers ONMYAGENT_DELIVERABLE markers so product cards do not depend
+      // on free-text path scanning alone.
+      return emitDeliverableResult(
+        extractSheets(positional[1], {
+          sheet: flags.get("sheet"),
+          sheets: flags.get("sheets"),
+          all: flags.get("all"),
+          out: flags.get("out"),
+          outDir: flags.get("out-dir") ?? flags.get("outDir"),
+        }),
+      );
     }
     if (command === "write-xlsx") {
-      const result = writeXlsx({
-        out: flags.get("out"),
-        sheet: flags.get("sheet"),
-        json: flags.get("json"),
-        csv: flags.get("csv"),
-      });
-      process.stdout.write(`${JSON.stringify(result)}\n`);
-      if (result.message) process.stdout.write(`${result.message}\n`);
-      process.exitCode = 0;
-      return result;
+      return emitDeliverableResult(
+        writeXlsx({
+          out: flags.get("out"),
+          sheet: flags.get("sheet"),
+          json: flags.get("json"),
+          csv: flags.get("csv"),
+        }),
+      );
     }
     throw new Error(
       `A command is required: ${COMMANDS.join(", ")}, or capabilities`,

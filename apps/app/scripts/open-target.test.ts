@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import {
   canPreviewOpenTargetInline,
   classifyOpenTarget,
+  collectRuntimeRegisteredDeliverablePaths,
   deriveOpenTargets,
   isCollectibleArtifactTarget,
   isUserFacingLocalPreviewTarget,
@@ -733,6 +734,76 @@ describe("deriveOpenTargets", () => {
     expect(targets.map((target) => target.value)).not.toContain(
       "1785466093426-0-07-四Agent完整业务演练材料.xlsx",
     );
+  });
+
+  it("mints product cards from ONMYAGENT_DELIVERABLE runtime registration", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command:
+            "node runtime/artifact_runtime.cjs write-xlsx --out 运单账单合并对账表.xlsx --sheet 对账 --json /tmp/rows.json",
+        },
+        [
+          JSON.stringify({
+            status: "success",
+            deliverable: true,
+            path: "运单账单合并对账表.xlsx",
+            wrote: ["运单账单合并对账表.xlsx"],
+          }),
+          "ONMYAGENT_DELIVERABLE: 运单账单合并对账表.xlsx",
+          "Wrote 运单账单合并对账表.xlsx",
+        ].join("\n"),
+      ),
+      message("msg_final", "assistant", "已合并完成，生成了「运单账单合并对账表.xlsx」"),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("运单账单合并对账表.xlsx");
+    expect(
+      targets.find((target) => target.value === "运单账单合并对账表.xlsx")?.reason,
+    ).toBe("runtime deliverable");
+  });
+
+  it("collects write-xlsx --out even when stdout only has the marker", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      {
+        command:
+          "node runtime/artifact_runtime.cjs write-xlsx --out 合并对账.xlsx --sheet S --json /tmp/a.json",
+      },
+      "ONMYAGENT_DELIVERABLE: 合并对账.xlsx\n",
+    );
+    expect(paths).toContain("合并对账.xlsx");
+  });
+
+  it("shows pdf/html/md content deliverables written by write tools", () => {
+    const messages = [
+      toolMessage("msg_pdf", "write", { filePath: "回单核对.pdf" }, { filePath: "回单核对.pdf" }),
+      toolMessage("msg_html", "write", { filePath: "进度看板.html" }, { filePath: "进度看板.html" }),
+      toolMessage("msg_md", "write", { filePath: "客户通知草稿.md" }, { filePath: "客户通知草稿.md" }),
+      message("msg_final", "assistant", "文件都写好了，可在下方产物卡打开。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("回单核对.pdf", "pdf"), exists: true },
+      { ...fileTarget("进度看板.html", "html"), exists: true },
+      { ...fileTarget("客户通知草稿.md", "markdown"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["回单核对.pdf", "客户通知草稿.md", "进度看板.html"].sort());
+  });
+
+  it("still hides soft prose claims without write provenance on follow-up turns", () => {
+    const messages = [
+      message(
+        "msg_followup",
+        "assistant",
+        "已合并完成，生成了「运单账单合并对账表.xlsx」，含两张表。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("运单账单合并对账表.xlsx", "sheet"), exists: true, size: 18_400 },
+    ];
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
   });
 });
 

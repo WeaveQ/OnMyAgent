@@ -56,7 +56,7 @@ Work only with standalone local files. Do not claim control of a live Excel sess
    ```
    Prefer `require("xlsx")` for tabular values; use `exceljs` only for rich formatting/charts. Never `require("exceljs")` without `NODE_PATH` / `ONMYAGENT_ARTIFACT_RUNTIME_ROOT`.
 7. Preserve formulas and cached results when possible. Never replace a requested formula model with unexplained hard-coded numbers.
-8. Finish with `node runtime/artifact_runtime.cjs verify <business-output>`. In the user reply, only briefly say what was generated (product cards handle open/download). **Do not** emit `文件路径：` lines.
+8. Finish with `node runtime/artifact_runtime.cjs verify <business-output>`. Successful `extract-sheets` / `write-xlsx` print `ONMYAGENT_DELIVERABLE:` markers so the session product card can open the file; do not rely on prose claims alone. In the user reply, only briefly say what was generated (product cards handle open/download). **Do not** emit `文件路径：` lines. Follow-up turns that produce a new workbook must call `write-xlsx` again in that turn.
 
 ## Formula boundary
 

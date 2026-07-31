@@ -9,6 +9,66 @@ function emit(payload, code = 0) {
   return payload;
 }
 
+/**
+ * Collect absolute/relative deliverable paths from a success payload.
+ * Prefers explicit `wrote[]`, then `path`, then `outputs[].path`.
+ */
+function collectDeliverablePaths(payload) {
+  if (!payload || typeof payload !== "object") return [];
+  const paths = [];
+  if (Array.isArray(payload.wrote)) {
+    for (const item of payload.wrote) {
+      if (typeof item === "string" && item.trim()) paths.push(item.trim());
+    }
+  }
+  if (typeof payload.path === "string" && payload.path.trim()) {
+    paths.push(payload.path.trim());
+  }
+  if (Array.isArray(payload.outputs)) {
+    for (const item of payload.outputs) {
+      if (item && typeof item.path === "string" && item.path.trim()) {
+        paths.push(item.path.trim());
+      }
+    }
+  }
+  // Dedupe while preserving order.
+  const seen = new Set();
+  return paths.filter((value) => {
+    if (seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
+}
+
+/**
+ * Emit a write success payload and register deliverables for product cards.
+ *
+ * Prints:
+ * 1. JSON line with `deliverable: true` and normalized `wrote[]`
+ * 2. One `ONMYAGENT_DELIVERABLE: <path>` line per file (machine marker)
+ * 3. Human `Wrote <path>` lines (compat with existing shell scanners)
+ */
+function emitDeliverableResult(payload, code = 0) {
+  const wrote = collectDeliverablePaths(payload);
+  const enriched = {
+    ...(payload && typeof payload === "object" ? payload : {}),
+    deliverable: true,
+    wrote,
+  };
+  if (typeof enriched.message !== "string" || !enriched.message.trim()) {
+    enriched.message = wrote.map((item) => `Wrote ${item}`).join("\n");
+  }
+  process.stdout.write(`${JSON.stringify(enriched)}\n`);
+  for (const item of wrote) {
+    process.stdout.write(`ONMYAGENT_DELIVERABLE: ${item}\n`);
+  }
+  if (typeof enriched.message === "string" && enriched.message.trim()) {
+    process.stdout.write(`${enriched.message}\n`);
+  }
+  process.exitCode = code;
+  return enriched;
+}
+
 function parseArgs(argv) {
   const positional = [];
   const flags = new Map();
@@ -83,10 +143,12 @@ async function requiredZipText(zip, name, label) {
 }
 
 module.exports = {
+  collectDeliverablePaths,
   countXmlTags,
   decodeXmlText,
   dependencyReport,
   emit,
+  emitDeliverableResult,
   loadZip,
   parseArgs,
   requireInput,
