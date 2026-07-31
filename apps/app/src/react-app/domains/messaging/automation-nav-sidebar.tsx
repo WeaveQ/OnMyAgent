@@ -37,9 +37,9 @@ import { t } from "../../../i18n";
 
 /** Keep in sync with session sidebar SIDEBAR_PRIMARY_CTA_* (no cross-domain import). */
 const SIDEBAR_PRIMARY_CTA_CLASS =
-  "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
+  "border border-dls-border bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-lg";
 const SIDEBAR_PRIMARY_HEADER_CLASS =
-  "flex h-14 shrink-0 items-center px-3 pt-2";
+  "flex h-14 shrink-0 items-center px-3 pt-1.5";
 
 // Local copies of task-row action chrome (avoid messaging → session import).
 const TASK_ROW_ACTION_CLASS =
@@ -199,7 +199,7 @@ export function AutomationNavSidebar(props: {
           <Button
             type="button"
             variant="outline"
-            size="default"
+            size="sidebar-cta"
             className={SIDEBAR_PRIMARY_CTA_CLASS}
             onClick={props.onCreate}
           >

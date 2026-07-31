@@ -63,21 +63,26 @@ describe("rail idle primary ink contract", () => {
     expect(header).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
     expect(header).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
     expect(header).toContain("border-dls-border");
-    expect(header).toContain("h-9");
     expect(header).toContain("h-14");
-    expect(header).toContain("rounded-xl");
-    expect(header).toContain('size="default"');
+    expect(header).toContain('size="sidebar-cta"');
     expect(header).toContain("session.new_task");
     expect(header).toContain("onCreateTask");
 
     expect(automation).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
     expect(automation).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
     expect(automation).toContain("border-dls-border");
-    expect(automation).toContain("h-9");
     expect(automation).toContain("h-14");
-    expect(automation).toContain("rounded-xl");
-    expect(automation).toContain('size="default"');
+    expect(automation).toContain('size="sidebar-cta"');
     expect(automation).toContain("automation.add");
+
+    // Token: Button size sidebar-cta = h-10 + rounded-lg (not sausage xl).
+    const button = readFileSync(
+      resolve(root, "apps/app/src/components/ui/button.tsx"),
+      "utf8",
+    );
+    expect(button).toContain('"sidebar-cta"');
+    expect(button).toContain("h-10 w-full");
+    expect(button).toContain("rounded-lg");
   });
 
   test("NavTab free-float idle uses primary ink; active inverted label stays on contrast surface", () => {

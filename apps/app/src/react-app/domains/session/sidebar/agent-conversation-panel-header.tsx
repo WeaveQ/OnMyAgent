@@ -6,12 +6,13 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { t } from "../../../../i18n";
 
 /**
- * Full-width sidebar primary create CTA (新建任务 / 创建专家 / 添加).
- * Soft outline: h-9 + rounded-xl + hairline border.
+ * Surface/border for full-width list-lane create CTA.
+ * Size geometry lives on Button `size="sidebar-cta"` (h-10 + rounded-lg).
  * Keep in sync with automation-nav-sidebar SIDEBAR_PRIMARY_CTA_CLASS.
+ * DESIGN.md components.contracts.sidebar-primary-cta.
  */
 export const SIDEBAR_PRIMARY_CTA_CLASS =
-  "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
+  "border border-dls-border bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-lg";
 
 /**
  * Top strip for sidebar primary CTA — same h-14 as SessionSurfaceHeader
@@ -19,8 +20,8 @@ export const SIDEBAR_PRIMARY_CTA_CLASS =
  * with a bit more vertical air under the mac titlebar.
  */
 export const SIDEBAR_PRIMARY_HEADER_CLASS =
-  // pt bias so the h-9 CTA sits slightly below vertical center (less titlebar-tight).
-  "flex h-14 shrink-0 items-center pt-2";
+  // pt bias so the h-10 CTA sits slightly below vertical center (less titlebar-tight).
+  "flex h-14 shrink-0 items-center pt-1.5";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
@@ -49,7 +50,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
         <Button
           type="button"
           variant="outline"
-          size="default"
+          size="sidebar-cta"
           onClick={props.onCreateTask}
           className={SIDEBAR_PRIMARY_CTA_CLASS}
         >
