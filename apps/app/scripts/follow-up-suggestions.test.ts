@@ -110,6 +110,36 @@ describe("follow-up suggestions", () => {
     );
   });
 
+  test("fleet after dispatch analysis suggests pick vehicle or pre-dispatch check", () => {
+    const suggestions = resolveFollowUpSuggestions({
+      lastAssistantText:
+        "这批结论：共 5 辆，今日可派 4 辆。调度定位已标，要立刻处理载重存疑。",
+      lastUserText: "帮我做调度分析",
+      agentId: "fleet-management-specialist",
+    });
+    expect(
+      suggestions.some(
+        (item) =>
+          item.includes("挑车") || item.includes("派车前") || item.includes("调度"),
+      ),
+    ).toBe(true);
+  });
+
+  test("fulfillment after risk assessment suggests customer notice or chase driver", () => {
+    const suggestions = resolveFollowUpSuggestions({
+      lastAssistantText:
+        "送达风险：中。触发因素：停更 3 小时；路况风险：司机报拥堵。建议改 ETA。",
+      lastUserText: "评估一下风险",
+      agentId: "fulfillment-specialist",
+    });
+    expect(
+      suggestions.some(
+        (item) =>
+          item.includes("客户") || item.includes("司机") || item.includes("风险"),
+      ),
+    ).toBe(true);
+  });
+
   test("reads latest assistant and preceding user text", () => {
     const messages = [
       { role: "user", parts: [{ type: "text", text: "你好" }] },

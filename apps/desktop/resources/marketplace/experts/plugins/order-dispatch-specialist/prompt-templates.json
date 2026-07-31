@@ -6,7 +6,7 @@
       "en": "Organize Shipment Details"
     },
     "description": {
-      "zh": "把客户发来的零散内容整理成可用的发货表，含冷链/城配/专线字段",
+      "zh": "把聊天/截图/表格整理成发货表，含冷链温控、城配多点、专线班期字段",
       "en": "Turn chats, images, and files into one clear sheet with scene fields"
     },
     "template": {
@@ -14,12 +14,22 @@
       "en": "Organize <Customer chats, images, or files> into <My shipment sheet or template>, follow <Other requirements>, and flag unclear, missing, or conflicting details."
     },
     "requiredSlots": {
-      "zh": ["聊天、截图和表格", "你要使用的发货表模板"],
-      "en": ["Customer chats, images, or files", "My shipment sheet or template"]
+      "zh": [
+        "聊天、截图和表格",
+        "你要使用的发货表模板"
+      ],
+      "en": [
+        "Customer chats, images, or files",
+        "My shipment sheet or template"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["特别要检查的内容"],
-      "en": ["Other requirements"]
+      "zh": [
+        "特别要检查的内容"
+      ],
+      "en": [
+        "Other requirements"
+      ]
     }
   },
   {
@@ -29,7 +39,7 @@
       "en": "Find Missing Shipment Details"
     },
     "description": {
-      "zh": "找出缺什么，并写好可以直接发给客户的补问消息",
+      "zh": "检查缺项并写补问话，重点冷链温度、城配顺序/时间窗、专线班期",
       "en": "Find missing, unclear, and conflicting details at once"
     },
     "template": {
@@ -37,12 +47,22 @@
       "en": "Check whether <Customer shipment details> are enough to <Request a rate, quote, or create an order>, use <Company rules or my template>, and draft one message asking for missing details."
     },
     "requiredSlots": {
-      "zh": ["这票发货信息", "询价、报价或录单"],
-      "en": ["Customer shipment details", "Request a rate, quote, or create an order"]
+      "zh": [
+        "这票发货信息",
+        "询价、报价或录单"
+      ],
+      "en": [
+        "Customer shipment details",
+        "Request a rate, quote, or create an order"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["公司的必填要求"],
-      "en": ["Company rules or my template"]
+      "zh": [
+        "公司的必填要求"
+      ],
+      "en": [
+        "Company rules or my template"
+      ]
     }
   },
   {
@@ -52,7 +72,7 @@
       "en": "Help Me Work Out a Quote"
     },
     "description": {
-      "zh": "把成本、底价和客户价放在一起算，给出报价建议",
+      "zh": "按成本-底线-建议价出报价，支持冷链/城配加价；无依据不瞎报",
       "en": "Compare cost and prices and estimate profit"
     },
     "template": {
@@ -60,12 +80,22 @@
       "en": "For <Shipment, route, and service>, compare <Company cost, minimum price, contract price, and planned customer price>, follow <Company profit requirement>, and suggest a quote."
     },
     "requiredSlots": {
-      "zh": ["这票货和线路", "成本、底价、合同价和准备报给客户的价格"],
-      "en": ["Shipment, route, and service", "Company cost, minimum price, contract price, and planned customer price"]
+      "zh": [
+        "这票货和线路",
+        "成本、底价、合同价和准备报给客户的价格"
+      ],
+      "en": [
+        "Shipment, route, and service",
+        "Company cost, minimum price, contract price, and planned customer price"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["公司的利润要求或报价规则"],
-      "en": ["Company profit requirement"]
+      "zh": [
+        "公司的利润要求或报价规则"
+      ],
+      "en": [
+        "Company profit requirement"
+      ]
     }
   },
   {
@@ -83,12 +113,22 @@
       "en": "Compare <Customer confirmation and order> with <Quote and contract>, follow <Company checking rules>, and find differences in price, address, timing, cargo, or service."
     },
     "requiredSlots": {
-      "zh": ["客户确认内容和订单", "报价和合同"],
-      "en": ["Customer confirmation and order", "Quote and contract"]
+      "zh": [
+        "客户确认内容和订单",
+        "报价和合同"
+      ],
+      "en": [
+        "Customer confirmation and order",
+        "Quote and contract"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["公司的检查要求"],
-      "en": ["Company checking rules"]
+      "zh": [
+        "公司的检查要求"
+      ],
+      "en": [
+        "Company checking rules"
+      ]
     }
   }
 ]

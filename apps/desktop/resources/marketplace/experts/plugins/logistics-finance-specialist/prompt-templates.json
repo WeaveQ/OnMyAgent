@@ -14,12 +14,22 @@
       "en": "Match <Shipment, quote, customer bill, carrier bill, and receipt sheets> using <Shipment number or another matching method>, follow <My template>, and flag unmatched, duplicate, or missing records."
     },
     "requiredSlots": {
-      "zh": ["运单、报价、客户账单、承运商账单和回单表", "运单号或其他对应方法"],
-      "en": ["Shipment, quote, customer bill, carrier bill, and receipt sheets", "Shipment number or another matching method"]
+      "zh": [
+        "运单、报价、客户账单、承运商账单和回单表",
+        "运单号或其他对应方法"
+      ],
+      "en": [
+        "Shipment, quote, customer bill, carrier bill, and receipt sheets",
+        "Shipment number or another matching method"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["你要使用的对账模板"],
-      "en": ["My template"]
+      "zh": [
+        "你要使用的对账模板"
+      ],
+      "en": [
+        "My template"
+      ]
     }
   },
   {
@@ -29,7 +39,7 @@
       "en": "Find Amount Differences"
     },
     "description": {
-      "zh": "把金额差额一次找出来，并算清一共差多少钱",
+      "zh": "找出少收多付与无凭证费用，并写催补/询问话术要点",
       "en": "Find undercharges, overpayments, duplicates, and unsupported fees"
     },
     "template": {
@@ -37,12 +47,22 @@
       "en": "Compare <Quotes, contracts, and bills>, follow <Company charging and payment rules>, find undercharges, overpayments, duplicates, missed charges, or unsupported fees, and use <Amount range or focus> to calculate the difference."
     },
     "requiredSlots": {
-      "zh": ["报价、合同和账单", "公司的收费和付款规则"],
-      "en": ["Quotes, contracts, and bills", "Company charging and payment rules"]
+      "zh": [
+        "报价、合同和账单",
+        "公司的收费和付款规则"
+      ],
+      "en": [
+        "Quotes, contracts, and bills",
+        "Company charging and payment rules"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["需要重点查看的客户、线路或金额范围"],
-      "en": ["Amount range or focus"]
+      "zh": [
+        "需要重点查看的客户、线路或金额范围"
+      ],
+      "en": [
+        "Amount range or focus"
+      ]
     }
   },
   {
@@ -60,12 +80,22 @@
       "en": "Using <Company settlement requirements>, check <Receipts, cost evidence, and approvals for each shipment>, follow <My grouping method>, and show what can be settled, what cannot, what is missing, and who should provide it."
     },
     "requiredSlots": {
-      "zh": ["公司的结算要求", "每票货的回单、费用凭证和审批资料"],
-      "en": ["Company settlement requirements", "Receipts, cost evidence, and approvals for each shipment"]
+      "zh": [
+        "公司的结算要求",
+        "每票货的回单、费用凭证和审批资料"
+      ],
+      "en": [
+        "Company settlement requirements",
+        "Receipts, cost evidence, and approvals for each shipment"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["你习惯的分组方式"],
-      "en": ["My grouping method"]
+      "zh": [
+        "你习惯的分组方式"
+      ],
+      "en": [
+        "My grouping method"
+      ]
     }
   },
   {
@@ -83,12 +113,51 @@
       "en": "Check <Customer invoice details> against <Confirmed shipments and amounts>, follow <Company invoice request template>, verify company name, tax ID, tax rate, amount, and related shipments, and draft the request."
     },
     "requiredSlots": {
-      "zh": ["客户开票资料", "已经确认的运单及金额"],
-      "en": ["Customer invoice details", "Confirmed shipments and amounts"]
+      "zh": [
+        "客户开票资料",
+        "已经确认的运单及金额"
+      ],
+      "en": [
+        "Customer invoice details",
+        "Confirmed shipments and amounts"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["公司的开票申请模板"],
-      "en": ["Company invoice request template"]
+      "zh": [
+        "公司的开票申请模板"
+      ],
+      "en": [
+        "Company invoice request template"
+      ]
+    }
+  },
+  {
+    "id": "freight-profit-analysis",
+    "title": {
+      "zh": "算每票赚不赚钱",
+      "en": "Check Job Profitability"
+    },
+    "description": {
+      "zh": "按收入与承运成本算毛利，找出亏损或低利单",
+      "en": "Compute margin by job and flag loss-making lanes"
+    },
+    "template": {
+      "zh": "这些是 <运单收入、承运成本和附加费数据>。请按 <客户/线路/月份> 算每票毛利，标出亏损和明显偏低的单，并说明还缺哪些成本口径。",
+      "en": "Using <Revenue, carrier cost, and surcharge data>, compute margin by <Customer/lane/month>, flag losses and thin margins, and note missing cost definitions."
+    },
+    "requiredSlots": {
+      "zh": [
+        "运单收入、承运成本和附加费数据",
+        "客户/线路/月份"
+      ],
+      "en": [
+        "Revenue, carrier cost, and surcharge data",
+        "Customer/lane/month"
+      ]
+    },
+    "conditionalSlots": {
+      "zh": [],
+      "en": []
     }
   }
 ]
