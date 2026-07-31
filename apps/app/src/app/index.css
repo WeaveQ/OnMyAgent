@@ -379,8 +379,8 @@ select:disabled {
   --dls-brand-neutral-soft: #E8E9EC;
   --dls-brand-faint-blue: #F7FAFF;
   --dls-rail-bg: #E4E2E3;
-  /* Soft brand wash — selected sidebar rows (e.g. 新建任务) should read as
-     highlighted, not a muddy mid-gray on the gray sidebar. */
+  /* Soft brand wash for sidebar list selected rows. Primary-rail free-float
+     chips use surface (not rail-active) in light — see DESIGN.md selection ladder. */
   --dls-rail-active: #EAF2FF;
   --dls-rail-hover: #E2E2E2;
   /* DESIGN.md v5 § 2 semantic aliases. These names match the contract's
@@ -557,7 +557,8 @@ select:disabled {
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #333333;
   --dls-rail-bg: #141414;
-  /* Active pill must clear rail #141414 — #2E2E2E was near-invisible. */
+  /* Shared dark lift for free-float rail pills + sidebar data-active rows.
+     Must clear rail #141414 (#2E2E2E was near-invisible). DESIGN.md colors.dark. */
   --dls-rail-active: #404040;
   --dls-rail-hover: #2A2A2A;
   /* Dark overrides for v5/v6 semantic aliases (DESIGN.md § 2). Most

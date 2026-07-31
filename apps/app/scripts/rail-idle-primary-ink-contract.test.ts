@@ -62,18 +62,24 @@ describe("rail idle primary ink contract", () => {
 
     expect(header).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
     expect(header).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
-    expect(header).toContain("border-dls-border");
-    expect(header).toContain("h-14");
+    expect(header).toContain('from "@/components/ui/sidebar-chrome"');
     expect(header).toContain('size="sidebar-cta"');
     expect(header).toContain("session.new_task");
     expect(header).toContain("onCreateTask");
 
     expect(automation).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
     expect(automation).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
-    expect(automation).toContain("border-dls-border");
-    expect(automation).toContain("h-14");
+    expect(automation).toContain('from "@/components/ui/sidebar-chrome"');
     expect(automation).toContain('size="sidebar-cta"');
     expect(automation).toContain("automation.add");
+
+    // Shared chrome token module (single source of truth).
+    const chrome = readFileSync(
+      resolve(root, "apps/app/src/components/ui/sidebar-chrome.ts"),
+      "utf8",
+    );
+    expect(chrome).toContain("border border-dls-border bg-dls-surface-solid");
+    expect(chrome).toContain("flex h-14 shrink-0 items-center pt-1.5");
 
     // Token: Button size sidebar-cta = h-10 + rounded-lg (not sausage xl).
     const button = readFileSync(

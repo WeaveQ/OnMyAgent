@@ -2,26 +2,15 @@
 import { Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  SIDEBAR_PRIMARY_CTA_CLASS,
+  SIDEBAR_PRIMARY_HEADER_CLASS,
+} from "@/components/ui/sidebar-chrome";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { t } from "../../../../i18n";
 
-/**
- * Surface/border for full-width list-lane create CTA.
- * Size geometry lives on Button `size="sidebar-cta"` (h-10 + rounded-lg).
- * Keep in sync with automation-nav-sidebar SIDEBAR_PRIMARY_CTA_CLASS.
- * DESIGN.md components.contracts.sidebar-primary-cta.
- */
-export const SIDEBAR_PRIMARY_CTA_CLASS =
-  "border border-dls-border bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-lg";
-
-/**
- * Top strip for sidebar primary CTA — same h-14 as SessionSurfaceHeader
- * so list-lane “新建任务” and main “助手” title row share one baseline
- * with a bit more vertical air under the mac titlebar.
- */
-export const SIDEBAR_PRIMARY_HEADER_CLASS =
-  // pt bias so the h-10 CTA sits slightly below vertical center (less titlebar-tight).
-  "flex h-14 shrink-0 items-center pt-1.5";
+// Re-export for callers that imported chrome from this header module.
+export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
@@ -44,8 +33,8 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
         data-assistant-primary-actions="true"
       >
         {/*
-          Full-width outline pill, vertically centered in the shared h-12
-          chrome row (aligns with SessionSurfaceHeader / automation CTA).
+          Full-width outline CTA in shared h-14 strip (SessionSurfaceHeader /
+          automation CTA baseline — DESIGN.md sidebar-primary-cta).
         */}
         <Button
           type="button"
