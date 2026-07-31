@@ -271,6 +271,8 @@ const sessionRowButtonVariants = cva(
       },
       size: {
         conversation: "flex h-[68px] items-center gap-3 px-4",
+        // Expert sidebar list — denser than conversation, rounded selected wash.
+        expert: "flex h-14 items-center gap-2.5 rounded-xl px-2.5",
         // Agent session strip: solid chip (contrast vs outline "+ 新会话"); radius matches search.
         tab: "flex h-7 w-[116px] items-center gap-1 rounded-md border-0 px-3 pr-7 text-xs",
       },
@@ -292,6 +294,11 @@ const sessionRowButtonVariants = cva(
         // Soft solid chip when idle — still distinct from outline "new session" action.
         className:
           "bg-dls-surface-muted/70 text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
+      },
+      {
+        size: "expert",
+        active: true,
+        className: "bg-dls-list-selected font-medium text-dls-text shadow-none",
       },
     ],
     defaultVariants: {

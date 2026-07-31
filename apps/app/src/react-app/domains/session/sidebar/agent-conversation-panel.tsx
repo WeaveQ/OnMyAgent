@@ -1234,9 +1234,8 @@ export function AgentConversationPanel(props: {
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col bg-dls-sidebar pb-5 mac:bg-dls-sidebar mac:titlebar-no-drag",
+        "flex shrink-0 flex-col bg-dls-sidebar px-2.5 pb-5 mac:bg-dls-sidebar mac:titlebar-no-drag",
         mode === "agent" ? "overflow-visible" : "overflow-hidden",
-        mode === "assistant" && "px-2.5",
       )}
       style={{ width: props.width }}
     >
@@ -1255,9 +1254,9 @@ export function AgentConversationPanel(props: {
 
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto",
-          // Even gap under the shared h-14 primary CTA strip.
-          mode === "assistant" && "pr-0.5 pt-1.5",
+          "min-h-0 flex-1 overflow-y-auto pr-0.5",
+          // Even gap under primary chrome (home CTA strip / expert search+create).
+          "pt-1.5",
         )}
       >
         {mode === "assistant" ? (

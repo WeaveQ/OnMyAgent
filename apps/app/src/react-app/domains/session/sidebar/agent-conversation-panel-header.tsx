@@ -61,8 +61,11 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="relative flex shrink-0 flex-col gap-2 border-b border-dls-mist px-0 pb-2.5 pt-2">
-      {/* Search + create share compact chrome; h-9 controls match primary CTA. */}
+    <div className="relative flex shrink-0 flex-col gap-2 pb-2 pt-2">
+      {/*
+        Expert chrome: search then primary create — same control height (h-9)
+        and outline language as home 新建任务. No bottom rule (list continues).
+      */}
       <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="w-full">
         <InputGroupAddon align="inline-start" inset="tight">
           <Search className="size-4" />
@@ -87,7 +90,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
         {t("session.create_expert")}
       </Button>
       {props.showAgentSelectionTip ? (
-        <div className="absolute left-3 right-3 top-[5.75rem] z-30 rounded-lg border border-dls-accent/30 bg-dls-surface-solid p-3">
+        <div className="absolute left-0 right-0 top-[5.5rem] z-30 rounded-lg border border-dls-accent/30 bg-dls-surface-solid p-3">
           <span
             className="absolute -top-1.5 left-6 size-3 rotate-45 border-l border-t border-dls-accent/30 bg-dls-surface"
             aria-hidden="true"
