@@ -284,6 +284,7 @@ export function AgentConversationItem(props: {
     >
       <SessionRowButton
         type="button"
+        size="expert"
         onClick={openConversation}
         onPointerEnter={() =>
           isDraftSession
@@ -296,13 +297,12 @@ export function AgentConversationItem(props: {
             : props.onPrefetchSession?.(props.workspaceId, latestSession.id)
         }
         active={props.selected}
-        // Same footprint as local-agent list: h-68 / gap-3 / px-4 (SessionRow default).
       >
         <div className="relative shrink-0">
-          {/* size-10 + rounded-md matches AgentBrandIcon size="md". */}
+          {/* size-9 + rounded-md — denser expert list tile. */}
           <div
             className={cn(
-              "flex size-10 items-center justify-center overflow-hidden rounded-md text-sm font-medium",
+              "flex size-9 items-center justify-center overflow-hidden rounded-md text-sm font-medium",
               "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60",
               "dark:bg-white dark:text-neutral-700 dark:ring-black/10",
             )}
@@ -389,7 +389,7 @@ export function AgentConversationItem(props: {
               </div>
             )}
           </div>
-          <div className="mt-1 min-w-0 truncate text-xs leading-5 text-dls-secondary">
+          <div className="mt-0.5 min-w-0 truncate text-xs leading-4 text-dls-secondary">
             <span title={subtitle}>{subtitle}</span>
           </div>
         </div>
