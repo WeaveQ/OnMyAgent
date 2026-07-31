@@ -80,6 +80,15 @@ const CODE_EXTENSIONS = new Set([
   ".java",
 ]);
 
+function isUnderTmpDir(path: string): boolean {
+  const normalized = normalizePathKey(path);
+  return (
+    /(^|\/)(\.opencode\/tmp|tmp|temp|temps)(\/|$)/i.test(normalized)
+    || normalized.startsWith("/tmp/")
+    || normalized.startsWith("/var/folders/")
+  );
+}
+
 /**
  * Heuristic: scripts written only to generate another deliverable.
  * e.g. extract_sheets.cjs, gen_xlsx.py, /tmp/helper.cjs
@@ -89,14 +98,7 @@ function isProcessHelperScript(path: string): boolean {
   const base = basenameOf(normalized).toLowerCase();
   const ext = fileExtension(normalized);
   if (!CODE_EXTENSIONS.has(ext)) return false;
-
-  if (
-    /(^|\/)(\.opencode\/tmp|tmp|temp|temps)(\/|$)/i.test(normalized)
-    || normalized.startsWith("/tmp/")
-    || normalized.startsWith("/var/folders/")
-  ) {
-    return true;
-  }
+  if (isUnderTmpDir(normalized)) return true;
 
   const stem = base.slice(0, base.length - ext.length);
   // extract_sheets, gen_xlsx, tmp_run, helper_foo, scratch_…
@@ -108,6 +110,34 @@ function isProcessHelperScript(path: string): boolean {
     return true;
   }
   if (/[-_](tmp|temp|scratch|helper|util)$/i.test(stem)) return true;
+  return false;
+}
+
+/**
+ * Intermediate agent data files that must not become product cards.
+ * e.g. oma-summary.json, rows.json, tmp meta under session root.
+ */
+export function isProcessHelperArtifact(path: string): boolean {
+  if (isProcessHelperScript(path)) return true;
+  const normalized = normalizePathKey(path);
+  if (isUnderTmpDir(normalized)) return true;
+
+  const base = basenameOf(normalized).toLowerCase();
+  const ext = fileExtension(normalized);
+  if (ext === ".json") {
+    // Process/intermediate JSON — never a logistics deliverable card.
+    if (
+      /^(oma[-_]|tmp[-_]|temp[-_]|scratch[-_]|helper[-_]|rows[-_]?|data[-_]?|meta[-_]?|debug[-_]?|intermediate)/i.test(
+        base,
+      )
+      || /[-_](summary|tmp|temp|scratch|helper|rows|meta|debug|cache)(\.json)?$/i.test(base)
+      || base === "summary.json"
+      || base === "package.json"
+      || base === "tsconfig.json"
+    ) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -245,12 +275,17 @@ export function shouldShowAsTurnDeliverable(
     hasContentDeliverableInTurn: boolean;
   },
 ): boolean {
-  if (isProcessHelperScript(path)) return false;
+  if (isProcessHelperArtifact(path)) return false;
   if (context.executedScriptBasenames.has(basenameOf(path).toLowerCase())) {
     // Ran in this turn → treat as process helper unless it is also the only
     // declared deliverable and no content files exist.
     if (context.hasContentDeliverableInTurn) return false;
     if (!pathMatchesDeclared(path, context.declaredPaths)) return false;
+  }
+  // .json is only a product when explicitly declared (hard 文件路径) — most
+  // agent JSON is intermediate data for write-xlsx, not a user deliverable.
+  if (fileExtension(path) === ".json") {
+    return pathMatchesDeclared(path, context.declaredPaths);
   }
   if (isContentDeliverable(path)) return true;
   if (isCodePath(path)) {
@@ -287,8 +322,9 @@ export function selectTurnOpenTargets(
   const hasContentDeliverableInTurn = candidatePaths.some(
     (path) =>
       isContentDeliverable(path)
+      && fileExtension(path) !== ".json"
       && !isBlockedUserPath(path, userBasenames)
-      && !isProcessHelperScript(path),
+      && !isProcessHelperArtifact(path),
   );
 
   const showContext = {
