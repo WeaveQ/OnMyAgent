@@ -2,6 +2,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
   PanelRight,
@@ -258,14 +259,44 @@ export function AssistantPage(props: AssistantPageProps) {
   const [automationCreateRequestId, setAutomationCreateRequestId] = useState(0);
   const [automationTemplateViewOpen, setAutomationTemplateViewOpen] =
     useState(false);
+  /**
+   * Session opened from the automation rail (left list or AutomationPage).
+   * Keeps the rail on automation and paints SessionSurface in-place — no jump to 首页.
+   */
+  const [automationEmbeddedSessionId, setAutomationEmbeddedSessionId] =
+    useState<string | null>(null);
 
   const openScheduledTasksView = useCallback(() => {
     // Canonical primary-rail id (legacy scheduledTasks still resolves as known).
     openRailView("automation");
   }, [openRailView]);
 
+  const openAutomationEmbeddedSession = useCallback(
+    (workspaceId: string, sessionId: string) => {
+      const id = sessionId.trim();
+      if (!id) return;
+      addAssistantSession(id);
+      writeAssistantSessionCategory(id, assistantCategoryId);
+      writeAssistantSelectionMemory(workspaceId, assistantCategoryId, {
+        kind: "session",
+        sessionId: id,
+      });
+      setAutomationEmbeddedSessionId(id);
+      // Stay on automation rail — do not openRailView("assistant").
+      props.sidebar.onOpenSession(workspaceId, id);
+    },
+    [assistantCategoryId, props.sidebar],
+  );
+
+  const closeAutomationEmbeddedSession = useCallback(() => {
+    setAutomationEmbeddedSessionId(null);
+  }, []);
+
   useEffect(() => {
-    if (!isAutomationRailView(activeSidebarView)) return;
+    if (!isAutomationRailView(activeSidebarView)) {
+      setAutomationEmbeddedSessionId(null);
+      return;
+    }
     const focus = consumeAutomationFocus(props.selectedWorkspaceId);
     if (!focus) return;
     if (focus.scene !== assistantCategoryId) {
@@ -749,8 +780,15 @@ export function AssistantPage(props: AssistantPageProps) {
     props.onmyagentServerClient?.token?.trim() ||
     "";
   const draftSessionId = `draft:${props.selectedWorkspaceId}`;
-  const isDraftSession = !props.selectedSessionId;
-  const renderedSessionId = props.selectedSessionId ?? draftSessionId;
+  const showAutomationEmbeddedSession =
+    isAutomationRailView(activeSidebarView) &&
+    Boolean(automationEmbeddedSessionId);
+  const isDraftSession =
+    !showAutomationEmbeddedSession && !props.selectedSessionId;
+  const renderedSessionId =
+    (showAutomationEmbeddedSession
+      ? automationEmbeddedSessionId
+      : props.selectedSessionId) ?? draftSessionId;
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,
@@ -781,6 +819,10 @@ export function AssistantPage(props: AssistantPageProps) {
   const railActiveView = isAutomationRailView(activeSidebarView)
     ? "automation"
     : activeSidebarView;
+  // SessionSurface paints on primary home OR when a run is opened inside automation.
+  const sessionSurfaceActive =
+    (isPrimarySessionView || showAutomationEmbeddedSession) &&
+    !showDelayedSessionLoadingState;
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
@@ -818,6 +860,19 @@ export function AssistantPage(props: AssistantPageProps) {
         : "";
 
   const headerPanelControls = (
+    <>
+      {showAutomationEmbeddedSession ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mr-1 gap-1.5 text-dls-secondary hover:text-dls-text"
+          onClick={closeAutomationEmbeddedSession}
+        >
+          <ArrowLeft className="size-4 shrink-0" aria-hidden />
+          {t("automation.back")}
+        </Button>
+      ) : null}
     <SessionHistorySearchChrome
       searchOpen={historySearchOpen}
       searchQuery={historySearchQuery}
@@ -859,6 +914,7 @@ export function AssistantPage(props: AssistantPageProps) {
         openAssistantSidePanelMenu();
       }}
     />
+    </>
   );
 
   return (
@@ -953,29 +1009,24 @@ export function AssistantPage(props: AssistantPageProps) {
                 active={automationNav}
                 onChange={(key) => {
                   setAutomationNav(key);
+                  // Browse filters return to the automation list (leave embedded session).
+                  setAutomationEmbeddedSessionId(null);
                   if (key === "templates") {
                     setAutomationTemplateViewOpen(true);
                   } else {
                     setAutomationTemplateViewOpen(false);
                   }
                 }}
-                onCreate={() =>
-                  setAutomationCreateRequestId((value) => value + 1)
-                }
-                groups={automationNavGroups}
-                selectedSessionId={props.selectedSessionId}
-                workspaceId={props.selectedWorkspaceId}
-                onOpenSession={(workspaceId, sessionId) => {
-                  addAssistantSession(sessionId);
-                  writeAssistantSessionCategory(sessionId, assistantCategoryId);
-                  writeAssistantSelectionMemory(
-                    workspaceId,
-                    assistantCategoryId,
-                    { kind: "session", sessionId },
-                  );
-                  openAssistantSessionView();
-                  props.sidebar.onOpenSession(workspaceId, sessionId);
+                onCreate={() => {
+                  setAutomationEmbeddedSessionId(null);
+                  setAutomationCreateRequestId((value) => value + 1);
                 }}
+                groups={automationNavGroups}
+                selectedSessionId={
+                  automationEmbeddedSessionId ?? props.selectedSessionId
+                }
+                workspaceId={props.selectedWorkspaceId}
+                onOpenSession={openAutomationEmbeddedSession}
               />
             ) : null}
             {(activeSidebarView === "chat" ||
@@ -1034,9 +1085,7 @@ export function AssistantPage(props: AssistantPageProps) {
                     activeSidebarView={activeSidebarView}
                     visitedRailViews={visitedRailViews}
                     isPrimarySessionView={isPrimarySessionView}
-                    primarySessionActive={
-                      isPrimarySessionView && !showDelayedSessionLoadingState
-                    }
+                    primarySessionActive={sessionSurfaceActive}
                     panes={{
                       store: (
                         <StorePage
@@ -1137,8 +1186,10 @@ export function AssistantPage(props: AssistantPageProps) {
                     middle={
                       <>
                       {/* Absolute fill like other secondary rails — in-flow middle
-                          collapses under keep-alive absolute panes. */}
-                      {isAutomationRailView(activeSidebarView) ? (
+                          collapses under keep-alive absolute panes.
+                          Hidden while an embedded run session is open (SessionSurface). */}
+                      {isAutomationRailView(activeSidebarView) &&
+                      !showAutomationEmbeddedSession ? (
                         <div className="absolute inset-0 z-[1] min-h-0 min-w-0 overflow-hidden">
                           <AutomationPage
                             scene={assistantCategoryId}
@@ -1192,15 +1243,7 @@ export function AssistantPage(props: AssistantPageProps) {
                                       }))
                                 : undefined
                             }
-                            onOpenSession={(workspaceId, sessionId) => {
-                              writeAssistantSelectionMemory(
-                                workspaceId,
-                                assistantCategoryId,
-                                { kind: "session", sessionId },
-                              );
-                              openAssistantSessionView();
-                              props.sidebar.onOpenSession(workspaceId, sessionId);
-                            }}
+                            onOpenSession={openAutomationEmbeddedSession}
                           />
                         </div>
                       ) : null}
@@ -1251,9 +1294,7 @@ export function AssistantPage(props: AssistantPageProps) {
                             workspaceId={props.runtimeWorkspaceId!}
                             sessionId={renderedSessionId}
                             draftOnly={isDraftSession}
-                            surfaceVisible={
-                              isPrimarySessionView && !showDelayedSessionLoadingState
-                            }
+                            surfaceVisible={sessionSurfaceActive}
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}
