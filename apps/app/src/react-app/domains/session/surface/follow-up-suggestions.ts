@@ -265,16 +265,38 @@ function orderDispatchHeuristics(
 
 function fleetHeuristics(assistantText: string, userText: string): string[] {
   if (isAwaitingUserMaterials(assistantText) || !hasDeliveredResult(assistantText)) {
-    if (includesAny(userText, ["挑车", "派车", "车辆"])) {
+    if (includesAny(userText, ["调度", "可派", "车队表", "车辆", "司机"])) {
+      return normalizeSuggestionList([
+        "这是车辆司机表，帮我做调度分析",
+        "我发车队资料给你整理",
+      ]);
+    }
+    if (includesAny(userText, ["挑车", "派车", "订单"])) {
       return normalizeSuggestionList([
         "这是订单和车辆表，帮我挑车",
         "我发车辆司机资料给你",
       ]);
     }
     return normalizeSuggestionList([
+      "做货运调度分析",
       "帮我挑合适的车",
       "派车前帮我检查",
-      "写好派车信息",
+    ]);
+  }
+  // After multi-vehicle dispatch analysis board
+  if (
+    includesAny(assistantText, [
+      "调度分析",
+      "调度定位",
+      "今日可派",
+      "实际可派",
+      "要立刻处理",
+    ])
+  ) {
+    return normalizeSuggestionList([
+      "按这张调度表帮我挑车",
+      "派车前再帮我检查一遍",
+      "导出调度建议表",
     ]);
   }
   if (includesAny(assistantText, ["优先", "备选", "不建议", "候选"])) {
@@ -283,7 +305,14 @@ function fleetHeuristics(assistantText: string, userText: string): string[] {
       "写好发给司机的任务信息",
     ]);
   }
+  if (includesAny(assistantText, ["可以派", "不能派", "需要补", "派车前"])) {
+    return normalizeSuggestionList([
+      "写好发给司机的任务信息",
+      "按缺口帮我列催补清单",
+    ]);
+  }
   return normalizeSuggestionList([
+    "做货运调度分析",
     "帮我挑合适的车",
     "派车前帮我检查",
     "写好派车信息",
@@ -292,6 +321,12 @@ function fleetHeuristics(assistantText: string, userText: string): string[] {
 
 function fulfillmentHeuristics(assistantText: string, userText: string): string[] {
   if (isAwaitingUserMaterials(assistantText) || !hasDeliveredResult(assistantText)) {
+    if (includesAny(userText, ["风险", "准时", "路况", "堵"])) {
+      return normalizeSuggestionList([
+        "这是在途消息，评估送达和路况风险",
+        "我发司机群聊给你看",
+      ]);
+    }
     if (includesAny(userText, ["到哪", "进度", "在途"])) {
       return normalizeSuggestionList([
         "这是司机群聊，帮我整理进度",
@@ -300,19 +335,45 @@ function fulfillmentHeuristics(assistantText: string, userText: string): string[
     }
     return normalizeSuggestionList([
       "整理货现在到哪里了",
+      "评估送达和路况风险",
       "帮我写客户进度通知",
-      "检查签收回单",
     ]);
   }
-  if (includesAny(assistantText, ["异常", "延误", "破损", "拒收"])) {
+  // After risk assessment
+  if (
+    includesAny(assistantText, [
+      "送达风险",
+      "路况风险",
+      "风险等级",
+      "风险中",
+      "风险高",
+      "风险低",
+      "待核实",
+    ])
+  ) {
+    return normalizeSuggestionList([
+      "写一版带风险口径的客户通知",
+      "继续追司机补当前位置",
+      "整理异常证据还缺什么",
+    ]);
+  }
+  if (includesAny(assistantText, ["异常", "延误", "破损", "拒收", "货损"])) {
     return normalizeSuggestionList([
       "写一版客户延误说明",
       "检查回单能不能结账",
+      "评估后续送达风险",
+    ]);
+  }
+  if (includesAny(assistantText, ["进度", "节点", "预计", "到站"])) {
+    return normalizeSuggestionList([
+      "评估这票送达风险",
+      "根据这份进度写客户通知",
+      "检查签收回单",
     ]);
   }
   return normalizeSuggestionList([
     "根据这份进度写客户通知",
-    "继续检查异常证据还缺什么",
+    "评估送达和路况风险",
     "检查签收回单",
   ]);
 }

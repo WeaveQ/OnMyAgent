@@ -46,6 +46,10 @@
       "en": "Match Bills"
     },
     {
+      "zh": "利润分析",
+      "en": "Profit Analysis"
+    },
+    {
       "zh": "找金额差额",
       "en": "Find Differences"
     },
@@ -64,24 +68,20 @@
   ],
   "quickPrompts": [
     {
-      "zh": "这些是运单、报价、承运商账单、客户账单和回单表 XX。请按运单号合到一张对账表里，并标出哪些对不上、重复或缺少信息。",
-      "en": "Here are shipment, quote, carrier bill, customer bill, and receipt sheets XX. Match them by shipment number into one reconciliation sheet and flag unmatched, duplicate, or missing information."
+      "zh": "这些是 <运单、报价、客户账单、承运商账单和回单表>。请按 <运单号或其他对应方法> 合成一张对账表，套用 <你要使用的对账模板>，并标出对不上、重复或缺少信息的记录。",
+      "en": "Match <Shipment, quote, customer bill, carrier bill, and receipt sheets> using <Shipment number or another matching method>, follow <My template>, and flag unmatched, duplicate, or missing records."
     },
     {
-      "zh": "请把报价、合同和账单 XX 放在一起对账，找出少收、多付、重复收费、漏收或没有凭证的费用，并算出差多少钱。",
-      "en": "Compare quotes, contracts, and bills XX, find undercharges, overpayments, duplicates, missed charges, or unsupported fees, and calculate the difference."
+      "zh": "请把 <报价、合同和账单> 放在一起对账，按照 <公司的收费和付款规则> 找出少收、多付、重复收费、漏收或没有凭证的费用，并按 <需要重点查看的客户、线路或金额范围> 算清一共差多少钱。",
+      "en": "Compare <Quotes, contracts, and bills>, follow <Company charging and payment rules>, find undercharges, overpayments, duplicates, missed charges, or unsupported fees, and use <Amount range or focus> to calculate the difference."
     },
     {
-      "zh": "请按结算要求 XX 检查这些回单、费用凭证和审批资料 XX，告诉我每票能不能结账、缺什么，以及该找谁补。",
-      "en": "Using settlement requirements XX, check receipts, cost evidence, and approvals XX, and tell me whether each shipment can be settled, what is missing, and who should provide it."
+      "zh": "请按 <公司的结算要求> 检查 <每票货的回单、费用凭证和审批资料>，按照 <你习惯的分组方式> 告诉我哪些能结账、哪些暂时不能、分别缺什么，以及该找谁补。",
+      "en": "Using <Company settlement requirements>, check <Receipts, cost evidence, and approvals for each shipment>, follow <My grouping method>, and show what can be settled, what cannot, what is missing, and who should provide it."
     },
     {
-      "zh": "请检查客户开票资料和确认金额 XX 中的公司名称、税号、税率、金额和对应运单，并写好可以复制到审批里的开票申请。",
-      "en": "Check company name, tax ID, tax rate, amount, and related shipments in customer invoice details and confirmed amounts XX, then draft an invoice request."
-    },
-    {
-      "zh": "这是每票收入、承运成本和附加费 XX。请算出每票、每个客户和每条线路赚多少钱，并找出亏损或利润突然变低的单子。",
-      "en": "Here are shipment revenue, carrier cost, and extra fees XX. Calculate profit by shipment, customer, and route, and find losses or sudden profit drops."
+      "zh": "请检查 <客户开票资料> 和 <已经确认的运单及金额>，按照 <公司的开票申请模板> 核对公司名称、税号、税率、金额和对应运单，并写好开票申请。",
+      "en": "Check <Customer invoice details> against <Confirmed shipments and amounts>, follow <Company invoice request template>, verify company name, tax ID, tax rate, amount, and related shipments, and draft the request."
     }
   ],
   "promptTemplates": "./prompt-templates.json",

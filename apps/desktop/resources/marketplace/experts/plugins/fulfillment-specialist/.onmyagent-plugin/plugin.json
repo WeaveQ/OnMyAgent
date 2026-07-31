@@ -64,32 +64,24 @@
     {
       "zh": "检查签收回单",
       "en": "Check Signed Receipts"
-    },
-    {
-      "zh": "找经常晚到",
-      "en": "Find Frequent Delays"
     }
   ],
   "quickPrompts": [
     {
-      "zh": "这些是司机群聊、位置和运输进度 XX。请按运单整理每票货现在到哪里、最后更新时间，以及还需要向司机确认什么。",
-      "en": "Here are driver chats, locations, and shipment updates XX. Organize each shipment's current location, latest update, and questions that still need driver confirmation."
+      "zh": "这些是 <司机群聊、位置和运输记录>。请按 <运单号或你现有的进度表> 整理每票货现在到哪里、最后更新时间和下一步，并根据 <需要重点关注的票> 告诉我还要向司机确认什么。",
+      "en": "Organize <Driver chats, locations, and shipment updates> by <Shipment number or my sheet>, follow <Other requirements>, and show current location, latest update, and questions for the driver."
     },
     {
-      "zh": "请根据已经确认的运输进度 XX，写一段客户能看懂的进度通知或延误说明，并告诉我哪些时间和承诺还需要确认。",
-      "en": "Using confirmed shipment progress XX, draft a clear customer update or delay explanation and point out any timing or promises that still need confirmation."
+      "zh": "请根据 <已经确认的运输进度>，给 <要通知的人> 写一段 <进度通知、延误说明或催办消息>，语气自然、可以直接发送，并单独告诉我哪些时间和承诺还不能确定。",
+      "en": "Using <Confirmed shipment progress>, write <A progress update, delay explanation, or follow-up message> for <Customer, driver, or internal team>, and flag timing or promises that are not yet confirmed."
     },
     {
-      "zh": "这票货 XX 出了问题，聊天、照片和说明在这里：XX。请把事情经过理清，看看还缺哪些照片或记录，并写好下一步处理和回复客户的话。",
-      "en": "Shipment XX has a problem; chats, photos, and notes are here: XX. Put the events in order, identify missing photos or records, and draft next steps and a customer reply."
+      "zh": "这票货出了问题：<异常经过、聊天、照片和说明>。请对照 <运单和运输约定> 把事情经过按时间理清，按照 <公司的处理要求> 找出还缺哪些照片或记录，并写好下一步处理和回复客户的话。",
+      "en": "Using <Problem details, chats, photos, and notes> and <Shipment and transport terms>, follow <Company handling rules>, put events in order, find missing photos or records, and draft next steps and a customer reply."
     },
     {
-      "zh": "这些是签收回单和对应订单 XX。请检查运单号、签收时间、签字盖章和异常备注，找出缺签、模糊、缺页或对不上订单的回单。",
-      "en": "Here are signed receipts and related orders XX. Check shipment number, delivery time, signature or stamp, and exception notes, and find missing, unclear, incomplete, or mismatched receipts."
-    },
-    {
-      "zh": "这是本月各票货的计划时间、实际到达时间和异常记录 XX。请找出哪些客户、线路或承运商经常晚到或出问题。",
-      "en": "Here are monthly planned times, actual arrival times, and problem records XX. Find customers, routes, or carriers with frequent delays or issues."
+      "zh": "这些是 <在途进度、司机消息或轨迹说明>。请评估这票的送达风险和路况风险：给出风险等级、触发因素、依据来源和建议动作；承诺时效是 <客户要求的到达时间或窗口>。",
+      "en": "Using <In-transit updates, driver messages, or track notes>, assess on-time and road risks: level, triggers, evidence, and actions. Promised window: <Customer due time or window>."
     }
   ],
   "promptTemplates": "./prompt-templates.json",

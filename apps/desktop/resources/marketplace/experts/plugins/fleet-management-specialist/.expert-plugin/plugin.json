@@ -64,20 +64,20 @@
   ],
   "quickPrompts": [
     {
-      "zh": "这些是车辆、司机、证件和任务表 XX。请帮我合成一张清楚的车队表，并标出重复、过期、缺少或前后对不上的内容。",
-      "en": "Here are vehicle, driver, credential, and assignment sheets XX. Combine them into one clear fleet sheet and flag duplicates, expired items, missing details, and conflicts."
+      "zh": "这些是 <车辆、司机、证件和任务资料>。请按 <车牌号或司机手机号> 合成一张清楚的车队表，套用 <你要使用的车队表模板>，并标出重复、过期、缺少或前后对不上的内容。",
+      "en": "Combine <Vehicle, driver, credential, and assignment records> using <Plate number or driver phone>, follow <My template>, and flag duplicates, expired items, missing details, or conflicts."
     },
     {
-      "zh": "请根据这张订单 XX 和车辆司机表 XX，挑出优先、备选和不建议的车辆，并用简单的话说明原因和还要向司机确认什么。",
-      "en": "Using order XX and fleet records XX, pick preferred, backup, and unsuitable vehicles, and explain why and what still needs driver confirmation."
+      "zh": "请根据 <这张订单> 和 <车辆司机表>，结合 <距离、价格、熟悉线路或其他偏好>，挑出优先、备选和不建议的车辆，并用简单的话说明原因和还要向司机确认什么。",
+      "en": "Using <This order> and <Vehicle and driver sheet>, consider <My preference for distance, price, route experience, or other factors>, and pick preferred, backup, and unsuitable vehicles with reasons."
     },
     {
-      "zh": "车辆和司机已经选好：XX。请按订单 XX 检查证件、载重、时间、预约和装卸要求有没有遗漏，并写好发给司机的任务信息。",
-      "en": "The vehicle and driver are selected: XX. Check credentials, capacity, timing, appointments, and loading requirements against order XX, then draft the driver task message."
+      "zh": "车辆和司机已经选好：<车辆和司机信息>。请按 <这张订单> 检查证件、载重、时间、预约和装卸要求有没有遗漏，再套用 <公司的司机任务模板> 写好可以直接发给司机的任务信息。",
+      "en": "Using <This order> and <Selected vehicle and driver>, follow <Company dispatch rules or template>, check credentials, capacity, timing, appointments, and loading requirements, then draft the driver task message."
     },
     {
-      "zh": "这是本月车辆趟次、里程、等待、收入和成本 XX。请找出空跑多、等待久、长期闲置或不划算的车辆和线路。",
-      "en": "Here are monthly trips, mileage, waiting, revenue, and cost data XX. Find vehicles and routes with excessive empty miles, long waits, low use, or poor returns."
+      "zh": "这些是 <车辆、司机、可用时间和位置资料>。请做货运调度分析：标出今日实际可派车辆、每车调度定位和注意事项，并列出 <你最关心的风险，如载重/冷链/证件> 相关问题。",
+      "en": "Using <Fleet, driver, availability, and location records>, run dispatch analysis: today's available vehicles, positioning per truck, notes, and issues about <Risks I care about, e.g. capacity/cold-chain/credentials>."
     }
   ],
   "promptTemplates": "./prompt-templates.json",

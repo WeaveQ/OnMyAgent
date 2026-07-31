@@ -14,12 +14,22 @@
       "en": "Combine <Vehicle, driver, credential, and assignment records> using <Plate number or driver phone>, follow <My template>, and flag duplicates, expired items, missing details, or conflicts."
     },
     "requiredSlots": {
-      "zh": ["车辆、司机、证件和任务资料", "车牌号或司机手机号"],
-      "en": ["Vehicle, driver, credential, and assignment records", "Plate number or driver phone"]
+      "zh": [
+        "车辆、司机、证件和任务资料",
+        "车牌号或司机手机号"
+      ],
+      "en": [
+        "Vehicle, driver, credential, and assignment records",
+        "Plate number or driver phone"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["你要使用的车队表模板"],
-      "en": ["My template"]
+      "zh": [
+        "你要使用的车队表模板"
+      ],
+      "en": [
+        "My template"
+      ]
     }
   },
   {
@@ -37,12 +47,22 @@
       "en": "Using <This order> and <Vehicle and driver sheet>, consider <My preference for distance, price, route experience, or other factors>, and pick preferred, backup, and unsuitable vehicles with reasons."
     },
     "requiredSlots": {
-      "zh": ["这张订单", "车辆司机表"],
-      "en": ["This order", "Vehicle and driver sheet"]
+      "zh": [
+        "这张订单",
+        "车辆司机表"
+      ],
+      "en": [
+        "This order",
+        "Vehicle and driver sheet"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["距离、价格、熟悉线路或其他偏好"],
-      "en": ["My preference for distance, price, route experience, or other factors"]
+      "zh": [
+        "距离、价格、熟悉线路或其他偏好"
+      ],
+      "en": [
+        "My preference for distance, price, route experience, or other factors"
+      ]
     }
   },
   {
@@ -60,35 +80,51 @@
       "en": "Using <This order> and <Selected vehicle and driver>, follow <Company dispatch rules or template>, check credentials, capacity, timing, appointments, and loading requirements, then draft the driver task message."
     },
     "requiredSlots": {
-      "zh": ["车辆和司机信息", "这张订单"],
-      "en": ["This order", "Selected vehicle and driver"]
+      "zh": [
+        "车辆和司机信息",
+        "这张订单"
+      ],
+      "en": [
+        "This order",
+        "Selected vehicle and driver"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["公司的司机任务模板"],
-      "en": ["Company dispatch rules or template"]
+      "zh": [
+        "公司的司机任务模板"
+      ],
+      "en": [
+        "Company dispatch rules or template"
+      ]
     }
   },
   {
-    "id": "fleet-efficiency-analysis",
+    "id": "fleet-dispatch-analysis",
     "title": {
-      "zh": "看看哪里空跑和等待太多",
-      "en": "Find Empty Trips and Long Waiting"
+      "zh": "做货运调度分析",
+      "en": "Run Dispatch Analysis"
     },
     "description": {
-      "zh": "找出长期闲置、空跑多或不划算的车辆和线路",
-      "en": "Find underused vehicles, empty trips, and poor-return routes"
+      "zh": "按车辆给出今日可派、调度定位与风险注意事项",
+      "en": "List available vehicles, dispatch positioning, and risks"
     },
     "template": {
-      "zh": "请查看 <车辆趟次、里程、等待、收入和成本记录>，按照 <车辆、线路或月份> 比较，并根据 <我最关心的问题> 找出空跑多、等待久、长期闲置或不划算的车辆和线路。",
-      "en": "Review <Trips, mileage, waiting, revenue, and cost records>, compare by <Vehicle, route, or month>, and use <My main concern> to find excessive empty trips, long waiting, low use, or poor returns."
+      "zh": "这些是 <车辆、司机、可用时间和位置资料>。请做货运调度分析：标出今日实际可派车辆、每车调度定位和注意事项，并列出 <你最关心的风险，如载重/冷链/证件> 相关问题。",
+      "en": "Using <Fleet, driver, availability, and location records>, run dispatch analysis: today's available vehicles, positioning per truck, notes, and issues about <Risks I care about, e.g. capacity/cold-chain/credentials>."
     },
     "requiredSlots": {
-      "zh": ["车辆趟次、里程、等待、收入和成本记录", "车辆、线路或月份"],
-      "en": ["Trips, mileage, waiting, revenue, and cost records", "Vehicle, route, or month"]
+      "zh": [
+        "车辆、司机、可用时间和位置资料",
+        "你最关心的风险，如载重/冷链/证件"
+      ],
+      "en": [
+        "Fleet, driver, availability, and location records",
+        "Risks I care about, e.g. capacity/cold-chain/credentials"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["我最关心的问题"],
-      "en": ["My main concern"]
+      "zh": [],
+      "en": []
     }
   }
 ]

@@ -14,12 +14,22 @@
       "en": "Organize <Driver chats, locations, and shipment updates> by <Shipment number or my sheet>, follow <Other requirements>, and show current location, latest update, and questions for the driver."
     },
     "requiredSlots": {
-      "zh": ["司机群聊、位置和运输记录", "运单号或你现有的进度表"],
-      "en": ["Driver chats, locations, and shipment updates", "Shipment number or my sheet"]
+      "zh": [
+        "司机群聊、位置和运输记录",
+        "运单号或你现有的进度表"
+      ],
+      "en": [
+        "Driver chats, locations, and shipment updates",
+        "Shipment number or my sheet"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["需要重点关注的票"],
-      "en": ["Other requirements"]
+      "zh": [
+        "需要重点关注的票"
+      ],
+      "en": [
+        "Other requirements"
+      ]
     }
   },
   {
@@ -37,12 +47,22 @@
       "en": "Using <Confirmed shipment progress>, write <A progress update, delay explanation, or follow-up message> for <Customer, driver, or internal team>, and flag timing or promises that are not yet confirmed."
     },
     "requiredSlots": {
-      "zh": ["已经确认的运输进度", "要通知的人"],
-      "en": ["Confirmed shipment progress", "Customer, driver, or internal team"]
+      "zh": [
+        "已经确认的运输进度",
+        "要通知的人"
+      ],
+      "en": [
+        "Confirmed shipment progress",
+        "Customer, driver, or internal team"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["进度通知、延误说明或催办消息"],
-      "en": ["A progress update, delay explanation, or follow-up message"]
+      "zh": [
+        "进度通知、延误说明或催办消息"
+      ],
+      "en": [
+        "A progress update, delay explanation, or follow-up message"
+      ]
     }
   },
   {
@@ -52,7 +72,7 @@
       "en": "Sort Out a Transport Problem"
     },
     "description": {
-      "zh": "把异常经过和证据理清，给出下一步处理和客户回复",
+      "zh": "理清异常经过与证据，也可做送达/路况风险识别",
       "en": "Put events in order and find missing photos or records"
     },
     "template": {
@@ -60,12 +80,51 @@
       "en": "Using <Problem details, chats, photos, and notes> and <Shipment and transport terms>, follow <Company handling rules>, put events in order, find missing photos or records, and draft next steps and a customer reply."
     },
     "requiredSlots": {
-      "zh": ["异常经过、聊天、照片和说明", "运单和运输约定"],
-      "en": ["Problem details, chats, photos, and notes", "Shipment and transport terms"]
+      "zh": [
+        "异常经过、聊天、照片和说明",
+        "运单和运输约定"
+      ],
+      "en": [
+        "Problem details, chats, photos, and notes",
+        "Shipment and transport terms"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["公司的处理要求"],
-      "en": ["Company handling rules"]
+      "zh": [
+        "公司的处理要求"
+      ],
+      "en": [
+        "Company handling rules"
+      ]
+    }
+  },
+  {
+    "id": "transit-risk-assessment",
+    "title": {
+      "zh": "评估送达和路况风险",
+      "en": "Assess Delivery and Road Risks"
+    },
+    "description": {
+      "zh": "判断能不能准时到，标出路况/环境风险与建议动作",
+      "en": "Rate on-time risk and road/environment risks with next actions"
+    },
+    "template": {
+      "zh": "这些是 <在途进度、司机消息或轨迹说明>。请评估这票的送达风险和路况风险：给出风险等级、触发因素、依据来源和建议动作；承诺时效是 <客户要求的到达时间或窗口>。",
+      "en": "Using <In-transit updates, driver messages, or track notes>, assess on-time and road risks: level, triggers, evidence, and actions. Promised window: <Customer due time or window>."
+    },
+    "requiredSlots": {
+      "zh": [
+        "在途进度、司机消息或轨迹说明",
+        "客户要求的到达时间或窗口"
+      ],
+      "en": [
+        "In-transit updates, driver messages, or track notes",
+        "Customer due time or window"
+      ]
+    },
+    "conditionalSlots": {
+      "zh": [],
+      "en": []
     }
   },
   {
@@ -83,12 +142,22 @@
       "en": "Check <Signed receipts> against <Related orders>, follow <Customer or company receipt rules>, verify shipment number, delivery time, signature or stamp, and exception notes, and find receipts that need correction."
     },
     "requiredSlots": {
-      "zh": ["签收回单", "对应订单"],
-      "en": ["Signed receipts", "Related orders"]
+      "zh": [
+        "签收回单",
+        "对应订单"
+      ],
+      "en": [
+        "Signed receipts",
+        "Related orders"
+      ]
     },
     "conditionalSlots": {
-      "zh": ["客户或公司的回单要求"],
-      "en": ["Customer or company receipt rules"]
+      "zh": [
+        "客户或公司的回单要求"
+      ],
+      "en": [
+        "Customer or company receipt rules"
+      ]
     }
   }
 ]
