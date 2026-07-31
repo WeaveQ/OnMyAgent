@@ -26,11 +26,46 @@ export default {
   "files.column_updated": "Updated",
   "files.current_workspace": "Current workspace",
   "files.description":
-    "Browse the workspace folder selected in OnMyAgent.",
+    "Browse files in the current workspace by how they were created.",
+  "files.source_uploads": "Mine",
+  "files.source_task": "Tasks",
+  "files.source_expert": "Experts",
+  "files.source_project": "Projects",
+  "files.source_project_coming_soon": "Coming soon",
+  "files.source_uploads_title": "My files",
+  "files.source_task_title": "Task files",
+  "files.source_expert_title": "Expert files",
+  "files.source_project_title": "Project files",
+  "files.source_uploads_desc":
+    "Files you imported into the workspace. Edits apply to the workspace copy, not the original on disk.",
+  "files.source_task_desc":
+    "Home temporary-task outputs and other non-expert workspace folders. Expert agent archives are listed under Experts.",
+  "files.source_expert_desc":
+    "Expert agent folders and their task outputs (path heuristic until write-time tagging).",
+  "files.search_uploads_placeholder": "Search my files",
+  "files.search_task_placeholder": "Search task files",
+  "files.search_expert_placeholder": "Search expert files",
+  "files.uploads_empty_title": "No uploads yet",
+  "files.uploads_empty_hint":
+    "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely.",
+  "files.task_empty_title": "No files in this workspace yet",
+  "files.task_empty_hint":
+    "Task outputs and other workspace files will appear here. Upload personal materials under Mine.",
+  "files.expert_empty_title": "No attributed expert files yet",
+  "files.expert_empty_hint":
+    "Expert session outputs will show here once write-time source tagging is enabled. Existing workspace files stay under Tasks so they remain accessible.",
+  "files.import_to_workspace": "Import to workspace",
+  "files.uploading": "Importing…",
+  "files.upload_copy_success":
+    "Saved a workspace copy. Edits in chat apply to that copy, not your original file.",
+  "files.upload_failed": "Could not import the file into the workspace",
+  "files.upload_too_large":
+    "\"{name}\" is {size}, which exceeds the import limit ({max}).",
   "files.no_tool_folder": "No workspace selected",
   "files.no_tool_folder_hint":
     "Select a workspace in the app to list its files here.",
   "files.file_count": "{count} files",
+  "files.session_folder_title": "Session · {when}",
   "files.file_actions": "Actions for {name}",
   "files.files_unit": "files",
   "files.load_failed": "Failed to load the file list",
@@ -49,6 +84,8 @@ export default {
   "files.add_to_task": "Add to task",
   "files.added_to_task": "Added to the conversation — keep chatting",
   "files.added_to_task_title": "File added",
+  "files.favorite": "Favorite",
+  "files.unfavorite": "Remove favorite",
   "files.upload_to_cloud_soon": "Upload to cloud (soon)",
   "files.task_count": "{count} tasks",
   "files.view_in_panel": "View",
@@ -67,8 +104,8 @@ export default {
   "files.resize_tree": "Resize file tree",
   "files.copied": "Copied",
   "files.search_placeholder": "Search files, tasks, or workspaces",
-  "files.task_results": "Mine",
-  "files.title": "My files",
+  "files.task_results": "Task files",
+  "files.title": "Files",
   "files.type_file": "File",
   "files.type_folder": "Folder",
   "files.ungrouped": "Ungrouped",

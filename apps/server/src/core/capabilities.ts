@@ -82,13 +82,19 @@ export function resolveOutboxEnabled(): boolean {
   return ["1", "true", "yes", "on"].includes(raw);
 }
 
+/** Default single-file inbox import limit (local workspace copy). */
+export const DEFAULT_INBOX_MAX_BYTES = 200_000_000;
+
+/** Hard ceiling for ONMYAGENT_INBOX_MAX_BYTES (file is buffered in memory today). */
+export const INBOX_MAX_BYTES_CAP = 250_000_000;
+
 export function resolveInboxMaxBytes(): number {
   const raw = (process.env.ONMYAGENT_INBOX_MAX_BYTES ?? "").trim();
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) {
-    return Math.min(Math.trunc(parsed), 250_000_000);
+    return Math.min(Math.trunc(parsed), INBOX_MAX_BYTES_CAP);
   }
-  return 50_000_000;
+  return DEFAULT_INBOX_MAX_BYTES;
 }
 
 /**

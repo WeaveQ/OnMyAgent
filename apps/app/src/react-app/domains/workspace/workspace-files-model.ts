@@ -8,11 +8,31 @@ import {
   canPreviewOpenTargetInline,
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
-import type {
-  WorkspaceFileSortDir,
-  WorkspaceFileSortKey,
-  WorkspaceFileTreeNode,
+import {
+  formatWorkspaceFileTime,
+  type WorkspaceFileSortDir,
+  type WorkspaceFileSortKey,
+  type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
+import { t } from "../../../i18n";
+import {
+  WORKSPACE_EXPERTS_DIR,
+  WORKSPACE_PROJECTS_DIR,
+  WORKSPACE_TASKS_DIR,
+  WORKSPACE_UPLOADS_DIR,
+  isAutomationTaskFolderName,
+  isWorkspaceLayoutTopDir,
+  isWorkspaceSystemTopDir,
+} from "./workspace-files-layout";
+
+export {
+  WORKSPACE_EXPERTS_DIR,
+  WORKSPACE_PROJECTS_DIR,
+  WORKSPACE_TASKS_DIR,
+  WORKSPACE_UPLOADS_DIR,
+  isAutomationTaskFolderName,
+  isWorkspaceLayoutTopDir,
+} from "./workspace-files-layout";
 
 export type FileCategory =
   | "all"
@@ -164,6 +184,87 @@ export function countFilesInNode(node: WorkspaceFileTreeNode): number {
 
 export function countDirsInNode(node: WorkspaceFileTreeNode): number {
   return node.children.filter((child) => child.kind === "dir").length;
+}
+
+/**
+ * Expert archive folder label: "财报研究员-earnings-reviewer" → "财报研究员".
+ * Also cleans glued slugs: "报价作业-quote-specialistquote-specialist" → "报价作业".
+ * Pure package slugs stay as-is.
+ */
+export function formatExpertFolderDisplayName(folderName: string): string {
+  const n = folderName.trim();
+  if (!n) return n;
+  // Prefer: non-ASCII display name + trailing ascii kebab (slug may be doubled/glued).
+  const withDisplay = n.match(
+    /^(.*[^\u0000-\u007f].*?)-([a-z][a-z0-9-]+)$/i,
+  );
+  if (withDisplay?.[1]?.trim()) return withDisplay[1].trim();
+  return n;
+}
+
+/** Session isolation dirs: Date.now() ms, short hex, or 2026-07-23_155052. */
+export function isLikelySessionFolderName(name: string): boolean {
+  const n = name.trim();
+  if (!n) return false;
+  if (/^\d{10,16}$/.test(n)) return true;
+  if (/^[a-f0-9]{8,12}$/i.test(n)) return true;
+  if (/^\d{4}-\d{2}-\d{2}[_-]\d{4,6}$/.test(n)) return true;
+  return false;
+}
+
+/** Best-effort timestamp for a session folder (folder name first, then mtime). */
+export function resolveSessionFolderTimeMs(
+  name: string,
+  mtimeMs = 0,
+): number {
+  const n = name.trim();
+  if (/^\d{10,16}$/.test(n)) {
+    const ms = Number(n);
+    if (Number.isFinite(ms) && ms > 1e11) return ms;
+  }
+  const stamp = n.match(
+    /^(\d{4})-(\d{2})-(\d{2})[_-](\d{2})(\d{2})(\d{2})?$/,
+  );
+  if (stamp) {
+    const date = new Date(
+      Number(stamp[1]),
+      Number(stamp[2]) - 1,
+      Number(stamp[3]),
+      Number(stamp[4]),
+      Number(stamp[5]),
+      Number(stamp[6] ?? "0"),
+    );
+    if (!Number.isNaN(date.getTime())) return date.getTime();
+  }
+  if (Number.isFinite(mtimeMs) && mtimeMs > 0) return mtimeMs;
+  return 0;
+}
+
+/**
+ * Fixed session title for Files UI: "会话 · 07/26 14:32".
+ * Does not use first user message (product: fixed title).
+ */
+export function formatSessionFolderDisplayName(
+  name: string,
+  mtimeMs = 0,
+): string {
+  const whenMs = resolveSessionFolderTimeMs(name, mtimeMs);
+  const when =
+    whenMs > 0
+      ? formatWorkspaceFileTime(whenMs)
+      : name.trim() || t("common.unknown");
+  return t("files.session_folder_title", { when });
+}
+
+/** Folder label in Files tree: session dirs get fixed title; experts get clean name. */
+export function formatWorkspaceFolderDisplayName(
+  name: string,
+  mtimeMs = 0,
+): string {
+  if (isLikelySessionFolderName(name)) {
+    return formatSessionFolderDisplayName(name, mtimeMs);
+  }
+  return formatExpertFolderDisplayName(name);
 }
 
 /** Outline rows for root: collapsible folders (project) + nested task/file rows. */
@@ -359,4 +460,375 @@ export function resolveToolWorkspaceFileRoot(input: {
   const session = input.sessionFileRoot?.trim() ?? "";
   if (session) return session;
   return input.workspaceRoot.trim();
+}
+
+// --- Files page three-source tabs (product draft §2 / P0) -----------------
+
+/** Active provenance tabs on the primary-rail Files page. */
+export type FilesSourceTab = "uploads" | "task" | "expert";
+
+/**
+ * Rail pills including coming-soon **项目** (not selectable).
+ * Content still uses {@link FilesSourceTab} only.
+ */
+export type FilesSourceRailTab = FilesSourceTab | "project";
+
+/** Default tab when opening Files (product: Mine / uploads). */
+export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "uploads";
+
+export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
+  "uploads",
+  "task",
+  "expert",
+] as const;
+
+/** Full rail order: Mine · Tasks · Experts · Projects (coming soon). */
+export const FILES_SOURCE_RAIL_TABS: readonly FilesSourceRailTab[] = [
+  "uploads",
+  "task",
+  "expert",
+  "project",
+] as const;
+
+export function isFilesSourceRailTabEnabled(
+  tab: FilesSourceRailTab,
+): tab is FilesSourceTab {
+  return tab !== "project";
+}
+
+/**
+ * Relative workspace directory for user import-by-copy (inbox upload path prefix).
+ * Server inbox stores under this logical area; UI lists via listInbox.
+ * Aligns with product layout root `uploads/`.
+ */
+export const USER_UPLOADS_RELATIVE_DIR = WORKSPACE_UPLOADS_DIR;
+
+/**
+ * uploads: inbox API; task/expert: workspace browser with path layout + heuristics.
+ */
+export function isFilesSourceListReady(tab: FilesSourceTab): boolean {
+  return tab === "uploads" || tab === "task" || tab === "expert";
+}
+
+/** Pure package slug with 3+ segments: fleet-management-specialist (avoids home-notes). */
+const EXPERT_PACKAGE_SLUG_LONG_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+){2,}$/;
+
+/**
+ * Heuristic: folder name is an expert agent archive (not a Home temp task).
+ * Optional knownPackageSlugs strengthens matching (packageName from marketplace).
+ *
+ * Matches:
+ * - pure slug (known or 3+ kebab parts): fleet-management-specialist
+ * - DisplayName-slug with non-ASCII prefix: 财报研究员-earnings-reviewer
+ * - CJK-only expert display names that already lived at root historically
+ */
+export function isLikelyExpertAgentFolderName(
+  name: string,
+  knownPackageSlugs: readonly string[] = [],
+): boolean {
+  const n = name.trim();
+  if (!n || isWorkspaceSystemTopDir(n) || isAutomationTaskFolderName(n)) {
+    return false;
+  }
+  const lower = n.toLowerCase();
+  for (const slug of knownPackageSlugs) {
+    const s = slug.trim().toLowerCase();
+    if (!s) continue;
+    if (lower === s || lower.endsWith(`-${s}`) || lower.startsWith(`${s}-`)) {
+      return true;
+    }
+  }
+  // Pure long english package slug at root
+  if (EXPERT_PACKAGE_SLUG_LONG_RE.test(n)) return true;
+  // Display name (often CJK) + kebab slug
+  const m = n.match(/^(.*)-([a-z][a-z0-9]*(?:-[a-z0-9]+)+)$/);
+  if (m) {
+    const prefix = m[1];
+    const slug = m[2];
+    if (knownPackageSlugs.some((s) => s.trim().toLowerCase() === slug)) return true;
+    // Non-ASCII display name is a strong expert signal (screenshot folders)
+    if (/[^\u0000-\u007f]/.test(prefix)) return true;
+    // Long slug after any prefix
+    if (slug.split("-").length >= 3) return true;
+  }
+  // Display names that end with "expert" character pair (marketplace naming).
+  if (/\u4e13\u5bb6$/.test(n) && n.length >= 4) return true;
+  return false;
+}
+
+function findTopDir(
+  root: WorkspaceFileTreeNode,
+  name: string,
+): WorkspaceFileTreeNode | null {
+  const lower = name.toLowerCase();
+  for (const child of root.children) {
+    if (child.kind === "dir" && child.name.trim().toLowerCase() === lower) {
+      return child;
+    }
+  }
+  return null;
+}
+
+/**
+ * Merge sibling expert folders that share the same display label.
+ * e.g. `报价作业` + `报价作业-quote-specialistquote-specialist` → one "报价作业"
+ * with sessions from both (deduped by session folder name).
+ */
+export function mergeExpertSiblingFolders(
+  nodes: readonly WorkspaceFileTreeNode[],
+): WorkspaceFileTreeNode[] {
+  const looseFiles: WorkspaceFileTreeNode[] = [];
+  const groups = new Map<string, WorkspaceFileTreeNode[]>();
+  const order: string[] = [];
+
+  for (const node of nodes) {
+    if (node.kind === "file") {
+      looseFiles.push(node);
+      continue;
+    }
+    const key = formatExpertFolderDisplayName(node.name).trim().toLowerCase();
+    if (!key) {
+      looseFiles.push(node);
+      continue;
+    }
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(node);
+  }
+
+  const merged: WorkspaceFileTreeNode[] = [];
+  for (const key of order) {
+    const group = groups.get(key) ?? [];
+    if (group.length === 0) continue;
+    if (group.length === 1) {
+      const only = group[0];
+      merged.push({
+        ...only,
+        name: formatExpertFolderDisplayName(only.name),
+      });
+      continue;
+    }
+
+    // Prefer the longer disk name (usually DisplayName-slug) as path base.
+    const primary = [...group].sort(
+      (a, b) => b.name.length - a.name.length || b.mtimeMs - a.mtimeMs,
+    )[0];
+    const childByName = new Map<string, WorkspaceFileTreeNode>();
+    for (const folder of group) {
+      for (const child of folder.children) {
+        const existing = childByName.get(child.name);
+        if (!existing || (child.mtimeMs || 0) >= (existing.mtimeMs || 0)) {
+          childByName.set(child.name, child);
+        }
+      }
+    }
+    const children = [...childByName.values()].sort(
+      (a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0) || a.name.localeCompare(b.name),
+    );
+    let size = 0;
+    let mtimeMs = 0;
+    for (const child of children) {
+      size += Math.max(0, child.size || 0);
+      mtimeMs = Math.max(mtimeMs, child.mtimeMs || 0);
+    }
+    merged.push({
+      ...primary,
+      name: formatExpertFolderDisplayName(primary.name),
+      children,
+      size,
+      mtimeMs,
+    });
+  }
+
+  return [...merged, ...looseFiles];
+}
+
+/**
+ * Filter a workspace root tree for Task vs Expert tabs.
+ *
+ * Preferred layout (after migration / new writes):
+ * - Expert: children of `experts/`
+ * - Task: children of `tasks/` + `projects/` + loose non-layout leftovers
+ *
+ * Legacy flat roots still classified by path heuristics until migrated.
+ */
+export function filterWorkspaceTreeBySourceTab(
+  root: WorkspaceFileTreeNode,
+  tab: "task" | "expert",
+  knownPackageSlugs: readonly string[] = [],
+): WorkspaceFileTreeNode {
+  const expertsRoot = findTopDir(root, WORKSPACE_EXPERTS_DIR);
+  const tasksRoot = findTopDir(root, WORKSPACE_TASKS_DIR);
+  const projectsRoot = findTopDir(root, WORKSPACE_PROJECTS_DIR);
+
+  if (tab === "expert") {
+    const children: WorkspaceFileTreeNode[] = [];
+    if (expertsRoot) {
+      children.push(...expertsRoot.children.filter((c) => c.kind === "dir" || c.kind === "file"));
+    }
+    // Legacy unmigrated expert archives still at workspace root
+    for (const child of root.children) {
+      if (child.kind !== "dir") continue;
+      if (isWorkspaceLayoutTopDir(child.name)) continue;
+      if (isLikelyExpertAgentFolderName(child.name, knownPackageSlugs)) {
+        children.push(child);
+      }
+    }
+    return { ...root, children: mergeExpertSiblingFolders(children) };
+  }
+
+  // task tab: spaces (projects/) first in source order; sort layer keeps them above automation.
+  const children: WorkspaceFileTreeNode[] = [];
+  if (projectsRoot) {
+    children.push(...projectsRoot.children);
+  }
+  if (tasksRoot) {
+    children.push(...tasksRoot.children);
+  }
+  for (const child of root.children) {
+    if (isWorkspaceLayoutTopDir(child.name)) continue;
+    if (isWorkspaceSystemTopDir(child.name)) continue;
+    if (child.kind === "file") {
+      // Loose root files stay visible under task until migrated into uploads/tasks
+      children.push(child);
+      continue;
+    }
+    if (isLikelyExpertAgentFolderName(child.name, knownPackageSlugs)) continue;
+    children.push(child);
+  }
+  return { ...root, children };
+}
+
+export function filesSourceTabLabelKey(tab: FilesSourceRailTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.source_uploads";
+    case "task":
+      return "files.source_task";
+    case "expert":
+      return "files.source_expert";
+    case "project":
+      return "files.source_project";
+  }
+}
+
+/** Page h1 under the rail pills (Mine / Task / Expert files). */
+export function filesSourceTabTitleKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.source_uploads_title";
+    case "task":
+      return "files.source_task_title";
+    case "expert":
+      return "files.source_expert_title";
+  }
+}
+
+export function filesSourceTabSubtitleKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.source_uploads_desc";
+    case "task":
+      return "files.source_task_desc";
+    case "expert":
+      return "files.source_expert_desc";
+  }
+}
+
+export function filesSourceTabSearchPlaceholderKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.search_uploads_placeholder";
+    case "task":
+      return "files.search_task_placeholder";
+    case "expert":
+      return "files.search_expert_placeholder";
+  }
+}
+
+export function filesSourceEmptyTitleKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.uploads_empty_title";
+    case "task":
+      return "files.task_empty_title";
+    case "expert":
+      return "files.expert_empty_title";
+  }
+}
+
+export function filesSourceEmptyHintKey(tab: FilesSourceTab): string {
+  switch (tab) {
+    case "uploads":
+      return "files.uploads_empty_hint";
+    case "task":
+      return "files.task_empty_hint";
+    case "expert":
+      return "files.expert_empty_hint";
+  }
+}
+
+/** Normalize a user-facing file name into an inbox relative path under uploads/. */
+export function buildUserUploadRelativePath(fileName: string): string {
+  const base = fileName.trim().replace(/\\/g, "/").split("/").pop() || "file";
+  const safe = base.replace(/^\.+/, "") || "file";
+  return `${USER_UPLOADS_RELATIVE_DIR}/${safe}`;
+}
+
+export type InboxListItemLike = {
+  id: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  updatedAt?: number;
+};
+
+export type UserUploadRow = {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  updatedAt: number;
+};
+
+/** Map inbox API items into stable upload rows (import-by-copy list). */
+export function mapInboxItemsToUploadRows(
+  items: readonly InboxListItemLike[],
+): UserUploadRow[] {
+  const rows: UserUploadRow[] = [];
+  for (const item of items) {
+    const id = item.id?.trim();
+    if (!id) continue;
+    const path = (item.path ?? item.name ?? id).trim();
+    if (!path) continue;
+    const name =
+      (item.name ?? path.replace(/\\/g, "/").split("/").pop() ?? path).trim() ||
+      path;
+    rows.push({
+      id,
+      name,
+      path,
+      size: typeof item.size === "number" && Number.isFinite(item.size) ? item.size : 0,
+      updatedAt:
+        typeof item.updatedAt === "number" && Number.isFinite(item.updatedAt)
+          ? item.updatedAt
+          : 0,
+    });
+  }
+  rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || a.name.localeCompare(b.name));
+  return rows;
+}
+
+export function filterUploadRows(
+  rows: readonly UserUploadRow[],
+  query: string,
+): UserUploadRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...rows];
+  return rows.filter(
+    (row) =>
+      row.name.toLowerCase().includes(q) || row.path.toLowerCase().includes(q),
+  );
 }

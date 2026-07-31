@@ -31,6 +31,8 @@ export type MentionItem = {
   kind: ComposerMentionKind;
   value: string;
   label: string;
+  /** Secondary line under the title (source path / kind). */
+  subtitle?: string;
 };
 
 export type PastedTextChip = {
