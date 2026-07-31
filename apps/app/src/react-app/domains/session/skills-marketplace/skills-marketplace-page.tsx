@@ -984,10 +984,9 @@ const FALLBACK_BUILTIN_PACKAGE_NAMES = new Set([
   "computer-use",
   "create-automation",
   "doc-coauthoring",
+  "document-processing",
   "expert-manager",
   "find-skills",
-  "frontend-design",
-  "github",
   "pptx",
   "qcc-company",
   "self-improving",
@@ -996,8 +995,6 @@ const FALLBACK_BUILTIN_PACKAGE_NAMES = new Set([
   "tencent-docs",
   "tencent-meeting-skill",
   "weather",
-  "web-artifacts-builder",
-  "webapp-testing",
   "wecom-unified",
 ]);
 
