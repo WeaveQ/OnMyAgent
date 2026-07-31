@@ -18,30 +18,47 @@ function normalizePathKey(path: string) {
   return path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
 }
 
-/** Agent helper scripts — never show as session deliverable cards. */
-const INTERMEDIATE_SCRIPT_EXTENSIONS = new Set([
-  ".cjs",
-  ".mjs",
-  ".js",
-  ".jsx",
-  ".ts",
-  ".tsx",
-  ".py",
-  ".sh",
-  ".bash",
-  ".zsh",
-  ".rb",
-  ".pl",
-  ".ps1",
-  ".cmd",
-  ".bat",
+/**
+ * Only user-facing business files appear as turn product cards.
+ * Helper scripts (extract_sheets.cjs) and source files are not deliverables.
+ */
+const DELIVERABLE_EXTENSIONS = new Set([
+  ".xlsx",
+  ".xlsm",
+  ".xls",
+  ".csv",
+  ".tsv",
+  ".docx",
+  ".doc",
+  ".pdf",
+  ".pptx",
+  ".ppt",
+  ".md",
+  ".markdown",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".svg",
+  ".mp4",
+  ".webm",
+  ".mp3",
+  ".wav",
+  ".html",
+  ".htm",
+  ".txt",
+  ".zip",
 ]);
 
-function isIntermediateAgentScript(path: string): boolean {
+function fileExtension(path: string): string {
   const base = basenameOf(path).toLowerCase();
   const dot = base.lastIndexOf(".");
-  if (dot < 0) return false;
-  return INTERMEDIATE_SCRIPT_EXTENSIONS.has(base.slice(dot));
+  return dot >= 0 ? base.slice(dot) : "";
+}
+
+function isSessionDeliverablePath(path: string): boolean {
+  return DELIVERABLE_EXTENSIONS.has(fileExtension(path));
 }
 
 /** Basenames from user message file parts (composer attachments). */
@@ -123,14 +140,14 @@ export function selectTurnOpenTargets(
 
   const addVerifiedFile = (candidatePath: string, candidate?: OpenTarget) => {
     if (isBlockedUserPath(candidatePath, userBasenames)) return;
-    if (isIntermediateAgentScript(candidatePath)) return;
+    if (!isSessionDeliverablePath(candidatePath)) return;
     const verified = findVerifiedFile(candidatePath, verifiedById, verifiedFiles)
       ?? (candidate && isCollectibleArtifactTarget({ ...candidate, exists: true })
         ? { ...candidate, exists: true as const }
         : undefined);
     if (!verified || !isCollectibleArtifactTarget(verified)) return;
     if (isBlockedUserPath(verified.value, userBasenames)) return;
-    if (isIntermediateAgentScript(verified.value)) return;
+    if (!isSessionDeliverablePath(verified.value)) return;
     inlineTargets.set(verified.id, verified);
   };
 

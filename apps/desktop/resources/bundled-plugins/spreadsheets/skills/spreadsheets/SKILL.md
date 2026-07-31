@@ -21,8 +21,9 @@ Work only with standalone local files. Do not claim control of a live Excel sess
    NODE_PATH="$ONMYAGENT_ARTIFACT_RUNTIME_ROOT/node_modules" node your_task.cjs
    ```
    Prefer `require("xlsx")` for reading tabular values; use `exceljs` only when you need rich formatting/charts. Never `require("exceljs")` without `NODE_PATH` or `ONMYAGENT_ARTIFACT_RUNTIME_ROOT` set (doctor prints both).
+   **Helper scripts must not live as user deliverables:** write them under `os.tmpdir()` or `.opencode/tmp/` (e.g. `/tmp/extract_sheets.cjs`), never as the only output in the workspace root. Only the business file (`.xlsx`/`.csv`/…) belongs in the session folder and in the “文件路径：” line.
 6. Preserve formulas and cached results when possible. Never replace a requested formula model with unexplained hard-coded numbers.
-7. Finish with `node runtime/artifact_runtime.cjs verify <output>` when you wrote a file, and report the exact output path.
+7. Finish with `node runtime/artifact_runtime.cjs verify <output>` when you wrote a file, and report the exact **business** output path (not the `.cjs` helper).
 
 ## Formula boundary
 

@@ -594,6 +594,22 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["发货需求与报价补充.xlsx"]);
   });
 
+  it("does not show only a .cjs helper when it is the sole write-tool file", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      message("msg_final", "assistant", "已完成，校验通过。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+    ];
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
   it("drops inbox-style user upload basenames from derived targets", () => {
     const targets = deriveOpenTargets([
       toolMessage(
