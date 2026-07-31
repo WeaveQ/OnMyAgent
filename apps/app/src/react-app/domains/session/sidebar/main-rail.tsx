@@ -10,6 +10,7 @@ import {
 } from "./app-sidebar";
 import {
   AssistantRailIcon,
+  AutomationRailIcon,
   ChannelsRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
@@ -25,7 +26,19 @@ export type OnMyAgentPrimaryView =
   | "store"
   | "projects"
   | "localAgent"
-  | "agentManagement";
+  | "agentManagement"
+  /** Primary rail automation workspace (schedule definitions + run history). */
+  | "automation"
+  /**
+   * Legacy alias for automation (assistant “定时任务”). Prefer writing
+   * `automation`; keep reading for bookmarks / deep links.
+   */
+  | "scheduledTasks";
+
+/** True for the automation primary surface (new id or legacy scheduledTasks). */
+export function isAutomationRailView(view: string): boolean {
+  return view === "automation" || view === "scheduledTasks";
+}
 
 type RailItem = {
   id: OnMyAgentPrimaryView;
@@ -42,11 +55,12 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Files → Store → Local → Manage
+// Order: Home → Experts → Files → Automation → Store → Local → Manage
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
+  { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
   { id: "localAgent", get label() { return t("nav.local_agent"); }, get shortLabel() { return t("nav.local_agent_short"); }, icon: LocalAgentRailIcon },
   { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
@@ -81,6 +95,14 @@ function TopRailButton(props: {
       <span className="w-full truncate text-center text-xs font-medium leading-none tracking-tight">{props.item.shortLabel}</span>
     </RailButton>
   );
+}
+
+function isTopRailItemActive(
+  itemId: OnMyAgentPrimaryView,
+  activeView: OnMyAgentPrimaryView,
+): boolean {
+  if (itemId === "automation") return isAutomationRailView(activeView);
+  return activeView === itemId;
 }
 
 function BottomRailButton(props: {
@@ -124,7 +146,7 @@ export function OnMyAgentRail(props: {
             <TopRailButton
               key={item.id}
               item={item}
-              active={item.id === "chat" ? props.activeView === "chat" : props.activeView === item.id}
+              active={isTopRailItemActive(item.id, props.activeView)}
               onClick={() => props.onOpenView(item.id)}
             />
           ))}

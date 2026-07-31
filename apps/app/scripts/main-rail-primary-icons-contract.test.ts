@@ -42,6 +42,7 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain("icon: FilesRailIcon");
     expect(railSource).toContain("icon: StoreRailIcon");
     expect(railSource).toContain("icon: ManageRailIcon");
+    expect(railSource).toContain("icon: AutomationRailIcon");
 
     // Outline set — no solid fill glyphs in the primary rail icon module.
     expect(iconSource).toContain('from "lucide-react"');
@@ -52,6 +53,7 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("Settings2");
     expect(iconSource).toContain("MonitorSmartphone");
     expect(iconSource).toContain("MessagesSquare");
+    expect(iconSource).toContain("CalendarClock");
     expect(iconSource).toContain("RAIL_ICON_STROKE");
     expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
     expect(iconSource).not.toContain('fill="currentColor"');
@@ -62,5 +64,6 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("export function StoreRailIcon");
     expect(iconSource).toContain("export function ManageRailIcon");
     expect(iconSource).toContain("export function DevicesRailIcon");
+    expect(iconSource).toContain("export function AutomationRailIcon");
   });
 });

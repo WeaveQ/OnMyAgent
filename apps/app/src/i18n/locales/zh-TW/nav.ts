@@ -6,6 +6,7 @@ export default {
   "nav.session_archive_short": "歸檔",
   "nav.agents_desc": "本地 AI 同事與專家配置",
   "nav.automation": "自動化",
+  "nav.automation_short": "自動",
   "nav.automation_desc": "自動化",
   "nav.channels_desc": "IM 平臺接入",
   "nav.connectors": "連接器 MCP",

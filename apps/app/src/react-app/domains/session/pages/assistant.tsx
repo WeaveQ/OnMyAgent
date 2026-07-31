@@ -60,9 +60,11 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
 import {
+  AutomationNavSidebar,
   AutomationPage,
   MessagingChannelsPage,
   syncAutomationSessionRecords,
+  type AutomationNavKey,
 } from "../../messaging";
 import {
   consumeAutomationFocus,
@@ -84,6 +86,7 @@ import {
   readAssistantSelectionMemory,
   resolveAssistantSelectionMemory,
   writeAssistantSelectionMemory,
+  isAutomationRailView,
   type OnMyAgentPrimaryView,
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
@@ -205,7 +208,7 @@ export function AssistantPage(props: AssistantPageProps) {
     draftWorkspaceDirectory:
       props.surface?.draftWorkspace?.draftWorkspaceDirectory,
     onAccessibleTargetsChange: props.onAccessibleTargetsChange,
-    historySearchViews: ["assistant", "chat", "scheduledTasks"],
+    historySearchViews: ["assistant", "chat", "automation", "scheduledTasks"],
     sidePanelDefaultWidth: ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH,
     sidePanelMinWidth: ASSISTANT_SIDE_PANEL_MIN_WIDTH,
   });
@@ -242,21 +245,26 @@ export function AssistantPage(props: AssistantPageProps) {
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
-  const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
-
+  const sidePanelVisible =
+    sidePanelOpen && !isAutomationRailView(activeSidebarView);
 
   const openAssistantSessionView = useCallback(() => {
     openRailView("assistant");
   }, [openRailView]);
 
   const [focusAutomationId, setFocusAutomationId] = useState<string | null>(null);
+  const [automationNav, setAutomationNav] = useState<AutomationNavKey>("tasks");
+  const [automationCreateRequestId, setAutomationCreateRequestId] = useState(0);
+  const [automationTemplateViewOpen, setAutomationTemplateViewOpen] =
+    useState(false);
 
   const openScheduledTasksView = useCallback(() => {
-    openRailView("scheduledTasks");
+    // Canonical primary-rail id (legacy scheduledTasks still resolves as known).
+    openRailView("automation");
   }, [openRailView]);
 
   useEffect(() => {
-    if (activeSidebarView !== "scheduledTasks") return;
+    if (!isAutomationRailView(activeSidebarView)) return;
     const focus = consumeAutomationFocus(props.selectedWorkspaceId);
     if (!focus) return;
     if (focus.scene !== assistantCategoryId) {
@@ -761,8 +769,10 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
-  const railActiveView =
-    activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
+  // Highlight the Automation rail chip for both automation + legacy scheduledTasks.
+  const railActiveView = isAutomationRailView(activeSidebarView)
+    ? "automation"
+    : activeSidebarView;
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
@@ -878,8 +888,7 @@ export function AssistantPage(props: AssistantPageProps) {
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {(activeSidebarView === "chat" ||
-              activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") &&
+              activeSidebarView === "assistant") &&
             !agentPanelCollapsed ? (
               <AgentConversationPanel
                 mode="assistant"
@@ -902,7 +911,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 }}
                 assistantCategoryId={assistantCategoryId}
                 onAssistantCategoryChange={handleAssistantCategoryChange}
-                automationActive={activeSidebarView === "scheduledTasks"}
+                automationActive={false}
                 onOpenAssistant={openAssistantSessionView}
                 onOpenAutomation={() => {
                   writeAssistantSelectionMemory(
@@ -930,9 +939,26 @@ export function AssistantPage(props: AssistantPageProps) {
                 onDeleteAutomationGroup={openDeleteAutomationGroupModal}
               />
             ) : null}
+            {isAutomationRailView(activeSidebarView) && !agentPanelCollapsed ? (
+              <AutomationNavSidebar
+                width={agentPanelWidth}
+                active={automationNav}
+                onChange={(key) => {
+                  setAutomationNav(key);
+                  if (key === "templates") {
+                    setAutomationTemplateViewOpen(true);
+                  } else {
+                    setAutomationTemplateViewOpen(false);
+                  }
+                }}
+                onCreate={() =>
+                  setAutomationCreateRequestId((value) => value + 1)
+                }
+              />
+            ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") ? (
+              isAutomationRailView(activeSidebarView)) ? (
               <SidebarPaneCollapseToggle
                 collapsed={agentPanelCollapsed}
                 onToggle={() => setAgentPanelCollapsed((value) => !value)}
@@ -943,7 +969,7 @@ export function AssistantPage(props: AssistantPageProps) {
             ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") &&
+              isAutomationRailView(activeSidebarView)) &&
             !agentPanelCollapsed ? (
               <div
                 role="separator"
@@ -1088,13 +1114,27 @@ export function AssistantPage(props: AssistantPageProps) {
                     }}
                     middle={
                       <>
-                      {activeSidebarView === "scheduledTasks" ? (
+                      {isAutomationRailView(activeSidebarView) ? (
                         <AutomationPage
                           scene={assistantCategoryId}
                           client={props.onmyagentServerClient}
                           workspaceId={props.selectedWorkspaceId}
                           focusAutomationId={focusAutomationId}
                           onFocusAutomationConsumed={() => setFocusAutomationId(null)}
+                          hideStatusTabs
+                          statusTab={
+                            automationNav === "runs" ? "runs" : "tasks"
+                          }
+                          onStatusTabChange={(tab) => {
+                            setAutomationNav(tab === "runs" ? "runs" : "tasks");
+                            setAutomationTemplateViewOpen(false);
+                          }}
+                          templateViewOpen={automationTemplateViewOpen}
+                          onTemplateViewOpenChange={(open) => {
+                            setAutomationTemplateViewOpen(open);
+                            if (open) setAutomationNav("templates");
+                          }}
+                          createRequestId={automationCreateRequestId}
                           // Same OpenCode command.list + skill sources as session + menu.
                           listOpenCodeCommands={props.surface?.listCommands}
                           listSkills={
@@ -1143,7 +1183,7 @@ export function AssistantPage(props: AssistantPageProps) {
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&
                       activeSidebarView !== "channels" &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      !isAutomationRailView(activeSidebarView) &&
                       activeSidebarView !== "billing" ? (
                         <SidebarFeaturePlaceholder
                           view={activePlaceholderView}

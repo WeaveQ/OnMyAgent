@@ -138,10 +138,12 @@ import {
   type AutomationFormState,
   type IntervalUnit,
 } from "./automation-form-model";
+import {
+  useAutomationPageChrome,
+  type AutomationStatusTab,
+} from "./use-automation-page-chrome";
 
 type AutomationDialogMode = "create" | "edit";
-/** Primary chrome: task definitions vs flat run history (reference IA). */
-type AutomationStatusTab = "tasks" | "runs";
 
 type CompletedRun = CompletedRunEntry<OnMyAgentAutomationTaskItem>;
 
@@ -288,7 +290,6 @@ function ScheduledAutomationRow(props: {
           {nextRunLabel(props.item)}
         </span>
       </button>
-      {/* Inline actions (no dropdown) — popup position was clipped by the shell. */}
       <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
         <Button
           type="button"
@@ -410,8 +411,6 @@ function CompletedAutomationRow(props: {
   const canOpenSession = Boolean(run.sessionId);
 
   return (
-    // Reference: run-history rows — idle shows time + status icon; hover swaps
-    // to open / archive / delete actions.
     <div className="group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-dls-hover">
       <button
         type="button"
@@ -905,13 +904,18 @@ export function AutomationPage(props: {
     Array<{ name: string; description?: string; path?: string }>
   >;
   listMcp?: () => Promise<{ servers: Array<{ name?: string; id?: string }> }>;
+  hideStatusTabs?: boolean;
+  statusTab?: AutomationStatusTab;
+  onStatusTabChange?: (tab: AutomationStatusTab) => void;
+  templateViewOpen?: boolean;
+  onTemplateViewOpenChange?: (open: boolean) => void;
+  createRequestId?: number;
 }) {
   const workspace = useWorkspace();
   const local = useLocal();
   const { showToast } = useStatusToasts();
   const registry = useAgentRegistryStore((state) => state.registry) ?? createDefaultAgentRegistry();
   const [automations, setAutomations] = useState<OnMyAgentAutomationTaskItem[]>([]);
-  const [templateViewOpen, setTemplateViewOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<AutomationDialogMode>("create");
   const [editingAutomationId, setEditingAutomationId] = useState<string | null>(null);
@@ -922,7 +926,25 @@ export function AutomationPage(props: {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeStatusTab, setActiveStatusTab] = useState<AutomationStatusTab>("tasks");
+  const openBlankDialog = () => {
+    setDialogMode("create");
+    setEditingAutomationId(null);
+    setForm(createEmptyFormState(local.prefs.defaultModel ?? null));
+    setDialogOpen(true);
+  };
+  const {
+    templateViewOpen,
+    setTemplateViewOpen,
+    activeStatusTab,
+    setActiveStatusTab,
+  } = useAutomationPageChrome({
+    statusTab: props.statusTab,
+    onStatusTabChange: props.onStatusTabChange,
+    templateViewOpen: props.templateViewOpen,
+    onTemplateViewOpenChange: props.onTemplateViewOpenChange,
+    createRequestId: props.createRequestId,
+    onCreateRequest: openBlankDialog,
+  });
   const [listReady, setListReady] = useState(false);
   const [archivedRunKeys, setArchivedRunKeys] = useState<string[]>(() =>
     readArchivedAutomationRunKeys(props.workspaceId),
@@ -1080,13 +1102,6 @@ export function AutomationPage(props: {
   const editingItem = editingAutomationId
     ? visibleAutomations.find((item) => item.id === editingAutomationId) ?? null
     : null;
-
-  const openBlankDialog = () => {
-    setDialogMode("create");
-    setEditingAutomationId(null);
-    setForm(createEmptyFormState(local.prefs.defaultModel ?? null));
-    setDialogOpen(true);
-  };
 
   const openTemplateDialog = (template: AutomationTemplate) => {
     setDialogMode("create");
@@ -1476,28 +1491,26 @@ export function AutomationPage(props: {
           </div>
         ) : (
           <section className="space-y-4">
-            {/* Reference IA: scheduled tasks | run history */}
-            <SegmentedTabGroup density="bare">
-              {automationStatusTabs.map((tab) => {
-                const active = activeStatusTab === tab;
-                const label =
-                  tab === "tasks"
-                    ? t("automation.tab_tasks")
-                    : t("automation.tab_runs");
-                return (
+            {props.hideStatusTabs ? null : (
+              <SegmentedTabGroup density="bare">
+                {automationStatusTabs.map((tab) => (
                   <NavTabButton
                     key={tab}
                     type="button"
-                    active={active}
+                    active={activeStatusTab === tab}
                     size="tab"
                     shape="tab"
-                    aria-pressed={active}
+                    aria-pressed={activeStatusTab === tab}
                     onClick={() => setActiveStatusTab(tab)}
                   >
-                    <span>{label}</span>
+                    <span>
+                      {tab === "tasks"
+                        ? t("automation.tab_tasks")
+                        : t("automation.tab_runs")}
+                    </span>
                     <span
                       className={
-                        active
+                        activeStatusTab === tab
                           ? "tabular-nums text-xs font-medium opacity-70"
                           : "tabular-nums text-xs font-medium text-dls-secondary"
                       }
@@ -1505,9 +1518,9 @@ export function AutomationPage(props: {
                       {statusTabCounts[tab]}
                     </span>
                   </NavTabButton>
-                );
-              })}
-            </SegmentedTabGroup>
+                ))}
+              </SegmentedTabGroup>
+            )}
             <div className="space-y-3">
               {activeStatusTab === "tasks" ? (
                 <div className="space-y-1">

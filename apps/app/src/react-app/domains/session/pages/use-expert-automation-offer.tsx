@@ -429,14 +429,14 @@ export function useExpertAutomationOffer(
         kind: "automation",
       });
       // Bookmark + history-backed rail URL so Back leaves scheduled tasks.
-      writeRailView("assistant", workspaceId, "scheduledTasks");
+      writeRailView("assistant", workspaceId, "automation");
       if (location.pathname.includes("/assistant")) {
         navigate(
           buildPathWithRailView({
             mode: "assistant",
             pathname: location.pathname,
             search: location.search,
-            view: "scheduledTasks",
+            view: "automation",
           }),
         );
         return;
