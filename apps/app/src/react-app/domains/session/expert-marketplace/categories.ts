@@ -12,6 +12,7 @@ export const EXPERT_MARKETPLACE_CATEGORIES: ExpertMarketplaceCategory[] = [
   { id: "03-GameSpatial", labelKey: "session.expert_marketplace_category_game_spatial", searchLabel: "游戏空间 game spatial" },
   { id: "04-DataAI", labelKey: "session.expert_marketplace_category_data_ai", searchLabel: "数据智能 data ai" },
   { id: "product-operations", labelKey: "session.expert_marketplace_category_product_operations", searchLabel: "产品运营 content marketing growth operations" },
+  { id: "15-CreatorOps", labelKey: "session.expert_marketplace_category_creator_ops", searchLabel: "达人运营 creator ops KOL 媒介 内容运营 复盘 种草" },
   { id: "07-SalesCommerce", labelKey: "session.expert_marketplace_category_sales_commerce", searchLabel: "销售商务 sales commerce" },
   { id: "hr-legal", labelKey: "session.expert_marketplace_category_hr_legal", searchLabel: "人力法务 hr legal security compliance" },
   { id: "12-IndustryConsultant", labelKey: "session.expert_marketplace_category_industry_consultant", searchLabel: "行业顾问 industry consultant" },
