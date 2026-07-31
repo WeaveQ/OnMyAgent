@@ -5,11 +5,11 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dir, "../../..");
 
 /**
- * Language preference lives under Settings → Personalization → Display,
+ * Language + theme live under Settings → Personalization (three sections),
  * not in the account gear menu.
  */
-describe("preferences language settings contract", () => {
-  test("personalization display block includes LanguageBlockRow", () => {
+describe("preferences personalization sections contract", () => {
+  test("three sections: interface, display, session management", () => {
     const preferences = readFileSync(
       resolve(
         root,
@@ -24,15 +24,26 @@ describe("preferences language settings contract", () => {
       ),
       "utf8",
     );
+    const themeSection = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/settings/appearance/theme-section.tsx",
+      ),
+      "utf8",
+    );
 
-    expect(preferences).toContain("LanguageBlockRow");
+    expect(preferences).toContain("interface_settings_title");
     expect(preferences).toContain("display_settings_title");
+    expect(preferences).toContain("session_management_title");
+    expect(preferences).toContain("LanguageBlockRow");
+    expect(preferences).toContain("ThemeBlockRow");
+    expect(preferences).toContain("FontSizeBlockRow");
     expect(languageSection).toContain("setLocale");
-    expect(languageSection).toContain("LANGUAGE_OPTIONS");
-    expect(languageSection).toContain("settings.language");
+    expect(themeSection).toContain("setAppThemeMode");
+    expect(themeSection).toContain("settings.theme_title");
   });
 
-  test("account menu no longer hosts language submenu", () => {
+  test("account menu no longer hosts language or theme submenus", () => {
     const sidebar = readFileSync(
       resolve(
         root,
@@ -42,9 +53,10 @@ describe("preferences language settings contract", () => {
     );
 
     expect(sidebar).not.toContain("account_menu.language");
+    expect(sidebar).not.toContain("account_menu.theme");
     expect(sidebar).not.toContain("LANGUAGE_OPTIONS");
     expect(sidebar).not.toContain("setLocale");
-    // Theme remains in the gear menu.
-    expect(sidebar).toContain("account_menu.theme");
+    expect(sidebar).not.toContain("getInitialThemeMode");
+    expect(sidebar).toContain("account_menu.settings");
   });
 });

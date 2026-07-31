@@ -10,6 +10,7 @@ export default {
 
   "settings.font_size_title": "Display size",
   "settings.display_settings_title": "Display",
+  "settings.interface_settings_title": "Interface",
   "settings.font_size_desc": "Scale the whole interface. You can also use ⌘/Ctrl + and −, or ⌘/Ctrl + 0 to reset.",
   "settings.font_size_label": "Font size",
   "settings.font_size_hint": "Applies to the entire app, including chat and settings.",
@@ -672,7 +673,7 @@ export default {
   "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
   "settings.preferences": "Personalization",
   "settings.preferences_card_description":
-    "Language, display size, reasoning visibility, and session habits",
+    "Interface, display, and session habits",
   "settings.tab_description_advanced":
     "Inspect runtime, connection state, and developer controls",
   "settings.tab_description_appearance": `Adjust how ${APP_NAME} looks across desktop, system theme, and app frame`,
