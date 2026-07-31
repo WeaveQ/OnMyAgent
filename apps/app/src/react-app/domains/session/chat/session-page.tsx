@@ -161,7 +161,7 @@ function CodeSidePanelMenu(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-side-panel-menu="true">
       <header
         data-panel-titlebar="true"
-        className="flex h-12 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary mac:titlebar-drag"
+        className="flex h-14 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary mac:titlebar-drag"
       >
         <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
           <Expand className="size-3.5" />
@@ -227,7 +227,7 @@ function CodeSidePanelPlaceholder(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <header
         data-panel-titlebar="true"
-        className="flex h-12 shrink-0 items-center justify-between border-b border-dls-mist px-4 mac:titlebar-drag"
+        className="flex h-14 shrink-0 items-center justify-between border-b border-dls-mist px-4 mac:titlebar-drag"
       >
         <div className="flex items-center gap-2 text-sm font-medium text-dls-text">
           <Icon className="size-4 text-dls-secondary" />

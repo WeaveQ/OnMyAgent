@@ -1256,8 +1256,8 @@ export function AgentConversationPanel(props: {
       <div
         className={cn(
           "min-h-0 flex-1 overflow-y-auto",
-          // Tight, even gap under the shared h-12 primary CTA strip.
-          mode === "assistant" && "pr-0.5 pt-1",
+          // Even gap under the shared h-14 primary CTA strip.
+          mode === "assistant" && "pr-0.5 pt-1.5",
         )}
       >
         {mode === "assistant" ? (

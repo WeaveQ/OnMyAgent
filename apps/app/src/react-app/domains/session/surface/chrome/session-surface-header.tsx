@@ -33,8 +33,8 @@ export function SessionSurfaceHeader(props: {
   return (
     <header
       className={cn(
-        // h-12 matches list-lane SIDEBAR_PRIMARY_HEADER_CLASS (新建任务 strip).
-        "flex h-12 shrink-0 items-center justify-between bg-dls-background px-5",
+        // h-14 matches list-lane SIDEBAR_PRIMARY_HEADER_CLASS (新建任务 strip).
+        "flex h-14 shrink-0 items-center justify-between bg-dls-background px-5",
         // Align with side-panel header when this is the only chrome rule.
         showBottomBorder && "border-b border-dls-mist",
       )}
