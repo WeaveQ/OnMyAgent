@@ -217,16 +217,19 @@ const navListButtonVariants = cva(
 )
 
 const railButtonVariants = cva(
-  "flex flex-col items-center justify-center font-semibold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex flex-col items-center justify-center font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       active: {
-        true: "text-dls-accent",
-        false: "text-dls-secondary hover:text-dls-accent",
+        // Light: bright white free-float pill (reference). Dark: elevated surface.
+        true: "bg-dls-surface text-dls-text shadow-sm dark:bg-dls-surface dark:shadow-none",
+        false: "text-dls-secondary hover:bg-black/5 hover:text-dls-text dark:hover:bg-white/5 dark:hover:text-dls-text",
       },
       size: {
-        top: "min-h-12 w-[60px] gap-1 rounded-xl px-1.5 text-xs",
-        bottom: "size-10 gap-1 rounded-lg text-2xs",
+        // Reference-scale free-float chip: 56px wide, roomy icon+label stack.
+        // Fixed width so every top item matches (active never stretches).
+        top: "w-14 gap-1.5 rounded-2xl px-1 py-2 text-xs leading-none",
+        bottom: "size-10 gap-0.5 rounded-2xl text-2xs",
       },
     },
     defaultVariants: {

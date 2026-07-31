@@ -1,6 +1,5 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
-import { MonitorSmartphone } from "lucide-react";
 
 import { RailButton } from "@/components/ui/action-row";
 import { t } from "../../../../i18n";
@@ -43,7 +42,7 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: 助理 → 专家 → 文件 → 市场 → 本地 → 管理
+// Order: Home → Experts → Files → Store → Local → Manage
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
@@ -53,20 +52,12 @@ const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "agentManagement", get label() { return t("nav.management"); }, get shortLabel() { return t("nav.management_short"); }, icon: ManageRailIcon },
 ];
 
-function DevicesRailIcon(props: { active?: boolean; className?: string }) {
-  return <MonitorSmartphone className={props.className} aria-hidden="true" />;
-}
-
+// Bottom strip: channels only (devices entry removed — settings stays via account gear).
 const BOTTOM_RAIL_ITEMS: BottomRailItem[] = [
   {
     id: "channels",
     get label() { return t("nav.channels"); },
     icon: ChannelsRailIcon,
-  },
-  {
-    id: "devices",
-    get label() { return t("nav.devices"); },
-    icon: DevicesRailIcon,
   },
 ];
 
@@ -86,8 +77,8 @@ function TopRailButton(props: {
       aria-label={props.item.label}
       aria-pressed={props.active}
     >
-      <Icon className="size-5" />
-      <span className="w-full truncate text-center text-xs leading-none">{props.item.shortLabel}</span>
+      <Icon className="size-5.5" />
+      <span className="w-full truncate text-center text-xs font-medium leading-none tracking-tight">{props.item.shortLabel}</span>
     </RailButton>
   );
 }
@@ -109,7 +100,7 @@ function BottomRailButton(props: {
       aria-label={props.item.label}
       aria-pressed={props.active}
     >
-      <Icon active={props.active} className="size-5" />
+      <Icon active={props.active} className="size-5.5" />
     </RailButton>
   );
 }
@@ -124,10 +115,11 @@ export function OnMyAgentRail(props: {
   onOpenBilling?: () => void;
 }) {
   // pt-14 only on macOS (traffic lights / hidden titlebar). Windows keeps compact top padding.
+  // Reference-scale: ~64px column, ~56px free-float chips; gap-2 keeps item rhythm lean.
   return (
-    <aside className="flex w-16 shrink-0 flex-col items-center bg-dls-rail pb-4 pt-3 mac:pt-14 text-dls-text">
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5">
-        <nav className="flex min-h-0 w-full -translate-y-0.5 flex-1 flex-col items-center gap-2 overflow-y-auto pb-2">
+    <aside className="flex w-16 shrink-0 flex-col items-center bg-dls-rail px-1 pb-4 pt-3 mac:pt-14 text-dls-text">
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center">
+        <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto pb-2">
           {TOP_RAIL_ITEMS.map((item) => (
             <TopRailButton
               key={item.id}
@@ -138,7 +130,7 @@ export function OnMyAgentRail(props: {
           ))}
         </nav>
       </div>
-      <div className="mt-auto flex w-full flex-col items-center gap-1">
+      <div className="mt-auto flex w-full flex-col items-center gap-2">
         {BOTTOM_RAIL_ITEMS.map((item) => (
           <BottomRailButton
             key={item.id}
