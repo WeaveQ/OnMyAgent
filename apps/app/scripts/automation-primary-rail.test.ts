@@ -76,6 +76,10 @@ describe("primary rail + assistant wiring", () => {
     // Left nav also shows home-style automation run groups.
     expect(assistant).toContain("useAutomationNavGroups");
     expect(assistant).toContain("groups={automationNavGroups}");
+    // Opening a run stays on the automation rail (embedded SessionSurface).
+    expect(assistant).toContain("openAutomationEmbeddedSession");
+    expect(assistant).toContain("showAutomationEmbeddedSession");
+    expect(assistant).toContain("sessionSurfaceActive");
   });
 
   test("buildAutomationNavGroups folds runs under one task", () => {
