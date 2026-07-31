@@ -3,6 +3,7 @@ import {
   deriveOpenTargets,
   extractDeclaredDeliverablePaths,
   extractHardDeclaredDeliverablePaths,
+  extractSoftDeclaredDeliverablePaths,
   isCollectibleArtifactTarget,
   isLikelyUserUploadArtifactPath,
   isUserFacingLocalPreviewTarget,
@@ -307,10 +308,12 @@ export function selectTurnOpenTargets(
   const userBasenames = userAttachmentBasenames(messages);
   const inlineTargets = new Map<string, OpenTarget>();
   const assistantBlob = assistantTextBlob(messages);
-  // Soft mentions (`已生成 foo.xlsx`) count for intentional-code matching only.
+  // Soft + hard prose claims (intentional-code matching + soft content safety net).
   const declaredPaths = extractDeclaredDeliverablePaths(assistantBlob);
   // Hard `文件路径:` may mint cards without write-tool provenance.
   const hardDeclaredPaths = extractHardDeclaredDeliverablePaths(assistantBlob);
+  // Soft `输出文件:` / `已生成` content files mint when verified exists (write-scan miss).
+  const softDeclaredPaths = extractSoftDeclaredDeliverablePaths(assistantBlob);
   const executedScriptBasenames = scriptsExecutedInTurn(messages);
 
   const candidatePaths: string[] = [];
@@ -318,6 +321,11 @@ export function selectTurnOpenTargets(
     if (candidate.kind === "file") candidatePaths.push(candidate.value);
   }
   for (const declared of hardDeclaredPaths) candidatePaths.push(declared);
+  for (const declared of softDeclaredPaths) {
+    if (isContentDeliverable(declared) && !isProcessHelperArtifact(declared)) {
+      candidatePaths.push(declared);
+    }
+  }
 
   const hasContentDeliverableInTurn = candidatePaths.some(
     (path) =>
@@ -358,6 +366,17 @@ export function selectTurnOpenTargets(
 
   // Explicit "文件路径:" lines are deliverable provenance even without a write tool.
   for (const declared of hardDeclaredPaths) {
+    addVerifiedFile(declared);
+  }
+
+  // Soft prose (`输出文件: foo.xlsx` / `已生成 foo.xlsx`) + verified exists is a
+  // reliability safety net: agents often write via ad-hoc scripts that miss
+  // write-tool path extraction, then only declare the deliverable in prose.
+  // Still requires exists:true and content-extension filters; process helpers
+  // and user uploads stay blocked.
+  for (const declared of softDeclaredPaths) {
+    if (!isContentDeliverable(declared)) continue;
+    if (isProcessHelperArtifact(declared)) continue;
     addVerifiedFile(declared);
   }
 
