@@ -466,16 +466,16 @@ export function AssistantPage(props: AssistantPageProps) {
     )?.directory ?? null;
 
   const openCreatedAutomation = useCallback(
-    (row: { id: string; scene: "office" | "code" }) => {
+    (row: { id: string; scene?: "office" }) => {
       const workspaceId = props.selectedWorkspaceId.trim();
       if (!workspaceId) return;
       writeAutomationFocus({
         workspaceId,
         automationId: row.id,
-        scene: row.scene,
+        scene: "office",
       });
-      setAssistantCategoryAndRemember(row.scene);
-      writeAssistantSelectionMemory(workspaceId, row.scene, {
+      setAssistantCategoryAndRemember("office");
+      writeAssistantSelectionMemory(workspaceId, "office", {
         kind: "automation",
       });
       openScheduledTasksView();
@@ -656,21 +656,6 @@ export function AssistantPage(props: AssistantPageProps) {
       openScheduledTasksView,
       props.selectedWorkspaceId,
       props.sidebar,
-    ],
-  );
-
-  const handleAssistantCategoryChange = useCallback(
-    (categoryId: AssistantCategoryId) => {
-      setAssistantCategoryId(categoryId);
-      applyAssistantSelection(
-        categoryId,
-        readAssistantSelectionMemory(props.selectedWorkspaceId, categoryId),
-        { persistFallback: true },
-      );
-    },
-    [
-      applyAssistantSelection,
-      props.selectedWorkspaceId,
     ],
   );
 
@@ -924,7 +909,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,
-    surface: assistantCategoryId === "code" ? "assistant-code" : "assistant-office",
+    surface: "assistant-office",
   });
   const canRenderReactSurface = Boolean(
     props.runtimeWorkspaceId &&
@@ -1108,7 +1093,6 @@ export function AssistantPage(props: AssistantPageProps) {
                   openAssistantNewTask(assistantCategoryId);
                 }}
                 assistantCategoryId={assistantCategoryId}
-                onAssistantCategoryChange={handleAssistantCategoryChange}
                 automationActive={false}
                 onOpenAssistant={openAssistantSessionView}
                 onOpenAutomation={() => {
@@ -1614,7 +1598,7 @@ export function AssistantPage(props: AssistantPageProps) {
                   {/* Single 1px rule — base handle also paints bg-border; avoid before: double line. */}
                   <ResizableHandle className="hidden lg:flex" />
                   <ResizablePanel
-                    key={assistantCategoryId === "code" ? "code-side-panel" : "office-side-panel"}
+                    key="office-side-panel"
                     panelRef={browserPanelRef}
                     defaultSize={`${ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH}px`}
                     minSize={

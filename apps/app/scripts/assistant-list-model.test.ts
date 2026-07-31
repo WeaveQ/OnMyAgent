@@ -254,12 +254,10 @@ describe("buildAssistantSidebarModel", () => {
       "space_1",
     ]);
     expect(model.automationGroupsAll.map((g) => g.id)).toEqual(["auto-1"]);
-    // Elevated into global pins → not in schedules section.
+    // Home no longer elevates automation pins (Automation primary rail owns them).
+    expect(model.listModel.globalPins.map((p) => p.kind)).toEqual(["session"]);
+    // Still filtered from schedules when the pin id is in globalPins storage.
     expect(model.automationGroups).toEqual([]);
-    expect(model.listModel.globalPins.map((p) => p.kind)).toEqual([
-      "session",
-      "automation",
-    ]);
     expect(model.listModel.recentGroups.map((g) => g.latestSession.id)).toEqual(
       [],
     );
@@ -273,13 +271,13 @@ describe("buildAssistantSidebarModel", () => {
     const b = group("b", 2);
     const part = partitionCategoryGroupsForSidebar({
       categoryGroups: [a, b],
-      categoryId: "code",
+      categoryId: "office",
       automationRecords: [
         {
           sessionId: "b",
           automationId: "x",
           title: "X",
-          category: "code",
+          category: "office",
           createdAt: 2,
         },
       ],

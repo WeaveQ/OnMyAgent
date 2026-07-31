@@ -63,7 +63,7 @@ describe("automation run desktop notifications", () => {
         {
           id: "auto-2",
           title: "Weekly report",
-          scene: "code",
+          scene: "office",
           lastRun: { status: "success", ranAt: 300, sessionId: "ses-3" },
         },
         {
@@ -92,7 +92,7 @@ describe("automation run desktop notifications", () => {
         status: "success",
         ranAt: 300,
         sessionId: "ses-3",
-        scene: "code",
+        scene: "office",
       },
     ]);
   });

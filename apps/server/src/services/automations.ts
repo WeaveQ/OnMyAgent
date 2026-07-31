@@ -501,8 +501,8 @@ function normalizeAutomationInput(input: unknown): NormalizedAutomationInput {
 }
 
 function normalizeScene(value: unknown): AutomationScene {
-  if (value === "office" || value === "code") return value;
-  throw new ApiError(400, "invalid_automation_scene", "Automation scene must be office or code");
+  if (value === "office" || value === "code") return "office";
+  throw new ApiError(400, "invalid_automation_scene", "Automation scene must be office");
 }
 
 function normalizeSchedule(schedule: unknown): AutomationSchedule {
@@ -767,7 +767,7 @@ function readAutomationTaskItem(value: unknown): AutomationTaskItem[] {
     .sort((a, b) => b.ranAt - a.ranAt);
   return [{
     id: record.id,
-    scene: record.scene,
+    scene: "office",
     title: record.title,
     prompt: record.prompt,
     ...(typeof record.sourceSessionId === "string" && record.sourceSessionId.trim()

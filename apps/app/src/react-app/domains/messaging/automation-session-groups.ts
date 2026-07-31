@@ -136,7 +136,7 @@ function readRecord(value: unknown): AutomationSessionRecord | null {
     title,
     groupName: value.groupName,
     outputDirectory: value.outputDirectory,
-    category: value.category,
+    category: "office",
     createdAt: createdAt ?? 0,
     ...("agentId" in value && typeof value.agentId === "string" && value.agentId.trim()
       ? { agentId: value.agentId.trim() }

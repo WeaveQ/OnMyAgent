@@ -135,7 +135,7 @@ describe("session route agent context", () => {
     expect(assistantSessions).toEqual(["ses_assistant"]);
     expect(expertSessions).toEqual(["ses_expert"]);
     expect(assistantCategories).toEqual([
-      { sessionId: "ses_assistant", category: "code" },
+      { sessionId: "ses_assistant", category: "office" },
     ]);
   });
 

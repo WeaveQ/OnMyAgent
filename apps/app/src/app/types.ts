@@ -159,7 +159,7 @@ export type ComposerDraft = {
 };
 
 export type SessionStartIntent =
-  | { mode: "assistant"; assistantCategory: "code" | "office" }
+  | { mode: "assistant"; assistantCategory: "office" }
   | { mode: "expert" };
 
 export type ComposerAccessMode = "default" | "delegate" | "full";

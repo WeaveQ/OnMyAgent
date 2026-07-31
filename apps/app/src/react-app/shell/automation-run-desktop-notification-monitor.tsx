@@ -59,7 +59,7 @@ export function AutomationRunDesktopNotificationMonitor() {
         addAssistantSession(candidate.sessionId);
         writeAssistantSessionCategory(
           candidate.sessionId,
-          candidate.scene === "code" ? "code" : "office",
+          "office",
         );
       }
 

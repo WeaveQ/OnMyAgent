@@ -35,7 +35,7 @@ describe("session-surface helpers (shipped)", () => {
     expect(src).toContain("buildComposerDraft");
     expect(src).toContain("derivePendingSessionLoad");
     expect(src).toContain("deriveChatStreaming");
-    expect(src).toContain("workspaceAttachmentContentType");
+    expect(src).toContain("shouldShowCodeSceneToolbar");
     expect(src).toContain("COMPOSER_NOTICE_TIMEOUT_MS");
     expect(src).toContain("FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS");
     expect(src).toContain("DELAYED_SESSION_LOADING_MS");
@@ -192,18 +192,19 @@ describe("session-surface helpers (shipped)", () => {
   });
 
   test("code scene toolbar and collaboration mode variant", () => {
+    // Code track removed — toolbar never shows for personal assistant.
     expect(
       shouldShowCodeSceneToolbar({
-        assistantCodeFeaturesActive: true,
-        assistantFeatureCategoryId: "code",
+        assistantCodeFeaturesActive: false,
+        assistantFeatureCategoryId: "office",
         draftOnly: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldShowCodeSceneToolbar({
         assistantCodeFeaturesActive: true,
-        assistantFeatureCategoryId: "code",
-        draftOnly: true,
+        assistantFeatureCategoryId: "office",
+        draftOnly: false,
       }),
     ).toBe(false);
     expect(
