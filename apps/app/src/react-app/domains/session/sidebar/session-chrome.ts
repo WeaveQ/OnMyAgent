@@ -3,7 +3,7 @@
  * Former home: components/shared-pages/ (cleared).
  */
 
-export { OnMyAgentRail } from "./main-rail";
+export { OnMyAgentRail, isAutomationRailView } from "./main-rail";
 export type { OnMyAgentPrimaryView } from "./main-rail";
 
 export {

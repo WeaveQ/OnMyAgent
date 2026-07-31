@@ -168,12 +168,92 @@ function isOnmyagentSkillPath(path: string): boolean {
   return normalized.includes("/.onmyagent/skills/") || normalized.includes("/onmyagent/skills/");
 }
 
+/** Skill titles stay English (package / EN display). Do not localize names to zh. */
 function skillDisplayName(skill: LocalSkillCard): string {
-  return skill.displayNameZh || skill.displayNameEn || skill.name;
+  return skill.displayNameEn || skill.name;
+}
+
+/** Drop leaked YAML block markers and empty stubs from skill descriptions. */
+function isUsableSkillDescription(value: string | undefined | null): boolean {
+  if (value == null) return false;
+  const text = value.trim();
+  if (!text) return false;
+  if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text) || /^>$/.test(text)) {
+    return false;
+  }
+  if (text.length < 3) return false;
+  return true;
+}
+
+function firstUsableSkillDescription(
+  ...candidates: Array<string | undefined | null>
+): string {
+  for (const candidate of candidates) {
+    if (isUsableSkillDescription(candidate)) return String(candidate).trim();
+  }
+  return "";
 }
 
 function skillDescription(skill: LocalSkillCard): string {
-  return skill.descriptionZh || skill.descriptionEn || skill.description || skill.trigger || "";
+  return firstUsableSkillDescription(
+    skill.descriptionZh,
+    skill.descriptionEn,
+    skill.description,
+    skill.trigger,
+  );
+}
+
+/** Prefer local fields; fill gaps from bundled catalog (fixes stale installs). */
+function mergeLocalSkillWithCatalog(
+  skill: LocalSkillCard,
+  catalog: {
+    description?: string;
+    displayNameEn?: string;
+    displayNameZh?: string;
+  } | null,
+): LocalSkillCard {
+  if (!catalog) {
+    // Still sanitize broken local-only fields (e.g. literal ">-").
+    const cleaned = firstUsableSkillDescription(
+      skill.descriptionZh,
+      skill.descriptionEn,
+      skill.description,
+      skill.trigger,
+    );
+    if (cleaned === (skill.descriptionZh || skill.descriptionEn || skill.description || "")) {
+      return skill;
+    }
+    return {
+      ...skill,
+      description: cleaned,
+      descriptionZh: firstUsableSkillDescription(skill.descriptionZh) || undefined,
+      descriptionEn: firstUsableSkillDescription(skill.descriptionEn) || undefined,
+    };
+  }
+  const description = firstUsableSkillDescription(
+    skill.descriptionZh,
+    skill.descriptionEn,
+    skill.description,
+    catalog.description,
+    skill.trigger,
+  );
+  return {
+    ...skill,
+    displayNameEn:
+      skill.displayNameEn?.trim() ||
+      catalog.displayNameEn ||
+      skill.displayNameEn,
+    description,
+    descriptionZh:
+      firstUsableSkillDescription(skill.descriptionZh, catalog.description) ||
+      skill.descriptionZh,
+    descriptionEn:
+      firstUsableSkillDescription(
+        skill.descriptionEn,
+        skill.description,
+        catalog.description,
+      ) || skill.descriptionEn,
+  };
 }
 
 const builtinMarketplaceSkillByName = new Map(
@@ -487,13 +567,16 @@ function InstalledSkillCard(props: {
     : t("skills.source_user_installed");
 
   const handleCardActivate = () => {
-    if (props.onOpen) {
-      props.onOpen(props.skill);
+    // Product: installed/builtin cards always start a chat when possible.
+    // Detail dialog (onOpen) is secondary and must not steal the primary click —
+    // previously any marketplace catalog match opened detail and blocked “去对话”.
+    if (props.onChat) {
+      props.onChat(props.skill);
       return;
     }
-    props.onChat?.(props.skill);
+    props.onOpen?.(props.skill);
   };
-  const cardInteractive = Boolean(props.onOpen || props.onChat);
+  const cardInteractive = Boolean(props.onChat || props.onOpen);
 
   return (
     <div
@@ -965,13 +1048,24 @@ export function SkillsMarketplacePage(props: {
     ])
       .then(([response, catalog]) => {
         if (cancelled) return;
+        const catalogByName = new Map(
+          (catalog?.skills ?? []).map((entry) => [
+            entry.skillName || entry.packageName,
+            entry,
+          ]),
+        );
         const names = new Set<string>();
         const skills: LocalSkillCard[] = [];
         if (Array.isArray(response)) {
           for (const entry of response) {
             if (isOnmyagentSkillPath(entry.path)) {
               names.add(entry.name);
-              skills.push(entry);
+              skills.push(
+                mergeLocalSkillWithCatalog(
+                  entry,
+                  catalogByName.get(entry.name) ?? null,
+                ),
+              );
             }
           }
         }
@@ -1288,11 +1382,24 @@ export function SkillsMarketplacePage(props: {
                     uninstalling={uninstallingSkillName === skill.name}
                     onEnabledChange={handleSkillEnabledChange}
                     onPinnedChange={handleSkillPinnedChange}
-                    onChat={props.onChatWithSkill}
+                    onChat={
+                      props.onChatWithSkill
+                        ? (target) => {
+                            // Disabled skills are still chat-able: turn on so
+                            // slash `/name` can load, then open a new office task.
+                            if (skillEnabledMap[target.name] === false) {
+                              handleSkillEnabledChange(target, true);
+                            }
+                            props.onChatWithSkill?.(target);
+                          }
+                        : undefined
+                    }
                     onEdit={props.onEditSkill}
                     onUninstall={handleUninstallSkill}
+                    // Card click goes to chat; detail is optional via market match
+                    // only when chat is unavailable (should not block primary path).
                     onOpen={
-                      market
+                      !props.onChatWithSkill && market
                         ? () => setDetailSkill(market)
                         : undefined
                     }

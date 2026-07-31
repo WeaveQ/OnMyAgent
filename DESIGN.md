@@ -183,7 +183,7 @@ spacing:
     lg: 40     # h-10 — primary CTA
     xl: 44     # h-11 — touch-target-safe CTA (also used for mobile)
     chrome: 48 # h-12 / min-h-12 — RailButton top / panel titlebar / composer footer chrome
-    2xl: 56    # h-14 — "large row" (Level-3 nav, IconTile lg, avatar-lg)
+    2xl: 56    # h-14 — Level-3 nav / IconTile lg / avatar-lg
   hero-scale:
     # Padding values for empty-state hero / marketing / plugin index
     # sections. NEVER use for row-level UI.
@@ -501,12 +501,16 @@ components:
       text: "{typography.scale.sm}"                   # 14
       padding-x: "{spacing.scale.lg}"                 # 24 (px-6)
     # --- Chrome tier (family: chrome) --------------------------------
+    # Primary app rail (left): reference-scale free-float chips.
+    # w-16 column + w-14 chips; size-5.5 icons + text-xs; gap-3 between items.
     rail-button:
-      height: "{spacing.button-heights.chrome}"      # 48
-      radius: "{rounded.md}"                          # 8
+      height: "content"                               # icon + label + py-2
+      radius: "{rounded.xl}"                          # 14 → rounded-2xl visual
       surface: "{colors.rail-bg}"
-      surface-active: transparent
-      surface-hover: transparent
+      surface-active: "{colors.surface}"              # light + dark: bright free-float
+      surface-hover: "black/5"
+      width: 64                                       # w-16 rail column
+      pill-width: 56                                  # w-14 free-float chip
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40

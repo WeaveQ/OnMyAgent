@@ -101,6 +101,43 @@ export function shouldInstallCoreSkill(input) {
 }
 
 /**
+ * True when a skill description is missing or is a leaked YAML block marker
+ * (e.g. ">-" / "|") so UI must fall back or SKILL.md must be refreshed.
+ *
+ * @param {unknown} value
+ */
+export function isUsableSkillDescriptionText(value) {
+  if (value == null) return false;
+  const text = String(value).trim();
+  if (!text) return false;
+  if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text) || /^>$/.test(text)) {
+    return false;
+  }
+  // Single glyph / cursor leftovers are not real descriptions.
+  if (text.length < 3) return false;
+  return true;
+}
+
+/**
+ * Core preinstall skills are product-owned: re-sync SKILL.md from the bundle
+ * when the installed copy still exists so display metadata stays complete.
+ *
+ * @param {{
+ *   packageName: string,
+ *   skillName?: string,
+ *   destinationExists: boolean,
+ * }} input
+ */
+export function shouldRefreshCoreSkillMarkdown(input) {
+  if (!input.destinationExists) return false;
+  return CORE_PREINSTALL_SKILLS.some(
+    (entry) =>
+      entry.packageName === input.packageName &&
+      entry.skillName === (input.skillName ?? input.packageName),
+  );
+}
+
+/**
  * Resolve catalog entries for UI (builtin tab).
  *
  * @param {{

@@ -27,7 +27,8 @@ describe("assistant task list scroll contract", () => {
     expect(sectionsSource).toContain('data-assistant-section="pinned"');
     expect(sectionsSource).toContain('data-assistant-section="recent"');
     expect(sectionsSource).toContain('data-assistant-section="spaces"');
-    expect(sectionsSource).toContain('data-assistant-section="automations"');
+    // Automations moved to primary-rail Automation — not listed on home.
+    expect(sectionsSource).not.toContain('data-assistant-section="automations"');
     expect(sectionsSource).toContain('data-assistant-section-header="true"');
     // Pin / space / recent rules live in the pure list model — not re-split as 任务.
     expect(sectionsSource).not.toContain('data-assistant-section="tasks"');

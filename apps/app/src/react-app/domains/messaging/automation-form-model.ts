@@ -119,11 +119,12 @@ export function createEmptyFormState(defaultModel: ModelRef | null = null): Auto
     agentId: "",
     accessMode: "default",
     frequencyMode: "weekly",
-    day: "daily",
+    day: "weekly",
     time: "09:00",
     intervalValue: "1",
     intervalUnit: "hours",
-    weekdays: [...ALL_WEEKDAYS],
+    // Default Mon–Fri (product reference weekdays).
+    weekdays: [1, 2, 3, 4, 5],
     onceDate: defaultOnceDate(),
     effectiveStartDate: "",
     effectiveEndDate: "",
@@ -237,6 +238,10 @@ export function isScheduleValid(form: AutomationFormState, now = Date.now()) {
     const timestamp = onceAt(form);
     return timestamp !== null && timestamp > now;
   }
+  // Weekly / biweekly require at least one weekday.
+  if (form.day === "weekly" || form.day === "biweekly") {
+    return form.weekdays.length > 0;
+  }
   return true;
 }
 
@@ -245,6 +250,14 @@ export function isFormValid(form: AutomationFormState, now = Date.now()) {
   if (!hasAutomationModel(form.model)) return false;
   if (!isEffectiveRangeValid(form)) return false;
   return isScheduleValid(form, now);
+}
+
+function weekdaysInlineLabel(weekdays: number[] | undefined) {
+  if (!weekdays?.length || weekdays.length === 7) return null;
+  return [...weekdays]
+    .sort((left, right) => left - right)
+    .map((day) => automationWeekdayLabel(day))
+    .join(t("automation.weekdays_join"));
 }
 
 /** Prefer day/hour friendly labels for interval schedules. */
@@ -258,15 +271,21 @@ export function scheduleLabel(schedule: OnMyAgentAutomationTaskItem["schedule"])
   }
   if (schedule.mode === "interval") {
     const minutes = schedule.intervalMinutes ?? 60;
-    if (minutes % (24 * 60) === 0) {
-      return t("automation.schedule_interval_days", { days: minutes / (24 * 60) });
-    }
-    if (minutes % 60 === 0) {
-      return t("automation.schedule_interval_hours", { hours: minutes / 60 });
-    }
-    return t("automation.schedule_interval_minutes", { minutes });
+    const base =
+      minutes % (24 * 60) === 0
+        ? t("automation.schedule_interval_days", { days: minutes / (24 * 60) })
+        : minutes % 60 === 0
+          ? t("automation.schedule_interval_hours", { hours: minutes / 60 })
+          : t("automation.schedule_interval_minutes", { minutes });
+    const days = weekdaysInlineLabel(schedule.weekdays);
+    return days ? t("automation.schedule_with_weekdays", { schedule: base, weekdays: days }) : base;
   }
-  return automationScheduleLabel(schedule.day, schedule.time);
+  const cycle = automationScheduleLabel(schedule.day, schedule.time);
+  if (schedule.day === "weekly" || schedule.day === "biweekly") {
+    const days = weekdaysInlineLabel(schedule.weekdays);
+    if (days) return t("automation.schedule_with_weekdays", { schedule: cycle, weekdays: days });
+  }
+  return cycle;
 }
 
 export function nextRunLabel(item: OnMyAgentAutomationTaskItem, now = Date.now()) {

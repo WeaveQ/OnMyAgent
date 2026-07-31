@@ -84,12 +84,11 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(src).toContain("matrix_loading");
   });
 
-  test("agent management fleet/discover/providers distinguish loading from empty", () => {
+  test("agent management fleet/discover distinguish loading from empty", () => {
     const page = read(
       "src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
     );
     expect(page).toContain("const snapshotPending = loading && !snapshot");
-    expect(page).toContain("loading={snapshotPending}");
     // Fleet/discover: skeleton branch before inventory-empty copy.
     expect(page).toMatch(
       /\{snapshotPending \? \([\s\S]*?AgentManagementFleetSkeleton[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
@@ -97,14 +96,9 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(page).toMatch(
       /snapshotPending \? \([\s\S]*?AgentManagementFleetSkeleton[\s\S]*?\) : discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
     );
-
-    const providers = read(
-      "src/react-app/domains/local-agents/agent-management/agent-management-providers.tsx",
-    );
-    expect(providers).toContain("loading?: boolean");
-    expect(providers).toMatch(
-      /loading \? \([\s\S]*?common\.loading[\s\S]*?\) : providers\.length \?[\s\S]*?no_managed_providers/,
-    );
+    // Models/providers tab removed from management chrome.
+    expect(page).not.toContain("agent_manager.tab_providers");
+    expect(page).not.toContain("AgentManagementProviderPanel");
 
     const extensions = read("src/react-app/domains/local-agents/extension-list-panel.tsx");
     expect(extensions).toMatch(

@@ -20,7 +20,7 @@ import type {
 } from "@onmyagent/types/server";
 import { ApprovalService } from "./services/approvals.js";
 import { repairCommands } from "./services/commands.js";
-import { ApiError, formatError } from "./core/errors.js";
+import { ApiError, formatError, isApiError, toApiError } from "./core/errors.js";
 import { readJsoncFile } from "./core/jsonc.js";
 import { ReloadEventStore } from "./services/events.js";
 import { startReloadWatchers } from "./reload-watcher.js";
@@ -160,10 +160,10 @@ export async function startServer(config: ServerConfig): Promise<ServeResult> {
           });
           return finalize(response);
         } catch (error) {
-          const apiError =
-            error instanceof ApiError
-              ? error
-              : new ApiError(500, "internal_error", "Unexpected server error");
+          if (!isApiError(error)) {
+            console.error("[onmyagent-server] Unhandled opencode proxy error:", error);
+          }
+          const apiError = toApiError(error);
           errorMessage = apiError.message;
           return finalize(jsonResponse(formatError(apiError), apiError.status));
         }
@@ -224,10 +224,10 @@ export async function startServer(config: ServerConfig): Promise<ServeResult> {
           });
           return finalize(response);
         } catch (error) {
-          const apiError =
-            error instanceof ApiError
-              ? error
-              : new ApiError(500, "internal_error", "Unexpected server error");
+          if (!isApiError(error)) {
+            console.error("[onmyagent-server] Unhandled opencode proxy error:", error);
+          }
+          const apiError = toApiError(error);
           errorMessage = apiError.message;
           return finalize(jsonResponse(formatError(apiError), apiError.status));
         }
@@ -263,13 +263,10 @@ export async function startServer(config: ServerConfig): Promise<ServeResult> {
         });
         return finalize(response);
       } catch (error) {
-        if (!(error instanceof ApiError)) {
+        if (!isApiError(error)) {
           console.error("[onmyagent-server] Unhandled error:", error);
         }
-        const apiError =
-          error instanceof ApiError
-            ? error
-            : new ApiError(500, "internal_error", "Unexpected server error");
+        const apiError = toApiError(error);
         errorMessage = apiError.message;
         return finalize(jsonResponse(formatError(apiError), apiError.status));
       }

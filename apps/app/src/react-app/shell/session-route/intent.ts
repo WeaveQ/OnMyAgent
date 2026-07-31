@@ -13,9 +13,13 @@ export function readSessionAgentManagementIntent(
   state: unknown,
 ): SessionAgentManagementIntent | null {
   const action = readStringStateField(state, "agentManagementAction");
-  if (action !== "createProvider") return null;
+  if (action !== "openPanel") return null;
+  const panelRaw = readStringStateField(state, "agentManagementPanel");
+  const panel =
+    panelRaw === "agents" || panelRaw === "skills" ? panelRaw : undefined;
   return {
-    action,
+    action: "openPanel",
+    panel,
     key: readStringStateField(state, "agentManagementActionKey") ?? action,
   };
 }
@@ -26,7 +30,8 @@ export function clearSessionAgentManagementIntentState(state: unknown) {
   for (const key of Object.keys(state)) {
     if (
       key === "agentManagementAction" ||
-      key === "agentManagementActionKey"
+      key === "agentManagementActionKey" ||
+      key === "agentManagementPanel"
     ) {
       continue;
     }

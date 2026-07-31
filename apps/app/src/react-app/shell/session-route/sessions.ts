@@ -7,6 +7,9 @@ import { addAssistantSession, isExpertSession } from "../../domains/agents";
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
+  filterRecentlyDeletedSessions,
+  sessionSnapshotFetchOptions,
+  sessionSnapshotQueryKey,
 } from "../../domains/session";
 import type { RouteWorkspace } from "./model";
 import { getSessionStatus, isActiveSessionStatus } from "./state";
@@ -262,7 +265,11 @@ export function mergeWorkspaceFetchedSessions(input: {
   fetched: SidebarSessionItem[];
   merge: (fetched: SidebarSessionItem[], current: SidebarSessionItem[]) => SidebarSessionItem[];
 }) {
-  const nextItems = input.merge(input.fetched, input.current[input.workspaceId] ?? []);
+  // Drop ids the user just deleted so a racing listSessions cannot resurrect
+  // ghost/dirty rows while remote delete is still in flight or failed soft.
+  const nextItems = filterRecentlyDeletedSessions(
+    input.merge(input.fetched, input.current[input.workspaceId] ?? []),
+  );
   return { ...input.current, [input.workspaceId]: nextItems };
 }
 
@@ -419,11 +426,11 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
         await input.endpoint.client.getSessionSnapshot(
           input.endpoint.workspaceId,
           input.sessionId,
-          { limit: 140, directory: input.directory },
+          sessionSnapshotFetchOptions(input.directory),
         )
       ).item;
       input.setQueryData(
-        ["react-session-snapshot", input.endpoint.workspaceId, input.sessionId],
+        sessionSnapshotQueryKey(input.endpoint.workspaceId, input.sessionId),
         snapshot,
       );
       input.seedSessionState(input.endpoint.workspaceId, snapshot);

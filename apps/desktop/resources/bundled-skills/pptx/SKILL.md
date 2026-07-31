@@ -1,10 +1,10 @@
 ---
 name: pptx
-description: 'Use this skill any time a .pptx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file (even if the extracted content will be used elsewhere, like in an email or summary); editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates, layouts, speaker notes, or comments. Trigger whenever the user mentions "deck," "slides," "presentation," or references a .pptx filename, regardless of what they plan to do with the content afterward. If a .pptx file needs to be opened, created, or touched, use this skill.'
-display_name_zh: "PPT"
-display_name_en: "Presentations"
-description_zh: "创建、解析、编辑、合并、拆分和更新 PowerPoint 幻灯片与演示文稿"
-description_en: "Create, parse, edit, merge, split and update PowerPoint slides and presentations"
+display_name_zh: Presentations
+display_name_en: Presentations
+description: Use this skill any time a .pptx file is involved — create, read, edit, merge, or split PowerPoint decks and slides. Trigger on deck, slides, presentation, or .pptx filenames.
+description_zh: 创建、解析、编辑、合并、拆分和更新 PowerPoint 幻灯片与演示文稿
+description_en: Create, parse, edit, merge, split, and update PowerPoint slides and presentations
 license: Proprietary. LICENSE.txt has complete terms
 ---
 

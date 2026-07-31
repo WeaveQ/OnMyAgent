@@ -65,6 +65,7 @@ import {
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
 import { SESSION_SNAPSHOT_STALE_TIME_MS } from "../sync/session-poll-policy";
+import { sessionSnapshotFetchOptions, sessionSnapshotQueryKey } from "../sync/session-snapshot-query-policy";
 import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
@@ -348,9 +349,9 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     [props.opencodeBaseUrl, props.onmyagentToken],
   );
 
-  const snapshotQueryKey = useMemo(
-    () => ["react-session-snapshot", props.workspaceId, props.sessionId],
-    [props.workspaceId, props.sessionId],
+  const snapshotQueryKey = sessionSnapshotQueryKey(
+    props.workspaceId,
+    props.sessionId,
   );
   const transcriptQueryKey = useMemo(
     () => reactTranscriptKey(props.workspaceId, props.sessionId),
@@ -364,19 +365,15 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     queryKey: snapshotQueryKey,
     enabled: !props.draftOnly,
     queryFn: async () =>
-      (
-        await props.client.getSessionSnapshot(
-          props.workspaceId,
-          props.sessionId,
-          { limit: 140, directory: props.workspaceRoot },
-        )
-      ).item,
+      (await props.client.getSessionSnapshot(
+        props.workspaceId,
+        props.sessionId,
+        sessionSnapshotFetchOptions(props.workspaceRoot),
+      )).item,
     staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
   });
   const currentSnapshot =
-    snapshotQuery.data?.session.id === props.sessionId
-      ? snapshotQuery.data
-      : null;
+    snapshotQuery.data?.session.id === props.sessionId ? snapshotQuery.data : null;
   const transcriptState = useSharedQueryState<UIMessage[]>(
     transcriptQueryKey,
     EMPTY_TRANSCRIPT,
@@ -1698,6 +1695,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       personalAssistantHome={props.personalAssistantHome}
       onOpenAgentSettings={props.onOpenAgentSettings}
       headerActions={props.headerActions}
+      surfaceVisible={props.surfaceVisible !== false}
       transitionState={model.transitionState}
       renderSource={model.renderSource}
       showDelayedLoading={showDelayedLoading}

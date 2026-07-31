@@ -95,14 +95,18 @@ export const SIDEBAR_VIEW_ICONS: Record<
 };
 
 export function SidebarFeaturePlaceholder(props: {
-  view: Exclude<SidebarPrimaryView, "chat">;
+  view: Exclude<SidebarPrimaryView, "chat"> | string;
 }) {
-  if (props.view === "scheduledTasks") {
+  if (props.view === "scheduledTasks" || props.view === "automation") {
     return <FeaturePreviewPlaceholder kind="scheduledTasks" />;
   }
 
-  const Icon = SIDEBAR_VIEW_ICONS[props.view];
-  const label = SIDEBAR_VIEW_LABELS[props.view];
+  const Icon =
+    SIDEBAR_VIEW_ICONS[props.view as Exclude<SidebarPrimaryView, "chat">] ??
+    LayoutDashboard;
+  const label =
+    SIDEBAR_VIEW_LABELS[props.view as Exclude<SidebarPrimaryView, "chat">] ??
+    t("nav.automation");
 
   return (
     <div className="flex h-full min-h-0 items-center justify-center px-6 py-16">

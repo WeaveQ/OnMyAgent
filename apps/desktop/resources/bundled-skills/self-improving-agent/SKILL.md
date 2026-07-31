@@ -1,8 +1,8 @@
 ---
 name: self-improvement
 description: "Captures learnings, errors, and corrections to enable continuous improvement. Use when: (1) A command or operation fails unexpectedly, (2) User corrects Claude ('No, that's wrong...', 'Actually...'), (3) User requests a capability that doesn't exist, (4) An external API or tool fails, (5) Claude realizes its knowledge is outdated or incorrect, (6) A better approach is discovered for a recurring task. Also review learnings before major tasks."
-display_name_zh: "自我改进"
-display_name_en: "Self-Improvement"
+display_name_zh: Self-Improvement
+display_name_en: Self-Improvement
 description_zh: "捕获错误、校正和学习记录，实现持续改进；在大任务前回顾历史经验"
 description_en: "Capture errors, corrections and learnings for continuous improvement"
 metadata:

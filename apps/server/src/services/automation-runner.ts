@@ -436,6 +436,125 @@ export async function reconcileAutomationRuns(
       } catch {
       }
     }
+    // Clear stuck "运行中" leases when the session already finished or the lease expired.
+    await reconcileStuckRunningLease(config, workspace, automation).catch(() => undefined);
+  }
+}
+
+/**
+ * If a run lease is still held but the session is idle (or the lease expired),
+ * finalize the run so the UI does not spin "运行中" forever.
+ */
+async function reconcileStuckRunningLease(
+  config: ServerConfig,
+  workspace: WorkspaceInfo,
+  automation: AutomationTaskItem,
+) {
+  const running = automation.running;
+  if (!running) return;
+  const now = Date.now();
+  const leaseExpired = running.expiresAt <= now;
+
+  if (!running.sessionId || !running.outputDirectory) {
+    if (!leaseExpired) return;
+    await recordAutomationRun(
+      workspace.path,
+      automation.id,
+      {
+        status: "failed",
+        source: "scheduled",
+        ranAt: now,
+        error: "Automation run lease expired before a session started",
+      },
+      running.leaseId,
+    );
+    return;
+  }
+
+  const execution: AutomationExecution = {
+    sessionId: running.sessionId,
+    groupName: running.groupName ?? basename(running.outputDirectory),
+    outputDirectory: running.outputDirectory,
+  };
+
+  try {
+    const opencode = defaultOpencodeClientPool.get(
+      config,
+      workspace,
+      execution.outputDirectory,
+    );
+    const statuses = buildSessionStatuses(
+      unwrapOpencodeResult(await opencode.session.status(), "/session/status"),
+    );
+    const status = statuses[execution.sessionId];
+    const statusType =
+      status?.type === "busy" || status?.type === "retry" || status?.type === "idle"
+        ? status.type
+        : "missing";
+
+    // Still actively generating — leave the lease alone unless expired.
+    if ((statusType === "busy" || statusType === "retry") && !leaseExpired) {
+      return;
+    }
+
+    const hasSavedOutput = await saveAutomationSessionOutput(opencode, execution);
+    if (hasSavedOutput) {
+      await recordAutomationRun(
+        workspace.path,
+        automation.id,
+        {
+          status: "success",
+          source: "scheduled",
+          ranAt: now,
+          sessionId: execution.sessionId,
+          groupName: execution.groupName,
+          outputDirectory: execution.outputDirectory,
+        },
+        running.leaseId,
+      );
+      return;
+    }
+
+    // Idle/missing with no salvageable output: only force-close when expired
+    // or the session has been idle long enough after start.
+    const idleLongEnough = now - running.startedAt >= 60_000;
+    if (!leaseExpired && !idleLongEnough) return;
+
+    const sessionError = await readAutomationSessionError(opencode, execution);
+    await recordAutomationRun(
+      workspace.path,
+      automation.id,
+      {
+        status: "failed",
+        source: "scheduled",
+        ranAt: now,
+        error:
+          sessionError ||
+          (leaseExpired
+            ? "Automation run lease expired before completion"
+            : "Automation session finished without output"),
+        sessionId: execution.sessionId,
+        groupName: execution.groupName,
+        outputDirectory: execution.outputDirectory,
+      },
+      running.leaseId,
+    );
+  } catch {
+    if (!leaseExpired) return;
+    await recordAutomationRun(
+      workspace.path,
+      automation.id,
+      {
+        status: "failed",
+        source: "scheduled",
+        ranAt: now,
+        error: "Automation run lease expired before completion",
+        sessionId: running.sessionId,
+        groupName: running.groupName,
+        outputDirectory: running.outputDirectory,
+      },
+      running.leaseId,
+    );
   }
 }
 

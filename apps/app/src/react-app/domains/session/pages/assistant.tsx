@@ -1,7 +1,9 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
   PanelRight,
@@ -60,17 +62,25 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
 import { AgentManagementPage } from "../../local-agents";
 import {
+  AutomationNavSidebar,
   AutomationPage,
   MessagingChannelsPage,
+  removeAutomationSessionRecord,
   syncAutomationSessionRecords,
+  type AutomationNavKey,
 } from "../../messaging";
+import { useAutomationNavGroups } from "./use-automation-nav-groups";
+import { buildAutomationEmbeddedSessionPath } from "./open-automation-embedded-session";
 import {
   consumeAutomationFocus,
   writeAutomationFocus,
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
-import { permanentlyRemoveAssistantArchivedTask } from "../../shared";
+import {
+  archiveAssistantTask,
+  permanentlyRemoveAssistantArchivedTask,
+} from "../../shared";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
@@ -84,12 +94,21 @@ import {
   readAssistantSelectionMemory,
   resolveAssistantSelectionMemory,
   writeAssistantSelectionMemory,
+  isAutomationRailView,
   type OnMyAgentPrimaryView,
   type AssistantSelectionMemory,
 } from "../sidebar/session-chrome";
 import {
+  automationLocalPinScope,
+  readAssistantGlobalPins,
+  readAssistantSpaceLocalPins,
+  writeAssistantGlobalPins,
+  writeAssistantSpaceLocalPins,
+} from "../sidebar/conversation-model";
+import {
   readAssistantCategoryMemory,
   writeAssistantCategoryMemory,
+  writeRailView,
 } from "../sidebar/rail-navigation-memory";
 import { resetRailBookmarkToPrimary } from "./use-rail-location";
 import {
@@ -147,6 +166,7 @@ type AssistantGroupDeleteTarget = {
 
 export function AssistantPage(props: AssistantPageProps) {
   const { showToast } = useStatusToasts();
+  const navigate = useNavigate();
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const agentManagementIntent = props.agentManagementIntent;
   const onAgentManagementIntentConsumed =
@@ -205,7 +225,7 @@ export function AssistantPage(props: AssistantPageProps) {
     draftWorkspaceDirectory:
       props.surface?.draftWorkspace?.draftWorkspaceDirectory,
     onAccessibleTargetsChange: props.onAccessibleTargetsChange,
-    historySearchViews: ["assistant", "chat", "scheduledTasks"],
+    historySearchViews: ["assistant", "chat", "automation", "scheduledTasks"],
     sidePanelDefaultWidth: ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH,
     sidePanelMinWidth: ASSISTANT_SIDE_PANEL_MIN_WIDTH,
   });
@@ -242,21 +262,68 @@ export function AssistantPage(props: AssistantPageProps) {
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
-  const sidePanelVisible = sidePanelOpen && activeSidebarView !== "scheduledTasks";
-
+  const sidePanelVisible =
+    sidePanelOpen && !isAutomationRailView(activeSidebarView);
 
   const openAssistantSessionView = useCallback(() => {
     openRailView("assistant");
   }, [openRailView]);
 
   const [focusAutomationId, setFocusAutomationId] = useState<string | null>(null);
+  const [automationNav, setAutomationNav] = useState<AutomationNavKey>("tasks");
+  const [automationCreateRequestId, setAutomationCreateRequestId] = useState(0);
+  const [automationTemplateViewOpen, setAutomationTemplateViewOpen] =
+    useState(false);
+  /**
+   * Session opened from the automation rail (left list or AutomationPage).
+   * Keeps the rail on automation and paints SessionSurface in-place — no jump to 首页.
+   */
+  const [automationEmbeddedSessionId, setAutomationEmbeddedSessionId] =
+    useState<string | null>(null);
 
   const openScheduledTasksView = useCallback(() => {
-    openRailView("scheduledTasks");
+    // Canonical primary-rail id (legacy scheduledTasks still resolves as known).
+    openRailView("automation");
   }, [openRailView]);
 
+  const openAutomationEmbeddedSession = useCallback(
+    (workspaceId: string, sessionId: string) => {
+      const id = sessionId.trim();
+      const ws = workspaceId.trim();
+      if (!id || !ws) return;
+      addAssistantSession(id);
+      writeAssistantSessionCategory(id, assistantCategoryId);
+      writeAssistantSelectionMemory(ws, assistantCategoryId, {
+        kind: "session",
+        sessionId: id,
+      });
+      writeRailView("assistant", ws, "automation");
+      setAutomationEmbeddedSessionId(id);
+      // Navigate with ?view=automation. sidebar.onOpenSession strips the view
+      // param and resolves as 首页 — that is the jump the user saw.
+      const path = buildAutomationEmbeddedSessionPath({
+        workspaceId: ws,
+        sessionId: id,
+      });
+      if (path) navigate(path);
+    },
+    [assistantCategoryId, navigate],
+  );
+
+  const closeAutomationEmbeddedSession = useCallback(() => {
+    setAutomationEmbeddedSessionId(null);
+    // Stay on automation list surface (do not clear ?view=).
+    if (!isAutomationRailView(activeSidebarView)) {
+      openRailView("automation");
+    }
+  }, [activeSidebarView, openRailView]);
+
   useEffect(() => {
-    if (activeSidebarView !== "scheduledTasks") return;
+    if (!isAutomationRailView(activeSidebarView)) {
+      // Leaving the automation rail drops the embedded run chrome.
+      setAutomationEmbeddedSessionId(null);
+      return;
+    }
     const focus = consumeAutomationFocus(props.selectedWorkspaceId);
     if (!focus) return;
     if (focus.scene !== assistantCategoryId) {
@@ -270,6 +337,7 @@ export function AssistantPage(props: AssistantPageProps) {
     setAssistantCategoryAndRemember,
   ]);
 
+
   const assistantWorkspaceSessions = useMemo(
     () =>
       props.sidebar.workspaceSessionGroups.find(
@@ -279,6 +347,117 @@ export function AssistantPage(props: AssistantPageProps) {
       props.selectedWorkspaceId,
       props.sidebar.workspaceSessionGroups,
     ],
+  );
+
+  const [automationPinRevision, setAutomationPinRevision] = useState(0);
+  const automationNavGroups = useAutomationNavGroups({
+    workspaceId: props.selectedWorkspaceId,
+    categoryId: assistantCategoryId,
+    sessions: assistantWorkspaceSessions,
+    enabled: isAutomationRailView(activeSidebarView),
+    pinRevision: automationPinRevision,
+  });
+
+  const toggleAutomationNavGroupPinned = useCallback(
+    (groupId: string) => {
+      const id = groupId.trim();
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!id || !workspaceId) return;
+      const current = readAssistantGlobalPins(workspaceId);
+      const exists = current.some(
+        (pin) => pin.kind === "automation" && pin.id === id,
+      );
+      const next = exists
+        ? current.filter((pin) => !(pin.kind === "automation" && pin.id === id))
+        : [{ kind: "automation" as const, id }, ...current];
+      writeAssistantGlobalPins(workspaceId, next);
+      setAutomationPinRevision((value) => value + 1);
+    },
+    [props.selectedWorkspaceId],
+  );
+
+  const archiveAutomationNavGroup = useCallback(
+    (groupId: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const group = automationNavGroups.find((item) => item.id === groupId);
+      if (!workspaceId || !group || group.sessions.length === 0) return;
+      for (const session of group.sessions) {
+        removeAutomationSessionRecord(workspaceId, session.id);
+        archiveAssistantTask(workspaceId, {
+          sessionId: session.id,
+          title: session.title || group.title,
+          directory: session.directory ?? null,
+          archivedAt: Date.now(),
+          category: assistantCategoryId,
+        });
+      }
+      const pins = readAssistantGlobalPins(workspaceId).filter(
+        (pin) => !(pin.kind === "automation" && pin.id === groupId),
+      );
+      writeAssistantGlobalPins(workspaceId, pins);
+      setAutomationPinRevision((value) => value + 1);
+      showToast({
+        tone: "success",
+        title: t("session.archive_space_done"),
+      });
+    },
+    [
+      assistantCategoryId,
+      automationNavGroups,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
+  );
+
+  const archiveAutomationNavSession = useCallback(
+    (sessionId: string, title: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const id = sessionId.trim();
+      if (!workspaceId || !id) return;
+      const group = automationNavGroups.find((item) =>
+        item.sessions.some((session) => session.id === id),
+      );
+      const directory =
+        group?.sessions.find((session) => session.id === id)?.directory ?? null;
+      removeAutomationSessionRecord(workspaceId, id);
+      archiveAssistantTask(workspaceId, {
+        sessionId: id,
+        title: title.trim() || id,
+        directory,
+        archivedAt: Date.now(),
+        category: assistantCategoryId,
+      });
+      if (automationEmbeddedSessionId === id) {
+        setAutomationEmbeddedSessionId(null);
+      }
+      showToast({
+        tone: "success",
+        title: t("session.archive_task_done"),
+      });
+    },
+    [
+      assistantCategoryId,
+      automationEmbeddedSessionId,
+      automationNavGroups,
+      props.selectedWorkspaceId,
+      showToast,
+    ],
+  );
+
+  const toggleAutomationNavSessionPinned = useCallback(
+    (groupId: string, sessionId: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const scope = automationLocalPinScope(groupId);
+      const id = sessionId.trim();
+      if (!workspaceId || !scope || !id) return;
+      const current = readAssistantSpaceLocalPins(workspaceId, scope);
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [id, ...current.filter((item) => item !== id)];
+      writeAssistantSpaceLocalPins(workspaceId, scope, next);
+      setAutomationPinRevision((value) => value + 1);
+    },
+    [props.selectedWorkspaceId],
   );
 
   const selectedAssistantSessionDirectory =
@@ -410,7 +589,9 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const handleChatWithSkill = useCallback(
     (skill: { name: string }) => {
-      const name = skill.name.trim();
+      // Slash-command token must match the installed skill folder / package name
+      // (e.g. self-improving), never a localized display title.
+      const name = skill.name.trim().replace(/^\/+/, "");
       if (!name) return;
       openOfficeNewTaskWithDraft(t("session.chat_with_skill_prompt", { name }));
     },
@@ -564,23 +745,29 @@ export function AssistantPage(props: AssistantPageProps) {
         return;
       }
       // 1) Delete every run session under the group (history rows).
-      // Ghost sessions (already missing in OpenCode) must not abort the loop —
-      // otherwise the schedule definition is never deleted and "定时" returns.
+      // Ghost sessions must not abort the group — otherwise the schedule
+      // definition is never deleted and "定时" returns. Parallel budgeted
+      // deletes keep multi-run groups from stacking full remote timeouts.
       for (const sessionId of target.sessionIds) {
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
         );
-        try {
-          await props.onDeleteSession(sessionId);
-        } catch (error) {
-          console.warn(
-            "[assistant] failed to delete automation run session; continuing",
-            sessionId,
-            error,
-          );
-        }
       }
+      const deleteOne = props.onDeleteSession;
+      await Promise.allSettled(
+        target.sessionIds.map(async (sessionId) => {
+          try {
+            await deleteOne(sessionId);
+          } catch (error) {
+            console.warn(
+              "[assistant] failed to delete automation run session; continuing",
+              sessionId,
+              error,
+            );
+          }
+        }),
+      );
       // 2) Delete the automation definition itself. Without this, the schedule
       // keeps firing and the "定时" group reappears — feels like "删不掉".
       const automationId = target.groupId.trim();
@@ -725,8 +912,15 @@ export function AssistantPage(props: AssistantPageProps) {
     props.onmyagentServerClient?.token?.trim() ||
     "";
   const draftSessionId = `draft:${props.selectedWorkspaceId}`;
-  const isDraftSession = !props.selectedSessionId;
-  const renderedSessionId = props.selectedSessionId ?? draftSessionId;
+  const showAutomationEmbeddedSession =
+    isAutomationRailView(activeSidebarView) &&
+    Boolean(automationEmbeddedSessionId);
+  const isDraftSession =
+    !showAutomationEmbeddedSession && !props.selectedSessionId;
+  const renderedSessionId =
+    (showAutomationEmbeddedSession
+      ? automationEmbeddedSessionId
+      : props.selectedSessionId) ?? draftSessionId;
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,
@@ -753,8 +947,16 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "connectors"
       ? null
       : activeSidebarView;
-  const railActiveView =
-    activeSidebarView === "scheduledTasks" ? "assistant" : activeSidebarView;
+  // Highlight the Automation rail chip for both automation + legacy scheduledTasks.
+  const railActiveView = isAutomationRailView(activeSidebarView)
+    ? "automation"
+    : activeSidebarView;
+  // SessionSurface paints on primary home OR when a run is opened inside automation.
+  // Do NOT gate on showDelayedSessionLoadingState — hiding the keep-alive pane
+  // (display:none) zeros the scroll parent and can blank the transcript after
+  // rail switches (e.g. 自动 → 首页). Loading skeleton still shows in `middle`.
+  const sessionSurfaceActive =
+    isPrimarySessionView || showAutomationEmbeddedSession;
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
@@ -765,7 +967,7 @@ export function AssistantPage(props: AssistantPageProps) {
       return;
     }
     consumedAgentManagementIntentRef.current = intent.key;
-    if (intent.action === "createProvider") {
+    if (intent.action === "openPanel") {
       setAgentManagementPageIntent(intent);
       openRailView("agentManagement");
       onAgentManagementIntentConsumed?.(intent.key);
@@ -792,6 +994,19 @@ export function AssistantPage(props: AssistantPageProps) {
         : "";
 
   const headerPanelControls = (
+    <>
+      {showAutomationEmbeddedSession ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mr-1 gap-1.5 text-dls-secondary hover:text-dls-text"
+          onClick={closeAutomationEmbeddedSession}
+        >
+          <ArrowLeft className="size-4 shrink-0" aria-hidden />
+          {t("automation.back")}
+        </Button>
+      ) : null}
     <SessionHistorySearchChrome
       searchOpen={historySearchOpen}
       searchQuery={historySearchQuery}
@@ -833,6 +1048,7 @@ export function AssistantPage(props: AssistantPageProps) {
         openAssistantSidePanelMenu();
       }}
     />
+    </>
   );
 
   return (
@@ -870,8 +1086,7 @@ export function AssistantPage(props: AssistantPageProps) {
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {(activeSidebarView === "chat" ||
-              activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") &&
+              activeSidebarView === "assistant") &&
             !agentPanelCollapsed ? (
               <AgentConversationPanel
                 mode="assistant"
@@ -894,7 +1109,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 }}
                 assistantCategoryId={assistantCategoryId}
                 onAssistantCategoryChange={handleAssistantCategoryChange}
-                automationActive={activeSidebarView === "scheduledTasks"}
+                automationActive={false}
                 onOpenAssistant={openAssistantSessionView}
                 onOpenAutomation={() => {
                   writeAssistantSelectionMemory(
@@ -913,7 +1128,12 @@ export function AssistantPage(props: AssistantPageProps) {
                     assistantCategoryId,
                     { kind: "session", sessionId },
                   );
-                  openAssistantSessionView();
+                  // Leave automation/other rails for home session open.
+                  // Do not openRailView first — it navigates with the current
+                  // pathname and can race with onOpenSession (blank middle).
+                  if (!isPrimarySessionView) {
+                    openAssistantSessionView();
+                  }
                   props.sidebar.onOpenSession(workspaceId, sessionId);
                 }}
                 onPrefetchSession={props.sidebar.onPrefetchSession}
@@ -922,9 +1142,42 @@ export function AssistantPage(props: AssistantPageProps) {
                 onDeleteAutomationGroup={openDeleteAutomationGroupModal}
               />
             ) : null}
+            {isAutomationRailView(activeSidebarView) && !agentPanelCollapsed ? (
+              <AutomationNavSidebar
+                width={agentPanelWidth}
+                active={automationNav}
+                onChange={(key) => {
+                  setAutomationNav(key);
+                  // Browse filters return to the automation list (leave embedded session).
+                  setAutomationEmbeddedSessionId(null);
+                  if (key === "templates") {
+                    setAutomationTemplateViewOpen(true);
+                  } else {
+                    setAutomationTemplateViewOpen(false);
+                  }
+                }}
+                onCreate={() => {
+                  setAutomationEmbeddedSessionId(null);
+                  setAutomationCreateRequestId((value) => value + 1);
+                }}
+                groups={automationNavGroups}
+                selectedSessionId={
+                  automationEmbeddedSessionId ?? props.selectedSessionId
+                }
+                workspaceId={props.selectedWorkspaceId}
+                onOpenSession={openAutomationEmbeddedSession}
+                onToggleGroupPinned={toggleAutomationNavGroupPinned}
+                onArchiveGroup={archiveAutomationNavGroup}
+                onDeleteGroup={openDeleteAutomationGroupModal}
+                onRenameSession={openRenameModal}
+                onArchiveSession={archiveAutomationNavSession}
+                onDeleteSession={openDeleteModal}
+                onToggleSessionPinned={toggleAutomationNavSessionPinned}
+              />
+            ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") ? (
+              isAutomationRailView(activeSidebarView)) ? (
               <SidebarPaneCollapseToggle
                 collapsed={agentPanelCollapsed}
                 onToggle={() => setAgentPanelCollapsed((value) => !value)}
@@ -935,7 +1188,7 @@ export function AssistantPage(props: AssistantPageProps) {
             ) : null}
             {(activeSidebarView === "chat" ||
               activeSidebarView === "assistant" ||
-              activeSidebarView === "scheduledTasks") &&
+              isAutomationRailView(activeSidebarView)) &&
             !agentPanelCollapsed ? (
               <div
                 role="separator"
@@ -978,9 +1231,7 @@ export function AssistantPage(props: AssistantPageProps) {
                     activeSidebarView={activeSidebarView}
                     visitedRailViews={visitedRailViews}
                     isPrimarySessionView={isPrimarySessionView}
-                    primarySessionActive={
-                      isPrimarySessionView && !showDelayedSessionLoadingState
-                    }
+                    primarySessionActive={sessionSurfaceActive}
                     panes={{
                       store: (
                         <StorePage
@@ -1080,51 +1331,66 @@ export function AssistantPage(props: AssistantPageProps) {
                     }}
                     middle={
                       <>
-                      {activeSidebarView === "scheduledTasks" ? (
-                        <AutomationPage
-                          scene={assistantCategoryId}
-                          client={props.onmyagentServerClient}
-                          workspaceId={props.selectedWorkspaceId}
-                          focusAutomationId={focusAutomationId}
-                          onFocusAutomationConsumed={() => setFocusAutomationId(null)}
-                          // Same OpenCode command.list + skill sources as session + menu.
-                          listOpenCodeCommands={props.surface?.listCommands}
-                          listSkills={
-                            props.onmyagentServerClient && props.selectedWorkspaceId
-                              ? () =>
-                                  props
-                                    .onmyagentServerClient!.listSkills(
-                                      props.selectedWorkspaceId,
-                                      { includeGlobal: true },
-                                    )
-                                    .then((result) => result.items)
-                              : undefined
-                          }
-                          listMcp={
-                            props.onmyagentServerClient && props.selectedWorkspaceId
-                              ? () =>
-                                  props
-                                    .onmyagentServerClient!.listMcp(
-                                      props.selectedWorkspaceId,
-                                    )
-                                    .then((result) => ({
-                                      servers: result.items.map((item) => ({
-                                        name: item.name,
-                                        id: item.name,
-                                      })),
-                                    }))
-                              : undefined
-                          }
-                          onOpenSession={(workspaceId, sessionId) => {
-                            writeAssistantSelectionMemory(
-                              workspaceId,
-                              assistantCategoryId,
-                              { kind: "session", sessionId },
-                            );
-                            openAssistantSessionView();
-                            props.sidebar.onOpenSession(workspaceId, sessionId);
-                          }}
-                        />
+                      {/* Absolute fill like other secondary rails — in-flow middle
+                          collapses under keep-alive absolute panes.
+                          Hidden while an embedded run session is open (SessionSurface). */}
+                      {isAutomationRailView(activeSidebarView) &&
+                      !showAutomationEmbeddedSession ? (
+                        <div className="absolute inset-0 z-[1] min-h-0 min-w-0 overflow-hidden">
+                          <AutomationPage
+                            scene={assistantCategoryId}
+                            client={props.onmyagentServerClient}
+                            workspaceId={props.selectedWorkspaceId}
+                            focusAutomationId={focusAutomationId}
+                            onFocusAutomationConsumed={() => setFocusAutomationId(null)}
+                            hideStatusTabs
+                            statusTab="tasks"
+                            onStatusTabChange={() => {
+                              // Left nav is tasks | templates only (no separate runs entry).
+                              setAutomationNav("tasks");
+                              setAutomationTemplateViewOpen(false);
+                            }}
+                            templateViewOpen={automationTemplateViewOpen}
+                            onTemplateViewOpenChange={(open) => {
+                              setAutomationTemplateViewOpen(open);
+                              if (open) {
+                                setAutomationNav("templates");
+                              } else if (automationNav === "templates") {
+                                setAutomationNav("tasks");
+                              }
+                            }}
+                            createRequestId={automationCreateRequestId}
+                            // Same OpenCode command.list + skill sources as session + menu.
+                            listOpenCodeCommands={props.surface?.listCommands}
+                            listSkills={
+                              props.onmyagentServerClient && props.selectedWorkspaceId
+                                ? () =>
+                                    props
+                                      .onmyagentServerClient!.listSkills(
+                                        props.selectedWorkspaceId,
+                                        { includeGlobal: true },
+                                      )
+                                      .then((result) => result.items)
+                                : undefined
+                            }
+                            listMcp={
+                              props.onmyagentServerClient && props.selectedWorkspaceId
+                                ? () =>
+                                    props
+                                      .onmyagentServerClient!.listMcp(
+                                        props.selectedWorkspaceId,
+                                      )
+                                      .then((result) => ({
+                                        servers: result.items.map((item) => ({
+                                          name: item.name,
+                                          id: item.name,
+                                        })),
+                                      }))
+                                : undefined
+                            }
+                            onOpenSession={openAutomationEmbeddedSession}
+                          />
+                        </div>
                       ) : null}
 
                       {activePlaceholderView &&
@@ -1135,7 +1401,7 @@ export function AssistantPage(props: AssistantPageProps) {
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&
                       activeSidebarView !== "channels" &&
-                      activeSidebarView !== "scheduledTasks" &&
+                      !isAutomationRailView(activeSidebarView) &&
                       activeSidebarView !== "billing" ? (
                         <SidebarFeaturePlaceholder
                           view={activePlaceholderView}
@@ -1173,9 +1439,7 @@ export function AssistantPage(props: AssistantPageProps) {
                             workspaceId={props.runtimeWorkspaceId!}
                             sessionId={renderedSessionId}
                             draftOnly={isDraftSession}
-                            surfaceVisible={
-                              isPrimarySessionView && !showDelayedSessionLoadingState
-                            }
+                            surfaceVisible={sessionSurfaceActive}
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}
