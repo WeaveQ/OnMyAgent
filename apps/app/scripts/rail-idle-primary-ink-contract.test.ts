@@ -61,13 +61,15 @@ describe("rail idle primary ink contract", () => {
     );
 
     expect(header).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
-    expect(header).toContain("border-dls-border-strong");
+    expect(header).toContain("border-dls-text");
+    expect(header).toContain("rounded-lg");
     expect(header).toContain('size="lg"');
     expect(header).toContain("session.new_task");
     expect(header).toContain("onCreateTask");
 
     expect(automation).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
-    expect(automation).toContain("border-dls-border-strong");
+    expect(automation).toContain("border-dls-text");
+    expect(automation).toContain("rounded-lg");
     expect(automation).toContain('size="lg"');
     expect(automation).toContain("automation.add");
   });

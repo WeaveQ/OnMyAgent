@@ -5,9 +5,13 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { t } from "../../../../i18n";
 
-/** Full-width outline pill — shared with automation-nav-sidebar primary create. */
+/**
+ * Full-width sidebar primary create CTA (新建任务 / 创建专家 / 添加).
+ * Black/primary border + tighter radius (lg 10, not xl 14 pill).
+ * Keep in sync with automation-nav-sidebar SIDEBAR_PRIMARY_CTA_CLASS.
+ */
 export const SIDEBAR_PRIMARY_CTA_CLASS =
-  "w-full justify-center gap-2 border-dls-border-strong bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-list-hover hover:border-dls-border-strong";
+  "w-full justify-center gap-2 rounded-lg border border-dls-text bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-list-hover hover:border-dls-text before:rounded-lg";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
