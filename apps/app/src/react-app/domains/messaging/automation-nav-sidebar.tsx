@@ -35,9 +35,10 @@ import {
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 
-/** Keep in sync with session sidebar SIDEBAR_PRIMARY_CTA_CLASS (no cross-domain import). */
+/** Keep in sync with session sidebar SIDEBAR_PRIMARY_CTA_* (no cross-domain import). */
 const SIDEBAR_PRIMARY_CTA_CLASS =
   "h-9 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-xl";
+const SIDEBAR_PRIMARY_HEADER_CLASS = "flex h-12 shrink-0 items-center px-3";
 
 // Local copies of task-row action chrome (avoid messaging → session import).
 const TASK_ROW_ACTION_CLASS =
@@ -193,7 +194,7 @@ export function AutomationNavSidebar(props: {
         className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
         style={{ width: props.width }}
       >
-        <div className="flex shrink-0 flex-col px-3 pb-2 pt-3.5">
+        <div className={SIDEBAR_PRIMARY_HEADER_CLASS}>
           <Button
             type="button"
             variant="outline"
@@ -206,7 +207,7 @@ export function AutomationNavSidebar(props: {
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-1">
           <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
             {items.map((item) => {
               const Icon = item.icon;

@@ -1253,7 +1253,13 @@ export function AgentConversationPanel(props: {
         onOpenAutomation={props.onOpenAutomation}
       />
 
-      <div className={cn("min-h-0 flex-1 overflow-y-auto", mode === "assistant" && "pr-0.5")}>
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto",
+          // Tight, even gap under the shared h-12 primary CTA strip.
+          mode === "assistant" && "pr-0.5 pt-1",
+        )}
+      >
         {mode === "assistant" ? (
           <AssistantConversationSections
             categoryId={activeAssistantCategoryId}
