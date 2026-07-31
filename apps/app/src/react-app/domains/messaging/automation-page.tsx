@@ -978,7 +978,8 @@ export function AutomationPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Template gallery is opened from the left rail — no duplicate chrome. */}
       {showTemplates ? null : (
-        <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-6">
+        // h-14 matches home SessionSurfaceHeader + left-rail「+ 添加」strip.
+        <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-8">
           <h1 className="min-w-0 truncate text-lg font-medium leading-7 text-dls-text">
             {t("automation.title")}
           </h1>
