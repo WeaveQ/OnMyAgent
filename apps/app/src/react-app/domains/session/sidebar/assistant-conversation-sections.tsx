@@ -94,11 +94,11 @@ const FOLDER_TASK_PREVIEW_LIMIT = 5;
 /**
  * Unified sidebar row rhythm (section / folder / task / show-more).
  * Strict fixed height so Chinese text, icons, and hover actions never drift.
- * h-9 (36) — slightly taller than the old h-8 (32) for readability.
+ * 34px = prior h-8 (32) + 2px block height (not inter-row gap).
  */
-const LIST_ROW_H = "h-9 min-h-9 max-h-9";
-/** Vertical gap between rows — gap-1 (4px) = prior gap-0.5 + 2px. */
-const LIST_STACK_GAP = "gap-1";
+const LIST_ROW_H = "h-[34px] min-h-[34px] max-h-[34px]";
+/** Inter-row gap unchanged (2px). */
+const LIST_STACK_GAP = "gap-0.5";
 const LIST_ROW_CLASS = cn(
   "flex w-full shrink-0 items-center overflow-hidden rounded-md px-2",
   "text-sm font-normal leading-none",

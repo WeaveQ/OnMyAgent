@@ -237,8 +237,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
         // WorkBuddy task card: soft pill selection, single-line dense row.
         "group relative flex w-full cursor-pointer gap-1 rounded-lg px-2 transition-colors mac:titlebar-no-drag",
         singleLine
-          ? // Match LIST_ROW_H in assistant-conversation-sections (strict 36px).
-            "h-9 min-h-9 max-h-9 shrink-0 items-center overflow-hidden py-0"
+          ? // Match LIST_ROW_H in assistant-conversation-sections (strict 34px).
+            "h-[34px] min-h-[34px] max-h-[34px] shrink-0 items-center overflow-hidden py-0"
           : "items-start py-1.5",
         props.selected
           ? "bg-dls-list-selected/75 text-dls-text"
