@@ -11,6 +11,7 @@ import {
   parseRailViewFromSearch,
 } from "../src/react-app/domains/session/navigation/app-location";
 import { buildAutomationNavGroups } from "../src/react-app/domains/session/pages/use-automation-nav-groups";
+import { buildAutomationEmbeddedSessionPath } from "../src/react-app/domains/session/pages/open-automation-embedded-session";
 
 const appRoot = join(import.meta.dir, "..");
 
@@ -80,6 +81,21 @@ describe("primary rail + assistant wiring", () => {
     expect(assistant).toContain("openAutomationEmbeddedSession");
     expect(assistant).toContain("showAutomationEmbeddedSession");
     expect(assistant).toContain("sessionSurfaceActive");
+    expect(assistant).toContain("buildAutomationEmbeddedSessionPath");
+    // Must not fall back to sidebar.onOpenSession for embed (strips ?view=).
+    expect(assistant).toMatch(
+      /openAutomationEmbeddedSession[\s\S]*?navigate\(path\)/,
+    );
+  });
+
+  test("buildAutomationEmbeddedSessionPath keeps ?view=automation", () => {
+    const path = buildAutomationEmbeddedSessionPath({
+      workspaceId: "ws-1",
+      sessionId: "ses-9",
+    });
+    expect(path).toContain("/workspace/ws-1/assistant/ses-9");
+    expect(path).toContain("view=automation");
+    expect(buildAutomationEmbeddedSessionPath({ workspaceId: "", sessionId: "x" })).toBeNull();
   });
 
   test("buildAutomationNavGroups folds runs under one task", () => {
