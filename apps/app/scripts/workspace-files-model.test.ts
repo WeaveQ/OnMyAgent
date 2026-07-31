@@ -124,7 +124,7 @@ describe("path helpers", () => {
 });
 
 describe("workspace-files-page host keeps required UI surfaces (structural)", () => {
-  test("defines CloudDrive, empty list, and preview drawer components used by JSX", () => {
+  test("P0 three-source shell: uploads panel + pending empty; pure helpers in model", () => {
     const source = require("node:fs").readFileSync(
       require("node:path").join(
         import.meta.dir,
@@ -132,20 +132,33 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
       ),
       "utf8",
     );
-    for (const name of [
-      "function CloudDriveIllustration",
-      "function CloudDriveEmptyState",
-      "function FilesListEmptyState",
-      "function FilePreviewDrawer",
-    ]) {
-      expect(source).toContain(name);
-    }
-    // Call sites still present
-    expect(source).toContain("<CloudDriveEmptyState");
-    expect(source).toContain("<FilesListEmptyState");
-    expect(source).toContain("<FilePreviewDrawer");
-    // Pure helpers still live in model, not re-inlined as god-file bloat
+    const uploads = require("node:fs").readFileSync(
+      require("node:path").join(
+        import.meta.dir,
+        "../src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain("function FilesSourcePendingEmpty");
+    expect(source).toContain("<WorkspaceFilesUploadsPanel");
+    expect(source).toContain("<FilesSourcePendingEmpty");
+    expect(source).not.toContain("CloudDriveEmptyState");
+    expect(source).not.toContain("FilePreviewDrawer");
     expect(source).toContain('from "./workspace-files-model"');
-    expect(source).toContain("buildRootOutlineRows");
+    expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
+    expect(uploads).toContain("uploadInbox");
+    expect(uploads).toContain("listInbox");
+    // Pure tree helpers remain in model for P1 browser restore / unit tests
+    expect(
+      require("node:fs")
+        .readFileSync(
+          require("node:path").join(
+            import.meta.dir,
+            "../src/react-app/domains/workspace/workspace-files-model.ts",
+          ),
+          "utf8",
+        )
+        .includes("buildRootOutlineRows"),
+    ).toBe(true);
   });
 });

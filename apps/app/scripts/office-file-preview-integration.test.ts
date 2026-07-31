@@ -38,17 +38,16 @@ test("adds local Office and media preview inside the existing session Files tool
   expect(sessionPanel).toContain("<BrowserPanel");
 });
 
-test("uses the same local preview capability in the workspace Files drawer", () => {
-  expect(filesPage).toContain('import { OfficeFilePreview }');
-  expect(filesPage).toContain('status: "local" as const');
-  expect(filesPage).toContain("usesLocalFileRenderer");
-  expect(filesPage).toContain('target.preview === "audio"');
-  expect(filesPage).toContain('target.preview === "video"');
-  expect(filesPage).toContain("filePath={state.filePath}");
-  expect(filesPage).toContain('<OfficeFilePreview');
-  expect(filesPage).toContain("onOpenExternally");
-  expect(filesPage).toContain("onOpenInFolder");
-  expect(filesPage).toContain("onCopyPath");
+test("session Files tool keeps local Office/media preview (workspace Files P0 defers drawer)", () => {
+  // Workspace Files P0 is three-source tabs (uploads list + pending empty); full
+  // catalog preview drawer returns with P1 provenance browser. Office/media
+  // preview remains required on the in-session files tool panel.
+  expect(sessionPanel).toContain('import { OfficeFilePreview }');
+  expect(sessionPanel).toContain("usesLocalFileRenderer");
+  expect(sessionPanel).toContain('<OfficeFilePreview');
+  expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
+  expect(filesPage).toContain("FILES_SOURCE_TABS");
+  expect(filesPage).not.toContain("CloudDriveEmptyState");
 });
 
 test("detaches the native preview before a full renderer reload", () => {
