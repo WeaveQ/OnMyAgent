@@ -153,7 +153,6 @@ export function AgentConversationPanel(props: {
   onCreateTask?: () => void;
   onOpenAssistant?: () => void;
   assistantCategoryId?: AssistantCategoryId;
-  onAssistantCategoryChange?: (id: AssistantCategoryId) => void;
   automationActive?: boolean;
   onOpenAutomation?: () => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
@@ -1245,14 +1244,12 @@ export function AgentConversationPanel(props: {
         mode={mode}
         query={props.query}
         selectedSessionId={props.selectedSessionId}
-        assistantCategoryId={props.assistantCategoryId}
         automationActive={props.automationActive}
         onQueryChange={props.onQueryChange}
         onOpenAgents={props.onOpenAgents}
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
         showAgentSelectionTip={false}
-        onAssistantCategoryChange={props.onAssistantCategoryChange}
         onOpenAutomation={props.onOpenAutomation}
       />
 

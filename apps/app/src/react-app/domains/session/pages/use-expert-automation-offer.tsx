@@ -71,7 +71,7 @@ export type UseExpertAutomationOfferResult = {
   effectiveActiveQuestion: PendingQuestion | null | undefined;
   effectiveRespondQuestion: (requestID: string, answers: string[][]) => void;
   automationResultAccessory: ReactNode;
-  openCreatedAutomation: (row: { id: string; scene: "office" | "code" }) => void;
+  openCreatedAutomation: (row: { id: string; scene?: "office" }) => void;
 };
 
 export function useExpertAutomationOffer(
@@ -417,16 +417,16 @@ export function useExpertAutomationOffer(
   );
 
   const openCreatedAutomation = useCallback(
-    (row: { id: string; scene: "office" | "code" }) => {
+    (row: { id: string; scene?: "office" }) => {
       const workspaceId = input.selectedWorkspaceId.trim();
       if (!workspaceId) return;
       writeAutomationFocus({
         workspaceId,
         automationId: row.id,
-        scene: row.scene,
+        scene: "office",
       });
-      writeAssistantCategoryMemory(workspaceId, row.scene);
-      writeAssistantSelectionMemory(workspaceId, row.scene, {
+      writeAssistantCategoryMemory(workspaceId, "office");
+      writeAssistantSelectionMemory(workspaceId, "office", {
         kind: "automation",
       });
       // Bookmark + history-backed rail URL. Always navigate with ?view=automation —

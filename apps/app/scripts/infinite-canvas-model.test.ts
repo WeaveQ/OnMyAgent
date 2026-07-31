@@ -151,15 +151,15 @@ describe("infinite canvas model", () => {
     const key = createCanvasSessionKey({
       workspaceId: " ws 1 ",
       sessionId: "draft:abc/123",
-      surface: "assistant-code",
+      surface: "assistant-office",
     });
 
     expect(key).toEqual({
       workspaceId: "ws-1",
       sessionId: "draft:abc-123",
-      surface: "assistant-code",
+      surface: "assistant-office",
     });
-    expect(canvasStorageKey(key)).toContain("assistant-code:ws-1:draft:abc-123");
+    expect(canvasStorageKey(key)).toContain("assistant-office:ws-1:draft:abc-123");
   });
 
   test("saves, loads, and backs up corrupt snapshots", () => {

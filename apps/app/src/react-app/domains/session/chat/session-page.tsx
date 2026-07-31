@@ -516,7 +516,7 @@ export function SessionPage(props: SessionPageProps) {
     pageView.showSessionLoadingState,
   );
 
-  const showCodeSideRail = pageView.isSessionSurfaceView && activeAssistantCategoryId === "code";
+  const showCodeSideRail = false;
   const openCodeSidePanelMenu = useCallback(() => {
     openCodeMenuRailPane();
   }, [openCodeMenuRailPane]);
@@ -1097,9 +1097,9 @@ export function SessionPage(props: SessionPageProps) {
                   <ResizableHandle withHandle className="hidden lg:flex" />
                   <ResizablePanel
                     panelRef={browserPanelRef}
-                    defaultSize={`${activeAssistantCategoryId === "code" ? Math.max(browserPanelDefaultWidth, 560) : activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
+                    defaultSize={`${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
                     minSize={
-                      activeAssistantCategoryId === "code" ? "560px" : activeSidePanel === "extensions" ? "420px" : "320px"
+                      activeSidePanel === "extensions" ? "420px" : "320px"
                     }
                     maxSize="70%"
                     className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"

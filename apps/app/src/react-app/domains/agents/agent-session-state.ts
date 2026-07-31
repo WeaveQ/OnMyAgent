@@ -1,4 +1,4 @@
-export type AssistantSessionCategory = "code" | "office";
+export type AssistantSessionCategory = "office";
 
 const ASSISTANT_SESSION_KEY = "onmyagent:assistantSessionIds";
 const ASSISTANT_SESSION_CATEGORY_KEY = "onmyagent:assistantSessionCategoryById";
@@ -35,28 +35,20 @@ export function addAssistantSession(sessionId: string): void {
 }
 
 export function readAssistantSessionCategory(
-  sessionId: string,
+  _sessionId: string,
 ): AssistantSessionCategory {
-  if (typeof localStorage === "undefined") return "office";
-  try {
-    const raw = localStorage.getItem(ASSISTANT_SESSION_CATEGORY_KEY);
-    if (!raw) return "office";
-    const map = JSON.parse(raw) as Record<string, string>;
-    return map[sessionId] === "code" ? "code" : "office";
-  } catch {
-    return "office";
-  }
+  return "office";
 }
 
 export function writeAssistantSessionCategory(
   sessionId: string,
-  category: AssistantSessionCategory,
+  _category: AssistantSessionCategory = "office",
 ): void {
   if (typeof localStorage === "undefined") return;
   try {
     const raw = localStorage.getItem(ASSISTANT_SESSION_CATEGORY_KEY);
     const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-    map[sessionId] = category;
+    map[sessionId] = "office";
     localStorage.setItem(ASSISTANT_SESSION_CATEGORY_KEY, JSON.stringify(map));
   } catch {
   }

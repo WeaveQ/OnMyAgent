@@ -43,7 +43,7 @@ export type PersonalizationVertical = {
   tasks: string[];
   /** Profile tool values that boost this vertical. */
   tools: string[];
-  defaultWorkbench: "office" | "code";
+  defaultWorkbench: "office";
   featuredExperts: string[];
   /** Automation template ids ranked for this vertical (shipped ids only). */
   templateIds: string[];
@@ -117,17 +117,15 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     roles: ["technology", "product"],
     tasks: ["code", "data-analysis", "weekly-report", "meeting-notes"],
     tools: ["codex", "claude-code", "github", "vscode"],
-    defaultWorkbench: "code",
+    defaultWorkbench: "office",
     featuredExperts: [
       "software-architect",
       "senior-developer",
-      "code-review-expert",
       "frontend-developer",
       "ai-engineer",
       "senior-project-manager",
     ],
     templateIds: [
-      "code-daily-review",
       "weekly-work-report",
       "meeting-prep",
       "daily-ai-news",
@@ -139,7 +137,7 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     roles: ["technology", "product", "operations"],
     tasks: ["code", "content-ops", "weekly-report"],
     tools: ["github", "figma", "claude-code"],
-    defaultWorkbench: "code",
+    defaultWorkbench: "office",
     featuredExperts: [
       "game-designer",
       "level-designer",
@@ -147,7 +145,7 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
       "technical-artist",
       "game-audio-engineer",
     ],
-    templateIds: ["code-daily-review", "weekly-work-report", "meeting-prep"],
+    templateIds: ["weekly-work-report", "meeting-prep"],
   },
   {
     id: "logistics-supply",

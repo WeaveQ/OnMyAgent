@@ -64,14 +64,8 @@ export function deriveSessionSurfaceLayoutMode(
     Boolean(input.personalAssistantHome || input.assistantFeatureCategoryId) &&
     Boolean(input.draftOnly);
 
-  const assistantDraftHomeTitle =
-    input.assistantCategoryId === "code"
-      ? t("session.assistant_code_title")
-      : t("session.assistant_work_title");
-  const assistantDraftHomeSubtitle =
-    input.assistantCategoryId === "code"
-      ? t("session.assistant_code_subtitle")
-      : t("session.assistant_work_subtitle");
+  const assistantDraftHomeTitle = t("session.assistant_work_title");
+  const assistantDraftHomeSubtitle = t("session.assistant_work_subtitle");
 
   return {
     personalAssistantDraftHome,
