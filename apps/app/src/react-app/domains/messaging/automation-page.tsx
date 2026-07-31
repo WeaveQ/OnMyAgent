@@ -1,7 +1,6 @@
 /** @jsxImportSource react */
 import {
   Archive,
-  ArrowLeft,
   Check,
   ChevronDown,
   CircleAlert,
@@ -20,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { ModelRef } from "@/app/types";
 import { pickDirectory } from "@/app/lib/desktop";
+import { cn } from "@/lib/utils";
 import { ModelSelectContainer } from "../../capabilities/model-selection/model-select-container";
 import {
   AlertDialog,
@@ -1134,38 +1134,36 @@ export function AutomationPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-6">
-        <div className="flex min-w-0 items-center gap-2">
-          {hasAutomations && templateViewOpen ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0 text-dls-secondary hover:text-dls-text"
-              onClick={() => setTemplateViewOpen(false)}
-              title={t("automation.back")}
-              aria-label={t("automation.back")}
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
-          ) : null}
+      {/* Template gallery is opened from the left rail — no duplicate chrome. */}
+      {showTemplates ? null : (
+        <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-6">
           <h1 className="min-w-0 truncate text-lg font-medium leading-7 text-dls-text">
             {t("automation.title")}
           </h1>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={openBlankDialog}>
-            {t("automation.add_with_plus")}
-          </Button>
-          {hasAutomations && !templateViewOpen ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => setTemplateViewOpen(true)}>
-              {t("automation.add_from_template")}
+          <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={openBlankDialog}>
+              {t("automation.add_with_plus")}
             </Button>
-          ) : null}
+            {hasAutomations ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setTemplateViewOpen(true)}
+              >
+                {t("automation.add_from_template")}
+              </Button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-10">
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto px-8 pb-10",
+          showTemplates ? "pt-6" : null,
+        )}
+      >
         {error ? (
           <NoticeBox tone="error" size="content" className="mb-4">
             {error}
