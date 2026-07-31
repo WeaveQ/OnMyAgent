@@ -99,9 +99,11 @@ const PLAYBOOK_HARD_MARKERS = [
   "`create-automation`",
   "automations/proposals",
   "只有用户在 OnMyAgent 里确认后才算真正创建",
-  "不要再写 `文件路径：",
+  "文件路径",
   "extract-sheets",
   "write-xlsx",
+  "产物卡才会出现",
+  "禁止**只写「已生成 xxx.xlsx」",
   "不要列长 bullet",
   "也不要再往后面加边界段",
 ] as const;
@@ -138,6 +140,7 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
     "城配",
     "冷链",
     "3PL",
+    "货运调度分析",
     "挑车",
     "派车前检查",
     "证件",
@@ -147,7 +150,8 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
     "物流运输",
     "货运财务",
     "无依据不瞎派",
-    "一票派车交付骨架",
+    "write-xlsx",
+    "产物卡才会出现",
   ],
   "fulfillment-specialist": [
     "专线",
@@ -184,7 +188,7 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
 
 const COLLEAGUE_OPENINGS: Record<string, string> = {
   "order-dispatch-specialist": "行，我先把这票信息捋一下",
-  "fleet-management-specialist": "行，我先按这张单挑几辆合适的",
+  "fleet-management-specialist": "行，我先按这几张表把车和司机理清楚",
   "fulfillment-specialist": "我先把群里的时间线捋出来",
   "logistics-finance-specialist": "行，我先按运单号把这几张表对起来",
 };
