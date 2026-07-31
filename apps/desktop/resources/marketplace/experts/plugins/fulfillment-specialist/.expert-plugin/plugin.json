@@ -30,7 +30,7 @@
     "en": "For linehaul, city delivery, cold chain and 3PL: organize in-transit progress, draft customer updates, sort exceptions and evidence, check POD, and find frequent delays. Can also draft scheduled task proposals.",
     "zh": "面向专线、干线、城配、冷链：整理在途进度、写客户通知、梳理异常证据、检查签收回单、分析延误；需要时也可写定时任务提案。"
   },
-  "avatar": "avatars/expert.svg",
+  "avatar": "avatars/expert.png",
   "categoryId": "14-Logistics",
   "categoryIds": [
     "01-OPC",
