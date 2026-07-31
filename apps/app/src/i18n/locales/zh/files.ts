@@ -24,7 +24,33 @@ export default {
   "files.column_type": "类型",
   "files.column_updated": "更新时间",
   "files.current_workspace": "当前工作区",
-  "files.description": "浏览当前 OnMyAgent 选择的工作区文件夹。",
+  "files.description": "按来源浏览当前工作区中的资料与 AI 产物。",
+  "files.source_uploads": "用户上传",
+  "files.source_task": "任务文件",
+  "files.source_expert": "专家文件",
+  "files.source_uploads_desc":
+    "已导入工作区的资料。编辑只影响工作区副本，不会自动改本机原文件。",
+  "files.source_task_desc":
+    "首页临时任务产生的内容。完成写入来源打标后才会出现在此列表。",
+  "files.source_expert_desc":
+    "专家会话产生的内容，可按专家浏览。完成写入来源打标后才会出现在此列表。",
+  "files.search_uploads_placeholder": "搜索上传文件",
+  "files.search_task_placeholder": "搜索任务文件",
+  "files.search_expert_placeholder": "搜索专家文件",
+  "files.uploads_empty_title": "暂无上传",
+  "files.uploads_empty_hint":
+    "从本机导入文件。OnMyAgent 会复制到工作区，供对话安全引用。",
+  "files.task_empty_title": "暂无已归因的任务文件",
+  "files.task_empty_hint":
+    "首页临时任务的产物将在启用写入来源打标后显示。未打标的历史文件不会误归入此处。",
+  "files.expert_empty_title": "暂无已归因的专家文件",
+  "files.expert_empty_hint":
+    "专家会话的产物将在启用写入来源打标后显示。未打标的历史文件不会误标为专家文件。",
+  "files.import_to_workspace": "导入到工作区",
+  "files.uploading": "正在导入…",
+  "files.upload_copy_success":
+    "已保存工作区副本。对话中的修改只作用于副本，不会自动改本机原文件。",
+  "files.upload_failed": "无法将文件导入工作区",
   "files.no_tool_folder": "尚未选择工作区",
   "files.no_tool_folder_hint": "在应用中选择工作区后，这里会列出该目录下的文件。",
   "files.file_count": "{count} 个文件",
@@ -64,8 +90,8 @@ export default {
   "files.resize_tree": "调整文件树宽度",
   "files.copied": "已复制",
   "files.search_placeholder": "搜索文件、任务或工作空间",
-  "files.task_results": "我的",
-  "files.title": "我的文件",
+  "files.task_results": "任务文件",
+  "files.title": "文件",
   "files.type_file": "文件",
   "files.type_folder": "文件夹",
   "files.ungrouped": "未分组",
