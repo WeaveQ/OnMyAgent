@@ -24,6 +24,11 @@ are driven by semantic CSS tokens.
   sidebar → surface. Rail is cold and deepest, background is the main
   canvas, sidebar is the list lane lifted above the canvas, surface is
   cards/composer. Keep ≥1 perceptual step between adjacent shell lanes.
+- **Selection surfaces are context-bound.** Primary-rail free-float chips,
+  free-float page tabs, soft `FilterChip`s, and sidebar rows each use a
+  different active recipe — see `DESIGN.md` § 5 “Selection surface ladder”.
+  Do not invert black pills onto the app rail, or soft list-selected onto
+  dark free-float chips.
 
 ## Component Contracts
 
@@ -38,6 +43,7 @@ Cross-cutting rules that surface most often in review:
 
 - **Tab bars (in a track).** Use `<SegmentedTabGroup>` + `<NavTabButton size="tab" shape="tab">` (or `SegmentedTabButton` inside the group). Do not hand-write `inline-flex rounded-lg border p-1` and stuff pill-shaped `NavTabButton` inside — that shape clash was the "样式不协调" root cause on the manage view. `SegmentedTabGroup` must keep a visible track (`border-dls-border` + muted fill) so active tabs do not read as free-floating pills.
 - **Free-floating category filters.** Use `<FilterChip>` (`action-row.tsx`, wraps `SegmentedTabButton tone="chip"`). **Selected** = soft gray solid (`bg-dls-list-selected`), no elevated white pill / no drop shadow. **Idle** = plain label (`bg-transparent text-dls-secondary`). Used on expert/skills/plugins category rows and onboarding multi-select. Do not reuse track-style `SegmentedTabGroup` for free-float filters, and do not reintroduce light-theme `bg-dls-surface-solid` + shadow for selected chips.
+- **List-lane primary create.** Full-width outline CTA uses `Button size="sidebar-cta"` + shared `SIDEBAR_PRIMARY_CTA_CLASS` / `SIDEBAR_PRIMARY_HEADER_CLASS` from `components/ui/sidebar-chrome.ts` (h-10 + rounded-lg, h-14 header strip). Home and automation must import that module — do not duplicate class strings.
 - **`rounded-full` is a whitelist.** Only avatars, pill filter chips (`FilterChip` / `NavTabButton shape="pill"`), `SendButton`, and the pre-app `architecture-mismatch-gate.tsx` may use it. See `DESIGN.md` § 11. Ordinary CTAs stay `rounded-lg` / `rounded-xl`.
 - **Radius scale is flat.** `xs=3 sm=6 md=8 lg=10 xl=14 pill=999`. `2xl/3xl/4xl` are legacy aliases mapped to `xl=14` in Tailwind config so migration is safe, but new code must pick a named tier — not a legacy alias.
 - **Composer host policy.** Global `SessionSurface` composer only on chat host views; never under manage / files / market / local-agent (local has its own ACP composer). See `DESIGN.md` § 11.

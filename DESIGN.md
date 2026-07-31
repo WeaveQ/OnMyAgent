@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-18
+last-reviewed: 2026-07-31
 
 colors:
   light:
@@ -79,8 +79,10 @@ colors:
     app-bg: "#1F1F1F"
     sidebar: "#2A2A2A"
     rail-bg: "#141414"
-    rail-active: "#2E2E2E"
-    rail-hover: "#222222"
+    # Free-float rail pill + sidebar row active — must clear rail-bg #141414
+    # (#2E2E2E was near-invisible). Mac glass uses white 14% mix instead (index.css).
+    rail-active: "#404040"
+    rail-hover: "#2A2A2A"
     border: "#3A3A3A"
     border-strong: "#4A4A4A"
     hover: "#323232"
@@ -504,22 +506,27 @@ components:
       text: "{typography.scale.sm}"                   # 14
       padding-x: "{spacing.scale.lg}"                 # 24 (px-6)
     # --- Chrome tier (family: chrome) --------------------------------
-    # Primary app rail (left): reference-scale free-float chips.
-    # w-16 column + w-14 chips; size-5.5 icons + text-xs; gap-3 between items.
+    # Primary app rail (left): free-float chips.
+    # Column 68px + pill w-12 (48); icons size-5-ish + text-xs; gap-2.5 between items.
     rail-button:
-      height: "content"                               # icon + label + py-2
+      height: "content"                               # icon + label + py-1.5
       radius: "{rounded.xl}"                          # 14 → rounded-2xl visual
       surface: "{colors.rail-bg}"
-      surface-active: "{colors.surface}"              # light + dark: bright free-float
-      surface-hover: "black/5"
+      # Light: surface lift (white on gray rail). Dark: rail-active (see colors.dark).
+      surface-active-light: "{colors.surface}"
+      surface-active-dark: "{colors.rail-active}"
+      surface-hover-light: "black/5"
+      surface-hover-dark: "white/5"
       # Idle ink = primary text (near-black light / near-white dark), not secondary slate.
-      # Active distinction is the free-float pill surface, not a greyer idle glyph.
+      # Active distinction is the pill surface, not a greyer idle glyph.
       idle-text: "{colors.text-primary}"
       active-text: "{colors.text-primary}"
-      width: 64                                       # w-16 rail column
-      pill-width: 56                                  # w-14 free-float chip
+      width: 68                                       # w-[68px] rail column
+      pill-width: 48                                  # w-12 free-float chip
+      item-gap: 10                                    # gap-2.5
     # Full-width outline create in list lanes (home 新建任务 / automation 添加).
-    # Button size="sidebar-cta" + SIDEBAR_PRIMARY_CTA_CLASS surface overrides.
+    # Button size="sidebar-cta" + shared SIDEBAR_PRIMARY_CTA_CLASS surface overrides
+    # (components/ui/sidebar-chrome.ts).
     sidebar-primary-cta:
       height: "{spacing.button-heights.lg}"          # 40 (h-10)
       radius: "{rounded.lg}"                          # 10 — tighter than pill xl
@@ -528,7 +535,8 @@ components:
       border: "{colors.border}"
       text: "{typography.scale.sm}"                   # 14
       hover-surface: "{colors.hover}"
-      header-height: "{spacing.button-heights.chrome}" # 48→56 h-14 strip
+      # List-lane create strip — share baseline with SessionSurfaceHeader (h-14).
+      header-height: "{spacing.button-heights.2xl}"  # 56 h-14
     # --- Inputs (all share radius: lg for vertical alignment) --------
     input:
       height: "{spacing.button-heights.lg}"          # 40
@@ -1498,6 +1506,22 @@ OnMyAgent is a **rail + panel** shell.
 - Dense but calm: minimum row height is the primitive default (24 / 32 /
   36). Do not shrink below the primitive's declared size for cosmetic
   purposes.
+
+### Selection surface ladder (do not mix)
+
+Three **different** selected looks — pick by context, not by taste:
+
+| Context | Primitive | Active surface | Active ink |
+|---------|-----------|----------------|------------|
+| Primary rail free-float chip | `RailButton` | light: `bg-dls-surface`; dark: `bg-dls-rail-active` | `text-dls-text` (same idle/active) |
+| Free-float page/header tabs (store/files) | `NavTabButton` | light: `bg-dls-text`; dark: `bg-dls-surface-solid` + ring | pure `text-white` |
+| Soft category filters | `FilterChip` | `bg-dls-list-selected` | `text-dls-text` |
+| Sidebar list rows / menu active | sidebar menu | `bg-dls-rail-active` (light brand wash / dark lift) | `text-dls-text` |
+| Session / list selected rows | task rows etc. | `bg-dls-list-selected` | `text-dls-text` |
+
+- Do **not** put inverted black/white NavTab styling on primary-rail chips.
+- Do **not** use soft `list-selected` for primary-rail active pills (too weak on dark rail).
+- Opaque overlays (menus, dialogs, tooltips) always use `bg-dls-surface-solid`, never glass-mixed `--dls-surface`.
 
 ### Spacing System
 
