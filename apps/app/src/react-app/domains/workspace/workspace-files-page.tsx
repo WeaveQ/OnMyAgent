@@ -1,11 +1,11 @@
 /** @jsxImportSource react */
 /**
  * Primary-rail Files page (P0 three-source IA + path heuristics).
- * Rail: 我的 · 任务 · 专家 · 项目(coming soon, disabled)
- * - 我的: inbox list + import-by-copy
- * - 任务: workspace browser excluding expert agent folders
- * - 专家: workspace browser of expert agent folders only
- * - 项目: not yet open
+ * Rail: Mine / Tasks / Experts / Projects (Projects coming soon, disabled)
+ * - Mine: inbox list + import-by-copy
+ * - Tasks: workspace browser excluding expert agent folders
+ * - Experts: workspace browser of expert agent folders only
+ * - Projects: not yet open
  */
 import { useState } from "react";
 import { Bot, FileStack, FileUp, FolderKanban } from "lucide-react";

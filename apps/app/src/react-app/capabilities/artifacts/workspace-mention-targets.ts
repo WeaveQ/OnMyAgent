@@ -63,7 +63,7 @@ function segmentDisplayName(segment: string): string {
   return formatWorkspaceFolderDisplayName(segment);
 }
 
-/** Human subtitle: 专家文件 / 报价作业 / 会话 · 07/26 */
+/** Human subtitle trail: source tab label / expert / session. */
 export function formatMentionPathSubtitle(path: string): string {
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
   if (parts.length === 0) return "";

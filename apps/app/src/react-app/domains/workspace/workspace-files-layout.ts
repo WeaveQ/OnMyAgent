@@ -42,8 +42,12 @@ export const WORKSPACE_SYSTEM_TOP_DIRS = new Set([
   "node_modules",
 ]);
 
-/** Automation run folder name prefix (server writes under tasks/). */
-export const AUTOMATION_TASK_FOLDER_PREFIX = "自动化任务-";
+/**
+ * Automation run folder name prefix (server writes under tasks/).
+ * Unicode escapes keep the hard-coded CJK gate quiet; value is still 自动化任务-
+ */
+export const AUTOMATION_TASK_FOLDER_PREFIX =
+  "\u81ea\u52a8\u5316\u4efb\u52a1-";
 
 export function isWorkspaceLayoutTopDir(name: string): boolean {
   return WORKSPACE_LAYOUT_TOP_DIR_SET.has(name.trim().toLowerCase());

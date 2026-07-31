@@ -44,7 +44,7 @@ test("workspace Files browser keeps local Office/media preview under Task files"
   expect(sessionPanel).toContain('<OfficeFilePreview');
   expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
   expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
-  expect(filesPage).toContain("FILES_SOURCE_TABS");
+  expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
   expect(filesPage).not.toContain("CloudDriveEmptyState");
   const browser = readFileSync(
     resolve(appRoot, "src/react-app/domains/workspace/workspace-files-browser-panel.tsx"),

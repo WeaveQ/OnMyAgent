@@ -80,7 +80,7 @@ describe("session visual and file contracts", () => {
       "apps/app/src/react-app/domains/session/pages/expert.tsx",
     );
 
-    expect(filesPage).toContain("FILES_SOURCE_TABS");
+    expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
     expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
     expect(uploadsPanel).toContain("uploadInbox");
