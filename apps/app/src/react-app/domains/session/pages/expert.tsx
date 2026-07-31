@@ -85,6 +85,9 @@ import {
   AgentConversationPanel,
   AgentSessionTabs,
   mergeStableSessionTabOrder,
+  readExpertSessionSelection,
+  resolveExpertSessionSelection,
+  writeExpertSessionSelection,
   SidebarPaneCollapseToggle,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
@@ -457,10 +460,26 @@ export function ExpertPage(props: ExpertPageProps) {
     const selectedId = props.selectedSessionId?.trim() ?? "";
     if (selectedId && isExpertSession(selectedId)) return;
 
-    // Prefer first summoned expert in the left list only when nothing selected.
-    const firstSummonedSession = conversationGroups[0]?.latestSession;
-    if (firstSummonedSession?.id) {
-      props.sidebar.onOpenSession(workspaceId, firstSummonedSession.id);
+    // Prefer first summoned expert's remembered tab (else first tab), not latest.
+    const firstGroup = conversationGroups[0];
+    if (firstGroup) {
+      const agentId = firstGroup.agentId?.trim() ?? "";
+      const sessionIds = firstGroup.sessions.map((session) => session.id);
+      const resolved =
+        (agentId
+          ? resolveExpertSessionSelection({
+              rememberedSessionId: readExpertSessionSelection(
+                workspaceId,
+                agentId,
+              ),
+              sessionIds,
+              orderIds:
+                sessionTabOrderIdsByScope[`${workspaceId}:${agentId}`] ?? [],
+            })
+          : null) ?? firstGroup.latestSession.id;
+      if (resolved) {
+        props.sidebar.onOpenSession(workspaceId, resolved);
+      }
       return;
     }
 
@@ -479,6 +498,7 @@ export function ExpertPage(props: ExpertPageProps) {
     pendingAgent?.boundSessionId,
     pendingAgent?.conversationStartId,
     pendingAgent?.draftSource,
+    sessionTabOrderIdsByScope,
   ]);
 
   useEffect(() => {
@@ -578,15 +598,93 @@ export function ExpertPage(props: ExpertPageProps) {
     },
     [activateDraftAgent, draftAgentContexts],
   );
+  const resolveSessionTabForAgent = useCallback(
+    (agentId: string, sessionIds: readonly string[]) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const scope = `${workspaceId}:${agentId}`;
+      const orderIds = sessionTabOrderIdsByScope[scope] ?? [];
+      return resolveExpertSessionSelection({
+        rememberedSessionId: readExpertSessionSelection(workspaceId, agentId),
+        sessionIds,
+        orderIds,
+      });
+    },
+    [props.selectedWorkspaceId, sessionTabOrderIdsByScope],
+  );
+
+  /** Open a concrete session tab (user click / create). Records by session id. */
   const handleOpenExpertSession = useCallback(
     (workspaceId: string, sessionId: string) => {
       setDraftSessionActive(false);
       setDraftAgentId(null);
       openRailView("chat");
+      const trimmed = sessionId.trim();
+      if (trimmed && !trimmed.startsWith("draft:") && isExpertSession(trimmed)) {
+        const agentId = readCustomAgentIdForSession(trimmed);
+        if (agentId) {
+          writeExpertSessionSelection(workspaceId, agentId, trimmed);
+        }
+      }
       props.sidebar.onOpenSession(workspaceId, sessionId);
     },
     [props.sidebar],
   );
+
+  /**
+   * Open an expert from the left list: restore last tab for that agent
+   * (session id memory), else first tab in stable order — never force latest.
+   */
+  const handleOpenExpertFromSidebar = useCallback(
+    (workspaceId: string, hintSessionId: string) => {
+      const hint = hintSessionId.trim();
+      const agentId =
+        (hint && !hint.startsWith("draft:")
+          ? readCustomAgentIdForSession(hint)
+          : null) ||
+        conversationGroups.find((group) =>
+          group.sessions.some((session) => session.id === hint),
+        )?.agentId ||
+        null;
+      if (!agentId) {
+        handleOpenExpertSession(workspaceId, hintSessionId);
+        return;
+      }
+      // Already on this expert — keep the active tab (do not jump to latest).
+      if (
+        activeConversationAgentId === agentId &&
+        props.selectedSessionId &&
+        isExpertSession(props.selectedSessionId)
+      ) {
+        openRailView("chat");
+        return;
+      }
+      const group = conversationGroups.find((item) => item.agentId === agentId);
+      const sessionIds =
+        group?.sessions.map((session) => session.id) ??
+        (hint ? [hint] : []);
+      const resolved =
+        resolveSessionTabForAgent(agentId, sessionIds) ?? hintSessionId;
+      handleOpenExpertSession(workspaceId, resolved);
+    },
+    [
+      activeConversationAgentId,
+      conversationGroups,
+      handleOpenExpertSession,
+      props.selectedSessionId,
+      resolveSessionTabForAgent,
+    ],
+  );
+
+  // Keep memory in sync for any path that sets selectedSessionId (route restore).
+  useEffect(() => {
+    const sessionId = props.selectedSessionId?.trim() ?? "";
+    if (!sessionId || sessionId.startsWith("draft:") || !isExpertSession(sessionId)) {
+      return;
+    }
+    const agentId = readCustomAgentIdForSession(sessionId);
+    if (!agentId) return;
+    writeExpertSessionSelection(props.selectedWorkspaceId, agentId, sessionId);
+  }, [props.selectedSessionId, props.selectedWorkspaceId]);
   useEffect(() => {
     const createdSessionId = resolveBoundExpertDraftSession({
       draftSessionActive,
@@ -729,22 +827,27 @@ export function ExpertPage(props: ExpertPageProps) {
       );
       if (existingConversationGroup) {
         usePendingAgentStore.getState().setAgent(null);
+        const agentId = existingConversationGroup.agentId?.trim() ?? "";
+        const sessionIds = existingConversationGroup.sessions.map(
+          (session) => session.id,
+        );
+        const resolvedSessionId =
+          (agentId
+            ? resolveSessionTabForAgent(agentId, sessionIds)
+            : null) ?? existingConversationGroup.latestSession.id;
         handleOpenExpertSession(
           props.sidebar.selectedWorkspaceId,
-          existingConversationGroup.latestSession.id,
+          resolvedSessionId,
         );
         if (startPrompt?.template) {
           setComposerTemplateAfterNavigation(
-            existingConversationGroup.latestSession.id,
+            resolvedSessionId,
             startPrompt.prompt,
           );
         } else if (startPrompt) {
           useComposerStateStore
             .getState()
-            .setDraft(
-              existingConversationGroup.latestSession.id,
-              startPrompt.prompt,
-            );
+            .setDraft(resolvedSessionId, startPrompt.prompt);
         }
         void installSummonedMarketplaceExpert(expert).catch((error) => {
           console.warn("[expert-marketplace] failed to install expert package", error);
@@ -793,7 +896,9 @@ export function ExpertPage(props: ExpertPageProps) {
       draftAgentContexts,
       handleOpenExpertSession,
       openFreshExpertDraft,
+      props.selectedWorkspaceId,
       props.sidebar.selectedWorkspaceId,
+      resolveSessionTabForAgent,
     ],
   );
 
@@ -1307,7 +1412,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 onOpenAgents={openExpertMarket}
                 onOpenAgentStarter={handleStartAgentById}
                 onCreateTask={handleCreateCurrentAgentSession}
-                onOpenSession={handleOpenExpertSession}
+                onOpenSession={handleOpenExpertFromSidebar}
                 onOpenDraftAgent={handleOpenDraftSession}
                 onPrefetchSession={props.sidebar.onPrefetchSession}
                 onDeleteSession={openDeleteModal}
