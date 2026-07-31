@@ -70,6 +70,7 @@ import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
   useAgentRegistryStore,
+  writeCustomAgentIdForSession,
 } from "../../agents";
 import { isExpertSession } from "../../agents";
 import {
@@ -85,6 +86,8 @@ import {
   AgentConversationPanel,
   AgentSessionTabs,
   mergeStableSessionTabOrder,
+  clearExpertSessionSelection,
+  isPlaceholderExpertSession,
   readExpertSessionSelection,
   resolveExpertSessionSelection,
   writeExpertSessionSelection,
@@ -292,11 +295,13 @@ export function ExpertPage(props: ExpertPageProps) {
         selectedWorkspaceId: props.selectedWorkspaceId,
         draftSessionActive,
         activeDraftSessionId,
+        pendingSessionId: pendingTabSessionId,
       }),
     [
       activeConversationAgentId,
       activeDraftSessionId,
       draftSessionActive,
+      pendingTabSessionId,
       props.selectedSessionId,
       props.selectedWorkspaceId,
       workspaceSessions,
@@ -460,26 +465,30 @@ export function ExpertPage(props: ExpertPageProps) {
     const selectedId = props.selectedSessionId?.trim() ?? "";
     if (selectedId && isExpertSession(selectedId)) return;
 
-    // Prefer first summoned expert's remembered tab (else first tab), not latest.
+    // Prefer first summoned expert's remembered real tab (else first real tab).
     const firstGroup = conversationGroups[0];
     if (firstGroup) {
       const agentId = firstGroup.agentId?.trim() ?? "";
-      const sessionIds = firstGroup.sessions.map((session) => session.id);
-      const resolved =
-        (agentId
-          ? resolveExpertSessionSelection({
-              rememberedSessionId: readExpertSessionSelection(
-                workspaceId,
-                agentId,
-              ),
-              sessionIds,
-              orderIds:
-                sessionTabOrderIdsByScope[`${workspaceId}:${agentId}`] ?? [],
-            })
-          : null) ?? firstGroup.latestSession.id;
+      const realSessionIds = firstGroup.sessions
+        .filter((session) => !isPlaceholderExpertSession(session))
+        .map((session) => session.id);
+      const resolved = agentId
+        ? resolveExpertSessionSelection({
+            rememberedSessionId: readExpertSessionSelection(
+              workspaceId,
+              agentId,
+            ),
+            sessionIds: realSessionIds,
+            orderIds:
+              sessionTabOrderIdsByScope[`${workspaceId}:${agentId}`] ?? [],
+          })
+        : realSessionIds[0] ?? null;
       if (resolved) {
         props.sidebar.onOpenSession(workspaceId, resolved);
+        return;
       }
+      // Expert row exists only as ghost injects — leave selection empty so
+      // recovery / draft open can create a usable session.
       return;
     }
 
@@ -620,19 +629,84 @@ export function ExpertPage(props: ExpertPageProps) {
       openRailView("chat");
       const trimmed = sessionId.trim();
       if (trimmed && !trimmed.startsWith("draft:") && isExpertSession(trimmed)) {
-        const agentId = readCustomAgentIdForSession(trimmed);
-        if (agentId) {
-          writeExpertSessionSelection(workspaceId, agentId, trimmed);
+        const meta = workspaceSessions.find((session) => session.id === trimmed);
+        // Never persist ghost injects as the remembered tab.
+        if (meta && !isPlaceholderExpertSession(meta)) {
+          const agentId = readCustomAgentIdForSession(trimmed);
+          if (agentId) {
+            writeExpertSessionSelection(workspaceId, agentId, trimmed);
+          }
         }
       }
       props.sidebar.onOpenSession(workspaceId, sessionId);
     },
-    [props.sidebar],
+    [props.sidebar, workspaceSessions],
+  );
+
+  const openFreshDraftForAgentId = useCallback(
+    (agentId: string) => {
+      const id = agentId.trim();
+      if (!id) return false;
+      clearExpertSessionSelection(props.selectedWorkspaceId, id);
+      if (activeAgentContext?.id === id) {
+        activateDraftAgent({
+          ...activeAgentContext,
+          boundSessionId: undefined,
+          conversationStartId: Date.now(),
+          draftSource: "new-session",
+        });
+        return true;
+      }
+      if (registry) {
+        const agent =
+          registry.agents.find((item) => item.id === id) ??
+          registry.templates.find((item) => item.id === id);
+        const restored = agent
+          ? buildPendingAgentFromRecord(agent, registry)
+          : null;
+        if (restored) {
+          activateDraftAgent({
+            ...restored,
+            conversationStartId: Date.now(),
+            draftSource: "new-session",
+          });
+          return true;
+        }
+      }
+      const marketplace = findBuiltinMarketplaceExpertById(id);
+      if (marketplace) {
+        const pending = buildPendingAgentFromMarketplaceExpert(marketplace);
+        activateDraftAgent({
+          ...pending,
+          boundSessionId: undefined,
+          conversationStartId: Date.now(),
+          draftSource: "new-session",
+        });
+        return true;
+      }
+      if (pendingAgent?.id === id) {
+        activateDraftAgent({
+          ...pendingAgent,
+          boundSessionId: undefined,
+          conversationStartId: Date.now(),
+          draftSource: "new-session",
+        });
+        return true;
+      }
+      return false;
+    },
+    [
+      activateDraftAgent,
+      activeAgentContext,
+      pendingAgent,
+      props.selectedWorkspaceId,
+      registry,
+    ],
   );
 
   /**
    * Open an expert from the left list: restore last tab for that agent
-   * (session id memory), else first tab in stable order — never force latest.
+   * (session id memory), else first real tab — never open ghost "加载中" rows.
    */
   const handleOpenExpertFromSidebar = useCallback(
     (workspaceId: string, hintSessionId: string) => {
@@ -649,42 +723,100 @@ export function ExpertPage(props: ExpertPageProps) {
         handleOpenExpertSession(workspaceId, hintSessionId);
         return;
       }
-      // Already on this expert — keep the active tab (do not jump to latest).
+      // Already on this expert with a real session — keep the active tab.
+      const selectedId = props.selectedSessionId?.trim() ?? "";
+      const selectedMeta = selectedId
+        ? workspaceSessions.find((session) => session.id === selectedId)
+        : undefined;
       if (
         activeConversationAgentId === agentId &&
-        props.selectedSessionId &&
-        isExpertSession(props.selectedSessionId)
+        selectedId &&
+        isExpertSession(selectedId) &&
+        selectedMeta &&
+        !isPlaceholderExpertSession(selectedMeta)
       ) {
         openRailView("chat");
         return;
       }
       const group = conversationGroups.find((item) => item.agentId === agentId);
-      const sessionIds =
-        group?.sessions.map((session) => session.id) ??
-        (hint ? [hint] : []);
-      const resolved =
-        resolveSessionTabForAgent(agentId, sessionIds) ?? hintSessionId;
-      handleOpenExpertSession(workspaceId, resolved);
+      const realSessionIds = (group?.sessions ?? [])
+        .filter((session) => !isPlaceholderExpertSession(session))
+        .map((session) => session.id);
+      const resolved = resolveSessionTabForAgent(agentId, realSessionIds);
+      if (resolved) {
+        handleOpenExpertSession(workspaceId, resolved);
+        return;
+      }
+      // Only ghosts / no inventory — open a usable draft instead of "加载中…".
+      if (!openFreshDraftForAgentId(agentId)) {
+        handleOpenExpertSession(workspaceId, hintSessionId);
+      }
     },
     [
       activeConversationAgentId,
       conversationGroups,
       handleOpenExpertSession,
+      openFreshDraftForAgentId,
       props.selectedSessionId,
       resolveSessionTabForAgent,
+      workspaceSessions,
     ],
   );
 
-  // Keep memory in sync for any path that sets selectedSessionId (route restore).
+  // Keep memory in sync for real sessions only (route restore / tab click).
   useEffect(() => {
     const sessionId = props.selectedSessionId?.trim() ?? "";
     if (!sessionId || sessionId.startsWith("draft:") || !isExpertSession(sessionId)) {
       return;
     }
+    const meta = workspaceSessions.find((session) => session.id === sessionId);
+    if (!meta || isPlaceholderExpertSession(meta)) return;
     const agentId = readCustomAgentIdForSession(sessionId);
     if (!agentId) return;
     writeExpertSessionSelection(props.selectedWorkspaceId, agentId, sessionId);
-  }, [props.selectedSessionId, props.selectedWorkspaceId]);
+  }, [props.selectedSessionId, props.selectedWorkspaceId, workspaceSessions]);
+
+  // Recover when route points at a ghost inject (empty title, no time) that
+  // cannot load or send — typical "加载中…" tab stuck state.
+  useEffect(() => {
+    if (draftSessionActive || pendingTabSessionId) return;
+    if (activeSidebarView !== "chat") return;
+    const sessionId = props.selectedSessionId?.trim() ?? "";
+    if (!sessionId || !isExpertSession(sessionId)) return;
+    const meta = workspaceSessions.find((session) => session.id === sessionId);
+    if (!meta || !isPlaceholderExpertSession(meta)) return;
+    const agentId =
+      readCustomAgentIdForSession(sessionId) ||
+      activeConversationAgentId ||
+      null;
+    if (!agentId) return;
+    clearExpertSessionSelection(props.selectedWorkspaceId, agentId);
+    writeCustomAgentIdForSession(sessionId, null);
+    const realIds = workspaceSessions
+      .filter(
+        (session) =>
+          readCustomAgentIdForSession(session.id) === agentId &&
+          !isPlaceholderExpertSession(session),
+      )
+      .map((session) => session.id);
+    const fallback = resolveSessionTabForAgent(agentId, realIds);
+    if (fallback) {
+      props.sidebar.onOpenSession(props.selectedWorkspaceId, fallback);
+      return;
+    }
+    void openFreshDraftForAgentId(agentId);
+  }, [
+    activeConversationAgentId,
+    activeSidebarView,
+    draftSessionActive,
+    openFreshDraftForAgentId,
+    pendingTabSessionId,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+    props.sidebar,
+    resolveSessionTabForAgent,
+    workspaceSessions,
+  ]);
   useEffect(() => {
     const createdSessionId = resolveBoundExpertDraftSession({
       draftSessionActive,
