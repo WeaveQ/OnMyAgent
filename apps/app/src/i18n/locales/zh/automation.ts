@@ -167,6 +167,8 @@ export default {
   "automation.status_paused": "已暂停",
   "automation.status_scheduled": "已安排",
   "automation.status_running": "运行中",
+  "automation.stop_run": "停止",
+  "automation.stop_run_done": "已停止「{title}」本次运行",
   "automation.running_elapsed": "已运行 {elapsed}",
   "automation.running_long_hint": "已运行 {elapsed}，可打开会话查看进度",
   "automation.running_elapsed_seconds": "不到 1 分钟",

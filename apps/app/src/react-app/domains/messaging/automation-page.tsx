@@ -1179,6 +1179,23 @@ export function AutomationPage(props: {
       .finally(() => setBusy(false));
   };
 
+  /** Stop the in-progress run only — schedule stays enabled for the next tick. */
+  const stopRunningItem = (item: OnMyAgentAutomationTaskItem) => {
+    if (!props.client || !props.workspaceId.trim()) return;
+    setBusy(true);
+    void props.client.cancelAutomationRun(props.workspaceId, item.id)
+      .then((result) => {
+        setAutomations(result.items);
+        syncAutomationSessionRecords(props.workspaceId, result.items);
+        showToast({
+          tone: "info",
+          title: t("automation.stop_run_done", { title: item.title }),
+        });
+      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setBusy(false));
+  };
+
   const deleteItem = (item: OnMyAgentAutomationTaskItem) => {
     if (!props.client || !props.workspaceId.trim()) return;
     setBusy(true);
@@ -1501,7 +1518,9 @@ export function AutomationPage(props: {
                     <RunningAutomationRow
                       key={item.id}
                       item={item}
+                      busy={busy}
                       onOpenSession={openSession}
+                      onStop={stopRunningItem}
                     />
                   ))}
                   {scheduled.map((item) => (
