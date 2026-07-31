@@ -518,6 +518,44 @@ describe("deriveOpenTargets", () => {
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
   });
 
+  it("collects paths from first-class extract-sheets runtime command", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command:
+            "node runtime/artifact_runtime.cjs extract-sheets source.xlsx --sheet 发货需求 --out 发货需求.xlsx",
+        },
+        JSON.stringify({
+          status: "success",
+          wrote: ["发货需求.xlsx"],
+          message: "Wrote 发货需求.xlsx",
+        }) + "\nWrote 发货需求.xlsx\n",
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("发货需求.xlsx");
+  });
+
+  it("does not treat artifact_runtime inspect/read as writes", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command: "node runtime/artifact_runtime.cjs inspect session-uploads/upload.xlsx",
+        },
+        JSON.stringify({
+          status: "success",
+          source: "session-uploads/1785468349196-0-upload.xlsx",
+        }),
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).not.toContain(
+      "session-uploads/1785468349196-0-upload.xlsx",
+    );
+  });
+
   it("does not treat shell inspect/find of a user upload as a generated artifact", () => {
     // Root cause of upload cards: bash was classified as a write tool, so any
     // path in inspect/find stdout (including session-uploads/…) became a card.
@@ -554,6 +592,147 @@ describe("deriveOpenTargets", () => {
     expect(values.some((value) => value.includes("1785468349196"))).toBe(false);
     expect(values).toContain("发货需求.xlsx");
     expect(values).toContain("报价补充.xlsx");
+  });
+
+  it("hides process helper scripts when declared xlsx are the real deliverables", () => {
+    // Screenshot regression: only extract_sheets.cjs card while body lists
+    // 文件路径: …/发货需求.xlsx and …/报价补充.xlsx.
+    const ship =
+      "/Users/demo/.onmyagent/workspaces/货运客服专家/sid/session-uploads/upload.xlsx/发货需求.xlsx";
+    const quote =
+      "/Users/demo/.onmyagent/workspaces/货运客服专家/sid/session-uploads/upload.xlsx/报价补充.xlsx";
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      toolMessage(
+        "msg_run",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "done\n",
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        `发货需求表与报价补充已生成。\n文件路径: ${ship}\n文件路径: ${quote}`,
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+      { ...fileTarget(ship, "sheet"), exists: true },
+      { ...fileTarget(quote, "sheet"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.name).sort(),
+    ).toEqual(["发货需求.xlsx", "报价补充.xlsx"].sort());
+  });
+
+  it("hides process helper scripts when a business file is the real deliverable", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      toolMessage(
+        "msg_run",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "Wrote 发货需求与报价补充.xlsx\n",
+      ),
+      toolMessage(
+        "msg_xlsx",
+        "write",
+        { filePath: "发货需求与报价补充.xlsx" },
+        { filePath: "发货需求与报价补充.xlsx" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "文件路径：发货需求与报价补充.xlsx",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+      { ...fileTarget("发货需求与报价补充.xlsx", "sheet"), exists: true },
+      { ...fileTarget("preview.png", "image"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["发货需求与报价补充.xlsx"]);
+  });
+
+  it("hides unnamed process helpers that were only written (not declared)", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "extract_sheets.cjs" },
+        { filePath: "extract_sheets.cjs" },
+      ),
+      message("msg_final", "assistant", "已完成，校验通过。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
+    ];
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("shows intentional code deliverables when declared as 文件路径", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "export_orders.py" },
+        { filePath: "export_orders.py" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "脚本写好了。\n文件路径：export_orders.py",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("export_orders.py", "text"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["export_orders.py"]);
+  });
+
+  it("shows png/html/txt content deliverables from write tools", () => {
+    const messages = [
+      toolMessage("msg_1", "write", { filePath: "chart.png" }, { filePath: "chart.png" }),
+      toolMessage("msg_2", "write", { filePath: "summary.html" }, { filePath: "summary.html" }),
+      toolMessage("msg_3", "write", { filePath: "notes.txt" }, { filePath: "notes.txt" }),
+      message("msg_final", "assistant", "图和摘要都生成好了。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("chart.png", "image"), exists: true },
+      { ...fileTarget("summary.html", "html"), exists: true },
+      { ...fileTarget("notes.txt", "text"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["chart.png", "notes.txt", "summary.html"].sort());
+  });
+
+  it("drops inbox-style user upload basenames from derived targets", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "1785466093426-0-07-四Agent完整业务演练材料.xlsx" },
+        { filePath: "1785466093426-0-07-四Agent完整业务演练材料.xlsx" },
+      ),
+    ]);
+    expect(targets.map((target) => target.value)).not.toContain(
+      "1785466093426-0-07-四Agent完整业务演练材料.xlsx",
+    );
   });
 });
 

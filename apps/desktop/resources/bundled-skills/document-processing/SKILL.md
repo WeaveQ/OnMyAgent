@@ -50,6 +50,12 @@ description: 统一处理 Word、Excel、CSV、PowerPoint 和 PDF 文件。用�
 
 完成后必须读取 [references/quality-and-handoff.md](references/quality-and-handoff.md)，执行对应格式的检查、预览和交付要求。
 
+**交付分层（摘要）：**
+
+- 业务文件写会话目录；过程脚本只写 `os.tmpdir()` / `.opencode/tmp/`。
+- 表格优先 `extract-sheets` / `write-xlsx` / `read`，不要为拆 sheet 在会话根写 `extract_*.cjs`。
+- 正文用 `文件路径：业务文件` 硬声明最终物；上传原件与 helper 永不进产物卡。
+
 ## 常见任务
 
 - 把聊天、截图、Word、PDF 和多张表里的信息整理成一份可继续使用的 Excel。
