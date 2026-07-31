@@ -1,4 +1,8 @@
 export { AutomationPage } from "./automation-page";
+export {
+  AutomationNavSidebar,
+  type AutomationNavKey,
+} from "./automation-nav-sidebar";
 export * from "./automation-list-model";
 export * from "./automation-form-model";
 export { MessagingChannelsPage } from "./messaging-channels-page";

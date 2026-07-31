@@ -81,6 +81,7 @@ const testTargets = new Map([
   ['session-delete-policy', ['bun', ['test', 'scripts/session-delete-policy.test.ts']]],
   ['bundled-skill-locale', ['bun', ['test', 'scripts/bundled-skill-locale.test.ts']]],
   ['skill-chat-navigation', ['bun', ['test', 'scripts/skill-chat-navigation.test.ts']]],
+  ['automation-primary-rail', ['bun', ['test', 'scripts/automation-primary-rail.test.ts']]],
   ['settings-route-model', ['bun', ['test', 'scripts/settings-route-model.test.ts']]],
   ['workspace-files-model', ['bun', ['test', 'scripts/workspace-files-model.test.ts']]],
   ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],
