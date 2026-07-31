@@ -10,13 +10,19 @@ Work only with standalone local files. Do not claim control of a live Excel sess
 ## Required workflow
 
 1. Treat the reported base directory as the skill root. Run `node runtime/artifact_runtime.cjs doctor` before the first operation.
-2. Inspect inputs with `node runtime/artifact_runtime.cjs inspect <path>` before modifying them.
-3. Use `exceljs` for modern XLSX structure, formulas, styles, tables, charts, comments, validation, conditional formatting, print settings, and named ranges.
-4. Use `xlsx` for CSV/TSV and legacy XLS import/export. Prefer saving edited legacy workbooks as `.xlsx` and disclose the conversion.
-5. Write task scripts as CommonJS (`.cjs`) so bundled dependencies resolve without installing packages into the user's workspace.
+2. If the user uploaded a file, **use the absolute path from the upload instruction** (do not search the whole disk).
+3. Inspect structure: `node runtime/artifact_runtime.cjs inspect <path>`.
+4. **Read sheet content** (preferred — do not invent ad-hoc exceljs scripts for simple reads):
+   - All sheets (capped rows): `node runtime/artifact_runtime.cjs read <path>`
+   - One sheet: `node runtime/artifact_runtime.cjs read <path> --sheet "发货需求"`
+   - More rows: `node runtime/artifact_runtime.cjs read <path> --sheet "报价补充" --max-rows 2000`
+5. For advanced **create/edit** (styles, charts, formulas, multi-file transforms), write CommonJS (`.cjs`) task scripts and run them with:
+   ```bash
+   NODE_PATH="$ONMYAGENT_ARTIFACT_RUNTIME_ROOT/node_modules" node your_task.cjs
+   ```
+   Prefer `require("xlsx")` for reading tabular values; use `exceljs` only when you need rich formatting/charts. Never `require("exceljs")` without `NODE_PATH` or `ONMYAGENT_ARTIFACT_RUNTIME_ROOT` set (doctor prints both).
 6. Preserve formulas and cached results when possible. Never replace a requested formula model with unexplained hard-coded numbers.
-7. Open the result in OnMyAgent's file preview and inspect every relevant sheet, merged range, table, chart, width, number format, and frozen pane.
-8. Finish with `node runtime/artifact_runtime.cjs verify <output>` and report the exact output path.
+7. Finish with `node runtime/artifact_runtime.cjs verify <output>` when you wrote a file, and report the exact output path.
 
 ## Formula boundary
 
@@ -37,8 +43,9 @@ OnMyAgent preserves and writes formulas but does not pretend to be a complete Ex
 ## Runtime commands
 
 - `--capabilities` or `capabilities`: machine-readable operations.
-- `doctor`: bundled JavaScript dependency health.
+- `doctor`: dependency health + `runtime_root` / `node_path_hint`.
 - `inspect <file>`: workbook, sheet, formula, and error summary.
+- `read <file> [--sheet Name] [--max-rows N]`: sheet rows as JSON (default max 500 rows per sheet).
 - `verify <file>`: structural, formula-error, and cached-value checks.
 
 Visual rendering belongs to the OnMyAgent preview surface. The artifact runtime does not expose external recalculation or PDF-conversion commands.
