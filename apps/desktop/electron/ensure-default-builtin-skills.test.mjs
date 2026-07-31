@@ -59,6 +59,37 @@ describe("ensureDefaultBuiltinSkills", () => {
       userSkillsRoot: user,
     });
     assert.deepEqual(second.installed, []);
-    assert.ok(second.skipped.includes("pptx"));
+    // Core packages re-sync SKILL.md on subsequent boots.
+    assert.ok(second.refreshed.includes("pptx"));
+    assert.ok(second.refreshed.includes("find-skills"));
+    assert.equal(second.skipped.includes("pptx"), false);
+  });
+
+  it("refreshes stale SKILL.md for existing core installs", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "oma-skills-refresh-"));
+    const bundled = path.join(root, "bundled");
+    const user = path.join(root, "user");
+    await writeSkill(bundled, "find-skills");
+    await writeFile(
+      path.join(bundled, "find-skills", "SKILL.md"),
+      "---\nname: find-skills\ndescription_en: Discover installed skills\ndisplay_name_en: Find Skills\n---\n# Find Skills\n",
+      "utf8",
+    );
+    await mkdir(path.join(user, "find-skills"), { recursive: true });
+    await writeFile(
+      path.join(user, "find-skills", "SKILL.md"),
+      "---\nname: find-skills\ndescription_zh: >-\n---\n# old\n",
+      "utf8",
+    );
+
+    const result = await ensureDefaultBuiltinSkills({
+      bundledRoot: bundled,
+      userSkillsRoot: user,
+      coreSkills: [{ packageName: "find-skills", skillName: "find-skills" }],
+    });
+    assert.ok(result.refreshed.includes("find-skills"));
+    const md = await readFile(path.join(user, "find-skills", "SKILL.md"), "utf8");
+    assert.match(md, /Discover installed skills/);
+    assert.doesNotMatch(md, /description_zh: >-/);
   });
 });

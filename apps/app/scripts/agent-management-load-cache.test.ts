@@ -19,9 +19,8 @@ import {
 } from "../src/react-app/domains/local-agents/agent-management/agent-management-load-cache";
 
 describe("agent-management-load-cache", () => {
-  it("maps panels to independent domain needs (agents/providers skip skills)", () => {
+  it("maps panels to independent domain needs (agents skip skills)", () => {
     expect(domainsForPanel("agents")).toEqual(["core"]);
-    expect(domainsForPanel("providers")).toEqual(["core"]);
     expect(domainsForPanel("skills")).toEqual(["core", "skills"]);
     expect(domainsForPanel("archive")).toEqual([]);
   });

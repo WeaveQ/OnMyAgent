@@ -97,15 +97,39 @@ export function createAgentManagementSkills(options = {}) {
     const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     if (!match) return {};
     const out = {};
-    for (const line of match[1].split(/\r?\n/)) {
+    const lines = match[1].split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s/.test(line)) continue;
       const separator = line.indexOf(":");
       if (separator <= 0) continue;
       const key = line.slice(0, separator).trim().toLowerCase();
       if (!keys.includes(key)) continue;
-      const value = line
+      let value = line
         .slice(separator + 1)
         .trim()
         .replace(/^['"]|['"]$/g, "");
+      if (
+        value === ">" ||
+        value === ">-" ||
+        value === ">|" ||
+        value === "|" ||
+        value === "|-" ||
+        value === "|+"
+      ) {
+        const parts = [];
+        while (i + 1 < lines.length) {
+          const next = lines[i + 1];
+          if (next.trim() === "") {
+            i += 1;
+            continue;
+          }
+          if (!/^\s+\S/.test(next)) break;
+          i += 1;
+          parts.push(next.replace(/^\s+/, "").trim());
+        }
+        value = parts.join(" ").trim();
+      }
       if (value) out[key] = value;
     }
     return out;
