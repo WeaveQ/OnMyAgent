@@ -32,7 +32,7 @@ const methodGroups = /** @type {const} */ ({
     "deleteOpenCodeRouterSlackIdentity", "listMcp", "addMcp", "removeMcp",
     "setMcpEnabled", "logoutMcpAuth", "listCommands", "upsertCommand",
     "deleteCommand", "listAutomations", "listAutomationRuns", "createAutomation",
-    "updateAutomation", "runAutomation", "deleteAutomation",
+    "updateAutomation", "runAutomation", "cancelAutomationRun", "deleteAutomation",
   ],
   sessionArchive: [
     "listSessionArchiveSessions", "getSessionArchiveSession",
