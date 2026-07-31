@@ -131,7 +131,6 @@ export default {
   "local_agent.tips_ownership_provider": "服務",
   "local_agent.tips_ownership_platform": "平台",
   "local_agent.calling": "正在調用本機 Agent...",
-  "local_agent.search": "搜索本機 Agent...",
   "local_agent.add": "添加本機 Agent",
   "local_agent.redetect": "重新檢測本機 Agent",
   "local_agent.redetect_success": "本機 Agent 檢測完成",

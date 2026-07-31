@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import { LIST_LANE_HEADER_CLASS } from "@/components/ui/sidebar-chrome";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -978,8 +979,13 @@ export function AutomationPage(props: {
     <div className="flex h-full min-h-0 flex-col bg-dls-background text-dls-text">
       {/* Template gallery is opened from the left rail — no duplicate chrome. */}
       {showTemplates ? null : (
-        // h-14 matches home SessionSurfaceHeader + left-rail「+ 添加」strip.
-        <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-8">
+        // Shared list-lane h-14 strip (sidebar-chrome LIST_LANE_HEADER_CLASS).
+        <div
+          className={cn(
+            LIST_LANE_HEADER_CLASS,
+            "justify-between gap-4 px-8",
+          )}
+        >
           <h1 className="min-w-0 truncate text-lg font-medium leading-7 text-dls-text">
             {t("automation.title")}
           </h1>

@@ -304,7 +304,7 @@ export function AgentConversationItem(props: {
             className={cn(
               "flex size-10 items-center justify-center overflow-hidden rounded-md text-sm font-medium",
               "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60",
-              "dark:bg-white dark:text-neutral-700 dark:ring-black/10",
+              "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
             )}
             style={
               props.group.avatarUrl

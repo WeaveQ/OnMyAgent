@@ -401,7 +401,7 @@ function SkillAgentCluster(props: {
                   <span
                     className={cn(
                       agentBrandIconTileClass,
-                      "relative -ml-1.5 size-6 rounded-md text-2xs font-semibold tabular-nums leading-none text-dls-secondary dark:text-neutral-700",
+                      "relative -ml-1.5 size-6 rounded-md text-2xs font-semibold tabular-nums leading-none text-dls-secondary dark:text-dls-text",
                     )}
                     aria-hidden
                   >
@@ -410,7 +410,7 @@ function SkillAgentCluster(props: {
                 ) : null}
               </div>
             ) : (
-              <span className="size-6 rounded-md border border-dashed border-dls-border bg-dls-surface-muted dark:bg-white/80" />
+              <span className="size-6 rounded-md border border-dashed border-dls-border bg-dls-surface-muted dark:bg-dls-surface-solid" />
             )}
           </div>
         }
