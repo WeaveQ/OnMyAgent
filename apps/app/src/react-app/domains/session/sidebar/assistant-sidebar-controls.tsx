@@ -7,7 +7,6 @@ import {
   NavTabButton,
   SegmentedTabGroup,
 } from "@/components/ui/action-row";
-import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 
@@ -56,13 +55,14 @@ export function AssistantCategorySwitch(props: {
   return (
     <div className="mb-3.5 flex w-full justify-center mac:titlebar-no-drag">
       {/*
-        Free-float pills (no track). Dark: solid elevated active fill + stronger
-        idle ink — glass-mixed bg-dls-text / secondary were too dim on #1f1f1f.
+        Free-float pills — same NavTab active as Store/Files (inverted
+        dls-text fill). Avoid raw white utility classes: dark theme remaps
+        them to translucent surface and the selected pill disappears on mac.
       */}
       <SegmentedTabGroup
         density="bare"
         role="tablist"
-        className="h-9 w-full max-w-none gap-1"
+        className="mac:titlebar-no-drag"
       >
         {items.map((item) => {
           const Icon = item.icon;
@@ -73,19 +73,15 @@ export function AssistantCategorySwitch(props: {
               type="button"
               role="tab"
               aria-selected={active}
+              aria-pressed={active}
               onClick={() => props.onChange(item.id)}
               active={active}
               size="tab"
               shape="tab"
-              className={cn(
-                "relative z-10 h-9 min-h-9 min-w-0 flex-1 justify-center gap-1.5 px-3.5 text-sm",
-                active
-                  ? "bg-white text-neutral-900 shadow-sm dark:bg-white dark:text-neutral-900 dark:[&_svg]:opacity-100"
-                  : "text-dls-secondary hover:bg-dls-hover/80 hover:text-dls-text dark:text-dls-text/80 dark:hover:text-dls-text",
-              )}
+              className="mac:titlebar-no-drag"
             >
-              <Icon className="size-3.5 shrink-0" />
-              <span className="leading-none">{item.label}</span>
+              <Icon className="size-3.5 shrink-0" aria-hidden />
+              <span>{item.label}</span>
             </NavTabButton>
           );
         })}
