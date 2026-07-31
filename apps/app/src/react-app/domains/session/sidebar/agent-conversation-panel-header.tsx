@@ -53,18 +53,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
 
   return (
     <div className="relative flex shrink-0 flex-col gap-2.5 border-b border-dls-mist px-3 pb-2.5 pt-3.5">
-      {/* Full-width create control — match automation rail density (not icon-sm +). */}
-      <Button
-        type="button"
-        size="default"
-        onClick={props.onOpenAgents}
-        className="h-10 w-full justify-center gap-2 rounded-xl border-0 bg-dls-surface-muted text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text"
-        title={t("session.create_expert")}
-        aria-label={t("session.create_expert")}
-      >
-        <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-        {t("session.create_expert")}
-      </Button>
+      {/* Search first — scan list; create is a secondary outline action below. */}
       <InputGroup controlSize="sm" radius="md" tone="surfaceMuted" className="w-full">
         <InputGroupAddon align="inline-start" inset="tight">
           <Search className="size-4" />
@@ -76,8 +65,20 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           className="h-9 text-sm placeholder:text-dls-secondary/75"
         />
       </InputGroup>
+      <Button
+        type="button"
+        variant="outline"
+        size="default"
+        onClick={props.onOpenAgents}
+        className="h-10 w-full justify-center gap-2 rounded-xl border border-dls-border bg-dls-surface-solid text-sm font-medium text-dls-text shadow-none hover:bg-dls-hover"
+        title={t("session.create_expert")}
+        aria-label={t("session.create_expert")}
+      >
+        <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+        {t("session.create_expert")}
+      </Button>
       {props.showAgentSelectionTip ? (
-        <div className="absolute left-3 right-3 top-[4.5rem] z-30 rounded-lg border border-dls-accent/30 bg-dls-surface-solid p-3">
+        <div className="absolute left-3 right-3 top-[5.75rem] z-30 rounded-lg border border-dls-accent/30 bg-dls-surface-solid p-3">
           <span
             className="absolute -top-1.5 left-6 size-3 rotate-45 border-l border-t border-dls-accent/30 bg-dls-surface"
             aria-hidden="true"
