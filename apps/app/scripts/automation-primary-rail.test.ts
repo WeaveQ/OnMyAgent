@@ -58,8 +58,27 @@ describe("primary rail + assistant wiring", () => {
     expect(assistant).toContain("openRailView(\"automation\")");
     expect(assistant).toContain("hideStatusTabs");
     expect(assistant).toContain("createRequestId={automationCreateRequestId}");
+    // Absolute fill so content paints over keep-alive stack (not in-flow middle).
+    expect(assistant).toContain("absolute inset-0 z-[1]");
     // Home session list still present for assistant (not removed this goal).
     expect(assistant).toContain("AgentConversationPanel");
+  });
+
+  test("expert rail opens assistant automation URL (does not crash on expert)", () => {
+    const expert = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/expert.tsx"),
+      "utf8",
+    );
+    const openRail = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/open-automation-rail.ts"),
+      "utf8",
+    );
+    expect(expert).toContain("isAutomationRailView");
+    expect(expert).toContain("openAutomationRailPath");
+    expect(openRail).toContain('view: "automation"');
+    expect(openRail).toContain("workspaceAssistantRoute");
+    // Expert treats automation as handled (no feature-placeholder crash path).
+    expect(expert).toMatch(/isAutomationRailView\(activeSidebarView\)/);
   });
 
   test("nav i18n short labels exist", () => {
