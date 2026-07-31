@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { normalizeIdleHours } from "../../../kernel/local-provider";
 
 import { t } from "@/i18n";
-import { SelectMenu } from "../../design-system/select-menu";
+import { SelectMenu } from "../../../design-system/select-menu";
 import { FontSizeBlockRow } from "../appearance/font-size-section";
 import { LanguageBlockRow } from "../appearance/language-section";
 import { ThemeBlockRow } from "../appearance/theme-section";
@@ -99,7 +99,7 @@ export function PreferencesView(props: PreferencesViewProps) {
                     },
                   ]}
                   value={props.conversationWidth}
-                  onChange={(next) => {
+                  onChange={(next: string) => {
                     props.onConversationWidthChange(
                       next === "wide" ? "wide" : "fixed",
                     );
