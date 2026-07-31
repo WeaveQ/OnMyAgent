@@ -74,20 +74,31 @@ const ARTIFACT_FILE_PREVIEWS = new Set<OpenTargetPreview>([
   "text",
 ]);
 const DISCOVERY_TOOL_NAMES = new Set(["glob", "grep", "search", "find"]);
+/**
+ * Tools that intentionally create/edit files. Their path metadata (and patch
+ * bodies) are treatable as deliverable provenance.
+ *
+ * IMPORTANT: do NOT put bash/shell/execute here. Agents often *read* user
+ * uploads via shell (inspect/find/node script input). Treating every path in
+ * shell stdout as a "write" made session-upload files show as product cards.
+ */
 const WRITE_TOOL_NAMES = new Set([
   "apply_patch",
-  "bash",
   "edit",
   "edit_file",
-  "execute",
   "multi_edit",
   "multiedit",
   "patch",
-  "run_terminal_cmd",
-  "shell",
   "str_replace_editor",
   "write",
   "write_file",
+]);
+/** Shell tools may create files via scripts; only scan stdout when write-like. */
+const SHELL_TOOL_NAMES = new Set([
+  "bash",
+  "execute",
+  "run_terminal_cmd",
+  "shell",
 ]);
 const FILE_METADATA_KEYS = ["path", "file", "filePath", "filepath"];
 const PATCH_FILE_PATTERN = /^\*\*\* (?:Add File|Update File):\s*(.+)$/gmi;
@@ -399,6 +410,47 @@ function isWriteTool(toolName: string) {
   return WRITE_TOOL_NAMES.has(normalizedToolName(toolName));
 }
 
+function isShellTool(toolName: string) {
+  return SHELL_TOOL_NAMES.has(normalizedToolName(toolName));
+}
+
+function shellCommandText(input: unknown): string {
+  if (typeof input === "string") return input;
+  if (!isObject(input)) return "";
+  for (const key of ["command", "cmd", "script", "code"]) {
+    const value = input[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "";
+}
+
+/**
+ * Whether a shell invocation looks like it *created* files (node/python write
+ * scripts), not merely inspected or listed paths (find/ls/inspect).
+ */
+function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
+  const command = shellCommandText(input);
+  const out = typeof output === "string" ? output : "";
+  // Pure discovery / read-style commands never mint deliverable cards.
+  if (
+    /\b(find|ls|glob|rg|grep|cat|head|tail|stat|mdfind|inspect|doctor|verify|read)\b/i.test(
+      command,
+    )
+    && !/\b(writeFile|write_file|XLSX\.write|exceljs|\.write\(|toFile|fs\.write|>>?|tee)\b/i.test(
+      command,
+    )
+  ) {
+    return false;
+  }
+  const blob = `${command}\n${out}`;
+  return (
+    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|toFile|fs\.write|saveAs|saveas)\b/i.test(
+      blob,
+    )
+    || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
+  );
+}
+
 function collectFileMetadataValues(value: unknown) {
   if (!isObject(value)) return [];
   const values: string[] = [];
@@ -455,8 +507,10 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
 
       const discoveryTool = isDiscoveryTool(part.toolName);
       const writeTool = isWriteTool(part.toolName);
+      const shellTool = isShellTool(part.toolName);
 
       if (writeTool) {
+        // Real editors: path metadata + free-text paths in output are deliverables.
         addFileValues(
           targets,
           [part.input, part.output].flatMap(collectFileMetadataValues),
@@ -467,9 +521,27 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
         if (typeof part.output === "string") {
           scanText(targets, part.output, 90, "write tool output", { includeFiles: true });
         }
+      } else if (shellTool) {
+        // Shell: only mint file cards when the command/output indicates a write.
+        // Inspect/find/read of user uploads must NOT become product cards.
+        if (shellToolLooksLikeFileWrite(part.input, part.output)) {
+          addFileValues(
+            targets,
+            [part.input, part.output].flatMap(collectFileMetadataValues),
+            90,
+            "shell write metadata",
+          );
+          if (typeof part.output === "string") {
+            scanText(targets, part.output, 90, "shell write output", {
+              includeFiles: true,
+            });
+          }
+        } else if (typeof part.output === "string") {
+          scanText(targets, part.output, 70, "shell output", { includeFiles: false });
+        }
       }
 
-      if (!discoveryTool) {
+      if (!discoveryTool && !writeTool && !shellTool) {
         scanText(targets, JSON.stringify(part.output ?? part.input ?? ""), 75, "tool output", { includeFiles: false });
       }
     }

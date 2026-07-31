@@ -506,7 +506,7 @@ describe("deriveOpenTargets", () => {
     );
   });
 
-  it("collects spreadsheet paths from bash/shell tool outputs", () => {
+  it("collects spreadsheet paths from write-like bash outputs only", () => {
     const targets = deriveOpenTargets([
       toolMessage(
         "msg_tool",
@@ -516,6 +516,44 @@ describe("deriveOpenTargets", () => {
       ),
     ]);
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
+  });
+
+  it("does not treat shell inspect/find of a user upload as a generated artifact", () => {
+    // Root cause of upload cards: bash was classified as a write tool, so any
+    // path in inspect/find stdout (including session-uploads/…) became a card.
+    const upload =
+      ".opencode/onmyagent/inbox/session-uploads/1785468349196-0-07-四Agent完整业务演练材料.xlsx";
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_inspect",
+        "bash",
+        {
+          command: `node runtime/artifact_runtime.cjs inspect ${upload}`,
+        },
+        JSON.stringify({
+          status: "success",
+          source: `/Users/demo/work/${upload}`,
+          sheet_count: 12,
+        }),
+      ),
+      toolMessage(
+        "msg_find",
+        "bash",
+        { command: "find . -name '*.xlsx'" },
+        `${upload}\n发货需求.xlsx\n`,
+      ),
+      toolMessage(
+        "msg_write",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "Wrote 发货需求.xlsx\nWrote 报价补充.xlsx\n",
+      ),
+    ]);
+    const values = targets.map((target) => target.value);
+    expect(values.some((value) => value.includes("session-uploads"))).toBe(false);
+    expect(values.some((value) => value.includes("1785468349196"))).toBe(false);
+    expect(values).toContain("发货需求.xlsx");
+    expect(values).toContain("报价补充.xlsx");
   });
 });
 
