@@ -39,6 +39,15 @@ export {
 } from "./agent-session-tabs";
 
 export {
+  mergeKeepOrderWithNewcomers,
+  readExpertSidebarOrderIds,
+  resolveExpertListOrderIds,
+  sortExpertListByOrderIds,
+  writeExpertSidebarOrderIds,
+} from "./expert-list-order";
+export type { ExpertListOrderItem } from "./expert-list-order";
+
+export {
   hiddenAccessibleTargetsStorageKey,
   readHiddenAccessibleTargetIds,
   writeHiddenAccessibleTargetIds,

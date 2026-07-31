@@ -196,6 +196,9 @@ export function AgentConversationItem(props: {
       props.onOpenDraftSession?.(latestSession.id);
       return;
     }
+    // Already viewing this expert (any of its session tabs) — do not jump
+    // to latestSession and steal the active tab.
+    if (props.selected) return;
     props.onOpenSession(props.workspaceId, latestSession.id);
   };
 
