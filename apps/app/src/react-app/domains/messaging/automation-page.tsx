@@ -1,13 +1,8 @@
 /** @jsxImportSource react */
 import {
-  Archive,
-  Check,
-  ChevronDown,
-  CircleAlert,
-  FileText,
   Folder,
+  HelpCircle,
   Pause,
-  Pencil,
   Play,
   Plus,
   ShieldAlert,
@@ -32,7 +27,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MenuRowButton, NavTabButton, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -42,19 +37,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { FrequencyFields } from "./automation-frequency-fields";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { NoticeBox, EmptyStateBox } from "@/components/ui/notice-box";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useWorkspace } from "@/react-app/shell";
 import { useStatusToasts } from "../shell-feedback";
 import { AccessPermissionSelect } from "../../design-system/access-permission-select";
@@ -82,8 +77,6 @@ import { installExpertPackage } from "../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../app/utils";
 import {
   getAutomationTemplatesForScene,
-  type AutomationCycle,
-  type AutomationFrequencyMode,
   type AutomationScene,
   type AutomationTemplate,
 } from "./automation-model";
@@ -112,30 +105,18 @@ import {
 } from "./automation-session-groups";
 import { archiveAssistantTask } from "../shared";
 import {
-  ALL_WEEKDAYS,
   automationCreatedDate,
-  automationCycleLabel,
-  automationDisplayId,
-  automationFrequencyLabel,
-  automationWeekdayLabel,
   createEmptyFormState,
-  effectiveRangeLabel,
   formStateFromAutomation,
   formStateFromTemplateLocalized,
   selectAgentTemplateById,
   hasAutomationModel,
   intervalMinutes,
   isFormValid,
-  isIntervalUnit,
-  isScheduleValid,
-  nextRunLabel,
   onceAt,
   optimizeAutomationPromptWithI18n,
-  relativeRunTime,
-  scheduleLabel,
   workspaceDirectoryLabel,
   type AutomationFormState,
-  type IntervalUnit,
 } from "./automation-form-model";
 import {
   useAutomationPageChrome,
@@ -150,9 +131,6 @@ type AutomationDialogMode = "create" | "edit";
 
 type CompletedRun = CompletedRunEntry<OnMyAgentAutomationTaskItem>;
 
-const frequencyModes: AutomationFrequencyMode[] = ["weekly", "interval", "once"];
-const automationCycles: AutomationCycle[] = ["daily", "weekly", "biweekly", "monthly", "yearly"];
-const weekdays = [...ALL_WEEKDAYS];
 const automationStatusTabs: AutomationStatusTab[] = ["tasks", "runs"];
 const riskAcceptedStorageKey = "onmyagent.automationFullAccessRiskAccepted.v1";
 
@@ -242,150 +220,6 @@ function AutomationTemplateCard(props: {
 }
 
 
-function FrequencyFields(props: {
-  form: AutomationFormState;
-  onFormChange: (form: AutomationFormState) => void;
-}) {
-  const setForm = (patch: Partial<AutomationFormState>) => props.onFormChange({ ...props.form, ...patch });
-  return (
-    <div className="space-y-3">
-      <div className="text-sm font-medium text-dls-secondary">{t("automation.field_frequency")}</div>
-      <SegmentedTabGroup density="filter">
-        {frequencyModes.map((mode) => (
-          <SegmentedTabButton
-            key={mode}
-            type="button"
-            active={props.form.frequencyMode === mode}
-            size="chip"
-            width="hug"
-            className="whitespace-nowrap"
-            onClick={() => setForm({ frequencyMode: mode })}
-          >
-            {automationFrequencyLabel(mode)}
-          </SegmentedTabButton>
-        ))}
-      </SegmentedTabGroup>
-
-      {props.form.frequencyMode === "weekly" ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button type="button" variant="outline" size="lg" className="min-w-28 justify-between px-4" />
-              }
-            >
-              {automationCycleLabel(props.form.day)}
-              <ChevronDown className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              sideOffset={6}
-              className="min-w-28 rounded-xl border border-dls-border bg-dls-surface-solid p-1 text-dls-text"
-            >
-              {automationCycles.map((cycle) => (
-                <DropdownMenuItem
-                  key={cycle}
-                  onClick={() => setForm({ day: cycle })}
-                  className={
-                    props.form.day === cycle
-                      ? "rounded-lg bg-dls-text text-dls-surface focus:bg-dls-text focus:text-dls-surface"
-                      : "rounded-lg"
-                  }
-                >
-                  {automationCycleLabel(cycle)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Input
-            type="time"
-            variant="dlsMono"
-            value={props.form.time}
-            onClick={openNativePicker}
-            onChange={(event) => setForm({ time: event.currentTarget.value })}
-            aria-label={t("automation.field_time")}
-            className="w-36"
-          />
-        </div>
-      ) : null}
-
-      {props.form.frequencyMode === "interval" ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-dls-secondary">{t("automation.interval_every")}</span>
-            <Input
-              type="number"
-              min={1}
-              variant="dls"
-              value={props.form.intervalValue}
-              onChange={(event) => setForm({ intervalValue: event.currentTarget.value })}
-              className="w-24"
-            />
-            <select
-              value={props.form.intervalUnit}
-              onChange={(event) => {
-                const value = event.currentTarget.value;
-                if (isIntervalUnit(value)) setForm({ intervalUnit: value });
-              }}
-              className="h-10 rounded-lg border border-dls-border bg-dls-surface px-3 text-sm text-dls-text outline-none focus:ring-3 focus:ring-ring/30"
-            >
-              <option value="minutes">{t("automation.interval_minutes")}</option>
-              <option value="hours">{t("automation.interval_hours")}</option>
-              <option value="days">{t("automation.interval_days")}</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap gap-0.5">
-            {weekdays.map((weekday) => {
-              const selected = props.form.weekdays.includes(weekday);
-              return (
-                <SegmentedTabButton
-                  key={weekday}
-                  type="button"
-                  active={selected}
-                  tone="chip"
-                  size="chip"
-                  width="hug"
-                  onClick={() => setForm({
-                    weekdays: selected
-                      ? props.form.weekdays.filter((item) => item !== weekday)
-                      : [...props.form.weekdays, weekday].sort((left, right) => left - right),
-                  })}
-                >
-                  {automationWeekdayLabel(weekday)}
-                </SegmentedTabButton>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
-      {props.form.frequencyMode === "once" ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Input
-            type="time"
-            variant="dlsMono"
-            value={props.form.time}
-            onClick={openNativePicker}
-            onChange={(event) => setForm({ time: event.currentTarget.value })}
-            aria-label={t("automation.field_time")}
-          />
-          <Input
-            type="date"
-            variant="dls"
-            value={props.form.onceDate}
-            onClick={openNativePicker}
-            onChange={(event) => setForm({ onceDate: event.currentTarget.value })}
-            aria-label={t("automation.once_date")}
-          />
-        </div>
-      ) : null}
-
-      {!isScheduleValid(props.form) ? (
-        <div className="text-xs text-dls-status-danger-fg">{t("automation.invalid_schedule")}</div>
-      ) : null}
-    </div>
-  );
-}
-
 function AutomationDialog(props: {
   open: boolean;
   mode: AutomationDialogMode;
@@ -457,23 +291,25 @@ function AutomationDialog(props: {
               {t("automation.model_required_hint")}
             </NoticeBox>
           ) : null}
-          <AutomationField label={t("automation.field_name")} required>
-            <Input
-              name="automation-title"
-              required
-              aria-required="true"
-              variant="dls"
-              value={props.form.title}
-              onChange={(event) => props.onFormChange({ ...props.form, title: event.currentTarget.value })}
-            />
-          </AutomationField>
-          <AutomationField label={t("automation.field_workspace")} hint={t("automation.optional_hint")}>
-            <WorkspaceField
-              value={props.form.workspaceDirectory}
-              defaultPath={props.workspaceRoot}
-              onChange={(workspaceDirectory) => props.onFormChange({ ...props.form, workspaceDirectory })}
-            />
-          </AutomationField>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
+            <AutomationField label={t("automation.field_name")} required>
+              <Input
+                name="automation-title"
+                required
+                aria-required="true"
+                variant="dls"
+                value={props.form.title}
+                onChange={(event) => props.onFormChange({ ...props.form, title: event.currentTarget.value })}
+              />
+            </AutomationField>
+            <AutomationField label={t("automation.field_workspace")} hint={t("automation.optional_hint")}>
+              <WorkspaceField
+                value={props.form.workspaceDirectory}
+                defaultPath={props.workspaceRoot}
+                onChange={(workspaceDirectory) => props.onFormChange({ ...props.form, workspaceDirectory })}
+              />
+            </AutomationField>
+          </div>
           <AutomationField label={t("automation.field_prompt")}>
             <div className="rounded-xl border border-dls-border bg-dls-surface">
               <Textarea
@@ -899,6 +735,12 @@ export function AutomationPage(props: {
           intervalMinutes: interval,
           weekdays: form.weekdays,
         } : {}),
+        // Weekly / biweekly: persist selected weekdays for next-run math.
+        ...(form.frequencyMode === "weekly" &&
+        (form.day === "weekly" || form.day === "biweekly") &&
+        form.weekdays.length > 0
+          ? { weekdays: form.weekdays }
+          : {}),
         ...(form.frequencyMode === "once" && timestamp ? { onceAt: timestamp } : {}),
       },
       effectiveRange: {
@@ -997,7 +839,7 @@ export function AutomationPage(props: {
     setArchivedRunKeys(readArchivedAutomationRunKeys(workspaceId));
     const sessionId = entry.run.sessionId?.trim();
     if (sessionId) {
-      // Soft-delete from 定时 records + assistant archive so sidebar drops the run.
+      // Soft-delete schedule records + assistant archive so the sidebar drops the run.
       removeAutomationSessionRecord(workspaceId, sessionId);
       archiveAssistantTask(workspaceId, {
         sessionId,
@@ -1055,7 +897,7 @@ export function AutomationPage(props: {
       .catch((cause: unknown) => {
         const message = cause instanceof Error ? cause.message : String(cause);
         // Server may still be running after a client wait timeout — do not
-        // flash a hard error and jump tabs; poll will pick up 运行中.
+        // flash a hard error and jump tabs; poll will pick up running state.
         if (/timed out/i.test(message)) {
           showToast({
             tone: "info",
@@ -1233,11 +1075,43 @@ export function AutomationPage(props: {
 
         {showTemplates ? (
           <div className="space-y-5">
+            {/* Same page-header pattern as messaging channels. */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-medium leading-7 text-dls-text">
+                  {t("automation.nav_templates")}
+                </h2>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          className="text-dls-secondary transition-colors hover:text-dls-text"
+                          aria-label={t("automation.templates_help_title")}
+                        >
+                          <HelpCircle className="size-4" />
+                        </button>
+                      }
+                    />
+                    <TooltipContent side="bottom" className="max-w-sm">
+                      <div className="space-y-1.5 text-xs">
+                        <div className="font-medium">{t("automation.templates_help_title")}</div>
+                        <p className="text-dls-secondary">{t("automation.templates_help_body")}</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-dls-secondary">
+                {t("automation.templates_desc")}
+              </p>
+            </div>
             {recommendedTemplates.length > 0 ? (
               <section>
-                <h2 className="text-sm font-medium text-dls-text">
+                <h3 className="text-sm font-medium text-dls-text">
                   {t("automation.personalization_recommended")}
-                </h2>
+                </h3>
                 <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
                   {recommendedTemplates.map((template) => (
                     <AutomationTemplateCard
@@ -1251,11 +1125,11 @@ export function AutomationPage(props: {
               </section>
             ) : null}
             <section>
-              <h2 className="text-sm font-medium text-dls-text">
+              <h3 className="text-sm font-medium text-dls-text">
                 {recommendedTemplates.length > 0
                   ? t("automation.personalization_all_templates")
                   : t("automation.start_from_template")}
-              </h2>
+              </h3>
               <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
                 {(recommendedTemplates.length > 0 ? restTemplates : visibleTemplates).map((template) => (
                   <AutomationTemplateCard

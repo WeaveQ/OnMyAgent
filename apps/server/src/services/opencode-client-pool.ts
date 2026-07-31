@@ -1,4 +1,5 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
+import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import { createWorkspaceOpencodeClient } from "./opencode-workspace-client.js";
 
 export type OpencodeClientFactory = (
@@ -20,8 +21,12 @@ export type OpencodeClientPool = {
 };
 
 /**
- * Bounded cache of OpenCode SDK clients keyed by workspace + directory.
+ * Bounded cache of OpenCode SDK clients keyed by workspace + connection + directory.
  * Caps growth on repeated proxy/automation use of the same workspace.
+ *
+ * IMPORTANT: key must include baseUrl/auth. Managed OpenCode restarts on a new
+ * port; a cache that only keys by workspace+directory keeps clients pointed at
+ * the dead port and surfaces as "Unexpected server error" on snapshot/list.
  */
 export function createOpencodeClientPool(options?: {
   maxEntries?: number;
@@ -35,16 +40,24 @@ export function createOpencodeClientPool(options?: {
   >();
 
   const keyFor = (
+    config: ServerConfig,
     workspace: WorkspaceInfo,
     directoryOverride?: string,
   ) => {
-    const dir = directoryOverride?.trim() || workspace.directory?.trim() || workspace.path;
-    return `${workspace.id}::${dir}`;
+    const connection = resolveWorkspaceOpencodeConnection(config, workspace);
+    const dir =
+      directoryOverride?.trim() ||
+      workspace.directory?.trim() ||
+      workspace.path;
+    const base = connection.baseUrl?.trim() || "";
+    // Auth material changes with managed OpenCode restarts too.
+    const auth = connection.authHeader?.trim() || "";
+    return `${workspace.id}::${base}::${auth}::${dir}`;
   };
 
   return {
     get(config, workspace, directoryOverride) {
-      const key = keyFor(workspace, directoryOverride);
+      const key = keyFor(config, workspace, directoryOverride);
       const existing = cache.get(key);
       if (existing) {
         // Refresh LRU order.

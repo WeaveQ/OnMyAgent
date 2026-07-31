@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { type ReactNode } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Clock, Play, Plus, Square } from "lucide-react";
 
 import { SegmentedTabButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -141,17 +141,55 @@ export function RunningAutomationRow(props: {
       : null;
   const longRunning = elapsedMs != null && elapsedMs >= 10 * 60_000;
   const canOpen = Boolean(props.item.running?.sessionId);
+  const promptPreview = props.item.prompt.trim().replace(/\s+/g, " ");
+  const agentName = props.item.agent?.name?.trim();
+  const agentInitial = agentName ? agentName.charAt(0).toUpperCase() : "";
+  const runCount = props.item.runs?.length ?? 0;
 
   return (
-    <div className="flex min-h-16 items-center gap-3 rounded-xl bg-dls-subtle px-3 py-2 text-sm text-dls-text">
-      <LoadingSpinner />
-      <div className="min-w-0 flex flex-1 flex-col gap-0.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium">{props.item.title}</span>
-          <AutomationTaskMeta item={props.item} />
+    <div className="rounded-xl border border-dls-border bg-dls-surface px-4 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <StatusBadge tone={longRunning ? "warning" : "success"} size="sm" shape="soft">
+          {longRunning ? (
+            <LoadingSpinner size="sm" />
+          ) : (
+            <Square className="size-2.5 fill-current" aria-hidden />
+          )}
+          {t("automation.status_running")}
+        </StatusBadge>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {props.onStop ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={props.busy}
+              onClick={() => props.onStop?.(props.item)}
+            >
+              {t("automation.stop_run")}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canOpen}
+            onClick={() => {
+              const sessionId = props.item.running?.sessionId;
+              if (sessionId) props.onOpenSession(sessionId);
+            }}
+          >
+            {t("automation.view_run_details")}
+          </Button>
         </div>
+      </div>
+      <div className="mt-2 min-w-0">
+        <div className="truncate text-sm font-semibold text-dls-text">{props.item.title}</div>
+        {promptPreview ? (
+          <div className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">{promptPreview}</div>
+        ) : null}
         {elapsedMs != null ? (
-          <span className="truncate text-xs text-dls-secondary">
+          <div className="mt-1 truncate text-xs text-dls-secondary">
             {longRunning
               ? t("automation.running_long_hint", {
                   elapsed: formatAutomationElapsed(elapsedMs),
@@ -159,35 +197,30 @@ export function RunningAutomationRow(props: {
               : t("automation.running_elapsed", {
                   elapsed: formatAutomationElapsed(elapsedMs),
                 })}
-          </span>
+          </div>
         ) : null}
       </div>
-      <StatusBadge tone={longRunning ? "warning" : "surface"} size="lg" shape="soft">
-        {t("automation.status_running")}
-      </StatusBadge>
-      {props.onStop ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={props.busy}
-          onClick={() => props.onStop?.(props.item)}
-        >
-          {t("automation.stop_run")}
-        </Button>
-      ) : null}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={!canOpen}
-        onClick={() => {
-          const sessionId = props.item.running?.sessionId;
-          if (sessionId) props.onOpenSession(sessionId);
-        }}
-      >
-        {t("automation.view_run_details")}
-      </Button>
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-dls-secondary">
+        {agentName ? (
+          <span className="inline-flex min-w-0 max-w-40 items-center gap-1.5">
+            <span
+              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-icon-muted-bg text-2xs font-semibold text-dls-text"
+              aria-hidden
+            >
+              {agentInitial}
+            </span>
+            <span className="truncate">{agentName}</span>
+          </span>
+        ) : null}
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <Clock className="size-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{scheduleLabel(props.item.schedule)}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1">
+          <Play className="size-3.5 shrink-0" aria-hidden />
+          {t("automation.run_count", { count: runCount })}
+        </span>
+      </div>
     </div>
   );
 }

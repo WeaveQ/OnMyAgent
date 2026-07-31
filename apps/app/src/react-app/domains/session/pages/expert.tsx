@@ -1353,9 +1353,7 @@ export function ExpertPage(props: ExpertPageProps) {
                     activeSidebarView={activeSidebarView}
                     visitedRailViews={visitedRailViews}
                     isPrimarySessionView={isPrimarySessionView}
-                    primarySessionActive={
-                      isPrimarySessionView && !showDelayedSessionLoadingState
-                    }
+                    primarySessionActive={isPrimarySessionView}
                     panes={{
                       agents: props.renderAgentsPage({
                         workspaceId: props.selectedWorkspaceId,
@@ -1532,9 +1530,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             workspaceId={props.runtimeWorkspaceId!}
                             sessionId={renderedSessionId}
                             draftOnly={isDraftSession}
-                            surfaceVisible={
-                              isPrimarySessionView && !showDelayedSessionLoadingState
-                            }
+                            surfaceVisible={isPrimarySessionView}
                             opencodeBaseUrl={reactSessionBaseUrl}
                             onmyagentToken={reactSessionToken}
                             todos={props.todos}

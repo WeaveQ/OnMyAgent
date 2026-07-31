@@ -97,7 +97,7 @@ function IconHoverTip(props: {
   );
 }
 
-/** Left filters only — run history lives under 全部任务 / session groups (no duplicate nav). */
+/** Left filters only — run history lives under All tasks / session groups (no duplicate nav). */
 export type AutomationNavKey = "tasks" | "templates";
 
 export type AutomationNavSessionRow = {
@@ -133,7 +133,7 @@ export function AutomationNavSidebar(props: {
     title: string;
     sessionIds: string[];
   }) => void;
-  /** Session-level actions (same as former home 定时 child rows). */
+  /** Session-level actions (same as former home schedule child rows). */
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
