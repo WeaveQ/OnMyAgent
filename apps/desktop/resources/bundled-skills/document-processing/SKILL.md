@@ -54,7 +54,7 @@ description: 统一处理 Word、Excel、CSV、PowerPoint 和 PDF 文件。用�
 
 - 业务文件写会话目录；过程脚本只写 `os.tmpdir()` / `.opencode/tmp/`。
 - 表格优先 `extract-sheets` / `write-xlsx` / `read`，不要为拆 sheet 在会话根写 `extract_*.cjs`。
-- 正文只简述交付物名称；**不要**写 `文件路径：…`（产物卡负责打开）；上传原件与 helper 永不进产物卡。
+- 正文只简述交付物与关键结构；**文件名/sheet 用粗体**；**不要**写 `文件路径：…`、反引号路径、「打开产物」「文件无错误」等过程话（产物卡负责打开）；上传原件、helper、临时 JSON（`oma-*.json`）永不进产物卡。
 
 ## 常见任务
 

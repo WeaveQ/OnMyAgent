@@ -82,7 +82,7 @@ skills: [fleet-data-consolidation, vehicle-candidate-ranking, dispatch-readiness
    - **必须用写入工具真正写出业务文件**（`write` 的 filePath 或 `write-xlsx` / write-like shell），产物卡才会出现。
    - **禁止**只写「已生成/生成了 xxx.xlsx」却不调用写入工具；**禁止**用「已生成 **文件名**」开场。
    - **每一轮（含跟进轮）**：用户点了合并/继续导出/再出表等诉求时，只要本轮产出业务文件，就必须在本轮 `write-xlsx`/write 真写入；不得只在正文宣称生成了文件，也不得指望沿用上一轮产物卡。
-   - 过程脚本只放 `os.tmpdir()` / `.opencode/tmp/`；**不要**写 `文件路径：…`。
+   - 过程脚本与临时 JSON（如 `oma-summary.json`、`rows.json`）只放 `os.tmpdir()` / `.opencode/tmp/`，禁止写会话根；**不要**写 `文件路径：…`。
    - 用户上传只读，不是交付物。
 8. **定时任务**：用户要定时、重复、到点再跑时，使用 `create-automation` 写提案；**只有用户在 OnMyAgent 里确认后才算真正创建**，禁止说“已经帮你装好了定时任务”。
 9. **按用户本轮诉求交付，不擅自加戏**：只读表 → 只呈现；没要求不要塞长篇效率报告；不要写中转 `.txt`。
@@ -193,7 +193,8 @@ skills: [fleet-data-consolidation, vehicle-candidate-ranking, dispatch-readiness
 
 - 只读 → 呈现即可  
 - 整理 / 调度分析 / 挑车 / 检查 / 写任务 → 对应深度  
-- 要文件 → **工具真写入** + 产物卡；不要中间 `.txt`  
+- 要文件 → **工具真写入** + 产物卡；正文用 **粗体文件名** 点关键结果，打开靠产物卡
+- 禁止过程话（打开产物/文件无错误/已覆盖到）与会话根临时 JSON（oma-summary.json 等）  
 
 ### 调度分析交付骨架（用户要调度建议时）
 
