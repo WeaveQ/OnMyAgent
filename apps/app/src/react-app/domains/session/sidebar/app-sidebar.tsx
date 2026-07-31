@@ -9,14 +9,11 @@ import {
   Clock3,
   CircleHelp,
   FileText,
-  Globe2,
   Info,
   KeyRound,
   LogOut,
   MonitorSmartphone,
-  Moon,
   MoreHorizontal,
-  Palette,
   Pencil,
   Plus,
   Trash2,
@@ -25,7 +22,6 @@ import {
   Settings,
   Settings2,
   Network,
-  Sun,
   UserRound,
 } from "lucide-react";
 
@@ -34,12 +30,6 @@ import {
   isGeneratedSessionTitle,
 } from "../../../../app/lib/session-title";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
-import {
-  getInitialThemeMode,
-  setThemeMode as setAppThemeMode,
-  subscribeToTheme,
-  type ThemeMode,
-} from "../../../../app/theme";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
@@ -826,9 +816,6 @@ export function SidebarAccountButton(props: {
 }) {
   const [open, setOpen] = React.useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
-  const [themeMode, setThemeModeState] = React.useState<ThemeMode>(() =>
-    getInitialThemeMode(),
-  );
   const [localUser] = React.useState(() => readLocalAuthUser());
   const account = localUser
     ? { name: localUser.username, email: localUser.email }
@@ -836,16 +823,6 @@ export function SidebarAccountButton(props: {
   const initial = (account?.name || account?.email || "xxx")
     .charAt(0)
     .toUpperCase();
-
-  React.useEffect(
-    () => subscribeToTheme(() => setThemeModeState(getInitialThemeMode())),
-    [],
-  );
-
-  const setThemeMode = (value: ThemeMode) => {
-    setAppThemeMode(value);
-    setThemeModeState(value);
-  };
 
   const menuContent = (
     <>
@@ -901,30 +878,7 @@ export function SidebarAccountButton(props: {
             }}
           />
         ) : null}
-        {/* Language lives under Settings → Personalization → Display. */}
-        <SidebarAccountSubMenu
-          icon={Palette}
-          label={t("account_menu.theme")}
-          items={[
-            {
-              value: "light",
-              label: t("account_menu.theme_light"),
-              icon: Sun,
-            },
-            {
-              value: "dark",
-              label: t("account_menu.theme_dark"),
-              icon: Moon,
-            },
-            {
-              value: "system",
-              label: t("account_menu.theme_system"),
-              icon: Globe2,
-            },
-          ]}
-          selectedValue={themeMode}
-          onSelect={(value) => setThemeMode(value as ThemeMode)}
-        />
+        {/* Language + theme live under Settings → Personalization. */}
         <SidebarAccountMenuItem
           icon={Settings}
           label={t("account_menu.settings")}

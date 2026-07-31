@@ -9,6 +9,7 @@ import { normalizeIdleHours } from "../../../kernel/local-provider";
 import { t } from "@/i18n";
 import { FontSizeBlockRow } from "../appearance/font-size-section";
 import { LanguageBlockRow } from "../appearance/language-section";
+import { ThemeBlockRow } from "../appearance/theme-section";
 import {
   SettingsBlock,
   SettingsBlockRow,
@@ -66,34 +67,18 @@ export function PreferencesView(props: PreferencesViewProps) {
 
   return (
     <LayoutStack>
-      <SettingsPageSection title={t("settings.display_settings_title")}>
+      {/* 1. Interface — language + theme (chrome). */}
+      <SettingsPageSection title={t("settings.interface_settings_title")}>
         <SettingsBlock>
           <LanguageBlockRow />
+          <ThemeBlockRow />
+        </SettingsBlock>
+      </SettingsPageSection>
+
+      {/* 2. Display — size, chat chrome, reasoning visibility. */}
+      <SettingsPageSection title={t("settings.display_settings_title")}>
+        <SettingsBlock>
           <FontSizeBlockRow />
-          <SettingsBlockRow
-            title={t("settings.show_model_reasoning")}
-            description={t("settings.show_model_reasoning_desc")}
-            actions={
-              <Switch
-                aria-label={t("settings.show_model_reasoning")}
-                checked={props.showThinking}
-                disabled={props.busy}
-                onCheckedChange={props.onToggleShowThinking}
-              />
-            }
-          />
-          <SettingsBlockRow
-            title={t("settings.auto_compact")}
-            description={t("settings.auto_compact_desc")}
-            actions={
-              <Switch
-                aria-label={t("settings.auto_compact")}
-                checked={props.autoCompactContext}
-                disabled={props.busy || props.autoCompactContextBusy}
-                onCheckedChange={props.onToggleAutoCompactContext}
-              />
-            }
-          />
           <SettingsBlockRow
             title={t("settings.conversation_width_label")}
             description={t("settings.conversation_width_desc")}
@@ -117,11 +102,36 @@ export function PreferencesView(props: PreferencesViewProps) {
               </select>
             }
           />
+          <SettingsBlockRow
+            title={t("settings.show_model_reasoning")}
+            description={t("settings.show_model_reasoning_desc")}
+            actions={
+              <Switch
+                aria-label={t("settings.show_model_reasoning")}
+                checked={props.showThinking}
+                disabled={props.busy}
+                onCheckedChange={props.onToggleShowThinking}
+              />
+            }
+          />
         </SettingsBlock>
       </SettingsPageSection>
 
+      {/* 3. Session habits. */}
       <SettingsPageSection title={t("settings.session_management_title")}>
         <SettingsBlock>
+          <SettingsBlockRow
+            title={t("settings.auto_compact")}
+            description={t("settings.auto_compact_desc")}
+            actions={
+              <Switch
+                aria-label={t("settings.auto_compact")}
+                checked={props.autoCompactContext}
+                disabled={props.busy || props.autoCompactContextBusy}
+                onCheckedChange={props.onToggleAutoCompactContext}
+              />
+            }
+          />
           <SettingsBlockRow
             align="start"
             title={t("settings.auto_new_session_title")}

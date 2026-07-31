@@ -8,6 +8,8 @@ export default {
 
   "settings.font_size_title": "显示大小",
   "settings.display_settings_title": "显示设置",
+  "settings.interface_settings_title": "界面设置",
+
   "settings.font_size_desc": "缩放整个界面。也可使用 ⌘/Ctrl + 和 −，或 ⌘/Ctrl + 0 恢复默认。",
   "settings.font_size_label": "字体大小",
   "settings.font_size_hint": "作用于整个应用，包括会话与设置。",
@@ -571,7 +573,8 @@ export default {
   "settings.system_authorizations_description": "管理应用快照、自动化与通知等所需的系统权限",
   "settings.system_authorizations_go_configure": "去设置",
   "settings.preferences": "个性化",
-  "settings.preferences_card_description": "语言、显示大小、推理展示与会话习惯",
+  "settings.preferences_card_description": "界面、显示与会话习惯",
+
   "settings.session_management_title": "会话管理",
   "settings.auto_new_session_title": "自动新起会话",
   "settings.auto_new_session_desc": "超过设定时间未对话，自动开启新对话",
