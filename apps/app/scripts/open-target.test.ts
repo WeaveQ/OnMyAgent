@@ -805,6 +805,31 @@ describe("deriveOpenTargets", () => {
     ];
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
   });
+
+  it("hides intermediate oma-summary.json and tmp JSON from product cards", () => {
+    const messages = [
+      toolMessage(
+        "msg_json",
+        "write",
+        { filePath: "oma-summary.json" },
+        { filePath: "oma-summary.json" },
+      ),
+      toolMessage(
+        "msg_xlsx",
+        "write",
+        { filePath: "发货需求.xlsx" },
+        { filePath: "发货需求.xlsx" },
+      ),
+      message("msg_final", "assistant", "发货需求表已整理好。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("oma-summary.json", "text"), exists: true },
+      { ...fileTarget("发货需求.xlsx", "sheet"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.name),
+    ).toEqual(["发货需求.xlsx"]);
+  });
 });
 
 describe("resolveArtifactAbsolutePath", () => {
