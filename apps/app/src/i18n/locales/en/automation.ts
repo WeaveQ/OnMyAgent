@@ -167,6 +167,8 @@ export default {
   "automation.status_paused": "Paused",
   "automation.status_scheduled": "Scheduled",
   "automation.status_running": "Running",
+  "automation.stop_run": "Stop",
+  "automation.stop_run_done": "Stopped the current run of “{title}”",
   "automation.running_elapsed": "Running for {elapsed}",
   "automation.running_long_hint": "Running for {elapsed} — open the session to check progress",
   "automation.running_elapsed_seconds": "under 1 minute",

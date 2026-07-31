@@ -302,6 +302,12 @@ export function createExtensionsClientMethods(ctx: OnMyAgentServerClientContext)
         `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}/run`,
         { token, hostToken, method: "POST", timeoutMs: timeouts.status },
       ),
+    cancelAutomationRun: (workspaceId: string, automationId: string) =>
+      requestJson<{ item: OnMyAgentAutomationTaskItem; items: OnMyAgentAutomationTaskItem[] }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/automations/${encodeURIComponent(automationId)}/cancel`,
+        { token, hostToken, method: "POST", timeoutMs: timeouts.status },
+      ),
     deleteAutomation: (workspaceId: string, automationId: string) =>
       requestJson<{ ok: boolean; items: OnMyAgentAutomationTaskItem[] }>(
         baseUrl,

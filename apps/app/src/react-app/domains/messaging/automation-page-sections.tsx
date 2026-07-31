@@ -129,7 +129,10 @@ function formatAutomationElapsed(ms: number): string {
 
 export function RunningAutomationRow(props: {
   item: OnMyAgentAutomationTaskItem;
+  busy?: boolean;
   onOpenSession: (sessionId: string) => void;
+  /** Stop this in-progress run (keeps the schedule enabled). */
+  onStop?: (item: OnMyAgentAutomationTaskItem) => void;
 }) {
   const startedAt = props.item.running?.startedAt;
   const elapsedMs =
@@ -162,6 +165,17 @@ export function RunningAutomationRow(props: {
       <StatusBadge tone={longRunning ? "warning" : "surface"} size="lg" shape="soft">
         {t("automation.status_running")}
       </StatusBadge>
+      {props.onStop ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={props.busy}
+          onClick={() => props.onStop?.(props.item)}
+        >
+          {t("automation.stop_run")}
+        </Button>
+      ) : null}
       <Button
         type="button"
         variant="outline"
