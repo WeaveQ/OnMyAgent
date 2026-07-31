@@ -142,6 +142,7 @@ import {
   useAutomationPageChrome,
   type AutomationStatusTab,
 } from "./use-automation-page-chrome";
+import { RunningAutomationRow } from "./automation-page-sections";
 
 type AutomationDialogMode = "create" | "edit";
 
@@ -352,34 +353,6 @@ function ScheduledAutomationRow(props: {
           <Trash2 className="size-3.5 text-dls-secondary" />
         </Button>
       </div>
-    </div>
-  );
-}
-
-function RunningAutomationRow(props: {
-  item: OnMyAgentAutomationTaskItem;
-  onOpenSession: (sessionId: string) => void;
-}) {
-  return (
-    <div className="flex min-h-16 items-center gap-3 rounded-xl bg-dls-subtle px-3 py-2 text-sm text-dls-text">
-      <LoadingSpinner />
-      <div className="min-w-0 flex flex-1 items-center gap-2">
-        <span className="truncate text-sm font-medium">{props.item.title}</span>
-        <AutomationTaskMeta item={props.item} />
-      </div>
-      <StatusBadge tone="surface" size="lg" shape="soft">{t("automation.status_running")}</StatusBadge>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={!props.item.running?.sessionId}
-        onClick={() => {
-          const sessionId = props.item.running?.sessionId;
-          if (sessionId) props.onOpenSession(sessionId);
-        }}
-      >
-        {t("automation.view_run_details")}
-      </Button>
     </div>
   );
 }

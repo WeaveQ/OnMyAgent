@@ -114,23 +114,59 @@ export function ScheduledAutomationRow(props: {
   );
 }
 
+function formatAutomationElapsed(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return t("automation.running_elapsed_seconds");
+  if (minutes < 60) {
+    return t("automation.running_elapsed_minutes", { count: minutes });
+  }
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0
+    ? t("automation.running_elapsed_hours_minutes", { hours, minutes: rest })
+    : t("automation.running_elapsed_hours", { count: hours });
+}
+
 export function RunningAutomationRow(props: {
   item: OnMyAgentAutomationTaskItem;
   onOpenSession: (sessionId: string) => void;
 }) {
+  const startedAt = props.item.running?.startedAt;
+  const elapsedMs =
+    typeof startedAt === "number" && Number.isFinite(startedAt)
+      ? Math.max(0, Date.now() - startedAt)
+      : null;
+  const longRunning = elapsedMs != null && elapsedMs >= 10 * 60_000;
+  const canOpen = Boolean(props.item.running?.sessionId);
+
   return (
-    <div className="flex min-h-12 items-center gap-3 rounded-lg bg-dls-subtle px-3 py-2 text-xs text-dls-text">
+    <div className="flex min-h-16 items-center gap-3 rounded-xl bg-dls-subtle px-3 py-2 text-sm text-dls-text">
       <LoadingSpinner />
-      <div className="min-w-0 flex flex-1 items-center gap-2">
-        <span className="truncate text-sm font-medium">{props.item.title}</span>
-        <AutomationTaskMeta item={props.item} />
+      <div className="min-w-0 flex flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium">{props.item.title}</span>
+          <AutomationTaskMeta item={props.item} />
+        </div>
+        {elapsedMs != null ? (
+          <span className="truncate text-xs text-dls-secondary">
+            {longRunning
+              ? t("automation.running_long_hint", {
+                  elapsed: formatAutomationElapsed(elapsedMs),
+                })
+              : t("automation.running_elapsed", {
+                  elapsed: formatAutomationElapsed(elapsedMs),
+                })}
+          </span>
+        ) : null}
       </div>
-      <StatusBadge tone="surface" size="sm" shape="soft">{t("automation.status_running")}</StatusBadge>
+      <StatusBadge tone={longRunning ? "warning" : "surface"} size="lg" shape="soft">
+        {t("automation.status_running")}
+      </StatusBadge>
       <Button
         type="button"
         variant="outline"
         size="sm"
-        disabled={!props.item.running?.sessionId}
+        disabled={!canOpen}
         onClick={() => {
           const sessionId = props.item.running?.sessionId;
           if (sessionId) props.onOpenSession(sessionId);
