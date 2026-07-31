@@ -565,13 +565,19 @@ describe("deriveOpenTargets", () => {
     expect(targets.map((target) => target.value)).toContain("agents/ledger.xlsx");
   });
 
-  it("hides intermediate agent scripts like extract_sheets.cjs from the turn strip", () => {
+  it("hides process helper scripts when a business file is the real deliverable", () => {
     const messages = [
       toolMessage(
         "msg_tool",
         "write",
         { filePath: "extract_sheets.cjs" },
         { filePath: "extract_sheets.cjs" },
+      ),
+      toolMessage(
+        "msg_run",
+        "bash",
+        { command: "node extract_sheets.cjs" },
+        "Wrote 发货需求与报价补充.xlsx\n",
       ),
       toolMessage(
         "msg_xlsx",
@@ -588,13 +594,14 @@ describe("deriveOpenTargets", () => {
     const verified = [
       { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
       { ...fileTarget("发货需求与报价补充.xlsx", "sheet"), exists: true },
+      { ...fileTarget("preview.png", "image"), exists: true },
     ];
     expect(
       selectTurnOpenTargets(messages, verified).map((target) => target.value),
     ).toEqual(["发货需求与报价补充.xlsx"]);
   });
 
-  it("does not show only a .cjs helper when it is the sole write-tool file", () => {
+  it("hides unnamed process helpers that were only written (not declared)", () => {
     const messages = [
       toolMessage(
         "msg_tool",
@@ -608,6 +615,45 @@ describe("deriveOpenTargets", () => {
       { ...fileTarget("extract_sheets.cjs", "text"), exists: true },
     ];
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("shows intentional code deliverables when declared as 文件路径", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "export_orders.py" },
+        { filePath: "export_orders.py" },
+      ),
+      message(
+        "msg_final",
+        "assistant",
+        "脚本写好了。\n文件路径：export_orders.py",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("export_orders.py", "text"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["export_orders.py"]);
+  });
+
+  it("shows png/html/txt content deliverables from write tools", () => {
+    const messages = [
+      toolMessage("msg_1", "write", { filePath: "chart.png" }, { filePath: "chart.png" }),
+      toolMessage("msg_2", "write", { filePath: "summary.html" }, { filePath: "summary.html" }),
+      toolMessage("msg_3", "write", { filePath: "notes.txt" }, { filePath: "notes.txt" }),
+      message("msg_final", "assistant", "图和摘要都生成好了。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("chart.png", "image"), exists: true },
+      { ...fileTarget("summary.html", "html"), exists: true },
+      { ...fileTarget("notes.txt", "text"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["chart.png", "notes.txt", "summary.html"].sort());
   });
 
   it("drops inbox-style user upload basenames from derived targets", () => {
