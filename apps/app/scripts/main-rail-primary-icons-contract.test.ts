@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dir, "../../..");
 
 describe("main rail primary icon contract", () => {
-  test("uses the compact shared rail width", () => {
+  test("uses the larger shared rail width", () => {
     const railSource = readFileSync(
       resolve(
         root,
@@ -15,11 +15,12 @@ describe("main rail primary icon contract", () => {
     );
 
     expect(railSource).toContain('className="flex w-16 shrink-0');
-    expect(railSource).toContain("-translate-y-0.5 flex-1 flex-col");
-    expect(railSource).not.toContain("w-[72px]");
+    expect(railSource).toContain("flex-1 flex-col items-center gap-2");
+    expect(railSource).not.toContain("w-12 shrink-0");
+    expect(railSource).not.toContain("w-14 shrink-0");
   });
 
-  test("top rail entries use dedicated fill icons (not mixed Lucide strokes)", () => {
+  test("top rail entries use unified Lucide outline icons (stroke language)", () => {
     const railSource = readFileSync(
       resolve(
         root,
@@ -41,17 +42,25 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain("icon: FilesRailIcon");
     expect(railSource).toContain("icon: StoreRailIcon");
     expect(railSource).toContain("icon: ManageRailIcon");
-    expect(railSource).not.toContain("BotMessageSquare");
-    expect(railSource).not.toContain("UserStar");
-    expect(railSource).not.toContain("MonitorCog");
-    expect(railSource).not.toContain("FolderOpen");
-    expect(railSource).not.toContain("SlidersHorizontal");
-    expect(railSource).not.toMatch(/\bStore\b/);
-    expect(iconSource).toContain('viewBox="0 0 16 16"');
-    expect(iconSource).toContain('fill="currentColor"');
+
+    // Outline set — no solid fill glyphs in the primary rail icon module.
+    expect(iconSource).toContain('from "lucide-react"');
+    expect(iconSource).toContain("House");
+    expect(iconSource).toContain("Bot");
+    expect(iconSource).toContain("Folder");
+    expect(iconSource).toContain("ShoppingBag");
+    expect(iconSource).toContain("Settings2");
+    expect(iconSource).toContain("MonitorSmartphone");
+    expect(iconSource).toContain("MessagesSquare");
+    expect(iconSource).toContain("RAIL_ICON_STROKE");
+    expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
+    expect(iconSource).not.toContain('fill="currentColor"');
+    expect(iconSource).not.toContain('viewBox="0 0 16 16"');
+
     expect(iconSource).toContain("export function LocalAgentRailIcon");
     expect(iconSource).toContain("export function FilesRailIcon");
     expect(iconSource).toContain("export function StoreRailIcon");
     expect(iconSource).toContain("export function ManageRailIcon");
+    expect(iconSource).toContain("export function DevicesRailIcon");
   });
 });
