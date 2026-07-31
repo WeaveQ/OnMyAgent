@@ -329,6 +329,9 @@ describe("order-dispatch-specialist agent contract (refactored)", () => {
     expect(agentText).toContain("也不要再往后面加边界段");
     expect(agentText).toContain(":::followups");
     expect(agentText).toContain("可点击选项");
+    expect(agentText).toContain("按用户本轮诉求交付，不擅自加戏");
+    expect(agentText).toContain("## 按诉求交付（重要）");
+    expect(agentText).toContain("客服侧一句话快速判断");
 
     // Colleague tone without legacy forced phrases
     expect(agentText).toContain("行，我先把这票信息捋一下");
