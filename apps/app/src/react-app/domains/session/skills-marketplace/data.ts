@@ -106,10 +106,10 @@ export function listBuiltinMarketplaceSkills(): SkillMarketplaceEntry[] {
     .map(([skillPath, rawSkill]) => {
       const packageName = packageNameFromPath(skillPath);
       const skillName = frontmatterValue(rawSkill, "name") || packageName;
+      // Catalog titles stay English (never prefer display_name_zh).
       const displayName =
-        frontmatterValue(rawSkill, "display_name") ||
-        frontmatterValue(rawSkill, "display_name_zh") ||
         frontmatterValue(rawSkill, "display_name_en") ||
+        frontmatterValue(rawSkill, "display_name") ||
         skillName;
       const description =
         frontmatterValue(rawSkill, "description_zh") ||

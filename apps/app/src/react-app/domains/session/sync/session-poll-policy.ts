@@ -16,8 +16,12 @@ export const AUTOMATION_IDLE_REFETCH_MS = 15_000;
 /** Reload-events poll: longer than the old hard 3s always-on timer. */
 export const RELOAD_EVENTS_POLL_INTERVAL_MS = 10_000;
 
-/** Focused session snapshot React Query staleTime (was 500ms). */
-export const SESSION_SNAPSHOT_STALE_TIME_MS = 5_000;
+/**
+ * Focused session snapshot React Query staleTime.
+ * Long enough that revisiting a recently opened expert/session is a cache hit
+ * instead of an immediate full refetch (was 500ms, then 5s).
+ */
+export const SESSION_SNAPSHOT_STALE_TIME_MS = 30_000;
 
 /**
  * Conversation-history panel/popover snapshot message cap.

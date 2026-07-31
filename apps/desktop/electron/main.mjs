@@ -117,6 +117,7 @@ import {
   extractFrontmatterMap,
   extractTrigger,
   forwardedDeepLinks,
+  pickUsableSkillDescription,
   isTransientNetworkError,
   normalizeDesktopBootstrapConfig,
   normalizeWorkspaceEntry,
@@ -1284,14 +1285,22 @@ async function listLocalSkills(projectDir) {
       out.push({
         name,
         path: skillDir,
-        description: extractDescription(raw) ?? undefined,
+        description: pickUsableSkillDescription(
+          localeMap.description_zh,
+          localeMap.description_en,
+          localeMap.description,
+          extractDescription(raw),
+        ),
         trigger: extractTrigger(raw) ?? undefined,
         root,
         readonly: bundledSkillsRootPath() === root,
         displayNameZh: localeMap.display_name_zh,
         displayNameEn: localeMap.display_name_en,
-        descriptionZh: localeMap.description_zh,
-        descriptionEn: localeMap.description_en,
+        descriptionZh: pickUsableSkillDescription(localeMap.description_zh),
+        descriptionEn: pickUsableSkillDescription(
+          localeMap.description_en,
+          localeMap.description,
+        ),
       });
     }
   }
@@ -1352,11 +1361,12 @@ async function listBuiltinSkillCatalog() {
           "utf8",
         );
         const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
-        description =
-          localeMap.description_zh ||
-          localeMap.description ||
-          extractDescription(raw) ||
-          undefined;
+        description = pickUsableSkillDescription(
+          localeMap.description_zh,
+          localeMap.description_en,
+          localeMap.description,
+          extractDescription(raw),
+        );
         displayNameZh = localeMap.display_name_zh;
         displayNameEn = localeMap.display_name_en;
       } catch {

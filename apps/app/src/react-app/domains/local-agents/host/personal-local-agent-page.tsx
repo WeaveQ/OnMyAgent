@@ -157,7 +157,7 @@ type PersonalLocalAgentPageProps = {
    */
   onOpenTargetsChange?: (targets: OpenTarget[]) => void;
   /** Navigate to the Agent Management tab (skills panel by default). */
-  onOpenAgentManagement?: (panel?: "skills" | "providers" | "agents") => void;
+  onOpenAgentManagement?: (panel?: "skills" | "agents") => void;
   resumeRequest?: SessionArchiveResumeRequest | null;
   onResumeConsumed?: () => void;
   /** OnMyAgent server client used to fetch archived session messages when

@@ -410,7 +410,9 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const handleChatWithSkill = useCallback(
     (skill: { name: string }) => {
-      const name = skill.name.trim();
+      // Slash-command token must match the installed skill folder / package name
+      // (e.g. self-improving), never a localized display title.
+      const name = skill.name.trim().replace(/^\/+/, "");
       if (!name) return;
       openOfficeNewTaskWithDraft(t("session.chat_with_skill_prompt", { name }));
     },
@@ -564,23 +566,29 @@ export function AssistantPage(props: AssistantPageProps) {
         return;
       }
       // 1) Delete every run session under the group (history rows).
-      // Ghost sessions (already missing in OpenCode) must not abort the loop —
-      // otherwise the schedule definition is never deleted and "定时" returns.
+      // Ghost sessions must not abort the group — otherwise the schedule
+      // definition is never deleted and "定时" returns. Parallel budgeted
+      // deletes keep multi-run groups from stacking full remote timeouts.
       for (const sessionId of target.sessionIds) {
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
         );
-        try {
-          await props.onDeleteSession(sessionId);
-        } catch (error) {
-          console.warn(
-            "[assistant] failed to delete automation run session; continuing",
-            sessionId,
-            error,
-          );
-        }
       }
+      const deleteOne = props.onDeleteSession;
+      await Promise.allSettled(
+        target.sessionIds.map(async (sessionId) => {
+          try {
+            await deleteOne(sessionId);
+          } catch (error) {
+            console.warn(
+              "[assistant] failed to delete automation run session; continuing",
+              sessionId,
+              error,
+            );
+          }
+        }),
+      );
       // 2) Delete the automation definition itself. Without this, the schedule
       // keeps firing and the "定时" group reappears — feels like "删不掉".
       const automationId = target.groupId.trim();
@@ -765,7 +773,7 @@ export function AssistantPage(props: AssistantPageProps) {
       return;
     }
     consumedAgentManagementIntentRef.current = intent.key;
-    if (intent.action === "createProvider") {
+    if (intent.action === "openPanel") {
       setAgentManagementPageIntent(intent);
       openRailView("agentManagement");
       onAgentManagementIntentConsumed?.(intent.key);

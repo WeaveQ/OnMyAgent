@@ -434,8 +434,8 @@ function SkillMatrixRow(props: {
   // Align subtitle with matrix columns (not the full-disk multi-agent scan).
   const sourceSummary = skillSourceSummaryForMatrix(props.skill, props.matrixAgents);
   const pathSummary = skillPrimaryPathForMatrix(props.skill, props.matrixAgents);
-  const title =
-    props.skill.displayNameZh || props.skill.displayNameEn || props.skill.name;
+  // Skill titles stay English (never prefer zh display names).
+  const title = props.skill.displayNameEn || props.skill.name;
   const sourceKind =
     props.skill.kind ?? props.skill.sources.find((source) => source.kind)?.kind ?? "skill";
   const sourceKindLabel =
@@ -624,7 +624,8 @@ function SkillMatrixDrawer(props: {
   onSkillAction: (skill: AgentManagementSkill, agent: AgentManagementSkillAgent, action: "enable" | "disable" | "open" | "import") => void;
 }) {
   const skill = props.skill;
-  const title = skill.displayNameZh || skill.displayNameEn || skill.name;
+  // Skill titles stay English; descriptions may still be localized elsewhere.
+  const title = skill.displayNameEn || skill.name;
   const description = skill.descriptionZh || skill.descriptionEn || skill.description || "";
   const sourceKind = skill.kind ?? skill.sources.find((source) => source.kind)?.kind ?? "skill";
   const sourceKindLabel = sourceKind === "runtime-skill" ? t("agent_manager.skill.kind_runtime") : sourceKind === "slash-command" ? t("agent_manager.skill.kind_slash") : sourceKind === "plugin" ? t("agent_manager.skill.kind_plugin") : null;

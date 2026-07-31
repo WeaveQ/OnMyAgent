@@ -1,13 +1,15 @@
 /**
  * Copy core preinstall bundled skills into the user skills root (idempotent).
+ * Existing core installs also re-sync SKILL.md so display name/description stay current.
  */
 import { existsSync } from "node:fs";
-import { cp, mkdir, rm, stat } from "node:fs/promises";
+import { cp, copyFile, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import {
   CORE_PREINSTALL_SKILLS,
   shouldInstallCoreSkill,
+  shouldRefreshCoreSkillMarkdown,
 } from "./builtin-skills-policy.mjs";
 
 /**
@@ -62,6 +64,7 @@ export async function ensureDefaultBuiltinSkills(input) {
 
   const core = input.coreSkills ?? CORE_PREINSTALL_SKILLS;
   const installed = [];
+  const refreshed = [];
   const skipped = [];
   const errors = [];
 
@@ -70,16 +73,6 @@ export async function ensureDefaultBuiltinSkills(input) {
   for (const entry of core) {
     const destination = path.join(userRoot, entry.skillName);
     const exists = await pathExists(destination);
-    if (
-      !shouldInstallCoreSkill({
-        packageName: entry.packageName,
-        skillName: entry.skillName,
-        destinationExists: exists,
-      })
-    ) {
-      skipped.push(entry.skillName);
-      continue;
-    }
 
     let sourceDir = null;
     if (typeof input.packageSourceCandidates === "function") {
@@ -95,19 +88,57 @@ export async function ensureDefaultBuiltinSkills(input) {
       continue;
     }
 
-    try {
-      await copyDir(sourceDir, destination);
-      installed.push(entry.skillName);
-    } catch (error) {
-      errors.push(
-        `${entry.skillName}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+    // Fresh install of missing core packages.
+    if (
+      shouldInstallCoreSkill({
+        packageName: entry.packageName,
+        skillName: entry.skillName,
+        destinationExists: exists,
+      })
+    ) {
+      try {
+        await copyDir(sourceDir, destination);
+        installed.push(entry.skillName);
+      } catch (error) {
+        errors.push(
+          `${entry.skillName}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      continue;
     }
+
+    // Product-owned core skills: refresh SKILL.md so card titles/descriptions
+    // pick up bundled frontmatter (fixes stale ">-" / empty descriptions).
+    if (
+      shouldRefreshCoreSkillMarkdown({
+        packageName: entry.packageName,
+        skillName: entry.skillName,
+        destinationExists: exists,
+      })
+    ) {
+      const srcMd = path.join(sourceDir, "SKILL.md");
+      const destMd = path.join(destination, "SKILL.md");
+      if (existsSync(srcMd)) {
+        try {
+          await mkdir(destination, { recursive: true });
+          await copyFile(srcMd, destMd);
+          refreshed.push(entry.skillName);
+        } catch (error) {
+          errors.push(
+            `${entry.skillName} refresh: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+        continue;
+      }
+    }
+
+    skipped.push(entry.skillName);
   }
 
   return {
     ok: errors.length === 0,
     installed,
+    refreshed,
     skipped,
     errors,
   };
