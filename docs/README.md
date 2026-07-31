@@ -15,8 +15,10 @@ docs/
   design/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
+    files-module-product-spec.md  ← Files module product spec
     2026-07-22-external-office-edit-refresh.md  ← feature design note (dated)
-    preview.html / preview-dark.html / preview.css
+    2026-07-30-settings-optimization-plan.md    ← settings batch shipped summary (historical)
+    preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift
   windows-compat.md         ← Windows preflight, NSIS, macOS-only gaps (Computer Use / Appshot)
   windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
   x-project-bp/             ← product/strategy notes (not engineering SoT)

@@ -188,8 +188,8 @@ spacing:
     default: 36 # h-9 — default in-page action
     lg: 40     # h-10 — primary CTA
     xl: 44     # h-11 — touch-target-safe CTA (also used for mobile)
-    chrome: 48 # h-12 / min-h-12 — RailButton top / panel titlebar / composer footer chrome
-    2xl: 56    # h-14 — Level-3 nav / IconTile lg / avatar-lg
+    chrome: 48 # h-12 / min-h-12 — panel titlebar / composer footer / media-icon outer (RailButton height is content; pill width is 48)
+    2xl: 56    # h-14 — Level-3 nav / IconTile lg / avatar-lg / sidebar CTA header strip
   hero-scale:
     # Padding values for empty-state hero / marketing / plugin index
     # sections. NEVER use for row-level UI.
