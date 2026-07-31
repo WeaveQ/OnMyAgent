@@ -8,6 +8,7 @@ import { normalizeIdleHours } from "../../../kernel/local-provider";
 
 import { t } from "@/i18n";
 import { FontSizeBlockRow } from "../appearance/font-size-section";
+import { LanguageBlockRow } from "../appearance/language-section";
 import {
   SettingsBlock,
   SettingsBlockRow,
@@ -67,6 +68,7 @@ export function PreferencesView(props: PreferencesViewProps) {
     <LayoutStack>
       <SettingsPageSection title={t("settings.display_settings_title")}>
         <SettingsBlock>
+          <LanguageBlockRow />
           <FontSizeBlockRow />
           <SettingsBlockRow
             title={t("settings.show_model_reasoning")}
