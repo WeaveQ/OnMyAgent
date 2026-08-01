@@ -2,6 +2,8 @@
  * Pure builders for the macOS menu-bar status item (tray equivalent).
  * No Electron imports — unit-testable without app.whenReady().
  */
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 /** Stable action ids for status-item menu (and future dock menu reuse). */
 export const STATUS_ITEM_ACTION = Object.freeze({
@@ -132,4 +134,57 @@ export function shouldQuitOnWindowAllClosed(platform) {
  */
 export function shouldHideMainWindowOnClose(platform, isQuitting) {
   return platform === "darwin" && !isQuitting;
+}
+
+/**
+ * Resolve the best on-disk image for the menu-bar status item.
+ * Prefer a dedicated monochrome template next to the app icon so macOS can
+ * recolor it for light/dark menu bars. Full-color PNGs must NOT be marked as
+ * template images — they render as a white square.
+ *
+ * @param {{
+ *   appIconPath?: string | null,
+ *   iconsDir?: string | null,
+ *   platform?: string,
+ *   existsSync?: (p: string) => boolean,
+ * }} [options]
+ * @returns {{ path: string | null, template: boolean }}
+ */
+export function resolveStatusItemIcon(options = {}) {
+  const exists = options.existsSync ?? existsSync;
+  const platform = options.platform ?? process.platform;
+  const appIconPath =
+    typeof options.appIconPath === "string" && options.appIconPath.trim()
+      ? options.appIconPath.trim()
+      : null;
+  const iconsDir =
+    (typeof options.iconsDir === "string" && options.iconsDir.trim()) ||
+    (appIconPath ? path.dirname(appIconPath) : null);
+
+  /** @type {string[]} */
+  const templateCandidates = [];
+  if (iconsDir) {
+    // Electron loads trayTemplate@2x.png automatically when the base name ends with Template.
+    templateCandidates.push(path.join(iconsDir, "trayTemplate.png"));
+    if (platform === "darwin") {
+      // Dev icons live under icons/dev/ — also try sibling production templates.
+      templateCandidates.push(
+        path.join(iconsDir, "..", "trayTemplate.png"),
+        path.join(iconsDir, "dev", "trayTemplate.png"),
+      );
+    }
+  }
+
+  for (const candidate of templateCandidates) {
+    if (candidate && exists(candidate)) {
+      return { path: candidate, template: true };
+    }
+  }
+
+  // Color fallback: app brand icon (do not setTemplateImage).
+  if (appIconPath && exists(appIconPath)) {
+    return { path: appIconPath, template: false };
+  }
+
+  return { path: null, template: false };
 }

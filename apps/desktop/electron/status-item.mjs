@@ -9,6 +9,7 @@ import {
   STATUS_ITEM_ACTION,
   STATUS_ITEM_EVENTS,
   buildStatusItemMenuSpec,
+  resolveStatusItemIcon,
   resolveStatusItemLocale,
   shouldHideMainWindowOnClose,
   shouldInstallStatusItem,
@@ -16,6 +17,10 @@ import {
 } from "./status-item-menu.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_APP_ICON_PATH = path.join(
+  __dirname,
+  "../resources/icons/icon.png",
+);
 
 /**
  * @param {object} input
@@ -27,7 +32,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @param {() => import("electron").BrowserWindow | null} input.getMainWindow
  * @param {() => void} [input.quitApp]
  * @param {() => Promise<unknown>} [input.openDesktopPermissions]
- * @param {string} [input.iconPath]
+ * @param {string | null} [input.appIconPath] Brand app icon (icon.png); used to
+ *   locate trayTemplate.png beside it, or as a color fallback.
+ * @param {string} [input.iconPath] Deprecated alias of appIconPath.
  * @param {NodeJS.Platform | string} [input.platform]
  */
 export function createStatusItemController(input) {
@@ -40,7 +47,7 @@ export function createStatusItemController(input) {
     getMainWindow,
     quitApp = () => app.quit(),
     openDesktopPermissions,
-    iconPath = path.join(__dirname, "../resources/icons/icon.png"),
+    appIconPath = input.iconPath ?? DEFAULT_APP_ICON_PATH,
     platform = process.platform,
   } = input;
 
@@ -121,17 +128,31 @@ export function createStatusItemController(input) {
     return Menu.buildFromTemplate(template);
   }
 
-  function loadTemplateIcon() {
-    let image = nativeImage.createFromPath(iconPath);
-    if (image.isEmpty()) {
-      // 1×1 transparent fallback so Tray construction never throws in tests.
-      image = nativeImage.createEmpty();
+  function loadStatusItemIcon() {
+    const resolved = resolveStatusItemIcon({
+      appIconPath,
+      platform,
+    });
+
+    if (!resolved.path) {
+      return nativeImage.createEmpty();
     }
-    const traySize = process.platform === "darwin" ? 18 : 16;
-    if (!image.isEmpty()) {
+
+    let image = nativeImage.createFromPath(resolved.path);
+    if (image.isEmpty()) {
+      return nativeImage.createEmpty();
+    }
+
+    // Menu-bar size: prefer native @2x trayTemplate assets; only downscale the
+    // large brand icon when we fall back to full-color icon.png.
+    if (!resolved.template) {
+      const traySize = platform === "darwin" ? 22 : 16;
       image = image.resize({ width: traySize, height: traySize });
     }
-    if (typeof image.setTemplateImage === "function") {
+
+    // Template only for monochrome trayTemplate assets — never for brand PNGs
+    // (setTemplateImage(true) on light/color icons = solid white square).
+    if (resolved.template && typeof image.setTemplateImage === "function") {
       image.setTemplateImage(true);
     }
     return image;
@@ -143,7 +164,7 @@ export function createStatusItemController(input) {
     }
     if (tray) return tray;
 
-    const image = loadTemplateIcon();
+    const image = loadStatusItemIcon();
     tray = new Tray(image);
     tray.setToolTip(
       typeof app.name === "string" && app.name.trim()

@@ -5,6 +5,7 @@ import {
   STATUS_ITEM_ACTION,
   STATUS_ITEM_EVENTS,
   buildStatusItemMenuSpec,
+  resolveStatusItemIcon,
   resolveStatusItemLocale,
   shouldHideMainWindowOnClose,
   shouldInstallStatusItem,
@@ -90,4 +91,35 @@ test("status-item events reuse native-menu bridge naming", () => {
     STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS,
     "onmyagent:native-menu:desktop-permissions",
   );
+});
+
+test("resolveStatusItemIcon prefers monochrome trayTemplate over brand PNG", () => {
+  const files = new Set([
+    "/app/icons/trayTemplate.png",
+    "/app/icons/icon.png",
+  ]);
+  const existsSync = (p) => files.has(p);
+
+  const template = resolveStatusItemIcon({
+    appIconPath: "/app/icons/icon.png",
+    existsSync,
+    platform: "darwin",
+  });
+  assert.equal(template.path, "/app/icons/trayTemplate.png");
+  assert.equal(template.template, true);
+
+  const colorOnly = resolveStatusItemIcon({
+    appIconPath: "/app/icons/icon.png",
+    existsSync: (p) => p === "/app/icons/icon.png",
+    platform: "darwin",
+  });
+  assert.equal(colorOnly.path, "/app/icons/icon.png");
+  assert.equal(colorOnly.template, false);
+
+  const missing = resolveStatusItemIcon({
+    appIconPath: "/missing/icon.png",
+    existsSync: () => false,
+  });
+  assert.equal(missing.path, null);
+  assert.equal(missing.template, false);
 });
