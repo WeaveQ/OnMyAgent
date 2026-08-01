@@ -229,14 +229,27 @@ export function KeymapDispatcher() {
     };
   }, []);
 
-  // Native menu events still work (same handlers).
+  // Native menu / menu-bar status-item events (Electron main → preload → window).
   useEffect(() => {
     const openSettings = () =>
       openSettingsNavigate(navigateRef.current, locationRef.current);
+    const onNewTask = () => dispatchWindowEvent(KEYMAP_EVENT_NEW_TASK);
+    const onDesktopPermissions = () => {
+      // Prefer opening the OS permission helper; fall back is no-op if not desktop.
+      if (!isDesktopRuntime()) return;
+      void desktopBridge.openComputerUsePermissionSetup().catch((error) => {
+        console.warn("[native-menu] desktop permissions failed", error);
+      });
+    };
     window.addEventListener("onmyagent:native-menu:open-settings", openSettings);
     window.addEventListener(
       "onmyagent:native-menu:toggle-sidebar",
       toggleSidebarRef.current,
+    );
+    window.addEventListener("onmyagent:native-menu:new-task", onNewTask);
+    window.addEventListener(
+      "onmyagent:native-menu:desktop-permissions",
+      onDesktopPermissions,
     );
     return () => {
       window.removeEventListener(
@@ -246,6 +259,11 @@ export function KeymapDispatcher() {
       window.removeEventListener(
         "onmyagent:native-menu:toggle-sidebar",
         toggleSidebarRef.current,
+      );
+      window.removeEventListener("onmyagent:native-menu:new-task", onNewTask);
+      window.removeEventListener(
+        "onmyagent:native-menu:desktop-permissions",
+        onDesktopPermissions,
       );
     };
   }, []);

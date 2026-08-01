@@ -8,5 +8,5 @@ export default {
   "onboarding.opencode_install_failed": "Installation failed, please retry",
   "onboarding.opencode_retry": "Retry",
   "onboarding.opencode_required":
-    "Please finish installing the local agent runtime before continuing",
+    "Finish installing the local workspace components before continuing (needed to run office tasks on this machine)",
 } as const;

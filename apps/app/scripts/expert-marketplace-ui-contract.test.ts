@@ -60,7 +60,7 @@ describe("expert marketplace UI contract", () => {
 
     expect(packageNames).toEqual(
       expect.arrayContaining([
-        "ai-engineer",
+        "document-generation-expert",
         "gaokao-advisor",
         "viral-topic-master",
         "logistics-ops-navigator",
@@ -69,6 +69,16 @@ describe("expert marketplace UI contract", () => {
         "logistics-cold-chain",
       ]),
     );
+    // Office-first: engineering / game-dev packages are not shipped in the built-in shelf.
+    for (const removed of [
+      "ai-engineer",
+      "senior-developer",
+      "frontend-developer",
+      "software-architect",
+      "game-designer",
+    ]) {
+      expect(packageNames).not.toContain(removed);
+    }
   });
 
   test("ships the logistics verticals plus four consolidated operations experts", () => {

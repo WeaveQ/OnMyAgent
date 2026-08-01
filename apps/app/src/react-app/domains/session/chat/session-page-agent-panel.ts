@@ -35,6 +35,24 @@ export function useSessionPageAgentPanel(selectedSessionId: string | null) {
     setActiveSidebarView("chat");
   }, []);
 
+  // Menu-bar status item / native menu: open expert marketplace (store rail).
+  useEffect(() => {
+    const onOpenExpertMarketplace = () => {
+      setActiveSidebarView("store");
+      setAgentPanelCollapsed(false);
+    };
+    window.addEventListener(
+      "onmyagent:native-menu:open-expert-marketplace",
+      onOpenExpertMarketplace,
+    );
+    return () => {
+      window.removeEventListener(
+        "onmyagent:native-menu:open-expert-marketplace",
+        onOpenExpertMarketplace,
+      );
+    };
+  }, []);
+
   const isChatView = activeSidebarView === "chat";
 
   const openDevicesView = useCallback(() => {

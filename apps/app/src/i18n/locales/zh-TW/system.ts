@@ -42,9 +42,9 @@ export default {
   "system.error_providers_load_title": "無法載入服務商",
   "system.error_providers_load_body":
     "請檢查網路與工作區連線後重試。",
-  "system.error_connect_provider_title": "無法連接服務商",
+  "system.error_connect_provider_title": "無法連接模型服務商",
   "system.error_connect_provider_body":
-    "請檢查 API 金鑰或登入狀態後重新連接。",
+    "請檢查 API 金鑰、登入狀態或網路後重試。金鑰只保存在本機。",
   "system.error_remote_workspace_title": "遠端工作區不可用",
   "system.error_remote_workspace_body":
     "無法連上此遠端工作區。請檢查位址與網路後重試。",

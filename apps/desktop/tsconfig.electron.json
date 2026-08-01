@@ -18,5 +18,8 @@
     "scripts/check-electron-bridge.mjs",
     "scripts/electron-build.mjs",
     "scripts/electron-dev.mjs"
+  ],
+  "exclude": [
+    "electron/**/*.test.mjs"
   ]
 }
