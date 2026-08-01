@@ -952,7 +952,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const selectedIds = draft.skillIds;
 
   return (
-    <div className="absolute inset-0 z-50 flex min-h-0 flex-col bg-dls-background text-dls-text">
+    <div className="absolute inset-0 z-50 flex min-h-0 flex-col bg-dls-surface-solid text-dls-text">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-dls-border bg-dls-surface px-5">
         <Button type="button" variant="ghost" size="sm" onClick={props.onClose}>
           <ArrowLeft data-icon="inline-start" className="size-4" />
