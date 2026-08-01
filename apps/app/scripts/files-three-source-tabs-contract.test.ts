@@ -174,6 +174,8 @@ describe("files three-source tabs (P0)", () => {
     expect(rows.map((r) => r.id)).toEqual(["a", "b"]);
     expect(filterUploadRows(rows, "A.TXT")).toEqual([rows[0]]);
     expect(filterUploadRows(rows, "nope")).toEqual([]);
+    expect(filterUploadRows(rows, "", "document")).toEqual(rows);
+    expect(filterUploadRows(rows, "", "spreadsheet")).toEqual([]);
   });
 
   test("Files page wires rail NavTabs without bg-white active override", () => {

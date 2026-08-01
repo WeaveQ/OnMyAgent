@@ -41,6 +41,9 @@ export default {
   "files.uploads_empty_title": "尚無上傳",
   "files.uploads_empty_hint":
     "從本機匯入檔案。OnMyAgent 會複製到工作區，供對話安全引用。",
+  "files.drop_to_upload": "放開以上傳檔案",
+  "files.drop_to_upload_hint": "也可點「匯入到工作區」選擇檔案",
+  "files.upload_copy_success_title": "匯入成功",
   "files.task_empty_title": "目前工作區尚無檔案",
   "files.task_empty_hint":
     "任務產物與工作區檔案會顯示在這裡。個人資料請到「我的」匯入。",

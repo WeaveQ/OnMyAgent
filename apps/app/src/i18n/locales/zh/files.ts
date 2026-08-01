@@ -41,6 +41,9 @@ export default {
   "files.uploads_empty_title": "暂无上传",
   "files.uploads_empty_hint":
     "从本机导入文件。OnMyAgent 会复制到工作区，供对话安全引用。",
+  "files.drop_to_upload": "松开以上传文件",
+  "files.drop_to_upload_hint": "也可点击「导入到工作区」选择文件",
+  "files.upload_copy_success_title": "导入成功",
   "files.task_empty_title": "当前工作区暂无文件",
   "files.task_empty_hint":
     "任务产物与工作区文件会显示在这里。个人资料请到「我的」导入。",
