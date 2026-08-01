@@ -2,9 +2,10 @@
 /**
  * Shared brand icon tile for local / custom / discoverable agents.
  *
- * Light: muted surface + soft ring.
- * Dark: white plate so black/color brand marks stay readable (matches
- * agent-management fleet cards).
+ * Brand SVGs are drawn for a **light plate** (many use dark fills or
+ * `currentColor` expecting dark ink). In dark UI we keep a white tile so
+ * logos like OpenCode / currentColor marks stay legible — never put them on
+ * `dark:bg-dls-surface-solid` or they collapse into a blank/white square.
  *
  * Resolution order: explicit src → local agent-icons map → Lobe brand → Bot.
  */
@@ -51,9 +52,13 @@ const FALLBACK_ICON_SIZE: Record<AgentBrandIconSize, string> = {
   lg: "size-6",
 };
 
-/** Shared light/dark plate — use for any agent brand mark surface. */
+/**
+ * Shared brand plate. Dark mode keeps a white tile + dark ink so monochrome
+ * / multi-color brand assets stay readable across local-agent list, header,
+ * fleet cards, skill matrix, and archive.
+ */
 export const agentBrandIconTileClass =
-  "flex shrink-0 items-center justify-center overflow-hidden bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60 dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border";
+  "flex shrink-0 items-center justify-center overflow-hidden bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60 dark:bg-white dark:text-neutral-800 dark:ring-black/10";
 
 export function AgentBrandIcon(props: {
   /** Explicit icon URL (wins over id/provider lookup). */
