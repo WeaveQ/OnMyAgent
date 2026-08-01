@@ -1276,6 +1276,11 @@ export type MyExpertPackageWriteInput = {
   name: string;
   description: string;
   quote: string;
+  knowledge?: Array<{
+    kind: "file" | "directory";
+    relativePath: string;
+    dataBase64?: string;
+  }>;
 };
 
 // ---------------------------------------------------------------------------

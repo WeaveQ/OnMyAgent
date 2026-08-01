@@ -170,6 +170,15 @@ const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 
+async function encodeFileAsBase64(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
 type ExpertGroupDeleteTarget = {
   kind: "expert";
   agentId: string;
@@ -813,12 +822,22 @@ export function ExpertPage(props: ExpertPageProps) {
       const createdAgent = createAgentRecordFromDraft(draft, nowIso, baseRegistry.skills);
       let agent = createdAgent;
       if (isElectronRuntime()) {
+        const knowledgePayload = await Promise.all(
+          knowledge.map(async (entry) => ({
+            kind: entry.kind,
+            relativePath: entry.relativePath,
+            ...(entry.file
+              ? { dataBase64: await encodeFileAsBase64(entry.file) }
+              : {}),
+          })),
+        );
         const written = await writeMyExpertPackage({
           id: createdAgent.id,
           packageName: createdAgent.id,
           name: createdAgent.name,
           description: createdAgent.description,
           quote: createdAgent.quote,
+          knowledge: knowledgePayload,
         });
         agent = {
           ...createdAgent,
@@ -850,7 +869,6 @@ export function ExpertPage(props: ExpertPageProps) {
         tone: "success",
         durationMs: 3600,
       });
-      void knowledge;
     },
     [props.onmyagentServerClient, props.selectedWorkspaceId, registry, showToast],
   );
