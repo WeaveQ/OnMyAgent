@@ -55,6 +55,7 @@ import type { AgentCardItem, ExpertKnowledgeEntry } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
+  buildPendingAgentFromRecord,
   ExpertCreationPage,
   type PendingAgentContext,
   usePendingAgentStore,
@@ -871,6 +872,26 @@ export function ExpertPage(props: ExpertPageProps) {
       });
     },
     [props.onmyagentServerClient, props.selectedWorkspaceId, registry, showToast],
+  );
+
+  const handleExpertCreationTry = useCallback(
+    (draft: AgentWizardDraft) => {
+      const baseRegistry = registry ?? createDefaultAgentRegistry();
+      const preview = createAgentRecordFromDraft(
+        draft,
+        new Date().toISOString(),
+        baseRegistry.skills,
+      );
+      const pending = buildPendingAgentFromRecord(preview, baseRegistry);
+      if (!pending) return;
+      setExpertCreationOpen(false);
+      activateDraftAgent({
+        ...pending,
+        conversationStartId: Date.now(),
+        draftSource: "agent-selection",
+      });
+    },
+    [activateDraftAgent, registry],
   );
 
   const seedChatDraft = useCallback(
@@ -1876,10 +1897,12 @@ export function ExpertPage(props: ExpertPageProps) {
       {expertCreationOpen ? (
         <ExpertCreationPage
           workspaceId={props.selectedWorkspaceId}
+          workspaceRoot={props.selectedWorkspaceRoot}
           client={props.onmyagentServerClient}
           registry={registry}
           skills={registry?.skills ?? []}
           onClose={() => setExpertCreationOpen(false)}
+          onTry={handleExpertCreationTry}
           onDone={handleExpertCreationDone}
         />
       ) : null}

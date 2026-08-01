@@ -60,6 +60,7 @@ export type ExpertCreationPageProps = {
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
   onClose: () => void;
+  onTry: (draft: AgentWizardDraft) => void;
   onDone: (
     draft: AgentWizardDraft,
     knowledge: ExpertKnowledgeEntry[],
@@ -518,10 +519,16 @@ function SkillsPanel(props: {
           </IconCircle>
           <h3 className="mt-4 text-sm font-semibold text-dls-text">{t("agents.expert_creation_no_skills")}</h3>
           <p className="mt-1 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_no_skills_desc")}</p>
-          <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => setPickerOpen(true)}>
-            <Plus data-icon="inline-start" className="size-3.5" />
-            {t("agents.expert_creation_add_skill")}
-          </Button>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+              <Plus data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_add_skill")}
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+              <Upload data-icon="inline-start" className="size-3.5" />
+              {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
+            </Button>
+          </div>
         </div>
       )}
       <SkillPickerDialog
@@ -541,6 +548,7 @@ function KnowledgePanel(props: {
 }) {
   const documentInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const [folderError, setFolderError] = useState(false);
 
   const addFiles = (files: File[]) => {
     const next = new Map(props.entries.map((entry) => [entry.relativePath, entry]));
@@ -554,7 +562,11 @@ function KnowledgePanel(props: {
   const createFolder = () => {
     const name = window.prompt(t("agents.expert_creation_folder_name"), "");
     if (!name) return;
-    if (!/^[A-Za-z0-9_-]+$/.test(name.trim())) return;
+    if (!/^[A-Za-z0-9_-]+$/.test(name.trim())) {
+      setFolderError(true);
+      return;
+    }
+    setFolderError(false);
     const relativePath = name.trim();
     if (props.entries.some((entry) => entry.relativePath === relativePath)) return;
     props.onEntriesChange([
@@ -613,6 +625,11 @@ function KnowledgePanel(props: {
           </Button>
         </div>
       </div>
+      {folderError ? (
+        <p className="text-sm text-dls-status-danger-fg">
+          {t("agents.expert_creation_folder_name_error")}
+        </p>
+      ) : null}
       {props.entries.length > 0 ? (
         <div className="space-y-2">
           {props.entries.map((entry) => (
@@ -643,19 +660,40 @@ function KnowledgePanel(props: {
           </IconCircle>
           <h3 className="mt-4 text-sm font-semibold text-dls-text">{t("agents.expert_creation_knowledge_empty")}</h3>
           <p className="mt-1 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={createFolder}>
+              <FolderPlus data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_create_folder")}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => documentInputRef.current?.click()}>
+              <Upload data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_upload_document")}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => {
+              folderInputRef.current?.setAttribute("webkitdirectory", "");
+              folderInputRef.current?.click();
+            }}>
+              <FolderPlus data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_upload_folder")}
+            </Button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function TryEffectPanel(props: { draft: AgentWizardDraft }) {
+function TryEffectPanel(props: {
+  draft: AgentWizardDraft;
+  onTry: (draft: AgentWizardDraft) => void;
+}) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<string[]>([]);
 
   const send = () => {
     const value = input.trim();
     if (!value) return;
+    props.onTry(props.draft);
     setMessages((current) => [...current, value]);
     setInput("");
   };
@@ -940,7 +978,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 {submitError ? <p className="mt-4 text-sm text-dls-status-danger-fg">{submitError}</p> : null}
               </div>
             </section>
-            {tryOpen ? <TryEffectPanel draft={draft} /> : null}
+            {tryOpen ? <TryEffectPanel draft={draft} onTry={props.onTry} /> : null}
           </div>
         </main>
       </div>
