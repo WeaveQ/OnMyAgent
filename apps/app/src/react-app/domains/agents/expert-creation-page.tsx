@@ -30,6 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type {
   AgentRegistry,
   AgentSkillItem,
@@ -40,6 +41,7 @@ import {
   createDefaultAgentRegistry,
 } from "./agent-registry";
 import { renderAvatar } from "./agents-avatar-rendering";
+import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -50,6 +52,8 @@ export type ExpertKnowledgeEntry = {
 };
 
 export type ExpertCreationPageProps = {
+  workspaceId: string;
+  client: OnMyAgentServerClient | null;
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
   onClose: () => void;
@@ -695,6 +699,9 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const sourceRegistry = props.registry ?? createDefaultAgentRegistry();
   const [activeTab, setActiveTab] = useState<ExpertCreationTab>("basic");
   const [draft, setDraft] = useState(() => buildInitialDraft(props.registry, props.skills));
+  const [availableSkills, setAvailableSkills] = useState(() =>
+    props.skills.filter((skill) => skill.enabled),
+  );
   const [knowledge, setKnowledge] = useState<ExpertKnowledgeEntry[]>([]);
   const [tryOpen, setTryOpen] = useState(false);
   const [coachOpen, setCoachOpen] = useState(true);
@@ -709,24 +716,37 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   };
 
   const importSkillPackage = async (files: File[]) => {
-    const skillFile = files.find((file) => /(?:^|\/)skill\.md$/i.test(file.name));
+    const skillFile = findSkillMarkdownFile(files);
     if (!skillFile) return;
+    if (!props.client || !props.workspaceId.trim()) {
+      setSubmitError(t("agents.expert_creation_import_failed"));
+      return;
+    }
     setImporting(true);
     try {
-      const content = await skillFile.text();
-      const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/i)?.[1] ?? "";
-      const name = frontmatter
-        .split(/\r?\n/)
-        .find((line) => line.trimStart().startsWith("name:"))
-        ?.slice(frontmatter.indexOf(":"))
-        .replace(/^:/, "")
-        .trim()
-        .replace(/^['"]|['"]$/g, "");
-      if (!name) throw new Error(t("agents.expert_creation_import_missing_name"));
-      const matching = props.skills.find((skill) => skill.name === name);
-      if (matching && !draft.skillIds.includes(matching.id)) {
-        setDraft((current) => ({ ...current, skillIds: [...current.skillIds, matching.id] }));
-      }
+      const skill = await readSkillMarkdown(skillFile);
+      const result = await props.client.upsertSkill(props.workspaceId, skill);
+      const importedSkill: AgentSkillItem = {
+        id: skill.name,
+        category: "installed",
+        group: "",
+        name: skill.name,
+        description: skill.description ?? skill.name,
+        enabled: true,
+        path: result.path,
+      };
+      setAvailableSkills((current) => [
+        importedSkill,
+        ...current.filter((item) => item.id !== importedSkill.id),
+      ]);
+      setDraft((current) => ({
+        ...current,
+        skillIds: current.skillIds.includes(importedSkill.id)
+          ? current.skillIds
+          : [...current.skillIds, importedSkill.id],
+      }));
+      setActiveTab("skills");
+      setSubmitError(null);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_import_failed"));
     } finally {
@@ -814,7 +834,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 ) : null}
                 {activeTab === "skills" ? (
                   <SkillsPanel
-                    skills={props.skills.filter((skill) => skill.enabled)}
+                    skills={availableSkills}
                     selectedIds={selectedIds}
                     onSelectedIdsChange={(ids) => setDraftField("skillIds", ids)}
                     onImport={(files) => void importSkillPackage(files)}
