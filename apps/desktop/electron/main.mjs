@@ -417,21 +417,17 @@ const artifactPreviewController = createArtifactPreviewController({
 
 const statusItem = createStatusItemLifecycle({
   app, Tray, Menu, nativeImage, createMainWindow,
-  getMainWindow: () => mainWindow,
-  quitApp: () => app.quit(),
+  getMainWindow: () => mainWindow, quitApp: () => app.quit(),
   openDesktopPermissions: () => openComputerUseSetupApp(),
-  // Same brand icon path as dock / window; trayTemplate.png sits beside it.
-  appIconPath: APP_ICON_PATH,
+  appIconPath: APP_ICON_PATH, // trayTemplate / trayIcon sit beside brand icon
 });
 desktopWindowController = createDesktopWindowController({
-  getMainWindow: () => mainWindow,
-  setMainWindow: (win) => { mainWindow = win; },
+  getMainWindow: () => mainWindow, setMainWindow: (win) => { mainWindow = win; },
   app, nativeTheme, session, appName: APP_NAME, isDevMode,
   minWidth: MAIN_WINDOW_MIN_WIDTH, minHeight: MAIN_WINDOW_MIN_HEIGHT,
   appIconImage: APP_ICON_IMAGE, dirname: __dirname,
   applyApplicationMenuVisibility, browserController, artifactPreviewController,
-  flushPendingDeepLinks,
-  shouldHideOnClose: () => statusItem.shouldHideOnClose(),
+  flushPendingDeepLinks, shouldHideOnClose: () => statusItem.shouldHideOnClose(),
 });
 
 const uiControlBridge = createUiControlServer({
@@ -1522,11 +1518,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   getKeepSystemAwake,
   setKeepSystemAwake,
   setDockUnreadBadge,
-  setStatusItemVisible: (visible) => statusItem.setVisible(visible),
-  getStatusItemVisible: () => ({
-    visible: statusItem.isVisible(),
-    platform: process.platform,
-  }),
+  setStatusItemVisible: (v) => statusItem.setVisible(v),
+  getStatusItemVisible: () => ({ visible: statusItem.isVisible(), platform: process.platform }),
   getAgentReadySoundPath,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
