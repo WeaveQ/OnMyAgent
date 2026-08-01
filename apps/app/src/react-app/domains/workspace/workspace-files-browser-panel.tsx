@@ -425,6 +425,12 @@ export function WorkspaceFilesBrowserPanel(props: {
   onEditError?: () => void;
   /** Optional: attach file into a new/current task (composer). */
   onAddToTask?: (relativePath: string) => void;
+  /** WP3: @mention + instruction for agent about any file type. */
+  onAskAgentAboutFile?: (input: {
+    path: string;
+    name: string;
+    preview: string;
+  }) => void;
 }) {
   const sourceTab = props.sourceTab ?? "task";
   const [query, setQuery] = useState("");
@@ -580,29 +586,53 @@ export function WorkspaceFilesBrowserPanel(props: {
     setCurrentDirectoryPath("");
   }, [query, typeFilter]);
 
+  // WP4: debounce selection so rapid row clicks don't thrash preview loads.
+  const [previewSelection, setPreviewSelection] = useState<{
+    file: FileNode | null;
+    target: OpenTarget | null;
+  }>({ file: null, target: null });
   useEffect(() => {
-    if (!props.client || !props.workspaceId.trim() || !selectedTarget) {
+    const handle = window.setTimeout(() => {
+      setPreviewSelection({ file: selectedFile, target: selectedTarget });
+    }, FILE_PREVIEW_SELECTION_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [selectedFile, selectedTarget]);
+
+  useEffect(() => {
+    const activeFile = previewSelection.file;
+    const activeTarget = previewSelection.target;
+    if (!props.client || !props.workspaceId.trim() || !activeTarget || !activeFile) {
       setPreviewState({ status: "idle" });
       return;
     }
 
-    if (selectedTarget.preview === "browser") {
+    if (activeTarget.preview === "browser") {
       setPreviewState({ status: "browser" });
       return;
     }
 
-    if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+    if (!canPreviewWorkspaceFileInline(activeTarget)) {
       setPreviewState({ status: "external" });
+      return;
+    }
+
+    if (
+      shouldForceExternalPreviewForSize({
+        sizeBytes: activeFile.size,
+        preview: activeTarget.preview,
+      })
+    ) {
+      setPreviewState({ status: "too_large" });
       return;
     }
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
 
-    if (selectedTarget.preview === "image") {
+    if (activeTarget.preview === "image") {
       let objectUrl: string | null = null;
       void props.client
-        .downloadWorkspaceFile(props.workspaceId, selectedTarget.value)
+        .downloadWorkspaceFile(props.workspaceId, activeTarget.value)
         .then((result) => {
           if (cancelled) return;
           objectUrl = URL.createObjectURL(new Blob([result.data], {
@@ -624,16 +654,16 @@ export function WorkspaceFilesBrowserPanel(props: {
       };
     }
 
-    const previewRequest = usesLocalFileRenderer(selectedTarget)
+    const previewRequest = usesLocalFileRenderer(activeTarget)
       ? Promise.resolve({
           status: "local" as const,
-          filePath: selectedFile?.path.startsWith("/")
-            ? selectedFile.path
-            : `${fileRoot.replace(/[/\\]+$/, "")}/${selectedFile?.path.replace(/^[/\\]+/, "") ?? ""}`,
-          revision: selectedTarget.updatedAt ?? Date.now(),
+          filePath: activeFile.path.startsWith("/")
+            ? activeFile.path
+            : `${fileRoot.replace(/[/\\]+$/, "")}/${activeFile.path.replace(/^[/\\]+/, "")}`,
+          revision: activeTarget.updatedAt ?? Date.now(),
         })
       : props.client
-          .readWorkspaceFile(props.workspaceId, selectedTarget.value)
+          .readWorkspaceFile(props.workspaceId, activeTarget.value)
           .then((result) => ({ status: "ready" as const, content: result.content }));
 
     void previewRequest
@@ -651,7 +681,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, props.client, props.workspaceId, selectedFile, selectedTarget]);
+  }, [fileRoot, previewSelection, props.client, props.workspaceId]);
 
   const visibleFileTree = useMemo(() => {
     // Hide system markers, then drop empty dirs (e.g. expert sessions with only
@@ -927,8 +957,8 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => window.removeEventListener("keydown", handler);
   }, [closePreview, selectedFile]);
 
+  // Same gutters as 市场 pluginsLayoutClass.pageContainer
   return (
-    {/* Same gutters as 市场 pluginsLayoutClass.pageContainer */}
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
           <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1 text-left">
@@ -1542,6 +1572,18 @@ export function WorkspaceFilesBrowserPanel(props: {
                 selectedTarget && selectedFile
                   ? () => void openArtifactTarget(selectedTarget)
                   : undefined
+              }
+              onAskAgent={
+                selectedFile && selectedTarget && props.onAskAgentAboutFile
+                  ? () =>
+                      props.onAskAgentAboutFile?.({
+                        path: selectedFile.path,
+                        name: selectedFile.name,
+                        preview: selectedTarget.preview,
+                      })
+                  : props.onAddToTask && selectedFile
+                    ? () => props.onAddToTask?.(selectedFile.path)
+                    : undefined
               }
             />
           </div>

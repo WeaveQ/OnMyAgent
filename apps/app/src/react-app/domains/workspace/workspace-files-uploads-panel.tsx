@@ -512,8 +512,8 @@ export function WorkspaceFilesUploadsPanel(props: {
   const showEmpty = !loading && !error && visibleRows.length === 0;
   const showTable = !loading && visibleRows.length > 0;
 
+  // Same gutters as 市场 pluginsLayoutClass.pageContainer
   return (
-    {/* Same gutters as 市场 pluginsLayoutClass.pageContainer */}
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
       <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 text-left sm:max-w-none">
