@@ -276,7 +276,6 @@ export function AgentConversationList(props: AgentConversationListProps) {
               (session) => session.id === props.selectedSessionId,
             ) || group.agentId === props.selectedAgentId
           }
-          selectedSessionId={props.selectedSessionId}
           status={pickAggregateSessionStatus(
             group.sessions.map((session) => session.id),
             props.sessionStatusById,

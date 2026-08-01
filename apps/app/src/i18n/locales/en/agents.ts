@@ -10,7 +10,6 @@ export default {
   "agents.delete_agent": "Delete agent",
   "agents.loading": "Loading agent configuration…",
   "agents.identity_verified": "Identity verified",
-  "agents.my_agents": "My agents",
   "agents.new_agent": "New agent",
   "agents.next_identity": "Next: Identity",
   "agents.next_step": "Next: {title}",
@@ -28,7 +27,6 @@ export default {
   "agents.step_tools": "Tools",
   "agents.step_user_preferences": "User preferences",
   "agents.step_of_total": "Step {step} of {total}",
-  "agents.task_derived": "Task-derived",
   "agents.upload_custom_image": "Upload custom image",
   "agents.style": "Style",
   "agents.preview_quote_default":
@@ -204,7 +202,6 @@ export default {
   "agents.tpl_business-expert_name": "Business expert",
   "agents.tpl_business-expert_description": "A senior business expert who gathers and analyses market data, then proposes crisp business asks that follow from those data indicators.",
   "agents.tpl_business-expert_quote": "I link market opportunities with execution plans to help you decide what's worth doing.",
-  "agents.optional": "(optional)",
   "agents.identity_hint": "Only “Name” is required to create. Everything else is optional and can be edited later.",
   "agents.help_name": "A name shown on every card. Keep it short — 1 to 24 characters.",
   "agents.help_description": "One line describing what it does, so you can recognize it later.",

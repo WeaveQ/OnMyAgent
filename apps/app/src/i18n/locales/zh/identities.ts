@@ -123,7 +123,6 @@ export default {
   "identities.send_test_desc":
     "验证出站链路。使用对等方ID进行直接发送，或留空对等方ID以按目录中的绑定进行扇出。",
   "identities.send_test_title": "发送测试消息",
-  "identities.sending": "正在发送…",
   "identities.slack_desc":
     "你的工作区在Slack频道中显示为机器人。团队成员可以直接发消息或在对话中@提及它。",
   "identities.slack_intro":

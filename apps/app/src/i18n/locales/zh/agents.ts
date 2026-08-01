@@ -10,7 +10,6 @@ export default {
   "agents.delete_agent": "删除智能体",
   "agents.loading": "正在加载智能体配置…",
   "agents.identity_verified": "身份已验证",
-  "agents.my_agents": "我的智能体",
   "agents.new_agent": "新建智能体",
   "agents.next_identity": "下一步：身份",
   "agents.next_step": "下一步：{title}",
@@ -27,7 +26,6 @@ export default {
   "agents.step_tools": "工具",
   "agents.step_user_preferences": "用户偏好",
   "agents.step_of_total": "第 {step} / {total} 步",
-  "agents.task_derived": "任务衍生",
   "agents.upload_custom_image": "上传自定义图片",
   "agents.style": "风格",
   "agents.preview_quote_default":
@@ -199,7 +197,6 @@ export default {
   "agents.tpl_business-expert_name": "业务专家",
   "agents.tpl_business-expert_description": "你是一名资深的业务专家，能够收集并分析市场数据，然后根据数据指标提出高质量的业务述求，述求清晰明确。",
   "agents.tpl_business-expert_quote": "我会把市场机会和执行方案串起来，帮你判断什么值得做。",
-  "agents.optional": "（可选）",
   "agents.identity_hint": "只需填写「名称」即可创建；其余项均为可选，之后随时可回来修改。",
   "agents.help_name": "给这个智能体起个名字，会显示在所有卡片上，1-24 个字符。",
   "agents.help_description": "一句话说明它能做什么，方便你之后快速辨认。",

@@ -13,7 +13,7 @@
 | 层级 | 放哪里 | 产物卡 |
 |------|--------|--------|
 | **最终业务文件** | 会话工作区或 `output/` | 是（由 write / extract-sheets / write-xlsx 等溯源） |
-| **过程脚本 / 临时 JSON**（含 `oma-summary.json`、`rows.json`） | `os.tmpdir()` 或 `.opencode/tmp/` | 否 |
+| **过程脚本 / 临时 JSON** | `os.tmpdir()` 或 `.opencode/tmp/` | 否 |
 | **用户上传** | inbox / `session-uploads`（只读） | 否 |
 
 优先使用各格式 runtime 的一等命令（表格：`extract-sheets` / `write-xlsx` / `read`）。只有 runtime 盖不住的复杂编辑才写 helper，且 helper 不得落在会话根目录。

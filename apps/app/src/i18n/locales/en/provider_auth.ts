@@ -50,7 +50,6 @@ export default {
   "provider_auth.hint_choose_connection": "Choose how you'd like to connect.",
   "provider_auth.hint_finish_oauth_paste_code": "Finish OAuth by pasting the authorization code.",
   "provider_auth.hint_window_closes_when_connected": "This window will close once the provider is connected.",
-  "provider_auth.hint_keyboard_navigation": "Arrow keys to navigate, Enter to select.",
   "provider_auth.subscribe_title": `${APP_NAME} Models`,
   "provider_auth.subscribe_subtitle": "Frontier intelligence, hand picked for your team's most ambitious work.",
   "provider_auth.spinner_saving_api": "Saving API key...",
