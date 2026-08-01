@@ -1,9 +1,6 @@
 import { APP_NAME } from "../brand";
 
 export default {
-  "extensions.app_count": "{count}個應用已連接",
-  "extensions.apps_mcp_header": "應用（MCP）",
-  "extensions.availability": "可用性",
   "extensions.connected": "已連接",
   "extensions.current_override": "當前覆蓋",
   "extensions.dev_discovery_file": "開發發現文件",
@@ -11,9 +8,6 @@ export default {
   "extensions.disabled": "已禁用",
   "extensions.discovery": "發現",
   "extensions.endpoint": "端點",
-  "extensions.filter_all": "全部",
-  "extensions.filter_apps": "應用",
-  "extensions.filter_plugins": "插件",
   "extensions.hidden": "已隱藏",
   "extensions.installed": "已安裝",
   "extensions.kind_desc_extension": `${APP_NAME} 擴展會向工作區添加工具、模型服務商或集成。`,
@@ -29,16 +23,12 @@ export default {
   "extensions.oauth_required": "需要 OAuth",
   "extensions.override": "覆蓋",
   "extensions.partially_set_up": "部分已配置",
-  "extensions.plugin_count": "{count}個插件",
-  "extensions.plugins_opencode_header": "插件",
   "extensions.preview": "預覽",
   "extensions.production_discovery_file": "生產發現文件",
   "extensions.release_stage": "發布階段",
   "extensions.setup": "設置",
   "extensions.shown": "已顯示",
   "extensions.skill_content": "技能內容",
-  "extensions.subtitle": "應用（MCP）和插件集中管理。",
-  "extensions.title": "擴展",
   "extensions.trigger": "觸發條件",
   "extensions.ui_control_bridge_copy": `${APP_NAME} 桌面端會自動啟動一個私有 localhost 橋接服務。`,
   "extensions.ui_control_client_starts_prefix": "你的 MCP 客戶端啟動",
@@ -47,12 +37,6 @@ export default {
   "extensions.ui_control_do_not_point_directly": "不要讓客戶端直接指向隨機 localhost 橋接 URL。",
   "extensions.visibility": "可見性",
   "extensions.what_this_enables": "啟用能力",
-  "extensions.app_count_one": "已連接 {count} 個應用",
-  "extensions.app_count_other": "已連接 {count} 個應用",
-  "extensions.plugin_count_one": "{count} 個插件",
-  "extensions.plugin_count_other": "{count} 個插件",
-  "extensions.browser_primary_cta": "啟用瀏覽器自動化",
-  "extensions.browser_plugin_loaded": "瀏覽器插件已加載",
   "extensions.computer_use_connect_mcp": "連接 Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
@@ -87,27 +71,18 @@ export default {
   "extensions.browser_skill_run_doctor": "重新檢查狀態",
   "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
   "extensions.browser_skill_cli_label": "bsk CLI",
-  "extensions.browser_skill_extension_label": "BrowserSkill 擴充功能",
-  "extensions.browser_skill_extension_hint":
-    "Chrome/Edge 擴充功能彈窗變綠即表示已連線",
   "extensions.browser_skill_panel_description":
     "操控你已登入的網站。本機完成三步引導即可，之後 Agent 可直接使用。",
   "extensions.browser_skill_desktop_only":
     "BrowserSkill 設定需要 OnMyAgent 桌面端。",
-  "extensions.browser_skill_open_docs": "開啟文件",
-  "extensions.browser_skill_health_title": "健康狀態",
-  "extensions.browser_skill_health_pending": "正在檢查 BrowserSkill 狀態…",
   "extensions.browser_skill_status_installed": "已安裝",
-  "extensions.browser_skill_status_missing": "未找到",
   "extensions.browser_skill_status_connected": "已連線",
-  "extensions.browser_skill_status_disconnected": "未連線",
   "extensions.browser_skill_status_ready": "就緒",
   "extensions.browser_skill_status_setup": "需要設定",
   "extensions.browser_skill_vs_in_app":
     "選擇合適的介面：應用內 Browser（無需真實 Chrome 登入）、BrowserSkill（真實 Chrome/Edge，經 bsk + 擴充功能）、或 Computer Use（原生 macOS 應用）。本面板是 BrowserSkill。",
   "extensions.browser_skill_choose_surface":
     "應用內 Browser · BrowserSkill（真實 Chrome）· Computer Use（原生應用）",
-  "extensions.browser_skill_install_cli_title": "安裝 CLI",
   "extensions.browser_skill_setup_intro": "依下面三步操作即可，每台機器只需一次。",
   "extensions.browser_skill_step_cli_title": "1. 安裝 bsk CLI",
   "extensions.browser_skill_step_cli_desc":

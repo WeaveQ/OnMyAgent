@@ -30,7 +30,6 @@ export default {
     "Could not start OnMyAgent. Try quitting and opening the app again.",
   "system.boot_server_not_ready":
     "The local service did not finish starting. Quit OnMyAgent and open it again.",
-  "system.boot_error_with_detail": "Something went wrong. {detail}",
   "system.boot_download_latest_hint":
     "If this keeps happening, download the latest version:",
   "system.boot_retry": "Try again",
@@ -70,17 +69,13 @@ export default {
   "system.control_open_ai_settings_desc": "Navigate to AI provider settings.",
   "system.control_open_command_palette": "Open the command palette",
   "system.control_open_command_palette_desc": "Open the in-app command palette so the next choice is visible.",
-  "system.control_open_extensions_settings": "Open MCP and extension settings",
-  "system.control_open_extensions_settings_desc": "Navigate to extension and MCP settings.",
   "system.control_open_folders_settings_desc": "Navigate to authorized folders and file access settings.",
   "system.control_open_general_settings": "Open general settings",
   "system.control_open_general_settings_desc": "Navigate to general settings.",
   "system.control_open_sessions": "Open sessions",
   "system.control_open_sessions_desc": "Navigate to the main session view.",
-  "system.control_open_skills_settings_desc": "Navigate to skills settings.",
   "system.control_ready": "Ready. A controller can inspect and run visible actions.",
   "system.control_user_cancelled": "User cancelled action.",
-  "system.control_open_skills_settings": "Open skills settings",
   "system.control_open_provider_settings": "Open provider settings",
   "system.control_open_folders_settings": "Open authorized folder settings",
 } as const;

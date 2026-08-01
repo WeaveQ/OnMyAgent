@@ -19,9 +19,5 @@ export default {
   "model_picker.recommended": "Recent",
   "model_picker.search_placeholder": "Search providers and models...",
   "model_picker.session_model_desc": "Select a model for this session.",
-  "model_picker.provider_default_available_title": "Suggested default available",
-  "model_picker.provider_default_available_desc":
-    `${APP_NAME} suggests {model}. You can adopt it as your default — we won’t change your preference automatically.`,
-  "model_picker.provider_default_apply": "Use default",
   "model_picker.free": "Free",
 } as const;

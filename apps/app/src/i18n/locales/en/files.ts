@@ -14,10 +14,6 @@ export default {
   "files.category_spreadsheet": "Spreadsheets",
   "files.category_video": "Video",
   "files.category_website": "Websites",
-  "files.cloud_coming_soon": "Cloud drive is coming soon",
-  "files.cloud_drive": "Drive",
-  "files.cloud_empty_description":
-    "Synced task files, cross-device materials, and shared team content will appear here when cloud drive is available.",
   "files.cloud_empty_title": "Cloud drive is almost ready",
   "files.column_actions": "Actions",
   "files.column_name": "Name",
@@ -25,8 +21,6 @@ export default {
   "files.column_type": "Type",
   "files.column_updated": "Updated",
   "files.current_workspace": "Current workspace",
-  "files.description":
-    "Browse files in the current workspace by how they were created.",
   "files.source_uploads": "Mine",
   "files.source_task": "Tasks",
   "files.source_expert": "Experts",
@@ -35,7 +29,6 @@ export default {
   "files.source_uploads_title": "My files",
   "files.source_task_title": "Task files",
   "files.source_expert_title": "Expert files",
-  "files.source_project_title": "Project files",
   "files.source_uploads_desc":
     "Files you imported into the workspace. Edits apply to the workspace copy, not the original on disk.",
   "files.source_task_desc":
@@ -67,7 +60,6 @@ export default {
   "files.file_count": "{count} files",
   "files.session_folder_title": "Session · {when}",
   "files.file_actions": "Actions for {name}",
-  "files.files_unit": "files",
   "files.load_failed": "Failed to load the file list",
   "files.loading": "Loading files…",
   "files.no_files": "No files yet",
@@ -106,7 +98,6 @@ export default {
   "files.search_placeholder": "Search files, tasks, or workspaces",
   "files.task_results": "Task files",
   "files.title": "Files",
-  "files.type_file": "File",
   "files.type_folder": "Folder",
   "files.ungrouped": "Ungrouped",
   "files.workspace": "Workspace",

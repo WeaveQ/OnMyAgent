@@ -381,7 +381,7 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["reports/customer-message.txt"]);
   });
 
-  it("mints product cards from soft deliverable prose when the file verifies as exists", () => {
+  it("does not treat an assistant file mention without write provenance as a generated artifact", () => {
     const messages = [
       message(
         "msg_final",
@@ -395,39 +395,6 @@ describe("deriveOpenTargets", () => {
       ),
       exists: true,
       size: 7_884,
-    }];
-
-    expect(
-      selectTurnOpenTargets(messages, verified).map((target) => target.name),
-    ).toEqual(["发货需求与报价补充.xlsx"]);
-  });
-
-  it("parses WorkBuddy-style 输出文件: with ASCII colon and mints when exists", () => {
-    const messages = [
-      message(
-        "msg_final",
-        "assistant",
-        "实时运力与在途轨迹已整理好。\n\n输出文件: 实时运力与在途轨迹.xlsx",
-      ),
-    ] satisfies UIMessage[];
-    const verified = [{
-      ...fileTarget("实时运力与在途轨迹.xlsx", "sheet"),
-      exists: true,
-      size: 12_400,
-    }];
-
-    expect(
-      selectTurnOpenTargets(messages, verified).map((target) => target.value),
-    ).toEqual(["实时运力与在途轨迹.xlsx"]);
-  });
-
-  it("does not mint soft prose claims when the file is not verified as exists", () => {
-    const messages = [
-      message("msg_final", "assistant", "输出文件: 虚构产物.xlsx"),
-    ] satisfies UIMessage[];
-    const verified = [{
-      ...fileTarget("虚构产物.xlsx", "sheet"),
-      exists: false,
     }];
 
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
@@ -825,7 +792,7 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["回单核对.pdf", "客户通知草稿.md", "进度看板.html"].sort());
   });
 
-  it("does not mint from casual file mentions that are not soft deliverable claims", () => {
+  it("still hides soft prose claims without write provenance on follow-up turns", () => {
     const messages = [
       message(
         "msg_followup",
@@ -836,54 +803,7 @@ describe("deriveOpenTargets", () => {
     const verified = [
       { ...fileTarget("运单账单合并对账表.xlsx", "sheet"), exists: true, size: 18_400 },
     ];
-    // "生成了" is not a soft deliverable label; requires write tool or 输出文件/已生成.
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
-  });
-
-  it("detects pandas/openpyxl shell writes as deliverable provenance", () => {
-    const messages = [
-      toolMessage(
-        "msg_shell",
-        "bash",
-        {
-          command:
-            'python3 -c "import pandas as pd; df.to_excel(\'实时运力与在途轨迹.xlsx\')"',
-        },
-        "wrote workbook\n",
-      ),
-      message("msg_final", "assistant", "表已写好。"),
-    ] satisfies UIMessage[];
-    const verified = [
-      { ...fileTarget("实时运力与在途轨迹.xlsx", "sheet"), exists: true, size: 9_000 },
-    ];
-    expect(
-      selectTurnOpenTargets(messages, verified).map((target) => target.value),
-    ).toEqual(["实时运力与在途轨迹.xlsx"]);
-  });
-
-  it("hides intermediate oma-summary.json and tmp JSON from product cards", () => {
-    const messages = [
-      toolMessage(
-        "msg_json",
-        "write",
-        { filePath: "oma-summary.json" },
-        { filePath: "oma-summary.json" },
-      ),
-      toolMessage(
-        "msg_xlsx",
-        "write",
-        { filePath: "发货需求.xlsx" },
-        { filePath: "发货需求.xlsx" },
-      ),
-      message("msg_final", "assistant", "发货需求表已整理好。"),
-    ] satisfies UIMessage[];
-    const verified = [
-      { ...fileTarget("oma-summary.json", "text"), exists: true },
-      { ...fileTarget("发货需求.xlsx", "sheet"), exists: true },
-    ];
-    expect(
-      selectTurnOpenTargets(messages, verified).map((target) => target.name),
-    ).toEqual(["发货需求.xlsx"]);
   });
 });
 

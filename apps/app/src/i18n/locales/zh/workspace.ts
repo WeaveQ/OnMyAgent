@@ -3,8 +3,6 @@ import { APP_NAME } from "../brand";
 export default {
   "workspace.loading_tasks": "正在加载任务…",
   "workspace.local_badge": "本地",
-  "workspace.new_task_inline": "+ 新建任务",
-  "workspace.no_tasks": "暂无任务。",
   "workspace.remote_badge": "远程",
   "workspace.rename_description": "更新侧边栏中显示的名称。",
   "workspace.rename_label": "工作区名称",

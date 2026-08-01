@@ -123,7 +123,6 @@ export default {
   "identities.send_test_desc":
     "驗證出站鏈路。使用對等方ID進行直接發送，或留空對等方ID以按目錄中的綁定進行扇出。",
   "identities.send_test_title": "發送測試消息",
-  "identities.sending": "正在發送…",
   "identities.slack_desc":
     "你的工作區在Slack頻道中顯示為機器人。團隊成員可以直接發消息或在對話中@提及它。",
   "identities.slack_intro":

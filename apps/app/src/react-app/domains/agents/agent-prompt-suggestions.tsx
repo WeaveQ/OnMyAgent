@@ -134,19 +134,11 @@ const LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS = new Set([
   "logistics-finance-specialist",
 ]);
 
-/** Creator-ops / logistics: short colleague intro prompt, not long capability essay. */
-const COLLEAGUE_SHORT_INTRO_EXPERT_IDS = new Set([
-  ...LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS,
-  "kol-media-specialist",
-  "kol-content-ops-specialist",
-  "kol-project-review-specialist",
-]);
-
 function isLogisticsColleagueIntroExpert(
   agentId: string | null | undefined,
 ): boolean {
   if (!agentId) return false;
-  return [...COLLEAGUE_SHORT_INTRO_EXPERT_IDS].some(
+  return [...LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS].some(
     (expertId) => agentId === expertId || agentId.endsWith(`:${expertId}`),
   );
 }

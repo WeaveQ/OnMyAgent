@@ -33,20 +33,14 @@
     "@onmyagent/types": "workspace:*",
     "@opencode-ai/sdk": "1.17.20",
     "better-sqlite3": "^11.10.0",
-    "dijkstrajs": "^1.0.1",
     "discord.js": "^14.27.0",
-    "jsonc-parser": "^3.2.1",
-    "minimatch": "^10.0.1",
     "node-pty": "^1.1.0",
     "undici": "^6.24.1",
-    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@electron/asar": "^4.2.1",
     "electron": "^39.8.10",
-    "electron-builder": "^26.15.3",
-    "electron-devtools-installer": "^4.0.0"
+    "electron-builder": "^26.15.3"
   },
   "packageManager": "pnpm@10.27.0",
   "license": "Apache-2.0"

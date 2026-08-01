@@ -1,10 +1,6 @@
 import { APP_NAME } from "../brand";
 
 export default {
-  "extensions.app_count_one": "{count} app connected",
-  "extensions.app_count_other": "{count} apps connected",
-  "extensions.apps_mcp_header": "Apps (MCP)",
-  "extensions.availability": "Availability",
   "extensions.connected": "Connected",
   "extensions.current_override": "Current override",
   "extensions.dev_discovery_file": "Dev discovery file",
@@ -12,9 +8,6 @@ export default {
   "extensions.disabled": "Disabled",
   "extensions.discovery": "Discovery",
   "extensions.endpoint": "Endpoint",
-  "extensions.filter_all": "All",
-  "extensions.filter_apps": "Apps",
-  "extensions.filter_plugins": "Plugins",
   "extensions.hidden": "Hidden",
   "extensions.installed": "Installed",
   "extensions.kind_desc_extension": `An ${APP_NAME} extension that adds tools, providers, or integrations to your workspace.`,
@@ -30,17 +23,12 @@ export default {
   "extensions.oauth_required": "OAuth required",
   "extensions.override": "Override",
   "extensions.partially_set_up": "Partially set up",
-  "extensions.plugin_count_one": "{count} plugin",
-  "extensions.plugin_count_other": "{count} plugins",
-  "extensions.plugins_opencode_header": "Plugins",
   "extensions.preview": "Preview",
   "extensions.production_discovery_file": "Production discovery file",
   "extensions.release_stage": "Release stage",
   "extensions.setup": "Setup",
   "extensions.shown": "Shown",
   "extensions.skill_content": "Skill content",
-  "extensions.subtitle": "Apps (MCP) and plugins live in one place.",
-  "extensions.title": "Extensions",
   "extensions.trigger": "Trigger",
   "extensions.ui_control_bridge_copy": `${APP_NAME} desktop starts a private localhost bridge automatically.`,
   "extensions.ui_control_client_starts_prefix": "Your MCP client starts",
@@ -49,8 +37,6 @@ export default {
   "extensions.ui_control_do_not_point_directly": "Do not point clients at the random localhost bridge URL directly.",
   "extensions.visibility": "Visibility",
   "extensions.what_this_enables": "What this enables",
-  "extensions.browser_primary_cta": "Enable browser automation",
-  "extensions.browser_plugin_loaded": "Browser plugin loaded",
   "extensions.computer_use_connect_mcp": "Connect Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
@@ -85,27 +71,18 @@ export default {
   "extensions.browser_skill_run_doctor": "Recheck status",
   "extensions.browser_skill_skill_label": "BrowserSkill agent skill",
   "extensions.browser_skill_cli_label": "bsk CLI",
-  "extensions.browser_skill_extension_label": "BrowserSkill extension",
-  "extensions.browser_skill_extension_hint":
-    "Chrome/Edge extension popup should be green when connected",
   "extensions.browser_skill_panel_description":
     "Control sites you are already signed into. Setup takes three short steps on this machine.",
   "extensions.browser_skill_desktop_only":
     "BrowserSkill setup requires the OnMyAgent desktop app.",
-  "extensions.browser_skill_open_docs": "Open docs",
-  "extensions.browser_skill_health_title": "Health",
-  "extensions.browser_skill_health_pending": "Checking BrowserSkill status…",
   "extensions.browser_skill_status_installed": "Installed",
-  "extensions.browser_skill_status_missing": "Not found",
   "extensions.browser_skill_status_connected": "Connected",
-  "extensions.browser_skill_status_disconnected": "Not connected",
   "extensions.browser_skill_status_ready": "Ready",
   "extensions.browser_skill_status_setup": "Needs setup",
   "extensions.browser_skill_vs_in_app":
     "Choose the right surface: in-app Browser (no real Chrome logins), BrowserSkill (real Chrome/Edge via bsk + extension), or Computer Use (native macOS apps). This panel is BrowserSkill.",
   "extensions.browser_skill_choose_surface":
     "In-app Browser · BrowserSkill (real Chrome) · Computer Use (native apps)",
-  "extensions.browser_skill_install_cli_title": "Install CLI",
   "extensions.browser_skill_setup_intro":
     "Finish the steps below. You only need this once per machine.",
   "extensions.browser_skill_step_cli_title": "1. Install bsk CLI",

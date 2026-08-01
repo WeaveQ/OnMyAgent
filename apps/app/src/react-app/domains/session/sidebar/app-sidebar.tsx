@@ -81,6 +81,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
+import { AccountPreferencesSubmenu } from "./account-preferences-submenu";
 import { SidebarContext, useSidebarContext } from "./app-sidebar-provider";
 import type { SidebarContextValue } from "./app-sidebar-provider";
 import {
@@ -97,7 +98,7 @@ import {
 } from "../status/session-activity-store";
 
 const sidebarAccountMenuRowClass =
-  "h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:!bg-dls-hover hover:!text-dls-text focus:!bg-dls-hover focus:!text-dls-text data-highlighted:!bg-dls-hover data-highlighted:!text-dls-text data-open:!bg-dls-hover data-open:!text-dls-text data-popup-open:!bg-dls-hover data-popup-open:!text-dls-text data-state-open:!bg-dls-hover data-state-open:!text-dls-text aria-expanded:!bg-dls-hover aria-expanded:!text-dls-text [&_svg]:text-current";
+  "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:!bg-dls-hover hover:!text-dls-text focus:!bg-dls-hover focus:!text-dls-text data-highlighted:!bg-dls-hover data-highlighted:!text-dls-text data-open:!bg-dls-hover data-open:!text-dls-text data-popup-open:!bg-dls-hover data-popup-open:!text-dls-text data-state-open:!bg-dls-hover data-state-open:!text-dls-text aria-expanded:!bg-dls-hover aria-expanded:!text-dls-text [&_svg]:text-current";
 
 const appSidebarTextClass = {
   noticeTitle: "text-xs font-medium text-dls-text",
@@ -126,11 +127,6 @@ const appSidebarStateClass = {
   active: "bg-dls-status-warning",
   activeText: "text-dls-status-warning",
 };
-
-const sidebarAccountMenuGridClass = cn(
-  "grid grid-cols-[16px_minmax(0,1fr)_12px]",
-  sidebarAccountMenuRowClass,
-);
 
 function SessionStatusIndicator(props: {
   status?: string;
@@ -849,6 +845,8 @@ export function SidebarAccountButton(props: {
         </button>
       </div>
       <div className="px-1.5 py-1.5">
+        {/* Inline language / theme / font size (no conversation width). */}
+        <AccountPreferencesSubmenu />
         {props.onOpenLocalAgent ? (
           <SidebarAccountMenuItem
             icon={Bot}
@@ -869,7 +867,6 @@ export function SidebarAccountButton(props: {
             }}
           />
         ) : null}
-        {/* Language + theme live under Settings → Personalization. */}
         <SidebarAccountMenuItem
           icon={Settings}
           label={t("account_menu.settings")}
@@ -992,16 +989,14 @@ function SidebarAccountMenuItem(props: {
     );
   }
 
+  // Page navigations: no trailing chevron (submenus use DropdownMenuSubTrigger).
   return (
     <DropdownMenuItem
       onClick={props.onSelect}
-      className={sidebarAccountMenuGridClass}
+      className={sidebarAccountMenuRowClass}
     >
-              <Icon className="size-3.5 justify-self-center" />
-      <span className="min-w-0 truncate">{props.label}</span>
-      {!props.destructive ? (
-        <ChevronRight className="size-3 justify-self-center text-dls-secondary" />
-      ) : null}
+      <Icon className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{props.label}</span>
     </DropdownMenuItem>
   );
 }
