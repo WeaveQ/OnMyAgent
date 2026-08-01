@@ -56,6 +56,10 @@ import {
 } from "../../capabilities/artifacts/workspace-file-tree";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 import {
+  FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
+  shouldForceExternalPreviewForSize,
+} from "../../capabilities/artifacts/file-preview-policy";
+import {
   absoluteInboxFilePath,
   buildUserUploadRelativePath,
   canPreviewWorkspaceFileInline,
@@ -189,6 +193,11 @@ export function WorkspaceFilesUploadsPanel(props: {
   /** Catalog workspace root — required for local Office preview / reveal. */
   workspaceRoot?: string;
   onAddToTask?: (relativePath: string) => void;
+  onAskAgentAboutFile?: (input: {
+    path: string;
+    name: string;
+    preview: string;
+  }) => void;
 }) {
   const [rows, setRows] = useState<UserUploadRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -275,33 +284,57 @@ export function WorkspaceFilesUploadsPanel(props: {
     };
   }, [selectedRow]);
 
+  // WP4: debounce selection before loading preview content.
+  const [previewSelection, setPreviewSelection] = useState<{
+    row: UserUploadRow | null;
+    target: ReturnType<typeof workspaceFileOpenTarget> | null;
+  }>({ row: null, target: null });
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setPreviewSelection({ row: selectedRow, target: selectedTarget });
+    }, FILE_PREVIEW_SELECTION_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [selectedRow, selectedTarget]);
+
   // Load preview for selected inbox file (same modes as Task browser).
   useEffect(() => {
     if (previewObjectUrlRef.current) {
       URL.revokeObjectURL(previewObjectUrlRef.current);
       previewObjectUrlRef.current = null;
     }
-    if (!selectedRow || !selectedTarget || !props.client || !workspaceId) {
+    const activeRow = previewSelection.row;
+    const activeTarget = previewSelection.target;
+    if (!activeRow || !activeTarget || !props.client || !workspaceId) {
       setPreviewState({ status: "idle" });
       return;
     }
 
-    if (selectedTarget.preview === "browser") {
+    if (activeTarget.preview === "browser") {
       setPreviewState({ status: "browser" });
       return;
     }
 
-    if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+    if (!canPreviewWorkspaceFileInline(activeTarget)) {
       setPreviewState({ status: "external" });
+      return;
+    }
+
+    if (
+      shouldForceExternalPreviewForSize({
+        sizeBytes: activeRow.size,
+        preview: activeTarget.preview,
+      })
+    ) {
+      setPreviewState({ status: "too_large" });
       return;
     }
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
-    const workspaceRel = workspaceRelativeInboxPath(selectedRow.path);
-    const abs = absoluteInboxFilePath(workspaceRoot, selectedRow.path);
+    const workspaceRel = workspaceRelativeInboxPath(activeRow.path);
+    const abs = absoluteInboxFilePath(workspaceRoot, activeRow.path);
 
-    if (selectedTarget.preview === "image") {
+    if (activeTarget.preview === "image") {
       void props.client
         .downloadWorkspaceFile(workspaceId, workspaceRel)
         .then((result) => {
@@ -330,11 +363,11 @@ export function WorkspaceFilesUploadsPanel(props: {
     }
 
     const previewRequest =
-      usesLocalFileRenderer(selectedTarget) && isElectronRuntime() && workspaceRoot
+      usesLocalFileRenderer(activeTarget) && isElectronRuntime() && workspaceRoot
         ? Promise.resolve({
             status: "local" as const,
             filePath: abs,
-            revision: selectedRow.updatedAt || Date.now(),
+            revision: activeRow.updatedAt || Date.now(),
           })
         : props.client
             .readWorkspaceFile(workspaceId, workspaceRel)
@@ -349,12 +382,11 @@ export function WorkspaceFilesUploadsPanel(props: {
       })
       .catch((previewError: unknown) => {
         if (cancelled) return;
-        // Fallback: download via inbox id for binary-ish failures on text path
-        if (usesLocalFileRenderer(selectedTarget) && isElectronRuntime() && abs) {
+        if (usesLocalFileRenderer(activeTarget) && isElectronRuntime() && abs) {
           setPreviewState({
             status: "local",
             filePath: abs,
-            revision: selectedRow.updatedAt || Date.now(),
+            revision: activeRow.updatedAt || Date.now(),
           });
           return;
         }
@@ -370,13 +402,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [
-    props.client,
-    selectedRow,
-    selectedTarget,
-    workspaceId,
-    workspaceRoot,
-  ]);
+  }, [previewSelection, props.client, workspaceId, workspaceRoot]);
 
   const importFiles = useCallback(
     async (fileList: FileList | File[]) => {
@@ -494,8 +520,15 @@ export function WorkspaceFilesUploadsPanel(props: {
           <h1 className={cn(typeScale.pageTitle, "text-left")}>
             {t("files.source_uploads_title")}
           </h1>
-          <p className={cn(typeScale.pageSubtitle, "mt-1 text-left")}>
-            {t("files.source_uploads_desc")}
+          {/* Single subtitle slot: success notice replaces desc (never both). */}
+          <p
+            className={cn(
+              typeScale.pageSubtitle,
+              "mt-1 text-left",
+              uploadNotice ? "text-dls-status-success-fg" : null,
+            )}
+          >
+            {uploadNotice ?? t("files.source_uploads_desc")}
           </p>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
@@ -538,11 +571,6 @@ export function WorkspaceFilesUploadsPanel(props: {
         </div>
       </div>
 
-      {uploadNotice ? (
-        <p className="mb-3 shrink-0 text-sm text-dls-status-success-fg">
-          {uploadNotice}
-        </p>
-      ) : null}
       {error ? (
         <p className="mb-3 shrink-0 text-sm text-dls-status-danger-fg">{error}</p>
       ) : null}
@@ -679,6 +707,21 @@ export function WorkspaceFilesUploadsPanel(props: {
         }
         onOpenExternally={
           selectedRow ? () => void handleOpenExternally(selectedRow) : undefined
+        }
+        onAskAgent={
+          selectedRow && selectedTarget && props.onAskAgentAboutFile
+            ? () =>
+                props.onAskAgentAboutFile?.({
+                  path: workspaceRelativeInboxPath(selectedRow.path),
+                  name: selectedRow.name,
+                  preview: selectedTarget.preview,
+                })
+            : selectedRow && props.onAddToTask
+              ? () =>
+                  props.onAddToTask?.(
+                    workspaceRelativeInboxPath(selectedRow.path),
+                  )
+              : undefined
         }
       />
     </div>
