@@ -96,6 +96,16 @@ export default {
   "files.ask_agent": "讓 Agent 處理",
   "files.ask_agent_done_title": "已交給對話",
   "files.ask_agent_done": "檔案已加入輸入框，確認後傳送即可",
+  "files.ask_agent_instruction_sheet":
+    "請查看該表格，總結關鍵資料，並說明需要我確認後才能改的地方。",
+  "files.ask_agent_instruction_document":
+    "請查看該文件，概括要點，並給出可執行的修改建議。",
+  "files.ask_agent_instruction_image":
+    "請查看該圖片，描述內容並說明可如何處理。",
+  "files.ask_agent_instruction_pdf":
+    "請查看該 PDF，提煉要點並給出後續處理建議。",
+  "files.ask_agent_instruction_generic":
+    "請查看該檔案，說明內容概要，並告訴我可以如何處理。",
   "files.preview_too_large": "檔案較大，建議用本機預設程式開啟，而不是應用內預覽。",
   "files.copy_path": "複製路徑",
   "files.close_preview": "關閉預覽",
