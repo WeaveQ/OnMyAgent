@@ -986,7 +986,6 @@ const FALLBACK_BUILTIN_PACKAGE_NAMES = new Set([
   "pptx",
   "qcc-company",
   "self-improving",
-  "self-improving-agent",
   "skill-creator",
   "tencent-docs",
   "tencent-meeting-skill",

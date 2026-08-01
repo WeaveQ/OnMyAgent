@@ -1,21 +1,7 @@
 import { APP_NAME } from "../brand";
 
 export default {
-  "welcome.title": `Welcome to ${APP_NAME}`,
-  "welcome.subtitle": "Local office workspace. Work stays on your machine; pick any model.",
-  "welcome.get_started": "Get started",
   "welcome.create_workspace": "Create workspace",
-  "welcome.login_title": `Sign in to ${APP_NAME}`,
-  "welcome.login_description":
-    "Use your account before creating the first workspace.",
-  "welcome.login_username": "Username",
-  "welcome.login_email": "Email",
-  "welcome.login_password": "Password",
-  "welcome.login_required": "Enter your username and password.",
-  "welcome.login_invalid": "Username or password is incorrect.",
-  "welcome.login_failed": "Failed to sign in with the local account.",
-  "welcome.login_submit": "Sign in",
-  "welcome.login_submitting": "Signing in...",
   "welcome.capability_spreadsheets": "Work with spreadsheets",
   "welcome.capability_spreadsheets_desc":
     "Create, clean, and organize CSV and Excel — results stay on this Mac/PC.",
@@ -32,12 +18,6 @@ export default {
   "welcome.capability_apis": "Bring your own model",
   "welcome.capability_apis_desc":
     "Hosted APIs, OpenAI-compatible endpoints, or local Ollama — keys stay with you.",
-  "welcome.capability_team_hubs": "Team skill hubs",
-  "welcome.capability_team_hubs_desc":
-    "Save approved skills for your organization.",
-  "welcome.capability_team_provision": "Provision your team",
-  "welcome.capability_team_provision_desc":
-    "Manage workspaces, models, and permissions.",
   "welcome.folder_title": "Pick a local folder",
   "welcome.folder_explanation": `This folder becomes your local workspace. ${APP_NAME} will be able to:`,
   "welcome.folder_read": "Read the office files you put there",
@@ -47,16 +27,6 @@ export default {
   "welcome.folder_drop_hint": `Drop files in anytime and ${APP_NAME} can pick them up.`,
   "welcome.folder_no_folder_selected_yet": "No folder selected yet.",
   "welcome.folder_select_folder": "Select folder",
-  "welcome.steps_heading": "Three steps to office work",
-  "welcome.step1_title": "Choose a local folder",
-  "welcome.step1_desc":
-    "Tasks and outputs default to a workspace on this computer.",
-  "welcome.step2_title": "Connect your model",
-  "welcome.step2_desc": "Hosted, compatible API, or local models — not locked to one vendor.",
-  "welcome.step3_title": "Run office tasks",
-  "welcome.step3_desc": "Draft, file work, automate; approve sensitive actions when needed.",
-  "welcome.showcase_heading_line1": "Local office.",
-  "welcome.showcase_heading_line2": "Your models.",
   "welcome.about_you": "About you",
   "welcome.about_you_hint": "Pick one role and one industry (optional).",
   "welcome.assistant_name": "Name your personal assistant",

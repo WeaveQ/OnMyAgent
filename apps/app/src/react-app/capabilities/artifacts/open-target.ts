@@ -553,14 +553,10 @@ function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
   }
   const blob = `${command}\n${out}`;
   return (
-    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|xlsxwriter|openpyxl|to_excel|toFile|fs\.write|saveAs|saveas)\b/i.test(
+    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|toFile|fs\.write|saveAs|saveas)\b/i.test(
       blob,
     )
-    // Common CLI/script out flags when paired with a content extension.
-    || /(?:^|[\s])(?:--out(?:put)?|-o)(?:\s+|=)["']?[^"'\s]+\.(?:xlsx|xlsm|xls|csv|tsv|docx|pdf|pptx|html|md|png|zip)\b/i.test(
-      command,
-    )
-    || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为|输出文件)\b/i.test(out)
+    || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
   );
 }
 
@@ -586,8 +582,6 @@ function collectDeclaredPathsFromPatterns(text: string, patterns: RegExp[]): str
     for (const match of text.matchAll(pattern)) {
       const raw = (match[1] ?? "")
         .trim()
-        // Soft labels sometimes leave a leading colon when prose is messy.
-        .replace(/^[:：]+/, "")
         // "发货需求.xlsx（工作目录根下）"
         .replace(/[（(].*$/u, "")
         .replace(/[，。；;）)\s]+$/gu, "");
@@ -603,14 +597,9 @@ const HARD_DECLARED_PATH_PATTERNS = [
   /文件路径\s*[:：]\s*[`「"'“]?([^\s`」"'”]+)[`」"'”]?/gi,
 ];
 
-/**
- * WorkBuddy-style soft claims. Optional `:` / `：` after the label — agents often
- * write `输出文件: 实时运力.xlsx` (ASCII colon). Without allowing the colon the
- * whole match fails and product cards never mint.
- */
 const SOFT_DECLARED_PATH_PATTERNS = [
-  /(?:已生成|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*[:：]?\s*[`「"'“]?([^\s`」"'”:：]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
-  /(?:Created|Wrote|Saved)\s*[:：]?\s*[`"'“]?([^\s`"'”:：]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
+  /(?:已生成|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
+  /(?:Created|Wrote|Saved)\s+[`"'“]?([^\s`"'”]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
 ];
 
 /**
@@ -622,18 +611,9 @@ export function extractHardDeclaredDeliverablePaths(text: string): string[] {
 }
 
 /**
- * Soft deliverable claims only (`输出文件: …` / `已生成 …`), excluding hard
- * `文件路径:` lines.
- */
-export function extractSoftDeclaredDeliverablePaths(text: string): string[] {
-  return collectDeclaredPathsFromPatterns(text, SOFT_DECLARED_PATH_PATTERNS);
-}
-
-/**
  * Paths the assistant presents as deliverables in prose (hard + soft).
- * Soft content deliverables that verify as `exists:true` may mint product cards
- * (safety net when write-tool scan misses ad-hoc scripts); soft alone without a
- * verified file still does not mint.
+ * Soft forms (`已生成 foo.xlsx`) help intentional-code matching but alone do
+ * not mint cards without write provenance.
  */
 export function extractDeclaredDeliverablePaths(text: string): string[] {
   return collectDeclaredPathsFromPatterns(text, [
@@ -728,13 +708,6 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
             90,
             "shell write metadata",
           );
-          const commandText = shellCommandText(part.input);
-          if (commandText) {
-            // Paths often only appear in args (to_excel('a.xlsx'), --output b.csv).
-            scanText(targets, commandText, 88, "shell write command", {
-              includeFiles: true,
-            });
-          }
           const outText = shellOutputText(part.output);
           if (outText) {
             scanText(targets, outText, 90, "shell write output", {

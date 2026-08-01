@@ -635,51 +635,89 @@ if (mode === "--sort") {
 
 // --- 12. Prune (destructive) ---
 // Runs last so the user sees the unused/orphan reports above before
-// keys are actually removed. Removes both unused-from-source keys (en
-// only) and per-locale orphans (keys missing from en).
+// keys are actually removed. Removes unused-from-source keys and
+// per-locale orphans. Supports split locale dirs (en/*.ts, zh/*.ts, …).
 if (mode === "--prune") {
   console.log("=== Pruning ===");
   const unusedSet = new Set(unusedKeys);
-  const allLocaleFiles = ["en", ...LOCALES].map((l) => join(LOCALES_DIR, `${l}.ts`));
   let totalRemoved = 0;
 
-  for (const file of allLocaleFiles) {
-    if (!existsSync(file)) continue;
-    const localeName = basename(file, ".ts");
-    const removeSet = new Set(unusedSet);
-    const orphans = orphansByLocale[localeName] ?? [];
-    for (const key of orphans) removeSet.add(key);
-    const orphanCount = orphans.length;
-    if (removeSet.size === 0) continue;
-
+  /**
+   * Drop key entries whose id is in removeSet.
+   *
+   * Supported shapes (same as the rest of this repo's locale files):
+   *   "key": "value",
+   *   "key":
+   *     "value continued…",
+   *   "key": `template ${APP_NAME}`,
+   */
+  function pruneLocaleSourceFile(file, removeSet) {
     const content = readFileSync(file, "utf-8");
     const lines = content.split("\n");
     const filtered = [];
-    let skipNextLine = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      if (skipNextLine) {
-        skipNextLine = false;
-        continue;
-      }
-      const keyMatch = lines[i].match(/^\s*"([^"]+)"\s*:/);
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const keyMatch = line.match(/^\s*"([^"]+)"\s*:/);
       if (keyMatch && removeSet.has(keyMatch[1])) {
-        // Multi-line entry: value on next line
-        if (!lines[i].includes('",') && !lines[i].includes('": "') && i + 1 < lines.length) {
-          skipNextLine = true;
+        // Same-line complete entry: "key": "…",  or "key": `…`,
+        const sameLineComplete =
+          /:\s*("(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`|(?:true|false|null|-?\d+(?:\.\d+)?))\s*,\s*$/.test(
+            line,
+          );
+        if (sameLineComplete) {
+          i += 1;
+          continue;
+        }
+        // Multi-line: drop the key line, then drop continuation lines until
+        // a value-closing line (ends with ", or `,). Stop if another key starts
+        // (defensive — malformed files should not eat the rest of the file).
+        i += 1;
+        while (i < lines.length) {
+          const cont = lines[i];
+          if (/^\s*"[^"]+"\s*:/.test(cont)) break; // next key — stop
+          i += 1;
+          if (/["`]\s*,\s*$/.test(cont)) break; // value closed
         }
         continue;
       }
-      filtered.push(lines[i]);
+      filtered.push(line);
+      i += 1;
     }
 
     writeFileSync(file, filtered.join("\n"));
-    const removed = lines.length - filtered.length;
-    totalRemoved += removed;
-    const breakdown = orphanCount > 0
-      ? ` (${removed - orphanCount} unused, ${orphanCount} orphan)`
-      : "";
-    console.log(`  ${localeName}: removed ${removed} lines${breakdown}`);
+    return lines.length - filtered.length;
+  }
+
+  for (const localeName of ["en", ...LOCALES]) {
+    const entry = join(LOCALES_DIR, `${localeName}.ts`);
+    if (!existsSync(entry)) continue;
+    const removeSet = new Set(unusedSet);
+    const orphans = orphansByLocale[localeName] ?? [];
+    for (const key of orphans) removeSet.add(key);
+    if (removeSet.size === 0) continue;
+
+    // Split locale packages: prune each namespace file under en/, zh/, …
+    // Wrapper-only locales (legacy single file) prune the wrapper itself.
+    const targets = localeSourceFiles(entry);
+    let localeRemoved = 0;
+    for (const file of targets) {
+      // Never rewrite pure re-export wrappers (export { default } from …).
+      const head = readFileSync(file, "utf-8").slice(0, 200);
+      if (/export\s*\{\s*default\s*\}\s*from/.test(head) && !/"[^"]+"\s*:/.test(head)) {
+        continue;
+      }
+      localeRemoved += pruneLocaleSourceFile(file, removeSet);
+    }
+    totalRemoved += localeRemoved;
+    const orphanCount = orphans.length;
+    const breakdown =
+      orphanCount > 0
+        ? ` (~${orphanCount} orphan keys in set)`
+        : "";
+    console.log(
+      `  ${localeName}: removed ${localeRemoved} lines across ${targets.length} file(s)${breakdown}`,
+    );
   }
 
   if (totalRemoved === 0) console.log("  ✓ nothing to prune");

@@ -21,8 +21,8 @@ export const BUNDLED_SKILL_PACKAGE_NAMES = Object.freeze([
   // web-artifacts-builder) removed from the shipped catalog.
   "pptx",
   "qcc-company",
+  // Canonical self-reflection skill; twin package self-improving-agent removed.
   "self-improving",
-  "self-improving-agent",
   "skill-creator",
   "tencent-docs",
   "tencent-meeting-skill",

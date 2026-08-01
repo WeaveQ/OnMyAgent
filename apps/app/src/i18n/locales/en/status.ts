@@ -3,7 +3,6 @@ import { APP_NAME } from "../brand";
 export default {
   "status.back": "Back to previous screen",
   "status.connected": "Connected",
-  "status.connecting": "Connecting",
   "status.creating_task": "Creating new task",
   "status.developer_mode": "Developer mode",
   "status.disconnected": "Disconnected",
@@ -19,14 +18,12 @@ export default {
   "status.mcp_connected": "{count} MCP connected",
   "status.open_docs": "Open documentation",
   "status.open_docs_desc": "Open the documentation from the status bar.",
-  "status.onmyagent_ready": `${APP_NAME} Ready`,
   "status.providers_connected": "{count} providers available",
   "status.providers_connected_one": "{count} provider available",
   "status.providers_connected_other": "{count} providers available",
   "status.ready_for_tasks": "Ready for new tasks",
   "status.running": "Running",
   "status.send_feedback": "Send feedback",
-  "status.settings": "Settings",
   "status.send_feedback_desc": `Open the ${APP_NAME} feedback surface from the status bar.`,
   "status.unavailable_for_tasks": "Unavailable for new tasks",
 } as const;
