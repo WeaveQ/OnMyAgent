@@ -17,6 +17,7 @@ export {
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "./agent-registry-store";
+export { buildPendingAgentFromMarketplaceExpert } from "./marketplace-pending-agent";
 export * from "./agent-session-state";
 
 export * from "./pending-agent-store";

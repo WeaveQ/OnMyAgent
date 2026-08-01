@@ -37,24 +37,18 @@ import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 import type { SidebarPrimaryView } from "../sidebar/app-sidebar";
 import {
-  ExpertMarketplacePage,
-  type ExpertMarketplaceView,
-} from "../expert-marketplace/expert-marketplace-dialog";
-import type {
-  ExpertMarketplaceEntry,
-  ExpertMarketplaceSummonHandler,
-} from "../expert-marketplace/types";
-import { SkillsMarketplacePage } from "../skills-marketplace/skills-marketplace-page";
-import { useStatusToasts } from "../../shell-feedback";
-import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
-import {
-  PluginsPage,
-  type ArtifactPluginPromptSelection,
-} from "@/react-app/domains/plugins";
-import {
   CustomConnectorDialog,
   CustomConnectorEntryButton,
+  ExpertMarketplacePage,
+  PluginsPage,
+  SkillsMarketplacePage,
+  type ArtifactPluginPromptSelection,
+  type ExpertMarketplaceEntry,
+  type ExpertMarketplaceSummonHandler,
+  type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
+import { useStatusToasts } from "../../shell-feedback";
+import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {
   emptyTitle: "mt-5 text-base font-medium text-dls-text",

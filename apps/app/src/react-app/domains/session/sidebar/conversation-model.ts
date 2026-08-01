@@ -22,7 +22,7 @@ import type {
 import {
   buildPendingAgentFromRecord,
 } from "../../agents";
-import { findBuiltinMarketplaceExpertById } from "../expert-marketplace/data";
+import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 import {
   readCustomAgentIdForSession,
   readSessionAgentSnapshot,

@@ -34,8 +34,14 @@ describe("load surface wiring", () => {
       path.join(root, "src/react-app/shell/settings-route/render.tsx"),
       "utf8",
     );
-    expect(session).toContain('useLoadScope("route-session"');
-    expect(settings).toContain('useLoadScope("route-settings"');
+    const shellLoad = readFileSync(
+      path.join(root, "src/react-app/shell/use-shell-interactive-load.ts"),
+      "utf8",
+    );
+    // Settings (and session) declare scopes via useShellInteractiveLoad → useLoadScope.
+    expect(session).toContain('firstLoadScope: "route-session"');
+    expect(settings).toContain('firstLoadScope: "route-settings"');
+    expect(shellLoad).toContain("useLoadScope");
   });
 
   test("loading overlay reads route load registry", () => {

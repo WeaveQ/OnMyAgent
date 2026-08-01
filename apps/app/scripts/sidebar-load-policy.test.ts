@@ -14,7 +14,7 @@ import { orderBackgroundSessionWorkspaces } from "../src/react-app/shell/session
 const appRoot = join(import.meta.dir, "..");
 
 describe("sidebar load policy", () => {
-  test("preview ids empty before defer and capped after", () => {
+  test("non-selected preview prefetch is off by default (max 0)", () => {
     const sessions = [
       { id: "ses_selected" },
       { id: "ses_a" },
@@ -25,6 +25,8 @@ describe("sidebar load policy", () => {
       { id: "ses_e" },
       { id: "ses_f" },
     ];
+    expect(SIDEBAR_PREVIEW_SNAPSHOT_MAX).toBe(0);
+
     expect(
       selectSidebarPreviewSessionIds({
         sessions,
@@ -33,6 +35,7 @@ describe("sidebar load policy", () => {
       }).size,
     ).toBe(0);
 
+    // After defer with default max: still no automatic non-selected prefetch.
     const after = selectSidebarPreviewSessionIds({
       sessions,
       selectedSessionId: "ses_selected",
@@ -40,28 +43,29 @@ describe("sidebar load policy", () => {
     });
     expect(after.has("ses_selected")).toBe(false);
     expect(after.has("draft:x")).toBe(false);
-    expect(after.size).toBe(SIDEBAR_PREVIEW_SNAPSHOT_MAX);
-    expect([...after]).toEqual(["ses_a", "ses_b", "ses_c", "ses_d", "ses_e"]);
+    expect(after.size).toBe(0);
 
-    // Tab titles: exclude selected always (surface owns it). Before defer: empty.
-    const tabBefore = selectSidebarPreviewSessionIds({
-      sessions,
-      selectedSessionId: "ses_selected",
-      deferred: false,
-      prioritizeSelected: false,
-      includeSelected: false,
-    });
-    expect(tabBefore.size).toBe(0);
-    const tabAfter = selectSidebarPreviewSessionIds({
+    // Opt-in re-enable via explicit maxPreviews (kept for tests / future toggle).
+    const reenabled = selectSidebarPreviewSessionIds({
       sessions,
       selectedSessionId: "ses_selected",
       deferred: true,
-      prioritizeSelected: false,
-      includeSelected: false,
       maxPreviews: 3,
     });
-    expect(tabAfter.has("ses_selected")).toBe(false);
-    expect(tabAfter.size).toBe(3);
+    expect(reenabled.has("ses_selected")).toBe(false);
+    expect(reenabled.has("draft:x")).toBe(false);
+    expect([...reenabled]).toEqual(["ses_a", "ses_b", "ses_c"]);
+
+    // Tab titles: selected-only path (prioritizeSelected) — no non-selected.
+    const tabSelectedOnly = selectSidebarPreviewSessionIds({
+      sessions,
+      selectedSessionId: "ses_selected",
+      deferred: true,
+      prioritizeSelected: true,
+      includeSelected: true,
+      maxPreviews: 1,
+    });
+    expect([...tabSelectedOnly]).toEqual(["ses_selected"]);
   });
 
   test("draft session id helper", () => {

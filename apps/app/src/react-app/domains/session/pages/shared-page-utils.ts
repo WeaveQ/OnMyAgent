@@ -4,11 +4,11 @@
  */
 
 import type { ExpertPackageListEntry } from "../../../../app/lib/desktop";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import {
   expertMarketplaceCategoryLabel,
   normalizeExpertMarketplaceCategoryId,
-} from "../expert-marketplace/categories";
+} from "@/react-app/domains/plugins";
 import {
   isCollectibleArtifactTarget,
   isUserFacingLocalPreviewTarget,

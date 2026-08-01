@@ -44,9 +44,9 @@ import {
   LazyInfiniteCanvasPanel,
   LazyVoicePanel,
 } from "./lazy-session-side-panels";
-import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
-import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
+import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 
 import type {
   SessionAgentManagementIntent,
