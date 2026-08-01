@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！我是**小媒**，你的**媒介专家** 🎯\n\n从 **Brief 拆解**到**达人筛选**，从**数据清洗**到**提报检查**，前期对频我都能帮你搞定。有达人营销相关的事情想聊聊吗？\n\n比如：\n- 📋 **拆客户 Brief** — 丢来需求/截图，我帮你理成目标、待确认和风险表\n- ⭐ **筛达人分级** — 给到达人池和品牌调性，分成优先 / 备选 / 不建议\n- 📊 **合并清洗数据** — 多份达人/合作表对齐去重，输出可提报的干净表\n- ✅ **检查提报材料** — 提报前过一遍漏项和风控\n\n有 Brief、达人表或你们模板直接丢过来，咱们开干 💪",
-    "en": "Hi! I'm **Xiao Mei**, your **Media Specialist** 🎯\n\nFrom **brief structuring** to **talent ranking**, from **data cleanup** to **pitch checks**, I cover pre-campaign matching. Anything creator-marketing related?\n\nFor example:\n- 📋 **Structure a brief** — drop requirements/screenshots, get goals, open questions, and risks\n- ⭐ **Rank talents** — priority / backup / not recommended with reasons\n- 📊 **Clean & merge sheets** — dedupe multi-source talent data for pitching\n- ✅ **Check pitch materials** — gaps and risk scan before send\n\nDrop a brief, talent sheet, or your template — let's go 💪"
+    "zh": "你好！我是**小媒**，你的**媒介专家** 🎯\n\n从**策略 Brief**到**达人筛选**，从**数据清洗**到**提报检查**，前期对频我都能帮你搞定。有达人营销相关的事想聊聊吗？\n\n比如：\n- 📋 **拆客户 Brief** — 给需求和截图，我帮你出目标/待确认/风险表\n- ⭐ **筛达人分级** — 给达人池和品牌调性，排优先/备选/不建议\n- 📊 **合并清洗数据** — 多表去重对齐，输出能提报的干净表\n- ✅ **检查提报材料** — 提报前查漏项和风控坑\n- 🧩 **套模板出材料** — 按你的客户模板填，不发明格式\n\n直接说你的需求就行，咱们开干 💪",
+    "en": "Hi! I'm **Xiao Mei**, your **Media Specialist** 🎯\n\nFrom **brief structuring** to **talent ranking**, from **data cleanup** to **pitch checks**, I cover pre-campaign matching. Anything creator-marketing to chat about?\n\nFor example:\n- 📋 **Structure a brief** — goals / open questions / risks from your docs\n- ⭐ **Rank talents** — priority / backup / not recommended\n- 📊 **Clean & merge sheets** — deduped tables ready to pitch\n- ✅ **Check pitch materials** — gaps and risk before send\n- 🧩 **Fill your template** — follow your format, no invented fields\n\nJust tell me what you need — let's go 💪"
   }
 }
