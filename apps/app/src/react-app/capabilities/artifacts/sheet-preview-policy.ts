@@ -34,14 +34,28 @@ function looksLikeAbsoluteFilesystemPath(value: string): boolean {
 
 /**
  * Whether the session artifact surface should mount OfficeFilePreview for a sheet.
- * Requires local workspace, binary spreadsheet extension, and a resolvable absolute path.
+ * Requires:
+ * - Electron Office preview bridge available (same gate as Files/side-panel)
+ * - local workspace (not remote)
+ * - binary spreadsheet extension
+ * - resolvable absolute filesystem path
+ *
+ * When the bridge is missing, callers must fall through to download/reveal
+ * (UnsupportedBinaryNotice) — never mount an empty OfficeFilePreview no-op.
  */
 export function shouldPreviewBinarySheetViaOfficeOverlay(input: {
   preview: string;
   pathOrName: string;
   isRemoteWorkspace?: boolean;
   absoluteFilePath?: string | null;
+  /**
+   * Explicit Electron/runtime preview availability.
+   * Pass `isElectronRuntime()` (and/or artifactPreview present) from the host.
+   * Defaults to false so non-Electron cannot pretend-preview.
+   */
+  officePreviewAvailable?: boolean;
 }): boolean {
+  if (!input.officePreviewAvailable) return false;
   if (input.preview !== "sheet") return false;
   if (input.isRemoteWorkspace) return false;
   if (!isBinarySpreadsheetPath(input.pathOrName)) return false;

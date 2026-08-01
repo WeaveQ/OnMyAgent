@@ -21,13 +21,14 @@ describe("sheet-preview-policy (shipped)", () => {
     expect(isTextSpreadsheetPath("table.xlsx")).toBe(false);
   });
 
-  test("routes local binary sheets to Office overlay when absolute path exists", () => {
+  test("routes local binary sheets to Office overlay when Electron + absolute path", () => {
     expect(
       shouldPreviewBinarySheetViaOfficeOverlay({
         preview: "sheet",
         pathOrName: "报价.xlsx",
         isRemoteWorkspace: false,
         absoluteFilePath: "/Users/work/Documents/ws/报价.xlsx",
+        officePreviewAvailable: true,
       }),
     ).toBe(true);
 
@@ -37,8 +38,32 @@ describe("sheet-preview-policy (shipped)", () => {
         pathOrName: "output/data.xlsx",
         isRemoteWorkspace: false,
         absoluteFilePath: "C:\\Users\\me\\ws\\output\\data.xlsx",
+        officePreviewAvailable: true,
       }),
     ).toBe(true);
+  });
+
+  test("does not use Office overlay without Electron runtime (honest degrade)", () => {
+    // Same path that would work in desktop — must stay false in browser/web.
+    expect(
+      shouldPreviewBinarySheetViaOfficeOverlay({
+        preview: "sheet",
+        pathOrName: "报价.xlsx",
+        isRemoteWorkspace: false,
+        absoluteFilePath: "/Users/work/Documents/ws/报价.xlsx",
+        officePreviewAvailable: false,
+      }),
+    ).toBe(false);
+
+    // Omitted flag defaults to unavailable (safe default).
+    expect(
+      shouldPreviewBinarySheetViaOfficeOverlay({
+        preview: "sheet",
+        pathOrName: "报价.xlsx",
+        isRemoteWorkspace: false,
+        absoluteFilePath: "/Users/work/Documents/ws/报价.xlsx",
+      }),
+    ).toBe(false);
   });
 
   test("does not use Office overlay for remote, text sheets, or missing absolute path", () => {
@@ -48,6 +73,7 @@ describe("sheet-preview-policy (shipped)", () => {
         pathOrName: "报价.xlsx",
         isRemoteWorkspace: true,
         absoluteFilePath: "/Users/work/Documents/ws/报价.xlsx",
+        officePreviewAvailable: true,
       }),
     ).toBe(false);
 
@@ -57,6 +83,7 @@ describe("sheet-preview-policy (shipped)", () => {
         pathOrName: "rows.csv",
         isRemoteWorkspace: false,
         absoluteFilePath: "/Users/work/Documents/ws/rows.csv",
+        officePreviewAvailable: true,
       }),
     ).toBe(false);
 
@@ -66,6 +93,7 @@ describe("sheet-preview-policy (shipped)", () => {
         pathOrName: "报价.xlsx",
         isRemoteWorkspace: false,
         absoluteFilePath: "relative/only.xlsx",
+        officePreviewAvailable: true,
       }),
     ).toBe(false);
 
@@ -75,6 +103,7 @@ describe("sheet-preview-policy (shipped)", () => {
         pathOrName: "note.md",
         isRemoteWorkspace: false,
         absoluteFilePath: "/Users/work/Documents/ws/note.md",
+        officePreviewAvailable: true,
       }),
     ).toBe(false);
   });

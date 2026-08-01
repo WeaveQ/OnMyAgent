@@ -5,6 +5,7 @@ import { Download, FolderOpen, MoreHorizontal, Trash2, X } from "lucide-react";
 
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { revealDesktopItemInDir } from "@/app/lib/desktop";
+import { isElectronRuntime } from "@/app/utils";
 import { PanelTab, PanelTabAction, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,6 +94,9 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
     pathOrName: target.value || target.name,
     isRemoteWorkspace,
     absoluteFilePath: target.kind === "file" ? externalPath : null,
+    // Match Files/side-panel: never mount OfficeFilePreview outside Electron
+    // (bridge missing → empty viewport; degrade to download/reveal instead).
+    officePreviewAvailable: isElectronRuntime(),
   });
 
   const { data, error, isError, isLoading } = useQuery<ArtifactQueryState>({
