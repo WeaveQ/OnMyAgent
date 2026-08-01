@@ -13,81 +13,77 @@
 | UI / 视觉契约 | [`DESIGN.md`](./DESIGN.md) |
 | 文档总目录 | [`docs/README.md`](./docs/README.md) |
 
-**一个工作台，管理好你本地所有 Agent。**
+**本地办公工作台：任务在本机，模型你自选。**
 
-OnMyAgent 是开源桌面工作区，也是面向 agentic 工作流的本地控制平面。
+OnMyAgent 是开源**桌面办公 Agent 工作台**——在本机完成文档、表格、自动化与审批，而不是又一个云端聊天窗口。
 
-它不替代 Codex、Claude Code、OpenCode 或其他 Coding Agent；
-它管理它们。
+- **办公优先**：会话、文件、自动化、消息渠道，围绕日常办公交付。
+- **本地优先**：工作区与产物默认在本机；高风险操作可审批。
+- **任意模型（BYOK）**：官方服务、兼容 API、本机 Ollama 等均可接入，不绑定单一厂商。
+- **专家与垂类后置**：专家市场与行业能力会持续扩展；当前主路径是稳的办公体验，未就绪的能力不当主卖点。
 
-OnMyAgent 把本地 Agent、MCP 工具、Skills、Memory、Automations、会话、任务、日志、Diff 和产物统一到一个桌面工作区里，让分散的 Agent 工具变成可调度、可追踪、可交付的 AI Worker 流程。
+进阶能力（本机 Coding CLI / MCP / 多 Agent 接入）仍然存在，放在设置与高级入口，不抢办公主叙事。
 
 ## 为什么需要 OnMyAgent？
 
-AI Agent 越来越强，但真正的问题不是“没有 Agent”。
-真正的问题是 Agent 工作流仍然很分散：
+办公侧的模型已经够强，缺的是「在本机把事办完、存住、定时再做」：
 
-- Codex、Claude Code、OpenCode 和其他 Agent CLI 分散在不同终端里。
-- MCP 工具、模型密钥、项目上下文和权限配置分散在不同文件里。
-- 会话、任务、日志、Diff 和产物很难统一审查。
-- Agent 能做事，但缺少一个控制台来排队、监控、审批、恢复和交付。
-- 本地优先工作流需要更清晰的权限、审批和安全边界。
+- 聊天工具很强，但文件、定时任务、审批和渠道往往散落各处。
+- 企业办公助手常绑死一家模型或一家云，密钥与数据路径不透明。
+- 纯 CLI / 开发者 Agent 强大，却不是办公用户的默认入口。
+- 需要本地工作区：读写本机文件、可恢复会话、可审查产物。
 
-所以 OnMyAgent 不再做另一个 Agent。
-
-它做的是本地 Agent 控制平面：把你已有的 Agent 管起来，把一次次运行变成可管理的 Worker 工作流。
+所以 OnMyAgent 主打：**本地办公 + 自选模型**，而不是「再做一个聊天克隆」或「再做一个云编排平台」。
 
 ## 它是什么
 
 OnMyAgent 是：
 
-- 面向开发者和 AI Power User 的开源 Worker 工作台。
-- 面向 Codex、Claude Code、OpenCode 以及 OpenCode 兼容 runtime 的本地 Agent 控制平面。
-- 管理任务队列、会话、日志、Diff、产物、MCP 工具、Skills、Memory 和审批的桌面工作区。
-- 本地优先、BYOK、可审计、可扩展、尽量不绑定单一模型服务商的开源项目。
+- 面向知识工作者与 AI 用户的**本地办公桌面工作台**。
+- 会话、文件、自动化、技能 / 专家、消息渠道与权限审批的统一界面。
+- **本地优先、BYOK、尽量不绑定单一模型服务商**的开源项目。
 
 OnMyAgent 不是：
 
-- 替代 Codex、Claude Code、OpenCode 或所有 Coding Agent CLI 的工具。
-- n8n、Dify、Zapier 这类云端工作流自动化平台。
-- 托管式企业治理产品。
-- 通用聊天克隆。
+- 只做闲聊的通用 Chat 克隆。
+- n8n / Dify / Zapier 这类云端工作流编排平台。
+- 托管式企业治理套件（组织能力可演进，但不是当前主路径）。
+- 用来替代 Cursor / Claude Code 等编码 IDE 的主场产品（本机 Coding Agent 可作为高级接入）。
 
-## 它和其他 Agent 工具是什么关系？
+## 它和其他工具是什么关系？
 
 | 工具 | 它做什么 | OnMyAgent 如何配合 |
 |------|----------|-------------------|
-| Codex | Coding Agent runtime | 作为本地 Worker 被管理 |
-| Claude Code | Coding Agent CLI | 作为本地 Worker 被管理 |
-| OpenCode | 开源 Coding Agent runtime | **主运行时 / 主会话底座**（server、archive、SSE） |
-| Personal Local Agent | 本机 CLI/ACP harness（Claude Code、Codex 等） | **辅轨**：桌面统一接入，不替代 OpenCode |
-| MCP servers | 外部工具连接器 | 在 OnMyAgent 中统一配置、检查和控制 |
-| Skills | 可复用 Agent 能力 | 在工作台中安装、组织和调用 |
-| ChatGPT / LibreChat | 聊天界面 | 不同品类：OnMyAgent 是本地控制平面，不是聊天克隆 |
-| n8n / Dify / Zapier | 云端工作流自动化 | 不同品类：OnMyAgent 聚焦本地优先 Agent 工作流 |
+| 各家大模型 / 兼容 API / Ollama | 推理与生成 | **自选接入**；密钥与默认模型在设置中管理 |
+| ChatGPT / 豆包等桌面聊天 | 对话界面 | 不同品类：我们偏**本地工作区 + 文件/自动化/审批** |
+| 腾讯 WorkBuddy 等办公 Agent | 生态内办公助手 | 相近场景；我们强调**本地与模型自选**，不绑单一生态 |
+| OpenCode | 本地 Agent 运行底座 | **主会话 / server 底座**（实现细节，对用户呈现为本地工作区） |
+| Codex / Claude Code 等 CLI | Coding Agent | **高级接入**（Personal 辅轨），非办公默认首页 |
+| MCP / Skills | 工具与可复用能力 | 在工作台中配置与调用 |
+| n8n / Dify / Zapier | 云端工作流 | 不同品类：我们聚焦**本机办公任务**，不是图画式编排 |
 
 ## 核心概念
 
-- **Agent**：能理解任务并执行操作的工具，例如 Codex、Claude Code、OpenCode。
-- **Worker**：带有任务上下文、权限边界、执行状态、日志和交付物的 Agent。
-- **Control Plane 控制平面**：连接、调度、监控、审批和审查本地 Worker 的桌面层。
-- **Session 会话**：一次可恢复、可追踪的 Agent 工作过程。
-- **Artifact 产物**：Agent 工作后产生的文件、Diff、报告、截图、文档或其他交付物。
+- **工作区 Workspace**：本机文件夹，任务与产物的默认落点。
+- **会话 Session**：一次可恢复的办公协作过程。
+- **模型 Provider**：你接入的任意推理服务；默认模型用于新对话与自动化。
+- **自动化 Automation**：定时或触发的办公任务（汇报、汇总、提醒等）。
+- **产物 Artifact**：文档、表格、报告、截图等交付物，可在文件区继续打开与外编。
+- **专家 / 技能（扩展）**：可安装的能力包；垂类专家按就绪度逐步开放。
 
 ## 功能模块
 
-- **Agent Registry**：注册和管理 Codex、Claude Code、OpenCode 等本地 Agent。
-- **Worker Workspace**：排队、运行、暂停、恢复和审查 Agent 任务。
-- **Session Manager**：跨项目追踪和恢复本地 Agent 会话。
-- **Automations**：调度周期性本地 Agent 任务，并查看运行历史。
-- **MCP Control**：统一配置 MCP server，并通过 MCP 暴露 UI 控制能力。
-- **Skills & Memory**：管理可复用能力和项目上下文。
-- **软件与环境设置**：管理内置运行时、API keys、本机环境变量，以及平台权限（macOS 辅助功能 / 屏幕录制等）。
-- **Artifact Review**：集中审查日志、Diff、文件、截图和交付物。
-- **Permission & Approval**：为高风险本地动作提供显式权限和审批界面。
-- **Local-first / BYOK**：工作留在本机，模型和服务商密钥由用户自己掌控。
+- **首页会话**：派发办公任务、查看进度与回复。
+- **专家与市场**：能力扩展入口（未就绪专家会持续打磨，不作为当前主承诺）。
+- **自动化**：调度周期性办公任务并查看运行历史。
+- **文件**：工作区文件、任务产物与预览 / 外编。
+- **消息渠道**：飞书 / 微信等触达路径（按平台能力启用）。
+- **模型与设置**：连接任意服务商、默认模型、环境变量、系统权限与偏好。
+- **Skills / MCP / Memory**：可复用能力、外部工具与长期偏好。
+- **权限与审批**：高风险本地动作的显式确认。
+- **Local-first / BYOK**：工作留在本机，密钥由用户掌控。
 - **桌面端打包**：macOS 为主；Windows NSIS 为开发者预览包。
-- **国际化**：维护英文、简体中文和繁体中文 locale 文件。
+- **国际化**：英文、简体中文、繁体中文。
 
 ## 平台支持
 
@@ -101,15 +97,15 @@ OnMyAgent 不是：
 ## 工作流
 
 ```text
-连接本地 Agent
+选择本地工作区文件夹
         ↓
-创建或导入任务
+连接任意模型（官方 / 兼容 API / 本机）
         ↓
-作为 Worker 执行
+派发办公任务（会话 / 自动化）
         ↓
-追踪会话、日志、Diff 和审批
+需要时审批敏感操作
         ↓
-审查产物
+在「文件」中打开或外编产物
         ↓
 交付或继续迭代
 ```
@@ -225,21 +221,26 @@ pnpm check:security
 
 ## 当前能力与路线图
 
-### 当前已具备
+### 当前主路径（办公）
 
-- OpenCode 主轨会话、任务、自动化、产物、日志、权限和审批界面（server + archive）。
-- 本地 Agent registry 与 provider switching（Personal 辅轨：Codex、Claude Code 等 CLI/ACP）。
-- 桌面端 Skill、MCP、Provider、模型、Memory、软件环境和工作区管理。
-- 面向 Personal Agent 工作流的本地消息通道，包括 Weixin 和 Feishu 桌面集成路径。
-- UI control bridge，以及可用于桌面端和 headless 开发的本地 server/orchestrator runtime。
+- 本地工作区会话、文件产物、办公自动化、权限与审批。
+- **任意模型**：官方服务商、兼容 API、本机模型；默认模型与设置页空态引导。
+- Skills / MCP / Memory、软件环境与系统权限（按平台）。
+- 消息渠道（飞书 / 微信等）桌面集成路径。
+- 专家 / 市场：扩展位；垂类专家按就绪度迭代，**未上线前不作完整承诺**。
+
+### 高级 / 工程能力（非默认首页）
+
+- OpenCode 作为本地主会话底座（server + archive）；Personal 辅轨可接入 Codex / Claude Code 等 CLI。
+- UI control bridge、headless / orchestrator 开发路径。
 
 ### 下一步重点
 
-- 继续降低冷启动成本（低频设置 / Skill / 高亮 chunk 懒加载）；progressive boot 与统一加载层已能更快首屏可交互。
-- 在具备凭证和 callback 权限时，补齐 Feishu 与 Weixin 的真实外部通道 E2E 验证。
-- 继续拆分 desktop 主进程，并进一步瘦 session 宿主表面（message-list 拆分、更深 runtime hooks）。
-- 完善工作详情视图、审计轨迹和更安全的审批策略预设。
-- 准备团队 Worker 协作层：共享工作区、团队权限、组织审计、Skill Packs 和企业部署选项。
+- 继续压低「文件夹 → 连模型 → 第一件办公任务成功」的路径成本。
+- 办公空态、默认模型状态与失败文案持续产品化（少用引擎术语）。
+- 专家货架按就绪度分级展示；垂类分批发。
+- 通道 E2E、Windows 办公主路径、审批与审计体验。
+- 可选的团队协作层（共享工作区、组织权限等）——不阻塞个人办公主线。
 
 ## 贡献
 

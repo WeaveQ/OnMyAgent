@@ -32,12 +32,12 @@ describe("agent session visibility", () => {
   test("adds the selected route expert session when it is missing from sidebar sessions", () => {
     const sessions = ensureSelectedAgentSessionVisible({
       sessions: [existingSession],
-      selectedSessionId: "expert_senior_developer",
-      selectedAgentId: "senior-developer:senior-developer",
+      selectedSessionId: "expert_doc_gen",
+      selectedAgentId: "document-generation-expert:document-generation-expert",
     });
 
     expect(sessions.map((session) => session.id)).toEqual([
-      "expert_senior_developer",
+      "expert_doc_gen",
       "expert_chuangye",
     ]);
   });
@@ -48,7 +48,7 @@ describe("agent session visibility", () => {
     expect(
       ensureSelectedAgentSessionVisible({
         sessions,
-        selectedSessionId: "expert_senior_developer",
+        selectedSessionId: "expert_doc_gen",
         selectedAgentId: null,
       }),
     ).toBe(sessions);
@@ -59,12 +59,12 @@ describe("agent session visibility", () => {
     const patchedGroups = ensureSelectedAgentSessionGroupVisible({
       groups,
       selectedWorkspaceId: "ws_1",
-      selectedSessionId: "expert_senior_developer",
-      selectedAgentId: "senior-developer:senior-developer",
+      selectedSessionId: "expert_doc_gen",
+      selectedAgentId: "document-generation-expert:document-generation-expert",
     });
 
     expect(patchedGroups[0]?.sessions.map((session) => session.id)).toEqual([
-      "expert_senior_developer",
+      "expert_doc_gen",
       "expert_chuangye",
     ]);
     expect(patchedGroups[1]).toBe(groups[1]);
@@ -75,8 +75,8 @@ describe("agent session visibility", () => {
       sessions: [existingSession],
       agentSessions: [
         {
-          sessionId: "expert_senior_developer",
-          agentId: "senior-developer:senior-developer",
+          sessionId: "expert_doc_gen",
+          agentId: "document-generation-expert:document-generation-expert",
         },
         {
           sessionId: "expert_chuangye",
@@ -86,7 +86,7 @@ describe("agent session visibility", () => {
     });
 
     expect(sessions.map((session) => session.id)).toEqual([
-      "expert_senior_developer",
+      "expert_doc_gen",
       "expert_chuangye",
     ]);
   });
@@ -98,14 +98,14 @@ describe("agent session visibility", () => {
       selectedWorkspaceId: "ws_1",
       agentSessions: [
         {
-          sessionId: "expert_senior_developer",
-          agentId: "senior-developer:senior-developer",
+          sessionId: "expert_doc_gen",
+          agentId: "document-generation-expert:document-generation-expert",
         },
       ],
     });
 
     expect(patchedGroups[0]?.sessions.map((session) => session.id)).toEqual([
-      "expert_senior_developer",
+      "expert_doc_gen",
       "expert_chuangye",
     ]);
   });
