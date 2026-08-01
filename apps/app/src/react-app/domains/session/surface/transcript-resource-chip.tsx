@@ -8,7 +8,7 @@ import { t } from "@/i18n";
 import { usePlatform } from "../../../kernel/platform";
 import { resolveArtifactRevealCandidates } from "../artifacts/open-target";
 import { ArtifactIcon } from "../artifacts/artifact-icon";
-import { FileHoverPopup } from "../../capabilities/artifacts/file-hover-popup";
+import { FileHoverPopup } from "../../../capabilities/artifacts/file-hover-popup";
 import { formatBytes } from "./composer/composer-helpers";
 import { ImageAttachmentLightbox } from "./image-attachment-lightbox";
 import { absolutePathFromFileUrl } from "./user-upload-display";
