@@ -142,6 +142,23 @@ export function useRailLocation(input: {
     ],
   );
 
+  // Menu-bar status item: open expert marketplace (store rail).
+  useEffect(() => {
+    const onOpenExpertMarketplace = () => {
+      openRailView("store");
+    };
+    window.addEventListener(
+      "onmyagent:native-menu:open-expert-marketplace",
+      onOpenExpertMarketplace,
+    );
+    return () => {
+      window.removeEventListener(
+        "onmyagent:native-menu:open-expert-marketplace",
+        onOpenExpertMarketplace,
+      );
+    };
+  }, [openRailView]);
+
   return {
     activeSidebarView,
     setActiveSidebarView,

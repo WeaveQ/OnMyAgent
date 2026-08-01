@@ -31,6 +31,7 @@ import {
   session,
   shell,
   systemPreferences,
+  Tray,
 } from "electron";
 import { registerMigrationIpc } from "./migration.mjs";
 import { createDesktopPersonalRuntimeServices, createRuntimeManager } from "./runtime.mjs";
@@ -59,6 +60,7 @@ import {
 } from "./personal-agent-runtime/provider-registry.mjs";
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
+import { createStatusItemLifecycle } from "./status-item.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import {
   getLaunchAtLogin,
@@ -413,24 +415,21 @@ const artifactPreviewController = createArtifactPreviewController({
   preloadPath: path.join(__dirname, "artifact-preview-preload.cjs"),
 });
 
+const statusItem = createStatusItemLifecycle({
+  app, Tray, Menu, nativeImage, createMainWindow,
+  getMainWindow: () => mainWindow,
+  quitApp: () => app.quit(),
+  openDesktopPermissions: () => openComputerUseSetupApp(),
+});
 desktopWindowController = createDesktopWindowController({
   getMainWindow: () => mainWindow,
-  setMainWindow: (win) => {
-    mainWindow = win;
-  },
-  app,
-  nativeTheme,
-  session,
-  appName: APP_NAME,
-  isDevMode,
-  minWidth: MAIN_WINDOW_MIN_WIDTH,
-  minHeight: MAIN_WINDOW_MIN_HEIGHT,
-  appIconImage: APP_ICON_IMAGE,
-  dirname: __dirname,
-  applyApplicationMenuVisibility,
-  browserController,
-  artifactPreviewController,
+  setMainWindow: (win) => { mainWindow = win; },
+  app, nativeTheme, session, appName: APP_NAME, isDevMode,
+  minWidth: MAIN_WINDOW_MIN_WIDTH, minHeight: MAIN_WINDOW_MIN_HEIGHT,
+  appIconImage: APP_ICON_IMAGE, dirname: __dirname,
+  applyApplicationMenuVisibility, browserController, artifactPreviewController,
   flushPendingDeepLinks,
+  shouldHideOnClose: () => statusItem.shouldHideOnClose(),
 });
 
 const uiControlBridge = createUiControlServer({
@@ -1628,6 +1627,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("before-quit", (event) => {
+    statusItem.markQuitting();
     if (runtimeDisposedForQuit) return;
     event.preventDefault();
     codeTerminalManager.dispose();
@@ -1637,7 +1637,10 @@ if (!app.requestSingleInstanceLock()) {
       Promise.resolve(artifactPreviewController.destroy()),
       uiControlBridge.stop(),
       Promise.resolve(disposeComputerUseServices()),
-    ]).finally(() => app.quit());
+    ]).finally(() => {
+      statusItem.dispose();
+      app.quit();
+    });
   });
 
   app.on("second-instance", async (_event, argv) => {
@@ -1676,6 +1679,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     installMediaPermissionHandlers();
     installApplicationMenu();
+    statusItem.installSafely();
 
     await ensureOnMyAgentUserDataDirs();
     await restoreComputerUseServices().catch((error) => {
@@ -1750,8 +1754,6 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") {
-      app.quit();
-    }
+    if (statusItem.shouldQuitOnLastWindow()) app.quit();
   });
 }

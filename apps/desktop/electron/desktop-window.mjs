@@ -22,6 +22,9 @@ import { BrowserWindow } from "electron";
  * @param {object} options.browserController
  * @param {object} options.artifactPreviewController
  * @param {() => void} options.flushPendingDeepLinks
+ * @param {() => boolean} [options.shouldHideOnClose]
+ *   When true, close is cancelled and the window is hidden (macOS status-item
+ *   keep-alive). Callers set this only while the app is not quitting.
  */
 export function createDesktopWindowController(options) {
   const {
@@ -40,6 +43,7 @@ export function createDesktopWindowController(options) {
     browserController,
     artifactPreviewController,
     flushPendingDeepLinks,
+    shouldHideOnClose = () => false,
   } = options;
 
   function isLocalRendererOrigin(origin) {
@@ -203,7 +207,25 @@ export function createDesktopWindowController(options) {
 
     // Detach BrowserViews while the window is still alive. Doing this only on
     // "closed" races Electron teardown and throws "Object has been destroyed".
-    mainWindow.on("close", () => {
+    // On macOS with a status item, hide instead of destroy so the process and
+    // menu-bar icon stay until explicit quit.
+    mainWindow.on("close", (event) => {
+      if (shouldHideOnClose()) {
+        event.preventDefault();
+        try {
+          browserController.destroyBrowserView();
+          artifactPreviewController.destroy();
+        } catch (error) {
+          console.warn(
+            "[main] destroyBrowserView on hide-close failed:",
+            error?.message ?? error,
+          );
+        }
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.hide();
+        }
+        return;
+      }
       try {
         browserController.destroyBrowserView();
         artifactPreviewController.destroy();
