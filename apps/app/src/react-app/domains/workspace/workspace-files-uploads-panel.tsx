@@ -53,7 +53,6 @@ import {
 import { cn } from "@/lib/utils";
 import { typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
-import { useStatusToasts } from "../shell-feedback";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import {
   OnMyAgentServerError,
@@ -62,7 +61,7 @@ import {
 import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
-import { FileHoverPopup } from "./file-hover-popup";
+import { FileHoverPopup } from "../../capabilities/artifacts/file-hover-popup";
 import {
   canEditArtifactTarget,
   openArtifactForEditing,
@@ -222,6 +221,13 @@ function UploadRowActionsMenu(props: {
   );
 }
 
+export type WorkspaceFilesToastInput = {
+  tone: "success" | "error" | "warning" | "info";
+  title: string;
+  description?: string | null;
+  dismissLabel?: string;
+};
+
 export function WorkspaceFilesUploadsPanel(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
@@ -233,8 +239,9 @@ export function WorkspaceFilesUploadsPanel(props: {
     name: string;
     preview: string;
   }) => void;
+  /** Optional toast host from shell/session (workspace must not import shell-feedback). */
+  onToast?: (input: WorkspaceFilesToastInput) => void;
 }) {
-  const { showToast } = useStatusToasts();
   const [rows, setRows] = useState<UserUploadRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,7 +478,7 @@ export function WorkspaceFilesUploadsPanel(props: {
               max: formatWorkspaceFileSize(CLIENT_INBOX_MAX_BYTES_DEFAULT),
             });
             setError(message);
-            showToast({
+            props.onToast?.({
               tone: "error",
               title: t("files.upload_failed"),
               description: message,
@@ -486,7 +493,7 @@ export function WorkspaceFilesUploadsPanel(props: {
           files.length === 1
             ? t("files.upload_copy_success_one")
             : t("files.upload_copy_success", { count: String(files.length) });
-        showToast({
+        props.onToast?.({
           tone: "success",
           title: t("files.upload_copy_success_title"),
           description,
@@ -496,7 +503,7 @@ export function WorkspaceFilesUploadsPanel(props: {
       } catch (uploadError) {
         const message = formatUploadError(uploadError, currentFile);
         setError(message);
-        showToast({
+        props.onToast?.({
           tone: "error",
           title: t("files.upload_failed"),
           description: message,
@@ -506,7 +513,7 @@ export function WorkspaceFilesUploadsPanel(props: {
         setUploading(false);
       }
     },
-    [props.client, showToast, workspaceId],
+    [props.client, props.onToast, workspaceId],
   );
 
   const onPickClick = () => {

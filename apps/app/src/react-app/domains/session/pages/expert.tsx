@@ -1428,6 +1428,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
+                          onToast={showToast}
                           onOpenArtifact={openTarget}
                           onAddToTask={(relativePath) => {
                             if (!appendComposerFileMention(renderedSessionId, relativePath)) {

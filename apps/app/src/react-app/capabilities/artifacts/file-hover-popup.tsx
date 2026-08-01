@@ -20,7 +20,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
-import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import { ArtifactIcon } from "./artifact-icon";
 
 const OPEN_DELAY_MS = 380;
 const CLOSE_DELAY_MS = 160;

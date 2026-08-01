@@ -59,6 +59,12 @@ export function WorkspaceFilesPage(props: {
     name: string;
     preview: string;
   }) => void;
+  onToast?: (input: {
+    tone: "success" | "error" | "warning" | "info";
+    title: string;
+    description?: string | null;
+    dismissLabel?: string;
+  }) => void;
 }) {
   const [activeTab, setActiveTab] = useState<FilesSourceTab>(
     DEFAULT_FILES_SOURCE_TAB,
@@ -116,6 +122,7 @@ export function WorkspaceFilesPage(props: {
             workspaceRoot={props.workspaceRoot}
             onAddToTask={props.onAddToTask}
             onAskAgentAboutFile={props.onAskAgentAboutFile}
+            onToast={props.onToast}
           />
         ) : (
           <WorkspaceFilesBrowserPanel
