@@ -1121,7 +1121,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             ) : null}
           </div>
           <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(19rem,30%)]")}>
-            <section className="min-w-0 overflow-y-auto px-6 py-6 xl:px-10">
+            <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6 xl:px-10">
               <div className="mx-auto w-full max-w-5xl">
                 {activeTab === "basic" ? (
                   <BasicInfoPanel
