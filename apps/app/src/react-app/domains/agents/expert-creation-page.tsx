@@ -14,6 +14,7 @@ import {
   Send,
   Sparkles,
   Upload,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -146,6 +147,35 @@ function IconCircle(props: { children: ReactNode; className?: string }) {
       )}
     >
       {props.children}
+    </span>
+  );
+}
+
+function ExpertCreationAvatar(props: {
+  registry: AgentRegistry;
+  draft: AgentWizardDraft;
+  className?: string;
+}) {
+  if (props.draft.customAvatarDataUrl) {
+    return renderAvatar(
+      props.registry,
+      {
+        avatarStyle: props.draft.avatarStyle,
+        avatarOptionId: props.draft.avatarOptionId,
+        customAvatarDataUrl: props.draft.customAvatarDataUrl,
+        name: props.draft.name,
+      },
+      props.className,
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-dls-surface-muted text-dls-secondary",
+        props.className,
+      )}
+    >
+      <UserRound className="size-1/2" strokeWidth={1.7} aria-hidden />
     </span>
   );
 }
@@ -323,16 +353,7 @@ function BasicInfoPanel(props: {
           </div>
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
-              {renderAvatar(
-                props.registry,
-                {
-                  avatarStyle: props.draft.avatarStyle,
-                  avatarOptionId: props.draft.avatarOptionId,
-                  customAvatarDataUrl: props.draft.customAvatarDataUrl,
-                  name: props.draft.name,
-                },
-                "size-20 text-2xl",
-              )}
+              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20 text-2xl" />
               <span className="absolute -bottom-1 -right-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
                 <Plus className="size-4" aria-hidden />
               </span>
@@ -361,34 +382,6 @@ function BasicInfoPanel(props: {
                 {t("agents.upload_custom_image")}
               </Button>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {props.registry.avatars.slice(0, 8).map((avatar) => (
-              <button
-                key={avatar.id}
-                type="button"
-                className={cn(
-                  "rounded-full ring-offset-2 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent",
-                  props.draft.avatarOptionId === avatar.id &&
-                    "ring-2 ring-dls-accent",
-                )}
-                onClick={() => {
-                  props.onDraftChange("avatarOptionId", avatar.id);
-                  props.onDraftChange("customAvatarDataUrl", null);
-                }}
-                aria-label={avatar.label}
-              >
-                {renderAvatar(
-                  props.registry,
-                  {
-                    avatarStyle: avatar.style,
-                    avatarOptionId: avatar.id,
-                    name: props.draft.name,
-                  },
-                  "size-8",
-                )}
-              </button>
-            ))}
           </div>
         </div>
         <div className="space-y-5">
@@ -892,32 +885,14 @@ function TryEffectPanel(props: {
             ))}
             {messages.length === 0 ? (
               <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
-                {renderAvatar(
-                  props.registry,
-                  {
-                    avatarStyle: props.draft.avatarStyle,
-                    avatarOptionId: props.draft.avatarOptionId,
-                    customAvatarDataUrl: props.draft.customAvatarDataUrl,
-                    name: props.draft.name || t("agents.expert_creation_title"),
-                  },
-                  "size-20",
-                )}
+                <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
                 <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_empty")}</span>
               </div>
             ) : null}
           </div>
         ) : (
           <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
-            {renderAvatar(
-              props.registry,
-              {
-                avatarStyle: props.draft.avatarStyle,
-                avatarOptionId: props.draft.avatarOptionId,
-                customAvatarDataUrl: props.draft.customAvatarDataUrl,
-                name: t("agents.expert_creation_title"),
-              },
-              "size-20",
-            )}
+            <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
             <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_empty")}</span>
           </div>
         )}

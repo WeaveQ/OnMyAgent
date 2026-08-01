@@ -243,7 +243,7 @@ export default {
   "agents.expert_creation_knowledge": "知识",
   "agents.expert_creation_role_prompt": "角色提示词",
   "agents.expert_creation_role_prompt_desc": "专家运行时的核心配置，请描述专家角色、能力、流程、输出与边界",
-  "agents.expert_creation_role_prompt_placeholder": "描述这个专家应该遵循的角色、边界和工作方式…",
+  "agents.expert_creation_role_prompt_placeholder": "请按以下框架撰写：\n\n## 专家简介\n用一句话说明这个专家是谁、服务什么场景、核心交付物是什么。\n\n## 关键规则\n写出专家执行任务时必须遵守的核心方法和判断原则。\n\n## 禁止行为\n写出专家绝对不能做的事。\n\n## 工作流程\n按执行顺序写出专家处理任务的步骤。",
   "agents.expert_creation_memory_desc": "写下这个专家需要长期记住的自身信息",
   "agents.expert_creation_memory_placeholder": "写下这个专家需要长期记住的自身信息…",
   "agents.expert_creation_avatar_hint": "选择头像或上传图片",
