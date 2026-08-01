@@ -43,9 +43,9 @@ export default {
   "system.error_providers_load_title": "Couldn’t load providers",
   "system.error_providers_load_body":
     "Check your network and workspace connection, then try again.",
-  "system.error_connect_provider_title": "Couldn’t connect provider",
+  "system.error_connect_provider_title": "Couldn’t connect model provider",
   "system.error_connect_provider_body":
-    "Check the API key or sign-in, then try connecting again.",
+    "Check the API key, sign-in, or network, then try again. Keys stay on your machine.",
   "system.error_remote_workspace_title": "Remote workspace unavailable",
   "system.error_remote_workspace_body":
     "Can’t reach this remote workspace. Check the address and network, then retry.",

@@ -115,7 +115,7 @@ describe("session route sessions", () => {
     expect(
       shouldKeepWorkspaceSessionItem({
         sessionId: "expert-outside-workspace",
-        directory: "/tmp/builtin-experts/senior-developer",
+        directory: "/tmp/builtin-experts/document-generation-expert",
         assistantSessionIds,
         normalizedWorkspaceRoot: "/Users/me/project",
         normalizeDirectoryPath,
@@ -124,7 +124,7 @@ describe("session route sessions", () => {
     expect(
       shouldKeepWorkspaceSessionItem({
         sessionId: "plain-outside-workspace",
-        directory: "/tmp/builtin-experts/senior-developer",
+        directory: "/tmp/builtin-experts/document-generation-expert",
         assistantSessionIds,
         normalizedWorkspaceRoot: "/Users/me/project",
         normalizeDirectoryPath,
