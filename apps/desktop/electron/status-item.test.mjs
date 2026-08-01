@@ -37,11 +37,15 @@ function createMockTrayEnv() {
   const nativeImage = {
     lastCreatePath: null,
     lastTemplateFlag: null,
+    lastResize: null,
     createFromPath(p) {
       this.lastCreatePath = p;
       const image = {
         isEmpty: () => false,
-        resize() {
+        // Simulate oversized asset so install path must downscale to menu-bar size.
+        getSize: () => ({ width: 32, height: 32 }),
+        resize(opts) {
+          nativeImage.lastResize = opts;
           return this;
         },
         setTemplateImage(flag) {
@@ -55,6 +59,7 @@ function createMockTrayEnv() {
     createEmpty() {
       return {
         isEmpty: () => true,
+        getSize: () => ({ width: 0, height: 0 }),
         resize() {
           return this;
         },
@@ -134,7 +139,8 @@ test("darwin tray uses trayTemplate as template image, not brand PNG as template
     `expected trayTemplate path, got ${mocks.nativeImage.lastCreatePath}`,
   );
   assert.equal(mocks.nativeImage.lastTemplateFlag, true);
-  // Ensure brand icon alone would not be forced as template (color fallback).
+  // Menu-bar peer size (~18pt), not full 32px asset.
+  assert.deepEqual(mocks.nativeImage.lastResize, { width: 18, height: 18 });
   void iconsDir;
 });
 
