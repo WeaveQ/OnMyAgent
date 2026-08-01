@@ -1522,6 +1522,11 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   getKeepSystemAwake,
   setKeepSystemAwake,
   setDockUnreadBadge,
+  setStatusItemVisible: (visible) => statusItem.setVisible(visible),
+  getStatusItemVisible: () => ({
+    visible: statusItem.isVisible(),
+    platform: process.platform,
+  }),
   getAgentReadySoundPath,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
