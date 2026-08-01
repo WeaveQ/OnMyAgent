@@ -8,7 +8,6 @@ import {
   ChevronDown,
   Clock3,
   FolderPlus,
-  ImagePlus,
   Mic,
   Plus,
   Send,
@@ -325,6 +324,7 @@ function PromptEditor(props: {
 function BasicInfoPanel(props: {
   draft: AgentWizardDraft;
   registry: AgentRegistry;
+  compact: boolean;
   onDraftChange: <K extends keyof AgentWizardDraft>(
     key: K,
     value: AgentWizardDraft[K],
@@ -343,73 +343,68 @@ function BasicInfoPanel(props: {
     reader.readAsDataURL(file);
   };
 
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+
+  const chooseGeneratedAvatar = (avatarId: string) => {
+    props.onDraftChange("avatarOptionId", avatarId);
+    props.onDraftChange("customAvatarDataUrl", null);
+    setAvatarPickerOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
-        <div className="grid gap-6 2xl:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="space-y-3">
-          <div className="text-sm font-medium text-dls-text">
-            {t("agents.expert_creation_avatar")}
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20 text-2xl" />
+        <div className={cn("grid gap-6", !props.compact && "lg:grid-cols-[8.5rem_minmax(0,1fr)]")}>
+          <div className="flex flex-col items-start gap-3">
+            <button
+              type="button"
+              className="relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+              onClick={() => setAvatarPickerOpen(true)}
+              aria-label={t("agents.expert_creation_generate_avatar")}
+            >
+              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-24 text-2xl" />
               <span className="absolute -bottom-1 -right-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
                 <Plus className="size-4" aria-hidden />
               </span>
-            </div>
-            <div className="min-w-0 space-y-2">
-              <p className="text-xs leading-5 text-dls-secondary">
-                {t("agents.expert_creation_avatar_hint")}
-              </p>
-              <input
-                ref={uploadInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  chooseCustomAvatar(event.currentTarget.files?.[0] ?? null);
-                  event.currentTarget.value = "";
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => uploadInputRef.current?.click()}
-              >
-                <ImagePlus data-icon="inline-start" className="size-3.5" />
-                {t("agents.upload_custom_image")}
-              </Button>
-            </div>
+            </button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                chooseCustomAvatar(event.currentTarget.files?.[0] ?? null);
+                event.currentTarget.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setAvatarPickerOpen(true)}
+            >
+              <Sparkles data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_generate_avatar")}
+            </Button>
           </div>
-        </div>
-        <div className="space-y-5">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-dls-text">
-              {t("agents.name")} <span className="text-dls-status-danger">*</span>
-            </span>
+          <div className="space-y-4">
             <Input
               value={props.draft.name}
               onChange={(event) => props.onDraftChange("name", event.currentTarget.value)}
-              placeholder={t("agents.name_placeholder")}
+              placeholder={t("agents.expert_creation_name_placeholder")}
               variant="dls"
               controlSize="lg"
               radius="xl"
+              aria-label={t("agents.name")}
             />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-dls-text">
-              {t("agents.expert_creation_intro")}
-            </span>
             <Textarea
               value={props.draft.description}
               onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
               placeholder={t("agents.expert_creation_intro_placeholder")}
-              className="min-h-24"
+              className="min-h-28"
+              aria-label={t("agents.expert_creation_intro")}
             />
-          </label>
-        </div>
+          </div>
         </div>
       </section>
       <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
@@ -428,6 +423,44 @@ function BasicInfoPanel(props: {
           ariaLabel={t("agents.expert_creation_role_prompt")}
         />
       </section>
+      <Dialog open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
+        <DialogContent className="w-[min(32rem,calc(100%-2rem))] gap-4 rounded-xl bg-dls-surface p-5 text-dls-text">
+          <DialogHeader>
+            <DialogTitle>{t("agents.expert_creation_generate_avatar")}</DialogTitle>
+            <DialogDescription>{t("agents.expert_creation_avatar_hint")}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-4 gap-3">
+            {props.registry.avatars.map((avatar) => (
+              <button
+                key={avatar.id}
+                type="button"
+                className={cn(
+                  "rounded-xl p-2 transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+                  props.draft.avatarOptionId === avatar.id && !props.draft.customAvatarDataUrl
+                    ? "bg-dls-accent/10 ring-2 ring-dls-accent"
+                    : "",
+                )}
+                onClick={() => chooseGeneratedAvatar(avatar.id)}
+              >
+                {renderAvatar(
+                  props.registry,
+                  {
+                    avatarStyle: avatar.style,
+                    avatarOptionId: avatar.id,
+                    name: avatar.label,
+                  },
+                  "mx-auto size-14",
+                )}
+                <span className="mt-2 block truncate text-xs text-dls-secondary">{avatar.label}</span>
+              </button>
+            ))}
+          </div>
+          <Button type="button" variant="outline" onClick={() => uploadInputRef.current?.click()}>
+            <Upload data-icon="inline-start" className="size-3.5" />
+            {t("agents.upload_custom_image")}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -529,7 +562,7 @@ function SkillsPanel(props: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-dls-text">{t("agents.expert_creation_skills")}</h3>
-          <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_skill_picker_desc")}</p>
+          <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_skills_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" onClick={() => setPickerOpen(true)}>
@@ -675,7 +708,7 @@ function KnowledgePanel(props: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-dls-text">{t("agents.expert_creation_knowledge")}</h3>
-          <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
+          <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_knowledge_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => {
@@ -1090,7 +1123,13 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         </Button>
         <h1 className="text-sm font-semibold text-dls-text">{t("common.create")}</h1>
         <div className="flex items-center gap-2">
-          <Button type="button" size="sm" disabled={!draft.name.trim()} onClick={() => void submit()}>
+          <Button
+            type="button"
+            size="sm"
+            className="disabled:bg-dls-surface-muted disabled:text-dls-secondary"
+            disabled={!draft.name.trim()}
+            onClick={() => void submit()}
+          >
             {t("agents.expert_creation_done")}
           </Button>
         </div>
@@ -1122,11 +1161,12 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           </div>
           <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(19rem,30%)]")}>
             <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6 xl:px-10">
-              <div className="mx-auto w-full max-w-5xl">
+              <div className="w-full">
                 {activeTab === "basic" ? (
                   <BasicInfoPanel
                     draft={draft}
                     registry={sourceRegistry}
+                    compact={tryOpen}
                     onDraftChange={setDraftField}
                   />
                 ) : null}
