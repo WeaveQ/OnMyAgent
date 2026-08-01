@@ -857,11 +857,16 @@ export function mapInboxItemsToUploadRows(
 export function filterUploadRows(
   rows: readonly UserUploadRow[],
   query: string,
+  typeFilter: FileCategory = "all",
 ): UserUploadRow[] {
   const q = query.trim().toLowerCase();
-  if (!q) return [...rows];
-  return rows.filter(
-    (row) =>
-      row.name.toLowerCase().includes(q) || row.path.toLowerCase().includes(q),
-  );
+  return rows.filter((row) => {
+    if (typeFilter !== "all" && getFileCategory(row.name) !== typeFilter) {
+      return false;
+    }
+    if (!q) return true;
+    return (
+      row.name.toLowerCase().includes(q) || row.path.toLowerCase().includes(q)
+    );
+  });
 }

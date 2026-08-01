@@ -3,19 +3,32 @@
  * Files page — 我的文件 (uploads): inbox list + import-by-copy + preview/open actions
  * (parity with Task files drawer chrome where applicable).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
+import {
+  Check,
+  ChevronDown,
   Copy,
   ExternalLink,
   FileUp,
   FolderOpen,
   Loader2,
   MoreHorizontal,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
   Trash2,
   Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { MenuRowButton } from "@/components/ui/action-row";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +53,7 @@ import {
 import { cn } from "@/lib/utils";
 import { typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
+import { useStatusToasts } from "../shell-feedback";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import {
   OnMyAgentServerError,
@@ -66,16 +80,23 @@ import {
   absoluteInboxFilePath,
   buildUserUploadRelativePath,
   canPreviewWorkspaceFileInline,
+  FILE_CATEGORIES,
+  fileCategoryI18nKey,
   filterUploadRows,
   mapInboxItemsToUploadRows,
   usesLocalFileRenderer,
   workspaceRelativeInboxPath,
+  type FileCategory,
   type UserUploadRow,
 } from "./workspace-files-model";
 import {
   FilePreviewDrawer,
   type WorkspaceFilePreviewState,
 } from "./workspace-files-preview-drawer";
+
+function fileCategoryLabel(category: FileCategory) {
+  return t(fileCategoryI18nKey(category));
+}
 
 /** Matches server DEFAULT_INBOX_MAX_BYTES (local precheck before upload). */
 const CLIENT_INBOX_MAX_BYTES_DEFAULT = 200_000_000;
@@ -213,13 +234,17 @@ export function WorkspaceFilesUploadsPanel(props: {
     preview: string;
   }) => void;
 }) {
+  const { showToast } = useStatusToasts();
   const [rows, setRows] = useState<UserUploadRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshDone, setRefreshDone] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<WorkspaceFilePreviewState>({
     status: "idle",
@@ -229,6 +254,8 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [pendingDelete, setPendingDelete] = useState<UserUploadRow | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
+  const manualRefreshRef = useRef(false);
+  const dragDepthRef = useRef(0);
 
   const workspaceId = props.workspaceId.trim();
   const workspaceRoot = String(props.workspaceRoot ?? "").trim();
@@ -249,6 +276,11 @@ export function WorkspaceFilesUploadsPanel(props: {
       .then((list) => {
         if (cancelled) return;
         setRows(mapInboxItemsToUploadRows(list.items ?? []));
+        if (manualRefreshRef.current) {
+          manualRefreshRef.current = false;
+          setRefreshDone(true);
+          window.setTimeout(() => setRefreshDone(false), 1200);
+        }
       })
       .catch((loadError) => {
         if (cancelled) return;
@@ -256,6 +288,7 @@ export function WorkspaceFilesUploadsPanel(props: {
         setError(
           loadError instanceof Error ? loadError.message : t("files.load_failed"),
         );
+        manualRefreshRef.current = false;
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -266,9 +299,10 @@ export function WorkspaceFilesUploadsPanel(props: {
   }, [canLoad, props.client, refreshKey, workspaceId]);
 
   const visibleRows = useMemo(
-    () => filterUploadRows(rows, query),
-    [query, rows],
+    () => filterUploadRows(rows, query, typeFilter),
+    [query, rows, typeFilter],
   );
+  const filterActive = typeFilter !== "all" || Boolean(query.trim());
 
   const selectedRow = useMemo(
     () => visibleRows.find((row) => row.id === selectedId) ?? null,
@@ -422,48 +456,100 @@ export function WorkspaceFilesUploadsPanel(props: {
   const importFiles = useCallback(
     async (fileList: FileList | File[]) => {
       if (!props.client || !workspaceId) return;
-      const files = Array.from(fileList);
+      const files = Array.from(fileList).filter((file) => file.size >= 0 && file.name);
       if (files.length === 0) return;
       setUploading(true);
-      setUploadNotice(null);
       setError(null);
       let currentFile: File | undefined;
       try {
         for (const file of files) {
           currentFile = file;
           if (file.size > CLIENT_INBOX_MAX_BYTES_DEFAULT) {
-            setError(
-              t("files.upload_too_large", {
-                name: file.name.trim() || "file",
-                size: formatWorkspaceFileSize(file.size),
-                max: formatWorkspaceFileSize(CLIENT_INBOX_MAX_BYTES_DEFAULT),
-              }),
-            );
+            const message = t("files.upload_too_large", {
+              name: file.name.trim() || "file",
+              size: formatWorkspaceFileSize(file.size),
+              max: formatWorkspaceFileSize(CLIENT_INBOX_MAX_BYTES_DEFAULT),
+            });
+            setError(message);
+            showToast({
+              tone: "error",
+              title: t("files.upload_failed"),
+              description: message,
+              dismissLabel: t("common.dismiss"),
+            });
             return;
           }
           const path = buildUserUploadRelativePath(file.name);
           await props.client.uploadInbox(workspaceId, file, { path });
         }
-        // Keep source_uploads_desc as the only policy line; success is brief.
-        setUploadNotice(
+        const description =
           files.length === 1
             ? t("files.upload_copy_success_one")
-            : t("files.upload_copy_success", { count: String(files.length) }),
-        );
+            : t("files.upload_copy_success", { count: String(files.length) });
+        showToast({
+          tone: "success",
+          title: t("files.upload_copy_success_title"),
+          description,
+          dismissLabel: t("common.dismiss"),
+        });
         setRefreshKey((key) => key + 1);
-        window.setTimeout(() => setUploadNotice(null), 4000);
       } catch (uploadError) {
-        setError(formatUploadError(uploadError, currentFile));
+        const message = formatUploadError(uploadError, currentFile);
+        setError(message);
+        showToast({
+          tone: "error",
+          title: t("files.upload_failed"),
+          description: message,
+          dismissLabel: t("common.dismiss"),
+        });
       } finally {
         setUploading(false);
       }
     },
-    [props.client, workspaceId],
+    [props.client, showToast, workspaceId],
   );
 
   const onPickClick = () => {
     fileInputRef.current?.click();
   };
+
+  const onDragEnter = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canLoad || uploading) return;
+    dragDepthRef.current += 1;
+    if (event.dataTransfer?.types?.includes("Files")) {
+      setDragActive(true);
+    }
+  }, [canLoad, uploading]);
+
+  const onDragLeave = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDragActive(false);
+  }, []);
+
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = canLoad && !uploading ? "copy" : "none";
+    }
+  }, [canLoad, uploading]);
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dragDepthRef.current = 0;
+      setDragActive(false);
+      if (!canLoad || uploading) return;
+      const list = event.dataTransfer?.files;
+      if (list?.length) void importFiles(list);
+    },
+    [canLoad, importFiles, uploading],
+  );
 
   const absoluteForRow = useCallback(
     (row: UserUploadRow) => absoluteInboxFilePath(workspaceRoot, row.path),
@@ -566,27 +652,98 @@ export function WorkspaceFilesUploadsPanel(props: {
           <h1 className={cn(typeScale.pageTitle, "text-left")}>
             {t("files.source_uploads_title")}
           </h1>
-          {/* Single subtitle slot: success notice replaces desc (never both). */}
-          <p
-            className={cn(
-              typeScale.pageSubtitle,
-              "mt-1 text-left",
-              uploadNotice ? "text-dls-status-success-fg" : null,
-            )}
-          >
-            {uploadNotice ?? t("files.source_uploads_desc")}
+          <p className={cn(typeScale.pageSubtitle, "mt-1 text-left")}>
+            {t("files.source_uploads_desc")}
           </p>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-[12rem] w-56 sm:w-64">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={loading || refreshDone || !canLoad || uploading}
+            onClick={() => {
+              manualRefreshRef.current = true;
+              setRefreshDone(false);
+              setRefreshKey((key) => key + 1);
+            }}
+            className={cn(
+              "size-9 shrink-0 transition-colors",
+              refreshDone &&
+                "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+            )}
+            title={refreshDone ? t("common.refreshed") : t("common.refresh")}
+            aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
+            aria-busy={loading || undefined}
+          >
+            {loading ? (
+              <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+            ) : refreshDone ? (
+              <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+            ) : (
+              <RefreshCw className="size-3.5" aria-hidden />
+            )}
+          </Button>
+          <div className="relative shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={() => setTypeMenuOpen((prev) => !prev)}
+              className="h-9 gap-1.5 px-3 text-sm"
+            >
+              <SlidersHorizontal
+                data-icon="inline-start"
+                className="size-3.5 text-dls-secondary"
+              />
+              {fileCategoryLabel(typeFilter)}
+              <ChevronDown
+                className={cn(
+                  "size-3.5 transition-transform",
+                  typeMenuOpen && "rotate-180",
+                )}
+              />
+            </Button>
+            {typeMenuOpen ? (
+              <div
+                className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-lg border border-dls-border bg-dls-surface-solid py-1 shadow-md"
+                style={{
+                  backgroundColor:
+                    "var(--dls-surface-solid, var(--dls-surface))",
+                }}
+              >
+                {FILE_CATEGORIES.map((cat) => (
+                  <MenuRowButton
+                    key={cat}
+                    align="center"
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter(cat);
+                      setTypeMenuOpen(false);
+                    }}
+                    active={typeFilter === cat}
+                  >
+                    {fileCategoryLabel(cat)}
+                  </MenuRowButton>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <InputGroup
+            controlSize="default"
+            radius="lg"
+            tone="surface"
+            className="min-w-[200px] w-56 sm:w-64"
+          >
             <InputGroupAddon align="inline-start">
-              <span className="sr-only">{t("files.search_uploads_placeholder")}</span>
+              <Search className="size-3.5" />
             </InputGroupAddon>
             <InputGroupInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("files.search_uploads_placeholder")}
               disabled={loading || uploading}
+              className="h-9 text-sm placeholder:text-dls-secondary"
             />
           </InputGroup>
           <input
@@ -631,7 +788,7 @@ export function WorkspaceFilesUploadsPanel(props: {
             <EmptyDescription>{t("files.no_tool_folder_hint")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : loading ? (
+      ) : loading && rows.length === 0 ? (
         <div
           className="flex min-h-[280px] flex-col items-center justify-center gap-2 text-sm text-dls-secondary"
           role="status"
@@ -640,118 +797,163 @@ export function WorkspaceFilesUploadsPanel(props: {
           <Loader2 className="size-5 animate-spin" aria-hidden />
           <span>{t("files.loading")}</span>
         </div>
-      ) : showEmpty ? (
-        <Empty className="min-h-[280px] border border-dashed border-dls-border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <FileUp className="size-5" aria-hidden />
-            </EmptyMedia>
-            <EmptyTitle>{t("files.uploads_empty_title")}</EmptyTitle>
-            <EmptyDescription>{t("files.uploads_empty_hint")}</EmptyDescription>
-          </EmptyHeader>
-          <Button
-            type="button"
-            size="default"
-            disabled={uploading}
-            onClick={onPickClick}
-            className="mt-4 gap-1.5"
-          >
-            <Upload className="size-3.5" aria-hidden />
-            {t("files.import_to_workspace")}
-          </Button>
-        </Empty>
-      ) : showTable ? (
-        <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border">
-          <table className="w-full table-fixed caption-bottom text-sm">
-            <TableHeader className="sticky top-0 z-10 bg-dls-background">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-auto text-left">
-                  {t("files.column_name")}
-                </TableHead>
-                <TableHead className="w-28 text-left">
-                  {t("files.column_size")}
-                </TableHead>
-                <TableHead className="w-40 text-left">
-                  {t("files.column_updated")}
-                </TableHead>
-                <TableHead className="w-12 text-left">
-                  <span className="sr-only">{t("files.file_actions", { name: "" })}</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleRows.map((row) => {
-                const selected = row.id === selectedId;
-                return (
-                  <TableRow
-                    key={row.id}
-                    data-state={selected ? "selected" : undefined}
-                    className={cn(
-                      "group cursor-pointer",
-                      selected && "bg-dls-surface-muted/80",
-                    )}
-                    onClick={() => setSelectedId(row.id)}
-                    onDoubleClick={() => void handleOpenExternally(row)}
-                  >
-                    <TableCell className="text-left">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <ArtifactIcon
-                          name={row.name}
-                          className="size-4 shrink-0"
-                        />
-                        <FileHoverPopup
-                          name={row.name}
-                          pathLabel={
-                            workspaceRoot
-                              ? absoluteForRow(row)
-                              : workspaceRelativeInboxPath(row.path)
-                          }
-                          sizeLabel={formatWorkspaceFileSize(row.size)}
-                          updatedLabel={
-                            row.updatedAt
-                              ? formatWorkspaceFileTime(row.updatedAt)
-                              : undefined
-                          }
-                          onView={() => setSelectedId(row.id)}
-                          onOpenFile={() => void handleOpenExternally(row)}
-                          onOpenInFolder={
-                            workspaceRoot && isElectronRuntime()
-                              ? () => void handleOpenInFolder(row)
-                              : undefined
-                          }
-                          onCopyPath={() => void handleCopyPath(row)}
-                        >
-                          <span className="truncate font-medium text-dls-text underline-offset-2 group-hover:underline">
-                            {row.name}
-                          </span>
-                        </FileHoverPopup>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-left text-dls-secondary">
-                      {formatWorkspaceFileSize(row.size)}
-                    </TableCell>
-                    <TableCell className="text-left text-dls-secondary">
-                      {row.updatedAt
-                        ? formatWorkspaceFileTime(row.updatedAt)
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="relative py-2 text-left">
-                      <UploadRowActionsMenu
-                        name={row.name}
-                        pathCopied={pathCopiedFlash === row.id}
-                        onPreview={() => setSelectedId(row.id)}
-                        onOpenExternally={() => void handleOpenExternally(row)}
-                        onOpenInFolder={() => void handleOpenInFolder(row)}
-                        onCopyPath={() => void handleCopyPath(row)}
-                        onDelete={() => handleDeleteFile(row)}
-                      />
-                    </TableCell>
+      ) : (
+        <div
+          className={cn(
+            "relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-xl border border-dls-border",
+            dragActive && "border-dls-accent border-dashed bg-dls-accent/5",
+          )}
+          onDragEnter={onDragEnter}
+          onDragLeave={onDragLeave}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+        >
+          {dragActive ? (
+            <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-xl bg-dls-background/80 backdrop-blur-[1px]">
+              <Upload className="size-8 text-dls-accent" aria-hidden />
+              <p className="text-sm font-medium text-dls-text">
+                {t("files.drop_to_upload")}
+              </p>
+              <p className="text-xs text-dls-secondary">
+                {t("files.drop_to_upload_hint")}
+              </p>
+            </div>
+          ) : null}
+
+          {showEmpty ? (
+            <Empty className="min-h-[280px] border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileUp className="size-5" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {filterActive
+                    ? t("files.no_matching_files")
+                    : t("files.uploads_empty_title")}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {filterActive
+                    ? t("files.no_matching_files_hint")
+                    : t("files.uploads_empty_hint")}
+                </EmptyDescription>
+              </EmptyHeader>
+              {!filterActive ? (
+                <Button
+                  type="button"
+                  size="default"
+                  disabled={uploading}
+                  onClick={onPickClick}
+                  className="mt-4 gap-1.5"
+                >
+                  <Upload className="size-3.5" aria-hidden />
+                  {t("files.import_to_workspace")}
+                </Button>
+              ) : null}
+            </Empty>
+          ) : showTable ? (
+            <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto">
+              <table className="w-full table-fixed caption-bottom text-sm">
+                <TableHeader className="sticky top-0 z-10 bg-dls-background">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-auto text-left">
+                      {t("files.column_name")}
+                    </TableHead>
+                    <TableHead className="w-28 text-left">
+                      {t("files.column_size")}
+                    </TableHead>
+                    <TableHead className="w-40 text-left">
+                      {t("files.column_updated")}
+                    </TableHead>
+                    <TableHead className="w-12 text-left">
+                      <span className="sr-only">
+                        {t("files.file_actions", { name: "" })}
+                      </span>
+                    </TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </table>
+                </TableHeader>
+                <TableBody>
+                  {visibleRows.map((row) => {
+                    const selected = row.id === selectedId;
+                    return (
+                      <TableRow
+                        key={row.id}
+                        data-state={selected ? "selected" : undefined}
+                        className={cn(
+                          "group cursor-pointer",
+                          selected && "bg-dls-surface-muted/80",
+                        )}
+                        onClick={() => setSelectedId(row.id)}
+                        onDoubleClick={() => void handleOpenExternally(row)}
+                      >
+                        <TableCell className="text-left">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ArtifactIcon
+                              name={row.name}
+                              className="size-4 shrink-0"
+                            />
+                            <FileHoverPopup
+                              name={row.name}
+                              pathLabel={
+                                workspaceRoot
+                                  ? absoluteForRow(row)
+                                  : workspaceRelativeInboxPath(row.path)
+                              }
+                              sizeLabel={formatWorkspaceFileSize(row.size)}
+                              updatedLabel={
+                                row.updatedAt
+                                  ? formatWorkspaceFileTime(row.updatedAt)
+                                  : undefined
+                              }
+                              onView={() => setSelectedId(row.id)}
+                              onOpenFile={() => void handleOpenExternally(row)}
+                              onOpenInFolder={
+                                workspaceRoot && isElectronRuntime()
+                                  ? () => void handleOpenInFolder(row)
+                                  : undefined
+                              }
+                              onCopyPath={() => void handleCopyPath(row)}
+                            >
+                              <span className="truncate font-medium text-dls-text underline-offset-2 group-hover:underline">
+                                {row.name}
+                              </span>
+                            </FileHoverPopup>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-left text-dls-secondary">
+                          {formatWorkspaceFileSize(row.size)}
+                        </TableCell>
+                        <TableCell className="text-left text-dls-secondary">
+                          {row.updatedAt
+                            ? formatWorkspaceFileTime(row.updatedAt)
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="relative py-2 text-left">
+                          <UploadRowActionsMenu
+                            name={row.name}
+                            pathCopied={pathCopiedFlash === row.id}
+                            onPreview={() => setSelectedId(row.id)}
+                            onOpenExternally={() => void handleOpenExternally(row)}
+                            onOpenInFolder={() => void handleOpenInFolder(row)}
+                            onCopyPath={() => void handleCopyPath(row)}
+                            onDelete={() => handleDeleteFile(row)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </table>
+            </div>
+          ) : null}
         </div>
+      )}
+
+      {typeMenuOpen ? (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setTypeMenuOpen(false)}
+          onContextMenu={() => setTypeMenuOpen(false)}
+        />
       ) : null}
 
       <FilePreviewDrawer

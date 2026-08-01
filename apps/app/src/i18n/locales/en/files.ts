@@ -41,6 +41,9 @@ export default {
   "files.uploads_empty_title": "No uploads yet",
   "files.uploads_empty_hint":
     "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely.",
+  "files.drop_to_upload": "Drop to upload",
+  "files.drop_to_upload_hint": "Or use Import to workspace to pick files",
+  "files.upload_copy_success_title": "Import complete",
   "files.task_empty_title": "No files in this workspace yet",
   "files.task_empty_hint":
     "Task outputs and other workspace files will appear here. Upload personal materials under Mine.",
