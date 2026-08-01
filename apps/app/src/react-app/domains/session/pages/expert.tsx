@@ -1295,6 +1295,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   setAgentPanelCollapsed((value) => !value)
                 }
                 onOpenAgents={openExpertMarket}
+                onCreateExpert={handleCreateExpert}
                 onOpenAgentStarter={handleStartAgentById}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}
