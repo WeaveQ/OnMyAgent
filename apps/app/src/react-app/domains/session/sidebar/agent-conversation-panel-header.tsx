@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Plus, Search, WandSparkles } from "lucide-react";
+import { LayoutGrid, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -88,7 +88,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
             title={t("session.summon_experts")}
             aria-label={t("session.summon_experts")}
           >
-            <WandSparkles className="size-4" strokeWidth={1.75} aria-hidden />
+            <LayoutGrid className="size-4" strokeWidth={1.75} aria-hidden />
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
