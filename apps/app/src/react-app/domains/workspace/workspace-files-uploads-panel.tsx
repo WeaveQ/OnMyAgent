@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Loader2,
   MoreHorizontal,
+  Trash2,
   Upload,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { typeScale } from "@/react-app/design-system/type-scale";
+import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import {
   OnMyAgentServerError,
@@ -128,6 +130,7 @@ function UploadRowActionsMenu(props: {
   onOpenExternally: () => void;
   onOpenInFolder: () => void;
   onCopyPath: () => void;
+  onDelete: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -182,6 +185,16 @@ function UploadRowActionsMenu(props: {
           <Copy />
           {props.pathCopied ? t("files.copied") : t("files.copy_path")}
         </DropdownMenuItem>
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onDelete();
+          }}
+        >
+          <Trash2 />
+          {t("common.delete")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -212,6 +225,7 @@ export function WorkspaceFilesUploadsPanel(props: {
   });
   const [copiedPath, setCopiedPath] = useState(false);
   const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<UserUploadRow | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
 
@@ -504,6 +518,37 @@ export function WorkspaceFilesUploadsPanel(props: {
     [absoluteForRow, workspaceRoot],
   );
 
+  const handleDeleteFile = useCallback((row: UserUploadRow) => {
+    setPendingDelete(row);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    const row = pendingDelete;
+    if (!row || !props.client || !workspaceId) {
+      setPendingDelete(null);
+      return;
+    }
+    try {
+      await props.client.deleteWorkspaceFile(
+        workspaceId,
+        workspaceRelativeInboxPath(row.path),
+      );
+      setRefreshKey((key) => key + 1);
+      if (selectedId === row.id) {
+        setSelectedId(null);
+        setPreviewState({ status: "idle" });
+      }
+      setError(null);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : t("files.load_failed"),
+      );
+    }
+    setPendingDelete(null);
+  }, [pendingDelete, props.client, selectedId, workspaceId]);
+
   const closePreview = useCallback(() => {
     setSelectedId(null);
     setPreviewState({ status: "idle" });
@@ -674,6 +719,7 @@ export function WorkspaceFilesUploadsPanel(props: {
                         onOpenExternally={() => void handleOpenExternally(row)}
                         onOpenInFolder={() => void handleOpenInFolder(row)}
                         onCopyPath={() => void handleCopyPath(row)}
+                        onDelete={() => handleDeleteFile(row)}
                       />
                     </TableCell>
                   </TableRow>
@@ -723,6 +769,19 @@ export function WorkspaceFilesUploadsPanel(props: {
                   )
               : undefined
         }
+      />
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("files.delete_confirm_title")}
+        message={t("files.delete_confirm_desc", {
+          name: pendingDelete?.name ?? "",
+        })}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
       />
     </div>
   );
