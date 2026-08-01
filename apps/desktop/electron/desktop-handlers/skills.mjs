@@ -207,9 +207,24 @@ export function createSkillsDomainHandlers({
     const destinationRoot = onmyagentMarketplaceRoot("my-experts");
     const destination = path.join(destinationRoot, safePackage);
     const files = myExpertPackageFiles(input, safePackage);
+    const normalizeKnowledgePath = (value) => {
+      const normalized = String(value ?? "").replaceAll("\\", "/").trim();
+      const segments = normalized.split("/").filter(Boolean);
+      if (
+        !normalized ||
+        normalized.startsWith("/") ||
+        /^[A-Za-z]:\//.test(normalized) ||
+        segments.some((segment) => segment === "." || segment === ".." || segment.includes("\0"))
+      ) {
+        throw new Error("Invalid expert knowledge path");
+      }
+      return segments.join("/");
+    };
     await rm(destination, { recursive: true, force: true });
     await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
     await mkdir(path.join(destination, "agents"), { recursive: true });
+    const knowledgeRoot = path.join(destination, "knowledge");
+    await mkdir(knowledgeRoot, { recursive: true });
     await writeFile(
       path.join(destination, ".expert-plugin", "plugin.json"),
       `${JSON.stringify(files.plugin, null, 2)}\n`,
@@ -221,6 +236,18 @@ export function createSkillsDomainHandlers({
       "utf8",
     );
     await writeFile(path.join(destination, "README.md"), files.readme, "utf8");
+    for (const entry of Array.isArray(input.knowledge) ? input.knowledge : []) {
+      const relativePath = normalizeKnowledgePath(entry.relativePath);
+      const target = path.join(knowledgeRoot, ...relativePath.split("/"));
+      if (entry.kind === "directory") {
+        await mkdir(target, { recursive: true });
+        continue;
+      }
+      if (entry.kind !== "file") throw new Error("Invalid expert knowledge entry");
+      await mkdir(path.dirname(target), { recursive: true });
+      const encoded = typeof entry.dataBase64 === "string" ? entry.dataBase64 : "";
+      await writeFile(target, Buffer.from(encoded, "base64"));
+    }
     return { ok: true, path: destination, packageName: safePackage, marketplace: "my-experts" };
   },
 
