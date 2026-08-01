@@ -64,12 +64,12 @@
   {
     "id": "kol-data-clean-merge",
     "title": {
-      "zh": "复盘前数据清洗合并",
-      "en": "Pre-review data cleanup"
+      "zh": "复盘数据准备",
+      "en": "Review data prep"
     },
     "description": {
-      "zh": "多表对齐与基础指标",
-      "en": "Sheet align and basic metrics"
+      "zh": "结案前多表清洗对齐与基础指标",
+      "en": "Pre-review sheet clean/align and basic metrics"
     },
     "template": {
       "zh": "请把这些 <复盘相关多表> 清洗合并，按 <对齐字段> 去重统一格式，并输出基础可量化指标，方便写复盘。",
