@@ -628,9 +628,10 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 }),
               );
               newSession.directory = sessionDirectory;
-              useSessionActivityStore
-                .getState()
-                .startRun(workspaceId, newSession.id);
+              // Do NOT startRun here: this path only opens an empty expert
+              // session shell. Marking runActive without a prompt leaves the
+              // transcript stuck on "准备中 / thinking" forever (no messages,
+              // never idle). Real runs start when the first draft is sent.
             } finally {
               creatingSessionWorkspaceIdsRef.current.delete(workspaceId);
             }
