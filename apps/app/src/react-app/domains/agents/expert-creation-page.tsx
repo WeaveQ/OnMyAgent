@@ -549,6 +549,8 @@ function KnowledgePanel(props: {
   const documentInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [folderError, setFolderError] = useState(false);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
 
   const addFiles = (files: File[]) => {
     const next = new Map(props.entries.map((entry) => [entry.relativePath, entry]));
@@ -560,13 +562,14 @@ function KnowledgePanel(props: {
   };
 
   const createFolder = () => {
-    const name = window.prompt(t("agents.expert_creation_folder_name"), "");
-    if (!name) return;
+    const name = folderName.trim();
     if (!/^[A-Za-z0-9_-]+$/.test(name.trim())) {
       setFolderError(true);
       return;
     }
     setFolderError(false);
+    setFolderDialogOpen(false);
+    setFolderName("");
     const relativePath = name.trim();
     if (props.entries.some((entry) => entry.relativePath === relativePath)) return;
     props.onEntriesChange([
@@ -583,7 +586,11 @@ function KnowledgePanel(props: {
           <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={createFolder}>
+          <Button type="button" size="sm" variant="outline" onClick={() => {
+            setFolderError(false);
+            setFolderName("");
+            setFolderDialogOpen(true);
+          }}>
             <FolderPlus data-icon="inline-start" className="size-3.5" />
             {t("agents.expert_creation_create_folder")}
           </Button>
@@ -661,7 +668,11 @@ function KnowledgePanel(props: {
           <h3 className="mt-4 text-sm font-semibold text-dls-text">{t("agents.expert_creation_knowledge_empty")}</h3>
           <p className="mt-1 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={createFolder}>
+            <Button type="button" variant="outline" size="sm" onClick={() => {
+              setFolderError(false);
+              setFolderName("");
+              setFolderDialogOpen(true);
+            }}>
               <FolderPlus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_create_folder")}
             </Button>
@@ -679,6 +690,45 @@ function KnowledgePanel(props: {
           </div>
         </div>
       )}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent className="w-[min(28rem,calc(100%-2rem))] gap-4 rounded-xl bg-dls-surface p-5 text-dls-text">
+          <DialogHeader>
+            <DialogTitle>{t("agents.expert_creation_create_folder")}</DialogTitle>
+            <DialogDescription>{t("agents.expert_creation_folder_name")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              autoFocus
+              value={folderName}
+              onChange={(event) => {
+                setFolderName(event.currentTarget.value);
+                setFolderError(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  createFolder();
+                }
+              }}
+              placeholder={t("agents.expert_creation_folder_name_placeholder")}
+              aria-label={t("agents.expert_creation_folder_name")}
+            />
+            {folderError ? (
+              <p className="text-sm text-dls-status-danger-fg">
+                {t("agents.expert_creation_folder_name_error")}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setFolderDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" onClick={createFolder}>
+              {t("common.create")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
