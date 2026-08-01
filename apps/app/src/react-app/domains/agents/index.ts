@@ -10,6 +10,14 @@ export {
   type ExpertCreationTab,
   type ExpertKnowledgeEntry,
 } from "./expert-creation-page";
+export {
+  buildExpertCreationPreview,
+  saveExpertCreation,
+  useExpertCreationController,
+  type ExpertCreationControllerInput,
+  type SaveExpertCreationInput,
+  type SaveExpertCreationResult,
+} from "./expert-creation-actions";
 
 /** Deferred loader so session host can code-split the heavy agents registry UI. */
 export const loadAgentsPage = () => import("./agents-page");

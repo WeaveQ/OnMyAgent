@@ -51,19 +51,17 @@ import {
 
 import type { SessionPageProps } from "./session-page-types";
 
-import type { AgentCardItem, ExpertKnowledgeEntry } from "../../agents";
+import type { AgentCardItem } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
-  buildPendingAgentFromRecord,
-  ExpertCreationPage,
   type PendingAgentContext,
   usePendingAgentStore,
 } from "../../agents";
 import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
-  useAgentRegistryStore,
+  useAgentRegistryStore, useExpertCreationController,
 } from "../../agents";
 import { isExpertSession } from "../../agents";
 import {
@@ -71,20 +69,7 @@ import {
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
 } from "../../agents";
-import {
-  AGENT_REGISTRY_PATH,
-  createAgentRecordFromDraft,
-  createDefaultAgentRegistry,
-  serializeAgentRegistry,
-  serializeUserAgentRegistry,
-  type AgentRegistry,
-  type AgentWizardDraft,
-} from "../../agents";
-import {
-  writeMyExpertPackage,
-  writeUserAgentRegistry,
-} from "../../../../app/lib/desktop";
-import { isElectronRuntime } from "../../../../app/utils";
+import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
@@ -171,15 +156,6 @@ const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 
-async function encodeFileAsBase64(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
-  }
-  return btoa(binary);
-}
-
 type ExpertGroupDeleteTarget = {
   kind: "expert";
   agentId: string;
@@ -209,7 +185,6 @@ export function ExpertPage(props: ExpertPageProps) {
   } = useCustomConnectorDialog();
   const [agentCreateRequestKey, setAgentCreateRequestKey] =
     useState<number | null>(null);
-  const [expertCreationOpen, setExpertCreationOpen] = useState(false);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
   const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
@@ -801,10 +776,6 @@ export function ExpertPage(props: ExpertPageProps) {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
   }, [props.selectedWorkspaceId, props.sidebar]);
 
-  const openExpertCreation = useCallback(() => {
-    setExpertCreationOpen(true);
-  }, []);
-
   const {
     handleCreateExpert,
     handleCreateSkill,
@@ -816,84 +787,7 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const handleExpertCreationDone = useCallback(
-    async (draft: AgentWizardDraft, knowledge: ExpertKnowledgeEntry[]) => {
-      const baseRegistry = registry ?? createDefaultAgentRegistry();
-      const nowIso = new Date().toISOString();
-      const createdAgent = createAgentRecordFromDraft(draft, nowIso, baseRegistry.skills);
-      let agent = createdAgent;
-      if (isElectronRuntime()) {
-        const knowledgePayload = await Promise.all(
-          knowledge.map(async (entry) => ({
-            kind: entry.kind,
-            relativePath: entry.relativePath,
-            ...(entry.file
-              ? { dataBase64: await encodeFileAsBase64(entry.file) }
-              : {}),
-          })),
-        );
-        const written = await writeMyExpertPackage({
-          id: createdAgent.id,
-          packageName: createdAgent.id,
-          name: createdAgent.name,
-          description: createdAgent.description,
-          quote: createdAgent.quote,
-          knowledge: knowledgePayload,
-        });
-        agent = {
-          ...createdAgent,
-          marketplaceSource: "mine",
-          marketplacePath: written.path,
-          marketplacePackageName: written.packageName,
-        };
-      }
-      const nextRegistry: AgentRegistry = {
-        ...baseRegistry,
-        updatedAt: nowIso,
-        agents: [agent, ...baseRegistry.agents],
-      };
-      if (isElectronRuntime()) {
-        await writeUserAgentRegistry(serializeUserAgentRegistry(nextRegistry));
-      } else if (props.onmyagentServerClient && props.selectedWorkspaceId) {
-        await props.onmyagentServerClient.writeWorkspaceFile(props.selectedWorkspaceId, {
-          path: AGENT_REGISTRY_PATH,
-          content: serializeAgentRegistry(nextRegistry),
-        });
-      }
-      useAgentRegistryStore.getState().setRegistry(nextRegistry);
-      setExpertCreationOpen(false);
-      showToast({
-        title: t("agents.created_title", { name: agent.name }),
-        description: t("agents.config_written_desc", {
-          path: isElectronRuntime() ? "~/.onmyagent/agents/registry.json" : AGENT_REGISTRY_PATH,
-        }),
-        tone: "success",
-        durationMs: 3600,
-      });
-    },
-    [props.onmyagentServerClient, props.selectedWorkspaceId, registry, showToast],
-  );
-
-  const handleExpertCreationTry = useCallback(
-    (draft: AgentWizardDraft) => {
-      const baseRegistry = registry ?? createDefaultAgentRegistry();
-      const preview = createAgentRecordFromDraft(
-        draft,
-        new Date().toISOString(),
-        baseRegistry.skills,
-      );
-      const pending = buildPendingAgentFromRecord(preview, baseRegistry);
-      if (!pending) return;
-      setExpertCreationOpen(false);
-      activateDraftAgent({
-        ...pending,
-        conversationStartId: Date.now(),
-        draftSource: "agent-selection",
-      });
-    },
-    [activateDraftAgent, registry],
-  );
-
+  const { openExpertCreation, expertCreationPage } = useExpertCreationController({ registry, workspaceId: props.selectedWorkspaceId, workspaceRoot: props.selectedWorkspaceRoot, client: props.onmyagentServerClient, skills: registry?.skills ?? [], showToast, activateDraftAgent });
   const seedChatDraft = useCallback(
     (draft: string) => {
       // Expert-mode in-session seed: still force a new draft session.
@@ -1892,21 +1786,7 @@ export function ExpertPage(props: ExpertPageProps) {
             setAgentCreateRequestKey(null);
           },
         })
-      ) : null}
-
-      {expertCreationOpen ? (
-        <ExpertCreationPage
-          workspaceId={props.selectedWorkspaceId}
-          workspaceRoot={props.selectedWorkspaceRoot}
-          client={props.onmyagentServerClient}
-          registry={registry}
-          skills={registry?.skills ?? []}
-          onClose={() => setExpertCreationOpen(false)}
-          onTry={handleExpertCreationTry}
-          onDone={handleExpertCreationDone}
-        />
-      ) : null}
-
+      ) : null}{expertCreationPage}
       {props.providerAuthModal ? (
         <ProviderAuthModal {...props.providerAuthModal} />
       ) : null}
