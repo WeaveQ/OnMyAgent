@@ -135,29 +135,32 @@ export function createStatusItemController(input) {
     });
 
     if (!resolved.path) {
+      console.warn("[status-item] no tray icon path resolved", {
+        appIconPath,
+        platform,
+      });
       return nativeImage.createEmpty();
     }
 
     let image = nativeImage.createFromPath(resolved.path);
     if (image.isEmpty()) {
+      console.warn("[status-item] tray icon empty at", resolved.path);
       return nativeImage.createEmpty();
     }
 
-    // macOS menu-bar status items are ~16–18pt (system peers). A bare 32px
-    // PNG is treated as 32pt and looks ~2× too large next to other bar icons.
-    // Always pin logical size; Retina uses trayTemplate@2x when present.
+    // Menu-bar peers are ~18pt. Pin logical size so oversized PNGs do not
+    // dominate the bar. Prefer shipping 18/@2x 36 trayTemplate assets.
     const traySize = platform === "darwin" ? 18 : 16;
     if (typeof image.getSize === "function") {
       const { width, height } = image.getSize();
-      if (width !== traySize || height !== traySize) {
+      // Only downscale; never upscale a crisp @1x template.
+      if (width > traySize || height > traySize) {
         image = image.resize({ width: traySize, height: traySize });
       }
-    } else {
-      image = image.resize({ width: traySize, height: traySize });
     }
 
-    // Template only for monochrome trayTemplate assets — never for brand PNGs
-    // (setTemplateImage(true) on light/color icons = solid white square).
+    // Monochrome black-on-transparent only. White glyphs become invisible
+    // under setTemplateImage; full-color brand PNGs become white squares.
     if (resolved.template && typeof image.setTemplateImage === "function") {
       image.setTemplateImage(true);
     }
@@ -171,17 +174,25 @@ export function createStatusItemController(input) {
     if (tray) return tray;
 
     const image = loadStatusItemIcon();
+    if (image.isEmpty()) {
+      console.warn(
+        "[status-item] refusing empty tray image — status item skipped",
+      );
+      return null;
+    }
     tray = new Tray(image);
     tray.setToolTip(
       typeof app.name === "string" && app.name.trim()
         ? app.name
         : "OnMyAgent",
     );
+    tray.setIgnoreDoubleClickEvents?.(true);
     tray.setContextMenu(buildNativeMenu());
     // Left-click on macOS also pops the menu (matches status-item convention).
     tray.on("click", () => {
       tray?.popUpContextMenu();
     });
+    console.info("[status-item] menu-bar status item installed");
     return tray;
   }
 
