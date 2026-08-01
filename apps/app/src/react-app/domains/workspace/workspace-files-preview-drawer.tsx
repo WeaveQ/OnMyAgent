@@ -96,7 +96,8 @@ export function FilePreviewDrawer(props: {
         aria-hidden={!open}
         aria-label={file?.name ?? t("files.preview_empty")}
         className={cn(
-          "absolute inset-y-0 right-0 flex w-full max-w-[560px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
+          // 60% of viewport — room for spreadsheet/office preview chrome
+          "absolute inset-y-0 right-0 flex w-[60vw] min-w-[360px] max-w-none translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
           open && "translate-x-0",
         )}
       >
