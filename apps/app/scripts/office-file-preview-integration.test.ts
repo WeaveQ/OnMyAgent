@@ -50,10 +50,28 @@ test("workspace Files browser keeps local Office/media preview under Task files"
     resolve(appRoot, "src/react-app/domains/workspace/workspace-files-browser-panel.tsx"),
     "utf8",
   );
-  expect(browser).toContain('import { OfficeFilePreview }');
   expect(browser).toContain("usesLocalFileRenderer");
-  expect(browser).toContain('<OfficeFilePreview');
-  expect(browser).toContain("filePath={state.filePath}");
+  expect(browser).toContain("FilePreviewDrawer");
+  expect(browser).toContain("workspace-files-preview-drawer");
+  const drawer = readFileSync(
+    resolve(
+      appRoot,
+      "src/react-app/domains/workspace/workspace-files-preview-drawer.tsx",
+    ),
+    "utf8",
+  );
+  expect(drawer).toContain('from "../../capabilities/artifacts/office-file-preview"');
+  expect(drawer).toContain("<OfficeFilePreview");
+  expect(drawer).toContain("filePath={state.filePath}");
+  const uploads = readFileSync(
+    resolve(
+      appRoot,
+      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+    ),
+    "utf8",
+  );
+  expect(uploads).toContain("FilePreviewDrawer");
+  expect(uploads).toContain("absoluteInboxFilePath");
 });
 
 test("detaches the native preview before a full renderer reload", () => {

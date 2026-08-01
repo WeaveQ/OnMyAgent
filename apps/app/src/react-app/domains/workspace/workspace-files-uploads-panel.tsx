@@ -1,11 +1,26 @@
 /** @jsxImportSource react */
 /**
- * Files page — 用户上传 tab: list inbox (workspace copies) + import-by-copy.
+ * Files page — 我的文件 (uploads): inbox list + import-by-copy + preview/open actions
+ * (parity with Task files drawer chrome where applicable).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileUp, Loader2, Upload } from "lucide-react";
+import {
+  Copy,
+  ExternalLink,
+  FileUp,
+  FolderOpen,
+  Loader2,
+  MoreHorizontal,
+  Upload,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -23,19 +38,37 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { typeScale } from "@/react-app/design-system/type-scale";
+import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import {
   OnMyAgentServerError,
   type OnMyAgentServerClient,
 } from "../../../app/lib/onmyagent-server";
+import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
-import { formatWorkspaceFileSize, formatWorkspaceFileTime } from "../../capabilities/artifacts/workspace-file-tree";
 import {
+  canEditArtifactTarget,
+  openArtifactForEditing,
+} from "../../capabilities/artifacts/open-artifact-for-editing";
+import {
+  formatWorkspaceFileSize,
+  formatWorkspaceFileTime,
+} from "../../capabilities/artifacts/workspace-file-tree";
+import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
+import {
+  absoluteInboxFilePath,
   buildUserUploadRelativePath,
+  canPreviewWorkspaceFileInline,
   filterUploadRows,
   mapInboxItemsToUploadRows,
+  usesLocalFileRenderer,
+  workspaceRelativeInboxPath,
   type UserUploadRow,
 } from "./workspace-files-model";
+import {
+  FilePreviewDrawer,
+  type WorkspaceFilePreviewState,
+} from "./workspace-files-preview-drawer";
 
 /** Matches server DEFAULT_INBOX_MAX_BYTES (local precheck before upload). */
 const CLIENT_INBOX_MAX_BYTES_DEFAULT = 200_000_000;
@@ -84,9 +117,78 @@ function formatUploadError(error: unknown, file?: File): string {
   return t("files.upload_failed");
 }
 
+function UploadRowActionsMenu(props: {
+  name: string;
+  pathCopied: boolean;
+  onPreview: () => void;
+  onOpenExternally: () => void;
+  onOpenInFolder: () => void;
+  onCopyPath: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={(event) => event.stopPropagation()}
+            className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+            aria-label={t("files.file_actions", { name: props.name })}
+          >
+            <MoreHorizontal className="size-4" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="min-w-44">
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onPreview();
+          }}
+        >
+          <FileUp />
+          {t("files.view_in_panel")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onOpenExternally();
+          }}
+        >
+          <ExternalLink />
+          {t("files.open_file")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onOpenInFolder();
+          }}
+        >
+          <FolderOpen />
+          {t("files.open_in_folder")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onCopyPath();
+          }}
+        >
+          <Copy />
+          {props.pathCopied ? t("files.copied") : t("files.copy_path")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function WorkspaceFilesUploadsPanel(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
+  /** Catalog workspace root — required for local Office preview / reveal. */
+  workspaceRoot?: string;
+  onAddToTask?: (relativePath: string) => void;
 }) {
   const [rows, setRows] = useState<UserUploadRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,9 +197,17 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [uploading, setUploading] = useState(false);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<WorkspaceFilePreviewState>({
+    status: "idle",
+  });
+  const [copiedPath, setCopiedPath] = useState(false);
+  const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
 
   const workspaceId = props.workspaceId.trim();
+  const workspaceRoot = String(props.workspaceRoot ?? "").trim();
   const canLoad = Boolean(props.client && workspaceId);
 
   useEffect(() => {
@@ -135,6 +245,138 @@ export function WorkspaceFilesUploadsPanel(props: {
     () => filterUploadRows(rows, query),
     [query, rows],
   );
+
+  const selectedRow = useMemo(
+    () => visibleRows.find((row) => row.id === selectedId) ?? null,
+    [selectedId, visibleRows],
+  );
+
+  const selectedTarget = useMemo(() => {
+    if (!selectedRow) return null;
+    const root = workspaceRoot || "/";
+    const workspaceRel = workspaceRelativeInboxPath(selectedRow.path);
+    return workspaceFileOpenTarget({
+      fileRoot: root,
+      path: workspaceRel,
+      name: selectedRow.name,
+      size: selectedRow.size,
+      mtimeMs: selectedRow.updatedAt,
+    });
+  }, [selectedRow, workspaceRoot]);
+
+  const selectedPreviewNode = useMemo(() => {
+    if (!selectedRow) return null;
+    return {
+      name: selectedRow.name,
+      path: workspaceRelativeInboxPath(selectedRow.path),
+      kind: "file" as const,
+      size: selectedRow.size,
+      mtimeMs: selectedRow.updatedAt,
+    };
+  }, [selectedRow]);
+
+  // Load preview for selected inbox file (same modes as Task browser).
+  useEffect(() => {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
+    if (!selectedRow || !selectedTarget || !props.client || !workspaceId) {
+      setPreviewState({ status: "idle" });
+      return;
+    }
+
+    if (selectedTarget.preview === "browser") {
+      setPreviewState({ status: "browser" });
+      return;
+    }
+
+    if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+      setPreviewState({ status: "external" });
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewState({ status: "loading" });
+    const workspaceRel = workspaceRelativeInboxPath(selectedRow.path);
+    const abs = absoluteInboxFilePath(workspaceRoot, selectedRow.path);
+
+    if (selectedTarget.preview === "image") {
+      void props.client
+        .downloadWorkspaceFile(workspaceId, workspaceRel)
+        .then((result) => {
+          if (cancelled) return;
+          const objectUrl = URL.createObjectURL(
+            new Blob([result.data], {
+              type: result.contentType ?? "application/octet-stream",
+            }),
+          );
+          previewObjectUrlRef.current = objectUrl;
+          setPreviewState({ status: "binary", url: objectUrl });
+        })
+        .catch((previewError: unknown) => {
+          if (cancelled) return;
+          setPreviewState({
+            status: "error",
+            message:
+              previewError instanceof Error
+                ? previewError.message
+                : t("files.preview_failed"),
+          });
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const previewRequest =
+      usesLocalFileRenderer(selectedTarget) && isElectronRuntime() && workspaceRoot
+        ? Promise.resolve({
+            status: "local" as const,
+            filePath: abs,
+            revision: selectedRow.updatedAt || Date.now(),
+          })
+        : props.client
+            .readWorkspaceFile(workspaceId, workspaceRel)
+            .then((result) => ({
+              status: "ready" as const,
+              content: result.content,
+            }));
+
+    void previewRequest
+      .then((state) => {
+        if (!cancelled) setPreviewState(state);
+      })
+      .catch((previewError: unknown) => {
+        if (cancelled) return;
+        // Fallback: download via inbox id for binary-ish failures on text path
+        if (usesLocalFileRenderer(selectedTarget) && isElectronRuntime() && abs) {
+          setPreviewState({
+            status: "local",
+            filePath: abs,
+            revision: selectedRow.updatedAt || Date.now(),
+          });
+          return;
+        }
+        setPreviewState({
+          status: "error",
+          message:
+            previewError instanceof Error
+              ? previewError.message
+              : t("files.preview_failed"),
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    props.client,
+    selectedRow,
+    selectedTarget,
+    workspaceId,
+    workspaceRoot,
+  ]);
 
   const importFiles = useCallback(
     async (fileList: FileList | File[]) => {
@@ -175,6 +417,65 @@ export function WorkspaceFilesUploadsPanel(props: {
   const onPickClick = () => {
     fileInputRef.current?.click();
   };
+
+  const absoluteForRow = useCallback(
+    (row: UserUploadRow) => absoluteInboxFilePath(workspaceRoot, row.path),
+    [workspaceRoot],
+  );
+
+  const handleOpenInFolder = useCallback(
+    async (row: UserUploadRow) => {
+      if (!workspaceRoot || !isElectronRuntime()) return;
+      try {
+        await revealDesktopItemInDir(absoluteForRow(row));
+      } catch {
+        // best-effort
+      }
+    },
+    [absoluteForRow, workspaceRoot],
+  );
+
+  const handleOpenExternally = useCallback(
+    async (row: UserUploadRow) => {
+      if (!workspaceRoot || !isElectronRuntime()) return;
+      const abs = absoluteForRow(row);
+      try {
+        if (canEditArtifactTarget({ preview: "", name: row.name })) {
+          await openArtifactForEditing(abs);
+        } else {
+          await revealDesktopItemInDir(abs);
+        }
+      } catch {
+        // best-effort
+      }
+    },
+    [absoluteForRow, workspaceRoot],
+  );
+
+  const handleCopyPath = useCallback(
+    async (row: UserUploadRow) => {
+      const text = workspaceRoot
+        ? absoluteForRow(row)
+        : workspaceRelativeInboxPath(row.path);
+      try {
+        await navigator.clipboard.writeText(text);
+        setPathCopiedFlash(row.id);
+        setCopiedPath(true);
+        window.setTimeout(() => {
+          setPathCopiedFlash(null);
+          setCopiedPath(false);
+        }, 1500);
+      } catch {
+        // ignore
+      }
+    },
+    [absoluteForRow, workspaceRoot],
+  );
+
+  const closePreview = useCallback(() => {
+    setSelectedId(null);
+    setPreviewState({ status: "idle" });
+  }, []);
 
   const showEmpty = !loading && !error && visibleRows.length === 0;
   const showTable = !loading && visibleRows.length > 0;
@@ -286,36 +587,87 @@ export function WorkspaceFilesUploadsPanel(props: {
                 <TableHead className="w-[50%]">{t("files.column_name")}</TableHead>
                 <TableHead>{t("files.column_size")}</TableHead>
                 <TableHead>{t("files.column_updated")}</TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">{t("files.file_actions", { name: "" })}</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleRows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <ArtifactIcon
+              {visibleRows.map((row) => {
+                const selected = row.id === selectedId;
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={selected ? "selected" : undefined}
+                    className={cn(
+                      "group cursor-pointer",
+                      selected && "bg-dls-surface-muted/80",
+                    )}
+                    onClick={() => setSelectedId(row.id)}
+                    onDoubleClick={() => void handleOpenExternally(row)}
+                  >
+                    <TableCell>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <ArtifactIcon
+                          name={row.name}
+                          className="size-4 shrink-0"
+                        />
+                        <span className="truncate font-medium text-dls-text">
+                          {row.name}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-dls-secondary">
+                      {formatWorkspaceFileSize(row.size)}
+                    </TableCell>
+                    <TableCell className="text-dls-secondary">
+                      {row.updatedAt
+                        ? formatWorkspaceFileTime(row.updatedAt)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="relative py-2">
+                      <UploadRowActionsMenu
                         name={row.name}
-                        className="size-4 shrink-0"
+                        pathCopied={pathCopiedFlash === row.id}
+                        onPreview={() => setSelectedId(row.id)}
+                        onOpenExternally={() => void handleOpenExternally(row)}
+                        onOpenInFolder={() => void handleOpenInFolder(row)}
+                        onCopyPath={() => void handleCopyPath(row)}
                       />
-                      <span className="truncate font-medium text-dls-text">
-                        {row.name}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-dls-secondary">
-                    {formatWorkspaceFileSize(row.size)}
-                  </TableCell>
-                  <TableCell className="text-dls-secondary">
-                    {row.updatedAt
-                      ? formatWorkspaceFileTime(row.updatedAt)
-                      : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </table>
         </div>
       ) : null}
+
+      <FilePreviewDrawer
+        open={Boolean(selectedRow && selectedTarget)}
+        file={selectedPreviewNode}
+        target={selectedTarget}
+        state={previewState}
+        copied={copiedPath}
+        onClose={closePreview}
+        onCopyPath={() => {
+          if (selectedRow) void handleCopyPath(selectedRow);
+        }}
+        onEdit={
+          selectedRow &&
+          previewState.status === "local" &&
+          selectedTarget &&
+          canEditArtifactTarget(selectedTarget)
+            ? () => void openArtifactForEditing(previewState.filePath)
+            : undefined
+        }
+        onOpenInFolder={
+          selectedRow ? () => void handleOpenInFolder(selectedRow) : undefined
+        }
+        onOpenExternally={
+          selectedRow ? () => void handleOpenExternally(selectedRow) : undefined
+        }
+      />
     </div>
   );
 }
