@@ -75,6 +75,9 @@ test("session artifact panel uses OfficeFilePreview for local binary sheets", ()
   expect(artifactPanel).toContain("filePath={externalPath}");
   // Binary local path no longer exclusively dead-ends on UnsupportedBinaryNotice.
   expect(artifactPanel).toContain("useLocalOfficeSheetPreview");
+  // Same Electron gate as Files/side-panel — no pretend-preview in web runtime.
+  expect(artifactPanel).toContain("isElectronRuntime");
+  expect(artifactPanel).toContain("officePreviewAvailable: isElectronRuntime()");
   // CSV/TSV still go through built-in sheet editor with onSave (write path).
   expect(artifactPanel).toContain("<SheetEditor");
   expect(artifactPanel).toContain("onSave={saveSpreadsheetContent}");
