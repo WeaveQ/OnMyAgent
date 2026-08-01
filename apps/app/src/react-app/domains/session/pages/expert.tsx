@@ -51,10 +51,11 @@ import {
 
 import type { SessionPageProps } from "./session-page-types";
 
-import type { AgentCardItem } from "../../agents";
+import type { AgentCardItem, ExpertKnowledgeEntry } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
+  ExpertCreationPage,
   type PendingAgentContext,
   usePendingAgentStore,
 } from "../../agents";
@@ -69,7 +70,20 @@ import {
   isValidSdkModelRef,
   resolveAgentAvatarUrl,
 } from "../../agents";
-import type { AgentRegistry } from "../../agents";
+import {
+  AGENT_REGISTRY_PATH,
+  createAgentRecordFromDraft,
+  createDefaultAgentRegistry,
+  serializeAgentRegistry,
+  serializeUserAgentRegistry,
+  type AgentRegistry,
+  type AgentWizardDraft,
+} from "../../agents";
+import {
+  writeMyExpertPackage,
+  writeUserAgentRegistry,
+} from "../../../../app/lib/desktop";
+import { isElectronRuntime } from "../../../../app/utils";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
@@ -185,6 +199,7 @@ export function ExpertPage(props: ExpertPageProps) {
   } = useCustomConnectorDialog();
   const [agentCreateRequestKey, setAgentCreateRequestKey] =
     useState<number | null>(null);
+  const [expertCreationOpen, setExpertCreationOpen] = useState(false);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
   const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
@@ -776,6 +791,10 @@ export function ExpertPage(props: ExpertPageProps) {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
   }, [props.selectedWorkspaceId, props.sidebar]);
 
+  const openExpertCreation = useCallback(() => {
+    setExpertCreationOpen(true);
+  }, []);
+
   const {
     handleCreateExpert,
     handleCreateSkill,
@@ -786,6 +805,55 @@ export function ExpertPage(props: ExpertPageProps) {
     onNavigateToMode: props.onNavigateToMode,
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
+
+  const handleExpertCreationDone = useCallback(
+    async (draft: AgentWizardDraft, knowledge: ExpertKnowledgeEntry[]) => {
+      const baseRegistry = registry ?? createDefaultAgentRegistry();
+      const nowIso = new Date().toISOString();
+      const createdAgent = createAgentRecordFromDraft(draft, nowIso, baseRegistry.skills);
+      let agent = createdAgent;
+      if (isElectronRuntime()) {
+        const written = await writeMyExpertPackage({
+          id: createdAgent.id,
+          packageName: createdAgent.id,
+          name: createdAgent.name,
+          description: createdAgent.description,
+          quote: createdAgent.quote,
+        });
+        agent = {
+          ...createdAgent,
+          marketplaceSource: "mine",
+          marketplacePath: written.path,
+          marketplacePackageName: written.packageName,
+        };
+      }
+      const nextRegistry: AgentRegistry = {
+        ...baseRegistry,
+        updatedAt: nowIso,
+        agents: [agent, ...baseRegistry.agents],
+      };
+      if (isElectronRuntime()) {
+        await writeUserAgentRegistry(serializeUserAgentRegistry(nextRegistry));
+      } else if (props.onmyagentServerClient && props.selectedWorkspaceId) {
+        await props.onmyagentServerClient.writeWorkspaceFile(props.selectedWorkspaceId, {
+          path: AGENT_REGISTRY_PATH,
+          content: serializeAgentRegistry(nextRegistry),
+        });
+      }
+      useAgentRegistryStore.getState().setRegistry(nextRegistry);
+      setExpertCreationOpen(false);
+      showToast({
+        title: t("agents.created_title", { name: agent.name }),
+        description: t("agents.config_written_desc", {
+          path: isElectronRuntime() ? "~/.onmyagent/agents/registry.json" : AGENT_REGISTRY_PATH,
+        }),
+        tone: "success",
+        durationMs: 3600,
+      });
+      void knowledge;
+    },
+    [props.onmyagentServerClient, props.selectedWorkspaceId, registry, showToast],
+  );
 
   const seedChatDraft = useCallback(
     (draft: string) => {
@@ -1295,7 +1363,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   setAgentPanelCollapsed((value) => !value)
                 }
                 onOpenAgents={openExpertMarket}
-                onCreateExpert={handleCreateExpert}
+                onCreateExpert={openExpertCreation}
                 onOpenAgentStarter={handleStartAgentById}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}
@@ -1785,6 +1853,15 @@ export function ExpertPage(props: ExpertPageProps) {
             setAgentCreateRequestKey(null);
           },
         })
+      ) : null}
+
+      {expertCreationOpen ? (
+        <ExpertCreationPage
+          registry={registry}
+          skills={registry?.skills ?? []}
+          onClose={() => setExpertCreationOpen(false)}
+          onDone={handleExpertCreationDone}
+        />
       ) : null}
 
       {props.providerAuthModal ? (
