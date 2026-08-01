@@ -346,7 +346,7 @@ function BasicInfoPanel(props: {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
-        <div className="grid gap-6 xl:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="grid gap-6 2xl:grid-cols-[15rem_minmax(0,1fr)]">
         <div className="space-y-3">
           <div className="text-sm font-medium text-dls-text">
             {t("agents.expert_creation_avatar")}
