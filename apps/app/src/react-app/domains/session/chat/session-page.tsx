@@ -748,6 +748,7 @@ export function SessionPage(props: SessionPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
+                          onToast={showToast}
                           onOpenArtifact={openTarget}
                           onAddToTask={(relativePath) => {
                             if (
