@@ -77,18 +77,22 @@ const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 
+/** @returns {string | null} */
 function bundledSkillsRootPath() {
-  return firstExisting(
+  const found = firstExisting(
     buildBundledResourceCandidates(__runtimeDir, BUNDLED_SKILLS_RESOURCE_DIR, process.resourcesPath),
     existsSync,
   );
+  return found == null ? null : String(found);
 }
 
+/** @returns {string | null} */
 export function bundledPluginsRootPath() {
-  return firstExisting(
+  const found = firstExisting(
     buildBundledResourceCandidates(__runtimeDir, BUNDLED_PLUGINS_RESOURCE_DIR, process.resourcesPath),
     existsSync,
   );
+  return found == null ? null : String(found);
 }
 
 async function fileExists(targetPath) {
