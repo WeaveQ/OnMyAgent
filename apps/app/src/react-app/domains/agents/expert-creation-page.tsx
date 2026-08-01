@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
+  ChevronsLeft,
+  ChevronDown,
+  Clock3,
   FolderPlus,
   ImagePlus,
+  Mic,
   Plus,
   Send,
   Sparkles,
-  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -22,11 +25,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   NavTabButton,
   SegmentedTabGroup,
 } from "@/components/ui/action-row";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -44,6 +54,7 @@ import {
 } from "./agent-registry";
 import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
+import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -139,11 +150,9 @@ function IconCircle(props: { children: ReactNode; className?: string }) {
   );
 }
 
-function ExpertCoach() {
+function ExpertCoach(props: { registry: AgentRegistry }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<CoachMessage[]>([
-    { role: "assistant", content: t("agents.expert_creation_coach_welcome") },
-  ]);
+  const [messages, setMessages] = useState<CoachMessage[]>([]);
 
   const send = () => {
     const value = input.trim();
@@ -160,63 +169,126 @@ function ExpertCoach() {
   };
 
   return (
-    <aside className="flex min-h-0 w-[19rem] shrink-0 flex-col border-r border-dls-border bg-dls-surface">
-      <div className="flex items-center gap-3 border-b border-dls-border px-5 py-4">
-        <IconCircle className="border-dls-accent/25 bg-dls-accent/10 text-dls-accent">
-          <Sparkles className="size-4" aria-hidden />
-        </IconCircle>
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-dls-text">
-            {t("agents.expert_creation_coach")}
-          </h2>
-          <p className="mt-0.5 text-xs text-dls-secondary">
-            {t("agents.expert_creation_coach_desc")}
+    <aside className="flex min-h-0 w-2/5 min-w-80 shrink-0 border-r border-dls-border bg-dls-background p-5">
+      <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-dls-border bg-dls-surface p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {renderAvatar(
+              props.registry,
+              {
+                avatarStyle: props.registry.avatars[0]?.style,
+                avatarOptionId: props.registry.avatars[0]?.id ?? "",
+                name: t("agents.expert_creation_coach"),
+              },
+              "size-9",
+            )}
+            <h2 className="truncate text-base font-semibold text-dls-text">
+              {t("agents.expert_creation_coach")}
+            </h2>
+          </div>
+          <Button type="button" variant="ghost" size="sm" className="text-dls-secondary">
+            <Clock3 data-icon="inline-start" className="size-4" />
+            {t("agents.expert_creation_coach_history")}
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto pt-10">
+          <div className="space-y-6 text-sm leading-7 text-dls-text">
+            <p>{t("agents.expert_creation_coach_greeting")}</p>
+            <p>{t("agents.expert_creation_coach_intro")}</p>
+            <p>{t("agents.expert_creation_coach_question")}</p>
+            <ol className="list-decimal space-y-1 pl-5">
+              {[1, 2, 3, 4].map((index) => (
+                <li key={index}>
+                  {t(`agents.expert_creation_coach_option_${index}`)}
+                </li>
+              ))}
+            </ol>
+            <p>{t("agents.expert_creation_coach_reply_hint")}</p>
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={cn(
+                  "max-w-[94%] rounded-xl px-3 py-2.5 leading-6",
+                  message.role === "user"
+                    ? "ml-auto bg-dls-accent text-white"
+                    : "bg-dls-hover text-dls-text",
+                )}
+              >
+                {message.content}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="pt-6">
+          <div className="relative rounded-2xl border border-dls-border bg-dls-background p-3">
+            <Textarea
+              value={input}
+              onChange={(event) => setInput(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  send();
+                }
+              }}
+              placeholder={t("agents.expert_creation_coach_placeholder")}
+              className="min-h-16 resize-none border-0 bg-transparent px-1 py-0 pr-1 shadow-none focus-visible:ring-0"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <Button type="button" size="icon-sm" variant="ghost" aria-label={t("common.create")}>
+                <Plus className="size-5" aria-hidden />
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={t("agents.expert_creation_coach_mic")}>
+                  <Mic className="size-5" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  disabled={!input.trim()}
+                  onClick={send}
+                  aria-label={t("agents.expert_creation_preview_send")}
+                >
+                  <Send className="size-5" aria-hidden />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <p className="pt-3 text-center text-xs text-dls-secondary">
+            {t("agents.expert_creation_coach_disclaimer")}
           </p>
         </div>
       </div>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5">
-        {messages.map((message, index) => (
-          <div
-            key={`${message.role}-${index}`}
-            className={cn(
-              "max-w-[94%] rounded-xl px-3 py-2.5 text-sm leading-6",
-              message.role === "user"
-                ? "ml-auto bg-dls-accent text-white"
-                : "bg-dls-hover text-dls-text",
-            )}
-          >
-            {message.content}
-          </div>
+    </aside>
+  );
+}
+
+function PromptEditor(props: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  ariaLabel: string;
+}) {
+  const lineCount = Math.max(8, props.value.split("\n").length);
+  return (
+    <div className="flex min-h-56 overflow-hidden rounded-xl border border-dls-border bg-dls-background">
+      <div
+        aria-hidden="true"
+        className="select-none border-r border-dls-border px-3 py-3 text-right text-xs leading-6 text-dls-secondary"
+      >
+        {Array.from({ length: lineCount }, (_, index) => (
+          <div key={index}>{index + 1}</div>
         ))}
       </div>
-      <div className="border-t border-dls-border p-4">
-        <div className="relative">
-          <Textarea
-            value={input}
-            onChange={(event) => setInput(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                send();
-              }
-            }}
-            placeholder={t("agents.expert_creation_coach_placeholder")}
-            className="min-h-20 resize-none pr-11"
-          />
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            className="absolute bottom-2 right-2"
-            disabled={!input.trim()}
-            onClick={send}
-            aria-label={t("agents.expert_creation_preview_send")}
-          >
-            <Send className="size-4" aria-hidden />
-          </Button>
-        </div>
-      </div>
-    </aside>
+      <Textarea
+        value={props.value}
+        onChange={(event) => props.onChange(event.currentTarget.value)}
+        placeholder={props.placeholder}
+        aria-label={props.ariaLabel}
+        controlSize="editor"
+        className="min-h-56 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0"
+      />
+    </div>
   );
 }
 
@@ -243,22 +315,28 @@ function BasicInfoPanel(props: {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[15rem_minmax(0,1fr)]">
+      <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
+        <div className="grid gap-6 xl:grid-cols-[15rem_minmax(0,1fr)]">
         <div className="space-y-3">
           <div className="text-sm font-medium text-dls-text">
-            {t("agents.avatar")}
+            {t("agents.expert_creation_avatar")}
           </div>
           <div className="flex items-center gap-4">
-            {renderAvatar(
-              props.registry,
-              {
-                avatarStyle: props.draft.avatarStyle,
-                avatarOptionId: props.draft.avatarOptionId,
-                customAvatarDataUrl: props.draft.customAvatarDataUrl,
-                name: props.draft.name,
-              },
-              "size-20 text-2xl",
-            )}
+            <div className="relative shrink-0">
+              {renderAvatar(
+                props.registry,
+                {
+                  avatarStyle: props.draft.avatarStyle,
+                  avatarOptionId: props.draft.avatarOptionId,
+                  customAvatarDataUrl: props.draft.customAvatarDataUrl,
+                  name: props.draft.name,
+                },
+                "size-20 text-2xl",
+              )}
+              <span className="absolute -bottom-1 -right-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
+                <Plus className="size-4" aria-hidden />
+              </span>
+            </div>
             <div className="min-w-0 space-y-2">
               <p className="text-xs leading-5 text-dls-secondary">
                 {t("agents.expert_creation_avatar_hint")}
@@ -339,18 +417,24 @@ function BasicInfoPanel(props: {
             />
           </label>
         </div>
-      </div>
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-dls-text">
-          {t("agents.expert_creation_role_prompt")}
-        </span>
-        <Textarea
+        </div>
+      </section>
+      <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-dls-text">
+            {t("agents.expert_creation_role_prompt")}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-dls-secondary">
+            {t("agents.expert_creation_role_prompt_desc")}
+          </p>
+        </div>
+        <PromptEditor
           value={props.draft.userNote}
-          onChange={(event) => props.onDraftChange("userNote", event.currentTarget.value)}
+          onChange={(value) => props.onDraftChange("userNote", value)}
           placeholder={t("agents.expert_creation_role_prompt_placeholder")}
-          controlSize="editor"
+          ariaLabel={t("agents.expert_creation_role_prompt")}
         />
-      </label>
+      </section>
     </div>
   );
 }
@@ -486,34 +570,44 @@ function SkillsPanel(props: {
         </div>
       </div>
       {selectedSkills.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {selectedSkills.map((skill) => (
-            <article key={skill.id} className="flex min-w-0 gap-3 rounded-xl border border-dls-border bg-dls-surface p-4">
-              <IconCircle className="size-10 shrink-0 text-xs font-semibold">
-                {localSkillLabel(skill).slice(0, 1).toUpperCase()}
-              </IconCircle>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="truncate text-sm font-semibold text-dls-text">{localSkillLabel(skill)}</h4>
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="ghost"
-                    onClick={() => toggleSkill(skill.id)}
-                    aria-label={t("agents.expert_creation_remove_skill")}
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                  </Button>
+        <div className="grid gap-4 md:grid-cols-2">
+          {selectedSkills.map((skill) => {
+            const selected = props.selectedIds.includes(skill.id);
+            return (
+              <article key={skill.id} className="min-w-0 rounded-2xl border border-dls-border bg-dls-surface p-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <IconCircle className="size-12 shrink-0 border-dls-accent/20 bg-dls-accent/10 text-dls-accent">
+                    <SkillGlyphIcon className="size-6" />
+                  </IconCircle>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className="truncate text-base font-semibold text-dls-text">
+                          {localSkillLabel(skill)}
+                        </h4>
+                        <p className="mt-1 truncate text-sm text-dls-secondary">{skill.name}</p>
+                      </div>
+                      <Switch
+                        size="default"
+                        className="data-checked:border-dls-decision data-checked:bg-dls-decision"
+                        checked={selected}
+                        onCheckedChange={(checked) => {
+                          if (checked !== selected) toggleSkill(skill.id);
+                        }}
+                        aria-label={localSkillLabel(skill)}
+                      />
+                    </div>
+                    <p className="mt-4 line-clamp-3 text-sm leading-6 text-dls-secondary">
+                      {localSkillDescription(skill)}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1 line-clamp-3 text-xs leading-5 text-dls-secondary">
-                  {localSkillDescription(skill)}
-                </p>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       ) : (
-        <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-dls-border bg-dls-surface-muted px-6 text-center">
+        <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
           <IconCircle className="size-12 bg-dls-surface text-dls-secondary">
             <Sparkles className="size-5" aria-hidden />
           </IconCircle>
@@ -578,6 +672,11 @@ function KnowledgePanel(props: {
     ]);
   };
 
+  const openFolderUpload = () => {
+    folderInputRef.current?.setAttribute("webkitdirectory", "");
+    folderInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -604,10 +703,6 @@ function KnowledgePanel(props: {
               event.currentTarget.value = "";
             }}
           />
-          <Button type="button" size="sm" variant="outline" onClick={() => documentInputRef.current?.click()}>
-            <Upload data-icon="inline-start" className="size-3.5" />
-            {t("agents.expert_creation_upload_document")}
-          </Button>
           <input
             ref={folderInputRef}
             type="file"
@@ -618,18 +713,37 @@ function KnowledgePanel(props: {
               event.currentTarget.value = "";
             }}
           />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              folderInputRef.current?.setAttribute("webkitdirectory", "");
-              folderInputRef.current?.click();
-            }}
-          >
-            <FolderPlus data-icon="inline-start" className="size-3.5" />
-            {t("agents.expert_creation_upload_folder")}
-          </Button>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger
+              render={
+                <Button type="button" size="sm" variant="outline">
+                  <Upload data-icon="inline-start" className="size-3.5" />
+                  {t("agents.expert_creation_upload")}
+                  <ChevronDown className="size-3.5" aria-hidden />
+                </Button>
+              }
+            />
+            <DropdownMenuContent
+              align="end"
+              sideOffset={6}
+              className="min-w-40 border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
+            >
+              <DropdownMenuItem
+                onClick={() => documentInputRef.current?.click()}
+                className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+              >
+                <Upload className="size-4 text-dls-secondary" aria-hidden />
+                {t("agents.expert_creation_upload_document")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={openFolderUpload}
+                className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+              >
+                <FolderPlus className="size-4 text-dls-secondary" aria-hidden />
+                {t("agents.expert_creation_upload_folder")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       {folderError ? (
@@ -650,7 +764,7 @@ function KnowledgePanel(props: {
                 size="icon-xs"
                 variant="ghost"
                 onClick={() => props.onEntriesChange(props.entries.filter((item) => item.relativePath !== entry.relativePath))}
-                aria-label={t("agents.expert_creation_remove_skill")}
+                aria-label={t("agents.expert_creation_remove_knowledge")}
               >
                 <X className="size-3.5" aria-hidden />
               </Button>
@@ -661,14 +775,22 @@ function KnowledgePanel(props: {
           </p>
         </div>
       ) : (
-        <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-dls-border bg-dls-surface-muted px-6 text-center">
-          <IconCircle className="size-12 bg-dls-surface text-dls-secondary">
-            <FolderPlus className="size-5" aria-hidden />
-          </IconCircle>
-          <h3 className="mt-4 text-sm font-semibold text-dls-text">{t("agents.expert_creation_knowledge_empty")}</h3>
-          <p className="mt-1 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => {
+        <div className="flex min-h-96 flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+          <div className="flex items-end -space-x-2">
+            <IconCircle className="size-10 rotate-[-8deg] bg-dls-background text-dls-accent">
+              <Upload className="size-5" aria-hidden />
+            </IconCircle>
+            <IconCircle className="relative z-10 size-12 bg-dls-background text-dls-accent">
+              <Sparkles className="size-6" aria-hidden />
+            </IconCircle>
+            <IconCircle className="size-10 rotate-[8deg] bg-dls-background text-dls-accent">
+              <FolderPlus className="size-5" aria-hidden />
+            </IconCircle>
+          </div>
+          <h3 className="mt-6 text-base font-semibold text-dls-text">{t("agents.expert_creation_knowledge_empty")}</h3>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => {
               setFolderError(false);
               setFolderName("");
               setFolderDialogOpen(true);
@@ -676,14 +798,11 @@ function KnowledgePanel(props: {
               <FolderPlus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_create_folder")}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => documentInputRef.current?.click()}>
+            <Button type="button" variant="secondary" size="sm" onClick={() => documentInputRef.current?.click()}>
               <Upload data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_upload_document")}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => {
-              folderInputRef.current?.setAttribute("webkitdirectory", "");
-              folderInputRef.current?.click();
-            }}>
+            <Button type="button" variant="secondary" size="sm" onClick={openFolderUpload}>
               <FolderPlus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_upload_folder")}
             </Button>
@@ -735,7 +854,9 @@ function KnowledgePanel(props: {
 
 function TryEffectPanel(props: {
   draft: AgentWizardDraft;
+  registry: AgentRegistry;
   onTry: (draft: AgentWizardDraft) => void;
+  onClose: () => void;
 }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<string[]>([]);
@@ -750,14 +871,16 @@ function TryEffectPanel(props: {
 
   return (
     <aside className="flex min-h-0 min-w-0 flex-col border-l border-dls-border bg-dls-surface">
-      <div className="flex items-center gap-3 border-b border-dls-border px-5 py-4">
-        <IconCircle className="border-dls-accent/25 bg-dls-accent/10 text-dls-accent">
-          <Sparkles className="size-4" aria-hidden />
-        </IconCircle>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold text-dls-text">{t("agents.expert_creation_preview_title")}</h2>
-          <p className="mt-0.5 truncate text-xs text-dls-secondary">{props.draft.name || t("agents.expert_creation_title")}</p>
-        </div>
+      <div className="flex items-center gap-2 border-b border-dls-border px-5 py-4">
+        <Button type="button" variant="ghost" size="icon-sm" onClick={props.onClose} aria-label={t("agents.expert_creation_back")}>
+          <ChevronsLeft className="size-5" aria-hidden />
+        </Button>
+        <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-dls-text">
+          {t("agents.expert_creation_preview_title")}
+        </h2>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label={t("common.create")}>
+          <Plus className="size-5" aria-hidden />
+        </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
         {props.draft.name.trim() ? (
@@ -768,19 +891,39 @@ function TryEffectPanel(props: {
               </div>
             ))}
             {messages.length === 0 ? (
-              <div className="flex h-full min-h-64 items-center justify-center text-center text-sm leading-6 text-dls-secondary">
-                {t("agents.expert_creation_preview_empty")}
+              <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
+                {renderAvatar(
+                  props.registry,
+                  {
+                    avatarStyle: props.draft.avatarStyle,
+                    avatarOptionId: props.draft.avatarOptionId,
+                    customAvatarDataUrl: props.draft.customAvatarDataUrl,
+                    name: props.draft.name || t("agents.expert_creation_title"),
+                  },
+                  "size-20",
+                )}
+                <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_empty")}</span>
               </div>
             ) : null}
           </div>
         ) : (
-          <div className="flex h-full min-h-64 items-center justify-center text-center text-sm leading-6 text-dls-secondary">
-            {t("agents.expert_creation_preview_empty")}
+          <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
+            {renderAvatar(
+              props.registry,
+              {
+                avatarStyle: props.draft.avatarStyle,
+                avatarOptionId: props.draft.avatarOptionId,
+                customAvatarDataUrl: props.draft.customAvatarDataUrl,
+                name: t("agents.expert_creation_title"),
+              },
+              "size-20",
+            )}
+            <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_empty")}</span>
           </div>
         )}
       </div>
       <div className="border-t border-dls-border p-4">
-        <div className="relative">
+        <div className="relative rounded-2xl border border-dls-border bg-dls-background p-3">
           <Textarea
             value={input}
             onChange={(event) => setInput(event.currentTarget.value)}
@@ -792,19 +935,32 @@ function TryEffectPanel(props: {
             }}
             disabled={!props.draft.name.trim()}
             placeholder={t("agents.expert_creation_preview_placeholder")}
-            className="min-h-20 resize-none pr-11"
+            className="min-h-12 resize-none border-0 bg-transparent px-1 py-0 pr-1 shadow-none focus-visible:ring-0"
           />
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            className="absolute bottom-2 right-2"
-            disabled={!input.trim() || !props.draft.name.trim()}
-            onClick={send}
-            aria-label={t("agents.expert_creation_preview_send")}
-          >
-            <Send className="size-4" aria-hidden />
-          </Button>
+          <div className="mt-2 flex items-center justify-between">
+            <Button type="button" size="icon-sm" variant="ghost" aria-label={t("common.create")}>
+              <Plus className="size-5" aria-hidden />
+            </Button>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" className="max-w-44 text-dls-secondary">
+                <span className="truncate">{t("agents.expert_creation_preview_model")}</span>
+                <ChevronDown className="size-3.5" aria-hidden />
+              </Button>
+              <Button type="button" size="icon-sm" variant="ghost" aria-label={t("agents.expert_creation_coach_mic")}>
+                <Mic className="size-5" aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                disabled={!input.trim() || !props.draft.name.trim()}
+                onClick={send}
+                aria-label={t("agents.expert_creation_preview_send")}
+              >
+                <Send className="size-5" aria-hidden />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </aside>
@@ -820,7 +976,6 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   );
   const [knowledge, setKnowledge] = useState<ExpertKnowledgeEntry[]>([]);
   const [tryOpen, setTryOpen] = useState(false);
-  const [coachOpen, setCoachOpen] = useState(true);
   const [importing, setImporting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -958,21 +1113,16 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           <ArrowLeft data-icon="inline-start" className="size-4" />
           {t("agents.expert_creation_back")}
         </Button>
-        <h1 className="text-sm font-semibold text-dls-text">{t("agents.expert_creation_title")}</h1>
+        <h1 className="text-sm font-semibold text-dls-text">{t("common.create")}</h1>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setTryOpen((current) => !current)}>
-            <Sparkles data-icon="inline-start" className="size-3.5" />
-            {t("agents.expert_creation_try")}
-          </Button>
           <Button type="button" size="sm" disabled={!draft.name.trim()} onClick={() => void submit()}>
-            <Check data-icon="inline-start" className="size-3.5" />
             {t("agents.expert_creation_done")}
           </Button>
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        {coachOpen ? <ExpertCoach /> : null}
-        <main className="flex min-w-0 flex-1 flex-col">
+        <ExpertCoach registry={sourceRegistry} />
+        <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
           <div className="flex items-center justify-between gap-3 border-b border-dls-border bg-dls-surface px-5 py-3">
             <SegmentedTabGroup aria-label={t("agents.expert_creation_title")}>
               {TABS.map((tab) => (
@@ -988,11 +1138,14 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 </NavTabButton>
               ))}
             </SegmentedTabGroup>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setCoachOpen((current) => !current)}>
-              {coachOpen ? t("agents.expert_creation_back") : t("agents.expert_creation_coach")}
-            </Button>
+            {!tryOpen ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setTryOpen(true)}>
+                <ChevronsLeft data-icon="inline-start" className="size-4" />
+                {t("agents.expert_creation_try")}
+              </Button>
+            ) : null}
           </div>
-          <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]")}>
+          <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(19rem,30%)]")}>
             <section className="min-w-0 overflow-y-auto px-6 py-6 xl:px-10">
               <div className="mx-auto w-full max-w-5xl">
                 {activeTab === "basic" ? (
@@ -1003,15 +1156,22 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "memory" ? (
-                  <label className="block space-y-2">
-                    <span className="text-sm font-medium text-dls-text">{t("agents.expert_creation_memory")}</span>
-                    <Textarea
+                  <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
+                    <div className="mb-4">
+                      <h3 className="text-base font-semibold text-dls-text">
+                        {t("agents.expert_creation_memory")}
+                      </h3>
+                      <p className="mt-1 text-sm leading-6 text-dls-secondary">
+                        {t("agents.expert_creation_memory_desc")}
+                      </p>
+                    </div>
+                    <PromptEditor
                       value={draft.agentMemory}
-                      onChange={(event) => setDraftField("agentMemory", event.currentTarget.value)}
+                      onChange={(value) => setDraftField("agentMemory", value)}
                       placeholder={t("agents.expert_creation_memory_placeholder")}
-                      controlSize="largeEditor"
+                      ariaLabel={t("agents.expert_creation_memory")}
                     />
-                  </label>
+                  </section>
                 ) : null}
                 {activeTab === "skills" ? (
                   <SkillsPanel
@@ -1028,7 +1188,14 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 {submitError ? <p className="mt-4 text-sm text-dls-status-danger-fg">{submitError}</p> : null}
               </div>
             </section>
-            {tryOpen ? <TryEffectPanel draft={draft} onTry={props.onTry} /> : null}
+            {tryOpen ? (
+              <TryEffectPanel
+                draft={draft}
+                registry={sourceRegistry}
+                onTry={props.onTry}
+                onClose={() => setTryOpen(false)}
+              />
+            ) : null}
           </div>
         </main>
       </div>
