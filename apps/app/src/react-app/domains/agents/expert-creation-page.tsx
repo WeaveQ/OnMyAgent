@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -31,6 +31,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import { listLocalSkills } from "../../../app/lib/desktop";
+import { isElectronRuntime } from "../../../app/utils";
 import type {
   AgentRegistry,
   AgentSkillItem,
@@ -53,6 +55,7 @@ export type ExpertKnowledgeEntry = {
 
 export type ExpertCreationPageProps = {
   workspaceId: string;
+  workspaceRoot: string;
   client: OnMyAgentServerClient | null;
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
@@ -94,6 +97,31 @@ function localSkillDescription(skill: AgentSkillItem): string {
     skill.description?.trim() ||
     skill.descriptionZh?.trim() ||
     t("agents.expert_creation_no_skills_desc")
+  );
+}
+
+type LocalSkillSummary = {
+  name: string;
+  path?: string;
+  description?: string;
+  displayNameEn?: string;
+  descriptionEn?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isLocalSkillSummary(value: unknown): value is LocalSkillSummary {
+  if (!isRecord(value) || typeof value.name !== "string") return false;
+  return (
+    value.path === undefined || typeof value.path === "string"
+  ) && (
+    value.description === undefined || typeof value.description === "string"
+  ) && (
+    value.displayNameEn === undefined || typeof value.displayNameEn === "string"
+  ) && (
+    value.descriptionEn === undefined || typeof value.descriptionEn === "string"
   );
 }
 
@@ -707,6 +735,71 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [coachOpen, setCoachOpen] = useState(true);
   const [importing, setImporting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSkills = async () => {
+      let localSkills: LocalSkillSummary[] = [];
+      if (props.client && props.workspaceId.trim()) {
+        try {
+          const result = await props.client.listSkills(props.workspaceId, {
+            includeGlobal: true,
+          });
+          localSkills = result.items.map((entry) => ({
+            name: entry.name,
+            path: entry.path,
+            description: entry.description,
+            displayNameEn: entry.displayNameEn,
+            descriptionEn: entry.descriptionEn,
+          }));
+        } catch {
+          localSkills = [];
+        }
+      }
+      if (localSkills.length === 0 && isElectronRuntime() && props.workspaceRoot.trim()) {
+        try {
+          const result: unknown = await listLocalSkills(props.workspaceRoot);
+          const entries: unknown[] = Array.isArray(result) ? result : [];
+          localSkills = entries.filter(isLocalSkillSummary);
+        } catch {
+          localSkills = [];
+        }
+      }
+      if (cancelled) return;
+      const localByName = new Map(localSkills.map((skill) => [skill.name, skill]));
+      const merged = props.skills.map((skill) => {
+        const local = localByName.get(skill.name);
+        return {
+          ...skill,
+          enabled: skill.enabled || Boolean(local),
+          path: local?.path ?? skill.path,
+          description: local?.description ?? skill.description,
+          displayNameEn: local?.displayNameEn ?? skill.displayNameEn,
+          descriptionEn: local?.descriptionEn ?? skill.descriptionEn,
+        };
+      });
+      const knownNames = new Set(merged.map((skill) => skill.name));
+      for (const local of localSkills) {
+        if (knownNames.has(local.name)) continue;
+        merged.push({
+          id: local.name,
+          category: "installed",
+          group: "",
+          name: local.name,
+          description: local.description ?? local.name,
+          enabled: true,
+          path: local.path,
+          displayNameEn: local.displayNameEn,
+          descriptionEn: local.descriptionEn,
+        });
+      }
+      setAvailableSkills(merged.filter((skill) => skill.enabled));
+    };
+    void loadSkills();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.client, props.skills, props.workspaceId, props.workspaceRoot]);
 
   const setDraftField = <K extends keyof AgentWizardDraft>(
     key: K,
