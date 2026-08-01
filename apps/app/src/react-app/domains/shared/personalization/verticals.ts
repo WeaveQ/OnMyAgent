@@ -63,7 +63,7 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
       "xiaohongshu-operations-expert",
       "content-creator",
       "smb-finance",
-      "frontend-developer",
+      "document-generation-expert",
     ],
     templateIds: [
       "weekly-work-report",
@@ -118,12 +118,13 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     tasks: ["code", "data-analysis", "weekly-report", "meeting-notes"],
     tools: ["codex", "claude-code", "github", "vscode"],
     defaultWorkbench: "office",
+    // Dev/coding experts removed from marketplace — recommend office-adjacent PMs & docs.
     featuredExperts: [
-      "software-architect",
-      "senior-developer",
-      "frontend-developer",
-      "ai-engineer",
       "senior-project-manager",
+      "document-generation-expert",
+      "data-analytics-reporter",
+      "proposal-strategist",
+      "kdocs-ppt-creator",
     ],
     templateIds: [
       "weekly-work-report",
@@ -138,12 +139,13 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     tasks: ["code", "content-ops", "weekly-report"],
     tools: ["github", "figma", "claude-code"],
     defaultWorkbench: "office",
+    // Game engineering experts removed — keep narrative/content office path.
     featuredExperts: [
-      "game-designer",
-      "level-designer",
       "narrative-designer",
-      "technical-artist",
-      "game-audio-engineer",
+      "content-creator",
+      "viral-topic-master",
+      "kidd-content-expert",
+      "short-video-editing-coach",
     ],
     templateIds: ["weekly-work-report", "meeting-prep"],
   },

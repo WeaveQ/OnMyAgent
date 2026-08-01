@@ -314,6 +314,13 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 conversationWidth: mode,
               }));
             }}
+            menuBarStatusItem={ctx.local.prefs.menuBarStatusItem !== false}
+            onMenuBarStatusItemChange={(enabled) => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                menuBarStatusItem: enabled,
+              }));
+            }}
           />
         </SettingsTabSuspense>
       );

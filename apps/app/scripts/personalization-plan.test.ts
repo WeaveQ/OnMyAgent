@@ -68,7 +68,7 @@ describe("personalization plan (shipped)", () => {
     expect(plan.workbench).toBe("office");
     expect(plan.defaultAutoInstallExpert).toBeTruthy();
     expect(
-      plan.experts.some((e) => e.packageName === "software-architect"),
+      plan.experts.some((e) => e.packageName === "senior-project-manager"),
     ).toBe(true);
 
     const autoCreate = new Set(plan.defaultAutoCreateTemplateIds);

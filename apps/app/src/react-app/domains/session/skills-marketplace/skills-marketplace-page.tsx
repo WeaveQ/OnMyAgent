@@ -63,19 +63,15 @@ const SKILL_CARD_GRID =
 const SKILL_INSTALLED_CARD_GRID = SKILL_CARD_GRID;
 
 const OPC_AGGREGATED_CATEGORY_IDS = new Set([
-  "developer",
-  "deploy", // legacy id still present on some inferred skill records
   "productivity",
   "office",
 ]);
 
-/** "developer" tab absorbs legacy "deploy" category id after the merge. */
 function skillMatchesCategory(skill: SkillMarketplaceEntry, categoryId: string): boolean {
   if (categoryId === "all") return true;
+  // Retired engineering filter — treat as "all" if stale UI state still holds the id.
+  if (categoryId === "developer" || categoryId === "deploy") return true;
   if (skill.categoryId === categoryId || skill.categoryIds.includes(categoryId)) return true;
-  if (categoryId === "developer") {
-    return skill.categoryId === "deploy" || skill.categoryIds.includes("deploy");
-  }
   if (
     categoryId === "opc" &&
     (
@@ -98,9 +94,9 @@ function skillFallbackInitial(name: string): string {
 
 /** Localized short category name (not bilingual searchLabel). */
 function skillCategoryDisplayLabel(categoryId: string): string {
-  // Legacy "deploy" skills show under merged "开发部署".
-  const resolvedId = categoryId === "deploy" ? "developer" : categoryId;
-  const category = SKILL_MARKETPLACE_CATEGORIES.find((item) => item.id === resolvedId);
+  // Engineering filter tab retired; hide stale developer/deploy chips on cards.
+  if (categoryId === "developer" || categoryId === "deploy") return "";
+  const category = SKILL_MARKETPLACE_CATEGORIES.find((item) => item.id === categoryId);
   if (!category || category.id === "all") return "";
   return t(category.labelKey);
 }
@@ -984,10 +980,9 @@ const FALLBACK_BUILTIN_PACKAGE_NAMES = new Set([
   "computer-use",
   "create-automation",
   "doc-coauthoring",
+  "document-processing",
   "expert-manager",
   "find-skills",
-  "frontend-design",
-  "github",
   "pptx",
   "qcc-company",
   "self-improving",
@@ -996,8 +991,6 @@ const FALLBACK_BUILTIN_PACKAGE_NAMES = new Set([
   "tencent-docs",
   "tencent-meeting-skill",
   "weather",
-  "web-artifacts-builder",
-  "webapp-testing",
   "wecom-unified",
 ]);
 

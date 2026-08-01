@@ -3,6 +3,11 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
 const NATIVE_MENU_OPEN_SETTINGS_EVENT = "onmyagent:native-menu:open-settings";
 const NATIVE_MENU_TOGGLE_SIDEBAR_EVENT = "onmyagent:native-menu:toggle-sidebar";
+const NATIVE_MENU_NEW_TASK_EVENT = "onmyagent:native-menu:new-task";
+const NATIVE_MENU_OPEN_EXPERT_MARKETPLACE_EVENT =
+  "onmyagent:native-menu:open-expert-marketplace";
+const NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT =
+  "onmyagent:native-menu:desktop-permissions";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 
@@ -217,6 +222,21 @@ ipcRenderer.on(NATIVE_MENU_OPEN_SETTINGS_EVENT, () => {
 ipcRenderer.on(NATIVE_MENU_TOGGLE_SIDEBAR_EVENT, () => {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(NATIVE_MENU_TOGGLE_SIDEBAR_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_NEW_TASK_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_NEW_TASK_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_OPEN_EXPERT_MARKETPLACE_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_OPEN_EXPERT_MARKETPLACE_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT));
 });
 
 if (!applyShellDocumentMarkers() && typeof document !== "undefined") {

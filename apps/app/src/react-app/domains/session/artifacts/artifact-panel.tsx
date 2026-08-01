@@ -147,11 +147,20 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
       return client.writeWorkspaceBinaryFile(workspaceId, { path: target.value, data: input.data, baseUpdatedAt: input.baseUpdatedAt });
     },
     onSuccess: (result, input) => {
-      queryClient.setQueryData<ArtifactQueryState>(
-        ["artifact-panel", workspaceId, target.id] as const,
+      // Explicit ArtifactQueryState avoids react-query 5.101 setQueryData NoInfer
+      // narrowing contentType to `undefined` on the binary branch.
+      const nextState: ArtifactQueryState =
         input.kind === "text"
           ? { kind: "text", data: input.data, updatedAt: result.updatedAt ?? null }
-          : { kind: "binary", data: input.data, contentType: data?.kind === "binary" ? data.contentType : null, updatedAt: result.updatedAt ?? null },
+          : {
+              kind: "binary",
+              data: input.data,
+              contentType: data?.kind === "binary" ? (data.contentType ?? null) : null,
+              updatedAt: result.updatedAt ?? null,
+            };
+      queryClient.setQueryData<ArtifactQueryState>(
+        ["artifact-panel", workspaceId, target.id] as const,
+        () => nextState,
       );
 
       if (input.kind === "text") {
