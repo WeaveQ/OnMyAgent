@@ -96,19 +96,21 @@ export function isAttachmentPart(part: TranscriptPart) {
 }
 
 /**
- * Native image attachments use data:/http(s) file parts.
- * Session-uploaded docs (pdf/docx/xlsx) must NOT be model file parts (runtime
- * rejects those MIME types); chips come only from the upload-instruction text.
+ * Which file parts render as transcript chips (user bubble + attachments row).
+ * - data:/http(s) and images: always
+ * - file:// local paths: from composer @file mentions (Ask agent / add to task)
+ *   Upload-instruction dumps still provide chips via parseUserUploadInstructionBlock;
+ *   attachmentsForParts dedupes overlapping names/paths.
  */
 export function isNativeDisplayFilePart(part: TranscriptPart) {
   if (!isAttachmentPart(part)) return false;
   const record = part as { url?: string; mime?: string };
   const url = record.url?.trim() ?? "";
-  const mime = record.mime ?? "application/octet-stream";
+  if (!url) return false;
   if (url.startsWith("data:") || /^https?:/i.test(url)) return true;
+  if (url.startsWith("file://")) return true;
+  const mime = record.mime ?? "application/octet-stream";
   if (mime.startsWith("image/")) return true;
-  // Local file:// office/docs are recovered from upload text, not file parts.
-  if (url.startsWith("file://")) return false;
   return true;
 }
 
