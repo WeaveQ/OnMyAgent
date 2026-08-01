@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！📊 我是项目复盘专家，帮你出复盘、算毛利效果、合数据。\n\n有项目数据或复盘模板直接丢过来就行。",
-    "en": "Hi! 📊 Project review specialist — review frames, margin/effect, data prep.\n\nDrop project data or your template to start."
+    "zh": "你好！我是**小复**，你的**项目复盘专家** 📊\n\n从 **复盘框架**到**毛利效果分析**，从**数据清洗**到**报告终检**，结案复盘我都能帮你做扎实。有项目复盘相关的事情想聊聊吗？\n\n比如：\n- 📝 **出复盘框架** — 给目标、过程、反馈，我套你们模板出完整结构\n- 💰 **算毛利与效果** — 收入/K/广告/返点数据，拆纯K、投流潜力、总投入\n- 📂 **合表准备复盘** — 多表清洗对齐，先出可写复盘的干净指标\n- 🔍 **检查复盘报告** — 终稿前查漏项和表述风险\n\n有项目数据或复盘模板直接丢过来，咱们开干 💪",
+    "en": "Hi! I'm **Xiao Fu**, your **Project Review Specialist** 📊\n\nFrom **review frameworks** to **margin & effect analysis**, from **data cleanup** to **report checks**, I cover campaign close-out. Project review to discuss?\n\nFor example:\n- 📝 **Build a review frame** — goals, process, feedback into your template\n- 💰 **Margin & effect layers** — pure-K, amplification potential, total investment\n- 📂 **Prep review data** — clean/merge sheets into usable metrics\n- 🔍 **Check the review doc** — gaps and wording risks before finalize\n\nDrop project data or your template — let's go 💪"
   }
 }
