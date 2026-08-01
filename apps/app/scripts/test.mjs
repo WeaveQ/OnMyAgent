@@ -29,6 +29,7 @@ const testTargets = new Map([
   ['rail-idle-primary-ink-contract', ['bun', ['test', 'scripts/rail-idle-primary-ink-contract.test.ts']]],
   ['assistant-task-menu-contract', ['bun', ['test', 'scripts/assistant-task-menu-contract.test.ts']]],
   ['preferences-language-settings-contract', ['bun', ['test', 'scripts/preferences-language-settings-contract.test.ts']]],
+  ['agent-brand-icon-dark-plate-contract', ['bun', ['test', 'scripts/agent-brand-icon-dark-plate-contract.test.ts']]],
   ['assistant-draft-home-brand-contract', ['bun', ['test', 'scripts/assistant-draft-home-brand-contract.test.ts']]],
   ['assistant-task-list-scroll-contract', ['bun', ['test', 'scripts/assistant-task-list-scroll-contract.test.ts']]],
   ['automation-prompt-tools-contract', ['bun', ['test', 'scripts/automation-prompt-tools-contract.test.ts']]],
@@ -147,7 +148,8 @@ const composedTargets = new Map([
     'session-side-panel-toggle-contract',
     'session-visual-files-contract',
     'open-target',
-    // Style contracts stay registered as individual targets (run manually if needed)
+    'agent-brand-icon-dark-plate-contract',
+    // Other style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],
 ])
