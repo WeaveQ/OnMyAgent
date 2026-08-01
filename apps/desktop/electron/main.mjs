@@ -420,6 +420,8 @@ const statusItem = createStatusItemLifecycle({
   getMainWindow: () => mainWindow,
   quitApp: () => app.quit(),
   openDesktopPermissions: () => openComputerUseSetupApp(),
+  // Same brand icon path as dock / window; trayTemplate.png sits beside it.
+  appIconPath: APP_ICON_PATH,
 });
 desktopWindowController = createDesktopWindowController({
   getMainWindow: () => mainWindow,

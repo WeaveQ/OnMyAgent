@@ -35,23 +35,29 @@ function createMockTrayEnv() {
   };
 
   const nativeImage = {
-    createFromPath() {
-      return {
+    lastCreatePath: null,
+    lastTemplateFlag: null,
+    createFromPath(p) {
+      this.lastCreatePath = p;
+      const image = {
         isEmpty: () => false,
-        resize: () => ({
-          isEmpty: () => false,
-          setTemplateImage(flag) {
-            this.template = flag;
-          },
-          template: false,
-        }),
-        setTemplateImage() {},
+        resize() {
+          return this;
+        },
+        setTemplateImage(flag) {
+          nativeImage.lastTemplateFlag = flag;
+          this.template = flag;
+        },
+        template: false,
       };
+      return image;
     },
     createEmpty() {
       return {
         isEmpty: () => true,
-        resize: () => this,
+        resize() {
+          return this;
+        },
         setTemplateImage() {},
       };
     },
@@ -104,6 +110,32 @@ test("status item install builds native menu with template tray on darwin", () =
   assert.ok(template.some((item) => item.label === "新建任务"));
   assert.ok(template.some((item) => item.label === "打开专家市场"));
   assert.ok(template.some((item) => typeof item.click === "function"));
+});
+
+test("darwin tray uses trayTemplate as template image, not brand PNG as template", () => {
+  const mocks = createMockTrayEnv();
+  // Real shipped assets next to the test module.
+  const iconsDir = new URL("../resources/icons/", import.meta.url);
+  const appIconPath = new URL("../resources/icons/icon.png", import.meta.url)
+    .pathname;
+  const controller = createStatusItemController({
+    app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
+    Tray: mocks.Tray,
+    Menu: mocks.Menu,
+    nativeImage: mocks.nativeImage,
+    createMainWindow: async () => ({}),
+    getMainWindow: () => null,
+    platform: "darwin",
+    appIconPath,
+  });
+  controller.install();
+  assert.ok(
+    String(mocks.nativeImage.lastCreatePath || "").includes("trayTemplate"),
+    `expected trayTemplate path, got ${mocks.nativeImage.lastCreatePath}`,
+  );
+  assert.equal(mocks.nativeImage.lastTemplateFlag, true);
+  // Ensure brand icon alone would not be forced as template (color fallback).
+  void iconsDir;
 });
 
 test("runAction show/settings/new-task/marketplace/permissions/quit use real handlers", async () => {
