@@ -143,10 +143,16 @@ export function createStatusItemController(input) {
       return nativeImage.createEmpty();
     }
 
-    // Menu-bar size: prefer native @2x trayTemplate assets; only downscale the
-    // large brand icon when we fall back to full-color icon.png.
-    if (!resolved.template) {
-      const traySize = platform === "darwin" ? 22 : 16;
+    // macOS menu-bar status items are ~16–18pt (system peers). A bare 32px
+    // PNG is treated as 32pt and looks ~2× too large next to other bar icons.
+    // Always pin logical size; Retina uses trayTemplate@2x when present.
+    const traySize = platform === "darwin" ? 18 : 16;
+    if (typeof image.getSize === "function") {
+      const { width, height } = image.getSize();
+      if (width !== traySize || height !== traySize) {
+        image = image.resize({ width: traySize, height: traySize });
+      }
+    } else {
       image = image.resize({ width: traySize, height: traySize });
     }
 
