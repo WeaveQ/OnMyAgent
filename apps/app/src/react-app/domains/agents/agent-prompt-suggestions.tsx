@@ -134,7 +134,7 @@ const LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS = new Set([
   "logistics-finance-specialist",
 ]);
 
-/** Creator-ops / logistics: short “介绍一下你自己” not long capability essay. */
+/** Creator-ops / logistics: short colleague intro prompt, not long capability essay. */
 const COLLEAGUE_SHORT_INTRO_EXPERT_IDS = new Set([
   ...LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS,
   "kol-media-specialist",
