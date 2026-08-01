@@ -369,6 +369,15 @@ type TypedDesktopCommandMap = {
     [number | string | null | undefined],
     { ok: boolean; platform: string; value: number; error?: string }
   >;
+  /** Show or hide the macOS menu-bar status item (tray). No-op off darwin. */
+  setStatusItemVisible: DesktopCommandContract<
+    [boolean],
+    { ok: boolean; visible: boolean; platform: string; error?: string }
+  >;
+  getStatusItemVisible: DesktopCommandContract<
+    [],
+    { visible: boolean; platform: string }
+  >;
   getAgentReadySoundPath: DesktopCommandContract<[], string | null>;
   registerAppSnapshotHotkey: DesktopCommandContract<
     [string | null | undefined],

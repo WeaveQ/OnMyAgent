@@ -1,7 +1,10 @@
 /**
- * Pure builders for the macOS menu-bar status item (tray equivalent).
- * No Electron imports — unit-testable without app.whenReady().
+ * Pure builders for the desktop status item / system tray.
+ * macOS menu bar + Windows notification area. No Electron imports —
+ * unit-testable without app.whenReady().
  */
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 /** Stable action ids for status-item menu (and future dock menu reuse). */
 export const STATUS_ITEM_ACTION = Object.freeze({
@@ -110,26 +113,126 @@ export function statusItemActionIds(options = {}) {
 }
 
 /**
- * Install menu-bar status item only on macOS for this goal.
+ * Install tray / menu-bar status item on macOS and Windows.
+ * Linux left off for now (DE tray support varies widely).
  * @param {NodeJS.Platform | string} platform
  */
 export function shouldInstallStatusItem(platform) {
-  return platform === "darwin";
+  return platform === "darwin" || platform === "win32";
 }
 
 /**
- * Last-window policy: mac keeps the process alive (status item / activate).
+ * Last-window policy:
+ * - macOS: process stays alive via Dock even without tray
+ * - Windows: keep alive only while tray is visible (minimize-to-tray)
+ * - else: quit
+ *
  * @param {NodeJS.Platform | string} platform
+ * @param {boolean} [trayVisible]
  */
-export function shouldQuitOnWindowAllClosed(platform) {
-  return platform !== "darwin";
+export function shouldQuitOnWindowAllClosed(platform, trayVisible = false) {
+  if (platform === "darwin") return false;
+  if (platform === "win32") return !trayVisible;
+  return true;
 }
 
 /**
- * Hide main window on close (status item remains) unless the app is quitting.
+ * Hide main window on close (tray remains) unless the app is quitting.
+ * - macOS: always hide-to-Dock while running
+ * - Windows: hide only when tray is installed (true minimize-to-tray)
+ *
  * @param {NodeJS.Platform | string} platform
  * @param {boolean} isQuitting
+ * @param {boolean} [trayVisible]
  */
-export function shouldHideMainWindowOnClose(platform, isQuitting) {
-  return platform === "darwin" && !isQuitting;
+export function shouldHideMainWindowOnClose(
+  platform,
+  isQuitting,
+  trayVisible = false,
+) {
+  if (isQuitting) return false;
+  if (platform === "darwin") return true;
+  if (platform === "win32") return Boolean(trayVisible);
+  return false;
+}
+
+/**
+ * Resolve the best on-disk image for the tray / menu-bar status item.
+ *
+ * macOS: monochrome `trayTemplate.png` with template flag (system recolors).
+ * Windows: color `trayIcon.png` (template images are not used).
+ * Full-color brand PNG is last-resort fallback and must NOT be template-marked.
+ *
+ * @param {{
+ *   appIconPath?: string | null,
+ *   iconsDir?: string | null,
+ *   platform?: string,
+ *   existsSync?: (p: string) => boolean,
+ * }} [options]
+ * @returns {{ path: string | null, template: boolean }}
+ */
+export function resolveStatusItemIcon(options = {}) {
+  const exists = options.existsSync ?? existsSync;
+  const platform = options.platform ?? process.platform;
+  const appIconPath =
+    typeof options.appIconPath === "string" && options.appIconPath.trim()
+      ? options.appIconPath.trim()
+      : null;
+  const iconsDir =
+    (typeof options.iconsDir === "string" && options.iconsDir.trim()) ||
+    (appIconPath ? path.dirname(appIconPath) : null);
+
+  /** @type {string[]} */
+  const colorCandidates = [];
+  /** @type {string[]} */
+  const templateCandidates = [];
+
+  if (iconsDir) {
+    // Windows notification area prefers a color icon; do not setTemplateImage.
+    colorCandidates.push(
+      path.join(iconsDir, "trayIcon.png"),
+      path.join(iconsDir, "trayIcon@2x.png"),
+    );
+    // Electron loads trayTemplate@2x.png automatically when the base name ends with Template.
+    templateCandidates.push(path.join(iconsDir, "trayTemplate.png"));
+    if (platform === "darwin" || platform === "win32") {
+      // Dev icons live under icons/dev/ — also try sibling production templates.
+      templateCandidates.push(
+        path.join(iconsDir, "..", "trayTemplate.png"),
+        path.join(iconsDir, "dev", "trayTemplate.png"),
+      );
+      colorCandidates.push(
+        path.join(iconsDir, "..", "trayIcon.png"),
+        path.join(iconsDir, "dev", "trayIcon.png"),
+      );
+    }
+  }
+
+  if (platform === "darwin") {
+    for (const candidate of templateCandidates) {
+      if (candidate && exists(candidate)) {
+        return { path: candidate, template: true };
+      }
+    }
+  } else {
+    // win32 / future: prefer color tray assets.
+    for (const candidate of colorCandidates) {
+      if (candidate && exists(candidate)) {
+        return { path: candidate, template: false };
+      }
+    }
+    // Accept monochrome template file as non-template glyph if no color asset.
+    for (const candidate of templateCandidates) {
+      if (candidate && exists(candidate)) {
+        return { path: candidate, template: false };
+      }
+    }
+  }
+
+  // Color fallback: app brand icon (do not setTemplateImage).
+  if (appIconPath && exists(appIconPath)) {
+    return { path: appIconPath, template: false };
+  }
+
+  return { path: null, template: false };
 }

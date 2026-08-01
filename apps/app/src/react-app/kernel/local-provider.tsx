@@ -160,6 +160,12 @@ export type LocalPreferences = {
   /** Show unread count on Dock (mac) / taskbar (win). */
   dockUnreadBadge: boolean;
   /**
+   * Show the menu-bar (macOS) / system-tray (Windows) icon. Default on;
+   * desktop only. Hiding removes the icon; mac Dock lifecycle is unchanged.
+   * On Windows, hide-to-tray follows this toggle.
+   */
+  menuBarStatusItem: boolean;
+  /**
    * Conversation column max width: fixed product max, or fill the main pane.
    */
   conversationWidth: "fixed" | "wide";
@@ -227,6 +233,7 @@ const INITIAL_PREFS: LocalPreferences = {
   launchAtLogin: true,
   keepSystemAwake: false,
   dockUnreadBadge: true,
+  menuBarStatusItem: true,
   conversationWidth: "fixed",
   keymapOverrides: {},
   appSnapshotHotkey: "double-command",

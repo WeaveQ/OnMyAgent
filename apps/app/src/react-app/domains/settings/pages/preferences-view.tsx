@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { normalizeIdleHours } from "../../../kernel/local-provider";
+import { isDesktopRuntime } from "@/app/utils";
 
 import { t } from "@/i18n";
 import { SelectMenu } from "../../../design-system/select-menu";
@@ -31,9 +32,14 @@ export type PreferencesViewProps = {
   onAutoNewSessionIdleHoursChange: (hours: number) => void;
   conversationWidth: "fixed" | "wide";
   onConversationWidthChange: (mode: "fixed" | "wide") => void;
+  /** Menu-bar / system-tray icon; desktop only. Default true. */
+  menuBarStatusItem?: boolean;
+  onMenuBarStatusItemChange?: (enabled: boolean) => void;
 };
 
 export function PreferencesView(props: PreferencesViewProps) {
+  const desktop = isDesktopRuntime();
+  const menuBarStatusItem = props.menuBarStatusItem !== false;
   const [idleHoursDraft, setIdleHoursDraft] = useState(
     props.autoNewSessionIdleHours,
   );
@@ -120,6 +126,22 @@ export function PreferencesView(props: PreferencesViewProps) {
               />
             }
           />
+          {desktop ? (
+            <SettingsBlockRow
+              title={t("settings.menu_bar_status_item_label")}
+              description={t("settings.menu_bar_status_item_desc")}
+              actions={
+                <Switch
+                  aria-label={t("settings.menu_bar_status_item_label")}
+                  checked={menuBarStatusItem}
+                  disabled={props.busy || !props.onMenuBarStatusItemChange}
+                  onCheckedChange={(checked) =>
+                    props.onMenuBarStatusItemChange?.(checked === true)
+                  }
+                />
+              }
+            />
+          ) : null}
         </SettingsBlock>
       </SettingsPageSection>
 

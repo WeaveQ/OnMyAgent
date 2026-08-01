@@ -31,6 +31,7 @@ const commandGroups = /** @type {const} */ ({
     "getLaunchAtLogin", "setLaunchAtLogin",
     "getKeepSystemAwake", "setKeepSystemAwake",
     "setDockUnreadBadge", "getAgentReadySoundPath",
+    "setStatusItemVisible", "getStatusItemVisible",
     "registerAppSnapshotHotkey", "unregisterAppSnapshotHotkey",
     "setKeymapAcceleratorOverrides",
     "getDesktopBootstrapConfig", "debugDesktopBootstrapConfig",
