@@ -258,7 +258,7 @@ export default {
   "agents.expert_creation_import_skill": "匯入技能包",
   "agents.expert_creation_skill_picker_title": "選擇技能",
   "agents.expert_creation_skill_picker_desc": "從技能市場中選擇已安裝的技能新增給這個專家。",
-  "agents.expert_creation_no_skills": "還沒有新增技能",
+  "agents.expert_creation_no_skills": "暫無技能，點擊下方按鈕新增吧",
   "agents.expert_creation_no_skills_desc": "從技能市場新增技能，賦予這個專家更多能力。",
   "agents.expert_creation_remove_skill": "移除技能",
   "agents.expert_creation_remove_knowledge": "移除知識",
