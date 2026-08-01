@@ -281,7 +281,7 @@ describe("expert marketplace UI contract", () => {
     };
     const creatorProfessions: Record<string, string> = {
       "kol-media-specialist": "媒介专家",
-      "kol-content-ops-specialist": "内容运营专家",
+      "kol-content-ops-specialist": "达人运营专家",
       "kol-project-review-specialist": "项目复盘专家",
     };
 

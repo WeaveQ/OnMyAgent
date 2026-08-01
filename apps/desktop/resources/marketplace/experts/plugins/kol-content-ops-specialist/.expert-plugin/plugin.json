@@ -18,16 +18,16 @@
     "./skills/kol-content-risk-checklist"
   ],
   "displayName": {
-    "en": "Content Operations Specialist",
-    "zh": "内容运营专家"
+    "en": "Creator Ops Specialist",
+    "zh": "达人运营专家"
   },
   "profession": {
-    "en": "Content Ops & Compliance Assist",
-    "zh": "内容运营专家"
+    "en": "Creator Ops & Content Compliance",
+    "zh": "达人运营专家"
   },
   "displayDescription": {
     "en": "Review scripts for risk, assist reputation monitoring, extract rebate/invoice fields, and run content risk checklists.",
-    "zh": "面向达人内容执行：脚本初审与风险检查、口碑监测辅助、返点合同/发票信息核对，以及内容风控与遗漏检查。"
+    "zh": "面向达人运营执行：脚本初审与风险检查、口碑监测辅助、返点合同/发票信息核对，以及内容风控与遗漏检查。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "15-CreatorOps",
@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！我是**小编**，你的**内容运营专家** ✍️\n\n从**脚本初审**到**口碑监测**，从**返点发票**到**内容风控**，中期执行我都能帮你搞定。有内容相关的事想聊聊吗？\n\n比如：\n- 🎬 **审脚本排雷** — 给口播/图文，我标问题并给改法\n- 💬 **看口碑风向** — 给评论导出，看声量/情感/负面\n- 📑 **理返点发票** — 合同开票资料提取核对，标匹配精度\n- 🛡️ **发布前风控** — 通知/话术/稿件查漏项和风险\n- 🧩 **套模板出材料** — 按你的检查清单/模板输出\n\n直接说你的需求就行，咱们开干 💪",
-    "en": "Hi! I'm **Xiao Bian**, your **Content Ops Specialist** ✍️\n\nFrom **script review** to **reputation**, from **rebate/invoice** to **content risk**, I cover mid-campaign execution. Content to chat about?\n\nFor example:\n- 🎬 **Script risk review** — issues + fix tips\n- 💬 **Reputation pulse** — volume / sentiment / negatives\n- 📑 **Rebate & invoice extract** — fields + match precision\n- 🛡️ **Pre-publish checklist** — gaps and risks\n- 🧩 **Follow your template** — your checklist, your format\n\nJust tell me what you need — let's go 💪"
+    "zh": "你好！我是**小达**，你的**达人运营专家** ✍️\n\n从**脚本初审**到**口碑监测**，从**返点发票**到**内容风控**，中期执行我都能帮你搞定。有达人内容相关的事想聊聊吗？\n\n比如：\n- 🎬 **审脚本排雷** — 给口播/图文，我标问题并给改法\n- 💬 **看口碑风向** — 给评论导出，看声量/情感/负面\n- 📑 **理返点发票** — 合同开票资料提取核对，标匹配精度\n- 🛡️ **发布前风控** — 通知/话术/稿件查漏项和风险\n- 🧩 **套模板出材料** — 按你的检查清单/模板输出\n\n直接说你的需求就行，咱们开干 💪",
+    "en": "Hi! I'm **Xiao Da**, your **Creator Ops Specialist** ✍️\n\nFrom **script review** to **reputation**, from **rebate/invoice** to **content risk**, I cover mid-campaign execution. Creator content to chat about?\n\nFor example:\n- 🎬 **Script risk review** — issues + fix tips\n- 💬 **Reputation pulse** — volume / sentiment / negatives\n- 📑 **Rebate & invoice extract** — fields + match precision\n- 🛡️ **Pre-publish checklist** — gaps and risks\n- 🧩 **Follow your template** — your checklist, your format\n\nJust tell me what you need — let's go 💪"
   }
 }
