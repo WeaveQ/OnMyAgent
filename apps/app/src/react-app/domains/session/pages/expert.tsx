@@ -1769,6 +1769,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 </>
               ) : null}
             </ResizablePanelGroup>
+            {expertCreationPage}
           </div>
         </div>
 
@@ -1786,7 +1787,7 @@ export function ExpertPage(props: ExpertPageProps) {
             setAgentCreateRequestKey(null);
           },
         })
-      ) : null}{expertCreationPage}
+      ) : null}
       {props.providerAuthModal ? (
         <ProviderAuthModal {...props.providerAuthModal} />
       ) : null}
