@@ -9,6 +9,40 @@ export function resolveBoundExpertDraftSession(input: {
   return sessionId && !sessionId.startsWith("draft:") ? sessionId : null;
 }
 
+/**
+ * Session id + draftOnly for the expert chat surface.
+ *
+ * After the first send, the tab strip highlights the bound real session via
+ * pendingTabSessionId, but the route/selectedSessionId (and draft clear) can
+ * lag one or more frames. Without this, content stays on draft-home empty
+ * cards while the tab already shows the new session ("总结中…").
+ */
+export function resolveExpertSurfaceSession(input: {
+  draftSessionActive: boolean;
+  draftAgentId: string | null;
+  pendingAgent: { id: string; boundSessionId?: string } | null;
+  activeDraftSessionId: string | null;
+  selectedSessionId: string | null | undefined;
+  workspaceId: string;
+}): { sessionId: string; draftOnly: boolean } {
+  const draftSessionId = `draft:${input.workspaceId}`;
+  const boundSessionId = resolveBoundExpertDraftSession(input);
+  if (boundSessionId) {
+    return { sessionId: boundSessionId, draftOnly: false };
+  }
+  if (input.draftSessionActive) {
+    return {
+      sessionId: input.activeDraftSessionId?.trim() || draftSessionId,
+      draftOnly: true,
+    };
+  }
+  const selected = input.selectedSessionId?.trim() ?? "";
+  if (selected) {
+    return { sessionId: selected, draftOnly: false };
+  }
+  return { sessionId: draftSessionId, draftOnly: true };
+}
+
 export function resolveReadyBoundExpertDraftSession(input: {
   draftSessionActive: boolean;
   draftAgentId: string | null;
