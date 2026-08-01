@@ -1857,6 +1857,8 @@ export function ExpertPage(props: ExpertPageProps) {
 
       {expertCreationOpen ? (
         <ExpertCreationPage
+          workspaceId={props.selectedWorkspaceId}
+          client={props.onmyagentServerClient}
           registry={registry}
           skills={registry?.skills ?? []}
           onClose={() => setExpertCreationOpen(false)}
