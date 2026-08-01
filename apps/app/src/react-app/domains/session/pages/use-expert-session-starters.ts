@@ -151,6 +151,15 @@ export function useExpertSessionStarters(input: {
         conversationStartId: Date.now(),
         draftSource: "new-session",
       };
+    } else if (input.draftAgentContexts[agentId]) {
+      // Marketplace experts often live in draft contexts, not the custom
+      // agent registry. Prefer that over createFreshSessionForAgent.
+      nextAgent = {
+        ...input.draftAgentContexts[agentId],
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "new-session",
+      };
     } else if (input.registry) {
       const agent =
         input.registry.agents.find((item) => item.id === agentId)
