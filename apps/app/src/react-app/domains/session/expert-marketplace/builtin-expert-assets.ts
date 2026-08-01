@@ -21,32 +21,35 @@ import asset19 from "../../../../../../desktop/resources/marketplace/experts/plu
 import asset20 from "../../../../../../desktop/resources/marketplace/experts/plugins/kdocs-pdf-toolbox/avatars/expert.png?url";
 import asset21 from "../../../../../../desktop/resources/marketplace/experts/plugins/kdocs-ppt-creator/avatars/expert.png?url";
 import asset22 from "../../../../../../desktop/resources/marketplace/experts/plugins/kidd-content-expert/avatars/expert.png?url";
-import asset23 from "../../../../../../desktop/resources/marketplace/experts/plugins/legal-compliance-reviewer/avatars/expert.png?url";
-import asset24 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-cold-chain/avatars/expert.png?url";
-import asset25 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-finance-specialist/avatars/expert.png?url";
-import asset26 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-line-haul/avatars/expert.png?url";
-import asset27 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-ops-navigator/avatars/expert.png?url";
-import asset28 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-urban-delivery/avatars/expert.png?url";
-import asset29 from "../../../../../../desktop/resources/marketplace/experts/plugins/long-manuscript-expert/avatars/expert.png?url";
-import asset30 from "../../../../../../desktop/resources/marketplace/experts/plugins/narrative-designer/avatars/expert.png?url";
-import asset31 from "../../../../../../desktop/resources/marketplace/experts/plugins/order-dispatch-specialist/avatars/expert.png?url";
-import asset32 from "../../../../../../desktop/resources/marketplace/experts/plugins/presales-technical-consultant/avatars/expert.png?url";
-import asset33 from "../../../../../../desktop/resources/marketplace/experts/plugins/private-domain-marketing-expert/avatars/expert.png?url";
-import asset34 from "../../../../../../desktop/resources/marketplace/experts/plugins/private-domain-operations-expert/avatars/expert.png?url";
-import asset35 from "../../../../../../desktop/resources/marketplace/experts/plugins/proposal-strategist/avatars/expert.png?url";
-import asset36 from "../../../../../../desktop/resources/marketplace/experts/plugins/recruitment-expert/avatars/expert.png?url";
-import asset37 from "../../../../../../desktop/resources/marketplace/experts/plugins/sales-coach/avatars/expert.png?url";
-import asset38 from "../../../../../../desktop/resources/marketplace/experts/plugins/senior-project-manager/avatars/expert.png?url";
-import asset39 from "../../../../../../desktop/resources/marketplace/experts/plugins/seo-expert/avatars/expert.png?url";
-import asset40 from "../../../../../../desktop/resources/marketplace/experts/plugins/short-video-editing-coach/avatars/expert.png?url";
-import asset41 from "../../../../../../desktop/resources/marketplace/experts/plugins/smb-finance/avatars/expert.png?url";
-import asset42 from "../../../../../../desktop/resources/marketplace/experts/plugins/social-media-strategist/avatars/expert.png?url";
-import asset43 from "../../../../../../desktop/resources/marketplace/experts/plugins/supply-chain-strategist/avatars/expert.png?url";
-import asset44 from "../../../../../../desktop/resources/marketplace/experts/plugins/tik-tok-strategist/avatars/expert.png?url";
-import asset45 from "../../../../../../desktop/resources/marketplace/experts/plugins/tripstar-agent/avatars/expert.png?url";
-import asset46 from "../../../../../../desktop/resources/marketplace/experts/plugins/viral-topic-master/avatars/viral-topic-master.png?url";
-import asset47 from "../../../../../../desktop/resources/marketplace/experts/plugins/wechat-official-account-expert/avatars/expert.png?url";
-import asset48 from "../../../../../../desktop/resources/marketplace/experts/plugins/xiaohongshu-operations-expert/avatars/expert.png?url";
+import asset23 from "../../../../../../desktop/resources/marketplace/experts/plugins/kol-content-ops-specialist/avatars/expert.png?url";
+import asset24 from "../../../../../../desktop/resources/marketplace/experts/plugins/kol-media-specialist/avatars/expert.png?url";
+import asset25 from "../../../../../../desktop/resources/marketplace/experts/plugins/kol-project-review-specialist/avatars/expert.png?url";
+import asset26 from "../../../../../../desktop/resources/marketplace/experts/plugins/legal-compliance-reviewer/avatars/expert.png?url";
+import asset27 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-cold-chain/avatars/expert.png?url";
+import asset28 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-finance-specialist/avatars/expert.png?url";
+import asset29 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-line-haul/avatars/expert.png?url";
+import asset30 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-ops-navigator/avatars/expert.png?url";
+import asset31 from "../../../../../../desktop/resources/marketplace/experts/plugins/logistics-urban-delivery/avatars/expert.png?url";
+import asset32 from "../../../../../../desktop/resources/marketplace/experts/plugins/long-manuscript-expert/avatars/expert.png?url";
+import asset33 from "../../../../../../desktop/resources/marketplace/experts/plugins/narrative-designer/avatars/expert.png?url";
+import asset34 from "../../../../../../desktop/resources/marketplace/experts/plugins/order-dispatch-specialist/avatars/expert.png?url";
+import asset35 from "../../../../../../desktop/resources/marketplace/experts/plugins/presales-technical-consultant/avatars/expert.png?url";
+import asset36 from "../../../../../../desktop/resources/marketplace/experts/plugins/private-domain-marketing-expert/avatars/expert.png?url";
+import asset37 from "../../../../../../desktop/resources/marketplace/experts/plugins/private-domain-operations-expert/avatars/expert.png?url";
+import asset38 from "../../../../../../desktop/resources/marketplace/experts/plugins/proposal-strategist/avatars/expert.png?url";
+import asset39 from "../../../../../../desktop/resources/marketplace/experts/plugins/recruitment-expert/avatars/expert.png?url";
+import asset40 from "../../../../../../desktop/resources/marketplace/experts/plugins/sales-coach/avatars/expert.png?url";
+import asset41 from "../../../../../../desktop/resources/marketplace/experts/plugins/senior-project-manager/avatars/expert.png?url";
+import asset42 from "../../../../../../desktop/resources/marketplace/experts/plugins/seo-expert/avatars/expert.png?url";
+import asset43 from "../../../../../../desktop/resources/marketplace/experts/plugins/short-video-editing-coach/avatars/expert.png?url";
+import asset44 from "../../../../../../desktop/resources/marketplace/experts/plugins/smb-finance/avatars/expert.png?url";
+import asset45 from "../../../../../../desktop/resources/marketplace/experts/plugins/social-media-strategist/avatars/expert.png?url";
+import asset46 from "../../../../../../desktop/resources/marketplace/experts/plugins/supply-chain-strategist/avatars/expert.png?url";
+import asset47 from "../../../../../../desktop/resources/marketplace/experts/plugins/tik-tok-strategist/avatars/expert.png?url";
+import asset48 from "../../../../../../desktop/resources/marketplace/experts/plugins/tripstar-agent/avatars/expert.png?url";
+import asset49 from "../../../../../../desktop/resources/marketplace/experts/plugins/viral-topic-master/avatars/viral-topic-master.png?url";
+import asset50 from "../../../../../../desktop/resources/marketplace/experts/plugins/wechat-official-account-expert/avatars/expert.png?url";
+import asset51 from "../../../../../../desktop/resources/marketplace/experts/plugins/xiaohongshu-operations-expert/avatars/expert.png?url";
 
 export const BUILTIN_EXPERT_AVATAR_URLS: Record<string, string> = {
   "aihot": asset0,
@@ -72,30 +75,33 @@ export const BUILTIN_EXPERT_AVATAR_URLS: Record<string, string> = {
   "kdocs-pdf-toolbox": asset20,
   "kdocs-ppt-creator": asset21,
   "kidd-content-expert": asset22,
-  "legal-compliance-reviewer": asset23,
-  "logistics-cold-chain": asset24,
-  "logistics-finance-specialist": asset25,
-  "logistics-line-haul": asset26,
-  "logistics-ops-navigator": asset27,
-  "logistics-urban-delivery": asset28,
-  "long-manuscript-expert": asset29,
-  "narrative-designer": asset30,
-  "order-dispatch-specialist": asset31,
-  "presales-technical-consultant": asset32,
-  "private-domain-marketing-expert": asset33,
-  "private-domain-operations-expert": asset34,
-  "proposal-strategist": asset35,
-  "recruitment-expert": asset36,
-  "sales-coach": asset37,
-  "senior-project-manager": asset38,
-  "seo-expert": asset39,
-  "short-video-editing-coach": asset40,
-  "smb-finance": asset41,
-  "social-media-strategist": asset42,
-  "supply-chain-strategist": asset43,
-  "tik-tok-strategist": asset44,
-  "tripstar-agent": asset45,
-  "viral-topic-master": asset46,
-  "wechat-official-account-expert": asset47,
-  "xiaohongshu-operations-expert": asset48,
+  "kol-content-ops-specialist": asset23,
+  "kol-media-specialist": asset24,
+  "kol-project-review-specialist": asset25,
+  "legal-compliance-reviewer": asset26,
+  "logistics-cold-chain": asset27,
+  "logistics-finance-specialist": asset28,
+  "logistics-line-haul": asset29,
+  "logistics-ops-navigator": asset30,
+  "logistics-urban-delivery": asset31,
+  "long-manuscript-expert": asset32,
+  "narrative-designer": asset33,
+  "order-dispatch-specialist": asset34,
+  "presales-technical-consultant": asset35,
+  "private-domain-marketing-expert": asset36,
+  "private-domain-operations-expert": asset37,
+  "proposal-strategist": asset38,
+  "recruitment-expert": asset39,
+  "sales-coach": asset40,
+  "senior-project-manager": asset41,
+  "seo-expert": asset42,
+  "short-video-editing-coach": asset43,
+  "smb-finance": asset44,
+  "social-media-strategist": asset45,
+  "supply-chain-strategist": asset46,
+  "tik-tok-strategist": asset47,
+  "tripstar-agent": asset48,
+  "viral-topic-master": asset49,
+  "wechat-official-account-expert": asset50,
+  "xiaohongshu-operations-expert": asset51,
 };

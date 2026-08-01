@@ -101,9 +101,11 @@ export function useExpertSessionStarters(input: {
         conversationStartId: Date.now(),
         draftSource: "agent-selection",
       };
-      input.activateDraftAgent(pendingWithStart);
+      // Clear the previous expert's route first so draft-kill effects do not
+      // see "selected agent A + draft agent B" and drop the new draft.
+      // create-task also clears pendingAgent — re-assert draft after.
       input.openFreshExpertDraft();
-      // Re-assert after create-task's synchronous setAgent(null).
+      input.activateDraftAgent(pendingWithStart);
       input.activateDraftAgent(pendingWithStart);
       if (startPrompt?.template) {
         setExpertComposerTemplateAfterNewTask(
@@ -145,6 +147,15 @@ export function useExpertSessionStarters(input: {
     if (input.activeAgentContext?.id === agentId) {
       nextAgent = {
         ...input.activeAgentContext,
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "new-session",
+      };
+    } else if (input.draftAgentContexts[agentId]) {
+      // Marketplace experts often live in draft contexts, not the custom
+      // agent registry. Prefer that over createFreshSessionForAgent.
+      nextAgent = {
+        ...input.draftAgentContexts[agentId],
         boundSessionId: undefined,
         conversationStartId: Date.now(),
         draftSource: "new-session",

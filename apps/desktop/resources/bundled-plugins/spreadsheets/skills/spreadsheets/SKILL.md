@@ -18,7 +18,7 @@ Work only with standalone local files. Do not claim control of a live Excel sess
 - Prefer first-class runtime commands over inventing `extract_sheets.cjs` / `gen_xlsx.py`.
 - Never write helper scripts into the session root or next to business outputs.
 - After writing a business file: `verify` it. In the user reply, **briefly name the deliverable** (e.g. “已生成发货需求表与报价补充表”); **do not** print `文件路径：…` lines — the session product cards open the files.
-- Never put helper script paths in the user-facing reply.
+- Never put helper script paths or intermediate JSON (`oma-summary.json`, `rows.json` written for `--json`) in the user-facing reply or session root product strip.
 
 ## Required workflow
 

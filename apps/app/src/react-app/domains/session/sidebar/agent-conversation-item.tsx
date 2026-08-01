@@ -56,6 +56,8 @@ export function AgentConversationItem(props: {
   group: AgentConversationGroup;
   workspaceId: string;
   selected: boolean;
+  /** Route/session id currently open (used to distinguish agentId-only select). */
+  selectedSessionId?: string | null;
   status?: string;
   taskStatusVariant: TaskStatusIndicator["variant"];
   /** Unread badge for this expert (hidden while selected). */
@@ -196,9 +198,15 @@ export function AgentConversationItem(props: {
       props.onOpenDraftSession?.(latestSession.id);
       return;
     }
-    // Already viewing this expert (any of its session tabs) — do not jump
-    // to latestSession and steal the active tab.
-    if (props.selected) return;
+    // Already viewing this expert's real session — do not jump to latestSession.
+    // If selected only via agentId (e.g. draft/selection desync), still open the
+    // expert's real tab so the user can recover from a stuck left-list highlight.
+    if (props.selected) {
+      const selectedIsThisSession = props.group.sessions.some(
+        (session) => session.id === props.selectedSessionId,
+      );
+      if (selectedIsThisSession) return;
+    }
     props.onOpenSession(props.workspaceId, latestSession.id);
   };
 

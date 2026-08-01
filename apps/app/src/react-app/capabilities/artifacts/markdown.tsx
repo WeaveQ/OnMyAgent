@@ -151,6 +151,14 @@ export function parseMarkdownInlinePath(code: string): MarkdownInlinePath | null
   };
 }
 
+/** Office / media deliverables already shown as product cards under the turn. */
+const MARKDOWN_CONTENT_DELIVERABLE_EXT =
+  /\.(xlsx|xlsm|xls|csv|tsv|docx|doc|pdf|pptx|ppt|md|markdown|png|jpe?g|gif|webp|svg|mp4|webm|mp3|wav|html?|txt|text|rtf|zip)$/i;
+
+export function isMarkdownContentDeliverablePath(path: string): boolean {
+  return MARKDOWN_CONTENT_DELIVERABLE_EXT.test(path.trim());
+}
+
 export function truncateMarkdownPathDisplay(text: string, maxLength = 40) {
   if (text.length <= maxLength) return text;
   const separatorIndex = Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\"));
@@ -524,46 +532,52 @@ function MarkdownBlockInner(props: {
         ? resolveVerifiedCodePath(props.verifiedCodePaths ?? [], detected.path)
         : null;
       if (!detected || !resolvedPath) return;
+      // Office / content deliverables already appear as product cards below the
+      // message. Keep the basename in prose as bold clickable text — do NOT
+      // replace mid-sentence with a generic "打开产物" chip (breaks Chinese
+      // copy and duplicates the card strip).
+      const displayName = codeFenceFileName(resolvedPath) || detected.path;
+      const isContentFile = isMarkdownContentDeliverablePath(resolvedPath);
       inlineCode.dataset.markdownCodePath = resolvedPath;
-      inlineCode.dataset.markdownOpenMode = "reveal";
+      inlineCode.dataset.markdownOpenMode = isContentFile ? "preview" : "reveal";
       inlineCode.setAttribute("role", "button");
       inlineCode.tabIndex = 0;
-      inlineCode.title = t("files.open_in_folder");
-      inlineCode.classList.remove("rounded-md", "bg-dls-surface-muted", "px-1.5", "py-0.5", "font-mono");
-      inlineCode.classList.add(
-        "inline-flex",
-        "h-8",
-        "cursor-pointer",
-        "items-center",
-        "justify-center",
-        "rounded-lg",
-        "border",
-        "border-dls-border",
-        "bg-dls-surface",
-        "px-3",
-        "text-sm",
-        "font-medium",
-        "text-dls-text",
-        "hover:bg-dls-hover",
+      inlineCode.title = isContentFile
+        ? t("files.view_in_panel")
+        : t("files.open_in_folder");
+      inlineCode.classList.remove(
+        "rounded-md",
+        "bg-dls-surface-muted",
+        "px-1.5",
+        "py-0.5",
+        "font-mono",
       );
-      inlineCode.textContent = t("session.open_artifact");
-      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      icon.setAttribute("viewBox", "0 0 24 24");
-      icon.setAttribute("width", "14");
-      icon.setAttribute("height", "14");
-      icon.setAttribute("fill", "none");
-      icon.setAttribute("stroke", "currentColor");
-      icon.setAttribute("stroke-width", "2");
-      icon.setAttribute("stroke-linecap", "round");
-      icon.setAttribute("stroke-linejoin", "round");
-      icon.setAttribute("aria-hidden", "true");
-      icon.classList.add("mr-1", "inline-block", "align-text-bottom");
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z");
-      const fold = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      fold.setAttribute("points", "14 2 14 8 20 8");
-      icon.append(path, fold);
-      inlineCode.prepend(icon);
+      if (isContentFile) {
+        inlineCode.classList.add(
+          "cursor-pointer",
+          "font-semibold",
+          "text-dls-text",
+          "underline",
+          "decoration-dls-border",
+          "underline-offset-2",
+          "hover:decoration-dls-text",
+        );
+      } else {
+        inlineCode.classList.add(
+          "inline-flex",
+          "cursor-pointer",
+          "items-center",
+          "rounded-md",
+          "bg-dls-surface-muted",
+          "px-1.5",
+          "py-0.5",
+          "font-mono",
+          "text-sm",
+          "text-dls-text",
+          "hover:bg-dls-hover",
+        );
+      }
+      inlineCode.textContent = displayName;
     });
     root.querySelectorAll<HTMLAnchorElement>("a[data-markdown-file-path]").forEach((fileLink) => {
       const rawPath = fileLink.dataset.markdownFilePath ?? "";
@@ -579,8 +593,10 @@ function MarkdownBlockInner(props: {
       fileLink.title = openMode === "preview"
         ? t("files.view_in_panel")
         : t("files.open_in_folder");
-      if (linkSource === "artifact") {
-        fileLink.textContent = t("files.view_in_panel");
+      // Keep the link label as the file name (or author text). Do not replace
+      // mid-sentence anchors with a generic "view in panel" CTA.
+      if (linkSource === "artifact" && !(fileLink.textContent ?? "").trim()) {
+        fileLink.textContent = codeFenceFileName(resolvedPath ?? rawPath);
       }
       fileLink.removeAttribute("target");
       fileLink.removeAttribute("aria-disabled");
