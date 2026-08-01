@@ -777,6 +777,39 @@ export function buildUserUploadRelativePath(fileName: string): string {
   return `${USER_UPLOADS_RELATIVE_DIR}/${safe}`;
 }
 
+/**
+ * On-disk inbox root under a workspace (matches server `resolveInboxDir`).
+ * listInbox paths are relative to this directory.
+ */
+export const WORKSPACE_INBOX_DIR = ".opencode/onmyagent/inbox";
+
+/** Workspace-relative path for read/delete APIs (from inbox-relative list path). */
+export function workspaceRelativeInboxPath(inboxRelativePath: string): string {
+  const rel = String(inboxRelativePath ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "");
+  if (!rel) return WORKSPACE_INBOX_DIR;
+  if (rel === WORKSPACE_INBOX_DIR || rel.startsWith(`${WORKSPACE_INBOX_DIR}/`)) {
+    return rel;
+  }
+  return `${WORKSPACE_INBOX_DIR}/${rel}`;
+}
+
+/** Absolute filesystem path for Electron reveal / Office overlay. */
+export function absoluteInboxFilePath(
+  workspaceRoot: string,
+  inboxRelativePath: string,
+): string {
+  const root = String(workspaceRoot ?? "").trim().replace(/[/\\]+$/, "");
+  const rel = workspaceRelativeInboxPath(inboxRelativePath);
+  if (!root) return rel;
+  if (/^[A-Za-z]:[\\/]/.test(root) || root.includes("\\")) {
+    return `${root}\\${rel.replace(/\//g, "\\")}`;
+  }
+  return `${root}/${rel}`;
+}
+
 export type InboxListItemLike = {
   id: string;
   name?: string;

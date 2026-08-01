@@ -7,6 +7,8 @@ import {
   FILES_SOURCE_RAIL_TABS,
   FILES_SOURCE_TABS,
   USER_UPLOADS_RELATIVE_DIR,
+  WORKSPACE_INBOX_DIR,
+  absoluteInboxFilePath,
   buildUserUploadRelativePath,
   filterUploadRows,
   filterWorkspaceTreeBySourceTab,
@@ -14,6 +16,7 @@ import {
   isFilesSourceRailTabEnabled,
   isLikelyExpertAgentFolderName,
   mapInboxItemsToUploadRows,
+  workspaceRelativeInboxPath,
 } from "../src/react-app/domains/workspace/workspace-files-model";
 import type { WorkspaceFileTreeNode } from "../src/react-app/capabilities/artifacts/workspace-file-tree";
 
@@ -200,6 +203,15 @@ describe("files three-source tabs (P0)", () => {
     expect(uploads).toContain("listInbox");
     expect(uploads).toContain("buildUserUploadRelativePath");
     expect(uploads).toContain("mapInboxItemsToUploadRows");
+    // My files: preview drawer + open/reveal/copy parity with Task files.
+    expect(uploads).toContain("FilePreviewDrawer");
+    expect(uploads).toContain("workspaceRoot");
+    expect(uploads).toContain("absoluteInboxFilePath");
+    expect(uploads).toContain("openArtifactForEditing");
+    expect(uploads).toContain("revealDesktopItemInDir");
+    expect(uploads).toContain("handleCopyPath");
+    expect(uploads).toContain("UploadRowActionsMenu");
+    expect(page).toContain("workspaceRoot={props.workspaceRoot}");
 
     const browser = read(
       "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
@@ -208,6 +220,20 @@ describe("files three-source tabs (P0)", () => {
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
     expect(browser).toContain("data-workspace-file-breadcrumb");
     expect(browser).toContain("FilePreviewDrawer");
+    expect(browser).toContain("workspace-files-preview-drawer");
+  });
+
+  test("inbox path helpers map list paths to workspace + absolute locations", () => {
+    expect(WORKSPACE_INBOX_DIR).toBe(".opencode/onmyagent/inbox");
+    expect(workspaceRelativeInboxPath("uploads/a.key")).toBe(
+      ".opencode/onmyagent/inbox/uploads/a.key",
+    );
+    expect(
+      workspaceRelativeInboxPath(".opencode/onmyagent/inbox/x.pdf"),
+    ).toBe(".opencode/onmyagent/inbox/x.pdf");
+    expect(absoluteInboxFilePath("/Users/me/ws", "note.md")).toBe(
+      "/Users/me/ws/.opencode/onmyagent/inbox/note.md",
+    );
   });
 
   test("i18n locales define short rail labels and upload copy semantics", () => {

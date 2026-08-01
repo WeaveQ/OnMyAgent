@@ -86,10 +86,16 @@ describe("session visual and file contracts", () => {
     expect(uploadsPanel).toContain("uploadInbox");
     expect(uploadsPanel).toContain("listInbox");
     expect(uploadsPanel).toContain("ArtifactIcon");
+    expect(uploadsPanel).toContain("FilePreviewDrawer");
     // Task-files browser keeps preview branches for historical workspace files
     expect(browserPanel).toContain("workspaceFileOpenTarget");
-    expect(browserPanel).toContain("MarkdownPreview content={state.content}");
-    expect(browserPanel).toContain("<OfficeFilePreview");
+    expect(browserPanel).toContain("FilePreviewDrawer");
+    expect(browserPanel).toContain("workspace-files-preview-drawer");
+    const previewDrawer = readWorkspaceFile(
+      "apps/app/src/react-app/domains/workspace/workspace-files-preview-drawer.tsx",
+    );
+    expect(previewDrawer).toContain("MarkdownPreview content={state.content}");
+    expect(previewDrawer).toContain("<OfficeFilePreview");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");

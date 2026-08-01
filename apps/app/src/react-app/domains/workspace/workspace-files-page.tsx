@@ -107,6 +107,8 @@ export function WorkspaceFilesPage(props: {
           <WorkspaceFilesUploadsPanel
             client={props.client}
             workspaceId={props.workspaceId}
+            workspaceRoot={props.workspaceRoot}
+            onAddToTask={props.onAddToTask}
           />
         ) : (
           <WorkspaceFilesBrowserPanel
