@@ -141,7 +141,6 @@ import {
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
   resolveBoundExpertDraftSession,
-  resolveExpertSurfaceSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundNewSessionDraft,
 } from "./expert-draft-session";
@@ -1111,20 +1110,22 @@ export function ExpertPage(props: ExpertPageProps) {
     props.onmyagentServerToken?.trim() ||
     props.onmyagentServerClient?.token?.trim() ||
     "";
-  const { sessionId: renderedSessionId, draftOnly: isDraftSession } =
-    resolveExpertSurfaceSession({
-      draftSessionActive, draftAgentId, pendingAgent, activeDraftSessionId,
-      selectedSessionId: props.selectedSessionId,
-      workspaceId: props.selectedWorkspaceId,
-    });
+  const draftSessionId = `draft:${props.selectedWorkspaceId}`;
+  const renderedSessionId = draftSessionActive
+    ? (activeDraftSessionId ?? draftSessionId)
+    : (props.selectedSessionId ?? draftSessionId);
+  const isDraftSession = draftSessionActive || !props.selectedSessionId;
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,
     surface: "expert",
   });
   const canRenderReactSurface = Boolean(
-    props.runtimeWorkspaceId && props.onmyagentServerClient
-    && reactSessionBaseUrl && reactSessionToken && props.surface,
+    props.runtimeWorkspaceId &&
+    props.onmyagentServerClient &&
+    reactSessionBaseUrl &&
+    reactSessionToken &&
+    props.surface,
   );
   const showBlockingStartupSkeleton = showStartupSkeleton && !canRenderReactSurface;
   const showNoExpertConversationEmptyState =

@@ -2,8 +2,6 @@ import { APP_NAME } from "../brand";
 
 export default {
   "nav.agents": "AI Teammates",
-  "nav.session_archive": "Session archive",
-  "nav.session_archive_short": "Archive",
   "nav.agents_desc": "Local agents and expert profiles",
   "nav.automation": "Automation",
   "nav.automation_short": "Auto",
@@ -28,15 +26,9 @@ export default {
   "nav.experts_short": "Expert",
   "nav.files": "Files",
   "nav.files_short": "Files",
-  "nav.knowledge_inspiration_short": "Knowledge · Ideas",
   "nav.local_agent": "Agent",
-  "nav.local_agent_short": "Agent",
   "nav.management": "Manage",
-  "nav.management_short": "Manage",
-  "nav.more": "More",
-  "nav.projects": "Projects",
   "nav.scheduled_tasks": "Scheduled tasks",
-  "nav.skills_connectors_short": "Skills · Connectors",
   "nav.store": "Market",
   "nav.store_short": "Market",
 } as const;

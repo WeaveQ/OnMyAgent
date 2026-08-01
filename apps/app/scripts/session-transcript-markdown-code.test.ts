@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  isMarkdownContentDeliverablePath,
   parseMarkdownCodeFenceInfo,
   parseMarkdownInlinePath,
   truncateMarkdownPathDisplay,
@@ -63,12 +62,5 @@ describe("session transcript markdown code fences", () => {
   test("keeps the filename visible when truncating long paths", () => {
     expect(truncateMarkdownPathDisplay("apps/app/src/react-app/domains/session/message-list.tsx", 32))
       .toBe("apps/app/src/...message-list.tsx");
-  });
-
-  test("treats office deliverables as content files for inline path styling", () => {
-    expect(isMarkdownContentDeliverablePath("发货需求.xlsx")).toBe(true);
-    expect(isMarkdownContentDeliverablePath("reports/summary.pdf")).toBe(true);
-    expect(isMarkdownContentDeliverablePath("src/app.tsx")).toBe(false);
-    expect(isMarkdownContentDeliverablePath("oma-summary.json")).toBe(false);
   });
 });

@@ -3,7 +3,6 @@ import {
   deriveOpenTargets,
   extractDeclaredDeliverablePaths,
   extractHardDeclaredDeliverablePaths,
-  extractSoftDeclaredDeliverablePaths,
   isCollectibleArtifactTarget,
   isLikelyUserUploadArtifactPath,
   isUserFacingLocalPreviewTarget,
@@ -81,15 +80,6 @@ const CODE_EXTENSIONS = new Set([
   ".java",
 ]);
 
-function isUnderTmpDir(path: string): boolean {
-  const normalized = normalizePathKey(path);
-  return (
-    /(^|\/)(\.opencode\/tmp|tmp|temp|temps)(\/|$)/i.test(normalized)
-    || normalized.startsWith("/tmp/")
-    || normalized.startsWith("/var/folders/")
-  );
-}
-
 /**
  * Heuristic: scripts written only to generate another deliverable.
  * e.g. extract_sheets.cjs, gen_xlsx.py, /tmp/helper.cjs
@@ -99,7 +89,14 @@ function isProcessHelperScript(path: string): boolean {
   const base = basenameOf(normalized).toLowerCase();
   const ext = fileExtension(normalized);
   if (!CODE_EXTENSIONS.has(ext)) return false;
-  if (isUnderTmpDir(normalized)) return true;
+
+  if (
+    /(^|\/)(\.opencode\/tmp|tmp|temp|temps)(\/|$)/i.test(normalized)
+    || normalized.startsWith("/tmp/")
+    || normalized.startsWith("/var/folders/")
+  ) {
+    return true;
+  }
 
   const stem = base.slice(0, base.length - ext.length);
   // extract_sheets, gen_xlsx, tmp_run, helper_foo, scratch_…
@@ -111,34 +108,6 @@ function isProcessHelperScript(path: string): boolean {
     return true;
   }
   if (/[-_](tmp|temp|scratch|helper|util)$/i.test(stem)) return true;
-  return false;
-}
-
-/**
- * Intermediate agent data files that must not become product cards.
- * e.g. oma-summary.json, rows.json, tmp meta under session root.
- */
-export function isProcessHelperArtifact(path: string): boolean {
-  if (isProcessHelperScript(path)) return true;
-  const normalized = normalizePathKey(path);
-  if (isUnderTmpDir(normalized)) return true;
-
-  const base = basenameOf(normalized).toLowerCase();
-  const ext = fileExtension(normalized);
-  if (ext === ".json") {
-    // Process/intermediate JSON — never a logistics deliverable card.
-    if (
-      /^(oma[-_]|tmp[-_]|temp[-_]|scratch[-_]|helper[-_]|rows[-_]?|data[-_]?|meta[-_]?|debug[-_]?|intermediate)/i.test(
-        base,
-      )
-      || /[-_](summary|tmp|temp|scratch|helper|rows|meta|debug|cache)(\.json)?$/i.test(base)
-      || base === "summary.json"
-      || base === "package.json"
-      || base === "tsconfig.json"
-    ) {
-      return true;
-    }
-  }
   return false;
 }
 
@@ -276,17 +245,12 @@ export function shouldShowAsTurnDeliverable(
     hasContentDeliverableInTurn: boolean;
   },
 ): boolean {
-  if (isProcessHelperArtifact(path)) return false;
+  if (isProcessHelperScript(path)) return false;
   if (context.executedScriptBasenames.has(basenameOf(path).toLowerCase())) {
     // Ran in this turn → treat as process helper unless it is also the only
     // declared deliverable and no content files exist.
     if (context.hasContentDeliverableInTurn) return false;
     if (!pathMatchesDeclared(path, context.declaredPaths)) return false;
-  }
-  // .json is only a product when explicitly declared (hard 文件路径) — most
-  // agent JSON is intermediate data for write-xlsx, not a user deliverable.
-  if (fileExtension(path) === ".json") {
-    return pathMatchesDeclared(path, context.declaredPaths);
   }
   if (isContentDeliverable(path)) return true;
   if (isCodePath(path)) {
@@ -308,12 +272,10 @@ export function selectTurnOpenTargets(
   const userBasenames = userAttachmentBasenames(messages);
   const inlineTargets = new Map<string, OpenTarget>();
   const assistantBlob = assistantTextBlob(messages);
-  // Soft + hard prose claims (intentional-code matching + soft content safety net).
+  // Soft mentions (`已生成 foo.xlsx`) count for intentional-code matching only.
   const declaredPaths = extractDeclaredDeliverablePaths(assistantBlob);
   // Hard `文件路径:` may mint cards without write-tool provenance.
   const hardDeclaredPaths = extractHardDeclaredDeliverablePaths(assistantBlob);
-  // Soft `输出文件:` / `已生成` content files mint when verified exists (write-scan miss).
-  const softDeclaredPaths = extractSoftDeclaredDeliverablePaths(assistantBlob);
   const executedScriptBasenames = scriptsExecutedInTurn(messages);
 
   const candidatePaths: string[] = [];
@@ -321,18 +283,12 @@ export function selectTurnOpenTargets(
     if (candidate.kind === "file") candidatePaths.push(candidate.value);
   }
   for (const declared of hardDeclaredPaths) candidatePaths.push(declared);
-  for (const declared of softDeclaredPaths) {
-    if (isContentDeliverable(declared) && !isProcessHelperArtifact(declared)) {
-      candidatePaths.push(declared);
-    }
-  }
 
   const hasContentDeliverableInTurn = candidatePaths.some(
     (path) =>
       isContentDeliverable(path)
-      && fileExtension(path) !== ".json"
       && !isBlockedUserPath(path, userBasenames)
-      && !isProcessHelperArtifact(path),
+      && !isProcessHelperScript(path),
   );
 
   const showContext = {
@@ -366,17 +322,6 @@ export function selectTurnOpenTargets(
 
   // Explicit "文件路径:" lines are deliverable provenance even without a write tool.
   for (const declared of hardDeclaredPaths) {
-    addVerifiedFile(declared);
-  }
-
-  // Soft prose (`输出文件: foo.xlsx` / `已生成 foo.xlsx`) + verified exists is a
-  // reliability safety net: agents often write via ad-hoc scripts that miss
-  // write-tool path extraction, then only declare the deliverable in prose.
-  // Still requires exists:true and content-extension filters; process helpers
-  // and user uploads stay blocked.
-  for (const declared of softDeclaredPaths) {
-    if (!isContentDeliverable(declared)) continue;
-    if (isProcessHelperArtifact(declared)) continue;
     addVerifiedFile(declared);
   }
 

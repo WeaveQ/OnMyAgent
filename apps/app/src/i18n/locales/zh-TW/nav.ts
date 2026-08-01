@@ -2,8 +2,6 @@ import { APP_NAME } from "../brand";
 
 export default {
   "nav.agents": "AI 同事",
-  "nav.session_archive": "會話歸檔",
-  "nav.session_archive_short": "歸檔",
   "nav.agents_desc": "本地 AI 同事與專家配置",
   "nav.automation": "自動化",
   "nav.automation_short": "自動",
@@ -28,15 +26,9 @@ export default {
   "nav.experts_short": "專家",
   "nav.files": "檔案",
   "nav.files_short": "檔案",
-  "nav.knowledge_inspiration_short": "資料庫 · 靈感",
   "nav.local_agent": "Agent",
-  "nav.local_agent_short": "Agent",
   "nav.management": "管理",
-  "nav.management_short": "管理",
-  "nav.more": "更多",
-  "nav.projects": "項目",
   "nav.scheduled_tasks": "定時任務",
-  "nav.skills_connectors_short": "技能 · 連接器",
   "nav.store": "市場",
   "nav.store_short": "市場",
 } as const;

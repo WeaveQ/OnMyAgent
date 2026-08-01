@@ -50,7 +50,6 @@ export default {
   "provider_auth.hint_choose_connection": "选择你偏好的连接方式。",
   "provider_auth.hint_finish_oauth_paste_code": "粘贴授权码以完成 OAuth 授权。",
   "provider_auth.hint_window_closes_when_connected": "服务商连接成功后此窗口将自动关闭。",
-  "provider_auth.hint_keyboard_navigation": "使用方向键切换，回车键选择。",
   "provider_auth.subscribe_title": `${APP_NAME} 模型`,
   "provider_auth.subscribe_subtitle": "为团队最具野心的工作精选的前沿智能。",
   "provider_auth.spinner_saving_api": "正在保存 API 密钥…",

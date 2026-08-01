@@ -1,13 +1,11 @@
 import { APP_NAME } from "../brand";
 
 export default {
-  "composer.agent_label": "Agent",
   "composer.any_file_type_supported": "Any file type is supported.",
   "composer.attach_files": "Attach files",
   "composer.attachments_unavailable": "Attachments are unavailable.",
   "composer.behavior_label": "Behavior",
   "composer.configure": "Manage",
-  "composer.default_agent": "Default agent",
   "composer.file_exceeds_limit": "{name} exceeds the 8MB limit.",
   "composer.file_kind": "File",
   "composer.folder_kind": "Folder",
@@ -22,7 +20,6 @@ export default {
   "composer.inserted_links_unsupported":
     "Inserted links for unsupported files.",
   "composer.loading_commands": "Loading commands...",
-  "composer.mcps_label": "MCPs",
   "composer.no_commands": "No commands found.",
   "composer.no_matching_connectors": "No matching connectors",
   "composer.no_matching_skills": "No matching skills",
@@ -30,15 +27,10 @@ export default {
   "composer.prompt_templates": "Prompt templates",
   "composer.remote_worker_paste_warning":
     "This is a remote worker. Sandboxes are remote too. To share files with it, upload them to the Shared folder in the sidebar.",
-  "composer.run_task": "Run task",
   "composer.search_connectors": "Search connectors",
   "composer.search_skills": "Search skills",
-  "composer.skill_source": "Skill",
   "composer.slash_section_skills": "Skills",
-  "composer.slash_section_commands": "Commands",
-  "composer.slash_section_mcps": "Connectors",
   "composer.stop": "Stop",
-  "composer.tools_label": "Commands, skills, and MCPs",
   "composer.upload_to_shared_folder": "Upload to shared folder",
   "composer.upload_success_title": "Attachment added",
   "composer.uploaded_multiple_files": "Uploaded {count} files",
@@ -83,8 +75,6 @@ export default {
     "Keep working toward the goal and check progress",
   "composer.prompt_templates_short": "Prompts",
   "composer.connectors_label": "Connectors",
-  "composer.connect_connector": "Connect",
-  "composer.more_connectors": "Manage all connectors",
   "composer.connectors_group_builtin": "Built-in extensions",
   "composer.connectors_group_mcp": "Configured MCP",
   "composer.pin_skill": "Pin skill",

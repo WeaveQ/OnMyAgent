@@ -51,9 +51,9 @@ const settingsSidebarGroupLabelClass =
 const settingsSidebarClass =
   "**:data-[sidebar=sidebar]:bg-dls-sidebar **:data-[sidebar=sidebar]:text-dls-text";
 
-/** Active/hover rows match list-lane tokens used by the main shell. */
+/** Nav rows use primary text color for both idle and active (highlight = bg only). */
 const settingsNavButtonClass =
-  "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text data-active:bg-dls-list-selected data-active:font-medium data-active:text-dls-text mac:hover:bg-dls-list-hover mac:active:bg-dls-list-hover mac:data-active:bg-dls-list-selected dark:mac:hover:bg-dls-list-hover dark:mac:active:bg-dls-list-hover dark:mac:data-active:bg-dls-list-selected";
+  "text-dls-text hover:bg-dls-list-hover hover:text-dls-text data-active:bg-dls-list-selected data-active:font-medium data-active:text-dls-text mac:hover:bg-dls-list-hover mac:active:bg-dls-list-hover mac:data-active:bg-dls-list-selected dark:mac:hover:bg-dls-list-hover dark:mac:active:bg-dls-list-hover dark:mac:data-active:bg-dls-list-selected";
 
 export function getSettingsTabIcon(tab: SettingsTab) {
   switch (tab) {
@@ -176,14 +176,17 @@ export function getSettingsTabDescription(tab: SettingsTab) {
   }
 }
 
-/** Top-level overview — not nested under workspace/global groups. */
+/**
+ * Top-level tabs (no group label) — preferences first so language/theme/font
+ * sit above Overview at the top of Settings.
+ */
 export function getOverviewSettingsTabs(): SettingsTab[] {
-  return ["general"];
+  return ["preferences", "general"];
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // Models + personalization/memory; system auth lives under Global → System.
-  return ["ai", "preferences", "memory", "conversation-memory"];
+  // Models + personal profile/memory; system auth lives under Global → System.
+  return ["ai", "memory", "conversation-memory"];
 }
 
 /** Usage + reset/recovery + archive. */

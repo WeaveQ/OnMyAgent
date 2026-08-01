@@ -3,21 +3,12 @@ import { APP_NAME } from "../brand";
 export default {
   "settings.audit_actor_host": "host",
   "settings.audit_actor_remote": "remote",
-  "settings.api_keys_info":
-    "This list is currently available providers (not chat history). API keys are stored on this device. Environment-backed providers must be changed in the worker environment, then reloaded.",
-  "settings.appearance_hint": "Match the system or force light/dark mode",
-  "settings.appearance_title": "Appearance",
 
   "settings.font_size_title": "Display size",
   "settings.display_settings_title": "Display",
   "settings.interface_settings_title": "Interface",
-  "settings.font_size_desc": "Scale the whole interface. You can also use ⌘/Ctrl + and −, or ⌘/Ctrl + 0 to reset.",
   "settings.font_size_label": "Font size",
   "settings.font_size_hint": "Applies to the entire app, including chat and settings.",
-  "settings.font_size_small": "Small",
-  "settings.font_size_default": "Default",
-  "settings.font_size_large": "Large",
-  "settings.font_size_value": "Level {value}",
   "settings.font_size_option_default": "Default ({percent}%)",
   "settings.font_size_option_smaller": "{percent}%",
   "settings.font_size_option_larger": "{percent}%",
@@ -27,21 +18,11 @@ export default {
   "settings.auto_compact": "Auto context compaction",
   "settings.auto_compact_desc":
     "Controls automatic context compaction for this workspace. Reload the engine after changing it",
-  "settings.auto_compact_unavailable":
-    "Auto context compaction is not yet available.",
-  "settings.auto_update_desc":
-    "In-app download is not available. When an update is found, open the release page to install.",
-  "settings.auto_update_title": "Download automatically",
   "settings.auto_updates_packaged_only": "Auto-updates are available in packaged builds only.",
   "settings.check_for_updates": "Check for updates",
   "settings.checking_for_updates": "Checking…",
   "settings.open_release_page": "Open release page",
-  "settings.background_checks_desc": "Look for new versions in the background",
-  "settings.background_checks_desc_notify":
-    "Also refresh this page when the desktop app finds a new version in the background. System notifications are always handled by the desktop process.",
-  "settings.background_checks_title": "Check automatically",
   "settings.update_install_title": "How updates install",
-  "settings.update_notes_title": "Release notes",
   "settings.update_install_desc":
     "OnMyAgent opens the GitHub release page so you can download the installer for your platform. There is no in-app download or silent install.",
   "settings.update_check_timeout":
@@ -54,7 +35,6 @@ export default {
     "No releases have been published yet. You can still open the releases page.",
   "settings.update_check_unavailable":
     "Could not check for updates right now. You can open the release page in a browser instead.",
-  "settings.cache_repair_requires_desktop": "Only available in the desktop app",
   "settings.cap_browser_tools": "Browser tools: {value}",
   "settings.cap_commands": "Commands: {value}",
   "settings.cap_config": "Config: {value}",
@@ -75,27 +55,18 @@ export default {
   "settings.capabilities_title": `${APP_NAME} server capabilities`,
   "settings.capabilities_unavailable":
     "Capabilities unavailable. Connect with a client token.",
-  "settings.change": "Change",
   "settings.choose": "Choose",
   "settings.clear": "Clear",
   "settings.config_updated":
     "Configuration updated. Reload the engine if the change affects the runtime.",
-  "settings.custom_provider_ready":
-    "{name} is ready. You can use this model now.",
-  "settings.custom_provider_removed":
-    "{name} was removed from the current configuration. New chats cannot use it; past sessions keep their history.",
   "settings.custom_provider_remove_failed": "Failed to remove the model provider.",
   "settings.custom_provider_syncing":
     "Applying configuration and refreshing the model list…",
-  "settings.configure": "Configure",
   "settings.connect_provider": "Connect model provider",
   "settings.connect_provider_runtime_required":
     "The local workspace is still starting. Open a chat from Home once it is ready, then connect hosted providers. Custom compatible APIs can usually be configured first.",
   "settings.connect_provider_runtime_required_short":
     "Workspace not ready — cannot load the official provider list yet",
-  "settings.connection": "Connection",
-  "settings.connection_failed": "Connection failed",
-  "settings.connection_title": "Connection",
   "settings.copied_debug_report": "Copied runtime report JSON.",
   "settings.copy_json": "Copy JSON",
   "settings.custom_binary_hint": `Use this to point ${APP_NAME} at a local agent engine build`,
@@ -103,8 +74,6 @@ export default {
   "settings.debug_base_url": "Base URL: {url}",
   "settings.debug_commit": "Commit: {sha}",
   "settings.debug_connect_url": "Connect URL: {url}",
-  "settings.debug_deeplink_unavailable":
-    "Debug deeplinks are not yet available.",
   "settings.debug_desktop_app": "Desktop app: {version}",
   "settings.debug_hostname": "Hostname: {hostname}",
   "settings.debug_lan_url": "LAN URL: {url}",
@@ -119,17 +88,10 @@ export default {
   "settings.error": "Error",
   "settings.idle": "Idle",
   "settings.loading": "Loading",
-  "settings.deeplink_hint": `Accepts ${APP_NAME}:// or ${APP_NAME}-dev:// links`,
   "settings.default_label": "Default",
-  "settings.delete_containers": "Remove all",
   "settings.delete_local_config": "Removing local state...",
   "settings.dev_mode_badge": "Dev mode",
   "settings.developer": "Developer",
-  "settings.developer_mode_desc":
-    "Enables debug tools, diagnostics, and the Developer tab",
-  "settings.developer_mode_title": "Developer mode",
-  "settings.developer_panel_disabled": "Developer panel enabled.",
-  "settings.developer_panel_enabled": "Developer panel enabled.",
   "settings.diag_approval": "Approval: {mode} ({ms}ms)",
   "settings.diag_config_path": "Config path: {path}",
   "settings.diag_default": "default",
@@ -142,21 +104,10 @@ export default {
   "settings.diag_token_source": "Token source: {source}",
   "settings.diag_workspaces": "Workspaces: {count}",
   "settings.diagnostics_unavailable": "Diagnostics unavailable.",
-  "settings.disable_developer_mode": "Disable Developer Mode",
   "settings.disabled": "Disabled",
   "settings.disconnect": "Disconnect",
-  "settings.disconnect_server": "Disconnect server",
   "settings.disconnecting": "Disconnecting...",
-  "settings.docker_containers_desc":
-    "Clean up Docker containers left behind after tasks finish",
-  "settings.docker_containers_title": "Docker containers",
-  "settings.docker_requires_desktop": "Only available in the desktop app",
   "settings.done": "Done",
-  "settings.enable_developer_mode": "Enable Developer Mode",
-  "settings.enable_exa": "Enable Exa web search",
-  "settings.enable_exa_desc": `Applies the next time the agent engine is started by ${APP_NAME}. Off by default`,
-  "settings.exa_unavailable":
-    "Exa web search is not yet configurable in this settings view.",
   "settings.engine_bundled": "Bundled (recommended)",
   "settings.engine_bundled_hint":
     "Bundled engine is the most reliable option. Use System",
@@ -166,15 +117,11 @@ export default {
   "settings.engine_source_debug": "Engine source",
   "settings.engine_system_path": "System install (PATH)",
   "settings.engine_title": "Engine",
-  "settings.exa_restart_hint": "Restart the engine after changing this setting",
   "settings.export": "Export",
   "settings.exported_debug_report": "Exported runtime report JSON.",
-  "settings.feedback_badge": "We read every message",
   "settings.feedback_desc":
     "Tell us what feels great and what feels rough. Feedback goes straight to the team and helps us prioritize what ships next",
   "settings.feedback_title": `Help shape ${APP_NAME}`,
-  "settings.group_cloud": "Cloud",
-  "settings.group_cloud_description": "Cloud account and organization",
   "settings.group_global": "Global",
   "settings.group_workspace": "Workspace",
   "settings.group_archived": "Archive",
@@ -182,9 +129,6 @@ export default {
   "settings.tab_archived_tasks": "Archive",
   "settings.tab_description_archived_tasks":
     "Manage session archive policy and restore or permanently delete archived tasks",
-  "settings.archived_tasks_list_title": "Archived tasks",
-  "settings.archived_tasks_list_desc":
-    "Review, restore, or permanently delete archived session tasks",
   "settings.archived_tasks_search_placeholder": "Search archived tasks",
   "settings.archived_tasks_all_projects": "All projects",
   "settings.archived_tasks_type_section": "Type",
@@ -197,7 +141,6 @@ export default {
   "settings.archived_tasks_sort_name": "Alphabetical",
   "settings.archived_tasks_kind_tasks": "Tasks",
   "settings.archived_tasks_kind_scheduled": "Scheduled tasks",
-  "settings.archived_tasks_delete_all": "Delete all",
   "settings.archived_tasks_delete": "Delete permanently",
   "settings.archived_tasks_delete_project_all":
     "Delete all archived tasks in project",
@@ -209,14 +152,9 @@ export default {
   "settings.archived_tasks_empty": "No archived tasks",
   "settings.archived_tasks_empty_filtered": "No matching archived tasks",
   "settings.archived_tasks_empty_hint": "Assistant tasks you archive from the task list appear here for restore or permanent delete.",
-  "settings.archived_tasks_assistant_section": "Assistant tasks",
   "settings.archived_tasks_no_workspace": "Select a workspace to manage archived tasks.",
   "settings.archived_tasks_unknown_project": "Unscoped",
   "settings.archived_tasks_count": "{count} tasks",
-  "settings.hide_titlebar": "Hide titlebar",
-  "settings.hide_titlebar_desc":
-    "Hide the window titlebar. Useful for tiling window",
-  "settings.join_discord": "Join Discord",
   "settings.language": "Language",
   "settings.computer_use_setup_title": "Computer Use setup",
   "settings.computer_use_setup_description":
@@ -226,7 +164,6 @@ export default {
   "settings.computer_use_step_runtime": "Health",
   "settings.computer_use_step_apps": "App access",
   "settings.computer_use_step_memory": "Memory",
-  "settings.computer_use_step_privacy": "Access & memory",
   "settings.computer_use_connect_step_title": "1. Connect Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
     "Adds the local Computer Use server to this workspace so Composer can use the computer-control tools",
@@ -254,9 +191,6 @@ export default {
   "settings.computer_use_runtime_step_title": "3. Runtime health",
   "settings.computer_use_runtime_step_description":
     "See whether Computer Use is ready, busy, or needs attention — in plain language.",
-  "settings.computer_use_helper_version": "Helper version",
-  "settings.computer_use_desktop_version": "OnMyAgent version",
-  "settings.computer_use_protocol": "Protocol",
   "settings.computer_use_status": "Overall status",
   "settings.computer_use_compatibility": "Compatibility",
   "settings.computer_use_compatibility_ok": "Compatible",
@@ -351,7 +285,6 @@ export default {
   "settings.configuration": "Configuration",
   "settings.unreadable_response": "Unreadable response.",
   "settings.ollama_checking": "Checking Ollama...",
-  "settings.ollama_running": "Ollama running",
   "settings.ollama_not_reachable": "Ollama not reachable",
   "settings.ollama_available_models": "Available models",
   "settings.ollama_use_default": "Use as default model in workspace",
@@ -379,13 +312,8 @@ export default {
   "settings.no_skill_hubs_match_search": "No skill hubs match your search.",
   "settings.no_providers_match_search": "No providers match your search.",
   "settings.marketplace_plugins_empty": "This marketplace does not have plugins yet.",
-  "settings.feature_flags": "Feature flags",
-  "settings.feature_flags_desc": "Experimental controls for sandbox and workspace behaviors",
-  "settings.create_sandbox_microsandbox": "Create Sandbox uses microsandbox image",
   "settings.marketplace": "Marketplace",
   "settings.all_marketplaces": "All marketplaces",
-  "settings.search_extensions": "Search extensions...",
-  "settings.release_channel": "Release channel",
   "settings.ollama_no_models_loaded": "No models loaded",
   "settings.cloud_providers_load_failed": "Failed to load cloud providers.",
   "settings.language.description": "Choose your preferred language",
@@ -398,18 +326,7 @@ export default {
   "settings.loading_providers_inventory":
     "Syncing custom providers in the background…",
   "settings.provider_model_count_pending": "Models…",
-  "settings.managed_by_env": "Managed by env",
-  "settings.managed_by_opencode": "Managed by the local engine",
   "settings.model": "Model",
-  "settings.model_behavior": "Model behavior",
-  "settings.model_behavior_desc":
-    "Open the default model picker to choose reasoning profiles when they are available",
-  "settings.model_behavior_unavailable":
-    "Model behavior configuration is not yet available.",
-  "settings.model_section_desc":
-    "Choose the default chat model and reasoning mode",
-  "settings.model_title": "Model",
-  "settings.no_active_workspace": "No active local workspace.",
   "settings.no_providers_connected": "No models available yet.",
   "settings.providers_not_configured": "Not configured",
   "settings.providers_empty_summary": "No model connected yet",
@@ -428,7 +345,6 @@ export default {
   "settings.no_audit_entries": "No audit entries yet.",
   "settings.no_custom_path_set": "No custom path set",
   "settings.personalization_title": "Personality",
-  "settings.personalization_desc": "Set the default tone, project notes, and context",
   "settings.response_tone": "Tone",
   "settings.response_tone_desc": "Choose the default style the assistant uses when replying",
   "settings.response_tone_default": "Default",
@@ -443,7 +359,6 @@ export default {
   "settings.response_tone_imaginative_desc": "Vivid metaphors and analogies",
   "settings.response_tone_pragmatic": "Pragmatic",
   "settings.response_tone_pragmatic_desc": "Minimum words, maximum information",
-  "settings.response_tone_business": "Pragmatic",
   "settings.response_tone_sarcastic": "Witty roast",
   "settings.response_tone_sarcastic_desc": "Sharp but not mean",
   "settings.response_tone_socratic": "Socratic",
@@ -455,27 +370,12 @@ export default {
     "Use this only when you want to fully reset the desktop app and its local agent runtime state",
   "settings.off": "Off",
   "settings.on": "On",
-  "settings.open_deeplink_action": "Opening...",
-  "settings.open_deeplink_button": "Hide",
-  "settings.open_deeplink_desc": `Paste an ${APP_NAME} deeplink or share URL to open it`,
-  "settings.open_deeplink_failed": "Failed to open deeplink",
-  "settings.open_deeplink_title": "Open Deeplink",
-  "settings.opencode_cache": "Local cache",
-  "settings.opencode_cache_description":
-    "Fix startup issues caused by stale local data",
-  "settings.opencode_engine_desc":
-    "Manage the local runtime for agents, tools, and model providers",
-  "settings.opencode_engine_label": "Agent engine",
   "settings.opencode_engine_sidecar": "Agent engine",
   "settings.opencode_engine_sidecar_desc": `Local agent engine process managed by ${APP_NAME}`,
   "settings.opencode_sdk_desc": "Browser → engine connection",
   "settings.opencode_sdk_title": "Engine connection",
-  "settings.opencode_section_label": "Agent engine",
-  "settings.opening": "Open deeplink",
   "settings.onmyagent_config_sidecar_desc": `Local ${APP_NAME} server (Bun) that hosts approvals, audit, and agent engine lifecycle`,
   "settings.onmyagent_diagnostics_title": `${APP_NAME} server diagnostics`,
-  "settings.onmyagent_server_desc":
-    "Session control plane for app sync, workers, and remote",
   "settings.onmyagent_server_label": `${APP_NAME} server`,
   "settings.pending_permissions": "Pending permissions",
   "settings.production_mode_badge": "Production",
@@ -486,25 +386,12 @@ export default {
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
   "settings.provider_badge_cloud": "Cloud",
-  "settings.provider_move_up": "Move up",
-  "settings.provider_move_down": "Move down",
-  "settings.providers_desc": "Connect model and tool services",
-  "settings.providers_title": "Models",
   "settings.providers_dialog_title": "Model providers",
   "settings.providers_dialog_description":
     "Pick a provider and enter its key. Keys stay on this device only.",
   "settings.quit_hint": `${APP_NAME} quits immediately after cleanup so the next launch starts from a blank local state for this mode`,
   "settings.recent_events": "Recent events",
-  "settings.reconnect_failed":
-    "Reconnect failed. Check server URL/token and try again.",
-  "settings.reconnect_server": "Reconnecting...",
-  "settings.reconnect_server_failed": `Failed to reconnect ${APP_NAME} server.`,
-  "settings.reconnected": `Reconnected to ${APP_NAME} server.`,
-  "settings.reconnecting": "Reconnecting...",
-  "settings.removing_containers": "Removing containers...",
   "settings.removing_local_state": "Removing local state...",
-  "settings.repair_cache": "Repair cache",
-  "settings.repairing_cache": "Repairing...",
   "settings.report_issue": "Report an issue",
   "settings.reset": "Reset",
   "settings.reset_app_data": "Reset app data",
@@ -513,7 +400,6 @@ export default {
   "settings.reset_app_data_warning": `Deletes ${APP_NAME} Electron data, ~/.onmyagent, ~/.studio-switch, and preferences. Shared CLI agent configs (~/.claude, ~/.codex, ~/.config/opencode) are kept.`,
   "settings.reset_button": "Reset",
   "settings.reset_cancel": "Cancel",
-  "settings.reset_config_defaults": "Reset to defaults",
   "settings.reset_confirm_button": "Reset & Restart",
   "settings.reset_confirmation_hint": `Type {resetWord} to confirm. ${APP_NAME} will restart`,
   "settings.reset_confirmation_label": "Confirmation",
@@ -537,12 +423,9 @@ export default {
   "settings.reset_startup_pref": "Reset startup preference",
   "settings.reset_stop_active_runs": "Stop active runs before resetting.",
   "settings.resetting": "Resetting...",
-  "settings.restart_blocked_message": `The update is ready, but ${APP_NAME} will wait until your active tasks finish before restarting. You can also stop them manually.`,
   "settings.restart_failed": "Restart failed. Check logs and try again.",
   "settings.restart_opencode": "Restart engine",
   "settings.restart_onmyagent_server": `Restart ${APP_NAME} server`,
-  "settings.restart_server_failed": "Failed to restart local server.",
-  "settings.restarted": "Restarted local server.",
   "settings.restarting": "Restarting…",
   "settings.restart_succeeded_template": "Restarted {service}.",
   "settings.restart_failed_template": "Failed to restart {service}.",
@@ -571,27 +454,11 @@ export default {
   "settings.clear_button": "Clear",
   "settings.copy_log_button": "Copy log",
   "settings.export_log_button": "Export .log",
-  "settings.reveal_config": "Show file",
-  "settings.recovery_cache_repair_unavailable":
-    "Cache repair is not yet available.",
-  "settings.recovery_docker_cleanup_unavailable":
-    "Container cleanup is not yet available.",
-  "settings.recovery_reset_config_unavailable":
-    "Reset config is not yet available.",
-  "settings.recovery_requires_desktop":
-    "These actions require the desktop app.",
-  "settings.recovery_requires_desktop_title": "Desktop app required",
-  "settings.reveal_config_requires_desktop":
-    "Only available in the desktop app",
-  "settings.scheduler_plugin_unavailable":
-    "Scheduler plugin install is not yet available.",
   "settings.run_sandbox_probe": "Running probe...",
   "settings.running_probe": "Running probe...",
   "settings.runtime_debug_desc":
     "Readable diagnostics snapshot with one-click export",
   "settings.runtime_debug_title": "Runtime debug report",
-  "settings.runtime_desc": `View local engine and ${APP_NAME} server status`,
-  "settings.runtime_title": "Runtime",
   "settings.sandbox_error": "Error",
   "settings.sandbox_export_hint": "Use Export in Runtime debug report above to",
   "settings.sandbox_probe_desc":
@@ -610,7 +477,6 @@ export default {
   "settings.model_reasoning": "Reasoning",
   "settings.model_unavailable": "Model no longer available",
   "settings.no_models_found": "No models found.",
-  "settings.send_feedback": "Send feedback",
   "settings.show_model_reasoning": "Show model reasoning",
   "settings.show_model_reasoning_desc":
     "Expand reasoning traces in the UI when a model exposes them",
@@ -624,20 +490,11 @@ export default {
   "settings.startup_reset_hint":
     "This clears your saved preference and shows the connection",
   "settings.startup_title": "Startup",
-  "settings.stop_local_server": "Stop local server",
-  "settings.stop_runs_before_cleanup": "Stop running tasks first",
-  "settings.stop_runs_before_reset_config": "Stop running tasks first",
   "settings.stop_runs_to_reset": "Stop active runs to reset",
   "settings.switch": "Switch",
   "settings.tab_advanced": "Advanced",
-  "settings.advanced_card_description":
-    "Runtime, engine, and developer options",
-  "settings.tab_appearance": "Appearance",
-  "settings.tab_appearance_description": "Theme, font size, and display",
-  "settings.tab_cloud_account": "Account",
   "settings.tab_cloud_marketplaces": "Plugin Marketplace",
   "settings.tab_cloud_providers": "Cloud Model Providers",
-  "settings.tab_cloud_workers": "Cloud Workers",
   "settings.tab_debug": "Debug Info",
   "settings.permissions": "Permissions",
   "settings.permissions_card_description":
@@ -645,7 +502,6 @@ export default {
   "settings.system_authorizations": "System Authorizations",
   "settings.system_authorizations_description":
     "Manage OS permissions used by app snapshot, automation, and notifications",
-  "settings.system_authorizations_go_configure": "Go to settings",
   "settings.ai_providers": "Models",
   "settings.ai_providers_card_description":
     "Connect AI model providers",
@@ -666,36 +522,24 @@ export default {
   "settings.notifications_section_title": "Notifications",
   "settings.notifications_section_desc":
     "Manage system desktop notification permission and whether to alert you when a turn finishes.",
-  "settings.desktop_notifications_label": "Desktop notifications",
-  "settings.desktop_notifications_desc":
-    "Allow system desktop notifications so you can be alerted when a task finishes or new messages arrive.",
   "settings.agent_ready_notifications_label": "Task completion alerts",
   "settings.agent_ready_notifications_desc":
     "When on, send a desktop notification after the assistant finishes a turn and the app is in the background. Off by default; the first time you enable it, the app will request system notification permission.",
   "settings.agent_ready_notification_title": "Assistant is ready",
   "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
-  "settings.preferences": "Personalization",
+  "settings.preferences": "Preferences",
   "settings.preferences_card_description":
-    "Interface, display, and session habits",
-  "settings.tab_description_advanced":
-    "Inspect runtime, connection state, and developer controls",
-  "settings.tab_description_appearance": `Adjust how ${APP_NAME} looks across desktop, system theme, and app frame`,
-  "settings.tab_description_cloud_account":
-    "Sign in and manage organization cloud connections",
+    "Language, theme, font size, layout, and session habits",
   "settings.tab_description_cloud_marketplaces":
     "Browse and import organization plugins",
   "settings.tab_description_cloud_providers":
     "Import and manage cloud model provider keys",
-  "settings.tab_description_cloud_workers":
-    "View and connect cloud workers",
   "settings.tab_description_debug":
     "Review diagnostics, logs, and debugging tools",
   "settings.tab_description_setting_general": "Overview of all settings",
   "settings.workspace_title": "Workspace",
   "settings.global_title": "Global",
   "settings.help_title": "Help",
-  "settings.tab_description_extensions":
-    "Manage MCP apps and plugins for this workspace",
   "settings.tab_description_general": `Manage models, permissions, and the current ${APP_NAME} workspace connection`,
   "settings.environment.add_button": "Add variable",
   "settings.environment.add_title": "Add environment variable",
@@ -703,10 +547,8 @@ export default {
   "settings.environment.click_to_edit": "Click to edit",
   "settings.environment.confirm_delete":
     "Delete {key}? Agents stop seeing this key after you apply changes.",
-  "settings.environment.close_editor": "Close editor",
   "settings.environment.delete": "Delete",
   "settings.environment.delete_title": "Delete environment variable",
-  "settings.environment.delete_variable": "Delete {key}",
   "settings.environment.deleting": "Deleting…",
   "settings.environment.description":
     "API keys for this device only. Apply changes to take effect.",
@@ -716,9 +558,7 @@ export default {
   "settings.environment.empty_title": "No environment variables yet",
   "settings.environment.empty_value": "(empty)",
   "settings.environment.footer_hint": `ONMYAGENT_ / OPENCODE_ are reserved`,
-  "settings.environment.override_hint": `Existing environment variables take precedence over saved values`,
   "settings.environment.hide": "Hide",
-  "settings.environment.hide_value": "Hide value for {key}",
   "settings.environment.key_hint":
     "Letters, digits, and underscores. Cannot start with a digit",
   "settings.environment.key_label": "Key",
@@ -745,7 +585,6 @@ export default {
   "settings.environment.restart_required":
     "Saved. Apply changes to make the update available.",
   "settings.environment.reveal": "Reveal",
-  "settings.environment.reveal_value": "Reveal value for {key}",
   "settings.environment.save": "Save",
   "settings.environment.saving": "Saving…",
   "settings.environment.title": "Environment variables",
@@ -762,18 +601,12 @@ export default {
     "Manage local environment and secrets",
   "settings.tab_description_recovery":
     "Reset onboarding or clear local app data",
-  "settings.tab_description_skills":
-    "Browse, edit, and install skills",
   "settings.tab_description_updates":
     "Check updates and manage installs",
   "settings.tab_environment": "Environment",
-  "settings.tab_environment_description":
-    "Manage software environment and variables",
   "settings.software_env.title": "Software Environment",
   "settings.software_env.description":
     "Install local runtimes so AI can run tasks better",
-  "settings.software_env.tool": "Tool",
-  "settings.software_env.description_col": "Description",
   "settings.software_env.status": "Status",
   "settings.software_env.loading": "Loading…",
   "settings.software_env.refresh": "Refresh status",
@@ -795,13 +628,9 @@ export default {
   "settings.software_env.runtime_name": "OpenCode",
   "settings.software_env.opencode_desc":
     "Local agent runtime used by OnMyAgent to run tasks",
-  "settings.tab_extensions": "Extensions",
-  "settings.extensions_card_description":
-    "MCPs, skills, plugins, and integrations",
   "settings.tab_general": "Overview",
   "settings.tab_recovery": "Reset",
-  "settings.tab_recovery_description": "Reset onboarding and clear data",
-  "settings.tab_memory": "Preferences",
+  "settings.tab_memory": "Personal",
   "settings.tab_description_memory":
     "Tone, custom instructions, personal info, and work habits",
   "settings.tab_conversation_memory": "Memory",
@@ -835,26 +664,8 @@ export default {
   "settings.memory_tasks": "Tasks",
   "settings.memory_tasks_desc":
     "The types of work tasks you frequently handle",
-  "settings.memory_preferences": "Preferences",
-  "settings.memory_preferences_desc":
-    "Customize the AI assistant's output style and format",
-  "settings.memory_doc_preference": "Document Preference",
-  "settings.memory_doc_preference_desc":
-    "Choose the default style for AI-generated documents",
-  "settings.memory_doc_data": "Data-driven",
-  "settings.memory_doc_data_desc":
-    "Prioritize tables, charts, and quantitative analysis",
-  "settings.memory_doc_narrative": "Narrative-driven",
-  "settings.memory_doc_narrative_desc":
-    "Prioritize paragraph narratives with highlighted key points",
-  "settings.memory_terminology": "Terminology / Format Preferences",
-  "settings.memory_terminology_desc":
-    "Enter industry terms or format preferences you commonly use",
-  "settings.memory_terminology_placeholder":
-    "e.g. GMV, conversion rate, amounts in ten-thousands",
   "settings.memory_save": "Save",
   "settings.memory_saved": "Saved",
-  "settings.memory_reset": "Reset",
 
   "settings.memory_conversation_section": "Conversation memory",
   "settings.memory_conversation_section_desc":
@@ -883,9 +694,7 @@ export default {
   "settings.memory_category_project": "Project",
   "settings.memory_category_preference": "Preference",
 
-  "settings.tab_skills": "Skills",
   "settings.tab_updates": "Updates",
-  "settings.tab_updates_description": "App version and update channel",
   "settings.tab_usage": "Usage",
   "settings.tab_description_usage": "Token usage and activity across workspaces",
   "settings.theme_dark": "Dark",
@@ -901,38 +710,21 @@ export default {
   "settings.update_available_notice_body":
     "OnMyAgent v{version} is available. Open the release page to download.",
   "settings.update_available_notice_action": "Open release page",
-  "settings.update_check_button": "Check now",
-  "settings.update_check_failed": "Couldn't check for updates",
-  "settings.update_checking": "Checking for updates…",
-  "settings.update_download_button": "Download",
-  "settings.update_downloading": "Downloading update…",
-  "settings.update_install_button": "Install & restart",
   "settings.update_last_checked": "Last checked {time}",
   "settings.update_published": "Released {date}",
-  "settings.update_ready": "Ready to install: v",
-  "settings.update_ready_version": "Ready to install: v{version}",
-  "settings.update_uptodate": "You're up to date",
   "settings.updates": "Updates",
-  "settings.updates_desc": `Keep ${APP_NAME} up to date`,
   "settings.updates_desktop_only":
     "Updates are only available in the desktop app.",
   "settings.updates_not_supported":
     "Updates are not supported in this environment.",
-  "settings.updates_title": "Updates",
-  "settings.window_appearance_desc": "Customize window appearance",
-  "settings.window_title": "Window appearance",
   "settings.worker_id_label": "Worker {id}",
   "settings.worker_unresolved": "Worker {runtimeWorkspaceId}",
-  "settings.workspace_config_desc":
-    "View or reset the settings file for this workspace",
-  "settings.workspace_config_title": "Workspace config",
   "settings.workspace_debug_events_label": "Workspace debug events",
   "settings.custom_provider_config": "Custom model provider configuration",
   "settings.permission_accessibility_desc":
     "Required for global shortcuts and app snapshot (frontmost-app capture)",
   "settings.permission_accessibility_label": "Accessibility",
   "settings.permission_authorize": "Authorize",
-  "settings.permission_authorized": "Authorized",
   "settings.permission_automation_desc":
     "Allow commands to other apps, such as Calendar, Reminders, and Notes. “Go to settings” first triggers the system permission prompt so this app can appear under Privacy & Security → Automation",
   "settings.permission_automation_label": "Automation",
@@ -952,7 +744,6 @@ export default {
   "settings.permission_revoke_hint":
     "To revoke an existing permission, use macOS System Settings",
   "settings.permission_settings_opened": "System Settings opened",
-  "settings.debug_deep_links_unavailable": "Debug deep links are not wired into the React settings route yet.",
   "settings.debug.electron_migration_artifact_url": "Electron artifact URL",
   "settings.debug.electron_migration_artifact_url_placeholder": "Paste a trusted Electron .zip/.exe/AppImage URL",
   "settings.debug.electron_migration_manual_override": "Advanced manual artifact override",
@@ -988,14 +779,9 @@ export default {
   "settings.browser.protocol": "Protocol {value}",
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
-  "settings.provider_edit_confirm_title": "Save changes to this model provider?",
-  "settings.provider_edit_confirm_desc":
-    "Saving updates this workspace’s model configuration. Reload to apply the changes.",
-  "settings.provider_edit_confirm_button": "Save changes",
   "settings.provider_delete_confirm_title": "Delete this model provider?",
   "settings.provider_delete_confirm_desc":
     "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
-  "settings.provider_more_actions": "More actions",
   "settings.provider_reload_required_title": "Reload to apply changes",
   "settings.provider_reload_required_desc":
     "Adding or changing model providers needs a quick reload (no app restart) before they work in new chats. Reload now to apply.",
@@ -1007,7 +793,6 @@ export default {
   "settings.tab_description_shortcuts": "Customize general, task, and session shortcuts",
   "settings.tab_app_snapshot": "App snapshot",
   "settings.tab_description_app_snapshot": "Capture the frontmost app screenshot and text as conversation context",
-  "settings.system_section_title": "System settings",
   "settings.system_section_desc": "Launch at login, keep awake, notifications, and related options",
   "settings.launch_at_login_label": "Launch at login",
   "settings.launch_at_login_desc": "Start OnMyAgent automatically when you sign in",
@@ -1027,29 +812,8 @@ export default {
   "settings.conversation_width_fixed": "Default",
   "settings.conversation_width_wide": "Wide",
   "settings.shortcuts_search_placeholder": "Search shortcuts…",
-  "settings.shortcuts_group_general": "General",
-  "settings.shortcuts_group_task": "Tasks",
-  "settings.shortcuts_group_session": "Session",
-  "settings.shortcuts_group_global": "Global",
   "settings.shortcuts_record_hint": "Click to record a new shortcut",
   "settings.shortcuts_action_openSettings": "Open settings",
-  "settings.shortcuts_action_toggleSidebar": "Toggle sidebar",
-  "settings.shortcuts_action_toggleTaskMonitor": "Toggle task monitor",
-  "settings.shortcuts_action_quickSwitchTask": "Quick switch task",
-  "settings.shortcuts_action_newTask": "Create new task",
-  "settings.shortcuts_action_searchAllTasks": "Search all tasks",
-  "settings.shortcuts_action_searchInCurrentTask": "Search in current task",
-  "settings.shortcuts_action_sendMessage": "Send message",
-  "settings.shortcuts_action_insertNewline": "Insert newline",
-  "settings.shortcuts_action_appSnapshot": "App snapshot",
-  "settings.shortcuts_reset_defaults": "Restore defaults",
-  "settings.app_snapshot_title": "App snapshot",
-  "settings.app_snapshot_desc": "Capture a screenshot and readable text from the frontmost app as conversation context. Requires accessibility and screen recording permissions. macOS may prompt on first use.",
-  "settings.app_snapshot_hotkey_label": "Global shortcut",
-  "settings.app_snapshot_hotkey_desc": "Press both Command keys at once (macOS). Windows uses a configurable accelerator.",
-  "settings.app_snapshot_hotkey_saved": "App snapshot shortcut saved. It takes effect after accessibility permission is granted.",
-  "settings.app_snapshot_open_accessibility": "Open Accessibility",
-  "settings.app_snapshot_capture_now": "Capture now",
   "settings.permission_screen_recording_label": "Screen recording",
   "settings.permission_screen_recording_desc": "Required for app snapshot and screen understanding features",
   "settings.permission_microphone_label": "Microphone",

@@ -132,7 +132,6 @@ export default {
   "identities.send_test_desc":
     "Validate outbound wiring. Use a peer ID for direct send, or leave peer ID empty to fan out by bindings in a directory.",
   "identities.send_test_title": "Send test message",
-  "identities.sending": "Sending...",
   "identities.slack_desc":
     "Your worker appears as a bot in Slack channels. Team members can message it directly or mention it in threads.",
   "identities.slack_intro":

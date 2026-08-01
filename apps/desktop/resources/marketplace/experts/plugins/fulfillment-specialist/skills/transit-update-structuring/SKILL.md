@@ -37,7 +37,7 @@ description: 把司机群聊、电话记录、位置截图和运输消息按运�
 - 需要导出业务表时：用 spreadsheets `write-xlsx` / `extract-sheets` 或 write 工具**真正写入**会话目录，并 `verify`；产物卡才会出现。
 - **禁止**只在正文写「已生成 xxx.xlsx」却不调用写入工具。
 - **禁止**正文以「已生成 **文件名.xlsx**」开场；先结论与要点，再展开。
-- 过程脚本与临时 JSON（如 `oma-summary.json`）只放 `os.tmpdir()` / `.opencode/tmp/`，禁止写会话根；不要输出 `文件路径：…`。
+- 过程脚本只放 `os.tmpdir()` / `.opencode/tmp/`；不要输出 `文件路径：…`。
 
 ## 边界
 

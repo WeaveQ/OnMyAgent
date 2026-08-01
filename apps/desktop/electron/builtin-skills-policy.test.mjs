@@ -55,8 +55,8 @@ describe("builtin-skills-policy", () => {
     ]) {
       assert.ok(names.includes(required), `missing core ${required}`);
     }
-    // Prefer single self-improving package for preinstall (not the -agent twin).
-    assert.equal(names.includes("self-improving-agent"), false);
+    // Twin package was removed from the shipped catalog.
+    assert.equal(BUNDLED_SKILL_PACKAGE_NAMES.includes("self-improving-agent"), false);
   });
 
   it("selectAgentSkillRoots never injects a bundled root path", () => {
