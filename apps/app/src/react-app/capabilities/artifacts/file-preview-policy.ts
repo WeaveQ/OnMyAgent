@@ -5,6 +5,8 @@
  * - Agent-bridge prompt seeding
  */
 
+import { t } from "../../../i18n";
+
 /** Skip heavy in-app text/image download above this size. */
 export const INLINE_CONTENT_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -77,7 +79,7 @@ export function isSamePreviewSelection(
 /**
  * Instruction after the @file mention chip for "Ask Agent about this file".
  * Do NOT re-embed the filename as plain text — the mention chip is the card;
- * duplicating the name as 「…」 made the bubble look non-clickable.
+ * duplicating the name as plain quoted text made the bubble look non-clickable.
  */
 export function buildAskAgentFileInstruction(input: {
   fileName: string;
@@ -86,16 +88,16 @@ export function buildAskAgentFileInstruction(input: {
   void input.fileName;
   const preview = String(input.preview ?? "");
   if (preview === "sheet") {
-    return "请查看该表格，总结关键数据，并说明需要我确认后才能改的地方。";
+    return t("files.ask_agent_instruction_sheet");
   }
   if (preview === "document" || preview === "presentation") {
-    return "请查看该文档，概括要点，并给出可执行的修改建议。";
+    return t("files.ask_agent_instruction_document");
   }
   if (preview === "image") {
-    return "请查看该图片，描述内容并说明可如何处理。";
+    return t("files.ask_agent_instruction_image");
   }
   if (preview === "pdf") {
-    return "请查看该 PDF，提炼要点并给出后续处理建议。";
+    return t("files.ask_agent_instruction_pdf");
   }
-  return "请查看该文件，说明内容概要，并告诉我可以如何处理。";
+  return t("files.ask_agent_instruction_generic");
 }

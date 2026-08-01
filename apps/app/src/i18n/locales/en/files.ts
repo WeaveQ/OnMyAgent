@@ -97,6 +97,16 @@ export default {
   "files.ask_agent": "Ask agent",
   "files.ask_agent_done_title": "Ready for agent",
   "files.ask_agent_done": "File attached in the composer — review and send",
+  "files.ask_agent_instruction_sheet":
+    "Please review this spreadsheet, summarize the key data, and note anything that needs my confirmation before changes.",
+  "files.ask_agent_instruction_document":
+    "Please review this document, summarize the main points, and suggest concrete edits.",
+  "files.ask_agent_instruction_image":
+    "Please review this image, describe the content, and suggest how I can work with it.",
+  "files.ask_agent_instruction_pdf":
+    "Please review this PDF, extract the key points, and suggest next steps.",
+  "files.ask_agent_instruction_generic":
+    "Please review this file, summarize what it contains, and tell me how I can work with it.",
   "files.preview_too_large": "This file is large. Open it with the default app instead of in-app preview.",
   "files.copy_path": "Copy path",
   "files.close_preview": "Close preview",
