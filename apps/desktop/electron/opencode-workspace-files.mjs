@@ -16,10 +16,10 @@ import {
 
 /**
  * @param {{
- *   globalOpencodeRoot: () => string,
- *   pathExists: (p: string) => Promise<boolean>,
- *   isDirectory: (p: string) => Promise<boolean>,
- * }} options
+ *   globalOpencodeRoot?: () => string,
+ *   pathExists?: (p: string) => Promise<boolean>,
+ *   isDirectory?: (p: string) => Promise<boolean>,
+ * }} [options]
  */
 export function createOpencodeWorkspaceFiles(options = {}) {
   const globalOpencodeRoot = options.globalOpencodeRoot;

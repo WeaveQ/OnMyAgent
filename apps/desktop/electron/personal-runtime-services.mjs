@@ -51,12 +51,12 @@ export function wrapChannelApiForLazyInit(api, ensureReady) {
  * touch, not app boot. Skills global scan lives in skills-scan.mjs (cached on demand).
  *
  * @param {{
- *   app: { getPath: (name: string) => string },
- *   runtimeManager: object,
- *   readWorkspaceState: () => Promise<{ workspaces?: Array<object> }>,
+ *   app?: { getPath: (name: string) => string },
+ *   runtimeManager?: object,
+ *   readWorkspaceState?: () => Promise<{ workspaces?: Array<object> }>,
  *   claudeProjectsRoot?: () => string,
  *   deferStartupReconcileMs?: number,
- * }} options
+ * }} [options]
  */
 export function createDesktopPersonalRuntimeServices(options = {}) {
   const app = options.app;

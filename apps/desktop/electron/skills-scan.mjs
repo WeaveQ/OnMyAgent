@@ -33,14 +33,14 @@ async function isDirectory(targetPath) {
 
 /**
  * @param {{
- *   getRealHomeDir: () => string,
- *   onmyagentUserSkillsRoot: () => string,
- *   legacyOnmyagentUserSkillsRoot: () => string,
- *   globalOpencodeRoot: () => string,
- *   bundledSkillsRootPath: () => string | null,
+ *   getRealHomeDir?: () => string,
+ *   onmyagentUserSkillsRoot?: () => string,
+ *   legacyOnmyagentUserSkillsRoot?: () => string,
+ *   globalOpencodeRoot?: () => string,
+ *   bundledSkillsRootPath?: () => string | null,
  *   packageSourceCandidates?: (packageName: string) => string[],
  *   refreshSkillLinks?: () => Promise<unknown>,
- * }} options
+ * }} [options]
  */
 export function createSkillsScan(options = {}) {
   const getRealHomeDir = options.getRealHomeDir;
