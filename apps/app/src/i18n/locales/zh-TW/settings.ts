@@ -545,6 +545,9 @@ export default {
   "settings.model_unavailable": "模型已不可用",
   "settings.no_models_found": "未找到模型。",
   "settings.send_feedback": "發送反饋",
+  "settings.menu_bar_status_item_label": "系統匣圖示",
+  "settings.menu_bar_status_item_desc":
+    "在 macOS 選單列或 Windows 系統匣顯示 OnMyAgent，方便快速顯示視窗、新建任務或退出",
   "settings.show_model_reasoning": "顯示模型推理",
   "settings.show_model_reasoning_desc":
     "當模型提供推理過程時，在界面中展開推理軌跡",

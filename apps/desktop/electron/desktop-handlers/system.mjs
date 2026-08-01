@@ -31,6 +31,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "getKeepSystemAwake",
   "setKeepSystemAwake",
   "setDockUnreadBadge",
+  "setStatusItemVisible",
+  "getStatusItemVisible",
   "getAgentReadySoundPath",
   "registerAppSnapshotHotkey",
   "unregisterAppSnapshotHotkey",
@@ -92,6 +94,8 @@ export function createSystemDomainHandlers({
   getKeepSystemAwake,
   setKeepSystemAwake,
   setDockUnreadBadge,
+  setStatusItemVisible,
+  getStatusItemVisible,
   getAgentReadySoundPath,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
@@ -233,6 +237,9 @@ export function createSystemDomainHandlers({
   getKeepSystemAwake: async () => getKeepSystemAwake(),
   setKeepSystemAwake: async (event, args) => setKeepSystemAwake(Boolean(args[0])),
   setDockUnreadBadge: async (event, args) => setDockUnreadBadge(args[0]),
+  setStatusItemVisible: async (event, args) =>
+    setStatusItemVisible(Boolean(args[0])),
+  getStatusItemVisible: async () => getStatusItemVisible(),
   getAgentReadySoundPath: async () => getAgentReadySoundPath(),
   registerAppSnapshotHotkey: async (event, args) =>
     registerAppSnapshotHotkey(args[0], () => {

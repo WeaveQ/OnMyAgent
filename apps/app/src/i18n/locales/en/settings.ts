@@ -614,6 +614,9 @@ export default {
   "settings.show_model_reasoning": "Show model reasoning",
   "settings.show_model_reasoning_desc":
     "Expand reasoning traces in the UI when a model exposes them",
+  "settings.menu_bar_status_item_label": "System tray icon",
+  "settings.menu_bar_status_item_desc":
+    "Show OnMyAgent in the menu bar (macOS) or system tray (Windows) for quick access",
   "settings.showing_models": "Showing {count} of {total}",
   "settings.startup": "Startup",
   "settings.startup_remote_warning":

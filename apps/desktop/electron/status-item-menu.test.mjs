@@ -5,6 +5,7 @@ import {
   STATUS_ITEM_ACTION,
   STATUS_ITEM_EVENTS,
   buildStatusItemMenuSpec,
+  resolveStatusItemIcon,
   resolveStatusItemLocale,
   shouldHideMainWindowOnClose,
   shouldInstallStatusItem,
@@ -13,23 +14,27 @@ import {
   statusItemLabels,
 } from "./status-item-menu.mjs";
 
-test("status item installs only on darwin", () => {
+test("status item installs on darwin and win32", () => {
   assert.equal(shouldInstallStatusItem("darwin"), true);
-  assert.equal(shouldInstallStatusItem("win32"), false);
+  assert.equal(shouldInstallStatusItem("win32"), true);
   assert.equal(shouldInstallStatusItem("linux"), false);
 });
 
-test("window-all-closed quits non-darwin only", () => {
-  assert.equal(shouldQuitOnWindowAllClosed("darwin"), false);
-  assert.equal(shouldQuitOnWindowAllClosed("win32"), true);
-  assert.equal(shouldQuitOnWindowAllClosed("linux"), true);
+test("window-all-closed: mac keeps alive; win quits only without tray", () => {
+  assert.equal(shouldQuitOnWindowAllClosed("darwin", true), false);
+  assert.equal(shouldQuitOnWindowAllClosed("darwin", false), false);
+  assert.equal(shouldQuitOnWindowAllClosed("win32", true), false);
+  assert.equal(shouldQuitOnWindowAllClosed("win32", false), true);
+  assert.equal(shouldQuitOnWindowAllClosed("linux", false), true);
 });
 
-test("hide-on-close only for darwin while not quitting", () => {
-  assert.equal(shouldHideMainWindowOnClose("darwin", false), true);
-  assert.equal(shouldHideMainWindowOnClose("darwin", true), false);
-  assert.equal(shouldHideMainWindowOnClose("win32", false), false);
-  assert.equal(shouldHideMainWindowOnClose("linux", true), false);
+test("hide-on-close: mac always; win only with tray visible", () => {
+  assert.equal(shouldHideMainWindowOnClose("darwin", false, true), true);
+  assert.equal(shouldHideMainWindowOnClose("darwin", false, false), true);
+  assert.equal(shouldHideMainWindowOnClose("darwin", true, true), false);
+  assert.equal(shouldHideMainWindowOnClose("win32", false, true), true);
+  assert.equal(shouldHideMainWindowOnClose("win32", false, false), false);
+  assert.equal(shouldHideMainWindowOnClose("linux", false, true), false);
 });
 
 test("menu spec groups six actions with separators (IA)", () => {
@@ -90,4 +95,51 @@ test("status-item events reuse native-menu bridge naming", () => {
     STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS,
     "onmyagent:native-menu:desktop-permissions",
   );
+});
+
+test("resolveStatusItemIcon prefers monochrome trayTemplate over brand PNG on mac", () => {
+  const files = new Set([
+    "/app/icons/trayTemplate.png",
+    "/app/icons/trayIcon.png",
+    "/app/icons/icon.png",
+  ]);
+  const existsSync = (p) => files.has(p);
+
+  const template = resolveStatusItemIcon({
+    appIconPath: "/app/icons/icon.png",
+    existsSync,
+    platform: "darwin",
+  });
+  assert.equal(template.path, "/app/icons/trayTemplate.png");
+  assert.equal(template.template, true);
+
+  const colorOnly = resolveStatusItemIcon({
+    appIconPath: "/app/icons/icon.png",
+    existsSync: (p) => p === "/app/icons/icon.png",
+    platform: "darwin",
+  });
+  assert.equal(colorOnly.path, "/app/icons/icon.png");
+  assert.equal(colorOnly.template, false);
+
+  const missing = resolveStatusItemIcon({
+    appIconPath: "/missing/icon.png",
+    existsSync: () => false,
+  });
+  assert.equal(missing.path, null);
+  assert.equal(missing.template, false);
+});
+
+test("resolveStatusItemIcon prefers color trayIcon on Windows", () => {
+  const files = new Set([
+    "/app/icons/trayTemplate.png",
+    "/app/icons/trayIcon.png",
+    "/app/icons/icon.png",
+  ]);
+  const color = resolveStatusItemIcon({
+    appIconPath: "/app/icons/icon.png",
+    existsSync: (p) => files.has(p),
+    platform: "win32",
+  });
+  assert.equal(color.path, "/app/icons/trayIcon.png");
+  assert.equal(color.template, false);
 });
