@@ -7,6 +7,7 @@ import {
   ChevronsLeft,
   ChevronDown,
   Clock3,
+  FileSearch,
   FolderPlus,
   Mic,
   Plus,
@@ -560,12 +561,11 @@ function SkillsPanel(props: {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-dls-text">{t("agents.expert_creation_skills")}</h3>
+        <div className="min-w-0 flex-1">
           <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_skills_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={() => setPickerOpen(true)}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPickerOpen(true)}>
             <Plus data-icon="inline-start" className="size-3.5" />
             {t("agents.expert_creation_add_skill")}
           </Button>
@@ -581,18 +581,6 @@ function SkillsPanel(props: {
               event.currentTarget.value = "";
             }}
           />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={props.importing}
-            onClick={() => inputRef.current?.click()}
-          >
-            <Upload data-icon="inline-start" className="size-3.5" />
-            {props.importing
-              ? t("agents.expert_creation_importing")
-              : t("agents.expert_creation_import_skill")}
-          </Button>
         </div>
       </div>
       {selectedSkills.length > 0 ? (
@@ -615,7 +603,7 @@ function SkillsPanel(props: {
                       </div>
                       <Switch
                         size="default"
-                        className="data-checked:border-dls-decision data-checked:bg-dls-decision"
+                        className="data-checked:border-dls-status-orange data-checked:bg-dls-status-orange"
                         checked={selected}
                         onCheckedChange={(checked) => {
                           if (checked !== selected) toggleSkill(skill.id);
@@ -633,18 +621,15 @@ function SkillsPanel(props: {
           })}
         </div>
       ) : (
-        <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
-          <IconCircle className="size-12 bg-dls-surface text-dls-secondary">
-            <Sparkles className="size-5" aria-hidden />
-          </IconCircle>
-          <h3 className="mt-4 text-sm font-semibold text-dls-text">{t("agents.expert_creation_no_skills")}</h3>
-          <p className="mt-1 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_no_skills_desc")}</p>
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+          <FileSearch className="size-20 text-dls-secondary" strokeWidth={1.2} aria-hidden />
+          <h3 className="mt-5 text-sm font-semibold text-dls-text">{t("agents.expert_creation_no_skills")}</h3>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setPickerOpen(true)}>
               <Plus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_add_skill")}
             </Button>
-            <Button type="button" variant="outline" size="sm" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => inputRef.current?.click()}>
               <Upload data-icon="inline-start" className="size-3.5" />
               {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
             </Button>
@@ -706,12 +691,11 @@ function KnowledgePanel(props: {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-dls-text">{t("agents.expert_creation_knowledge")}</h3>
+        <div className="min-w-0 flex-1">
           <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_knowledge_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => {
+          <Button type="button" size="sm" variant="ghost" onClick={() => {
             setFolderError(false);
             setFolderName("");
             setFolderDialogOpen(true);
@@ -801,7 +785,7 @@ function KnowledgePanel(props: {
           </p>
         </div>
       ) : (
-        <div className="flex min-h-96 flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
           <div className="flex items-end -space-x-2">
             <IconCircle className="size-10 rotate-[-8deg] bg-dls-background text-dls-accent">
               <Upload className="size-5" aria-hidden />
@@ -813,8 +797,7 @@ function KnowledgePanel(props: {
               <FolderPlus className="size-5" aria-hidden />
             </IconCircle>
           </div>
-          <h3 className="mt-6 text-base font-semibold text-dls-text">{t("agents.expert_creation_knowledge_empty")}</h3>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
+          <p className="mt-6 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => {
               setFolderError(false);
