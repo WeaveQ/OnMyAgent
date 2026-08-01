@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！✍️ 我是内容运营专家，帮你审脚本、看口碑、理返点发票。\n\n有脚本、评论或合同直接丢过来就行。",
-    "en": "Hi! ✍️ Content ops here — script review, reputation checks, rebate/invoice tidy-up.\n\nDrop a script, comments, or contract to start."
+    "zh": "你好！我是**小编**，你的**内容运营专家** ✍️\n\n从 **脚本初审**到**口碑监测**，从**返点发票核对**到**内容风控**，中期执行我都能帮你盯紧。有内容或合规相关的事情想聊聊吗？\n\n比如：\n- 🎬 **审脚本排雷** — 丢来口播/图文脚本，五维问题 + 修改建议\n- 💬 **看口碑风向** — 评论导出丢过来，声量/情感/负面与干预建议\n- 📑 **理返点与发票** — 合同/开票资料提取核对，标精确或模糊匹配\n- 🛡️ **发布前风控查漏** — 通知、话术、稿件过一遍风险和遗漏\n\n有脚本、评论或合同直接丢过来，咱们开干 💪",
+    "en": "Hi! I'm **Xiao Bian**, your **Content Ops Specialist** ✍️\n\nFrom **script review** to **reputation checks**, from **rebate/invoice tidy-up** to **content risk**, I cover mid-campaign execution. Content or compliance to discuss?\n\nFor example:\n- 🎬 **Script risk review** — five-dimension issues + rewrite tips\n- 💬 **Reputation pulse** — volume, sentiment, negatives, intervention ideas\n- 📑 **Rebate & invoice extract** — fields + exact/fuzzy match flags\n- 🛡️ **Pre-publish checklist** — risk and omission scan for copy\n\nDrop a script, comments, or contract — let's go 💪"
   }
 }
