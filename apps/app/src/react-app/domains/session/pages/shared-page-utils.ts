@@ -89,27 +89,44 @@ export function appendComposerFileMention(
   const nextDraft = /@([^\s@]*)$/u.test(draft)
     ? draft.replace(/@([^\s@]*)$/u, `@${token} `)
     : `${draft}${draft.length > 0 && !/\s$/u.test(draft) ? " " : ""}@${token} `;
-  store.setDraft(sessionId, nextDraft);
+  // Mentions map first, then draft — SyncPlugin needs the kind when the
+  // draft string lands so `@token` becomes a file chip, not plain text.
   store.setMentions(sessionId, { ...mentions, [path]: "file" });
+  store.setDraft(sessionId, nextDraft);
   return true;
 }
 
 /**
  * WP3: @mention a file and append a short agent instruction so the user can
  * send immediately ("让 Agent 处理此文件").
+ * Mentions map + draft are applied with retries so Lexical SyncPlugin sees both.
  */
 export function seedComposerFileAgentTask(
   sessionId: string,
   relativePath: string,
   instruction: string,
 ): boolean {
-  if (!appendComposerFileMention(sessionId, relativePath)) return false;
+  const path = relativePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!sessionId.trim() || !path) return false;
   const text = String(instruction ?? "").trim();
-  if (!text) return true;
-  const store = useComposerStateStore.getState();
-  const draft = getComposerDraft(store, sessionId);
-  const needsSpace = draft.length > 0 && !/\s$/u.test(draft);
-  store.setDraft(sessionId, `${draft}${needsSpace ? " " : ""}${text}`);
+  const token = encodeComposerMentionValue(path);
+  const draft = text ? `@${token} ${text}` : `@${token} `;
+
+  const apply = () => {
+    const store = useComposerStateStore.getState();
+    const mentions = getComposerMentions(store, sessionId);
+    store.setMentions(sessionId, { ...mentions, [path]: "file" });
+    store.setDraft(sessionId, draft);
+  };
+  apply();
+  // Retries so Lexical SyncPlugin sees mentions+draft after navigation/openChat.
+  // Guard for non-browser (unit tests).
+  if (typeof window !== "undefined") {
+    window.setTimeout(apply, 0);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(apply);
+    });
+  }
   return true;
 }
 
