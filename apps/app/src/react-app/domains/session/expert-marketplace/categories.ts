@@ -16,6 +16,7 @@ export const EXPERT_MARKETPLACE_CATEGORIES: ExpertMarketplaceCategory[] = [
   { id: "hr-legal", labelKey: "session.expert_marketplace_category_hr_legal", searchLabel: "人力法务 hr legal security compliance" },
   { id: "12-IndustryConsultant", labelKey: "session.expert_marketplace_category_industry_consultant", searchLabel: "行业顾问 industry consultant" },
   { id: "14-Logistics", labelKey: "session.expert_marketplace_category_logistics", searchLabel: "物流 logistics 货运 专线 冷运 3PL 城配 干线 冷链" },
+  { id: "15-CreatorOps", labelKey: "session.expert_marketplace_category_creator_ops", searchLabel: "达人运营 creator ops KOL 媒介 内容运营 复盘 种草" },
 ];
 
 export function normalizeExpertMarketplaceCategoryId(

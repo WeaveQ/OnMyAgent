@@ -248,6 +248,113 @@ describe("expert marketplace UI contract", () => {
     }
   });
 
+  test("ships the creator-ops vertical with three KOL specialists", () => {
+    const categories = readMarketplaceFile("categories.ts");
+    expect(categories).toContain('id: "15-CreatorOps"');
+    expect(categories).toContain("session.expert_marketplace_category_creator_ops");
+    expect(categories).toMatch(/达人运营/);
+
+    const localeRoots = [
+      join(repoRoot, "apps/app/src/i18n/locales/en/session.ts"),
+      join(repoRoot, "apps/app/src/i18n/locales/zh/session.ts"),
+      join(repoRoot, "apps/app/src/i18n/locales/zh-TW/session.ts"),
+    ];
+    for (const localePath of localeRoots) {
+      const text = readFileSync(localePath, "utf8");
+      expect(text).toContain("session.expert_marketplace_category_creator_ops");
+    }
+
+    const creatorPackages = [
+      "kol-media-specialist",
+      "kol-content-ops-specialist",
+      "kol-project-review-specialist",
+    ] as const;
+    const creatorSkills: Record<string, string[]> = {
+      "kol-media-specialist": [
+        "./skills/kol-brief-structuring",
+        "./skills/kol-talent-ranking",
+        "./skills/kol-data-clean-merge",
+        "./skills/kol-content-risk-checklist",
+      ],
+      "kol-content-ops-specialist": [
+        "./skills/kol-script-risk-review",
+        "./skills/kol-reputation-monitor",
+        "./skills/kol-rebate-invoice-audit",
+        "./skills/kol-content-risk-checklist",
+      ],
+      "kol-project-review-specialist": [
+        "./skills/kol-project-review-framework",
+        "./skills/kol-margin-effect-analysis",
+        "./skills/kol-data-clean-merge",
+        "./skills/kol-content-risk-checklist",
+      ],
+    };
+    const creatorProfessions: Record<string, string> = {
+      "kol-media-specialist": "媒介专家",
+      "kol-content-ops-specialist": "达人运营专家",
+      "kol-project-review-specialist": "项目复盘专家",
+    };
+
+    const expertManifest = JSON.parse(
+      readMarketplaceFile("builtin-experts.manifest.json"),
+    ) as {
+      experts?: Array<{
+        packageName?: string;
+        manifest?: {
+          categoryId?: string;
+          categoryIds?: string[];
+          profession?: { zh?: string };
+          displayName?: { zh?: string };
+          skills?: string[];
+          quickPrompts?: Array<{ en?: string; zh?: string }>;
+        };
+      }>;
+    };
+    const manifestNames = (expertManifest.experts ?? []).map((entry) => entry.packageName);
+    const assetMap = readMarketplaceFile("builtin-expert-assets.ts");
+
+    for (const packageName of creatorPackages) {
+      const packageRoot = join(builtinPluginsRoot, packageName);
+      const pluginPath = join(packageRoot, ".expert-plugin/plugin.json");
+      expect(existsSync(pluginPath)).toBe(true);
+      expect(existsSync(join(packageRoot, "agents"))).toBe(true);
+      const plugin = JSON.parse(readFileSync(pluginPath, "utf8")) as {
+        categoryId?: string;
+        categoryIds?: string[];
+        skills?: string[];
+      };
+      const categoryIds = [
+        ...(plugin.categoryId ? [plugin.categoryId] : []),
+        ...(Array.isArray(plugin.categoryIds) ? plugin.categoryIds : []),
+      ];
+      expect(categoryIds).toContain("15-CreatorOps");
+      expect(manifestNames).toContain(packageName);
+      expect(assetMap).toContain(`"${packageName}"`);
+
+      const entry = (expertManifest.experts ?? []).find((item) => item.packageName === packageName);
+      expect(entry?.manifest?.skills).toEqual(creatorSkills[packageName]);
+      expect(entry?.manifest?.quickPrompts?.length).toBeGreaterThanOrEqual(4);
+      expect(entry?.manifest?.profession?.zh).toBe(creatorProfessions[packageName]);
+      expect(entry?.manifest?.displayName?.zh).toBe(creatorProfessions[packageName]);
+      const cats = [
+        ...(entry?.manifest?.categoryId ? [entry.manifest.categoryId] : []),
+        ...(Array.isArray(entry?.manifest?.categoryIds) ? entry.manifest.categoryIds : []),
+      ];
+      expect(cats).toContain("15-CreatorOps");
+
+      const skillTree = join(packageRoot, "skills");
+      expect(existsSync(skillTree)).toBe(true);
+      const skillBlob = readdirSync(skillTree, { recursive: true })
+        .map((rel) => {
+          const full = join(skillTree, String(rel));
+          return statSync(full).isFile() ? readFileSync(full, "utf8") : "";
+        })
+        .join("\n");
+      expect(skillBlob).toContain("模板优先");
+      expect(skillBlob).toContain("用户提供的永远优先");
+    }
+  });
+
   test("keeps every practical logistics skill concise and preview-free", () => {
     const capabilitySkills: Array<[string, string]> = [
       ["order-dispatch-specialist", "shipment-data-structuring"],

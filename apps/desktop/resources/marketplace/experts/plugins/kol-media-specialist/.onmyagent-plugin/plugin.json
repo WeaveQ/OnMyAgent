@@ -1,0 +1,83 @@
+{
+  "name": "kol-media-specialist",
+  "version": "1.0.0",
+  "description": "KOL media specialist for brief structuring, talent ranking, data cleanup, and pre-pitch risk checks",
+  "author": {
+    "name": "Expert Marketplace"
+  },
+  "license": "MIT",
+  "expertType": "agent",
+  "agentName": "kol-media-specialist",
+  "agents": [
+    "./agents/kol-media-specialist.md"
+  ],
+  "skills": [
+    "./skills/kol-brief-structuring",
+    "./skills/kol-talent-ranking",
+    "./skills/kol-data-clean-merge",
+    "./skills/kol-content-risk-checklist"
+  ],
+  "displayName": {
+    "en": "Media Specialist",
+    "zh": "媒介专家"
+  },
+  "profession": {
+    "en": "KOL Media & Talent Matching",
+    "zh": "媒介专家"
+  },
+  "displayDescription": {
+    "en": "Structure client briefs, rank creators, clean talent data, and check pitch materials before confirmation.",
+    "zh": "面向达人营销团队：拆解 Brief、筛选分级达人、清洗合并达人数据，并对提报材料做风控与遗漏检查。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "15-CreatorOps",
+  "categoryIds": [
+    "01-OPC",
+    "15-CreatorOps"
+  ],
+  "defaultInitPrompt": {
+    "zh": "这是客户 Brief 和达人相关资料：XX。请按我们的模板（如有）拆解目标/需求/风险/下一步，并在需要时给出达人优先/备选/不建议分级。",
+    "en": "Here is the client brief and talent materials: XX. Structure goals/needs/risks/next steps using our template if provided, and rank talents when needed."
+  },
+  "tags": [
+    {
+      "zh": "Brief拆解",
+      "en": "Brief Structuring"
+    },
+    {
+      "zh": "达人筛选",
+      "en": "Talent Ranking"
+    },
+    {
+      "zh": "数据清洗",
+      "en": "Data Cleanup"
+    },
+    {
+      "zh": "提报检查",
+      "en": "Pitch Check"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "zh": "这是客户发来的 <Brief 或需求材料>。请按 <我们的 Brief 模板> 拆成目标、核心需求、已明确、待确认、风险和下一步，并标出还要问客户什么。",
+      "en": "Using <Client brief materials> and <Our brief template>, structure goals, needs, confirmed items, open questions, risks, and next steps."
+    },
+    {
+      "zh": "这是 <达人列表或数据表>。请按 <品牌调性、人群和内容方向> 分成优先推荐、可备选、不建议三类，说明理由，并按 <提报模板> 输出。",
+      "en": "Rank <Talent list/sheet> for <Brand/audience/content fit> into priority / backup / not recommended with reasons, using <Pitch template> if any."
+    },
+    {
+      "zh": "请把这些 <多份达人/合作/报价表> 清洗合并成一张表，按 <主键或对齐字段> 去重对齐，并给出基础可量化指标。",
+      "en": "Clean and merge <Multiple talent/coop/rate sheets> by <Join keys>, dedupe, and summarize basic metrics."
+    },
+    {
+      "zh": "请检查这份 <提报材料或需求文档> 有没有风控问题和遗漏项，按 <检查清单或模板> 列出问题与修改建议。",
+      "en": "Risk-check <Pitch or requirement doc> against <Checklist/template> and list issues plus fixes."
+    }
+  ],
+  "promptTemplates": "./prompt-templates.json",
+  "greeting": {
+    "zh": "你好！我是**小媒**，你的**媒介专家** 🎯\n\n从**策略 Brief**到**达人筛选**，从**数据清洗**到**提报检查**，前期对频我都能帮你搞定。有达人营销相关的事想聊聊吗？\n\n比如：\n- 📋 **拆客户 Brief** — 给需求和截图，我帮你出目标/待确认/风险表\n- ⭐ **筛达人分级** — 给达人池和品牌调性，排优先/备选/不建议\n- 📊 **合并清洗数据** — 多表去重对齐，输出能提报的干净表\n- ✅ **检查提报材料** — 提报前查漏项和风控坑\n- 🧩 **套模板出材料** — 按你的客户模板填，不发明格式\n\n直接说你的需求就行，咱们开干 💪",
+    "en": "Hi! I'm **Xiao Mei**, your **Media Specialist** 🎯\n\nFrom **brief structuring** to **talent ranking**, from **data cleanup** to **pitch checks**, I cover pre-campaign matching. Anything creator-marketing to chat about?\n\nFor example:\n- 📋 **Structure a brief** — goals / open questions / risks from your docs\n- ⭐ **Rank talents** — priority / backup / not recommended\n- 📊 **Clean & merge sheets** — deduped tables ready to pitch\n- ✅ **Check pitch materials** — gaps and risk before send\n- 🧩 **Fill your template** — follow your format, no invented fields\n\nJust tell me what you need — let's go 💪"
+  }
+}
