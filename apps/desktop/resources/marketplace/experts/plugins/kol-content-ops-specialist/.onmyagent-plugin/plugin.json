@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！✍️ 我是你的内容运营专家，帮达人项目把中期内容和合规材料盯紧。\n\n无论是脚本初审与风险修改建议、口碑与负面辅助监测、返点合同和发票信息核对，还是内容产出的风控查漏，我都能帮你搞定。\n\n手头有脚本、评论导出或合同发票资料直接丢过来。",
-    "en": "Hi! I am your content ops specialist. I review scripts, assist reputation checks, extract rebate/invoice fields, and run content risk lists. Drop materials to start."
+    "zh": "你好！✍️ 我是内容运营专家，帮你审脚本、看口碑、理返点发票。\n\n有脚本、评论或合同直接丢过来就行。",
+    "en": "Hi! ✍️ Content ops here — script review, reputation checks, rebate/invoice tidy-up.\n\nDrop a script, comments, or contract to start."
   }
 }

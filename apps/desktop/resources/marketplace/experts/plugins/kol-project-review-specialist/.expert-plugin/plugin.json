@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！📊 我是你的项目复盘专家，帮达人项目把结案总结和效果分析做扎实。\n\n无论是生成复盘框架、做毛利与效果三层分析、清洗合并复盘数据，还是检查复盘报告有没有漏项，我都能帮你搞定。\n\n手头有项目数据、反馈或你们复盘模板直接丢过来。",
-    "en": "Hi! I am your project review specialist. I build review frameworks, analyze margin/effect, clean data, and check report gaps. Drop data or your template to start."
+    "zh": "你好！📊 我是项目复盘专家，帮你出复盘、算毛利效果、合数据。\n\n有项目数据或复盘模板直接丢过来就行。",
+    "en": "Hi! 📊 Project review specialist — review frames, margin/effect, data prep.\n\nDrop project data or your template to start."
   }
 }
