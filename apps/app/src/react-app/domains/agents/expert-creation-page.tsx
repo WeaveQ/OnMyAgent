@@ -663,8 +663,15 @@ function KnowledgePanel(props: {
   const [folderName, setFolderName] = useState("");
 
   const addFiles = (files: File[]) => {
+    const validFiles = files.filter((file) => {
+      const relativePath = file.webkitRelativePath || file.name;
+      const directorySegments = relativePath.split("/").slice(0, -1);
+      return directorySegments.every((segment) => /^[A-Za-z0-9_-]+$/.test(segment));
+    });
+    setFolderError(validFiles.length !== files.length);
+    if (validFiles.length === 0) return;
     const next = new Map(props.entries.map((entry) => [entry.relativePath, entry]));
-    for (const file of files) {
+    for (const file of validFiles) {
       const relativePath = file.webkitRelativePath || file.name;
       next.set(relativePath, { kind: "file", relativePath, file });
     }
