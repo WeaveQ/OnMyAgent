@@ -92,11 +92,13 @@ test("session artifact panel uses OfficeFilePreview for local binary sheets", ()
     "utf8",
   );
   expect(artifactPanel).toContain('from "../../../capabilities/artifacts/office-file-preview"');
-  expect(artifactPanel).toContain("shouldPreviewBinarySheetViaOfficeOverlay");
+  expect(artifactPanel).toContain("shouldPreviewOfficeBinaryViaOverlay");
   expect(artifactPanel).toContain("<OfficeFilePreview");
   expect(artifactPanel).toContain("filePath={externalPath}");
   // Binary local path no longer exclusively dead-ends on UnsupportedBinaryNotice.
-  expect(artifactPanel).toContain("useLocalOfficeSheetPreview");
+  expect(artifactPanel).toContain("useLocalOfficePreview");
+  // Shared L1 action bar (open / reveal / copy / ask agent).
+  expect(artifactPanel).toContain("FilePreviewActionBar");
   // Same Electron gate as Files/side-panel — no pretend-preview in web runtime.
   expect(artifactPanel).toContain("isElectronRuntime");
   expect(artifactPanel).toContain("officePreviewAvailable: isElectronRuntime()");

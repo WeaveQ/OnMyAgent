@@ -113,7 +113,11 @@ import { WorkspaceFilesPage } from "../../workspace";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
-import { appendComposerFileMention } from "../pages/shared-page-utils";
+import {
+  appendComposerFileMention,
+  seedComposerFileAgentTask,
+} from "../pages/shared-page-utils";
+import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -762,6 +766,27 @@ export function SessionPage(props: SessionPageProps) {
                               dismissLabel: t("common.dismiss"),
                             });
                           }}
+                          onAskAgentAboutFile={({ path, name, preview }) => {
+                            if (
+                              !seedComposerFileAgentTask(
+                                pageView.renderedSessionId,
+                                path,
+                                buildAskAgentFileInstruction({
+                                  fileName: name,
+                                  preview,
+                                }),
+                              )
+                            ) {
+                              return;
+                            }
+                            agentPanel.openChatView();
+                            showToast({
+                              tone: "success",
+                              title: t("files.ask_agent_done_title"),
+                              description: t("files.ask_agent_done"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
                           onEditError={() => showToast({
                             tone: "error",
                             title: t("files.edit_file_failed"),
@@ -1152,6 +1177,27 @@ export function SessionPage(props: SessionPageProps) {
                         onSelectTarget={openTarget}
                         onDeleteTarget={removeAccessibleTarget}
                         onClose={closeRightPane}
+                        onAskAgentAboutFile={({ path, name, preview }) => {
+                          if (
+                            !seedComposerFileAgentTask(
+                              pageView.renderedSessionId,
+                              path,
+                              buildAskAgentFileInstruction({
+                                fileName: name,
+                                preview,
+                              }),
+                            )
+                          ) {
+                            return;
+                          }
+                          agentPanel.openChatView();
+                          showToast({
+                            tone: "success",
+                            title: t("files.ask_agent_done_title"),
+                            description: t("files.ask_agent_done"),
+                            dismissLabel: t("common.dismiss"),
+                          });
+                        }}
                       />
                     ) : activeSidePanel === "artifacts" ? (
                       <EmptyArtifactsPanel onClose={closeRightPane} />

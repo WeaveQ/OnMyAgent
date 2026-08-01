@@ -116,9 +116,11 @@ import { useStatusToasts } from "../../shell-feedback";
 
 import {
   appendComposerFileMention,
+  seedComposerFileAgentTask,
   setComposerDraftAfterNewTask,
   setExpertComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import {
   expertFeatureCategoryForAgent,
 } from "./expert-page-utils";
@@ -1436,6 +1438,27 @@ export function ExpertPage(props: ExpertPageProps) {
                               tone: "success",
                               title: t("files.added_to_task_title"),
                               description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
+                          onAskAgentAboutFile={({ path, name, preview }) => {
+                            if (
+                              !seedComposerFileAgentTask(
+                                renderedSessionId,
+                                path,
+                                buildAskAgentFileInstruction({
+                                  fileName: name,
+                                  preview,
+                                }),
+                              )
+                            ) {
+                              return;
+                            }
+                            openRailView("chat");
+                            showToast({
+                              tone: "success",
+                              title: t("files.ask_agent_done_title"),
+                              description: t("files.ask_agent_done"),
                               dismissLabel: t("common.dismiss"),
                             });
                           }}

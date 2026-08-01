@@ -63,3 +63,29 @@ export function shouldPreviewBinarySheetViaOfficeOverlay(input: {
   if (!abs || !looksLikeAbsoluteFilesystemPath(abs)) return false;
   return true;
 }
+
+/**
+ * Any local Office binary (sheet/document/presentation) eligible for Electron
+ * OfficeFilePreview — broader than sheet-only helper above.
+ */
+export function shouldPreviewOfficeBinaryViaOverlay(input: {
+  preview: string;
+  pathOrName: string;
+  isRemoteWorkspace?: boolean;
+  absoluteFilePath?: string | null;
+  officePreviewAvailable?: boolean;
+}): boolean {
+  if (!input.officePreviewAvailable) return false;
+  if (input.isRemoteWorkspace) return false;
+  const preview = String(input.preview ?? "");
+  const name = String(input.pathOrName ?? "");
+  const officePreview =
+    preview === "document" ||
+    preview === "presentation" ||
+    (preview === "sheet" && isBinarySpreadsheetPath(name));
+  if (!officePreview) return false;
+  if (isTextSpreadsheetPath(name)) return false;
+  const abs = String(input.absoluteFilePath ?? "").trim();
+  if (!abs || !looksLikeAbsoluteFilesystemPath(abs)) return false;
+  return true;
+}
