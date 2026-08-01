@@ -49,8 +49,8 @@ export default {
     "專家會話產物將在啟用寫入來源標記後顯示。現有工作區歷史檔請在「任務」中查看，避免誤歸類。",
   "files.import_to_workspace": "匯入到工作區",
   "files.uploading": "正在匯入…",
-  "files.upload_copy_success":
-    "已儲存工作區副本。對話中的修改只作用於副本，不會自動改本機原檔。",
+  "files.upload_copy_success": "已匯入 {count} 個檔案",
+  "files.upload_copy_success_one": "已匯入 1 個檔案",
   "files.upload_failed": "無法將檔案匯入工作區",
   "files.upload_too_large":
     "「{name}」大小為 {size}，超過匯入上限（{max}）。",
@@ -90,6 +90,10 @@ export default {
     "此類型暫不支援應用內預覽。點擊圖示可用本機預設程式開啟。",
   "files.open_with_default_app": "用預設程式開啟 {name}",
   "files.open_with_default_app_action": "用預設程式開啟",
+  "files.ask_agent": "讓 Agent 處理",
+  "files.ask_agent_done_title": "已交給對話",
+  "files.ask_agent_done": "檔案已加入輸入框，確認後傳送即可",
+  "files.preview_too_large": "檔案較大，建議用本機預設程式開啟，而不是應用內預覽。",
   "files.copy_path": "複製路徑",
   "files.close_preview": "關閉預覽",
   "files.collapse_tree": "收起文件樹",

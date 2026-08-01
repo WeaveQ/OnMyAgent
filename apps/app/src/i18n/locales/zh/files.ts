@@ -49,8 +49,8 @@ export default {
     "专家会话产物将在启用写入来源打标后显示。现有工作区历史文件请在「任务」中查看，避免误归类。",
   "files.import_to_workspace": "导入到工作区",
   "files.uploading": "正在导入…",
-  "files.upload_copy_success":
-    "已保存工作区副本。对话中的修改只作用于副本，不会自动改本机原文件。",
+  "files.upload_copy_success": "已导入 {count} 个文件",
+  "files.upload_copy_success_one": "已导入 1 个文件",
   "files.upload_failed": "无法将文件导入工作区",
   "files.upload_too_large":
     "「{name}」大小为 {size}，超过导入上限（{max}）。",
@@ -90,6 +90,10 @@ export default {
     "此类型暂不支持应用内预览。点击图标可用本机默认程序打开。",
   "files.open_with_default_app": "用默认程序打开 {name}",
   "files.open_with_default_app_action": "用默认程序打开",
+  "files.ask_agent": "让 Agent 处理",
+  "files.ask_agent_done_title": "已交给对话",
+  "files.ask_agent_done": "文件已加入输入框，确认后发送即可",
+  "files.preview_too_large": "文件较大，建议用本机默认程序打开，而不是应用内预览。",
   "files.copy_path": "复制路径",
   "files.close_preview": "关闭预览",
   "files.collapse_tree": "收起文件树",
