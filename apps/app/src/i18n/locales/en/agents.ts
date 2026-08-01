@@ -294,7 +294,7 @@ export default {
   "agents.expert_creation_knowledge_files": "{count} items",
   "agents.expert_creation_preview_title": "Try it",
   "agents.expert_creation_preview_empty": "Complete the expert setup on the left before testing.",
-  "agents.expert_creation_preview_placeholder": "Ask this expert something…",
+  "agents.expert_creation_preview_placeholder": "Enter a question or instruction",
   "agents.expert_creation_preview_model": "DeepSeek-V4-Flash",
   "agents.expert_creation_preview_send": "Send",
   "agents.expert_creation_saving": "Creating…",

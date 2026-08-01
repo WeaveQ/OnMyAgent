@@ -278,7 +278,7 @@ export default {
   "agents.expert_creation_knowledge_files": "{count} 项",
   "agents.expert_creation_preview_title": "试试效果",
   "agents.expert_creation_preview_empty": "请先完善左侧专家配置再进行调试",
-  "agents.expert_creation_preview_placeholder": "问问这个专家…",
+  "agents.expert_creation_preview_placeholder": "输入问题或指令",
   "agents.expert_creation_preview_model": "DeepSeek-V4-Flash",
   "agents.expert_creation_preview_send": "发送",
   "agents.expert_creation_saving": "正在创建…",
