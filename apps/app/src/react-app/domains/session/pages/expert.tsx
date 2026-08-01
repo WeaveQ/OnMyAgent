@@ -1111,30 +1111,20 @@ export function ExpertPage(props: ExpertPageProps) {
     props.onmyagentServerToken?.trim() ||
     props.onmyagentServerClient?.token?.trim() ||
     "";
-  const draftSessionId = `draft:${props.selectedWorkspaceId}`;
-  // Prefer the first-send bound real session so the content pane tracks the
-  // new tab immediately (tab strip already uses pendingTabSessionId).
-  const expertSurfaceSession = resolveExpertSurfaceSession({
-    draftSessionActive,
-    draftAgentId,
-    pendingAgent,
-    activeDraftSessionId,
-    selectedSessionId: props.selectedSessionId,
-    workspaceId: props.selectedWorkspaceId,
-  });
-  const renderedSessionId = expertSurfaceSession.sessionId;
-  const isDraftSession = expertSurfaceSession.draftOnly;
+  const { sessionId: renderedSessionId, draftOnly: isDraftSession } =
+    resolveExpertSurfaceSession({
+      draftSessionActive, draftAgentId, pendingAgent, activeDraftSessionId,
+      selectedSessionId: props.selectedSessionId,
+      workspaceId: props.selectedWorkspaceId,
+    });
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,
     surface: "expert",
   });
   const canRenderReactSurface = Boolean(
-    props.runtimeWorkspaceId &&
-    props.onmyagentServerClient &&
-    reactSessionBaseUrl &&
-    reactSessionToken &&
-    props.surface,
+    props.runtimeWorkspaceId && props.onmyagentServerClient
+    && reactSessionBaseUrl && reactSessionToken && props.surface,
   );
   const showBlockingStartupSkeleton = showStartupSkeleton && !canRenderReactSurface;
   const showNoExpertConversationEmptyState =
