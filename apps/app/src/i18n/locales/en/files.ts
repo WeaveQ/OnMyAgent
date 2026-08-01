@@ -87,6 +87,10 @@ export default {
   "files.preview_failed": "Failed to preview this file",
   "files.preview_opened_in_browser": "Opened in the built-in browser",
   "files.preview_unsupported": "This file cannot be previewed.",
+  "files.preview_unsupported_open_hint":
+    "In-app preview is not available for this type. Click the icon to open it with your default app.",
+  "files.open_with_default_app": "Open {name} with the default app",
+  "files.open_with_default_app_action": "Open with default app",
   "files.copy_path": "Copy path",
   "files.close_preview": "Close preview",
   "files.collapse_tree": "Collapse file tree",
