@@ -278,7 +278,7 @@ export default {
   "agents.expert_creation_knowledge_files": "{count} 項",
   "agents.expert_creation_preview_title": "試試效果",
   "agents.expert_creation_preview_empty": "請先完善左側專家設定再進行除錯",
-  "agents.expert_creation_preview_placeholder": "問問這個專家…",
+  "agents.expert_creation_preview_placeholder": "輸入問題或指令",
   "agents.expert_creation_preview_model": "DeepSeek-V4-Flash",
   "agents.expert_creation_preview_send": "傳送",
   "agents.expert_creation_saving": "正在建立…",
