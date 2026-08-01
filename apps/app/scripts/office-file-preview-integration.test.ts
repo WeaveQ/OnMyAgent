@@ -60,3 +60,26 @@ test("detaches the native preview before a full renderer reload", () => {
   expect(desktopWindow).toContain('webContents.on("did-start-navigation"');
   expect(desktopWindow).toContain("if (isMainFrame) artifactPreviewController.hide()");
 });
+
+test("session artifact panel uses OfficeFilePreview for local binary sheets", () => {
+  const artifactPanel = readFileSync(
+    resolve(
+      appRoot,
+      "src/react-app/domains/session/artifacts/artifact-panel.tsx",
+    ),
+    "utf8",
+  );
+  expect(artifactPanel).toContain('from "../../../capabilities/artifacts/office-file-preview"');
+  expect(artifactPanel).toContain("shouldPreviewBinarySheetViaOfficeOverlay");
+  expect(artifactPanel).toContain("<OfficeFilePreview");
+  expect(artifactPanel).toContain("filePath={externalPath}");
+  // Binary local path no longer exclusively dead-ends on UnsupportedBinaryNotice.
+  expect(artifactPanel).toContain("useLocalOfficeSheetPreview");
+  // CSV/TSV still go through built-in sheet editor with onSave (write path).
+  expect(artifactPanel).toContain("<SheetEditor");
+  expect(artifactPanel).toContain("onSave={saveSpreadsheetContent}");
+  // Office viewer path does not call save for binary workbooks.
+  expect(artifactPanel).not.toMatch(
+    /OfficeFilePreview[\s\S]{0,200}onSave/,
+  );
+});

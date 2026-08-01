@@ -19,6 +19,11 @@ import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { ArtifactIcon } from "./artifact-icon";
 import type { BinaryData, Data, OpenTarget, TextData } from "./open-target";
 import { resolveArtifactAbsolutePath } from "./open-target";
+import { OfficeFilePreview } from "../../../capabilities/artifacts/office-file-preview";
+import {
+  isBinarySpreadsheetPath,
+  shouldPreviewBinarySheetViaOfficeOverlay,
+} from "../../../capabilities/artifacts/sheet-preview-policy";
 import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
 
 import { t } from "../../../../i18n";
@@ -52,7 +57,12 @@ function absoluteWorkspacePath(root: string, path: string) {
 }
 
 function isTextContent(target: OpenTarget): boolean {
-  return ["markdown", "text", "sheet", "html"].includes(target.preview) && !/\.(xlsx|xls|ods)$/i.test(target.value);
+  // Binary Office workbooks are not inlined as text; CSV/TSV remain text sheets.
+  return (
+    ["markdown", "text", "sheet", "html"].includes(target.preview) &&
+    !isBinarySpreadsheetPath(target.value) &&
+    !isBinarySpreadsheetPath(target.name || "")
+  );
 }
 
 function inferContentType(target: OpenTarget): string | undefined {
@@ -77,6 +87,13 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState<OpenTarget | null>(null);
   const isDirectTextEdit = isTextContent(target) && target.preview === "markdown";
   const externalPath = useMemo(() => target.kind === "file" ? absoluteWorkspacePath(workspaceRoot, target.value) : target.value, [target.kind, target.value, workspaceRoot]);
+  const useLocalOfficeSheetPreview = shouldPreviewBinarySheetViaOfficeOverlay({
+    preview: target.preview,
+    // Prefer workspace path (has extension); fall back to display name.
+    pathOrName: target.value || target.name,
+    isRemoteWorkspace,
+    absoluteFilePath: target.kind === "file" ? externalPath : null,
+  });
 
   const { data, error, isError, isLoading } = useQuery<ArtifactQueryState>({
     queryKey: ["artifact-panel", workspaceId, target.id] as const,
@@ -92,6 +109,16 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
         const result = await client.readWorkspaceFile(workspaceId, target.value);
         
         return { kind: "text", data: result.content, updatedAt: result.updatedAt ?? null };
+      }
+
+      // Local binary Office sheets preview from disk via OfficeFilePreview — no blob download.
+      if (useLocalOfficeSheetPreview) {
+        return {
+          kind: "binary",
+          data: new ArrayBuffer(0),
+          contentType: null,
+          updatedAt: target.updatedAt ?? null,
+        };
       }
 
       const result = await client.downloadWorkspaceFile(workspaceId, target.value);
@@ -403,7 +430,14 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        {isLoading || (data?.kind === "binary" && !binaryObjectUrl) ? (
+        {useLocalOfficeSheetPreview ? (
+          <OfficeFilePreview
+            filePath={externalPath}
+            name={target.name || target.value}
+            revision={target.updatedAt ?? target.id}
+            className="h-full w-full"
+          />
+        ) : isLoading || (data?.kind === "binary" && !binaryObjectUrl) ? (
           <PreviewLoading />
         ) : isError ? (
           <PreviewError message={error instanceof Error ? error.message : "Failed to load artifact" } />
@@ -411,7 +445,7 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           <TextEditor value={draft} language={target.preview === "markdown" ? "markdown" : "text"} onChange={setDraft} />
         ) : target.preview === "markdown" && data?.kind === "text" ? (
           <MarkdownPreview content={data.data} />
-        ) : target.preview === "sheet" && /\.(xlsx|xls|ods)$/i.test(target.value) ? (
+        ) : target.preview === "sheet" && isBinarySpreadsheetPath(target.value) ? (
           <UnsupportedBinaryNotice
             onReveal={isRemoteWorkspace ? undefined : () => void revealDesktopItemInDir(externalPath)}
             onDownload={() => void download()}
