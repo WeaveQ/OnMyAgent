@@ -5,7 +5,6 @@ import {
   cp,
   mkdir,
   readFile,
-  readdir,
   realpath,
   rename,
   rm,
@@ -98,14 +97,14 @@ import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
+import { createSkillsScan } from "./skills-scan.mjs";
+import { createOpencodeWorkspaceFiles } from "./opencode-workspace-files.mjs";
 import {
   localWorkspaceId,
   normalizeWorkspacePathKey,
   onmyagentRemoteWorkspaceId,
   parseOnMyAgentWorkspaceIdFromUrl,
   remoteWorkspaceId,
-  sanitizeCommandName,
-  serializeCommandFrontmatter,
   stableWorkspaceId,
   stripOnMyAgentWorkspaceMount,
   validateSkillName,
@@ -115,16 +114,10 @@ import {
   defaultWorkspaceOnMyAgentConfig,
   envFlagEnabled,
   execResult,
-  extractDescription,
-  extractFrontmatterMap,
-  extractTrigger,
   forwardedDeepLinks,
-  pickUsableSkillDescription,
   isTransientNetworkError,
   normalizeDesktopBootstrapConfig,
   normalizeWorkspaceEntry,
-  resolveCommandsDir as resolveCommandsDirPure,
-  resolveOpencodeConfigPath as resolveOpencodeConfigPathPure,
 } from "./desktop-main-helpers.mjs";
 
 // --- Global crash guards (main process) ---
@@ -858,6 +851,43 @@ const {
   claudeProjectsRoot,
 });
 
+const {
+  listCommandNames,
+  writeCommandFile,
+  deleteCommandFile,
+  readOpencodeConfig,
+  writeOpencodeConfig,
+} = createOpencodeWorkspaceFiles({
+  globalOpencodeRoot,
+  pathExists,
+  isDirectory,
+});
+
+const {
+  listLocalSkills,
+  listBuiltinSkillCatalog,
+  ensureDefaultBuiltinSkillsOnce,
+  findSkillFile,
+  ensureProjectSkillRoot,
+  invalidateGlobalSkillRootsCache,
+} = createSkillsScan({
+  getRealHomeDir,
+  onmyagentUserSkillsRoot,
+  legacyOnmyagentUserSkillsRoot,
+  globalOpencodeRoot,
+  bundledSkillsRootPath,
+  packageSourceCandidates: (packageName) => {
+    const { candidates } = builtinSkillPackageSource(packageName);
+    return candidates;
+  },
+  refreshSkillLinks: () => runtimeManager.refreshSkillLinks(),
+});
+
+async function refreshRuntimeSkillLinks() {
+  invalidateGlobalSkillRootsCache();
+  return runtimeManager.refreshSkillLinks();
+}
+
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
 // singleton event bus is shared by every channel service's dispatcher, so a
@@ -1016,393 +1046,6 @@ async function mutateWorkspaceState(mutator) {
   return writeWorkspaceState(next);
 }
 
-function resolveOpencodeConfigPath(scope, projectDir) {
-  return resolveOpencodeConfigPathPure(scope, projectDir, globalOpencodeRoot());
-}
-
-async function readOpencodeConfig(scope, projectDir) {
-  const { jsoncPath, jsonPath } = resolveOpencodeConfigPath(scope, projectDir);
-  const chosenPath = (await pathExists(jsoncPath))
-    ? jsoncPath
-    : (await pathExists(jsonPath))
-      ? jsonPath
-      : jsoncPath;
-  const exists = await pathExists(chosenPath);
-  return {
-    path: chosenPath,
-    exists,
-    content: exists ? await readFile(chosenPath, "utf8") : null,
-  };
-}
-
-async function writeOpencodeConfig(scope, projectDir, content) {
-  const { jsoncPath, jsonPath } = resolveOpencodeConfigPath(scope, projectDir);
-  const targetPath = (await pathExists(jsoncPath))
-    ? jsoncPath
-    : (await pathExists(jsonPath))
-      ? jsonPath
-      : jsoncPath;
-  await mkdir(path.dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, content, "utf8");
-  return execResult(true, `Wrote ${targetPath}`);
-}
-
-function resolveCommandsDir(scope, projectDir) {
-  return resolveCommandsDirPure(scope, projectDir, globalOpencodeRoot());
-}
-
-async function listCommandNames(scope, projectDir) {
-  const commandsDir = resolveCommandsDir(scope, projectDir);
-  if (!(await isDirectory(commandsDir))) {
-    return [];
-  }
-  const entries = await readdir(commandsDir, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => entry.name.replace(/\.md$/, ""))
-    .sort();
-}
-
-async function writeCommandFile(scope, projectDir, command) {
-  const safeName = sanitizeCommandName(command?.name);
-  if (!safeName) {
-    throw new Error("command.name is required");
-  }
-  const commandsDir = resolveCommandsDir(scope, projectDir);
-  await mkdir(commandsDir, { recursive: true });
-  const filePath = path.join(commandsDir, `${safeName}.md`);
-  await writeFile(
-    filePath,
-    serializeCommandFrontmatter({ ...command, name: safeName }),
-    "utf8",
-  );
-  return execResult(true, `Wrote ${filePath}`);
-}
-
-async function deleteCommandFile(scope, projectDir, name) {
-  const safeName = sanitizeCommandName(name);
-  if (!safeName) {
-    throw new Error("name is required");
-  }
-  const commandsDir = resolveCommandsDir(scope, projectDir);
-  const filePath = path.join(commandsDir, `${safeName}.md`);
-  if (await pathExists(filePath)) {
-    await rm(filePath, { force: true });
-  }
-  return execResult(true, `Deleted ${filePath}`);
-}
-
-async function collectProjectSkillRoots(projectDir) {
-  const roots = [];
-  let current = path.resolve(projectDir);
-
-  while (true) {
-    const opencodeSkills = path.join(current, ".opencode", "skills");
-    const legacySkills = path.join(current, ".opencode", "skill");
-    const claudeSkills = path.join(current, ".claude", "skills");
-
-    if (await isDirectory(opencodeSkills)) roots.push(opencodeSkills);
-    if (await isDirectory(legacySkills)) roots.push(legacySkills);
-    if (await isDirectory(claudeSkills)) roots.push(claudeSkills);
-
-    if (await pathExists(path.join(current, ".git"))) {
-      break;
-    }
-
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-
-  return roots;
-}
-
-async function collectGlobalSkillRoots() {
-  const roots = [];
-  const sandboxHome = os.homedir();
-  const realHome = getRealHomeDir();
-  const bundledRoot = bundledSkillsRootPath();
-
-  const candidates = [
-    onmyagentUserSkillsRoot(),
-    legacyOnmyagentUserSkillsRoot(),
-    path.join(sandboxHome, ".claude", "skills"),
-    path.join(sandboxHome, ".agents", "skills"),
-    path.join(sandboxHome, ".agent", "skills"),
-    path.join(sandboxHome, ".codex", "skills"),
-    path.join(sandboxHome, ".cursor", "skills"),
-    path.join(sandboxHome, ".windsurf", "skills"),
-    path.join(sandboxHome, ".onmyagent", "skills"),
-    path.join(sandboxHome, "onmyagent", "skills"),
-    path.join(globalOpencodeRoot(), "skills"),
-  ];
-
-  // 如果沙箱家目录和真实家目录不同，也添加真实家目录路径
-  if (sandboxHome !== realHome) {
-    candidates.push(
-      path.join(realHome, ".config", "opencode", "skills"),
-      path.join(realHome, ".claude", "skills"),
-      path.join(realHome, ".agents", "skills"),
-      path.join(realHome, ".agent", "skills"),
-      path.join(realHome, ".codex", "skills"),
-      path.join(realHome, ".cursor", "skills"),
-      path.join(realHome, ".windsurf", "skills"),
-      path.join(realHome, ".onmyagent", "skills"),
-      path.join(realHome, "onmyagent", "skills"),
-    );
-  }
-
-  // Do NOT push bundledRoot here. Bundled packages are install sources only;
-  // Agent loads skills from user/workspace roots after install (connector model).
-  void bundledRoot;
-
-  for (const candidate of candidates) {
-    const isDir = await isDirectory(candidate);
-    if (isDir) {
-      roots.push(candidate);
-    }
-  }
-
-  console.log(`[DEBUG] collectGlobalSkillRoots: sandbox=${sandboxHome}, real=${realHome}, found ${roots.length} roots`);
-  return roots;
-}
-
-async function collectSkillRoots(projectDir) {
-  const roots = [
-    ...(await collectProjectSkillRoots(projectDir)),
-    ...(await collectGlobalSkillRoots()),
-  ];
-  return roots.filter((value, index) => roots.indexOf(value) === index);
-}
-
-async function findSkillDirsInRoot(root) {
-  const found = [];
-  if (!(await isDirectory(root))) return found;
-
-  console.log(`[DEBUG] findSkillDirsInRoot - scanning: ${root}`);
-
-  const entries = await readdir(root, { withFileTypes: true });
-  console.log(`[DEBUG] findSkillDirsInRoot - found ${entries.length} entries in ${root}`);
-
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      if (!(await isDirectory(path.join(root, entry.name)))) continue;
-    } else if (!entry.isDirectory()) {
-      continue;
-    }
-    const direct = path.join(root, entry.name);
-    if (await pathExists(path.join(direct, "SKILL.md"))) {
-      found.push(direct);
-      continue;
-    }
-
-    const nestedEntries = await readdir(direct, { withFileTypes: true }).catch(
-      () => [],
-    );
-    for (const nested of nestedEntries) {
-      if (nested.isSymbolicLink()) {
-        if (!(await isDirectory(path.join(direct, nested.name)))) continue;
-      } else if (!nested.isDirectory()) {
-        continue;
-      }
-      const nestedDir = path.join(direct, nested.name);
-      if (await pathExists(path.join(nestedDir, "SKILL.md"))) {
-        found.push(nestedDir);
-      }
-    }
-  }
-
-  console.log(`[DEBUG] findSkillDirsInRoot - found ${found.length} skill dirs in ${root}`);
-  return found;
-}
-
-let defaultBuiltinSkillsEnsured = false;
-
-async function ensureDefaultBuiltinSkillsOnce() {
-  if (defaultBuiltinSkillsEnsured) return { ok: true, installed: [], skipped: [], errors: [] };
-  defaultBuiltinSkillsEnsured = true;
-  try {
-    const { ensureDefaultBuiltinSkills } = await import(
-      "./ensure-default-builtin-skills.mjs"
-    );
-    const result = await ensureDefaultBuiltinSkills({
-      bundledRoot: bundledSkillsRootPath(),
-      userSkillsRoot: onmyagentUserSkillsRoot(),
-      packageSourceCandidates: (packageName) => {
-        const { candidates } = builtinSkillPackageSource(packageName);
-        return candidates;
-      },
-    });
-    if (result.installed.length > 0) {
-      await runtimeManager.refreshSkillLinks().catch(() => undefined);
-      console.info(
-        "[skills] core preinstall:",
-        result.installed.join(", "),
-      );
-    }
-    if (result.errors.length > 0) {
-      console.warn("[skills] core preinstall issues:", result.errors.join("; "));
-    }
-    return result;
-  } catch (error) {
-    console.warn("[skills] ensureDefaultBuiltinSkills failed", error);
-    return {
-      ok: false,
-      installed: [],
-      skipped: [],
-      errors: [error instanceof Error ? error.message : String(error)],
-    };
-  }
-}
-
-async function listLocalSkills(projectDir) {
-  if (!String(projectDir ?? "").trim()) {
-    throw new Error("projectDir is required");
-  }
-
-  await ensureDefaultBuiltinSkillsOnce();
-
-  const LOCALE_KEYS = ["display_name_zh", "display_name_en", "description_zh", "description_en"];
-  const seen = new Set();
-  const out = [];
-  for (const root of await collectSkillRoots(projectDir)) {
-    for (const skillDir of await findSkillDirsInRoot(root)) {
-      const name = path.basename(skillDir);
-      if (seen.has(name)) {
-        continue;
-      }
-      seen.add(name);
-      let raw = "";
-      try {
-        raw = await readFile(path.join(skillDir, "SKILL.md"), "utf8");
-      } catch {
-        raw = "";
-      }
-      const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
-      out.push({
-        name,
-        path: skillDir,
-        description: pickUsableSkillDescription(
-          localeMap.description_zh,
-          localeMap.description_en,
-          localeMap.description,
-          extractDescription(raw),
-        ),
-        trigger: extractTrigger(raw) ?? undefined,
-        root,
-        readonly: bundledSkillsRootPath() === root,
-        displayNameZh: localeMap.display_name_zh,
-        displayNameEn: localeMap.display_name_en,
-        descriptionZh: pickUsableSkillDescription(localeMap.description_zh),
-        descriptionEn: pickUsableSkillDescription(
-          localeMap.description_en,
-          localeMap.description,
-        ),
-      });
-    }
-  }
-
-  return out.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-async function listBuiltinSkillCatalog() {
-  await ensureDefaultBuiltinSkillsOnce();
-  const { buildBuiltinSkillCatalogEntries } = await import(
-    "./builtin-skills-policy.mjs"
-  );
-  const bundledRoot = bundledSkillsRootPath();
-  const packageNames = [];
-  if (bundledRoot && (await isDirectory(bundledRoot))) {
-    const entries = await readdir(bundledRoot, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith(".")) continue;
-      const skillMd = path.join(bundledRoot, entry.name, "SKILL.md");
-      if (await pathExists(skillMd)) packageNames.push(entry.name);
-    }
-  }
-  packageNames.sort((a, b) => a.localeCompare(b));
-
-  const userRoot = onmyagentUserSkillsRoot();
-  const installed = [];
-  if (await isDirectory(userRoot)) {
-    const entries = await readdir(userRoot, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-      const skillMd = path.join(userRoot, entry.name, "SKILL.md");
-      if (await pathExists(skillMd)) installed.push(entry.name);
-    }
-  }
-
-  const base = buildBuiltinSkillCatalogEntries({
-    packageNames,
-    installedSkillNames: installed,
-  });
-
-  const LOCALE_KEYS = [
-    "display_name_zh",
-    "display_name_en",
-    "description",
-    "description_zh",
-    "description_en",
-  ];
-  const enriched = [];
-  for (const entry of base) {
-    let description;
-    let displayNameZh;
-    let displayNameEn;
-    if (bundledRoot) {
-      try {
-        const raw = await readFile(
-          path.join(bundledRoot, entry.packageName, "SKILL.md"),
-          "utf8",
-        );
-        const localeMap = extractFrontmatterMap(raw, LOCALE_KEYS);
-        description = pickUsableSkillDescription(
-          localeMap.description_zh,
-          localeMap.description_en,
-          localeMap.description,
-          extractDescription(raw),
-        );
-        displayNameZh = localeMap.display_name_zh;
-        displayNameEn = localeMap.display_name_en;
-      } catch {
-        /* ignore missing read */
-      }
-    }
-    enriched.push({
-      ...entry,
-      description,
-      displayNameZh,
-      displayNameEn,
-    });
-  }
-  return { skills: enriched };
-}
-
-async function findSkillFile(projectDir, name) {
-  const safeName = validateSkillName(name);
-  for (const root of await collectSkillRoots(projectDir)) {
-    const direct = path.join(root, safeName, "SKILL.md");
-    if (await pathExists(direct)) return direct;
-
-    const entries = await readdir(root, { withFileTypes: true }).catch(
-      () => [],
-    );
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const nested = path.join(root, entry.name, safeName, "SKILL.md");
-      if (await pathExists(nested)) return nested;
-    }
-  }
-  return null;
-}
-
-async function ensureProjectSkillRoot(projectDir) {
-  await mkdir(onmyagentUserSkillsRoot(), { recursive: true });
-  return onmyagentUserSkillsRoot();
-}
-
 function engineDoctor(options = {}) {
   return runtimeManager.engineDoctor(options);
 }
@@ -1493,7 +1136,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   myExpertPackageFiles,
   findSkillFile,
   isBundledSkillPath,
-  refreshRuntimeSkillLinks: () => runtimeManager.refreshSkillLinks(),
+  refreshRuntimeSkillLinks,
   // system
   userAgentRegistryPath,
   stat,

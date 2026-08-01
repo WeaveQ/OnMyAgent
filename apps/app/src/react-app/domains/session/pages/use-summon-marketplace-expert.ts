@@ -4,10 +4,10 @@
 import { useCallback } from "react";
 
 import { usePendingAgentStore } from "../../agents";
-import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
-import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
-import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
+import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import { resolveMarketplaceExpertStartPrompt } from "@/react-app/domains/plugins";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import {
   setExpertComposerDraftAfterNewTask,
   setExpertComposerTemplateAfterNewTask,

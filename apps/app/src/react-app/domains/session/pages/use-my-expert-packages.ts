@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { listExpertPackages } from "../../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../../app/utils";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import {
   isVisibleExpertPackageEntry,
   packageEntryToMarketplaceExpert,

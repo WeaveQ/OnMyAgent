@@ -41,8 +41,8 @@ const fileAllowlist = new Set([
   'apps/app/src/i18n/index.ts',
   // Marketplace category haystacks：这两个文件是搜索匹配用的字典，同时承载
   // zh+en 关键词，不是普通 UI 文案。UI 展示走各自 labelKey 的 t() 键。
-  'apps/app/src/react-app/domains/session/expert-marketplace/categories.ts',
-  'apps/app/src/react-app/domains/session/skills-marketplace/categories.ts',
+  'apps/app/src/react-app/domains/plugins/expert-marketplace/categories.ts',
+  'apps/app/src/react-app/domains/plugins/skills-marketplace/categories.ts',
   // Legacy value normalizer: CJK map keys are backend value keys, not UI copy.
   'apps/app/src/react-app/domains/settings/pages/legacy-profile-options.ts',
   // Agent-output matching heuristics (product cards / follow-up chips), not UI copy.

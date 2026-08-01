@@ -1,10 +1,11 @@
 # domains/session
 
 Session runtime domain: pages, sidebar, chat hosts, surface (transcript / composer / goal),
-artifacts, control, sync, marketplace, voice, browser, infinite canvas.
+artifacts, control, sync, voice, browser, infinite canvas.
 
 This is the largest app domain. Prefer extracting product surfaces that are not live
-conversation runtime into sibling domains (`local-agents`, `messaging`, `workspace`, …).
+conversation runtime into sibling domains (`plugins` marketplace, `local-agents`,
+`messaging`, `workspace`, …). Expert/skills marketplace lives under `domains/plugins`.
 
 ## Public surface
 

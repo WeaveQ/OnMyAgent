@@ -454,9 +454,8 @@ export function AgentSessionTabs(props: {
 
   const queryClient = useQueryClient();
 
-  // Resolve default OpenCode titles from the first user message. The selected
-  // expert tab gets one immediate lightweight snapshot; remaining tabs wait
-  // for the deferred warm phase and stay capped.
+  // Resolve default OpenCode titles from the first user message. Selected tab
+  // only (TAB_TITLE_SNAPSHOT_MAX=1) — non-selected tabs do not prefetch.
   const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
     enabled: Boolean(props.client),
     sessions: orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),

@@ -87,7 +87,10 @@ describe("personal usage UI contract", () => {
   test("hosts usage under global settings, not session sidebar views", async () => {
     const usageView = await source(settingsRoot, "pages/usage-view.tsx");
     const settingsPage = await source(settingsRoot, "shell/settings-page.tsx");
-    const settingsRoute = await source(shellRoot, "settings-route/render.tsx");
+    const settingsTabBody = await source(
+      shellRoot,
+      "settings-route/settings-tab-body.tsx",
+    );
     const assistant = await source(sessionRoot, "pages/assistant.tsx");
     const expert = await source(sessionRoot, "pages/expert.tsx");
     const sessionPage = await source(sessionRoot, "chat/session-page.tsx");
@@ -96,8 +99,8 @@ describe("personal usage UI contract", () => {
     expect(usageView).toContain("PersonalUsagePage");
     expect(settingsPage).toContain('"usage"');
     expect(settingsPage).toContain("getGlobalSettingsTabs");
-    expect(settingsRoute).toContain('case "usage"');
-    expect(settingsRoute).toContain("LazyUsageView");
+    expect(settingsTabBody).toContain('case "usage"');
+    expect(settingsTabBody).toContain("LazyUsageView");
 
     expect(assistant).not.toContain("PersonalUsagePage");
     expect(expert).not.toContain("PersonalUsagePage");
