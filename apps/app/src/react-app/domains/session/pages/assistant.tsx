@@ -139,8 +139,7 @@ export type AssistantPageProps = SessionPageProps & {
 };
 
 import {
-  appendComposerFileMention,
-  seedComposerFileAgentTask,
+  createWorkspaceFilesAgentHandlers,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
@@ -1287,46 +1286,13 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
-                          onToast={showToast}
                           onOpenArtifact={openTarget}
-                          onAddToTask={(relativePath) => {
-                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
-                              return;
-                            }
-                            openRailView("assistant");
-                            showToast({
-                              tone: "success",
-                              title: t("files.added_to_task_title"),
-                              description: t("files.added_to_task"),
-                              dismissLabel: t("common.dismiss"),
-                            });
-                          }}
-                          onAskAgentAboutFile={({ path, name, preview }) => {
-                            if (
-                              !seedComposerFileAgentTask(
-                                renderedSessionId,
-                                path,
-                                buildAskAgentFileInstruction({
-                                  fileName: name,
-                                  preview,
-                                }),
-                              )
-                            ) {
-                              return;
-                            }
-                            openRailView("assistant");
-                            showToast({
-                              tone: "success",
-                              title: t("files.ask_agent_done_title"),
-                              description: t("files.ask_agent_done"),
-                              dismissLabel: t("common.dismiss"),
-                            });
-                          }}
-                          onEditError={() => showToast({
-                            tone: "error",
-                            title: t("files.edit_file_failed"),
-                            dismissLabel: t("common.dismiss"),
-                            durationMs: 0,
+                          {...createWorkspaceFilesAgentHandlers({
+                            sessionId: renderedSessionId,
+                            openRail: () => openRailView("assistant"),
+                            showToast,
+                            buildInstruction: buildAskAgentFileInstruction,
+                            t,
                           })}
                         />
                       ),

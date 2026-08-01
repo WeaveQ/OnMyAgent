@@ -24,7 +24,10 @@ import {
   type FilesSourceTab,
 } from "./workspace-files-model";
 import { WorkspaceFilesBrowserPanel } from "./workspace-files-browser-panel";
-import { WorkspaceFilesUploadsPanel } from "./workspace-files-uploads-panel";
+import {
+  WorkspaceFilesUploadsPanel,
+  type WorkspaceFilesToastInput,
+} from "./workspace-files-uploads-panel";
 
 // Re-export pure root resolver for existing callers/tests.
 export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
@@ -59,12 +62,7 @@ export function WorkspaceFilesPage(props: {
     name: string;
     preview: string;
   }) => void;
-  onToast?: (input: {
-    tone: "success" | "error" | "warning" | "info";
-    title: string;
-    description?: string | null;
-    dismissLabel?: string;
-  }) => void;
+  onToast?: (input: WorkspaceFilesToastInput) => void;
 }) {
   const [activeTab, setActiveTab] = useState<FilesSourceTab>(
     DEFAULT_FILES_SOURCE_TAB,

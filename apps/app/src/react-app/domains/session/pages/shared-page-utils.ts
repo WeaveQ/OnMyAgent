@@ -98,7 +98,7 @@ export function appendComposerFileMention(
 
 /**
  * WP3: @mention a file and append a short agent instruction so the user can
- * send immediately ("让 Agent 处理此文件").
+ * send immediately (Ask Agent about this file).
  * Mentions map + draft are applied with retries so Lexical SyncPlugin sees both.
  */
 export function seedComposerFileAgentTask(
@@ -128,6 +128,71 @@ export function seedComposerFileAgentTask(
     });
   }
   return true;
+}
+
+type FilesToast = (input: {
+  tone: "success" | "error" | "warning" | "info";
+  title: string;
+  description?: string | null;
+  dismissLabel?: string;
+  durationMs?: number;
+}) => void;
+
+/** Shared Files-page handlers for add-to-task / ask-agent / edit-error / toast. */
+export function createWorkspaceFilesAgentHandlers(input: {
+  sessionId: string;
+  openRail: () => void;
+  showToast: FilesToast;
+  buildInstruction: (input: { fileName: string; preview?: string }) => string;
+  t: (key: string) => string;
+}) {
+  const { sessionId, openRail, showToast, buildInstruction, t } = input;
+  return {
+    onToast: showToast,
+    onAddToTask: (relativePath: string) => {
+      if (!appendComposerFileMention(sessionId, relativePath)) return;
+      openRail();
+      showToast({
+        tone: "success",
+        title: t("files.added_to_task_title"),
+        description: t("files.added_to_task"),
+        dismissLabel: t("common.dismiss"),
+      });
+    },
+    onAskAgentAboutFile: ({
+      path,
+      name,
+      preview,
+    }: {
+      path: string;
+      name: string;
+      preview: string;
+    }) => {
+      if (
+        !seedComposerFileAgentTask(
+          sessionId,
+          path,
+          buildInstruction({ fileName: name, preview }),
+        )
+      ) {
+        return;
+      }
+      openRail();
+      showToast({
+        tone: "success",
+        title: t("files.ask_agent_done_title"),
+        description: t("files.ask_agent_done"),
+        dismissLabel: t("common.dismiss"),
+      });
+    },
+    onEditError: () =>
+      showToast({
+        tone: "error",
+        title: t("files.edit_file_failed"),
+        dismissLabel: t("common.dismiss"),
+        durationMs: 0,
+      }),
+  };
 }
 
 export function setExpertComposerDraftAfterNewTask(
