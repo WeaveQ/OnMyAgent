@@ -48,6 +48,7 @@ import {
 import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import { FileHoverPopup } from "./file-hover-popup";
 import {
   canEditArtifactTarget,
   openArtifactForEditing,
@@ -698,9 +699,32 @@ export function WorkspaceFilesUploadsPanel(props: {
                           name={row.name}
                           className="size-4 shrink-0"
                         />
-                        <span className="truncate font-medium text-dls-text">
-                          {row.name}
-                        </span>
+                        <FileHoverPopup
+                          name={row.name}
+                          pathLabel={
+                            workspaceRoot
+                              ? absoluteForRow(row)
+                              : workspaceRelativeInboxPath(row.path)
+                          }
+                          sizeLabel={formatWorkspaceFileSize(row.size)}
+                          updatedLabel={
+                            row.updatedAt
+                              ? formatWorkspaceFileTime(row.updatedAt)
+                              : undefined
+                          }
+                          onView={() => setSelectedId(row.id)}
+                          onOpenFile={() => void handleOpenExternally(row)}
+                          onOpenInFolder={
+                            workspaceRoot && isElectronRuntime()
+                              ? () => void handleOpenInFolder(row)
+                              : undefined
+                          }
+                          onCopyPath={() => void handleCopyPath(row)}
+                        >
+                          <span className="truncate font-medium text-dls-text underline-offset-2 group-hover:underline">
+                            {row.name}
+                          </span>
+                        </FileHoverPopup>
                       </div>
                     </TableCell>
                     <TableCell className="text-left text-dls-secondary">
