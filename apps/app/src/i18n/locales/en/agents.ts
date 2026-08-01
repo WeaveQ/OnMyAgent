@@ -262,8 +262,14 @@ export default {
     "Write long-term information this expert should remember about itself…",
   "agents.expert_creation_avatar_hint": "Choose an avatar or upload an image",
   "agents.expert_creation_avatar": "Expert avatar",
+  "agents.expert_creation_generate_avatar": "Generate avatar with AI",
+  "agents.expert_creation_name_placeholder": "Enter expert name (required)",
   "agents.expert_creation_intro": "Introduction",
-  "agents.expert_creation_intro_placeholder": "Briefly introduce what this expert is good at…",
+  "agents.expert_creation_intro_placeholder": "Introduce this expert’s function",
+  "agents.expert_creation_skills_desc":
+    "Skills are ready-made playbooks that keep the expert from starting every task from scratch.",
+  "agents.expert_creation_knowledge_desc":
+    "These materials become this expert’s private knowledge and are referenced first when it works.",
   "agents.expert_creation_add_skill": "Add skill",
   "agents.expert_creation_import_skill": "Import skill package",
   "agents.expert_creation_skill_picker_title": "Choose skills",
