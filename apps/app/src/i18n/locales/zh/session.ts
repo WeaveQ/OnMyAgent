@@ -49,6 +49,7 @@ export default {
   "session.expert_marketplace_category_game_spatial": "游戏空间",
   "session.expert_marketplace_category_data_ai": "数据智能",
   "session.expert_marketplace_category_product_operations": "产品运营",
+  "session.expert_marketplace_category_creator_ops": "达人运营",
   "session.expert_marketplace_category_sales_commerce": "销售商务",
   "session.expert_marketplace_category_finance_investment": "金融投资",
   "session.expert_marketplace_category_hr_legal": "人力法务",
