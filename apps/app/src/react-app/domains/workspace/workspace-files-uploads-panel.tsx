@@ -403,8 +403,14 @@ export function WorkspaceFilesUploadsPanel(props: {
           const path = buildUserUploadRelativePath(file.name);
           await props.client.uploadInbox(workspaceId, file, { path });
         }
-        setUploadNotice(t("files.upload_copy_success"));
+        // Keep source_uploads_desc as the only policy line; success is brief.
+        setUploadNotice(
+          files.length === 1
+            ? t("files.upload_copy_success_one")
+            : t("files.upload_copy_success", { count: String(files.length) }),
+        );
         setRefreshKey((key) => key + 1);
+        window.setTimeout(() => setUploadNotice(null), 4000);
       } catch (uploadError) {
         setError(formatUploadError(uploadError, currentFile));
       } finally {
