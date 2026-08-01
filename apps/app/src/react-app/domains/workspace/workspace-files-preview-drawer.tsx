@@ -19,12 +19,67 @@ import {
   PlainText,
   PreviewError,
   PreviewLoading,
-  PreviewUnavailable,
 } from "../../capabilities/artifacts/preview";
 import {
   formatWorkspaceFileSize,
   formatWorkspaceFileTime,
 } from "../../capabilities/artifacts/workspace-file-tree";
+
+/** Centered icon + hint when the file cannot be inlined; click opens OS default app. */
+function ExternalOpenPlaceholder(props: {
+  name: string;
+  previewType?: OpenTarget["preview"];
+  onOpen?: () => void;
+}) {
+  const canOpen = typeof props.onOpen === "function";
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+      <button
+        type="button"
+        disabled={!canOpen}
+        onClick={() => props.onOpen?.()}
+        className={cn(
+          "group flex flex-col items-center gap-3 rounded-2xl border border-dls-border/80 bg-dls-surface-muted/40 px-10 py-9 shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-150",
+          canOpen &&
+            "cursor-pointer hover:border-dls-accent/40 hover:bg-dls-surface-muted hover:shadow-md active:scale-[0.98]",
+          !canOpen && "cursor-default opacity-90",
+        )}
+        aria-label={
+          canOpen
+            ? t("files.open_with_default_app", { name: props.name })
+            : t("files.preview_unsupported")
+        }
+      >
+        <span
+          className={cn(
+            "flex size-20 items-center justify-center rounded-2xl bg-dls-background ring-1 ring-dls-border/70 shadow-inner",
+            canOpen && "transition-transform duration-150 group-hover:scale-105",
+          )}
+        >
+          <ArtifactIcon
+            type={props.previewType}
+            name={props.name}
+            className="size-10"
+          />
+        </span>
+        <span className="max-w-[16rem] truncate text-sm font-medium text-dls-text">
+          {props.name}
+        </span>
+        {canOpen ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-dls-accent">
+            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+            {t("files.open_with_default_app_action")}
+          </span>
+        ) : null}
+      </button>
+      <p className="max-w-sm text-xs leading-5 text-dls-secondary">
+        {canOpen
+          ? t("files.preview_unsupported_open_hint")
+          : t("files.preview_unsupported")}
+      </p>
+    </div>
+  );
+}
 
 export type WorkspaceFilePreviewNode = {
   name: string;
@@ -231,7 +286,11 @@ export function FilePreviewDrawer(props: {
                   {t("files.preview_opened_in_browser")}
                 </div>
               ) : state.status === "external" ? (
-                <PreviewUnavailable />
+                <ExternalOpenPlaceholder
+                  name={file.name}
+                  previewType={target.preview}
+                  onOpen={onOpenExternally}
+                />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {t("files.preview_empty")}

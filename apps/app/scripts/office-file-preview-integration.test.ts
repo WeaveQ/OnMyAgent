@@ -63,6 +63,10 @@ test("workspace Files browser keeps local Office/media preview under Task files"
   expect(drawer).toContain('from "../../capabilities/artifacts/office-file-preview"');
   expect(drawer).toContain("<OfficeFilePreview");
   expect(drawer).toContain("filePath={state.filePath}");
+  // Unsupported types: centered type icon + click opens default app.
+  expect(drawer).toContain("ExternalOpenPlaceholder");
+  expect(drawer).toContain("open_with_default_app_action");
+  expect(drawer).toContain("onOpen={onOpenExternally}");
   const uploads = readFileSync(
     resolve(
       appRoot,

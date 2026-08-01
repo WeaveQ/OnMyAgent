@@ -86,6 +86,10 @@ export default {
   "files.preview_failed": "文件預覽失敗",
   "files.preview_opened_in_browser": "已在內置瀏覽器中打開",
   "files.preview_unsupported": "當前檔案不支援預覽",
+  "files.preview_unsupported_open_hint":
+    "此類型暫不支援應用內預覽。點擊圖示可用本機預設程式開啟。",
+  "files.open_with_default_app": "用預設程式開啟 {name}",
+  "files.open_with_default_app_action": "用預設程式開啟",
   "files.copy_path": "複製路徑",
   "files.close_preview": "關閉預覽",
   "files.collapse_tree": "收起文件樹",
