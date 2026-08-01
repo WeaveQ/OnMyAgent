@@ -114,7 +114,7 @@ import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages"
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
 import {
-  appendComposerFileMention,
+  createWorkspaceFilesAgentHandlers,
   seedComposerFileAgentTask,
 } from "../pages/shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
@@ -748,51 +748,13 @@ export function SessionPage(props: SessionPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
-                          onToast={showToast}
                           onOpenArtifact={openTarget}
-                          onAddToTask={(relativePath) => {
-                            if (
-                              !appendComposerFileMention(
-                                pageView.renderedSessionId,
-                                relativePath,
-                              )
-                            ) {
-                              return;
-                            }
-                            agentPanel.openChatView();
-                            showToast({
-                              tone: "success",
-                              title: t("files.added_to_task_title"),
-                              description: t("files.added_to_task"),
-                              dismissLabel: t("common.dismiss"),
-                            });
-                          }}
-                          onAskAgentAboutFile={({ path, name, preview }) => {
-                            if (
-                              !seedComposerFileAgentTask(
-                                pageView.renderedSessionId,
-                                path,
-                                buildAskAgentFileInstruction({
-                                  fileName: name,
-                                  preview,
-                                }),
-                              )
-                            ) {
-                              return;
-                            }
-                            agentPanel.openChatView();
-                            showToast({
-                              tone: "success",
-                              title: t("files.ask_agent_done_title"),
-                              description: t("files.ask_agent_done"),
-                              dismissLabel: t("common.dismiss"),
-                            });
-                          }}
-                          onEditError={() => showToast({
-                            tone: "error",
-                            title: t("files.edit_file_failed"),
-                            dismissLabel: t("common.dismiss"),
-                            durationMs: 0,
+                          {...createWorkspaceFilesAgentHandlers({
+                            sessionId: pageView.renderedSessionId,
+                            openRail: () => agentPanel.openChatView(),
+                            showToast,
+                            buildInstruction: buildAskAgentFileInstruction,
+                            t,
                           })}
                         />
                       ) : null}
