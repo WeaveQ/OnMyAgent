@@ -52,6 +52,7 @@ export default {
   "session.expert_marketplace_category_game_spatial": "Game & spatial",
   "session.expert_marketplace_category_data_ai": "Data intelligence",
   "session.expert_marketplace_category_product_operations": "Product operations",
+  "session.expert_marketplace_category_creator_ops": "Creator ops",
   "session.expert_marketplace_category_sales_commerce": "Sales commerce",
   "session.expert_marketplace_category_finance_investment": "Finance investment",
   "session.expert_marketplace_category_hr_legal": "HR & legal",
