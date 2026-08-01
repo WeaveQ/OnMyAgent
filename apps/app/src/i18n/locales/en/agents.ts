@@ -255,7 +255,7 @@ export default {
   "agents.expert_creation_role_prompt_desc":
     "Core runtime configuration. Describe the expert’s role, capabilities, workflow, output, and boundaries.",
   "agents.expert_creation_role_prompt_placeholder":
-    "Describe the role, boundaries, and working style this expert should follow…",
+    "Use this structure:\n\n## Expert overview\nDescribe who this expert is, which scenarios it serves, and its core deliverable.\n\n## Key rules\nDescribe the methods and principles it must follow.\n\n## Prohibited behavior\nDescribe what the expert must never do.\n\n## Workflow\nList the steps it should follow in order.",
   "agents.expert_creation_memory_desc":
     "Write long-term information this expert should remember about itself.",
   "agents.expert_creation_memory_placeholder":
