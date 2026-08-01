@@ -141,6 +141,7 @@ import {
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
   resolveBoundExpertDraftSession,
+  resolveExpertSurfaceSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundNewSessionDraft,
 } from "./expert-draft-session";
@@ -1111,10 +1112,18 @@ export function ExpertPage(props: ExpertPageProps) {
     props.onmyagentServerClient?.token?.trim() ||
     "";
   const draftSessionId = `draft:${props.selectedWorkspaceId}`;
-  const renderedSessionId = draftSessionActive
-    ? (activeDraftSessionId ?? draftSessionId)
-    : (props.selectedSessionId ?? draftSessionId);
-  const isDraftSession = draftSessionActive || !props.selectedSessionId;
+  // Prefer the first-send bound real session so the content pane tracks the
+  // new tab immediately (tab strip already uses pendingTabSessionId).
+  const expertSurfaceSession = resolveExpertSurfaceSession({
+    draftSessionActive,
+    draftAgentId,
+    pendingAgent,
+    activeDraftSessionId,
+    selectedSessionId: props.selectedSessionId,
+    workspaceId: props.selectedWorkspaceId,
+  });
+  const renderedSessionId = expertSurfaceSession.sessionId;
+  const isDraftSession = expertSurfaceSession.draftOnly;
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,

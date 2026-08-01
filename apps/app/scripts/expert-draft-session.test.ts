@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   resolveBoundExpertDraftSession,
+  resolveExpertSurfaceSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundNewSessionDraft,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
@@ -136,5 +137,52 @@ describe("expert draft session activation", () => {
         selectedSessionAgentId: "fulfillment-specialist",
       }),
     ).toBe(false);
+  });
+
+  test("surface follows bound session before route selection leaves draft-home", () => {
+    // Regression: tab shows 总结中… on ses_new while content still draftOnly.
+    expect(
+      resolveExpertSurfaceSession({
+        draftSessionActive: true,
+        draftAgentId: "kol-project-review-specialist",
+        pendingAgent: {
+          id: "kol-project-review-specialist",
+          boundSessionId: "ses_new",
+        },
+        activeDraftSessionId: "draft:ws:kol-project-review-specialist",
+        selectedSessionId: null,
+        workspaceId: "ws",
+      }),
+    ).toEqual({ sessionId: "ses_new", draftOnly: false });
+
+    expect(
+      resolveExpertSurfaceSession({
+        draftSessionActive: true,
+        draftAgentId: "kol-project-review-specialist",
+        pendingAgent: {
+          id: "kol-project-review-specialist",
+          boundSessionId: "ses_new",
+        },
+        activeDraftSessionId: "draft:ws:kol-project-review-specialist",
+        selectedSessionId: "ses_previous",
+        workspaceId: "ws",
+      }),
+    ).toEqual({ sessionId: "ses_new", draftOnly: false });
+
+    expect(
+      resolveExpertSurfaceSession({
+        draftSessionActive: true,
+        draftAgentId: "kol-project-review-specialist",
+        pendingAgent: {
+          id: "kol-project-review-specialist",
+        },
+        activeDraftSessionId: "draft:ws:kol-project-review-specialist",
+        selectedSessionId: null,
+        workspaceId: "ws",
+      }),
+    ).toEqual({
+      sessionId: "draft:ws:kol-project-review-specialist",
+      draftOnly: true,
+    });
   });
 });
