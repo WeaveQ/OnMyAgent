@@ -3,12 +3,13 @@
  * Shared file preview drawer used by Task/Expert browser and My files (uploads).
  */
 import { createPortal } from "react-dom";
-import { Copy, ExternalLink, Folder, Pencil, X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import { FilePreviewActionBar } from "../../capabilities/artifacts/file-preview-action-bar";
 import { OfficeFilePreview } from "../../capabilities/artifacts/office-file-preview";
 import { ArtifactSpreadsheetEditor } from "../../capabilities/artifacts/artifact-spreadsheet-editor";
 import type { OpenTarget } from "../../capabilities/artifacts/open-target";
@@ -30,6 +31,8 @@ function ExternalOpenPlaceholder(props: {
   name: string;
   previewType?: OpenTarget["preview"];
   onOpen?: () => void;
+  /** Override body hint (e.g. too-large policy). */
+  hint?: string;
 }) {
   const canOpen = typeof props.onOpen === "function";
   return (
@@ -73,9 +76,11 @@ function ExternalOpenPlaceholder(props: {
         ) : null}
       </button>
       <p className="max-w-sm text-xs leading-5 text-dls-secondary">
-        {canOpen
-          ? t("files.preview_unsupported_open_hint")
-          : t("files.preview_unsupported")}
+        {props.hint?.trim()
+          ? props.hint
+          : canOpen
+            ? t("files.preview_unsupported_open_hint")
+            : t("files.preview_unsupported")}
       </p>
     </div>
   );
@@ -100,6 +105,7 @@ export type WorkspaceFilePreviewState =
       revision: number;
     }
   | { status: "external" }
+  | { status: "too_large" }
   | { status: "browser" }
   | { status: "error"; message: string };
 
@@ -114,6 +120,8 @@ export function FilePreviewDrawer(props: {
   onEdit?: () => void;
   onOpenInFolder?: () => void;
   onOpenExternally?: () => void;
+  /** WP3: attach file to composer for the agent. */
+  onAskAgent?: () => void;
 }) {
   const {
     open,
@@ -126,6 +134,7 @@ export function FilePreviewDrawer(props: {
     onEdit,
     onOpenInFolder,
     onOpenExternally,
+    onAskAgent,
   } = props;
 
   if (typeof document === "undefined") return null;
@@ -195,64 +204,28 @@ export function FilePreviewDrawer(props: {
               </Button>
             </header>
 
-            <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
-              {onEdit ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onEdit}
-                  className="text-dls-secondary hover:text-dls-text"
-                >
-                  <Pencil
-                    data-icon="inline-start"
-                    className="size-3.5"
-                    aria-hidden="true"
-                  />
-                  {t("files.edit_file")}
-                </Button>
-              ) : null}
-              {onOpenExternally ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onOpenExternally}
-                  className="text-dls-secondary hover:text-dls-text"
-                >
-                  <ExternalLink data-icon="inline-start" className="size-3.5" />
-                  {t("files.open_file")}
-                </Button>
-              ) : null}
-              {onOpenInFolder ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onOpenInFolder}
-                  className="text-dls-secondary hover:text-dls-text"
-                >
-                  <Folder data-icon="inline-start" className="size-3.5" />
-                  {t("files.open_in_folder")}
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onCopyPath}
-                className="text-dls-secondary hover:text-dls-text"
-              >
-                <Copy data-icon="inline-start" className="size-3.5" />
-                {copied ? t("files.copied") : t("files.copy_path")}
-              </Button>
-            </div>
+            <FilePreviewActionBar
+              copied={copied}
+              onEdit={onEdit}
+              onOpenExternally={onOpenExternally}
+              onOpenInFolder={onOpenInFolder}
+              onCopyPath={onCopyPath}
+              onAskAgent={onAskAgent}
+            />
 
             <div className="min-h-0 flex-1 overflow-hidden bg-dls-surface">
               {state.status === "loading" ? (
                 <PreviewLoading />
               ) : state.status === "error" ? (
-                <PreviewError message={state.message} />
+                <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                  <PreviewError message={state.message} className="text-center" />
+                  {onOpenExternally ? (
+                    <Button type="button" size="sm" onClick={onOpenExternally}>
+                      <ExternalLink data-icon="inline-start" className="size-3.5" />
+                      {t("files.open_with_default_app_action")}
+                    </Button>
+                  ) : null}
+                </div>
               ) : state.status === "local" ? (
                 <OfficeFilePreview
                   filePath={state.filePath}
@@ -285,11 +258,16 @@ export function FilePreviewDrawer(props: {
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
                   {t("files.preview_opened_in_browser")}
                 </div>
-              ) : state.status === "external" ? (
+              ) : state.status === "external" || state.status === "too_large" ? (
                 <ExternalOpenPlaceholder
                   name={file.name}
                   previewType={target.preview}
                   onOpen={onOpenExternally}
+                  hint={
+                    state.status === "too_large"
+                      ? t("files.preview_too_large")
+                      : undefined
+                  }
                 />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">

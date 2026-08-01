@@ -54,6 +54,11 @@ export function WorkspaceFilesPage(props: {
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
   onAddToTask?: (relativePath: string) => void;
+  onAskAgentAboutFile?: (input: {
+    path: string;
+    name: string;
+    preview: string;
+  }) => void;
 }) {
   const [activeTab, setActiveTab] = useState<FilesSourceTab>(
     DEFAULT_FILES_SOURCE_TAB,
@@ -110,6 +115,7 @@ export function WorkspaceFilesPage(props: {
             workspaceId={props.workspaceId}
             workspaceRoot={props.workspaceRoot}
             onAddToTask={props.onAddToTask}
+            onAskAgentAboutFile={props.onAskAgentAboutFile}
           />
         ) : (
           <WorkspaceFilesBrowserPanel
@@ -121,6 +127,7 @@ export function WorkspaceFilesPage(props: {
             onOpenArtifact={props.onOpenArtifact}
             onEditError={props.onEditError}
             onAddToTask={props.onAddToTask}
+            onAskAgentAboutFile={props.onAskAgentAboutFile}
           />
         )}
       </div>

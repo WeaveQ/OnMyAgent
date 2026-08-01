@@ -94,6 +94,25 @@ export function appendComposerFileMention(
   return true;
 }
 
+/**
+ * WP3: @mention a file and append a short agent instruction so the user can
+ * send immediately ("让 Agent 处理此文件").
+ */
+export function seedComposerFileAgentTask(
+  sessionId: string,
+  relativePath: string,
+  instruction: string,
+): boolean {
+  if (!appendComposerFileMention(sessionId, relativePath)) return false;
+  const text = String(instruction ?? "").trim();
+  if (!text) return true;
+  const store = useComposerStateStore.getState();
+  const draft = getComposerDraft(store, sessionId);
+  const needsSpace = draft.length > 0 && !/\s$/u.test(draft);
+  store.setDraft(sessionId, `${draft}${needsSpace ? " " : ""}${text}`);
+  return true;
+}
+
 export function setExpertComposerDraftAfterNewTask(
   workspaceId: string,
   agentId: string,

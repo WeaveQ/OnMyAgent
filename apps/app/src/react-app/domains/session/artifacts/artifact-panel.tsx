@@ -20,10 +20,18 @@ import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { ArtifactIcon } from "./artifact-icon";
 import type { BinaryData, Data, OpenTarget, TextData } from "./open-target";
 import { resolveArtifactAbsolutePath } from "./open-target";
+import { FilePreviewActionBar } from "../../../capabilities/artifacts/file-preview-action-bar";
 import { OfficeFilePreview } from "../../../capabilities/artifacts/office-file-preview";
 import {
+  canEditArtifactTarget,
+  openArtifactForEditing,
+} from "../../../capabilities/artifacts/open-artifact-for-editing";
+import {
+  shouldForceExternalPreviewForSize,
+} from "../../../capabilities/artifacts/file-preview-policy";
+import {
   isBinarySpreadsheetPath,
-  shouldPreviewBinarySheetViaOfficeOverlay,
+  shouldPreviewOfficeBinaryViaOverlay,
 } from "../../../capabilities/artifacts/sheet-preview-policy";
 import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
 
@@ -45,6 +53,12 @@ type ArtifactPanelProps = {
   onSelectTarget?: (target: OpenTarget) => void;
   onDeleteTarget?: (target: OpenTarget) => void;
   onClose: () => void;
+  /** WP3: seed composer with @file + instruction. */
+  onAskAgentAboutFile?: (input: {
+    path: string;
+    name: string;
+    preview: string;
+  }) => void;
 };
 
 type ArtifactQueryState =
@@ -81,23 +95,38 @@ function inferContentType(target: OpenTarget): string | undefined {
   return undefined;
 }
 
-export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWorkspace = false, target, targets = [], onSelectTarget, onDeleteTarget, onClose }: ArtifactPanelProps) {
+export function ArtifactPanel({
+  client,
+  workspaceId,
+  workspaceRoot,
+  isRemoteWorkspace = false,
+  target,
+  targets = [],
+  onSelectTarget,
+  onDeleteTarget,
+  onClose,
+  onAskAgentAboutFile,
+}: ArtifactPanelProps) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [copiedPath, setCopiedPath] = useState(false);
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState<OpenTarget | null>(null);
   const isDirectTextEdit = isTextContent(target) && target.preview === "markdown";
   const externalPath = useMemo(() => target.kind === "file" ? absoluteWorkspacePath(workspaceRoot, target.value) : target.value, [target.kind, target.value, workspaceRoot]);
-  const useLocalOfficeSheetPreview = shouldPreviewBinarySheetViaOfficeOverlay({
+  const forceExternalForSize = shouldForceExternalPreviewForSize({
+    sizeBytes: target.size,
     preview: target.preview,
-    // Prefer workspace path (has extension); fall back to display name.
-    pathOrName: target.value || target.name,
-    isRemoteWorkspace,
-    absoluteFilePath: target.kind === "file" ? externalPath : null,
-    // Match Files/side-panel: never mount OfficeFilePreview outside Electron
-    // (bridge missing → empty viewport; degrade to download/reveal instead).
-    officePreviewAvailable: isElectronRuntime(),
   });
+  const useLocalOfficePreview =
+    !forceExternalForSize &&
+    shouldPreviewOfficeBinaryViaOverlay({
+      preview: target.preview,
+      pathOrName: target.value || target.name,
+      isRemoteWorkspace,
+      absoluteFilePath: target.kind === "file" ? externalPath : null,
+      officePreviewAvailable: isElectronRuntime(),
+    });
 
   const { data, error, isError, isLoading } = useQuery<ArtifactQueryState>({
     queryKey: ["artifact-panel", workspaceId, target.id] as const,
@@ -115,8 +144,8 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
         return { kind: "text", data: result.content, updatedAt: result.updatedAt ?? null };
       }
 
-      // Local binary Office sheets preview from disk via OfficeFilePreview — no blob download.
-      if (useLocalOfficeSheetPreview) {
+      // Local Office binaries preview from disk via OfficeFilePreview — no blob download.
+      if (useLocalOfficePreview || forceExternalForSize) {
         return {
           kind: "binary",
           data: new ArrayBuffer(0),
@@ -433,15 +462,63 @@ export function ArtifactPanel({ client, workspaceId, workspaceRoot, isRemoteWork
           </div>
         </div>
       </div>
+      {target.kind === "file" ? (
+        <FilePreviewActionBar
+          copied={copiedPath}
+          onEdit={
+            isElectronRuntime() &&
+            canEditArtifactTarget(target) &&
+            externalPath
+              ? () => void openArtifactForEditing(externalPath)
+              : undefined
+          }
+          onOpenExternally={
+            isElectronRuntime() && externalPath
+              ? () => void openArtifactForEditing(externalPath).catch(() => void openExternal())
+              : undefined
+          }
+          onOpenInFolder={
+            !isRemoteWorkspace && isElectronRuntime()
+              ? () => void revealDesktopItemInDir(externalPath)
+              : undefined
+          }
+          onCopyPath={
+            externalPath
+              ? () => {
+                  void navigator.clipboard.writeText(externalPath).then(() => {
+                    setCopiedPath(true);
+                    window.setTimeout(() => setCopiedPath(false), 1500);
+                  });
+                }
+              : undefined
+          }
+          onAskAgent={
+            onAskAgentAboutFile
+              ? () =>
+                  onAskAgentAboutFile({
+                    path: target.value,
+                    name: target.name || target.value,
+                    preview: target.preview,
+                  })
+              : undefined
+          }
+        />
+      ) : null}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {useLocalOfficeSheetPreview ? (
+        {forceExternalForSize ? (
+          <UnsupportedBinaryNotice
+            onReveal={isRemoteWorkspace ? undefined : () => void revealDesktopItemInDir(externalPath)}
+            onDownload={() => void download()}
+            message={t("files.preview_too_large")}
+          />
+        ) : useLocalOfficePreview ? (
           <OfficeFilePreview
             filePath={externalPath}
             name={target.name || target.value}
             revision={target.updatedAt ?? target.id}
             className="h-full w-full"
           />
-        ) : isLoading || (data?.kind === "binary" && !binaryObjectUrl) ? (
+        ) : isLoading || (data?.kind === "binary" && !binaryObjectUrl && !useLocalOfficePreview) ? (
           <PreviewLoading />
         ) : isError ? (
           <PreviewError message={error instanceof Error ? error.message : "Failed to load artifact" } />
@@ -519,12 +596,19 @@ function SheetEditor({ className, ...props }: SheetEditorProps) {
 interface UnsupportedBinaryNoticeProps {
   onReveal?: () => void;
   onDownload?: () => void;
+  message?: string;
 }
 
-function UnsupportedBinaryNotice({ onReveal, onDownload }: UnsupportedBinaryNoticeProps) {
+function UnsupportedBinaryNotice({
+  onReveal,
+  onDownload,
+  message,
+}: UnsupportedBinaryNoticeProps) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="max-w-sm text-sm text-dls-secondary">{t("session.artifact_binary_preview_unsupported")}</p>
+      <p className="max-w-sm text-sm text-dls-secondary">
+        {message?.trim() || t("session.artifact_binary_preview_unsupported")}
+      </p>
       <div className="flex items-center gap-2">
         {onReveal ? (
           <Button variant="default" size="sm" onClick={onReveal}>

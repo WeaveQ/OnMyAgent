@@ -140,8 +140,10 @@ export type AssistantPageProps = SessionPageProps & {
 
 import {
   appendComposerFileMention,
+  seedComposerFileAgentTask,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
@@ -1295,6 +1297,27 @@ export function AssistantPage(props: AssistantPageProps) {
                               tone: "success",
                               title: t("files.added_to_task_title"),
                               description: t("files.added_to_task"),
+                              dismissLabel: t("common.dismiss"),
+                            });
+                          }}
+                          onAskAgentAboutFile={({ path, name, preview }) => {
+                            if (
+                              !seedComposerFileAgentTask(
+                                renderedSessionId,
+                                path,
+                                buildAskAgentFileInstruction({
+                                  fileName: name,
+                                  preview,
+                                }),
+                              )
+                            ) {
+                              return;
+                            }
+                            openRailView("assistant");
+                            showToast({
+                              tone: "success",
+                              title: t("files.ask_agent_done_title"),
+                              description: t("files.ask_agent_done"),
                               dismissLabel: t("common.dismiss"),
                             });
                           }}

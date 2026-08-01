@@ -108,8 +108,9 @@ describe("session visual and file contracts", () => {
     );
 
     expect(sidePanel).toContain('t("files.file_actions", { name: props.node.name })');
-    expect(sidePanel).toContain('t("files.open_in_folder")');
-    expect(sidePanel).toContain('t("session.open_artifact")');
+    expect(sidePanel).toContain("FilePreviewActionBar");
+    expect(sidePanel).toContain("files.open_in_folder");
+    expect(sidePanel).toContain("files.open_with_default_app_action");
     expect(sidePanel).toContain('t("files.preview_unsupported")');
     expect(sidePanel).toContain('targetPreview === "external"');
     expect(sidePanel).toContain("usesLocalFileRenderer");

@@ -253,6 +253,8 @@ describe("files three-source tabs (P0)", () => {
       expect(source).toContain('"files.upload_too_large"');
       expect(source).toContain('"files.session_folder_title"');
       expect(source).toContain('"files.task_empty_hint"');
+      expect(source).toContain('"files.ask_agent"');
+      expect(source).toContain('"files.preview_too_large"');
       expect(source).toContain('"files.expert_empty_hint"');
       expect(source).toContain('"files.title"');
     }
