@@ -60,11 +60,7 @@ import {
 } from "./personal-agent-runtime/provider-registry.mjs";
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
-import { createStatusItemController } from "./status-item.mjs";
-import {
-  shouldHideMainWindowOnClose,
-  shouldQuitOnWindowAllClosed,
-} from "./status-item-menu.mjs";
+import { createStatusItemLifecycle } from "./status-item.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import {
   getLaunchAtLogin,
@@ -419,45 +415,21 @@ const artifactPreviewController = createArtifactPreviewController({
   preloadPath: path.join(__dirname, "artifact-preview-preload.cjs"),
 });
 
-/** Populated next; hide-on-close reads quitting flag from the status item. */
-let statusItemController = null;
-
-desktopWindowController = createDesktopWindowController({
-  getMainWindow: () => mainWindow,
-  setMainWindow: (win) => {
-    mainWindow = win;
-  },
-  app,
-  nativeTheme,
-  session,
-  appName: APP_NAME,
-  isDevMode,
-  minWidth: MAIN_WINDOW_MIN_WIDTH,
-  minHeight: MAIN_WINDOW_MIN_HEIGHT,
-  appIconImage: APP_ICON_IMAGE,
-  dirname: __dirname,
-  applyApplicationMenuVisibility,
-  browserController,
-  artifactPreviewController,
-  flushPendingDeepLinks,
-  shouldHideOnClose: () =>
-    shouldHideMainWindowOnClose(
-      process.platform,
-      Boolean(statusItemController?.isAppQuitting?.()),
-    ),
-});
-
-statusItemController = createStatusItemController({
-  app,
-  Tray,
-  Menu,
-  nativeImage,
-  createMainWindow,
+const statusItem = createStatusItemLifecycle({
+  app, Tray, Menu, nativeImage, createMainWindow,
   getMainWindow: () => mainWindow,
   quitApp: () => app.quit(),
-  openDesktopPermissions: async () => {
-    await openComputerUseSetupApp();
-  },
+  openDesktopPermissions: () => openComputerUseSetupApp(),
+});
+desktopWindowController = createDesktopWindowController({
+  getMainWindow: () => mainWindow,
+  setMainWindow: (win) => { mainWindow = win; },
+  app, nativeTheme, session, appName: APP_NAME, isDevMode,
+  minWidth: MAIN_WINDOW_MIN_WIDTH, minHeight: MAIN_WINDOW_MIN_HEIGHT,
+  appIconImage: APP_ICON_IMAGE, dirname: __dirname,
+  applyApplicationMenuVisibility, browserController, artifactPreviewController,
+  flushPendingDeepLinks,
+  shouldHideOnClose: () => statusItem.shouldHideOnClose(),
 });
 
 const uiControlBridge = createUiControlServer({
@@ -1655,7 +1627,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("before-quit", (event) => {
-    statusItemController?.markQuitting?.();
+    statusItem.markQuitting();
     if (runtimeDisposedForQuit) return;
     event.preventDefault();
     codeTerminalManager.dispose();
@@ -1666,7 +1638,7 @@ if (!app.requestSingleInstanceLock()) {
       uiControlBridge.stop(),
       Promise.resolve(disposeComputerUseServices()),
     ]).finally(() => {
-      statusItemController?.dispose?.();
+      statusItem.dispose();
       app.quit();
     });
   });
@@ -1707,15 +1679,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     installMediaPermissionHandlers();
     installApplicationMenu();
-    // macOS menu-bar status item (tray equivalent); no-op on other platforms.
-    try {
-      statusItemController?.install?.();
-    } catch (error) {
-      console.warn(
-        "[status-item] install failed:",
-        error instanceof Error ? error.message : error,
-      );
-    }
+    statusItem.installSafely();
 
     await ensureOnMyAgentUserDataDirs();
     await restoreComputerUseServices().catch((error) => {
@@ -1790,8 +1754,6 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("window-all-closed", () => {
-    if (shouldQuitOnWindowAllClosed(process.platform)) {
-      app.quit();
-    }
+    if (statusItem.shouldQuitOnLastWindow()) app.quit();
   });
 }

@@ -10,7 +10,9 @@ import {
   STATUS_ITEM_EVENTS,
   buildStatusItemMenuSpec,
   resolveStatusItemLocale,
+  shouldHideMainWindowOnClose,
   shouldInstallStatusItem,
+  shouldQuitOnWindowAllClosed,
 } from "./status-item-menu.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -178,5 +180,31 @@ export function createStatusItemController(input) {
     isAppQuitting,
     /** @internal test/diag */
     getTray: () => tray,
+  };
+}
+
+/**
+ * Thin lifecycle adapter for main.mjs so composition stays short.
+ * @param {Parameters<typeof createStatusItemController>[0]} input
+ */
+export function createStatusItemLifecycle(input) {
+  const platform = input.platform ?? process.platform;
+  const controller = createStatusItemController({ ...input, platform });
+  return {
+    shouldHideOnClose: () =>
+      shouldHideMainWindowOnClose(platform, controller.isAppQuitting()),
+    shouldQuitOnLastWindow: () => shouldQuitOnWindowAllClosed(platform),
+    markQuitting: () => controller.markQuitting(),
+    dispose: () => controller.dispose(),
+    installSafely() {
+      try {
+        controller.install();
+      } catch (error) {
+        console.warn(
+          "[status-item] install failed:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    },
   };
 }
