@@ -42,6 +42,7 @@ const RESET_ONBOARDING_PREFS = {
   launchAtLogin: true,
   keepSystemAwake: false,
   dockUnreadBadge: true,
+  menuBarStatusItem: true,
   conversationWidth: "fixed",
   keymapOverrides: {},
   appSnapshotHotkey: "double-command",

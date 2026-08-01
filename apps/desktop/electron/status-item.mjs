@@ -1,6 +1,6 @@
 /**
- * macOS menu-bar status item (Electron Tray) controller.
- * Uses native Menu + template icon — not a custom painted popup.
+ * Desktop status item / system tray (Electron Tray) controller.
+ * macOS menu bar (template icon) + Windows notification area (color icon).
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -148,8 +148,8 @@ export function createStatusItemController(input) {
       return nativeImage.createEmpty();
     }
 
-    // Menu-bar peers are ~18pt. Pin logical size so oversized PNGs do not
-    // dominate the bar. Prefer shipping 18/@2x 36 trayTemplate assets.
+    // Menu-bar peers ~18pt (mac); Windows notification area ~16px.
+    // Prefer shipping 18/@2x 36 trayTemplate and 16/32 trayIcon assets.
     const traySize = platform === "darwin" ? 18 : 16;
     if (typeof image.getSize === "function") {
       const { width, height } = image.getSize();
@@ -159,8 +159,8 @@ export function createStatusItemController(input) {
       }
     }
 
-    // Monochrome black-on-transparent only. White glyphs become invisible
-    // under setTemplateImage; full-color brand PNGs become white squares.
+    // macOS template only: black glyph + alpha, recolored by the system.
+    // Windows uses color icons — never setTemplateImage there.
     if (resolved.template && typeof image.setTemplateImage === "function") {
       image.setTemplateImage(true);
     }
@@ -188,11 +188,18 @@ export function createStatusItemController(input) {
     );
     tray.setIgnoreDoubleClickEvents?.(true);
     tray.setContextMenu(buildNativeMenu());
-    // Left-click on macOS also pops the menu (matches status-item convention).
+    // macOS: left-click opens the menu (status-item convention).
+    // Windows: left-click shows the window; right-click uses context menu.
     tray.on("click", () => {
+      if (platform === "win32") {
+        void runAction(STATUS_ITEM_ACTION.SHOW_WINDOW);
+        return;
+      }
       tray?.popUpContextMenu();
     });
-    console.info("[status-item] menu-bar status item installed");
+    console.info("[status-item] tray / status item installed", {
+      platform: String(platform),
+    });
     return tray;
   }
 
@@ -203,6 +210,31 @@ export function createStatusItemController(input) {
     }
   }
 
+  /**
+   * Show or hide the menu-bar status item without changing quit/hide policy.
+   * @param {boolean} visible
+   * @returns {{ ok: boolean, visible: boolean, platform: string }}
+   */
+  function setVisible(visible) {
+    if (!shouldInstallStatusItem(platform)) {
+      return { ok: true, visible: false, platform: String(platform) };
+    }
+    if (visible) {
+      install();
+      return {
+        ok: Boolean(tray),
+        visible: Boolean(tray),
+        platform: String(platform),
+      };
+    }
+    dispose();
+    return { ok: true, visible: false, platform: String(platform) };
+  }
+
+  function isVisible() {
+    return Boolean(tray);
+  }
+
   function refreshMenu() {
     if (!tray) return;
     tray.setContextMenu(buildNativeMenu());
@@ -211,6 +243,8 @@ export function createStatusItemController(input) {
   return {
     install,
     dispose,
+    setVisible,
+    isVisible,
     refreshMenu,
     runAction,
     showAndFocusMainWindow,
@@ -230,10 +264,32 @@ export function createStatusItemLifecycle(input) {
   const controller = createStatusItemController({ ...input, platform });
   return {
     shouldHideOnClose: () =>
-      shouldHideMainWindowOnClose(platform, controller.isAppQuitting()),
-    shouldQuitOnLastWindow: () => shouldQuitOnWindowAllClosed(platform),
+      shouldHideMainWindowOnClose(
+        platform,
+        controller.isAppQuitting(),
+        controller.isVisible(),
+      ),
+    shouldQuitOnLastWindow: () =>
+      shouldQuitOnWindowAllClosed(platform, controller.isVisible()),
     markQuitting: () => controller.markQuitting(),
     dispose: () => controller.dispose(),
+    setVisible: (visible) => {
+      try {
+        return controller.setVisible(Boolean(visible));
+      } catch (error) {
+        console.warn(
+          "[status-item] setVisible failed:",
+          error instanceof Error ? error.message : error,
+        );
+        return {
+          ok: false,
+          visible: controller.isVisible(),
+          platform: String(platform),
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    isVisible: () => controller.isVisible(),
     installSafely() {
       try {
         controller.install();

@@ -82,7 +82,7 @@ function createMockTrayEnv() {
   };
 }
 
-test("status item install is no-op on non-darwin", () => {
+test("status item install is no-op on linux", () => {
   const mocks = createMockTrayEnv();
   const controller = createStatusItemController({
     app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
@@ -91,7 +91,7 @@ test("status item install is no-op on non-darwin", () => {
     nativeImage: mocks.nativeImage,
     createMainWindow: async () => ({}),
     getMainWindow: () => null,
-    platform: "win32",
+    platform: "linux",
   });
   assert.equal(controller.install(), null);
   assert.equal(controller.getTray(), null);
@@ -115,6 +115,67 @@ test("status item install builds native menu with template tray on darwin", () =
   assert.ok(template.some((item) => item.label === "新建任务"));
   assert.ok(template.some((item) => item.label === "打开专家市场"));
   assert.ok(template.some((item) => typeof item.click === "function"));
+});
+
+test("setVisible hides and restores menu-bar tray on darwin", () => {
+  const mocks = createMockTrayEnv();
+  const controller = createStatusItemController({
+    app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
+    Tray: mocks.Tray,
+    Menu: mocks.Menu,
+    nativeImage: mocks.nativeImage,
+    createMainWindow: async () => ({}),
+    getMainWindow: () => null,
+    platform: "darwin",
+  });
+  assert.equal(controller.isVisible(), false);
+  const shown = controller.setVisible(true);
+  assert.equal(shown.visible, true);
+  assert.equal(controller.isVisible(), true);
+  assert.ok(controller.getTray());
+
+  const hidden = controller.setVisible(false);
+  assert.equal(hidden.visible, false);
+  assert.equal(controller.isVisible(), false);
+  assert.equal(controller.getTray(), null);
+  assert.equal(mocks.tray.destroyed, true);
+
+  const restored = controller.setVisible(true);
+  assert.equal(restored.visible, true);
+  assert.equal(controller.isVisible(), true);
+});
+
+test("setVisible is a no-op on linux", () => {
+  const mocks = createMockTrayEnv();
+  const controller = createStatusItemController({
+    app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
+    Tray: mocks.Tray,
+    Menu: mocks.Menu,
+    nativeImage: mocks.nativeImage,
+    createMainWindow: async () => ({}),
+    getMainWindow: () => null,
+    platform: "linux",
+  });
+  const result = controller.setVisible(true);
+  assert.equal(result.visible, false);
+  assert.equal(controller.getTray(), null);
+});
+
+test("status item install works on win32 with non-template icon", () => {
+  const mocks = createMockTrayEnv();
+  const controller = createStatusItemController({
+    app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
+    Tray: mocks.Tray,
+    Menu: mocks.Menu,
+    nativeImage: mocks.nativeImage,
+    createMainWindow: async () => ({}),
+    getMainWindow: () => null,
+    platform: "win32",
+  });
+  assert.ok(controller.install());
+  assert.equal(controller.isVisible(), true);
+  // Windows must not mark images as template.
+  assert.notEqual(mocks.nativeImage.lastTemplateFlag, true);
 });
 
 test("darwin tray uses trayTemplate as template image, not brand PNG as template", () => {

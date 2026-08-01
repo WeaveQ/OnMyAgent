@@ -53,6 +53,8 @@ export type DesktopCommandName =
   | "setKeepSystemAwake"
   | "setDockUnreadBadge"
   | "getAgentReadySoundPath"
+  | "setStatusItemVisible"
+  | "getStatusItemVisible"
   | "registerAppSnapshotHotkey"
   | "unregisterAppSnapshotHotkey"
   | "setKeymapAcceleratorOverrides"
