@@ -481,9 +481,10 @@ export function WorkspaceFilesUploadsPanel(props: {
   const showTable = !loading && visibleRows.length > 0;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
-      <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 max-w-xl text-left">
+    {/* Same gutters as 市场 pluginsLayoutClass.pageContainer */}
+    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
+      <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 text-left sm:max-w-none">
           <h1 className={cn(typeScale.pageTitle, "text-left")}>
             {t("files.source_uploads_title")}
           </h1>
@@ -491,8 +492,8 @@ export function WorkspaceFilesUploadsPanel(props: {
             {t("files.source_uploads_desc")}
           </p>
         </div>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:max-w-lg">
-          <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-[12rem] max-w-xs flex-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-[12rem] w-56 sm:w-64">
             <InputGroupAddon align="inline-start">
               <span className="sr-only">{t("files.search_uploads_placeholder")}</span>
             </InputGroupAddon>
@@ -580,11 +581,11 @@ export function WorkspaceFilesUploadsPanel(props: {
           </Button>
         </Empty>
       ) : showTable ? (
-        <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dls-border">
-          <table className="w-full caption-bottom text-sm">
+        <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border">
+          <table className="w-full table-fixed caption-bottom text-sm">
             <TableHeader className="sticky top-0 z-10 bg-dls-background">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[50%] text-left">
+                <TableHead className="w-auto text-left">
                   {t("files.column_name")}
                 </TableHead>
                 <TableHead className="w-28 text-left">

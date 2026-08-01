@@ -99,6 +99,10 @@ import {
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
 import {
+  FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
+  shouldForceExternalPreviewForSize,
+} from "../../capabilities/artifacts/file-preview-policy";
+import {
   FILE_CATEGORIES,
   buildRootOutlineRows,
   canPreviewWorkspaceFileInline,
@@ -924,9 +928,10 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [closePreview, selectedFile]);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
-          <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 max-w-xl text-left">
+    {/* Same gutters as 市场 pluginsLayoutClass.pageContainer */}
+    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
+          <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 text-left">
               <h1 className={cn(typeScale.pageTitle, "text-left")}>
                 {t(filesSourceTabTitleKey(sourceTab))}
               </h1>
@@ -934,7 +939,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                 {t(filesSourceTabSubtitleKey(sourceTab))}
               </p>
             </div>
-            <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-md">
+            <div className="flex min-w-0 items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1004,7 +1009,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                   </div>
                 )}
               </div>
-              <InputGroup controlSize="default" radius="lg" tone="surface" className="min-w-[200px] max-w-[280px] flex-1">
+              <InputGroup controlSize="default" radius="lg" tone="surface" className="min-w-[200px] w-56 sm:w-64">
                 <InputGroupAddon align="inline-start">
                   <Search className="size-3.5" />
                 </InputGroupAddon>
@@ -1117,8 +1122,8 @@ export function WorkspaceFilesBrowserPanel(props: {
                       Sticky header + name column must use solid surfaces — glass
                       tokens (dls-surface*) are translucent and let row text bleed through.
                     */
-                    <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
-                      <table className="w-full caption-bottom text-sm">
+                    <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
+                      <table className="w-full table-fixed caption-bottom text-sm">
                         <TableHeader className="sticky top-0 z-10">
                           <TableRow className="hover:bg-transparent">
                             {(

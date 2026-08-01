@@ -102,7 +102,8 @@ export function WorkspaceFilesPage(props: {
         </SegmentedTabGroup>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+      {/* Match 市场: full-bleed body; panels own px-6 gutters (no max-w). */}
+      <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === "uploads" ? (
           <WorkspaceFilesUploadsPanel
             client={props.client}
