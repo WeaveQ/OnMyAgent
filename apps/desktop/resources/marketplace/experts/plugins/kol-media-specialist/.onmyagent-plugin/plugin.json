@@ -77,7 +77,7 @@
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！🎯 我是你的媒介专家，帮达人营销项目把前期对频材料做清楚。\n\n无论是拆客户 Brief、筛达人分级提报、合并清洗达人数据，还是检查提报材料有没有漏项和风险，我都能帮你搞定。\n\n手头有 Brief、达人池或你们内部模板直接丢过来就行。",
-    "en": "Hi! I am your media specialist for KOL campaigns. I structure briefs, rank talent, clean data, and check pitch materials. Drop a brief, talent sheet, or your template to start."
+    "zh": "你好！🎯 我是媒介专家，帮你拆 Brief、筛达人、理提报。\n\n有资料或模板直接丢过来就行。",
+    "en": "Hi! 🎯 Media specialist here — briefs, talent ranking, and pitch cleanup.\n\nDrop materials or your template to start."
   }
 }
