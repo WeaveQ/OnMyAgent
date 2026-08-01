@@ -481,13 +481,13 @@ export function WorkspaceFilesUploadsPanel(props: {
   const showTable = !loading && visibleRows.length > 0;
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
       <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 max-w-xl">
-          <h1 className={typeScale.pageTitle}>
+        <div className="min-w-0 max-w-xl text-left">
+          <h1 className={cn(typeScale.pageTitle, "text-left")}>
             {t("files.source_uploads_title")}
           </h1>
-          <p className={cn(typeScale.pageSubtitle, "mt-1")}>
+          <p className={cn(typeScale.pageSubtitle, "mt-1 text-left")}>
             {t("files.source_uploads_desc")}
           </p>
         </div>
@@ -584,10 +584,16 @@ export function WorkspaceFilesUploadsPanel(props: {
           <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 z-10 bg-dls-background">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[50%]">{t("files.column_name")}</TableHead>
-                <TableHead>{t("files.column_size")}</TableHead>
-                <TableHead>{t("files.column_updated")}</TableHead>
-                <TableHead className="w-12">
+                <TableHead className="w-[50%] text-left">
+                  {t("files.column_name")}
+                </TableHead>
+                <TableHead className="w-28 text-left">
+                  {t("files.column_size")}
+                </TableHead>
+                <TableHead className="w-40 text-left">
+                  {t("files.column_updated")}
+                </TableHead>
+                <TableHead className="w-12 text-left">
                   <span className="sr-only">{t("files.file_actions", { name: "" })}</span>
                 </TableHead>
               </TableRow>
@@ -606,7 +612,7 @@ export function WorkspaceFilesUploadsPanel(props: {
                     onClick={() => setSelectedId(row.id)}
                     onDoubleClick={() => void handleOpenExternally(row)}
                   >
-                    <TableCell>
+                    <TableCell className="text-left">
                       <div className="flex min-w-0 items-center gap-2">
                         <ArtifactIcon
                           name={row.name}
@@ -617,15 +623,15 @@ export function WorkspaceFilesUploadsPanel(props: {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-dls-secondary">
+                    <TableCell className="text-left text-dls-secondary">
                       {formatWorkspaceFileSize(row.size)}
                     </TableCell>
-                    <TableCell className="text-dls-secondary">
+                    <TableCell className="text-left text-dls-secondary">
                       {row.updatedAt
                         ? formatWorkspaceFileTime(row.updatedAt)
                         : "—"}
                     </TableCell>
-                    <TableCell className="relative py-2">
+                    <TableCell className="relative py-2 text-left">
                       <UploadRowActionsMenu
                         name={row.name}
                         pathCopied={pathCopiedFlash === row.id}

@@ -924,13 +924,13 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [closePreview, selectedFile]);
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
           <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 max-w-xl">
-              <h1 className={typeScale.pageTitle}>
+            <div className="min-w-0 max-w-xl text-left">
+              <h1 className={cn(typeScale.pageTitle, "text-left")}>
                 {t(filesSourceTabTitleKey(sourceTab))}
               </h1>
-              <p className={cn(typeScale.pageSubtitle, "mt-1 truncate")}>
+              <p className={cn(typeScale.pageSubtitle, "mt-1 truncate text-left")}>
                 {t(filesSourceTabSubtitleKey(sourceTab))}
               </p>
             </div>
@@ -1157,7 +1157,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 <TableHead
                                   key={column.label}
                                   className={cn(
-                                    "h-10 border-b border-dls-border bg-dls-surface-solid text-xs font-medium text-dls-secondary",
+                                    "h-10 border-b border-dls-border bg-dls-surface-solid text-left text-xs font-medium text-dls-secondary",
                                     column.className,
                                   )}
                                   style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
@@ -1175,7 +1175,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                     <button
                                       type="button"
                                       className={cn(
-                                        "inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-dls-hover hover:text-dls-text",
+                                        "inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-dls-hover hover:text-dls-text",
                                         active ? "font-semibold text-dls-text" : "text-dls-secondary",
                                       )}
                                       onClick={() => toggleSort(column.key!)}
@@ -1263,15 +1263,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                           />
                                         </span>
                                       </TableCell>
-                                      <TableCell className="py-2 text-xs text-dls-secondary">
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary">
                                         {t("files.type_folder")}
                                       </TableCell>
-                                      <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary tabular-nums">
                                         {row.node.mtimeMs > 0
                                           ? formatWorkspaceFileTime(row.node.mtimeMs)
                                           : "-"}
                                       </TableCell>
-                                      <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary tabular-nums">
                                         {formatWorkspaceFileSize(row.node.size)}
                                       </TableCell>
                                       <TableCell className="py-2" />
@@ -1325,15 +1325,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                           />
                                         </span>
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-dls-secondary">
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary">
                                         {t("files.type_folder")}
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary tabular-nums">
                                         {row.node.mtimeMs > 0
                                           ? formatWorkspaceFileTime(row.node.mtimeMs)
                                           : "-"}
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary tabular-nums">
                                         {formatWorkspaceFileSize(row.node.size)}
                                       </TableCell>
                                       <TableCell className="py-1.5" />
@@ -1385,15 +1385,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                         />
                                       </span>
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs text-dls-secondary">
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary">
                                       {fileCategoryLabel(getFileCategory(fileNode.name))}
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                                       {fileNode.mtimeMs > 0
                                         ? formatWorkspaceFileTime(fileNode.mtimeMs)
                                         : "-"}
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                                       {formatWorkspaceFileSize(fileNode.size)}
                                     </TableCell>
                                     <TableCell className="relative py-2">
@@ -1478,15 +1478,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 />
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-dls-secondary">
+                            <TableCell className="text-left py-2 text-xs text-dls-secondary">
                               {node.kind === "dir"
                                 ? t("files.type_folder")
                                 : fileCategoryLabel(getFileCategory(node.name))}
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                            <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                               {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                            <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                               {formatWorkspaceFileSize(node.size)}
                             </TableCell>
                             <TableCell className="relative py-2">
