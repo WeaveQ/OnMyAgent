@@ -150,6 +150,7 @@ export function AgentConversationPanel(props: {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onToggleCollapsed: () => void;
   onOpenAgents: () => void;
+  onCreateExpert?: () => void;
   onCreateTask?: () => void;
   onOpenAssistant?: () => void;
   assistantCategoryId?: AssistantCategoryId;
@@ -1246,6 +1247,7 @@ export function AgentConversationPanel(props: {
         automationActive={props.automationActive}
         onQueryChange={props.onQueryChange}
         onOpenAgents={props.onOpenAgents}
+        onCreateExpert={props.onCreateExpert}
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
         onOpenAutomation={props.onOpenAutomation}

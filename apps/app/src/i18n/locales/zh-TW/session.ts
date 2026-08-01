@@ -42,6 +42,7 @@ export default {
   "session.logistics_expert_self_intro_prompt": "介紹一下你自己，你能幫我做什麼？",
   "session.try_ask_expert": "試試這樣問我",
   "session.summon": "召喚",
+  "session.summon_experts": "召喚專家",
   "session.summon_expert": "召喚 {name}",
   "session.expert_marketplace_category_all": "全部",
   "session.expert_marketplace_category_opc": "OPC-一人公司",
