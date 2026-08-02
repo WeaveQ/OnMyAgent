@@ -44,9 +44,9 @@ import {
   LazyInfiniteCanvasPanel,
   LazyVoicePanel,
 } from "./lazy-session-side-panels";
-import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
-import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
+import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 
 import type {
   SessionAgentManagementIntent,
@@ -139,9 +139,10 @@ export type AssistantPageProps = SessionPageProps & {
 };
 
 import {
-  appendComposerFileMention,
+  createWorkspaceFilesAgentHandlers,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
@@ -1286,23 +1287,12 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.selectedWorkspaceRoot
                           }
                           onOpenArtifact={openTarget}
-                          onAddToTask={(relativePath) => {
-                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
-                              return;
-                            }
-                            openRailView("assistant");
-                            showToast({
-                              tone: "success",
-                              title: t("files.added_to_task_title"),
-                              description: t("files.added_to_task"),
-                              dismissLabel: t("common.dismiss"),
-                            });
-                          }}
-                          onEditError={() => showToast({
-                            tone: "error",
-                            title: t("files.edit_file_failed"),
-                            dismissLabel: t("common.dismiss"),
-                            durationMs: 0,
+                          {...createWorkspaceFilesAgentHandlers({
+                            sessionId: renderedSessionId,
+                            openRail: () => openRailView("assistant"),
+                            showToast,
+                            buildInstruction: buildAskAgentFileInstruction,
+                            t,
                           })}
                         />
                       ),

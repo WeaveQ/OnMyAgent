@@ -24,7 +24,10 @@ import {
   type FilesSourceTab,
 } from "./workspace-files-model";
 import { WorkspaceFilesBrowserPanel } from "./workspace-files-browser-panel";
-import { WorkspaceFilesUploadsPanel } from "./workspace-files-uploads-panel";
+import {
+  WorkspaceFilesUploadsPanel,
+  type WorkspaceFilesToastInput,
+} from "./workspace-files-uploads-panel";
 
 // Re-export pure root resolver for existing callers/tests.
 export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
@@ -54,6 +57,12 @@ export function WorkspaceFilesPage(props: {
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
   onAddToTask?: (relativePath: string) => void;
+  onAskAgentAboutFile?: (input: {
+    path: string;
+    name: string;
+    preview: string;
+  }) => void;
+  onToast?: (input: WorkspaceFilesToastInput) => void;
 }) {
   const [activeTab, setActiveTab] = useState<FilesSourceTab>(
     DEFAULT_FILES_SOURCE_TAB,
@@ -102,11 +111,16 @@ export function WorkspaceFilesPage(props: {
         </SegmentedTabGroup>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+      {/* Match Marketplace: full-bleed body; panels own px-6 gutters (no max-w). */}
+      <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === "uploads" ? (
           <WorkspaceFilesUploadsPanel
             client={props.client}
             workspaceId={props.workspaceId}
+            workspaceRoot={props.workspaceRoot}
+            onAddToTask={props.onAddToTask}
+            onAskAgentAboutFile={props.onAskAgentAboutFile}
+            onToast={props.onToast}
           />
         ) : (
           <WorkspaceFilesBrowserPanel
@@ -118,6 +132,7 @@ export function WorkspaceFilesPage(props: {
             onOpenArtifact={props.onOpenArtifact}
             onEditError={props.onEditError}
             onAddToTask={props.onAddToTask}
+            onAskAgentAboutFile={props.onAskAgentAboutFile}
           />
         )}
       </div>

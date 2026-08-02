@@ -252,7 +252,8 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
     expect(uploads).toContain("uploadInbox");
     expect(uploads).toContain("listInbox");
-    expect(browser).toContain("function FilePreviewDrawer");
+    expect(browser).toContain("FilePreviewDrawer");
+    expect(browser).toContain("workspace-files-preview-drawer");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
     expect(browser).toContain("buildRootOutlineRows");
   });

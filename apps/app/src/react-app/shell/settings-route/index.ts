@@ -7,7 +7,8 @@
  *   3. render.tsx   — SettingsRoute / SettingsSurface composition
  *   4. index.ts     — this facade
  *
- * Implementation details remain in sibling files under this folder.
+ * Implementation details remain in sibling files under this folder
+ * (route-stores-hook, refresh-hook, workspace/provider/model-picker hooks).
  * Prefer these entrypoints for new shell call sites.
  */
 

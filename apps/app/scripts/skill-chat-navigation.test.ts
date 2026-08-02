@@ -12,7 +12,7 @@ describe("installed skill card → chat wiring", () => {
     const page = readFileSync(
       join(
         appRoot,
-        "src/react-app/domains/session/skills-marketplace/skills-marketplace-page.tsx",
+        "src/react-app/domains/plugins/skills-marketplace/skills-marketplace-page.tsx",
       ),
       "utf8",
     );

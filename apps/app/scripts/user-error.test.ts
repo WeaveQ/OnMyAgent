@@ -185,11 +185,17 @@ describe("S1–S3 UX wiring", () => {
       path.join(appRoot, "shell/settings-route/render.tsx"),
       "utf8",
     );
+    const settingsProviderHandlers = readFileSync(
+      path.join(appRoot, "shell/settings-route/provider-handlers-hook.ts"),
+      "utf8",
+    );
     expect(sessionRefresh).toContain("userErrorFromRaw");
     expect(sessionRefresh).toContain('userErrorMessage("not_connected")');
     expect(sessionRender).toContain("userErrorFromRaw");
     expect(settingsRender).toContain("userErrorFromRaw");
-    expect(settingsRender).toContain('setFacingRouteError(null, "not_connected")');
+    expect(settingsProviderHandlers).toContain(
+      'setFacingRouteError(null, "not_connected")',
+    );
   });
 });
 

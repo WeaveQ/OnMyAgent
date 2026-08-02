@@ -41,6 +41,9 @@ export default {
   "files.uploads_empty_title": "No uploads yet",
   "files.uploads_empty_hint":
     "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely.",
+  "files.drop_to_upload": "Drop to upload",
+  "files.drop_to_upload_hint": "Or use Import to workspace to pick files",
+  "files.upload_copy_success_title": "Import complete",
   "files.task_empty_title": "No files in this workspace yet",
   "files.task_empty_hint":
     "Task outputs and other workspace files will appear here. Upload personal materials under Mine.",
@@ -49,8 +52,8 @@ export default {
     "Expert session outputs will show here once write-time source tagging is enabled. Existing workspace files stay under Tasks so they remain accessible.",
   "files.import_to_workspace": "Import to workspace",
   "files.uploading": "Importing…",
-  "files.upload_copy_success":
-    "Saved a workspace copy. Edits in chat apply to that copy, not your original file.",
+  "files.upload_copy_success": "Imported {count} files",
+  "files.upload_copy_success_one": "Imported 1 file",
   "files.upload_failed": "Could not import the file into the workspace",
   "files.upload_too_large":
     "\"{name}\" is {size}, which exceeds the import limit ({max}).",
@@ -87,6 +90,24 @@ export default {
   "files.preview_failed": "Failed to preview this file",
   "files.preview_opened_in_browser": "Opened in the built-in browser",
   "files.preview_unsupported": "This file cannot be previewed.",
+  "files.preview_unsupported_open_hint":
+    "In-app preview is not available for this type. Click the icon to open it with your default app.",
+  "files.open_with_default_app": "Open {name} with the default app",
+  "files.open_with_default_app_action": "Open with default app",
+  "files.ask_agent": "Ask agent",
+  "files.ask_agent_done_title": "Ready for agent",
+  "files.ask_agent_done": "File attached in the composer — review and send",
+  "files.ask_agent_instruction_sheet":
+    "Please review this spreadsheet, summarize the key data, and note anything that needs my confirmation before changes.",
+  "files.ask_agent_instruction_document":
+    "Please review this document, summarize the main points, and suggest concrete edits.",
+  "files.ask_agent_instruction_image":
+    "Please review this image, describe the content, and suggest how I can work with it.",
+  "files.ask_agent_instruction_pdf":
+    "Please review this PDF, extract the key points, and suggest next steps.",
+  "files.ask_agent_instruction_generic":
+    "Please review this file, summarize what it contains, and tell me how I can work with it.",
+  "files.preview_too_large": "This file is large. Open it with the default app instead of in-app preview.",
   "files.copy_path": "Copy path",
   "files.close_preview": "Close preview",
   "files.collapse_tree": "Collapse file tree",
