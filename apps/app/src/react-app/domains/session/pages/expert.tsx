@@ -71,16 +71,14 @@ import {
 } from "../../agents";
 import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
+import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
 import {
-  MessagingChannelsPage,
-  readAutomationSessionRecords,
-} from "../../messaging";
-import {
-  WorkspaceFilesPage,
-  buildSessionIdByPathKeyFromAutomationRecords,
-  buildSessionTitleByKey,
-  deleteSessionOwnedWorkspaceFiles,
-} from "../../workspace";
+  resolveExpertDeleteCopy,
+  useExpertSessionDelete,
+  type ExpertGroupDeleteTarget,
+} from "./use-expert-session-delete";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -172,13 +170,6 @@ const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png
 const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 
-type ExpertGroupDeleteTarget = {
-  kind: "expert";
-  agentId: string;
-  name: string;
-  sessionIds: string[];
-};
-
 export type ExpertPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
 };
@@ -223,7 +214,6 @@ export function ExpertPage(props: ExpertPageProps) {
   const currentConversationAgentId = props.selectedSessionId
     ? readCustomAgentIdForSession(props.selectedSessionId)
     : null;
-
 
   const activeConversationAgentId = draftSessionActive
     ? draftAgentId
@@ -316,7 +306,6 @@ export function ExpertPage(props: ExpertPageProps) {
       draftSessionActive,
       activeDraftSessionId,
     });
-    // Soft-archived expert sessions stay in settings archive, not the live tab strip.
     return sessions.filter((session) => !archivedExpertSessionIds.has(session.id));
   }, [
     activeConversationAgentId,
@@ -329,25 +318,13 @@ export function ExpertPage(props: ExpertPageProps) {
   ]);
 
   const filesOpenSessionMeta = useMemo(() => {
-    const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
     const live = workspaceSessions.filter(
       (session) => !archivedExpertSessionIds.has(session.id),
     );
-    const automationRecords = readAutomationSessionRecords(
-      props.selectedWorkspaceId,
-    );
-    const { sessionIdByPathKey, pathTitleAliases } =
-      buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
-    return {
-      activeSessionIds: live.map((session) => session.id),
-      archivedSessionIds: archived.map((task) => task.sessionId),
-      sessionTitleByKey: buildSessionTitleByKey({
-        liveSessions: live,
-        archivedTasks: archived,
-        pathTitleAliases,
-      }),
-      sessionIdByPathKey,
-    };
+    return buildFilesOpenSessionMeta({
+      workspaceId: props.selectedWorkspaceId,
+      liveSessions: live,
+    });
   }, [
     archivedExpertSessionIds,
     props.selectedWorkspaceId,
@@ -485,14 +462,8 @@ export function ExpertPage(props: ExpertPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
-  // Do NOT force openRailView("chat") when selectedSessionId changes.
-  // Opening a session navigates to a clean path (no ?view=). Forcing chat here
-  // steals history Back when POP lands on a secondary rail URL (?view=files etc).
-
   useEffect(() => {
     if (activeSidebarView !== "chat") return;
-    // Never steal focus while a marketplace/agent draft is being summoned —
-    // otherwise the first expert session flashes then disappears.
     if (draftSessionActive || draftAgentId) return;
     if (
       pendingAgent?.conversationStartId &&
@@ -505,13 +476,9 @@ export function ExpertPage(props: ExpertPageProps) {
     const workspaceId = props.sidebar.selectedWorkspaceId?.trim();
     if (!workspaceId) return;
 
-    // Lock: never steal focus while an expert session is already selected.
-    // List recency thrash / brief agent-binding gaps must not jump to
-    // conversationGroups[0].latestSession (that was reordering tabs too).
     const selectedId = props.selectedSessionId?.trim() ?? "";
     if (selectedId && isExpertSession(selectedId)) return;
 
-    // Cold open: stable left-rail order + remembered tab (not recency group[0]).
     const resolved = resolveColdOpenExpertSessionId({
       workspaceId,
       conversationGroups,
@@ -522,7 +489,6 @@ export function ExpertPage(props: ExpertPageProps) {
       return;
     }
 
-    // No summoned experts: leave non-expert sessions so empty state can show.
     if (selectedId && !isExpertSession(selectedId)) {
       props.sidebar.onCreateTaskInWorkspace(workspaceId);
     }
@@ -687,7 +653,6 @@ export function ExpertPage(props: ExpertPageProps) {
         handleOpenExpertSession(workspaceId, hintSessionId);
         return;
       }
-      // Already on this expert — keep the active tab (do not jump to latest).
       if (
         activeConversationAgentId === agentId &&
         props.selectedSessionId &&
@@ -713,7 +678,6 @@ export function ExpertPage(props: ExpertPageProps) {
     ],
   );
 
-  // Keep memory in sync for any path that sets selectedSessionId (route restore).
   useEffect(() => {
     const sessionId = props.selectedSessionId?.trim() ?? "";
     if (!sessionId || sessionId.startsWith("draft:") || !isExpertSession(sessionId)) {
@@ -730,10 +694,6 @@ export function ExpertPage(props: ExpertPageProps) {
       pendingAgent,
     });
     if (!createdSessionId) return;
-    // Lock the draft → real-session handoff as soon as creation binds the
-    // expert. The route can still point at the prior tab for one render, so
-    // explicitly drive it to the created session instead of allowing the
-    // generic "first summoned expert" fallback to steal selection.
     setPendingTabSessionId(createdSessionId);
     if (props.selectedSessionId !== createdSessionId) {
       props.sidebar.onOpenSession(
@@ -846,7 +806,6 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const seedChatDraft = useCallback(
     (draft: string) => {
-      // Expert-mode in-session seed: still force a new draft session.
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
       setComposerDraftAfterNewTask(props.selectedWorkspaceId, draft);
       openRailView("chat");
@@ -908,7 +867,6 @@ export function ExpertPage(props: ExpertPageProps) {
         props.onCreateSessionForAgent();
       }
 
-      // Always stamp expert intent (incl. force-new / multi-session creates).
       return props.surface?.onSendDraft({
         ...draft,
         sessionStartIntent: { mode: "expert" },
@@ -982,12 +940,8 @@ export function ExpertPage(props: ExpertPageProps) {
 
   useEffect(() => {
     const sessionId = props.selectedSessionId?.trim() ?? "";
-    // Empty / draft route: keep the in-progress "+ 新会话" draft.
     if (!sessionId || sessionId.startsWith("draft:")) return;
 
-    // Unbound new-session drafts must survive the previous tab still being on
-    // the route (or a brief restore) until the first send binds a real session.
-    // Only drop when the user opens a *different* expert's real session.
     if (
       shouldKeepUnboundNewSessionDraft({
         draftSessionActive,
@@ -1015,104 +969,14 @@ export function ExpertPage(props: ExpertPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
-  const purgeExpertSessionFiles = useCallback(
-    async (sessionId: string, agentSlug?: string | null) => {
-      const client = props.onmyagentServerClient;
-      const workspaceId = props.selectedWorkspaceId.trim();
-      const id = sessionId.trim();
-      if (!client || !workspaceId || !id) return;
-      const match = currentAgentSessions.find((session) => session.id === id);
-      const archived = readAssistantArchivedTasks(workspaceId).find(
-        (task) => task.sessionId === id,
-      );
-      const directory =
-        match?.directory ?? archived?.directory ?? null;
-      try {
-        await deleteSessionOwnedWorkspaceFiles({
-          client,
-          workspaceId,
-          sessionId: id,
-          directory,
-          // Prefer explicit agent, then live expert tab id, then path inference.
-          agentSlug:
-            agentSlug
-            ?? activeConversationAgentId
-            ?? null,
-          workspaceRoot: props.selectedWorkspaceRoot,
-        });
-      } catch (error) {
-        console.warn(
-          "[expert] best-effort session file cleanup failed",
-          id,
-          error,
-        );
-      }
-    },
-    [
-      activeConversationAgentId,
-      currentAgentSessions,
-      props.onmyagentServerClient,
-      props.selectedWorkspaceId,
-      props.selectedWorkspaceRoot,
-    ],
-  );
-
-  const executeExpertDelete = useCallback(
-    async (
-      target:
-        | { kind: "session"; sessionId: string }
-        | ExpertGroupDeleteTarget,
-    ) => {
-      if (target.kind === "session") {
-        await purgeExpertSessionFiles(
-          target.sessionId,
-          activeConversationAgentId,
-        );
-        permanentlyRemoveAssistantArchivedTask(
-          props.selectedWorkspaceId,
-          target.sessionId,
-        );
-        await props.onDeleteSession?.(target.sessionId);
-        return;
-      }
-      if (props.onDeleteSession) {
-        // Parallel: each session is local-first + budgeted remote; serial N×
-        // waits made multi-session expert deletes feel stuck.
-        const deleteOne = props.onDeleteSession;
-        await Promise.allSettled(
-          target.sessionIds.map(async (sessionId) => {
-            await purgeExpertSessionFiles(sessionId, target.agentId);
-            permanentlyRemoveAssistantArchivedTask(
-              props.selectedWorkspaceId,
-              sessionId,
-            );
-            return deleteOne(sessionId);
-          }),
-        );
-      }
-      // Drop local expert pin + unread for this agent after sessions are gone.
-      try {
-        const pinned = readExpertPinnedAgentIds(props.selectedWorkspaceId);
-        if (pinned.includes(target.agentId)) {
-          writeExpertPinnedAgentIds(
-            props.selectedWorkspaceId,
-            pinned.filter((id) => id !== target.agentId),
-          );
-        }
-        useExpertUnreadStore
-          .getState()
-          .markRead(props.selectedWorkspaceId, target.agentId);
-      } catch {
-        // Local cleanup only — ignore storage failures.
-      }
-    },
-    [
-      activeConversationAgentId,
-      props.onDeleteSession,
-      props.selectedWorkspaceId,
-      purgeExpertSessionFiles,
-    ],
-  );
+  const { executeExpertDelete } = useExpertSessionDelete({
+    workspaceId: props.selectedWorkspaceId,
+    workspaceRoot: props.selectedWorkspaceRoot,
+    client: props.onmyagentServerClient,
+    activeConversationAgentId,
+    currentAgentSessions,
+    onDeleteSession: props.onDeleteSession,
+  });
 
   const {
     renameOpen,
@@ -1152,25 +1016,15 @@ export function ExpertPage(props: ExpertPageProps) {
     [openDeleteGroupModal],
   );
 
-  const expertDeleteTitle =
-    deleteTarget?.kind === "expert"
-      ? t("session.delete_expert_title")
-      : t("session.delete_session_title");
-  const expertDeleteMessage =
-    deleteTarget?.kind === "expert"
-      ? deleteTarget.name
-        ? t("session.delete_named_expert_message", {
-            name: deleteTarget.name,
-          })
-        : t("session.delete_expert_generic")
-      : sessionActionTitle.trim()
-        ? t("session.delete_named_session_message", {
-            title: sessionActionTitle.trim(),
-          })
-        : t("session.delete_session_generic");
-  const expertDeleteConfirmLabel = deleteBusy
-    ? t("session.deleting")
-    : t("session.delete");
+  const {
+    title: expertDeleteTitle,
+    message: expertDeleteMessage,
+    confirmLabel: expertDeleteConfirmLabel,
+  } = resolveExpertDeleteCopy({
+    deleteTarget,
+    sessionActionTitle,
+    deleteBusy,
+  });
 
   const showWorkspaceSetupEmptyState =
     props.workspaces.length === 0 && !props.selectedSessionId;
@@ -1181,8 +1035,6 @@ export function ExpertPage(props: ExpertPageProps) {
     startupPhase: props.startupPhase,
     coldBootShell: props.coldBootShell === true,
   });
-  // Draft “新会话” must not be blocked by loading state of the previously
-  // selected real session (sessionLoadingById is tied to selectedSessionId).
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) &&
     !draftSessionActive &&
@@ -1352,9 +1204,7 @@ export function ExpertPage(props: ExpertPageProps) {
         tone: "success",
         title: t("session.archive_task_done"),
       });
-      // If the open tab was archived, leave selection to host session binding.
       if (props.selectedSessionId === id) {
-        // Host list refresh will drop archived sessions from chips.
       }
     },
     [currentAgentSessions, props.selectedSessionId, props.selectedWorkspaceId, showToast],
@@ -1401,7 +1251,6 @@ export function ExpertPage(props: ExpertPageProps) {
               props.onNavigateToMode("assistant");
               return;
             }
-            // Automation hosts on assistant only — leave expert with ?view=automation.
             if (isAutomationRailView(view)) {
               const path = openAutomationRailPath(props.selectedWorkspaceId);
               if (path) navigate(path);
@@ -1566,7 +1415,6 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
-                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
                           fileRoot={
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot

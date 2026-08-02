@@ -29,7 +29,6 @@ import {
   type WorkspaceFilesToastInput,
 } from "./workspace-files-uploads-panel";
 
-// Re-export pure root resolver for existing callers/tests.
 export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
 
 function filesSourceTabIcon(tab: (typeof FILES_SOURCE_RAIL_TABS)[number]) {
@@ -139,7 +138,6 @@ export function WorkspaceFilesPage(props: {
         </SegmentedTabGroup>
       </div>
 
-      {/* Match Marketplace: full-bleed body; panels own px-6 gutters (no max-w). */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === "uploads" ? (
           <WorkspaceFilesUploadsPanel
