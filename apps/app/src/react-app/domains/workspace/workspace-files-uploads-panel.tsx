@@ -293,9 +293,9 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
-  /** Same defaults as Tasks/Experts: newest first. */
-  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("updated");
-  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("desc");
+  /** Same defaults as Tasks/Experts: type sort, folders first. */
+  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("type");
+  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("asc");
   const [uploading, setUploading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshDone, setRefreshDone] = useState(false);
@@ -465,8 +465,8 @@ export function WorkspaceFilesUploadsPanel(props: {
       return;
     }
     setSortKey(key);
-    // Name defaults ascending; updated/size default newest/largest first.
-    setSortDir(key === "name" ? "asc" : "desc");
+    // Name/type default ascending (folders first for type); updated/size newest/largest first.
+    setSortDir(key === "name" || key === "type" ? "asc" : "desc");
   }, [sortKey]);
 
   /** Map path → row for tree row actions / preview. */
@@ -1451,10 +1451,10 @@ export function WorkspaceFilesUploadsPanel(props: {
                           sortable: true,
                         },
                         {
-                          key: null,
+                          key: "type" as WorkspaceFileSortKey | null,
                           label: t("files.column_type"),
                           className: "w-28",
-                          sortable: false,
+                          sortable: true,
                         },
                         {
                           key: "updated" as WorkspaceFileSortKey | null,

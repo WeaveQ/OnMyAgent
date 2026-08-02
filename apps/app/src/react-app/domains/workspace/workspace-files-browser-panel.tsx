@@ -527,9 +527,9 @@ export function WorkspaceFilesBrowserPanel(props: {
   const [favoritePaths, setFavoritePaths] = useState<Set<string>>(
     () => readFavoritePaths(props.workspaceId),
   );
-  /** Default: newest first so folders with recent activity rise to the top. */
-  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("updated");
-  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("desc");
+  /** Default: type sort with folders first (same as Mine). */
+  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("type");
+  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("asc");
   const workspaceRootNormalized = props.workspaceRoot.trim().replace(/[\\/]+$/, "");
   const fileRoot =
     props.fileRoot === undefined
@@ -890,8 +890,8 @@ export function WorkspaceFilesBrowserPanel(props: {
       return;
     }
     setSortKey(key);
-    // Name defaults ascending; updated/size default newest/largest first.
-    setSortDir(key === "name" ? "asc" : "desc");
+    // Name/type default ascending (folders first for type); updated/size newest/largest first.
+    setSortDir(key === "name" || key === "type" ? "asc" : "desc");
   }, [sortKey]);
 
   const openSourceForPath = useCallback(
@@ -1291,10 +1291,10 @@ export function WorkspaceFilesBrowserPanel(props: {
                                   sortable: true,
                                 },
                                 {
-                                  key: null,
+                                  key: "type" as WorkspaceFileSortKey | null,
                                   label: t("files.column_type"),
                                   className: "w-28",
-                                  sortable: false,
+                                  sortable: true,
                                 },
                                 {
                                   key: "updated" as WorkspaceFileSortKey | null,

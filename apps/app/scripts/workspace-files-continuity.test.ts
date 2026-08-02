@@ -348,7 +348,7 @@ describe("files tree outline helpers", () => {
     expect(nested?.children.map((c) => c.name)).toEqual(["b.md"]);
   });
 
-  test("sortUploadRows and tree sort follow name/updated/size like Tasks", () => {
+  test("sortUploadRows and tree sort follow name/type/updated/size like Tasks", () => {
     const sample = [
       {
         id: "1",
@@ -374,31 +374,50 @@ describe("files tree outline helpers", () => {
         updatedAt: 50,
         kind: "file" as const,
       },
+      {
+        id: "4",
+        name: "sheet.xlsx",
+        path: "uploads/sheet.xlsx",
+        size: 20,
+        updatedAt: 20,
+        kind: "file" as const,
+      },
     ];
     expect(sortUploadRows(sample, "name", "asc").map((r) => r.name)).toEqual([
       "z-folder",
       "alpha.md",
       "big.pptx",
+      "sheet.xlsx",
+    ]);
+    // Default type: folders first, then presentation/spreadsheet/markdown order.
+    expect(sortUploadRows(sample, "type", "asc").map((r) => r.name)).toEqual([
+      "z-folder",
+      "sheet.xlsx",
+      "big.pptx",
+      "alpha.md",
     ]);
     expect(sortUploadRows(sample, "updated", "desc").map((r) => r.name)).toEqual([
       "alpha.md",
+      "sheet.xlsx",
       "z-folder",
       "big.pptx",
     ]);
     expect(sortUploadRows(sample, "size", "desc").map((r) => r.name)).toEqual([
       "big.pptx",
+      "sheet.xlsx",
       "alpha.md",
       "z-folder",
     ]);
 
     const roots = buildTreeNodesFromUploadRows(sample, "uploads", {
-      sortKey: "name",
+      sortKey: "type",
       sortDir: "asc",
     });
     expect(roots.map((r) => r.name)).toEqual([
       "z-folder",
-      "alpha.md",
+      "sheet.xlsx",
       "big.pptx",
+      "alpha.md",
     ]);
   });
 

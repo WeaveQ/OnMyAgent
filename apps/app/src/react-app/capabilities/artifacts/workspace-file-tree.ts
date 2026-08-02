@@ -5,6 +5,10 @@
  */
 import { t } from "../../../i18n";
 import type { OnMyAgentWorkspaceFileCatalogEntry } from "../../../app/lib/onmyagent-server";
+import {
+  getFileCategory,
+  type FileCategory,
+} from "../../domains/workspace/workspace-files-categories";
 
 export type WorkspaceFileTreeNode = {
   name: string;
@@ -68,8 +72,29 @@ function rollupWorkspaceFileTreeStats(node: WorkspaceFileTreeNode): void {
   }
 }
 
-export type WorkspaceFileSortKey = "name" | "updated" | "size";
+export type WorkspaceFileSortKey = "name" | "type" | "updated" | "size";
 export type WorkspaceFileSortDir = "asc" | "desc";
+
+/** Stable category order for type column (matches product filter chips, sans "all"). */
+const FILE_TYPE_SORT_ORDER: readonly FileCategory[] = [
+  "document",
+  "spreadsheet",
+  "presentation",
+  "pdf",
+  "image",
+  "video",
+  "audio",
+  "website",
+  "markdown",
+  "code",
+  "other",
+];
+
+function fileTypeSortRank(name: string): number {
+  const category = getFileCategory(name);
+  const index = FILE_TYPE_SORT_ORDER.indexOf(category);
+  return index >= 0 ? index : FILE_TYPE_SORT_ORDER.length;
+}
 
 export function compareWorkspaceFileNodes(
   a: WorkspaceFileTreeNode,
@@ -86,6 +111,16 @@ export function compareWorkspaceFileNodes(
   if (key === "size") {
     const bySize = (a.size || 0) - (b.size || 0);
     if (bySize !== 0) return sign * bySize;
+    return a.name.localeCompare(b.name);
+  }
+  if (key === "type") {
+    // Folders always first for type sort (product default).
+    if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
+    if (a.kind === "dir") {
+      return sign * a.name.localeCompare(b.name);
+    }
+    const byType = fileTypeSortRank(a.name) - fileTypeSortRank(b.name);
+    if (byType !== 0) return sign * byType;
     return a.name.localeCompare(b.name);
   }
   // Name: folders first, then locale name order.
