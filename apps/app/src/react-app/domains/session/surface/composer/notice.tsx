@@ -22,7 +22,7 @@ const composerNoticeToneClass = {
 /**
  * Attach success/failure toast. Portaled to document.body so CSS `contain`
  * on the composer cannot trap fixed positioning inside the input card.
- * Viewport bottom-center, above the dock / home indicator.
+ * Top-center of the main content (right of primary rail), slide in from above.
  */
 export function ReactComposerNotice(props: { notice: ReactComposerNotice | null }) {
   const tone = props.notice?.tone ?? "info";
@@ -36,11 +36,11 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
 
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-4 z-[200] flex justify-center px-4 sm:bottom-6"
+      className="pointer-events-none fixed right-0 top-4 z-[200] flex justify-center px-4 left-[var(--dls-rail-width,3.5rem)] sm:top-5 mac:top-10"
       data-composer-notice-viewport="true"
     >
       <div
-        className={`pointer-events-auto w-full max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg ${
+        className={`pointer-events-auto w-full max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 ${
           hasDescription || hasAction ? "px-3.5 py-2.5" : "px-3 py-2"
         }`}
         role="status"
