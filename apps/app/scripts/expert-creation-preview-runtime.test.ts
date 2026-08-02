@@ -2,10 +2,45 @@ import { describe, expect, test } from "bun:test";
 
 import {
   applyExpertPreviewStreamEvent,
+  buildExpertPreviewSystemPrompt,
   createExpertPreviewStreamState,
+  readLatestExpertPreviewReply,
 } from "../src/react-app/domains/agents/expert-creation-preview-runtime";
+import { createBlankWizardDraft, createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-registry";
 
 describe("expert creation preview stream", () => {
+  test("recovers the latest assistant reply from the completed transcript", () => {
+    expect(readLatestExpertPreviewReply([
+      {
+        info: { role: "assistant" },
+        parts: [{ type: "text", text: "Earlier answer" }],
+      },
+      {
+        info: { role: "user" },
+        parts: [{ type: "text", text: "Latest question" }],
+      },
+      {
+        info: { role: "assistant" },
+        parts: [
+          { type: "reasoning", text: "Hidden" },
+          { type: "text", text: "Latest answer" },
+        ],
+      },
+    ])).toBe("Latest answer");
+  });
+
+  test("includes staged knowledge files in the unsaved draft system prompt", () => {
+    const draft = createBlankWizardDraft(createDefaultAgentRegistry());
+    draft.name = "Research expert";
+    draft.agentMemory = "Remember the project constraints.";
+    const prompt = buildExpertPreviewSystemPrompt(draft, [
+      "/tmp/expert-draft/knowledge/research/brief.md",
+    ]);
+    expect(prompt).toContain("Research expert");
+    expect(prompt).toContain("Remember the project constraints.");
+    expect(prompt).toContain("/tmp/expert-draft/knowledge/research/brief.md");
+  });
+
   test("streams only assistant text for the preview session", () => {
     const state = createExpertPreviewStreamState();
     const sessionId = "preview-session";

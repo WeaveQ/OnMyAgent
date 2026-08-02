@@ -17,6 +17,7 @@ export type ExpertPreviewTurnInput = {
   message: string;
   attachments?: readonly File[];
   draft: AgentWizardDraft;
+  knowledgePaths?: readonly string[];
   model?: ModelRef;
   systemPrompt?: string;
   signal?: AbortSignal;
@@ -48,6 +49,42 @@ function readErrorMessage(value: unknown): string {
   if (typeof value.message === "string") return value.message;
   if ("error" in value) return readErrorMessage(value.error);
   return "";
+}
+
+export function readLatestExpertPreviewReply(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  for (let messageIndex = value.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = value[messageIndex];
+    if (!isRecord(message) || !isRecord(message.info) || message.info.role !== "assistant") continue;
+    if (!Array.isArray(message.parts)) continue;
+    const text = message.parts
+      .filter((part) => (
+        isRecord(part) &&
+        part.type === "text" &&
+        part.synthetic !== true &&
+        part.ignored !== true &&
+        typeof part.text === "string"
+      ))
+      .map((part) => isRecord(part) && typeof part.text === "string" ? part.text : "")
+      .join("");
+    if (text.trim()) return text;
+  }
+  return "";
+}
+
+export function buildExpertPreviewSystemPrompt(
+  draft: AgentWizardDraft,
+  knowledgePaths: readonly string[],
+): string {
+  const base = buildAgentSystemPrompt({ ...draft, quote: draft.description });
+  const paths = knowledgePaths.map((path) => path.trim()).filter(Boolean);
+  if (paths.length === 0) return base;
+  const knowledge = [
+    "[Expert knowledge] The following files belong to this expert's private knowledge library.",
+    "Use them as background when relevant. Read their contents with the available filesystem tools before answering when the question depends on them.",
+    ...paths.map((path) => `- ${path}`),
+  ].join("\n");
+  return [base, knowledge].filter(Boolean).join("\n\n");
 }
 
 function fullText(state: PreviewStreamState): string {
@@ -202,13 +239,22 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
       directory: input.config.workspaceRoot || undefined,
       system:
         input.systemPrompt ??
-        buildAgentSystemPrompt({ ...input.draft, quote: input.draft.description }),
+        buildExpertPreviewSystemPrompt(input.draft, input.knowledgePaths ?? []),
       tools: buildAgentToolAccess(input.draft),
       ...(input.model ? { model: input.model } : {}),
       parts,
     });
     if (promptResult.error) throw new Error(readErrorMessage(promptResult.error) || "Expert preview request failed");
     await consume;
+    if (!finalText.trim()) {
+      const messages = unwrap(await client.session.messages({
+        sessionID: sessionId,
+        directory: input.config.workspaceRoot || undefined,
+        limit: 20,
+      }));
+      finalText = readLatestExpertPreviewReply(messages);
+      if (finalText) input.onTextChange?.(finalText);
+    }
     return { sessionId, content: finalText };
   } finally {
     input.signal?.removeEventListener("abort", abort);

@@ -1083,6 +1083,7 @@ function KnowledgePanel(props: {
 
 function TryEffectPanel(props: {
   draft: AgentWizardDraft;
+  knowledge: ExpertKnowledgeEntry[];
   registry: AgentRegistry;
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
@@ -1114,6 +1115,9 @@ function TryEffectPanel(props: {
         opencodeBaseUrl={props.opencodeBaseUrl}
         onmyagentServerToken={props.onmyagentServerToken}
         selectedModel={props.selectedModel}
+        knowledgePaths={props.knowledge
+          .filter((entry) => entry.kind === "file" && entry.stagedPath)
+          .map((entry) => entry.stagedPath ?? "")}
         title={props.draft.name || t("agents.expert_creation_preview_title")}
         avatar={null}
         emptyContent={(
@@ -1495,6 +1499,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             <ResizablePanel defaultSize="25%" minSize="280px" maxSize="42%" className="min-w-0">
               <TryEffectPanel
                 draft={draft}
+                knowledge={knowledge}
                 registry={sourceRegistry}
                 workspaceRoot={props.workspaceRoot}
                 opencodeBaseUrl={props.opencodeBaseUrl}
