@@ -214,5 +214,9 @@ export function useExpertCreationController(
         onDone: handleDone,
       })
     : null;
-  return { expertCreationPage, openExpertCreation: openCreation };
+  return {
+    expertCreationPage,
+    openExpertCreation: openCreation,
+    closeExpertCreation: closeCreation,
+  };
 }
