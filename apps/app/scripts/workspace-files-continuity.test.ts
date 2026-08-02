@@ -31,8 +31,18 @@ import {
 import {
   buildRootOutlineRows,
   buildUserUploadRelativePath,
+  mapUploadsCatalogToRows,
+  mergeMineUploadRows,
 } from "../src/react-app/domains/workspace/workspace-files-model";
 import { buildIsolatedExpertSessionDirectory } from "../src/react-app/capabilities/session-identity/expert-session-directory";
+import {
+  buildSessionTitleByKey,
+  resolveOpenSourceSessionAction,
+} from "../src/react-app/domains/workspace/workspace-files-open-session";
+import {
+  resolveUploadFolderRelativePath,
+  sanitizeUploadFolderName,
+} from "../src/react-app/domains/workspace/workspace-files-create-folder";
 
 const appRoot = join(import.meta.dir, "..");
 
@@ -341,6 +351,135 @@ describe("buildRootOutlineRows conversation nesting", () => {
       expect(task.displayTitle).toBe("报价需求整理会话");
     }
     expect(rows.some((r) => r.type === "file")).toBe(true);
+  });
+});
+
+describe("open source session + create folder (Sprint A/B)", () => {
+  test("resolveOpenSourceSessionAction active / archived / missing / none", () => {
+    const active = resolveOpenSourceSessionAction({
+      relativePath: "tasks/ses_live/out.xlsx",
+      activeSessionIds: ["ses_live"],
+      archivedSessionIds: [],
+    });
+    expect(active).toEqual({
+      sessionId: "ses_live",
+      status: "active",
+      canOpen: true,
+    });
+
+    const archived = resolveOpenSourceSessionAction({
+      relativePath: "experts/fleet/ses_arch/a.json",
+      activeSessionIds: [],
+      archivedSessionIds: new Set(["ses_arch"]),
+    });
+    expect(archived.status).toBe("archived");
+    expect(archived.canOpen).toBe(true);
+
+    const missing = resolveOpenSourceSessionAction({
+      relativePath: "tasks/ses_gone/x.md",
+      activeSessionIds: [],
+      archivedSessionIds: [],
+    });
+    expect(missing.status).toBe("missing");
+    expect(missing.canOpen).toBe(false);
+
+    const none = resolveOpenSourceSessionAction({
+      relativePath: "uploads/note.md",
+      activeSessionIds: ["ses_live"],
+    });
+    expect(none.status).toBe("none");
+    expect(none.canOpen).toBe(false);
+  });
+
+  test("buildSessionTitleByKey prefers live over archive", () => {
+    const map = buildSessionTitleByKey({
+      liveSessions: [{ id: "s1", title: "Live title" }],
+      archivedTasks: [
+        { sessionId: "s1", title: "Archived title" },
+        { sessionId: "s2", title: "Only archived" },
+      ],
+    });
+    expect(map.s1).toBe("Live title");
+    expect(map.s2).toBe("Only archived");
+  });
+
+  test("create folder path stays under uploads/", () => {
+    expect(sanitizeUploadFolderName("  报价 资料  ")).toBeTruthy();
+    const path = resolveUploadFolderRelativePath("报价资料");
+    expect(path).toBe(`${WORKSPACE_UPLOADS_DIR}/报价资料`);
+    expect(isUnderProductLayoutRoot(path!)).toBe(true);
+    expect(resolveUploadFolderRelativePath("")).toBeNull();
+    expect(resolveUploadFolderRelativePath("..")).toBeNull();
+    expect(
+      resolveUploadFolderRelativePath("sub", `${WORKSPACE_UPLOADS_DIR}/parent`),
+    ).toBe(`${WORKSPACE_UPLOADS_DIR}/parent/sub`);
+  });
+
+  test("uploads catalog maps dirs and merges with inbox", () => {
+    const catalog = mapUploadsCatalogToRows(
+      [
+        {
+          path: "uploads/reports",
+          kind: "dir",
+          mtimeMs: 10,
+        },
+        {
+          path: "uploads/reports/nested.xlsx",
+          kind: "file",
+          size: 3,
+          mtimeMs: 11,
+        },
+        { path: "uploads/a.md", kind: "file", size: 1, mtimeMs: 5 },
+      ],
+      { parentPrefix: "uploads", shallow: true },
+    );
+    expect(catalog.some((r) => r.kind === "dir" && r.name === "reports")).toBe(
+      true,
+    );
+    expect(catalog.some((r) => r.path === "uploads/a.md")).toBe(true);
+    // nested file hidden at shallow root
+    expect(catalog.some((r) => r.path.includes("nested"))).toBe(false);
+
+    const merged = mergeMineUploadRows(
+      [
+        {
+          id: "inbox1",
+          name: "old.md",
+          path: "uploads/a.md",
+          size: 9,
+          updatedAt: 1,
+          kind: "file",
+        },
+      ],
+      catalog,
+    );
+    // catalog wins same path
+    expect(merged.find((r) => r.path === "uploads/a.md")?.size).toBe(1);
+    expect(merged.some((r) => r.kind === "dir")).toBe(true);
+  });
+
+  test("browser and hosts wire open-source-session + create folder", () => {
+    const browser = readApp(
+      "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+    );
+    const uploads = readApp(
+      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+    );
+    const page = readApp(
+      "src/react-app/domains/workspace/workspace-files-page.tsx",
+    );
+    const assistant = readApp(
+      "src/react-app/domains/session/pages/assistant.tsx",
+    );
+    expect(browser).toContain("data-files-open-source-session");
+    expect(browser).toContain("onOpenSourceSession");
+    expect(browser).toContain("sessionTitleByKey");
+    expect(uploads).toContain("data-files-create-folder");
+    expect(uploads).toContain("mkdirWorkspaceDirectory");
+    expect(uploads).toContain("mapUploadsCatalogToRows");
+    expect(page).toContain("onOpenSourceSession");
+    expect(assistant).toContain("onOpenSourceSession");
+    expect(assistant).toContain("filesOpenSessionMeta");
   });
 });
 

@@ -106,6 +106,10 @@ import {
   truncateDisplayTitle,
 } from "./workspace-files-display";
 import {
+  resolveOpenSourceSessionAction,
+  type SourceSessionStatus,
+} from "./workspace-files-open-session";
+import {
   FILE_CATEGORIES,
   buildRootOutlineRows,
   canPreviewWorkspaceFileInline,
@@ -343,16 +347,28 @@ function FileNameQuickActions(props: {
   );
 }
 
+function openSourceSessionLabel(status: SourceSessionStatus): string {
+  if (status === "archived") return t("files.open_source_session_archived");
+  if (status === "missing") return t("files.open_source_session_missing");
+  return t("files.open_source_session");
+}
+
 function FileRowActionsMenu(props: {
   name: string;
   pathCopied: boolean;
   favorited: boolean;
+  openSourceSession?: {
+    status: SourceSessionStatus;
+    canOpen: boolean;
+  } | null;
+  onOpenSourceSession?: () => void;
   onOpenInFolder: () => void;
   onAddToTask: () => void;
   onToggleFavorite: () => void;
   onCopyPath: () => void;
   onDelete: () => void;
 }) {
+  const openSession = props.openSourceSession;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -375,6 +391,25 @@ function FileRowActionsMenu(props: {
           <Cloud />
           {t("files.upload_to_cloud_soon")}
         </DropdownMenuItem>
+        {openSession && openSession.status !== "none" ? (
+          <DropdownMenuItem
+            disabled={!openSession.canOpen || !props.onOpenSourceSession}
+            title={
+              openSession.status === "missing"
+                ? t("files.open_source_session_missing")
+                : undefined
+            }
+            data-files-open-source-session="true"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!openSession.canOpen) return;
+              props.onOpenSourceSession?.();
+            }}
+          >
+            <MessageSquare />
+            {openSourceSessionLabel(openSession.status)}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           onClick={(event) => {
             event.stopPropagation();
@@ -430,6 +465,22 @@ export function WorkspaceFilesBrowserPanel(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
+  /**
+   * Live session ids that can be opened from Files (Tasks / Experts).
+   */
+  activeSessionIds?: ReadonlySet<string> | readonly string[] | null;
+  /**
+   * Soft-archived session ids — still openable; label uses archived copy.
+   */
+  archivedSessionIds?: ReadonlySet<string> | readonly string[] | null;
+  /**
+   * Optional session id → title for outline rows (~10-char truncate + hover full).
+   */
+  sessionTitleByKey?: ReadonlyMap<string, string> | Record<string, string> | null;
+  /**
+   * Navigate to the conversation that produced a file/session folder.
+   */
+  onOpenSourceSession?: (sessionId: string) => void;
   /**
    * Directory to list. Callers should pass the OnMyAgent-selected workspace
    * folder (`workspaceRoot`) so the list does not follow session/tool context.
@@ -776,8 +827,19 @@ export function WorkspaceFilesBrowserPanel(props: {
     if (!useOutlineRoot) return [] as OutlineRow[];
     return buildRootOutlineRows(listedNodes, expandedPaths, {
       groupLooseAsOrphan: true,
+      sessionTitleByKey: props.sessionTitleByKey ?? undefined,
     });
-  }, [expandedPaths, listedNodes, useOutlineRoot]);
+  }, [expandedPaths, listedNodes, props.sessionTitleByKey, useOutlineRoot]);
+
+  const openSourceForPath = useCallback(
+    (relativePath: string) =>
+      resolveOpenSourceSessionAction({
+        relativePath,
+        activeSessionIds: props.activeSessionIds,
+        archivedSessionIds: props.archivedSessionIds,
+      }),
+    [props.activeSessionIds, props.archivedSessionIds],
+  );
 
   const toggleExpanded = useCallback((path: string) => {
     setExpandedPaths((current) => {
@@ -1508,6 +1570,13 @@ export function WorkspaceFilesBrowserPanel(props: {
                                         name={fileNode.name}
                                         pathCopied={pathCopiedFlash === fileNode.path}
                                         favorited={favoritePaths.has(fileNode.path)}
+                                        openSourceSession={openSourceForPath(fileNode.path)}
+                                        onOpenSourceSession={() => {
+                                          const action = openSourceForPath(fileNode.path);
+                                          if (action.canOpen && action.sessionId) {
+                                            props.onOpenSourceSession?.(action.sessionId);
+                                          }
+                                        }}
                                         onOpenInFolder={() => void handleOpenFile(fileNode.path)}
                                         onAddToTask={() => void handleAddToTask(fileNode.path)}
                                         onToggleFavorite={() =>
@@ -1602,6 +1671,13 @@ export function WorkspaceFilesBrowserPanel(props: {
                                   name={node.name}
                                   pathCopied={pathCopiedFlash === node.path}
                                   favorited={favoritePaths.has(node.path)}
+                                  openSourceSession={openSourceForPath(node.path)}
+                                  onOpenSourceSession={() => {
+                                    const action = openSourceForPath(node.path);
+                                    if (action.canOpen && action.sessionId) {
+                                      props.onOpenSourceSession?.(action.sessionId);
+                                    }
+                                  }}
                                   onOpenInFolder={() => void handleOpenFile(node.path)}
                                   onAddToTask={() => void handleAddToTask(node.path)}
                                   onToggleFavorite={() => handleToggleFavorite(node.path)}

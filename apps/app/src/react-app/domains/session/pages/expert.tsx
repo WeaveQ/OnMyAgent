@@ -73,6 +73,7 @@ import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
+import { buildSessionTitleByKey } from "../../workspace/workspace-files-open-session";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -317,6 +318,25 @@ export function ExpertPage(props: ExpertPageProps) {
     archivedExpertSessionIds,
     draftSessionActive,
     props.selectedSessionId,
+    props.selectedWorkspaceId,
+    workspaceSessions,
+  ]);
+
+  const filesOpenSessionMeta = useMemo(() => {
+    const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
+    const live = workspaceSessions.filter(
+      (session) => !archivedExpertSessionIds.has(session.id),
+    );
+    return {
+      activeSessionIds: live.map((session) => session.id),
+      archivedSessionIds: archived.map((task) => task.sessionId),
+      sessionTitleByKey: buildSessionTitleByKey({
+        liveSessions: live,
+        archivedTasks: archived,
+      }),
+    };
+  }, [
+    archivedExpertSessionIds,
     props.selectedWorkspaceId,
     workspaceSessions,
   ]);
@@ -1538,6 +1558,20 @@ export function ExpertPage(props: ExpertPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
+                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                          archivedSessionIds={
+                            filesOpenSessionMeta.archivedSessionIds
+                          }
+                          sessionTitleByKey={
+                            filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          onOpenSourceSession={(sessionId) => {
+                            props.sidebar.onOpenSession(
+                              props.selectedWorkspaceId,
+                              sessionId,
+                            );
+                            openRailView("chat");
+                          }}
                           onOpenArtifact={openTarget}
                           {...createWorkspaceFilesAgentHandlers({
                             sessionId: renderedSessionId,
