@@ -113,6 +113,12 @@ import {
 } from "@/components/ui/resizable";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import {
+  archiveAssistantTask,
+  archivedSessionIdSet,
+  assistantArchivedTasksChangedEvent,
+  readAssistantArchivedTasks,
+} from "../../shared";
 
 import {
   createWorkspaceFilesAgentHandlers,
@@ -278,25 +284,40 @@ export function ExpertPage(props: ExpertPageProps) {
     () => computeHasAnyExpertConversation(workspaceSessions),
     [workspaceSessions],
   );
-  const currentAgentSessions = useMemo(
+  const [archivedRevision, setArchivedRevision] = useState(0);
+  useEffect(() => {
+    const onArchived = () => setArchivedRevision((value) => value + 1);
+    window.addEventListener(assistantArchivedTasksChangedEvent, onArchived);
+    return () =>
+      window.removeEventListener(assistantArchivedTasksChangedEvent, onArchived);
+  }, []);
+  const archivedExpertSessionIds = useMemo(
     () =>
-      buildCurrentAgentSessions({
-        workspaceSessions,
-        activeConversationAgentId,
-        selectedSessionId: props.selectedSessionId,
-        selectedWorkspaceId: props.selectedWorkspaceId,
-        draftSessionActive,
-        activeDraftSessionId,
-      }),
-    [
-      activeConversationAgentId,
-      activeDraftSessionId,
-      draftSessionActive,
-      props.selectedSessionId,
-      props.selectedWorkspaceId,
-      workspaceSessions,
-    ],
+      archivedSessionIdSet(
+        readAssistantArchivedTasks(props.selectedWorkspaceId),
+      ),
+    [archivedRevision, props.selectedWorkspaceId],
   );
+  const currentAgentSessions = useMemo(() => {
+    const sessions = buildCurrentAgentSessions({
+      workspaceSessions,
+      activeConversationAgentId,
+      selectedSessionId: props.selectedSessionId,
+      selectedWorkspaceId: props.selectedWorkspaceId,
+      draftSessionActive,
+      activeDraftSessionId,
+    });
+    // Soft-archived expert sessions stay in settings archive, not the live tab strip.
+    return sessions.filter((session) => !archivedExpertSessionIds.has(session.id));
+  }, [
+    activeConversationAgentId,
+    activeDraftSessionId,
+    archivedExpertSessionIds,
+    draftSessionActive,
+    props.selectedSessionId,
+    props.selectedWorkspaceId,
+    workspaceSessions,
+  ]);
   const sessionTabOrderScope = [
     props.selectedWorkspaceId,
     activeConversationAgentId ?? "unbound",
@@ -1217,6 +1238,31 @@ export function ExpertPage(props: ExpertPageProps) {
     />
   );
 
+  const handleArchiveExpertSession = useCallback(
+    (sessionId: string, title: string) => {
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const id = sessionId.trim();
+      if (!workspaceId || !id) return;
+      const match = currentAgentSessions.find((session) => session.id === id);
+      archiveAssistantTask(workspaceId, {
+        sessionId: id,
+        title: title.trim() || match?.title || id,
+        directory: match?.directory ?? null,
+        archivedAt: Date.now(),
+        category: "expert",
+      });
+      showToast({
+        tone: "success",
+        title: t("session.archive_task_done"),
+      });
+      // If the open tab was archived, leave selection to host session binding.
+      if (props.selectedSessionId === id) {
+        // Host list refresh will drop archived sessions from chips.
+      }
+    },
+    [currentAgentSessions, props.selectedSessionId, props.selectedWorkspaceId, showToast],
+  );
+
   const conversationTabs =
     activeSidebarView === "chat" ? (
       <AgentSessionTabs
@@ -1235,6 +1281,7 @@ export function ExpertPage(props: ExpertPageProps) {
         onOpenDraftSession={handleOpenDraftSession}
         onCreateSession={handleCreateCurrentAgentSession}
         onRenameSession={openRenameModal}
+        onArchiveSession={handleArchiveExpertSession}
         onDeleteSession={openDeleteModal}
       />
     ) : null;

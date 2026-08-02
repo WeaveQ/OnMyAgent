@@ -160,7 +160,7 @@ export default {
   "settings.archived_tasks_delete": "永久删除",
   "settings.archived_tasks_delete_confirm_title": "永久删除？",
   "settings.archived_tasks_delete_confirm":
-    "将永久删除已归档任务「{title}」。对话无法恢复；工作区中的生成文件默认保留。",
+    "将永久删除已归档任务「{title}」及其对话消息，并删除该会话生成的工作区文件。此操作无法撤销。",
   "settings.archived_tasks_delete_project_all": "删除项目中的全部已归档任务",
   "settings.archived_tasks_delete_project_all_confirm":
     "将永久删除「{project}」中的 {count} 个已归档任务，此操作无法撤销。",

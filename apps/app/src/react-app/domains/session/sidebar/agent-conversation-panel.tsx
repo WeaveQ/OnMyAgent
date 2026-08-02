@@ -270,6 +270,14 @@ export function AgentConversationPanel(props: {
     (item) => item.workspace.id === props.selectedWorkspaceId,
   );
   const [archivedRevision, setArchivedRevision] = useState(0);
+  const assistantArchivedTasks = useMemo(
+    () => readAssistantArchivedTasks(props.selectedWorkspaceId),
+    [props.selectedWorkspaceId, archivedRevision],
+  );
+  const assistantArchivedIdSet = useMemo(
+    () => archivedSessionIdSet(assistantArchivedTasks),
+    [assistantArchivedTasks],
+  );
   const automationSessionRecords =
     useMemo(
       () =>
@@ -281,11 +289,14 @@ export function AgentConversationPanel(props: {
   const excludedAutomationSessionIds = useMemo(() => {
     if (mode !== "assistant") return new Set<string>();
     const deleted = readDeletedAutomationSessionIds(props.selectedWorkspaceId);
-    const archived = archivedSessionIdSet(
-      readAssistantArchivedTasks(props.selectedWorkspaceId),
-    );
-    return new Set([...deleted, ...archived]);
-  }, [automationRevision, archivedRevision, mode, props.selectedWorkspaceId]);
+    return new Set([...deleted, ...assistantArchivedIdSet]);
+  }, [
+    automationRevision,
+    archivedRevision,
+    assistantArchivedIdSet,
+    mode,
+    props.selectedWorkspaceId,
+  ]);
   const sessions: WorkspaceSessionGroup["sessions"] = useMemo(
     () =>
       mode === "assistant"
@@ -562,17 +573,33 @@ export function AgentConversationPanel(props: {
           }),
     [mode, normalizedQuery, registry],
   );
-  const filteredAgentGroups = useMemo(
-    () =>
-      normalizedQuery
-        ? visibleAgentGroups.filter((item) =>
-            `${item.name} ${item.description} ${item.preview ?? ""}`
-              .toLowerCase()
-              .includes(normalizedQuery),
-          )
-        : visibleAgentGroups,
-    [normalizedQuery, visibleAgentGroups],
-  );
+  const filteredAgentGroups = useMemo(() => {
+    // Soft-archived sessions disappear from expert list (same store as settings archive).
+    const base =
+      mode !== "assistant"
+        ? visibleAgentGroups.flatMap((group) => {
+            const sessions = group.sessions.filter(
+              (session) => !assistantArchivedIdSet.has(session.id),
+            );
+            if (sessions.length === 0) return [];
+            const latestSession =
+              sessions.find((session) => session.id === group.latestSession.id) ??
+              sessions[0]!;
+            return [{ ...group, sessions, latestSession }];
+          })
+        : visibleAgentGroups;
+    if (!normalizedQuery) return base;
+    return base.filter((item) =>
+      `${item.name} ${item.description} ${item.preview ?? ""}`
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [
+    assistantArchivedIdSet,
+    mode,
+    normalizedQuery,
+    visibleAgentGroups,
+  ]);
   const activeAssistantCategoryId = props.assistantCategoryId ?? "office";
   const assistantCategoryGroups = useMemo(
     () =>
@@ -626,14 +653,6 @@ export function AgentConversationPanel(props: {
     }
     return map;
   });
-  const assistantArchivedTasks = useMemo(
-    () => readAssistantArchivedTasks(props.selectedWorkspaceId),
-    [props.selectedWorkspaceId, archivedRevision],
-  );
-  const assistantArchivedIdSet = useMemo(
-    () => archivedSessionIdSet(assistantArchivedTasks),
-    [assistantArchivedTasks],
-  );
   /** automationId → local pin order (sessions pinned inside a scheduled group). */
   const [automationLocalPinsById, setAutomationLocalPinsById] = useState<
     Record<string, string[]>

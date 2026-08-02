@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  Archive,
   ChevronRight,
   Mail,
   MailOpen,
@@ -332,6 +333,8 @@ export function AgentSessionTabs(props: {
   onOpenDraftSession?: (sessionId: string) => void;
   onCreateSession: () => void;
   onRenameSession: (sessionId: string, title: string) => void;
+  /** Soft-archive (parity with assistant tasks). Optional when host has no archive path. */
+  onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession: (sessionId: string) => void;
   /** Notify parent so title-bar border can hide when the strip is expanded. */
   onExpandedChange?: (expanded: boolean) => void;
@@ -879,6 +882,19 @@ export function AgentSessionTabs(props: {
             <Pencil strokeWidth={1.75} />
             {t("session.agent_tab_rename")}
           </button>
+          {props.onArchiveSession ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                props.onArchiveSession?.(menuState.sessionId, menuState.title);
+                setMenuState(null);
+              }}
+            >
+              <Archive strokeWidth={1.75} />
+              {t("session.archive_task")}
+            </button>
+          ) : null}
           <div className={TASK_CONTEXT_MENU_SEPARATOR_CLASS} role="separator" />
           <button
             type="button"
