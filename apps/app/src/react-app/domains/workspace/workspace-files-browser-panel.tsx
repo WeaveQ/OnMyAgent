@@ -1051,7 +1051,9 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [closePreview, selectedFile]);
 
   // Same gutters as 市场 pluginsLayoutClass.pageContainer
-  // Layout mirrors Mine (uploads): title → toolbar → pathbar (breadcrumb · expand · type · search)
+  // Title → pathbar (breadcrumb · expand · type · search · refresh).
+  // No lone toolbar row: Tasks/Experts have no primary create/upload actions,
+  // so refresh sits with the other pathbar controls (icon, trailing).
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
           <div className="mb-3 min-w-0 shrink-0 text-left">
@@ -1063,48 +1065,7 @@ export function WorkspaceFilesBrowserPanel(props: {
             </p>
           </div>
 
-          <div
-            className="mb-2.5 flex w-full shrink-0 flex-wrap items-center gap-2"
-            data-files-browser-toolbar="true"
-          >
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              disabled={
-                loading ||
-                refreshDone ||
-                !fileRoot.trim() ||
-                (
-                  !isElectronRuntime()
-                  && (!props.client || !props.workspaceId.trim())
-                )
-              }
-              onClick={() => {
-                manualRefreshRef.current = true;
-                setRefreshDone(false);
-                setRefreshKey((key) => key + 1);
-              }}
-              className={cn(
-                "size-9 shrink-0 rounded-full transition-colors",
-                refreshDone &&
-                  "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-              )}
-              title={refreshDone ? t("common.refreshed") : t("common.refresh")}
-              aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
-              aria-busy={loading || undefined}
-            >
-              {loading ? (
-                <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-              ) : refreshDone ? (
-                <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-              ) : (
-                <RefreshCw className="size-3.5" aria-hidden />
-              )}
-            </Button>
-          </div>
-
-          {/* One row: breadcrumb · expand/collapse · type · search (parity with Mine pathbar) */}
+          {/* One row: breadcrumb · expand/collapse · type · search · refresh */}
           <div
             className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
             data-files-browser-pathbar="true"
@@ -1264,6 +1225,42 @@ export function WorkspaceFilesBrowserPanel(props: {
                   className="h-9 text-sm placeholder:text-dls-secondary"
                 />
               </InputGroup>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                data-files-browser-refresh="true"
+                disabled={
+                  loading ||
+                  refreshDone ||
+                  !fileRoot.trim() ||
+                  (
+                    !isElectronRuntime()
+                    && (!props.client || !props.workspaceId.trim())
+                  )
+                }
+                onClick={() => {
+                  manualRefreshRef.current = true;
+                  setRefreshDone(false);
+                  setRefreshKey((key) => key + 1);
+                }}
+                className={cn(
+                  "size-9 shrink-0 rounded-full transition-colors",
+                  refreshDone &&
+                    "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+                )}
+                title={refreshDone ? t("common.refreshed") : t("common.refresh")}
+                aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
+                aria-busy={loading || undefined}
+              >
+                {loading ? (
+                  <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+                ) : refreshDone ? (
+                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+                ) : (
+                  <RefreshCw className="size-3.5" aria-hidden />
+                )}
+              </Button>
             </div>
           </div>
 
