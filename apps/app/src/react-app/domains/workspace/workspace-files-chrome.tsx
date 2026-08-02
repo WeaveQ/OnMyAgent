@@ -118,39 +118,39 @@ export function FilesTypeFilter(props: {
   );
 }
 
+/** Ghost refresh icon beside the page title. */
 export function FilesRefreshButton(props: {
   loading: boolean;
   refreshDone: boolean;
   disabled?: boolean;
   onClick: () => void;
-  "data-testid"?: string;
+  source?: "mine" | "browser";
 }) {
+  const source = props.source ?? "browser";
+  const label = props.refreshDone ? t("common.refreshed") : t("common.refresh");
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="icon"
       disabled={props.disabled || props.loading || props.refreshDone}
       onClick={props.onClick}
       className={cn(
-        "size-9 shrink-0 rounded-full transition-colors",
-        props.refreshDone &&
-          "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+        "size-7 shrink-0 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+        props.refreshDone && "text-dls-status-success-fg hover:text-dls-status-success-fg",
       )}
-      data-files-browser-refresh={props["data-testid"] ? undefined : "true"}
-      data-files-mine-refresh={
-        props["data-testid"] === "mine" ? "true" : undefined
-      }
-      title={props.refreshDone ? t("common.refreshed") : t("common.refresh")}
-      aria-label={props.refreshDone ? t("common.refreshed") : t("common.refresh")}
+      data-files-mine-refresh={source === "mine" ? "true" : undefined}
+      data-files-browser-refresh={source === "browser" ? "true" : undefined}
+      title={label}
+      aria-label={label}
       aria-busy={props.loading || undefined}
     >
       {props.loading ? (
-        <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+        <RefreshCw className="size-4 animate-spin" aria-hidden />
       ) : props.refreshDone ? (
-        <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+        <Check className="size-4" strokeWidth={2.5} aria-hidden />
       ) : (
-        <RefreshCw className="size-3.5" aria-hidden />
+        <RefreshCw className="size-4" aria-hidden />
       )}
     </Button>
   );

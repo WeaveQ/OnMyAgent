@@ -631,6 +631,7 @@ export function SessionPage(props: SessionPageProps) {
           account={props.account}
           onOpenView={agentPanel.openSidebarView}
           onOpenAccountSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenDevices={agentPanel.openDevicesView}
           onOpenBilling={agentPanel.openBillingView}

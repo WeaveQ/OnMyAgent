@@ -17,6 +17,7 @@ import {
   ChannelsRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
+  ProjectsRailIcon,
   StoreRailIcon,
 } from "./primary-rail-icons";
 
@@ -56,7 +57,7 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Automation → Files → Store
+// Order: Home → Experts → Automation → Files → Store → Projects
 // Local agents + agent management live under the account/settings menu.
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
@@ -64,6 +65,7 @@ const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
+  { id: "projects", get label() { return t("nav.projects"); }, get shortLabel() { return t("nav.projects_short"); }, icon: ProjectsRailIcon },
 ];
 
 // Bottom strip: channels only (devices entry removed — settings stays via account gear).
@@ -167,6 +169,7 @@ export function OnMyAgentRail(props: {
   onOpenView: (view: OnMyAgentPrimaryView) => void;
   onOpenDevices: () => void;
   onOpenAccountSettings?: () => void;
+  onOpenProfile?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
 }) {
@@ -203,6 +206,7 @@ export function OnMyAgentRail(props: {
           onOpenLocalAgent={() => props.onOpenView("localAgent")}
           onOpenAgentManagement={() => props.onOpenView("agentManagement")}
           onOpenSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenBilling={props.onOpenBilling}
         />

@@ -1131,6 +1131,7 @@ export function AssistantPage(props: AssistantPageProps) {
             openRailView(view);
           }}
           onOpenAccountSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenDevices={() => {
             openRailView("devices");

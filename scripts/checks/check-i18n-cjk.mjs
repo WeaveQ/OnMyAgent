@@ -48,6 +48,11 @@ const fileAllowlist = new Set([
   // Agent-output matching heuristics (product cards / follow-up chips), not UI copy.
   'apps/app/src/react-app/capabilities/artifacts/open-target.ts',
   'apps/app/src/react-app/domains/session/surface/follow-up-suggestions.ts',
+  // Work-memory disk templates (USER/style/MEMORY/AGENTS.md): locale-aware file
+  // bodies for the user's machine, not in-app chrome. Content language follows
+  // Settings language (zh / zh-TW / en); CJK hardcode gate does not apply here.
+  'apps/app/src/react-app/domains/shared/memory/work-memory.ts',
+  'apps/app/src/react-app/domains/shared/memory/work-memory-file-sync.ts',
 ])
 
 const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/

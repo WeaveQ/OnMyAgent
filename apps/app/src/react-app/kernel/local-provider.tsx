@@ -46,24 +46,35 @@ export type ConversationMemoryItem = {
   source: "dialog" | "manual";
   updatedAt: number;
   sessionId?: string;
+  /** When set, item belongs to expert-scoped slot C (not global B). */
+  expertId?: string;
 };
 
 export type ConversationMemoryState = {
-  /** Default false — opt-in only. */
+  /** When true, long-term + short-term memory inject into main session. */
   enabled: boolean;
-  /** Confirmed facts injected into personal assistant system prompt. */
+  /**
+   * When true (and enabled), chat extract auto-writes into long-term items
+   * and short-term notes. When false, chat capture does not run.
+   */
+  autoCapture: boolean;
+  /** Long-term facts (manual and/or auto-written). */
   items: ConversationMemoryItem[];
   /**
-   * Extracted candidates awaiting user accept/reject.
-   * Never injected until moved into `items`.
+   * Candidates awaiting confirm when autoCapture is off and product still
+   * queues (legacy / optional). Prefer autoCapture for silent write.
    */
   pending: ConversationMemoryItem[];
+  /** Short-term / recent notes (e.g. daily), auto when autoCapture on. */
+  shortTerm: ConversationMemoryItem[];
 };
 
 export const DEFAULT_CONVERSATION_MEMORY: ConversationMemoryState = {
   enabled: false,
+  autoCapture: false,
   items: [],
   pending: [],
+  shortTerm: [],
 };
 
 function filterStringList(values: unknown): string[] {
@@ -119,6 +130,10 @@ function normalizeMemoryItemList(value: unknown): ConversationMemoryItem[] {
       source: item.source,
       updatedAt: item.updatedAt,
       sessionId: typeof item.sessionId === "string" ? item.sessionId : undefined,
+      expertId:
+        typeof (item as { expertId?: unknown }).expertId === "string"
+          ? (item as { expertId: string }).expertId
+          : undefined,
     }));
 }
 
@@ -126,12 +141,20 @@ export function normalizeConversationMemory(
   input: Partial<ConversationMemoryState> | null | undefined,
 ): ConversationMemoryState {
   if (!input || typeof input !== "object") {
-    return { ...DEFAULT_CONVERSATION_MEMORY, items: [], pending: [] };
+    return {
+      ...DEFAULT_CONVERSATION_MEMORY,
+      items: [],
+      pending: [],
+      shortTerm: [],
+    };
   }
   return {
     enabled: Boolean(input.enabled),
+    // Default false when missing so upgrades do not surprise-enable auto write.
+    autoCapture: Boolean(input.autoCapture),
     items: normalizeMemoryItemList(input.items),
     pending: normalizeMemoryItemList(input.pending),
+    shortTerm: normalizeMemoryItemList(input.shortTerm),
   };
 }
 
@@ -241,7 +264,13 @@ const INITIAL_PREFS: LocalPreferences = {
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,
   onboardingProfile: null,
-  conversationMemory: { enabled: false, items: [], pending: [] },
+  conversationMemory: {
+    enabled: false,
+    autoCapture: false,
+    items: [],
+    pending: [],
+    shortTerm: [],
+  },
   autoNewSessionOnIdle: false,
   autoNewSessionIdleHours: 6,
 };

@@ -62,6 +62,9 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     relaunch() {
       return ipcRenderer.invoke("onmyagent:shell:relaunch");
     },
+    quit() {
+      return ipcRenderer.invoke("onmyagent:shell:quit");
+    },
   },
   system: {
     getArchitectureInfo() {

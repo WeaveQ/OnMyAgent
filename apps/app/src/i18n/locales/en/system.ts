@@ -72,6 +72,12 @@ export default {
   "system.control_open_folders_settings_desc": "Navigate to authorized folders and file access settings.",
   "system.control_open_general_settings": "Open general settings",
   "system.control_open_general_settings_desc": "Navigate to general settings.",
+  "system.control_open_personal_settings": "Open personal settings",
+  "system.control_open_personal_settings_desc":
+    "Name, tone, custom instructions, and work handbook.",
+  "system.control_open_memory_settings": "Open memory settings",
+  "system.control_open_memory_settings_desc":
+    "Conversation memory, pending confirmations, and saved facts.",
   "system.control_open_sessions": "Open sessions",
   "system.control_open_sessions_desc": "Navigate to the main session view.",
   "system.control_ready": "Ready. A controller can inspect and run visible actions.",

@@ -4,6 +4,7 @@
  * to match denser product rails (icon-above-label + free-float selected pill).
  */
 import {
+  Briefcase,
   CalendarClock,
   Folder,
   House,
@@ -49,6 +50,11 @@ export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
 /** Files / workspace — folder outline. */
 export function FilesRailIcon(props: PrimaryRailIconProps) {
   return <Folder {...railIconProps(props.className)} />;
+}
+
+/** Projects — briefcase outline (solid stroke, not dashed placeholder). */
+export function ProjectsRailIcon(props: PrimaryRailIconProps) {
+  return <Briefcase {...railIconProps(props.className)} />;
 }
 
 /** Marketplace / store — shopping bag outline. */

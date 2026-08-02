@@ -1050,6 +1050,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           onOpenAccountSettings={() =>
             handleOpenSettings("/settings/general")
           }
+          onOpenProfile={() => handleOpenSettings("/settings/memory")}
           onSignOut={handleSignOut}
         />
         <SessionRouteModals

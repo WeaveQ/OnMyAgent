@@ -1263,7 +1263,7 @@ export function ExpertPage(props: ExpertPageProps) {
             if (view === "chat") setAgentPanelCollapsed(false);
           }}
           onOpenAccountSettings={props.onOpenAccountSettings}
-          onSignOut={props.onSignOut}
+          onOpenProfile={props.onOpenProfile} onSignOut={props.onSignOut}
           onOpenDevices={() => openRailView("devices")}
           onOpenBilling={() => openRailView("billing")}
         />

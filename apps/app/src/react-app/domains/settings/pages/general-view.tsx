@@ -16,6 +16,7 @@ import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
 import {
   getDataSettingsTabs,
   getGlobalSettingsTabs,
+  getPersonalMemorySettingsTabs,
   getSettingsTabDescription,
   getSettingsTabIcon,
   getSettingsTabLabel,
@@ -108,6 +109,7 @@ function OverviewTabGrid(props: {
  */
 export function GeneralSettingsView(props: GeneralSettingsViewProps) {
   const workspaceTabs = getWorkspaceSettingsTabs();
+  const personalMemoryTabs = getPersonalMemorySettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
   const dataTabs = getDataSettingsTabs();
 
@@ -116,6 +118,13 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       <OverviewSection label={t("settings.workspace_title")}>
         <OverviewTabGrid
           tabs={workspaceTabs}
+          onNavigateTab={props.onNavigateTab}
+        />
+      </OverviewSection>
+
+      <OverviewSection label={t("settings.group_personal_memory")}>
+        <OverviewTabGrid
+          tabs={personalMemoryTabs}
           onNavigateTab={props.onNavigateTab}
         />
       </OverviewSection>

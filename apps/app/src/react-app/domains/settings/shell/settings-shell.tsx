@@ -25,6 +25,7 @@ import {
   getArchivedSettingsTabs,
   getGlobalSettingsTabs,
   getOverviewSettingsTabs,
+  getPersonalMemorySettingsTabs,
   getSettingsTabDescription,
   getSettingsTabIcon,
   getSettingsTabLabel,
@@ -230,6 +231,10 @@ function SettingsSectionMenu(
   const sections: Array<{ label: string | null; tabs: SettingsTab[] }> = [
     { label: null, tabs: getOverviewSettingsTabs() },
     { label: t("settings.group_workspace"), tabs: getWorkspaceSettingsTabs() },
+    {
+      label: t("settings.group_personal_memory"),
+      tabs: getPersonalMemorySettingsTabs(),
+    },
     {
       label: t("settings.group_global"),
       tabs: getGlobalSettingsTabs(props.developerMode),
