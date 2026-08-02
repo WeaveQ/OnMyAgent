@@ -103,6 +103,9 @@ import {
   shouldForceExternalPreviewForSize,
 } from "../../capabilities/artifacts/file-preview-policy";
 import {
+  truncateDisplayTitle,
+} from "./workspace-files-display";
+import {
   FILE_CATEGORIES,
   buildRootOutlineRows,
   canPreviewWorkspaceFileInline,
@@ -122,6 +125,24 @@ import {
   type FileCategory,
   type OutlineRow,
 } from "./workspace-files-model";
+
+const ORPHAN_LOOSE_KEY = "__orphan_loose__";
+
+function sessionRowLabel(row: Extract<OutlineRow, { type: "task" }>): {
+  display: string;
+  full: string;
+} {
+  const fallback = formatWorkspaceFolderDisplayName(
+    row.node.name,
+    row.node.mtimeMs,
+  );
+  const preferred = String(row.displayTitle ?? "").trim() || fallback;
+  const truncated = truncateDisplayTitle(preferred);
+  return {
+    display: truncated.display || preferred,
+    full: truncated.full || preferred,
+  };
+}
 
 function fileCategoryLabel(category: FileCategory) {
   return t(fileCategoryI18nKey(category));
@@ -753,7 +774,9 @@ export function WorkspaceFilesBrowserPanel(props: {
 
   const outlineRows = useMemo(() => {
     if (!useOutlineRoot) return [] as OutlineRow[];
-    return buildRootOutlineRows(listedNodes, expandedPaths);
+    return buildRootOutlineRows(listedNodes, expandedPaths, {
+      groupLooseAsOrphan: true,
+    });
   }, [expandedPaths, listedNodes, useOutlineRoot]);
 
   const toggleExpanded = useCallback((path: string) => {
@@ -765,11 +788,16 @@ export function WorkspaceFilesBrowserPanel(props: {
     });
   }, []);
 
-  /** All expandable folder paths in the current outline (project + nested tasks). */
+  /** All expandable folder paths in the current outline (project + nested tasks + orphan). */
   const outlineExpandablePaths = useMemo(() => {
     if (!useOutlineRoot) return [] as string[];
     const paths: string[] = [];
+    let hasLooseFile = false;
     for (const child of listedNodes) {
+      if (child.kind === "file") {
+        hasLooseFile = true;
+        continue;
+      }
       if (child.kind !== "dir") continue;
       paths.push(child.path);
       for (const nested of child.children) {
@@ -779,6 +807,7 @@ export function WorkspaceFilesBrowserPanel(props: {
         }
       }
     }
+    if (hasLooseFile) paths.push(ORPHAN_LOOSE_KEY);
     return paths;
   }, [listedNodes, useOutlineRoot]);
 
@@ -1314,7 +1343,50 @@ export function WorkspaceFilesBrowserPanel(props: {
                                   );
                                 }
 
+                                if (row.type === "orphan-header") {
+                                  return (
+                                    <TableRow
+                                      key="orphan-header"
+                                      data-workspace-file-row="orphan-header"
+                                      className="group h-10 cursor-pointer hover:bg-dls-hover/50"
+                                      onClick={() => toggleExpanded(ORPHAN_LOOSE_KEY)}
+                                    >
+                                      <TableCell className="py-1.5">
+                                        <span className="flex min-w-0 items-center gap-2">
+                                          {row.expanded ? (
+                                            <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
+                                          ) : (
+                                            <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+                                          )}
+                                          <FileStack
+                                            className="size-3.5 shrink-0 text-dls-secondary"
+                                            strokeWidth={1.75}
+                                            aria-hidden
+                                          />
+                                          <span className="min-w-0 truncate text-sm font-medium text-dls-text">
+                                            {t("files.ungrouped")}
+                                          </span>
+                                          <span className="shrink-0 text-[11px] text-dls-secondary">
+                                            {t("files.file_count", { count: row.fileCount })}
+                                          </span>
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary">
+                                        {t("files.type_folder")}
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary">
+                                        -
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary">
+                                        -
+                                      </TableCell>
+                                      <TableCell className="py-1.5" />
+                                    </TableRow>
+                                  );
+                                }
+
                                 if (row.type === "task") {
+                                  const title = sessionRowLabel(row);
                                   return (
                                     <TableRow
                                       key={`task:${row.node.path}`}
@@ -1337,11 +1409,11 @@ export function WorkspaceFilesBrowserPanel(props: {
                                             strokeWidth={1.75}
                                             aria-hidden
                                           />
-                                          <span className="min-w-0 truncate text-sm text-dls-text">
-                                            {formatWorkspaceFolderDisplayName(
-                                              row.node.name,
-                                              row.node.mtimeMs,
-                                            )}
+                                          <span
+                                            className="min-w-0 truncate text-sm text-dls-text"
+                                            title={title.full}
+                                          >
+                                            {title.display}
                                           </span>
                                           {row.fileCount > 0 ? (
                                             <span className="shrink-0 text-[11px] text-dls-secondary">

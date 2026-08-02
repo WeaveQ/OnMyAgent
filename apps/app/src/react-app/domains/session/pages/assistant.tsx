@@ -77,9 +77,11 @@ import {
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
+import { deleteSessionOwnedWorkspaceFiles } from "../../workspace/workspace-files-session-cleanup";
 import {
   archiveAssistantTask,
   permanentlyRemoveAssistantArchivedTask,
+  readAssistantArchivedTasks,
 } from "../../shared";
 import {
   AgentConversationPanel,
@@ -715,6 +717,49 @@ export function AssistantPage(props: AssistantPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
+  const resolveSessionDirectory = useCallback(
+    (sessionId: string): string | null => {
+      const id = sessionId.trim();
+      if (!id) return null;
+      for (const group of props.sidebar.workspaceSessionGroups) {
+        const match = group.sessions.find((session) => session.id === id);
+        if (match?.directory) return match.directory;
+      }
+      const archived = readAssistantArchivedTasks(
+        props.selectedWorkspaceId,
+      ).find((task) => task.sessionId === id);
+      return archived?.directory ?? null;
+    },
+    [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups],
+  );
+
+  const purgeSessionWorkspaceFiles = useCallback(
+    async (sessionId: string) => {
+      const client = props.onmyagentServerClient;
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId || !sessionId.trim()) return;
+      try {
+        await deleteSessionOwnedWorkspaceFiles({
+          client,
+          workspaceId,
+          sessionId,
+          directory: resolveSessionDirectory(sessionId),
+        });
+      } catch (error) {
+        console.warn(
+          "[assistant] best-effort session file cleanup failed",
+          sessionId,
+          error,
+        );
+      }
+    },
+    [
+      props.onmyagentServerClient,
+      props.selectedWorkspaceId,
+      resolveSessionDirectory,
+    ],
+  );
+
   const executeAssistantDelete = useCallback(
     async (
       target:
@@ -723,6 +768,7 @@ export function AssistantPage(props: AssistantPageProps) {
     ) => {
       if (!props.onDeleteSession) return;
       if (target.kind === "session") {
+        await purgeSessionWorkspaceFiles(target.sessionId);
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           target.sessionId,
@@ -735,6 +781,7 @@ export function AssistantPage(props: AssistantPageProps) {
       // definition is never deleted and "定时" returns. Parallel budgeted
       // deletes keep multi-run groups from stacking full remote timeouts.
       for (const sessionId of target.sessionIds) {
+        await purgeSessionWorkspaceFiles(sessionId);
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
@@ -782,6 +829,7 @@ export function AssistantPage(props: AssistantPageProps) {
       props.onDeleteSession,
       props.onmyagentServerClient,
       props.selectedWorkspaceId,
+      purgeSessionWorkspaceFiles,
       showToast,
     ],
   );

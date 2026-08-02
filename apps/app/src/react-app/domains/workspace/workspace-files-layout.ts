@@ -60,3 +60,196 @@ export function isWorkspaceSystemTopDir(name: string): boolean {
 export function isAutomationTaskFolderName(name: string): boolean {
   return name.trim().startsWith(AUTOMATION_TASK_FOLDER_PREFIX);
 }
+
+function normalizeRel(path: string): string {
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/");
+}
+
+/** True when a workspace-relative path is under uploads/tasks/experts/projects. */
+export function isUnderProductLayoutRoot(relativePath: string): boolean {
+  const rel = normalizeRel(relativePath);
+  if (!rel) return false;
+  const top = rel.split("/")[0]?.toLowerCase() ?? "";
+  return WORKSPACE_LAYOUT_TOP_DIR_SET.has(top);
+}
+
+/** True when relative path is a bare root file (not under layout or system dirs). */
+export function isBareWorkspaceRootFile(relativePath: string): boolean {
+  const rel = normalizeRel(relativePath);
+  if (!rel || rel.includes("/")) return false;
+  return !isWorkspaceSystemTopDir(rel) && !isWorkspaceLayoutTopDir(rel);
+}
+
+export type ProductWriteSource =
+  | "user_upload"
+  | "assistant_task"
+  | "automation"
+  | "expert"
+  | "project";
+
+/**
+ * Resolve where a new write should land (workspace-relative).
+ * Never returns a bare root path for business files.
+ */
+export function resolveProductWriteRelativePath(input: {
+  source: ProductWriteSource;
+  fileName: string;
+  sessionId?: string | null;
+  agentSlug?: string | null;
+  projectName?: string | null;
+}): string {
+  const name =
+    String(input.fileName ?? "")
+      .trim()
+      .replace(/\\/g, "/")
+      .split("/")
+      .filter(Boolean)
+      .pop() || "file";
+  const sessionId = String(input.sessionId ?? "")
+    .trim()
+    .replace(/[\\/]+/g, "-");
+  const agent = String(input.agentSlug ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean)
+    .pop();
+  const project = String(input.projectName ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean)
+    .pop();
+
+  switch (input.source) {
+    case "user_upload":
+      return `${WORKSPACE_UPLOADS_DIR}/${name}`;
+    case "expert": {
+      const seg = agent || "expert";
+      const sid = sessionId || "session";
+      return `${WORKSPACE_EXPERTS_DIR}/${seg}/${sid}/${name}`;
+    }
+    case "project": {
+      const proj = project || "project";
+      if (sessionId) return `${WORKSPACE_PROJECTS_DIR}/${proj}/${sessionId}/${name}`;
+      return `${WORKSPACE_PROJECTS_DIR}/${proj}/${name}`;
+    }
+    case "automation":
+    case "assistant_task":
+    default: {
+      const sid = sessionId || "session";
+      return `${WORKSPACE_TASKS_DIR}/${sid}/${name}`;
+    }
+  }
+}
+
+/**
+ * Candidate directory roots (workspace-relative) that may hold files for a session.
+ * Used when permanently deleting a conversation (C1: remove generated files).
+ */
+export function candidateSessionOwnedRoots(input: {
+  sessionId: string;
+  /** Absolute or workspace-relative directory from archive metadata. */
+  directory?: string | null;
+  agentSlug?: string | null;
+  workspaceRoot?: string | null;
+}): string[] {
+  const id = String(input.sessionId ?? "").trim();
+  const roots: string[] = [];
+  if (id) {
+    roots.push(`${WORKSPACE_TASKS_DIR}/${id}`);
+    const agent = String(input.agentSlug ?? "").trim();
+    if (agent) {
+      roots.push(`${WORKSPACE_EXPERTS_DIR}/${agent}/${id}`);
+    }
+  }
+
+  const rawDir = String(input.directory ?? "").trim();
+  if (rawDir) {
+    let rel = rawDir.replace(/\\/g, "/");
+    const ws = String(input.workspaceRoot ?? "")
+      .trim()
+      .replace(/\\/g, "/")
+      .replace(/\/+$/, "");
+    if (ws && (rel === ws || rel.startsWith(`${ws}/`))) {
+      rel = rel.slice(ws.length).replace(/^\/+/, "");
+    }
+    rel = normalizeRel(rel);
+    if (rel && !rel.startsWith("..") && isUnderProductLayoutRoot(rel)) {
+      roots.push(rel);
+    } else if (rel && id && rel.endsWith(`/${id}`)) {
+      roots.push(rel);
+    } else if (rel && id && !rel.includes("/")) {
+      // bare folder name matching session key under tasks
+      roots.push(`${WORKSPACE_TASKS_DIR}/${rel}`);
+    }
+  }
+
+  const seen = new Set<string>();
+  return roots.filter((r) => {
+    const n = normalizeRel(r);
+    if (!n || seen.has(n)) return false;
+    seen.add(n);
+    return true;
+  });
+}
+
+/**
+ * Extract session id from a product layout relative path when present.
+ * e.g. tasks/{sessionId}/out.xlsx → sessionId
+ *      experts/{agent}/{sessionId}/a.json → sessionId
+ *
+ * Used for optional "Open source session" when the path encodes session ownership.
+ */
+export function extractSessionIdFromProductPath(
+  relativePath: string,
+): string | null {
+  const rel = normalizeRel(relativePath);
+  if (!rel) return null;
+  const parts = rel.split("/").filter(Boolean);
+  const top = (parts[0] ?? "").toLowerCase();
+  if (top === WORKSPACE_TASKS_DIR && parts[1]) {
+    return parts[1] ?? null;
+  }
+  if (top === WORKSPACE_EXPERTS_DIR && parts[2]) {
+    return parts[2] ?? null;
+  }
+  if (top === WORKSPACE_PROJECTS_DIR && parts[2]) {
+    return parts[2] ?? null;
+  }
+  // Session-like folder as bare top segment (historical / pre-layout).
+  if (parts.length >= 2 && /^[0-9a-f]{8,}$/i.test(parts[0] ?? "")) {
+    return parts[0] ?? null;
+  }
+  return null;
+}
+
+/** Keep relative file paths that equal a root or sit under it. */
+export function filterPathsUnderSessionRoots(
+  relativePaths: readonly string[],
+  roots: readonly string[],
+): string[] {
+  const normalizedRoots = roots.map(normalizeRel).filter(Boolean);
+  if (normalizedRoots.length === 0) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of relativePaths) {
+    const path = normalizeRel(raw);
+    if (!path || path.endsWith("/")) continue;
+    const hit = normalizedRoots.some(
+      (root) => path === root || path.startsWith(`${root}/`),
+    );
+    if (!hit || seen.has(path)) continue;
+    // Prefer files, not directory placeholders
+    const base = path.split("/").pop() ?? "";
+    if (!base || base.startsWith(".")) continue;
+    seen.add(path);
+    out.push(path);
+  }
+  return out;
+}
