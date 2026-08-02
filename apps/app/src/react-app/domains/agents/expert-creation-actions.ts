@@ -98,6 +98,9 @@ export async function saveExpertCreation(
       name: createdAgent.name,
       description: createdAgent.description,
       quote: createdAgent.quote,
+      rolePrompt: createdAgent.userNote,
+      memory: createdAgent.agentMemory,
+      skillIds: createdAgent.skillIds,
       knowledge,
     });
     agent = {
