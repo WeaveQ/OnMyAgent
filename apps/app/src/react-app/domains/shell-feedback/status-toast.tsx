@@ -22,10 +22,10 @@ const statusToastToneClass = {
 };
 
 const statusToastLayoutClass = {
-  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid animate-in fade-in slide-in-from-top-4 duration-300",
+  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300",
   /** Compact Hope-style pill when only title + optional inline action. */
   shellCompact:
-    "w-auto max-w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-full border border-dls-border bg-dls-surface-solid px-3.5 py-2.5 shadow-md animate-in fade-in slide-in-from-top-4 duration-300",
+    "w-auto max-w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-full border border-dls-border bg-dls-surface-solid px-3.5 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300",
   body: "flex items-start gap-3 p-4",
   bodyCompact: "flex items-center gap-2.5",
   iconTile: "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",

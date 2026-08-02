@@ -28,26 +28,26 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
 
   return (
     <div
-      className={`absolute bottom-full right-0 z-30 mb-2 max-w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-dls-border bg-dls-surface-solid shadow-sm ${
-        hasDescription || hasAction ? "px-3 py-2" : "px-2.5 py-1.5"
+      className={`pointer-events-auto fixed bottom-20 right-4 z-[100] max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg sm:bottom-24 sm:right-6 ${
+        hasDescription || hasAction ? "px-3.5 py-2.5" : "px-3 py-2"
       }`}
       role="status"
       aria-live="polite"
     >
-      <div className={`flex ${hasDescription || hasAction ? "items-start" : "items-center"} gap-2`}>
+      <div className={`flex ${hasDescription || hasAction ? "items-start" : "items-center"} gap-2.5`}>
         <div
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md border text-2xs font-semibold leading-none ${toneClass} ${
+          className={`flex size-6 shrink-0 items-center justify-center rounded-md border text-xs font-semibold leading-none ${toneClass} ${
             hasDescription || hasAction ? "mt-0.5" : ""
           }`}
         >
           {tone === "success" ? "✓" : tone === "warning" ? "!" : tone === "error" ? "×" : "i"}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-xs font-medium leading-4 text-dls-text">
+          <div className="text-sm font-medium leading-5 text-dls-text">
             {props.notice.title}
           </div>
           {hasDescription ? (
-            <p className="mt-0.5 line-clamp-2 break-all text-2xs leading-4 text-dls-secondary">
+            <p className="mt-0.5 line-clamp-3 break-all text-xs leading-5 text-dls-secondary">
               {props.notice.description}
             </p>
           ) : null}

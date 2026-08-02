@@ -21,6 +21,11 @@ import { recordInspectorEvent } from "../../../shell";
 import { encodeComposerMentionValue } from "./composer/mention-encoding";
 import { dispatchComposerTemplate } from "./composer/capability-template";
 import type { ReactComposerNotice } from "./composer/notice";
+import { formatOversizeAttachmentName } from "./composer/attachments";
+import {
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_LABEL,
+} from "./composer/composer-helpers";
 import { createComposerAttachments } from "./session-surface-support";
 import { waitForControl } from "./session-surface-hooks";
 
@@ -102,15 +107,25 @@ export function useSessionSurfaceComposerHandlers(
       });
       return;
     }
-    const oversized = files.filter((file) => file.size > 25 * 1024 * 1024);
-    const accepted = files.filter((file) => file.size <= 25 * 1024 * 1024);
+    const maxBytes = MAX_ATTACHMENT_BYTES;
+    const oversized = files.filter((file) => file.size > maxBytes);
+    const accepted = files.filter((file) => file.size <= maxBytes);
     if (oversized.length) {
       setNotice({
-        title:
+        title: t("composer.file_exceeds_limit_title"),
+        description:
           oversized.length === 1
-            ? `${oversized[0]?.name ?? "File"} is too large`
-            : `${oversized.length} files are too large`,
-        description: t("session.files_over_25mb_skipped"),
+            ? t("composer.file_exceeds_limit_detail", {
+                name: formatOversizeAttachmentName(
+                  oversized[0]?.name ?? "",
+                  t("composer.file_kind"),
+                ),
+                max: MAX_ATTACHMENT_LABEL,
+              })
+            : t("composer.file_exceeds_limit_multi", {
+                count: oversized.length,
+                max: MAX_ATTACHMENT_LABEL,
+              }),
         tone: "warning",
       });
     }
