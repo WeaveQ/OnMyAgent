@@ -12,15 +12,19 @@
 | 架构 | [`docs/Architecture.md`](./docs/Architecture.md) |
 | UI / 视觉契约 | [`DESIGN.md`](./DESIGN.md) |
 | 文档总目录 | [`docs/README.md`](./docs/README.md) |
+| 阶段二 / B 端管控准备 | [`docs/design/2026-08-02-phase-2-enterprise-prep.md`](./docs/design/2026-08-02-phase-2-enterprise-prep.md) |
 
 **本地办公工作台：任务在本机，模型你自选。**
 
 OnMyAgent 是开源**桌面办公 Agent 工作台**——在本机完成文档、表格、自动化与审批，而不是又一个云端聊天窗口。
 
+**产品阶段：阶段二**——夯实本机配置底座，并为可选的**内网 B 端管控**（OnMyCompany：身份、隔离、策略、审计、Gateway）做准备。**未登录本地使用仍是默认**；连接公司为可选项，不是登录墙。详见 [阶段二路线图](./docs/design/2026-08-02-phase-2-enterprise-prep.md)。
+
 - **办公优先**：会话、文件、自动化、消息渠道，围绕日常办公交付。
 - **本地优先**：工作区与产物默认在本机；高风险操作可审批。
 - **任意模型（BYOK）**：官方服务、兼容 API、本机 Ollama 等均可接入，不绑定单一厂商。
 - **专家与垂类后置**：专家市场与行业能力会持续扩展；当前主路径是稳的办公体验，未就绪的能力不当主卖点。
+- **组织管控（路线图）**：配置同构 + 双模式，服务内网 OnMyCompany 试点——**不是**公网多租户 SaaS 承诺。
 
 进阶能力（本机 Coding CLI / MCP / 多 Agent 接入）仍然存在，放在设置与高级入口，不抢办公主叙事。
 
@@ -47,7 +51,7 @@ OnMyAgent 不是：
 
 - 只做闲聊的通用 Chat 克隆。
 - n8n / Dify / Zapier 这类云端工作流编排平台。
-- 托管式企业治理套件（组织能力可演进，但不是当前主路径）。
+- 公网多租户托管式企业 SaaS（阶段二准备的是**内网** OnMyCompany 类管控试点；默认仍是本地优先）。
 - 用来替代 Cursor / Claude Code 等编码 IDE 的主场产品（本机 Coding Agent 可作为高级接入）。
 
 ## 它和其他工具是什么关系？

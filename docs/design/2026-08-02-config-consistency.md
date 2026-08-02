@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active engineering SoT (desktop P0–P1) |
+| Status | **Active** — Phase **2a** foundation (P0–P1 landed on desktop); next slices under Phase 2 roadmap |
 | Date | 2026-08-02 |
 | Product notes | Knowledge base: 产品分层 / 双模式 / 配置迁移阶段2 / OnMyCompany API 配置草案 |
-| Related | [`2026-08-02-work-memory-plan.md`](./2026-08-02-work-memory-plan.md) |
+| Related | [`2026-08-02-phase-2-enterprise-prep.md`](./2026-08-02-phase-2-enterprise-prep.md), [`2026-08-02-work-memory-plan.md`](./2026-08-02-work-memory-plan.md) |
 
 ## 1. One-liner
 
@@ -82,7 +82,17 @@ Writes: after `status=complete`, install paths **only** target the profile tree 
 | **P3** | `memory/settings.json` / `models.json` from prefs (no secrets) | None |
 | **Later** | `company` mirror + OrgConfig pull | Login only |
 
-This doc’s **first code drop = P0 + P1** (resolve + migrate + wire skills/experts roots).
+**P0 + P1 code drop (landed):** resolve + migrate + wire skills/experts roots **and** runtime OpenCode skill materialization via the same resolve.
+
+### Landed checklist
+
+| Item | State |
+| --- | --- |
+| Dual-read resolve | Done |
+| Boot `ensureLocalConfigMigrated` (soft-fail) | Done |
+| desktop-paths + expert-marketplace + `runtime.mjs` skill root | Done |
+| Unit + wiring tests | Done |
+| `profiles/company` creation / OrgConfig pull | **Phase 2b+** — not this file’s scope |
 
 ## 6. Code map (repo)
 
@@ -91,9 +101,9 @@ This doc’s **first code drop = P0 + P1** (resolve + migrate + wire skills/expe
 | Paths + resolve | `apps/desktop/electron/config-profile-paths.mjs` |
 | Migration | `apps/desktop/electron/ensure-local-config-migrated.mjs` |
 | Boot | `desktop-paths.ensureOnMyAgentUserDataDirs` |
-| Skills root | `onmyagentUserSkillsRoot` → resolve |
+| Skills root | `onmyagentUserSkillsRoot` → resolve (desktop-paths **and** `runtime.mjs`) |
 | Experts root | `expert-marketplace.onmyagentMarketplaceRoot` → resolve |
-| Tests | `*.test.mjs` next to modules |
+| Tests | `config-profile-*.test.mjs`, `ensure-local-config-migrated.test.mjs` |
 
 ## 7. Out of scope (this drop)
 
@@ -119,3 +129,4 @@ This doc’s **first code drop = P0 + P1** (resolve + migrate + wire skills/expe
 | Date | Note |
 | --- | --- |
 | 2026-08-02 | Initial SoT; implement P0+P1 on desktop |
+| 2026-08-02 | Mark P0–P1 landed; point Phase 2 / B-side prep to phase-2-enterprise-prep SoT |

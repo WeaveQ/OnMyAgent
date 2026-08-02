@@ -4,6 +4,27 @@ OnMyAgent — 面向 agentic 工作流的桌面控制台，基于 OpenCode。本
 
 **目标读者：AI Agent / Loop。本文是运行手册，不是架构百科。** 架构详版见 `docs/Architecture.md`。
 
+## 产品阶段（Phase 2 — 必读）
+
+当前处于 **阶段二**：桌面配置底座 + **B 端（OnMyCompany 类）管控准备**。
+
+| 权威文档 | 用途 |
+|----------|------|
+| [`docs/design/2026-08-02-phase-2-enterprise-prep.md`](docs/design/2026-08-02-phase-2-enterprise-prep.md) | 阶段二路线图、双模式决策 D1/B1/C1、桌面/企业轨道边界 |
+| [`docs/design/2026-08-02-config-consistency.md`](docs/design/2026-08-02-config-consistency.md) | `profiles/local` 迁移与 dual-read（2a 已落地代码） |
+| [`docs/design/2026-08-02-work-memory-plan.md`](docs/design/2026-08-02-work-memory-plan.md) | 记忆正文路径；与双模式写入规则 |
+
+**硬约束（违反即错）：**
+
+1. **未登录必须完整可用**；禁止默认登录墙；无 `companyBaseUrl`/session 时禁止打企业 API。
+2. **local / company 配置 schema 同构**；未登录禁止创建 `profiles/company`。
+3. 配置迁移 **只复制不删** `~/.onmyagent/skills` 与 `marketplaces/`。
+4. 策略真相源在未来企业服务端；桌面只消费，**不得本地放宽**组织策略。
+5. Gateway / 外发路径：**凭据不得回到桌面进程**。
+6. 本 monorepo 主责仍是桌面 + 本地 server；不要在 Electron 内做半套企业控制面当第二真相源。
+
+改配置路径 / skills 根 / 专家 marketplaces 时，须走 `config-profile-paths` resolve，并覆盖 `runtime.mjs` 的 OpenCode skill 物化路径。
+
 ## Iron Law（铁律）
 
 Agent 在回应任何用户消息前，必须先读取并遵循相关 Skill 和本文件规则，包括：
