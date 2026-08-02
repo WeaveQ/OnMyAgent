@@ -17,6 +17,7 @@ import {
   detectClientPlatform,
   isAppshotCaptureSupported,
 } from "./appshot";
+import { MAX_ATTACHMENT_LABEL } from "./composer-helpers";
 
 export type UseComposerAttachmentsInput = {
   attachmentsEnabled: boolean;
@@ -82,16 +83,22 @@ export function useComposerAttachments(input: UseComposerAttachmentsInput) {
     }
 
     if (oversizeNames.length) {
+      // Keep title short (reason first) so long native filenames do not hide the limit.
       onNotice({
-        title:
+        title: t("composer.file_exceeds_limit_title"),
+        description:
           oversizeNames.length === 1
-            ? t("composer.file_exceeds_limit", {
+            ? t("composer.file_exceeds_limit_detail", {
                 name: formatOversizeAttachmentName(
                   oversizeNames[0] ?? "",
                   t("composer.file_kind"),
                 ),
+                max: MAX_ATTACHMENT_LABEL,
               })
-            : `${oversizeNames.length} files exceed the 8MB limit.`,
+            : t("composer.file_exceeds_limit_multi", {
+                count: oversizeNames.length,
+                max: MAX_ATTACHMENT_LABEL,
+              }),
         tone: "warning",
       });
     }

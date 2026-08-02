@@ -114,9 +114,9 @@ export default {
   "session.expert_delete_conversation": "刪除專家",
   "session.delete_expert_title": "刪除專家？",
   "session.delete_named_expert_message":
-    "這將永久刪除專家「{name}」及其全部會話訊息，且不可恢復。",
+    "這將永久刪除專家「{name}」、其全部會話訊息，以及這些會話生成的工作區檔案，且不可恢復。",
   "session.delete_expert_generic":
-    "這將永久刪除該專家及其全部會話訊息，且不可恢復。",
+    "這將永久刪除該專家、其全部會話訊息，以及這些會話生成的工作區檔案，且不可恢復。",
   "session.badge_cloud": "雲端",
   "session.badge_current": "當前",
   "session.provider_enable": "啟用",
@@ -294,8 +294,10 @@ export default {
   "session.send_prompt_failed": "發送提示詞失敗。",
   "session.default_title": "新建會話",
   "session.delete": "刪除",
-  "session.delete_named_session_message": "這將永久刪除「{title}」及其消息。",
-  "session.delete_session_generic": "這將永久刪除所選會話及其消息。",
+  "session.delete_named_session_message":
+    "這將永久刪除「{title}」及其訊息，並刪除該會話生成的工作區檔案。此操作無法撤銷。",
+  "session.delete_session_generic":
+    "這將永久刪除所選會話及其訊息，並刪除該會話生成的工作區檔案。此操作無法撤銷。",
   "session.delete_session_title": "刪除會話？",
   "session.deleting": "正在刪除…",
   "session.deny": "拒絕",
@@ -856,8 +858,10 @@ export default {
   "session.archive_task_done": "已歸檔任務",
   "session.delete_task": "刪除任務",
   "session.delete_task_title": "刪除任務？",
-  "session.delete_named_task_message": "這將永久刪除「{title}」及其消息。",
-  "session.delete_task_generic": "這將永久刪除所選任務及其消息。",
+  "session.delete_named_task_message":
+    "這將永久刪除「{title}」及其訊息，並刪除該任務生成的工作區檔案。此操作無法撤銷。",
+  "session.delete_task_generic":
+    "這將永久刪除所選任務及其訊息，並刪除該任務生成的工作區檔案。此操作無法撤銷。",
   "session.pinned_section": "置頂",
   "session.recent_section": "最近",
   "session.no_space_tasks": "暫無空間任務",

@@ -85,9 +85,14 @@ export function formatAttachmentSuccessDisplayName(name: string): string | null 
   return trimmed.length > 40 ? `${trimmed.slice(0, 37)}…` : trimmed;
 }
 
+/** Safe + short name for oversize notices (keep limit text readable). */
 export function formatOversizeAttachmentName(
   name: string,
   fallback: string,
 ): string {
-  return isSafeAttachmentDisplayName(name) ? name : fallback;
+  if (!isSafeAttachmentDisplayName(name)) return fallback;
+  const trimmed = name.trim();
+  if (trimmed.length <= 48) return trimmed;
+  // Keep head + tail so extension / short suffix stay visible.
+  return `${trimmed.slice(0, 22)}…${trimmed.slice(-18)}`;
 }

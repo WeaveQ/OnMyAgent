@@ -41,6 +41,14 @@ describe("file-preview-policy (shipped)", () => {
       }),
     ).toBe(false);
     expect(FILE_PREVIEW_SELECTION_DEBOUNCE_MS).toBeGreaterThan(0);
+    // Soft office cap is high enough for typical large decks (e.g. 51MB pptx).
+    expect(OFFICE_OVERLAY_PREVIEW_MAX_BYTES).toBeGreaterThanOrEqual(100 * 1024 * 1024);
+    expect(
+      shouldForceExternalPreviewForSize({
+        sizeBytes: 51 * 1024 * 1024,
+        preview: "presentation",
+      }),
+    ).toBe(false);
   });
 
   test("office overlay eligibility for sheet/doc/ppt with Electron + abs path", () => {

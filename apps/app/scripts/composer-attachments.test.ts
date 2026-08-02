@@ -114,4 +114,12 @@ describe("attachment notice name helpers", () => {
     ).toBe("file");
     expect(formatOversizeAttachmentName("ok.pdf", "file")).toBe("ok.pdf");
   });
+
+  test("truncates very long oversize names so limit stays readable", () => {
+    const long = `${"长文件名".repeat(20)}.pptx`;
+    const display = formatOversizeAttachmentName(long, "file");
+    expect(display.length).toBeLessThan(long.length);
+    expect(display.includes("…")).toBe(true);
+    expect(display.endsWith(".pptx")).toBe(true);
+  });
 });

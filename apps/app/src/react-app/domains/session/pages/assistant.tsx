@@ -76,11 +76,16 @@ import {
   writeAutomationFocus,
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
-import { WorkspaceFilesPage } from "../../workspace";
+import {
+  WorkspaceFilesPage,
+  deleteSessionOwnedWorkspaceFiles,
+} from "../../workspace";
 import {
   archiveAssistantTask,
   permanentlyRemoveAssistantArchivedTask,
+  readAssistantArchivedTasks,
 } from "../../shared";
+import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
@@ -347,6 +352,22 @@ export function AssistantPage(props: AssistantPageProps) {
     [
       props.selectedWorkspaceId,
       props.sidebar.workspaceSessionGroups,
+    ],
+  );
+
+  const filesOpenSessionMeta = useMemo(
+    () =>
+      buildFilesOpenSessionMeta({
+        workspaceId: props.selectedWorkspaceId,
+        workspaceRoot:
+          props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
+        liveSessions: assistantWorkspaceSessions,
+      }),
+    [
+      assistantWorkspaceSessions,
+      props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
+      props.workspaceFilesRoot,
     ],
   );
 
@@ -715,6 +736,51 @@ export function AssistantPage(props: AssistantPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
+  const resolveSessionDirectory = useCallback(
+    (sessionId: string): string | null => {
+      const id = sessionId.trim();
+      if (!id) return null;
+      for (const group of props.sidebar.workspaceSessionGroups) {
+        const match = group.sessions.find((session) => session.id === id);
+        if (match?.directory) return match.directory;
+      }
+      const archived = readAssistantArchivedTasks(
+        props.selectedWorkspaceId,
+      ).find((task) => task.sessionId === id);
+      return archived?.directory ?? null;
+    },
+    [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups],
+  );
+
+  const purgeSessionWorkspaceFiles = useCallback(
+    async (sessionId: string) => {
+      const client = props.onmyagentServerClient;
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId || !sessionId.trim()) return;
+      try {
+        await deleteSessionOwnedWorkspaceFiles({
+          client,
+          workspaceId,
+          sessionId,
+          directory: resolveSessionDirectory(sessionId),
+          workspaceRoot: props.selectedWorkspaceRoot,
+        });
+      } catch (error) {
+        console.warn(
+          "[assistant] best-effort session file cleanup failed",
+          sessionId,
+          error,
+        );
+      }
+    },
+    [
+      props.onmyagentServerClient,
+      props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
+      resolveSessionDirectory,
+    ],
+  );
+
   const executeAssistantDelete = useCallback(
     async (
       target:
@@ -723,6 +789,7 @@ export function AssistantPage(props: AssistantPageProps) {
     ) => {
       if (!props.onDeleteSession) return;
       if (target.kind === "session") {
+        await purgeSessionWorkspaceFiles(target.sessionId);
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           target.sessionId,
@@ -735,6 +802,7 @@ export function AssistantPage(props: AssistantPageProps) {
       // definition is never deleted and "定时" returns. Parallel budgeted
       // deletes keep multi-run groups from stacking full remote timeouts.
       for (const sessionId of target.sessionIds) {
+        await purgeSessionWorkspaceFiles(sessionId);
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
@@ -782,6 +850,7 @@ export function AssistantPage(props: AssistantPageProps) {
       props.onDeleteSession,
       props.onmyagentServerClient,
       props.selectedWorkspaceId,
+      purgeSessionWorkspaceFiles,
       showToast,
     ],
   );
@@ -1286,6 +1355,23 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
+                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                          archivedSessionIds={
+                            filesOpenSessionMeta.archivedSessionIds
+                          }
+                          sessionTitleByKey={
+                            filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          sessionIdByPathKey={
+                            filesOpenSessionMeta.sessionIdByPathKey
+                          }
+                          onOpenSourceSession={(sessionId) => {
+                            props.sidebar.onOpenSession(
+                              props.selectedWorkspaceId,
+                              sessionId,
+                            );
+                            openRailView("assistant");
+                          }}
                           onOpenArtifact={openTarget}
                           {...createWorkspaceFilesAgentHandlers({
                             sessionId: renderedSessionId,

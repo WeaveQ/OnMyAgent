@@ -83,11 +83,13 @@ describe("session visual and file contracts", () => {
     expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
     expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
-    expect(uploadsPanel).toContain("uploadInbox");
+    expect(uploadsPanel).toContain("writeWorkspaceBinaryFile");
     expect(uploadsPanel).toContain("listInbox");
     expect(uploadsPanel).toContain("ArtifactIcon");
     expect(uploadsPanel).toContain("FilePreviewDrawer");
-    // Task-files browser keeps preview branches for historical workspace files
+    // Task-files browser: conversation outline + preview.
+    expect(browserPanel).toContain("buildTreeOutlineRows");
+    expect(browserPanel).toContain("openSessionForPath");
     expect(browserPanel).toContain("workspaceFileOpenTarget");
     expect(browserPanel).toContain("FilePreviewDrawer");
     expect(browserPanel).toContain("workspace-files-preview-drawer");

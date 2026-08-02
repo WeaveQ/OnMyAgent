@@ -135,6 +135,8 @@ type FilesToast = (input: {
   title: string;
   description?: string | null;
   dismissLabel?: string;
+  actionLabel?: string;
+  onAction?: () => void;
   durationMs?: number;
 }) => void;
 

@@ -41,6 +41,7 @@ import { useMentionFolderBrowser } from "./use-mention-folder-browser";
 import { useComposerCatalogs } from "./use-composer-catalogs";
 import { useComposerAttachments } from "./use-composer-attachments";
 import { useComposerAgentMenu } from "./use-composer-agent-menu";
+import { useComposerMineFiles } from "./use-composer-mine-files";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
 
 export function ReactSessionComposer(props: ComposerProps) {
@@ -158,6 +159,15 @@ export function ReactSessionComposer(props: ComposerProps) {
     setMentionOpen,
     setToolMenuOpen,
     mentionAddSelectedFiles: mentionBrowser.addSelectedFiles,
+  });
+
+  const mineFiles = useComposerMineFiles({
+    open: toolMenuOpen && toolMenuSection === "mine",
+    listFolderFiles: props.listFolderFiles,
+    searchFiles: props.searchFiles,
+    loadWorkspaceFiles: props.loadWorkspaceFiles,
+    addAttachments,
+    onAdded: () => setToolMenuOpen(false),
   });
 
   const activeMenu = slashOpen ? "slash" : mentionOpen ? "mention" : null;
@@ -649,6 +659,23 @@ export function ReactSessionComposer(props: ComposerProps) {
                       canCaptureAppshot={canCaptureAppshot}
                       openFilePicker={openFilePicker}
                       captureAppshot={captureAppshot}
+                      minePanel={{
+                        title: mineFiles.title,
+                        searchQuery: mineFiles.searchQuery,
+                        setSearchQuery: mineFiles.setSearchQuery,
+                        items: mineFiles.items,
+                        loading: mineFiles.loading,
+                        adding: mineFiles.adding,
+                        error: mineFiles.error,
+                        selectedFilePaths: mineFiles.selectedFilePaths,
+                        canGoBack: mineFiles.canGoBack,
+                        onBack: mineFiles.backFolder,
+                        onOpenFolder: mineFiles.openFolder,
+                        onToggleFile: mineFiles.toggleFile,
+                        onAddSelected: () => {
+                          void mineFiles.addSelectedFiles();
+                        },
+                      }}
                       promptTemplates={promptTemplates}
                       selectedPromptTemplateId={selectedPromptTemplateId}
                       setSelectedPromptTemplateId={setSelectedPromptTemplateId}

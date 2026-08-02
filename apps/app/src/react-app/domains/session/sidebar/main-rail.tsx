@@ -176,7 +176,7 @@ export function OnMyAgentRail(props: {
   return (
     <aside className="flex w-rail shrink-0 flex-col items-center border-r border-dls-border/40 bg-dls-rail px-1 pb-4 pt-2 mac:pt-10 text-dls-text">
       <div className="flex min-h-0 w-full flex-1 flex-col items-center">
-        <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <RailBrandMark onClick={() => props.onOpenView("assistant")} />
           {TOP_RAIL_ITEMS.map((item) => (
             <TopRailButton

@@ -247,6 +247,46 @@ export function inboxAbsolutePath(workspaceRoot: string, path: string) {
   return `${root}/${inboxRelativePath(path)}`.replace(/\/+/g, "/");
 }
 
+/**
+ * Map an upload result path to the paths shown to the model.
+ * Product layout (`uploads/…`) is workspace-relative; legacy `session-uploads/`
+ * still resolves under `.opencode/onmyagent/inbox/`.
+ */
+export function attachmentInstructionPaths(
+  workspaceRoot: string,
+  uploadedPath: string,
+): { relativePath: string; absolutePath: string } {
+  const path = String(uploadedPath ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/");
+  if (!path) {
+    return { relativePath: "", absolutePath: "" };
+  }
+  const root = workspaceRoot.trim().replace(/[/\\]+$/, "");
+  const isProductLayout =
+    path === "uploads" ||
+    path.startsWith("uploads/") ||
+    path === "tasks" ||
+    path.startsWith("tasks/") ||
+    path === "experts" ||
+    path.startsWith("experts/") ||
+    path === "projects" ||
+    path.startsWith("projects/") ||
+    path.startsWith(".opencode/onmyagent/inbox/");
+  if (isProductLayout) {
+    return {
+      relativePath: path,
+      absolutePath: root ? `${root}/${path}`.replace(/\/+/g, "/") : path,
+    };
+  }
+  return {
+    relativePath: inboxRelativePath(path),
+    absolutePath: inboxAbsolutePath(workspaceRoot, path),
+  };
+}
+
 export function buildCollaborationModeSystemPrompt(
   mode: ComposerDraft["collaborationMode"],
 ) {
@@ -612,13 +652,16 @@ export async function draftToParts(
       continue;
     }
 
-    const uploadPath = `session-uploads/${Date.now()}-${index}-${sanitizeUploadFilename(attachment.name)}`;
+    // Prefer product uploads/ so Mine + conversation attachments share one root.
+    // uploadUserFileToWorkspace keeps paths already under uploads/.
+    const uploadPath = `uploads/${Date.now()}-${index}-${sanitizeUploadFilename(attachment.name)}`;
     const uploaded = await options.uploadAttachment(attachment, uploadPath);
+    const paths = attachmentInstructionPaths(inboxRoot, uploaded.path);
     uploadedFiles.push({
       name: attachment.name,
       mimeType: attachment.mimeType,
-      relativePath: inboxRelativePath(uploaded.path),
-      absolutePath: inboxAbsolutePath(inboxRoot, uploaded.path),
+      relativePath: paths.relativePath,
+      absolutePath: paths.absolutePath,
     });
   }
 
