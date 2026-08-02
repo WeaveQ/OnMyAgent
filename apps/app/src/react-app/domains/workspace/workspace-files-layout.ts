@@ -61,6 +61,33 @@ export function isAutomationTaskFolderName(name: string): boolean {
   return name.trim().startsWith(AUTOMATION_TASK_FOLDER_PREFIX);
 }
 
+/**
+ * True when a path segment is a real conversation/session id (not a display
+ * folder like automation group names or user-named project folders).
+ */
+export function isLikelySessionId(segment: string): boolean {
+  const n = String(segment ?? "").trim();
+  if (!n || n === "." || n === ".." || n.includes("/")) return false;
+  // Automation output folders under tasks/ are group names, not session ids.
+  if (isAutomationTaskFolderName(n)) return false;
+  // Human-readable / CJK folder names are never session ids.
+  if (/[^\u0000-\u007f]/.test(n)) return false;
+  // OpenCode-style ids
+  if (/^ses[_-]/i.test(n)) return true;
+  // UUID
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n)
+  ) {
+    return true;
+  }
+  // Isolated expert/session dirs: Date.now() ms or short hex keys
+  if (/^\d{10,16}$/.test(n)) return true;
+  if (/^[a-f0-9]{8,32}$/i.test(n)) return true;
+  // Timestamp-ish isolation: 2026-07-23_155052
+  if (/^\d{4}-\d{2}-\d{2}[_-]\d{4,6}$/.test(n)) return true;
+  return false;
+}
+
 function normalizeRel(path: string): string {
   return path
     .trim()
@@ -267,16 +294,21 @@ export function extractSessionIdFromProductPath(
   const parts = rel.split("/").filter(Boolean);
   const top = (parts[0] ?? "").toLowerCase();
   if (top === WORKSPACE_TASKS_DIR && parts[1]) {
-    return parts[1] ?? null;
+    const candidate = parts[1] ?? "";
+    // tasks/{sessionId}/… only when the segment is a real session id
+    // (automation group folders are mapped separately via path aliases).
+    return isLikelySessionId(candidate) ? candidate : null;
   }
   if (top === WORKSPACE_EXPERTS_DIR && parts[2]) {
-    return parts[2] ?? null;
+    const candidate = parts[2] ?? "";
+    return isLikelySessionId(candidate) ? candidate : null;
   }
   if (top === WORKSPACE_PROJECTS_DIR && parts[2]) {
-    return parts[2] ?? null;
+    const candidate = parts[2] ?? "";
+    return isLikelySessionId(candidate) ? candidate : null;
   }
   // Session-like folder as bare top segment (historical / pre-layout).
-  if (parts.length >= 2 && /^[0-9a-f]{8,}$/i.test(parts[0] ?? "")) {
+  if (parts.length >= 1 && isLikelySessionId(parts[0] ?? "")) {
     return parts[0] ?? null;
   }
   return null;

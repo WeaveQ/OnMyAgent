@@ -48,7 +48,13 @@ export {
 } from "./workspace-files-session-cleanup";
 export {
   buildSessionTitleByKey,
+  buildSessionIdByPathKeyFromAutomationRecords,
+  isHistoricalAutomationTaskFolder,
   resolveOpenSourceSessionAction,
   type OpenSourceSessionAction,
   type SourceSessionStatus,
 } from "./workspace-files-open-session";
+export {
+  isLikelySessionId,
+  isAutomationTaskFolderName,
+} from "./workspace-files-layout";

@@ -108,9 +108,15 @@ import {
   buildSessionPageViewModel,
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
-import { MessagingChannelsPage } from "../../messaging";
-import { WorkspaceFilesPage } from "../../workspace";
-import { buildSessionTitleByKey } from "../../workspace";
+import {
+  MessagingChannelsPage,
+  readAutomationSessionRecords,
+} from "../../messaging";
+import {
+  WorkspaceFilesPage,
+  buildSessionIdByPathKeyFromAutomationRecords,
+  buildSessionTitleByKey,
+} from "../../workspace";
 import {
   readAssistantArchivedTasks,
 } from "../../shared";
@@ -340,13 +346,20 @@ export function SessionPage(props: SessionPageProps) {
         (group) => group.workspace.id === props.selectedWorkspaceId,
       )?.sessions ?? [];
     const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
+    const automationRecords = readAutomationSessionRecords(
+      props.selectedWorkspaceId,
+    );
+    const { sessionIdByPathKey, pathTitleAliases } =
+      buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
     return {
       activeSessionIds: live.map((session) => session.id),
       archivedSessionIds: archived.map((task) => task.sessionId),
       sessionTitleByKey: buildSessionTitleByKey({
         liveSessions: live,
         archivedTasks: archived,
+        pathTitleAliases,
       }),
+      sessionIdByPathKey,
     };
   }, [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
 
@@ -774,6 +787,9 @@ export function SessionPage(props: SessionPageProps) {
                           }
                           sessionTitleByKey={
                             filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          sessionIdByPathKey={
+                            filesOpenSessionMeta.sessionIdByPathKey
                           }
                           onOpenSourceSession={(sessionId) => {
                             props.sidebar.onOpenSession(
