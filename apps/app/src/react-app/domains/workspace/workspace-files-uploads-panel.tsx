@@ -337,7 +337,6 @@ export function WorkspaceFilesUploadsPanel(props: {
     void (async () => {
       try {
         const client = props.client!;
-        // One-shot best-effort migrate inbox user files → uploads/ (product layout).
         if (!migrateOnceRef.current) {
           migrateOnceRef.current = true;
           try {
@@ -356,16 +355,12 @@ export function WorkspaceFilesUploadsPanel(props: {
                   item.to,
                 );
               } catch {
-                // Skip collisions / missing; list still uses uploads/ only.
               }
             }
           } catch {
-            // Inbox disabled or empty — fine.
           }
         }
 
-        // Always load deep under current folder — shallow vs tree is client-side
-        // view only (avoids re-fetch flash when toggling expand-all).
         const catalog = await client.listWorkspaceFiles(workspaceId, {
           includeDirs: true,
           prefix: WORKSPACE_UPLOADS_DIR,
@@ -382,7 +377,6 @@ export function WorkspaceFilesUploadsPanel(props: {
         if (manualRefreshRef.current) {
           manualRefreshRef.current = false;
           setRefreshDone(true);
-          // state-timings.short-ms (1000)
           window.setTimeout(() => setRefreshDone(false), 1000);
         }
       } catch (loadError) {
@@ -809,25 +803,13 @@ export function WorkspaceFilesUploadsPanel(props: {
   const handleOpenExternally = useCallback(
     async (row: UserUploadRow) => {
       if (!workspaceRoot || !isElectronRuntime()) return;
-      const abs = absoluteForRow(row);
-      try {
-        if (canEditArtifactTarget({ preview: "", name: row.name })) {
-          try {
-            await openArtifactForEditing(abs);
-            return;
-          } catch {
-            // Fall through to OS open when overlay fails.
-          }
-        }
-        const { openDesktopPath } = await import("../../../app/lib/desktop");
-        await openDesktopPath(abs);
-      } catch {
-        try {
-          await revealDesktopItemInDir(abs);
-        } catch {
-          // best-effort
-        }
-      }
+      const { openWorkspaceFileExternally } = await import(
+        "./workspace-files-open-external"
+      );
+      await openWorkspaceFileExternally({
+        absolutePath: absoluteForRow(row),
+        fileName: row.name,
+      });
     },
     [absoluteForRow, workspaceRoot],
   );
