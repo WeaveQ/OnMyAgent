@@ -67,7 +67,6 @@ export type ExpertCreationControllerInput = {
     tone: "success";
     durationMs: number;
   }) => void;
-  activateDraftAgent: (agent: PendingAgentContext) => void;
 };
 
 export async function saveExpertCreation(
@@ -178,15 +177,6 @@ export function useExpertCreationController(
     },
     [input],
   );
-  const handleTry = useCallback(
-    (draft: AgentWizardDraft) => {
-      const pending = buildExpertCreationPreview(draft, input.registry);
-      if (!pending) return;
-      setOpen(false);
-      input.activateDraftAgent(pending);
-    },
-    [input],
-  );
   const expertCreationPage: ReactNode = open
     ? createElement(ExpertCreationPage, {
         workspaceId: input.workspaceId,
@@ -197,7 +187,6 @@ export function useExpertCreationController(
         registry: input.registry,
         skills: input.skills,
         onClose: closeCreation,
-        onTry: handleTry,
         onDone: handleDone,
       })
     : null;

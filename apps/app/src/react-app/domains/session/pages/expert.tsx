@@ -796,7 +796,6 @@ export function ExpertPage(props: ExpertPageProps) {
     client: props.onmyagentServerClient,
     skills: registry?.skills ?? [],
     showToast,
-    activateDraftAgent,
   });
   const seedChatDraft = useCallback(
     (draft: string) => {
