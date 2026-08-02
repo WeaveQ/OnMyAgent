@@ -8,6 +8,7 @@ import {
 } from "../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../app/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import type { ModelRef } from "../../../app/types";
 import {
   AGENT_REGISTRY_PATH,
   createAgentRecordFromDraft,
@@ -31,6 +32,7 @@ import {
   type ExpertKnowledgeEntry,
 } from "./expert-creation-page";
 import { createExpertRecordForSave } from "./expert-creation-save-model";
+import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
 
 async function encodeFileAsBase64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -64,6 +66,8 @@ export type ExpertCreationControllerInput = {
   onmyagentServerToken: string | null;
   client: OnMyAgentServerClient | null;
   skills: AgentRegistry["skills"];
+  selectedModel: ModelRef | null;
+  renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   showToast: (input: {
     title: string;
     description: string;
@@ -197,6 +201,8 @@ export function useExpertCreationController(
         client: input.client,
         registry: input.registry,
         skills: input.skills,
+        selectedModel: input.selectedModel,
+        renderComposer: input.renderComposer,
         onClose: closeCreation,
         onDone: handleDone,
       })

@@ -1,6 +1,7 @@
 import { createClient, unwrap } from "../../../app/lib/opencode";
 import { normalizeEvent } from "../../../app/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
+import type { ModelRef } from "../../../app/types";
 import { buildAgentSystemPrompt, buildAgentToolAccess } from "./pending-agent-store";
 import { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 
@@ -16,6 +17,8 @@ export type ExpertPreviewTurnInput = {
   message: string;
   attachments?: readonly File[];
   draft: AgentWizardDraft;
+  model?: ModelRef;
+  systemPrompt?: string;
   signal?: AbortSignal;
   onTextChange?: (text: string) => void;
 };
@@ -28,9 +31,11 @@ export type ExpertPreviewTurnOutput = {
 type PreviewStreamState = {
   messageRoles: Map<string, string>;
   partMessageIds: Map<string, string>;
+  partKinds: Map<string, "text" | "reasoning">;
   partTexts: Map<string, string>;
   orderedPartIds: string[];
   pendingRoleEvents: Map<string, unknown[]>;
+  pendingPartDeltas: Map<string, { messageId: string; text: string }>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -90,16 +95,35 @@ export function applyExpertPreviewStreamEvent(
   }
   if (event.type === "message.part.updated") {
     const part = event.properties.part;
-    if (!isRecord(part) || part.sessionID !== sessionId || part.type !== "text") return null;
+    if (
+      !isRecord(part) ||
+      part.sessionID !== sessionId ||
+      (part.type !== "text" && part.type !== "reasoning") ||
+      typeof part.id !== "string" ||
+      typeof part.messageID !== "string" ||
+      typeof part.text !== "string"
+    ) return null;
+    state.partKinds.set(part.id, part.type);
+    if (part.type === "reasoning") {
+      state.pendingPartDeltas.delete(part.id);
+      return null;
+    }
     if (part.synthetic === true || part.ignored === true) return null;
-    if (typeof part.id !== "string" || typeof part.messageID !== "string" || typeof part.text !== "string") return null;
     if (!state.messageRoles.has(part.messageID)) {
       queueRoleEvent(state, part.messageID, raw);
       return null;
     }
     if (state.messageRoles.get(part.messageID) !== "assistant") return null;
     rememberPart(state, part.id, part.messageID);
-    state.partTexts.set(part.id, part.text);
+    const pending = state.pendingPartDeltas.get(part.id)?.text ?? "";
+    state.pendingPartDeltas.delete(part.id);
+    const current = state.partTexts.get(part.id) ?? "";
+    state.partTexts.set(
+      part.id,
+      [current, pending, part.text].reduce((longest, candidate) => (
+        candidate.length > longest.length ? candidate : longest
+      ), ""),
+    );
     return { kind: "continue", text: fullText(state) };
   }
   if (event.type !== "message.part.delta") return null;
@@ -107,7 +131,18 @@ export function applyExpertPreviewStreamEvent(
   const messageId = typeof event.properties.messageID === "string" ? event.properties.messageID : null;
   const delta = typeof event.properties.delta === "string" ? event.properties.delta : "";
   const field = typeof event.properties.field === "string" ? event.properties.field : "";
-  if (!partId || !messageId || !delta || field !== "text") return null;
+  const eventSessionId = typeof event.properties.sessionID === "string" ? event.properties.sessionID : null;
+  if (!partId || !messageId || !delta || field !== "text" || eventSessionId !== sessionId) return null;
+  const partKind = state.partKinds.get(partId);
+  if (!partKind) {
+    const pending = state.pendingPartDeltas.get(partId);
+    state.pendingPartDeltas.set(partId, {
+      messageId,
+      text: `${pending?.text ?? ""}${delta}`,
+    });
+    return null;
+  }
+  if (partKind === "reasoning") return null;
   if (!state.messageRoles.has(messageId)) {
     queueRoleEvent(state, messageId, raw);
     return null;
@@ -122,9 +157,11 @@ export function createExpertPreviewStreamState(): PreviewStreamState {
   return {
     messageRoles: new Map(),
     partMessageIds: new Map(),
+    partKinds: new Map(),
     partTexts: new Map(),
     orderedPartIds: [],
     pendingRoleEvents: new Map(),
+    pendingPartDeltas: new Map(),
   };
 }
 
@@ -163,8 +200,11 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
     const promptResult = await client.session.promptAsync({
       sessionID: sessionId,
       directory: input.config.workspaceRoot || undefined,
-      system: buildAgentSystemPrompt({ ...input.draft, quote: input.draft.description }),
+      system:
+        input.systemPrompt ??
+        buildAgentSystemPrompt({ ...input.draft, quote: input.draft.description }),
       tools: buildAgentToolAccess(input.draft),
+      ...(input.model ? { model: input.model } : {}),
       parts,
     });
     if (promptResult.error) throw new Error(readErrorMessage(promptResult.error) || "Expert preview request failed");

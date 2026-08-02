@@ -6,10 +6,8 @@ import {
   Check,
   ChevronsLeft,
   ChevronDown,
-  Clock3,
   FileSearch,
   FolderPlus,
-  Mic,
   Plus,
   Send,
   Sparkles,
@@ -46,6 +44,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import type { ModelRef } from "../../../app/types";
 import { listLocalSkills } from "../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../app/utils";
 import type {
@@ -60,11 +59,6 @@ import {
 import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
-import {
-  applyExpertCoachProposal,
-  type ExpertCoachProposal,
-} from "./expert-creation-coach-model";
-import { runExpertCoachTurn } from "./expert-creation-coach-runtime";
 import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
 import { mergeExpertChatAttachments } from "./expert-creation-chat-attachments";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
@@ -74,12 +68,15 @@ import {
 } from "./expert-creation-lifecycle";
 import {
   clearExpertCreationStoredState,
+  EMPTY_EXPERT_COACH_STATE,
   readExpertCreationStoredState,
   writeExpertCreationStoredState,
   type ExpertCoachMessage,
-  type ExpertCoachState,
-  type ExpertCoachVersion,
 } from "./expert-creation-draft-storage";
+import {
+  ExpertCreationConversation,
+  type ExpertCreationComposerProps,
+} from "./expert-creation-conversation";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -97,6 +94,8 @@ export type ExpertCreationPageProps = {
   client: OnMyAgentServerClient | null;
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
+  selectedModel: ModelRef | null;
+  renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onClose: () => void;
   onDone: (
     draft: AgentWizardDraft,
@@ -196,327 +195,72 @@ function ExpertCreationAvatar(props: {
   );
 }
 
+function buildCreationCoachSystemPrompt(draft: AgentWizardDraft): string {
+  return [
+    "You are OnMyAgent's dedicated expert-creation coach.",
+    "Your only purpose is to help the user design a useful, dependable expert.",
+    "Use a natural conversation. Ask one focused question at a time and offer concrete suggestions.",
+    "Do not output JSON, schemas, or internal implementation details.",
+    "Do not claim that you changed the form automatically.",
+    "",
+    "Current draft:",
+    `Name: ${draft.name || "Not set"}`,
+    `Description: ${draft.description || "Not set"}`,
+    `Role prompt: ${draft.userNote || "Not set"}`,
+    `Expert memory: ${draft.agentMemory || "Not set"}`,
+  ].join("\n");
+}
+
 function ExpertCoach(props: {
-  registry: AgentRegistry;
   draft: AgentWizardDraft;
-  skills: AgentSkillItem[];
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
   onmyagentServerToken: string | null;
-  state: ExpertCoachState;
-  onStateChange: (state: ExpertCoachState) => void;
-  onApplyProposal: (proposal: ExpertCoachProposal) => void;
+  selectedModel: ModelRef | null;
+  renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
 }) {
-  const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [messages, setMessages] = useState<ExpertCoachMessage[]>(props.state.messages);
-  const [versions, setVersions] = useState<ExpertCoachVersion[]>(props.state.versions);
-  const [sessionId, setSessionId] = useState<string | null>(props.state.sessionId);
-  const [sending, setSending] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [appliedVersionId, setAppliedVersionId] = useState<string | null>(props.state.appliedVersionId);
-  const abortRef = useRef<AbortController | null>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, sending]);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
-
-  useEffect(() => {
-    props.onStateChange({ sessionId, messages, versions, appliedVersionId });
-  }, [appliedVersionId, messages, props.onStateChange, sessionId, versions]);
-
-  const applyVersion = (version: ExpertCoachVersion) => {
-    props.onApplyProposal(version.proposal);
-    setAppliedVersionId(version.id);
-  };
-
-  const send = async (retryValue?: string) => {
-    const value = (retryValue ?? input).trim();
-    if ((!value && attachments.length === 0) || sending) return;
-    const userMessage: ExpertCoachMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: value || t("agents.expert_creation_attachment_only", { count: attachments.length }),
-    };
-    setMessages((current) => [...current, userMessage]);
-    setInput("");
-    const submittedAttachments = attachments;
-    setAttachments([]);
-    const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
-    if (!baseUrl) {
-      setInput((current) => current.trim() ? current : value);
-      setAttachments((current) => mergeExpertChatAttachments(submittedAttachments, current));
-      setMessages((current) => [...current, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: t("agents.expert_creation_coach_unavailable"),
-      }]);
-      return;
-    }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setSending(true);
-    try {
-      const output = await runExpertCoachTurn({
-        config: {
-          baseUrl,
-          token: props.onmyagentServerToken,
-          workspaceRoot: props.workspaceRoot,
-        },
-        sessionId,
-        message: value,
-        attachments: submittedAttachments,
-        draft: props.draft,
-        skills: props.skills,
-        signal: controller.signal,
-      });
-      setSessionId(output.sessionId);
-      const assistantMessage: ExpertCoachMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: output.result.reply,
-        ...(output.result.proposal ? { proposal: output.result.proposal } : {}),
-      };
-      setMessages((current) => [...current, assistantMessage]);
-      const proposal = output.result.proposal;
-      if (proposal) {
-        setVersions((current) => [{
-          id: assistantMessage.id,
-          createdAt: Date.now(),
-          proposal,
-        }, ...current]);
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        setMessages((current) => [...current, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: t("agents.expert_creation_coach_stopped"),
-        }]);
-        return;
-      }
-      setInput((current) => current.trim() ? current : value);
-      setAttachments((current) => mergeExpertChatAttachments(submittedAttachments, current));
-      const detail = error instanceof Error ? error.message : "";
-      setMessages((current) => [...current, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: detail
-          ? t("agents.expert_creation_coach_failed_detail", { detail })
-          : t("agents.expert_creation_coach_failed"),
-      }]);
-    } finally {
-      abortRef.current = null;
-      setSending(false);
-    }
-  };
-
   return (
-    <aside className="flex min-h-0 w-2/5 min-w-80 shrink-0 border-r border-dls-border bg-dls-background p-5">
-      <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-dls-border bg-dls-surface p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {renderAvatar(
-              props.registry,
-              {
-                avatarStyle: props.registry.avatars[0]?.style,
-                avatarOptionId: props.registry.avatars[0]?.id ?? "",
-                name: t("agents.expert_creation_coach"),
-              },
-              "size-9",
-            )}
-            <h2 className="truncate text-base font-semibold text-dls-text">
-              {t("agents.expert_creation_coach")}
-            </h2>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-dls-secondary"
-            disabled={versions.length === 0}
-            onClick={() => setHistoryOpen(true)}
-          >
-            <Clock3 data-icon="inline-start" className="size-4" />
-            {t("agents.expert_creation_coach_history")}
-          </Button>
-        </div>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-10">
-          <div className="space-y-6 text-sm leading-7 text-dls-text">
-            <p>{t("agents.expert_creation_coach_greeting")}</p>
-            <p>{t("agents.expert_creation_coach_intro")}</p>
-            <p>{t("agents.expert_creation_coach_question")}</p>
-            <ol className="list-decimal space-y-1 pl-5">
-              {[1, 2, 3, 4].map((index) => (
-                <li key={index}>
-                  {t(`agents.expert_creation_coach_option_${index}`)}
-                </li>
-              ))}
-            </ol>
-            <p>{t("agents.expert_creation_coach_reply_hint")}</p>
-            {messages.map((message) => {
-              const proposal = message.proposal;
-              return (
-              <div
-                key={message.id}
-                className={cn(
-                  "max-w-[94%] rounded-xl px-3 py-2.5 leading-6",
-                  message.role === "user"
-                    ? "ml-auto bg-dls-accent text-white"
-                    : "bg-dls-hover text-dls-text",
-                )}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                {proposal ? (
-                  <div className="mt-3 rounded-xl border border-dls-border bg-dls-surface p-3">
-                    <p className="font-semibold text-dls-text">{proposal.name}</p>
-                    <p className="mt-1 line-clamp-3 text-xs leading-5 text-dls-secondary">
-                      {proposal.description}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="mt-3 w-full"
-                      variant={appliedVersionId === message.id ? "secondary" : "default"}
-                      disabled={appliedVersionId === message.id}
-                      onClick={() => applyVersion({
-                        id: message.id,
-                        createdAt: Date.now(),
-                        proposal,
-                      })}
-                    >
-                      {appliedVersionId === message.id
-                        ? t("agents.expert_creation_coach_applied")
-                        : t("agents.expert_creation_coach_apply")}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-              );
-            })}
-            {sending ? (
-              <div className="max-w-[94%] rounded-xl bg-dls-hover px-3 py-2.5 text-dls-secondary">
-                {t("agents.expert_creation_coach_thinking")}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="pt-6">
-          <div className="relative rounded-xl border border-dls-border bg-dls-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
-            {attachments.length > 0 ? (
-              <div className="mb-2 flex flex-wrap gap-2">
-                {attachments.map((file) => (
-                  <span key={`${file.name}-${file.size}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-dls-hover px-2 py-1 text-xs text-dls-secondary">
-                    <span className="max-w-40 truncate">{file.name}</span>
-                    <Button
-                      type="button"
-                      size="icon-xs"
-                      variant="ghost"
-                      className="-mr-1"
-                      onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
-                      aria-label={t("agents.expert_creation_remove_attachment", { name: file.name })}
-                    >
-                      <X className="size-3" aria-hidden />
-                    </Button>
-                  </span>
+    <aside className="flex min-h-0 w-2/5 min-w-80 shrink-0 border-r border-dls-border bg-dls-background p-4">
+      <div className="flex min-h-0 flex-1 flex-col bg-dls-surface p-5">
+        <ExpertCreationConversation
+          draft={props.draft}
+          workspaceRoot={props.workspaceRoot}
+          opencodeBaseUrl={props.opencodeBaseUrl}
+          onmyagentServerToken={props.onmyagentServerToken}
+          selectedModel={props.selectedModel}
+          title={t("agents.expert_creation_coach")}
+          avatar={(
+            <span className="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eee7dc] text-dls-text">
+              <UserRound className="size-6" aria-hidden />
+            </span>
+          )}
+          initialContent={(
+            <>
+              <p>{t("agents.expert_creation_coach_greeting")}</p>
+              <p>{t("agents.expert_creation_coach_intro")}</p>
+              <p>{t("agents.expert_creation_coach_question")}</p>
+              <ol className="list-decimal space-y-1 pl-5">
+                {[1, 2, 3, 4].map((index) => (
+                  <li key={index}>
+                    {t(`agents.expert_creation_coach_option_${index}`)}
+                  </li>
                 ))}
-              </div>
-            ) : null}
-            <input
-              ref={attachmentInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                setAttachments((current) => mergeExpertChatAttachments(current, Array.from(event.currentTarget.files ?? [])));
-                event.currentTarget.value = "";
-              }}
-            />
-            <Textarea
-              value={input}
-              onChange={(event) => setInput(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  send();
-                }
-              }}
-              placeholder={t("agents.expert_creation_coach_placeholder")}
-              className="min-h-16 resize-none border-0 bg-transparent px-1 py-0 pr-1 shadow-none focus-visible:ring-0"
-            />
-            <div className="mt-2 flex items-center justify-between">
-              <Button type="button" size="icon-sm" variant="ghost" onClick={() => attachmentInputRef.current?.click()} aria-label={t("agents.expert_creation_add_attachment")}>
-                <Plus className="size-5" aria-hidden />
-              </Button>
-              <div className="flex items-center gap-1">
-                <Button type="button" size="icon-sm" variant="ghost" disabled aria-label={t("agents.expert_creation_coach_mic_unavailable")}>
-                  <Mic className="size-5" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  disabled={!sending && !input.trim() && attachments.length === 0}
-                  onClick={() => sending ? abortRef.current?.abort() : void send()}
-                  aria-label={sending
-                    ? t("agents.expert_creation_coach_stop")
-                    : t("agents.expert_creation_preview_send")}
-                >
-                  {sending ? <X className="size-5" aria-hidden /> : <Send className="size-5" aria-hidden />}
-                </Button>
-              </div>
-            </div>
-          </div>
-          <p className="pt-3 text-center text-xs text-dls-secondary">
-            {t("agents.expert_creation_coach_disclaimer")}
-          </p>
-        </div>
+              </ol>
+              <p>{t("agents.expert_creation_coach_reply_hint")}</p>
+            </>
+          )}
+          placeholder={t("agents.expert_creation_coach_placeholder")}
+          systemPrompt={buildCreationCoachSystemPrompt(props.draft)}
+          emptyMessage={t("agents.expert_creation_coach_failed")}
+          renderComposer={props.renderComposer}
+        />
+        <p className="pt-3 text-center text-xs text-dls-secondary">
+          {t("agents.expert_creation_coach_disclaimer")}
+        </p>
       </div>
-      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="max-h-[78vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("agents.expert_creation_coach_history")}</DialogTitle>
-            <DialogDescription>{t("agents.expert_creation_coach_history_desc")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {versions.map((version, index) => (
-              <div key={version.id} className="rounded-xl border border-dls-border bg-dls-surface p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-dls-text">{version.proposal.name}</p>
-                    <p className="mt-1 text-xs text-dls-secondary">
-                      {t("agents.expert_creation_coach_version", { version: versions.length - index })}
-                      {" · "}
-                      {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(version.createdAt)}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={appliedVersionId === version.id}
-                    onClick={() => applyVersion(version)}
-                  >
-                    {appliedVersionId === version.id
-                      ? t("agents.expert_creation_coach_applied")
-                      : t("agents.expert_creation_coach_apply")}
-                  </Button>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-dls-secondary">{version.proposal.description}</p>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
     </aside>
   );
 }
-
 function PromptEditor(props: {
   value: string;
   onChange: (value: string) => void;
@@ -1376,7 +1120,6 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     buildInitialDraft(props.registry, props.skills),
   ));
   const [draft, setDraft] = useState(storedInitialState.draft);
-  const [coachState, setCoachState] = useState(storedInitialState.coach);
   const [availableSkills, setAvailableSkills] = useState(() =>
     props.skills.filter((skill) => skill.enabled),
   );
@@ -1391,8 +1134,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    writeExpertCreationStoredState(props.workspaceId, { draft, coach: coachState });
-  }, [coachState, draft, props.workspaceId]);
+    writeExpertCreationStoredState(props.workspaceId, {
+      draft,
+      coach: EMPTY_EXPERT_COACH_STATE,
+    });
+  }, [draft, props.workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1536,7 +1282,12 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
 
   const requestClose = () => {
     if (submitting) return;
-    if (hasExpertCreationProgress(draft, baselineDraft, coachState, knowledge.length)) {
+    if (hasExpertCreationProgress(
+      draft,
+      baselineDraft,
+      EMPTY_EXPERT_COACH_STATE,
+      knowledge.length,
+    )) {
       setExitDialogOpen(true);
       return;
     }
@@ -1574,17 +1325,12 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
       </header>
       <div className="flex min-h-0 flex-1">
         <ExpertCoach
-          registry={sourceRegistry}
           draft={draft}
-          skills={availableSkills}
           workspaceRoot={props.workspaceRoot}
           opencodeBaseUrl={props.opencodeBaseUrl}
           onmyagentServerToken={props.onmyagentServerToken}
-          state={coachState}
-          onStateChange={setCoachState}
-          onApplyProposal={(proposal) => {
-            setDraft((current) => applyExpertCoachProposal(current, proposal, availableSkills));
-          }}
+          selectedModel={props.selectedModel}
+          renderComposer={props.renderComposer}
         />
         <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border bg-dls-surface px-4 py-3">

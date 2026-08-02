@@ -54,4 +54,60 @@ describe("expert creation preview stream", () => {
       properties: { info: { id: "late-role", role: "assistant", sessionID: "preview" } },
     }, "preview", state)).toEqual({ kind: "continue", text: "Ready" });
   });
+
+  test("never exposes reasoning deltas that arrive before their part declaration", () => {
+    const state = createExpertPreviewStreamState();
+    applyExpertPreviewStreamEvent({
+      type: "message.updated",
+      properties: { info: { id: "assistant", role: "assistant", sessionID: "preview" } },
+    }, "preview", state);
+    expect(applyExpertPreviewStreamEvent({
+      type: "message.part.delta",
+      properties: {
+        partID: "reasoning-part",
+        messageID: "assistant",
+        sessionID: "preview",
+        field: "text",
+        delta: "Private chain of thought",
+      },
+    }, "preview", state)).toBeNull();
+    expect(applyExpertPreviewStreamEvent({
+      type: "message.part.updated",
+      properties: {
+        part: {
+          id: "reasoning-part",
+          messageID: "assistant",
+          sessionID: "preview",
+          type: "reasoning",
+          text: "Private chain of thought",
+        },
+      },
+    }, "preview", state)).toBeNull();
+    expect(applyExpertPreviewStreamEvent({
+      type: "message.part.delta",
+      properties: {
+        partID: "text-part",
+        messageID: "assistant",
+        sessionID: "preview",
+        field: "text",
+        delta: "Public answer",
+      },
+    }, "preview", state)).toBeNull();
+    expect(applyExpertPreviewStreamEvent({
+      type: "message.part.updated",
+      properties: {
+        part: {
+          id: "text-part",
+          messageID: "assistant",
+          sessionID: "preview",
+          type: "text",
+          text: "Public answer",
+        },
+      },
+    }, "preview", state)).toEqual({ kind: "continue", text: "Public answer" });
+    expect(applyExpertPreviewStreamEvent({
+      type: "session.idle",
+      properties: { sessionID: "preview" },
+    }, "preview", state)).toEqual({ kind: "done", text: "Public answer" });
+  });
 });

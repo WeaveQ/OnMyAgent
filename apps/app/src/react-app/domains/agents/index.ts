@@ -10,6 +10,7 @@ export {
   type ExpertCreationTab,
   type ExpertKnowledgeEntry,
 } from "./expert-creation-page";
+export type { ExpertCreationComposerProps } from "./expert-creation-conversation";
 export {
   buildExpertCreationPreview,
   saveExpertCreation,

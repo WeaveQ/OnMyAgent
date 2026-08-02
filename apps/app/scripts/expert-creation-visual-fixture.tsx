@@ -64,6 +64,8 @@ createRoot(root).render(
     client={fixtureClient}
     registry={registry}
     skills={registry.skills}
+    selectedModel={null}
+    renderComposer={() => null}
     onClose={() => undefined}
     onDone={fixtureOnDone}
   />,
