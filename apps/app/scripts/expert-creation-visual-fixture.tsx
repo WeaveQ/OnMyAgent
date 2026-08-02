@@ -41,6 +41,13 @@ const fixtureClient = params.get("skillState") === "error"
   ? createOnMyAgentServerClient({ baseUrl: "http://127.0.0.1:1" })
   : null;
 
+const fixtureOnDone = async () => {
+  if (params.get("saveState") === "slow") {
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
+  }
+  if (params.get("saveState") === "error") return Promise.reject();
+};
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing expert creation visual fixture root");
 
@@ -54,6 +61,6 @@ createRoot(root).render(
     registry={registry}
     skills={registry.skills}
     onClose={() => undefined}
-    onDone={async () => undefined}
+    onDone={fixtureOnDone}
   />,
 );
