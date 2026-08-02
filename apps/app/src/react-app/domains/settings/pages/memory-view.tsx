@@ -119,7 +119,6 @@ export function MemoryView(props: MemoryViewProps) {
         </SettingsBlock>
       </SettingsPageSection>
 
-      {/* WorkBuddy: 自定义指令 with counter ≤1500 + 协作风格 */}
       <SettingsPageSection title={t("settings.personalization_title")}>
         <SettingsBlock>
           <SettingsBlockRow
@@ -209,7 +208,6 @@ export function MemoryView(props: MemoryViewProps) {
         </SettingsBlock>
       </SettingsPageSection>
 
-      {/* Qwen-style 用户画像 (secondary) */}
       <SettingsPageSection
         title={t("settings.memory_profile_section")}
         description={t("settings.memory_profile_section_desc")}

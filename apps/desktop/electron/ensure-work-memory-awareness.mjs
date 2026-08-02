@@ -12,13 +12,14 @@ import path from "node:path";
 /** Keep in sync with apps/app WORK_MEMORY_SEED (danger-zone reset templates). */
 export const WORK_MEMORY_SEED_FILES = Object.freeze({
   "style.md":
-    "# 协作风格\n\n语气与自定义指令。\n\n## 语气\n默认\n\n## 自定义指令\n（在「设置 → 个人」中编辑后可同步到此处）\n",
+    "# Collaboration style\n\nTone and custom instructions.\n\n## Tone\ndefault\n\n## Custom instructions\n(none)\n",
   "AGENTS.md":
-    "# 工作手册\n\n项目 / 协作规范。可直接编辑本文件。\n\n## 规则\n- \n",
+    "# Work handbook\n\nProject / collaboration rules. Edit this file directly.\n\n## Rules\n- \n",
   "USER.md":
-    "# 用户画像\n\n> 由「设置 → 个人」自动生成。\n\n## 基本信息\n- 称呼：\n- 助手名：\n- MBTI：\n\n## 工作\n- 角色：\n- 行业：\n\n## 习惯\n- 常用工具：\n- 常见任务：\n",
-  "MEMORY.md": "# 长期记忆\n\n跨会话确认的事实与偏好。\n",
-  "profile.md": "# 用户画像\n\n（与 USER.md 同步）\n",
+    "# User profile\n\n> Generated from Settings → Personal.\n\n## Basics\n- Name:\n- Assistant name:\n- MBTI:\n\n## Work\n- Roles:\n- Industries:\n\n## Habits\n- Tools:\n- Tasks:\n",
+  "MEMORY.md":
+    "# Long-term memory\n\nConfirmed facts and preferences across sessions.\n",
+  "profile.md": "# User profile\n\n(mirrors USER.md)\n",
   "pending.json": "[]\n",
 });
 
