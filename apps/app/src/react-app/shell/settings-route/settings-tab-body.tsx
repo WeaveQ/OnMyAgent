@@ -415,6 +415,7 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
           <LazyArchivedTasksView
             client={ctx.onmyagentClient ?? ctx.onmyagentServerSnapshot.onmyagentServerClient}
             workspaceId={ctx.runtimeWorkspaceId?.trim() || ctx.selectedWorkspaceId}
+            workspaceRoot={ctx.selectedWorkspaceRoot}
           />
         </SettingsTabSuspense>
       );

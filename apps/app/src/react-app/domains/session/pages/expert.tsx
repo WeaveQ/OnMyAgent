@@ -992,13 +992,20 @@ export function ExpertPage(props: ExpertPageProps) {
       const archived = readAssistantArchivedTasks(workspaceId).find(
         (task) => task.sessionId === id,
       );
+      const directory =
+        match?.directory ?? archived?.directory ?? null;
       try {
         await deleteSessionOwnedWorkspaceFiles({
           client,
           workspaceId,
           sessionId: id,
-          directory: match?.directory ?? archived?.directory ?? null,
-          agentSlug: agentSlug ?? null,
+          directory,
+          // Prefer explicit agent, then live expert tab id, then path inference.
+          agentSlug:
+            agentSlug
+            ?? activeConversationAgentId
+            ?? null,
+          workspaceRoot: props.selectedWorkspaceRoot,
         });
       } catch (error) {
         console.warn(
@@ -1009,9 +1016,11 @@ export function ExpertPage(props: ExpertPageProps) {
       }
     },
     [
+      activeConversationAgentId,
       currentAgentSessions,
       props.onmyagentServerClient,
       props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
     ],
   );
 
@@ -1022,7 +1031,10 @@ export function ExpertPage(props: ExpertPageProps) {
         | ExpertGroupDeleteTarget,
     ) => {
       if (target.kind === "session") {
-        await purgeExpertSessionFiles(target.sessionId);
+        await purgeExpertSessionFiles(
+          target.sessionId,
+          activeConversationAgentId,
+        );
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           target.sessionId,
@@ -1062,6 +1074,7 @@ export function ExpertPage(props: ExpertPageProps) {
       }
     },
     [
+      activeConversationAgentId,
       props.onDeleteSession,
       props.selectedWorkspaceId,
       purgeExpertSessionFiles,

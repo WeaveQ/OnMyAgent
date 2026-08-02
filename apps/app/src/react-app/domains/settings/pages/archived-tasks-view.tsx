@@ -67,6 +67,8 @@ import {
 export type ArchivedTasksViewProps = {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
+  /** Absolute workspace root — strips absolute session directories for C1 unlink. */
+  workspaceRoot?: string | null;
 };
 
 /**
@@ -435,6 +437,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
             workspaceId: props.workspaceId,
             sessionId,
             directory: archived?.directory,
+            workspaceRoot: props.workspaceRoot,
           }).catch(() => undefined);
           await props.client.deleteSession(props.workspaceId, sessionId);
         }
@@ -446,7 +449,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
         setBusyId(null);
       }
     },
-    [props.client, props.workspaceId, refreshAssistant],
+    [props.client, props.workspaceId, props.workspaceRoot, refreshAssistant],
   );
 
   const handleRestoreTrash = useCallback(
@@ -518,6 +521,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                 workspaceId: props.workspaceId,
                 sessionId: row.id,
                 directory,
+                workspaceRoot: props.workspaceRoot,
               });
             } catch {
               // Best-effort file cleanup; continue with session delete.
@@ -535,6 +539,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
               workspaceId: props.workspaceId,
               sessionId: row.id,
               directory: null,
+              workspaceRoot: props.workspaceRoot,
             });
           } catch {
             // Best-effort.
@@ -558,6 +563,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     pendingDeleteGroup,
     props.client,
     props.workspaceId,
+    props.workspaceRoot,
     refreshAssistant,
     refreshTrash,
   ]);

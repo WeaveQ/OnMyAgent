@@ -21,12 +21,18 @@ import {
   isBareWorkspaceRootFile,
   isUnderProductLayoutRoot,
   resolveProductWriteRelativePath,
+  toProductLayoutRelativePath,
 } from "../src/react-app/domains/workspace/workspace-files-layout";
 import {
+  deleteSessionOwnedWorkspaceFiles,
   inferAgentSlugFromDirectory,
   resolveSessionOwnedFilePaths,
 } from "../src/react-app/domains/workspace/workspace-files-session-cleanup";
-import { buildRootOutlineRows } from "../src/react-app/domains/workspace/workspace-files-model";
+import {
+  buildRootOutlineRows,
+  buildUserUploadRelativePath,
+} from "../src/react-app/domains/workspace/workspace-files-model";
+import { buildIsolatedExpertSessionDirectory } from "../src/react-app/capabilities/session-identity/expert-session-directory";
 
 const appRoot = join(import.meta.dir, "..");
 
@@ -144,6 +150,109 @@ describe("product write paths", () => {
       inferAgentSlugFromDirectory("/ws/experts/quote-specialist/ses_1"),
     ).toBe("quote-specialist");
   });
+
+  test("absolute expert directory without workspaceRoot still resolves experts root", () => {
+    const abs =
+      "/Users/work/Library/Application Support/OnMyAgent/ws/experts/报价作业-quote-specialist/1785029883722";
+    expect(toProductLayoutRelativePath(abs)).toBe(
+      "experts/报价作业-quote-specialist/1785029883722",
+    );
+    const roots = candidateSessionOwnedRoots({
+      sessionId: "ses_real",
+      directory: abs,
+      // no workspaceRoot, no agentSlug — must still peel experts/...
+    });
+    expect(roots).toContain(
+      "experts/报价作业-quote-specialist/1785029883722",
+    );
+    // Agent inferred from directory so experts/{slug}/{sessionId} is also a candidate
+    expect(roots).toContain(
+      "experts/报价作业-quote-specialist/ses_real",
+    );
+    // Never return absolute leftovers
+    expect(roots.every((r) => !r.startsWith("/"))).toBe(true);
+    expect(roots.every((r) => isUnderProductLayoutRoot(r))).toBe(true);
+  });
+
+  test("absolute directory with workspaceRoot strips prefix", () => {
+    const ws = "/Users/work/ws-root";
+    const abs = `${ws}/experts/fleet/ses_9`;
+    expect(toProductLayoutRelativePath(abs, ws)).toBe("experts/fleet/ses_9");
+    const roots = candidateSessionOwnedRoots({
+      sessionId: "ses_9",
+      directory: abs,
+      workspaceRoot: ws,
+      agentSlug: "fleet",
+    });
+    expect(roots).toContain("experts/fleet/ses_9");
+    expect(roots).toContain("tasks/ses_9");
+  });
+
+  test("absolute path without layout marker fails closed (no fake root)", () => {
+    expect(
+      toProductLayoutRelativePath("/tmp/random-session-dir"),
+    ).toBeNull();
+    const roots = candidateSessionOwnedRoots({
+      sessionId: "ses_x",
+      directory: "/tmp/random-session-dir",
+    });
+    // Still has tasks/{id} fallback; must NOT include /tmp/...
+    expect(roots).toContain("tasks/ses_x");
+    expect(roots.some((r) => r.includes("tmp") || r.startsWith("/"))).toBe(
+      false,
+    );
+  });
+
+  test("deleteSessionOwnedWorkspaceFiles unlinks resolved expert absolute root via mock client", async () => {
+    const deleted: string[] = [];
+    const abs =
+      "/Users/me/workspace/experts/quote-specialist/ses_1";
+    const client = {
+      listWorkspaceFiles: async () => ({ items: [] as Array<{ path: string }> }),
+      deleteWorkspaceFile: async (_wid: string, path: string) => {
+        deleted.push(path);
+      },
+    };
+    const result = await deleteSessionOwnedWorkspaceFiles({
+      client,
+      workspaceId: "ws_1",
+      sessionId: "ses_1",
+      directory: abs,
+      // no workspaceRoot — path must still peel to experts/...
+    });
+    expect(result.roots).toContain("experts/quote-specialist/ses_1");
+    expect(deleted).toContain("experts/quote-specialist/ses_1");
+    expect(deleted.every((p) => !p.startsWith("/"))).toBe(true);
+  });
+
+  test("production write entry points force layout roots (AC5)", () => {
+    const upload = buildUserUploadRelativePath("report.xlsx");
+    expect(upload).toBe(
+      resolveProductWriteRelativePath({
+        source: "user_upload",
+        fileName: "report.xlsx",
+      }),
+    );
+    expect(upload.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)).toBe(true);
+    expect(isBareWorkspaceRootFile(upload)).toBe(false);
+
+    const isolated = buildIsolatedExpertSessionDirectory({
+      workspaceRoot: "/ws",
+      agentName: "报价作业",
+      agentId: "quote-specialist",
+      sessionKey: "ses_key",
+    });
+    const expectedMarker = resolveProductWriteRelativePath({
+      source: "expert",
+      fileName: "onmyagent-session.json",
+      sessionId: "ses_key",
+      agentSlug: isolated.agentSegment,
+    });
+    expect(isolated.markerRelativePath).toBe(expectedMarker);
+    expect(isolated.markerRelativePath.startsWith(`${WORKSPACE_EXPERTS_DIR}/`)).toBe(
+      true,
+    );
+  });
 });
 
 describe("buildRootOutlineRows conversation nesting", () => {
@@ -242,6 +351,23 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(expert).toContain("onArchiveSession={handleArchiveExpertSession}");
     expect(expert).toContain("archivedExpertSessionIds");
     expect(expert).toContain("deleteSessionOwnedWorkspaceFiles");
+    expect(expert).toContain("workspaceRoot: props.selectedWorkspaceRoot");
+    expect(expert).toContain("activeConversationAgentId");
+  });
+
+  test("assistant and settings permanent-delete pass workspaceRoot", () => {
+    const assistant = readApp(
+      "src/react-app/domains/session/pages/assistant.tsx",
+    );
+    const settings = readApp(
+      "src/react-app/domains/settings/pages/archived-tasks-view.tsx",
+    );
+    const settingsHost = readApp(
+      "src/react-app/shell/settings-route/settings-tab-body.tsx",
+    );
+    expect(assistant).toContain("workspaceRoot: props.selectedWorkspaceRoot");
+    expect(settings).toContain("workspaceRoot: props.workspaceRoot");
+    expect(settingsHost).toContain("workspaceRoot={ctx.selectedWorkspaceRoot}");
   });
 
   test("permanent-delete confirm copy states workspace files are removed", () => {

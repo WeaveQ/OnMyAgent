@@ -23,6 +23,7 @@ import {
   isAutomationTaskFolderName,
   isWorkspaceLayoutTopDir,
   isWorkspaceSystemTopDir,
+  resolveProductWriteRelativePath,
 } from "./workspace-files-layout";
 
 export {
@@ -32,6 +33,7 @@ export {
   WORKSPACE_UPLOADS_DIR,
   isAutomationTaskFolderName,
   isWorkspaceLayoutTopDir,
+  resolveProductWriteRelativePath,
 } from "./workspace-files-layout";
 
 export type FileCategory =
@@ -865,7 +867,11 @@ export function filesSourceEmptyHintKey(tab: FilesSourceTab): string {
 export function buildUserUploadRelativePath(fileName: string): string {
   const base = fileName.trim().replace(/\\/g, "/").split("/").pop() || "file";
   const safe = base.replace(/^\.+/, "") || "file";
-  return `${USER_UPLOADS_RELATIVE_DIR}/${safe}`;
+  // Force product layout root (never bare workspace root).
+  return resolveProductWriteRelativePath({
+    source: "user_upload",
+    fileName: safe,
+  });
 }
 
 /**

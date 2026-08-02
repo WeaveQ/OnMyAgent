@@ -744,6 +744,7 @@ export function AssistantPage(props: AssistantPageProps) {
           workspaceId,
           sessionId,
           directory: resolveSessionDirectory(sessionId),
+          workspaceRoot: props.selectedWorkspaceRoot,
         });
       } catch (error) {
         console.warn(
@@ -756,6 +757,7 @@ export function AssistantPage(props: AssistantPageProps) {
     [
       props.onmyagentServerClient,
       props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
       resolveSessionDirectory,
     ],
   );
