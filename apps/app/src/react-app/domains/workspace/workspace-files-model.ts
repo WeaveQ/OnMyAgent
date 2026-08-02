@@ -1180,6 +1180,70 @@ export function mapUploadsCatalogToRows(
   return rows;
 }
 
+/**
+ * Build a nested tree from flat Mine catalog rows under `parentPrefix`.
+ * Used for hierarchical expand/collapse (same depth outline as Tasks).
+ */
+export function buildTreeNodesFromUploadRows(
+  rows: readonly UserUploadRow[],
+  parentPrefix: string,
+): WorkspaceFileTreeNode[] {
+  const parent = String(parentPrefix || WORKSPACE_UPLOADS_DIR)
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "") || WORKSPACE_UPLOADS_DIR;
+
+  type Mutable = WorkspaceFileTreeNode & { children: Mutable[] };
+  const nodes = new Map<string, Mutable>();
+
+  for (const row of rows) {
+    const path = String(row.path ?? "")
+      .trim()
+      .replace(/\\/g, "/");
+    if (!path || path === parent) continue;
+    if (!path.startsWith(`${parent}/`)) continue;
+    nodes.set(path, {
+      name: row.name || path.split("/").pop() || path,
+      path,
+      kind: row.kind === "dir" ? "dir" : "file",
+      size: row.size || 0,
+      mtimeMs: row.updatedAt || 0,
+      children: [],
+    });
+  }
+
+  const roots: Mutable[] = [];
+  for (const node of nodes.values()) {
+    const slash = node.path.lastIndexOf("/");
+    const parentPath = slash >= 0 ? node.path.slice(0, slash) : "";
+    if (parentPath === parent) {
+      roots.push(node);
+      continue;
+    }
+    const parentNode = nodes.get(parentPath);
+    if (parentNode) {
+      parentNode.children.push(node);
+    } else {
+      // Missing intermediate dir in catalog — still surface as root under view.
+      roots.push(node);
+    }
+  }
+
+  const sortNodes = (list: Mutable[]) => {
+    list.sort((a, b) => {
+      const ka = a.kind === "dir" ? 0 : 1;
+      const kb = b.kind === "dir" ? 0 : 1;
+      if (ka !== kb) return ka - kb;
+      return (
+        (b.mtimeMs || 0) - (a.mtimeMs || 0) || a.name.localeCompare(b.name)
+      );
+    });
+    for (const n of list) sortNodes(n.children as Mutable[]);
+  };
+  sortNodes(roots);
+  return roots;
+}
+
 /** Merge inbox files with product uploads/ catalog; prefer catalog for same path. */
 export function mergeMineUploadRows(
   inboxRows: readonly UserUploadRow[],

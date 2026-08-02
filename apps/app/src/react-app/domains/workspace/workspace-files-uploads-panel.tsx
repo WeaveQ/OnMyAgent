@@ -14,6 +14,7 @@ import {
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Copy,
@@ -74,6 +75,7 @@ import {
 import {
   formatWorkspaceFileSize,
   formatWorkspaceFileTime,
+  type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 import {
@@ -81,8 +83,11 @@ import {
   shouldForceExternalPreviewForSize,
 } from "../../capabilities/artifacts/file-preview-policy";
 import {
+  buildTreeNodesFromUploadRows,
+  buildTreeOutlineRows,
   buildUserUploadRelativePath,
   canPreviewWorkspaceFileInline,
+  collectExpandableDirPaths,
   FILE_CATEGORIES,
   fileCategoryI18nKey,
   filterUploadRows,
@@ -93,6 +98,7 @@ import {
   workspaceRelativeInboxPath,
   WORKSPACE_UPLOADS_DIR,
   type FileCategory,
+  type TreeOutlineRow,
   type UserUploadRow,
 } from "./workspace-files-model";
 import {
@@ -301,16 +307,21 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [moveBusy, setMoveBusy] = useState(false);
   /**
-   * false = only current folder children (default);
-   * true = expand all nested files under currentFolderPath.
+   * false = one-level browse under currentFolderPath (click folder to enter);
+   * true = hierarchical expand/collapse tree under current folder.
    */
-  const [listDeep, setListDeep] = useState(false);
+  const [treeMode, setTreeMode] = useState(false);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [moveTarget, setMoveTarget] = useState<UserUploadRow | null>(null);
   const migrateOnceRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
   const dragDepthRef = useRef(0);
+  /** After treeMode load, apply expand-all once descendants are available. */
+  const expandAllPendingRef = useRef(false);
 
   const workspaceId = props.workspaceId.trim();
   const workspaceRoot = String(props.workspaceRoot ?? "").trim();
@@ -363,9 +374,10 @@ export function WorkspaceFilesUploadsPanel(props: {
           limit: 5000,
         });
         if (cancelled) return;
+        // Tree mode needs descendants; one-level browse is shallow only.
         const catalogRows = mapUploadsCatalogToRows(catalog.items ?? [], {
           parentPrefix: currentFolderPath,
-          shallow: !listDeep,
+          shallow: !treeMode,
         });
         setRows(catalogRows);
         if (manualRefreshRef.current) {
@@ -387,13 +399,89 @@ export function WorkspaceFilesUploadsPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [canLoad, currentFolderPath, listDeep, props.client, refreshKey, workspaceId]);
+  }, [canLoad, currentFolderPath, treeMode, props.client, refreshKey, workspaceId]);
+
+  const filterActive = typeFilter !== "all" || Boolean(query.trim());
+
+  const treeRoots = useMemo(
+    () =>
+      treeMode && !filterActive
+        ? buildTreeNodesFromUploadRows(rows, currentFolderPath)
+        : ([] as WorkspaceFileTreeNode[]),
+    [currentFolderPath, filterActive, rows, treeMode],
+  );
+
+  const expandableDirPaths = useMemo(
+    () => collectExpandableDirPaths(treeRoots),
+    [treeRoots],
+  );
+
+  const treeRows = useMemo((): TreeOutlineRow[] => {
+    if (!treeMode || filterActive) return [];
+    return buildTreeOutlineRows(treeRoots, expandedPaths);
+  }, [expandedPaths, filterActive, treeMode, treeRoots]);
+
+  const treeAllExpanded =
+    treeMode &&
+    expandableDirPaths.length > 0 &&
+    expandableDirPaths.every((path) => expandedPaths.has(path));
 
   const visibleRows = useMemo(
     () => filterUploadRows(rows, query, typeFilter),
     [query, rows, typeFilter],
   );
-  const filterActive = typeFilter !== "all" || Boolean(query.trim());
+
+  /** Map path → row for tree row actions / preview. */
+  const rowByPath = useMemo(() => {
+    const map = new Map<string, UserUploadRow>();
+    for (const row of rows) {
+      map.set(row.path.replace(/\\/g, "/"), row);
+    }
+    return map;
+  }, [rows]);
+
+  const enterFolder = useCallback((path: string) => {
+    expandAllPendingRef.current = false;
+    setTreeMode(false);
+    setExpandedPaths(new Set());
+    setCurrentFolderPath(path.replace(/\\/g, "/"));
+    setSelectedId(null);
+  }, []);
+
+  const toggleTreeExpanded = useCallback((path: string) => {
+    setExpandedPaths((current) => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const expandAllTree = useCallback(() => {
+    expandAllPendingRef.current = true;
+    setTreeMode(true);
+    if (expandableDirPaths.length > 0) {
+      setExpandedPaths(new Set(expandableDirPaths));
+      expandAllPendingRef.current = false;
+    } else {
+      setExpandedPaths(new Set());
+    }
+  }, [expandableDirPaths]);
+
+  // Deep catalog arrives after treeMode flips on — finish expand-all once.
+  useEffect(() => {
+    if (!expandAllPendingRef.current) return;
+    if (!treeMode || filterActive) return;
+    if (expandableDirPaths.length === 0) return;
+    setExpandedPaths(new Set(expandableDirPaths));
+    expandAllPendingRef.current = false;
+  }, [expandableDirPaths, filterActive, treeMode]);
+
+  const collapseAllTree = useCallback(() => {
+    expandAllPendingRef.current = false;
+    setTreeMode(false);
+    setExpandedPaths(new Set());
+  }, []);
 
   const selectedRow = useMemo(
     () => visibleRows.find((row) => row.id === selectedId) ?? null,
@@ -971,8 +1059,17 @@ export function WorkspaceFilesUploadsPanel(props: {
     setPreviewState({ status: "idle" });
   }, []);
 
-  const showEmpty = !loading && !error && visibleRows.length === 0;
-  const showTable = !loading && visibleRows.length > 0;
+  const showEmpty =
+    !loading &&
+    !error &&
+    (treeMode && !filterActive
+      ? treeRows.length === 0
+      : visibleRows.length === 0);
+  const showTable =
+    !loading &&
+    (treeMode && !filterActive
+      ? treeRows.length > 0
+      : visibleRows.length > 0);
 
   /** Hope-style breadcrumb: 我的文件 / folder / … (clickable segments). */
   const breadcrumbSegments = useMemo(() => {
@@ -1085,10 +1182,7 @@ export function WorkspaceFilesUploadsPanel(props: {
                   <button
                     type="button"
                     className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
-                    onClick={() => {
-                      setListDeep(false);
-                      setCurrentFolderPath(segment.path);
-                    }}
+                    onClick={() => enterFolder(segment.path)}
                   >
                     {segment.label}
                   </button>
@@ -1103,35 +1197,37 @@ export function WorkspaceFilesUploadsPanel(props: {
             type="button"
             variant="outline"
             size="default"
-            disabled={!canLoad || loading || uploading}
-            aria-pressed={listDeep}
+            disabled={!canLoad || loading || uploading || filterActive}
+            aria-pressed={treeMode && treeAllExpanded}
             onClick={() => {
-              if (listDeep) {
-                setListDeep(false);
-                setCurrentFolderPath(WORKSPACE_UPLOADS_DIR);
+              if (treeMode && treeAllExpanded) collapseAllTree();
+              else if (treeMode) {
+                setExpandedPaths(new Set(expandableDirPaths));
               } else {
-                setListDeep(true);
+                expandAllTree();
               }
             }}
             className={cn(
               "h-9 gap-1.5 rounded-full px-3 text-sm",
-              listDeep && "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
+              treeMode &&
+                "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
             )}
             data-files-expand-collapse="true"
-            data-files-list-deep={listDeep ? "true" : "false"}
+            data-files-tree-mode={treeMode ? "true" : "false"}
+            data-files-tree-expanded={treeAllExpanded ? "true" : "false"}
             title={
-              listDeep
+              treeMode && treeAllExpanded
                 ? t("files.collapse_all_folders")
                 : t("files.expand_all_folders")
             }
           >
-            {listDeep ? (
+            {treeMode && treeAllExpanded ? (
               <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
             ) : (
               <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
             )}
             <span className="hidden sm:inline">
-              {listDeep
+              {treeMode && treeAllExpanded
                 ? t("files.collapse_all_folders")
                 : t("files.expand_all_folders")}
             </span>
@@ -1330,7 +1426,203 @@ export function WorkspaceFilesUploadsPanel(props: {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleRows.map((row) => {
+                  {treeMode && !filterActive
+                    ? treeRows.map((outlineRow) => {
+                        if (outlineRow.type === "dir") {
+                          const node = outlineRow.node;
+                          const row = rowByPath.get(node.path);
+                          const hasChildren = node.children.length > 0;
+                          const isDropTarget =
+                            Boolean(row) && dropTargetId === row?.id;
+                          return (
+                            <TableRow
+                              key={`tree-dir:${node.path}`}
+                              data-workspace-upload-row="dir"
+                              data-files-tree-depth={String(outlineRow.depth)}
+                              data-mine-drop-target={
+                                isDropTarget ? "true" : undefined
+                              }
+                              className={cn(
+                                "group h-11 cursor-pointer hover:bg-dls-hover/50",
+                                isDropTarget &&
+                                  "bg-dls-accent/10 ring-1 ring-inset ring-dls-accent/40",
+                              )}
+                              onDragOver={
+                                row
+                                  ? (event) => handleFolderDragOver(event, row)
+                                  : undefined
+                              }
+                              onDragLeave={
+                                row
+                                  ? (event) => handleFolderDragLeave(event, row)
+                                  : undefined
+                              }
+                              onDrop={
+                                row
+                                  ? (event) => void handleFolderDrop(event, row)
+                                  : undefined
+                              }
+                            >
+                              <TableCell className="text-left">
+                                <div
+                                  className="flex min-w-0 items-center gap-2"
+                                  style={{
+                                    paddingLeft: `${outlineRow.depth * 1.25}rem`,
+                                  }}
+                                >
+                                  {hasChildren ? (
+                                    <button
+                                      type="button"
+                                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                                      aria-expanded={outlineRow.expanded}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        toggleTreeExpanded(node.path);
+                                      }}
+                                    >
+                                      {outlineRow.expanded ? (
+                                        <ChevronDown className="size-3.5" />
+                                      ) : (
+                                        <ChevronRight className="size-3.5" />
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <span className="size-6 shrink-0" />
+                                  )}
+                                  <Folder
+                                    className="size-4 shrink-0 text-dls-text"
+                                    strokeWidth={1.75}
+                                    aria-hidden
+                                  />
+                                  <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-dls-text hover:text-dls-accent"
+                                    title={node.path}
+                                    onClick={() => enterFolder(node.path)}
+                                  >
+                                    {node.name}
+                                  </button>
+                                  {outlineRow.fileCount > 0 ? (
+                                    <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
+                                      {t("files.file_count", {
+                                        count: outlineRow.fileCount,
+                                      })}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-left text-dls-secondary">
+                                {t("files.type_folder")}
+                              </TableCell>
+                              <TableCell className="text-left text-dls-secondary tabular-nums">
+                                {node.mtimeMs > 0
+                                  ? formatWorkspaceFileTime(node.mtimeMs)
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-left text-dls-secondary tabular-nums">
+                                —
+                              </TableCell>
+                              <TableCell className="relative py-2 text-left" />
+                            </TableRow>
+                          );
+                        }
+
+                        const fileNode = outlineRow.node;
+                        const row = rowByPath.get(fileNode.path);
+                        if (!row) return null;
+                        const selected = row.id === selectedId;
+                        return (
+                          <TableRow
+                            key={`tree-file:${fileNode.path}`}
+                            data-state={selected ? "selected" : undefined}
+                            data-workspace-upload-row="file"
+                            data-files-tree-depth={String(outlineRow.depth)}
+                            draggable={!moveBusy}
+                            className={cn(
+                              "group h-11 cursor-pointer cursor-grab active:cursor-grabbing",
+                              selected && "bg-dls-surface-muted/80",
+                            )}
+                            onDragStart={(event) =>
+                              handleMineDragStart(event, row)
+                            }
+                            onDragEnd={() => setDropTargetId(null)}
+                            onClick={() => setSelectedId(row.id)}
+                            onDoubleClick={() => void handleOpenExternally(row)}
+                          >
+                            <TableCell className="text-left">
+                              <div
+                                className="flex min-w-0 items-center gap-2"
+                                style={{
+                                  paddingLeft: `${outlineRow.depth * 1.25}rem`,
+                                }}
+                              >
+                                <span className="size-6 shrink-0" />
+                                <ArtifactIcon
+                                  name={row.name}
+                                  className="size-4 shrink-0"
+                                />
+                                <FileHoverPopup
+                                  name={row.name}
+                                  pathLabel={
+                                    workspaceRoot
+                                      ? absoluteForRow(row)
+                                      : workspaceRelativeForRow(row)
+                                  }
+                                  sizeLabel={formatWorkspaceFileSize(row.size)}
+                                  updatedLabel={
+                                    row.updatedAt
+                                      ? formatWorkspaceFileTime(row.updatedAt)
+                                      : undefined
+                                  }
+                                  onView={() => setSelectedId(row.id)}
+                                  onOpenFile={() =>
+                                    void handleOpenExternally(row)
+                                  }
+                                  onOpenInFolder={
+                                    workspaceRoot && isElectronRuntime()
+                                      ? () => void handleOpenInFolder(row)
+                                      : undefined
+                                  }
+                                  onCopyPath={() => void handleCopyPath(row)}
+                                >
+                                  <span className="truncate font-medium text-dls-text underline-offset-2 group-hover:underline">
+                                    {row.name}
+                                  </span>
+                                </FileHoverPopup>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-left text-dls-secondary">
+                              {fileCategoryLabel(getFileCategory(row.name))}
+                            </TableCell>
+                            <TableCell className="text-left text-dls-secondary tabular-nums">
+                              {row.updatedAt
+                                ? formatWorkspaceFileTime(row.updatedAt)
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-left text-dls-secondary tabular-nums">
+                              {formatWorkspaceFileSize(row.size)}
+                            </TableCell>
+                            <TableCell className="relative py-2 text-left">
+                              <UploadRowActionsMenu
+                                name={row.name}
+                                pathCopied={pathCopiedFlash === row.id}
+                                showMoveTo
+                                onPreview={() => setSelectedId(row.id)}
+                                onOpenExternally={() =>
+                                  void handleOpenExternally(row)
+                                }
+                                onOpenInFolder={() =>
+                                  void handleOpenInFolder(row)
+                                }
+                                onMoveTo={() => setMoveTarget(row)}
+                                onCopyPath={() => void handleCopyPath(row)}
+                                onDelete={() => handleDeleteFile(row)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    : visibleRows.map((row) => {
                     const selected = row.id === selectedId;
                     const isDir = row.kind === "dir";
                     const isDropTarget = isDir && dropTargetId === row.id;
@@ -1355,17 +1647,14 @@ export function WorkspaceFilesUploadsPanel(props: {
                         onDrop={(event) => void handleFolderDrop(event, row)}
                         onClick={() => {
                           if (isDir) {
-                            setListDeep(false);
-                            setCurrentFolderPath(row.path.replace(/\\/g, "/"));
-                            setSelectedId(null);
+                            enterFolder(row.path);
                             return;
                           }
                           setSelectedId(row.id);
                         }}
                         onDoubleClick={() => {
                           if (isDir) {
-                            setListDeep(false);
-                            setCurrentFolderPath(row.path.replace(/\\/g, "/"));
+                            enterFolder(row.path);
                             return;
                           }
                           void handleOpenExternally(row);
@@ -1536,9 +1825,7 @@ export function WorkspaceFilesUploadsPanel(props: {
             title: t("files.move_to_success", { folder: folderLabel }),
             actionLabel: t("files.move_view"),
             onAction: () => {
-              setListDeep(false);
-              setCurrentFolderPath(targetFolderPath);
-              setSelectedId(null);
+              enterFolder(targetFolderPath);
               setPreviewState({ status: "idle" });
             },
             dismissLabel: t("common.dismiss"),

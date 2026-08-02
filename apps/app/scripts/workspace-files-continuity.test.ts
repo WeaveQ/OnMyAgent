@@ -32,6 +32,7 @@ import {
   FILES_UNGROUPED_PATH,
   WORKSPACE_INBOX_DIR,
   buildRootOutlineRows,
+  buildTreeNodesFromUploadRows,
   buildTreeOutlineRows,
   buildUngroupedFolderNode,
   buildUserUploadRelativePath,
@@ -279,6 +280,51 @@ describe("product write paths", () => {
 });
 
 describe("buildRootOutlineRows conversation nesting", () => {
+  test("buildTreeNodesFromUploadRows nests descendants under parent", () => {
+    const roots = buildTreeNodesFromUploadRows(
+      [
+        {
+          id: "1",
+          name: "docs",
+          path: "uploads/docs",
+          size: 0,
+          updatedAt: 2,
+          kind: "dir",
+        },
+        {
+          id: "2",
+          name: "a.md",
+          path: "uploads/docs/a.md",
+          size: 1,
+          updatedAt: 3,
+          kind: "file",
+        },
+        {
+          id: "3",
+          name: "nested",
+          path: "uploads/docs/nested",
+          size: 0,
+          updatedAt: 1,
+          kind: "dir",
+        },
+        {
+          id: "4",
+          name: "b.md",
+          path: "uploads/docs/nested/b.md",
+          size: 2,
+          updatedAt: 4,
+          kind: "file",
+        },
+      ],
+      "uploads",
+    );
+    expect(roots.map((r) => r.name)).toEqual(["docs"]);
+    const docs = roots[0]!;
+    expect(docs.children.map((c) => c.name).sort()).toEqual(["a.md", "nested"]);
+    const nested = docs.children.find((c) => c.name === "nested");
+    expect(nested?.children.map((c) => c.name)).toEqual(["b.md"]);
+  });
+
   test("buildUngroupedFolderNode wraps root loose files", () => {
     const node = buildUngroupedFolderNode(
       [
@@ -785,6 +831,9 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).toContain('data-files-mine-breadcrumb="true"');
     expect(uploads).toContain('data-files-mine-refresh="true"');
     expect(uploads).toContain('data-files-expand-collapse="true"');
+    expect(uploads).toContain("data-files-tree-mode");
+    expect(uploads).toContain("buildTreeNodesFromUploadRows");
+    expect(uploads).toContain("buildTreeOutlineRows");
     expect(uploads).toContain("files.upload_files");
     expect(uploads).toContain("files.expand_all_folders");
     expect(uploads).toContain("files.collapse_all_folders");
