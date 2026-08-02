@@ -538,7 +538,24 @@ export function WorkspaceFilesUploadsPanel(props: {
       return;
     }
 
+    const workspaceRel = workspaceRelativeForUploadRow(activeRow);
+    const abs = (() => {
+      const root = workspaceRoot.replace(/[/\\]+$/, "");
+      if (!root) return workspaceRel;
+      if (/^[A-Za-z]:[\\/]/.test(root) || root.includes("\\")) {
+        return `${root}\\${workspaceRel.replace(/\//g, "\\")}`;
+      }
+      return `${root}/${workspaceRel}`;
+    })();
+
+    // Office/PDF overlay reads from disk on Electron — never block pptx/docx by size.
+    const localOfficeOverlay =
+      usesLocalFileRenderer(activeTarget) &&
+      isElectronRuntime() &&
+      Boolean(workspaceRoot.trim());
+
     if (
+      !localOfficeOverlay &&
       shouldForceExternalPreviewForSize({
         sizeBytes: activeRow.size,
         preview: activeTarget.preview,
@@ -550,15 +567,6 @@ export function WorkspaceFilesUploadsPanel(props: {
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
-    const workspaceRel = workspaceRelativeForUploadRow(activeRow);
-    const abs = (() => {
-      const root = workspaceRoot.replace(/[/\\]+$/, "");
-      if (!root) return workspaceRel;
-      if (/^[A-Za-z]:[\\/]/.test(root) || root.includes("\\")) {
-        return `${root}\\${workspaceRel.replace(/\//g, "\\")}`;
-      }
-      return `${root}/${workspaceRel}`;
-    })();
 
     if (activeTarget.preview === "image") {
       void (async () => {
@@ -804,12 +812,21 @@ export function WorkspaceFilesUploadsPanel(props: {
       const abs = absoluteForRow(row);
       try {
         if (canEditArtifactTarget({ preview: "", name: row.name })) {
-          await openArtifactForEditing(abs);
-        } else {
-          await revealDesktopItemInDir(abs);
+          try {
+            await openArtifactForEditing(abs);
+            return;
+          } catch {
+            // Fall through to OS open when overlay fails.
+          }
         }
+        const { openDesktopPath } = await import("../../../app/lib/desktop");
+        await openDesktopPath(abs);
       } catch {
-        // best-effort
+        try {
+          await revealDesktopItemInDir(abs);
+        } catch {
+          // best-effort
+        }
       }
     },
     [absoluteForRow, workspaceRoot],

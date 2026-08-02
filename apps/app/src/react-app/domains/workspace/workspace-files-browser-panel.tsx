@@ -683,7 +683,15 @@ export function WorkspaceFilesBrowserPanel(props: {
       return;
     }
 
+    // Local office overlay (Electron) reads from disk — skip size force-out for
+    // pptx/docx/xlsx so large decks still open in-app like before.
+    const localOfficeOverlay =
+      usesLocalFileRenderer(activeTarget) &&
+      isElectronRuntime() &&
+      Boolean(fileRoot.trim());
+
     if (
+      !localOfficeOverlay &&
       shouldForceExternalPreviewForSize({
         sizeBytes: activeFile.size,
         preview: activeTarget.preview,
@@ -901,9 +909,43 @@ export function WorkspaceFilesBrowserPanel(props: {
     ],
   );
 
+  const absoluteForPath = useCallback(
+    (relativePath: string) =>
+      relativePath.startsWith("/")
+        ? relativePath
+        : `${fileRoot.replace(/[/\\]+$/, "")}/${relativePath.replace(/^[/\\]+/, "")}`,
+    [fileRoot],
+  );
+
   const openArtifactTarget = useCallback(
     async (target: OpenTarget) => {
+      const abs =
+        target.kind === "file" && target.value
+          ? absoluteForPath(target.value)
+          : "";
       try {
+        // Prefer local office overlay / editing bridge for pptx/docx/xlsx.
+        if (
+          abs &&
+          isElectronRuntime() &&
+          canEditArtifactTarget(target)
+        ) {
+          try {
+            await openArtifactForEditing(abs);
+            return;
+          } catch {
+            // Fall through to host open / OS default.
+          }
+        }
+        if (abs && isElectronRuntime()) {
+          try {
+            const { openDesktopPath } = await import("../../../app/lib/desktop");
+            await openDesktopPath(abs);
+            return;
+          } catch {
+            // Fall through.
+          }
+        }
         await props.onOpenArtifact?.(target);
       } catch (openError) {
         setPreviewState({
@@ -912,15 +954,7 @@ export function WorkspaceFilesBrowserPanel(props: {
         });
       }
     },
-    [props.onOpenArtifact],
-  );
-
-  const absoluteForPath = useCallback(
-    (relativePath: string) =>
-      relativePath.startsWith("/")
-        ? relativePath
-        : `${fileRoot.replace(/[/\\]+$/, "")}/${relativePath.replace(/^[/\\]+/, "")}`,
-    [fileRoot],
+    [absoluteForPath, props.onOpenArtifact],
   );
 
   const handleOpenFile = useCallback(
