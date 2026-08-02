@@ -785,7 +785,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   ]);
 
   /**
-   * Root-level files not under a session folder →「未分组」group in the outline.
+   * Root-level files not under a session folder → ungrouped outline bucket.
    */
   const ungroupedFolder = useMemo(() => {
     const loose = visibleFileTree.children.filter((child) => child.kind === "file");
@@ -795,7 +795,7 @@ export function WorkspaceFilesBrowserPanel(props: {
 
   const filterActive = typeFilter !== "all" || Boolean(query.trim());
 
-  /** Outline roots: task/project folders + optional 未分组 (no drill-in). */
+  /** Outline roots: task/project folders + optional ungrouped bucket. */
   const browseRoots = useMemo((): WorkspaceFileTreeNode[] => {
     const dirs = visibleFileTree.children.filter((child) => child.kind === "dir");
     return ungroupedFolder ? [...dirs, ungroupedFolder] : dirs;
