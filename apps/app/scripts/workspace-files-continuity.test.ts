@@ -815,14 +815,15 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).toContain("typeFilter");
     expect(browser).toContain("rounded-full");
     expect(browser).toContain("files.search_placeholder");
-    // Drill-in + hierarchical expand tree (depth, not flat dump).
-    expect(browser).toContain("enterDirectory");
-    expect(browser).toContain("treeMode");
+    // Conversation outline: expand/collapse in place; session title opens chat.
     expect(browser).toContain("buildTreeOutlineRows");
-    expect(browser).toContain("data-files-tree-mode");
     expect(browser).toContain("data-files-tree-depth");
+    expect(browser).toContain("data-files-session-title");
+    expect(browser).toContain("openSessionForPath");
+    expect(browser).toContain("onOpenSourceSession");
+    expect(browser).not.toContain("enterDirectory");
     expect(browser).not.toContain("buildRootOutlineRows");
-    // Root loose files still surface as drillable「未分组」folder.
+    // Root loose files still surface as「未分组」group.
     expect(browser).toContain("buildUngroupedFolderNode");
     expect(browser).toContain("files.ungrouped");
     expect(browser).toContain('data-files-ungrouped');

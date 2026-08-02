@@ -88,13 +88,11 @@ import {
   buildWorkspaceFileTree,
   pruneEmptyDirectoriesFromTree,
   filterHiddenFromTree,
-  findWorkspaceFileNode,
   formatWorkspaceFileSize,
   formatWorkspaceFileTime,
   shouldHideEntry,
   sortTaskSourceTreeCopy,
   sortWorkspaceFileTreeCopy,
-  workspaceFileBreadcrumbs,
   workspaceNameFromRoot,
   type WorkspaceFileSortDir,
   type WorkspaceFileSortKey,
@@ -115,7 +113,6 @@ import {
   canPreviewWorkspaceFileInline,
   collectExpandableDirPaths,
   collectMatchingFilesUnder,
-  countFilesInNode,
   fileCategoryI18nKey,
   filesSourceTabSubtitleKey,
   filesSourceTabTitleKey,
@@ -519,13 +516,10 @@ export function WorkspaceFilesBrowserPanel(props: {
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [copiedPath, setCopiedPath] = useState(false);
   const [previewState, setPreviewState] = useState<FilePreviewState>({ status: "idle" });
-  const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
   /**
-   * false = one-level browse (click folder to enter, same as Mine);
-   * true = hierarchical tree under current folder (expand/collapse with depth).
+   * Tasks/Experts are a conversation outline — expand/collapse in place.
+   * No folder drill-in (unlike Mine). Session rows open the source chat.
    */
-  const [treeMode, setTreeMode] = useState(false);
-  /** Expanded directory paths while treeMode is on. */
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
   const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
   const [favoritePaths, setFavoritePaths] = useState<Set<string>>(
@@ -655,16 +649,12 @@ export function WorkspaceFilesBrowserPanel(props: {
   useEffect(() => {
     setSelectedFile(null);
     setPreviewState({ status: "idle" });
-    setCurrentDirectoryPath("");
-    setTreeMode(false);
     setExpandedPaths(new Set());
   }, [fileRoot, props.workspaceId, sourceTab]);
 
   useEffect(() => {
-    // Changing filters leaves folder; exit tree mode so results stay scoped.
-    setTreeMode(false);
+    // Filters flatten the outline; reset expand state when filters change.
     setExpandedPaths(new Set());
-    setCurrentDirectoryPath("");
   }, [query, typeFilter]);
 
   // WP4: debounce selection so rapid row clicks don't thrash preview loads.
@@ -804,9 +794,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   ]);
 
   /**
-   * Root-level files that are not under a session/task folder →「未分组」bucket.
-   * Kept as a drillable virtual folder so navigation matches Mine while the
-   * previous orphan grouping is preserved.
+   * Root-level files not under a session folder →「未分组」group in the outline.
    */
   const ungroupedFolder = useMemo(() => {
     const loose = visibleFileTree.children.filter((child) => child.kind === "file");
@@ -814,112 +802,48 @@ export function WorkspaceFilesBrowserPanel(props: {
     return buildUngroupedFolderNode(loose, t("files.ungrouped"));
   }, [visibleFileTree]);
 
-  const currentDirectory = useMemo(() => {
-    if (isFilesUngroupedPath(currentDirectoryPath)) {
-      return (
-        ungroupedFolder ??
-        buildUngroupedFolderNode([], t("files.ungrouped"))
-      );
-    }
-    return (
-      findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ??
-      visibleFileTree
-    );
-  }, [currentDirectoryPath, ungroupedFolder, visibleFileTree]);
-
-  const breadcrumbs = useMemo(() => {
-    const raw = workspaceFileBreadcrumbs(currentDirectoryPath);
-    return raw.map((item) =>
-      isFilesUngroupedPath(item.path)
-        ? { ...item, name: t("files.ungrouped") }
-        : item,
-    );
-  }, [currentDirectoryPath]);
-
   const filterActive = typeFilter !== "all" || Boolean(query.trim());
-  /**
-   * Roots for the current browse context (one-level or tree).
-   * At product root: real folders + synthetic「未分组」.
-   */
-  const browseRoots = useMemo((): WorkspaceFileTreeNode[] => {
-    if (isFilesUngroupedPath(currentDirectoryPath)) {
-      return currentDirectory.children;
-    }
-    if (!currentDirectoryPath.trim()) {
-      const dirs = visibleFileTree.children.filter((child) => child.kind === "dir");
-      return ungroupedFolder ? [...dirs, ungroupedFolder] : dirs;
-    }
-    return currentDirectory.children;
-  }, [currentDirectory, currentDirectoryPath, ungroupedFolder, visibleFileTree]);
 
-  /** Search/type filter → flat matching files (no tree). */
+  /** Outline roots: task/project folders + optional 未分组 (no drill-in). */
+  const browseRoots = useMemo((): WorkspaceFileTreeNode[] => {
+    const dirs = visibleFileTree.children.filter((child) => child.kind === "dir");
+    return ungroupedFolder ? [...dirs, ungroupedFolder] : dirs;
+  }, [ungroupedFolder, visibleFileTree]);
+
+  /** Search/type filter → flat matching files across the catalog. */
   const filteredFlatNodes = useMemo(() => {
     if (!filterActive) return [] as WorkspaceFileTreeNode[];
-    const walkRoot = isFilesUngroupedPath(currentDirectoryPath)
-      ? currentDirectory
-      : currentDirectoryPath.trim()
-        ? currentDirectory
-        : visibleFileTree;
     return collectMatchingFilesUnder(
-      walkRoot,
+      visibleFileTree,
       query,
       typeFilter,
       sortKey,
       sortDir,
     );
-  }, [
-    currentDirectory,
-    currentDirectoryPath,
-    filterActive,
-    query,
-    sortDir,
-    sortKey,
-    typeFilter,
-    visibleFileTree,
-  ]);
+  }, [filterActive, query, sortDir, sortKey, typeFilter, visibleFileTree]);
 
   const expandableDirPaths = useMemo(
     () => collectExpandableDirPaths(browseRoots),
     [browseRoots],
   );
 
+  /** Always an in-place conversation outline (unless filtering). */
   const treeRows = useMemo((): TreeOutlineRow[] => {
-    if (!treeMode || filterActive) return [];
+    if (filterActive) return [];
     return buildTreeOutlineRows(browseRoots, expandedPaths, {
       sessionTitleByKey: props.sessionTitleByKey ?? undefined,
     });
-  }, [
-    browseRoots,
-    expandedPaths,
-    filterActive,
-    props.sessionTitleByKey,
-    treeMode,
-  ]);
+  }, [browseRoots, expandedPaths, filterActive, props.sessionTitleByKey]);
 
-  /** One-level list when not in tree mode and no filter. */
-  const listedNodes = useMemo(() => {
-    if (filterActive) return filteredFlatNodes;
-    if (treeMode) return [] as WorkspaceFileTreeNode[];
-    return browseRoots;
-  }, [browseRoots, filterActive, filteredFlatNodes, treeMode]);
+  const listedNodes = filterActive ? filteredFlatNodes : ([] as WorkspaceFileTreeNode[]);
 
   const treeAllExpanded =
-    treeMode &&
     expandableDirPaths.length > 0 &&
     expandableDirPaths.every((path) => expandedPaths.has(path));
 
-  /** Show expand control when there is hierarchy under the current folder. */
   const canExpandDeep = expandableDirPaths.length > 0;
 
-  const enterDirectory = useCallback((path: string) => {
-    setTreeMode(false);
-    setExpandedPaths(new Set());
-    setCurrentDirectoryPath(path);
-    setSelectedFile(null);
-  }, []);
-
   const toggleTreeExpanded = useCallback((path: string) => {
-    setTreeMode(true);
     setExpandedPaths((current) => {
       const next = new Set(current);
       if (next.has(path)) next.delete(path);
@@ -929,22 +853,30 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, []);
 
   const expandAllTree = useCallback(() => {
-    setTreeMode(true);
     setExpandedPaths(new Set(expandableDirPaths));
   }, [expandableDirPaths]);
 
   const collapseAllTree = useCallback(() => {
-    // Back to one-level browse (same as Mine “collapse”).
-    setTreeMode(false);
     setExpandedPaths(new Set());
   }, []);
 
-  // If loose files disappear while viewing 未分组, return to root.
-  useEffect(() => {
-    if (isFilesUngroupedPath(currentDirectoryPath) && !ungroupedFolder) {
-      setCurrentDirectoryPath("");
-    }
-  }, [currentDirectoryPath, ungroupedFolder]);
+  const openSessionForPath = useCallback(
+    (relativePath: string) => {
+      const action = resolveOpenSourceSessionAction({
+        relativePath,
+        activeSessionIds: props.activeSessionIds,
+        archivedSessionIds: props.archivedSessionIds,
+      });
+      if (action.canOpen && action.sessionId) {
+        props.onOpenSourceSession?.(action.sessionId);
+      }
+    },
+    [
+      props.activeSessionIds,
+      props.archivedSessionIds,
+      props.onOpenSourceSession,
+    ],
+  );
 
   const toggleSort = useCallback((key: WorkspaceFileSortKey) => {
     if (sortKey === key) {
@@ -1143,7 +1075,7 @@ export function WorkspaceFilesBrowserPanel(props: {
             </p>
           </div>
 
-          {/* Pathbar — same as Mine: breadcrumb · expand · type · search · refresh */}
+          {/* Pathbar: source label · expand/collapse sessions · type · search · refresh */}
           <div
             className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
             data-files-browser-pathbar="true"
@@ -1154,51 +1086,9 @@ export function WorkspaceFilesBrowserPanel(props: {
               aria-label={t("files.breadcrumb_label")}
               className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm text-dls-secondary"
             >
-              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
-                {currentDirectoryPath ? (
-                  <button
-                    type="button"
-                    className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
-                    onClick={() => enterDirectory("")}
-                  >
-                    {breadcrumbRootLabel}
-                  </button>
-                ) : (
-                  <span className="truncate font-medium text-dls-text">
-                    {breadcrumbRootLabel}
-                  </span>
-                )}
+              <span className="truncate font-medium text-dls-text">
+                {breadcrumbRootLabel}
               </span>
-              {breadcrumbs.map((item, index) => {
-                const isLast = index === breadcrumbs.length - 1;
-                return (
-                  <span
-                    key={item.path}
-                    className="inline-flex min-w-0 max-w-full items-center gap-1"
-                  >
-                    <span className="shrink-0 text-dls-secondary/60" aria-hidden>
-                      /
-                    </span>
-                    {isLast ? (
-                      <span className="truncate font-medium text-dls-text">
-                        {isFilesUngroupedPath(item.path)
-                          ? t("files.ungrouped")
-                          : formatWorkspaceFolderDisplayName(item.name)}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
-                        onClick={() => enterDirectory(item.path)}
-                      >
-                        {isFilesUngroupedPath(item.path)
-                          ? t("files.ungrouped")
-                          : formatWorkspaceFolderDisplayName(item.name)}
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
             </nav>
 
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
@@ -1208,40 +1098,38 @@ export function WorkspaceFilesBrowserPanel(props: {
                   variant="outline"
                   size="default"
                   disabled={loading || filterActive}
-                  aria-pressed={treeMode && treeAllExpanded}
+                  aria-pressed={treeAllExpanded}
                   onClick={() => {
-                    // Hierarchical tree under current folder (not a flat dump).
-                    if (treeMode && treeAllExpanded) collapseAllTree();
+                    if (treeAllExpanded) collapseAllTree();
                     else expandAllTree();
                   }}
                   className={cn(
                     "h-9 gap-1.5 rounded-full px-3 text-sm",
-                    treeMode &&
+                    treeAllExpanded &&
                       "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
                   )}
                   data-files-expand-collapse="true"
-                  data-files-tree-mode={treeMode ? "true" : "false"}
                   data-files-tree-expanded={
                     treeAllExpanded ? "true" : "false"
                   }
                   aria-label={
-                    treeMode && treeAllExpanded
+                    treeAllExpanded
                       ? t("files.collapse_all_folders")
                       : t("files.expand_all_folders")
                   }
                   title={
-                    treeMode && treeAllExpanded
+                    treeAllExpanded
                       ? t("files.collapse_all_folders")
                       : t("files.expand_all_folders")
                   }
                 >
-                  {treeMode && treeAllExpanded ? (
+                  {treeAllExpanded ? (
                     <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
                   ) : (
                     <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
                   )}
                   <span className="hidden sm:inline">
-                    {treeMode && treeAllExpanded
+                    {treeAllExpanded
                       ? t("files.collapse_all_folders")
                       : t("files.expand_all_folders")}
                   </span>
@@ -1359,8 +1247,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col gap-3">
-                  {(treeMode && !filterActive ? treeRows.length : listedNodes.length) >
-                  0 ? (
+                  {(!filterActive ? treeRows.length : listedNodes.length) > 0 ? (
                     /*
                       Scroll only file rows. Use a raw <table> (not Table wrapper)
                       so sticky thead is not trapped by Table's overflow-x-auto shell.
@@ -1466,7 +1353,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {treeMode && !filterActive
+                          {!filterActive
                             ? treeRows.map((row) => {
                                 if (row.type === "dir") {
                                   const node = row.node;
@@ -1475,24 +1362,30 @@ export function WorkspaceFilesBrowserPanel(props: {
                                     row.displayTitle?.trim() ||
                                     folderDisplayName(node);
                                   const hasChildren = node.children.length > 0;
+                                  const sessionAction = openSourceForPath(node.path);
+                                  const isSession =
+                                    !isUngrouped &&
+                                    sessionAction.status !== "none";
+                                  const canOpenSession =
+                                    isSession && sessionAction.canOpen;
                                   return (
                                     <TableRow
                                       key={`tree-dir:${node.path}`}
                                       data-workspace-file-row={
-                                        isUngrouped ? "ungrouped" : "dir"
+                                        isUngrouped
+                                          ? "ungrouped"
+                                          : isSession
+                                            ? "session"
+                                            : "dir"
                                       }
                                       data-files-tree-depth={String(row.depth)}
                                       data-files-ungrouped={
                                         isUngrouped ? "true" : undefined
                                       }
-                                      className="group h-11 cursor-pointer hover:bg-dls-hover/50"
-                                      onClick={() => {
-                                        if (hasChildren) {
-                                          toggleTreeExpanded(node.path);
-                                          return;
-                                        }
-                                        if (!isUngrouped) enterDirectory(node.path);
-                                      }}
+                                      data-files-open-source-session={
+                                        canOpenSession ? "true" : undefined
+                                      }
+                                      className="group h-11 hover:bg-dls-hover/50"
                                     >
                                       <TableCell className="py-2">
                                         <span
@@ -1502,28 +1395,77 @@ export function WorkspaceFilesBrowserPanel(props: {
                                           }}
                                         >
                                           {hasChildren ? (
-                                            row.expanded ? (
-                                              <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
-                                            ) : (
-                                              <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
-                                            )
+                                            <button
+                                              type="button"
+                                              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                                              aria-expanded={row.expanded}
+                                              aria-label={
+                                                row.expanded
+                                                  ? t("files.collapse_all_folders")
+                                                  : t("files.expand_all_folders")
+                                              }
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                toggleTreeExpanded(node.path);
+                                              }}
+                                            >
+                                              {row.expanded ? (
+                                                <ChevronDown className="size-3.5" />
+                                              ) : (
+                                                <ChevronRight className="size-3.5" />
+                                              )}
+                                            </button>
                                           ) : (
-                                            <span className="size-3.5 shrink-0" />
+                                            <span className="size-6 shrink-0" />
                                           )}
-                                          <FileKindIcon
-                                            node={node}
-                                            fileRoot={fileRoot}
-                                          />
-                                          <span
-                                            className="min-w-0 truncate text-sm font-medium text-dls-text"
-                                            title={
-                                              isUngrouped
-                                                ? t("files.ungrouped")
-                                                : row.displayTitle || node.path
-                                            }
-                                          >
-                                            {title}
-                                          </span>
+                                          {isSession ? (
+                                            <MessageSquare
+                                              className="size-4 shrink-0 text-dls-secondary"
+                                              strokeWidth={1.75}
+                                              aria-hidden
+                                            />
+                                          ) : (
+                                            <FileKindIcon
+                                              node={node}
+                                              fileRoot={fileRoot}
+                                            />
+                                          )}
+                                          {canOpenSession ? (
+                                            <button
+                                              type="button"
+                                              className="min-w-0 truncate text-left text-sm font-medium text-dls-text underline decoration-dls-border underline-offset-4 transition-colors hover:text-dls-accent hover:decoration-dls-accent"
+                                              title={title}
+                                              data-files-session-title="true"
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                openSessionForPath(node.path);
+                                              }}
+                                            >
+                                              {title}
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              className={cn(
+                                                "min-w-0 truncate text-left text-sm font-medium text-dls-text",
+                                                hasChildren &&
+                                                  "cursor-pointer hover:text-dls-accent",
+                                              )}
+                                              title={
+                                                isUngrouped
+                                                  ? t("files.ungrouped")
+                                                  : title
+                                              }
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                if (hasChildren) {
+                                                  toggleTreeExpanded(node.path);
+                                                }
+                                              }}
+                                            >
+                                              {title}
+                                            </button>
+                                          )}
                                           {row.fileCount > 0 ? (
                                             <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
                                               {t("files.file_count", {
@@ -1669,27 +1611,11 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 );
                               })
                             : listedNodes.map((node) => {
-                            const isUngrouped = isFilesUngroupedPath(node.path);
-                            const fileCount =
-                              node.kind === "dir" ? countFilesInNode(node) : 0;
-                            const nestedPathLabel =
-                              filterActive && node.kind === "file"
-                                ? relativeDisplayPath(
-                                    node.path,
-                                    isFilesUngroupedPath(currentDirectoryPath)
-                                      ? ""
-                                      : currentDirectoryPath,
-                                  )
-                                : node.kind === "dir"
-                                  ? folderDisplayName(node)
-                                  : node.name;
+                            // Filter mode: flat matching files only.
                             return (
                               <TableRow
                                 key={node.path}
-                                data-workspace-file-row={
-                                  isUngrouped ? "ungrouped" : node.kind
-                                }
-                                data-files-ungrouped={isUngrouped ? "true" : undefined}
+                                data-workspace-file-row={node.kind}
                                 role="button"
                                 tabIndex={0}
                                 className={cn(
@@ -1697,21 +1623,11 @@ export function WorkspaceFilesBrowserPanel(props: {
                                   selectedFile?.path === node.path &&
                                     "bg-dls-surface-muted",
                                 )}
-                                onClick={() => {
-                                  if (node.kind === "dir") {
-                                    enterDirectory(node.path);
-                                    return;
-                                  }
-                                  void handleSelectFile(node);
-                                }}
+                                onClick={() => void handleSelectFile(node)}
                                 onKeyDown={(event) => {
                                   if (event.target !== event.currentTarget) return;
                                   if (event.key !== "Enter" && event.key !== " ") return;
                                   event.preventDefault();
-                                  if (node.kind === "dir") {
-                                    enterDirectory(node.path);
-                                    return;
-                                  }
                                   void handleSelectFile(node);
                                 }}
                               >
@@ -1719,48 +1635,29 @@ export function WorkspaceFilesBrowserPanel(props: {
                                   <span className="flex min-w-0 items-center gap-2.5">
                                     <FileKindIcon node={node} fileRoot={fileRoot} />
                                     <span
-                                      className="min-w-0 truncate text-sm font-medium"
-                                      style={{
-                                        color: "var(--dls-text-primary)",
-                                        opacity: 1,
-                                      }}
-                                      title={
-                                        isUngrouped
-                                          ? t("files.ungrouped")
-                                          : node.path
-                                      }
+                                      className="min-w-0 truncate text-sm font-medium text-dls-text"
+                                      title={node.path}
                                     >
-                                      {nestedPathLabel}
+                                      {relativeDisplayPath(node.path, "")}
                                     </span>
-                                    {node.kind === "dir" && fileCount > 0 ? (
-                                      <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
-                                        {t("files.file_count", { count: fileCount })}
-                                      </span>
-                                    ) : null}
-                                    {!isUngrouped ? (
-                                      <FileNameQuickActions
-                                        path={node.path}
-                                        favorited={favoritePaths.has(node.path)}
-                                        showAddToTask={node.kind === "file"}
-                                        onAddToTask={
-                                          node.kind === "file"
-                                            ? () => void handleAddToTask(node.path)
-                                            : undefined
-                                        }
-                                        onOpenInFolder={() =>
-                                          void handleOpenFile(node.path)
-                                        }
-                                        onToggleFavorite={() =>
-                                          handleToggleFavorite(node.path)
-                                        }
-                                      />
-                                    ) : null}
+                                    <FileNameQuickActions
+                                      path={node.path}
+                                      favorited={favoritePaths.has(node.path)}
+                                      showAddToTask
+                                      onAddToTask={() =>
+                                        void handleAddToTask(node.path)
+                                      }
+                                      onOpenInFolder={() =>
+                                        void handleOpenFile(node.path)
+                                      }
+                                      onToggleFavorite={() =>
+                                        handleToggleFavorite(node.path)
+                                      }
+                                    />
                                   </span>
                                 </TableCell>
                                 <TableCell className="text-left py-2 text-xs text-dls-secondary">
-                                  {node.kind === "dir"
-                                    ? t("files.type_folder")
-                                    : fileCategoryLabel(getFileCategory(node.name))}
+                                  {fileCategoryLabel(getFileCategory(node.name))}
                                 </TableCell>
                                 <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                                   {node.mtimeMs > 0
@@ -1771,29 +1668,27 @@ export function WorkspaceFilesBrowserPanel(props: {
                                   {formatWorkspaceFileSize(node.size)}
                                 </TableCell>
                                 <TableCell className="relative py-2">
-                                  {node.kind === "file" ? (
-                                    <FileRowActionsMenu
-                                      name={node.name}
-                                      pathCopied={pathCopiedFlash === node.path}
-                                      favorited={favoritePaths.has(node.path)}
-                                      openSourceSession={openSourceForPath(node.path)}
-                                      onOpenSourceSession={() => {
-                                        const action = openSourceForPath(node.path);
-                                        if (action.canOpen && action.sessionId) {
-                                          props.onOpenSourceSession?.(action.sessionId);
-                                        }
-                                      }}
-                                      onOpenInFolder={() =>
-                                        void handleOpenFile(node.path)
+                                  <FileRowActionsMenu
+                                    name={node.name}
+                                    pathCopied={pathCopiedFlash === node.path}
+                                    favorited={favoritePaths.has(node.path)}
+                                    openSourceSession={openSourceForPath(node.path)}
+                                    onOpenSourceSession={() => {
+                                      const action = openSourceForPath(node.path);
+                                      if (action.canOpen && action.sessionId) {
+                                        props.onOpenSourceSession?.(action.sessionId);
                                       }
-                                      onAddToTask={() => void handleAddToTask(node.path)}
-                                      onToggleFavorite={() =>
-                                        handleToggleFavorite(node.path)
-                                      }
-                                      onCopyPath={() => void handleCopyFilePath(node.path)}
-                                      onDelete={() => handleDeleteFile(node)}
-                                    />
-                                  ) : null}
+                                    }}
+                                    onOpenInFolder={() =>
+                                      void handleOpenFile(node.path)
+                                    }
+                                    onAddToTask={() => void handleAddToTask(node.path)}
+                                    onToggleFavorite={() =>
+                                      handleToggleFavorite(node.path)
+                                    }
+                                    onCopyPath={() => void handleCopyFilePath(node.path)}
+                                    onDelete={() => handleDeleteFile(node)}
+                                  />
                                 </TableCell>
                               </TableRow>
                             );

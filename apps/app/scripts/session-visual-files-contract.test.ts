@@ -87,8 +87,9 @@ describe("session visual and file contracts", () => {
     expect(uploadsPanel).toContain("listInbox");
     expect(uploadsPanel).toContain("ArtifactIcon");
     expect(uploadsPanel).toContain("FilePreviewDrawer");
-    // Task-files browser: drill-in folders + preview (Mine parity navigation).
-    expect(browserPanel).toContain("enterDirectory");
+    // Task-files browser: conversation outline + preview.
+    expect(browserPanel).toContain("buildTreeOutlineRows");
+    expect(browserPanel).toContain("openSessionForPath");
     expect(browserPanel).toContain("workspaceFileOpenTarget");
     expect(browserPanel).toContain("FilePreviewDrawer");
     expect(browserPanel).toContain("workspace-files-preview-drawer");
