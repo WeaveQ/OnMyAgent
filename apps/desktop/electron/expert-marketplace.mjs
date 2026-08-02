@@ -173,6 +173,7 @@ export function createExpertMarketplace(options = {}) {
     const extension = path.extname(filePath).toLowerCase();
     if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
     if (extension === ".webp") return "image/webp";
+    if (extension === ".svg") return "image/svg+xml";
     return "image/png";
   }
 
@@ -183,7 +184,7 @@ export function createExpertMarketplace(options = {}) {
     const avatarsRoot = path.join(packagePath, "avatars");
     const firstAvatar = firstFileInDirectory(
       avatarsRoot,
-      (name) => /\.(png|jpe?g|webp)$/i.test(name),
+      (name) => /\.(png|jpe?g|webp|svg)$/i.test(name),
     );
     if (firstAvatar) candidates.push(path.join(avatarsRoot, firstAvatar));
     const avatarFile = candidates.find((candidate) => existsSync(candidate));
