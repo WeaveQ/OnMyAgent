@@ -383,6 +383,7 @@ function ExpertCoach(props: {
                       size="sm"
                       className="mt-3 w-full"
                       variant={appliedVersionId === message.id ? "secondary" : "default"}
+                      disabled={appliedVersionId === message.id}
                       onClick={() => applyVersion({
                         id: message.id,
                         createdAt: Date.now(),
@@ -494,7 +495,13 @@ function ExpertCoach(props: {
                       {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(version.createdAt)}
                     </p>
                   </div>
-                  <Button type="button" size="sm" variant="outline" onClick={() => applyVersion(version)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={appliedVersionId === version.id}
+                    onClick={() => applyVersion(version)}
+                  >
                     {appliedVersionId === version.id
                       ? t("agents.expert_creation_coach_applied")
                       : t("agents.expert_creation_coach_apply")}
@@ -719,6 +726,7 @@ function SkillPickerDialog(props: {
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder={t("agents.search_skills")}
+          aria-label={t("agents.search_skills")}
           variant="dls"
           controlSize="lg"
           radius="xl"
@@ -898,7 +906,8 @@ function KnowledgePanel(props: {
 }) {
   const documentInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const [folderError, setFolderError] = useState(false);
+  const [folderDialogError, setFolderDialogError] = useState<"invalid" | "duplicate" | null>(null);
+  const [knowledgeError, setKnowledgeError] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
 
@@ -908,7 +917,7 @@ function KnowledgePanel(props: {
       const directorySegments = relativePath.split("/").slice(0, -1);
       return directorySegments.every((segment) => /^[A-Za-z0-9_-]+$/.test(segment));
     });
-    setFolderError(validFiles.length !== files.length);
+    setKnowledgeError(validFiles.length !== files.length);
     if (validFiles.length === 0) return;
     const next = new Map(props.entries.map((entry) => [entry.relativePath, entry]));
     for (const file of validFiles) {
@@ -921,17 +930,19 @@ function KnowledgePanel(props: {
   const createFolder = () => {
     const name = folderName.trim();
     if (!/^[A-Za-z0-9_-]+$/.test(name.trim())) {
-      setFolderError(true);
+      setFolderDialogError("invalid");
       return;
     }
-    setFolderError(false);
+    if (props.entries.some((entry) => entry.relativePath === name)) {
+      setFolderDialogError("duplicate");
+      return;
+    }
+    setFolderDialogError(null);
     setFolderDialogOpen(false);
     setFolderName("");
-    const relativePath = name.trim();
-    if (props.entries.some((entry) => entry.relativePath === relativePath)) return;
     props.onEntriesChange([
       ...props.entries,
-      { kind: "directory", relativePath },
+      { kind: "directory", relativePath: name },
     ]);
   };
 
@@ -948,7 +959,7 @@ function KnowledgePanel(props: {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" variant="ghost" onClick={() => {
-            setFolderError(false);
+            setFolderDialogError(null);
             setFolderName("");
             setFolderDialogOpen(true);
           }}>
@@ -1008,6 +1019,11 @@ function KnowledgePanel(props: {
           </DropdownMenu>
         </div>
       </div>
+      {knowledgeError ? (
+        <NoticeBox role="alert" tone="error" size="content">
+          {t("agents.expert_creation_knowledge_path_error")}
+        </NoticeBox>
+      ) : null}
       {props.entries.length > 0 ? (
         <div className="space-y-2">
           {props.entries.map((entry) => (
@@ -1047,7 +1063,7 @@ function KnowledgePanel(props: {
           <p className="mt-6 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => {
-              setFolderError(false);
+              setFolderDialogError(null);
               setFolderName("");
               setFolderDialogOpen(true);
             }}>
@@ -1077,7 +1093,7 @@ function KnowledgePanel(props: {
               value={folderName}
               onChange={(event) => {
                 setFolderName(event.currentTarget.value);
-                setFolderError(false);
+                setFolderDialogError(null);
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -1088,9 +1104,11 @@ function KnowledgePanel(props: {
               placeholder={t("agents.expert_creation_folder_name_placeholder")}
               aria-label={t("agents.expert_creation_folder_name")}
             />
-            {folderError ? (
+            {folderDialogError ? (
               <p className="text-sm text-dls-status-danger-fg">
-                {t("agents.expert_creation_folder_name_error")}
+                {t(folderDialogError === "duplicate"
+                  ? "agents.expert_creation_folder_name_duplicate"
+                  : "agents.expert_creation_folder_name_error")}
               </p>
             ) : null}
           </div>
