@@ -787,7 +787,17 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const { openExpertCreation, expertCreationPage } = useExpertCreationController({ registry, workspaceId: props.selectedWorkspaceId, workspaceRoot: props.selectedWorkspaceRoot, client: props.onmyagentServerClient, skills: registry?.skills ?? [], showToast, activateDraftAgent });
+  const { openExpertCreation, expertCreationPage } = useExpertCreationController({
+    registry,
+    workspaceId: props.selectedWorkspaceId,
+    workspaceRoot: props.selectedWorkspaceRoot,
+    opencodeBaseUrl: props.opencodeBaseUrl ?? null,
+    onmyagentServerToken: props.onmyagentServerToken ?? null,
+    client: props.onmyagentServerClient,
+    skills: registry?.skills ?? [],
+    showToast,
+    activateDraftAgent,
+  });
   const seedChatDraft = useCallback(
     (draft: string) => {
       // Expert-mode in-session seed: still force a new draft session.
