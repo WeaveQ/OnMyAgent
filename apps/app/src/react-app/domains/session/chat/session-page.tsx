@@ -110,6 +110,10 @@ import {
 } from "./session-page-view-model";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
+import { buildSessionTitleByKey } from "../../workspace/workspace-files-open-session";
+import {
+  readAssistantArchivedTasks,
+} from "../../shared";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
@@ -329,6 +333,22 @@ export function SessionPage(props: SessionPageProps) {
     workspaceSessionGroups: props.sidebar.workspaceSessionGroups,
     onOpenSession: props.sidebar.onOpenSession,
   });
+
+  const filesOpenSessionMeta = useMemo(() => {
+    const live =
+      props.sidebar.workspaceSessionGroups.find(
+        (group) => group.workspace.id === props.selectedWorkspaceId,
+      )?.sessions ?? [];
+    const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
+    return {
+      activeSessionIds: live.map((session) => session.id),
+      archivedSessionIds: archived.map((task) => task.sessionId),
+      sessionTitleByKey: buildSessionTitleByKey({
+        liveSessions: live,
+        archivedTasks: archived,
+      }),
+    };
+  }, [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
 
   const sessionActions = useSessionPageSessionActions({
     selectedSessionId: props.selectedSessionId,
@@ -748,6 +768,20 @@ export function SessionPage(props: SessionPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
+                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                          archivedSessionIds={
+                            filesOpenSessionMeta.archivedSessionIds
+                          }
+                          sessionTitleByKey={
+                            filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          onOpenSourceSession={(sessionId) => {
+                            props.sidebar.onOpenSession(
+                              props.selectedWorkspaceId,
+                              sessionId,
+                            );
+                            agentPanel.openChatView();
+                          }}
                           onOpenArtifact={openTarget}
                           {...createWorkspaceFilesAgentHandlers({
                             sessionId: pageView.renderedSessionId,

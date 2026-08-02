@@ -24,6 +24,83 @@ import {
   type OnMyAgentResolvedArtifactTarget,
 } from "./client-shared";
 
+async function runWorkspaceFileOp(
+  ctx: OnMyAgentServerClientContext,
+  workspaceId: string,
+  operation: {
+    type: "delete" | "mkdir";
+    path: string;
+    recursive?: boolean;
+  },
+  root?: string,
+) {
+  const { baseUrl, token, hostToken } = ctx;
+  const id = workspaceId.trim();
+  if (!id) throw new Error("workspaceId is required");
+  const filePath = String(operation.path ?? "").trim();
+  if (!filePath) throw new Error("path is required");
+
+  const sessionResult = await requestJson<{ session: { id: string } }>(
+    baseUrl,
+    `/workspace/${encodeURIComponent(id)}/files/sessions`,
+    {
+      token,
+      hostToken,
+      method: "POST",
+      body: {
+        write: true,
+        ttlSeconds: 30,
+        ...(root?.trim() ? { root: root.trim() } : {}),
+      },
+    },
+  );
+  const sessionId = sessionResult.session.id.trim();
+  if (!sessionId) throw new Error("file session id is required");
+
+  try {
+    const result = await requestJson<{
+      items: Array<{
+        ok: boolean;
+        type: string;
+        path: string;
+        code?: string;
+        message?: string;
+      }>;
+    }>(baseUrl, `/files/sessions/${encodeURIComponent(sessionId)}/ops`, {
+      token,
+      hostToken,
+      method: "POST",
+      body: {
+        operations: [
+          {
+            type: operation.type,
+            path: filePath,
+            ...(operation.type === "delete"
+              ? { recursive: operation.recursive === true }
+              : {}),
+          },
+        ],
+      },
+    });
+    const item = result.items?.[0];
+    if (!item?.ok) {
+      throw new Error(
+        item?.message
+          || item?.code
+          || (operation.type === "mkdir"
+            ? "Failed to create folder"
+            : "Failed to delete file"),
+      );
+    }
+  } finally {
+    await requestJson<{ ok: true }>(
+      baseUrl,
+      `/files/sessions/${encodeURIComponent(sessionId)}`,
+      { token, hostToken, method: "DELETE" },
+    ).catch(() => undefined);
+  }
+}
+
 export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) {
   const { baseUrl, token, hostToken, timeouts, requestOpenCodeRouter, routerPath } = ctx;
 
@@ -340,53 +417,26 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
       filePath: string,
       options?: { recursive?: boolean; root?: string },
     ) => {
-      const id = workspaceId.trim();
-      if (!id) throw new Error("workspaceId is required");
-      const sessionResult = await requestJson<{ session: { id: string } }>(
-        baseUrl,
-        `/workspace/${encodeURIComponent(id)}/files/sessions`,
-        {
-          token,
-          hostToken,
-          method: "POST",
-          body: {
-            write: true,
-            ttlSeconds: 30,
-            ...(options?.root?.trim() ? { root: options.root.trim() } : {}),
-          },
-        },
-      );
-      const sessionId = sessionResult.session.id.trim();
-      if (!sessionId) throw new Error("file session id is required");
+      await runWorkspaceFileOp(ctx, workspaceId, {
+        type: "delete",
+        path: filePath,
+        recursive: options?.recursive === true,
+      }, options?.root);
+    },
 
-      try {
-        const result = await requestJson<{
-          items: Array<{ ok: boolean; type: string; path: string; code?: string; message?: string }>;
-        }>(
-          baseUrl,
-          `/files/sessions/${encodeURIComponent(sessionId)}/ops`,
-          {
-            token,
-            hostToken,
-            method: "POST",
-            body: {
-              operations: [
-                { type: "delete", path: filePath, recursive: options?.recursive === true },
-              ],
-            },
-          },
-        );
-        const item = result.items?.[0];
-        if (!item?.ok) {
-          throw new Error(item?.message || item?.code || "Failed to delete file");
-        }
-      } finally {
-        await requestJson<{ ok: true }>(
-          baseUrl,
-          `/files/sessions/${encodeURIComponent(sessionId)}`,
-          { token, hostToken, method: "DELETE" },
-        ).catch(() => undefined);
-      }
+    /**
+     * Create a directory under the workspace via file-session mkdir op.
+     * Path is workspace-relative (e.g. uploads/reports).
+     */
+    mkdirWorkspaceDirectory: async (
+      workspaceId: string,
+      dirPath: string,
+      options?: { root?: string },
+    ) => {
+      await runWorkspaceFileOp(ctx, workspaceId, {
+        type: "mkdir",
+        path: dirPath,
+      }, options?.root);
     },
 
     listArtifacts: (workspaceId: string) =>

@@ -78,6 +78,7 @@ import {
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
 import { deleteSessionOwnedWorkspaceFiles } from "../../workspace/workspace-files-session-cleanup";
+import { buildSessionTitleByKey } from "../../workspace/workspace-files-open-session";
 import {
   archiveAssistantTask,
   permanentlyRemoveAssistantArchivedTask,
@@ -351,6 +352,18 @@ export function AssistantPage(props: AssistantPageProps) {
       props.sidebar.workspaceSessionGroups,
     ],
   );
+
+  const filesOpenSessionMeta = useMemo(() => {
+    const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
+    return {
+      activeSessionIds: assistantWorkspaceSessions.map((session) => session.id),
+      archivedSessionIds: archived.map((task) => task.sessionId),
+      sessionTitleByKey: buildSessionTitleByKey({
+        liveSessions: assistantWorkspaceSessions,
+        archivedTasks: archived,
+      }),
+    };
+  }, [assistantWorkspaceSessions, props.selectedWorkspaceId]);
 
   const [automationPinRevision, setAutomationPinRevision] = useState(0);
   const automationNavGroups = useAutomationNavGroups({
@@ -1336,6 +1349,20 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
+                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                          archivedSessionIds={
+                            filesOpenSessionMeta.archivedSessionIds
+                          }
+                          sessionTitleByKey={
+                            filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          onOpenSourceSession={(sessionId) => {
+                            props.sidebar.onOpenSession(
+                              props.selectedWorkspaceId,
+                              sessionId,
+                            );
+                            openRailView("assistant");
+                          }}
                           onOpenArtifact={openTarget}
                           {...createWorkspaceFilesAgentHandlers({
                             sessionId: renderedSessionId,

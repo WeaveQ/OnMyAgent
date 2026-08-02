@@ -921,6 +921,8 @@ export type UserUploadRow = {
   path: string;
   size: number;
   updatedAt: number;
+  /** Directory rows from product uploads/ layout (Mine create-folder). */
+  kind?: "file" | "dir";
 };
 
 /** Map inbox API items into stable upload rows (import-by-copy list). */
@@ -945,10 +947,120 @@ export function mapInboxItemsToUploadRows(
         typeof item.updatedAt === "number" && Number.isFinite(item.updatedAt)
           ? item.updatedAt
           : 0,
+      kind: "file",
     });
   }
   rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || a.name.localeCompare(b.name));
   return rows;
+}
+
+export type UploadsCatalogEntryLike = {
+  path?: string;
+  name?: string;
+  kind?: string;
+  size?: number;
+  mtimeMs?: number;
+  updatedAt?: number;
+};
+
+/**
+ * Map workspace catalog entries under uploads/ into Mine rows (files + dirs).
+ * Only top-level children under uploads/ (or under `parentPrefix`) are kept when
+ * `shallow` is true (default).
+ */
+export function mapUploadsCatalogToRows(
+  items: readonly UploadsCatalogEntryLike[],
+  options?: { parentPrefix?: string; shallow?: boolean },
+): UserUploadRow[] {
+  const parent = String(options?.parentPrefix ?? WORKSPACE_UPLOADS_DIR)
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "") || WORKSPACE_UPLOADS_DIR;
+  const shallow = options?.shallow !== false;
+  const rows: UserUploadRow[] = [];
+  const seen = new Set<string>();
+
+  for (const item of items) {
+    const rawPath = String(item.path ?? "").trim().replace(/\\/g, "/");
+    if (!rawPath) continue;
+    if (
+      rawPath !== parent
+      && !rawPath.startsWith(`${parent}/`)
+      && !rawPath.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
+      && rawPath !== WORKSPACE_UPLOADS_DIR
+    ) {
+      continue;
+    }
+    let rel = rawPath;
+    if (rel === parent || rel === WORKSPACE_UPLOADS_DIR) continue;
+
+    if (shallow) {
+      const rest = rel.startsWith(`${parent}/`)
+        ? rel.slice(parent.length + 1)
+        : rel.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
+          ? rel.slice(WORKSPACE_UPLOADS_DIR.length + 1)
+          : rel;
+      if (!rest || rest.includes("/")) continue;
+      rel = `${parent}/${rest}`.replace(/\/+/g, "/");
+    }
+
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    const kind: "file" | "dir" =
+      item.kind === "dir" || item.kind === "directory" ? "dir" : "file";
+    const name =
+      (item.name ?? rel.split("/").pop() ?? rel).trim() || rel;
+    const updatedAt =
+      typeof item.mtimeMs === "number" && Number.isFinite(item.mtimeMs)
+        ? item.mtimeMs
+        : typeof item.updatedAt === "number" && Number.isFinite(item.updatedAt)
+          ? item.updatedAt
+          : 0;
+    rows.push({
+      id: `uploads:${rel}`,
+      name,
+      path: rel,
+      size:
+        kind === "dir"
+          ? 0
+          : typeof item.size === "number" && Number.isFinite(item.size)
+            ? item.size
+            : 0,
+      updatedAt,
+      kind,
+    });
+  }
+
+  // Dirs first, then mtime desc.
+  rows.sort((a, b) => {
+    const ka = a.kind === "dir" ? 0 : 1;
+    const kb = b.kind === "dir" ? 0 : 1;
+    if (ka !== kb) return ka - kb;
+    return (b.updatedAt || 0) - (a.updatedAt || 0) || a.name.localeCompare(b.name);
+  });
+  return rows;
+}
+
+/** Merge inbox files with product uploads/ catalog; prefer catalog for same path. */
+export function mergeMineUploadRows(
+  inboxRows: readonly UserUploadRow[],
+  catalogRows: readonly UserUploadRow[],
+): UserUploadRow[] {
+  const byPath = new Map<string, UserUploadRow>();
+  for (const row of inboxRows) {
+    const key = row.path.replace(/\\/g, "/");
+    byPath.set(key, { ...row, kind: row.kind ?? "file" });
+  }
+  for (const row of catalogRows) {
+    const key = row.path.replace(/\\/g, "/");
+    byPath.set(key, row);
+  }
+  return Array.from(byPath.values()).sort((a, b) => {
+    const ka = a.kind === "dir" ? 0 : 1;
+    const kb = b.kind === "dir" ? 0 : 1;
+    if (ka !== kb) return ka - kb;
+    return (b.updatedAt || 0) - (a.updatedAt || 0) || a.name.localeCompare(b.name);
+  });
 }
 
 export function filterUploadRows(
@@ -958,7 +1070,10 @@ export function filterUploadRows(
 ): UserUploadRow[] {
   const q = query.trim().toLowerCase();
   return rows.filter((row) => {
-    if (typeFilter !== "all" && getFileCategory(row.name) !== typeFilter) {
+    if (row.kind === "dir") {
+      // Folders ignore type chips other than "all".
+      if (typeFilter !== "all") return false;
+    } else if (typeFilter !== "all" && getFileCategory(row.name) !== typeFilter) {
       return false;
     }
     if (!q) return true;

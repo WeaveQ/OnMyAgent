@@ -54,6 +54,10 @@ export function WorkspaceFilesPage(props: {
    * folder (`workspaceRoot`).
    */
   fileRoot?: string | null;
+  activeSessionIds?: ReadonlySet<string> | readonly string[] | null;
+  archivedSessionIds?: ReadonlySet<string> | readonly string[] | null;
+  sessionTitleByKey?: ReadonlyMap<string, string> | Record<string, string> | null;
+  onOpenSourceSession?: (sessionId: string) => void;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
   onAddToTask?: (relativePath: string) => void;
@@ -129,6 +133,10 @@ export function WorkspaceFilesPage(props: {
             workspaceRoot={props.workspaceRoot}
             fileRoot={props.fileRoot}
             sourceTab={activeTab === "expert" ? "expert" : "task"}
+            activeSessionIds={props.activeSessionIds}
+            archivedSessionIds={props.archivedSessionIds}
+            sessionTitleByKey={props.sessionTitleByKey}
+            onOpenSourceSession={props.onOpenSourceSession}
             onOpenArtifact={props.onOpenArtifact}
             onEditError={props.onEditError}
             onAddToTask={props.onAddToTask}

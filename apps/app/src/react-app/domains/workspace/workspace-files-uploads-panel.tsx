@@ -17,7 +17,9 @@ import {
   Copy,
   ExternalLink,
   FileUp,
+  Folder,
   FolderOpen,
+  FolderPlus,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -83,11 +85,15 @@ import {
   fileCategoryI18nKey,
   filterUploadRows,
   mapInboxItemsToUploadRows,
+  mapUploadsCatalogToRows,
+  mergeMineUploadRows,
   usesLocalFileRenderer,
   workspaceRelativeInboxPath,
+  WORKSPACE_UPLOADS_DIR,
   type FileCategory,
   type UserUploadRow,
 } from "./workspace-files-model";
+import { resolveUploadFolderRelativePath } from "./workspace-files-create-folder";
 import {
   FilePreviewDrawer,
   type WorkspaceFilePreviewState,
@@ -259,6 +265,10 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [copiedPath, setCopiedPath] = useState(false);
   const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<UserUploadRow | null>(null);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [createFolderName, setCreateFolderName] = useState("");
+  const [createFolderBusy, setCreateFolderBusy] = useState(false);
+  const [currentFolderPath, setCurrentFolderPath] = useState(WORKSPACE_UPLOADS_DIR);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
@@ -278,32 +288,53 @@ export function WorkspaceFilesUploadsPanel(props: {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void props.client
-      .listInbox(workspaceId)
-      .then((list) => {
+    void (async () => {
+      try {
+        const client = props.client!;
+        const [inboxList, catalog] = await Promise.all([
+          client.listInbox(workspaceId).catch(() => ({ items: [] as never[] })),
+          client
+            .listWorkspaceFiles(workspaceId, {
+              includeDirs: true,
+              prefix: WORKSPACE_UPLOADS_DIR,
+              limit: 2000,
+            })
+            .catch(() => ({ items: [] as never[] })),
+        ]);
         if (cancelled) return;
-        setRows(mapInboxItemsToUploadRows(list.items ?? []));
+        const inboxRows = mapInboxItemsToUploadRows(inboxList.items ?? []);
+        const catalogRows = mapUploadsCatalogToRows(catalog.items ?? [], {
+          parentPrefix: currentFolderPath,
+          shallow: true,
+        });
+        // At uploads root, also show inbox files that are not under a subfolder.
+        const inboxAtRoot =
+          currentFolderPath === WORKSPACE_UPLOADS_DIR
+            ? inboxRows
+            : inboxRows.filter((row) =>
+                row.path.replace(/\\/g, "/").startsWith(`${currentFolderPath}/`),
+              );
+        setRows(mergeMineUploadRows(inboxAtRoot, catalogRows));
         if (manualRefreshRef.current) {
           manualRefreshRef.current = false;
           setRefreshDone(true);
           window.setTimeout(() => setRefreshDone(false), 1200);
         }
-      })
-      .catch((loadError) => {
+      } catch (loadError) {
         if (cancelled) return;
         setRows([]);
         setError(
           loadError instanceof Error ? loadError.message : t("files.load_failed"),
         );
         manualRefreshRef.current = false;
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [canLoad, props.client, refreshKey, workspaceId]);
+  }, [canLoad, currentFolderPath, props.client, refreshKey, workspaceId]);
 
   const visibleRows = useMemo(
     () => filterUploadRows(rows, query, typeFilter),
@@ -558,9 +589,33 @@ export function WorkspaceFilesUploadsPanel(props: {
     [canLoad, importFiles, uploading],
   );
 
+  const workspaceRelativeForRow = useCallback((row: UserUploadRow) => {
+    const p = row.path.replace(/\\/g, "/");
+    if (
+      row.kind === "dir"
+      || p === WORKSPACE_UPLOADS_DIR
+      || p.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
+    ) {
+      return p;
+    }
+    return workspaceRelativeInboxPath(p);
+  }, []);
+
   const absoluteForRow = useCallback(
-    (row: UserUploadRow) => absoluteInboxFilePath(workspaceRoot, row.path),
-    [workspaceRoot],
+    (row: UserUploadRow) => {
+      const rel = workspaceRelativeForRow(row);
+      if (
+        row.kind === "dir"
+        || rel.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
+        || rel === WORKSPACE_UPLOADS_DIR
+      ) {
+        const root = workspaceRoot.replace(/[/\\]+$/, "");
+        if (!root) return rel;
+        return `${root}/${rel}`.replace(/\\/g, "/");
+      }
+      return absoluteInboxFilePath(workspaceRoot, row.path);
+    },
+    [workspaceRelativeForRow, workspaceRoot],
   );
 
   const handleOpenInFolder = useCallback(
@@ -625,7 +680,8 @@ export function WorkspaceFilesUploadsPanel(props: {
     try {
       await props.client.deleteWorkspaceFile(
         workspaceId,
-        workspaceRelativeInboxPath(row.path),
+        workspaceRelativeForRow(row),
+        row.kind === "dir" ? { recursive: true } : undefined,
       );
       setRefreshKey((key) => key + 1);
       if (selectedId === row.id) {
@@ -641,7 +697,59 @@ export function WorkspaceFilesUploadsPanel(props: {
       );
     }
     setPendingDelete(null);
-  }, [pendingDelete, props.client, selectedId, workspaceId]);
+  }, [
+    pendingDelete,
+    props.client,
+    selectedId,
+    workspaceId,
+    workspaceRelativeForRow,
+  ]);
+
+  const confirmCreateFolder = useCallback(async () => {
+    if (!props.client || !workspaceId) return;
+    const path = resolveUploadFolderRelativePath(
+      createFolderName,
+      currentFolderPath,
+    );
+    if (!path) {
+      setError(t("files.create_folder_invalid"));
+      return;
+    }
+    setCreateFolderBusy(true);
+    setError(null);
+    try {
+      await props.client.mkdirWorkspaceDirectory(workspaceId, path);
+      props.onToast?.({
+        tone: "success",
+        title: t("files.create_folder_success", {
+          name: path.split("/").pop() ?? path,
+        }),
+        dismissLabel: t("common.dismiss"),
+      });
+      setCreateFolderOpen(false);
+      setCreateFolderName("");
+      setRefreshKey((key) => key + 1);
+    } catch (createError) {
+      const message =
+        createError instanceof Error
+          ? createError.message
+          : t("files.create_folder_failed");
+      setError(message);
+      props.onToast?.({
+        tone: "error",
+        title: t("files.create_folder_failed"),
+        description: message,
+        dismissLabel: t("common.dismiss"),
+      });
+    } finally {
+      setCreateFolderBusy(false);
+    }
+  }, [
+    createFolderName,
+    currentFolderPath,
+    props,
+    workspaceId,
+  ]);
 
   const closePreview = useCallback(() => {
     setSelectedId(null);
@@ -766,6 +874,21 @@ export function WorkspaceFilesUploadsPanel(props: {
           />
           <Button
             type="button"
+            variant="outline"
+            size="default"
+            disabled={!canLoad || uploading || loading || createFolderBusy}
+            onClick={() => {
+              setCreateFolderName("");
+              setCreateFolderOpen(true);
+            }}
+            className="h-9 gap-1.5"
+            data-files-create-folder="true"
+          >
+            <FolderPlus className="size-3.5" aria-hidden />
+            {t("files.create_folder")}
+          </Button>
+          <Button
+            type="button"
             size="default"
             disabled={!canLoad || uploading || loading}
             onClick={onPickClick}
@@ -780,6 +903,32 @@ export function WorkspaceFilesUploadsPanel(props: {
           </Button>
         </div>
       </div>
+
+      {currentFolderPath !== WORKSPACE_UPLOADS_DIR ? (
+        <div className="mb-2 flex shrink-0 items-center gap-2 text-xs text-dls-secondary">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => {
+              const parent = currentFolderPath.replace(/\\/g, "/").split("/");
+              parent.pop();
+              const next = parent.join("/") || WORKSPACE_UPLOADS_DIR;
+              setCurrentFolderPath(
+                next.startsWith(WORKSPACE_UPLOADS_DIR)
+                  ? next
+                  : WORKSPACE_UPLOADS_DIR,
+              );
+            }}
+          >
+            ← {WORKSPACE_UPLOADS_DIR}
+          </Button>
+          <span className="truncate font-medium text-dls-text">
+            {currentFolderPath}
+          </span>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mb-3 shrink-0 text-sm text-dls-status-danger-fg">{error}</p>
@@ -881,53 +1030,84 @@ export function WorkspaceFilesUploadsPanel(props: {
                 <TableBody>
                   {visibleRows.map((row) => {
                     const selected = row.id === selectedId;
+                    const isDir = row.kind === "dir";
                     return (
                       <TableRow
                         key={row.id}
                         data-state={selected ? "selected" : undefined}
+                        data-workspace-upload-row={isDir ? "dir" : "file"}
                         className={cn(
                           "group cursor-pointer",
                           selected && "bg-dls-surface-muted/80",
                         )}
-                        onClick={() => setSelectedId(row.id)}
-                        onDoubleClick={() => void handleOpenExternally(row)}
+                        onClick={() => {
+                          if (isDir) {
+                            setCurrentFolderPath(row.path.replace(/\\/g, "/"));
+                            setSelectedId(null);
+                            return;
+                          }
+                          setSelectedId(row.id);
+                        }}
+                        onDoubleClick={() => {
+                          if (isDir) {
+                            setCurrentFolderPath(row.path.replace(/\\/g, "/"));
+                            return;
+                          }
+                          void handleOpenExternally(row);
+                        }}
                       >
                         <TableCell className="text-left">
                           <div className="flex min-w-0 items-center gap-2">
-                            <ArtifactIcon
-                              name={row.name}
-                              className="size-4 shrink-0"
-                            />
-                            <FileHoverPopup
-                              name={row.name}
-                              pathLabel={
-                                workspaceRoot
-                                  ? absoluteForRow(row)
-                                  : workspaceRelativeInboxPath(row.path)
-                              }
-                              sizeLabel={formatWorkspaceFileSize(row.size)}
-                              updatedLabel={
-                                row.updatedAt
-                                  ? formatWorkspaceFileTime(row.updatedAt)
-                                  : undefined
-                              }
-                              onView={() => setSelectedId(row.id)}
-                              onOpenFile={() => void handleOpenExternally(row)}
-                              onOpenInFolder={
-                                workspaceRoot && isElectronRuntime()
-                                  ? () => void handleOpenInFolder(row)
-                                  : undefined
-                              }
-                              onCopyPath={() => void handleCopyPath(row)}
-                            >
-                              <span className="truncate font-medium text-dls-text underline-offset-2 group-hover:underline">
+                            {isDir ? (
+                              <Folder
+                                className="size-4 shrink-0 text-dls-text"
+                                strokeWidth={1.75}
+                                aria-hidden
+                              />
+                            ) : (
+                              <ArtifactIcon
+                                name={row.name}
+                                className="size-4 shrink-0"
+                              />
+                            )}
+                            {isDir ? (
+                              <span className="truncate font-medium text-dls-text">
                                 {row.name}
                               </span>
-                            </FileHoverPopup>
+                            ) : (
+                              <FileHoverPopup
+                                name={row.name}
+                                pathLabel={
+                                  workspaceRoot
+                                    ? absoluteForRow(row)
+                                    : workspaceRelativeForRow(row)
+                                }
+                                sizeLabel={formatWorkspaceFileSize(row.size)}
+                                updatedLabel={
+                                  row.updatedAt
+                                    ? formatWorkspaceFileTime(row.updatedAt)
+                                    : undefined
+                                }
+                                onView={() => setSelectedId(row.id)}
+                                onOpenFile={() => void handleOpenExternally(row)}
+                                onOpenInFolder={
+                                  workspaceRoot && isElectronRuntime()
+                                    ? () => void handleOpenInFolder(row)
+                                    : undefined
+                                }
+                                onCopyPath={() => void handleCopyPath(row)}
+                              >
+                                <span className="truncate font-medium text-dls-text underline-offset-2 group-hover:underline">
+                                  {row.name}
+                                </span>
+                              </FileHoverPopup>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-left text-dls-secondary">
-                          {formatWorkspaceFileSize(row.size)}
+                          {isDir
+                            ? t("files.type_folder")
+                            : formatWorkspaceFileSize(row.size)}
                         </TableCell>
                         <TableCell className="text-left text-dls-secondary">
                           {row.updatedAt
@@ -1016,6 +1196,67 @@ export function WorkspaceFilesUploadsPanel(props: {
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
       />
+
+      {createFolderOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("files.create_folder_title")}
+          data-files-create-folder-dialog="true"
+          onClick={() => {
+            if (!createFolderBusy) setCreateFolderOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-dls-border bg-dls-surface p-4 shadow-lg"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-sm font-semibold text-dls-text">
+              {t("files.create_folder_title")}
+            </h2>
+            <input
+              autoFocus
+              value={createFolderName}
+              onChange={(event) => setCreateFolderName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void confirmCreateFolder();
+                }
+                if (event.key === "Escape" && !createFolderBusy) {
+                  setCreateFolderOpen(false);
+                }
+              }}
+              placeholder={t("files.create_folder_placeholder")}
+              disabled={createFolderBusy}
+              className="mt-3 h-9 w-full rounded-lg border border-dls-border bg-dls-background px-3 text-sm text-dls-text outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={createFolderBusy}
+                onClick={() => setCreateFolderOpen(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={createFolderBusy || !createFolderName.trim()}
+                onClick={() => void confirmCreateFolder()}
+              >
+                {createFolderBusy ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : null}
+                {t("files.create_folder_confirm")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
