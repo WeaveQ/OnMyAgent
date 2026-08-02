@@ -39,7 +39,6 @@ export function resolveToolWorkspaceFileRoot(input: {
   return input.workspaceRoot.trim();
 }
 
-// --- Files page three-source tabs (product draft §2 / P0) -----------------
 
 /** Active provenance tabs on the primary-rail Files page. */
 export type FilesSourceTab = "uploads" | "task" | "expert";

@@ -855,8 +855,12 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(browser).toContain("onOpenSourceSession");
     expect(browser).toContain("sessionTitleByKey");
     expect(browser).toContain("sessionIdByPathKey");
-    expect(browser).toContain("isSessionFolder");
-    expect(browser).toContain("MessageSquare");
+    const treeDir = readApp(
+      "src/react-app/domains/workspace/workspace-files-tree-dir-row.tsx",
+    );
+    expect(treeDir).toContain("isSessionFolder");
+    expect(treeDir).toContain("MessageSquare");
+    expect(treeDir).toContain("data-files-session-title");
     expect(uploads).toContain("data-files-create-folder");
     expect(uploads).toContain("mkdirWorkspaceDirectory");
     expect(uploads).toContain("mapUploadsCatalogToRows");
@@ -875,18 +879,26 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(page).toContain("sessionIdByPathKey");
     expect(assistant).toContain("onOpenSourceSession");
     expect(assistant).toContain("filesOpenSessionMeta");
-    expect(assistant).toContain("buildSessionIdByPathKeyFromAutomationRecords");
+    expect(assistant).toContain("buildFilesOpenSessionMeta");
+    const openMeta = readApp(
+      "src/react-app/domains/session/pages/session-files-open-meta.ts",
+    );
+    expect(openMeta).toContain("buildSessionIdByPathKeyFromAutomationRecords");
   });
 });
 
 describe("C5 expert archive + C1 delete copy contracts", () => {
   test("expert page archives with category expert and filters live list", () => {
     const expert = readApp("src/react-app/domains/session/pages/expert.tsx");
+    const expertDelete = readApp(
+      "src/react-app/domains/session/pages/use-expert-session-delete.ts",
+    );
     expect(expert).toContain('category: "expert"');
     expect(expert).toContain("onArchiveSession={handleArchiveExpertSession}");
     expect(expert).toContain("archivedExpertSessionIds");
-    expect(expert).toContain("deleteSessionOwnedWorkspaceFiles");
-    expect(expert).toContain("workspaceRoot: props.selectedWorkspaceRoot");
+    expect(expert).toContain("useExpertSessionDelete");
+    expect(expertDelete).toContain("deleteSessionOwnedWorkspaceFiles");
+    expect(expertDelete).toContain("workspaceRoot: input.workspaceRoot");
     expect(expert).toContain("activeConversationAgentId");
   });
 
@@ -961,16 +973,20 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).toContain("files.search_placeholder");
     // Conversation outline: expand/collapse in place; session title opens chat.
     expect(browser).toContain("buildTreeOutlineRows");
-    expect(browser).toContain("data-files-tree-depth");
-    expect(browser).toContain("data-files-session-title");
+    expect(browser).toContain("FilesTreeDirRow");
     expect(browser).toContain("openSessionForPath");
     expect(browser).toContain("onOpenSourceSession");
+    const treeDirChrome = readApp(
+      "src/react-app/domains/workspace/workspace-files-tree-dir-row.tsx",
+    );
+    expect(treeDirChrome).toContain("data-files-tree-depth");
+    expect(treeDirChrome).toContain("data-files-session-title");
+    expect(treeDirChrome).toContain("data-files-ungrouped");
     expect(browser).not.toContain("enterDirectory");
     expect(browser).not.toContain("buildRootOutlineRows");
     // Root loose files still surface as ungrouped group.
     expect(browser).toContain("buildUngroupedFolderNode");
     expect(browser).toContain("files.ungrouped");
-    expect(browser).toContain('data-files-ungrouped');
     expect(browser).toContain("WORKSPACE_FILES_CATALOG_LIMIT");
     expect(browser).toContain("data-files-catalog-truncated");
   });

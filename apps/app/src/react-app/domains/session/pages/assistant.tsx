@@ -65,7 +65,6 @@ import {
   AutomationNavSidebar,
   AutomationPage,
   MessagingChannelsPage,
-  readAutomationSessionRecords,
   removeAutomationSessionRecord,
   syncAutomationSessionRecords,
   type AutomationNavKey,
@@ -79,8 +78,6 @@ import {
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import {
   WorkspaceFilesPage,
-  buildSessionIdByPathKeyFromAutomationRecords,
-  buildSessionTitleByKey,
   deleteSessionOwnedWorkspaceFiles,
 } from "../../workspace";
 import {
@@ -88,6 +85,7 @@ import {
   permanentlyRemoveAssistantArchivedTask,
   readAssistantArchivedTasks,
 } from "../../shared";
+import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
@@ -357,30 +355,14 @@ export function AssistantPage(props: AssistantPageProps) {
     ],
   );
 
-  const filesOpenSessionMeta = useMemo(() => {
-    const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
-    const automationRecords = readAutomationSessionRecords(
-      props.selectedWorkspaceId,
-    );
-    const { sessionIdByPathKey, pathTitleAliases } =
-      buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
-    return {
-      activeSessionIds: assistantWorkspaceSessions.map((session) => session.id),
-      archivedSessionIds: archived.map((task) => task.sessionId),
-      sessionTitleByKey: buildSessionTitleByKey({
+  const filesOpenSessionMeta = useMemo(
+    () =>
+      buildFilesOpenSessionMeta({
+        workspaceId: props.selectedWorkspaceId,
         liveSessions: assistantWorkspaceSessions,
-        archivedTasks: archived,
-        pathTitleAliases: [
-          ...pathTitleAliases,
-          ...automationRecords.map((record) => ({
-            key: record.sessionId,
-            title: record.title,
-          })),
-        ],
       }),
-      sessionIdByPathKey,
-    };
-  }, [assistantWorkspaceSessions, props.selectedWorkspaceId]);
+    [assistantWorkspaceSessions, props.selectedWorkspaceId],
+  );
 
   const [automationPinRevision, setAutomationPinRevision] = useState(0);
   const automationNavGroups = useAutomationNavGroups({

@@ -108,18 +108,9 @@ import {
   buildSessionPageViewModel,
   useDelayedSessionLoadingState,
 } from "./session-page-view-model";
-import {
-  MessagingChannelsPage,
-  readAutomationSessionRecords,
-} from "../../messaging";
-import {
-  WorkspaceFilesPage,
-  buildSessionIdByPathKeyFromAutomationRecords,
-  buildSessionTitleByKey,
-} from "../../workspace";
-import {
-  readAssistantArchivedTasks,
-} from "../../shared";
+import { MessagingChannelsPage } from "../../messaging";
+import { WorkspaceFilesPage } from "../../workspace";
+import { buildFilesOpenSessionMeta } from "../pages/session-files-open-meta";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
@@ -345,22 +336,10 @@ export function SessionPage(props: SessionPageProps) {
       props.sidebar.workspaceSessionGroups.find(
         (group) => group.workspace.id === props.selectedWorkspaceId,
       )?.sessions ?? [];
-    const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
-    const automationRecords = readAutomationSessionRecords(
-      props.selectedWorkspaceId,
-    );
-    const { sessionIdByPathKey, pathTitleAliases } =
-      buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
-    return {
-      activeSessionIds: live.map((session) => session.id),
-      archivedSessionIds: archived.map((task) => task.sessionId),
-      sessionTitleByKey: buildSessionTitleByKey({
-        liveSessions: live,
-        archivedTasks: archived,
-        pathTitleAliases,
-      }),
-      sessionIdByPathKey,
-    };
+    return buildFilesOpenSessionMeta({
+      workspaceId: props.selectedWorkspaceId,
+      liveSessions: live,
+    });
   }, [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
 
   const sessionActions = useSessionPageSessionActions({
