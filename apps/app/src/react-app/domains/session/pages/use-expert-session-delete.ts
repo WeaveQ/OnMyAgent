@@ -12,7 +12,7 @@ import { deleteSessionOwnedWorkspaceFiles } from "../../workspace";
 import {
   readExpertPinnedAgentIds,
   writeExpertPinnedAgentIds,
-} from "../../agents";
+} from "../sidebar/conversation-model";
 import { useExpertUnreadStore } from "../status/expert-unread-store";
 
 export type ExpertGroupDeleteTarget = {
@@ -108,7 +108,7 @@ export function useExpertSessionDelete(input: {
         if (pinned.includes(target.agentId)) {
           writeExpertPinnedAgentIds(
             input.workspaceId,
-            pinned.filter((id) => id !== target.agentId),
+            pinned.filter((id: string) => id !== target.agentId),
           );
         }
         useExpertUnreadStore
