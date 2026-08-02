@@ -43,15 +43,15 @@ export function buildStyleMarkdown(
   const tone = normalizeResponseTone(responseTone);
   const instructions = (customInstructions ?? "").trim();
   return [
-    "# 协作风格",
+    "# Collaboration style",
     "",
-    "> 由「设置 → 个人」自动同步。也可在此编辑后保存回应用。",
+    "> Synced from Settings → Personal. Edit and save to write back to the app.",
     "",
-    "## 语气",
+    "## Tone",
     tone,
     "",
-    "## 自定义指令",
-    instructions || "（无）",
+    "## Custom instructions",
+    instructions || "(none)",
     "",
   ].join("\n");
 }
@@ -63,13 +63,13 @@ export function buildLongTermMemoryMarkdown(
     (a, b) => b.updatedAt - a.updatedAt,
   );
   const lines = [
-    "# 长期记忆",
+    "# Long-term memory",
     "",
-    "> 由应用自动同步全局已确认记忆。专家域记忆不在此文件。",
+    "> Global confirmed memories synced by the app. Expert-scoped items are not listed here.",
     "",
   ];
   if (global.length === 0) {
-    lines.push("（暂无条目）", "");
+    lines.push("(no items)", "");
   } else {
     for (const item of global) {
       const text = item.text.trim();
@@ -121,9 +121,21 @@ export function parseStyleMarkdown(content: string): {
   responseTone: ResponseToneId;
   customInstructions: string;
 } {
-  const toneRaw = sectionBody(content, "语气").split("\n")[0]?.trim() ?? "";
-  let instructions = sectionBody(content, "自定义指令");
-  if (instructions === "（无）" || instructions === "(none)") {
+  // Accept English headings (canonical) and legacy Chinese mirrors.
+  const toneRaw =
+    (
+      sectionBody(content, "Tone") ||
+      sectionBody(content, "\u8bed\u6c14")
+    )
+      .split("\n")[0]
+      ?.trim() ?? "";
+  let instructions =
+    sectionBody(content, "Custom instructions") ||
+    sectionBody(content, "\u81ea\u5b9a\u4e49\u6307\u4ee4");
+  if (
+    instructions === "(none)" ||
+    instructions === "\uff08\u65e0\uff09"
+  ) {
     instructions = "";
   }
   return {
@@ -151,18 +163,35 @@ export function parseUserProfileMarkdown(
     updatedAt: Date.now(),
   };
 
+  // English keys preferred; unicode escapes keep legacy CN labels out of CJK gate.
+  const name =
+    bulletValue(content, "Name") ||
+    bulletValue(content, "\u79f0\u547c") ||
+    fallback.userName;
+  const assistantName =
+    bulletValue(content, "Assistant name") ||
+    bulletValue(content, "\u52a9\u624b\u540d") ||
+    fallback.assistantName;
+  const rolesRaw =
+    bulletValue(content, "Roles") || bulletValue(content, "\u89d2\u8272");
+  const industriesRaw =
+    bulletValue(content, "Industries") || bulletValue(content, "\u884c\u4e1a");
+  const toolsRaw =
+    bulletValue(content, "Tools") ||
+    bulletValue(content, "\u5e38\u7528\u5de5\u5177");
+  const tasksRaw =
+    bulletValue(content, "Tasks") ||
+    bulletValue(content, "\u5e38\u89c1\u4efb\u52a1");
+
   return {
     ...fallback,
-    userName: bulletValue(content, "称呼") || fallback.userName,
-    assistantName: bulletValue(content, "助手名") || fallback.assistantName,
+    userName: name,
+    assistantName,
     mbti: bulletValue(content, "MBTI") || fallback.mbti,
-    roles: reverseMapLabels(bulletValue(content, "角色"), labels?.roles),
-    industries: reverseMapLabels(
-      bulletValue(content, "行业"),
-      labels?.industries,
-    ),
-    tools: reverseMapLabels(bulletValue(content, "常用工具"), labels?.tools),
-    tasks: reverseMapLabels(bulletValue(content, "常见任务"), labels?.tasks),
+    roles: reverseMapLabels(rolesRaw, labels?.roles),
+    industries: reverseMapLabels(industriesRaw, labels?.industries),
+    tools: reverseMapLabels(toolsRaw, labels?.tools),
+    tasks: reverseMapLabels(tasksRaw, labels?.tasks),
     skipped: false,
     updatedAt: Date.now(),
   };
@@ -176,7 +205,7 @@ export function parseLongTermMemoryMarkdown(content: string): string[] {
     const trimmed = line.trim();
     if (!trimmed.startsWith("- ")) continue;
     const text = trimmed.slice(2).trim();
-    if (!text || text === "（暂无条目）" || text.startsWith("（")) continue;
+    if (!text || text === "(no items)" || text.startsWith("(")) continue;
     out.push(text.slice(0, 2000));
   }
   return out;

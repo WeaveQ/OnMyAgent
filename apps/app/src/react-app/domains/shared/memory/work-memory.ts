@@ -71,13 +71,14 @@ function joinPath(...parts: string[]): string {
  */
 export const WORK_MEMORY_SEED = {
   "style.md":
-    "# 协作风格\n\n语气与自定义指令。\n\n## 语气\n默认\n\n## 自定义指令\n（在「设置 → 个人」中编辑后可同步到此处）\n",
+    "# Collaboration style\n\nTone and custom instructions.\n\n## Tone\ndefault\n\n## Custom instructions\n(none)\n",
   "AGENTS.md":
-    "# 工作手册\n\n项目 / 协作规范。可直接编辑本文件。\n\n## 规则\n- \n",
-  "MEMORY.md": "# 长期记忆\n\n跨会话确认的事实与偏好。\n",
+    "# Work handbook\n\nProject / collaboration rules. Edit this file directly.\n\n## Rules\n- \n",
+  "MEMORY.md":
+    "# Long-term memory\n\nConfirmed facts and preferences across sessions.\n",
   "USER.md":
-    "# 用户画像\n\n> 由「设置 → 个人」自动生成。\n\n## 基本信息\n- 称呼：\n- 助手名：\n- MBTI：\n\n## 工作\n- 角色：\n- 行业：\n\n## 习惯\n- 常用工具：\n- 常见任务：\n",
-  "profile.md": "# 用户画像\n\n（与 USER.md 同步）\n",
+    "# User profile\n\n> Generated from Settings → Personal.\n\n## Basics\n- Name:\n- Assistant name:\n- MBTI:\n\n## Work\n- Roles:\n- Industries:\n\n## Habits\n- Tools:\n- Tasks:\n",
+  "profile.md": "# User profile\n\n(mirrors USER.md)\n",
   "pending.json": "[]\n",
 } as const;
 
@@ -208,7 +209,7 @@ function pushBulletSection(
   if (filled.length === 0) return;
   out.push(`## ${title}`, "");
   for (const row of filled) {
-    out.push(`- ${row.label}：${row.value.trim()}`);
+    out.push(`- ${row.label}: ${row.value.trim()}`);
   }
   out.push("");
 }
@@ -246,40 +247,40 @@ export function buildUserProfileMarkdown(
   }
 
   const out: string[] = [
-    "# 用户画像",
+    "# User profile",
     "",
-    "> 由「设置 → 个人」自动生成。可在此查看；改个人设置会重新写入本文件。",
+    "> Generated from Settings → Personal. Editing Personal rewrites this file.",
     "",
   ];
 
-  pushBulletSection(out, "基本信息", [
-    { label: "称呼", value: profile.userName },
-    { label: "助手名", value: profile.assistantName },
+  pushBulletSection(out, "Basics", [
+    { label: "Name", value: profile.userName },
+    { label: "Assistant name", value: profile.assistantName },
     { label: "MBTI", value: profile.mbti },
   ]);
 
-  pushBulletSection(out, "工作", [
-    { label: "角色", value: roles.join("、") },
-    { label: "行业", value: industries.join("、") },
+  pushBulletSection(out, "Work", [
+    { label: "Roles", value: roles.join(", ") },
+    { label: "Industries", value: industries.join(", ") },
   ]);
 
-  pushBulletSection(out, "习惯", [
-    { label: "常用工具", value: tools.join("、") },
-    { label: "常见任务", value: tasks.join("、") },
+  pushBulletSection(out, "Habits", [
+    { label: "Tools", value: tools.join(", ") },
+    { label: "Tasks", value: tasks.join(", ") },
   ]);
 
   if (profile.docPreference === "data" || profile.docPreference === "narrative") {
-    out.push("## 文档偏好", "");
+    out.push("## Document preference", "");
     out.push(
       profile.docPreference === "data"
-        ? "- 数据驱动（表格、图表、量化分析）"
-        : "- 叙述驱动（段落 + 要点高亮）",
+        ? "- Data-driven (tables, charts, quantitative analysis)"
+        : "- Narrative-driven (paragraphs with highlighted key points)",
     );
     out.push("");
   }
 
   if (profile.terminology.trim()) {
-    out.push("## 术语与格式", "", profile.terminology.trim(), "");
+    out.push("## Terminology / format", "", profile.terminology.trim(), "");
   }
 
   return out.join("\n").replace(/\n+$/, "\n");

@@ -271,7 +271,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
     }
   }, [desktop, refreshFileList]);
 
-  /** File path/size line — omit entirely when missing (no “尚未创建” status). */
+  /** File path/size line — omit entirely when missing. */
   const formatFileMeta = (name: string): string | null => {
     const meta = fileMeta[name];
     if (!meta?.exists) return null;

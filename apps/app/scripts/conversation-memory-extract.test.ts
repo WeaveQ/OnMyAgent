@@ -369,7 +369,7 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
     const md = buildUserProfileMarkdown(
       sampleProfile({
         userName: "Hope",
-        assistantName: "小助手",
+        assistantName: "Xiao",
         mbti: "INTJ",
         roles: ["product"],
         industries: ["internet"],
@@ -377,43 +377,43 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
         tasks: ["weekly-report"],
       }),
       {
-        roles: { product: "产品" },
-        industries: { internet: "互联网" },
-        tools: { feishu: "飞书", excel: "Excel" },
-        tasks: { "weekly-report": "写周报" },
+        roles: { product: "Product" },
+        industries: { internet: "Internet" },
+        tools: { feishu: "Feishu", excel: "Excel" },
+        tasks: { "weekly-report": "Weekly report" },
       },
     );
-    expect(md).toContain("# 用户画像");
+    expect(md).toContain("# User profile");
     expect(md).toContain("Hope");
-    expect(md).toContain("小助手");
+    expect(md).toContain("Xiao");
     expect(md).toContain("INTJ");
-    expect(md).toContain("产品");
-    expect(md).toContain("互联网");
-    expect(md).toContain("飞书");
-    expect(md).toContain("写周报");
+    expect(md).toContain("Product");
+    expect(md).toContain("Internet");
+    expect(md).toContain("Feishu");
+    expect(md).toContain("Weekly report");
     expect(buildUserProfileMarkdown(null)).toBe(WORK_MEMORY_SEED["USER.md"]);
   });
 
   test("style.md and MEMORY.md round-trip prefs ↔ markdown", () => {
-    const style = buildStyleMarkdown("professional", "用表格输出");
-    expect(style).toContain("## 语气");
+    const style = buildStyleMarkdown("professional", "prefer tables");
+    expect(style).toContain("## Tone");
     expect(style).toContain("professional");
-    expect(style).toContain("用表格输出");
+    expect(style).toContain("prefer tables");
     const parsedStyle = parseStyleMarkdown(style);
     expect(parsedStyle.responseTone).toBe("professional");
-    expect(parsedStyle.customInstructions).toBe("用表格输出");
+    expect(parsedStyle.customInstructions).toBe("prefer tables");
 
     const memState = emptyState({
       items: [
         {
           id: "g1",
-          text: "周报用表格",
+          text: "weekly-report-as-table",
           source: "manual",
           updatedAt: 2,
         },
         {
           id: "e1",
-          text: "专家专用",
+          text: "expert-only",
           source: "manual",
           updatedAt: 1,
           expertId: "exp-a",
@@ -421,18 +421,20 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
       ],
     });
     const memMd = buildLongTermMemoryMarkdown(memState);
-    expect(memMd).toContain("周报用表格");
-    expect(memMd).not.toContain("专家专用");
+    expect(memMd).toContain("weekly-report-as-table");
+    expect(memMd).not.toContain("expert-only");
     const applied = applyLongTermMemoryMarkdown(memState, memMd);
     expect(applied.items.filter((i) => !i.expertId)).toHaveLength(1);
-    expect(applied.items.find((i) => i.expertId)?.text).toBe("专家专用");
-    expect(applied.items.find((i) => !i.expertId)?.text).toBe("周报用表格");
+    expect(applied.items.find((i) => i.expertId)?.text).toBe("expert-only");
+    expect(applied.items.find((i) => !i.expertId)?.text).toBe(
+      "weekly-report-as-table",
+    );
 
     const labels = {
-      roles: { product: "产品" },
-      industries: { internet: "互联网" },
-      tools: { feishu: "飞书" },
-      tasks: { "weekly-report": "写周报" },
+      roles: { product: "Product" },
+      industries: { internet: "Internet" },
+      tools: { feishu: "Feishu" },
+      tasks: { "weekly-report": "Weekly report" },
     };
     const userMd = buildUserProfileMarkdown(
       sampleProfile({
@@ -451,9 +453,11 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
     const memPatch = prefsPatchFromAwarenessFile("MEMORY.md", memMd, {
       conversationMemory: memState,
     });
-    expect(memPatch?.conversationMemory?.items.some((i) => i.text === "周报用表格")).toBe(
-      true,
-    );
+    expect(
+      memPatch?.conversationMemory?.items.some(
+        (i) => i.text === "weekly-report-as-table",
+      ),
+    ).toBe(true);
   });
 
   test("clearGlobalWorkMemory drops global/pending/short, keeps expert C", () => {
@@ -499,9 +503,9 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
     expect(cleared.items[0]?.expertId).toBe("expert-a");
     expect(cleared.pending).toEqual([]);
     expect(cleared.shortTerm).toEqual([]);
-    expect(WORK_MEMORY_SEED["style.md"]).toContain("协作风格");
-    expect(WORK_MEMORY_SEED["AGENTS.md"]).toContain("工作手册");
-    expect(WORK_MEMORY_SEED["MEMORY.md"]).toContain("长期记忆");
+    expect(WORK_MEMORY_SEED["style.md"]).toContain("Collaboration style");
+    expect(WORK_MEMORY_SEED["AGENTS.md"]).toContain("Work handbook");
+    expect(WORK_MEMORY_SEED["MEMORY.md"]).toContain("Long-term memory");
   });
 
   test("budget truncation holds max chars", () => {
