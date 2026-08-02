@@ -9,7 +9,10 @@ import { createOnMyAgentServerClient } from "../src/app/lib/onmyagent-server";
 
 const params = new URLSearchParams(window.location.search);
 const locale = params.get("lang");
-if (locale === "en" || locale === "zh" || locale === "zh-TW") setLocale(locale);
+if (locale === "en" || locale === "zh" || locale === "zh-TW") {
+  setLocale(locale);
+  document.documentElement.lang = locale;
+}
 if (params.get("theme") === "dark") {
   document.documentElement.classList.add("dark");
   document.documentElement.dataset.theme = "dark";
@@ -40,6 +43,7 @@ registry.skills = [
 const fixtureClient = params.get("skillState") === "error"
   ? createOnMyAgentServerClient({ baseUrl: "http://127.0.0.1:1" })
   : null;
+const fixtureId = params.get("fixture")?.replace(/[^A-Za-z0-9_-]/g, "-") || "default";
 
 const fixtureOnDone = async () => {
   if (params.get("saveState") === "slow") {
@@ -53,7 +57,7 @@ if (!root) throw new Error("Missing expert creation visual fixture root");
 
 createRoot(root).render(
   <ExpertCreationPage
-    workspaceId="visual-fixture"
+    workspaceId={`visual-fixture-${fixtureId}`}
     workspaceRoot="/tmp/onmyagent-expert-fixture"
     opencodeBaseUrl={null}
     onmyagentServerToken={null}
