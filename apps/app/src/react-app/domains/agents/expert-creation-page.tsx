@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
+  ActionRowButton,
+  IconTile,
   NavTabButton,
   SegmentedTabGroup,
 } from "@/components/ui/action-row";
@@ -159,14 +161,9 @@ function isLocalSkillSummary(value: unknown): value is LocalSkillSummary {
 
 function IconCircle(props: { children: ReactNode; className?: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface-muted text-dls-secondary",
-        props.className,
-      )}
-    >
+    <IconTile size="default" tone="surface" shape="lg" border className={props.className}>
       {props.children}
-    </span>
+    </IconTile>
   );
 }
 
@@ -321,7 +318,7 @@ function ExpertCoach(props: {
 
   return (
     <aside className="flex min-h-0 w-2/5 min-w-80 shrink-0 border-r border-dls-border bg-dls-background p-5">
-      <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-dls-border bg-dls-surface p-6">
+      <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-dls-border bg-dls-surface p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {renderAvatar(
@@ -409,20 +406,22 @@ function ExpertCoach(props: {
           </div>
         </div>
         <div className="pt-6">
-          <div className="relative rounded-2xl border border-dls-border bg-dls-background p-3">
+          <div className="relative rounded-xl border border-dls-border bg-dls-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
             {attachments.length > 0 ? (
               <div className="mb-2 flex flex-wrap gap-2">
                 {attachments.map((file) => (
                   <span key={`${file.name}-${file.size}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-dls-hover px-2 py-1 text-xs text-dls-secondary">
                     <span className="max-w-40 truncate">{file.name}</span>
-                    <button
+                    <Button
                       type="button"
-                      className="rounded-md p-0.5 hover:bg-dls-surface"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="-mr-1"
                       onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
                       aria-label={t("agents.expert_creation_remove_attachment", { name: file.name })}
                     >
                       <X className="size-3" aria-hidden />
-                    </button>
+                    </Button>
                   </span>
                 ))}
               </div>
@@ -519,7 +518,7 @@ function PromptEditor(props: {
 }) {
   const lineCount = Math.max(8, props.value.split("\n").length);
   return (
-    <div className="flex min-h-56 overflow-hidden rounded-xl border border-dls-border bg-dls-background">
+    <div className="flex min-h-56 overflow-hidden rounded-xl border border-dls-border bg-dls-background focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
       <div
         aria-hidden="true"
         className="select-none border-r border-dls-border px-3 py-3 text-right text-xs leading-6 text-dls-secondary"
@@ -572,7 +571,7 @@ function BasicInfoPanel(props: {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
+      <section className="rounded-xl border border-dls-border bg-dls-surface p-5">
         <div
           className={cn(
             "grid gap-6 xl:grid-cols-[8.5rem_minmax(0,1fr)]",
@@ -631,7 +630,7 @@ function BasicInfoPanel(props: {
           </div>
         </div>
       </section>
-      <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
+      <section className="rounded-xl border border-dls-border bg-dls-surface p-5">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-dls-text">
             {t("agents.expert_creation_role_prompt")}
@@ -729,14 +728,14 @@ function SkillPickerDialog(props: {
             {visibleSkills.map((skill) => {
               const selected = props.selectedIds.includes(skill.id);
               return (
-                <button
+                <ActionRowButton
                   key={skill.id}
                   type="button"
                   className={cn(
-                    "flex min-w-0 items-start gap-3 rounded-xl border p-3 text-left transition-colors",
+                    "min-w-0",
                     selected
                       ? "border-dls-accent bg-dls-accent/8"
-                      : "border-dls-border bg-dls-background hover:bg-dls-hover",
+                      : "bg-dls-background",
                   )}
                   onClick={() => props.onToggle(skill.id)}
                 >
@@ -746,13 +745,13 @@ function SkillPickerDialog(props: {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2 text-sm font-medium text-dls-text">
                       <span className="truncate">{localSkillLabel(skill)}</span>
-                      {selected ? <Check className="size-3.5 shrink-0 text-dls-accent" /> : null}
+                      {selected ? <Check className="size-3.5 shrink-0 text-dls-accent" aria-hidden /> : null}
                     </span>
                     <span className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
                       {localSkillDescription(skill)}
                     </span>
                   </span>
-                </button>
+                </ActionRowButton>
               );
             })}
           </div>
@@ -810,12 +809,12 @@ function SkillsPanel(props: {
         </div>
       </div>
       {props.loading && selectedSkills.length === 0 ? (
-        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-xl bg-dls-surface px-6 text-center">
           <LoadingSpinner size="default" />
           <p className="mt-4 text-sm text-dls-secondary">{t("agents.expert_creation_loading_skills")}</p>
         </div>
       ) : props.loadError && selectedSkills.length === 0 ? (
-        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-xl bg-dls-surface px-6 text-center">
           <NoticeBox role="alert" tone="error" size="content" className="max-w-md">
             {t("agents.expert_creation_load_skills_failed")}
           </NoticeBox>
@@ -834,7 +833,7 @@ function SkillsPanel(props: {
           {selectedSkills.map((skill) => {
             const selected = props.selectedIds.includes(skill.id);
             return (
-              <article key={skill.id} className="min-w-0 rounded-2xl border border-dls-border bg-dls-surface p-5">
+              <article key={skill.id} className="min-w-0 rounded-xl border border-dls-border bg-dls-surface p-5">
                 <div className="flex min-w-0 items-start gap-3">
                   <IconCircle className="size-12 shrink-0 border-dls-accent/20 bg-dls-accent/10 text-dls-accent">
                     <SkillGlyphIcon className="size-6" />
@@ -867,7 +866,7 @@ function SkillsPanel(props: {
           })}
         </div>
       ) : (
-        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-xl bg-dls-surface px-6 text-center">
           <FileSearch className="size-20 text-dls-secondary" strokeWidth={1.2} aria-hidden />
           <h3 className="mt-5 text-sm font-semibold text-dls-text">{t("agents.expert_creation_no_skills")}</h3>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -1033,7 +1032,7 @@ function KnowledgePanel(props: {
           </p>
         </div>
       ) : (
-        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-xl bg-dls-surface px-6 text-center">
           <div className="flex items-end -space-x-2">
             <IconCircle className="size-10 rotate-[-8deg] bg-dls-background text-dls-accent">
               <Upload className="size-5" aria-hidden />
@@ -1290,20 +1289,22 @@ function TryEffectPanel(props: {
         )}
       </div>
       <div className="border-t border-dls-border p-4">
-        <div className="relative rounded-2xl border border-dls-border bg-dls-background p-3">
+          <div className="relative rounded-xl border border-dls-border bg-dls-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
           {attachments.length > 0 ? (
             <div className="mb-2 flex flex-wrap gap-2">
               {attachments.map((file) => (
                 <span key={`${file.name}-${file.size}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-dls-hover px-2 py-1 text-xs text-dls-secondary">
                   <span className="max-w-32 truncate">{file.name}</span>
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-md p-0.5 hover:bg-dls-surface"
+                    size="icon-xs"
+                    variant="ghost"
+                    className="-mr-1"
                     onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
                     aria-label={t("agents.expert_creation_remove_attachment", { name: file.name })}
                   >
                     <X className="size-3" aria-hidden />
-                  </button>
+                  </Button>
                 </span>
               ))}
             </div>
@@ -1615,7 +1616,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "memory" ? (
-                  <section className="rounded-2xl border border-dls-border bg-dls-surface p-5">
+                  <section className="rounded-xl border border-dls-border bg-dls-surface p-5">
                     <div className="mb-4">
                       <h3 className="text-base font-semibold text-dls-text">
                         {t("agents.expert_creation_memory")}

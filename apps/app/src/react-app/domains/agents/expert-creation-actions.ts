@@ -182,7 +182,7 @@ export function useExpertCreationController(
           path: result.configPath,
         }),
         tone: "success",
-        durationMs: 3600,
+        durationMs: 4000,
       });
       setOpen(false);
     },
