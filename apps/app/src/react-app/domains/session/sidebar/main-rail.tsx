@@ -88,7 +88,8 @@ function RailBrandMark(props: { onClick: () => void }) {
       title={APP_NAME}
       aria-label={APP_NAME}
       className={cn(
-        "mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl",
+        // 46px tile / 26px mark — 2px under the default 48 / 28 rail pill scale.
+        "mb-0.5 flex size-[46px] shrink-0 items-center justify-center rounded-2xl",
         "bg-dls-rail-pill-active text-dls-text shadow-sm",
         "ring-1 ring-black/5 transition-colors",
         "hover:bg-dls-rail-pill-hover focus-visible:outline-none",
@@ -99,9 +100,9 @@ function RailBrandMark(props: { onClick: () => void }) {
       <img
         src={resolvePublicAssetUrl("/onmyagent-logo.png")}
         alt=""
-        width={20}
-        height={20}
-        className="size-5 object-contain"
+        width={26}
+        height={26}
+        className="size-[26px] object-contain"
         draggable={false}
       />
     </button>
