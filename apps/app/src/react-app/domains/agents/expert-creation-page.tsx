@@ -9,7 +9,6 @@ import {
   FileSearch,
   FolderPlus,
   Plus,
-  Send,
   Sparkles,
   Upload,
   UserRound,
@@ -59,8 +58,6 @@ import {
 import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
-import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
-import { mergeExpertChatAttachments } from "./expert-creation-chat-attachments";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
 import {
   buildExpertPreviewDraftKey,
@@ -71,7 +68,6 @@ import {
   EMPTY_EXPERT_COACH_STATE,
   readExpertCreationStoredState,
   writeExpertCreationStoredState,
-  type ExpertCoachMessage,
 } from "./expert-creation-draft-storage";
 import {
   ExpertCreationConversation,
@@ -868,122 +864,12 @@ function TryEffectPanel(props: {
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
   onmyagentServerToken: string | null;
+  selectedModel: ModelRef | null;
+  renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onClose: () => void;
 }) {
-  const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [messages, setMessages] = useState<ExpertCoachMessage[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionDraftKey, setSessionDraftKey] = useState<string | null>(null);
-  const [streamText, setStreamText] = useState("");
-  const [sending, setSending] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const runIdRef = useRef(0);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const streamTextRef = useRef("");
+  const [sessionVersion, setSessionVersion] = useState(0);
   const draftKey = buildExpertPreviewDraftKey(props.draft);
-  const staleSession = Boolean(sessionId && sessionDraftKey && sessionDraftKey !== draftKey);
-
-  const updateStreamText = (text: string) => {
-    streamTextRef.current = text;
-    setStreamText(text);
-  };
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, streamText]);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
-
-  const send = async () => {
-    const value = input.trim();
-    const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
-    if ((!value && attachments.length === 0) || !baseUrl || sending || !props.draft.name.trim()) return;
-    if (staleSession) setMessages([]);
-    setMessages((current) => [...current, {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: value || t("agents.expert_creation_attachment_only", { count: attachments.length }),
-    }]);
-    setInput("");
-    const submittedAttachments = attachments;
-    setAttachments([]);
-    updateStreamText("");
-    setSending(true);
-    const runId = runIdRef.current + 1;
-    runIdRef.current = runId;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const result = await runExpertPreviewTurn({
-        config: {
-          baseUrl,
-          token: props.onmyagentServerToken,
-          workspaceRoot: props.workspaceRoot,
-        },
-        sessionId: staleSession ? null : sessionId,
-        message: value,
-        attachments: submittedAttachments,
-        draft: props.draft,
-        signal: controller.signal,
-        onTextChange: updateStreamText,
-      });
-      if (runIdRef.current !== runId) return;
-      setSessionId(result.sessionId);
-      setSessionDraftKey(draftKey);
-      if (result.content.trim()) {
-        setMessages((current) => [...current, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: result.content,
-        }]);
-      }
-      updateStreamText("");
-    } catch (error) {
-      if (runIdRef.current !== runId) return;
-      if (error instanceof DOMException && error.name === "AbortError") {
-        const partial = streamTextRef.current.trim();
-        setMessages((current) => [...current, {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: partial
-            ? `${partial}\n\n${t("agents.expert_creation_preview_stopped")}`
-            : t("agents.expert_creation_preview_stopped"),
-        }]);
-        updateStreamText("");
-        return;
-      }
-      setInput((current) => current.trim() ? current : value);
-      setAttachments((current) => mergeExpertChatAttachments(submittedAttachments, current));
-      const detail = error instanceof Error ? error.message : "";
-      setMessages((current) => [...current, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: detail
-          ? t("agents.expert_creation_preview_failed_detail", { detail })
-          : t("agents.expert_creation_preview_failed"),
-      }]);
-      updateStreamText("");
-    } finally {
-      if (runIdRef.current !== runId) return;
-      abortRef.current = null;
-      setSending(false);
-    }
-  };
-
-  const startNewSession = () => {
-    runIdRef.current += 1;
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setSending(false);
-    setSessionId(null);
-    setSessionDraftKey(null);
-    setMessages([]);
-    updateStreamText("");
-    setInput("");
-    setAttachments([]);
-  };
 
   return (
     <aside className="flex min-h-0 min-w-0 flex-col border-l border-dls-border bg-dls-surface">
@@ -994,119 +880,36 @@ function TryEffectPanel(props: {
         <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-dls-text">
           {t("agents.expert_creation_preview_title")}
         </h2>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={startNewSession} aria-label={t("agents.expert_creation_preview_new_session")}>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setSessionVersion((current) => current + 1)} aria-label={t("agents.expert_creation_preview_new_session")}>
           <Plus className="size-5" aria-hidden />
         </Button>
       </div>
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-        {staleSession ? (
-          <NoticeBox tone="info" size="content" className="mb-4">
-            {t("agents.expert_creation_preview_config_changed")}
-          </NoticeBox>
-        ) : null}
-        {props.draft.name.trim() ? (
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "max-w-[90%] whitespace-pre-wrap rounded-xl px-3 py-2.5 text-sm leading-6",
-                  message.role === "user"
-                    ? "ml-auto bg-dls-accent text-white"
-                    : "bg-dls-hover text-dls-text",
-                )}
-              >
-                {message.content}
-              </div>
-            ))}
-            {streamText ? (
-              <div className="max-w-[90%] whitespace-pre-wrap rounded-xl bg-dls-hover px-3 py-2.5 text-sm leading-6 text-dls-text">
-                {streamText}
-              </div>
-            ) : sending ? (
-              <div className="max-w-[90%] rounded-xl bg-dls-hover px-3 py-2.5 text-sm leading-6 text-dls-secondary">
-                {t("agents.expert_creation_coach_thinking")}
-              </div>
-            ) : null}
-            {messages.length === 0 && !sending ? (
-              <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
-                <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
-                <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_ready")}</span>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
+      <ExpertCreationConversation
+        key={`${draftKey}:${sessionVersion}`}
+        draft={props.draft}
+        workspaceRoot={props.workspaceRoot}
+        opencodeBaseUrl={props.opencodeBaseUrl}
+        onmyagentServerToken={props.onmyagentServerToken}
+        selectedModel={props.selectedModel}
+        title={props.draft.name || t("agents.expert_creation_preview_title")}
+        avatar={null}
+        emptyContent={(
+          <div className="flex min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
             <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
-            <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_empty")}</span>
+            <span className="mt-4 max-w-44">
+              {props.draft.name.trim()
+                ? t("agents.expert_creation_preview_ready")
+                : t("agents.expert_creation_preview_empty")}
+            </span>
           </div>
         )}
-      </div>
-      <div className="border-t border-dls-border p-4">
-          <div className="relative rounded-xl border border-dls-border bg-dls-background p-3 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
-          {attachments.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {attachments.map((file) => (
-                <span key={`${file.name}-${file.size}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-dls-hover px-2 py-1 text-xs text-dls-secondary">
-                  <span className="max-w-32 truncate">{file.name}</span>
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="ghost"
-                    className="-mr-1"
-                    onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
-                    aria-label={t("agents.expert_creation_remove_attachment", { name: file.name })}
-                  >
-                    <X className="size-3" aria-hidden />
-                  </Button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <input
-            ref={attachmentInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              setAttachments((current) => mergeExpertChatAttachments(current, Array.from(event.currentTarget.files ?? [])));
-              event.currentTarget.value = "";
-            }}
-          />
-          <Textarea
-            value={input}
-            onChange={(event) => setInput(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                void send();
-              }
-            }}
-            disabled={!props.draft.name.trim()}
-            placeholder={t("agents.expert_creation_preview_placeholder")}
-            className="min-h-12 resize-none border-0 bg-transparent px-1 py-0 pr-1 shadow-none focus-visible:ring-0"
-          />
-          <div className="mt-2 flex items-center justify-between">
-            <Button type="button" size="icon-sm" variant="ghost" onClick={() => attachmentInputRef.current?.click()} aria-label={t("agents.expert_creation_add_attachment")}>
-              <Plus className="size-5" aria-hidden />
-            </Button>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                disabled={!sending && ((!input.trim() && attachments.length === 0) || !props.draft.name.trim() || !props.opencodeBaseUrl?.trim())}
-                onClick={() => sending ? abortRef.current?.abort() : void send()}
-                aria-label={sending
-                  ? t("agents.expert_creation_coach_stop")
-                  : t("agents.expert_creation_preview_send")}
-              >
-                {sending ? <X className="size-5" aria-hidden /> : <Send className="size-5" aria-hidden />}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+        placeholder={t("agents.expert_creation_preview_placeholder")}
+        emptyMessage={t("agents.expert_creation_preview_failed")}
+        disabled={!props.draft.name.trim()}
+        hideHeader
+        className="p-4"
+        renderComposer={props.renderComposer}
+      />
     </aside>
   );
 }
@@ -1414,6 +1217,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 workspaceRoot={props.workspaceRoot}
                 opencodeBaseUrl={props.opencodeBaseUrl}
                 onmyagentServerToken={props.onmyagentServerToken}
+                selectedModel={props.selectedModel}
+                renderComposer={props.renderComposer}
                 onClose={() => setTryOpen(false)}
               />
             ) : null}
