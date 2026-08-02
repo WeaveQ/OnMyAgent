@@ -5,9 +5,6 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Check,
   ChevronDown,
   ChevronRight,
@@ -53,8 +50,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import {
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -94,10 +89,12 @@ import {
   shouldHideEntry,
   sortTaskSourceTreeCopy,
   sortWorkspaceFileTreeCopy,
-  type WorkspaceFileSortDir,
-  type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
+import {
+  FilesSortableTableHeader,
+  useFilesTableSort,
+} from "./workspace-files-table-sort";
 import {
   FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
   shouldForceExternalPreviewForSize,
@@ -527,9 +524,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   const [favoritePaths, setFavoritePaths] = useState<Set<string>>(
     () => readFavoritePaths(props.workspaceId),
   );
-  /** Default: type sort with folders first (same as Mine). */
-  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("type");
-  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("asc");
+  const { sortKey, sortDir, toggleSort } = useFilesTableSort();
   const workspaceRootNormalized = props.workspaceRoot.trim().replace(/[\\/]+$/, "");
   const fileRoot =
     props.fileRoot === undefined
@@ -884,16 +879,6 @@ export function WorkspaceFilesBrowserPanel(props: {
     ],
   );
 
-  const toggleSort = useCallback((key: WorkspaceFileSortKey) => {
-    if (sortKey === key) {
-      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortKey(key);
-    // Name/type default ascending (folders first for type); updated/size newest/largest first.
-    setSortDir(key === "name" || key === "type" ? "asc" : "desc");
-  }, [sortKey]);
-
   const openSourceForPath = useCallback(
     (relativePath: string) =>
       resolveOpenSourceSessionAction({
@@ -1086,7 +1071,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => window.removeEventListener("keydown", handler);
   }, [closePreview, selectedFile]);
 
-  // Same gutters as 市场 pluginsLayoutClass.pageContainer
+  // Same gutters as marketplace pluginsLayoutClass.pageContainer
   // Title → pathbar controls (expand · type · search · refresh).
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
@@ -1280,102 +1265,12 @@ export function WorkspaceFilesBrowserPanel(props: {
                     */
                     <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
                       <table className="w-full table-fixed caption-bottom text-sm">
-                        <TableHeader className="sticky top-0 z-10">
-                          <TableRow className="hover:bg-transparent">
-                            {(
-                              [
-                                {
-                                  key: "name" as WorkspaceFileSortKey | null,
-                                  label: t("files.column_name"),
-                                  className: "",
-                                  sortable: true,
-                                },
-                                {
-                                  key: "type" as WorkspaceFileSortKey | null,
-                                  label: t("files.column_type"),
-                                  className: "w-28",
-                                  sortable: true,
-                                },
-                                {
-                                  key: "updated" as WorkspaceFileSortKey | null,
-                                  label: t("files.column_updated"),
-                                  className: "w-40",
-                                  sortable: true,
-                                },
-                                {
-                                  key: "size" as WorkspaceFileSortKey | null,
-                                  label: t("files.column_size"),
-                                  className: "w-24",
-                                  sortable: true,
-                                },
-                              ] as const
-                            ).map((column) => {
-                              const active =
-                                column.sortable &&
-                                column.key !== null &&
-                                sortKey === column.key;
-                              return (
-                                <TableHead
-                                  key={column.label}
-                                  className={cn(
-                                    "h-10 border-b border-dls-border bg-dls-surface-solid text-left text-xs font-medium text-dls-secondary",
-                                    column.className,
-                                  )}
-                                  style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
-                                  aria-sort={
-                                    active
-                                      ? sortDir === "asc"
-                                        ? "ascending"
-                                        : "descending"
-                                      : column.sortable
-                                        ? "none"
-                                        : undefined
-                                  }
-                                >
-                                  {column.sortable && column.key ? (
-                                    <button
-                                      type="button"
-                                      className={cn(
-                                        "inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-dls-hover hover:text-dls-text",
-                                        active ? "font-semibold text-dls-text" : "text-dls-secondary",
-                                      )}
-                                      onClick={() => toggleSort(column.key!)}
-                                      aria-label={
-                                        active
-                                          ? `${column.label} · ${sortDir === "asc" ? "asc" : "desc"}`
-                                          : column.label
-                                      }
-                                    >
-                                      <span>{column.label}</span>
-                                      {active ? (
-                                        sortDir === "asc" ? (
-                                          <ArrowUp className="size-3.5 shrink-0" aria-hidden />
-                                        ) : (
-                                          <ArrowDown className="size-3.5 shrink-0" aria-hidden />
-                                        )
-                                      ) : (
-                                        <ArrowUpDown
-                                          className="size-3.5 shrink-0 opacity-45"
-                                          aria-hidden
-                                        />
-                                      )}
-                                    </button>
-                                  ) : (
-                                    column.label
-                                  )}
-                                </TableHead>
-                              );
-                            })}
-                            <TableHead
-                              className="h-10 w-12 border-b border-dls-border bg-dls-surface-solid"
-                              style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
-                            >
-                              <span className="sr-only">
-                                {t("files.column_actions")}
-                              </span>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
+                        <FilesSortableTableHeader
+                          sortKey={sortKey}
+                          sortDir={sortDir}
+                          onToggleSort={toggleSort}
+                          actionsLabel={t("files.column_actions")}
+                        />
                         <TableBody>
                           {!filterActive
                             ? treeRows.map((row) => {

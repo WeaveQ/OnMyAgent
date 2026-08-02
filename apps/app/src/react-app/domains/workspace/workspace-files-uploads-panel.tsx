@@ -12,38 +12,23 @@ import {
   type DragEvent,
 } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Check,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  Copy,
-  ExternalLink,
   FileUp,
   Folder,
-  FolderInput,
-  FolderOpen,
   FolderPlus,
   Loader2,
-  MoreHorizontal,
   RefreshCw,
   Search,
   SlidersHorizontal,
-  Trash2,
   Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -55,8 +40,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import {
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -64,7 +47,6 @@ import { typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
 import {
-  OnMyAgentServerError,
   type OnMyAgentServerClient,
 } from "../../../app/lib/onmyagent-server";
 import { isElectronRuntime } from "../../../app/utils";
@@ -78,8 +60,6 @@ import {
 import {
   formatWorkspaceFileSize,
   formatWorkspaceFileTime,
-  type WorkspaceFileSortDir,
-  type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
@@ -119,147 +99,18 @@ import {
   FilePreviewDrawer,
   type WorkspaceFilePreviewState,
 } from "./workspace-files-preview-drawer";
+import {
+  FilesSortableTableHeader,
+  useFilesTableSort,
+} from "./workspace-files-table-sort";
+import {
+  CLIENT_INBOX_MAX_BYTES_DEFAULT,
+  formatUploadError,
+  UploadRowActionsMenu,
+} from "./workspace-files-uploads-row-menu";
 
 /** Internal Mine drag payload (not OS file drops). */
 const MINE_DRAG_MIME = "application/x-onmyagent-mine-file";
-
-/** Matches server DEFAULT_INBOX_MAX_BYTES (local precheck before upload). */
-const CLIENT_INBOX_MAX_BYTES_DEFAULT = 200_000_000;
-
-function readUploadLimitDetails(error: unknown): {
-  maxBytes?: number;
-  size?: number;
-} {
-  if (!(error instanceof OnMyAgentServerError) || !error.details || typeof error.details !== "object") {
-    return {};
-  }
-  const details = error.details as { maxBytes?: unknown; size?: unknown };
-  return {
-    maxBytes:
-      typeof details.maxBytes === "number" && Number.isFinite(details.maxBytes)
-        ? details.maxBytes
-        : undefined,
-    size:
-      typeof details.size === "number" && Number.isFinite(details.size)
-        ? details.size
-        : undefined,
-  };
-}
-
-function formatUploadError(error: unknown, file?: File): string {
-  if (error instanceof OnMyAgentServerError && error.code === "file_too_large") {
-    const details = readUploadLimitDetails(error);
-    const maxBytes = details.maxBytes ?? CLIENT_INBOX_MAX_BYTES_DEFAULT;
-    const size = details.size ?? file?.size ?? 0;
-    return t("files.upload_too_large", {
-      name: file?.name?.trim() || "file",
-      size: formatWorkspaceFileSize(size),
-      max: formatWorkspaceFileSize(maxBytes),
-    });
-  }
-  if (error instanceof Error && /exceeds upload limit|file_too_large|too large/i.test(error.message)) {
-    return t("files.upload_too_large", {
-      name: file?.name?.trim() || "file",
-      size: formatWorkspaceFileSize(file?.size ?? 0),
-      max: formatWorkspaceFileSize(CLIENT_INBOX_MAX_BYTES_DEFAULT),
-    });
-  }
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  return t("files.upload_failed");
-}
-
-function UploadRowActionsMenu(props: {
-  name: string;
-  pathCopied: boolean;
-  showMoveTo?: boolean;
-  onPreview: () => void;
-  onOpenExternally: () => void;
-  onOpenInFolder: () => void;
-  onMoveTo?: () => void;
-  onCopyPath: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={(event) => event.stopPropagation()}
-            className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
-            aria-label={t("files.file_actions", { name: props.name })}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="min-w-44">
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onPreview();
-          }}
-        >
-          <FileUp />
-          {t("files.view_in_panel")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onOpenExternally();
-          }}
-        >
-          <ExternalLink />
-          {t("files.open_file")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onOpenInFolder();
-          }}
-        >
-          <FolderOpen />
-          {t("files.open_in_folder")}
-        </DropdownMenuItem>
-        {props.showMoveTo && props.onMoveTo ? (
-          <DropdownMenuItem
-            data-files-move-to="true"
-            onClick={(event) => {
-              event.stopPropagation();
-              props.onMoveTo?.();
-            }}
-          >
-            <FolderInput />
-            {t("files.move_to")}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onCopyPath();
-          }}
-        >
-          <Copy />
-          {props.pathCopied ? t("files.copied") : t("files.copy_path")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          variant="destructive"
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onDelete();
-          }}
-        >
-          <Trash2 />
-          {t("common.delete")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 export type WorkspaceFilesToastInput = {
   tone: "success" | "error" | "warning" | "info";
@@ -293,9 +144,7 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
-  /** Same defaults as Tasks/Experts: type sort, folders first. */
-  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("type");
-  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("asc");
+  const { sortKey, sortDir, toggleSort } = useFilesTableSort();
   const [uploading, setUploading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshDone, setRefreshDone] = useState(false);
@@ -458,16 +307,6 @@ export function WorkspaceFilesUploadsPanel(props: {
     treeMode,
     typeFilter,
   ]);
-
-  const toggleSort = useCallback((key: WorkspaceFileSortKey) => {
-    if (sortKey === key) {
-      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortKey(key);
-    // Name/type default ascending (folders first for type); updated/size newest/largest first.
-    setSortDir(key === "name" || key === "type" ? "asc" : "desc");
-  }, [sortKey]);
 
   /** Map path → row for tree row actions / preview. */
   const rowByPath = useMemo(() => {
@@ -1116,7 +955,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     });
   }, [currentFolderPath]);
 
-  // Same gutters as 市场 pluginsLayoutClass.pageContainer
+  // Same gutters as marketplace pluginsLayoutClass.pageContainer
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
       {/* Title + subtitle */}
@@ -1440,119 +1279,13 @@ export function WorkspaceFilesUploadsPanel(props: {
           ) : showTable ? (
             <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto">
               <table className="w-full table-fixed caption-bottom text-sm">
-                <TableHeader className="sticky top-0 z-10">
-                  <TableRow className="hover:bg-transparent">
-                    {(
-                      [
-                        {
-                          key: "name" as WorkspaceFileSortKey | null,
-                          label: t("files.column_name"),
-                          className: "",
-                          sortable: true,
-                        },
-                        {
-                          key: "type" as WorkspaceFileSortKey | null,
-                          label: t("files.column_type"),
-                          className: "w-28",
-                          sortable: true,
-                        },
-                        {
-                          key: "updated" as WorkspaceFileSortKey | null,
-                          label: t("files.column_updated"),
-                          className: "w-40",
-                          sortable: true,
-                        },
-                        {
-                          key: "size" as WorkspaceFileSortKey | null,
-                          label: t("files.column_size"),
-                          className: "w-24",
-                          sortable: true,
-                        },
-                      ] as const
-                    ).map((column) => {
-                      const active =
-                        column.sortable &&
-                        column.key !== null &&
-                        sortKey === column.key;
-                      return (
-                        <TableHead
-                          key={column.label}
-                          className={cn(
-                            "h-10 border-b border-dls-border bg-dls-surface-solid text-left text-xs font-medium text-dls-secondary",
-                            column.className,
-                          )}
-                          style={{
-                            backgroundColor:
-                              "var(--dls-surface-solid, #2c2c2c)",
-                          }}
-                          aria-sort={
-                            active
-                              ? sortDir === "asc"
-                                ? "ascending"
-                                : "descending"
-                              : column.sortable
-                                ? "none"
-                                : undefined
-                          }
-                        >
-                          {column.sortable && column.key ? (
-                            <button
-                              type="button"
-                              className={cn(
-                                "inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-dls-hover hover:text-dls-text",
-                                active
-                                  ? "font-semibold text-dls-text"
-                                  : "text-dls-secondary",
-                              )}
-                              onClick={() => toggleSort(column.key!)}
-                              aria-label={
-                                active
-                                  ? `${column.label} · ${sortDir === "asc" ? "asc" : "desc"}`
-                                  : column.label
-                              }
-                              data-files-sort-key={column.key}
-                              data-files-sort-active={
-                                active ? "true" : "false"
-                              }
-                            >
-                              <span>{column.label}</span>
-                              {active ? (
-                                sortDir === "asc" ? (
-                                  <ArrowUp
-                                    className="size-3.5 shrink-0"
-                                    aria-hidden
-                                  />
-                                ) : (
-                                  <ArrowDown
-                                    className="size-3.5 shrink-0"
-                                    aria-hidden
-                                  />
-                                )
-                              ) : (
-                                <ArrowUpDown
-                                  className="size-3.5 shrink-0 opacity-45"
-                                  aria-hidden
-                                />
-                              )}
-                            </button>
-                          ) : (
-                            column.label
-                          )}
-                        </TableHead>
-                      );
-                    })}
-                    <TableHead
-                      className="h-10 w-12 border-b border-dls-border bg-dls-surface-solid"
-                      style={{
-                        backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
-                      }}
-                    >
-                      <span className="sr-only">
-                        {t("files.file_actions", { name: "" })}
-                      </span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
+                <FilesSortableTableHeader
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggleSort={toggleSort}
+                  actionsLabel={t("files.file_actions", { name: "" })}
+                  withSortDataAttrs
+                />
                 <TableBody>
                   {treeMode && !filterActive
                     ? treeRows.map((outlineRow) => {

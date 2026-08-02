@@ -241,8 +241,8 @@ describe("files three-source tabs (P0)", () => {
     expect(uploads).toContain("buildUserUploadRelativePath");
     expect(uploads).toContain("mapUploadsCatalogToRows");
     expect(uploads).toContain("sortUploadRows");
-    expect(uploads).toContain("toggleSort");
-    expect(uploads).toContain("data-files-sort-key");
+    expect(uploads).toContain("useFilesTableSort");
+    expect(uploads).toContain("FilesSortableTableHeader");
     expect(uploads).toContain("planInboxToUploadsMigration");
     // My files: preview drawer + open/reveal/copy parity with Task files.
     expect(uploads).toContain("FilePreviewDrawer");
@@ -252,6 +252,11 @@ describe("files three-source tabs (P0)", () => {
     expect(uploads).toContain("revealDesktopItemInDir");
     expect(uploads).toContain("handleCopyPath");
     expect(uploads).toContain("UploadRowActionsMenu");
+    const sortHeader = read(
+      "apps/app/src/react-app/domains/workspace/workspace-files-table-sort.tsx",
+    );
+    expect(sortHeader).toContain("data-files-sort-key");
+    expect(sortHeader).toContain("toggleSort");
     expect(page).toContain("workspaceRoot={props.workspaceRoot}");
 
     const browser = read(

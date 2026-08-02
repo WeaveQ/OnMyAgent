@@ -192,7 +192,7 @@ function isUnderProductSourceRoot(path: string): boolean {
 }
 
 /**
- * Empty @: flatten files (and folders) under 文件/任务/专家 so users do not
+ * Empty @: flatten files (and folders) under Files/Tasks/Experts so users do not
  * only see three source roots and have to drill in for every pick.
  */
 export function workspaceMentionFlatBrowseTargets(
@@ -221,7 +221,7 @@ export function workspaceMentionFlatBrowseTargets(
     }))
     .sort((left, right) => {
       if (left.rank !== right.rank) return left.rank - right.rank;
-      // Files first when 平铺 — folders still available for multi-select drill-in.
+      // Files first when flattened — folders still available for multi-select drill-in.
       if (left.target.kind !== right.target.kind) {
         return left.target.kind === "file" ? -1 : 1;
       }

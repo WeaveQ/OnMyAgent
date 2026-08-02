@@ -6,3 +6,4 @@ export * from "./workspace-files-categories";
 export * from "./workspace-files-tree-outline";
 export * from "./workspace-files-source-tabs";
 export * from "./workspace-files-uploads-catalog";
+export * from "./workspace-files-uploads-sort";

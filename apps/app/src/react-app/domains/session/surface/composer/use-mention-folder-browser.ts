@@ -88,7 +88,7 @@ export function useMentionFolderBrowser(input: MentionFolderBrowserInput) {
   const filtered = useMemo(() => {
     if (!input.open) return [];
     // Root / search results already curated by workspaceMentionTargets.
-    // Empty @: show more flat files (文件/任务/专家 内部平铺), not only ~12 roots.
+    // Empty @: show more flat product files, not only ~12 roots.
     if (!input.query) return items.slice(0, 40);
     return fuzzysort
       .go(input.query, items, { keys: ["label", "value", "subtitle"], limit: 24 })
