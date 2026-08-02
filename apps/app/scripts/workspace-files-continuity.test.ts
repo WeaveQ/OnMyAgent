@@ -713,10 +713,11 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     const browser = readApp(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
-    // Same pathbar pattern: breadcrumb left · expand/collapse · type · search right.
-    expect(browser).toContain('data-files-browser-toolbar="true"');
+    // Pathbar: breadcrumb · expand · type · search · refresh (no lone toolbar row).
+    expect(browser).not.toContain('data-files-browser-toolbar="true"');
     expect(browser).toContain('data-files-browser-pathbar="true"');
     expect(browser).toContain('data-files-browser-breadcrumb="true"');
+    expect(browser).toContain('data-files-browser-refresh="true"');
     expect(browser).toContain('data-files-expand-collapse="true"');
     expect(browser).toContain("ChevronsUpDown");
     expect(browser).toContain("ChevronsDownUp");
