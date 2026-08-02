@@ -37,10 +37,12 @@ describe("workspace files page navigation", () => {
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("collectMatchingFilesUnder");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    // Continuity: Mine-style drill-in (click folder → breadcrumb), not outline tree.
+    // Continuity: drill-in + hierarchical expand tree with depth.
     expect(browser).toContain("enterDirectory");
-    expect(browser).toContain("listDeep");
-    expect(browser).toContain("data-files-list-deep");
+    expect(browser).toContain("treeMode");
+    expect(browser).toContain("buildTreeOutlineRows");
+    expect(browser).toContain("data-files-tree-mode");
+    expect(browser).toContain("data-files-tree-depth");
     expect(browser).not.toContain("groupLooseAsOrphan");
     expect(browser).not.toContain("orphan-header");
     // Loose root files still group under drillable 未分组.
