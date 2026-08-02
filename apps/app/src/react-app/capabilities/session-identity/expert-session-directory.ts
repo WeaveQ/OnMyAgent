@@ -122,6 +122,8 @@ export function buildIsolatedExpertSessionDirectory(input: {
     agentSegment,
     sessionKey,
   );
+  // Must stay under experts/{agent}/{session}/ — same product layout as
+  // resolveProductWriteRelativePath({ source: "expert", … }) (AC5).
   const markerRelativePath = relativePosixPath(
     EXPERTS_LAYOUT_DIR,
     agentSegment,

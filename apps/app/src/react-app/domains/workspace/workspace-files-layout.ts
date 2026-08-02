@@ -149,6 +149,54 @@ export function resolveProductWriteRelativePath(input: {
 }
 
 /**
+ * Reduce an absolute or nested path to a product-layout-relative root when possible.
+ *
+ * Real expert session dirs are often absolute:
+ *   /Users/…/workspace/experts/{agentSeg}/{sessionKey}
+ * Callers may omit workspaceRoot; still peel at the first `experts|tasks|projects|uploads`
+ * segment so permanent-delete can target the correct workspace-relative root.
+ *
+ * Returns null when the path cannot be attributed safely (fail closed — do not
+ * invent a root or pass absolute paths to the files API).
+ */
+export function toProductLayoutRelativePath(
+  directory: string,
+  workspaceRoot?: string | null,
+): string | null {
+  let rel = String(directory ?? "")
+    .trim()
+    .replace(/\\/g, "/");
+  if (!rel) return null;
+
+  const ws = String(workspaceRoot ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "");
+  if (ws) {
+    const wsLower = ws.toLowerCase();
+    const relLower = rel.toLowerCase();
+    if (relLower === wsLower) return null;
+    if (relLower.startsWith(`${wsLower}/`)) {
+      rel = rel.slice(ws.length).replace(/^\/+/, "");
+    }
+  }
+
+  // Peel absolute / nested prefixes down to the first layout top segment.
+  const parts = rel.split("/").filter(Boolean);
+  // Drop Windows drive letter segment (e.g. "C:") if present.
+  const start =
+    parts[0] && /^[A-Za-z]:$/.test(parts[0]) ? parts.slice(1) : parts;
+  const layoutIdx = start.findIndex((p) =>
+    WORKSPACE_LAYOUT_TOP_DIR_SET.has(p.toLowerCase()),
+  );
+  if (layoutIdx < 0) return null;
+  rel = normalizeRel(start.slice(layoutIdx).join("/"));
+  if (!rel || rel.startsWith("..")) return null;
+  if (!isUnderProductLayoutRoot(rel)) return null;
+  return rel;
+}
+
+/**
  * Candidate directory roots (workspace-relative) that may hold files for a session.
  * Used when permanently deleting a conversation (C1: remove generated files).
  */
@@ -161,39 +209,44 @@ export function candidateSessionOwnedRoots(input: {
 }): string[] {
   const id = String(input.sessionId ?? "").trim();
   const roots: string[] = [];
+
+  const rawDir = String(input.directory ?? "").trim();
+  const productDir = rawDir
+    ? toProductLayoutRelativePath(rawDir, input.workspaceRoot)
+    : null;
+
+  // Prefer agent slug from caller, else from resolved directory (experts/{slug}/…).
+  let agent = String(input.agentSlug ?? "").trim();
+  if (!agent && productDir) {
+    const segs = productDir.split("/").filter(Boolean);
+    if ((segs[0] ?? "").toLowerCase() === WORKSPACE_EXPERTS_DIR && segs[1]) {
+      agent = segs[1] ?? "";
+    }
+  }
+
   if (id) {
     roots.push(`${WORKSPACE_TASKS_DIR}/${id}`);
-    const agent = String(input.agentSlug ?? "").trim();
     if (agent) {
       roots.push(`${WORKSPACE_EXPERTS_DIR}/${agent}/${id}`);
     }
   }
 
-  const rawDir = String(input.directory ?? "").trim();
-  if (rawDir) {
-    let rel = rawDir.replace(/\\/g, "/");
-    const ws = String(input.workspaceRoot ?? "")
-      .trim()
-      .replace(/\\/g, "/")
-      .replace(/\/+$/, "");
-    if (ws && (rel === ws || rel.startsWith(`${ws}/`))) {
-      rel = rel.slice(ws.length).replace(/^\/+/, "");
+  if (productDir) {
+    roots.push(productDir);
+  } else if (rawDir && id) {
+    // Bare session folder name (no slashes / no drive) → tasks/{name}
+    const bare = rawDir.replace(/\\/g, "/");
+    if (!bare.includes("/") && !/^[A-Za-z]:/.test(bare)) {
+      roots.push(`${WORKSPACE_TASKS_DIR}/${bare}`);
     }
-    rel = normalizeRel(rel);
-    if (rel && !rel.startsWith("..") && isUnderProductLayoutRoot(rel)) {
-      roots.push(rel);
-    } else if (rel && id && rel.endsWith(`/${id}`)) {
-      roots.push(rel);
-    } else if (rel && id && !rel.includes("/")) {
-      // bare folder name matching session key under tasks
-      roots.push(`${WORKSPACE_TASKS_DIR}/${rel}`);
-    }
+    // Absolute/unresolvable without layout marker: fail closed (omit).
   }
 
   const seen = new Set<string>();
   return roots.filter((r) => {
     const n = normalizeRel(r);
-    if (!n || seen.has(n)) return false;
+    if (!n || seen.has(n) || n.startsWith("..")) return false;
+    if (!isUnderProductLayoutRoot(n)) return false;
     seen.add(n);
     return true;
   });
