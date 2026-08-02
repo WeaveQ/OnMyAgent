@@ -7,6 +7,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { resolveLocalExpertsRoot } from "./config-profile-paths.mjs";
+
 /**
  * @param {Partial<{ getRealHomeDir: () => string }>} options
  */
@@ -18,7 +20,8 @@ export function createExpertMarketplace(options = {}) {
 
   function onmyagentMarketplaceRoot(marketplace) {
     const safeMarketplace = validateExpertMarketplaceName(marketplace);
-    return path.join(getRealHomeDir(), ".onmyagent", "marketplaces", safeMarketplace);
+    // Dual-read: profile experts/{installed|mine} after migrate, else marketplaces/*.
+    return resolveLocalExpertsRoot(getRealHomeDir(), safeMarketplace);
   }
 
   function validateExpertMarketplaceName(value) {
