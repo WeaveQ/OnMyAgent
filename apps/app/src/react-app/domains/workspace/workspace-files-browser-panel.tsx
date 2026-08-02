@@ -107,6 +107,7 @@ import {
 } from "./workspace-files-open-session";
 import {
   FILE_CATEGORIES,
+  WORKSPACE_FILES_CATALOG_LIMIT,
   buildTreeOutlineRows,
   buildUngroupedFolderNode,
   canPreviewWorkspaceFileInline,
@@ -500,6 +501,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogTruncated, setCatalogTruncated] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   /** Brief success flash after a user-initiated refresh (not first mount). */
   const [refreshDone, setRefreshDone] = useState(false);
@@ -596,7 +598,7 @@ export function WorkspaceFilesBrowserPanel(props: {
 
       const catalog = await props.client.listWorkspaceFiles(props.workspaceId, {
         includeDirs: true,
-        limit: 10_000,
+        limit: WORKSPACE_FILES_CATALOG_LIMIT,
         shallow: false,
         ...(hasScopedFileRoot ? { root: fileRoot } : {}),
       });
@@ -607,12 +609,14 @@ export function WorkspaceFilesBrowserPanel(props: {
       .then((items) => {
         if (cancelled) return;
         setEntries(items);
+        setCatalogTruncated(items.length >= WORKSPACE_FILES_CATALOG_LIMIT);
         finishRefreshFlash();
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
         manualRefreshRef.current = false;
         setRefreshDone(false);
+        setCatalogTruncated(false);
         setError(
           loadError instanceof Error ? loadError.message : t("files.load_failed"),
         );
@@ -1060,6 +1064,17 @@ export function WorkspaceFilesBrowserPanel(props: {
               {t(filesSourceTabSubtitleKey(sourceTab))}
             </p>
           </div>
+
+          {catalogTruncated ? (
+            <p
+              className="mb-2 shrink-0 text-sm text-dls-secondary"
+              data-files-catalog-truncated="true"
+            >
+              {t("files.catalog_truncated", {
+                limit: String(WORKSPACE_FILES_CATALOG_LIMIT),
+              })}
+            </p>
+          ) : null}
 
           {/* Pathbar: expand/collapse · type · search · refresh (no duplicate title) */}
           <div

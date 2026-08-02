@@ -31,7 +31,6 @@ import {
 import {
   FILES_UNGROUPED_PATH,
   WORKSPACE_INBOX_DIR,
-  buildRootOutlineRows,
   buildTreeNodesFromUploadRows,
   buildTreeOutlineRows,
   buildUngroupedFolderNode,
@@ -280,7 +279,7 @@ describe("product write paths", () => {
   });
 });
 
-describe("buildRootOutlineRows conversation nesting", () => {
+describe("files tree outline helpers", () => {
   test("isDirectChildOfPrefix detects one-level children only", () => {
     expect(isDirectChildOfPrefix("uploads/a.md", "uploads")).toBe(true);
     expect(isDirectChildOfPrefix("uploads/docs/a.md", "uploads")).toBe(false);
@@ -416,69 +415,87 @@ describe("buildRootOutlineRows conversation nesting", () => {
     ]);
   });
 
-  test("groups top-level loose files under orphan-header", () => {
-    const children: WorkspaceFileTreeNode[] = [
+  test("tree outline groups session titles and loose files at root", () => {
+    const ungrouped = buildUngroupedFolderNode(
+      [
+        {
+          name: "loose.xlsx",
+          path: "loose.xlsx",
+          kind: "file",
+          size: 1,
+          mtimeMs: 1,
+          children: [],
+        },
+      ],
+      "Ungrouped",
+    );
+    const sessionDir: WorkspaceFileTreeNode = {
+      name: "1700000000000",
+      path: "1700000000000",
+      kind: "dir",
+      size: 0,
+      mtimeMs: 2,
+      children: [
+        {
+          name: "a.md",
+          path: "1700000000000/a.md",
+          kind: "file",
+          size: 2,
+          mtimeMs: 2,
+          children: [],
+        },
+      ],
+    };
+    const roots = [sessionDir, ungrouped];
+    const rows = buildTreeOutlineRows(
+      roots,
+      new Set(["1700000000000", FILES_UNGROUPED_PATH]),
       {
-        name: "loose.xlsx",
-        path: "loose.xlsx",
-        kind: "file",
-        size: 1,
-        mtimeMs: 1,
-        children: [],
+        sessionTitleByKey: {
+          "1700000000000": "Optimize AI slides",
+        },
       },
-      {
-        name: "1700000000000",
-        path: "1700000000000",
-        kind: "dir",
-        size: 0,
-        mtimeMs: 2,
-        children: [
-          {
-            name: "a.md",
-            path: "1700000000000/a.md",
-            kind: "file",
-            size: 2,
-            mtimeMs: 2,
-            children: [],
-          },
-        ],
-      },
-    ];
-    const expanded = new Set<string>(["1700000000000", "__orphan_loose__"]);
-    const rows = buildRootOutlineRows(children, expanded, {
-      groupLooseAsOrphan: true,
-      sessionTitleByKey: {
-        "1700000000000": "优化AI方案介绍幻灯片效果",
-      },
-    });
-    expect(rows.some((r) => r.type === "orphan-header")).toBe(true);
-    expect(rows.some((r) => r.type === "loose-file")).toBe(true);
-    const session = rows.find((r) => r.type === "task");
-    expect(session?.type).toBe("task");
-    if (session?.type === "task") {
-      expect(session.displayTitle).toContain("优化");
+    );
+    const session = rows.find(
+      (r) => r.type === "dir" && r.node.path === "1700000000000",
+    );
+    expect(session?.type).toBe("dir");
+    if (session?.type === "dir") {
+      expect(session.displayTitle).toContain("Optimize");
+      expect(session.depth).toBe(0);
     }
+    expect(
+      rows.some((r) => r.type === "file" && r.node.name === "a.md"),
+    ).toBe(true);
+    expect(
+      rows.some(
+        (r) => r.type === "dir" && r.node.path === FILES_UNGROUPED_PATH,
+      ),
+    ).toBe(true);
+    expect(
+      rows.some((r) => r.type === "file" && r.node.name === "loose.xlsx"),
+    ).toBe(true);
   });
 
-  test("project → session → file nesting", () => {
+  test("project → session → file nesting via tree outline", () => {
     const children: WorkspaceFileTreeNode[] = [
       {
-        name: "报价作业",
-        path: "报价作业",
+        name: "quote-job",
+        path: "quote-job",
         kind: "dir",
         size: 0,
         mtimeMs: 1,
         children: [
           {
             name: "ses_a",
-            path: "报价作业/ses_a",
+            path: "quote-job/ses_a",
             kind: "dir",
             size: 0,
             mtimeMs: 2,
             children: [
               {
                 name: "quote.json",
-                path: "报价作业/ses_a/quote.json",
+                path: "quote-job/ses_a/quote.json",
                 kind: "file",
                 size: 3,
                 mtimeMs: 3,
@@ -489,16 +506,18 @@ describe("buildRootOutlineRows conversation nesting", () => {
         ],
       },
     ];
-    const expanded = new Set(["报价作业", "报价作业/ses_a"]);
-    const rows = buildRootOutlineRows(children, expanded, {
-      groupLooseAsOrphan: true,
-      sessionTitleByKey: { ses_a: "报价需求整理会话" },
+    const expanded = new Set(["quote-job", "quote-job/ses_a"]);
+    const rows = buildTreeOutlineRows(children, expanded, {
+      sessionTitleByKey: { ses_a: "Quote requirements session" },
     });
-    expect(rows[0]?.type).toBe("project");
-    const task = rows.find((r) => r.type === "task");
-    expect(task?.type).toBe("task");
-    if (task?.type === "task") {
-      expect(task.displayTitle).toBe("报价需求整理会话");
+    expect(rows[0]?.type).toBe("dir");
+    const session = rows.find(
+      (r) => r.type === "dir" && r.node.path === "quote-job/ses_a",
+    );
+    expect(session?.type).toBe("dir");
+    if (session?.type === "dir") {
+      expect(session.displayTitle).toBe("Quote requirements session");
+      expect(session.depth).toBe(1);
     }
     expect(rows.some((r) => r.type === "file")).toBe(true);
   });
@@ -882,9 +901,36 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).toContain("onOpenSourceSession");
     expect(browser).not.toContain("enterDirectory");
     expect(browser).not.toContain("buildRootOutlineRows");
-    // Root loose files still surface as「未分组」group.
+    // Root loose files still surface as ungrouped group.
     expect(browser).toContain("buildUngroupedFolderNode");
     expect(browser).toContain("files.ungrouped");
     expect(browser).toContain('data-files-ungrouped');
+    expect(browser).toContain("WORKSPACE_FILES_CATALOG_LIMIT");
+    expect(browser).toContain("data-files-catalog-truncated");
+  });
+});
+
+describe("files module structure", () => {
+  test("model barrel re-exports focused modules; chrome helpers exist", () => {
+    const model = readApp(
+      "src/react-app/domains/workspace/workspace-files-model.ts",
+    );
+    const chrome = readApp(
+      "src/react-app/domains/workspace/workspace-files-chrome.tsx",
+    );
+    const page = readApp(
+      "src/react-app/domains/workspace/workspace-files-page.tsx",
+    );
+    expect(model).toContain('export * from "./workspace-files-categories"');
+    expect(model).toContain('export * from "./workspace-files-tree-outline"');
+    expect(model).toContain('export * from "./workspace-files-source-tabs"');
+    expect(model).toContain('export * from "./workspace-files-uploads-catalog"');
+    expect(model).not.toContain("buildRootOutlineRows");
+    expect(chrome).toContain("useFilesRefreshFlash");
+    expect(chrome).toContain("FilesTypeFilter");
+    expect(chrome).toContain("FilesRefreshButton");
+    expect(page).toContain("readFilesTabFromUrl");
+    expect(page).toContain("writeFilesTabToUrl");
+    expect(page).toContain('searchParams.set("tab"');
   });
 });

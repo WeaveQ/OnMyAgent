@@ -23,6 +23,12 @@
     "apps/app/src/react-app/domains/session/surface/composer/composer.tsx": 1517,
     "apps/app/src/app/lib/den.ts": 1760,
     "apps/desktop/electron/weixin/service.mjs": 1743,
-    "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx": 142
+    "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx": 172,
+    "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx": 1752,
+    "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx": 1901,
+    "apps/app/src/react-app/domains/workspace/workspace-files-tree-outline.ts": 322,
+    "apps/app/src/react-app/domains/workspace/workspace-files-uploads-catalog.ts": 366,
+    "apps/app/src/react-app/domains/workspace/workspace-files-source-tabs.ts": 348,
+    "apps/app/src/react-app/domains/workspace/workspace-files-chrome.tsx": 171
   }
 }

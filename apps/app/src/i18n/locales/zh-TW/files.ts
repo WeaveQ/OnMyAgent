@@ -147,6 +147,8 @@ export default {
   "files.title": "檔案",
   "files.type_folder": "文件夾",
   "files.ungrouped": "未分組",
+  "files.catalog_truncated":
+    "僅顯示前 {limit} 項。請用搜尋篩選，或進入子資料夾查看更多。",
   "files.workspace": "工作區",
   "files.workspace_root": "工作區根目錄",
 } as const;

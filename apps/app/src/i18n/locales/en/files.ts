@@ -150,4 +150,6 @@ export default {
   "files.ungrouped": "Ungrouped",
   "files.workspace": "Workspace",
   "files.workspace_root": "Workspace root",
+  "files.catalog_truncated":
+    "Showing the first {limit} items. Narrow with search or open a subfolder for more.",
 } as const;
