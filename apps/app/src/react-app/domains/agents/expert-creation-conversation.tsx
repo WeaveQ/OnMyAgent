@@ -13,6 +13,7 @@ export type ExpertCreationComposerProps = {
   draft: string;
   placeholder: string;
   busy: boolean;
+  disabled?: boolean;
   attachments: ComposerAttachment[];
   onDraftChange: (value: string) => void;
   onAttachFiles: (files: File[]) => void;
@@ -36,9 +37,12 @@ export type ExpertCreationConversationProps = {
   title: string;
   avatar: ReactNode;
   initialContent?: ReactNode;
+  emptyContent?: ReactNode;
   placeholder: string;
-  systemPrompt: string;
+  systemPrompt?: string;
   emptyMessage: string;
+  disabled?: boolean;
+  hideHeader?: boolean;
   className?: string;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
 };
@@ -105,7 +109,7 @@ export function ExpertCreationConversation(
 
   const send = async () => {
     const message = composerDraft.trim();
-    if ((!message && attachments.length === 0) || sending) return;
+    if ((!message && attachments.length === 0) || sending || props.disabled) return;
     if (!props.selectedModel || !props.opencodeBaseUrl?.trim()) return;
 
     const submittedAttachments = attachments;
@@ -137,7 +141,7 @@ export function ExpertCreationConversation(
         attachments: submittedAttachments.map((attachment) => attachment.file),
         draft: props.draft,
         model: props.selectedModel,
-        systemPrompt: props.systemPrompt,
+        ...(props.systemPrompt ? { systemPrompt: props.systemPrompt } : {}),
         signal: controller.signal,
         onTextChange: (content) => {
           setMessages((current) => {
@@ -196,15 +200,18 @@ export function ExpertCreationConversation(
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", props.className)}>
-      <div className="flex shrink-0 items-center gap-3">
-        {props.avatar}
-        <h2 className="truncate text-base font-semibold text-dls-text">
-          {props.title}
-        </h2>
-      </div>
+      {!props.hideHeader ? (
+        <div className="flex shrink-0 items-center gap-3">
+          {props.avatar}
+          <h2 className="truncate text-base font-semibold text-dls-text">
+            {props.title}
+          </h2>
+        </div>
+      ) : null}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-8">
         <div className="space-y-5 text-sm leading-7 text-dls-text">
           {props.initialContent}
+          {messages.length === 0 && !sending ? props.emptyContent : null}
           {messages.map((message) => (
             <div
               key={message.id}
@@ -231,6 +238,7 @@ export function ExpertCreationConversation(
           draft: composerDraft,
           placeholder: props.placeholder,
           busy: sending,
+          disabled: props.disabled,
           attachments,
           onDraftChange: setComposerDraft,
           onAttachFiles: (files) =>

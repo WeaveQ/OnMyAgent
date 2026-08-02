@@ -803,7 +803,7 @@ export function ExpertPage(props: ExpertPageProps) {
           onSend={composer.onSend}
           onStop={composer.onStop}
           busy={composer.busy}
-          disabled={surface.model.modelUnavailable === true}
+          disabled={composer.disabled || surface.model.modelUnavailable === true}
           modelUnavailable={surface.model.modelUnavailable}
           accessMode="default"
           onAccessModeChange={() => undefined}
