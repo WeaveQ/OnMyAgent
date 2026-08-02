@@ -10,7 +10,7 @@ import { ModelBehaviorSelect } from "../../../../../components/model-behavior-se
 import { ModelSelectContainer } from "../../components/model-select";
 import { Button } from "@/components/ui/button";
 import { SendButton } from "@/components/ui/send-button";
-import { ContextUsageIndicator } from "../../../local-agents/context-usage-indicator";
+import { ContextUsageIndicator } from "../../../local-agents";
 import { LexicalPromptEditor } from "./editor";
 import { AccessPermissionSelect } from "./access-permission-select";
 import { matchComposerSlashQuery } from "./tool-menu-model";
