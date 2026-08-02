@@ -992,20 +992,11 @@ export function SidebarAccountButton(props: {
             }}
           />
         ) : null}
-        <SidebarAccountMenuItem
-          icon={Settings}
-          label={t("account_menu.settings")}
-          showChevron
-          onSelect={() => {
-            closeMenu();
-            props.onOpenSettings?.();
-          }}
-        />
       </div>
 
       <DropdownMenuSeparator className="my-0.5 bg-dls-border" />
 
-      {/* Section 2 — inline actions (no navigation chevron) */}
+      {/* Section 2 — appearance · settings · check for updates */}
       <div className="px-1.5 py-1">
         <div
           className={cn(
@@ -1047,6 +1038,15 @@ export function SidebarAccountButton(props: {
             </button>
           </div>
         </div>
+        <SidebarAccountMenuItem
+          icon={Settings}
+          label={t("account_menu.settings")}
+          showChevron
+          onSelect={() => {
+            closeMenu();
+            props.onOpenSettings?.();
+          }}
+        />
         <SidebarAccountMenuItem
           icon={RefreshCw}
           label={
