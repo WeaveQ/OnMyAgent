@@ -600,12 +600,17 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     const uploads = readApp(
       "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
     );
-    // Left: create folder + upload; right: type + search. No capacity (A7).
+    // Actions row + path bar (breadcrumb · expand/collapse · type · search).
     expect(uploads).toContain('data-files-mine-toolbar="true"');
+    expect(uploads).toContain('data-files-mine-pathbar="true"');
     expect(uploads).toContain('data-files-create-folder="true"');
     expect(uploads).toContain('data-files-upload="true"');
     expect(uploads).toContain('data-files-mine-breadcrumb="true"');
+    expect(uploads).toContain('data-files-expand-all="true"');
+    expect(uploads).toContain('data-files-collapse-all="true"');
     expect(uploads).toContain("files.upload_files");
+    expect(uploads).toContain("files.expand_all_folders");
+    expect(uploads).toContain("files.collapse_all_folders");
     expect(uploads).toContain("files.column_type");
     expect(uploads).toContain("files.search_uploads_placeholder");
     expect(uploads).toContain("typeFilter");

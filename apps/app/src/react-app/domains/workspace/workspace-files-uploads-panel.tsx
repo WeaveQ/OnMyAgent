@@ -14,6 +14,8 @@ import {
 import {
   Check,
   ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Copy,
   ExternalLink,
   FileUp,
@@ -283,6 +285,11 @@ export function WorkspaceFilesUploadsPanel(props: {
   /** Folder row id currently highlighted as drag-move target. */
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [moveBusy, setMoveBusy] = useState(false);
+  /**
+   * false = only current folder children (default);
+   * true = expand all nested files under currentFolderPath.
+   */
+  const [listDeep, setListDeep] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
@@ -319,16 +326,37 @@ export function WorkspaceFilesUploadsPanel(props: {
         const inboxRows = mapInboxItemsToUploadRows(inboxList.items ?? []);
         const catalogRows = mapUploadsCatalogToRows(catalog.items ?? [], {
           parentPrefix: currentFolderPath,
-          shallow: true,
+          shallow: !listDeep,
         });
         // At uploads root, also show inbox files that are not under a subfolder.
-        const inboxAtRoot =
+        const inboxScoped =
           currentFolderPath === WORKSPACE_UPLOADS_DIR
             ? inboxRows
-            : inboxRows.filter((row) =>
-                row.path.replace(/\\/g, "/").startsWith(`${currentFolderPath}/`),
-              );
-        setRows(mergeMineUploadRows(inboxAtRoot, catalogRows));
+            : inboxRows.filter((row) => {
+                const p = row.path.replace(/\\/g, "/");
+                return (
+                  p.startsWith(`${currentFolderPath}/`)
+                  || p === currentFolderPath
+                );
+              });
+        // Deep expand: keep all scoped files; shallow: only top segment under parent.
+        const inboxAtLevel = listDeep
+          ? inboxScoped
+          : inboxScoped.filter((row) => {
+              const p = row.path.replace(/\\/g, "/");
+              if (currentFolderPath === WORKSPACE_UPLOADS_DIR) {
+                // inbox path may be "uploads/foo" or "foo" — keep one segment past root.
+                const rest = p.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
+                  ? p.slice(WORKSPACE_UPLOADS_DIR.length + 1)
+                  : p;
+                return Boolean(rest) && !rest.includes("/");
+              }
+              const rest = p.startsWith(`${currentFolderPath}/`)
+                ? p.slice(currentFolderPath.length + 1)
+                : "";
+              return Boolean(rest) && !rest.includes("/");
+            });
+        setRows(mergeMineUploadRows(inboxAtLevel, catalogRows));
         if (manualRefreshRef.current) {
           manualRefreshRef.current = false;
           setRefreshDone(true);
@@ -348,7 +376,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [canLoad, currentFolderPath, props.client, refreshKey, workspaceId]);
+  }, [canLoad, currentFolderPath, listDeep, props.client, refreshKey, workspaceId]);
 
   const visibleRows = useMemo(
     () => filterUploadRows(rows, query, typeFilter),
@@ -956,90 +984,165 @@ export function WorkspaceFilesUploadsPanel(props: {
         </p>
       </div>
 
-      {/* Hope toolbar: primary actions left, type + search right. No capacity bar (A7). */}
+      {/* Primary actions only (Hope left cluster). No capacity bar (A7). */}
       <div
-        className="mb-3 flex w-full shrink-0 flex-wrap items-center justify-between gap-2"
+        className="mb-2.5 flex w-full shrink-0 flex-wrap items-center gap-2"
         data-files-mine-toolbar="true"
       >
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="default"
+          disabled={!canLoad || uploading || loading || createFolderBusy}
+          onClick={() => {
+            setCreateFolderName("");
+            setCreateFolderOpen(true);
+          }}
+          className="h-9 gap-1.5 rounded-full px-3.5"
+          data-files-create-folder="true"
+        >
+          <FolderPlus className="size-3.5" aria-hidden />
+          {t("files.create_folder")}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            const list = event.target.files;
+            if (list?.length) void importFiles(list);
+            event.target.value = "";
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="default"
+          disabled={!canLoad || uploading || loading}
+          onClick={onPickClick}
+          className="h-9 gap-1.5 rounded-full px-3.5"
+          data-files-upload="true"
+        >
+          {uploading ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Upload className="size-3.5" aria-hidden />
+          )}
+          {uploading ? t("files.uploading") : t("files.upload_files")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          disabled={loading || refreshDone || !canLoad || uploading}
+          onClick={() => {
+            manualRefreshRef.current = true;
+            setRefreshDone(false);
+            setRefreshKey((key) => key + 1);
+          }}
+          className={cn(
+            "size-9 shrink-0 rounded-full transition-colors",
+            refreshDone &&
+              "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+          )}
+          title={refreshDone ? t("common.refreshed") : t("common.refresh")}
+          aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
+          aria-busy={loading || undefined}
+        >
+          {loading ? (
+            <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+          ) : refreshDone ? (
+            <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+          ) : (
+            <RefreshCw className="size-3.5" aria-hidden />
+          )}
+        </Button>
+      </div>
+
+      {/* One row: breadcrumb · expand/collapse · type · search */}
+      <div
+        className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
+        data-files-mine-pathbar="true"
+      >
+        <nav
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm text-dls-secondary"
+          aria-label={t("files.breadcrumb_label")}
+          data-files-mine-breadcrumb="true"
+        >
+          {breadcrumbSegments.map((segment, index) => {
+            const isLast = index === breadcrumbSegments.length - 1;
+            return (
+              <span
+                key={segment.path}
+                className="inline-flex min-w-0 max-w-full items-center gap-1"
+              >
+                {index > 0 ? (
+                  <span className="shrink-0 text-dls-secondary/60" aria-hidden>
+                    /
+                  </span>
+                ) : null}
+                {isLast ? (
+                  <span className="truncate font-medium text-dls-text">
+                    {segment.label}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
+                    onClick={() => {
+                      setListDeep(false);
+                      setCurrentFolderPath(segment.path);
+                    }}
+                  >
+                    {segment.label}
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </nav>
+
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <Button
             type="button"
             variant="outline"
             size="default"
-            disabled={!canLoad || uploading || loading || createFolderBusy}
-            onClick={() => {
-              setCreateFolderName("");
-              setCreateFolderOpen(true);
-            }}
-            className="h-9 gap-1.5"
-            data-files-create-folder="true"
-          >
-            <FolderPlus className="size-3.5" aria-hidden />
-            {t("files.create_folder")}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              const list = event.target.files;
-              if (list?.length) void importFiles(list);
-              event.target.value = "";
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            disabled={!canLoad || uploading || loading}
-            onClick={onPickClick}
-            className="h-9 gap-1.5"
-            data-files-upload="true"
-          >
-            {uploading ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Upload className="size-3.5" aria-hidden />
-            )}
-            {uploading ? t("files.uploading") : t("files.upload_files")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            disabled={loading || refreshDone || !canLoad || uploading}
-            onClick={() => {
-              manualRefreshRef.current = true;
-              setRefreshDone(false);
-              setRefreshKey((key) => key + 1);
-            }}
+            disabled={!canLoad || loading || uploading}
+            onClick={() => setListDeep(true)}
             className={cn(
-              "size-9 shrink-0 transition-colors",
-              refreshDone &&
-                "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+              "h-9 gap-1.5 rounded-full px-3 text-sm",
+              listDeep && "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
             )}
-            title={refreshDone ? t("common.refreshed") : t("common.refresh")}
-            aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
-            aria-busy={loading || undefined}
+            data-files-expand-all="true"
+            title={t("files.expand_all_folders")}
           >
-            {loading ? (
-              <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-            ) : refreshDone ? (
-              <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-            ) : (
-              <RefreshCw className="size-3.5" aria-hidden />
-            )}
+            <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">{t("files.expand_all_folders")}</span>
           </Button>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            disabled={!canLoad || loading || uploading}
+            onClick={() => {
+              setListDeep(false);
+              setCurrentFolderPath(WORKSPACE_UPLOADS_DIR);
+            }}
+            className="h-9 gap-1.5 rounded-full px-3 text-sm"
+            data-files-collapse-all="true"
+            title={t("files.collapse_all_folders")}
+          >
+            <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">{t("files.collapse_all_folders")}</span>
+          </Button>
           <div className="relative shrink-0">
             <Button
               type="button"
               variant="outline"
               size="default"
               onClick={() => setTypeMenuOpen((prev) => !prev)}
-              className="h-9 gap-1.5 px-3 text-sm"
+              className="h-9 gap-1.5 rounded-full px-3 text-sm"
             >
               <SlidersHorizontal
                 data-icon="inline-start"
@@ -1055,7 +1158,7 @@ export function WorkspaceFilesUploadsPanel(props: {
             </Button>
             {typeMenuOpen ? (
               <div
-                className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-lg border border-dls-border bg-dls-surface-solid py-1 shadow-md"
+                className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 shadow-md"
                 style={{
                   backgroundColor:
                     "var(--dls-surface-solid, var(--dls-surface))",
@@ -1082,7 +1185,7 @@ export function WorkspaceFilesUploadsPanel(props: {
             controlSize="default"
             radius="lg"
             tone="surface"
-            className="min-w-[200px] w-56 sm:w-64"
+            className="min-w-[11rem] w-48 rounded-full sm:w-56"
           >
             <InputGroupAddon align="inline-start">
               <Search className="size-3.5" />
@@ -1097,39 +1200,6 @@ export function WorkspaceFilesUploadsPanel(props: {
           </InputGroup>
         </div>
       </div>
-
-      {/* Always-on breadcrumb (Hope: drive / folder / …) */}
-      <nav
-        className="mb-3 flex min-w-0 shrink-0 flex-wrap items-center gap-1 text-xs text-dls-secondary"
-        aria-label={t("files.breadcrumb_label")}
-        data-files-mine-breadcrumb="true"
-      >
-        {breadcrumbSegments.map((segment, index) => {
-          const isLast = index === breadcrumbSegments.length - 1;
-          return (
-            <span key={segment.path} className="inline-flex min-w-0 items-center gap-1">
-              {index > 0 ? (
-                <span className="shrink-0 text-dls-secondary/70" aria-hidden>
-                  /
-                </span>
-              ) : null}
-              {isLast ? (
-                <span className="truncate font-medium text-dls-text">
-                  {segment.label}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="truncate rounded-sm text-dls-secondary transition-colors hover:text-dls-text hover:underline"
-                  onClick={() => setCurrentFolderPath(segment.path)}
-                >
-                  {segment.label}
-                </button>
-              )}
-            </span>
-          );
-        })}
-      </nav>
 
       {error ? (
         <p className="mb-3 shrink-0 text-sm text-dls-status-danger-fg">{error}</p>
@@ -1257,6 +1327,7 @@ export function WorkspaceFilesUploadsPanel(props: {
                         onDrop={(event) => void handleFolderDrop(event, row)}
                         onClick={() => {
                           if (isDir) {
+                            setListDeep(false);
                             setCurrentFolderPath(row.path.replace(/\\/g, "/"));
                             setSelectedId(null);
                             return;
@@ -1265,6 +1336,7 @@ export function WorkspaceFilesUploadsPanel(props: {
                         }}
                         onDoubleClick={() => {
                           if (isDir) {
+                            setListDeep(false);
                             setCurrentFolderPath(row.path.replace(/\\/g, "/"));
                             return;
                           }
