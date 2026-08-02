@@ -40,6 +40,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
@@ -582,7 +583,7 @@ function BasicInfoPanel(props: {
               type="button"
               className="relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
               onClick={() => setAvatarPickerOpen(true)}
-              aria-label={t("agents.expert_creation_generate_avatar")}
+              aria-label={t("agents.expert_creation_avatar")}
             >
               <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-24 text-2xl" />
               <span className="absolute -bottom-1 -right-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
@@ -605,8 +606,8 @@ function BasicInfoPanel(props: {
               size="sm"
               onClick={() => setAvatarPickerOpen(true)}
             >
-              <Sparkles data-icon="inline-start" className="size-3.5" />
-              {t("agents.expert_creation_generate_avatar")}
+              <UserRound data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_choose_avatar")}
             </Button>
           </div>
           <div className="space-y-4">
@@ -648,7 +649,7 @@ function BasicInfoPanel(props: {
       <Dialog open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
         <DialogContent className="w-[min(32rem,calc(100%-2rem))] gap-4 rounded-xl bg-dls-surface p-5 text-dls-text">
           <DialogHeader>
-            <DialogTitle>{t("agents.expert_creation_generate_avatar")}</DialogTitle>
+            <DialogTitle>{t("agents.expert_creation_choose_avatar")}</DialogTitle>
             <DialogDescription>{t("agents.expert_creation_avatar_hint")}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-4 gap-3">
@@ -766,6 +767,9 @@ function SkillsPanel(props: {
   onSelectedIdsChange: (ids: string[]) => void;
   onImport: (files: File[]) => void;
   importing: boolean;
+  loading: boolean;
+  loadError: boolean;
+  onRetryLoad: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -786,7 +790,7 @@ function SkillsPanel(props: {
           <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_skills_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPickerOpen(true)}>
+          <Button type="button" size="sm" variant="ghost" disabled={props.loading || props.loadError} onClick={() => setPickerOpen(true)}>
             <Plus data-icon="inline-start" className="size-3.5" />
             {t("agents.expert_creation_add_skill")}
           </Button>
@@ -804,7 +808,27 @@ function SkillsPanel(props: {
           />
         </div>
       </div>
-      {selectedSkills.length > 0 ? (
+      {props.loading && selectedSkills.length === 0 ? (
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+          <LoadingSpinner size="default" />
+          <p className="mt-4 text-sm text-dls-secondary">{t("agents.expert_creation_loading_skills")}</p>
+        </div>
+      ) : props.loadError && selectedSkills.length === 0 ? (
+        <div className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center rounded-2xl bg-dls-surface px-6 text-center">
+          <NoticeBox role="alert" tone="error" size="content" className="max-w-md">
+            {t("agents.expert_creation_load_skills_failed")}
+          </NoticeBox>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={props.onRetryLoad}>
+              {t("agents.expert_creation_retry")}
+            </Button>
+            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+              <Upload data-icon="inline-start" className="size-3.5" />
+              {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
+            </Button>
+          </div>
+        </div>
+      ) : selectedSkills.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           {selectedSkills.map((skill) => {
             const selected = props.selectedIds.includes(skill.id);
@@ -1338,6 +1362,9 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [knowledge, setKnowledge] = useState<ExpertKnowledgeEntry[]>([]);
   const [tryOpen, setTryOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [skillsLoading, setSkillsLoading] = useState(true);
+  const [skillsLoadError, setSkillsLoadError] = useState(false);
+  const [skillsReloadToken, setSkillsReloadToken] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1349,12 +1376,18 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   useEffect(() => {
     let cancelled = false;
     const loadSkills = async () => {
+      setSkillsLoading(true);
+      setSkillsLoadError(false);
       let localSkills: LocalSkillSummary[] = [];
+      let attempted = false;
+      let succeeded = false;
       if (props.client && props.workspaceId.trim()) {
+        attempted = true;
         try {
           const result = await props.client.listSkills(props.workspaceId, {
             includeGlobal: true,
           });
+          succeeded = true;
           localSkills = result.items.map((entry) => ({
             name: entry.name,
             path: entry.path,
@@ -1367,8 +1400,10 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         }
       }
       if (localSkills.length === 0 && isElectronRuntime() && props.workspaceRoot.trim()) {
+        attempted = true;
         try {
           const result: unknown = await listLocalSkills(props.workspaceRoot);
+          succeeded = true;
           const entries: unknown[] = Array.isArray(result) ? result : [];
           localSkills = entries.filter(isLocalSkillSummary);
         } catch {
@@ -1404,12 +1439,14 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         });
       }
       setAvailableSkills(merged.filter((skill) => skill.enabled));
+      setSkillsLoadError(attempted && !succeeded);
+      setSkillsLoading(false);
     };
     void loadSkills();
     return () => {
       cancelled = true;
     };
-  }, [props.client, props.skills, props.workspaceId, props.workspaceRoot]);
+  }, [props.client, props.skills, props.workspaceId, props.workspaceRoot, skillsReloadToken]);
 
   const setDraftField = <K extends keyof AgentWizardDraft>(
     key: K,
@@ -1592,6 +1629,9 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                     onSelectedIdsChange={(ids) => setDraftField("skillIds", ids)}
                     onImport={(files) => void importSkillPackage(files)}
                     importing={importing}
+                    loading={skillsLoading}
+                    loadError={skillsLoadError}
+                    onRetryLoad={() => setSkillsReloadToken((current) => current + 1)}
                   />
                 ) : null}
                 {activeTab === "knowledge" ? (
