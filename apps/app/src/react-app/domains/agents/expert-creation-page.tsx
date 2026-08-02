@@ -63,8 +63,12 @@ import {
 } from "./expert-creation-coach-model";
 import { runExpertCoachTurn } from "./expert-creation-coach-runtime";
 import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
+import { mergeExpertChatAttachments } from "./expert-creation-chat-attachments";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
-import { hasExpertCreationProgress } from "./expert-creation-lifecycle";
+import {
+  buildExpertPreviewDraftKey,
+  hasExpertCreationProgress,
+} from "./expert-creation-lifecycle";
 import {
   clearExpertCreationStoredState,
   readExpertCreationStoredState,
@@ -245,6 +249,8 @@ function ExpertCoach(props: {
     setAttachments([]);
     const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
     if (!baseUrl) {
+      setInput((current) => current.trim() ? current : value);
+      setAttachments((current) => mergeExpertChatAttachments(submittedAttachments, current));
       setMessages((current) => [...current, {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -287,7 +293,16 @@ function ExpertCoach(props: {
         }, ...current]);
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setMessages((current) => [...current, {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: t("agents.expert_creation_coach_stopped"),
+        }]);
+        return;
+      }
+      setInput((current) => current.trim() ? current : value);
+      setAttachments((current) => mergeExpertChatAttachments(submittedAttachments, current));
       const detail = error instanceof Error ? error.message : "";
       setMessages((current) => [...current, {
         id: crypto.randomUUID(),
@@ -416,7 +431,7 @@ function ExpertCoach(props: {
               multiple
               className="hidden"
               onChange={(event) => {
-                setAttachments((current) => [...current, ...Array.from(event.currentTarget.files ?? [])]);
+                setAttachments((current) => mergeExpertChatAttachments(current, Array.from(event.currentTarget.files ?? [])));
                 event.currentTarget.value = "";
               }}
             />
@@ -1081,11 +1096,20 @@ function TryEffectPanel(props: {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [messages, setMessages] = useState<ExpertCoachMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionDraftKey, setSessionDraftKey] = useState<string | null>(null);
   const [streamText, setStreamText] = useState("");
   const [sending, setSending] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const streamTextRef = useRef("");
+  const draftKey = buildExpertPreviewDraftKey(props.draft);
+  const staleSession = Boolean(sessionId && sessionDraftKey && sessionDraftKey !== draftKey);
+
+  const updateStreamText = (text: string) => {
+    streamTextRef.current = text;
+    setStreamText(text);
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -1097,6 +1121,7 @@ function TryEffectPanel(props: {
     const value = input.trim();
     const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
     if ((!value && attachments.length === 0) || !baseUrl || sending || !props.draft.name.trim()) return;
+    if (staleSession) setMessages([]);
     setMessages((current) => [...current, {
       id: crypto.randomUUID(),
       role: "user",
@@ -1105,7 +1130,7 @@ function TryEffectPanel(props: {
     setInput("");
     const submittedAttachments = attachments;
     setAttachments([]);
-    setStreamText("");
+    updateStreamText("");
     setSending(true);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -1116,14 +1141,15 @@ function TryEffectPanel(props: {
           token: props.onmyagentServerToken,
           workspaceRoot: props.workspaceRoot,
         },
-        sessionId,
+        sessionId: staleSession ? null : sessionId,
         message: value,
         attachments: submittedAttachments,
         draft: props.draft,
         signal: controller.signal,
-        onTextChange: setStreamText,
+        onTextChange: updateStreamText,
       });
       setSessionId(result.sessionId);
+      setSessionDraftKey(draftKey);
       if (result.content.trim()) {
         setMessages((current) => [...current, {
           id: crypto.randomUUID(),
@@ -1131,9 +1157,22 @@ function TryEffectPanel(props: {
           content: result.content,
         }]);
       }
-      setStreamText("");
+      updateStreamText("");
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        const partial = streamTextRef.current.trim();
+        setMessages((current) => [...current, {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: partial
+            ? `${partial}\n\n${t("agents.expert_creation_preview_stopped")}`
+            : t("agents.expert_creation_preview_stopped"),
+        }]);
+        updateStreamText("");
+        return;
+      }
+      setInput((current) => current.trim() ? current : value);
+      setAttachments((current) => mergeExpertChatAttachments(submittedAttachments, current));
       const detail = error instanceof Error ? error.message : "";
       setMessages((current) => [...current, {
         id: crypto.randomUUID(),
@@ -1142,7 +1181,7 @@ function TryEffectPanel(props: {
           ? t("agents.expert_creation_preview_failed_detail", { detail })
           : t("agents.expert_creation_preview_failed"),
       }]);
-      setStreamText("");
+      updateStreamText("");
     } finally {
       abortRef.current = null;
       setSending(false);
@@ -1152,8 +1191,9 @@ function TryEffectPanel(props: {
   const startNewSession = () => {
     abortRef.current?.abort();
     setSessionId(null);
+    setSessionDraftKey(null);
     setMessages([]);
-    setStreamText("");
+    updateStreamText("");
     setInput("");
     setAttachments([]);
   };
@@ -1172,6 +1212,11 @@ function TryEffectPanel(props: {
         </Button>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+        {staleSession ? (
+          <NoticeBox tone="info" size="content" className="mb-4">
+            {t("agents.expert_creation_preview_config_changed")}
+          </NoticeBox>
+        ) : null}
         {props.draft.name.trim() ? (
           <div className="space-y-3">
             {messages.map((message) => (
@@ -1235,7 +1280,7 @@ function TryEffectPanel(props: {
             multiple
             className="hidden"
             onChange={(event) => {
-              setAttachments((current) => [...current, ...Array.from(event.currentTarget.files ?? [])]);
+              setAttachments((current) => mergeExpertChatAttachments(current, Array.from(event.currentTarget.files ?? [])));
               event.currentTarget.value = "";
             }}
           />

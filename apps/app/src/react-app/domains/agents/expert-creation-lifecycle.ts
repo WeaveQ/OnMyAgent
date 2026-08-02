@@ -23,3 +23,12 @@ export function hasExpertCreationProgress(
     || !sameStrings(draft.skillIds, baseline.skillIds);
 }
 
+export function buildExpertPreviewDraftKey(draft: AgentWizardDraft): string {
+  return JSON.stringify({
+    name: draft.name,
+    description: draft.description,
+    rolePrompt: draft.userNote,
+    memory: draft.agentMemory,
+    skillIds: [...draft.skillIds].sort(),
+  });
+}
