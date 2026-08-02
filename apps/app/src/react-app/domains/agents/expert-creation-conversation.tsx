@@ -7,6 +7,10 @@ import { t } from "../../../i18n";
 import { cn } from "@/lib/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
 import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
+import {
+  parseExpertDraftSuggestion,
+  type ExpertDraftSuggestion,
+} from "./expert-creation-suggestions";
 
 export type ExpertCreationComposerProps = {
   sessionId: string;
@@ -26,6 +30,8 @@ type ConversationMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  suggestion?: ExpertDraftSuggestion;
+  suggestionApplied?: boolean;
 };
 
 export type ExpertCreationConversationProps = {
@@ -45,6 +51,7 @@ export type ExpertCreationConversationProps = {
   hideHeader?: boolean;
   className?: string;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
+  onApplyDraftSuggestion?: (suggestion: ExpertDraftSuggestion) => void;
 };
 
 function createAttachments(files: File[]): ComposerAttachment[] {
@@ -144,16 +151,28 @@ export function ExpertCreationConversation(
         ...(props.systemPrompt ? { systemPrompt: props.systemPrompt } : {}),
         signal: controller.signal,
         onTextChange: (content) => {
+          const parsed = parseExpertDraftSuggestion(content);
           setMessages((current) => {
             const existing = current.findIndex((item) => item.id === streamingId);
             if (existing < 0) {
               return [
                 ...current,
-                { id: streamingId, role: "assistant", content },
+                {
+                  id: streamingId,
+                  role: "assistant",
+                  content: parsed.content,
+                  ...(parsed.suggestion ? { suggestion: parsed.suggestion } : {}),
+                },
               ];
             }
             return current.map((item) =>
-              item.id === streamingId ? { ...item, content } : item,
+              item.id === streamingId
+                ? {
+                    ...item,
+                    content: parsed.content,
+                    ...(parsed.suggestion ? { suggestion: parsed.suggestion } : {}),
+                  }
+                : item,
             );
           });
         },
@@ -223,6 +242,25 @@ export function ExpertCreationConversation(
               )}
             >
               <p className="whitespace-pre-wrap">{message.content}</p>
+              {message.role === "assistant" && message.suggestion && props.onApplyDraftSuggestion ? (
+                <button
+                  type="button"
+                  disabled={message.suggestionApplied}
+                  className="mt-3 rounded-lg bg-dls-surface-muted px-3 py-1.5 text-xs font-medium text-dls-text transition-colors hover:bg-dls-list-selected disabled:cursor-default disabled:opacity-60"
+                  onClick={() => {
+                    const suggestion = message.suggestion;
+                    if (!suggestion) return;
+                    props.onApplyDraftSuggestion?.(suggestion);
+                    setMessages((current) => current.map((item) => (
+                      item.id === message.id ? { ...item, suggestionApplied: true } : item
+                    )));
+                  }}
+                >
+                  {message.suggestionApplied
+                    ? t("agents.expert_creation_suggestion_applied")
+                    : t("agents.expert_creation_apply_suggestion")}
+                </button>
+              ) : null}
             </div>
           ))}
           {sending && messages.at(-1)?.role === "user" ? (
