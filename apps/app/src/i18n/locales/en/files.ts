@@ -30,11 +30,10 @@ export default {
   "files.source_task_title": "Task files",
   "files.source_expert_title": "Expert files",
   "files.source_uploads_desc":
-    "Files you imported into the workspace. Edits apply to the workspace copy, not the original on disk.",
+    "Files you imported into this workspace.",
   "files.source_task_desc":
-    "Home temporary-task outputs and other non-expert workspace folders. Expert agent archives are listed under Experts.",
-  "files.source_expert_desc":
-    "Expert agent folders and their task outputs (path heuristic until write-time tagging).",
+    "Home temporary-task outputs and other non-expert workspace folders.",
+  "files.source_expert_desc": "Expert agent folders and their task outputs.",
   "files.search_uploads_placeholder": "Search files or folders…",
   "files.upload_files": "Upload files",
   "files.breadcrumb_mine": "My files",

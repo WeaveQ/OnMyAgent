@@ -29,12 +29,9 @@ export default {
   "files.source_uploads_title": "我的文件",
   "files.source_task_title": "任务文件",
   "files.source_expert_title": "专家文件",
-  "files.source_uploads_desc":
-    "已导入工作区的资料。编辑只影响工作区副本，不会自动改本机原文件。",
-  "files.source_task_desc":
-    "首页临时任务产物，以及非专家目录下的工作区文件。专家归档目录在「专家」中查看。",
-  "files.source_expert_desc":
-    "专家目录及其任务产物（按文件夹命名识别；写入打标上线后将更精确）。",
+  "files.source_uploads_desc": "导入到工作区的文件。",
+  "files.source_task_desc": "首页临时任务产物，以及非专家目录下的工作区文件。",
+  "files.source_expert_desc": "专家目录及其任务产物。",
   "files.search_uploads_placeholder": "搜索文件或文件夹…",
   "files.upload_files": "上传文件",
   "files.breadcrumb_mine": "我的文件",

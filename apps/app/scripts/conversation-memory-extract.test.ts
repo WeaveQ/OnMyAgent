@@ -26,6 +26,7 @@ import {
   selectGlobalMemoryItems,
   truncateMemoryLines,
   WORK_MEMORY_SEED,
+  getWorkMemorySeed,
 } from "../src/react-app/domains/shared/memory/work-memory";
 import {
   applyLongTermMemoryMarkdown,
@@ -382,8 +383,9 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
         tools: { feishu: "Feishu", excel: "Excel" },
         tasks: { "weekly-report": "Weekly report" },
       },
+      "zh",
     );
-    expect(md).toContain("# User profile");
+    expect(md).toContain("# 用户画像");
     expect(md).toContain("Hope");
     expect(md).toContain("Xiao");
     expect(md).toContain("INTJ");
@@ -391,12 +393,17 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
     expect(md).toContain("Internet");
     expect(md).toContain("Feishu");
     expect(md).toContain("Weekly report");
-    expect(buildUserProfileMarkdown(null)).toBe(WORK_MEMORY_SEED["USER.md"]);
+    expect(buildUserProfileMarkdown(null, undefined, "zh")).toBe(
+      WORK_MEMORY_SEED["USER.md"],
+    );
+    expect(buildUserProfileMarkdown(null, undefined, "en")).toContain(
+      "# User profile",
+    );
   });
 
   test("style.md and MEMORY.md round-trip prefs ↔ markdown", () => {
-    const style = buildStyleMarkdown("professional", "prefer tables");
-    expect(style).toContain("## Tone");
+    const style = buildStyleMarkdown("professional", "prefer tables", "zh");
+    expect(style).toContain("## 语气");
     expect(style).toContain("professional");
     expect(style).toContain("prefer tables");
     const parsedStyle = parseStyleMarkdown(style);
@@ -420,7 +427,8 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
         },
       ],
     });
-    const memMd = buildLongTermMemoryMarkdown(memState);
+    const memMd = buildLongTermMemoryMarkdown(memState, "zh");
+    expect(memMd).toContain("# 长期记忆");
     expect(memMd).toContain("weekly-report-as-table");
     expect(memMd).not.toContain("expert-only");
     const applied = applyLongTermMemoryMarkdown(memState, memMd);
@@ -443,6 +451,7 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
         industries: ["internet"],
       }),
       labels,
+      "zh",
     );
     const userParsed = parseUserProfileMarkdown(userMd, labels);
     expect(userParsed.userName).toBe("Hope");
@@ -458,6 +467,8 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
         (i) => i.text === "weekly-report-as-table",
       ),
     ).toBe(true);
+    expect(getWorkMemorySeed("en")["style.md"]).toContain("Collaboration style");
+    expect(getWorkMemorySeed("zh-TW")["USER.md"]).toContain("使用者畫像");
   });
 
   test("clearGlobalWorkMemory drops global/pending/short, keeps expert C", () => {
@@ -503,9 +514,9 @@ describe("work memory B' inject + expert isolation (shipped)", () => {
     expect(cleared.items[0]?.expertId).toBe("expert-a");
     expect(cleared.pending).toEqual([]);
     expect(cleared.shortTerm).toEqual([]);
-    expect(WORK_MEMORY_SEED["style.md"]).toContain("Collaboration style");
-    expect(WORK_MEMORY_SEED["AGENTS.md"]).toContain("Work handbook");
-    expect(WORK_MEMORY_SEED["MEMORY.md"]).toContain("Long-term memory");
+    expect(WORK_MEMORY_SEED["style.md"]).toContain("协作风格");
+    expect(WORK_MEMORY_SEED["AGENTS.md"]).toContain("工作手册");
+    expect(WORK_MEMORY_SEED["MEMORY.md"]).toContain("长期记忆");
   });
 
   test("budget truncation holds max chars", () => {

@@ -123,34 +123,47 @@ export function FilesRefreshButton(props: {
   refreshDone: boolean;
   disabled?: boolean;
   onClick: () => void;
-  "data-testid"?: string;
+  /**
+   * `title` — ghost icon beside page title (≈ title text size).
+   * `toolbar` — outline circle in the tools row (legacy).
+   */
+  appearance?: "title" | "toolbar";
+  /** Which data-attr to emit: mine | browser (default browser). */
+  source?: "mine" | "browser";
 }) {
+  const isTitle = (props.appearance ?? "title") === "title";
+  const source = props.source ?? "browser";
+  const iconClass = isTitle ? "size-4" : "size-3.5";
+
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={isTitle ? "ghost" : "outline"}
       size="icon"
       disabled={props.disabled || props.loading || props.refreshDone}
       onClick={props.onClick}
       className={cn(
-        "size-9 shrink-0 rounded-full transition-colors",
+        "shrink-0 transition-colors",
+        isTitle
+          ? "size-7 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          : "size-9 rounded-full",
         props.refreshDone &&
-          "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+          (isTitle
+            ? "text-dls-status-success-fg hover:text-dls-status-success-fg"
+            : "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg"),
       )}
-      data-files-browser-refresh={props["data-testid"] ? undefined : "true"}
-      data-files-mine-refresh={
-        props["data-testid"] === "mine" ? "true" : undefined
-      }
+      data-files-mine-refresh={source === "mine" ? "true" : undefined}
+      data-files-browser-refresh={source === "browser" ? "true" : undefined}
       title={props.refreshDone ? t("common.refreshed") : t("common.refresh")}
       aria-label={props.refreshDone ? t("common.refreshed") : t("common.refresh")}
       aria-busy={props.loading || undefined}
     >
       {props.loading ? (
-        <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+        <RefreshCw className={cn(iconClass, "animate-spin")} aria-hidden />
       ) : props.refreshDone ? (
-        <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+        <Check className={iconClass} strokeWidth={2.5} aria-hidden />
       ) : (
-        <RefreshCw className="size-3.5" aria-hidden />
+        <RefreshCw className={iconClass} aria-hidden />
       )}
     </Button>
   );

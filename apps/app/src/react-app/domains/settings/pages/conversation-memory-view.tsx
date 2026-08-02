@@ -17,7 +17,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { t } from "@/i18n";
+import { currentLocale, t } from "@/i18n";
 import {
   formatRelativeTime,
   isElectronRuntime,
@@ -32,16 +32,17 @@ import type {
   ConversationMemoryState,
 } from "../../../kernel/local-provider";
 import {
-  WORK_MEMORY_SEED,
   acceptAllPendingMemory,
   acceptPendingMemory,
   clearGlobalWorkMemory,
+  getWorkMemorySeed,
   parseProfileMemoryLine,
   prefsPatchFromAwarenessFile,
   rejectPendingMemory,
   selectGlobalMemoryItems,
   type MemoryProfileCategory,
   type UserProfileLabelMaps,
+  type WorkMemorySeedFileName,
 } from "../../shared";
 import type { OnboardingProfile } from "../../../kernel/local-provider";
 import type { ResponseToneId } from "../../../kernel/response-tone";
@@ -294,12 +295,12 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
   };
 
   const writeSeedFile = useCallback(
-    async (name: keyof typeof WORK_MEMORY_SEED): Promise<"ok" | "skip" | "error"> => {
+    async (name: WorkMemorySeedFileName): Promise<"ok" | "skip" | "error"> => {
       if (!desktop) return "skip";
       try {
         await writeWorkMemoryAwarenessFile({
           name,
-          content: WORK_MEMORY_SEED[name],
+          content: getWorkMemorySeed(currentLocale())[name],
         });
         return "ok";
       } catch (error) {
@@ -625,7 +626,11 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
         open={viewerFile !== null}
         fileName={viewerFile}
         title={viewerFile ?? ""}
-        description={t("settings.memory_file_viewer_desc")}
+        description={
+          awarenessPath && viewerFile
+            ? `${awarenessPath.replace(/\/$/, "")}/${viewerFile}`
+            : t("settings.memory_file_viewer_desc")
+        }
         onClose={() => setViewerFile(null)}
         onSaved={() => void refreshFileList()}
         onApplyContentToPrefs={(fileName, content) => {

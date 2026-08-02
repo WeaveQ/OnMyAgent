@@ -12,7 +12,6 @@ import {
   type DragEvent,
 } from "react";
 import {
-  Check,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
@@ -21,7 +20,6 @@ import {
   Folder,
   FolderPlus,
   Loader2,
-  RefreshCw,
   Search,
   SlidersHorizontal,
   Upload,
@@ -67,6 +65,7 @@ import {
   FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
   shouldForceExternalPreviewForSize,
 } from "../../capabilities/artifacts/file-preview-policy";
+import { FilesRefreshButton } from "./workspace-files-chrome";
 import {
   buildTreeNodesFromUploadRows,
   buildTreeOutlineRows,
@@ -955,113 +954,94 @@ export function WorkspaceFilesUploadsPanel(props: {
     });
   }, [currentFolderPath]);
 
+  /** Root is already the page title — show path only when nested. */
+  const showBreadcrumb = currentFolderPath !== WORKSPACE_UPLOADS_DIR;
+
   // Same gutters as marketplace pluginsLayoutClass.pageContainer
+  // Title/subtitle left · tools right (align task/expert); breadcrumb only when nested.
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
-      {/* Title + subtitle */}
-      <div className="mb-3 min-w-0 shrink-0 text-left">
-        <h1 className={cn(typeScale.pageTitle, "text-left")}>
-          {t("files.source_uploads_title")}
-        </h1>
-        <p className={cn(typeScale.pageSubtitle, "mt-1 text-left")}>
-          {t("files.source_uploads_desc")}
-        </p>
-      </div>
+      <div className="mb-3 flex w-full min-w-0 shrink-0 flex-col gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0 flex-1 text-left">
+            <div className="flex min-w-0 items-center gap-1">
+              <h1 className={cn(typeScale.pageTitle, "min-w-0 truncate text-left")}>
+                {t("files.source_uploads_title")}
+              </h1>
+              <FilesRefreshButton
+                appearance="title"
+                source="mine"
+                loading={loading}
+                refreshDone={refreshDone}
+                disabled={!canLoad || uploading}
+                onClick={() => {
+                  manualRefreshRef.current = true;
+                  setRefreshDone(false);
+                  setRefreshKey((key) => key + 1);
+                }}
+              />
+            </div>
+            <p className={cn(typeScale.pageSubtitle, "mt-1 max-w-2xl text-left")}>
+              {t("files.source_uploads_desc")}
+            </p>
+          </div>
 
-      {/* Primary actions only (create / upload). Refresh lives on the pathbar. No capacity bar (A7). */}
-      <div
-        className="mb-2.5 flex w-full shrink-0 flex-wrap items-center gap-2"
-        data-files-mine-toolbar="true"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          size="default"
-          disabled={!canLoad || uploading || loading || createFolderBusy}
-          onClick={() => {
-            setCreateFolderName("");
-            setCreateFolderOpen(true);
-          }}
-          className="h-9 gap-1.5 rounded-full px-3.5"
-          data-files-create-folder="true"
-        >
-          <FolderPlus className="size-3.5" aria-hidden />
-          {t("files.create_folder")}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(event) => {
-            const list = event.target.files;
-            if (list?.length) void importFiles(list);
-            event.target.value = "";
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="default"
-          disabled={!canLoad || uploading || loading}
-          onClick={onPickClick}
-          className="h-9 gap-1.5 rounded-full px-3.5"
-          data-files-upload="true"
-        >
-          {uploading ? (
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Upload className="size-3.5" aria-hidden />
-          )}
-          {uploading ? t("files.uploading") : t("files.upload_files")}
-        </Button>
-      </div>
-
-      {/* One row: breadcrumb · expand/collapse · type · search · refresh */}
-      <div
-        className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
-        data-files-mine-pathbar="true"
-      >
-        <nav
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm text-dls-secondary"
-          aria-label={t("files.breadcrumb_label")}
-          data-files-mine-breadcrumb="true"
-        >
-          {breadcrumbSegments.map((segment, index) => {
-            const isLast = index === breadcrumbSegments.length - 1;
-            return (
-              <span
-                key={segment.path}
-                className="inline-flex min-w-0 max-w-full items-center gap-1"
-              >
-                {index > 0 ? (
-                  <span className="shrink-0 text-dls-secondary/60" aria-hidden>
-                    /
-                  </span>
-                ) : null}
-                {isLast ? (
-                  <span className="truncate font-medium text-dls-text">
-                    {segment.label}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
-                    onClick={() => enterFolder(segment.path)}
-                  >
-                    {segment.label}
-                  </button>
-                )}
-              </span>
-            );
-          })}
-        </nav>
-
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+          {/* create · upload · expand · type · search — right of title */}
+          <div
+            className="mt-1.5 flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
+            data-files-mine-toolbar="true"
+          >
           <Button
             type="button"
             variant="outline"
-            size="default"
+            size="icon"
+            disabled={!canLoad || uploading || loading || createFolderBusy}
+            onClick={() => {
+              setCreateFolderName("");
+              setCreateFolderOpen(true);
+            }}
+            className="size-9 shrink-0 rounded-full"
+            data-files-create-folder="true"
+            title={t("files.create_folder")}
+            aria-label={t("files.create_folder")}
+          >
+            <FolderPlus className="size-3.5" aria-hidden />
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              const list = event.target.files;
+              if (list?.length) void importFiles(list);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={!canLoad || uploading || loading}
+            onClick={onPickClick}
+            className="size-9 shrink-0 rounded-full"
+            data-files-upload="true"
+            title={uploading ? t("files.uploading") : t("files.upload_files")}
+            aria-label={
+              uploading ? t("files.uploading") : t("files.upload_files")
+            }
+            aria-busy={uploading || undefined}
+          >
+            {uploading ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Upload className="size-3.5" aria-hidden />
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
             disabled={!canLoad || loading || uploading || filterActive}
             aria-pressed={treeMode && treeAllExpanded}
             onClick={() => {
@@ -1073,7 +1053,7 @@ export function WorkspaceFilesUploadsPanel(props: {
               }
             }}
             className={cn(
-              "h-9 gap-1.5 rounded-full px-3 text-sm",
+              "size-9 shrink-0 rounded-full",
               treeMode &&
                 "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
             )}
@@ -1085,17 +1065,17 @@ export function WorkspaceFilesUploadsPanel(props: {
                 ? t("files.collapse_all_folders")
                 : t("files.expand_all_folders")
             }
+            aria-label={
+              treeMode && treeAllExpanded
+                ? t("files.collapse_all_folders")
+                : t("files.expand_all_folders")
+            }
           >
             {treeMode && treeAllExpanded ? (
               <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
             ) : (
               <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
             )}
-            <span className="hidden sm:inline">
-              {treeMode && treeAllExpanded
-                ? t("files.collapse_all_folders")
-                : t("files.expand_all_folders")}
-            </span>
           </Button>
           <div className="relative shrink-0">
             <Button
@@ -1159,35 +1139,54 @@ export function WorkspaceFilesUploadsPanel(props: {
               className="h-9 text-sm placeholder:text-dls-secondary"
             />
           </InputGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            data-files-mine-refresh="true"
-            disabled={loading || refreshDone || !canLoad || uploading}
-            onClick={() => {
-              manualRefreshRef.current = true;
-              setRefreshDone(false);
-              setRefreshKey((key) => key + 1);
-            }}
-            className={cn(
-              "size-9 shrink-0 rounded-full transition-colors",
-              refreshDone &&
-                "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-            )}
-            title={refreshDone ? t("common.refreshed") : t("common.refresh")}
-            aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
-            aria-busy={loading || undefined}
-          >
-            {loading ? (
-              <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-            ) : refreshDone ? (
-              <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-            ) : (
-              <RefreshCw className="size-3.5" aria-hidden />
-            )}
-          </Button>
         </div>
+        </div>
+
+        {/* Nested path only — root already named by the page title. */}
+        {showBreadcrumb ? (
+          <div
+            className="flex w-full min-w-0 items-center"
+            data-files-mine-pathbar="true"
+          >
+            <nav
+              className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-dls-secondary"
+              aria-label={t("files.breadcrumb_label")}
+              data-files-mine-breadcrumb="true"
+            >
+              {breadcrumbSegments.map((segment, index) => {
+                const isLast = index === breadcrumbSegments.length - 1;
+                return (
+                  <span
+                    key={segment.path}
+                    className="inline-flex min-w-0 max-w-full items-center gap-1"
+                  >
+                    {index > 0 ? (
+                      <span
+                        className="shrink-0 text-dls-secondary/60"
+                        aria-hidden
+                      >
+                        /
+                      </span>
+                    ) : null}
+                    {isLast ? (
+                      <span className="truncate font-medium text-dls-text">
+                        {segment.label}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
+                        onClick={() => enterFolder(segment.path)}
+                      >
+                        {segment.label}
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </nav>
+          </div>
+        ) : null}
       </div>
 
       {error ? (

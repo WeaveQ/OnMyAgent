@@ -26,6 +26,8 @@ export default {
   "nav.experts_short": "专家",
   "nav.files": "文件",
   "nav.files_short": "文件",
+  "nav.projects": "项目",
+  "nav.projects_short": "项目",
   "nav.local_agent": "Agent 对话",
   "nav.management": "Agent 管理",
   "nav.scheduled_tasks": "定时任务",
