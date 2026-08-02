@@ -302,6 +302,72 @@ export function buildUngroupedFolderNode(
   };
 }
 
+/** Flattened tree rows with depth for expand/collapse outline (Tasks/Experts). */
+export type TreeOutlineRow =
+  | {
+      type: "dir";
+      node: WorkspaceFileTreeNode;
+      depth: number;
+      expanded: boolean;
+      fileCount: number;
+      /** Prefer real session title when provided. */
+      displayTitle?: string;
+    }
+  | {
+      type: "file";
+      node: WorkspaceFileTreeNode;
+      depth: number;
+    };
+
+/**
+ * Build hierarchical outline rows under `roots` (preserves order).
+ * Only expanded directories reveal children — keeps parent/child depth.
+ */
+export function buildTreeOutlineRows(
+  roots: readonly WorkspaceFileTreeNode[],
+  expanded: ReadonlySet<string>,
+  options: BuildOutlineOptions = {},
+): TreeOutlineRow[] {
+  const rows: TreeOutlineRow[] = [];
+  const walk = (nodes: readonly WorkspaceFileTreeNode[], depth: number) => {
+    for (const node of nodes) {
+      if (node.kind === "file") {
+        rows.push({ type: "file", node, depth });
+        continue;
+      }
+      const isExpanded = expanded.has(node.path);
+      const displayTitle = titleForSessionNode(node, options.sessionTitleByKey);
+      rows.push({
+        type: "dir",
+        node,
+        depth,
+        expanded: isExpanded,
+        fileCount: countFilesInNode(node),
+        displayTitle,
+      });
+      if (isExpanded) walk(node.children, depth + 1);
+    }
+  };
+  walk(roots, 0);
+  return rows;
+}
+
+/** Every directory path under roots that has children (expandable). */
+export function collectExpandableDirPaths(
+  roots: readonly WorkspaceFileTreeNode[],
+): string[] {
+  const paths: string[] = [];
+  const walk = (nodes: readonly WorkspaceFileTreeNode[]) => {
+    for (const node of nodes) {
+      if (node.kind !== "dir") continue;
+      if (node.children.length > 0) paths.push(node.path);
+      walk(node.children);
+    }
+  };
+  walk(roots);
+  return paths;
+}
+
 export type OutlineRow =
   | {
       type: "project";

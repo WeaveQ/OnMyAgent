@@ -32,8 +32,10 @@ import {
   FILES_UNGROUPED_PATH,
   WORKSPACE_INBOX_DIR,
   buildRootOutlineRows,
+  buildTreeOutlineRows,
   buildUngroupedFolderNode,
   buildUserUploadRelativePath,
+  collectExpandableDirPaths,
   isFilesUngroupedPath,
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
@@ -305,6 +307,57 @@ describe("buildRootOutlineRows conversation nesting", () => {
     expect(node.name).toBe("未分组");
     expect(node.children.map((c) => c.name)).toEqual(["loose.xlsx"]);
     expect(node.mtimeMs).toBe(9);
+  });
+
+  test("buildTreeOutlineRows keeps parent/child depth", () => {
+    const roots: WorkspaceFileTreeNode[] = [
+      {
+        name: "proj",
+        path: "proj",
+        kind: "dir",
+        size: 0,
+        mtimeMs: 1,
+        children: [
+          {
+            name: "task",
+            path: "proj/task",
+            kind: "dir",
+            size: 0,
+            mtimeMs: 2,
+            children: [
+              {
+                name: "a.md",
+                path: "proj/task/a.md",
+                kind: "file",
+                size: 1,
+                mtimeMs: 3,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const collapsed = buildTreeOutlineRows(roots, new Set());
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0]?.type).toBe("dir");
+    if (collapsed[0]?.type === "dir") {
+      expect(collapsed[0].depth).toBe(0);
+      expect(collapsed[0].expanded).toBe(false);
+    }
+    const expanded = buildTreeOutlineRows(
+      roots,
+      new Set(["proj", "proj/task"]),
+    );
+    expect(expanded.map((r) => [r.type, r.depth, r.node.name])).toEqual([
+      ["dir", 0, "proj"],
+      ["dir", 1, "task"],
+      ["file", 2, "a.md"],
+    ]);
+    expect(collectExpandableDirPaths(roots).sort()).toEqual([
+      "proj",
+      "proj/task",
+    ]);
   });
 
   test("groups top-level loose files under orphan-header", () => {
@@ -762,9 +815,12 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).toContain("typeFilter");
     expect(browser).toContain("rounded-full");
     expect(browser).toContain("files.search_placeholder");
-    // Drill-in navigation parity with Mine (not tree-outline expand).
+    // Drill-in + hierarchical expand tree (depth, not flat dump).
     expect(browser).toContain("enterDirectory");
-    expect(browser).toContain("listDeep");
+    expect(browser).toContain("treeMode");
+    expect(browser).toContain("buildTreeOutlineRows");
+    expect(browser).toContain("data-files-tree-mode");
+    expect(browser).toContain("data-files-tree-depth");
     expect(browser).not.toContain("buildRootOutlineRows");
     // Root loose files still surface as drillable「未分组」folder.
     expect(browser).toContain("buildUngroupedFolderNode");

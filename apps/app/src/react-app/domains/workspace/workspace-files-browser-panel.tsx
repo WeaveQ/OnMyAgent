@@ -10,6 +10,7 @@ import {
   ArrowUpDown,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   CirclePlus,
@@ -109,8 +110,10 @@ import {
 } from "./workspace-files-open-session";
 import {
   FILE_CATEGORIES,
+  buildTreeOutlineRows,
   buildUngroupedFolderNode,
   canPreviewWorkspaceFileInline,
+  collectExpandableDirPaths,
   collectMatchingFilesUnder,
   countFilesInNode,
   fileCategoryI18nKey,
@@ -125,6 +128,7 @@ import {
   relativeDisplayPath,
   usesLocalFileRenderer,
   type FileCategory,
+  type TreeOutlineRow,
 } from "./workspace-files-model";
 
 function fileCategoryLabel(category: FileCategory) {
@@ -518,9 +522,11 @@ export function WorkspaceFilesBrowserPanel(props: {
   const [currentDirectoryPath, setCurrentDirectoryPath] = useState("");
   /**
    * false = one-level browse (click folder to enter, same as Mine);
-   * true = flat list of all nested files under the current folder.
+   * true = hierarchical tree under current folder (expand/collapse with depth).
    */
-  const [listDeep, setListDeep] = useState(false);
+  const [treeMode, setTreeMode] = useState(false);
+  /** Expanded directory paths while treeMode is on. */
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
   const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
   const [favoritePaths, setFavoritePaths] = useState<Set<string>>(
     () => readFavoritePaths(props.workspaceId),
@@ -650,12 +656,14 @@ export function WorkspaceFilesBrowserPanel(props: {
     setSelectedFile(null);
     setPreviewState({ status: "idle" });
     setCurrentDirectoryPath("");
-    setListDeep(false);
+    setTreeMode(false);
+    setExpandedPaths(new Set());
   }, [fileRoot, props.workspaceId, sourceTab]);
 
   useEffect(() => {
-    // Changing filters leaves folder; drop deep-list so results stay scoped.
-    setListDeep(false);
+    // Changing filters leaves folder; exit tree mode so results stay scoped.
+    setTreeMode(false);
+    setExpandedPaths(new Set());
     setCurrentDirectoryPath("");
   }, [query, typeFilter]);
 
@@ -828,64 +836,107 @@ export function WorkspaceFilesBrowserPanel(props: {
     );
   }, [currentDirectoryPath]);
 
-  /** Search/type filter or explicit expand-all → flat file list under current folder. */
-  const deepListingActive =
-    listDeep || typeFilter !== "all" || Boolean(query.trim());
+  const filterActive = typeFilter !== "all" || Boolean(query.trim());
   /**
-   * One-level children for browse; at true root, loose files become the
-   * synthetic「未分组」folder instead of mixing with task folders.
-   * Deep/filter still flattens real files (including former loose roots).
+   * Roots for the current browse context (one-level or tree).
+   * At product root: real folders + synthetic「未分组」.
    */
-  const listedNodes = useMemo(() => {
-    if (deepListingActive) {
-      // Deep listing under the virtual ungrouped folder: only those files.
-      // Deep listing at true root: walk the real tree (includes loose + nested).
-      const walkRoot =
-        isFilesUngroupedPath(currentDirectoryPath) && ungroupedFolder
-          ? ungroupedFolder
-          : isFilesUngroupedPath(currentDirectoryPath)
-            ? currentDirectory
-            : currentDirectoryPath.trim()
-              ? currentDirectory
-              : visibleFileTree;
-      return collectMatchingFilesUnder(
-        walkRoot,
-        query,
-        typeFilter,
-        sortKey,
-        sortDir,
-      );
+  const browseRoots = useMemo((): WorkspaceFileTreeNode[] => {
+    if (isFilesUngroupedPath(currentDirectoryPath)) {
+      return currentDirectory.children;
     }
-    // True product root: folders + optional 未分组, no loose file peers.
     if (!currentDirectoryPath.trim()) {
       const dirs = visibleFileTree.children.filter((child) => child.kind === "dir");
       return ungroupedFolder ? [...dirs, ungroupedFolder] : dirs;
     }
     return currentDirectory.children;
+  }, [currentDirectory, currentDirectoryPath, ungroupedFolder, visibleFileTree]);
+
+  /** Search/type filter → flat matching files (no tree). */
+  const filteredFlatNodes = useMemo(() => {
+    if (!filterActive) return [] as WorkspaceFileTreeNode[];
+    const walkRoot = isFilesUngroupedPath(currentDirectoryPath)
+      ? currentDirectory
+      : currentDirectoryPath.trim()
+        ? currentDirectory
+        : visibleFileTree;
+    return collectMatchingFilesUnder(
+      walkRoot,
+      query,
+      typeFilter,
+      sortKey,
+      sortDir,
+    );
   }, [
     currentDirectory,
     currentDirectoryPath,
-    deepListingActive,
+    filterActive,
     query,
     sortDir,
     sortKey,
     typeFilter,
-    ungroupedFolder,
     visibleFileTree,
   ]);
 
-  /** Show expand when current folder has at least one subfolder (can recurse). */
-  const canExpandDeep = useMemo(
-    () =>
-      !isFilesUngroupedPath(currentDirectoryPath) &&
-      currentDirectory.children.some((child) => child.kind === "dir"),
-    [currentDirectory, currentDirectoryPath],
+  const expandableDirPaths = useMemo(
+    () => collectExpandableDirPaths(browseRoots),
+    [browseRoots],
   );
 
+  const treeRows = useMemo((): TreeOutlineRow[] => {
+    if (!treeMode || filterActive) return [];
+    return buildTreeOutlineRows(browseRoots, expandedPaths, {
+      sessionTitleByKey: props.sessionTitleByKey ?? undefined,
+    });
+  }, [
+    browseRoots,
+    expandedPaths,
+    filterActive,
+    props.sessionTitleByKey,
+    treeMode,
+  ]);
+
+  /** One-level list when not in tree mode and no filter. */
+  const listedNodes = useMemo(() => {
+    if (filterActive) return filteredFlatNodes;
+    if (treeMode) return [] as WorkspaceFileTreeNode[];
+    return browseRoots;
+  }, [browseRoots, filterActive, filteredFlatNodes, treeMode]);
+
+  const treeAllExpanded =
+    treeMode &&
+    expandableDirPaths.length > 0 &&
+    expandableDirPaths.every((path) => expandedPaths.has(path));
+
+  /** Show expand control when there is hierarchy under the current folder. */
+  const canExpandDeep = expandableDirPaths.length > 0;
+
   const enterDirectory = useCallback((path: string) => {
-    setListDeep(false);
+    setTreeMode(false);
+    setExpandedPaths(new Set());
     setCurrentDirectoryPath(path);
     setSelectedFile(null);
+  }, []);
+
+  const toggleTreeExpanded = useCallback((path: string) => {
+    setTreeMode(true);
+    setExpandedPaths((current) => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const expandAllTree = useCallback(() => {
+    setTreeMode(true);
+    setExpandedPaths(new Set(expandableDirPaths));
+  }, [expandableDirPaths]);
+
+  const collapseAllTree = useCallback(() => {
+    // Back to one-level browse (same as Mine “collapse”).
+    setTreeMode(false);
+    setExpandedPaths(new Set());
   }, []);
 
   // If loose files disappear while viewing 未分组, return to root.
@@ -1156,37 +1207,41 @@ export function WorkspaceFilesBrowserPanel(props: {
                   type="button"
                   variant="outline"
                   size="default"
-                  disabled={loading}
-                  aria-pressed={listDeep}
+                  disabled={loading || filterActive}
+                  aria-pressed={treeMode && treeAllExpanded}
                   onClick={() => {
-                    // Same as Mine: toggle flat nested listing; stay in current folder.
-                    setListDeep((prev) => !prev);
+                    // Hierarchical tree under current folder (not a flat dump).
+                    if (treeMode && treeAllExpanded) collapseAllTree();
+                    else expandAllTree();
                   }}
                   className={cn(
                     "h-9 gap-1.5 rounded-full px-3 text-sm",
-                    listDeep &&
+                    treeMode &&
                       "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
                   )}
                   data-files-expand-collapse="true"
-                  data-files-list-deep={listDeep ? "true" : "false"}
+                  data-files-tree-mode={treeMode ? "true" : "false"}
+                  data-files-tree-expanded={
+                    treeAllExpanded ? "true" : "false"
+                  }
                   aria-label={
-                    listDeep
+                    treeMode && treeAllExpanded
                       ? t("files.collapse_all_folders")
                       : t("files.expand_all_folders")
                   }
                   title={
-                    listDeep
+                    treeMode && treeAllExpanded
                       ? t("files.collapse_all_folders")
                       : t("files.expand_all_folders")
                   }
                 >
-                  {listDeep ? (
+                  {treeMode && treeAllExpanded ? (
                     <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
                   ) : (
                     <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
                   )}
                   <span className="hidden sm:inline">
-                    {listDeep
+                    {treeMode && treeAllExpanded
                       ? t("files.collapse_all_folders")
                       : t("files.expand_all_folders")}
                   </span>
@@ -1304,7 +1359,8 @@ export function WorkspaceFilesBrowserPanel(props: {
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col gap-3">
-                  {listedNodes.length > 0 ? (
+                  {(treeMode && !filterActive ? treeRows.length : listedNodes.length) >
+                  0 ? (
                     /*
                       Scroll only file rows. Use a raw <table> (not Table wrapper)
                       so sticky thead is not trapped by Table's overflow-x-auto shell.
@@ -1410,12 +1466,214 @@ export function WorkspaceFilesBrowserPanel(props: {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {listedNodes.map((node) => {
+                          {treeMode && !filterActive
+                            ? treeRows.map((row) => {
+                                if (row.type === "dir") {
+                                  const node = row.node;
+                                  const isUngrouped = isFilesUngroupedPath(node.path);
+                                  const title =
+                                    row.displayTitle?.trim() ||
+                                    folderDisplayName(node);
+                                  const hasChildren = node.children.length > 0;
+                                  return (
+                                    <TableRow
+                                      key={`tree-dir:${node.path}`}
+                                      data-workspace-file-row={
+                                        isUngrouped ? "ungrouped" : "dir"
+                                      }
+                                      data-files-tree-depth={String(row.depth)}
+                                      data-files-ungrouped={
+                                        isUngrouped ? "true" : undefined
+                                      }
+                                      className="group h-11 cursor-pointer hover:bg-dls-hover/50"
+                                      onClick={() => {
+                                        if (hasChildren) {
+                                          toggleTreeExpanded(node.path);
+                                          return;
+                                        }
+                                        if (!isUngrouped) enterDirectory(node.path);
+                                      }}
+                                    >
+                                      <TableCell className="py-2">
+                                        <span
+                                          className="flex min-w-0 items-center gap-2"
+                                          style={{
+                                            paddingLeft: `${row.depth * 1.25}rem`,
+                                          }}
+                                        >
+                                          {hasChildren ? (
+                                            row.expanded ? (
+                                              <ChevronDown className="size-3.5 shrink-0 text-dls-secondary" />
+                                            ) : (
+                                              <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" />
+                                            )
+                                          ) : (
+                                            <span className="size-3.5 shrink-0" />
+                                          )}
+                                          <FileKindIcon
+                                            node={node}
+                                            fileRoot={fileRoot}
+                                          />
+                                          <span
+                                            className="min-w-0 truncate text-sm font-medium text-dls-text"
+                                            title={
+                                              isUngrouped
+                                                ? t("files.ungrouped")
+                                                : row.displayTitle || node.path
+                                            }
+                                          >
+                                            {title}
+                                          </span>
+                                          {row.fileCount > 0 ? (
+                                            <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
+                                              {t("files.file_count", {
+                                                count: row.fileCount,
+                                              })}
+                                            </span>
+                                          ) : null}
+                                          {!isUngrouped ? (
+                                            <FileNameQuickActions
+                                              path={node.path}
+                                              favorited={favoritePaths.has(node.path)}
+                                              onOpenInFolder={() =>
+                                                void handleOpenFile(node.path)
+                                              }
+                                              onToggleFavorite={() =>
+                                                handleToggleFavorite(node.path)
+                                              }
+                                            />
+                                          ) : null}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary">
+                                        {t("files.type_folder")}
+                                      </TableCell>
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary tabular-nums">
+                                        {node.mtimeMs > 0
+                                          ? formatWorkspaceFileTime(node.mtimeMs)
+                                          : "-"}
+                                      </TableCell>
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary tabular-nums">
+                                        {formatWorkspaceFileSize(node.size)}
+                                      </TableCell>
+                                      <TableCell className="py-2" />
+                                    </TableRow>
+                                  );
+                                }
+
+                                const fileNode = row.node;
+                                return (
+                                  <TableRow
+                                    key={`tree-file:${fileNode.path}`}
+                                    data-workspace-file-row="file"
+                                    data-files-tree-depth={String(row.depth)}
+                                    role="button"
+                                    tabIndex={0}
+                                    className={cn(
+                                      "group h-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dls-accent/30",
+                                      selectedFile?.path === fileNode.path &&
+                                        "bg-dls-surface-muted",
+                                    )}
+                                    onClick={() => void handleSelectFile(fileNode)}
+                                    onKeyDown={(event) => {
+                                      if (event.target !== event.currentTarget) return;
+                                      if (event.key !== "Enter" && event.key !== " ")
+                                        return;
+                                      event.preventDefault();
+                                      void handleSelectFile(fileNode);
+                                    }}
+                                  >
+                                    <TableCell className="py-2">
+                                      <span
+                                        className="flex min-w-0 items-center gap-2.5"
+                                        style={{
+                                          paddingLeft: `${row.depth * 1.25}rem`,
+                                        }}
+                                      >
+                                        <span className="size-3.5 shrink-0" />
+                                        <FileKindIcon
+                                          node={fileNode}
+                                          fileRoot={fileRoot}
+                                        />
+                                        <span
+                                          className="min-w-0 truncate text-sm font-medium text-dls-text"
+                                          title={fileNode.path}
+                                        >
+                                          {fileNode.name}
+                                        </span>
+                                        <FileNameQuickActions
+                                          path={fileNode.path}
+                                          favorited={favoritePaths.has(fileNode.path)}
+                                          showAddToTask
+                                          onAddToTask={() =>
+                                            void handleAddToTask(fileNode.path)
+                                          }
+                                          onOpenInFolder={() =>
+                                            void handleOpenFile(fileNode.path)
+                                          }
+                                          onToggleFavorite={() =>
+                                            handleToggleFavorite(fileNode.path)
+                                          }
+                                        />
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary">
+                                      {fileCategoryLabel(
+                                        getFileCategory(fileNode.name),
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
+                                      {fileNode.mtimeMs > 0
+                                        ? formatWorkspaceFileTime(fileNode.mtimeMs)
+                                        : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
+                                      {formatWorkspaceFileSize(fileNode.size)}
+                                    </TableCell>
+                                    <TableCell className="relative py-2">
+                                      <FileRowActionsMenu
+                                        name={fileNode.name}
+                                        pathCopied={
+                                          pathCopiedFlash === fileNode.path
+                                        }
+                                        favorited={favoritePaths.has(fileNode.path)}
+                                        openSourceSession={openSourceForPath(
+                                          fileNode.path,
+                                        )}
+                                        onOpenSourceSession={() => {
+                                          const action = openSourceForPath(
+                                            fileNode.path,
+                                          );
+                                          if (action.canOpen && action.sessionId) {
+                                            props.onOpenSourceSession?.(
+                                              action.sessionId,
+                                            );
+                                          }
+                                        }}
+                                        onOpenInFolder={() =>
+                                          void handleOpenFile(fileNode.path)
+                                        }
+                                        onAddToTask={() =>
+                                          void handleAddToTask(fileNode.path)
+                                        }
+                                        onToggleFavorite={() =>
+                                          handleToggleFavorite(fileNode.path)
+                                        }
+                                        onCopyPath={() =>
+                                          void handleCopyFilePath(fileNode.path)
+                                        }
+                                        onDelete={() => handleDeleteFile(fileNode)}
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            : listedNodes.map((node) => {
                             const isUngrouped = isFilesUngroupedPath(node.path);
                             const fileCount =
                               node.kind === "dir" ? countFilesInNode(node) : 0;
                             const nestedPathLabel =
-                              deepListingActive && node.kind === "file"
+                              filterActive && node.kind === "file"
                                 ? relativeDisplayPath(
                                     node.path,
                                     isFilesUngroupedPath(currentDirectoryPath)

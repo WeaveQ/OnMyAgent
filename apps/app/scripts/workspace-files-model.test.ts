@@ -257,10 +257,11 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
     expect(browser).toContain("FilePreviewDrawer");
     expect(browser).toContain("workspace-files-preview-drawer");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    // Browse like Mine: enter folders via currentDirectoryPath, not outline expand.
+    // Browse like Mine + hierarchical expand tree.
     expect(browser).toContain("enterDirectory");
     expect(browser).toContain("setCurrentDirectoryPath");
-    expect(browser).toContain("listDeep");
+    expect(browser).toContain("treeMode");
+    expect(browser).toContain("buildTreeOutlineRows");
     expect(browser).not.toContain("buildRootOutlineRows");
   });
 });
