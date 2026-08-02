@@ -178,6 +178,41 @@ describe("files three-source tabs (P0)", () => {
     expect(filterUploadRows(rows, "", "spreadsheet")).toEqual([]);
   });
 
+  test("Mine upload rows hide .DS_Store and other system junk", () => {
+    const rows = mapInboxItemsToUploadRows([
+      {
+        id: "ds1",
+        name: ".DS_Store",
+        path: "uploads/.DS_Store",
+        size: 6148,
+        updatedAt: 30,
+      },
+      {
+        id: "ds2",
+        name: ".DS_Store",
+        path: ".DS_Store",
+        size: 6148,
+        updatedAt: 29,
+      },
+      {
+        id: "thumbs",
+        name: "Thumbs.db",
+        path: "uploads/Thumbs.db",
+        size: 1,
+        updatedAt: 28,
+      },
+      {
+        id: "keep",
+        name: "应收台账模板.xlsx",
+        path: "uploads/应收台账模板.xlsx",
+        size: 43_000,
+        updatedAt: 27,
+      },
+    ]);
+    expect(rows.map((r) => r.name)).toEqual(["应收台账模板.xlsx"]);
+    expect(rows.some((r) => r.name === ".DS_Store")).toBe(false);
+  });
+
   test("Files page wires rail NavTabs without bg-white active override", () => {
     const page = read(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",

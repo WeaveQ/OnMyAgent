@@ -430,6 +430,7 @@ describe("open source session + create folder (Sprint A/B)", () => {
           mtimeMs: 11,
         },
         { path: "uploads/a.md", kind: "file", size: 1, mtimeMs: 5 },
+        { path: "uploads/.DS_Store", kind: "file", size: 6, mtimeMs: 9 },
       ],
       { parentPrefix: "uploads", shallow: true },
     );
@@ -439,6 +440,8 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(catalog.some((r) => r.path === "uploads/a.md")).toBe(true);
     // nested file hidden at shallow root
     expect(catalog.some((r) => r.path.includes("nested"))).toBe(false);
+    // Finder junk never surfaces in Mine catalog rows
+    expect(catalog.some((r) => r.name === ".DS_Store")).toBe(false);
 
     const merged = mergeMineUploadRows(
       [
@@ -450,12 +453,21 @@ describe("open source session + create folder (Sprint A/B)", () => {
           updatedAt: 1,
           kind: "file",
         },
+        {
+          id: "junk",
+          name: ".DS_Store",
+          path: "uploads/.DS_Store",
+          size: 6,
+          updatedAt: 2,
+          kind: "file",
+        },
       ],
       catalog,
     );
     // catalog wins same path
     expect(merged.find((r) => r.path === "uploads/a.md")?.size).toBe(1);
     expect(merged.some((r) => r.kind === "dir")).toBe(true);
+    expect(merged.some((r) => r.name === ".DS_Store")).toBe(false);
   });
 
   test("browser and hosts wire open-source-session + create folder", () => {
