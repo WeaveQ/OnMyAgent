@@ -19,15 +19,18 @@ describe("shared pending agent store contract", () => {
       agentMemory: "记住产品名 OnMyAgent",
       userMemory: "用户偏好短句",
       enabledToolIds: ["filesystem", "code"],
+      skillIds: ["research", "planning"],
     });
 
-    expect(prompt).toContain("你现在的身份是：研究员");
-    expect(prompt).toContain("你的核心定位：帮用户拆解复杂问题");
-    expect(prompt).toContain("称呼用户为：Lee");
-    expect(prompt).toContain("【智能体记忆】");
-    expect(prompt).toContain("【用户记忆】");
-    expect(prompt).toContain("可用工具类别：filesystem、code");
-    expect(prompt).toContain("回复语言：中文");
+    expect(prompt).toContain("Your identity is now: 研究员");
+    expect(prompt).toContain("Core positioning: 帮用户拆解复杂问题");
+    expect(prompt).toContain("Address the user as: Lee");
+    expect(prompt).toContain("[Agent memory]");
+    expect(prompt).toContain("[User memory]");
+    expect(prompt).toContain("Available tool categories: filesystem, code");
+    expect(prompt).toContain("[Assigned skills]");
+    expect(prompt).toContain("research, planning");
+    expect(prompt).toContain("Reply language: 中文");
   });
 
   test("builds tool deny maps from enabled categories and skill access", () => {
