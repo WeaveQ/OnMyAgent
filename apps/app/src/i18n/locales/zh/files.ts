@@ -35,7 +35,9 @@ export default {
     "首页临时任务产物，以及非专家目录下的工作区文件。专家归档目录在「专家」中查看。",
   "files.source_expert_desc":
     "专家目录及其任务产物（按文件夹命名识别；写入打标上线后将更精确）。",
-  "files.search_uploads_placeholder": "搜索我的文件",
+  "files.search_uploads_placeholder": "搜索文件或文件夹…",
+  "files.upload_files": "上传文件",
+  "files.breadcrumb_mine": "我的文件",
   "files.search_task_placeholder": "搜索任务文件",
   "files.search_expert_placeholder": "搜索专家文件",
   "files.uploads_empty_title": "暂无上传",

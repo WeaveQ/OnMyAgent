@@ -35,7 +35,9 @@ export default {
     "Home temporary-task outputs and other non-expert workspace folders. Expert agent archives are listed under Experts.",
   "files.source_expert_desc":
     "Expert agent folders and their task outputs (path heuristic until write-time tagging).",
-  "files.search_uploads_placeholder": "Search my files",
+  "files.search_uploads_placeholder": "Search files or folders…",
+  "files.upload_files": "Upload files",
+  "files.breadcrumb_mine": "My files",
   "files.search_task_placeholder": "Search task files",
   "files.search_expert_placeholder": "Search expert files",
   "files.uploads_empty_title": "No uploads yet",
