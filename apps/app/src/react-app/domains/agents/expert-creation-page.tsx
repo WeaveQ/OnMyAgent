@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/resizable";
 import { ConfirmModal } from "../../design-system/modals/confirm-modal";
 import { t } from "@/i18n";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ModelRef } from "../../../app/types";
@@ -70,8 +71,7 @@ import {
   createBlankWizardDraft,
   createDefaultAgentRegistry,
 } from "./agent-registry";
-import { renderAvatar, renderGeneratedAvatar } from "./agents-avatar-rendering";
-import { createGeneratedAvatarOption } from "./agents-page-model";
+import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 import { SKILL_MARKETPLACE_CATEGORIES } from "@/components/ui/skill-marketplace-categories";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
@@ -256,10 +256,12 @@ function ExpertCoach(props: {
           onmyagentServerToken={props.onmyagentServerToken}
           selectedModel={props.selectedModel}
           title={t("agents.expert_creation_coach")}
-          avatar={renderGeneratedAvatar(
-            createGeneratedAvatarOption("lorelei", 7, 2),
-            "onmyagent-expert-creation-coach",
-            "size-10 shrink-0",
+          avatar={(
+            <img
+              src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
+              alt=""
+              className="size-10 shrink-0 rounded-full object-cover"
+            />
           )}
           initialContent={(
             <>
