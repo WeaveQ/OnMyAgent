@@ -1,12 +1,15 @@
 /**
  * Conversation memory helpers (pure).
  *
- * Model: a flat list of profile-style lines written into `items` and injected
- * via buildOnboardingProfileSystemPrompt. Format:
- *   [YYYY-MM-DD] #category content
+ * Model:
+ * - `items` = long-term facts (inject when enabled)
+ * - `shortTerm` = recent notes (inject when enabled)
+ * - `pending` = optional review queue (legacy / never inject until accept)
+ * - autoCapture on: write candidates into items + shortTerm immediately
+ * - autoCapture off: chat does not auto-record
  *
- * Categories align with the personal usage profile template:
- * instruction | identity | career | project | preference
+ * Format: [YYYY-MM-DD] #category content
+ * Optional `expertId` scopes an item to expert slot C (not global B).
  */
 
 import type {
@@ -14,10 +17,16 @@ import type {
   ConversationMemoryState,
 } from "../../../kernel/local-provider";
 
-export const MAX_CONVERSATION_MEMORY_ITEMS = 50;
+export const MAX_CONVERSATION_MEMORY_ITEMS = 80;
 export const MAX_CONVERSATION_MEMORY_TEXT_CHARS = 500;
 export const MAX_PENDING_MEMORY_ITEMS = 20;
 export const MAX_EXTRACT_CANDIDATES_PER_TURN = 3;
+/** Soft cap for injected memory block (characters). */
+export const MAX_INJECTED_MEMORY_CHARS = 6000;
+export const MAX_EXPERT_MEMORY_ITEMS = 30;
+export const MAX_INJECTED_EXPERT_MEMORY_CHARS = 3000;
+export const MAX_SHORT_TERM_MEMORY_ITEMS = 40;
+export const MAX_INJECTED_SHORT_TERM_CHARS = 2000;
 
 /** Personal-profile categories (stable ids; UI localizes labels). */
 export type MemoryProfileCategory =
@@ -204,13 +213,17 @@ function mapSectionHeader(header: string): MemoryProfileCategory | null {
  */
 export function extractMemoryCandidatesFromUserText(
   userText: string,
-  options?: { sessionId?: string; now?: number },
+  options?: { sessionId?: string; now?: number; expertId?: string },
 ): ConversationMemoryItem[] {
   const text = userText.trim();
   if (!text || !shouldAttemptMemoryExtract(text)) return [];
 
   const now = options?.now ?? Date.now();
   const sessionId = options?.sessionId;
+  const expertId =
+    typeof options?.expertId === "string" && options.expertId.trim()
+      ? options.expertId.trim()
+      : undefined;
   const date = todayMemoryDate(now);
 
   for (const rule of EXTRACT_RULES) {
@@ -237,6 +250,7 @@ export function extractMemoryCandidatesFromUserText(
         source: "dialog",
         updatedAt: now,
         sessionId,
+        expertId,
       },
     ];
   }
@@ -310,22 +324,27 @@ export function importProfileBlockToItems(
   return out;
 }
 
-/** Write candidates straight into `items` (no pending queue). */
+/**
+ * Promote confirmed facts into `items` (injectable when enabled).
+ * Used for manual add and pending accept — not for silent auto-capture.
+ */
 export function appendMemoryItems(
   state: ConversationMemoryState,
   candidates: ConversationMemoryItem[],
 ): ConversationMemoryState {
-  if (!state.enabled || candidates.length === 0) return state;
+  if (candidates.length === 0) return state;
 
   const existingFp = new Set(
-    state.items.map((item) => normalizeMemoryFingerprint(item.text)),
+    state.items.map((item) =>
+      scopeFingerprint(item.expertId, item.text),
+    ),
   );
 
   const additions: ConversationMemoryItem[] = [];
   for (const candidate of candidates) {
     const text = candidate.text.trim().slice(0, MAX_CONVERSATION_MEMORY_TEXT_CHARS);
     if (!text || isSensitiveMemoryText(text)) continue;
-    const fp = normalizeMemoryFingerprint(text);
+    const fp = scopeFingerprint(candidate.expertId, text);
     if (existingFp.has(fp)) continue;
     existingFp.add(fp);
     additions.push({
@@ -343,13 +362,108 @@ export function appendMemoryItems(
   };
 }
 
-/** @deprecated Prefer appendMemoryItems — kept for accept/reject helpers. */
+function scopeFingerprint(expertId: string | undefined, text: string): string {
+  const scope = expertId?.trim() ? `e:${expertId.trim()}` : "global";
+  return `${scope}|${normalizeMemoryFingerprint(text)}`;
+}
+
+/**
+ * When autoCapture is on: write candidates into long-term `items` and
+ * short-term notes immediately (no pending gate).
+ */
+export function applyAutoCaptureMemory(
+  state: ConversationMemoryState,
+  candidates: ConversationMemoryItem[],
+): ConversationMemoryState {
+  if (!state.enabled || !state.autoCapture || candidates.length === 0) {
+    return state;
+  }
+  let next = appendMemoryItems(state, candidates);
+  next = appendShortTermMemoryItems(next, candidates);
+  return next;
+}
+
+/** Append short-term notes (capped). Does not require autoCapture. */
+export function appendShortTermMemoryItems(
+  state: ConversationMemoryState,
+  candidates: ConversationMemoryItem[],
+): ConversationMemoryState {
+  if (candidates.length === 0) return state;
+  const existingFp = new Set(
+    (state.shortTerm ?? []).map((item) =>
+      `${item.expertId ?? "g"}|${normalizeMemoryFingerprint(item.text)}`,
+    ),
+  );
+  const additions: ConversationMemoryItem[] = [];
+  for (const candidate of candidates) {
+    const text = candidate.text.trim().slice(0, MAX_CONVERSATION_MEMORY_TEXT_CHARS);
+    if (!text || isSensitiveMemoryText(text)) continue;
+    const fp = `${candidate.expertId ?? "g"}|${normalizeMemoryFingerprint(text)}`;
+    if (existingFp.has(fp)) continue;
+    existingFp.add(fp);
+    additions.push({
+      ...candidate,
+      text,
+      updatedAt: candidate.updatedAt || Date.now(),
+    });
+  }
+  if (additions.length === 0) return state;
+  return {
+    ...state,
+    shortTerm: [...additions, ...(state.shortTerm ?? [])].slice(
+      0,
+      MAX_SHORT_TERM_MEMORY_ITEMS,
+    ),
+  };
+}
+
+/**
+ * Legacy path: enqueue into `pending` only (never inject until accept).
+ * Used when enabled but autoCapture is off and product wants review queue.
+ */
+export function enqueuePendingMemoryCandidates(
+  state: ConversationMemoryState,
+  candidates: ConversationMemoryItem[],
+): ConversationMemoryState {
+  if (!state.enabled || candidates.length === 0) return state;
+
+  const existingFp = new Set([
+    ...state.items.map((item) => scopeFingerprint(item.expertId, item.text)),
+    ...(state.pending ?? []).map((item) =>
+      scopeFingerprint(item.expertId, item.text),
+    ),
+  ]);
+
+  const additions: ConversationMemoryItem[] = [];
+  for (const candidate of candidates) {
+    const text = candidate.text.trim().slice(0, MAX_CONVERSATION_MEMORY_TEXT_CHARS);
+    if (!text || isSensitiveMemoryText(text)) continue;
+    const fp = scopeFingerprint(candidate.expertId, text);
+    if (existingFp.has(fp)) continue;
+    existingFp.add(fp);
+    additions.push({
+      ...candidate,
+      text,
+      updatedAt: candidate.updatedAt || Date.now(),
+    });
+  }
+
+  if (additions.length === 0) return state;
+  return {
+    ...state,
+    pending: [...additions, ...(state.pending ?? [])].slice(
+      0,
+      MAX_PENDING_MEMORY_ITEMS,
+    ),
+  };
+}
+
+/** @deprecated Use enqueuePendingMemoryCandidates for auto-capture. */
 export function mergePendingMemoryCandidates(
   state: ConversationMemoryState,
   candidates: ConversationMemoryItem[],
 ): ConversationMemoryState {
-  // Direct-write path: simpler UX, write into items immediately.
-  return appendMemoryItems(state, candidates);
+  return enqueuePendingMemoryCandidates(state, candidates);
 }
 
 export function acceptPendingMemory(
@@ -363,7 +477,7 @@ export function acceptPendingMemory(
     pending: (state.pending ?? []).filter((item) => item.id !== id),
   };
   return appendMemoryItems(without, [
-    { ...pendingItem, source: "dialog", updatedAt: Date.now() },
+    { ...pendingItem, updatedAt: Date.now() },
   ]);
 }
 

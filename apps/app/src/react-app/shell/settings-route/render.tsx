@@ -42,6 +42,20 @@ import { usePlatform } from "../../kernel/platform";
 import { useLocal } from "../../kernel/local-provider";
 import type { OnboardingProfile } from "../../kernel/local-provider";
 import {
+  buildUserProfileLabelMaps,
+  scheduleSyncMemoryAwarenessFiles,
+  scheduleSyncPersonalAwarenessFiles,
+  scheduleSyncStyleAwarenessFiles,
+  syncMemoryAwarenessFiles,
+  syncPersonalAwarenessFiles,
+} from "../../domains/shared";
+import {
+  industryOptions,
+  roleOptions,
+  taskOptions,
+  toolOptions,
+} from "../../domains/settings/pages/onboarding-profile-shared";
+import {
   pickDirectory,
   type AgentManagementManagedProvider,
 } from "../../../app/lib/desktop";
@@ -297,17 +311,69 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setConversationMemoryDraft(local.prefs.conversationMemory);
   }, [local.prefs.conversationMemory]);
 
-  // 偏好: tone / custom instructions / profile all auto-persist (no page Save).
+  const userProfileLabels = useMemo(
+    () =>
+      buildUserProfileLabelMaps({
+        roles: roleOptions,
+        industries: industryOptions,
+        tools: toolOptions,
+        tasks: taskOptions,
+      }),
+    [],
+  );
+
+  // 偏好 auto-persist; mirror Personal → USER.md + style.md (desktop).
   const persistMemoryDraft = useCallback(
     (draft: OnboardingProfile) => {
-      setMemoryDraft(draft);
+      const next = { ...draft, updatedAt: Date.now() };
+      setMemoryDraft(next);
       local.setPrefs((previous) => ({
         ...previous,
-        onboardingProfile: { ...draft, updatedAt: Date.now() },
+        onboardingProfile: next,
       }));
+      scheduleSyncPersonalAwarenessFiles({
+        profile: next,
+        labels: userProfileLabels,
+        responseTone: local.prefs.responseTone,
+        customInstructions: local.prefs.customInstructions,
+      });
+    },
+    [local, userProfileLabels],
+  );
+
+  const persistResponseTone = useCallback(
+    (responseTone: typeof local.prefs.responseTone) => {
+      local.setPrefs((previous) => ({ ...previous, responseTone }));
+      scheduleSyncStyleAwarenessFiles(
+        responseTone,
+        local.prefs.customInstructions,
+      );
     },
     [local],
   );
+
+  const persistCustomInstructions = useCallback(
+    (customInstructions: string) => {
+      local.setPrefs((previous) => ({ ...previous, customInstructions }));
+      scheduleSyncStyleAwarenessFiles(
+        local.prefs.responseTone,
+        customInstructions,
+      );
+    },
+    [local],
+  );
+
+  // One-shot backfill when settings opens (write paths schedule their own sync).
+  useEffect(() => {
+    void syncPersonalAwarenessFiles({
+      profile: local.prefs.onboardingProfile,
+      labels: userProfileLabels,
+      responseTone: local.prefs.responseTone,
+      customInstructions: local.prefs.customInstructions,
+    });
+    void syncMemoryAwarenessFiles(local.prefs.conversationMemory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount backfill only
+  }, []);
 
   const persistConversationMemory = useCallback(
     (next: typeof conversationMemoryDraft) => {
@@ -316,6 +382,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         ...previous,
         conversationMemory: next,
       }));
+      scheduleSyncMemoryAwarenessFiles(next);
     },
     [local],
   );
@@ -842,8 +909,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     denSession,
     memoryDraft,
     persistMemoryDraft,
+    persistResponseTone,
+    persistCustomInstructions,
     conversationMemoryDraft,
     persistConversationMemory,
+    userProfileLabels,
     autoCompactContext,
     autoCompactContextBusy,
     toggleAutoCompactContext,
