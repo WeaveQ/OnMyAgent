@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import fuzzysort from "fuzzysort";
 import type { ComposerMentionTarget } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
-import { WORKSPACE_UPLOADS_DIR } from "../../../workspace/workspace-files-layout";
+import { WORKSPACE_UPLOADS_DIR } from "../../../workspace";
 import type { MentionItem } from "./composer-helpers";
 
 const MINE_ROOT = WORKSPACE_UPLOADS_DIR;

@@ -16,7 +16,7 @@ import {
   workspaceDirectoryTargets,
   workspaceMentionTargets,
 } from "../../../capabilities/artifacts/workspace-mention-targets";
-import { WORKSPACE_INBOX_DIR } from "../../workspace/workspace-files-uploads-catalog";
+import { WORKSPACE_INBOX_DIR } from "../../workspace";
 import {
   resolveWorkspaceRelativeDownloadPath,
   workspaceAttachmentContentType,
