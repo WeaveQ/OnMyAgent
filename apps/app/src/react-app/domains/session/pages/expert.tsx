@@ -28,6 +28,7 @@ import { ProviderAuthModal } from "../../connections";
 import {
   SessionSurface,
 } from "../surface/session-surface";
+import { ReactSessionComposer } from "../surface/composer/composer";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
@@ -55,6 +56,7 @@ import type { AgentCardItem } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
+  type ExpertCreationComposerProps,
   type PendingAgentContext,
   usePendingAgentStore,
 } from "../../agents";
@@ -787,7 +789,80 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const { openExpertCreation, expertCreationPage } = useExpertCreationController({ registry, workspaceId: props.selectedWorkspaceId, workspaceRoot: props.selectedWorkspaceRoot, opencodeBaseUrl: props.opencodeBaseUrl ?? null, onmyagentServerToken: props.onmyagentServerToken ?? null, client: props.onmyagentServerClient, skills: registry?.skills ?? [], showToast });
+  const renderExpertCreationComposer = useCallback(
+    (composer: ExpertCreationComposerProps) => {
+      const surface = props.surface;
+      if (!surface) return null;
+      return (
+        <ReactSessionComposer
+          sessionId={composer.sessionId}
+          draft={composer.draft}
+          mentions={{}}
+          placeholder={composer.placeholder}
+          onDraftChange={composer.onDraftChange}
+          onSend={composer.onSend}
+          onStop={composer.onStop}
+          busy={composer.busy}
+          disabled={surface.model.modelUnavailable === true}
+          modelUnavailable={surface.model.modelUnavailable}
+          accessMode="default"
+          onAccessModeChange={() => undefined}
+          collaborationMode={{ planning: false, pursueGoal: false }}
+          onCollaborationModeChange={() => undefined}
+          modelPickerOpen={surface.model.modelPickerOpen}
+          selectedModel={surface.model.selectedModel}
+          onModelPickerOpenChange={surface.model.onModelPickerOpenChange}
+          onModelChange={surface.model.onModelChange}
+          attachments={composer.attachments}
+          onAttachFiles={composer.onAttachFiles}
+          onRemoveAttachment={composer.onRemoveAttachment}
+          attachmentsEnabled={surface.attachmentsEnabled}
+          attachmentsDisabledReason={surface.attachmentsDisabledReason}
+          modelVariantLabel={surface.model.modelVariantLabel}
+          modelVariant={surface.model.modelVariant}
+          modelBehaviorOptions={surface.model.modelBehaviorOptions}
+          onModelVariantChange={surface.model.onModelVariantChange}
+          agentLabel={t("agents.expert_creation_coach")}
+          selectedAgent={null}
+          listAgents={surface.listAgents}
+          onSelectAgent={() => undefined}
+          listCommands={surface.listCommands}
+          recentFiles={surface.recentFiles}
+          searchFiles={surface.searchFiles}
+          listFolderFiles={surface.searchFiles}
+          loadWorkspaceFiles={async () => []}
+          onInsertMention={() => undefined}
+          notice={null}
+          onNotice={() => undefined}
+          onPasteText={() => undefined}
+          onUnsupportedFileLinks={() => undefined}
+          pastedText={[]}
+          onExpandPastedText={() => undefined}
+          onRevealPastedText={() => undefined}
+          onRemovePastedText={() => undefined}
+          isRemoteWorkspace={surface.isRemoteWorkspace}
+          isSandboxWorkspace={surface.isSandboxWorkspace}
+          onUploadInboxFiles={surface.onUploadInboxFiles}
+          showOuterBorder={false}
+          hideAccessPermissionSelect
+        />
+      );
+    },
+    [props.surface],
+  );
+
+  const { openExpertCreation, expertCreationPage } = useExpertCreationController({
+    registry,
+    workspaceId: props.selectedWorkspaceId,
+    workspaceRoot: props.selectedWorkspaceRoot,
+    opencodeBaseUrl: props.opencodeBaseUrl ?? null,
+    onmyagentServerToken: props.onmyagentServerToken ?? null,
+    client: props.onmyagentServerClient,
+    skills: registry?.skills ?? [],
+    selectedModel: props.surface?.model.selectedModel ?? null,
+    renderComposer: renderExpertCreationComposer,
+    showToast,
+  });
   const seedChatDraft = useCallback(
     (draft: string) => {
       // Expert-mode in-session seed: still force a new draft session.
