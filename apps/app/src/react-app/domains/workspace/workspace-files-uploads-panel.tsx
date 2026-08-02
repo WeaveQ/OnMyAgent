@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 /**
- * Files page — 我的文件 (uploads/): catalog list, import-by-copy, folder browse,
+ * Files page — Mine uploads/: catalog list, import-by-copy, folder browse,
  * hierarchical expand/collapse, drag-move, and preview/open actions.
  */
 import {
@@ -929,7 +929,7 @@ export function WorkspaceFilesUploadsPanel(props: {
           dest.from,
           dest.to,
         );
-        // Hope-style: 已移动到「文件夹」 + 查看 → open that folder.
+        // Hope-style: moved into folder + View action opens that folder.
         props.onToast?.({
           tone: "success",
           title: t("files.move_to_success", { folder: folderLabel }),

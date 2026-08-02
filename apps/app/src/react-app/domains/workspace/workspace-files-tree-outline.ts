@@ -110,7 +110,7 @@ export function formatWorkspaceFolderDisplayName(
 /** Outline rows for root: collapsible folders (project) + nested task/file rows. */
 /**
  * Synthetic browse path for top-level loose files (not under a session/task
- * folder). Tasks/Experts root shows a drillable「未分组」folder for these.
+ * folder). Tasks/Experts root shows a drillable ungrouped folder for these.
  * Not a real workspace path — never pass to open/reveal/delete APIs.
  */
 export const FILES_UNGROUPED_PATH = "__ungrouped__";
