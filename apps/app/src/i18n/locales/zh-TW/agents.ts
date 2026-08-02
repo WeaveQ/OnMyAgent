@@ -239,6 +239,8 @@ export default {
   "agents.expert_creation_coach_welcome": "我可以幫你定義這個專家。先說說它的用途、服務對象，以及它應該提供什麼幫助。",
   "agents.expert_creation_coach_unavailable": "智慧體執行服務尚未連線，暫時無法使用專家教練。",
   "agents.expert_creation_coach_thinking": "正在思考…",
+  "agents.expert_creation_apply_suggestion": "套用到專家",
+  "agents.expert_creation_suggestion_applied": "已套用",
   "agents.expert_creation_coach_stop": "停止生成",
   "agents.expert_creation_coach_stopped": "已停止生成，你可以調整需求後再次傳送。",
   "agents.expert_creation_coach_failed": "專家教練暫時無法回覆，請重試。",

@@ -239,6 +239,8 @@ export default {
   "agents.expert_creation_coach_welcome": "我可以帮你定义这个专家。先说说它的用途、服务对象，以及它应该提供什么帮助。",
   "agents.expert_creation_coach_unavailable": "智能体运行服务尚未连接，暂时无法使用专家教练。",
   "agents.expert_creation_coach_thinking": "正在思考…",
+  "agents.expert_creation_apply_suggestion": "应用到专家",
+  "agents.expert_creation_suggestion_applied": "已应用",
   "agents.expert_creation_coach_stop": "停止生成",
   "agents.expert_creation_coach_stopped": "已停止生成，你可以调整需求后再次发送。",
   "agents.expert_creation_coach_failed": "专家教练暂时无法回复，请重试。",

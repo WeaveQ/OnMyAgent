@@ -89,6 +89,7 @@ import {
   ExpertCreationConversation,
   type ExpertCreationComposerProps,
 } from "./expert-creation-conversation";
+import type { ExpertDraftSuggestion } from "./expert-creation-suggestions";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -223,8 +224,10 @@ function buildCreationCoachSystemPrompt(draft: AgentWizardDraft): string {
     "You are OnMyAgent's dedicated expert-creation coach.",
     "Your only purpose is to help the user design a useful, dependable expert.",
     "Use a natural conversation. Ask one focused question at a time and offer concrete suggestions.",
-    "Do not output JSON, schemas, or internal implementation details.",
-    "Do not claim that you changed the form automatically.",
+    "Do not claim that you changed the form automatically. Suggestions are applied only after the user confirms in the UI.",
+    "When you have one or more concrete form values to propose, append exactly one machine-readable block at the very end of your answer:",
+    '<expert-update>{"name":"...","description":"...","userNote":"...","agentMemory":"..."}</expert-update>',
+    "Include only fields you are proposing now. Do not mention or explain this block in visible text.",
     "",
     "Current draft:",
     `Name: ${draft.name || "Not set"}`,
@@ -241,6 +244,7 @@ function ExpertCoach(props: {
   onmyagentServerToken: string | null;
   selectedModel: ModelRef | null;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
+  onApplyDraftSuggestion: (suggestion: ExpertDraftSuggestion) => void;
 }) {
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
@@ -276,6 +280,7 @@ function ExpertCoach(props: {
           systemPrompt={buildCreationCoachSystemPrompt(props.draft)}
           emptyMessage={t("agents.expert_creation_coach_failed")}
           renderComposer={props.renderComposer}
+          onApplyDraftSuggestion={props.onApplyDraftSuggestion}
         />
         <p className="pt-3 text-center text-xs text-dls-secondary">
           {t("agents.expert_creation_coach_disclaimer")}
@@ -1392,6 +1397,10 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             onmyagentServerToken={props.onmyagentServerToken}
             selectedModel={props.selectedModel}
             renderComposer={props.renderComposer}
+            onApplyDraftSuggestion={(suggestion) => {
+              setDraft((current) => ({ ...current, ...suggestion }));
+              setActiveTab("basic");
+            }}
           />
         </ResizablePanel>
         <ResizableHandle withHandle aria-label={t("agents.expert_creation_resize_coach")} />

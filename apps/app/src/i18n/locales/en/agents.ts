@@ -249,6 +249,8 @@ export default {
     "I can help you define this expert. Start with its purpose, audience, and the kind of help it should provide.",
   "agents.expert_creation_coach_unavailable": "The expert coach is unavailable because the agent runtime is not connected.",
   "agents.expert_creation_coach_thinking": "Thinking…",
+  "agents.expert_creation_apply_suggestion": "Apply to expert",
+  "agents.expert_creation_suggestion_applied": "Applied",
   "agents.expert_creation_coach_stop": "Stop generating",
   "agents.expert_creation_coach_stopped": "Generation stopped. You can adjust your request and try again.",
   "agents.expert_creation_coach_failed": "The expert coach could not respond. Please try again.",
