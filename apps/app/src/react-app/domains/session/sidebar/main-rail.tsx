@@ -89,12 +89,12 @@ function RailBrandMark(props: { onClick: () => void }) {
       aria-label={APP_NAME}
       className={cn(
         // 46px tile / 26px mark — 2px under the default 48 / 28 rail pill scale.
-        "flex size-[46px] shrink-0 items-center justify-center rounded-2xl",
-        "bg-dls-rail-pill-active text-dls-text shadow-sm",
-        "ring-1 ring-black/5 transition-colors",
-        "hover:bg-dls-rail-pill-hover focus-visible:outline-none",
+        "flex size-[46px] shrink-0 items-center justify-center rounded-2xl shadow-sm",
+        // Light: black tile; dark: white tile so the blue mark stays readable.
+        "bg-black ring-1 ring-black/20 hover:bg-neutral-900",
+        "dark:bg-white dark:ring-white/30 dark:hover:bg-neutral-100",
+        "transition-colors focus-visible:outline-none",
         "focus-visible:ring-3 focus-visible:ring-ring/30",
-        "dark:ring-white/10",
       )}
     >
       <img
