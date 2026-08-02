@@ -12,4 +12,3 @@ export function createExpertRecordForSave(
 ): AgentRecord {
   return createAgentRecordFromDraft(draft, nowIso, availableSkills);
 }
-
