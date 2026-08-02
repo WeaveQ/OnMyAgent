@@ -27,3 +27,28 @@ export {
 export * from "./workspace-modal-types";
 export * from "./workspace-option-card";
 export * from "./share-workspace-access-panel";
+
+/** Product layout roots + session-owned cleanup (consumed by session / shell). */
+export {
+  WORKSPACE_UPLOADS_DIR,
+  WORKSPACE_TASKS_DIR,
+  WORKSPACE_EXPERTS_DIR,
+  WORKSPACE_PROJECTS_DIR,
+} from "./workspace-files-layout";
+export { WORKSPACE_INBOX_DIR } from "./workspace-files-uploads-catalog";
+export {
+  uploadUserFileToWorkspace,
+  type WorkspaceUserFileUploadClient,
+  type WorkspaceUserFileUploadResult,
+} from "./workspace-files-upload-user-file";
+export {
+  deleteSessionOwnedWorkspaceFiles,
+  resolveSessionOwnedFilePaths,
+  type SessionOwnedDeleteClient,
+} from "./workspace-files-session-cleanup";
+export {
+  buildSessionTitleByKey,
+  resolveOpenSourceSessionAction,
+  type OpenSourceSessionAction,
+  type SourceSessionStatus,
+} from "./workspace-files-open-session";

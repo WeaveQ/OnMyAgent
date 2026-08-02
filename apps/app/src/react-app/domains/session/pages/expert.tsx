@@ -73,7 +73,10 @@ import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
-import { buildSessionTitleByKey } from "../../workspace/workspace-files-open-session";
+import {
+  buildSessionTitleByKey,
+  deleteSessionOwnedWorkspaceFiles,
+} from "../../workspace";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -121,7 +124,6 @@ import {
   permanentlyRemoveAssistantArchivedTask,
   readAssistantArchivedTasks,
 } from "../../shared";
-import { deleteSessionOwnedWorkspaceFiles } from "../../workspace/workspace-files-session-cleanup";
 
 import {
   createWorkspaceFilesAgentHandlers,

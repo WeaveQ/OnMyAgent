@@ -856,7 +856,7 @@ export function useSessionRouteSurfaceProps(
             attachmentUploadTarget
               ? async (attachment, uploadPath) => {
                   const { uploadUserFileToWorkspace } = await import(
-                    "../../domains/workspace/workspace-files-upload-user-file"
+                    "../../domains/workspace"
                   );
                   return uploadUserFileToWorkspace(
                     attachmentUploadTarget.client,

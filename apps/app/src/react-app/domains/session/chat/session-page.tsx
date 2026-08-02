@@ -110,7 +110,7 @@ import {
 } from "./session-page-view-model";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
-import { buildSessionTitleByKey } from "../../workspace/workspace-files-open-session";
+import { buildSessionTitleByKey } from "../../workspace";
 import {
   readAssistantArchivedTasks,
 } from "../../shared";

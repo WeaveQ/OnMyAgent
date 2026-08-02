@@ -324,7 +324,7 @@ export function useSessionSurfaceComposerHandlers(
     if (!input.length) return;
     try {
       const { uploadUserFileToWorkspace } = await import(
-        "../../workspace/workspace-files-upload-user-file"
+        "../../workspace"
       );
       const results = await Promise.all(
         input.map((file) =>

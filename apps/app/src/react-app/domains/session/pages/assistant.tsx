@@ -77,8 +77,10 @@ import {
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
 import { WorkspaceFilesPage } from "../../workspace";
-import { deleteSessionOwnedWorkspaceFiles } from "../../workspace/workspace-files-session-cleanup";
-import { buildSessionTitleByKey } from "../../workspace/workspace-files-open-session";
+import {
+  buildSessionTitleByKey,
+  deleteSessionOwnedWorkspaceFiles,
+} from "../../workspace";
 import {
   archiveAssistantTask,
   permanentlyRemoveAssistantArchivedTask,
