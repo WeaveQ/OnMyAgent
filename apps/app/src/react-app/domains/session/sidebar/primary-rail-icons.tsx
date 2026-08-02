@@ -41,7 +41,7 @@ export function ExpertRailIcon(props: PrimaryRailIconProps) {
   return <UserRound {...railIconProps(props.className)} />;
 }
 
-/** Local agent — device / monitor outline (distinct from Expert Bot). */
+/** Local agent — device / monitor outline (distinct from Expert UserRound). */
 export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
   return <MonitorSmartphone {...railIconProps(props.className)} />;
 }
