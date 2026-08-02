@@ -56,6 +56,11 @@ import {
 import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
+import {
+  applyExpertCoachProposal,
+  type ExpertCoachProposal,
+} from "./expert-creation-coach-model";
+import { runExpertCoachTurn } from "./expert-creation-coach-runtime";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -68,6 +73,8 @@ export type ExpertKnowledgeEntry = {
 export type ExpertCreationPageProps = {
   workspaceId: string;
   workspaceRoot: string;
+  opencodeBaseUrl: string | null;
+  onmyagentServerToken: string | null;
   client: OnMyAgentServerClient | null;
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
@@ -80,8 +87,16 @@ export type ExpertCreationPageProps = {
 };
 
 type CoachMessage = {
+  id: string;
   role: "assistant" | "user";
   content: string;
+  proposal?: ExpertCoachProposal;
+};
+
+type CoachVersion = {
+  id: string;
+  createdAt: number;
+  proposal: ExpertCoachProposal;
 };
 
 const TABS: Array<{ id: ExpertCreationTab; label: string }> = [
@@ -180,22 +195,102 @@ function ExpertCreationAvatar(props: {
   );
 }
 
-function ExpertCoach(props: { registry: AgentRegistry }) {
+function ExpertCoach(props: {
+  registry: AgentRegistry;
+  draft: AgentWizardDraft;
+  skills: AgentSkillItem[];
+  workspaceRoot: string;
+  opencodeBaseUrl: string | null;
+  onmyagentServerToken: string | null;
+  onApplyProposal: (proposal: ExpertCoachProposal) => void;
+}) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<CoachMessage[]>([]);
+  const [versions, setVersions] = useState<CoachVersion[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [appliedVersionId, setAppliedVersionId] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const send = () => {
-    const value = input.trim();
-    if (!value) return;
-    setMessages((current) => [
-      ...current,
-      { role: "user", content: value },
-      {
-        role: "assistant",
-        content: t("agents.expert_creation_coach_welcome"),
-      },
-    ]);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const applyVersion = (version: CoachVersion) => {
+    props.onApplyProposal(version.proposal);
+    setAppliedVersionId(version.id);
+  };
+
+  const send = async (retryValue?: string) => {
+    const value = (retryValue ?? input).trim();
+    if (!value || sending) return;
+    const userMessage: CoachMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: value,
+    };
+    setMessages((current) => [...current, userMessage]);
     setInput("");
+    const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
+    if (!baseUrl) {
+      setMessages((current) => [...current, {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: t("agents.expert_creation_coach_unavailable"),
+      }]);
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSending(true);
+    try {
+      const output = await runExpertCoachTurn({
+        config: {
+          baseUrl,
+          token: props.onmyagentServerToken,
+          workspaceRoot: props.workspaceRoot,
+        },
+        sessionId,
+        message: value,
+        draft: props.draft,
+        skills: props.skills,
+        signal: controller.signal,
+      });
+      setSessionId(output.sessionId);
+      const assistantMessage: CoachMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: output.result.reply,
+        ...(output.result.proposal ? { proposal: output.result.proposal } : {}),
+      };
+      setMessages((current) => [...current, assistantMessage]);
+      const proposal = output.result.proposal;
+      if (proposal) {
+        setVersions((current) => [{
+          id: assistantMessage.id,
+          createdAt: Date.now(),
+          proposal,
+        }, ...current]);
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      const detail = error instanceof Error ? error.message : "";
+      setMessages((current) => [...current, {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: detail
+          ? t("agents.expert_creation_coach_failed_detail", { detail })
+          : t("agents.expert_creation_coach_failed"),
+      }]);
+    } finally {
+      abortRef.current = null;
+      setSending(false);
+    }
   };
 
   return (
@@ -216,12 +311,19 @@ function ExpertCoach(props: { registry: AgentRegistry }) {
               {t("agents.expert_creation_coach")}
             </h2>
           </div>
-          <Button type="button" variant="ghost" size="sm" className="text-dls-secondary">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-dls-secondary"
+            disabled={versions.length === 0}
+            onClick={() => setHistoryOpen(true)}
+          >
             <Clock3 data-icon="inline-start" className="size-4" />
             {t("agents.expert_creation_coach_history")}
           </Button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto pt-10">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-10">
           <div className="space-y-6 text-sm leading-7 text-dls-text">
             <p>{t("agents.expert_creation_coach_greeting")}</p>
             <p>{t("agents.expert_creation_coach_intro")}</p>
@@ -234,9 +336,11 @@ function ExpertCoach(props: { registry: AgentRegistry }) {
               ))}
             </ol>
             <p>{t("agents.expert_creation_coach_reply_hint")}</p>
-            {messages.map((message, index) => (
+            {messages.map((message) => {
+              const proposal = message.proposal;
+              return (
               <div
-                key={`${message.role}-${index}`}
+                key={message.id}
                 className={cn(
                   "max-w-[94%] rounded-xl px-3 py-2.5 leading-6",
                   message.role === "user"
@@ -244,9 +348,38 @@ function ExpertCoach(props: { registry: AgentRegistry }) {
                     : "bg-dls-hover text-dls-text",
                 )}
               >
-                {message.content}
+                <p className="whitespace-pre-wrap">{message.content}</p>
+                {proposal ? (
+                  <div className="mt-3 rounded-xl border border-dls-border bg-dls-surface p-3">
+                    <p className="font-semibold text-dls-text">{proposal.name}</p>
+                    <p className="mt-1 line-clamp-3 text-xs leading-5 text-dls-secondary">
+                      {proposal.description}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-3 w-full"
+                      variant={appliedVersionId === message.id ? "secondary" : "default"}
+                      onClick={() => applyVersion({
+                        id: message.id,
+                        createdAt: Date.now(),
+                        proposal,
+                      })}
+                    >
+                      {appliedVersionId === message.id
+                        ? t("agents.expert_creation_coach_applied")
+                        : t("agents.expert_creation_coach_apply")}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
-            ))}
+              );
+            })}
+            {sending ? (
+              <div className="max-w-[94%] rounded-xl bg-dls-hover px-3 py-2.5 text-dls-secondary">
+                {t("agents.expert_creation_coach_thinking")}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="pt-6">
@@ -275,11 +408,13 @@ function ExpertCoach(props: { registry: AgentRegistry }) {
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  disabled={!input.trim()}
-                  onClick={send}
-                  aria-label={t("agents.expert_creation_preview_send")}
+                  disabled={!sending && !input.trim()}
+                  onClick={() => sending ? abortRef.current?.abort() : void send()}
+                  aria-label={sending
+                    ? t("agents.expert_creation_coach_stop")
+                    : t("agents.expert_creation_preview_send")}
                 >
-                  <Send className="size-5" aria-hidden />
+                  {sending ? <X className="size-5" aria-hidden /> : <Send className="size-5" aria-hidden />}
                 </Button>
               </div>
             </div>
@@ -289,6 +424,36 @@ function ExpertCoach(props: { registry: AgentRegistry }) {
           </p>
         </div>
       </div>
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-h-[78vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("agents.expert_creation_coach_history")}</DialogTitle>
+            <DialogDescription>{t("agents.expert_creation_coach_history_desc")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {versions.map((version, index) => (
+              <div key={version.id} className="rounded-xl border border-dls-border bg-dls-surface p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-dls-text">{version.proposal.name}</p>
+                    <p className="mt-1 text-xs text-dls-secondary">
+                      {t("agents.expert_creation_coach_version", { version: versions.length - index })}
+                      {" · "}
+                      {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(version.createdAt)}
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" onClick={() => applyVersion(version)}>
+                    {appliedVersionId === version.id
+                      ? t("agents.expert_creation_coach_applied")
+                      : t("agents.expert_creation_coach_apply")}
+                  </Button>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-dls-secondary">{version.proposal.description}</p>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }
@@ -1130,7 +1295,17 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <ExpertCoach registry={sourceRegistry} />
+        <ExpertCoach
+          registry={sourceRegistry}
+          draft={draft}
+          skills={availableSkills}
+          workspaceRoot={props.workspaceRoot}
+          opencodeBaseUrl={props.opencodeBaseUrl}
+          onmyagentServerToken={props.onmyagentServerToken}
+          onApplyProposal={(proposal) => {
+            setDraft((current) => applyExpertCoachProposal(current, proposal, availableSkills));
+          }}
+        />
         <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
           <div className="flex items-center justify-between gap-3 border-b border-dls-border bg-dls-surface px-5 py-3">
             <SegmentedTabGroup aria-label={t("agents.expert_creation_title")}>

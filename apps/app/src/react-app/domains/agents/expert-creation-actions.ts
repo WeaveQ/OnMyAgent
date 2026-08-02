@@ -57,6 +57,8 @@ export type ExpertCreationControllerInput = {
   registry: AgentRegistry | null;
   workspaceId: string;
   workspaceRoot: string;
+  opencodeBaseUrl: string | null;
+  onmyagentServerToken: string | null;
   client: OnMyAgentServerClient | null;
   skills: AgentRegistry["skills"];
   showToast: (input: {
@@ -189,6 +191,8 @@ export function useExpertCreationController(
     ? createElement(ExpertCreationPage, {
         workspaceId: input.workspaceId,
         workspaceRoot: input.workspaceRoot,
+        opencodeBaseUrl: input.opencodeBaseUrl,
+        onmyagentServerToken: input.onmyagentServerToken,
         client: input.client,
         registry: input.registry,
         skills: input.skills,
