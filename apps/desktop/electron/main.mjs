@@ -119,6 +119,7 @@ import {
   normalizeDesktopBootstrapConfig,
   normalizeWorkspaceEntry,
 } from "./desktop-main-helpers.mjs";
+import { runDesktopWhenReady } from "./desktop-cold-start.mjs";
 
 // --- Global crash guards (main process) ---
 // The desktop app makes HTTPS requests from several places (channel transports
@@ -1317,73 +1318,62 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
-    await browserController.startRpc({
-      runtimeDir: path.join(app.getPath("userData"), "browser-runtime"),
+    // Cold-start order: open main window before deferred channel autoStart /
+    // Computer Use restore. Runtime bootstrap does not double-call
+    // prepareFreshRuntime (engineStart cleans once). See desktop-cold-start.mjs.
+    await runDesktopWhenReady({
+      startBrowserRpc: () =>
+        browserController.startRpc({
+          runtimeDir: path.join(app.getPath("userData"), "browser-runtime"),
+        }),
+      installMediaPermissionHandlers,
+      installApplicationMenu,
+      installStatusItem: () => statusItem.installSafely(),
+      ensureUserDataDirs: () => ensureOnMyAgentUserDataDirs(),
+      // Use Tauri's existing workspace state file as canonical so rollback and
+      // Electron see the same workspace list. Import the short-lived
+      // Electron-only filename only when the shared file is missing.
+      migrateLegacyWorkspaceState: () => migrateLegacyElectronWorkspaceStateIfNeeded(),
+      createMainWindow,
+      restoreComputerUseServices: () => restoreComputerUseServices(),
+      startUiControl: () => uiControlBridge.start(),
+      // Channel autoStart is a no-op when disabled / no account. Deferred so it
+      // does not block first paint (Telegram/Discord must still auto-start when
+      // configured — previously missing from launch and left pollers dead).
+      channelAutoStarts: [
+        () => weixinService.autoStart(),
+        () => feishuService.autoStart(),
+        () => telegramService.autoStart(),
+        () => discordService.autoStart(),
+      ],
+      queueDeepLinks: () => queueDeepLinks(forwardedDeepLinks(process.argv)),
+      watchComputerUseActivity,
+      watchComputerUseAppshots,
+      onComputerUseActivity: (activity) => {
+        if (!mainWindow?.isDestroyed()) {
+          mainWindow.webContents.send(COMPUTER_USE_ACTIVITY_EVENT, activity);
+        }
+      },
+      onComputerUseAppshot: (appshot) => {
+        if (!mainWindow?.isDestroyed()) {
+          mainWindow.webContents.send(COMPUTER_USE_APPSHOT_EVENT, appshot);
+        }
+      },
+      flushPendingDeepLinks,
+      hasRuntimeBootstrap: () => Boolean(runtimeBootstrapPromise),
+      setRuntimeBootstrap: (task) => {
+        runtimeBootstrapPromise = task;
+      },
+      bootRuntimeForSelectedWorkspace,
+      // Packaged updater after the window path has started. Renderer-owned
+      // checks pass the selected release channel explicitly.
+      ensureAutoUpdater: () => {
+        void ensureAutoUpdater();
+      },
+      onDeferredError: (error, label) => {
+        console.warn(`[${label}] deferred start failed`, error);
+      },
     });
-    installMediaPermissionHandlers();
-    installApplicationMenu();
-    statusItem.installSafely();
-
-    await ensureOnMyAgentUserDataDirs();
-    await restoreComputerUseServices().catch((error) => {
-      console.warn("[ComputerUse] failed to restore services", error);
-    });
-
-    // Use Tauri's existing workspace state file as canonical so rollback and
-    // Electron see the same workspace list. Import the short-lived
-    // Electron-only filename only when the shared file is missing.
-    await migrateLegacyElectronWorkspaceStateIfNeeded();
-    await uiControlBridge.start().catch((error) => {
-      console.warn("[ui-control] failed to start", error);
-    });
-    void weixinService.autoStart().catch((error) => {
-      console.warn("[weixin] auto start failed", error);
-    });
-    void feishuService.autoStart().catch((error) => {
-      console.warn("[feishu] auto start failed", error);
-    });
-    // Telegram & Discord were missing from the launch auto-start sequence —
-    // only weixin/feishu were auto-started, so every app restart left the
-    // Telegram poller dead until the user manually toggled it on in Studio
-    // (messages then went unconsumed -> "又不理我了"). autoStart() is a no-op
-    // when the config flag is false or no account is configured.
-    void telegramService.autoStart().catch((error) => {
-      console.warn("[telegram] auto start failed", error);
-    });
-    void discordService.autoStart().catch((error) => {
-      console.warn("[discord] auto start failed", error);
-    });
-
-    queueDeepLinks(forwardedDeepLinks(process.argv));
-    const win = await createMainWindow();
-    watchComputerUseActivity((activity) => {
-      if (!mainWindow?.isDestroyed()) {
-        mainWindow.webContents.send(COMPUTER_USE_ACTIVITY_EVENT, activity);
-      }
-    });
-    watchComputerUseAppshots((appshot) => {
-      if (!mainWindow?.isDestroyed()) {
-        mainWindow.webContents.send(COMPUTER_USE_APPSHOT_EVENT, appshot);
-      }
-    });
-    win.webContents.on("did-finish-load", () => {
-      flushPendingDeepLinks();
-    });
-
-    if (!runtimeBootstrapPromise) {
-      runtimeBootstrapPromise = (async () => {
-        await runtimeManager.prepareFreshRuntime().catch(() => undefined);
-        return bootRuntimeForSelectedWorkspace();
-      })().catch((error) => ({
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
-
-    // Initialize the packaged updater after the window is up so the user sees
-    // a working app first. Renderer-owned checks pass the selected release
-    // channel explicitly, avoiding stale stable-feed results for alpha users.
-    void ensureAutoUpdater();
   });
 
   app.on("activate", async () => {
