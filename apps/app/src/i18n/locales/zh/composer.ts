@@ -27,6 +27,8 @@ export default {
   "composer.remote_worker_paste_warning":
     "这是远程工作区。沙箱也是远程的。要共享文件，请上传到侧边栏的共享文件夹。",
   "composer.search_connectors": "搜索连接器",
+  "composer.search_mine_files": "搜索我的文件",
+  "composer.no_matching_mine_files": "没有匹配的文件",
   "composer.search_skills": "搜索技能",
   "composer.slash_section_skills": "技能",
   "composer.stop": "停止",

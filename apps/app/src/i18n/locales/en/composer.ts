@@ -28,6 +28,8 @@ export default {
   "composer.remote_worker_paste_warning":
     "This is a remote worker. Sandboxes are remote too. To share files with it, upload them to the Shared folder in the sidebar.",
   "composer.search_connectors": "Search connectors",
+  "composer.search_mine_files": "Search my files",
+  "composer.no_matching_mine_files": "No matching files",
   "composer.search_skills": "Search skills",
   "composer.slash_section_skills": "Skills",
   "composer.stop": "Stop",
