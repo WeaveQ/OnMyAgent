@@ -691,12 +691,13 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     const uploads = readApp(
       "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
     );
-    // Actions row + path bar (breadcrumb · expand/collapse · type · search).
+    // Primary actions toolbar + path bar (breadcrumb · expand · type · search · refresh).
     expect(uploads).toContain('data-files-mine-toolbar="true"');
     expect(uploads).toContain('data-files-mine-pathbar="true"');
     expect(uploads).toContain('data-files-create-folder="true"');
     expect(uploads).toContain('data-files-upload="true"');
     expect(uploads).toContain('data-files-mine-breadcrumb="true"');
+    expect(uploads).toContain('data-files-mine-refresh="true"');
     expect(uploads).toContain('data-files-expand-collapse="true"');
     expect(uploads).toContain("files.upload_files");
     expect(uploads).toContain("files.expand_all_folders");
@@ -709,12 +710,12 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).not.toContain("升级");
   });
 
-  test("Tasks/Experts browser chrome matches Mine layout", () => {
+  test("Tasks/Experts browser chrome matches Mine pathbar layout", () => {
     const browser = readApp(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
-    // Same tiers as Mine: toolbar (refresh) + pathbar (breadcrumb · expand · type · search).
-    expect(browser).toContain('data-files-browser-toolbar="true"');
+    // Pathbar: breadcrumb · expand · type · search · refresh (no empty toolbar).
+    expect(browser).not.toContain('data-files-browser-toolbar="true"');
     expect(browser).toContain('data-files-browser-pathbar="true"');
     expect(browser).toContain('data-files-browser-breadcrumb="true"');
     expect(browser).toContain('data-files-browser-refresh="true"');
