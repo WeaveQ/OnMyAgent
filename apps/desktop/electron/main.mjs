@@ -1140,6 +1140,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   refreshRuntimeSkillLinks,
   // system
   userAgentRegistryPath,
+  getRealHomeDir,
   stat,
   rename,
   randomBytes,
@@ -1212,6 +1213,9 @@ ipcMain.handle("onmyagent:shell:openExternal", async (_event, url) => {
 ipcMain.handle("onmyagent:shell:relaunch", async () => {
   app.relaunch();
   app.exit(0);
+});
+ipcMain.handle("onmyagent:shell:quit", async () => {
+  app.quit();
 });
 ipcMain.handle("onmyagent:dev:openInEditor", async (_event, request) => {
   if (!isDevMode) {

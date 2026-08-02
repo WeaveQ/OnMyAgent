@@ -144,6 +144,8 @@ export type SessionSurfaceProps = {
   agentContext?: PendingAgentContext | null;
   onPersonalAssistantCategoryChange?: (id: AssistantCategoryId) => void;
   onPersonalAssistantCategoryActive?: (id: AssistantCategoryId) => void;
+  /** Open Settings → Shortcuts from the home keyboard guide. */
+  onOpenShortcutsSettings?: () => void;
 };
 
 /** Flat view used inside SessionSurface body (behavior-preserving). */

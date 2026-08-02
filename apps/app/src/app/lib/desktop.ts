@@ -108,6 +108,7 @@ declare global {
       shell?: {
         openExternal?: (url: string) => Promise<void>;
         relaunch?: () => Promise<void>;
+        quit?: () => Promise<void>;
       };
       system?: {
         getArchitectureInfo?: () => Promise<{
@@ -597,6 +598,43 @@ export const getDesktopHomeDir = () => invokeDesktopCommand("__homeDir");
 
 export const joinDesktopPath = (...parts: string[]) =>
   invokeDesktopCommand("__joinPath", ...parts);
+
+/** Ensure awareness main dir + seed files; returns absolute path. */
+export const ensureWorkMemoryAwarenessDir = () =>
+  invokeDesktopCommand("workMemoryEnsureAwareness");
+
+export const listWorkMemoryAwarenessFiles = () =>
+  invokeDesktopCommand("workMemoryListFiles");
+
+export const readWorkMemoryAwarenessFile = (name: string) =>
+  invokeDesktopCommand("workMemoryReadFile", name);
+
+export const writeWorkMemoryAwarenessFile = (input: {
+  name: string;
+  content: string;
+}) => invokeDesktopCommand("workMemoryWriteFile", input);
+
+/** Create/seed awareness pack and open it in Finder/Explorer (Qwen-style). */
+export async function openWorkMemoryAwarenessFolder(): Promise<string> {
+  const ensured = await ensureWorkMemoryAwarenessDir();
+  const target = ensured?.path?.trim();
+  if (!target) {
+    throw new Error("Awareness directory path is empty.");
+  }
+  await openDesktopPath(target);
+  return target;
+}
+
+export async function openWorkMemoryAwarenessFileInFolder(
+  name: string,
+): Promise<void> {
+  const ensured = await ensureWorkMemoryAwarenessDir();
+  const base = ensured?.path?.trim();
+  if (!base) throw new Error("Awareness directory path is empty.");
+  const homeSep = base.includes("\\") ? "\\" : "/";
+  const full = `${base.replace(/[/\\]$/, "")}${homeSep}${name}`;
+  await revealDesktopItemInDir(full);
+}
 
 export type {
   UserAgentRegistryFile,

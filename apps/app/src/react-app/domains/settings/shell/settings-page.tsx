@@ -185,8 +185,13 @@ export function getOverviewSettingsTabs(): SettingsTab[] {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // Preferences + models + personal profile/memory; system auth under Global → System.
-  return ["preferences", "ai", "memory", "conversation-memory"];
+  // Preferences + models; system auth under Global → System.
+  return ["preferences", "ai"];
+}
+
+/** Personal profile + conversation/work memory (own nav group for discoverability). */
+export function getPersonalMemorySettingsTabs(): SettingsTab[] {
+  return ["memory", "conversation-memory"];
 }
 
 /** Usage + reset/recovery + archive. */
@@ -278,6 +283,7 @@ function SettingsNavGroup(props: {
 export function SettingsSidebar(props: SettingsSidebarProps) {
   const overviewTabs = getOverviewSettingsTabs();
   const workspaceTabs = getWorkspaceSettingsTabs();
+  const personalMemoryTabs = getPersonalMemorySettingsTabs();
   const dataTabs = getDataSettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
 
@@ -308,6 +314,12 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         <SettingsNavGroup
           label={t("settings.group_workspace")}
           tabs={workspaceTabs}
+          activeTab={props.activeTab}
+          onSelectTab={props.onSelectTab}
+        />
+        <SettingsNavGroup
+          label={t("settings.group_personal_memory")}
+          tabs={personalMemoryTabs}
           activeTab={props.activeTab}
           onSelectTab={props.onSelectTab}
         />

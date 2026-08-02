@@ -80,8 +80,45 @@ export function MemoryView(props: MemoryViewProps) {
     [draft, onDraftChange],
   );
 
+  const instructionLen = props.customInstructions.length;
+  const instructionMax = 1500;
+
   return (
     <LayoutStack className="gap-y-8">
+      <SettingsPageSection
+        title={t("settings.memory_personal_info")}
+        description={t("settings.memory_personal_info_desc")}
+      >
+        <SettingsBlock>
+          <SettingsBlockRow
+            title={t("settings.memory_user_name")}
+            description={t("settings.memory_user_name_desc")}
+            actions={
+              <Input
+                value={draft.userName}
+                onChange={(e) => updateField("userName", e.target.value)}
+                placeholder={t("settings.memory_user_name_placeholder")}
+                variant="dls"
+                className={fieldInputClass}
+              />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.memory_assistant_name")}
+            description={t("settings.memory_assistant_name_desc")}
+            actions={
+              <Input
+                value={draft.assistantName}
+                onChange={(e) => updateField("assistantName", e.target.value)}
+                placeholder="OnMyAgent"
+                variant="dls"
+                className={fieldInputClass}
+              />
+            }
+          />
+        </SettingsBlock>
+      </SettingsPageSection>
+
       <SettingsPageSection title={t("settings.personalization_title")}>
         <SettingsBlock>
           <SettingsBlockRow
@@ -137,9 +174,7 @@ export function MemoryView(props: MemoryViewProps) {
                 value={props.responseTone}
                 disabled={busy}
                 onChange={(value) =>
-                  props.onResponseToneChange(
-                    normalizeResponseTone(value),
-                  )
+                  props.onResponseToneChange(normalizeResponseTone(value))
                 }
               />
             }
@@ -149,50 +184,35 @@ export function MemoryView(props: MemoryViewProps) {
             description={t("settings.custom_instructions_desc")}
             align="start"
           >
-            <Textarea
-              className="min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
-              value={props.customInstructions}
-              disabled={busy}
-              placeholder={t("settings.custom_instructions_placeholder")}
-              onChange={(event) => {
-                props.onCustomInstructionsChange(event.target.value);
-              }}
-            />
+            <div className="w-full space-y-2">
+              <Textarea
+                className="min-h-28 w-full resize-y rounded-xl border-dls-border bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
+                value={props.customInstructions}
+                disabled={busy}
+                maxLength={instructionMax}
+                placeholder={t("settings.custom_instructions_placeholder")}
+                onChange={(event) => {
+                  props.onCustomInstructionsChange(
+                    event.target.value.slice(0, instructionMax),
+                  );
+                }}
+              />
+              <div className="flex justify-between text-xs text-dls-secondary">
+                <span>{t("settings.custom_instructions_applies_all")}</span>
+                <span>
+                  {instructionLen} / {instructionMax}
+                </span>
+              </div>
+            </div>
           </SettingsBlockRow>
         </SettingsBlock>
       </SettingsPageSection>
 
       <SettingsPageSection
-        title={t("settings.memory_personal_info")}
-        description={t("settings.memory_personal_info_desc")}
+        title={t("settings.memory_profile_section")}
+        description={t("settings.memory_profile_section_desc")}
       >
         <SettingsBlock>
-          <SettingsBlockRow
-            title={t("settings.memory_user_name")}
-            description={t("settings.memory_user_name_desc")}
-            actions={
-              <Input
-                value={draft.userName}
-                onChange={(e) => updateField("userName", e.target.value)}
-                placeholder={t("settings.memory_user_name_placeholder")}
-                variant="dls"
-                className={fieldInputClass}
-              />
-            }
-          />
-          <SettingsBlockRow
-            title={t("settings.memory_assistant_name")}
-            description={t("settings.memory_assistant_name_desc")}
-            actions={
-              <Input
-                value={draft.assistantName}
-                onChange={(e) => updateField("assistantName", e.target.value)}
-                placeholder="OnMyAgent"
-                variant="dls"
-                className={fieldInputClass}
-              />
-            }
-          />
           <SettingsBlockRow
             title={t("settings.memory_mbti")}
             description={t("settings.memory_mbti_desc")}
@@ -286,6 +306,7 @@ export function MemoryView(props: MemoryViewProps) {
           />
         </SettingsBlock>
       </SettingsPageSection>
+
     </LayoutStack>
   );
 }

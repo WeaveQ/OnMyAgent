@@ -1,439 +1,574 @@
-# 工作记忆（个人 / 记忆）开发计划
+# OnMyAgent 记忆模块 · 整体开发计划书
 
-> **Status**: 规划真源（v1.1 + 专家域记忆必做）  
-> **Date**: 2026-08-02  
-> **对标**: WorkBuddy（个性化 + 记忆）× 千问办公（意识文件包）  
-> **范围**: OpenCode **主轨 only** · 本地 md · **无**向量库 · **无** Personal 辅轨  
-> **导航**: 设置内两个菜单——**个人** + **记忆**  
-> **必做（已锁定）**: 全局工作记忆 + **专家域记忆（本地 per-expert 文件）**
-
----
-
-## 0. 执行摘要
-
-| 项 | 决定 |
+| 字段 | 内容 |
 | ---- | ---- |
-| 产品形态 | **个人**（人设/规则）与 **记忆**（学到的内容）二分 |
-| 全局存储 | `~/.onmyagent/awareness/main/`（style / profile / MEMORY / pending / short…） |
-| **专家域存储（必做）** | `~/.onmyagent/awareness/main/experts/<expertId>/`（MEMORY + pending + 可选 meta） |
-| 项目存储 | `<workspace>/.onmyagent/awareness/handbook.md`（+ P2 workspace MEMORY） |
-| 注入 | 仅主轨；统一组装扩展现有 `joinSystemParts`；人设与记忆开关解耦（B'） |
-| 自动记忆 | 默认关；抽取 → **pending（与 UI 同交付）** → 确认后写入；**专家会话默认写入专家槽 C** |
-| 不做 | Personal 注入、向量库、技能进化、自动改仓库 `AGENTS.md` / handbook |
-| 里程碑 | P0 契约迁移 → P1 MVP（含专家槽）→ P1.5 信任 → P2 变聪明 |
-
-**一句话**: WorkBuddy 级好懂两页 + 千问级本机文件；专家合作攒下的记忆单独落盘、单独注入；只服务主会话。
+| 文档状态 | **规划真源（SoT）v1.5** |
+| 日期 | 2026-08-02 |
+| 产品名（用户可见） | 设置内 **个人** + **记忆** |
+| 工程名 | Work Memory / `awareness` |
+| 对标 | WorkBuddy（个性化 + 记忆）× 千问办公（意识文件包） |
+| 对齐 OMA 设计 | 0726 设想对照 · 0802 双模式 · 0802 配置迁移 · 产品分层 |
+| 工程仓关联 | 本文；实现以 monorepo 为准 |
 
 ---
 
-## 1. 目标与非目标
+## 0. 一页纸摘要
 
-### 1.1 目标
+### 0.1 要解决什么
 
-1. **个人** 设称呼/指令/画像/手册后，主会话稳定遵守。  
-2. **记忆** 开自动记录后，候选在 pending 可见可确认；确认后跨会话仍在。  
-3. **专家会话** 可沉淀 **仅对该专家生效** 的记忆；本机有可打开/可清空的文件。  
-4. 桌面端 Finder 可打开目录；可导出/清空（阶段交付）。  
-5. 关「启用工作记忆」后不带 MEMORY/short；人设/指令按 B' 仍可注入。  
-6. 记忆块与整包 system 均有预算约束。
+办公 Agent 缺「本机可审计的人设 + 跨会话记忆」：现有 Personal 表单与 conversation memory 停在 prefs 角落，**Memory 非一等资产**（设想对照约 4.5/10）。本次把记忆做成 **本机文件真相源 + 可确认写入 + 专家域隔离**，只服务 **OpenCode 主轨**。
 
-### 1.2 非目标
-
-- Personal Local Agent / CLI 辅轨读写记忆  
-- 向量库 / embedding  
-- 云同步  
-- 自动写 handbook 或仓库根 `AGENTS.md`  
-- 把专家包内 `systemPrompt` 与用户记忆写在同一路径  
-- 卸载专家时静默删除用户专家槽（须确认或保留孤儿）  
-- P1 宣称「越聊越懂你」（降级为「可确认的条目记忆」；P2 再加强话术）
-
----
-
-## 2. 产品规格
-
-### 2.1 信息架构（两菜单）
+### 0.2 做成什么样
 
 ```text
 设置
-├── 个人          ← 你设定的（慢变、人写为主）
-└── 记忆          ← 学到的（可自动、可确认/删）
+├── 个人     你设定的：称呼、风格/指令、画像、工作手册
+└── 记忆     学到的：开关、pending、卡片、专家记忆、本机文件、危险区
 ```
 
-- **工程**: 不强制改 route id（现网 `memory` = 个人、`conversation-memory` = 记忆），只改 label/文案。  
-- **互链**: 个人页脚 →「对话记忆请到「记忆」」；记忆页 →「称呼与规则在「个人」」。
+- 全局与专家域 **本机 Markdown/JSON**，无向量库（v1）。  
+- 自动记录默认 **pending 确认** 后写入。  
+- 专家会话默认写入 **用户×专家槽**，与专家安装包路径分离。
 
-#### 个人
+### 0.3 明确不做
 
-| 区块 | 内容 |
+| 不做 | 原因 |
 | ---- | ---- |
-| 称呼与身份 | 对你的称呼、助手名 |
-| 协作风格 | 语气 + 自定义指令（**≤1500 字**；与 `customInstructions` / `responseTone` 合并为唯一源） |
-| 用户画像 | 角色/行业/工具/任务等 |
-| 工作手册 | 查看/编辑 md、恢复模板（绑定当前 workspace） |
-| 本机人设文件 | 说明 + 打开文件夹（Desktop only） |
-| 危险 | 重置风格、重置手册 |
+| Personal 辅轨读写记忆 | 辅轨弱化；主轨唯一 |
+| 向量数据库 | 体量小；文件 + 硬顶注入足够 |
+| 企业为权威的双向冲突合并 | 采用「本机为源 + 登录后异步备份」；非双向 CRDT |
+| 自动改 handbook / 仓库 AGENTS.md | 规范仅人工 |
+| Evidence / Validation 一等资产 | 另题；本期不混做 |
+| 「越聊越懂」P1 话术 | P1 只承诺可确认条目记忆 |
 
-#### 记忆
+### 0.4 工期量级（单人全栈乐观×1.3–1.5）
 
-| 区块 | 内容 |
+| 里程碑 | 内容 | 粗估 |
+| ---- | ---- | ---- |
+| M0 | 契约、路径、迁移、B'、pending+UI、专家槽骨架 | 6–9 人日 |
+| M1 MVP | 两页 + 注入 + 手册 + 专家闭环 + 溯源最低线 | 14–20 人日 |
+| M2 Trust | 导出导入、危险区、全局/专家确认分流 | 5–8 人日 |
+| M3 Smart | 限频反思、short 自动、项目 MEMORY | 8–14 人日 |
+
+---
+
+## 1. 背景与目标
+
+### 1.1 背景
+
+| 现状 | 问题 |
 | ---- | ---- |
-| 启用工作记忆 | **仅**控制 MEMORY + short（含专家槽确认后内容）是否注入 |
-| 自动记录 | 是否抽取 → pending |
-| 待确认 | pending 列表（全局 + 标注来源专家） |
-| 记忆卡片 | 全局 MEMORY；来源、时间、删除 |
-| **专家记忆** | 概览（专家名 + 条数）→ 点进该专家槽；或链到专家页 |
-| 写一条 / 粘贴 / 显式「记入记忆」 | 手动；专家会话默认 target=专家槽 |
-| 从其他 AI 导入 | P1.5 |
-| 近期摘要 | P1 可空壳；P1.5–P2 实装 |
-| 本机记忆文件 | 路径、打开、导出/导入（Desktop） |
-| 危险 | 清空**全局**记忆；清空**某专家**记忆分入口 |
+| `onboardingProfile` + `customInstructions` + `conversationMemory` 在 prefs | 用户打不开文件、难备份 |
+| 发送时 `appendMemoryItems` 直写 items | 无确认、弱审计 |
+| `buildOnboardingProfileSystemPrompt` 与 tone/instructions 分路拼接 | 难统一预算与优先级 |
+| 设想对照：Memory provenance **低** | 缺「写什么、从哪次 Session、能否审计」 |
 
-### 2.2 记忆分层（含专家）
+### 1.2 产品目标（可验收）
 
-| 层级 | 含义 | 谁写 | 谁读 | 放置 |
-| ---- | ---- | ---- | ---- | ---- |
-| **A** | 专家人设 / SOP | 专家包作者 | 绑该专家的会话 | 专家安装包 `systemPrompt`（**非** awareness 用户目录） |
-| **B** | 用户全局工作记忆 | 用户 + 自动记录 | 主会话（含专家会话） | `awareness/main/` style·profile·MEMORY… |
-| **C** | **用户 × 专家** 域记忆（**必做**） | 用户确认 / 专家会话抽取 | **仅该专家会话** | `awareness/main/experts/<expertId>/` |
-| **D** | 项目 / workspace | 用户 / 确认后 | 该 workspace 会话 | `<workspace>/.onmyagent/awareness/` |
-| **E** | 当次会话 | 系统 | 当前 session | session / archive（**不当**长期记忆产品） |
+1. **个人**：称呼/指令/画像/手册稳定注入主会话。  
+2. **记忆**：自动记录 → pending 可见 → 确认后跨会话仍在。  
+3. **专家**：仅对该专家生效的记忆可记录、可清空、本机有文件。  
+4. **信任**：Desktop 可打开文件夹；可导出/清空（阶段交付）；仅本机。  
+5. **开关**：关「启用工作记忆」不注入 MEMORY/short/C；人设仍可注入（B'）。  
+6. **成本**：记忆块与整包 system 有硬顶/软裁。  
+7. **溯源最低线**：条目含 `source` + `updatedAt` + **`sessionId`（可空）**。  
+8. **双模式（已定 1）**：**逻辑同步**——本机/企业会话同一套写入与注入；**始终写本机**；**登录后异步备份到企业**（非企业会话禁止写本机）。
 
-专家包文案里的 “Identity & Memory” 多为 **A** 或 skill 私有落盘（如 `~/travel-planning/`），**不合并进** B/C 的 MEMORY.md。
+### 1.3 成功标准（发布门槛 M1）
 
-### 2.3 注入策略（B'）+ 专家
+- [ ] 新用户/老用户迁移后，人设与旧记忆不丢  
+- [ ] Dogfood：指令 + 手册 + 确认一条记忆 + 专家槽隔离 全过  
+- [ ] 未登录、无企业 URL 可用（模式 A）  
+- [ ] 不写 session-archive；不碰 Personal runtime  
+- [ ] 路径与 §3 权威表一致  
 
-| 来源 | 何时注入 |
+---
+
+## 2. 与 OMA 既有设计的对齐（合规）
+
+| OMA 要求 | 本模块做法 |
 | ---- | ---- |
-| A 专家 systemPrompt | 会话绑定该专家时 |
-| D handbook | 有当前 workspace 时 |
-| B style / profile | **有内容即注入**（不依赖记忆总闸） |
-| **C 专家槽 MEMORY** | 会话 `expertId` 匹配 **且** 启用工作记忆 |
-| B 全局 MEMORY / short | 启用工作记忆时 |
-| pending（B 或 C） | **永不注入** |
+| local-first、未登录可用 | 本机文件；不依赖登录 |
+| 配置迁移：开关 ≠ 正文 | `settings.json` 开关；正文在 awareness |
+| 不迁 workspace / archive / keys | 遵守 |
+| 专家安装在 profile config | **用户记忆不进安装树** |
+| Memory 可溯源 | sessionId + source + 确认流 |
+| 主轨 / Personal 辅 | 仅主轨 |
+| 本机/企业数据关系 | **记忆：逻辑同一 + 本机落盘 + 登录异步备份企业**（工作区/审批等仍可分区，见双模式文档） |
+| Evidence/Validation | 非本期 |
 
-**优先级（文案 + 尽量落实组装顺序）**
+**路径权威（与 0802 配置迁移统一后的字面约定）**
+
+| 内容 | 权威路径 |
+| ---- | ---- |
+| 记忆开关（迁移 P3） | `~/.onmyagent/profiles/local/config/memory/settings.json` |
+| 记忆正文 / 人设文件 / 专家用户槽 | `~/.onmyagent/data/user/awareness/`（见 §3） |
+| 专家**安装包** | `profiles/local/config/experts/**`（配置迁移，**非本模块写**） |
+| Skills 安装 | `profiles/local/config/skills/**`（非本模块） |
+
+> 实现允许迁移期双读 prefs；**禁止**把用户 MEMORY 写入 `config/experts`。
+
+---
+
+## 3. 信息架构与存储
+
+### 3.1 设置导航（两菜单）
+
+| 菜单 | 心智 | 内容 |
+| ---- | ---- | ---- |
+| **个人** | 我教它怎么对我 | 称呼、助手名、协作风格、自定义指令（≤1500 字）、画像、工作手册、打开人设目录、重置风格/手册 |
+| **记忆** | 它记住了什么 | 启用工作记忆、自动记录、pending、全局卡片、专家记忆入口、手动/显式记入、打开目录、导出导入、清空 |
+
+互链：个人页脚 → 记忆；记忆页 → 个人。  
+工程 route id 可保持 `memory` / `conversation-memory`，只改文案。
+
+### 3.2 记忆分层（A–E）
+
+| 层 | 含义 | 存放 |
+| ---- | ---- | ---- |
+| **A** | 专家人设/SOP | 专家安装包 `systemPrompt`（只读为主） |
+| **B** | 用户全局工作记忆 | `data/user/awareness/main/` |
+| **C** | 用户 × 专家记忆（**必做**） | `data/user/awareness/main/experts/<expertId>/` |
+| **D** | 项目手册/项目记忆 | `<workspace>/.onmyagent/awareness/` |
+| **E** | 当次会话 | session / archive（**不当**本模块长期库） |
+
+### 3.3 目录布局
+
+```text
+~/.onmyagent/
+  profiles/local/config/
+    memory/
+      settings.json           # enabled, autoCapture, autoCaptureMode, schemaVersion
+    experts/                  # 【安装包】配置迁移负责，本模块只读 expertId
+    skills/                   # 安装包
+  data/user/awareness/
+    main/
+      meta.json               # 可与 settings 同步；实现定单一写权威
+      style.md                # 语气 + 自定义指令
+      profile.md              # 用户画像
+      MEMORY.md               # 全局长期记忆
+      pending.json            # 全局待确认
+      short/YYYY-MM-DD.md     # 近期摘要
+      activity.log.jsonl      # 可选
+      experts/
+        <expertId>/
+          meta.json           # 可选
+          MEMORY.md
+          pending.json
+    # 可选兼容别名：若实现短期使用 ~/.onmyagent/awareness → 必须 redirect 到 data/user/awareness
+
+<workspace>/.onmyagent/awareness/
+  handbook.md
+  MEMORY.md                   # P2 项目记忆
+  .gitignore
+```
+
+### 3.4 平台降级
+
+| 环境 | 行为 |
+| ---- | ---- |
+| Electron | 文件真相；reveal in Finder；导出 zip |
+| Web / headless | prefs 降级；隐藏打开文件夹/导出；文案说明完整能力在桌面端 |
+
+### 3.5 重置与恢复
+
+- 设置「清除本地数据」须 **提示或处理** awareness 目录，防幽灵注入。  
+- 清空全局记忆 **默认不清** C；危险区分子操作。  
+- 卸装专家：默认 **保留** C 槽；删除须确认。
+
+---
+
+## 4. 注入与运行时
+
+### 4.1 唯一主组装点
+
+`apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts`  
+扩展现有 `joinSystemParts`，合并：
+
+- 原 `buildOnboardingProfileSystemPrompt`
+- `buildResponseToneSystemPrompt` / `buildCustomInstructionsSystemPrompt`
+- handbook、全局 MEMORY、short、**C 专家 MEMORY**
+
+### 4.2 注入策略 B'
+
+| 块 | 条件 |
+| ---- | ---- |
+| style / profile / handbook | **有内容即注入**（不依赖记忆总闸） |
+| 全局 MEMORY / short / C | **启用工作记忆 = 开** |
+| pending | **永不注入** |
+
+**优先级**
 
 ```text
 A 专家 systemPrompt
 > D handbook
-> B style（tone + instructions）
+> B style
 > B profile
-> C 专家域 MEMORY
+> C 专家 MEMORY（仅 expertId 匹配）
 > B 全局 MEMORY
 > short
 ```
 
-与专家冲突时：**听专家（A）**；全局指令作补充。
+文案规则：与专家冲突时听专家。
 
-**相对现网 Breaking（B'）**
+### 4.3 双模式（已定方案 1）
 
-| 现网 | 本计划 |
+**产品一句话**：本机和企业 **同一套记忆逻辑**；内容 **始终以本机 awareness 为权威落盘**；用户 **已登录企业** 后，将本机记忆 **异步备份** 到企业侧（失败不挡本机读写）。
+
+| 场景 | 读 / 注入 | 写（自动记录 / 确认 / 手动） |
+| ---- | ---- | ---- |
+| 未登录 · 本机会话 | 读本机 awareness | 写本机 B/C（开关开时） |
+| 已登录 · 本机会话 | 同上 | 写本机；触发异步备份队列 |
+| 已登录 · 企业 workspace 会话（`origin=company`） | **同一套**注入规则 | **同样写本机**；触发异步备份队列 |
+| 备份失败 / 断网 | 本机不受影响 | 入重试队列；不回滚本机写入 |
+| 未登录 | — | **不**调用企业 API、不建 company 记忆镜像 |
+
+**阶段边界**
+
+| 阶段 | 双模式相关交付 |
 | ---- | ---- |
-| `conversationMemory.enabled` 与 profile 捆在同一 builder，关则可能整段不注入 | enabled **只关** MEMORY/short（含 C 的注入）；人设仍注入 |
-| 自动记录 `appendMemoryItems` 直写 items | → **pending**，确认后写入 B 或 C |
+| **M0–M1** | 逻辑统一：不按 origin 分叉写入；只保证本机管线 |
+| **M1.5 或企业联调档** | 异步备份协议（范围、鉴权、幂等）；可先 stub |
+| **不在 M1** | 企业→本机回拉、双向合并、组织共享记忆（全员可见） |
 
-P0 必须：升级文案、可选 banner、B' 单测。
+**备份范围（默认建议，联调时可收窄）**
 
-### 2.4 自动记录路由
+- 含：全局 `MEMORY` / `pending`（确认后）、专家槽 C、`style`/`profile` 可选  
+- 可不含或后置：`short/`、handbook（workspace 项目文件，跟工作区走）  
+- 备份前走同一敏感过滤；**不是**把企业安装包 `config/experts` 当用户记忆传
 
-```text
-用户消息（主会话 composer）
-  → 自动记录开？
-  → 敏感过滤
-  → 规则抽取 → Candidate
-  → 默认 target:
-       绑定专家？ → C experts/<id>/pending
-       否则       → 全局 pending
-  → 用户确认 → 对应 MEMORY.md
-  → 用户可选手动「提升为全局 / 仅本专家」（P1.5）
-  → 「以后所有对话都…」类话术 → 可进全局 pending（P1.5）
-```
+**与「工作区/审批分区」的关系**：会话列表、审批队列、默认 workspace 仍可按双模式文档分区；**仅记忆模块**采用「逻辑同步 + 本机为源 + 登录异步备份」，避免再出现 `origin=company` 不写本机的分叉。
 
-- handbook **禁止**自动写  
-- 自动化 / channel：**默认不 extract**；人设仍可按 B' 注入  
-- **禁止**「只写 pending、无 UI」中间发布态  
-- P1 提供显式「记入记忆」（不把体验只押 regex）
+### 4.4 调用点矩阵
 
-### 2.5 存储布局（真源）
+| 入口 | 注入 | 自动记录 |
+| ---- | ---- | ---- |
+| Composer 主路径 | 是 | 是（开关） |
+| 其它 prompt* | 审计后接入或标明否 | 否 |
+| 自动化 | 人设可注 | **否** |
+| 飞书/微信 channel | 人设可注 | **否** |
+| Personal 辅轨 | **否** | **否** |
 
-```text
-~/.onmyagent/awareness/main/
-  meta.json
-  style.md
-  profile.md
-  MEMORY.md
-  pending.json
-  short/YYYY-MM-DD.md
-  activity.log.jsonl              # 可选
-  index/manifest.json             # P2
-  experts/                        # 必做：专家域
-    <expertId>/                   # 稳定 id：packageName 或 registry id
-      meta.json                   # 可选：enabled、schema、条数
-      MEMORY.md
-      pending.json
+### 4.5 Token 预算
 
-<workspace>/.onmyagent/awareness/
-  handbook.md
-  MEMORY.md                       # P2
-  .gitignore
-```
-
-| 环境 | 真相源 |
+| 块 | 软顶（字符） |
 | ---- | ---- |
-| Electron 桌面 | 文件；prefs 迁移期双写 |
-| 纯 Web / headless | prefs only；隐藏打开文件夹/导出；文案说明完整能力在桌面端 |
-
-**硬规则**
-
-- 用户 C 槽 **不得**写在专家安装包目录（避免升级覆盖、卸载误删资产）。  
-- 卸装专家：默认 **保留** `experts/<id>/`（可标「已卸载」）；删除须二次确认。  
-- 清空全局记忆 **默认不清** C；危险区分子操作。  
-- Recovery / 清本地数据：须提示或默认同处理 awareness（含 experts/），防幽灵注入。  
-- 文件写：temp + rename；多窗口 P1 以打开设置重读 + 保存失效为准。
-
-### 2.6 Handbook resolve
-
-| 场景 | 行为 |
-| ---- | ---- |
-| 有本地 workspace | `<workspace>/.onmyagent/awareness/handbook.md` |
-| 切换 workspace | 与当次 prompt 的 `directory` / `taskWorkspaceRoot` 一致 |
-| 无 workspace | 手册禁用；注入不含 handbook |
-| 远程无可靠本地路径 | P1 禁用手册文件能力 |
-| 仓库 `AGENTS.md` | v1 不自动改 |
-
-### 2.7 Token 预算
-
-**记忆相关（字符软顶）**
-
-| 块 | 上限 |
-| ---- | ---- |
-| 自定义指令 | 1500 字 |
+| 自定义指令 | 1500 |
 | handbook | 4k |
 | profile | 2k |
 | 全局 MEMORY | 6k / ≤80 条 |
-| **单专家 C MEMORY** | **2–3k / ≤30 条** |
+| 单专家 C | 2–3k / ≤30 条 |
 | short | 2k / 近 3 日 |
 | 记忆子系统合计 | ~12–14k 字量级 |
 
-**整包 system**: 监控 `combinedSystem`；超软顶先裁 short → 旧全局 MEMORY → 旧 C → handbook 非 Hard rules。  
-裁剪时 **优先保留 A 与 style/profile 要点**。
-
-### 2.8 注入实现约束（贴现网）
-
-**唯一主组装点**
-
-`apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts` 的 `joinSystemParts`。
-
-合并今日拆开的：
-
-- `buildOnboardingProfileSystemPrompt`
-- `buildResponseToneSystemPrompt`
-- `buildCustomInstructionsSystemPrompt`
-- handbook / 全局 MEMORY / short / **C 专家 MEMORY**
-
-**调用点矩阵**
-
-| 入口 | P1 |
-| ---- | ---- |
-| Composer `promptAsync`（surface-props-hook-impl） | 必须统一组装 |
-| 其它 `session.prompt*` | 审计后接入或标明不注入 |
-| 自动化 | 注入人设（B'）；**不** extract |
-| 飞书/微信 channel | 同自动化；**不**自动记录 |
-| Personal 辅轨 | **不接入** |
+另：监控整包 `combinedSystem`；超限先裁 short → 旧全局 MEMORY → 旧 C。
 
 ---
 
-## 3. 专家域记忆（必做专章）
+## 5. 自动记忆与 provenance
 
-### 3.1 为何必做
-
-- 专家会话产生的客户口径、垂类偏好进全局会 **串味、费 token、泄域**。  
-- 只写进专家 `systemPrompt` 会 **升级覆盖、用户不可审计**。  
-- 产品承诺「可记录」须有 **本机文件 + 可确认 + 可清空**。
-
-### 3.2 本地是否有配置/文件？
-
-**有。** 与全局并列，按专家分子目录（见 §2.5）：
-
-| 文件 | 性质 |
-| ---- | ---- |
-| `experts/<id>/meta.json` | 偏配置（开关、schema） |
-| `experts/<id>/MEMORY.md` | 记忆内容真相源 |
-| `experts/<id>/pending.json` | 待确认状态 |
-
-专家包内文件 = **A 说明书**；`awareness/experts/` = **用户笔记本**。二者禁止混路径。
-
-### 3.3 UI 归属
-
-| 位置 | 内容 | 阶段 |
-| ---- | ---- | ---- |
-| 专家会话 | 自动记录默认进 C；显式「记入（本专家）记忆」；pending 提示 | **P1** |
-| 专家详情 / 管理 | 「此专家的记忆」列表、清空、打开文件夹 | **P1 最小**（列表+清空） |
-| 设置 → 记忆 | 全局为主；**专家记忆概览**（名+条数→下钻） | **P1 最小概览或链**；P1.5 打磨 |
-| 确认对话框 | 「仅本专家」/「全局」（可选） | P1.5 |
-
-### 3.4 expertId
-
-稳定键：优先 registry / `packageName`，与 `ExpertMarketplaceEntry` / session agent 绑定 id 对齐；禁止用展示名当目录名。
-
-### 3.5 验收（专家）
-
-- [ ] 专家会话自动记录写入 `experts/<id>/pending`，确认后进该目录 `MEMORY.md`  
-- [ ] 非该专家会话 **不注入** 该 C  
-- [ ] 全局 MEMORY 在启用时仍可注入专家会话（预算次于 C）  
-- [ ] 清空全局不清 C；可单独清空该专家  
-- [ ] Desktop 可打开 `experts/<id>/`  
-- [ ] 专家包升级 **不覆盖** C  
-- [ ] 无 Personal 路径读写 C  
-
----
-
-## 4. 技术架构摘要
+### 5.1 流水线
 
 ```text
-apps/app
-  settings: memory-view（个人）, conversation-memory-view（记忆 + 专家概览）
-  shared/memory 或 work-memory: parse, pending, budget, migrate, expert slot
-  shell: buildWorkMemoryContext + surface-props-hook-impl 注入
-  expert UI: 此专家记忆入口
-  reset-local-storage: 联动 awareness（含 experts/）
-
-apps/desktop
-  awareness I/O / reveal / export-import
-  不碰 personal-agent-runtime
+用户消息（local composer）
+  → settings.autoCapture？
+  → 敏感过滤
+  → 规则抽取 → Candidate
+  → target: 绑定专家？ → C pending : 全局 pending
+  → UI 确认/拒绝
+  → 确认 → 对应 MEMORY.md（带 sessionId, source, updatedAt）
 ```
 
-映射现网：`appendMemoryItems` 直写 → pending；`MAX_CONVERSATION_MEMORY_ITEMS` 与 80 条对齐；Personal `context-injection` 不接。
+- 默认 `autoCaptureMode = confirm_first`  
+- handbook **禁止**自动写  
+- **禁止**「只写 pending 无 UI」分开发布  
+- P1 显式「记入记忆」入口（不靠 regex  alone）
+
+### 5.2 Provenance 最低线（对齐 0726）
+
+每条已确认记忆必须可还原：
+
+| 字段 | 说明 |
+| ---- | ---- |
+| text / category | 写了什么 |
+| source | dialog \| manual \| import \| reflect |
+| sessionId | 从哪次会话（可空，手动可无） |
+| updatedAt / confirmedAt | 何时 |
+| expertId | 仅 C 槽 |
+
+P1 验收：列表可见来源与时间；有 sessionId 时可展示「来自会话」（可点或可复制 id）。  
+完整 Evidence 系统 **不**在本期。
+
+### 5.3 分类
+
+沿用并扩展：instruction / identity / career / project / preference / fact。  
+project 倾向 workspace MEMORY（P2）；专家会话默认 C。
 
 ---
 
-## 5. 分期
+## 6. 功能清单（按模块）
 
-### Phase 0 — 契约 / 迁移 / B' / pending+UI / 专家槽骨架
+### M1 开关与配置
 
-| 任务 | 说明 |
-| ---- | ---- |
-| P0-1 | 路径模板（**含 `experts/<id>/`**）、meta schema |
-| P0-2 | Desktop I/O + 降级旗标 |
-| P0-3/4 | prefs 迁移双写；读优先文件 |
-| P0-5 | B' 开关拆分 + 升级文案 |
-| P0-6/7 | extract → pending + **记忆页 pending UI**（同列车） |
-| P0-8 | prompt 入口审计表 |
-| P0-9 | reset 与 awareness（含 experts）策略 |
-| P0-10 | 本文档为 SoT；可再补 Architecture 一句 |
-| P0-11 | handbook resolve 函数 |
-| **P0-12** | **专家槽 store API**：resolve expertId、读写 C pending/MEMORY |
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M1.1 | 启用工作记忆 | P0–P1 |
+| M1.2 | 自动记录 | P0–P1 |
+| M1.3 | settings.json ↔ 运行时 | P0 |
+| M1.4 | 占用上下文弱提示 | P2 |
 
-**退出**: 迁移不丢；B' 测过；pending 可见可确认；专家槽 API 可单测（可先无华丽 UI）。
+### M2 个人页
 
-**预估**: 6–9 人日  
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M2.1 | 称呼 / 助手名 | P1 |
+| M2.2 | 风格 + 指令 ≤1500 | P1 |
+| M2.3 | 画像表单 ↔ profile.md | P1 |
+| M2.4 | 工作手册 + resolve | P1 |
+| M2.5 | 打开人设目录 | P1 |
+| M2.6 | 重置风格 / 手册 | P1.5 |
 
-### Phase 1 — MVP（**含专家域记录闭环**）
+### M3 记忆页与自动记录
 
-| 轨 | 交付 |
-| ---- | ---- |
-| 个人 | 称呼/指令 1500/画像/手册/打开目录/互链 |
-| 记忆 | 双开关、卡片、pending、手动/显式记入、隐私句、**专家概览或入口** |
-| 注入 | 统一 builder；A+B+C+D 按规则；预算 |
-| **专家** | 会话默认写 C；确认写 C MEMORY；注入仅匹配专家；专家页最小「此专家记忆」 |
-| 平台 | Desktop 文件；非桌面 prefs 降级 |
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M3.1 | 卡片列表 + 删除 | P1 |
+| M3.2 | MEMORY.md 行格式 | P0 |
+| M3.3 | pending UI 确认/拒绝 | P0–P1 **同列车** |
+| M3.4 | 规则抽取 → pending | P0 |
+| M3.5 | 手动添加 / 粘贴 | P1 |
+| M3.6 | 敏感过滤 | P0 |
+| M3.7 | 显式「记入记忆」 | P1 |
+| M3.8 | sessionId 溯源展示 | P1 |
+| M3.9 | 从其他 AI 导入 | P1.5 |
+| M3.10 | short 日摘要 | P1.5–P2 |
+| M3.11 | 限频反思 | P2 |
 
-**退出**: 见 §1.1 + §3.5；话术不做「越聊越懂」。
+### M4 专家域（必做）
 
-**预估**: 14–20 人日  
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M4.1 | `experts/<id>/` store API | P0 |
+| M4.2 | 专家会话默认写 C | P1 |
+| M4.3 | 注入仅匹配 expertId | P1 |
+| M4.4 | 专家页「此专家记忆」最小 UI | P1 |
+| M4.5 | 设置记忆页专家概览 | P1 |
+| M4.6 | 确认时可选「仅专家/全局」 | P1.5 |
+| M4.7 | 单独清空 C | P1.5 |
+
+### M5 注入
+
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M5.1 | buildWorkMemoryContext | P0–P1 |
+| M5.2 | 挂主路径 + 预算 | P1 |
+| M5.3 | 双模式：写入不按 origin 分叉；登录异步备份（可 stub） | P1 逻辑 / 备份接口后置 |
+| M5.4 | prompt 入口审计表 | P0 |
+
+### M6 本机文件与备份
+
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M6.1 | Desktop I/O + reveal | P0 |
+| M6.2 | 导出/导入 zip（含 experts） | P1.5 |
+| M6.3 | reset 联动 | P0 |
+| M6.4 | manifest 索引 | P2 |
+
+### M7 工程门禁
+
+| ID | 功能 | 阶段 |
+| ---- | ---- | ---- |
+| M7.1 | i18n en/zh/zh-TW | P1 |
+| M7.2 | 单测 migrate/B'/pending/budget/专家隔离 | P0–P1 |
+| M7.3 | 改 deprecated 直写 API 与测试 | P0 |
+
+---
+
+## 7. 分期交付
+
+### Phase 0 — 契约与骨架
+
+**交付**：路径与模板、Desktop I/O、prefs 迁移双写、B' 拆分、pending 数据+最小 UI、专家槽 API、prompt 审计表、reset 策略、handbook resolve 函数；写入路径 **不按 origin 分叉**（双模式方案 1）。
+
+**退出**：迁移不丢；B' 测过；pending 可见可确认；C 槽可单测读写。
+
+### Phase 1 — MVP（可对外）
+
+**交付**：个人页、记忆页、统一注入、手册、专家写/注/最小 UI、显式记入、sessionId 展示、Desktop 打开目录；local/company 会话同一写本机逻辑；企业异步备份可接口预留/stub。
+
+**退出**：§1.3 清单；dogfood §9。
+
+**话术**：本机人设 + 可确认对话记忆；**不说**越聊越懂。
 
 ### Phase 1.5 — 信任
 
-导出/导入（含 experts/）、危险重置三件套、确认时「全局/仅专家」、他 AI 导入、short UI。
-
-**预估**: 5–8 人日  
+导出导入、危险重置、全局/专家确认分流、他 AI 导入、short 只读列表。
 
 ### Phase 2 — 变聪明
 
-限频反思（可按 expertId 分桶）、short 自动、workspace MEMORY、索引、占用提示。
-
-**预估**: 8–14 人日  
+限频反思、short 自动、workspace MEMORY、索引、占用提示。
 
 ### Phase 3 — 按需
 
-handbook↔AGENTS 同步、FTS、向量单独立项、trusted_rules。
+handbook↔AGENTS 可选同步、FTS、向量单独立项、trusted_rules。
 
 ---
 
-## 6. PR 切片建议
+## 8. 技术架构
 
-1. store + migrate + desktop I/O + reset + **experts/ 骨架**  
+```text
+apps/app
+  settings: memory-view（个人）, conversation-memory-view（记忆）
+  shared/memory|work-memory: parse, pending, budget, migrate, expert slot
+  shell: buildWorkMemoryContext + surface-props-hook-impl
+  expert UI: 此专家记忆
+  kernel: prefs 双写过渡; reset-local-storage 联动
+
+apps/desktop
+  awareness 文件 I/O, reveal, export-import
+  不碰 personal-agent-runtime
+  可与 ensureLocalConfigMigrated 协调：settings 写入 profile config
+
+apps/server
+  不持有记忆正文库；禁止 session-archive 当地记忆库
+```
+
+### 关键现网锚点
+
+| 区域 | 路径 |
+| ---- | ---- |
+| 注入 + 现网直写 | `.../session-route/surface-props-hook-impl.ts` |
+| profile builder | `.../shell/onboarding-profile.ts` |
+| 抽取 | `.../shared/memory/conversation-memory.ts` |
+| 设置 UI | `.../settings/pages/memory-view.tsx`, `conversation-memory-view.tsx` |
+| prefs | `.../kernel/local-provider.tsx` |
+
+### PR 切片建议
+
+1. store + 路径 + migrate + desktop I/O + reset + experts 骨架  
 2. B' + pending extract + pending UI  
-3. buildWorkMemoryContext（合并 tone/instructions + C 注入）  
-4. 个人页 file-backed + handbook  
-5. 记忆页卡片 + **专家概览**  
-6. 专家页「此专家记忆」+ 会话写 C  
+3. buildWorkMemoryContext + budget（写入不分 origin）
+4. 个人页  
+5. 记忆页 + 溯源展示  
+6. 专家页入口 + 会话写 C  
 7. test + i18n + changelog  
 
 Desktop 改动注意 human gate。
 
 ---
 
-## 7. 测试要点
+## 9. 测试与 Dogfood
 
-- migrate / B' / pending / budget / combinedSystem  
-- **专家隔离**: 专家1 的 C 不出现在专家2 system  
-- 全局清空 vs 专家清空  
-- reset 无幽灵文件  
-- dogfood: 专家会话记一条 → 换专家会话不带 → 回原专家仍在  
+### 9.1 自动化
+
+- migrate、parse、敏感、budget、B' 矩阵  
+- extract → pending 不进 system；confirm 晋升带 sessionId  
+- 专家隔离：C1 不注入专家 2  
+- local 与 company 会话写入同一本机路径（单测）；备份失败不回滚本机（若有 stub）
+- combinedSystem 长度/关键片段  
+- i18n-cjk / boundaries  
+
+### 9.2 Dogfood（M1）
+
+1. 称呼 + 指令 → 新会话生效  
+2. 有 workspace 手册 hard rule → 生效；切换 workspace → 手册变  
+3. 无 workspace → 手册禁用  
+4. 关启用工作记忆 → 无 MEMORY；人设仍在  
+5. 自动记录 → pending → 确认/拒绝  
+6. 显式记入；条目可见来源/时间/session  
+7. 专家 A 记一条 → 专家 B 会话不带 → 回 A 仍在  
+8. 敏感跳过  
+9. Desktop 打开目录  
+10. 清除本地后无幽灵记忆（按策略）  
 
 ---
 
-## 8. 决策记录（锁定）
+## 10. 风险与缓解
+
+| 风险 | 缓解 |
+| ---- | ---- |
+| 与配置迁移路径分叉 | §2 权威表；实现前锁死 |
+| config/experts 与 awareness/experts 混淆 | 命名空间 + 代码 review 清单 |
+| pending 无 UI | 同列车强制 |
+| B' breaking | 升级文案 + 测试 |
+| system 叠爆 | 整包软裁 |
+| 企业会话写入本机后备份泄漏 | 敏感过滤；备份范围可控；非组织共享默认 |
+| 工期膨胀 | M1 话术降级；反思放 P2 |
+| 多窗口文件 | 原子写 + 设置页重读 |
+
+---
+
+## 11. 决策记录（锁定）
 
 | # | 决策 |
 | ---- | ---- |
-| 1 | 菜单：个人、记忆（两个） |
-| 2 | 工程名 awareness；启用工作记忆 / 自动记录 |
-| 3 | 注入 B' |
+| 1 | 两菜单：个人、记忆 |
+| 2 | 正文路径：`data/user/awareness/`；开关：`profiles/local/config/memory/settings.json` |
+| 3 | 注入 B'；仅主轨 |
 | 4 | Personal 不做 |
-| 5 | md 文件；无向量 v1 |
-| 6 | confirm_first / pending 与 UI 同交付 |
-| 7 | 手册人工 only；resolve 跟 prompt workspace |
-| 8 | 非桌面 prefs 降级 |
-| 9 | 重置覆盖磁盘 awareness |
-| 10 | **专家域记忆必做**：`experts/<id>/` 本地文件；会话默认写 C；与专家包路径分离 |
-| 11 | 清空全局默认不清 C；卸装默认保留 C |
+| 5 | 无向量 v1 |
+| 6 | confirm_first；pending 与 UI 同交付 |
+| 7 | 专家域 C 必做；与安装包分离 |
+| 8 | provenance：source + time + sessionId |
+| 9 | 双模式方案 1：逻辑同步 + 始终写本机 + 登录后异步备份企业 |
+| 10 | handbook 人工 only；resolve 跟 prompt workspace |
+| 11 | 非桌面 prefs 降级 |
 
 ---
 
-## 9. 实现约束速查
+## 12. 实现约束速查（可贴 PR）
 
-1. 注入主点：`surface-props-hook-impl` `joinSystemParts`；合并 tone/instructions/profile/handbook/B MEMORY/C MEMORY。  
-2. `memory.enabled` 只控制记忆类注入（B MEMORY/short/C）；人设独立。  
-3. extract → pending + UI；专家会话默认 C。  
-4. Electron 文件真相；非桌面 prefs；reset 处理 awareness（含 experts）。  
-5. handbook 绑定当次 workspaceRoot。  
-6. 记忆块硬顶 + 整包 system 软裁剪。  
-7. P1 显式记入；话术克制。  
-8. 自动化/channel 默认不自动记录。  
-9. **用户专家记忆永不写入专家安装包目录。**
+```text
+1. 注入主点：surface-props-hook-impl joinSystemParts；合并 tone/instructions/profile/handbook/B/C。
+2. memory.enabled 只控制记忆类注入；人设独立（B'）。
+3. extract → pending + UI；专家会话默认 C；禁止无 UI pending 发布。
+4. 正文只写 data/user/awareness/**；禁止写入 profiles/**/config/experts 安装树。
+5. settings 开关可与 config/memory/settings.json 对齐迁移文档。
+6. 双模式：local/company 同一写入与注入；始终写本机 awareness；登录后异步备份企业（失败不挡本机）；M1 可不实现备份传输。
+7. 条目保留 sessionId/source/updatedAt。
+8. 不写 session-archive；不接 Personal。
+9. 自动化/channel 默认不自动记录。
+10. 重置本地须处理 awareness，防幽灵注入。
+```
 
 ---
 
-## 10. 相关代码锚点（实现时）
+## 13. 文档与发布
 
-| 区域 | 路径 |
+| 文档 | 时机 |
 | ---- | ---- |
-| 注入 + 现网直写 items | `apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts` |
-| profile builder | `apps/app/src/react-app/shell/onboarding-profile.ts` |
-| 抽取/append | `apps/app/src/react-app/domains/shared/memory/conversation-memory.ts` |
-| 个人/记忆 UI | `.../settings/pages/memory-view.tsx`, `conversation-memory-view.tsx` |
-| 专家类型/systemPrompt | `.../plugins/expert-marketplace/types.ts`, packages 安装目录 |
-| prefs | `apps/app/src/react-app/kernel/local-provider.tsx` |
-| 重置 | `apps/app/src/react-app/kernel/reset-local-storage.ts` |
+| 本文 | SoT，实现与评审以此为准 |
+| vault `AI 产品跟踪/OnMyAgent/` | 可选同步摘要 + 链到本文 |
+| 0802 配置迁移 | 实现时补一句：正文权威 = data/user/awareness |
+| CHANGELOG / README 一句 | M1 |
+| Architecture 一句边界 | M1 |
+
+**M1 对外话术**  
+「在「个人」设定规则与手册；在「记忆」管理本机对话与专家记忆，确认后再生效。仅存本机。」
 
 ---
 
-## 11. 修订历史
+## 14. 修订历史
 
 | 版本 | 说明 |
 | ---- | ---- |
-| v1.0 | 初版两菜单 + 全局文件计划（对话稿） |
-| v1.1 | 审核补丁：注入链、B'、pending UI、降级、handbook resolve、整包预算、工期 |
-| **v1.2（本文）** | **专家域记忆定为必做**；本地 `experts/<id>/`；分层 A/B/C/D；注入/自动路由/验收/分期写入 SoT |
+| v1.0 | 对话稿：两菜单 + 全局文件 |
+| v1.1 | 审核：注入链、B'、pending UI、降级、预算、工期 |
+| v1.2 | 专家域必做 |
+| **v1.3** | **整体开发计划书**：OMA 合规路径、provenance、双模式 origin、功能 ID 全表、分期与验收 |
+| **v1.4** | 双模式改为方案 1：逻辑同步 + 始终写本机 + 登录异步备份企业；删除 company 禁写本机 |
+| **v1.5** | 短期记忆加回；自动写入开关（勾选才自动写）；个人页去掉假「本机人设文件」清单；画像留在个人/USER |
+
+---
+
+## 15. 评审检查清单（给你看计划时用）
+
+- [ ] 两菜单分工是否接受  
+- [ ] 路径 `data/user/awareness` + `config/memory/settings.json` 是否接受  
+- [ ] 专家槽 C 必做与安装包分离是否接受  
+- [x] 双模式方案 1（逻辑同步 + 本机为源 + 登录异步备份）已接受  
+
+- [ ] M1 范围是否可砍（若要再缩：可砍手册编辑深度，不可砍 pending UI 与路径）  
+- [ ] 工期是否按 1.3× 排期  
+
+**批准后下一步**：开 M0 PR（store + migrate + pending UI 最小集 + 专家槽 API）。
