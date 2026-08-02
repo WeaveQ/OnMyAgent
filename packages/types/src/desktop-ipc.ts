@@ -1276,6 +1276,9 @@ export type MyExpertPackageWriteInput = {
   name: string;
   description: string;
   quote: string;
+  rolePrompt?: string;
+  memory?: string;
+  skillIds?: string[];
   knowledge?: Array<{
     kind: "file" | "directory";
     relativePath: string;
