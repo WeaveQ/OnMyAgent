@@ -28,4 +28,19 @@ describe("config-profile wiring", () => {
     assert.match(source, /resolveLocalExpertsRoot\(/);
     assert.doesNotMatch(source, /\.onmyagent", "marketplaces"/);
   });
+
+  test("runtime materializes skills via resolveLocalSkillsRoot not hardcoded legacy", async () => {
+    const source = await readFile(path.join(dir, "runtime.mjs"), "utf8");
+    assert.match(source, /from "\.\/config-profile-paths\.mjs"/);
+    assert.match(source, /resolveLocalSkillsRoot\(/);
+    assert.match(
+      source,
+      /function onmyagentUserSkillsRoot\(\)[\s\S]*?return resolveLocalSkillsRoot\(/,
+    );
+    // Fail if the private runtime helper hardcodes only the legacy skills path.
+    assert.doesNotMatch(
+      source,
+      /function onmyagentUserSkillsRoot\(\)\s*\{\s*return path\.join\(app\.getPath\("home"\),\s*"\.onmyagent",\s*"skills"\)/,
+    );
+  });
 });
