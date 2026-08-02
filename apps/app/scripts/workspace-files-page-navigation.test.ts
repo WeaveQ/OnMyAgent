@@ -43,6 +43,9 @@ describe("workspace files page navigation", () => {
     expect(browser).toContain("data-files-list-deep");
     expect(browser).not.toContain("groupLooseAsOrphan");
     expect(browser).not.toContain("orphan-header");
+    // Loose root files still group under drillable 未分组.
+    expect(browser).toContain("buildUngroupedFolderNode");
+    expect(browser).toContain("files.ungrouped");
   });
 
   test("matches the compact shell tab switcher (bare SegmentedTabGroup + tab NavTab)", () => {

@@ -29,9 +29,12 @@ import {
   resolveSessionOwnedFilePaths,
 } from "../src/react-app/domains/workspace/workspace-files-session-cleanup";
 import {
+  FILES_UNGROUPED_PATH,
   WORKSPACE_INBOX_DIR,
   buildRootOutlineRows,
+  buildUngroupedFolderNode,
   buildUserUploadRelativePath,
+  isFilesUngroupedPath,
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
   workspaceRelativeForUploadRow,
@@ -274,6 +277,36 @@ describe("product write paths", () => {
 });
 
 describe("buildRootOutlineRows conversation nesting", () => {
+  test("buildUngroupedFolderNode wraps root loose files", () => {
+    const node = buildUngroupedFolderNode(
+      [
+        {
+          name: "loose.xlsx",
+          path: "loose.xlsx",
+          kind: "file",
+          size: 1,
+          mtimeMs: 9,
+          children: [],
+        },
+        {
+          name: "skip-dir",
+          path: "skip-dir",
+          kind: "dir",
+          size: 0,
+          mtimeMs: 1,
+          children: [],
+        },
+      ],
+      "未分组",
+    );
+    expect(node.path).toBe(FILES_UNGROUPED_PATH);
+    expect(isFilesUngroupedPath(node.path)).toBe(true);
+    expect(node.kind).toBe("dir");
+    expect(node.name).toBe("未分组");
+    expect(node.children.map((c) => c.name)).toEqual(["loose.xlsx"]);
+    expect(node.mtimeMs).toBe(9);
+  });
+
   test("groups top-level loose files under orphan-header", () => {
     const children: WorkspaceFileTreeNode[] = [
       {
@@ -733,5 +766,9 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).toContain("enterDirectory");
     expect(browser).toContain("listDeep");
     expect(browser).not.toContain("buildRootOutlineRows");
+    // Root loose files still surface as drillable「未分组」folder.
+    expect(browser).toContain("buildUngroupedFolderNode");
+    expect(browser).toContain("files.ungrouped");
+    expect(browser).toContain('data-files-ungrouped');
   });
 });
