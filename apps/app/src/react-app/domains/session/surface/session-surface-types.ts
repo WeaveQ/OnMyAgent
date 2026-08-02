@@ -81,6 +81,12 @@ export type SessionSurfaceProps = {
   client: OnMyAgentServerClient;
   workspaceId: string;
   workspaceRoot: string;
+  /**
+   * Catalog filesystem root for product file sources (uploads/tasks/experts).
+   * Prefer this over `workspaceRoot` when the session cwd is an isolated expert
+   * subdir — otherwise @ Mine list/download paths disagree and Add no-ops.
+   */
+  filesWorkspaceRoot?: string;
   sessionId: string;
   /** Live connected provider IDs for historical transcript model badges. */
   connectedProviderIds?: readonly string[] | null;

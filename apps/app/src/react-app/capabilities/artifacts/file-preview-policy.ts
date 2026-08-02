@@ -11,10 +11,11 @@ import { t } from "../../../i18n";
 export const INLINE_CONTENT_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
- * Office overlay can stream larger workbooks, but cap to avoid thrashing
- * WebContentsView on multi-megabyte packs.
+ * Soft cap when office files must be downloaded (non-Electron / remote).
+ * Electron local overlay reads from disk — callers should skip this gate when
+ * a local absolute path is available (see usesLocalFileRenderer paths).
  */
-export const OFFICE_OVERLAY_PREVIEW_MAX_BYTES = 40 * 1024 * 1024;
+export const OFFICE_OVERLAY_PREVIEW_MAX_BYTES = 200 * 1024 * 1024;
 
 /** Debounce file selection before kicking off preview loads (ms). */
 export const FILE_PREVIEW_SELECTION_DEBOUNCE_MS = 120;

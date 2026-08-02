@@ -22,22 +22,36 @@ const statusToastToneClass = {
 };
 
 const statusToastLayoutClass = {
-  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid animate-in fade-in slide-in-from-top-4 duration-300",
+  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300",
+  /** Compact Hope-style pill when only title + optional inline action. */
+  shellCompact:
+    "w-auto max-w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-full border border-dls-border bg-dls-surface-solid px-3.5 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300",
   body: "flex items-start gap-3 p-4",
+  bodyCompact: "flex items-center gap-2.5",
   iconTile: "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",
+  iconCompact: "flex size-5 shrink-0 items-center justify-center text-dls-status-success-fg",
   content: "min-w-0 flex-1",
   header: "flex items-start justify-between gap-3",
   title: "text-sm font-medium text-dls-text",
+  titleCompact: "text-sm font-medium text-dls-text",
   description: "mt-1 text-sm leading-relaxed text-dls-secondary",
   dismissButton: "rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   actionRow: "mt-3 flex items-center gap-2",
   primaryAction: "rounded-lg bg-dls-accent text-dls-accent-fg hover:bg-dls-accent-hover",
   secondaryAction: "rounded-lg text-dls-text hover:bg-dls-hover",
+  /** Inline text action next to title (Hope "View" link). */
+  inlineAction:
+    "shrink-0 text-sm font-medium text-dls-secondary underline-offset-2 transition-colors hover:text-dls-text hover:underline",
 };
 
 export function StatusToast(props: StatusToastProps) {
   if (!props.open) return null;
   const tone = props.tone ?? "info";
+  const hasDescription = Boolean(props.description?.trim());
+  const hasAction = Boolean(props.actionLabel && props.onAction);
+  // Compact capsule when success/info has no description (Hope move toast).
+  const compact =
+    !hasDescription && (tone === "success" || tone === "info");
 
   const tileClass = statusToastToneClass[tone];
 
@@ -49,6 +63,35 @@ export function StatusToast(props: StatusToastProps) {
         : tone === "error"
           ? CircleAlert
           : Info;
+
+  if (compact) {
+    return (
+      <div className={statusToastLayoutClass.shellCompact} data-status-toast="compact">
+        <div className={statusToastLayoutClass.bodyCompact}>
+          <div
+            className={`${statusToastLayoutClass.iconCompact} ${
+              tone === "success" ? "text-dls-status-success-fg" : ""
+            }`.trim()}
+          >
+            <Icon size={16} strokeWidth={2.25} />
+          </div>
+          <span className={statusToastLayoutClass.titleCompact}>{props.title}</span>
+          {hasAction ? (
+            <button
+              type="button"
+              className={statusToastLayoutClass.inlineAction}
+              onClick={() => {
+                props.onAction?.();
+                props.onDismiss();
+              }}
+            >
+              {props.actionLabel}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={statusToastLayoutClass.shell}>
@@ -65,7 +108,7 @@ export function StatusToast(props: StatusToastProps) {
               <div className={statusToastLayoutClass.title}>
                 {props.title}
               </div>
-              {props.description?.trim() ? (
+              {hasDescription ? (
                 <p className={statusToastLayoutClass.description}>
                   {props.description}
                 </p>
@@ -84,7 +127,7 @@ export function StatusToast(props: StatusToastProps) {
             </Button>
           </div>
 
-          {props.actionLabel && props.onAction ? (
+          {hasAction ? (
             <div className={statusToastLayoutClass.actionRow}>
               <Button
                 type="button"

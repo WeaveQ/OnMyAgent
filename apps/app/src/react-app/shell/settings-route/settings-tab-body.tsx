@@ -7,6 +7,7 @@
 import type { ReactNode } from "react";
 import type { SettingsTabBodyCtx } from "./settings-tab-body-ctx";
 import { SettingsStack } from "../../domains/settings";
+import { deleteSessionOwnedWorkspaceFiles } from "../../domains/workspace";
 import {
   canDeleteOpenCodeProvider,
   canDisconnectProviderRow,
@@ -415,6 +416,8 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
           <LazyArchivedTasksView
             client={ctx.onmyagentClient ?? ctx.onmyagentServerSnapshot.onmyagentServerClient}
             workspaceId={ctx.runtimeWorkspaceId?.trim() || ctx.selectedWorkspaceId}
+            workspaceRoot={ctx.selectedWorkspaceRoot}
+            deleteSessionOwnedWorkspaceFiles={deleteSessionOwnedWorkspaceFiles}
           />
         </SettingsTabSuspense>
       );

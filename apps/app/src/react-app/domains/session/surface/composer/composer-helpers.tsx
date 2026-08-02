@@ -48,7 +48,13 @@ export type ToolMenuSettingsSection =
   | "skills"
   | "mcps"
   | "plugins";
-export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";
+export type ToolMenuSection =
+  | "files"
+  | "mine"
+  | "templates"
+  | "modes"
+  | "skills"
+  | "mcps";
 export type ComposerPromptTemplate = {
   id: string;
   label: string;
@@ -263,7 +269,10 @@ export type ComposerProps = {
 
 export const FLUSH_PROMPT_EVENT = "onmyagent:flushPromptDraft";
 export const FOCUS_PROMPT_EVENT = "onmyagent:focusPrompt";
-export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+/** Align with Files upload precheck / server inbox (large office decks from Mine). */
+export const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+/** Human-readable label paired with MAX_ATTACHMENT_BYTES (i18n notices). */
+export const MAX_ATTACHMENT_LABEL = "100MB";
 export const IMAGE_COMPRESS_MAX_PX = 2048;
 export const IMAGE_COMPRESS_QUALITY = 0.82;
 export const IMAGE_COMPRESS_TARGET_BYTES = 1_500_000;
