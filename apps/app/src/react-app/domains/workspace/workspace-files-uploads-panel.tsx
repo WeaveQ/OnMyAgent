@@ -239,6 +239,10 @@ export type WorkspaceFilesToastInput = {
   title: string;
   description?: string | null;
   dismissLabel?: string;
+  /** Optional action (e.g. Hope-style「查看」after move). */
+  actionLabel?: string;
+  onAction?: () => void;
+  durationMs?: number;
 };
 
 export function WorkspaceFilesUploadsPanel(props: {
@@ -785,17 +789,27 @@ export function WorkspaceFilesUploadsPanel(props: {
         return;
       }
       setMoveBusy(true);
+      const targetFolderPath = workspaceRelativeForUploadRow(folder);
+      const folderLabel =
+        folder.name.trim()
+        || targetFolderPath.split("/").filter(Boolean).pop()
+        || targetFolderPath;
       try {
         await props.client.renameWorkspaceFile(
           workspaceId,
           dest.from,
           dest.to,
         );
+        // Hope-style: 已移动到「文件夹」 + 查看 → open that folder.
         props.onToast?.({
           tone: "success",
-          title: t("files.move_success", {
-            name: payload.name || dest.to.split("/").pop() || dest.to,
-          }),
+          title: t("files.move_to_success", { folder: folderLabel }),
+          actionLabel: t("files.move_view"),
+          onAction: () => {
+            setCurrentFolderPath(targetFolderPath);
+            setSelectedId(null);
+            setPreviewState({ status: "idle" });
+          },
           dismissLabel: t("common.dismiss"),
         });
         if (selectedId) {
