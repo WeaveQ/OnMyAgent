@@ -378,7 +378,8 @@ export function WorkspaceFilesUploadsPanel(props: {
         if (manualRefreshRef.current) {
           manualRefreshRef.current = false;
           setRefreshDone(true);
-          window.setTimeout(() => setRefreshDone(false), 1200);
+          // state-timings.short-ms (1000)
+          window.setTimeout(() => setRefreshDone(false), 1000);
         }
       } catch (loadError) {
         if (cancelled) return;
