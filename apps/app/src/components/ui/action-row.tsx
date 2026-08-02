@@ -231,7 +231,8 @@ const railButtonVariants = cva(
       },
       size: {
         // Free-float chip: --dls-rail-pill-width (48) inside --dls-rail-width (68).
-        top: "w-rail-pill gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
+        // gap-1.5 = 6px between icon and label (+2px vs previous gap-1).
+        top: "w-rail-pill gap-1.5 rounded-2xl px-0.5 py-1.5 text-xs leading-none",
         bottom: "size-9 gap-0.5 rounded-2xl text-2xs",
       },
     },

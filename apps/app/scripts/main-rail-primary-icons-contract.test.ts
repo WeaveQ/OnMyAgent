@@ -16,8 +16,11 @@ describe("main rail primary icon contract", () => {
 
     // Named rail width token (--dls-rail-width via w-rail), not arbitrary 68px.
     expect(railSource).toContain("w-rail shrink-0");
-    expect(railSource).toContain("flex-1 flex-col items-center gap-2.5");
+    expect(railSource).toContain("flex-1 flex-col items-center gap-2");
     expect(railSource).not.toContain("w-[68px]");
+    // Brand mark above destinations (peer-app style app icon tile).
+    expect(railSource).toContain("RailBrandMark");
+    expect(railSource).toContain("onmyagent-logo.png");
   });
 
   test("top rail entries use unified Lucide outline icons (stroke language)", () => {
@@ -52,7 +55,9 @@ describe("main rail primary icon contract", () => {
     // Outline set — no solid fill glyphs in the primary rail icon module.
     expect(iconSource).toContain('from "lucide-react"');
     expect(iconSource).toContain("House");
-    expect(iconSource).toContain("Bot");
+    expect(iconSource).toContain("UserRound");
+    expect(iconSource).toMatch(/UserRound[\s\S]*ExpertRailIcon|ExpertRailIcon[\s\S]*UserRound/);
+    expect(iconSource).not.toMatch(/\bBot\b/);
     expect(iconSource).toContain("Folder");
     expect(iconSource).toContain("ShoppingBag");
     expect(iconSource).toContain("Settings2");
