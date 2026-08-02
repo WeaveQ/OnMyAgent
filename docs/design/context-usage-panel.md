@@ -21,4 +21,5 @@ If missing, UI shows total only (no fabricated categories).
 ## Surfaces
 
 - Local Agent: live via ACP `context_usage` (Phase A+B)
-- Task/expert sessions: reuse the same component when usage is available (follow-up)
+- Task/expert/home sessions: same `ContextUsageIndicator` next to model select;
+  used ≈ last assistant `input + cacheRead`, total via resolveContextTotal

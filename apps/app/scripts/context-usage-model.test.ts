@@ -9,6 +9,10 @@ import {
   resolveContextTotal,
   toContextUsageSnapshot,
 } from "../src/react-app/capabilities/context-usage/context-usage-model";
+import {
+  buildSessionContextUsage,
+  estimateContextUsedFromTokens,
+} from "../src/react-app/capabilities/context-usage/session-context-usage";
 
 describe("context usage model", () => {
   test("resolveContextTotal prefers runtime → catalog → table → default", () => {
@@ -69,5 +73,21 @@ describe("context usage model", () => {
     expect(formatCompactTokens(142_400)).toBe("142.4K");
     expect(formatCompactTokens(192_000)).toBe("192.0K");
     expect(formatCompactTokens(500)).toBe("500");
+  });
+
+  test("estimateContextUsedFromTokens sums input + cache read", () => {
+    expect(estimateContextUsedFromTokens({ input: 100, cacheRead: 50 })).toBe(150);
+    expect(estimateContextUsedFromTokens({ input: 80, cacheRead: null })).toBe(80);
+    expect(estimateContextUsedFromTokens(null)).toBeNull();
+  });
+
+  test("buildSessionContextUsage always resolves total for empty sessions", () => {
+    const snap = buildSessionContextUsage({
+      modelId: "gpt-4o",
+      usedTokens: null,
+    });
+    expect(snap.used).toBe(0);
+    expect(snap.total).toBe(128_000);
+    expect(snap.usedSource).toBe("estimate");
   });
 });

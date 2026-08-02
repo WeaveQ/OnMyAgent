@@ -265,6 +265,12 @@ export type ComposerProps = {
   topAccessory?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;
+  /** Context window occupancy for the ring next to the model control. */
+  contextUsage?: {
+    used: number;
+    total: number;
+    label?: string | null;
+  } | null;
 };
 
 export const FLUSH_PROMPT_EVENT = "onmyagent:flushPromptDraft";
