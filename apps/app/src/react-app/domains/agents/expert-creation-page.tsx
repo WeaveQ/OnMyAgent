@@ -1252,7 +1252,7 @@ function TryEffectPanel(props: {
   return (
     <aside className="flex min-h-0 min-w-0 flex-col border-l border-dls-border bg-dls-surface">
       <div className="flex items-center gap-2 border-b border-dls-border px-5 py-4">
-        <Button type="button" variant="ghost" size="icon-sm" onClick={props.onClose} aria-label={t("agents.expert_creation_back")}>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={props.onClose} aria-label={t("agents.expert_creation_preview_close")}>
           <ChevronsLeft className="size-5" aria-hidden />
         </Button>
         <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-dls-text">
