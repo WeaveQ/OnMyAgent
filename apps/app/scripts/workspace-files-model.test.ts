@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  buildRootOutlineRows,
+  buildTreeOutlineRows,
   collectMatchingFilesUnder,
   countDirsInNode,
   countFilesInNode,
@@ -145,7 +145,7 @@ describe("tree counts and outline", () => {
     expect(countDirsInNode(tree)).toBe(1);
   });
 
-  test("buildRootOutlineRows respects expanded set", () => {
+  test("buildTreeOutlineRows respects expanded set", () => {
     const children = [
       dir("proj", "proj", [
         dir("task", "proj/task", [file("f.ts", "proj/task/f.ts")]),
@@ -153,12 +153,19 @@ describe("tree counts and outline", () => {
       ]),
       file("loose.ts", "loose.ts"),
     ];
-    const collapsed = buildRootOutlineRows(children, new Set());
-    expect(collapsed.some((r) => r.type === "loose-file")).toBe(true);
-    expect(collapsed.filter((r) => r.type === "task").length).toBe(0);
-    const expanded = buildRootOutlineRows(children, new Set(["proj", "proj/task"]));
-    expect(expanded.some((r) => r.type === "task")).toBe(true);
-    expect(expanded.some((r) => r.type === "file" && r.node.path === "proj/task/f.ts")).toBe(true);
+    const collapsed = buildTreeOutlineRows(children, new Set());
+    expect(collapsed.map((r) => r.node.name)).toEqual(["proj", "loose.ts"]);
+    expect(collapsed.every((r) => r.depth === 0)).toBe(true);
+    const expanded = buildTreeOutlineRows(
+      children,
+      new Set(["proj", "proj/task"]),
+    );
+    expect(
+      expanded.some((r) => r.type === "file" && r.node.path === "proj/task/f.ts"),
+    ).toBe(true);
+    expect(
+      expanded.some((r) => r.type === "dir" && r.node.path === "proj/task"),
+    ).toBe(true);
   });
 });
 

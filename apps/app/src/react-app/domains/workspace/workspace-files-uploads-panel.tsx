@@ -97,6 +97,7 @@ import {
   usesLocalFileRenderer,
   workspaceRelativeForUploadRow,
   workspaceRelativeInboxPath,
+  WORKSPACE_FILES_CATALOG_LIMIT,
   WORKSPACE_UPLOADS_DIR,
   type FileCategory,
   type TreeOutlineRow,
@@ -282,6 +283,7 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [rows, setRows] = useState<UserUploadRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogTruncated, setCatalogTruncated] = useState(false);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
@@ -367,10 +369,12 @@ export function WorkspaceFilesUploadsPanel(props: {
         const catalog = await client.listWorkspaceFiles(workspaceId, {
           includeDirs: true,
           prefix: WORKSPACE_UPLOADS_DIR,
-          limit: 5000,
+          limit: WORKSPACE_FILES_CATALOG_LIMIT,
         });
         if (cancelled) return;
-        const catalogRows = mapUploadsCatalogToRows(catalog.items ?? [], {
+        const items = catalog.items ?? [];
+        setCatalogTruncated(items.length >= WORKSPACE_FILES_CATALOG_LIMIT);
+        const catalogRows = mapUploadsCatalogToRows(items, {
           parentPrefix: currentFolderPath,
           shallow: false,
         });
@@ -384,6 +388,7 @@ export function WorkspaceFilesUploadsPanel(props: {
       } catch (loadError) {
         if (cancelled) return;
         setRows([]);
+        setCatalogTruncated(false);
         setError(
           loadError instanceof Error ? loadError.message : t("files.load_failed"),
         );
@@ -1313,6 +1318,16 @@ export function WorkspaceFilesUploadsPanel(props: {
 
       {error ? (
         <p className="mb-3 shrink-0 text-sm text-dls-status-danger-fg">{error}</p>
+      ) : null}
+      {catalogTruncated ? (
+        <p
+          className="mb-3 shrink-0 text-sm text-dls-secondary"
+          data-files-catalog-truncated="true"
+        >
+          {t("files.catalog_truncated", {
+            limit: String(WORKSPACE_FILES_CATALOG_LIMIT),
+          })}
+        </p>
       ) : null}
 
       {!canLoad ? (

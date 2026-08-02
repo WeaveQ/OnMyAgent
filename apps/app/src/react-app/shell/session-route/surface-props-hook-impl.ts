@@ -850,15 +850,20 @@ export function useSessionRouteSurfaceProps(
         const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
           uploadAttachment:
             attachmentUploadTarget
-              ? (attachment, uploadPath) =>
-                  attachmentUploadTarget.client.uploadInbox(
+              ? async (attachment, uploadPath) => {
+                  const { uploadUserFileToWorkspace } = await import(
+                    "../../domains/workspace/workspace-files-upload-user-file"
+                  );
+                  return uploadUserFileToWorkspace(
+                    attachmentUploadTarget.client,
                     attachmentUploadTarget.workspaceId,
                     attachment.file,
                     { path: uploadPath },
-                  )
+                  );
+                }
               : undefined,
-          // Inbox lives on the catalog workspace; expert task cwd may be an
-          // isolated session subdir — never join inbox under that subdir.
+          // User files land under uploads/ on the catalog workspace; expert task
+          // cwd may be an isolated session subdir — do not nest under that cwd.
           inboxWorkspaceRoot:
             workspaceRootForSession || taskWorkspaceRoot || undefined,
         });
