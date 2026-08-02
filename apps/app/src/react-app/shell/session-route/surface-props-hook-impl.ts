@@ -323,7 +323,7 @@ export function useSessionRouteSurfaceProps(
       selectedWorkspace?.path?.trim() || sessionWorkspaceRoot;
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
-      // Product Files / @ 我的 use the catalog workspace, not expert session cwd.
+      // Product Files / @ Mine use the catalog workspace, not expert session cwd.
       filesWorkspaceRoot: catalogWorkspaceRoot,
       connectedProviderIds: providerConnectedIds,
       developerMode: false,

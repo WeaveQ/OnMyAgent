@@ -84,7 +84,7 @@ export type SessionSurfaceProps = {
   /**
    * Catalog filesystem root for product file sources (uploads/tasks/experts).
    * Prefer this over `workspaceRoot` when the session cwd is an isolated expert
-   * subdir — otherwise @ 我的 list/download paths disagree and Add no-ops.
+   * subdir — otherwise @ Mine list/download paths disagree and Add no-ops.
    */
   filesWorkspaceRoot?: string;
   sessionId: string;

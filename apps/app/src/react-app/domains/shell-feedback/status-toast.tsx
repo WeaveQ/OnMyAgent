@@ -39,7 +39,7 @@ const statusToastLayoutClass = {
   actionRow: "mt-3 flex items-center gap-2",
   primaryAction: "rounded-lg bg-dls-accent text-dls-accent-fg hover:bg-dls-accent-hover",
   secondaryAction: "rounded-lg text-dls-text hover:bg-dls-hover",
-  /** Inline text action next to title (Hope「查看」). */
+  /** Inline text action next to title (Hope "View" link). */
   inlineAction:
     "shrink-0 text-sm font-medium text-dls-secondary underline-offset-2 transition-colors hover:text-dls-text hover:underline",
 };
