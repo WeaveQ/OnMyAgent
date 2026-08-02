@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/action-row";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
@@ -62,6 +63,8 @@ import {
 } from "./expert-creation-coach-model";
 import { runExpertCoachTurn } from "./expert-creation-coach-runtime";
 import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
+import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
+import { hasExpertCreationProgress } from "./expert-creation-lifecycle";
 import {
   clearExpertCreationStoredState,
   readExpertCreationStoredState,
@@ -1276,6 +1279,7 @@ function TryEffectPanel(props: {
 
 export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const sourceRegistry = props.registry ?? createDefaultAgentRegistry();
+  const [baselineDraft] = useState(() => buildInitialDraft(props.registry, props.skills));
   const [activeTab, setActiveTab] = useState<ExpertCreationTab>("basic");
   const [storedInitialState] = useState(() => readExpertCreationStoredState(
     props.workspaceId,
@@ -1289,6 +1293,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [knowledge, setKnowledge] = useState<ExpertKnowledgeEntry[]>([]);
   const [tryOpen, setTryOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1407,18 +1413,37 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   };
 
   const submit = async () => {
+    if (submitting) return;
     if (!draft.name.trim()) {
       setSubmitError(t("agents.expert_creation_name_required"));
       setActiveTab("basic");
       return;
     }
     setSubmitError(null);
+    setSubmitting(true);
     try {
       await props.onDone(draft, knowledge);
       clearExpertCreationStoredState(props.workspaceId);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_saving"));
+      setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_create_failed"));
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const requestClose = () => {
+    if (submitting) return;
+    if (hasExpertCreationProgress(draft, baselineDraft, coachState, knowledge.length)) {
+      setExitDialogOpen(true);
+      return;
+    }
+    props.onClose();
+  };
+
+  const discardAndClose = () => {
+    clearExpertCreationStoredState(props.workspaceId);
+    setExitDialogOpen(false);
+    props.onClose();
   };
 
   const selectedIds = draft.skillIds;
@@ -1426,7 +1451,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   return (
     <div className="absolute inset-0 z-50 flex min-h-0 flex-col bg-dls-surface-solid text-dls-text">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-dls-border bg-dls-surface px-5">
-        <Button type="button" variant="ghost" size="sm" onClick={props.onClose}>
+        <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={requestClose}>
           <ArrowLeft data-icon="inline-start" className="size-4" />
           {t("agents.expert_creation_back")}
         </Button>
@@ -1436,10 +1461,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             type="button"
             size="sm"
             className="disabled:bg-dls-surface-muted disabled:text-dls-secondary"
-            disabled={!draft.name.trim()}
+            aria-busy={submitting}
+            disabled={!draft.name.trim() || submitting}
             onClick={() => void submit()}
           >
-            {t("agents.expert_creation_done")}
+            {submitting ? t("agents.expert_creation_saving") : t("agents.expert_creation_done")}
           </Button>
         </div>
       </header>
@@ -1483,6 +1509,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(19rem,30%)]")}>
             <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6 xl:px-10">
               <div className="w-full">
+                {submitError ? (
+                  <NoticeBox role="alert" tone="error" size="content" className="mb-4">
+                    {submitError}
+                  </NoticeBox>
+                ) : null}
                 {activeTab === "basic" ? (
                   <BasicInfoPanel
                     draft={draft}
@@ -1521,7 +1552,6 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 {activeTab === "knowledge" ? (
                   <KnowledgePanel entries={knowledge} onEntriesChange={setKnowledge} />
                 ) : null}
-                {submitError ? <p className="mt-4 text-sm text-dls-status-danger-fg">{submitError}</p> : null}
               </div>
             </section>
             {tryOpen ? (
@@ -1537,6 +1567,16 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           </div>
         </main>
       </div>
+      <ExpertCreationExitDialog
+        open={exitDialogOpen}
+        hasKnowledge={knowledge.length > 0}
+        onContinue={() => setExitDialogOpen(false)}
+        onKeepAndExit={() => {
+          setExitDialogOpen(false);
+          props.onClose();
+        }}
+        onDiscardAndExit={discardAndClose}
+      />
     </div>
   );
 }

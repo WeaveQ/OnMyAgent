@@ -300,5 +300,12 @@ export default {
   "agents.expert_creation_preview_model": "DeepSeek-V4-Flash",
   "agents.expert_creation_preview_send": "发送",
   "agents.expert_creation_saving": "正在创建…",
+  "agents.expert_creation_create_failed": "专家创建失败，请重试。",
+  "agents.expert_creation_exit_title": "退出创建专家？",
+  "agents.expert_creation_exit_desc": "当前草稿已自动保存，下次打开时可以继续编辑。",
+  "agents.expert_creation_exit_with_knowledge": "表单草稿已自动保存，但已选择的知识文件无法保留，下次打开时需要重新添加。",
+  "agents.expert_creation_continue_editing": "继续编辑",
+  "agents.expert_creation_discard_exit": "丢弃草稿",
+  "agents.expert_creation_keep_exit": "保留草稿并退出",
   "agents.expert_creation_name_required": "请输入专家名称后继续。",
 } as const;

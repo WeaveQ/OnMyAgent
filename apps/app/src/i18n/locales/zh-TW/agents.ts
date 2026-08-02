@@ -300,5 +300,12 @@ export default {
   "agents.expert_creation_preview_model": "DeepSeek-V4-Flash",
   "agents.expert_creation_preview_send": "傳送",
   "agents.expert_creation_saving": "正在建立…",
+  "agents.expert_creation_create_failed": "專家建立失敗，請重試。",
+  "agents.expert_creation_exit_title": "離開建立專家？",
+  "agents.expert_creation_exit_desc": "目前草稿已自動儲存，下次開啟時可以繼續編輯。",
+  "agents.expert_creation_exit_with_knowledge": "表單草稿已自動儲存，但已選取的知識檔案無法保留，下次開啟時需要重新新增。",
+  "agents.expert_creation_continue_editing": "繼續編輯",
+  "agents.expert_creation_discard_exit": "捨棄草稿",
+  "agents.expert_creation_keep_exit": "保留草稿並離開",
   "agents.expert_creation_name_required": "請輸入專家名稱後繼續。",
 } as const;
