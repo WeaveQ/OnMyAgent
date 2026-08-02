@@ -261,6 +261,8 @@ export default {
   "agents.expert_creation_preview_failed_detail": "The draft expert could not respond: {detail}",
   "agents.expert_creation_preview_new_session": "Start a new preview conversation",
   "agents.expert_creation_preview_close": "Close preview",
+  "agents.expert_creation_resize_coach": "Resize creation coach",
+  "agents.expert_creation_resize_preview": "Resize expert preview",
   "agents.expert_creation_preview_stopped": "Generation stopped.",
   "agents.expert_creation_preview_config_changed": "The expert configuration changed. Your next message will start a new test conversation with the latest draft.",
   "agents.expert_creation_preview_current_draft": "Testing the current draft",
