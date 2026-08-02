@@ -50,7 +50,13 @@ const RESET_ONBOARDING_PREFS = {
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,
   onboardingProfile: null,
-  conversationMemory: { enabled: false, items: [], pending: [] },
+  conversationMemory: {
+    enabled: false,
+    autoCapture: false,
+    items: [],
+    pending: [],
+    shortTerm: [],
+  },
   autoNewSessionOnIdle: false,
   autoNewSessionIdleHours: 6,
 } as const;
@@ -119,6 +125,9 @@ export function clearLocalStorageForOnboardingReset() {
   } catch {
     // ignore
   }
+
+  // Account avatar (color / emoji) is product preference, reset with onboarding.
+  safeRemove("onmyagent.account.avatar");
 }
 
 export function clearLocalStorageForOnMyAgentReset(mode: ResetLocalStorageMode) {

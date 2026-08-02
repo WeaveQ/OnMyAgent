@@ -476,6 +476,20 @@ export function OnMyAgentRouteControlActions() {
       sideEffect: "navigation",
       execute: () => openSettingsTab("system"),
     },
+    {
+      id: "route.settings.memory",
+      label: t("system.control_open_personal_settings"),
+      description: t("system.control_open_personal_settings_desc"),
+      sideEffect: "navigation",
+      execute: () => openSettingsTab("memory"),
+    },
+    {
+      id: "route.settings.conversation_memory",
+      label: t("system.control_open_memory_settings"),
+      description: t("system.control_open_memory_settings_desc"),
+      sideEffect: "navigation",
+      execute: () => openSettingsTab("conversation-memory"),
+    },
   ];
   }, [location.pathname, location.search, location.state, navigate]);
 
@@ -484,5 +498,7 @@ export function OnMyAgentRouteControlActions() {
   useControlAction(actions[2]);
   useControlAction(actions[3]);
   useControlAction(actions[4]);
+  useControlAction(actions[5]);
+  // Personal + Memory settings entries (indices 4–5 after folders at 3).
   return null;
 }

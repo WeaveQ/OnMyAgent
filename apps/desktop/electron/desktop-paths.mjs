@@ -7,6 +7,8 @@ import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { ensureWorkMemoryAwareness } from "./ensure-work-memory-awareness.mjs";
+
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
 const MARKETPLACE_RESOURCE_DIR = "marketplace";
 const ONMYAGENT_USER_SKILLS_DIR_SUBPATH = ".onmyagent/skills";
@@ -104,12 +106,20 @@ export function createDesktopPaths(options) {
   }
 
   async function ensureOnMyAgentUserDataDirs() {
-    await mkdir(path.join(getRealHomeDir(), ".onmyagent", "agents"), {
+    const home = getRealHomeDir();
+    await mkdir(path.join(home, ".onmyagent", "agents"), {
       recursive: true,
     });
-    await mkdir(path.join(getRealHomeDir(), ONMYAGENT_USER_SKILLS_DIR_SUBPATH), {
+    await mkdir(path.join(home, ONMYAGENT_USER_SKILLS_DIR_SUBPATH), {
       recursive: true,
     });
+    // Install / first cold-start: seed style.md, AGENTS.md, USER.md, MEMORY.md
+    // under data/user/awareness/main (idempotent; never overwrites).
+    try {
+      await ensureWorkMemoryAwareness({ homeDir: home });
+    } catch (error) {
+      console.warn("[work-memory] ensure awareness seeds failed", error);
+    }
   }
 
   function desktopBootstrapPath() {

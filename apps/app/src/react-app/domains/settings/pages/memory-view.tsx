@@ -41,6 +41,10 @@ import {
   SettingsPageSection,
 } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
+import {
+  AccountAvatarEditor,
+  useAccountAvatarPrefs,
+} from "../../../capabilities/account-avatar/account-user-avatar";
 
 // Shared width for trailing inputs + selects so the right column aligns.
 // !justify-between: SettingsBlockRow applies [&_button]:justify-end to trailing controls.
@@ -64,6 +68,8 @@ export type MemoryViewProps = {
 export function MemoryView(props: MemoryViewProps) {
   const { draft, onDraftChange } = props;
   const busy = props.busy === true;
+  const [avatarPrefs, updateAvatarPrefs] = useAccountAvatarPrefs();
+  const avatarDisplayName = draft.userName.trim();
 
   // All preference fields auto-persist via parent callbacks (no page-level Save).
   const setListValue = useCallback(
@@ -80,8 +86,53 @@ export function MemoryView(props: MemoryViewProps) {
     [draft, onDraftChange],
   );
 
+  const instructionLen = props.customInstructions.length;
+  const instructionMax = 1500;
+
   return (
-    <LayoutStack className="gap-y-8">
+    <LayoutStack className="gap-y-10">
+      {/* Avatar + display name (account menu shares the same avatar prefs). */}
+      <SettingsPageSection title={t("account_menu.avatar_section")}>
+        <SettingsBlock>
+          <div className="px-5 py-5">
+            <AccountAvatarEditor
+              prefs={avatarPrefs}
+              displayName={avatarDisplayName}
+              onChange={updateAvatarPrefs}
+              density="comfortable"
+              hideHint
+            />
+          </div>
+          <SettingsBlockRow
+            title={t("settings.memory_user_name")}
+            description={t("settings.memory_user_name_desc")}
+            actions={
+              <Input
+                value={draft.userName}
+                onChange={(e) => updateField("userName", e.target.value)}
+                placeholder={t("settings.memory_user_name_placeholder")}
+                variant="dls"
+                className={fieldInputClass}
+              />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.memory_assistant_name")}
+            description={t("settings.memory_assistant_name_desc")}
+            actions={
+              <Input
+                value={draft.assistantName}
+                onChange={(e) => updateField("assistantName", e.target.value)}
+                placeholder="OnMyAgent"
+                variant="dls"
+                className={fieldInputClass}
+              />
+            }
+          />
+        </SettingsBlock>
+      </SettingsPageSection>
+
+      {/* WorkBuddy: 自定义指令 with counter ≤1500 + 协作风格 */}
       <SettingsPageSection title={t("settings.personalization_title")}>
         <SettingsBlock>
           <SettingsBlockRow
@@ -137,9 +188,7 @@ export function MemoryView(props: MemoryViewProps) {
                 value={props.responseTone}
                 disabled={busy}
                 onChange={(value) =>
-                  props.onResponseToneChange(
-                    normalizeResponseTone(value),
-                  )
+                  props.onResponseToneChange(normalizeResponseTone(value))
                 }
               />
             }
@@ -149,50 +198,36 @@ export function MemoryView(props: MemoryViewProps) {
             description={t("settings.custom_instructions_desc")}
             align="start"
           >
-            <Textarea
-              className="min-h-28 w-full resize-y bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
-              value={props.customInstructions}
-              disabled={busy}
-              placeholder={t("settings.custom_instructions_placeholder")}
-              onChange={(event) => {
-                props.onCustomInstructionsChange(event.target.value);
-              }}
-            />
+            <div className="w-full space-y-2">
+              <Textarea
+                className="min-h-28 w-full resize-y rounded-xl border-dls-border bg-dls-surface-muted py-2.5 leading-6 placeholder:text-dls-secondary/70"
+                value={props.customInstructions}
+                disabled={busy}
+                maxLength={instructionMax}
+                placeholder={t("settings.custom_instructions_placeholder")}
+                onChange={(event) => {
+                  props.onCustomInstructionsChange(
+                    event.target.value.slice(0, instructionMax),
+                  );
+                }}
+              />
+              <div className="flex justify-between text-xs text-dls-secondary">
+                <span>{t("settings.custom_instructions_applies_all")}</span>
+                <span>
+                  {instructionLen} / {instructionMax}
+                </span>
+              </div>
+            </div>
           </SettingsBlockRow>
         </SettingsBlock>
       </SettingsPageSection>
 
+      {/* Qwen-style 用户画像 (secondary) */}
       <SettingsPageSection
-        title={t("settings.memory_personal_info")}
-        description={t("settings.memory_personal_info_desc")}
+        title={t("settings.memory_profile_section")}
+        description={t("settings.memory_profile_section_desc")}
       >
         <SettingsBlock>
-          <SettingsBlockRow
-            title={t("settings.memory_user_name")}
-            description={t("settings.memory_user_name_desc")}
-            actions={
-              <Input
-                value={draft.userName}
-                onChange={(e) => updateField("userName", e.target.value)}
-                placeholder={t("settings.memory_user_name_placeholder")}
-                variant="dls"
-                className={fieldInputClass}
-              />
-            }
-          />
-          <SettingsBlockRow
-            title={t("settings.memory_assistant_name")}
-            description={t("settings.memory_assistant_name_desc")}
-            actions={
-              <Input
-                value={draft.assistantName}
-                onChange={(e) => updateField("assistantName", e.target.value)}
-                placeholder="OnMyAgent"
-                variant="dls"
-                className={fieldInputClass}
-              />
-            }
-          />
           <SettingsBlockRow
             title={t("settings.memory_mbti")}
             description={t("settings.memory_mbti_desc")}
@@ -286,6 +321,7 @@ export function MemoryView(props: MemoryViewProps) {
           />
         </SettingsBlock>
       </SettingsPageSection>
+
     </LayoutStack>
   );
 }

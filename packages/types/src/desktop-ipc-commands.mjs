@@ -42,6 +42,10 @@ const commandGroups = /** @type {const} */ ({
     "__setZoomFactor", "__setNativeTheme", "__setApplicationMenuVisible",
     "checkSoftwareEnv", "installSoftwareEnv",
     "checkBrowserSkillStatus", "openBrowserSkillInstallPage",
+    "workMemoryEnsureAwareness",
+    "workMemoryReadFile",
+    "workMemoryWriteFile",
+    "workMemoryListFiles",
   ],
   localAgents: [
     "personalLocalAgentsList", "personalLocalAgentMetadataList",
