@@ -260,7 +260,7 @@ export type WorkspaceFilesToastInput = {
   title: string;
   description?: string | null;
   dismissLabel?: string;
-  /** Optional action (e.g. Hope-style「查看」after move). */
+  /** Optional action (e.g. Hope-style View after move). */
   actionLabel?: string;
   onAction?: () => void;
   durationMs?: number;
@@ -1062,7 +1062,7 @@ export function WorkspaceFilesUploadsPanel(props: {
       ? treeRows.length > 0
       : visibleRows.length > 0);
 
-  /** Hope-style breadcrumb: 我的文件 / folder / … (clickable segments). */
+  /** Hope-style breadcrumb: My files / folder / … (clickable segments). */
   const breadcrumbSegments = useMemo(() => {
     const parts = currentFolderPath
       .replace(/\\/g, "/")
