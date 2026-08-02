@@ -41,10 +41,6 @@ import {
   SettingsPageSection,
 } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
-import {
-  AccountAvatarEditor,
-  useAccountAvatarPrefs,
-} from "../../../capabilities/account-avatar/account-user-avatar";
 
 // Shared width for trailing inputs + selects so the right column aligns.
 // !justify-between: SettingsBlockRow applies [&_button]:justify-end to trailing controls.
@@ -68,8 +64,6 @@ export type MemoryViewProps = {
 export function MemoryView(props: MemoryViewProps) {
   const { draft, onDraftChange } = props;
   const busy = props.busy === true;
-  const [avatarPrefs, updateAvatarPrefs] = useAccountAvatarPrefs();
-  const avatarDisplayName = draft.userName.trim();
 
   // All preference fields auto-persist via parent callbacks (no page-level Save).
   const setListValue = useCallback(
@@ -90,19 +84,12 @@ export function MemoryView(props: MemoryViewProps) {
   const instructionMax = 1500;
 
   return (
-    <LayoutStack className="gap-y-10">
-      {/* Avatar + display name (account menu shares the same avatar prefs). */}
-      <SettingsPageSection title={t("account_menu.avatar_section")}>
+    <LayoutStack className="gap-y-8">
+      <SettingsPageSection
+        title={t("settings.memory_personal_info")}
+        description={t("settings.memory_personal_info_desc")}
+      >
         <SettingsBlock>
-          <div className="px-5 py-5">
-            <AccountAvatarEditor
-              prefs={avatarPrefs}
-              displayName={avatarDisplayName}
-              onChange={updateAvatarPrefs}
-              density="comfortable"
-              hideHint
-            />
-          </div>
           <SettingsBlockRow
             title={t("settings.memory_user_name")}
             description={t("settings.memory_user_name_desc")}
