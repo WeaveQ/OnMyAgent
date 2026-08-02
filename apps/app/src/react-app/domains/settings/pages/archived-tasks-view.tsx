@@ -52,6 +52,7 @@ import {
   readAssistantArchivedTasks,
   restoreAssistantArchivedTask,
 } from "../../shared";
+import { deleteSessionOwnedWorkspaceFiles } from "../../workspace/workspace-files-session-cleanup";
 import {
   formatTaskArchiveMeta,
   groupArchivedRowsByProject,
@@ -423,8 +424,18 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       setBusyId(sessionId);
       setError(null);
       try {
+        const archived = readAssistantArchivedTasks(props.workspaceId).find(
+          (task) => task.sessionId === sessionId,
+        );
         permanentlyRemoveAssistantArchivedTask(props.workspaceId, sessionId);
         if (props.client && props.workspaceId.trim()) {
+          // C1: remove session-owned workspace files (best-effort) after confirm.
+          await deleteSessionOwnedWorkspaceFiles({
+            client: props.client,
+            workspaceId: props.workspaceId,
+            sessionId,
+            directory: archived?.directory,
+          }).catch(() => undefined);
           await props.client.deleteSession(props.workspaceId, sessionId);
         }
         refreshAssistant();
@@ -498,8 +509,19 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     try {
       for (const row of items) {
         if (row.kind === "assistant") {
+          const directory = row.task.directory;
           permanentlyRemoveAssistantArchivedTask(props.workspaceId, row.id);
           if (props.client && props.workspaceId.trim()) {
+            try {
+              await deleteSessionOwnedWorkspaceFiles({
+                client: props.client,
+                workspaceId: props.workspaceId,
+                sessionId: row.id,
+                directory,
+              });
+            } catch {
+              // Best-effort file cleanup; continue with session delete.
+            }
             try {
               await props.client.deleteSession(props.workspaceId, row.id);
             } catch {
@@ -507,6 +529,16 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
             }
           }
         } else if (props.client) {
+          try {
+            await deleteSessionOwnedWorkspaceFiles({
+              client: props.client,
+              workspaceId: props.workspaceId,
+              sessionId: row.id,
+              directory: null,
+            });
+          } catch {
+            // Best-effort.
+          }
           await props.client.permanentlyDeleteSessionArchiveSession(
             props.workspaceId,
             row.id,

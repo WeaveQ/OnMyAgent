@@ -61,5 +61,7 @@ describe("assistant task context menu contract", () => {
     expect(settings).toContain("permanentlyRemoveAssistantArchivedTask");
     expect(settings).toContain('data-archived-task-list="true"');
     expect(settings).toContain("deleteSession");
+    // C1: permanent delete unlinks session-owned workspace files
+    expect(settings).toContain("deleteSessionOwnedWorkspaceFiles");
   });
 });

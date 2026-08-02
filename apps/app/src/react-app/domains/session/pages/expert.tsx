@@ -117,8 +117,10 @@ import {
   archiveAssistantTask,
   archivedSessionIdSet,
   assistantArchivedTasksChangedEvent,
+  permanentlyRemoveAssistantArchivedTask,
   readAssistantArchivedTasks,
 } from "../../shared";
+import { deleteSessionOwnedWorkspaceFiles } from "../../workspace/workspace-files-session-cleanup";
 
 import {
   createWorkspaceFilesAgentHandlers,
@@ -980,6 +982,39 @@ export function ExpertPage(props: ExpertPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
+  const purgeExpertSessionFiles = useCallback(
+    async (sessionId: string, agentSlug?: string | null) => {
+      const client = props.onmyagentServerClient;
+      const workspaceId = props.selectedWorkspaceId.trim();
+      const id = sessionId.trim();
+      if (!client || !workspaceId || !id) return;
+      const match = currentAgentSessions.find((session) => session.id === id);
+      const archived = readAssistantArchivedTasks(workspaceId).find(
+        (task) => task.sessionId === id,
+      );
+      try {
+        await deleteSessionOwnedWorkspaceFiles({
+          client,
+          workspaceId,
+          sessionId: id,
+          directory: match?.directory ?? archived?.directory ?? null,
+          agentSlug: agentSlug ?? null,
+        });
+      } catch (error) {
+        console.warn(
+          "[expert] best-effort session file cleanup failed",
+          id,
+          error,
+        );
+      }
+    },
+    [
+      currentAgentSessions,
+      props.onmyagentServerClient,
+      props.selectedWorkspaceId,
+    ],
+  );
+
   const executeExpertDelete = useCallback(
     async (
       target:
@@ -987,6 +1022,11 @@ export function ExpertPage(props: ExpertPageProps) {
         | ExpertGroupDeleteTarget,
     ) => {
       if (target.kind === "session") {
+        await purgeExpertSessionFiles(target.sessionId);
+        permanentlyRemoveAssistantArchivedTask(
+          props.selectedWorkspaceId,
+          target.sessionId,
+        );
         await props.onDeleteSession?.(target.sessionId);
         return;
       }
@@ -995,7 +1035,14 @@ export function ExpertPage(props: ExpertPageProps) {
         // waits made multi-session expert deletes feel stuck.
         const deleteOne = props.onDeleteSession;
         await Promise.allSettled(
-          target.sessionIds.map((sessionId) => deleteOne(sessionId)),
+          target.sessionIds.map(async (sessionId) => {
+            await purgeExpertSessionFiles(sessionId, target.agentId);
+            permanentlyRemoveAssistantArchivedTask(
+              props.selectedWorkspaceId,
+              sessionId,
+            );
+            return deleteOne(sessionId);
+          }),
         );
       }
       // Drop local expert pin + unread for this agent after sessions are gone.
@@ -1014,7 +1061,11 @@ export function ExpertPage(props: ExpertPageProps) {
         // Local cleanup only — ignore storage failures.
       }
     },
-    [props.onDeleteSession, props.selectedWorkspaceId],
+    [
+      props.onDeleteSession,
+      props.selectedWorkspaceId,
+      purgeExpertSessionFiles,
+    ],
   );
 
   const {

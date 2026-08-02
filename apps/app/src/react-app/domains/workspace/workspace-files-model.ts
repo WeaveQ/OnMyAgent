@@ -282,6 +282,8 @@ export type OutlineRow =
       fileCount: number;
       expanded: boolean;
       depth: number;
+      /** Prefer real session title when provided. */
+      displayTitle?: string;
     }
   | {
       type: "file";
@@ -291,17 +293,82 @@ export type OutlineRow =
   | {
       type: "loose-file";
       node: WorkspaceFileTreeNode;
+    }
+  | {
+      /** Synthetic header for loose files not under a session (orphan bucket). */
+      type: "orphan-header";
+      fileCount: number;
+      expanded: boolean;
     };
+
+export type BuildOutlineOptions = {
+  /**
+   * Optional map of folder name or session id → full session title.
+   * Applied to session-like directory nodes for display.
+   */
+  sessionTitleByKey?: ReadonlyMap<string, string> | Record<string, string>;
+  /**
+   * When true, top-level loose files are grouped under an orphan-header row
+   * instead of mixed as peer “session” rows.
+   */
+  groupLooseAsOrphan?: boolean;
+  orphanExpanded?: boolean;
+};
+
+function titleForSessionNode(
+  node: WorkspaceFileTreeNode,
+  titles?: BuildOutlineOptions["sessionTitleByKey"],
+): string | undefined {
+  if (!titles) return undefined;
+  const get = (key: string): string | undefined => {
+    if (titles instanceof Map) return titles.get(key);
+    return (titles as Record<string, string>)[key];
+  };
+  return (
+    get(node.name)?.trim() ||
+    get(node.path)?.trim() ||
+    get(node.path.replace(/\\/g, "/").split("/").pop() ?? "")?.trim() ||
+    undefined
+  );
+}
 
 export function buildRootOutlineRows(
   children: WorkspaceFileTreeNode[],
   expanded: ReadonlySet<string>,
+  options: BuildOutlineOptions = {},
 ): OutlineRow[] {
   const rows: OutlineRow[] = [];
+  const looseFiles: WorkspaceFileTreeNode[] = [];
+  // Opt-in: Tasks/Experts browsers pass true so loose root files become an orphan bucket.
+  const groupLoose = options.groupLooseAsOrphan === true;
+
   // Preserve caller order (name / updated / size sort) — do not force dirs first.
   for (const child of children) {
     if (child.kind === "file") {
-      rows.push({ type: "loose-file", node: child });
+      if (groupLoose) {
+        looseFiles.push(child);
+      } else {
+        rows.push({ type: "loose-file", node: child });
+      }
+      continue;
+    }
+
+    // Session-like top-level dir (no project wrapper): treat as task/session row.
+    if (isLikelySessionFolderName(child.name)) {
+      const taskExpanded = expanded.has(child.path);
+      const displayTitle = titleForSessionNode(child, options.sessionTitleByKey);
+      rows.push({
+        type: "task",
+        node: child,
+        fileCount: countFilesInNode(child),
+        expanded: taskExpanded,
+        depth: 0,
+        displayTitle,
+      });
+      if (!taskExpanded) continue;
+      for (const file of child.children.filter((c) => c.kind === "file")) {
+        rows.push({ type: "file", node: file, depth: 1 });
+      }
       continue;
     }
 
@@ -324,12 +391,14 @@ export function buildRootOutlineRows(
         continue;
       }
       const taskExpanded = expanded.has(nested.path);
+      const displayTitle = titleForSessionNode(nested, options.sessionTitleByKey);
       rows.push({
         type: "task",
         node: nested,
         fileCount: countFilesInNode(nested),
         expanded: taskExpanded,
         depth: 1,
+        displayTitle,
       });
       if (!taskExpanded) continue;
       for (const taskChild of nested.children) {
@@ -337,12 +406,17 @@ export function buildRootOutlineRows(
           rows.push({ type: "file", node: taskChild, depth: 2 });
           continue;
         }
+        const nestedTitle = titleForSessionNode(
+          taskChild,
+          options.sessionTitleByKey,
+        );
         rows.push({
           type: "task",
           node: taskChild,
           fileCount: countFilesInNode(taskChild),
           expanded: expanded.has(taskChild.path),
           depth: 2,
+          displayTitle: nestedTitle,
         });
         if (expanded.has(taskChild.path)) {
           for (const file of taskChild.children.filter((c) => c.kind === "file")) {
@@ -352,6 +426,23 @@ export function buildRootOutlineRows(
       }
     }
   }
+
+  if (groupLoose && looseFiles.length > 0) {
+    const orphanKey = "__orphan_loose__";
+    const expandedOrphan =
+      options.orphanExpanded ?? expanded.has(orphanKey);
+    rows.push({
+      type: "orphan-header",
+      fileCount: looseFiles.length,
+      expanded: expandedOrphan,
+    });
+    if (expandedOrphan) {
+      for (const file of looseFiles) {
+        rows.push({ type: "loose-file", node: file });
+      }
+    }
+  }
+
   return rows;
 }
 
