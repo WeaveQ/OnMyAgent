@@ -124,12 +124,12 @@ export function resolveExpertSessionSelection(input: {
  */
 export function resolveExpertPrefetchSessionId(input: {
   workspaceId: string;
-  agentId: string;
+  agentId: string | null | undefined;
   sessionIds: readonly string[];
   orderIds?: readonly string[];
   fallbackSessionId?: string | null;
 }): string | null {
-  const agentId = input.agentId.trim();
+  const agentId = input.agentId?.trim() ?? "";
   if (!agentId) {
     const fallback = input.fallbackSessionId?.trim() ?? "";
     return fallback && !fallback.startsWith("draft:") ? fallback : null;
