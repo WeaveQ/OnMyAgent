@@ -550,33 +550,25 @@ export function ExpertPage(props: ExpertPageProps) {
     [],
   );
 
-  const activateDraftAgent = useCallback(
-    (agent: PendingAgentContext) => {
-      setDraftAgentContexts((current) => ({ ...current, [agent.id]: agent }));
-      usePendingAgentStore.getState().setAgent(agent);
-      setDraftAgentId(agent.id);
-      setDraftSessionActive(true);
-    },
-    [],
-  );
-  const openDraftAgent = useCallback(
-    (agent: PendingAgentContext) => {
-      activateDraftAgent(agent);
-      props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-      // New-task navigation clears the global pending expert synchronously.
-      // Re-apply it without navigating from the stale pre-navigation URL.
-      activateDraftAgent(agent);
-    },
-    [activateDraftAgent, props.selectedWorkspaceId, props.sidebar],
-  );
+  const activateDraftAgent = useCallback((agent: PendingAgentContext) => {
+    setDraftAgentContexts((current) => ({ ...current, [agent.id]: agent }));
+    usePendingAgentStore.getState().setAgent(agent);
+    setDraftAgentId(agent.id);
+    setDraftSessionActive(true);
+  }, []);
+  const openFreshExpertDraft = useCallback(() => {
+    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
+  }, [props.selectedWorkspaceId, props.sidebar]);
   const handleOpenDraftSession = useCallback(
     (sessionId: string) => {
       const agentId = sessionId.split(":").slice(2).join(":");
       const agent = agentId ? draftAgentContexts[agentId] : null;
       if (!agent) return;
-      openDraftAgent(agent);
+      activateDraftAgent(agent);
+      openFreshExpertDraft();
+      activateDraftAgent(agent);
     },
-    [draftAgentContexts, openDraftAgent],
+    [activateDraftAgent, draftAgentContexts, openFreshExpertDraft],
   );
   const resolveSessionTabForAgent = useCallback(
     (agentId: string, sessionIds: readonly string[]) => {
@@ -740,9 +732,11 @@ export function ExpertPage(props: ExpertPageProps) {
         draftSource: "agent-selection",
       };
 
-      openDraftAgent(pending);
+      activateDraftAgent(pending);
+      openFreshExpertDraft();
+      activateDraftAgent(pending);
     },
-    [openDraftAgent],
+    [activateDraftAgent, openFreshExpertDraft],
   );
 
   const handleStartAgentById = useCallback(
@@ -771,10 +765,6 @@ export function ExpertPage(props: ExpertPageProps) {
     setStoreActiveTab("experts");
     openRailView("store");
   }, []);
-  const openFreshExpertDraft = useCallback(() => {
-    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-  }, [props.selectedWorkspaceId, props.sidebar]);
-
   const {
     handleCreateExpert,
     handleCreateSkill,
