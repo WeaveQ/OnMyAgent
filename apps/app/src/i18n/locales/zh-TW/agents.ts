@@ -251,6 +251,8 @@ export default {
   "agents.expert_creation_preview_failed_detail": "目前專家暫時無法回覆：{detail}",
   "agents.expert_creation_preview_new_session": "新增預覽對話",
   "agents.expert_creation_preview_close": "關閉試用",
+  "agents.expert_creation_resize_coach": "調整建立教練寬度",
+  "agents.expert_creation_resize_preview": "調整專家試用寬度",
   "agents.expert_creation_preview_stopped": "已停止生成。",
   "agents.expert_creation_preview_config_changed": "專家設定已更新，下次傳送將使用最新草稿開始新的測試對話。",
   "agents.expert_creation_preview_current_draft": "正在測試目前草稿",

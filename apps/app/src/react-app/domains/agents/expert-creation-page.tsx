@@ -43,6 +43,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { ConfirmModal } from "../../design-system/modals/confirm-modal";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -221,8 +226,8 @@ function ExpertCoach(props: {
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
 }) {
   return (
-    <aside className="flex min-h-0 w-2/5 min-w-80 shrink-0 border-r border-dls-border bg-dls-background p-4">
-      <div className="flex min-h-0 flex-1 flex-col bg-dls-surface p-5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
+      <div className="flex min-h-0 flex-1 flex-col">
         <ExpertCreationConversation
           draft={props.draft}
           workspaceRoot={props.workspaceRoot}
@@ -292,8 +297,6 @@ function BasicInfoPanel(props: {
   ) => void;
 }) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const [generatedAvatarPage, setGeneratedAvatarPage] = useState(0);
-
   const chooseCustomAvatar = (file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
@@ -305,27 +308,13 @@ function BasicInfoPanel(props: {
     reader.readAsDataURL(file);
   };
 
-  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
-  const generatedAvatars = useMemo(
-    () => Array.from({ length: 8 }, (_, index) => (
-      createGeneratedAvatarOption("lorelei", generatedAvatarPage, index)
-    )),
-    [generatedAvatarPage],
-  );
-
-  const chooseGeneratedAvatar = (avatarId: string) => {
-    props.onDraftChange("avatarOptionId", avatarId);
-    props.onDraftChange("customAvatarDataUrl", null);
-    setAvatarPickerOpen(false);
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <section className="h-52 shrink-0 bg-dls-surface p-4">
+      <section className="h-40 shrink-0 rounded-xl bg-dls-surface p-4">
         <div
           className={cn(
-            "grid gap-6 xl:grid-cols-[8.5rem_minmax(0,1fr)]",
-            !props.compact && "lg:grid-cols-[8.5rem_minmax(0,1fr)]",
+            "grid gap-5 xl:grid-cols-[6.5rem_minmax(0,1fr)]",
+            !props.compact && "lg:grid-cols-[6.5rem_minmax(0,1fr)]",
           )}
         >
           <div className="flex flex-col items-start gap-3">
@@ -335,7 +324,7 @@ function BasicInfoPanel(props: {
               onClick={() => uploadInputRef.current?.click()}
               aria-label={t("agents.expert_creation_avatar")}
             >
-              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-24 text-2xl" />
+              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20 text-xl" />
               <span className="absolute -bottom-1 -right-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
                 <Plus className="size-4" aria-hidden />
               </span>
@@ -350,20 +339,8 @@ function BasicInfoPanel(props: {
                 event.currentTarget.value = "";
               }}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setGeneratedAvatarPage((page) => page + 1);
-                setAvatarPickerOpen(true);
-              }}
-            >
-              <Sparkles data-icon="inline-start" className="size-3.5" />
-              {t("agents.expert_creation_generate_avatar")}
-            </Button>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Input
               value={props.draft.name}
               onChange={(event) => props.onDraftChange("name", event.currentTarget.value)}
@@ -378,13 +355,13 @@ function BasicInfoPanel(props: {
               value={props.draft.description}
               onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
               placeholder={t("agents.expert_creation_intro_placeholder")}
-              className="min-h-28 border-0 shadow-none"
+              className="min-h-20 border-0 shadow-none"
               aria-label={t("agents.expert_creation_intro")}
             />
           </div>
         </div>
       </section>
-      <section className="flex min-h-0 flex-1 flex-col bg-dls-surface p-4">
+      <section className="flex min-h-0 flex-1 flex-col rounded-xl bg-dls-surface p-4">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-dls-text">
             {t("agents.expert_creation_role_prompt")}
@@ -400,52 +377,6 @@ function BasicInfoPanel(props: {
           ariaLabel={t("agents.expert_creation_role_prompt")}
         />
       </section>
-      <Dialog open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
-        <DialogContent className="w-[min(32rem,calc(100%-2rem))] gap-4 rounded-xl bg-dls-surface p-5 text-dls-text">
-          <DialogHeader>
-            <DialogTitle>{t("agents.expert_creation_choose_avatar")}</DialogTitle>
-            <DialogDescription>{t("agents.expert_creation_avatar_hint")}</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-4 gap-3">
-            {generatedAvatars.map((avatar) => (
-              <button
-                key={avatar.id}
-                type="button"
-                className={cn(
-                  "rounded-xl p-2 transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                  props.draft.avatarOptionId === avatar.id && !props.draft.customAvatarDataUrl
-                    ? "bg-dls-accent/10 ring-2 ring-dls-accent"
-                    : "",
-                )}
-                onClick={() => chooseGeneratedAvatar(avatar.id)}
-              >
-                {renderAvatar(
-                  props.registry,
-                  {
-                    avatarStyle: avatar.style,
-                    avatarOptionId: avatar.id,
-                    name: avatar.label,
-                  },
-                  "mx-auto size-14",
-                )}
-                <span className="mt-2 block truncate text-xs text-dls-secondary">{avatar.label}</span>
-              </button>
-            ))}
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setGeneratedAvatarPage((page) => page + 1)}
-          >
-            <Sparkles data-icon="inline-start" className="size-3.5" />
-            {t("agents.expert_creation_generate_avatar")}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => uploadInputRef.current?.click()}>
-            <Upload data-icon="inline-start" className="size-3.5" />
-            {t("agents.upload_custom_image")}
-          </Button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -1141,7 +1072,7 @@ function TryEffectPanel(props: {
   const draftKey = buildExpertPreviewDraftKey(props.draft);
 
   return (
-    <aside className="flex min-h-0 min-w-0 flex-col border-l border-dls-border bg-dls-surface">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface">
       <div className="flex items-center gap-2 border-b border-dls-border px-5 py-4">
         <Button type="button" variant="ghost" size="icon-sm" onClick={props.onClose} aria-label={t("agents.expert_creation_preview_close")}>
           <ChevronsLeft className="size-5" aria-hidden />
@@ -1395,16 +1326,20 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           </Button>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1">
-        <ExpertCoach
-          draft={draft}
-          workspaceRoot={props.workspaceRoot}
-          opencodeBaseUrl={props.opencodeBaseUrl}
-          onmyagentServerToken={props.onmyagentServerToken}
-          selectedModel={props.selectedModel}
-          renderComposer={props.renderComposer}
-        />
-        <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 bg-dls-background p-3">
+        <ResizablePanel defaultSize="34%" minSize="300px" maxSize="48%" className="min-w-0">
+          <ExpertCoach
+            draft={draft}
+            workspaceRoot={props.workspaceRoot}
+            opencodeBaseUrl={props.opencodeBaseUrl}
+            onmyagentServerToken={props.onmyagentServerToken}
+            selectedModel={props.selectedModel}
+            renderComposer={props.renderComposer}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle aria-label={t("agents.expert_creation_resize_coach")} />
+        <ResizablePanel minSize="420px" className="min-w-0">
+        <main className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border bg-dls-surface px-4 py-3">
             <span aria-hidden />
             <SegmentedTabGroup aria-label={t("agents.expert_creation_title")}>
@@ -1428,7 +1363,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
               </Button>
             ) : null}
           </div>
-          <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(19rem,30%)]")}>
+          <div className="flex min-h-0 flex-1">
             <section className="min-w-0 flex-1 overflow-y-auto p-4">
               <div className="h-full min-h-0 w-full">
                 {submitError ? (
@@ -1445,7 +1380,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "memory" ? (
-                  <section className="flex h-full min-h-0 flex-col bg-dls-surface p-4">
+                  <section className="flex h-full min-h-0 flex-col rounded-xl bg-dls-surface p-4">
                     <div className="mb-4">
                       <h3 className="text-base font-semibold text-dls-text">
                         {t("agents.expert_creation_memory")}
@@ -1479,7 +1414,13 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 ) : null}
               </div>
             </section>
-            {tryOpen ? (
+          </div>
+        </main>
+        </ResizablePanel>
+        {tryOpen ? (
+          <>
+            <ResizableHandle withHandle aria-label={t("agents.expert_creation_resize_preview")} />
+            <ResizablePanel defaultSize="25%" minSize="280px" maxSize="42%" className="min-w-0">
               <TryEffectPanel
                 draft={draft}
                 registry={sourceRegistry}
@@ -1490,10 +1431,10 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 renderComposer={props.renderComposer}
                 onClose={() => setTryOpen(false)}
               />
-            ) : null}
-          </div>
-        </main>
-      </div>
+            </ResizablePanel>
+          </>
+        ) : null}
+      </ResizablePanelGroup>
       <ExpertCreationExitDialog
         open={exitDialogOpen}
         hasKnowledge={knowledge.length > 0}
