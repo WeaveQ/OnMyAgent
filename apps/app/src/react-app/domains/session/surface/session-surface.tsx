@@ -867,6 +867,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       conversationTabs={props.conversationTabs}
       chatHeaderAgent={chatHeaderAgent}
       codeSceneToolbar={codeSceneToolbar}
+      onOpenShortcutsSettings={props.onOpenShortcutsSettings}
       personalAssistantHome={props.personalAssistantHome}
       onOpenAgentSettings={props.onOpenAgentSettings}
       headerActions={props.headerActions}

@@ -138,6 +138,8 @@ export type SessionPageProps = {
   onAccessibleTargetsChange?: (targets: import("../artifacts/open-target").OpenTarget[]) => void;
   account?: SidebarAccountInfo | null;
   onOpenAccountSettings?: () => void;
+  /** Settings → Personal profile (avatar / name). */
+  onOpenProfile?: () => void;
   onSignOut?: () => void;
   onCreateSessionForAgent?: () => void;
   onCreateFreshSessionForAgent?: (workspaceId: string) => void | Promise<void>;

@@ -167,6 +167,7 @@ export function OnMyAgentRail(props: {
   onOpenView: (view: OnMyAgentPrimaryView) => void;
   onOpenDevices: () => void;
   onOpenAccountSettings?: () => void;
+  onOpenProfile?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
 }) {
@@ -203,6 +204,7 @@ export function OnMyAgentRail(props: {
           onOpenLocalAgent={() => props.onOpenView("localAgent")}
           onOpenAgentManagement={() => props.onOpenView("agentManagement")}
           onOpenSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenBilling={props.onOpenBilling}
         />
