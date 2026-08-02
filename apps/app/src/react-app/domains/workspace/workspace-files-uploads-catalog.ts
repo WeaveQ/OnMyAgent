@@ -7,7 +7,10 @@ import {
 } from "./workspace-files-layout";
 import { getFileCategory, type FileCategory } from "./workspace-files-categories";
 import {
+  compareWorkspaceFileNodes,
   shouldHideEntry,
+  type WorkspaceFileSortDir,
+  type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
 
@@ -255,15 +258,22 @@ export function mapUploadsCatalogToRows(
 /**
  * Build a nested tree from flat Mine catalog rows under `parentPrefix`.
  * Used for hierarchical expand/collapse (same depth outline as Tasks).
+ * Optional sort matches Tasks/Experts column headers (default: updated desc).
  */
 export function buildTreeNodesFromUploadRows(
   rows: readonly UserUploadRow[],
   parentPrefix: string,
+  options?: {
+    sortKey?: WorkspaceFileSortKey;
+    sortDir?: WorkspaceFileSortDir;
+  },
 ): WorkspaceFileTreeNode[] {
   const parent = String(parentPrefix || WORKSPACE_UPLOADS_DIR)
     .trim()
     .replace(/\\/g, "/")
     .replace(/\/+$/, "") || WORKSPACE_UPLOADS_DIR;
+  const sortKey = options?.sortKey ?? "updated";
+  const sortDir = options?.sortDir ?? "desc";
 
   type Mutable = WorkspaceFileTreeNode & { children: Mutable[] };
   const nodes = new Map<string, Mutable>();
@@ -302,14 +312,7 @@ export function buildTreeNodesFromUploadRows(
   }
 
   const sortNodes = (list: Mutable[]) => {
-    list.sort((a, b) => {
-      const ka = a.kind === "dir" ? 0 : 1;
-      const kb = b.kind === "dir" ? 0 : 1;
-      if (ka !== kb) return ka - kb;
-      return (
-        (b.mtimeMs || 0) - (a.mtimeMs || 0) || a.name.localeCompare(b.name)
-      );
-    });
+    list.sort((a, b) => compareWorkspaceFileNodes(a, b, sortKey, sortDir));
     for (const n of list) sortNodes(n.children as Mutable[]);
   };
   sortNodes(roots);
@@ -363,4 +366,35 @@ export function filterUploadRows(
       row.name.toLowerCase().includes(q) || row.path.toLowerCase().includes(q)
     );
   });
+}
+
+/** Map Mine rows into the shared file-tree compare shape (no children). */
+function uploadRowAsTreeNode(row: UserUploadRow): WorkspaceFileTreeNode {
+  return {
+    name: row.name,
+    path: row.path,
+    kind: row.kind === "dir" ? "dir" : "file",
+    size: row.size || 0,
+    mtimeMs: row.updatedAt || 0,
+    children: [],
+  };
+}
+
+/**
+ * Sort Mine list rows the same way Tasks/Experts sort columns
+ * (name / updated / size + asc|desc; name keeps folders first).
+ */
+export function sortUploadRows(
+  rows: readonly UserUploadRow[],
+  key: WorkspaceFileSortKey = "updated",
+  dir: WorkspaceFileSortDir = "desc",
+): UserUploadRow[] {
+  return [...rows].sort((a, b) =>
+    compareWorkspaceFileNodes(
+      uploadRowAsTreeNode(a),
+      uploadRowAsTreeNode(b),
+      key,
+      dir,
+    ),
+  );
 }
