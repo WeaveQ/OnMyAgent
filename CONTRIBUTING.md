@@ -6,6 +6,7 @@ Thanks for helping improve OnMyAgent. This project is a local-first agent worksp
 
 - Read `README.md`, `AGENTS.md`, and `docs/Architecture.md`.
 - Full documentation map and sources-of-truth table: `docs/README.md`.
+- **Phase 2** (config foundation + B-side / OnMyCompany prep): [`docs/design/2026-08-02-phase-2-enterprise-prep.md`](./docs/design/2026-08-02-phase-2-enterprise-prep.md). Logged-out local use must stay complete; do not introduce a hard login wall.
 - Open an issue first for large features, architecture changes, or security-sensitive work.
 - Keep pull requests small and focused on one outcome.
 - Do not include secrets, local credentials, customer data, private workspace paths, or generated runtime artifacts.
