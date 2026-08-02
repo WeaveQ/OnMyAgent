@@ -27,18 +27,33 @@ import {
 async function runWorkspaceFileOp(
   ctx: OnMyAgentServerClientContext,
   workspaceId: string,
-  operation: {
-    type: "delete" | "mkdir";
-    path: string;
-    recursive?: boolean;
-  },
+  operation:
+    | { type: "delete"; path: string; recursive?: boolean }
+    | { type: "mkdir"; path: string }
+    | { type: "rename"; from: string; to: string },
   root?: string,
 ) {
   const { baseUrl, token, hostToken } = ctx;
   const id = workspaceId.trim();
   if (!id) throw new Error("workspaceId is required");
-  const filePath = String(operation.path ?? "").trim();
-  if (!filePath) throw new Error("path is required");
+
+  let opBody: Record<string, unknown>;
+  if (operation.type === "rename") {
+    const from = String(operation.from ?? "").trim();
+    const to = String(operation.to ?? "").trim();
+    if (!from || !to) throw new Error("from and to paths are required");
+    opBody = { type: "rename", from, to };
+  } else {
+    const filePath = String(operation.path ?? "").trim();
+    if (!filePath) throw new Error("path is required");
+    opBody = {
+      type: operation.type,
+      path: filePath,
+      ...(operation.type === "delete"
+        ? { recursive: operation.recursive === true }
+        : {}),
+    };
+  }
 
   const sessionResult = await requestJson<{ session: { id: string } }>(
     baseUrl,
@@ -62,7 +77,9 @@ async function runWorkspaceFileOp(
       items: Array<{
         ok: boolean;
         type: string;
-        path: string;
+        path?: string;
+        from?: string;
+        to?: string;
         code?: string;
         message?: string;
       }>;
@@ -71,26 +88,18 @@ async function runWorkspaceFileOp(
       hostToken,
       method: "POST",
       body: {
-        operations: [
-          {
-            type: operation.type,
-            path: filePath,
-            ...(operation.type === "delete"
-              ? { recursive: operation.recursive === true }
-              : {}),
-          },
-        ],
+        operations: [opBody],
       },
     });
     const item = result.items?.[0];
     if (!item?.ok) {
-      throw new Error(
-        item?.message
-          || item?.code
-          || (operation.type === "mkdir"
-            ? "Failed to create folder"
-            : "Failed to delete file"),
-      );
+      const fallback =
+        operation.type === "mkdir"
+          ? "Failed to create folder"
+          : operation.type === "rename"
+            ? "Failed to move file"
+            : "Failed to delete file";
+      throw new Error(item?.message || item?.code || fallback);
     }
   } finally {
     await requestJson<{ ok: true }>(
@@ -437,6 +446,28 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
         type: "mkdir",
         path: dirPath,
       }, options?.root);
+    },
+
+    /**
+     * Move/rename a workspace path via file-session rename op.
+     * Paths are workspace-relative (from → to).
+     */
+    renameWorkspaceFile: async (
+      workspaceId: string,
+      fromPath: string,
+      toPath: string,
+      options?: { root?: string },
+    ) => {
+      await runWorkspaceFileOp(
+        ctx,
+        workspaceId,
+        {
+          type: "rename",
+          from: fromPath,
+          to: toPath,
+        },
+        options?.root,
+      );
     },
 
     listArtifacts: (workspaceId: string) =>

@@ -13,7 +13,7 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
   | "readOpencodeConfigFile" | "writeOpencodeConfigFile" | "readWorkspaceFile"
   | "statWorkspaceFile" | "writeWorkspaceFile" | "writeWorkspaceBinaryFile"
   | "downloadWorkspaceFile" | "listWorkspaceFiles"
-  | "deleteWorkspaceFile" | "mkdirWorkspaceDirectory"
+  | "deleteWorkspaceFile" | "mkdirWorkspaceDirectory" | "renameWorkspaceFile"
 >;
 
 export type OnMyAgentSessionClient = Pick<OnMyAgentServerClient,

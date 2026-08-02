@@ -94,7 +94,13 @@ import {
   type FileCategory,
   type UserUploadRow,
 } from "./workspace-files-model";
-import { resolveUploadFolderRelativePath } from "./workspace-files-create-folder";
+import {
+  resolveMineMoveDestination,
+  resolveUploadFolderRelativePath,
+} from "./workspace-files-create-folder";
+
+/** Internal Mine drag payload (not OS file drops). */
+const MINE_DRAG_MIME = "application/x-onmyagent-mine-file";
 import {
   FilePreviewDrawer,
   type WorkspaceFilePreviewState,
@@ -270,6 +276,9 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [createFolderName, setCreateFolderName] = useState("");
   const [createFolderBusy, setCreateFolderBusy] = useState(false);
   const [currentFolderPath, setCurrentFolderPath] = useState(WORKSPACE_UPLOADS_DIR);
+  /** Folder row id currently highlighted as drag-move target. */
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [moveBusy, setMoveBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
@@ -697,6 +706,122 @@ export function WorkspaceFilesUploadsPanel(props: {
     setPendingDelete(row);
   }, []);
 
+  const handleMineDragStart = useCallback(
+    (event: DragEvent, row: UserUploadRow) => {
+      if (row.kind === "dir" || moveBusy) {
+        event.preventDefault();
+        return;
+      }
+      const payload = {
+        id: row.id,
+        name: row.name,
+        path: row.path,
+        source: row.source ?? "inbox",
+        workspaceRelative: workspaceRelativeForUploadRow(row),
+      };
+      event.dataTransfer.setData(MINE_DRAG_MIME, JSON.stringify(payload));
+      event.dataTransfer.setData("text/plain", row.name);
+      event.dataTransfer.effectAllowed = "move";
+    },
+    [moveBusy],
+  );
+
+  const handleFolderDragOver = useCallback(
+    (event: DragEvent, folder: UserUploadRow) => {
+      if (folder.kind !== "dir") return;
+      const types = Array.from(event.dataTransfer.types ?? []);
+      if (!types.includes(MINE_DRAG_MIME)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "move";
+      setDropTargetId(folder.id);
+    },
+    [],
+  );
+
+  const handleFolderDragLeave = useCallback(
+    (event: DragEvent, folder: UserUploadRow) => {
+      if (folder.kind !== "dir") return;
+      const related = event.relatedTarget as Node | null;
+      if (related && event.currentTarget.contains(related)) return;
+      setDropTargetId((current) => (current === folder.id ? null : current));
+    },
+    [],
+  );
+
+  const handleFolderDrop = useCallback(
+    async (event: DragEvent, folder: UserUploadRow) => {
+      if (folder.kind !== "dir" || !props.client || !workspaceId) return;
+      const raw = event.dataTransfer.getData(MINE_DRAG_MIME);
+      // OS file drops still bubble to the panel importer.
+      if (!raw) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setDropTargetId(null);
+      setDragActive(false);
+      let payload: {
+        name?: string;
+        workspaceRelative?: string;
+      };
+      try {
+        payload = JSON.parse(raw) as {
+          name?: string;
+          workspaceRelative?: string;
+        };
+      } catch {
+        return;
+      }
+      const from = String(payload.workspaceRelative ?? "").trim();
+      const dest = resolveMineMoveDestination({
+        sourceWorkspaceRelativePath: from,
+        targetFolderWorkspaceRelativePath: workspaceRelativeForUploadRow(folder),
+      });
+      if (!dest) {
+        props.onToast?.({
+          tone: "warning",
+          title: t("files.move_invalid"),
+          dismissLabel: t("common.dismiss"),
+        });
+        return;
+      }
+      setMoveBusy(true);
+      try {
+        await props.client.renameWorkspaceFile(
+          workspaceId,
+          dest.from,
+          dest.to,
+        );
+        props.onToast?.({
+          tone: "success",
+          title: t("files.move_success", {
+            name: payload.name || dest.to.split("/").pop() || dest.to,
+          }),
+          dismissLabel: t("common.dismiss"),
+        });
+        if (selectedId) {
+          setSelectedId(null);
+          setPreviewState({ status: "idle" });
+        }
+        setRefreshKey((key) => key + 1);
+      } catch (moveError) {
+        const message =
+          moveError instanceof Error
+            ? moveError.message
+            : t("files.move_failed");
+        setError(message);
+        props.onToast?.({
+          tone: "error",
+          title: t("files.move_failed"),
+          description: message,
+          dismissLabel: t("common.dismiss"),
+        });
+      } finally {
+        setMoveBusy(false);
+      }
+    },
+    [props, selectedId, workspaceId],
+  );
+
   const confirmDelete = useCallback(async () => {
     const row = pendingDelete;
     if (!row || !props.client || !workspaceId) {
@@ -1096,15 +1221,26 @@ export function WorkspaceFilesUploadsPanel(props: {
                   {visibleRows.map((row) => {
                     const selected = row.id === selectedId;
                     const isDir = row.kind === "dir";
+                    const isDropTarget = isDir && dropTargetId === row.id;
                     return (
                       <TableRow
                         key={row.id}
                         data-state={selected ? "selected" : undefined}
                         data-workspace-upload-row={isDir ? "dir" : "file"}
+                        data-mine-drop-target={isDropTarget ? "true" : undefined}
+                        draggable={!isDir && !moveBusy}
                         className={cn(
                           "group cursor-pointer",
                           selected && "bg-dls-surface-muted/80",
+                          isDropTarget &&
+                            "bg-dls-accent/10 ring-1 ring-inset ring-dls-accent/40",
+                          !isDir && "cursor-grab active:cursor-grabbing",
                         )}
+                        onDragStart={(event) => handleMineDragStart(event, row)}
+                        onDragEnd={() => setDropTargetId(null)}
+                        onDragOver={(event) => handleFolderDragOver(event, row)}
+                        onDragLeave={(event) => handleFolderDragLeave(event, row)}
+                        onDrop={(event) => void handleFolderDrop(event, row)}
                         onClick={() => {
                           if (isDir) {
                             setCurrentFolderPath(row.path.replace(/\\/g, "/"));

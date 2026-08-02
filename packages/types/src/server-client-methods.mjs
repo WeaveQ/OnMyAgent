@@ -17,7 +17,7 @@ const methodGroups = /** @type {const} */ ({
     "readOpencodeConfigFile", "writeOpencodeConfigFile", "readWorkspaceFile",
     "statWorkspaceFile", "writeWorkspaceFile", "writeWorkspaceBinaryFile",
     "downloadWorkspaceFile", "listWorkspaceFiles", "deleteWorkspaceFile",
-    "mkdirWorkspaceDirectory",
+    "mkdirWorkspaceDirectory", "renameWorkspaceFile",
   ],
   sessions: [
     "deleteSession", "listSessions", "getSession", "getSessionMessages",

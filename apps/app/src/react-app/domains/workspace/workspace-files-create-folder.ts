@@ -30,6 +30,42 @@ export function sanitizeUploadFolderName(raw: string): string | null {
 }
 
 /**
+ * Resolve destination path when moving a Mine file into a folder via drag-drop.
+ * Keeps basename; destination must stay under uploads/.
+ */
+export function resolveMineMoveDestination(input: {
+  sourceWorkspaceRelativePath: string;
+  targetFolderWorkspaceRelativePath: string;
+}): { from: string; to: string } | null {
+  const from = String(input.sourceWorkspaceRelativePath ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "");
+  let folder = String(input.targetFolderWorkspaceRelativePath ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "");
+  if (!from || !folder) return null;
+  if (folder === WORKSPACE_UPLOADS_DIR || folder.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)) {
+    // ok
+  } else {
+    return null;
+  }
+  const base = from.split("/").pop() || "";
+  if (!base || base === "." || base === "..") return null;
+  // Don't move a path into itself or into its own descendant.
+  if (from === folder || folder.startsWith(`${from}/`)) return null;
+  const parentOfFrom = from.includes("/")
+    ? from.slice(0, from.lastIndexOf("/"))
+    : "";
+  if (parentOfFrom === folder) return null; // already there
+  const to = `${folder}/${base}`.replace(/\/+/g, "/");
+  if (!isUnderProductLayoutRoot(to)) return null;
+  if (to === from) return null;
+  return { from, to };
+}
+
+/**
  * Resolve workspace-relative path for a new folder under Mine (uploads/).
  * Never returns a bare workspace-root path.
  */
