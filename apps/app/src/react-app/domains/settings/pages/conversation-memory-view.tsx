@@ -388,7 +388,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
   return (
     <LayoutStack className="gap-y-8">
       {/* Master + auto-capture (auto write only when both on) */}
-      <SettingsPageSection>
+      <SettingsPageSection title={t("settings.memory_conversation_section")}>
         <SettingsBlock>
           <SettingsBlockRow
             align="start"
