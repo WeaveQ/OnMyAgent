@@ -28,4 +28,3 @@ describe("expert creation save model", () => {
     expect(record.skillIds).toEqual([importedSkill.id]);
   });
 });
-
