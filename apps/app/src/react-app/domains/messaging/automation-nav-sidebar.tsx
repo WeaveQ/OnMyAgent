@@ -36,36 +36,15 @@ import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 
 import {
+  positionTaskContextMenu,
   SIDEBAR_PRIMARY_CTA_CLASS,
   SIDEBAR_PRIMARY_HEADER_CLASS,
+  TASK_CONTEXT_MENU_CLASS,
+  TASK_CONTEXT_MENU_ITEM_CLASS,
+  TASK_CONTEXT_MENU_SEPARATOR_CLASS,
+  TASK_CONTEXT_MENU_WIDTH,
   TASK_ROW_ACTION_CLASS,
 } from "@/components/ui/sidebar-chrome";
-
-const TASK_CONTEXT_MENU_CLASS =
-  "fixed z-[100] min-w-[11.5rem] overflow-hidden rounded-2xl border border-dls-border/70 bg-dls-surface-solid p-1.5 text-sm text-dls-text shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.45)]";
-const TASK_CONTEXT_MENU_ITEM_CLASS =
-  "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover";
-const TASK_CONTEXT_MENU_SEPARATOR_CLASS = "my-1 h-px bg-dls-border/80";
-const TASK_CONTEXT_MENU_WIDTH = 184;
-
-function positionTaskContextMenu(
-  anchor: Pick<DOMRect, "top" | "bottom" | "left" | "right">,
-  options?: { width?: number; estimatedHeight?: number },
-): { left: number; top: number } {
-  const width = options?.width ?? TASK_CONTEXT_MENU_WIDTH;
-  const height = options?.estimatedHeight ?? 180;
-  const viewportWidth =
-    typeof window !== "undefined" ? window.innerWidth : 1280;
-  const viewportHeight =
-    typeof window !== "undefined" ? window.innerHeight : 800;
-  let left = anchor.right - width;
-  left = Math.min(Math.max(8, left), viewportWidth - width - 8);
-  const below = anchor.bottom + 4;
-  const above = anchor.top - height - 4;
-  const top =
-    below + height > viewportHeight - 8 && above > 8 ? above : below;
-  return { left, top };
-}
 
 /** Match home task-row trailing time (today clock / N days ago). */
 function relativeTimeLabel(value: number | null): string {
