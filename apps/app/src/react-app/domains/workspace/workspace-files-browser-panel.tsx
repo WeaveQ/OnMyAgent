@@ -1085,7 +1085,6 @@ export function WorkspaceFilesBrowserPanel(props: {
                   {t(filesSourceTabTitleKey(sourceTab))}
                 </h1>
                 <FilesRefreshButton
-                  appearance="title"
                   source="browser"
                   loading={loading}
                   refreshDone={refreshDone}

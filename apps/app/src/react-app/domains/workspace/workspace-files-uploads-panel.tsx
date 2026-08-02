@@ -969,7 +969,6 @@ export function WorkspaceFilesUploadsPanel(props: {
                 {t("files.source_uploads_title")}
               </h1>
               <FilesRefreshButton
-                appearance="title"
                 source="mine"
                 loading={loading}
                 refreshDone={refreshDone}
