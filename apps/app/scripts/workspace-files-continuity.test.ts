@@ -978,8 +978,12 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(uploads).toContain("files.move_to_success");
     expect(uploads).toContain("files.move_view");
     expect(uploads).toContain("files.move_to");
-    expect(uploads).toContain("data-files-move-to");
     expect(uploads).toContain("MineMoveToDialog");
+    const rowMenu = readApp(
+      "src/react-app/domains/workspace/workspace-files-uploads-row-menu.tsx",
+    );
+    expect(rowMenu).toContain("data-files-move-to");
+    expect(rowMenu).toContain("files.move_to");
     expect(uploads).toContain("actionLabel");
     expect(page).toContain("onOpenSourceSession");
     expect(page).toContain("sessionIdByPathKey");
@@ -1050,9 +1054,14 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).toContain("files.upload_files");
     expect(uploads).toContain("files.expand_all_folders");
     expect(uploads).toContain("files.collapse_all_folders");
-    expect(uploads).toContain("files.column_type");
     expect(uploads).toContain("files.search_uploads_placeholder");
     expect(uploads).toContain("typeFilter");
+    expect(uploads).toContain("FilesSortableTableHeader");
+    const sortHeader = readApp(
+      "src/react-app/domains/workspace/workspace-files-table-sort.tsx",
+    );
+    expect(sortHeader).toContain("files.column_type");
+    expect(sortHeader).toContain('key: "type"');
     // A7: no storage used/limit UI (comment text may mention capacity; ban product keys/UI).
     expect(uploads).not.toMatch(/存储空间|storage.?used|used.?limit|files\.storage/i);
     expect(uploads).not.toContain("升级");
