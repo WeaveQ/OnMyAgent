@@ -15,18 +15,14 @@ import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
-import {
-  type OpenTarget,
-} from "../artifacts/open-target";
+import { type OpenTarget } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProviderAuthModal } from "../../connections";
-import {
-  SessionSurface,
-} from "../surface/session-surface";
+import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
@@ -1229,6 +1225,7 @@ export function ExpertPage(props: ExpertPageProps) {
         sessionStatusById={props.sidebar.sessionStatusById}
         onOpenSession={handleOpenExpertSession}
         onOpenDraftSession={handleOpenDraftSession}
+        onPrefetchSession={props.sidebar.onPrefetchSession}
         onCreateSession={handleCreateCurrentAgentSession}
         onRenameSession={openRenameModal}
         onArchiveSession={handleArchiveExpertSession}
@@ -1529,7 +1526,8 @@ export function ExpertPage(props: ExpertPageProps) {
                       canRenderReactSurface &&
                       !showNoExpertConversationEmptyState ? (
                           <SessionSurface
-                            key={renderedSessionId}
+                            // Workspace-stable key: session switches are prop-driven.
+                            key={props.runtimeWorkspaceId ?? "expert-surface"}
                             {...props.surface!}
                             onSendDraft={wrappedOnSendDraft}
                             client={props.onmyagentServerClient!}

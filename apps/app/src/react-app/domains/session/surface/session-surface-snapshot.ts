@@ -1,10 +1,13 @@
 /**
  * Snapshot / query wiring for SessionSurface.
  * Mechanical extract: opencode client, snapshot query, transcript/status shared state, hydration.
+ *
+ * Session switches must not remount the host: query keys flip with sessionId,
+ * and only same-session data is rendered (see resolveRenderedSessionSnapshot).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { UIMessage } from "ai";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "../../../../app/lib/opencode";
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
@@ -34,6 +37,13 @@ export type SessionSurfaceSnapshotInput = {
   client: OnMyAgentServerClient;
 };
 
+function snapshotBelongsToSession(
+  snapshot: OnMyAgentSessionSnapshot | null | undefined,
+  sessionId: string,
+): snapshot is OnMyAgentSessionSnapshot {
+  return Boolean(snapshot && snapshot.session.id === sessionId);
+}
+
 /** Snapshot query, shared transcript/status caches, and session hydration. */
 export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
   const {
@@ -46,6 +56,7 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
     client,
   } = input;
 
+  const queryClient = useQueryClient();
   const hydratedKeyRef = useRef<string | null>(null);
   const [rendered, setRendered] = useState<{
     sessionId: string;
@@ -71,9 +82,20 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
     [workspaceId, sessionId],
   );
 
+  // Drop previous-session paint immediately (before paint) so prop-driven
+  // switches never flash the wrong transcript for a frame.
+  useLayoutEffect(() => {
+    setRendered((prev) =>
+      prev && prev.sessionId !== sessionId ? null : prev,
+    );
+    if (draftOnly) {
+      setRendered(null);
+    }
+  }, [draftOnly, sessionId]);
+
   const snapshotQuery = useQuery<OnMyAgentSessionSnapshot>({
     queryKey: snapshotQueryKey,
-    enabled: !draftOnly,
+    enabled: !draftOnly && Boolean(sessionId.trim()),
     queryFn: async () =>
       (
         await client.getSessionSnapshot(
@@ -83,10 +105,27 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
         )
       ).item,
     staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
+    // Prefetch + revisit within staleTime should paint immediately; longer
+    // gc keeps recently switched sessions warm when hopping back.
+    gcTime: Math.max(SESSION_SNAPSHOT_STALE_TIME_MS * 10, 5 * 60_000),
+    // Warm cache from hover prefetch / prior visits without a loading flash.
+    initialData: () => {
+      if (draftOnly) return undefined;
+      const cached = queryClient.getQueryData<OnMyAgentSessionSnapshot>(
+        snapshotQueryKey,
+      );
+      return snapshotBelongsToSession(cached, sessionId) ? cached : undefined;
+    },
+    initialDataUpdatedAt: () =>
+      queryClient.getQueryState(snapshotQueryKey)?.dataUpdatedAt,
   });
 
+  // Only accept data that belongs to the intended session (guards placeholder
+  // or racey cache entries when keys flip quickly).
   const currentSnapshot =
-    snapshotQuery.data?.session.id === sessionId ? snapshotQuery.data : null;
+    !draftOnly && snapshotBelongsToSession(snapshotQuery.data, sessionId)
+      ? snapshotQuery.data
+      : null;
 
   const transcriptState = useSharedQueryState<UIMessage[]>(
     transcriptQueryKey,
@@ -100,15 +139,7 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
   useEffect(() => {
     if (!currentSnapshot) return;
     setRendered({ sessionId, snapshot: currentSnapshot });
-  }, [sessionId, currentSnapshot]);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
-    seedSessionState(workspaceId, currentSnapshot);
-  }, [currentSnapshot, sessionId, workspaceId]);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
+    // Single seed path: skip duplicate work when the same snapshot is re-emitted.
     const key = `${sessionId}:${currentSnapshot.session.time?.updated ?? currentSnapshot.session.time?.created ?? 0}:${currentSnapshot.messages.length}`;
     if (hydratedKeyRef.current === key) return;
     hydratedKeyRef.current = key;
@@ -118,7 +149,7 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
   const snapshot = resolveRenderedSessionSnapshot({
     sessionId,
     currentSnapshot,
-    cachedRendered: rendered,
+    cachedRendered: rendered?.sessionId === sessionId ? rendered : null,
   });
 
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;

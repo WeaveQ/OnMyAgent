@@ -1493,7 +1493,8 @@ export function AssistantPage(props: AssistantPageProps) {
                     primarySession={
                       canRenderReactSurface ? (
                           <SessionSurface
-                            key={renderedSessionId}
+                            // Workspace-stable key: session switches are prop-driven.
+                            key={props.runtimeWorkspaceId ?? "assistant-surface"}
                             {...props.surface!}
                             onSendDraft={wrappedOnSendDraft}
                             client={props.onmyagentServerClient!}
