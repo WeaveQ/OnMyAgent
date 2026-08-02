@@ -2,8 +2,9 @@
  * Work-memory file mirror (prefs → disk; viewer save → prefs).
  *
  * Authority for model inject: prefs only.
- * Disk files are human-readable mirrors; best-effort desktop writes.
+ * Disk file bodies follow app language (zh / zh-TW / en); allowlisted for CJK gate.
  */
+import { currentLocale } from "@/i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import {
   ensureWorkMemoryAwarenessDir,
@@ -21,6 +22,7 @@ import {
 import { createConversationMemoryId } from "./conversation-memory";
 import {
   buildUserProfileMarkdown,
+  resolveAwarenessFileLocale,
   selectGlobalMemoryItems,
   type UserProfileLabelMaps,
 } from "./work-memory";
@@ -34,42 +36,96 @@ let userTimer: ReturnType<typeof setTimeout> | null = null;
 let styleTimer: ReturnType<typeof setTimeout> | null = null;
 let memoryTimer: ReturnType<typeof setTimeout> | null = null;
 
+function activeLocale(override?: string | null): string {
+  return override ?? currentLocale();
+}
+
 // ─── builders (prefs → markdown) ─────────────────────────────────────
 
 export function buildStyleMarkdown(
   responseTone: string | null | undefined,
   customInstructions: string | null | undefined,
+  locale?: string | null,
 ): string {
   const tone = normalizeResponseTone(responseTone);
   const instructions = (customInstructions ?? "").trim();
+  const loc = resolveAwarenessFileLocale(locale);
+  if (loc === "en") {
+    return [
+      "# Collaboration style",
+      "",
+      "> Synced from Settings → Personal. Edit and save to write back to the app.",
+      "",
+      "## Tone",
+      tone,
+      "",
+      "## Custom instructions",
+      instructions || "(none)",
+      "",
+    ].join("\n");
+  }
+  if (loc === "zh-TW") {
+    return [
+      "# 協作風格",
+      "",
+      "> 由「設定 → 個人」自動同步。也可在此編輯後保存回應用。",
+      "",
+      "## 語氣",
+      tone,
+      "",
+      "## 自訂指令",
+      instructions || "（無）",
+      "",
+    ].join("\n");
+  }
   return [
-    "# Collaboration style",
+    "# 协作风格",
     "",
-    "> Synced from Settings → Personal. Edit and save to write back to the app.",
+    "> 由「设置 → 个人」自动同步。也可在此编辑后保存回应用。",
     "",
-    "## Tone",
+    "## 语气",
     tone,
     "",
-    "## Custom instructions",
-    instructions || "(none)",
+    "## 自定义指令",
+    instructions || "（无）",
     "",
   ].join("\n");
 }
 
 export function buildLongTermMemoryMarkdown(
   state: ConversationMemoryState | null | undefined,
+  locale?: string | null,
 ): string {
   const global = selectGlobalMemoryItems(state?.items ?? []).sort(
     (a, b) => b.updatedAt - a.updatedAt,
   );
-  const lines = [
-    "# Long-term memory",
-    "",
-    "> Global confirmed memories synced by the app. Expert-scoped items are not listed here.",
-    "",
-  ];
+  const loc = resolveAwarenessFileLocale(locale);
+  const header =
+    loc === "en"
+      ? [
+          "# Long-term memory",
+          "",
+          "> Global confirmed memories synced by the app. Expert-scoped items are not listed here.",
+          "",
+        ]
+      : loc === "zh-TW"
+        ? [
+            "# 長期記憶",
+            "",
+            "> 由應用自動同步全域已確認記憶。專家域記憶不在此檔。",
+            "",
+          ]
+        : [
+            "# 长期记忆",
+            "",
+            "> 由应用自动同步全局已确认记忆。专家域记忆不在此文件。",
+            "",
+          ];
+  const empty =
+    loc === "en" ? "(no items)" : loc === "zh-TW" ? "（暫無條目）" : "（暂无条目）";
+  const lines = [...header];
   if (global.length === 0) {
-    lines.push("(no items)", "");
+    lines.push(empty, "");
   } else {
     for (const item of global) {
       const text = item.text.trim();
@@ -121,20 +177,23 @@ export function parseStyleMarkdown(content: string): {
   responseTone: ResponseToneId;
   customInstructions: string;
 } {
-  // Accept English headings (canonical) and legacy Chinese mirrors.
+  // Accept en + zh + zh-TW headings written by locale-aware builders.
   const toneRaw =
     (
       sectionBody(content, "Tone") ||
-      sectionBody(content, "\u8bed\u6c14")
+      sectionBody(content, "语气") ||
+      sectionBody(content, "語氣")
     )
       .split("\n")[0]
       ?.trim() ?? "";
   let instructions =
     sectionBody(content, "Custom instructions") ||
-    sectionBody(content, "\u81ea\u5b9a\u4e49\u6307\u4ee4");
+    sectionBody(content, "自定义指令") ||
+    sectionBody(content, "自訂指令");
   if (
     instructions === "(none)" ||
-    instructions === "\uff08\u65e0\uff09"
+    instructions === "（无）" ||
+    instructions === "（無）"
   ) {
     instructions = "";
   }
@@ -163,25 +222,29 @@ export function parseUserProfileMarkdown(
     updatedAt: Date.now(),
   };
 
-  // English keys preferred; unicode escapes keep legacy CN labels out of CJK gate.
   const name =
     bulletValue(content, "Name") ||
-    bulletValue(content, "\u79f0\u547c") ||
+    bulletValue(content, "称呼") ||
+    bulletValue(content, "稱呼") ||
     fallback.userName;
   const assistantName =
     bulletValue(content, "Assistant name") ||
-    bulletValue(content, "\u52a9\u624b\u540d") ||
+    bulletValue(content, "助手名") ||
     fallback.assistantName;
   const rolesRaw =
-    bulletValue(content, "Roles") || bulletValue(content, "\u89d2\u8272");
+    bulletValue(content, "Roles") ||
+    bulletValue(content, "角色");
   const industriesRaw =
-    bulletValue(content, "Industries") || bulletValue(content, "\u884c\u4e1a");
+    bulletValue(content, "Industries") ||
+    bulletValue(content, "行业") ||
+    bulletValue(content, "產業");
   const toolsRaw =
     bulletValue(content, "Tools") ||
-    bulletValue(content, "\u5e38\u7528\u5de5\u5177");
+    bulletValue(content, "常用工具");
   const tasksRaw =
     bulletValue(content, "Tasks") ||
-    bulletValue(content, "\u5e38\u89c1\u4efb\u52a1");
+    bulletValue(content, "常见任务") ||
+    bulletValue(content, "常見任務");
 
   return {
     ...fallback,
@@ -205,7 +268,16 @@ export function parseLongTermMemoryMarkdown(content: string): string[] {
     const trimmed = line.trim();
     if (!trimmed.startsWith("- ")) continue;
     const text = trimmed.slice(2).trim();
-    if (!text || text === "(no items)" || text.startsWith("(")) continue;
+    if (
+      !text ||
+      text === "(no items)" ||
+      text === "（暂无条目）" ||
+      text === "（暫無條目）" ||
+      text.startsWith("(") ||
+      text.startsWith("（")
+    ) {
+      continue;
+    }
     out.push(text.slice(0, 2000));
   }
   return out;
@@ -282,8 +354,12 @@ export async function syncUserProfileAwarenessFiles(
   profile: OnboardingProfile | null | undefined,
   labels?: UserProfileLabelMaps,
 ): Promise<{ ok: boolean; reason?: string }> {
-  const content = buildUserProfileMarkdown(profile, labels);
-  const fingerprint = profileFingerprint(profile, labels);
+  const locale = activeLocale();
+  const content = buildUserProfileMarkdown(profile, labels, locale);
+  const fingerprint = JSON.stringify({
+    locale: resolveAwarenessFileLocale(locale),
+    body: profileFingerprint(profile, labels),
+  });
   if (fingerprint === lastUserFingerprint) {
     return { ok: true, reason: "unchanged" };
   }
@@ -301,8 +377,10 @@ export async function syncStyleAwarenessFiles(
   responseTone: string | null | undefined,
   customInstructions: string | null | undefined,
 ): Promise<{ ok: boolean; reason?: string }> {
-  const content = buildStyleMarkdown(responseTone, customInstructions);
+  const locale = activeLocale();
+  const content = buildStyleMarkdown(responseTone, customInstructions, locale);
   const fingerprint = JSON.stringify({
+    locale: resolveAwarenessFileLocale(locale),
     tone: normalizeResponseTone(responseTone),
     instructions: (customInstructions ?? "").trim(),
   });
@@ -321,10 +399,12 @@ export async function syncStyleAwarenessFiles(
 export async function syncMemoryAwarenessFiles(
   state: ConversationMemoryState | null | undefined,
 ): Promise<{ ok: boolean; reason?: string }> {
-  const content = buildLongTermMemoryMarkdown(state);
-  const fingerprint = JSON.stringify(
-    selectGlobalMemoryItems(state?.items ?? []).map((item) => item.text),
-  );
+  const locale = activeLocale();
+  const content = buildLongTermMemoryMarkdown(state, locale);
+  const fingerprint = JSON.stringify({
+    locale: resolveAwarenessFileLocale(locale),
+    items: selectGlobalMemoryItems(state?.items ?? []).map((item) => item.text),
+  });
   if (fingerprint === lastMemoryFingerprint) {
     return { ok: true, reason: "unchanged" };
   }

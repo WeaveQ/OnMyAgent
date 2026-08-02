@@ -1040,13 +1040,18 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     const uploads = readApp(
       "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
     );
-    // Primary actions toolbar + path bar (breadcrumb · expand · type · search · refresh).
+    // Title left · tools right; path breadcrumb only when nested under uploads root.
     expect(uploads).toContain('data-files-mine-toolbar="true"');
     expect(uploads).toContain('data-files-mine-pathbar="true"');
     expect(uploads).toContain('data-files-create-folder="true"');
     expect(uploads).toContain('data-files-upload="true"');
     expect(uploads).toContain('data-files-mine-breadcrumb="true"');
-    expect(uploads).toContain('data-files-mine-refresh="true"');
+    expect(uploads).toContain("FilesRefreshButton");
+    expect(uploads).toContain('source="mine"');
+    expect(uploads).toContain('appearance="title"');
+    expect(uploads).toContain("showBreadcrumb");
+    expect(uploads).toContain("currentFolderPath !== WORKSPACE_UPLOADS_DIR");
+    expect(uploads).toContain("breadcrumbSegments");
     expect(uploads).toContain('data-files-expand-collapse="true"');
     expect(uploads).toContain("data-files-tree-mode");
     expect(uploads).toContain("buildTreeNodesFromUploadRows");
@@ -1075,7 +1080,9 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).not.toContain('data-files-browser-toolbar="true"');
     expect(browser).toContain('data-files-browser-pathbar="true"');
     expect(browser).not.toContain('data-files-browser-breadcrumb="true"');
-    expect(browser).toContain('data-files-browser-refresh="true"');
+    expect(browser).toContain("FilesRefreshButton");
+    expect(browser).toContain('source="browser"');
+    expect(browser).toContain('appearance="title"');
     expect(browser).toContain('data-files-expand-collapse="true"');
     // Breadcrumb root uses product tab title, not generic workspace label.
     expect(browser).toContain("filesSourceTabTitleKey(sourceTab)");
@@ -1126,6 +1133,9 @@ describe("files module structure", () => {
     expect(chrome).toContain("useFilesRefreshFlash");
     expect(chrome).toContain("FilesTypeFilter");
     expect(chrome).toContain("FilesRefreshButton");
+    expect(chrome).toContain('appearance?: "title" | "toolbar"');
+    expect(chrome).toContain("data-files-mine-refresh");
+    expect(chrome).toContain("data-files-browser-refresh");
     expect(page).toContain("readFilesTabFromUrl");
     expect(page).toContain("writeFilesTabToUrl");
     expect(page).toContain('searchParams.set("tab"');

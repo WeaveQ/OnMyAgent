@@ -5,7 +5,6 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Check,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
@@ -19,7 +18,6 @@ import {
   FolderOpen,
   MessageSquare,
   MoreHorizontal,
-  RefreshCw,
   Search,
   SlidersHorizontal,
   Star,
@@ -103,6 +101,7 @@ import {
   resolveOpenSourceSessionAction,
   type SourceSessionStatus,
 } from "./workspace-files-open-session";
+import { FilesRefreshButton } from "./workspace-files-chrome";
 import {
   FILE_CATEGORIES,
   WORKSPACE_FILES_CATALOG_LIMIT,
@@ -1071,41 +1070,52 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => window.removeEventListener("keydown", handler);
   }, [closePreview, selectedFile]);
 
-  // Same gutters as marketplace pluginsLayoutClass.pageContainer
-  // Title → pathbar controls (expand · type · search · refresh).
+  // Title/subtitle left · tools right (task + expert share this panel).
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
-          <div className="mb-3 min-w-0 shrink-0 text-left">
-            <h1 className={cn(typeScale.pageTitle, "text-left")}>
-              {t(filesSourceTabTitleKey(sourceTab))}
-            </h1>
-            <p className={cn(typeScale.pageSubtitle, "mt-1 truncate text-left")}>
-              {t(filesSourceTabSubtitleKey(sourceTab))}
-            </p>
-          </div>
+          <div className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0 flex-1 text-left">
+              <div className="flex min-w-0 items-center gap-1">
+                <h1
+                  className={cn(
+                    typeScale.pageTitle,
+                    "min-w-0 truncate text-left",
+                  )}
+                >
+                  {t(filesSourceTabTitleKey(sourceTab))}
+                </h1>
+                <FilesRefreshButton
+                  appearance="title"
+                  source="browser"
+                  loading={loading}
+                  refreshDone={refreshDone}
+                  disabled={
+                    !fileRoot.trim() ||
+                    (!isElectronRuntime() &&
+                      (!props.client || !props.workspaceId.trim()))
+                  }
+                  onClick={() => {
+                    manualRefreshRef.current = true;
+                    setRefreshDone(false);
+                    setRefreshKey((key) => key + 1);
+                  }}
+                />
+              </div>
+              <p className={cn(typeScale.pageSubtitle, "mt-1 max-w-2xl text-left")}>
+                {t(filesSourceTabSubtitleKey(sourceTab))}
+              </p>
+            </div>
 
-          {catalogTruncated ? (
-            <p
-              className="mb-2 shrink-0 text-sm text-dls-secondary"
-              data-files-catalog-truncated="true"
+            {/* expand/collapse · type · search — right of title */}
+            <div
+              className="mt-1.5 flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
+              data-files-browser-pathbar="true"
             >
-              {t("files.catalog_truncated", {
-                limit: String(WORKSPACE_FILES_CATALOG_LIMIT),
-              })}
-            </p>
-          ) : null}
-
-          {/* Pathbar: expand/collapse · type · search · refresh (no duplicate title) */}
-          <div
-            className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2"
-            data-files-browser-pathbar="true"
-          >
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
               {canExpandDeep ? (
                 <Button
                   type="button"
                   variant="outline"
-                  size="default"
+                  size="icon"
                   disabled={loading || filterActive}
                   aria-pressed={treeAllExpanded}
                   onClick={() => {
@@ -1113,7 +1123,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                     else expandAllTree();
                   }}
                   className={cn(
-                    "h-9 gap-1.5 rounded-full px-3 text-sm",
+                    "size-9 shrink-0 rounded-full",
                     treeAllExpanded &&
                       "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
                   )}
@@ -1137,11 +1147,6 @@ export function WorkspaceFilesBrowserPanel(props: {
                   ) : (
                     <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
                   )}
-                  <span className="hidden sm:inline">
-                    {treeAllExpanded
-                      ? t("files.collapse_all_folders")
-                      : t("files.expand_all_folders")}
-                  </span>
                 </Button>
               ) : null}
               <div className="relative shrink-0">
@@ -1206,44 +1211,19 @@ export function WorkspaceFilesBrowserPanel(props: {
                   className="h-9 text-sm placeholder:text-dls-secondary"
                 />
               </InputGroup>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                data-files-browser-refresh="true"
-                disabled={
-                  loading ||
-                  refreshDone ||
-                  !fileRoot.trim() ||
-                  (
-                    !isElectronRuntime()
-                    && (!props.client || !props.workspaceId.trim())
-                  )
-                }
-                onClick={() => {
-                  manualRefreshRef.current = true;
-                  setRefreshDone(false);
-                  setRefreshKey((key) => key + 1);
-                }}
-                className={cn(
-                  "size-9 shrink-0 rounded-full transition-colors",
-                  refreshDone &&
-                    "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-                )}
-                title={refreshDone ? t("common.refreshed") : t("common.refresh")}
-                aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
-                aria-busy={loading || undefined}
-              >
-                {loading ? (
-                  <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-                ) : refreshDone ? (
-                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-                ) : (
-                  <RefreshCw className="size-3.5" aria-hidden />
-                )}
-              </Button>
             </div>
           </div>
+
+          {catalogTruncated ? (
+            <p
+              className="mb-2 shrink-0 text-sm text-dls-secondary"
+              data-files-catalog-truncated="true"
+            >
+              {t("files.catalog_truncated", {
+                limit: String(WORKSPACE_FILES_CATALOG_LIMIT),
+              })}
+            </p>
+          ) : null}
 
           <div className="relative flex min-h-0 flex-1 flex-col">
               {loading && entries.length === 0 ? (

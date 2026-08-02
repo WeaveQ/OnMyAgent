@@ -49,6 +49,7 @@ describe("main rail primary icon contract", () => {
       'onOpenAgentManagement={() => props.onOpenView("agentManagement")}',
     );
     expect(railSource).toContain("icon: FilesRailIcon");
+    expect(railSource).toContain("icon: ProjectsRailIcon");
     expect(railSource).toContain("icon: StoreRailIcon");
     expect(railSource).toContain("icon: AutomationRailIcon");
 
@@ -59,6 +60,9 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toMatch(/UserRound[\s\S]*ExpertRailIcon|ExpertRailIcon[\s\S]*UserRound/);
     expect(iconSource).not.toMatch(/\bBot\b/);
     expect(iconSource).toContain("Folder");
+    expect(iconSource).toContain("Briefcase");
+    expect(iconSource).not.toContain("SquareDashed");
+    expect(iconSource).not.toContain("FileStack");
     expect(iconSource).toContain("ShoppingBag");
     expect(iconSource).toContain("Settings2");
     expect(iconSource).toContain("MonitorSmartphone");
@@ -71,6 +75,7 @@ describe("main rail primary icon contract", () => {
 
     expect(iconSource).toContain("export function LocalAgentRailIcon");
     expect(iconSource).toContain("export function FilesRailIcon");
+    expect(iconSource).toContain("export function ProjectsRailIcon");
     expect(iconSource).toContain("export function StoreRailIcon");
     expect(iconSource).toContain("export function ManageRailIcon");
     expect(iconSource).toContain("export function DevicesRailIcon");

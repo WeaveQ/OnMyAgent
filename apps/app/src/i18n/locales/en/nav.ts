@@ -26,6 +26,8 @@ export default {
   "nav.experts_short": "Expert",
   "nav.files": "Files",
   "nav.files_short": "Files",
+  "nav.projects": "Projects",
+  "nav.projects_short": "Projects",
   "nav.local_agent": "Agent chat",
   "nav.management": "Agent management",
   "nav.scheduled_tasks": "Scheduled tasks",

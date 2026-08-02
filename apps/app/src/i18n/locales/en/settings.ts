@@ -747,10 +747,16 @@ export default {
   "settings.memory_local_file_experts_meta":
     "{count} expert(s): {names}",
   "settings.memory_file_view": "View",
+  "settings.memory_file_preview": "Preview",
   "settings.memory_file_edit": "Edit",
   "settings.memory_file_saving": "Saving…",
+  "settings.memory_file_unsaved": "Unsaved changes",
   "settings.memory_file_viewer_desc":
     "Markdown file details — preview or edit and save",
+  "settings.memory_file_viewer_editing_desc":
+    "Editing — save writes back to the local file",
+  "settings.memory_file_editor_hint": "⌘S / ⌘Enter save · Esc cancel",
+  "settings.memory_file_preview_hint": "Click content or switch to Edit",
   "settings.memory_file_empty": "(empty)",
   "settings.memory_file_load_failed": "Could not load file",
   "settings.memory_file_save_failed": "Save failed",
