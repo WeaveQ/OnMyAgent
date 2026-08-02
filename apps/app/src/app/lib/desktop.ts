@@ -92,6 +92,9 @@ declare global {
     __ONMYAGENT_ZOOM_FACTOR__?: number;
     __ONMYAGENT_ELECTRON__?: {
       invokeDesktop?: DesktopInvoke;
+      files?: {
+        getPathForFile?: (file: File) => string | null;
+      };
       computerUse?: {
         onActivity?: (callback: (activity: {
           phase: "inactive" | "ready" | "running" | "paused" | "errored";
