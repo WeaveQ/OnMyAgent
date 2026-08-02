@@ -21,7 +21,7 @@ export default {
   "files.column_type": "类型",
   "files.column_updated": "更新时间",
   "files.current_workspace": "当前工作区",
-  "files.source_uploads": "我的",
+  "files.source_uploads": "文件",
   "files.source_task": "任务",
   "files.source_expert": "专家",
   "files.source_project": "项目",
@@ -48,7 +48,7 @@ export default {
   "files.upload_copy_success_title": "导入成功",
   "files.task_empty_title": "当前工作区暂无文件",
   "files.task_empty_hint":
-    "任务产物与工作区文件会显示在这里。个人资料请到「我的」导入。",
+    "任务产物与工作区文件会显示在这里。个人资料请到「文件」导入。",
   "files.expert_empty_title": "暂无已归因的专家文件",
   "files.expert_empty_hint":
     "专家会话产物将在启用写入来源打标后显示。现有工作区历史文件请在「任务」中查看，避免误归类。",

@@ -21,7 +21,7 @@ export default {
   "files.column_type": "Type",
   "files.column_updated": "Updated",
   "files.current_workspace": "Current workspace",
-  "files.source_uploads": "Mine",
+  "files.source_uploads": "Files",
   "files.source_task": "Tasks",
   "files.source_expert": "Experts",
   "files.source_project": "Projects",
@@ -48,7 +48,7 @@ export default {
   "files.upload_copy_success_title": "Import complete",
   "files.task_empty_title": "No files in this workspace yet",
   "files.task_empty_hint":
-    "Task outputs and other workspace files will appear here. Upload personal materials under Mine.",
+    "Task outputs and other workspace files will appear here. Upload personal materials under Files.",
   "files.expert_empty_title": "No attributed expert files yet",
   "files.expert_empty_hint":
     "Expert session outputs will show here once write-time source tagging is enabled. Existing workspace files stay under Tasks so they remain accessible.",

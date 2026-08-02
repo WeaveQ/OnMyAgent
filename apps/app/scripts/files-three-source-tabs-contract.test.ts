@@ -301,7 +301,7 @@ describe("files three-source tabs (P0)", () => {
       expect(source).toContain('"files.title"');
     }
     const zh = read("apps/app/src/i18n/locales/zh/files.ts");
-    expect(zh).toContain('"files.source_uploads": "我的"');
+    expect(zh).toContain('"files.source_uploads": "文件"');
     expect(zh).toContain('"files.source_task": "任务"');
     expect(zh).toContain('"files.source_expert": "专家"');
     expect(zh).toContain('"files.source_project": "项目"');

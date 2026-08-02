@@ -21,7 +21,7 @@ export default {
   "files.column_type": "類型",
   "files.column_updated": "更新時間",
   "files.current_workspace": "當前工作區",
-  "files.source_uploads": "我的",
+  "files.source_uploads": "檔案",
   "files.source_task": "任務",
   "files.source_expert": "專家",
   "files.source_project": "項目",
@@ -48,7 +48,7 @@ export default {
   "files.upload_copy_success_title": "匯入成功",
   "files.task_empty_title": "目前工作區尚無檔案",
   "files.task_empty_hint":
-    "任務產物與工作區檔案會顯示在這裡。個人資料請到「我的」匯入。",
+    "任務產物與工作區檔案會顯示在這裡。個人資料請到「檔案」匯入。",
   "files.expert_empty_title": "尚無已歸屬的專家檔案",
   "files.expert_empty_hint":
     "專家會話產物將在啟用寫入來源標記後顯示。現有工作區歷史檔請在「任務」中查看，避免誤歸類。",
