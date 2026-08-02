@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Plus,
   Sparkles,
+  Trash2,
   Upload,
   UserRound,
   X,
@@ -35,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
-  ActionRowButton,
+  FilterChip,
   IconTile,
   NavTabButton,
   SegmentedTabGroup,
@@ -43,6 +44,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -67,7 +69,7 @@ import {
 import { renderAvatar, renderGeneratedAvatar } from "./agents-avatar-rendering";
 import { createGeneratedAvatarOption } from "./agents-page-model";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
-import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
+import { SKILL_MARKETPLACE_CATEGORIES } from "@/components/ui/skill-marketplace-categories";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
 import {
   buildExpertPreviewDraftKey,
@@ -391,25 +393,22 @@ function SkillPickerDialog(props: {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"market" | "installed">("market");
   const [category, setCategory] = useState("all");
-  const categories = useMemo(
-    () => Array.from(new Set(props.skills.map((skill) => skill.category).filter(Boolean))),
-    [props.skills],
-  );
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return props.skills.filter((skill) => {
-      if (category !== "all" && skill.category !== category) return false;
+      if (view === "installed" && !skill.path && skill.category !== "installed") return false;
+      if (view === "market" && category !== "all" && skill.category !== category) return false;
       if (!normalized) return true;
       return `${skill.name} ${skill.description} ${skill.category}`
         .toLowerCase()
         .includes(normalized);
     });
-  }, [category, props.skills, query]);
+  }, [category, props.skills, query, view]);
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="flex h-[min(48rem,calc(100vh-3rem))] w-[calc(100vw-4rem)] max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-background p-0 text-dls-text sm:w-[calc(100vw-4rem)] sm:max-w-none">
-        <div className="flex items-center justify-between border-b border-dls-border px-6 py-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-dls-border px-6 py-4">
           <DialogHeader>
             <DialogTitle>{t("agents.expert_creation_skill_picker_title")}</DialogTitle>
             <DialogDescription>{t("agents.expert_creation_skill_picker_desc")}</DialogDescription>
@@ -422,25 +421,22 @@ function SkillPickerDialog(props: {
               {t("store.my_skills")}
             </NavTabButton>
           </SegmentedTabGroup>
+          <span className="pr-8" aria-hidden />
         </div>
-        <div className="flex min-h-0 flex-1">
-          <aside className="w-48 shrink-0 border-r border-dls-border p-4">
-            <div className="space-y-1">
-              {["all", ...categories].map((item) => (
-                <NavTabButton
-                  key={item}
-                  size="tab"
-                  shape="tab"
-                  active={category === item}
-                  className="w-full justify-start"
-                  onClick={() => setCategory(item)}
-                >
-                  {item === "all" ? t("skills_marketplace.category_all") : item}
-                </NavTabButton>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {view === "market" ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-x-0.5 gap-y-1.5 px-6 py-2.5">
+              {SKILL_MARKETPLACE_CATEGORIES.map((item) => (
+                <FilterChip
+                  key={item.id}
+                  label={t(item.labelKey)}
+                  selected={category === item.id}
+                  onClick={() => setCategory(item.id)}
+                />
               ))}
             </div>
-          </aside>
-          <div className="flex min-w-0 flex-1 flex-col p-5">
+          ) : null}
+          <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-2">
             <Input
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
@@ -451,34 +447,34 @@ function SkillPickerDialog(props: {
               radius="xl"
             />
             <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {visibleSkills.map((skill) => {
               const selected = props.selectedIds.includes(skill.id);
               return (
-                <ActionRowButton
+                <SkillMarketplaceCard
                   key={skill.id}
-                  type="button"
-                  className={cn(
-                    "min-h-28 min-w-0 bg-dls-surface",
-                    selected
-                      ? "border-dls-accent bg-dls-accent/8"
-                      : "bg-dls-background",
-                  )}
+                  skill={{
+                    id: skill.id,
+                    displayName: localSkillLabel(skill),
+                    packageName: skill.name,
+                    description: localSkillDescription(skill),
+                    chips: skill.category && skill.category !== "installed"
+                      ? [skill.category]
+                      : [],
+                  }}
+                  selected={selected}
+                  ariaLabel={localSkillLabel(skill)}
                   onClick={() => props.onToggle(skill.id)}
-                >
-                  <IconCircle className="size-8 text-xs font-semibold">
-                    {localSkillLabel(skill).slice(0, 1).toUpperCase()}
-                  </IconCircle>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 text-sm font-medium text-dls-text">
-                      <span className="truncate">{localSkillLabel(skill)}</span>
-                      {selected ? <Check className="size-3.5 shrink-0 text-dls-accent" aria-hidden /> : null}
+                  action={selected ? (
+                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-accent text-white">
+                      <Check className="size-3.5" aria-hidden />
                     </span>
-                    <span className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
-                      {localSkillDescription(skill)}
+                  ) : (
+                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary">
+                      <Plus className="size-4" aria-hidden />
                     </span>
-                  </span>
-                </ActionRowButton>
+                  )}
+                />
               );
             })}
               </div>
@@ -627,38 +623,33 @@ function SkillsPanel(props: {
           </div>
         </div>
       ) : selectedSkills.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {selectedSkills.map((skill) => {
             return (
-              <article key={skill.id} className="min-w-0 rounded-xl bg-dls-surface p-5">
-                <div className="flex min-w-0 items-start gap-3">
-                  <IconCircle className="size-12 shrink-0 border-dls-accent/20 bg-dls-accent/10 text-dls-accent">
-                    <SkillGlyphIcon className="size-6" />
-                  </IconCircle>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h4 className="truncate text-base font-semibold text-dls-text">
-                          {localSkillLabel(skill)}
-                        </h4>
-                        <p className="mt-1 truncate text-sm text-dls-secondary">{skill.name}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="icon-xs"
-                        variant="ghost"
-                        onClick={() => toggleSkill(skill.id)}
-                        aria-label={t("agents.expert_creation_remove_skill")}
-                      >
-                        <X className="size-3.5" aria-hidden />
-                      </Button>
-                    </div>
-                    <p className="mt-4 line-clamp-3 text-sm leading-6 text-dls-secondary">
-                      {localSkillDescription(skill)}
-                    </p>
-                  </div>
-                </div>
-              </article>
+              <SkillMarketplaceCard
+                key={skill.id}
+                skill={{
+                  id: skill.id,
+                  displayName: localSkillLabel(skill),
+                  packageName: skill.name,
+                  description: localSkillDescription(skill),
+                  chips: skill.category && skill.category !== "installed"
+                    ? [skill.category]
+                    : [],
+                }}
+                ariaLabel={localSkillLabel(skill)}
+                action={(
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => toggleSkill(skill.id)}
+                    aria-label={t("agents.expert_creation_remove_skill")}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </Button>
+                )}
+              />
             );
           })}
         </div>
