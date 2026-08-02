@@ -16,7 +16,7 @@ describe("main rail primary icon contract", () => {
 
     // Named rail width token (--dls-rail-width via w-rail), not arbitrary 68px.
     expect(railSource).toContain("w-rail shrink-0");
-    expect(railSource).toContain("flex-1 flex-col items-center gap-2");
+    expect(railSource).toContain("flex-1 flex-col items-center gap-2.5");
     expect(railSource).not.toContain("w-[68px]");
     // Brand mark above destinations (peer-app style app icon tile).
     expect(railSource).toContain("RailBrandMark");
