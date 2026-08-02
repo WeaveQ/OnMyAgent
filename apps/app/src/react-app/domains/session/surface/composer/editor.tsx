@@ -500,6 +500,43 @@ function serializePromptFromRoot(): string {
     .join("\n");
 }
 
+function isLexicalComposing(editor: {
+  isComposing?: () => boolean;
+}): boolean {
+  try {
+    return typeof editor.isComposing === "function" ? editor.isComposing() : false;
+  } catch {
+    return false;
+  }
+}
+
+function mentionsMapEqual(
+  a: Record<string, ComposerMentionKind>,
+  b: Record<string, ComposerMentionKind>,
+): boolean {
+  if (a === b) return true;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+function scenarioTagsEqual(
+  a: Array<{ id: string; label: string }> | undefined,
+  b: Array<{ id: string; label: string }> | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i]?.id !== b[i]?.id || a[i]?.label !== b[i]?.label) return false;
+  }
+  return true;
+}
+
 function SyncPlugin(props: {
   value: string;
   mentions: Record<string, ComposerMentionKind>;
@@ -516,6 +553,10 @@ function SyncPlugin(props: {
   }, [editor, props.disabled]);
 
   useEffect(() => {
+    // Never rebuild the editor while IME composition is active — rewriting
+    // the tree mid-composition doubles glyphs (especially CJK input).
+    if (isLexicalComposing(editor)) return;
+
     // When the external value is cleared (e.g. after sending a message),
     // always force-rebuild the editor to remove any stale chip nodes.
     // The valueRef check can false-positive when both refs converge to ""
@@ -523,14 +564,18 @@ function SyncPlugin(props: {
     //
     // Mentions/scenarioTags can land after the draft string (Ask Agent,
     // add-to-task). Draft text is identical (`@path …`) but without the
-    // map @tokens stay plain text. Rebuild whenever the map identity
-    // changes so chips materialize.
+    // map @tokens stay plain text. Rebuild when map *content* changes so
+    // chips materialize (compare by value, not object identity — identity
+    // thrashing would force rebuilds on every keystroke and corrupt IME).
     //
     // NOTE: serializePromptFromRoot() calls $getRoot() which requires an
     // active editor state. Outside of editor.update()/editor.read() we
     // must wrap it in editor.getEditorState().read().
-    const mentionsChanged = mentionsRef.current !== props.mentions;
-    const scenarioTagsChanged = scenarioTagsRef.current !== props.scenarioTags;
+    const mentionsChanged = !mentionsMapEqual(mentionsRef.current, props.mentions);
+    const scenarioTagsChanged = !scenarioTagsEqual(
+      scenarioTagsRef.current,
+      props.scenarioTags,
+    );
     mentionsRef.current = props.mentions;
     scenarioTagsRef.current = props.scenarioTags;
 
@@ -989,7 +1034,13 @@ export function LexicalPromptEditor(props: EditorProps) {
   );
 
   const syncPromptFromEditorState = useCallback(
-    (state: Parameters<NonNullable<React.ComponentProps<typeof OnChangePlugin>["onChange"]>>[0]) => {
+    (
+      state: Parameters<NonNullable<React.ComponentProps<typeof OnChangePlugin>["onChange"]>>[0],
+      editor?: { isComposing?: () => boolean },
+    ) => {
+      // Skip mid-IME updates so parent draft + SyncPlugin do not rewrite the
+      // tree until composition commits (prevents doubled CJK/Latin glyphs).
+      if (editor && isLexicalComposing(editor)) return;
       state.read(() => {
         const next = serializePromptFromRoot();
         if (next === valueRef.current) return;
