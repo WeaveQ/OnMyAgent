@@ -88,8 +88,8 @@ function RailBrandMark(props: { onClick: () => void }) {
       title={APP_NAME}
       aria-label={APP_NAME}
       className={cn(
-        // 46px tile / 26px mark — 2px under the default 48 / 28 rail pill scale.
-        "flex size-[46px] shrink-0 items-center justify-center rounded-2xl shadow-sm",
+        // 44px tile / 24px mark — 2px under prior 46 / 26.
+        "flex size-[44px] shrink-0 items-center justify-center rounded-2xl shadow-sm",
         // Light: black tile; dark: white tile so the blue mark stays readable.
         "bg-black ring-1 ring-black/20 hover:bg-neutral-900",
         "dark:bg-white dark:ring-white/30 dark:hover:bg-neutral-100",
@@ -100,9 +100,9 @@ function RailBrandMark(props: { onClick: () => void }) {
       <img
         src={resolvePublicAssetUrl("/onmyagent-logo.png")}
         alt=""
-        width={26}
-        height={26}
-        className="size-[26px] object-contain"
+        width={24}
+        height={24}
+        className="size-6 object-contain"
         draggable={false}
       />
     </button>
