@@ -99,6 +99,7 @@ export type ExpertCreationPageProps = {
   onDone: (
     draft: AgentWizardDraft,
     knowledge: ExpertKnowledgeEntry[],
+    availableSkills: AgentSkillItem[],
   ) => Promise<void>;
 };
 
@@ -1504,7 +1505,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      await props.onDone(draft, knowledge);
+      await props.onDone(draft, knowledge, availableSkills);
       clearExpertCreationStoredState(props.workspaceId);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_create_failed"));

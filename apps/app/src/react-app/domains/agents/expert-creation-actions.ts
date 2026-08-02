@@ -22,6 +22,7 @@ import {
 import type {
   AgentRecord,
   AgentRegistry,
+  AgentSkillItem,
   AgentWizardDraft,
 } from "./agent-registry-types";
 import type { PendingAgentContext } from "./pending-agent-store";
@@ -29,6 +30,7 @@ import {
   ExpertCreationPage,
   type ExpertKnowledgeEntry,
 } from "./expert-creation-page";
+import { createExpertRecordForSave } from "./expert-creation-save-model";
 
 async function encodeFileAsBase64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -42,6 +44,7 @@ async function encodeFileAsBase64(file: File): Promise<string> {
 export type SaveExpertCreationInput = {
   draft: AgentWizardDraft;
   knowledge: ExpertKnowledgeEntry[];
+  availableSkills: AgentSkillItem[];
   registry: AgentRegistry | null;
   workspaceId: string;
   client: OnMyAgentServerClient | null;
@@ -74,10 +77,10 @@ export async function saveExpertCreation(
 ): Promise<SaveExpertCreationResult> {
   const baseRegistry = input.registry ?? createDefaultAgentRegistry();
   const nowIso = new Date().toISOString();
-  const createdAgent = createAgentRecordFromDraft(
+  const createdAgent = createExpertRecordForSave(
     input.draft,
     nowIso,
-    baseRegistry.skills,
+    input.availableSkills,
   );
   let agent = createdAgent;
   let configPath = AGENT_REGISTRY_PATH;
@@ -159,10 +162,15 @@ export function useExpertCreationController(
   const openCreation = useCallback(() => setOpen(true), []);
   const closeCreation = useCallback(() => setOpen(false), []);
   const handleDone = useCallback(
-    async (draft: AgentWizardDraft, knowledge: ExpertKnowledgeEntry[]) => {
+    async (
+      draft: AgentWizardDraft,
+      knowledge: ExpertKnowledgeEntry[],
+      availableSkills: AgentSkillItem[],
+    ) => {
       const result = await saveExpertCreation({
         draft,
         knowledge,
+        availableSkills,
         registry: input.registry,
         workspaceId: input.workspaceId,
         client: input.client,
