@@ -54,7 +54,12 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function parseProposal(value: unknown): ExpertCoachProposal | null | undefined {
+export function parseExpertCoachProposal(value: unknown): ExpertCoachProposal | null {
+  const parsed = parseNullableProposal(value);
+  return parsed === undefined ? null : parsed;
+}
+
+function parseNullableProposal(value: unknown): ExpertCoachProposal | null | undefined {
   if (value === null) return null;
   if (!isRecord(value)) return undefined;
   if (
@@ -77,7 +82,7 @@ function parseProposal(value: unknown): ExpertCoachProposal | null | undefined {
 
 export function parseExpertCoachTurnResult(value: unknown): ExpertCoachTurnResult | null {
   if (!isRecord(value) || typeof value.reply !== "string") return null;
-  const proposal = parseProposal(value.proposal);
+  const proposal = parseNullableProposal(value.proposal);
   if (proposal === undefined) return null;
   return { reply: value.reply, proposal };
 }
