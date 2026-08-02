@@ -60,7 +60,10 @@ export {
 } from "./local-agent-page-model";
 export type { AgentHealthResult } from "./local-agent-page-types";
 export type { LocalAgentRepairAction } from "./local-agent-repair-panel";
-export { latestContextUsage } from "./context-usage-indicator";
+export {
+  ContextUsageIndicator,
+  latestContextUsage,
+} from "./context-usage-indicator";
 export {
   conversationTitle,
   HeartbeatPanel,

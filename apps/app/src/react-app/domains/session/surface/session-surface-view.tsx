@@ -41,6 +41,11 @@ import type {
   ComposerPromptTemplate,
   PastedTextChip,
 } from "./composer/composer-helpers";
+import {
+  buildSessionContextUsage,
+  estimateContextUsedFromTokens,
+} from "../../../capabilities/context-usage/session-context-usage";
+import { readTranscriptMessageMetadata } from "../sync/message-metadata";
 import { SessionDebugPanel } from "./debug-panel";
 import {
   SessionTranscript,
@@ -257,6 +262,33 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     draftWorkspaceAccessoryActive,
   } = props;
 
+  // Context ring next to model select: last assistant prompt occupancy vs model window.
+  const sessionContextUsage = useMemo(() => {
+    let usedTokens: number | null = null;
+    for (let index = props.renderedMessages.length - 1; index >= 0; index -= 1) {
+      const message = props.renderedMessages[index];
+      if (message?.role !== "assistant") continue;
+      const tokens = readTranscriptMessageMetadata(message.metadata).tokens;
+      const estimated = estimateContextUsedFromTokens(
+        tokens
+          ? {
+              input: tokens.input,
+              cacheRead: tokens.cacheRead,
+              total: tokens.total,
+            }
+          : null,
+      );
+      if (estimated != null) {
+        usedTokens = estimated;
+        break;
+      }
+    }
+    return buildSessionContextUsage({
+      modelId: props.selectedModel?.modelID ?? null,
+      usedTokens,
+    });
+  }, [props.renderedMessages, props.selectedModel?.modelID]);
+
   return (
     <DevProfiler id="SessionSurface">
       <div className="flex h-full min-h-0 flex-col">
@@ -396,6 +428,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               sessionId={props.sessionId}
               draft={props.draft}
               mentions={props.mentions}
+              contextUsage={sessionContextUsage}
               scenarioTags={props.assistantScenarioTags}
               promptTemplates={props.personalizedPromptTemplates}
               onSelectPromptTemplate={props.onSelectPromptTemplate}
