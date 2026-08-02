@@ -116,9 +116,9 @@ export default {
   "session.expert_delete_conversation": "删除专家",
   "session.delete_expert_title": "删除专家？",
   "session.delete_named_expert_message":
-    "这将永久删除专家「{name}」及其全部会话消息，且不可恢复。",
+    "这将永久删除专家「{name}」、其全部会话消息，以及这些会话生成的工作区文件，且不可恢复。",
   "session.delete_expert_generic":
-    "这将永久删除该专家及其全部会话消息，且不可恢复。",
+    "这将永久删除该专家、其全部会话消息，以及这些会话生成的工作区文件，且不可恢复。",
   "session.provider_enable": "启用",
   "session.provider_enabled": "已启用",
   "session.models_recommended": "推荐",
@@ -296,8 +296,10 @@ export default {
   "session.send_prompt_failed": "发送提示词失败。",
   "session.default_title": "新建会话",
   "session.delete": "删除",
-  "session.delete_named_session_message": "这将永久删除「{title}」及其消息。",
-  "session.delete_session_generic": "这将永久删除所选会话及其消息。",
+  "session.delete_named_session_message":
+    "这将永久删除「{title}」及其消息，并删除该会话生成的工作区文件。此操作无法撤销。",
+  "session.delete_session_generic":
+    "这将永久删除所选会话及其消息，并删除该会话生成的工作区文件。此操作无法撤销。",
   "session.delete_session_title": "删除会话？",
   "session.deleting": "正在删除…",
   "session.deny": "拒绝",
@@ -858,8 +860,10 @@ export default {
   "session.archive_task_done": "已归档任务",
   "session.delete_task": "删除任务",
   "session.delete_task_title": "删除任务？",
-  "session.delete_named_task_message": "这将永久删除「{title}」及其消息。",
-  "session.delete_task_generic": "这将永久删除所选任务及其消息。",
+  "session.delete_named_task_message":
+    "这将永久删除「{title}」及其消息，并删除该任务生成的工作区文件。此操作无法撤销。",
+  "session.delete_task_generic":
+    "这将永久删除所选任务及其消息，并删除该任务生成的工作区文件。此操作无法撤销。",
   "session.pinned_section": "置顶",
   "session.recent_section": "最近",
   "session.no_space_tasks": "暂无空间任务",
