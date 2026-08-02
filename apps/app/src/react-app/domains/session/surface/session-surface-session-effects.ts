@@ -88,7 +88,9 @@ export function useSessionSurfaceSessionEffects(input: {
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
-  }, [sessionId]);
+    // Include workspaceId: surface no longer remounts on every session change,
+    // so workspace hops must reset the same ephemeral chrome.
+  }, [sessionId, workspaceId]);
 
   useEffect(() => {
     if (!notice) return;

@@ -850,7 +850,8 @@ export function SessionPage(props: SessionPageProps) {
                       !showDelayedSessionLoadingState &&
                       pageView.canRenderReactSurface ? (
                         <SessionSurface
-                          key={pageView.renderedSessionId}
+                          // Stable per workspace — session switches are prop-driven.
+                          key={props.runtimeWorkspaceId ?? "session-surface"}
                           // Spread `surface` first so the explicit per-workspace
                           // routing props below CAN'T be silently overridden by
                           // anything that leaks into `surface`. SessionSurface's
