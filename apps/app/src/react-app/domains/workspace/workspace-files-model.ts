@@ -10,6 +10,7 @@ import {
 } from "../../capabilities/artifacts/open-target";
 import {
   formatWorkspaceFileTime,
+  shouldHideEntry,
   type WorkspaceFileSortDir,
   type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
@@ -925,6 +926,18 @@ export type UserUploadRow = {
   kind?: "file" | "dir";
 };
 
+/** True when a Mine row is OS/system junk (not user content). */
+export function isMineHiddenUploadPath(path: string, name?: string): boolean {
+  const p = String(path ?? "").trim().replace(/\\/g, "/");
+  if (p && shouldHideEntry(p)) return true;
+  const base =
+    String(name ?? "").trim()
+    || p.split("/").pop()
+    || "";
+  if (base && shouldHideEntry(base)) return true;
+  return false;
+}
+
 /** Map inbox API items into stable upload rows (import-by-copy list). */
 export function mapInboxItemsToUploadRows(
   items: readonly InboxListItemLike[],
@@ -938,6 +951,8 @@ export function mapInboxItemsToUploadRows(
     const name =
       (item.name ?? path.replace(/\\/g, "/").split("/").pop() ?? path).trim() ||
       path;
+    // Hide .DS_Store / Thumbs.db / dotfiles — Mine must not surface Finder junk.
+    if (isMineHiddenUploadPath(path, name)) continue;
     rows.push({
       id,
       name,
@@ -1005,11 +1020,12 @@ export function mapUploadsCatalogToRows(
     }
 
     if (seen.has(rel)) continue;
-    seen.add(rel);
     const kind: "file" | "dir" =
       item.kind === "dir" || item.kind === "directory" ? "dir" : "file";
     const name =
       (item.name ?? rel.split("/").pop() ?? rel).trim() || rel;
+    if (isMineHiddenUploadPath(rel, name)) continue;
+    seen.add(rel);
     const updatedAt =
       typeof item.mtimeMs === "number" && Number.isFinite(item.mtimeMs)
         ? item.mtimeMs
@@ -1048,10 +1064,12 @@ export function mergeMineUploadRows(
 ): UserUploadRow[] {
   const byPath = new Map<string, UserUploadRow>();
   for (const row of inboxRows) {
+    if (isMineHiddenUploadPath(row.path, row.name)) continue;
     const key = row.path.replace(/\\/g, "/");
     byPath.set(key, { ...row, kind: row.kind ?? "file" });
   }
   for (const row of catalogRows) {
+    if (isMineHiddenUploadPath(row.path, row.name)) continue;
     const key = row.path.replace(/\\/g, "/");
     byPath.set(key, row);
   }

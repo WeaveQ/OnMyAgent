@@ -181,11 +181,19 @@ export function buildWorkspaceFileTree(
   return root;
 }
 
+/** OS / IDE junk basenames (case-insensitive) never shown as user content. */
+const HIDDEN_BASENAME_EXACT = new Set([
+  "thumbs.db",
+  "desktop.ini",
+  "onmyagent-session.json",
+  "opencode.jsonc",
+]);
+
 export function shouldHideEntry(path: string): boolean {
-  const parts = path.split("/").filter(Boolean);
+  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
   for (const part of parts) {
     if (part.startsWith(".")) return true;
-    if (part === "onmyagent-session.json") return true;
+    if (HIDDEN_BASENAME_EXACT.has(part.toLowerCase())) return true;
   }
   if (path === "opencode.jsonc" || path.endsWith("/opencode.jsonc")) {
     return true;
@@ -194,10 +202,7 @@ export function shouldHideEntry(path: string): boolean {
 }
 
 function shouldHideNode(node: WorkspaceFileTreeNode): boolean {
-  if (node.name.startsWith(".")) return true;
-  if (node.name === "opencode.jsonc") return true;
-  if (node.name === "onmyagent-session.json") return true;
-  return false;
+  return shouldHideEntry(node.path || node.name);
 }
 
 export function filterHiddenFromTree(
