@@ -271,6 +271,37 @@ export function formatWorkspaceFolderDisplayName(
 }
 
 /** Outline rows for root: collapsible folders (project) + nested task/file rows. */
+/**
+ * Synthetic browse path for top-level loose files (not under a session/task
+ * folder). Tasks/Experts root shows a drillable「未分组」folder for these.
+ * Not a real workspace path — never pass to open/reveal/delete APIs.
+ */
+export const FILES_UNGROUPED_PATH = "__ungrouped__";
+
+export function isFilesUngroupedPath(path: string): boolean {
+  return path.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") === FILES_UNGROUPED_PATH;
+}
+
+/** Build a virtual folder node holding root-level loose files. */
+export function buildUngroupedFolderNode(
+  looseFiles: readonly WorkspaceFileTreeNode[],
+  label: string,
+): WorkspaceFileTreeNode {
+  const files = looseFiles.filter((n) => n.kind === "file");
+  let mtimeMs = 0;
+  for (const file of files) {
+    if ((file.mtimeMs || 0) > mtimeMs) mtimeMs = file.mtimeMs || 0;
+  }
+  return {
+    name: label,
+    path: FILES_UNGROUPED_PATH,
+    kind: "dir",
+    size: 0,
+    mtimeMs,
+    children: files.map((file) => ({ ...file, children: [] })),
+  };
+}
+
 export type OutlineRow =
   | {
       type: "project";

@@ -109,6 +109,7 @@ import {
 } from "./workspace-files-open-session";
 import {
   FILE_CATEGORIES,
+  buildUngroupedFolderNode,
   canPreviewWorkspaceFileInline,
   collectMatchingFilesUnder,
   countFilesInNode,
@@ -120,6 +121,7 @@ import {
   formatWorkspaceFolderDisplayName,
   getFileCategory,
   isAutomationTaskFolderName,
+  isFilesUngroupedPath,
   relativeDisplayPath,
   usesLocalFileRenderer,
   type FileCategory,
@@ -129,8 +131,22 @@ function fileCategoryLabel(category: FileCategory) {
   return t(fileCategoryI18nKey(category));
 }
 
+function folderDisplayName(node: WorkspaceFileTreeNode): string {
+  if (isFilesUngroupedPath(node.path)) return t("files.ungrouped");
+  return formatWorkspaceFolderDisplayName(node.name, node.mtimeMs);
+}
+
 function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
   if (props.node.kind === "dir") {
+    if (isFilesUngroupedPath(props.node.path)) {
+      return (
+        <FileStack
+          className="size-4 shrink-0 text-dls-secondary"
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+      );
+    }
     return (
       <Folder
         className="size-4 shrink-0 text-dls-text opacity-100"
@@ -779,28 +795,91 @@ export function WorkspaceFilesBrowserPanel(props: {
     typeFilter,
   ]);
 
-  const currentDirectory =
-    findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ?? visibleFileTree;
-  const breadcrumbs = workspaceFileBreadcrumbs(currentDirectoryPath);
+  /**
+   * Root-level files that are not under a session/task folder →「未分组」bucket.
+   * Kept as a drillable virtual folder so navigation matches Mine while the
+   * previous orphan grouping is preserved.
+   */
+  const ungroupedFolder = useMemo(() => {
+    const loose = visibleFileTree.children.filter((child) => child.kind === "file");
+    if (loose.length === 0) return null;
+    return buildUngroupedFolderNode(loose, t("files.ungrouped"));
+  }, [visibleFileTree]);
+
+  const currentDirectory = useMemo(() => {
+    if (isFilesUngroupedPath(currentDirectoryPath)) {
+      return (
+        ungroupedFolder ??
+        buildUngroupedFolderNode([], t("files.ungrouped"))
+      );
+    }
+    return (
+      findWorkspaceFileNode(visibleFileTree, currentDirectoryPath) ??
+      visibleFileTree
+    );
+  }, [currentDirectoryPath, ungroupedFolder, visibleFileTree]);
+
+  const breadcrumbs = useMemo(() => {
+    const raw = workspaceFileBreadcrumbs(currentDirectoryPath);
+    return raw.map((item) =>
+      isFilesUngroupedPath(item.path)
+        ? { ...item, name: t("files.ungrouped") }
+        : item,
+    );
+  }, [currentDirectoryPath]);
+
   /** Search/type filter or explicit expand-all → flat file list under current folder. */
   const deepListingActive =
     listDeep || typeFilter !== "all" || Boolean(query.trim());
-  /** One-level children for browse; flattened matching files when deep/filter is on. */
+  /**
+   * One-level children for browse; at true root, loose files become the
+   * synthetic「未分组」folder instead of mixing with task folders.
+   * Deep/filter still flattens real files (including former loose roots).
+   */
   const listedNodes = useMemo(() => {
-    if (!deepListingActive) return currentDirectory.children;
-    return collectMatchingFilesUnder(
-      currentDirectory,
-      query,
-      typeFilter,
-      sortKey,
-      sortDir,
-    );
-  }, [currentDirectory, deepListingActive, query, sortDir, sortKey, typeFilter]);
+    if (deepListingActive) {
+      // Deep listing under the virtual ungrouped folder: only those files.
+      // Deep listing at true root: walk the real tree (includes loose + nested).
+      const walkRoot =
+        isFilesUngroupedPath(currentDirectoryPath) && ungroupedFolder
+          ? ungroupedFolder
+          : isFilesUngroupedPath(currentDirectoryPath)
+            ? currentDirectory
+            : currentDirectoryPath.trim()
+              ? currentDirectory
+              : visibleFileTree;
+      return collectMatchingFilesUnder(
+        walkRoot,
+        query,
+        typeFilter,
+        sortKey,
+        sortDir,
+      );
+    }
+    // True product root: folders + optional 未分组, no loose file peers.
+    if (!currentDirectoryPath.trim()) {
+      const dirs = visibleFileTree.children.filter((child) => child.kind === "dir");
+      return ungroupedFolder ? [...dirs, ungroupedFolder] : dirs;
+    }
+    return currentDirectory.children;
+  }, [
+    currentDirectory,
+    currentDirectoryPath,
+    deepListingActive,
+    query,
+    sortDir,
+    sortKey,
+    typeFilter,
+    ungroupedFolder,
+    visibleFileTree,
+  ]);
 
   /** Show expand when current folder has at least one subfolder (can recurse). */
   const canExpandDeep = useMemo(
-    () => currentDirectory.children.some((child) => child.kind === "dir"),
-    [currentDirectory],
+    () =>
+      !isFilesUngroupedPath(currentDirectoryPath) &&
+      currentDirectory.children.some((child) => child.kind === "dir"),
+    [currentDirectory, currentDirectoryPath],
   );
 
   const enterDirectory = useCallback((path: string) => {
@@ -808,6 +887,13 @@ export function WorkspaceFilesBrowserPanel(props: {
     setCurrentDirectoryPath(path);
     setSelectedFile(null);
   }, []);
+
+  // If loose files disappear while viewing 未分组, return to root.
+  useEffect(() => {
+    if (isFilesUngroupedPath(currentDirectoryPath) && !ungroupedFolder) {
+      setCurrentDirectoryPath("");
+    }
+  }, [currentDirectoryPath, ungroupedFolder]);
 
   const toggleSort = useCallback((key: WorkspaceFileSortKey) => {
     if (sortKey === key) {
@@ -1044,7 +1130,9 @@ export function WorkspaceFilesBrowserPanel(props: {
                     </span>
                     {isLast ? (
                       <span className="truncate font-medium text-dls-text">
-                        {formatWorkspaceFolderDisplayName(item.name)}
+                        {isFilesUngroupedPath(item.path)
+                          ? t("files.ungrouped")
+                          : formatWorkspaceFolderDisplayName(item.name)}
                       </span>
                     ) : (
                       <button
@@ -1052,7 +1140,9 @@ export function WorkspaceFilesBrowserPanel(props: {
                         className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
                         onClick={() => enterDirectory(item.path)}
                       >
-                        {formatWorkspaceFolderDisplayName(item.name)}
+                        {isFilesUngroupedPath(item.path)
+                          ? t("files.ungrouped")
+                          : formatWorkspaceFolderDisplayName(item.name)}
                       </button>
                     )}
                   </span>
@@ -1321,21 +1411,27 @@ export function WorkspaceFilesBrowserPanel(props: {
                         </TableHeader>
                         <TableBody>
                           {listedNodes.map((node) => {
+                            const isUngrouped = isFilesUngroupedPath(node.path);
                             const fileCount =
                               node.kind === "dir" ? countFilesInNode(node) : 0;
                             const nestedPathLabel =
                               deepListingActive && node.kind === "file"
-                                ? relativeDisplayPath(node.path, currentDirectoryPath)
+                                ? relativeDisplayPath(
+                                    node.path,
+                                    isFilesUngroupedPath(currentDirectoryPath)
+                                      ? ""
+                                      : currentDirectoryPath,
+                                  )
                                 : node.kind === "dir"
-                                  ? formatWorkspaceFolderDisplayName(
-                                      node.name,
-                                      node.mtimeMs,
-                                    )
+                                  ? folderDisplayName(node)
                                   : node.name;
                             return (
                               <TableRow
                                 key={node.path}
-                                data-workspace-file-row={node.kind}
+                                data-workspace-file-row={
+                                  isUngrouped ? "ungrouped" : node.kind
+                                }
+                                data-files-ungrouped={isUngrouped ? "true" : undefined}
                                 role="button"
                                 tabIndex={0}
                                 className={cn(
@@ -1370,7 +1466,11 @@ export function WorkspaceFilesBrowserPanel(props: {
                                         color: "var(--dls-text-primary)",
                                         opacity: 1,
                                       }}
-                                      title={node.path}
+                                      title={
+                                        isUngrouped
+                                          ? t("files.ungrouped")
+                                          : node.path
+                                      }
                                     >
                                       {nestedPathLabel}
                                     </span>
@@ -1379,20 +1479,24 @@ export function WorkspaceFilesBrowserPanel(props: {
                                         {t("files.file_count", { count: fileCount })}
                                       </span>
                                     ) : null}
-                                    <FileNameQuickActions
-                                      path={node.path}
-                                      favorited={favoritePaths.has(node.path)}
-                                      showAddToTask={node.kind === "file"}
-                                      onAddToTask={
-                                        node.kind === "file"
-                                          ? () => void handleAddToTask(node.path)
-                                          : undefined
-                                      }
-                                      onOpenInFolder={() => void handleOpenFile(node.path)}
-                                      onToggleFavorite={() =>
-                                        handleToggleFavorite(node.path)
-                                      }
-                                    />
+                                    {!isUngrouped ? (
+                                      <FileNameQuickActions
+                                        path={node.path}
+                                        favorited={favoritePaths.has(node.path)}
+                                        showAddToTask={node.kind === "file"}
+                                        onAddToTask={
+                                          node.kind === "file"
+                                            ? () => void handleAddToTask(node.path)
+                                            : undefined
+                                        }
+                                        onOpenInFolder={() =>
+                                          void handleOpenFile(node.path)
+                                        }
+                                        onToggleFavorite={() =>
+                                          handleToggleFavorite(node.path)
+                                        }
+                                      />
+                                    ) : null}
                                   </span>
                                 </TableCell>
                                 <TableCell className="text-left py-2 text-xs text-dls-secondary">
