@@ -1125,6 +1125,7 @@ function TryEffectPanel(props: {
   const [streamText, setStreamText] = useState("");
   const [sending, setSending] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const runIdRef = useRef(0);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTextRef = useRef("");
@@ -1157,6 +1158,8 @@ function TryEffectPanel(props: {
     setAttachments([]);
     updateStreamText("");
     setSending(true);
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -1173,6 +1176,7 @@ function TryEffectPanel(props: {
         signal: controller.signal,
         onTextChange: updateStreamText,
       });
+      if (runIdRef.current !== runId) return;
       setSessionId(result.sessionId);
       setSessionDraftKey(draftKey);
       if (result.content.trim()) {
@@ -1184,6 +1188,7 @@ function TryEffectPanel(props: {
       }
       updateStreamText("");
     } catch (error) {
+      if (runIdRef.current !== runId) return;
       if (error instanceof DOMException && error.name === "AbortError") {
         const partial = streamTextRef.current.trim();
         setMessages((current) => [...current, {
@@ -1208,13 +1213,17 @@ function TryEffectPanel(props: {
       }]);
       updateStreamText("");
     } finally {
+      if (runIdRef.current !== runId) return;
       abortRef.current = null;
       setSending(false);
     }
   };
 
   const startNewSession = () => {
+    runIdRef.current += 1;
     abortRef.current?.abort();
+    abortRef.current = null;
+    setSending(false);
     setSessionId(null);
     setSessionDraftKey(null);
     setMessages([]);
