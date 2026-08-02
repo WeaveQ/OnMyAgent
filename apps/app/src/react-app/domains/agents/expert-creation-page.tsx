@@ -55,7 +55,11 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ModelRef } from "../../../app/types";
-import { listLocalSkills, revealDesktopItemInDir } from "../../../app/lib/desktop";
+import {
+  listLocalSkills,
+  revealDesktopItemInDir,
+  stageMyExpertKnowledge,
+} from "../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../app/utils";
 import type {
   AgentRegistry,
@@ -92,6 +96,7 @@ export type ExpertKnowledgeEntry = {
   kind: "file" | "directory";
   relativePath: string;
   file?: File;
+  stagedPath?: string;
 };
 
 export type ExpertCreationPageProps = {
@@ -109,8 +114,18 @@ export type ExpertCreationPageProps = {
     draft: AgentWizardDraft,
     knowledge: ExpertKnowledgeEntry[],
     availableSkills: AgentSkillItem[],
+    draftId: string,
   ) => Promise<void>;
 };
+
+async function encodeKnowledgeFile(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
 
 const TABS: Array<{ id: ExpertCreationTab; label: string }> = [
   { id: "basic", label: "agents.expert_creation_basic" },
@@ -712,6 +727,7 @@ export function listKnowledgeChildren(
         relativePath,
         name,
         ...(kind === "file" && entry.file ? { file: entry.file } : {}),
+        ...(entry.stagedPath ? { stagedPath: entry.stagedPath } : {}),
       });
     }
   }
@@ -741,14 +757,23 @@ function sourcePathForKnowledgeEntry(
       entry.relativePath.startsWith(`${node.relativePath}/`)
     ),
   )?.file;
-  return source
-    ? window.__ONMYAGENT_ELECTRON__?.files?.getPathForFile?.(source) ?? null
-    : null;
+  const stagedPath = node.stagedPath ?? entries.find(
+    (entry) => entry.stagedPath && (
+      entry.relativePath === node.relativePath ||
+      entry.relativePath.startsWith(`${node.relativePath}/`)
+    ),
+  )?.stagedPath;
+  return stagedPath ?? (
+    source
+      ? window.__ONMYAGENT_ELECTRON__?.files?.getPathForFile?.(source) ?? null
+      : null
+  );
 }
 
 function KnowledgePanel(props: {
   entries: ExpertKnowledgeEntry[];
-  onEntriesChange: (entries: ExpertKnowledgeEntry[]) => void;
+  staging: boolean;
+  onEntriesChange: (entries: ExpertKnowledgeEntry[]) => Promise<void>;
 }) {
   const documentInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -780,7 +805,7 @@ function KnowledgePanel(props: {
       );
       next.set(relativePath, { kind: "file", relativePath, file });
     }
-    props.onEntriesChange(Array.from(next.values()));
+    void props.onEntriesChange(Array.from(next.values()));
   };
 
   const createFolder = () => {
@@ -797,14 +822,14 @@ function KnowledgePanel(props: {
     setFolderDialogError(null);
     setFolderDialogOpen(false);
     setFolderName("");
-    props.onEntriesChange([
+    void props.onEntriesChange([
       ...props.entries,
       { kind: "directory", relativePath },
     ]);
   };
 
   const deleteNode = (node: ExpertKnowledgeNode) => {
-    props.onEntriesChange(removeKnowledgeNode(props.entries, node.relativePath));
+    void props.onEntriesChange(removeKnowledgeNode(props.entries, node.relativePath));
     setPendingDelete(null);
   };
 
@@ -820,7 +845,7 @@ function KnowledgePanel(props: {
           <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_knowledge_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" variant="ghost" onClick={() => {
+          <Button type="button" size="sm" variant="ghost" disabled={props.staging} onClick={() => {
             setFolderDialogError(null);
             setFolderName("");
             setFolderDialogOpen(true);
@@ -851,7 +876,7 @@ function KnowledgePanel(props: {
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger
               render={
-                <Button type="button" size="sm" variant="outline">
+                <Button type="button" size="sm" variant="outline" disabled={props.staging}>
                   <Upload data-icon="inline-start" className="size-3.5" />
                   {t("agents.expert_creation_upload")}
                   <ChevronDown className="size-3.5" aria-hidden />
@@ -973,7 +998,7 @@ function KnowledgePanel(props: {
           </div>
           <p className="mt-6 max-w-sm text-sm leading-6 text-dls-secondary">{t("agents.expert_creation_knowledge_empty_desc")}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => {
+            <Button type="button" variant="secondary" size="sm" disabled={props.staging} onClick={() => {
               setFolderDialogError(null);
               setFolderName("");
               setFolderDialogOpen(true);
@@ -981,11 +1006,11 @@ function KnowledgePanel(props: {
               <FolderPlus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_create_folder")}
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => documentInputRef.current?.click()}>
+            <Button type="button" variant="secondary" size="sm" disabled={props.staging} onClick={() => documentInputRef.current?.click()}>
               <Upload data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_upload_document")}
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={openFolderUpload}>
+            <Button type="button" variant="secondary" size="sm" disabled={props.staging} onClick={openFolderUpload}>
               <FolderPlus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_upload_folder")}
             </Button>
@@ -1118,6 +1143,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     props.skills.filter((skill) => skill.enabled),
   );
   const [knowledge, setKnowledge] = useState<ExpertKnowledgeEntry[]>([]);
+  const [draftPackageId] = useState(() => `draft-${crypto.randomUUID()}`);
+  const [knowledgeStaging, setKnowledgeStaging] = useState(false);
   const [tryOpen, setTryOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [skillsLoading, setSkillsLoading] = useState(true);
@@ -1255,6 +1282,42 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     }
   };
 
+  const updateKnowledge = async (next: ExpertKnowledgeEntry[]) => {
+    if (!isElectronRuntime()) {
+      setKnowledge(next);
+      return;
+    }
+    setKnowledgeStaging(true);
+    try {
+      const stagedEntries = await Promise.all(next.map(async (entry) => {
+        if (!entry.file) {
+          return { kind: entry.kind, relativePath: entry.relativePath };
+        }
+        const sourcePath = window.__ONMYAGENT_ELECTRON__?.files?.getPathForFile?.(entry.file) ?? "";
+        return {
+          kind: entry.kind,
+          relativePath: entry.relativePath,
+          ...(sourcePath
+            ? { sourcePath }
+            : { dataBase64: await encodeKnowledgeFile(entry.file) }),
+        };
+      }));
+      const result = await stageMyExpertKnowledge({
+        draftId: draftPackageId,
+        knowledge: stagedEntries,
+      });
+      setKnowledge(next.map((entry) => ({
+        ...entry,
+        stagedPath: `${result.path}/${entry.relativePath}`,
+      })));
+      setSubmitError(null);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_knowledge_stage_failed"));
+    } finally {
+      setKnowledgeStaging(false);
+    }
+  };
+
   const submit = async () => {
     if (submitting) return;
     if (!draft.name.trim()) {
@@ -1265,7 +1328,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      await props.onDone(draft, knowledge, availableSkills);
+      await props.onDone(draft, knowledge, availableSkills, draftPackageId);
       clearExpertCreationStoredState(props.workspaceId);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_create_failed"));
@@ -1290,6 +1353,9 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
 
   const discardAndClose = () => {
     clearExpertCreationStoredState(props.workspaceId);
+    if (isElectronRuntime()) {
+      void stageMyExpertKnowledge({ draftId: draftPackageId, discard: true });
+    }
     setExitDialogOpen(false);
     props.onClose();
   };
@@ -1401,7 +1467,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "knowledge" ? (
-                  <KnowledgePanel entries={knowledge} onEntriesChange={setKnowledge} />
+                  <KnowledgePanel
+                    entries={knowledge}
+                    staging={knowledgeStaging}
+                    onEntriesChange={updateKnowledge}
+                  />
                 ) : null}
               </div>
             </section>

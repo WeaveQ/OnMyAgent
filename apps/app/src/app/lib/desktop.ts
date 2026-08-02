@@ -79,6 +79,7 @@ import type {
   ExpertPackageInstallInput,
   ExpertPackageInstallResult,
   MessagingChannelStatus,
+  MyExpertKnowledgeStageInput,
   MyExpertPackageWriteInput,
   UserAgentRegistryWriteResult,
 } from "./desktop-types";
@@ -707,6 +708,9 @@ export const listExpertRegistryRecords = (marketplace: ExpertMarketplaceName) =>
 
 export const writeMyExpertPackage = (input: MyExpertPackageWriteInput) =>
   invokeDesktopCommand("writeMyExpertPackage", input);
+
+export const stageMyExpertKnowledge = (input: MyExpertKnowledgeStageInput) =>
+  invokeDesktopCommand("stageMyExpertKnowledge", input);
 
 // ---------------------------------------------------------------------------
 // Domain wrapper modules (stable public API re-exports)
