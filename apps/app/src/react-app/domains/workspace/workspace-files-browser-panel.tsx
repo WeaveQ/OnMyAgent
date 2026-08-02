@@ -11,6 +11,8 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   CirclePlus,
   Cloud,
   Copy,
@@ -1049,71 +1051,184 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [closePreview, selectedFile]);
 
   // Same gutters as 市场 pluginsLayoutClass.pageContainer
+  // Layout mirrors Mine (uploads): title → toolbar → pathbar (breadcrumb · expand · type · search)
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
-          <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 text-left">
-              <h1 className={cn(typeScale.pageTitle, "text-left")}>
-                {t(filesSourceTabTitleKey(sourceTab))}
-              </h1>
-              <p className={cn(typeScale.pageSubtitle, "mt-1 truncate text-left")}>
-                {t(filesSourceTabSubtitleKey(sourceTab))}
-              </p>
-            </div>
-            <div className="flex min-w-0 items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                disabled={
-                  loading ||
-                  refreshDone ||
-                  !fileRoot.trim() ||
-                  (
-                    !isElectronRuntime()
-                    && (!props.client || !props.workspaceId.trim())
-                  )
-                }
-                onClick={() => {
-                  manualRefreshRef.current = true;
-                  setRefreshDone(false);
-                  setRefreshKey((key) => key + 1);
-                }}
-                className={cn(
-                  "size-9 shrink-0 transition-colors",
-                  refreshDone &&
-                    "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-                )}
-                title={refreshDone ? t("common.refreshed") : t("common.refresh")}
-                aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
-                aria-busy={loading || undefined}
-              >
-                {loading ? (
-                  <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-                ) : refreshDone ? (
-                  <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+          <div className="mb-3 min-w-0 shrink-0 text-left">
+            <h1 className={cn(typeScale.pageTitle, "text-left")}>
+              {t(filesSourceTabTitleKey(sourceTab))}
+            </h1>
+            <p className={cn(typeScale.pageSubtitle, "mt-1 truncate text-left")}>
+              {t(filesSourceTabSubtitleKey(sourceTab))}
+            </p>
+          </div>
+
+          <div
+            className="mb-2.5 flex w-full shrink-0 flex-wrap items-center gap-2"
+            data-files-browser-toolbar="true"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={
+                loading ||
+                refreshDone ||
+                !fileRoot.trim() ||
+                (
+                  !isElectronRuntime()
+                  && (!props.client || !props.workspaceId.trim())
+                )
+              }
+              onClick={() => {
+                manualRefreshRef.current = true;
+                setRefreshDone(false);
+                setRefreshKey((key) => key + 1);
+              }}
+              className={cn(
+                "size-9 shrink-0 rounded-full transition-colors",
+                refreshDone &&
+                  "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+              )}
+              title={refreshDone ? t("common.refreshed") : t("common.refresh")}
+              aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
+              aria-busy={loading || undefined}
+            >
+              {loading ? (
+                <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+              ) : refreshDone ? (
+                <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+              ) : (
+                <RefreshCw className="size-3.5" aria-hidden />
+              )}
+            </Button>
+          </div>
+
+          {/* One row: breadcrumb · expand/collapse · type · search (parity with Mine pathbar) */}
+          <div
+            className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
+            data-files-browser-pathbar="true"
+          >
+            <nav
+              data-workspace-file-breadcrumb="true"
+              data-files-browser-breadcrumb="true"
+              aria-label={t("files.breadcrumb_label")}
+              className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm text-dls-secondary"
+            >
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                {currentDirectoryPath ? (
+                  <button
+                    type="button"
+                    className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
+                    onClick={() => setCurrentDirectoryPath("")}
+                  >
+                    {breadcrumbRootLabel}
+                  </button>
                 ) : (
-                  <RefreshCw className="size-3.5" aria-hidden />
+                  <span className="truncate font-medium text-dls-text">
+                    {breadcrumbRootLabel}
+                  </span>
                 )}
-              </Button>
+              </span>
+              {breadcrumbs.map((item, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                return (
+                  <span
+                    key={item.path}
+                    className="inline-flex min-w-0 max-w-full items-center gap-1"
+                  >
+                    <span className="shrink-0 text-dls-secondary/60" aria-hidden>
+                      /
+                    </span>
+                    {isLast ? (
+                      <span className="truncate font-medium text-dls-text">
+                        {formatWorkspaceFolderDisplayName(item.name)}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="truncate rounded-md px-0.5 text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
+                        onClick={() => setCurrentDirectoryPath(item.path)}
+                      >
+                        {formatWorkspaceFolderDisplayName(item.name)}
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </nav>
+
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+              {useOutlineRoot && outlineExpandablePaths.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  disabled={loading}
+                  aria-pressed={outlineAllExpanded}
+                  onClick={() => {
+                    if (outlineAllExpanded) collapseAllFolders();
+                    else expandAllFolders();
+                  }}
+                  className={cn(
+                    "h-9 gap-1.5 rounded-full px-3 text-sm",
+                    outlineAllExpanded &&
+                      "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
+                  )}
+                  data-files-expand-collapse="true"
+                  data-files-outline-expanded={
+                    outlineAllExpanded ? "true" : "false"
+                  }
+                  aria-label={
+                    outlineAllExpanded
+                      ? t("files.collapse_all_folders")
+                      : t("files.expand_all_folders")
+                  }
+                  title={
+                    outlineAllExpanded
+                      ? t("files.collapse_all_folders")
+                      : t("files.expand_all_folders")
+                  }
+                >
+                  {outlineAllExpanded ? (
+                    <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
+                  ) : (
+                    <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
+                  )}
+                  <span className="hidden sm:inline">
+                    {outlineAllExpanded
+                      ? t("files.collapse_all_folders")
+                      : t("files.expand_all_folders")}
+                  </span>
+                </Button>
+              ) : null}
               <div className="relative shrink-0">
                 <Button
                   type="button"
                   variant="outline"
                   size="default"
                   onClick={() => setTypeMenuOpen((prev) => !prev)}
-                  className="h-9 gap-1.5 px-3 text-sm"
+                  className="h-9 gap-1.5 rounded-full px-3 text-sm"
                 >
-                  <SlidersHorizontal data-icon="inline-start" className="size-3.5 text-dls-secondary" />
+                  <SlidersHorizontal
+                    data-icon="inline-start"
+                    className="size-3.5 text-dls-secondary"
+                  />
                   {fileCategoryLabel(typeFilter)}
-                  <ChevronDown className={cn("size-3.5 transition-transform", typeMenuOpen && "rotate-180")} />
+                  <ChevronDown
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      typeMenuOpen && "rotate-180",
+                    )}
+                  />
                 </Button>
-                {typeMenuOpen && (
+                {typeMenuOpen ? (
                   <div
-                    className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-lg border border-dls-border bg-dls-surface-solid py-1 shadow-md"
+                    className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 shadow-md"
                     style={{
                       // Opaque on mac Electron glass — dls-surface alone is translucent.
-                      backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
+                      backgroundColor:
+                        "var(--dls-surface-solid, var(--dls-surface))",
                     }}
                   >
                     {FILE_CATEGORIES.map((cat) => (
@@ -1121,16 +1236,24 @@ export function WorkspaceFilesBrowserPanel(props: {
                         key={cat}
                         align="center"
                         type="button"
-                        onClick={() => { setTypeFilter(cat); setTypeMenuOpen(false); }}
+                        onClick={() => {
+                          setTypeFilter(cat);
+                          setTypeMenuOpen(false);
+                        }}
                         active={typeFilter === cat}
                       >
                         {fileCategoryLabel(cat)}
                       </MenuRowButton>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
-              <InputGroup controlSize="default" radius="lg" tone="surface" className="min-w-[200px] w-56 sm:w-64">
+              <InputGroup
+                controlSize="default"
+                radius="lg"
+                tone="surface"
+                className="min-w-[11rem] w-48 rounded-full sm:w-56"
+              >
                 <InputGroupAddon align="inline-start">
                   <Search className="size-3.5" />
                 </InputGroupAddon>
@@ -1155,87 +1278,6 @@ export function WorkspaceFilesBrowserPanel(props: {
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col gap-3">
-                  <div className="flex min-h-8 shrink-0 items-center gap-2">
-                    <nav
-                      data-workspace-file-breadcrumb="true"
-                      aria-label={t("files.breadcrumb_label")}
-                      className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5 rounded-lg border border-dls-border/70 bg-dls-surface-muted/40 px-2 py-1 text-sm text-dls-secondary"
-                    >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        className={cn(
-                          "h-7 px-2 hover:text-dls-text",
-                          currentDirectoryPath
-                            ? "text-dls-secondary"
-                            : "font-medium text-dls-text",
-                        )}
-                        onClick={() => setCurrentDirectoryPath("")}
-                      >
-                        {breadcrumbRootLabel}
-                      </Button>
-                      {breadcrumbs.map((item, index) => {
-                        const isLast = index === breadcrumbs.length - 1;
-                        return (
-                          <span key={item.path} className="flex min-w-0 items-center gap-0.5">
-                            <ChevronRight className="size-3 shrink-0 opacity-60" />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="xs"
-                              className={cn(
-                                "max-w-48 min-w-0 h-7 px-2 hover:text-dls-text",
-                                isLast
-                                  ? "font-medium text-dls-text"
-                                  : "text-dls-secondary",
-                              )}
-                              onClick={() => setCurrentDirectoryPath(item.path)}
-                            >
-                              <span className="truncate">
-                                {formatWorkspaceFolderDisplayName(item.name)}
-                              </span>
-                            </Button>
-                          </span>
-                        );
-                      })}
-                    </nav>
-                    {useOutlineRoot && outlineExpandablePaths.length > 0 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        className="h-8 shrink-0 gap-1 px-2 text-dls-secondary hover:text-dls-text"
-                        onClick={() => {
-                          if (outlineAllExpanded) collapseAllFolders();
-                          else expandAllFolders();
-                        }}
-                        aria-label={
-                          outlineAllExpanded
-                            ? t("files.collapse_all_folders")
-                            : t("files.expand_all_folders")
-                        }
-                        title={
-                          outlineAllExpanded
-                            ? t("files.collapse_all_folders")
-                            : t("files.expand_all_folders")
-                        }
-                      >
-                        <span className="text-xs font-medium">
-                          {outlineAllExpanded
-                            ? t("files.collapse_all_folders")
-                            : t("files.expand_all_folders")}
-                        </span>
-                        <ChevronDown
-                          className={cn(
-                            "size-3.5 shrink-0 transition-transform",
-                            outlineAllExpanded && "rotate-180",
-                          )}
-                          aria-hidden
-                        />
-                      </Button>
-                    ) : null}
-                  </div>
                   {listedNodes.length > 0 ? (
                     /*
                       Scroll only file rows. Use a raw <table> (not Table wrapper)
