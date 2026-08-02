@@ -78,12 +78,14 @@ describe("@ folder file selection contract", () => {
       "src/react-app/domains/session/surface/session-surface-mention-files.ts",
     );
     expect(targets).toContain("workspaceMentionRootTargets");
+    expect(targets).toContain("workspaceMentionFlatBrowseTargets");
     expect(targets).toContain("files.source_uploads");
     expect(targets).toContain("files.source_task");
     expect(targets).toContain("files.source_expert");
     expect(targets).toContain("SYSTEM_ROOT_FILES");
     expect(browser).toContain("target.label");
     expect(browser).toContain("subtitle");
+    expect(browser).toContain("items.slice(0, 40)");
     expect(surface).toContain("listSessionMentionFolder");
     expect(mentionFiles).toContain("mergeTaskSourceDirectoryTargets");
     expect(mentionFiles).toContain("WORKSPACE_TASKS_DIR");
