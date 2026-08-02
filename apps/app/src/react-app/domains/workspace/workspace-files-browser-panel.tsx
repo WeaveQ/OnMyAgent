@@ -112,7 +112,7 @@ import {
   canPreviewWorkspaceFileInline,
   collectExpandableDirPaths,
   collectMatchingFilesUnder,
-  fileCategoryI18nKey,
+  fileCategoryLabel,
   filesSourceTabSubtitleKey,
   filesSourceTabTitleKey,
   filterWorkspaceFileTree,
@@ -126,10 +126,6 @@ import {
   type FileCategory,
   type TreeOutlineRow,
 } from "./workspace-files-model";
-
-function fileCategoryLabel(category: FileCategory) {
-  return t(fileCategoryI18nKey(category));
-}
 
 function folderDisplayName(node: WorkspaceFileTreeNode): string {
   if (isFilesUngroupedPath(node.path)) return t("files.ungrouped");
@@ -1053,8 +1049,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [closePreview, selectedFile]);
 
   // Same gutters as 市场 pluginsLayoutClass.pageContainer
-  // Match Mine: title → (optional primary actions) → pathbar
-  // (breadcrumb · expand · type · search · refresh). No empty toolbar row.
+  // Title → pathbar controls (expand · type · search · refresh).
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
           <div className="mb-3 min-w-0 shrink-0 text-left">
