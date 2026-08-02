@@ -924,27 +924,15 @@ export function WorkspaceFilesBrowserPanel(props: {
           ? absoluteForPath(target.value)
           : "";
       try {
-        // Prefer local office overlay / editing bridge for pptx/docx/xlsx.
-        if (
-          abs &&
-          isElectronRuntime() &&
-          canEditArtifactTarget(target)
-        ) {
-          try {
-            await openArtifactForEditing(abs);
-            return;
-          } catch {
-            // Fall through to host open / OS default.
-          }
-        }
         if (abs && isElectronRuntime()) {
-          try {
-            const { openDesktopPath } = await import("../../../app/lib/desktop");
-            await openDesktopPath(abs);
-            return;
-          } catch {
-            // Fall through.
-          }
+          const { openWorkspaceFileExternally } = await import(
+            "./workspace-files-open-external"
+          );
+          await openWorkspaceFileExternally({
+            absolutePath: abs,
+            fileName: target.name || target.value || "",
+          });
+          return;
         }
         await props.onOpenArtifact?.(target);
       } catch (openError) {
