@@ -1530,7 +1530,10 @@ export function ExpertPage(props: ExpertPageProps) {
                       canRenderReactSurface &&
                       !showNoExpertConversationEmptyState ? (
                           <SessionSurface
-                            key={renderedSessionId}
+                            // Stable per workspace — session switches are prop-driven
+                            // (session effects + scroll store). Full remount on every
+                            // sessionId was the main switch cost.
+                            key={props.runtimeWorkspaceId ?? "expert-surface"}
                             {...props.surface!}
                             onSendDraft={wrappedOnSendDraft}
                             client={props.onmyagentServerClient!}
