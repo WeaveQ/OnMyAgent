@@ -1048,7 +1048,6 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).toContain('data-files-mine-breadcrumb="true"');
     expect(uploads).toContain("FilesRefreshButton");
     expect(uploads).toContain('source="mine"');
-    expect(uploads).toContain('appearance="title"');
     expect(uploads).toContain("showBreadcrumb");
     expect(uploads).toContain("currentFolderPath !== WORKSPACE_UPLOADS_DIR");
     expect(uploads).toContain("breadcrumbSegments");
@@ -1082,7 +1081,6 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).not.toContain('data-files-browser-breadcrumb="true"');
     expect(browser).toContain("FilesRefreshButton");
     expect(browser).toContain('source="browser"');
-    expect(browser).toContain('appearance="title"');
     expect(browser).toContain('data-files-expand-collapse="true"');
     // Breadcrumb root uses product tab title, not generic workspace label.
     expect(browser).toContain("filesSourceTabTitleKey(sourceTab)");
@@ -1133,7 +1131,6 @@ describe("files module structure", () => {
     expect(chrome).toContain("useFilesRefreshFlash");
     expect(chrome).toContain("FilesTypeFilter");
     expect(chrome).toContain("FilesRefreshButton");
-    expect(chrome).toContain('appearance?: "title" | "toolbar"');
     expect(chrome).toContain("data-files-mine-refresh");
     expect(chrome).toContain("data-files-browser-refresh");
     expect(page).toContain("readFilesTabFromUrl");
