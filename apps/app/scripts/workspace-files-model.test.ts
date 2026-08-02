@@ -250,11 +250,17 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
     expect(source).not.toContain("CloudDriveEmptyState");
     expect(source).toContain('from "./workspace-files-model"');
     expect(source).toContain("DEFAULT_FILES_SOURCE_TAB");
-    expect(uploads).toContain("uploadInbox");
+    // Mine writes uploads/ directly; listInbox only for one-shot migrate.
+    expect(uploads).toContain("writeWorkspaceBinaryFile");
     expect(uploads).toContain("listInbox");
+    expect(uploads).toContain("planInboxToUploadsMigration");
     expect(browser).toContain("FilePreviewDrawer");
     expect(browser).toContain("workspace-files-preview-drawer");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    expect(browser).toContain("buildRootOutlineRows");
+    // Browse like Mine: enter folders via currentDirectoryPath, not outline expand.
+    expect(browser).toContain("enterDirectory");
+    expect(browser).toContain("setCurrentDirectoryPath");
+    expect(browser).toContain("listDeep");
+    expect(browser).not.toContain("buildRootOutlineRows");
   });
 });

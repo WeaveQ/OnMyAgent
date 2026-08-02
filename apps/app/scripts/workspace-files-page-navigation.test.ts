@@ -37,11 +37,12 @@ describe("workspace files page navigation", () => {
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("collectMatchingFilesUnder");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    // Continuity: orphan bucket + truncated session titles
-    expect(browser).toContain("groupLooseAsOrphan: true");
-    expect(browser).toContain("orphan-header");
-    expect(browser).toContain("truncateDisplayTitle");
-    expect(browser).toContain("files.ungrouped");
+    // Continuity: Mine-style drill-in (click folder → breadcrumb), not outline tree.
+    expect(browser).toContain("enterDirectory");
+    expect(browser).toContain("listDeep");
+    expect(browser).toContain("data-files-list-deep");
+    expect(browser).not.toContain("groupLooseAsOrphan");
+    expect(browser).not.toContain("orphan-header");
   });
 
   test("matches the compact shell tab switcher (bare SegmentedTabGroup + tab NavTab)", () => {
