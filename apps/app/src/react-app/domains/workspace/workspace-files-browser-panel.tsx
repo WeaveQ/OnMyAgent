@@ -93,7 +93,6 @@ import {
   shouldHideEntry,
   sortTaskSourceTreeCopy,
   sortWorkspaceFileTreeCopy,
-  workspaceNameFromRoot,
   type WorkspaceFileSortDir,
   type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
@@ -540,14 +539,6 @@ export function WorkspaceFilesBrowserPanel(props: {
     Boolean(fileRoot) &&
     fileRoot.replace(/[\\/]+$/, "") !== workspaceRootNormalized;
   const requiresSessionFileRoot = toolFolderScoped;
-  // Match Mine: breadcrumb root uses the product tab title (任务文件 / 专家文件),
-  // not a generic "工作区" label that diverged from the page h1.
-  const breadcrumbRootLabel = useMemo(() => {
-    if (toolFolderScoped && fileRoot.trim()) {
-      return workspaceNameFromRoot(fileRoot);
-    }
-    return t(filesSourceTabTitleKey(sourceTab));
-  }, [fileRoot, sourceTab, toolFolderScoped]);
 
   const selectedTarget = useMemo(() => {
     if (!selectedFile) return null;
@@ -1075,22 +1066,11 @@ export function WorkspaceFilesBrowserPanel(props: {
             </p>
           </div>
 
-          {/* Pathbar: source label · expand/collapse sessions · type · search · refresh */}
+          {/* Pathbar: expand/collapse · type · search · refresh (no duplicate title) */}
           <div
-            className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
+            className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2"
             data-files-browser-pathbar="true"
           >
-            <nav
-              data-workspace-file-breadcrumb="true"
-              data-files-browser-breadcrumb="true"
-              aria-label={t("files.breadcrumb_label")}
-              className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm text-dls-secondary"
-            >
-              <span className="truncate font-medium text-dls-text">
-                {breadcrumbRootLabel}
-              </span>
-            </nav>
-
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
               {canExpandDeep ? (
                 <Button
