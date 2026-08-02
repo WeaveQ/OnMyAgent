@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ClipboardList,
   Download,
+  Folder,
   MessageCircle,
   Paperclip,
   Pin,
@@ -46,6 +47,10 @@ import {
   mcpServerDescription,
 } from "./composer-helpers";
 import { formatPluginObjectType, skillMenuDescription } from "./tool-menu-model";
+import {
+  ComposerToolMenuMine,
+  type ComposerToolMenuMineProps,
+} from "./composer-tool-menu-mine";
 
 type McpMenuItem = { entry: McpServerEntry; status: McpServerStatus };
 
@@ -56,6 +61,7 @@ export type ComposerToolMenuProps = {
   canCaptureAppshot: boolean;
   openFilePicker: () => void;
   captureAppshot: () => void | Promise<void>;
+  minePanel: ComposerToolMenuMineProps | null;
   promptTemplates: ComposerPromptTemplate[];
   selectedPromptTemplateId: string | null;
   setSelectedPromptTemplateId: (id: string | null) => void;
@@ -110,6 +116,7 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
     canCaptureAppshot,
     openFilePicker,
     captureAppshot,
+    minePanel,
     promptTemplates,
     selectedPromptTemplateId,
     setSelectedPromptTemplateId,
@@ -195,6 +202,25 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
         className="my-1 h-px bg-dls-border/80"
         role="separator"
       />
+      <MenuRowButton
+        type="button"
+        align="center"
+        density="compact"
+        active={toolMenuSection === "mine"}
+        className="justify-between gap-2 text-dls-text hover:text-dls-text"
+        disabled={!attachmentsEnabled}
+        onMouseEnter={() => setToolMenuSection("mine")}
+        onFocus={() => setToolMenuSection("mine")}
+        onClick={() => setToolMenuSection("mine")}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Folder className="size-3.5 shrink-0 text-dls-text" />
+          <span className="truncate text-sm leading-5 text-dls-text">
+            {t("files.source_uploads")}
+          </span>
+        </span>
+        <ChevronRight className="size-3.5 shrink-0 text-dls-text/50" />
+      </MenuRowButton>
       {([
         ["modes", t("composer.collaboration_mode"), Sparkles] as const,
         ...(promptTemplates.length > 0
@@ -247,7 +273,9 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
       )}
       style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
     >
-      {toolMenuSection === "templates" ? (
+      {toolMenuSection === "mine" && minePanel ? (
+        <ComposerToolMenuMine {...minePanel} />
+      ) : toolMenuSection === "templates" ? (
         <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
           {t("composer.prompt_templates")}
         </div>
@@ -341,6 +369,7 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
           {t("composer.collaboration_choose_mode")}
         </div>
       ) : null}
+      {toolMenuSection === "mine" ? null : (
       <div
         className={cn(
           "overflow-x-hidden overflow-y-auto px-1.5 pb-1.5",
@@ -758,6 +787,7 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
           )
         ) : null}
       </div>
+      )}
     </div>
   )}
   {toolMenuSection === "templates" && selectedPromptTemplate ? (

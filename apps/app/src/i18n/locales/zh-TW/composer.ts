@@ -27,6 +27,8 @@ export default {
   "composer.remote_worker_paste_warning":
     "這是遠程工作區。沙箱也是遠程的。要共享文件，請上傳到側邊欄的共享文件夾。",
   "composer.search_connectors": "搜尋連接器",
+  "composer.search_mine_files": "搜尋我的檔案",
+  "composer.no_matching_mine_files": "沒有符合的檔案",
   "composer.search_skills": "搜尋技能",
   "composer.slash_section_skills": "技能",
   "composer.stop": "停止",

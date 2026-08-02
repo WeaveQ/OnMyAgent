@@ -48,7 +48,13 @@ export type ToolMenuSettingsSection =
   | "skills"
   | "mcps"
   | "plugins";
-export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";
+export type ToolMenuSection =
+  | "files"
+  | "mine"
+  | "templates"
+  | "modes"
+  | "skills"
+  | "mcps";
 export type ComposerPromptTemplate = {
   id: string;
   label: string;
