@@ -359,9 +359,16 @@ export function AssistantPage(props: AssistantPageProps) {
     () =>
       buildFilesOpenSessionMeta({
         workspaceId: props.selectedWorkspaceId,
+        workspaceRoot:
+          props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
         liveSessions: assistantWorkspaceSessions,
       }),
-    [assistantWorkspaceSessions, props.selectedWorkspaceId],
+    [
+      assistantWorkspaceSessions,
+      props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
+      props.workspaceFilesRoot,
+    ],
   );
 
   const [automationPinRevision, setAutomationPinRevision] = useState(0);

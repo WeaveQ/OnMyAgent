@@ -5,6 +5,7 @@ import { readAutomationSessionRecords } from "../../messaging";
 import { readAssistantArchivedTasks } from "../../shared";
 import {
   buildSessionIdByPathKeyFromAutomationRecords,
+  buildSessionIdByPathKeyFromSessionDirectories,
   buildSessionTitleByKey,
 } from "../../workspace";
 
@@ -17,13 +18,38 @@ export type FilesOpenSessionMeta = {
 
 export function buildFilesOpenSessionMeta(input: {
   workspaceId: string;
-  liveSessions: ReadonlyArray<{ id?: string | null; title?: string | null }>;
+  workspaceRoot?: string | null;
+  liveSessions: ReadonlyArray<{
+    id?: string | null;
+    title?: string | null;
+    directory?: string | null;
+  }>;
 }): FilesOpenSessionMeta {
   const workspaceId = input.workspaceId.trim();
+  const workspaceRoot = String(input.workspaceRoot ?? "").trim() || null;
   const archived = readAssistantArchivedTasks(workspaceId);
   const automationRecords = readAutomationSessionRecords(workspaceId);
-  const { sessionIdByPathKey, pathTitleAliases } =
+
+  const fromAutomation =
     buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
+  // Expert isolation dirs (and any session with a bound directory) map
+  // folder basename / product path → real session id for open + titles.
+  const fromDirectories = buildSessionIdByPathKeyFromSessionDirectories(
+    [
+      ...input.liveSessions,
+      ...archived.map((task) => ({
+        id: task.sessionId,
+        directory: task.directory,
+        title: task.title,
+      })),
+    ],
+    workspaceRoot,
+  );
+
+  const sessionIdByPathKey: Record<string, string> = {
+    ...fromDirectories.sessionIdByPathKey,
+    ...fromAutomation.sessionIdByPathKey,
+  };
 
   return {
     activeSessionIds: input.liveSessions
@@ -36,7 +62,8 @@ export function buildFilesOpenSessionMeta(input: {
       liveSessions: input.liveSessions,
       archivedTasks: archived,
       pathTitleAliases: [
-        ...pathTitleAliases,
+        ...fromDirectories.pathTitleAliases,
+        ...fromAutomation.pathTitleAliases,
         ...automationRecords.map((record) => ({
           key: record.sessionId,
           title: record.title,

@@ -11,7 +11,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-
 import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
@@ -323,11 +322,15 @@ export function ExpertPage(props: ExpertPageProps) {
     );
     return buildFilesOpenSessionMeta({
       workspaceId: props.selectedWorkspaceId,
+      workspaceRoot:
+        props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
       liveSessions: live,
     });
   }, [
     archivedExpertSessionIds,
     props.selectedWorkspaceId,
+    props.selectedWorkspaceRoot,
+    props.workspaceFilesRoot,
     workspaceSessions,
   ]);
   const sessionTabOrderScope = [
