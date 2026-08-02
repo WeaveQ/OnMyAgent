@@ -59,7 +59,8 @@ import {
   createBlankWizardDraft,
   createDefaultAgentRegistry,
 } from "./agent-registry";
-import { renderAvatar } from "./agents-avatar-rendering";
+import { renderAvatar, renderGeneratedAvatar } from "./agents-avatar-rendering";
+import { createGeneratedAvatarOption } from "./agents-page-model";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 import { SkillGlyphIcon } from "../../design-system/skill-glyph-icon";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
@@ -229,10 +230,10 @@ function ExpertCoach(props: {
           onmyagentServerToken={props.onmyagentServerToken}
           selectedModel={props.selectedModel}
           title={t("agents.expert_creation_coach")}
-          avatar={(
-            <span className="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eee7dc] text-dls-text">
-              <UserRound className="size-6" aria-hidden />
-            </span>
+          avatar={renderGeneratedAvatar(
+            createGeneratedAvatarOption("lorelei", 7, 2),
+            "onmyagent-expert-creation-coach",
+            "size-10 shrink-0",
           )}
           initialContent={(
             <>
@@ -291,6 +292,7 @@ function BasicInfoPanel(props: {
   ) => void;
 }) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [generatedAvatarPage, setGeneratedAvatarPage] = useState(0);
 
   const chooseCustomAvatar = (file: File | null) => {
     if (!file) return;
@@ -304,6 +306,12 @@ function BasicInfoPanel(props: {
   };
 
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const generatedAvatars = useMemo(
+    () => Array.from({ length: 8 }, (_, index) => (
+      createGeneratedAvatarOption("lorelei", generatedAvatarPage, index)
+    )),
+    [generatedAvatarPage],
+  );
 
   const chooseGeneratedAvatar = (avatarId: string) => {
     props.onDraftChange("avatarOptionId", avatarId);
@@ -346,7 +354,10 @@ function BasicInfoPanel(props: {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setAvatarPickerOpen(true)}
+              onClick={() => {
+                setGeneratedAvatarPage((page) => page + 1);
+                setAvatarPickerOpen(true);
+              }}
             >
               <Sparkles data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_generate_avatar")}
@@ -396,7 +407,7 @@ function BasicInfoPanel(props: {
             <DialogDescription>{t("agents.expert_creation_avatar_hint")}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-4 gap-3">
-            {props.registry.avatars.map((avatar) => (
+            {generatedAvatars.map((avatar) => (
               <button
                 key={avatar.id}
                 type="button"
@@ -421,6 +432,14 @@ function BasicInfoPanel(props: {
               </button>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setGeneratedAvatarPage((page) => page + 1)}
+          >
+            <Sparkles data-icon="inline-start" className="size-3.5" />
+            {t("agents.expert_creation_generate_avatar")}
+          </Button>
           <Button type="button" variant="outline" onClick={() => uploadInputRef.current?.click()}>
             <Upload data-icon="inline-start" className="size-3.5" />
             {t("agents.upload_custom_image")}
