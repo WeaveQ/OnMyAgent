@@ -40,7 +40,6 @@ import {
   NavTabButton,
   SegmentedTabGroup,
 } from "@/components/ui/action-row";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -440,36 +439,69 @@ function SkillPickerDialog(props: {
   onToggle: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<"market" | "installed">("market");
+  const [category, setCategory] = useState("all");
+  const categories = useMemo(
+    () => Array.from(new Set(props.skills.map((skill) => skill.category).filter(Boolean))),
+    [props.skills],
+  );
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return props.skills.filter((skill) => {
+      if (category !== "all" && skill.category !== category) return false;
       if (!normalized) return true;
       return `${skill.name} ${skill.description} ${skill.category}`
         .toLowerCase()
         .includes(normalized);
     });
-  }, [props.skills, query]);
+  }, [category, props.skills, query]);
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-h-[min(40rem,calc(100vh-4rem))] w-[min(42rem,calc(100%-2rem))] gap-4 rounded-xl bg-dls-surface p-5 text-dls-text">
-        <DialogHeader>
-          <DialogTitle>{t("agents.expert_creation_skill_picker_title")}</DialogTitle>
-          <DialogDescription>
-            {t("agents.expert_creation_skill_picker_desc")}
-          </DialogDescription>
-        </DialogHeader>
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.currentTarget.value)}
-          placeholder={t("agents.search_skills")}
-          aria-label={t("agents.search_skills")}
-          variant="dls"
-          controlSize="lg"
-          radius="xl"
-        />
-        <div className="min-h-0 overflow-y-auto">
-          <div className="grid gap-2 sm:grid-cols-2">
+      <DialogContent className="flex h-[min(48rem,calc(100vh-3rem))] w-[calc(100vw-4rem)] max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-background p-0 text-dls-text">
+        <div className="flex items-center justify-between border-b border-dls-border px-6 py-4">
+          <DialogHeader>
+            <DialogTitle>{t("agents.expert_creation_skill_picker_title")}</DialogTitle>
+            <DialogDescription>{t("agents.expert_creation_skill_picker_desc")}</DialogDescription>
+          </DialogHeader>
+          <SegmentedTabGroup aria-label={t("agents.expert_creation_skill_picker_title")}>
+            <NavTabButton size="tab" shape="tab" active={view === "market"} onClick={() => setView("market")}>
+              {t("store.skills_marketplace")}
+            </NavTabButton>
+            <NavTabButton size="tab" shape="tab" active={view === "installed"} onClick={() => setView("installed")}>
+              {t("store.my_skills")}
+            </NavTabButton>
+          </SegmentedTabGroup>
+        </div>
+        <div className="flex min-h-0 flex-1">
+          <aside className="w-48 shrink-0 border-r border-dls-border p-4">
+            <div className="space-y-1">
+              {["all", ...categories].map((item) => (
+                <NavTabButton
+                  key={item}
+                  size="tab"
+                  shape="tab"
+                  active={category === item}
+                  className="w-full justify-start"
+                  onClick={() => setCategory(item)}
+                >
+                  {item === "all" ? t("skills_marketplace.category_all") : item}
+                </NavTabButton>
+              ))}
+            </div>
+          </aside>
+          <div className="flex min-w-0 flex-1 flex-col p-5">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              placeholder={t("agents.search_skills")}
+              aria-label={t("agents.search_skills")}
+              variant="dls"
+              controlSize="lg"
+              radius="xl"
+            />
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {visibleSkills.map((skill) => {
               const selected = props.selectedIds.includes(skill.id);
               return (
@@ -477,7 +509,7 @@ function SkillPickerDialog(props: {
                   key={skill.id}
                   type="button"
                   className={cn(
-                    "min-w-0",
+                    "min-h-28 min-w-0 bg-dls-surface",
                     selected
                       ? "border-dls-accent bg-dls-accent/8"
                       : "bg-dls-background",
@@ -499,6 +531,8 @@ function SkillPickerDialog(props: {
                 </ActionRowButton>
               );
             })}
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -535,6 +569,12 @@ function SkillsPanel(props: {
           <p className="mt-1 text-sm text-dls-secondary">{t("agents.expert_creation_skills_desc")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {selectedSkills.length > 0 ? (
+            <Button type="button" size="sm" variant="ghost" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+              <Upload data-icon="inline-start" className="size-3.5" />
+              {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
+            </Button>
+          ) : null}
           <Button type="button" size="sm" variant="ghost" disabled={props.loading || props.loadError} onClick={() => setPickerOpen(true)}>
             <Plus data-icon="inline-start" className="size-3.5" />
             {t("agents.expert_creation_add_skill")}
@@ -576,9 +616,8 @@ function SkillsPanel(props: {
       ) : selectedSkills.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           {selectedSkills.map((skill) => {
-            const selected = props.selectedIds.includes(skill.id);
             return (
-              <article key={skill.id} className="min-w-0 rounded-xl border border-dls-border bg-dls-surface p-5">
+              <article key={skill.id} className="min-w-0 rounded-xl bg-dls-surface p-5">
                 <div className="flex min-w-0 items-start gap-3">
                   <IconCircle className="size-12 shrink-0 border-dls-accent/20 bg-dls-accent/10 text-dls-accent">
                     <SkillGlyphIcon className="size-6" />
@@ -591,15 +630,15 @@ function SkillsPanel(props: {
                         </h4>
                         <p className="mt-1 truncate text-sm text-dls-secondary">{skill.name}</p>
                       </div>
-                      <Switch
-                        size="default"
-                        className="data-checked:border-dls-status-orange data-checked:bg-dls-status-orange"
-                        checked={selected}
-                        onCheckedChange={(checked) => {
-                          if (checked !== selected) toggleSkill(skill.id);
-                        }}
-                        aria-label={localSkillLabel(skill)}
-                      />
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        onClick={() => toggleSkill(skill.id)}
+                        aria-label={t("agents.expert_creation_remove_skill")}
+                      >
+                        <X className="size-3.5" aria-hidden />
+                      </Button>
                     </div>
                     <p className="mt-4 line-clamp-3 text-sm leading-6 text-dls-secondary">
                       {localSkillDescription(skill)}
