@@ -316,5 +316,12 @@ export default {
   "agents.expert_creation_preview_model": "DeepSeek-V4-Flash",
   "agents.expert_creation_preview_send": "Send",
   "agents.expert_creation_saving": "Creating…",
+  "agents.expert_creation_create_failed": "The expert could not be created. Please try again.",
+  "agents.expert_creation_exit_title": "Leave expert creation?",
+  "agents.expert_creation_exit_desc": "Your draft is saved automatically and will be available when you return.",
+  "agents.expert_creation_exit_with_knowledge": "Your form draft is saved automatically, but selected knowledge files must be added again when you return.",
+  "agents.expert_creation_continue_editing": "Continue editing",
+  "agents.expert_creation_discard_exit": "Discard draft",
+  "agents.expert_creation_keep_exit": "Keep draft and leave",
   "agents.expert_creation_name_required": "Enter an expert name to continue.",
 } as const;
