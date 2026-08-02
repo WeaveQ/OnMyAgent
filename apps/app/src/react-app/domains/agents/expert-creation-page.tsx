@@ -477,7 +477,7 @@ function SkillPickerDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="flex h-[min(48rem,calc(100vh-3rem))] w-[calc(100vw-4rem)] max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-background p-0 text-dls-text">
+      <DialogContent className="flex h-[min(48rem,calc(100vh-3rem))] w-[calc(100vw-4rem)] max-w-none flex-col gap-0 overflow-hidden rounded-xl bg-dls-background p-0 text-dls-text sm:w-[calc(100vw-4rem)] sm:max-w-none">
         <div className="flex items-center justify-between border-b border-dls-border px-6 py-4">
           <DialogHeader>
             <DialogTitle>{t("agents.expert_creation_skill_picker_title")}</DialogTitle>
@@ -559,6 +559,81 @@ function SkillPickerDialog(props: {
   );
 }
 
+function SkillImportDialog(props: {
+  open: boolean;
+  importing: boolean;
+  onOpenChange: (open: boolean) => void;
+  onImport: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const importFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    props.onImport(files);
+    props.onOpenChange(false);
+  };
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-xl gap-4 rounded-xl bg-dls-surface p-6 text-dls-text sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{t("skills_marketplace.import_title")}</DialogTitle>
+          <DialogDescription className="sr-only">{t("skills_marketplace.import_drop")}</DialogDescription>
+        </DialogHeader>
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          accept=".md,.zip"
+          multiple
+          onChange={(event) => {
+            importFiles(Array.from(event.currentTarget.files ?? []));
+            event.currentTarget.value = "";
+          }}
+        />
+        <button
+          type="button"
+          disabled={props.importing}
+          onClick={() => inputRef.current?.click()}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragActive(true);
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={(event) => {
+            event.preventDefault();
+            setDragActive(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragActive(false);
+            importFiles(Array.from(event.dataTransfer.files));
+          }}
+          className={cn(
+            "flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-dls-border bg-dls-background text-center transition-colors mac:titlebar-no-drag",
+            dragActive ? "border-dls-accent bg-dls-hover" : "hover:border-dls-border hover:bg-dls-hover",
+            props.importing && "cursor-wait opacity-70",
+          )}
+        >
+          <span className="flex size-8 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
+            {props.importing ? <LoadingSpinner size="default" /> : <Upload className="size-4" />}
+          </span>
+          <span className="text-sm text-dls-text">{t("skills_marketplace.import_drop")}</span>
+        </button>
+        <div className="space-y-2 text-xs leading-5 text-dls-secondary">
+          <div className="font-medium text-dls-text">{t("skills_marketplace.import_requirements_title")}</div>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>{t("skills_marketplace.import_requirement_skill_md")}</li>
+            <li>{t("skills_marketplace.import_requirement_frontmatter")}</li>
+          </ul>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SkillsPanel(props: {
   skills: AgentSkillItem[];
   selectedIds: string[];
@@ -570,7 +645,7 @@ function SkillsPanel(props: {
   onRetryLoad: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const selectedSkills = props.skills.filter((skill) => props.selectedIds.includes(skill.id));
 
   const toggleSkill = (id: string) => {
@@ -589,7 +664,7 @@ function SkillsPanel(props: {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {selectedSkills.length > 0 ? (
-            <Button type="button" size="sm" variant="ghost" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+            <Button type="button" size="sm" variant="ghost" disabled={props.importing} onClick={() => setImportOpen(true)}>
               <Upload data-icon="inline-start" className="size-3.5" />
               {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
             </Button>
@@ -598,18 +673,6 @@ function SkillsPanel(props: {
             <Plus data-icon="inline-start" className="size-3.5" />
             {t("agents.expert_creation_add_skill")}
           </Button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".md,.zip"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              const files = Array.from(event.currentTarget.files ?? []);
-              if (files.length > 0) props.onImport(files);
-              event.currentTarget.value = "";
-            }}
-          />
         </div>
       </div>
       {props.loading && selectedSkills.length === 0 ? (
@@ -626,7 +689,7 @@ function SkillsPanel(props: {
             <Button type="button" variant="outline" size="sm" onClick={props.onRetryLoad}>
               {t("agents.expert_creation_retry")}
             </Button>
-            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => setImportOpen(true)}>
               <Upload data-icon="inline-start" className="size-3.5" />
               {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
             </Button>
@@ -677,7 +740,7 @@ function SkillsPanel(props: {
               <Plus data-icon="inline-start" className="size-3.5" />
               {t("agents.expert_creation_add_skill")}
             </Button>
-            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => inputRef.current?.click()}>
+            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => setImportOpen(true)}>
               <Upload data-icon="inline-start" className="size-3.5" />
               {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
             </Button>
@@ -690,6 +753,12 @@ function SkillsPanel(props: {
         selectedIds={props.selectedIds}
         onOpenChange={setPickerOpen}
         onToggle={toggleSkill}
+      />
+      <SkillImportDialog
+        open={importOpen}
+        importing={props.importing}
+        onOpenChange={setImportOpen}
+        onImport={props.onImport}
       />
     </div>
   );
