@@ -75,6 +75,7 @@ export function WorkspaceFilesPage(props: {
   activeSessionIds?: ReadonlySet<string> | readonly string[] | null;
   archivedSessionIds?: ReadonlySet<string> | readonly string[] | null;
   sessionTitleByKey?: ReadonlyMap<string, string> | Record<string, string> | null;
+  sessionIdByPathKey?: ReadonlyMap<string, string> | Record<string, string> | null;
   onOpenSourceSession?: (sessionId: string) => void;
   onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   onEditError?: () => void;
@@ -159,6 +160,7 @@ export function WorkspaceFilesPage(props: {
             activeSessionIds={props.activeSessionIds}
             archivedSessionIds={props.archivedSessionIds}
             sessionTitleByKey={props.sessionTitleByKey}
+            sessionIdByPathKey={props.sessionIdByPathKey}
             onOpenSourceSession={props.onOpenSourceSession}
             onOpenArtifact={props.onOpenArtifact}
             onEditError={props.onEditError}

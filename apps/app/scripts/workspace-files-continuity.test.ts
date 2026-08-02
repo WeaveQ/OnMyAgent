@@ -19,6 +19,7 @@ import {
   extractSessionIdFromProductPath,
   filterPathsUnderSessionRoots,
   isBareWorkspaceRootFile,
+  isLikelySessionId,
   isUnderProductLayoutRoot,
   resolveProductWriteRelativePath,
   toProductLayoutRelativePath,
@@ -44,6 +45,7 @@ import {
 } from "../src/react-app/domains/workspace/workspace-files-model";
 import { buildIsolatedExpertSessionDirectory } from "../src/react-app/capabilities/session-identity/expert-session-directory";
 import {
+  buildSessionIdByPathKeyFromAutomationRecords,
   buildSessionTitleByKey,
   resolveOpenSourceSessionAction,
 } from "../src/react-app/domains/workspace/workspace-files-open-session";
@@ -170,6 +172,16 @@ describe("product write paths", () => {
       extractSessionIdFromProductPath("experts/quote-specialist/ses_1/q.json"),
     ).toBe("ses_1");
     expect(extractSessionIdFromProductPath("uploads/note.md")).toBeNull();
+    // Historical automation group folders must NOT be treated as session ids.
+    expect(
+      extractSessionIdFromProductPath(
+        "tasks/\u81ea\u52a8\u5316\u4efb\u52a1-2026-08-01-08-00-00/out.md",
+      ),
+    ).toBeNull();
+    expect(isLikelySessionId("ses_live")).toBe(true);
+    expect(
+      isLikelySessionId("\u81ea\u52a8\u5316\u4efb\u52a1-2026-08-01-08-00-00"),
+    ).toBe(false);
     expect(
       inferAgentSlugFromDirectory("/ws/experts/quote-specialist/ses_1"),
     ).toBe("quote-specialist");
@@ -534,6 +546,7 @@ describe("open source session + create folder (Sprint A/B)", () => {
       sessionId: "ses_live",
       status: "active",
       canOpen: true,
+      isSessionFolder: true,
     });
 
     const archived = resolveOpenSourceSessionAction({
@@ -543,6 +556,7 @@ describe("open source session + create folder (Sprint A/B)", () => {
     });
     expect(archived.status).toBe("archived");
     expect(archived.canOpen).toBe(true);
+    expect(archived.isSessionFolder).toBe(true);
 
     const missing = resolveOpenSourceSessionAction({
       relativePath: "tasks/ses_gone/x.md",
@@ -551,6 +565,7 @@ describe("open source session + create folder (Sprint A/B)", () => {
     });
     expect(missing.status).toBe("missing");
     expect(missing.canOpen).toBe(false);
+    expect(missing.isSessionFolder).toBe(true);
 
     const none = resolveOpenSourceSessionAction({
       relativePath: "uploads/note.md",
@@ -558,6 +573,52 @@ describe("open source session + create folder (Sprint A/B)", () => {
     });
     expect(none.status).toBe("none");
     expect(none.canOpen).toBe(false);
+    expect(none.isSessionFolder).toBe(false);
+
+    // Automation group folders resolve via path alias → real session id.
+    const autoName = "\u81ea\u52a8\u5316\u4efb\u52a1-2026-08-01-08-00-00";
+    const mapped = resolveOpenSourceSessionAction({
+      relativePath: `tasks/${autoName}`,
+      activeSessionIds: ["ses_auto_1"],
+      sessionIdByPathKey: {
+        [autoName]: "ses_auto_1",
+        [`tasks/${autoName}`]: "ses_auto_1",
+      },
+    });
+    expect(mapped).toEqual({
+      sessionId: "ses_auto_1",
+      status: "active",
+      canOpen: true,
+      isSessionFolder: true,
+    });
+
+    // Without alias, automation folder is a plain folder (not a fake session).
+    const plainAuto = resolveOpenSourceSessionAction({
+      relativePath: `tasks/${autoName}`,
+      activeSessionIds: ["ses_auto_1"],
+    });
+    expect(plainAuto.status).toBe("none");
+    expect(plainAuto.isSessionFolder).toBe(false);
+  });
+
+  test("buildSessionIdByPathKeyFromAutomationRecords maps group folders", () => {
+    const autoName = "\u81ea\u52a8\u5316\u4efb\u52a1-2026-08-01-08-00-00";
+    const { sessionIdByPathKey, pathTitleAliases } =
+      buildSessionIdByPathKeyFromAutomationRecords([
+        {
+          sessionId: "ses_run_1",
+          groupName: autoName,
+          outputDirectory: `/ws/tasks/${autoName}`,
+          title: "Daily report",
+        },
+      ]);
+    expect(sessionIdByPathKey[autoName]).toBe("ses_run_1");
+    expect(sessionIdByPathKey[`tasks/${autoName}`]).toBe("ses_run_1");
+    expect(
+      pathTitleAliases.some(
+        (alias) => alias.key === autoName && alias.title === "Daily report",
+      ),
+    ).toBe(true);
   });
 
   test("buildSessionTitleByKey prefers live over archive", () => {
@@ -793,6 +854,9 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(browser).toContain("data-files-open-source-session");
     expect(browser).toContain("onOpenSourceSession");
     expect(browser).toContain("sessionTitleByKey");
+    expect(browser).toContain("sessionIdByPathKey");
+    expect(browser).toContain("isSessionFolder");
+    expect(browser).toContain("MessageSquare");
     expect(uploads).toContain("data-files-create-folder");
     expect(uploads).toContain("mkdirWorkspaceDirectory");
     expect(uploads).toContain("mapUploadsCatalogToRows");
@@ -808,8 +872,10 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(uploads).toContain("MineMoveToDialog");
     expect(uploads).toContain("actionLabel");
     expect(page).toContain("onOpenSourceSession");
+    expect(page).toContain("sessionIdByPathKey");
     expect(assistant).toContain("onOpenSourceSession");
     expect(assistant).toContain("filesOpenSessionMeta");
+    expect(assistant).toContain("buildSessionIdByPathKeyFromAutomationRecords");
   });
 });
 

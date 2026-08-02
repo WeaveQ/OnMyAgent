@@ -65,6 +65,7 @@ import {
   AutomationNavSidebar,
   AutomationPage,
   MessagingChannelsPage,
+  readAutomationSessionRecords,
   removeAutomationSessionRecord,
   syncAutomationSessionRecords,
   type AutomationNavKey,
@@ -76,8 +77,9 @@ import {
   writeAutomationFocus,
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
-import { WorkspaceFilesPage } from "../../workspace";
 import {
+  WorkspaceFilesPage,
+  buildSessionIdByPathKeyFromAutomationRecords,
   buildSessionTitleByKey,
   deleteSessionOwnedWorkspaceFiles,
 } from "../../workspace";
@@ -357,13 +359,26 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const filesOpenSessionMeta = useMemo(() => {
     const archived = readAssistantArchivedTasks(props.selectedWorkspaceId);
+    const automationRecords = readAutomationSessionRecords(
+      props.selectedWorkspaceId,
+    );
+    const { sessionIdByPathKey, pathTitleAliases } =
+      buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
     return {
       activeSessionIds: assistantWorkspaceSessions.map((session) => session.id),
       archivedSessionIds: archived.map((task) => task.sessionId),
       sessionTitleByKey: buildSessionTitleByKey({
         liveSessions: assistantWorkspaceSessions,
         archivedTasks: archived,
+        pathTitleAliases: [
+          ...pathTitleAliases,
+          ...automationRecords.map((record) => ({
+            key: record.sessionId,
+            title: record.title,
+          })),
+        ],
       }),
+      sessionIdByPathKey,
     };
   }, [assistantWorkspaceSessions, props.selectedWorkspaceId]);
 
@@ -1357,6 +1372,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           }
                           sessionTitleByKey={
                             filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          sessionIdByPathKey={
+                            filesOpenSessionMeta.sessionIdByPathKey
                           }
                           onOpenSourceSession={(sessionId) => {
                             props.sidebar.onOpenSession(

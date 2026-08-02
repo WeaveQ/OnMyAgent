@@ -71,9 +71,13 @@ import {
 } from "../../agents";
 import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
-import { MessagingChannelsPage } from "../../messaging";
-import { WorkspaceFilesPage } from "../../workspace";
 import {
+  MessagingChannelsPage,
+  readAutomationSessionRecords,
+} from "../../messaging";
+import {
+  WorkspaceFilesPage,
+  buildSessionIdByPathKeyFromAutomationRecords,
   buildSessionTitleByKey,
   deleteSessionOwnedWorkspaceFiles,
 } from "../../workspace";
@@ -329,13 +333,20 @@ export function ExpertPage(props: ExpertPageProps) {
     const live = workspaceSessions.filter(
       (session) => !archivedExpertSessionIds.has(session.id),
     );
+    const automationRecords = readAutomationSessionRecords(
+      props.selectedWorkspaceId,
+    );
+    const { sessionIdByPathKey, pathTitleAliases } =
+      buildSessionIdByPathKeyFromAutomationRecords(automationRecords);
     return {
       activeSessionIds: live.map((session) => session.id),
       archivedSessionIds: archived.map((task) => task.sessionId),
       sessionTitleByKey: buildSessionTitleByKey({
         liveSessions: live,
         archivedTasks: archived,
+        pathTitleAliases,
       }),
+      sessionIdByPathKey,
     };
   }, [
     archivedExpertSessionIds,
@@ -1566,6 +1577,9 @@ export function ExpertPage(props: ExpertPageProps) {
                           }
                           sessionTitleByKey={
                             filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          sessionIdByPathKey={
+                            filesOpenSessionMeta.sessionIdByPathKey
                           }
                           onOpenSourceSession={(sessionId) => {
                             props.sidebar.onOpenSession(

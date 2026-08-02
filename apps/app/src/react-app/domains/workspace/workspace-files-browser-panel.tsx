@@ -468,6 +468,10 @@ export function WorkspaceFilesBrowserPanel(props: {
    */
   sessionTitleByKey?: ReadonlyMap<string, string> | Record<string, string> | null;
   /**
+   * Path / folder aliases → real session id (e.g. automation group folders).
+   */
+  sessionIdByPathKey?: ReadonlyMap<string, string> | Record<string, string> | null;
+  /**
    * Navigate to the conversation that produced a file/session folder.
    */
   onOpenSourceSession?: (sessionId: string) => void;
@@ -857,6 +861,7 @@ export function WorkspaceFilesBrowserPanel(props: {
         relativePath,
         activeSessionIds: props.activeSessionIds,
         archivedSessionIds: props.archivedSessionIds,
+        sessionIdByPathKey: props.sessionIdByPathKey,
       });
       if (action.canOpen && action.sessionId) {
         props.onOpenSourceSession?.(action.sessionId);
@@ -865,6 +870,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     [
       props.activeSessionIds,
       props.archivedSessionIds,
+      props.sessionIdByPathKey,
       props.onOpenSourceSession,
     ],
   );
@@ -885,8 +891,13 @@ export function WorkspaceFilesBrowserPanel(props: {
         relativePath,
         activeSessionIds: props.activeSessionIds,
         archivedSessionIds: props.archivedSessionIds,
+        sessionIdByPathKey: props.sessionIdByPathKey,
       }),
-    [props.activeSessionIds, props.archivedSessionIds],
+    [
+      props.activeSessionIds,
+      props.archivedSessionIds,
+      props.sessionIdByPathKey,
+    ],
   );
 
   const openArtifactTarget = useCallback(
@@ -1353,11 +1364,14 @@ export function WorkspaceFilesBrowserPanel(props: {
                                     folderDisplayName(node);
                                   const hasChildren = node.children.length > 0;
                                   const sessionAction = openSourceForPath(node.path);
+                                  // Session icon only for real conversation folders;
+                                  // plain / automation output folders keep the folder icon.
                                   const isSession =
-                                    !isUngrouped &&
-                                    sessionAction.status !== "none";
+                                    !isUngrouped && sessionAction.isSessionFolder;
                                   const canOpenSession =
                                     isSession && sessionAction.canOpen;
+                                  const isOrphanSession =
+                                    isSession && sessionAction.status === "missing";
                                   return (
                                     <TableRow
                                       key={`tree-dir:${node.path}`}
@@ -1374,6 +1388,9 @@ export function WorkspaceFilesBrowserPanel(props: {
                                       }
                                       data-files-open-source-session={
                                         canOpenSession ? "true" : undefined
+                                      }
+                                      data-files-session-orphan={
+                                        isOrphanSession ? "true" : undefined
                                       }
                                       className="group h-11 hover:bg-dls-hover/50"
                                     >
@@ -1409,11 +1426,35 @@ export function WorkspaceFilesBrowserPanel(props: {
                                             <span className="size-6 shrink-0" />
                                           )}
                                           {isSession ? (
-                                            <MessageSquare
-                                              className="size-4 shrink-0 text-dls-secondary"
-                                              strokeWidth={1.75}
-                                              aria-hidden
-                                            />
+                                            <button
+                                              type="button"
+                                              className={cn(
+                                                "inline-flex size-4 shrink-0 items-center justify-center rounded-sm",
+                                                canOpenSession
+                                                  ? "text-dls-accent hover:opacity-80"
+                                                  : "text-dls-secondary opacity-70",
+                                              )}
+                                              title={
+                                                canOpenSession
+                                                  ? t("files.open_source_session")
+                                                  : isOrphanSession
+                                                    ? t("files.open_source_session_missing")
+                                                    : undefined
+                                              }
+                                              disabled={!canOpenSession}
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                if (canOpenSession) {
+                                                  openSessionForPath(node.path);
+                                                }
+                                              }}
+                                            >
+                                              <MessageSquare
+                                                className="size-4"
+                                                strokeWidth={1.75}
+                                                aria-hidden
+                                              />
+                                            </button>
                                           ) : (
                                             <FileKindIcon
                                               node={node}
@@ -1440,11 +1481,14 @@ export function WorkspaceFilesBrowserPanel(props: {
                                                 "min-w-0 truncate text-left text-sm font-medium text-dls-text",
                                                 hasChildren &&
                                                   "cursor-pointer hover:text-dls-accent",
+                                                isOrphanSession && "opacity-80",
                                               )}
                                               title={
                                                 isUngrouped
                                                   ? t("files.ungrouped")
-                                                  : title
+                                                  : isOrphanSession
+                                                    ? t("files.open_source_session_missing")
+                                                    : title
                                               }
                                               onClick={(event) => {
                                                 event.stopPropagation();
