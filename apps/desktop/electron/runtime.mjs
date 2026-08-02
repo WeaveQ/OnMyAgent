@@ -11,6 +11,7 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
+import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
 import {
   chooseOpencodeBinary,
   chooseProductRuntimeBinary,
@@ -226,7 +227,8 @@ export function createRuntimeManager({
   }
 
   function onmyagentUserSkillsRoot() {
-    return path.join(app.getPath("home"), ".onmyagent", "skills");
+    // Dual-read / post-migrate profile path (same resolve as desktop-paths).
+    return resolveLocalSkillsRoot(app.getPath("home"));
   }
 
   async function prepareManagedOpencodeConfigDir(configDir) {
