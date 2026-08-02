@@ -31,10 +31,12 @@ describe("@ folder file selection contract", () => {
     expect(composer).toContain("mentionBrowser.addSelectedFiles");
     expect(composer).toContain("mentionBrowser.selectedFilePaths");
     expect(browser).toContain("const files = await loadFiles(paths)");
-    expect(browser).toContain("return (await addFiles(files)) > 0");
-    expect(surface).toContain("listSessionMentionFolderImpl");
-    expect(surface).toContain("loadSessionMentionFilesImpl");
-    expect(surface).toContain("searchSessionMentionTargetsImpl");
+    expect(browser).toContain("const added = await addFiles(files)");
+    expect(browser).toContain("setSelectedFilePaths(new Set())");
+    expect(surface).toContain("listSessionMentionFolder");
+    expect(surface).toContain("loadSessionMentionFiles");
+    expect(surface).toContain("searchSessionMentionTargets");
+    expect(surface).toContain("filesWorkspaceRoot");
     const mentionFiles = read(
       "src/react-app/domains/session/surface/session-surface-mention-files.ts",
     );
@@ -43,7 +45,10 @@ describe("@ folder file selection contract", () => {
     expect(mentionFiles).toContain("readCodeWorkspaceBinaryFile");
     expect(mentionFiles).toContain("workspacePath: workspaceRoot");
     expect(mentionFiles).toContain("downloadWorkspaceFile");
-    expect(mentionFiles).toContain("return new File([result.data], name");
+    expect(mentionFiles).toContain("mentionFileDownloadCandidates");
+    expect(mentionFiles).toContain("new File([new Uint8Array(result.data)], name");
+    // Catalog must not use session cwd as list root (download is workspace-relative).
+    expect(mentionFiles).not.toContain("root: workspaceRoot");
   });
 
   test("uses shared row, checkbox, button, and loading primitives", () => {
@@ -79,7 +84,7 @@ describe("@ folder file selection contract", () => {
     expect(targets).toContain("SYSTEM_ROOT_FILES");
     expect(browser).toContain("target.label");
     expect(browser).toContain("subtitle");
-    expect(surface).toContain("listSessionMentionFolderImpl");
+    expect(surface).toContain("listSessionMentionFolder");
     expect(mentionFiles).toContain("mergeTaskSourceDirectoryTargets");
     expect(mentionFiles).toContain("WORKSPACE_TASKS_DIR");
   });

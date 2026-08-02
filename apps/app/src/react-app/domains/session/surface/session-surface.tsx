@@ -636,7 +636,9 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   } = useSessionSurfaceMentionLoaders({
     client: props.client,
     workspaceId: props.workspaceId,
-    workspaceRoot: props.workspaceRoot,
+    // Prefer catalog workspace root so uploads/ list+download stay aligned
+    // (session cwd may be an isolated expert subdirectory).
+    workspaceRoot: props.filesWorkspaceRoot?.trim() || props.workspaceRoot,
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);

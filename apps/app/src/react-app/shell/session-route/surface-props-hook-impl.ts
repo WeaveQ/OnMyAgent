@@ -319,8 +319,12 @@ export function useSessionRouteSurfaceProps(
     // `surfaceProps` in SessionPage overrides those correct values with the
     // local server's, and remote workspaces silently end up calling the
     // local server with the local `rem_*` id.
+    const catalogWorkspaceRoot =
+      selectedWorkspace?.path?.trim() || sessionWorkspaceRoot;
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
+      // Product Files / @ 我的 use the catalog workspace, not expert session cwd.
+      filesWorkspaceRoot: catalogWorkspaceRoot,
       connectedProviderIds: providerConnectedIds,
       developerMode: false,
       modelLabel,
