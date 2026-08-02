@@ -42,6 +42,7 @@ import {
   resolveOpenSourceSessionAction,
 } from "../src/react-app/domains/workspace/workspace-files-open-session";
 import {
+  resolveMineMoveDestination,
   resolveUploadFolderRelativePath,
   sanitizeUploadFolderName,
 } from "../src/react-app/domains/workspace/workspace-files-create-folder";
@@ -438,6 +439,42 @@ describe("open source session + create folder (Sprint A/B)", () => {
     ).toBe(`${WORKSPACE_UPLOADS_DIR}/parent/sub`);
   });
 
+  test("resolveMineMoveDestination moves into folder under uploads/", () => {
+    const move = resolveMineMoveDestination({
+      sourceWorkspaceRelativePath: "uploads/lark-auth-qr.png",
+      targetFolderWorkspaceRelativePath: "uploads/文档",
+    });
+    expect(move).toEqual({
+      from: "uploads/lark-auth-qr.png",
+      to: "uploads/文档/lark-auth-qr.png",
+    });
+    // Already in target → null
+    expect(
+      resolveMineMoveDestination({
+        sourceWorkspaceRelativePath: "uploads/文档/a.xlsx",
+        targetFolderWorkspaceRelativePath: "uploads/文档",
+      }),
+    ).toBeNull();
+    // Cannot move folder into itself
+    expect(
+      resolveMineMoveDestination({
+        sourceWorkspaceRelativePath: "uploads/文档",
+        targetFolderWorkspaceRelativePath: "uploads/文档",
+      }),
+    ).toBeNull();
+    // Inbox source into workspace folder is allowed (path still renames on disk)
+    expect(
+      resolveMineMoveDestination({
+        sourceWorkspaceRelativePath:
+          ".opencode/onmyagent/inbox/uploads/应收台账模板.xlsx",
+        targetFolderWorkspaceRelativePath: "uploads/文档",
+      }),
+    ).toEqual({
+      from: ".opencode/onmyagent/inbox/uploads/应收台账模板.xlsx",
+      to: "uploads/文档/应收台账模板.xlsx",
+    });
+  });
+
   test("uploads catalog maps dirs and merges with inbox", () => {
     const catalog = mapUploadsCatalogToRows(
       [
@@ -512,6 +549,9 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(uploads).toContain("data-files-create-folder");
     expect(uploads).toContain("mkdirWorkspaceDirectory");
     expect(uploads).toContain("mapUploadsCatalogToRows");
+    expect(uploads).toContain("renameWorkspaceFile");
+    expect(uploads).toContain("application/x-onmyagent-mine-file");
+    expect(uploads).toContain("handleFolderDrop");
     expect(page).toContain("onOpenSourceSession");
     expect(assistant).toContain("onOpenSourceSession");
     expect(assistant).toContain("filesOpenSessionMeta");
