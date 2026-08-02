@@ -73,7 +73,7 @@ export function StatusToast(props: StatusToastProps) {
               tone === "success" ? "text-dls-status-success-fg" : ""
             }`.trim()}
           >
-            <Icon size={18} strokeWidth={2.25} />
+            <Icon size={16} strokeWidth={2.25} />
           </div>
           <span className={statusToastLayoutClass.titleCompact}>{props.title}</span>
           {hasAction ? (
