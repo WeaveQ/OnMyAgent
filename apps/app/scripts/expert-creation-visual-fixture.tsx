@@ -5,6 +5,7 @@ import "../src/app/index.css";
 import { setLocale } from "../src/i18n";
 import { ExpertCreationPage } from "../src/react-app/domains/agents/expert-creation-page";
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-registry";
+import { createOnMyAgentServerClient } from "../src/app/lib/onmyagent-server";
 
 const params = new URLSearchParams(window.location.search);
 const locale = params.get("lang");
@@ -36,6 +37,10 @@ registry.skills = [
   },
 ];
 
+const fixtureClient = params.get("skillState") === "error"
+  ? createOnMyAgentServerClient({ baseUrl: "http://127.0.0.1:1" })
+  : null;
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing expert creation visual fixture root");
 
@@ -45,7 +50,7 @@ createRoot(root).render(
     workspaceRoot="/tmp/onmyagent-expert-fixture"
     opencodeBaseUrl={null}
     onmyagentServerToken={null}
-    client={null}
+    client={fixtureClient}
     registry={registry}
     skills={registry.skills}
     onClose={() => undefined}
