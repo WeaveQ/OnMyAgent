@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
+  clearExpertSessionSelectionCache,
   readExpertSessionSelection,
+  resolveExpertPrefetchSessionId,
   resolveExpertSessionSelection,
   writeExpertSessionSelection,
 } from "../src/react-app/domains/session/sidebar/expert-session-selection-memory";
@@ -37,6 +39,7 @@ class MemoryStorage implements Storage {
 const STORAGE_KEY = "onmyagent.expertSessionSelection.v1";
 
 beforeEach(() => {
+  clearExpertSessionSelectionCache();
   const storage = new MemoryStorage();
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -49,6 +52,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  clearExpertSessionSelectionCache();
   localStorage.removeItem(STORAGE_KEY);
   Reflect.deleteProperty(globalThis, "window");
   Reflect.deleteProperty(globalThis, "localStorage");
@@ -105,5 +109,41 @@ describe("expert session selection memory", () => {
         orderIds: ["draft:ws", "s1"],
       }),
     ).toBe("s1");
+  });
+
+  test("prefetch target prefers remembered session over latest fallback", () => {
+    writeExpertSessionSelection("ws-1", "agent-a", "session-old");
+    expect(
+      resolveExpertPrefetchSessionId({
+        workspaceId: "ws-1",
+        agentId: "agent-a",
+        sessionIds: ["session-new", "session-old"],
+        fallbackSessionId: "session-new",
+      }),
+    ).toBe("session-old");
+  });
+
+  test("prefetch falls back when memory is empty", () => {
+    expect(
+      resolveExpertPrefetchSessionId({
+        workspaceId: "ws-1",
+        agentId: "agent-a",
+        sessionIds: ["session-new"],
+        fallbackSessionId: "session-new",
+      }),
+    ).toBe("session-new");
+  });
+
+  test("in-memory cache survives after write without re-read thrash", () => {
+    writeExpertSessionSelection("ws-1", "agent-a", "session-1");
+    expect(readExpertSessionSelection("ws-1", "agent-a")).toBe("session-1");
+    // Mutate storage under the cache — read still returns cached value until clear.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ "ws-1:agent-a": "session-hijacked" }),
+    );
+    expect(readExpertSessionSelection("ws-1", "agent-a")).toBe("session-1");
+    clearExpertSessionSelectionCache();
+    expect(readExpertSessionSelection("ws-1", "agent-a")).toBe("session-hijacked");
   });
 });

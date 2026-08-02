@@ -83,8 +83,13 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
         )
       ).item,
     staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
+    // Prefetch + revisit within staleTime should paint immediately; longer
+    // gc keeps recently switched sessions warm when hopping back.
+    gcTime: Math.max(SESSION_SNAPSHOT_STALE_TIME_MS * 10, 5 * 60_000),
   });
 
+  // Only accept data that belongs to the intended session (guards placeholder
+  // or racey cache entries when keys flip quickly).
   const currentSnapshot =
     snapshotQuery.data?.session.id === sessionId ? snapshotQuery.data : null;
 
@@ -100,15 +105,7 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
   useEffect(() => {
     if (!currentSnapshot) return;
     setRendered({ sessionId, snapshot: currentSnapshot });
-  }, [sessionId, currentSnapshot]);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
-    seedSessionState(workspaceId, currentSnapshot);
-  }, [currentSnapshot, sessionId, workspaceId]);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
+    // Single seed path: skip duplicate work when the same snapshot is re-emitted.
     const key = `${sessionId}:${currentSnapshot.session.time?.updated ?? currentSnapshot.session.time?.created ?? 0}:${currentSnapshot.messages.length}`;
     if (hydratedKeyRef.current === key) return;
     hydratedKeyRef.current = key;

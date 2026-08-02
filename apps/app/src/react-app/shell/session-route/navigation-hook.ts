@@ -1,5 +1,5 @@
 /** Session route navigation + auth chrome (URL params, page mode, intent). */
-import { useCallback, useMemo, useState } from "react";
+import { startTransition, useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { clearLocalAuthUser, readLocalAuthUser } from "../../../app/lib/local-auth";
@@ -50,6 +50,11 @@ export function useSessionRouteNavigation() {
     local.setPrefs((prev) => ({ ...prev, hasCompletedOnboarding: false }));
     navigate("/welcome", { replace: true });
   }, [local, navigate]);
+  /**
+   * Session switches update a large SessionRoute tree. Wrap navigate in
+   * startTransition so sidebar selection / rail chrome can paint first
+   * while the surface re-render is interruptible.
+   */
   const navigateToWorkspaceSession = useCallback(
     (
       workspaceId: string,
@@ -61,7 +66,9 @@ export function useSessionRouteNavigation() {
         sessionId,
         workspaceId,
       });
-      navigate(route, options);
+      startTransition(() => {
+        navigate(route, options);
+      });
     },
     [navigate, isAssistantMode],
   );
