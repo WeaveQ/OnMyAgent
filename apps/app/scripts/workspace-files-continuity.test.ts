@@ -652,4 +652,22 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).not.toMatch(/存储空间|storage.?used|used.?limit|files\.storage/i);
     expect(uploads).not.toContain("升级");
   });
+
+  test("Tasks/Experts browser pathbar matches Mine interaction", () => {
+    const browser = readApp(
+      "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+    );
+    // Same pathbar pattern: breadcrumb left · expand/collapse · type · search right.
+    expect(browser).toContain('data-files-browser-toolbar="true"');
+    expect(browser).toContain('data-files-browser-pathbar="true"');
+    expect(browser).toContain('data-files-browser-breadcrumb="true"');
+    expect(browser).toContain('data-files-expand-collapse="true"');
+    expect(browser).toContain("ChevronsUpDown");
+    expect(browser).toContain("ChevronsDownUp");
+    expect(browser).toContain("files.expand_all_folders");
+    expect(browser).toContain("files.collapse_all_folders");
+    expect(browser).toContain("typeFilter");
+    expect(browser).toContain("rounded-full");
+    expect(browser).toContain("files.search_placeholder");
+  });
 });
