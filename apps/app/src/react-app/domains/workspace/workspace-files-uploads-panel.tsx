@@ -84,6 +84,7 @@ import {
   FILE_CATEGORIES,
   fileCategoryI18nKey,
   filterUploadRows,
+  getFileCategory,
   mapInboxItemsToUploadRows,
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
@@ -759,19 +760,86 @@ export function WorkspaceFilesUploadsPanel(props: {
   const showEmpty = !loading && !error && visibleRows.length === 0;
   const showTable = !loading && visibleRows.length > 0;
 
+  /** Hope-style breadcrumb: 我的文件 / folder / … (clickable segments). */
+  const breadcrumbSegments = useMemo(() => {
+    const parts = currentFolderPath
+      .replace(/\\/g, "/")
+      .split("/")
+      .filter(Boolean);
+    if (parts.length === 0) {
+      return [{ path: WORKSPACE_UPLOADS_DIR, label: t("files.breadcrumb_mine") }];
+    }
+    return parts.map((part, index) => {
+      const path = parts.slice(0, index + 1).join("/");
+      const label =
+        index === 0 && part === WORKSPACE_UPLOADS_DIR
+          ? t("files.breadcrumb_mine")
+          : part;
+      return { path, label };
+    });
+  }, [currentFolderPath]);
+
   // Same gutters as 市场 pluginsLayoutClass.pageContainer
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
-      <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 text-left sm:max-w-none">
-          <h1 className={cn(typeScale.pageTitle, "text-left")}>
-            {t("files.source_uploads_title")}
-          </h1>
-          <p className={cn(typeScale.pageSubtitle, "mt-1 text-left")}>
-            {t("files.source_uploads_desc")}
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+      {/* Title + subtitle */}
+      <div className="mb-3 min-w-0 shrink-0 text-left">
+        <h1 className={cn(typeScale.pageTitle, "text-left")}>
+          {t("files.source_uploads_title")}
+        </h1>
+        <p className={cn(typeScale.pageSubtitle, "mt-1 text-left")}>
+          {t("files.source_uploads_desc")}
+        </p>
+      </div>
+
+      {/* Hope toolbar: primary actions left, type + search right. No capacity bar (A7). */}
+      <div
+        className="mb-3 flex w-full shrink-0 flex-wrap items-center justify-between gap-2"
+        data-files-mine-toolbar="true"
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            disabled={!canLoad || uploading || loading || createFolderBusy}
+            onClick={() => {
+              setCreateFolderName("");
+              setCreateFolderOpen(true);
+            }}
+            className="h-9 gap-1.5"
+            data-files-create-folder="true"
+          >
+            <FolderPlus className="size-3.5" aria-hidden />
+            {t("files.create_folder")}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              const list = event.target.files;
+              if (list?.length) void importFiles(list);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            disabled={!canLoad || uploading || loading}
+            onClick={onPickClick}
+            className="h-9 gap-1.5"
+            data-files-upload="true"
+          >
+            {uploading ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Upload className="size-3.5" aria-hidden />
+            )}
+            {uploading ? t("files.uploading") : t("files.upload_files")}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -799,6 +867,8 @@ export function WorkspaceFilesUploadsPanel(props: {
               <RefreshCw className="size-3.5" aria-hidden />
             )}
           </Button>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           <div className="relative shrink-0">
             <Button
               type="button"
@@ -861,74 +931,41 @@ export function WorkspaceFilesUploadsPanel(props: {
               className="h-9 text-sm placeholder:text-dls-secondary"
             />
           </InputGroup>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              const list = event.target.files;
-              if (list?.length) void importFiles(list);
-              event.target.value = "";
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            disabled={!canLoad || uploading || loading || createFolderBusy}
-            onClick={() => {
-              setCreateFolderName("");
-              setCreateFolderOpen(true);
-            }}
-            className="h-9 gap-1.5"
-            data-files-create-folder="true"
-          >
-            <FolderPlus className="size-3.5" aria-hidden />
-            {t("files.create_folder")}
-          </Button>
-          <Button
-            type="button"
-            size="default"
-            disabled={!canLoad || uploading || loading}
-            onClick={onPickClick}
-            className="h-9 gap-1.5"
-          >
-            {uploading ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Upload className="size-3.5" aria-hidden />
-            )}
-            {uploading ? t("files.uploading") : t("files.import_to_workspace")}
-          </Button>
         </div>
       </div>
 
-      {currentFolderPath !== WORKSPACE_UPLOADS_DIR ? (
-        <div className="mb-2 flex shrink-0 items-center gap-2 text-xs text-dls-secondary">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => {
-              const parent = currentFolderPath.replace(/\\/g, "/").split("/");
-              parent.pop();
-              const next = parent.join("/") || WORKSPACE_UPLOADS_DIR;
-              setCurrentFolderPath(
-                next.startsWith(WORKSPACE_UPLOADS_DIR)
-                  ? next
-                  : WORKSPACE_UPLOADS_DIR,
-              );
-            }}
-          >
-            ← {WORKSPACE_UPLOADS_DIR}
-          </Button>
-          <span className="truncate font-medium text-dls-text">
-            {currentFolderPath}
-          </span>
-        </div>
-      ) : null}
+      {/* Always-on breadcrumb (Hope: drive / folder / …) */}
+      <nav
+        className="mb-3 flex min-w-0 shrink-0 flex-wrap items-center gap-1 text-xs text-dls-secondary"
+        aria-label={t("files.breadcrumb_label")}
+        data-files-mine-breadcrumb="true"
+      >
+        {breadcrumbSegments.map((segment, index) => {
+          const isLast = index === breadcrumbSegments.length - 1;
+          return (
+            <span key={segment.path} className="inline-flex min-w-0 items-center gap-1">
+              {index > 0 ? (
+                <span className="shrink-0 text-dls-secondary/70" aria-hidden>
+                  /
+                </span>
+              ) : null}
+              {isLast ? (
+                <span className="truncate font-medium text-dls-text">
+                  {segment.label}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="truncate rounded-sm text-dls-secondary transition-colors hover:text-dls-text hover:underline"
+                  onClick={() => setCurrentFolderPath(segment.path)}
+                >
+                  {segment.label}
+                </button>
+              )}
+            </span>
+          );
+        })}
+      </nav>
 
       {error ? (
         <p className="mb-3 shrink-0 text-sm text-dls-status-danger-fg">{error}</p>
@@ -1014,11 +1051,14 @@ export function WorkspaceFilesUploadsPanel(props: {
                     <TableHead className="w-auto text-left">
                       {t("files.column_name")}
                     </TableHead>
-                    <TableHead className="w-28 text-left">
-                      {t("files.column_size")}
+                    <TableHead className="w-24 text-left">
+                      {t("files.column_type")}
                     </TableHead>
-                    <TableHead className="w-40 text-left">
+                    <TableHead className="w-36 text-left">
                       {t("files.column_updated")}
+                    </TableHead>
+                    <TableHead className="w-24 text-left">
+                      {t("files.column_size")}
                     </TableHead>
                     <TableHead className="w-12 text-left">
                       <span className="sr-only">
@@ -1107,12 +1147,15 @@ export function WorkspaceFilesUploadsPanel(props: {
                         <TableCell className="text-left text-dls-secondary">
                           {isDir
                             ? t("files.type_folder")
-                            : formatWorkspaceFileSize(row.size)}
+                            : fileCategoryLabel(getFileCategory(row.name))}
                         </TableCell>
-                        <TableCell className="text-left text-dls-secondary">
+                        <TableCell className="text-left text-dls-secondary tabular-nums">
                           {row.updatedAt
                             ? formatWorkspaceFileTime(row.updatedAt)
                             : "—"}
+                        </TableCell>
+                        <TableCell className="text-left text-dls-secondary tabular-nums">
+                          {isDir ? "—" : formatWorkspaceFileSize(row.size)}
                         </TableCell>
                         <TableCell className="relative py-2 text-left">
                           <UploadRowActionsMenu

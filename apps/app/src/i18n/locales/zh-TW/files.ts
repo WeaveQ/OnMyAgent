@@ -35,7 +35,9 @@ export default {
     "首頁臨時任務產物，以及非專家目錄下的工作區檔案。專家歸檔目錄在「專家」中查看。",
   "files.source_expert_desc":
     "專家目錄及其任務產物（依資料夾命名識別；寫入標記上線後將更精確）。",
-  "files.search_uploads_placeholder": "搜尋我的檔案",
+  "files.search_uploads_placeholder": "搜尋檔案或資料夾…",
+  "files.upload_files": "上傳檔案",
+  "files.breadcrumb_mine": "我的檔案",
   "files.search_task_placeholder": "搜尋任務檔案",
   "files.search_expert_placeholder": "搜尋專家檔案",
   "files.uploads_empty_title": "尚無上傳",
