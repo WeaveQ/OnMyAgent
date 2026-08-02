@@ -35,6 +35,7 @@ const testTargets = new Map([
   ['automation-prompt-tools-contract', ['bun', ['test', 'scripts/automation-prompt-tools-contract.test.ts']]],
   ['automation-title-required-contract', ['bun', ['test', 'scripts/automation-title-required-contract.test.ts']]],
   ['personal-usage-ui-contract', ['bun', ['test', 'scripts/personal-usage-ui-contract.test.ts']]],
+  ['context-usage-model', ['bun', ['test', 'scripts/context-usage-model.test.ts']]],
   ['right-side-panel-titlebar-contract', ['bun', ['test', 'scripts/right-side-panel-titlebar-contract.test.ts']]],
   ['session-transcript-layout-contract', ['bun', ['test', 'scripts/session-transcript-layout-contract.test.ts']]],
   ['infinite-canvas-model', ['bun', ['test', 'scripts/infinite-canvas-model.test.ts']]],
@@ -149,6 +150,7 @@ const composedTargets = new Map([
     'session-visual-files-contract',
     'open-target',
     'agent-brand-icon-dark-plate-contract',
+    'context-usage-model',
     // Other style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],

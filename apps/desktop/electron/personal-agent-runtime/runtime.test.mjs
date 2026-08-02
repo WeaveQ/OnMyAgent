@@ -923,7 +923,10 @@ describe("personal agent normalized conversation message stream", () => {
 
     assert.equal(messages.length, 1);
     assert.equal(messages[0].type, "context_usage");
-    assert.deepEqual(messages[0].contextUsage, { used: 10, total: 100, label: null });
+    assert.equal(messages[0].contextUsage.used, 10);
+    assert.equal(messages[0].contextUsage.total, 100);
+    assert.equal(messages[0].contextUsage.label, null);
+    assert.equal(messages[0].contextUsage.totalSource, "runtime");
   });
 
   it("looks up known model context windows and defaults to 200k", () => {
@@ -937,11 +940,47 @@ describe("personal agent normalized conversation message stream", () => {
   });
 
   it("normalizes usage payloads and falls back to model context window when total missing", () => {
-    assert.deepEqual(normalizeContextUsagePayload({ used: 5, total: 100 }, null), { used: 5, total: 100, label: null });
-    assert.deepEqual(normalizeContextUsagePayload({ used: 12345 }, "claude-sonnet-4.5"), { used: 12345, total: 1_000_000, label: null });
-    assert.deepEqual(normalizeContextUsagePayload({ total_tokens: 42, label: "codex" }, "gpt-5"), { used: 42, total: 400_000, label: "codex" });
+    const withTotal = normalizeContextUsagePayload({ used: 5, total: 100 }, null);
+    assert.equal(withTotal.used, 5);
+    assert.equal(withTotal.total, 100);
+    assert.equal(withTotal.totalSource, "runtime");
+    assert.equal(withTotal.breakdown, null);
+
+    const sonnet = normalizeContextUsagePayload({ used: 12345 }, "claude-sonnet-4.5");
+    assert.equal(sonnet.used, 12345);
+    assert.equal(sonnet.total, 1_000_000);
+    assert.equal(sonnet.totalSource, "table");
+
+    const codex = normalizeContextUsagePayload({ total_tokens: 42, label: "codex" }, "gpt-5");
+    assert.equal(codex.used, 42);
+    assert.equal(codex.total, 400_000);
+    assert.equal(codex.label, "codex");
+
     // Codex ACP CLI reports `size` instead of `total`; must not fall through to DEFAULT_CONTEXT_LIMIT.
-    assert.deepEqual(normalizeContextUsagePayload({ used: 29725, size: 258400 }, null), { used: 29725, total: 258400, label: null });
+    const sizeField = normalizeContextUsagePayload({ used: 29725, size: 258400 }, null);
+    assert.equal(sizeField.used, 29725);
+    assert.equal(sizeField.total, 258400);
+    assert.equal(sizeField.totalSource, "runtime");
+
+    const withBreakdown = normalizeContextUsagePayload(
+      {
+        used: 100,
+        total: 200,
+        breakdown: [
+          { id: "system", tokens: 10 },
+          { id: "messages", tokens: 50 },
+          { id: "tools", tokens: 40 },
+        ],
+      },
+      null,
+    );
+    assert.deepEqual(withBreakdown.breakdown, [
+      { id: "system", tokens: 10 },
+      { id: "tools", tokens: 40 },
+      { id: "messages", tokens: 50 },
+    ]);
+    assert.equal(withBreakdown.breakdownSource, "runtime");
+
     assert.equal(normalizeContextUsagePayload(null, null), null);
     assert.equal(normalizeContextUsagePayload({}, null), null);
   });
