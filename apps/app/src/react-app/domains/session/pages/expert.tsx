@@ -556,18 +556,27 @@ export function ExpertPage(props: ExpertPageProps) {
       usePendingAgentStore.getState().setAgent(agent);
       setDraftAgentId(agent.id);
       setDraftSessionActive(true);
-      openRailView("chat");
     },
     [],
+  );
+  const openDraftAgent = useCallback(
+    (agent: PendingAgentContext) => {
+      activateDraftAgent(agent);
+      props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
+      // New-task navigation clears the global pending expert synchronously.
+      // Re-apply it without navigating from the stale pre-navigation URL.
+      activateDraftAgent(agent);
+    },
+    [activateDraftAgent, props.selectedWorkspaceId, props.sidebar],
   );
   const handleOpenDraftSession = useCallback(
     (sessionId: string) => {
       const agentId = sessionId.split(":").slice(2).join(":");
       const agent = agentId ? draftAgentContexts[agentId] : null;
       if (!agent) return;
-      activateDraftAgent(agent);
+      openDraftAgent(agent);
     },
-    [activateDraftAgent, draftAgentContexts],
+    [draftAgentContexts, openDraftAgent],
   );
   const resolveSessionTabForAgent = useCallback(
     (agentId: string, sessionIds: readonly string[]) => {
@@ -731,9 +740,9 @@ export function ExpertPage(props: ExpertPageProps) {
         draftSource: "agent-selection",
       };
 
-      activateDraftAgent(pending);
+      openDraftAgent(pending);
     },
-    [activateDraftAgent],
+    [openDraftAgent],
   );
 
   const handleStartAgentById = useCallback(
