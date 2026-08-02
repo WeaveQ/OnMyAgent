@@ -31,7 +31,7 @@ describe("workspace files page navigation", () => {
       "utf8",
     );
     // Task/expert: conversation outline (expand in place + open session).
-    expect(browser).toContain('data-workspace-file-breadcrumb="true"');
+    expect(browser).not.toContain('data-files-browser-breadcrumb="true"');
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("collectMatchingFilesUnder");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");

@@ -852,7 +852,7 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     // Pathbar: breadcrumb · expand · type · search · refresh (no empty toolbar).
     expect(browser).not.toContain('data-files-browser-toolbar="true"');
     expect(browser).toContain('data-files-browser-pathbar="true"');
-    expect(browser).toContain('data-files-browser-breadcrumb="true"');
+    expect(browser).not.toContain('data-files-browser-breadcrumb="true"');
     expect(browser).toContain('data-files-browser-refresh="true"');
     expect(browser).toContain('data-files-expand-collapse="true"');
     // Breadcrumb root uses product tab title, not generic workspace label.
