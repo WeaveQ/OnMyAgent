@@ -2,6 +2,7 @@ import { createClient, unwrap } from "../../../app/lib/opencode";
 import { normalizeEvent } from "../../../app/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
 import { buildAgentSystemPrompt, buildAgentToolAccess } from "./pending-agent-store";
+import { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 
 export type ExpertPreviewRuntimeConfig = {
   baseUrl: string;
@@ -13,6 +14,7 @@ export type ExpertPreviewTurnInput = {
   config: ExpertPreviewRuntimeConfig;
   sessionId: string | null;
   message: string;
+  attachments?: readonly File[];
   draft: AgentWizardDraft;
   signal?: AbortSignal;
   onTextChange?: (text: string) => void;
@@ -157,12 +159,13 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
   };
   input.signal?.addEventListener("abort", abort, { once: true });
   try {
+    const parts = await buildExpertChatPromptParts(input.message, input.attachments ?? []);
     const promptResult = await client.session.promptAsync({
       sessionID: sessionId,
       directory: input.config.workspaceRoot || undefined,
       system: buildAgentSystemPrompt({ ...input.draft, quote: input.draft.description }),
       tools: buildAgentToolAccess(input.draft),
-      parts: [{ type: "text", text: input.message }],
+      parts,
     });
     if (promptResult.error) throw new Error(readErrorMessage(promptResult.error) || "Expert preview request failed");
     await consume;

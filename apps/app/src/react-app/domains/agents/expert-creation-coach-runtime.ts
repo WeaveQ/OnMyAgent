@@ -7,6 +7,7 @@ import {
   parseExpertCoachTurnResult,
   type ExpertCoachTurnResult,
 } from "./expert-creation-coach-model";
+import { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 
 const STRUCTURED_OUTPUT_TOOL = "StructuredOutput";
 
@@ -25,6 +26,7 @@ export type ExpertCoachTurnInput = {
   config: ExpertCoachRuntimeConfig;
   sessionId: string | null;
   message: string;
+  attachments?: readonly File[];
   draft: AgentWizardDraft;
   skills: readonly AgentSkillItem[];
   signal?: AbortSignal;
@@ -113,12 +115,13 @@ export async function runExpertCoachTurn(input: ExpertCoachTurnInput): Promise<E
   input.signal?.addEventListener("abort", abort, { once: true });
 
   try {
+    const parts = await buildExpertChatPromptParts(input.message, input.attachments ?? []);
     const promptResult = await client.session.promptAsync({
       sessionID: sessionId,
       directory: input.config.workspaceRoot || undefined,
       system: buildExpertCoachSystemPrompt(input.draft, input.skills),
       format: EXPERT_COACH_OUTPUT_FORMAT,
-      parts: [{ type: "text", text: input.message }],
+      parts,
     });
     if (promptResult.error) throw errorFromResult(promptResult.error);
     await consume;

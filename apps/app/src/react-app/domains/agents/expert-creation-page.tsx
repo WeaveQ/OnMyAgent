@@ -202,6 +202,7 @@ function ExpertCoach(props: {
   onApplyProposal: (proposal: ExpertCoachProposal) => void;
 }) {
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [messages, setMessages] = useState<ExpertCoachMessage[]>(props.state.messages);
   const [versions, setVersions] = useState<ExpertCoachVersion[]>(props.state.versions);
   const [sessionId, setSessionId] = useState<string | null>(props.state.sessionId);
@@ -209,6 +210,7 @@ function ExpertCoach(props: {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [appliedVersionId, setAppliedVersionId] = useState<string | null>(props.state.appliedVersionId);
   const abortRef = useRef<AbortController | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -228,14 +230,16 @@ function ExpertCoach(props: {
 
   const send = async (retryValue?: string) => {
     const value = (retryValue ?? input).trim();
-    if (!value || sending) return;
+    if ((!value && attachments.length === 0) || sending) return;
     const userMessage: ExpertCoachMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: value,
+      content: value || t("agents.expert_creation_attachment_only", { count: attachments.length }),
     };
     setMessages((current) => [...current, userMessage]);
     setInput("");
+    const submittedAttachments = attachments;
+    setAttachments([]);
     const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
     if (!baseUrl) {
       setMessages((current) => [...current, {
@@ -258,6 +262,7 @@ function ExpertCoach(props: {
         },
         sessionId,
         message: value,
+        attachments: submittedAttachments,
         draft: props.draft,
         skills: props.skills,
         signal: controller.signal,
@@ -385,6 +390,33 @@ function ExpertCoach(props: {
         </div>
         <div className="pt-6">
           <div className="relative rounded-2xl border border-dls-border bg-dls-background p-3">
+            {attachments.length > 0 ? (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {attachments.map((file) => (
+                  <span key={`${file.name}-${file.size}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-dls-hover px-2 py-1 text-xs text-dls-secondary">
+                    <span className="max-w-40 truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      className="rounded-md p-0.5 hover:bg-dls-surface"
+                      onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
+                      aria-label={t("agents.expert_creation_remove_attachment", { name: file.name })}
+                    >
+                      <X className="size-3" aria-hidden />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                setAttachments((current) => [...current, ...Array.from(event.currentTarget.files ?? [])]);
+                event.currentTarget.value = "";
+              }}
+            />
             <Textarea
               value={input}
               onChange={(event) => setInput(event.currentTarget.value)}
@@ -398,18 +430,18 @@ function ExpertCoach(props: {
               className="min-h-16 resize-none border-0 bg-transparent px-1 py-0 pr-1 shadow-none focus-visible:ring-0"
             />
             <div className="mt-2 flex items-center justify-between">
-              <Button type="button" size="icon-sm" variant="ghost" aria-label={t("common.create")}>
+              <Button type="button" size="icon-sm" variant="ghost" onClick={() => attachmentInputRef.current?.click()} aria-label={t("agents.expert_creation_add_attachment")}>
                 <Plus className="size-5" aria-hidden />
               </Button>
               <div className="flex items-center gap-1">
-                <Button type="button" size="icon-sm" variant="ghost" aria-label={t("agents.expert_creation_coach_mic")}>
+                <Button type="button" size="icon-sm" variant="ghost" disabled aria-label={t("agents.expert_creation_coach_mic_unavailable")}>
                   <Mic className="size-5" aria-hidden />
                 </Button>
                 <Button
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  disabled={!sending && !input.trim()}
+                  disabled={!sending && !input.trim() && attachments.length === 0}
                   onClick={() => sending ? abortRef.current?.abort() : void send()}
                   aria-label={sending
                     ? t("agents.expert_creation_coach_stop")
@@ -934,11 +966,6 @@ function KnowledgePanel(props: {
           </DropdownMenu>
         </div>
       </div>
-      {folderError ? (
-        <p className="text-sm text-dls-status-danger-fg">
-          {t("agents.expert_creation_folder_name_error")}
-        </p>
-      ) : null}
       {props.entries.length > 0 ? (
         <div className="space-y-2">
           {props.entries.map((entry) => (
@@ -1048,11 +1075,13 @@ function TryEffectPanel(props: {
   onClose: () => void;
 }) {
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [messages, setMessages] = useState<ExpertCoachMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [streamText, setStreamText] = useState("");
   const [sending, setSending] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1064,13 +1093,15 @@ function TryEffectPanel(props: {
   const send = async () => {
     const value = input.trim();
     const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
-    if (!value || !baseUrl || sending || !props.draft.name.trim()) return;
+    if ((!value && attachments.length === 0) || !baseUrl || sending || !props.draft.name.trim()) return;
     setMessages((current) => [...current, {
       id: crypto.randomUUID(),
       role: "user",
-      content: value,
+      content: value || t("agents.expert_creation_attachment_only", { count: attachments.length }),
     }]);
     setInput("");
+    const submittedAttachments = attachments;
+    setAttachments([]);
     setStreamText("");
     setSending(true);
     const controller = new AbortController();
@@ -1084,6 +1115,7 @@ function TryEffectPanel(props: {
         },
         sessionId,
         message: value,
+        attachments: submittedAttachments,
         draft: props.draft,
         signal: controller.signal,
         onTextChange: setStreamText,
@@ -1120,6 +1152,7 @@ function TryEffectPanel(props: {
     setMessages([]);
     setStreamText("");
     setInput("");
+    setAttachments([]);
   };
 
   return (
@@ -1163,7 +1196,7 @@ function TryEffectPanel(props: {
             {messages.length === 0 && !sending ? (
               <div className="flex h-full min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
                 <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
-                <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_empty")}</span>
+                <span className="mt-4 max-w-44">{t("agents.expert_creation_preview_ready")}</span>
               </div>
             ) : null}
           </div>
@@ -1176,6 +1209,33 @@ function TryEffectPanel(props: {
       </div>
       <div className="border-t border-dls-border p-4">
         <div className="relative rounded-2xl border border-dls-border bg-dls-background p-3">
+          {attachments.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((file) => (
+                <span key={`${file.name}-${file.size}`} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-dls-hover px-2 py-1 text-xs text-dls-secondary">
+                  <span className="max-w-32 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    className="rounded-md p-0.5 hover:bg-dls-surface"
+                    onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
+                    aria-label={t("agents.expert_creation_remove_attachment", { name: file.name })}
+                  >
+                    <X className="size-3" aria-hidden />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              setAttachments((current) => [...current, ...Array.from(event.currentTarget.files ?? [])]);
+              event.currentTarget.value = "";
+            }}
+          />
           <Textarea
             value={input}
             onChange={(event) => setInput(event.currentTarget.value)}
@@ -1190,13 +1250,15 @@ function TryEffectPanel(props: {
             className="min-h-12 resize-none border-0 bg-transparent px-1 py-0 pr-1 shadow-none focus-visible:ring-0"
           />
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-xs text-dls-secondary">{t("agents.expert_creation_preview_current_draft")}</span>
+            <Button type="button" size="icon-sm" variant="ghost" onClick={() => attachmentInputRef.current?.click()} aria-label={t("agents.expert_creation_add_attachment")}>
+              <Plus className="size-5" aria-hidden />
+            </Button>
             <div className="flex items-center gap-1">
               <Button
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                disabled={!sending && (!input.trim() || !props.draft.name.trim() || !props.opencodeBaseUrl?.trim())}
+                disabled={!sending && ((!input.trim() && attachments.length === 0) || !props.draft.name.trim() || !props.opencodeBaseUrl?.trim())}
                 onClick={() => sending ? abortRef.current?.abort() : void send()}
                 aria-label={sending
                   ? t("agents.expert_creation_coach_stop")
