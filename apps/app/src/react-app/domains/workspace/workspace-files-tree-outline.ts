@@ -9,6 +9,7 @@ import {
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
 import {
+  compareWorkspaceFileNodes,
   formatWorkspaceFileTime,
   type WorkspaceFileSortDir,
   type WorkspaceFileSortKey,
@@ -274,8 +275,8 @@ export function collectMatchingFilesUnder(
   node: WorkspaceFileTreeNode,
   query: string,
   typeFilter: FileCategory,
-  sortKey: WorkspaceFileSortKey = "updated",
-  sortDir: WorkspaceFileSortDir = "desc",
+  sortKey: WorkspaceFileSortKey = "type",
+  sortDir: WorkspaceFileSortDir = "asc",
 ): WorkspaceFileTreeNode[] {
   const normalizedQuery = query.trim().toLowerCase();
   const out: WorkspaceFileTreeNode[] = [];
@@ -297,16 +298,8 @@ export function collectMatchingFilesUnder(
   for (const child of node.children) walk(child);
 
   out.sort((left, right) => {
-    if (sortKey === "updated") {
-      const byTime = (left.mtimeMs || 0) - (right.mtimeMs || 0);
-      if (byTime !== 0) return sortDir === "asc" ? byTime : -byTime;
-    } else if (sortKey === "size") {
-      const bySize = (left.size || 0) - (right.size || 0);
-      if (bySize !== 0) return sortDir === "asc" ? bySize : -bySize;
-    } else {
-      const byName = left.name.localeCompare(right.name);
-      if (byName !== 0) return sortDir === "asc" ? byName : -byName;
-    }
+    const byCompare = compareWorkspaceFileNodes(left, right, sortKey, sortDir);
+    if (byCompare !== 0) return byCompare;
     return left.path.localeCompare(right.path);
   });
   return out;

@@ -272,8 +272,8 @@ export function buildTreeNodesFromUploadRows(
     .trim()
     .replace(/\\/g, "/")
     .replace(/\/+$/, "") || WORKSPACE_UPLOADS_DIR;
-  const sortKey = options?.sortKey ?? "updated";
-  const sortDir = options?.sortDir ?? "desc";
+  const sortKey = options?.sortKey ?? "type";
+  const sortDir = options?.sortDir ?? "asc";
 
   type Mutable = WorkspaceFileTreeNode & { children: Mutable[] };
   const nodes = new Map<string, Mutable>();
@@ -386,8 +386,8 @@ function uploadRowAsTreeNode(row: UserUploadRow): WorkspaceFileTreeNode {
  */
 export function sortUploadRows(
   rows: readonly UserUploadRow[],
-  key: WorkspaceFileSortKey = "updated",
-  dir: WorkspaceFileSortDir = "desc",
+  key: WorkspaceFileSortKey = "type",
+  dir: WorkspaceFileSortDir = "asc",
 ): UserUploadRow[] {
   return [...rows].sort((a, b) =>
     compareWorkspaceFileNodes(
