@@ -30,22 +30,19 @@ describe("workspace files page navigation", () => {
       ),
       "utf8",
     );
-    // Task/expert browsers share catalog UI; filter splits expert agent folders.
-    expect(browser).toContain("const [currentDirectoryPath, setCurrentDirectoryPath]");
-    expect(browser).toContain("workspaceFileBreadcrumbs(currentDirectoryPath)");
+    // Task/expert: conversation outline (expand in place + open session).
     expect(browser).toContain('data-workspace-file-breadcrumb="true"');
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("collectMatchingFilesUnder");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    // Continuity: drill-in + hierarchical expand tree with depth.
-    expect(browser).toContain("enterDirectory");
-    expect(browser).toContain("treeMode");
     expect(browser).toContain("buildTreeOutlineRows");
-    expect(browser).toContain("data-files-tree-mode");
     expect(browser).toContain("data-files-tree-depth");
+    expect(browser).toContain("data-files-session-title");
+    expect(browser).toContain("openSessionForPath");
+    expect(browser).not.toContain("enterDirectory");
+    expect(browser).not.toContain("currentDirectoryPath");
     expect(browser).not.toContain("groupLooseAsOrphan");
     expect(browser).not.toContain("orphan-header");
-    // Loose root files still group under drillable 未分组.
     expect(browser).toContain("buildUngroupedFolderNode");
     expect(browser).toContain("files.ungrouped");
   });
