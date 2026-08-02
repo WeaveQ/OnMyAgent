@@ -776,11 +776,7 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const {
-    openExpertCreation,
-    closeExpertCreation,
-    expertCreationPage,
-  } = useSessionExpertCreation({
+  const { openExpertCreation, closeExpertCreation, expertCreationPage } = useSessionExpertCreation({
     registry,
     workspaceId: props.selectedWorkspaceId,
     workspaceRoot: props.selectedWorkspaceRoot,
@@ -1269,19 +1265,10 @@ export function ExpertPage(props: ExpertPageProps) {
             openRailView(view);
             if (view === "chat") setAgentPanelCollapsed(false);
           }}
-          onOpenAccountSettings={() => {
-            closeExpertCreation();
-            props.onOpenAccountSettings?.();
-          }}
+          onOpenAccountSettings={() => { closeExpertCreation(); props.onOpenAccountSettings?.(); }}
           onSignOut={props.onSignOut}
-          onOpenDevices={() => {
-            closeExpertCreation();
-            openRailView("devices");
-          }}
-          onOpenBilling={() => {
-            closeExpertCreation();
-            openRailView("billing");
-          }}
+          onOpenDevices={() => { closeExpertCreation(); openRailView("devices"); }}
+          onOpenBilling={() => { closeExpertCreation(); openRailView("billing"); }}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
