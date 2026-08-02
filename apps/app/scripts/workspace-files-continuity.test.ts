@@ -709,16 +709,18 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).not.toContain("升级");
   });
 
-  test("Tasks/Experts browser pathbar matches Mine interaction", () => {
+  test("Tasks/Experts browser chrome matches Mine layout", () => {
     const browser = readApp(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
-    // Pathbar: breadcrumb · expand · type · search · refresh (no lone toolbar row).
-    expect(browser).not.toContain('data-files-browser-toolbar="true"');
+    // Same tiers as Mine: toolbar (refresh) + pathbar (breadcrumb · expand · type · search).
+    expect(browser).toContain('data-files-browser-toolbar="true"');
     expect(browser).toContain('data-files-browser-pathbar="true"');
     expect(browser).toContain('data-files-browser-breadcrumb="true"');
     expect(browser).toContain('data-files-browser-refresh="true"');
     expect(browser).toContain('data-files-expand-collapse="true"');
+    // Breadcrumb root uses product tab title, not generic workspace label.
+    expect(browser).toContain("filesSourceTabTitleKey(sourceTab)");
     expect(browser).toContain("ChevronsUpDown");
     expect(browser).toContain("ChevronsDownUp");
     expect(browser).toContain("files.expand_all_folders");
