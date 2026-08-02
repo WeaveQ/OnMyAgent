@@ -110,6 +110,9 @@ export async function saveExpertCreation(
       memory: createdAgent.agentMemory,
       skillIds: createdAgent.skillIds,
       knowledge,
+      ...(createdAgent.customAvatarDataUrl
+        ? { avatarDataUrl: createdAgent.customAvatarDataUrl }
+        : {}),
       ...(input.draftId ? { draftId: input.draftId } : {}),
     });
     agent = {

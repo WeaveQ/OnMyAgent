@@ -70,6 +70,16 @@ export function createSkillsDomainHandlers({
     }
     return segments.join("/");
   };
+  const parseAvatarDataUrl = (value) => {
+    const match = String(value ?? "").match(/^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) return null;
+    const extension = match[1] === "image/jpeg"
+      ? "jpg"
+      : match[1] === "image/svg+xml"
+        ? "svg"
+        : match[1].slice("image/".length);
+    return { extension, bytes: Buffer.from(match[2], "base64") };
+  };
   return {
   importSkill: async (event, args) => {
     const projectDir = String(args[0] ?? "").trim();
@@ -221,9 +231,16 @@ export function createSkillsDomainHandlers({
     const destinationRoot = onmyagentMarketplaceRoot("my-experts");
     const destination = path.join(destinationRoot, safePackage);
     const files = myExpertPackageFiles(input, safePackage);
+    const avatar = parseAvatarDataUrl(input.avatarDataUrl);
+    if (avatar) files.plugin.avatar = `./avatars/avatar.${avatar.extension}`;
     await rm(destination, { recursive: true, force: true });
     await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
     await mkdir(path.join(destination, "agents"), { recursive: true });
+    if (avatar) {
+      const avatarRoot = path.join(destination, "avatars");
+      await mkdir(avatarRoot, { recursive: true });
+      await writeFile(path.join(avatarRoot, `avatar.${avatar.extension}`), avatar.bytes);
+    }
     const knowledgeRoot = path.join(destination, "knowledge");
     await mkdir(knowledgeRoot, { recursive: true });
     if (input.draftId) {

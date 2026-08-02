@@ -1280,6 +1280,7 @@ export type MyExpertPackageWriteInput = {
   memory?: string;
   skillIds?: string[];
   draftId?: string;
+  avatarDataUrl?: string;
   knowledge?: Array<{
     kind: "file" | "directory";
     relativePath: string;

@@ -59,6 +59,34 @@ test("writeMyExpertPackage stores knowledge under the English knowledge director
   }
 });
 
+test("writeMyExpertPackage persists an uploaded avatar in the expert package", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-avatar-"));
+  try {
+    const handlers = createHandlers(root);
+    const avatarBytes = Buffer.from("avatar-bytes", "utf8");
+    await handlers.writeMyExpertPackage({}, [
+      {
+        packageName: "avatar-helper",
+        avatarDataUrl: `data:image/png;base64,${avatarBytes.toString("base64")}`,
+      },
+    ]);
+
+    assert.deepEqual(
+      await readFile(path.join(root, "my-experts", "avatar-helper", "avatars", "avatar.png")),
+      avatarBytes,
+    );
+    const plugin = JSON.parse(
+      await readFile(
+        path.join(root, "my-experts", "avatar-helper", ".expert-plugin", "plugin.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(plugin.avatar, "./avatars/avatar.png");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("stageMyExpertKnowledge copies source files into a hidden draft and finalizes them", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-stage-"));
   try {
