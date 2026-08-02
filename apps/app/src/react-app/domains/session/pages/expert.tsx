@@ -16,19 +16,14 @@ import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
-import {
-  type OpenTarget,
-} from "../artifacts/open-target";
+import type { OpenTarget } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProviderAuthModal } from "../../connections";
-import {
-  SessionSurface,
-} from "../surface/session-surface";
-import { ReactSessionComposer } from "../surface/composer/composer";
+import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
@@ -56,14 +51,13 @@ import type { AgentCardItem } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
-  type ExpertCreationComposerProps,
   type PendingAgentContext,
   usePendingAgentStore,
 } from "../../agents";
 import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
-  useAgentRegistryStore, useExpertCreationController,
+  useAgentRegistryStore,
 } from "../../agents";
 import { isExpertSession } from "../../agents";
 import {
@@ -122,6 +116,10 @@ import {
   setExpertComposerDraftAfterNewTask,
 } from "./shared-page-utils";
 import {
+  EXPERT_SIDE_PANEL_DEFAULT_WIDTH,
+  EXPERT_SIDE_PANEL_MIN_WIDTH,
+  type ExpertGroupDeleteTarget,
+  NO_EXPERT_CONVERSATIONS_ASSET,
   expertFeatureCategoryForAgent,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
@@ -153,17 +151,7 @@ import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { useExpertSkillNavigation } from "./use-expert-skill-navigation";
-
-const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
-const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
-const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
-
-type ExpertGroupDeleteTarget = {
-  kind: "expert";
-  agentId: string;
-  name: string;
-  sessionIds: string[];
-};
+import { useSessionExpertCreation } from "./use-session-expert-creation";
 
 export type ExpertPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -789,78 +777,14 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const renderExpertCreationComposer = useCallback(
-    (composer: ExpertCreationComposerProps) => {
-      const surface = props.surface;
-      if (!surface) return null;
-      return (
-        <ReactSessionComposer
-          sessionId={composer.sessionId}
-          draft={composer.draft}
-          mentions={{}}
-          placeholder={composer.placeholder}
-          onDraftChange={composer.onDraftChange}
-          onSend={composer.onSend}
-          onStop={composer.onStop}
-          busy={composer.busy}
-          disabled={composer.disabled || surface.model.modelUnavailable === true}
-          modelUnavailable={surface.model.modelUnavailable}
-          accessMode="default"
-          onAccessModeChange={() => undefined}
-          collaborationMode={{ planning: false, pursueGoal: false }}
-          onCollaborationModeChange={() => undefined}
-          modelPickerOpen={surface.model.modelPickerOpen}
-          selectedModel={surface.model.selectedModel}
-          onModelPickerOpenChange={surface.model.onModelPickerOpenChange}
-          onModelChange={surface.model.onModelChange}
-          attachments={composer.attachments}
-          onAttachFiles={composer.onAttachFiles}
-          onRemoveAttachment={composer.onRemoveAttachment}
-          attachmentsEnabled={surface.attachmentsEnabled}
-          attachmentsDisabledReason={surface.attachmentsDisabledReason}
-          modelVariantLabel={surface.model.modelVariantLabel}
-          modelVariant={surface.model.modelVariant}
-          modelBehaviorOptions={surface.model.modelBehaviorOptions}
-          onModelVariantChange={surface.model.onModelVariantChange}
-          agentLabel={t("agents.expert_creation_coach")}
-          selectedAgent={null}
-          listAgents={surface.listAgents}
-          onSelectAgent={() => undefined}
-          listCommands={surface.listCommands}
-          recentFiles={surface.recentFiles}
-          searchFiles={surface.searchFiles}
-          listFolderFiles={surface.searchFiles}
-          loadWorkspaceFiles={async () => []}
-          onInsertMention={() => undefined}
-          notice={null}
-          onNotice={() => undefined}
-          onPasteText={() => undefined}
-          onUnsupportedFileLinks={() => undefined}
-          pastedText={[]}
-          onExpandPastedText={() => undefined}
-          onRevealPastedText={() => undefined}
-          onRemovePastedText={() => undefined}
-          isRemoteWorkspace={surface.isRemoteWorkspace}
-          isSandboxWorkspace={surface.isSandboxWorkspace}
-          onUploadInboxFiles={surface.onUploadInboxFiles}
-          showOuterBorder={false}
-          hideAccessPermissionSelect
-        />
-      );
-    },
-    [props.surface],
-  );
-
-  const { openExpertCreation, expertCreationPage } = useExpertCreationController({
+  const { openExpertCreation, expertCreationPage } = useSessionExpertCreation({
     registry,
     workspaceId: props.selectedWorkspaceId,
     workspaceRoot: props.selectedWorkspaceRoot,
     opencodeBaseUrl: props.opencodeBaseUrl ?? null,
     onmyagentServerToken: props.onmyagentServerToken ?? null,
     client: props.onmyagentServerClient,
-    skills: registry?.skills ?? [],
-    selectedModel: props.surface?.model.selectedModel ?? null,
-    renderComposer: renderExpertCreationComposer,
+    surface: props.surface,
     showToast,
   });
   const seedChatDraft = useCallback(
