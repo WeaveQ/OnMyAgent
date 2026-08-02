@@ -560,6 +560,62 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(merged.some((r) => r.name === ".DS_Store")).toBe(false);
   });
 
+  test("uploads catalog nested folder never lists root siblings", () => {
+    // Regression: entering uploads/test21 must not show uploads-root files
+    // (old shallow path rewrote siblings into the current folder).
+    const nested = mapUploadsCatalogToRows(
+      [
+        { path: "uploads/test21", kind: "dir", mtimeMs: 20 },
+        { path: "uploads/test21/文档", kind: "dir", mtimeMs: 19 },
+        {
+          path: "uploads/test21/only-inside.md",
+          kind: "file",
+          size: 2,
+          mtimeMs: 18,
+        },
+        {
+          path: "uploads/Agent快速上手分享.zip",
+          kind: "file",
+          size: 9,
+          mtimeMs: 17,
+        },
+        { path: "uploads/larkauth-qr.png", kind: "file", size: 4, mtimeMs: 16 },
+        {
+          path: "uploads/other/folder/deep.txt",
+          kind: "file",
+          size: 1,
+          mtimeMs: 15,
+        },
+      ],
+      { parentPrefix: "uploads/test21", shallow: true },
+    );
+    expect(nested.map((r) => r.path).sort()).toEqual([
+      "uploads/test21/only-inside.md",
+      "uploads/test21/文档",
+    ]);
+    expect(nested.some((r) => r.name.includes("Agent"))).toBe(false);
+    expect(nested.some((r) => r.name.includes("larkauth"))).toBe(false);
+
+    const deep = mapUploadsCatalogToRows(
+      [
+        { path: "uploads/test21/文档", kind: "dir", mtimeMs: 19 },
+        {
+          path: "uploads/test21/文档/note.md",
+          kind: "file",
+          size: 1,
+          mtimeMs: 18,
+        },
+        { path: "uploads/root.md", kind: "file", size: 1, mtimeMs: 5 },
+      ],
+      { parentPrefix: "uploads/test21", shallow: false },
+    );
+    expect(deep.map((r) => r.path).sort()).toEqual([
+      "uploads/test21/文档",
+      "uploads/test21/文档/note.md",
+    ]);
+    expect(deep.some((r) => r.path === "uploads/root.md")).toBe(false);
+  });
+
   test("browser and hosts wire open-source-session + create folder", () => {
     const browser = readApp(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",

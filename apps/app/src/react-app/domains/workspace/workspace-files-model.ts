@@ -1015,8 +1015,9 @@ export type UploadsCatalogEntryLike = {
 
 /**
  * Map workspace catalog entries under uploads/ into Mine rows (files + dirs).
- * Only top-level children under uploads/ (or under `parentPrefix`) are kept when
- * `shallow` is true (default).
+ * Scoped to `parentPrefix` only (never rewrites sibling paths into the current
+ * folder). When `shallow` is true (default), only direct children of the parent
+ * are kept; when false, all descendants under the parent are kept.
  */
 export function mapUploadsCatalogToRows(
   items: readonly UploadsCatalogEntryLike[],
@@ -1033,27 +1034,16 @@ export function mapUploadsCatalogToRows(
   for (const item of items) {
     const rawPath = String(item.path ?? "").trim().replace(/\\/g, "/");
     if (!rawPath) continue;
-    if (
-      rawPath !== parent
-      && !rawPath.startsWith(`${parent}/`)
-      && !rawPath.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
-      && rawPath !== WORKSPACE_UPLOADS_DIR
-    ) {
-      continue;
-    }
-    let rel = rawPath;
-    if (rel === parent || rel === WORKSPACE_UPLOADS_DIR) continue;
+    // Strictly under the current folder — never fall back to uploads/ root
+    // siblings (that used to reappear inside every nested folder).
+    if (rawPath === parent) continue;
+    if (!rawPath.startsWith(`${parent}/`)) continue;
 
-    if (shallow) {
-      const rest = rel.startsWith(`${parent}/`)
-        ? rel.slice(parent.length + 1)
-        : rel.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
-          ? rel.slice(WORKSPACE_UPLOADS_DIR.length + 1)
-          : rel;
-      if (!rest || rest.includes("/")) continue;
-      rel = `${parent}/${rest}`.replace(/\/+/g, "/");
-    }
+    const rest = rawPath.slice(parent.length + 1);
+    if (!rest) continue;
+    if (shallow && rest.includes("/")) continue;
 
+    const rel = rawPath;
     if (seen.has(rel)) continue;
     const kind: "file" | "dir" =
       item.kind === "dir" || item.kind === "directory" ? "dir" : "file";
