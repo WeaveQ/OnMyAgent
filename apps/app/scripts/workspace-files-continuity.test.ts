@@ -41,6 +41,7 @@ import {
   isFilesUngroupedPath,
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
+  sortUploadRows,
   workspaceRelativeForUploadRow,
 } from "../src/react-app/domains/workspace/workspace-files-model";
 import { buildIsolatedExpertSessionDirectory } from "../src/react-app/capabilities/session-identity/expert-session-directory";
@@ -345,6 +346,60 @@ describe("files tree outline helpers", () => {
     expect(docs.children.map((c) => c.name).sort()).toEqual(["a.md", "nested"]);
     const nested = docs.children.find((c) => c.name === "nested");
     expect(nested?.children.map((c) => c.name)).toEqual(["b.md"]);
+  });
+
+  test("sortUploadRows and tree sort follow name/updated/size like Tasks", () => {
+    const sample = [
+      {
+        id: "1",
+        name: "z-folder",
+        path: "uploads/z-folder",
+        size: 0,
+        updatedAt: 10,
+        kind: "dir" as const,
+      },
+      {
+        id: "2",
+        name: "big.pptx",
+        path: "uploads/big.pptx",
+        size: 100,
+        updatedAt: 1,
+        kind: "file" as const,
+      },
+      {
+        id: "3",
+        name: "alpha.md",
+        path: "uploads/alpha.md",
+        size: 10,
+        updatedAt: 50,
+        kind: "file" as const,
+      },
+    ];
+    expect(sortUploadRows(sample, "name", "asc").map((r) => r.name)).toEqual([
+      "z-folder",
+      "alpha.md",
+      "big.pptx",
+    ]);
+    expect(sortUploadRows(sample, "updated", "desc").map((r) => r.name)).toEqual([
+      "alpha.md",
+      "z-folder",
+      "big.pptx",
+    ]);
+    expect(sortUploadRows(sample, "size", "desc").map((r) => r.name)).toEqual([
+      "big.pptx",
+      "alpha.md",
+      "z-folder",
+    ]);
+
+    const roots = buildTreeNodesFromUploadRows(sample, "uploads", {
+      sortKey: "name",
+      sortDir: "asc",
+    });
+    expect(roots.map((r) => r.name)).toEqual([
+      "z-folder",
+      "alpha.md",
+      "big.pptx",
+    ]);
   });
 
   test("buildUngroupedFolderNode wraps root loose files", () => {

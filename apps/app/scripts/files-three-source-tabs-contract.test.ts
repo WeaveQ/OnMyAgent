@@ -240,6 +240,9 @@ describe("files three-source tabs (P0)", () => {
     expect(uploads).toContain("listInbox");
     expect(uploads).toContain("buildUserUploadRelativePath");
     expect(uploads).toContain("mapUploadsCatalogToRows");
+    expect(uploads).toContain("sortUploadRows");
+    expect(uploads).toContain("toggleSort");
+    expect(uploads).toContain("data-files-sort-key");
     expect(uploads).toContain("planInboxToUploadsMigration");
     // My files: preview drawer + open/reveal/copy parity with Task files.
     expect(uploads).toContain("FilePreviewDrawer");

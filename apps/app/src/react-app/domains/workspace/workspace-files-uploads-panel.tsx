@@ -12,6 +12,9 @@ import {
   type DragEvent,
 } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Check,
   ChevronDown,
   ChevronRight,
@@ -75,6 +78,8 @@ import {
 import {
   formatWorkspaceFileSize,
   formatWorkspaceFileTime,
+  type WorkspaceFileSortDir,
+  type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
@@ -94,6 +99,7 @@ import {
   getFileCategory,
   isDirectChildOfPrefix,
   mapUploadsCatalogToRows,
+  sortUploadRows,
   usesLocalFileRenderer,
   workspaceRelativeForUploadRow,
   workspaceRelativeInboxPath,
@@ -287,6 +293,9 @@ export function WorkspaceFilesUploadsPanel(props: {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<FileCategory>("all");
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  /** Same defaults as Tasks/Experts: newest first. */
+  const [sortKey, setSortKey] = useState<WorkspaceFileSortKey>("updated");
+  const [sortDir, setSortDir] = useState<WorkspaceFileSortDir>("desc");
   const [uploading, setUploading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshDone, setRefreshDone] = useState(false);
@@ -400,8 +409,12 @@ export function WorkspaceFilesUploadsPanel(props: {
 
   // Full subtree under current folder (always available for expand-all).
   const treeRoots = useMemo(
-    () => buildTreeNodesFromUploadRows(rows, currentFolderPath),
-    [currentFolderPath, rows],
+    () =>
+      buildTreeNodesFromUploadRows(rows, currentFolderPath, {
+        sortKey,
+        sortDir,
+      }),
+    [currentFolderPath, rows, sortDir, sortKey],
   );
 
   const expandableDirPaths = useMemo(
@@ -430,8 +443,31 @@ export function WorkspaceFilesUploadsPanel(props: {
         : rows.filter((row) =>
             isDirectChildOfPrefix(row.path, currentFolderPath),
           );
-    return filterUploadRows(scoped, query, typeFilter);
-  }, [currentFolderPath, filterActive, query, rows, treeMode, typeFilter]);
+    return sortUploadRows(
+      filterUploadRows(scoped, query, typeFilter),
+      sortKey,
+      sortDir,
+    );
+  }, [
+    currentFolderPath,
+    filterActive,
+    query,
+    rows,
+    sortDir,
+    sortKey,
+    treeMode,
+    typeFilter,
+  ]);
+
+  const toggleSort = useCallback((key: WorkspaceFileSortKey) => {
+    if (sortKey === key) {
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    // Name defaults ascending; updated/size default newest/largest first.
+    setSortDir(key === "name" ? "asc" : "desc");
+  }, [sortKey]);
 
   /** Map path → row for tree row actions / preview. */
   const rowByPath = useMemo(() => {
@@ -1404,21 +1440,113 @@ export function WorkspaceFilesUploadsPanel(props: {
           ) : showTable ? (
             <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto">
               <table className="w-full table-fixed caption-bottom text-sm">
-                <TableHeader className="sticky top-0 z-10 bg-dls-background">
+                <TableHeader className="sticky top-0 z-10">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-auto text-left">
-                      {t("files.column_name")}
-                    </TableHead>
-                    <TableHead className="w-24 text-left">
-                      {t("files.column_type")}
-                    </TableHead>
-                    <TableHead className="w-36 text-left">
-                      {t("files.column_updated")}
-                    </TableHead>
-                    <TableHead className="w-24 text-left">
-                      {t("files.column_size")}
-                    </TableHead>
-                    <TableHead className="w-12 text-left">
+                    {(
+                      [
+                        {
+                          key: "name" as WorkspaceFileSortKey | null,
+                          label: t("files.column_name"),
+                          className: "",
+                          sortable: true,
+                        },
+                        {
+                          key: null,
+                          label: t("files.column_type"),
+                          className: "w-28",
+                          sortable: false,
+                        },
+                        {
+                          key: "updated" as WorkspaceFileSortKey | null,
+                          label: t("files.column_updated"),
+                          className: "w-40",
+                          sortable: true,
+                        },
+                        {
+                          key: "size" as WorkspaceFileSortKey | null,
+                          label: t("files.column_size"),
+                          className: "w-24",
+                          sortable: true,
+                        },
+                      ] as const
+                    ).map((column) => {
+                      const active =
+                        column.sortable &&
+                        column.key !== null &&
+                        sortKey === column.key;
+                      return (
+                        <TableHead
+                          key={column.label}
+                          className={cn(
+                            "h-10 border-b border-dls-border bg-dls-surface-solid text-left text-xs font-medium text-dls-secondary",
+                            column.className,
+                          )}
+                          style={{
+                            backgroundColor:
+                              "var(--dls-surface-solid, #2c2c2c)",
+                          }}
+                          aria-sort={
+                            active
+                              ? sortDir === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : column.sortable
+                                ? "none"
+                                : undefined
+                          }
+                        >
+                          {column.sortable && column.key ? (
+                            <button
+                              type="button"
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-dls-hover hover:text-dls-text",
+                                active
+                                  ? "font-semibold text-dls-text"
+                                  : "text-dls-secondary",
+                              )}
+                              onClick={() => toggleSort(column.key!)}
+                              aria-label={
+                                active
+                                  ? `${column.label} · ${sortDir === "asc" ? "asc" : "desc"}`
+                                  : column.label
+                              }
+                              data-files-sort-key={column.key}
+                              data-files-sort-active={
+                                active ? "true" : "false"
+                              }
+                            >
+                              <span>{column.label}</span>
+                              {active ? (
+                                sortDir === "asc" ? (
+                                  <ArrowUp
+                                    className="size-3.5 shrink-0"
+                                    aria-hidden
+                                  />
+                                ) : (
+                                  <ArrowDown
+                                    className="size-3.5 shrink-0"
+                                    aria-hidden
+                                  />
+                                )
+                              ) : (
+                                <ArrowUpDown
+                                  className="size-3.5 shrink-0 opacity-45"
+                                  aria-hidden
+                                />
+                              )}
+                            </button>
+                          ) : (
+                            column.label
+                          )}
+                        </TableHead>
+                      );
+                    })}
+                    <TableHead
+                      className="h-10 w-12 border-b border-dls-border bg-dls-surface-solid"
+                      style={{
+                        backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
+                      }}
+                    >
                       <span className="sr-only">
                         {t("files.file_actions", { name: "" })}
                       </span>
