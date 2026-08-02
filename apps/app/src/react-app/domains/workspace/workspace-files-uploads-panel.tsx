@@ -1006,7 +1006,7 @@ export function WorkspaceFilesUploadsPanel(props: {
         </p>
       </div>
 
-      {/* Primary actions only (Hope left cluster). No capacity bar (A7). */}
+      {/* Primary actions only (create / upload). Refresh lives on the pathbar. No capacity bar (A7). */}
       <div
         className="mb-2.5 flex w-full shrink-0 flex-wrap items-center gap-2"
         data-files-mine-toolbar="true"
@@ -1053,36 +1053,9 @@ export function WorkspaceFilesUploadsPanel(props: {
           )}
           {uploading ? t("files.uploading") : t("files.upload_files")}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          disabled={loading || refreshDone || !canLoad || uploading}
-          onClick={() => {
-            manualRefreshRef.current = true;
-            setRefreshDone(false);
-            setRefreshKey((key) => key + 1);
-          }}
-          className={cn(
-            "size-9 shrink-0 rounded-full transition-colors",
-            refreshDone &&
-              "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
-          )}
-          title={refreshDone ? t("common.refreshed") : t("common.refresh")}
-          aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
-          aria-busy={loading || undefined}
-        >
-          {loading ? (
-            <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-          ) : refreshDone ? (
-            <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-          ) : (
-            <RefreshCw className="size-3.5" aria-hidden />
-          )}
-        </Button>
       </div>
 
-      {/* One row: breadcrumb · expand/collapse · type · search */}
+      {/* One row: breadcrumb · expand/collapse · type · search · refresh */}
       <div
         className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
         data-files-mine-pathbar="true"
@@ -1225,6 +1198,34 @@ export function WorkspaceFilesUploadsPanel(props: {
               className="h-9 text-sm placeholder:text-dls-secondary"
             />
           </InputGroup>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            data-files-mine-refresh="true"
+            disabled={loading || refreshDone || !canLoad || uploading}
+            onClick={() => {
+              manualRefreshRef.current = true;
+              setRefreshDone(false);
+              setRefreshKey((key) => key + 1);
+            }}
+            className={cn(
+              "size-9 shrink-0 rounded-full transition-colors",
+              refreshDone &&
+                "border-dls-status-success-border bg-dls-status-success-soft text-dls-status-success-fg",
+            )}
+            title={refreshDone ? t("common.refreshed") : t("common.refresh")}
+            aria-label={refreshDone ? t("common.refreshed") : t("common.refresh")}
+            aria-busy={loading || undefined}
+          >
+            {loading ? (
+              <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+            ) : refreshDone ? (
+              <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
+            ) : (
+              <RefreshCw className="size-3.5" aria-hidden />
+            )}
+          </Button>
         </div>
       </div>
 
