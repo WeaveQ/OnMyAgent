@@ -4,10 +4,12 @@
  */
 
 import {
+  WORKSPACE_EXPERTS_DIR,
   WORKSPACE_TASKS_DIR,
   extractSessionIdFromProductPath,
   isAutomationTaskFolderName,
   isLikelySessionId,
+  toProductLayoutRelativePath,
 } from "./workspace-files-layout";
 
 export type SourceSessionStatus = "active" | "archived" | "missing" | "none";
@@ -96,7 +98,9 @@ export function resolveOpenSourceSessionAction(input: {
   const fromAlias = input.sessionIdByPathKey
     ? lookupSessionIdByPathKey(input.relativePath, input.sessionIdByPathKey)
     : null;
-  const sessionId = fromPath || fromAlias;
+  // Prefer alias: expert isolation dirs use timestamps as folder names while the
+  // real conversation id is ses_* (same pattern as automation group folders).
+  const sessionId = fromAlias || fromPath;
 
   if (!sessionId) {
     return {
@@ -229,4 +233,68 @@ export function isHistoricalAutomationTaskFolder(relativePath: string): boolean 
   const base =
     normalizeRel(relativePath).split("/").filter(Boolean).at(-1) ?? "";
   return isAutomationTaskFolderName(base);
+}
+
+/**
+ * Map live/archived session directories → real session ids.
+ * Expert isolation: `{ws}/experts/{agentSeg}/{timestamp}` → ses_…
+ * Task isolation: `{ws}/tasks/{sessionId}` or absolute session cwd.
+ */
+export function buildSessionIdByPathKeyFromSessionDirectories(
+  sessions: ReadonlyArray<{
+    id?: string | null;
+    directory?: string | null;
+    title?: string | null;
+  }>,
+  workspaceRoot?: string | null,
+): {
+  sessionIdByPathKey: Record<string, string>;
+  pathTitleAliases: Array<{ key: string; title: string }>;
+} {
+  const sessionIdByPathKey: Record<string, string> = {};
+  const pathTitleAliases: Array<{ key: string; title: string }> = [];
+  const ws = String(workspaceRoot ?? "").trim();
+
+  for (const session of sessions) {
+    const sessionId = String(session.id ?? "").trim();
+    if (!sessionId || !isLikelySessionId(sessionId)) continue;
+    const title = String(session.title ?? "").trim();
+    const directory = String(session.directory ?? "").trim().replace(/\\/g, "/");
+    if (!directory) continue;
+
+    const keys = new Set<string>();
+    const base = directory.split("/").filter(Boolean).at(-1) ?? "";
+    if (base) {
+      keys.add(base);
+      keys.add(`${WORKSPACE_TASKS_DIR}/${base}`);
+      keys.add(`${WORKSPACE_EXPERTS_DIR}/${base}`);
+    }
+
+    const productRel = toProductLayoutRelativePath(directory, ws || null);
+    if (productRel) {
+      keys.add(productRel);
+      const parts = productRel.split("/").filter(Boolean);
+      // experts/{agent}/{sessionKey} and tasks/{sessionKey}
+      if (parts.length >= 2) {
+        keys.add(parts.slice(-1)[0] ?? "");
+        keys.add(parts.slice(-2).join("/"));
+      }
+      if (parts.length >= 3) {
+        keys.add(parts.slice(-3).join("/"));
+      }
+    }
+
+    // Absolute directory as last-resort key (lookup also tries basename).
+    keys.add(directory);
+
+    for (const key of keys) {
+      const k = String(key ?? "").trim();
+      if (!k) continue;
+      if (!sessionIdByPathKey[k]) sessionIdByPathKey[k] = sessionId;
+      if (title) pathTitleAliases.push({ key: k, title });
+    }
+    if (title) pathTitleAliases.push({ key: sessionId, title });
+  }
+
+  return { sessionIdByPathKey, pathTitleAliases };
 }

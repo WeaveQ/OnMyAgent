@@ -46,6 +46,7 @@ import {
 import { buildIsolatedExpertSessionDirectory } from "../src/react-app/capabilities/session-identity/expert-session-directory";
 import {
   buildSessionIdByPathKeyFromAutomationRecords,
+  buildSessionIdByPathKeyFromSessionDirectories,
   buildSessionTitleByKey,
   resolveOpenSourceSessionAction,
 } from "../src/react-app/domains/workspace/workspace-files-open-session";
@@ -619,6 +620,37 @@ describe("open source session + create folder (Sprint A/B)", () => {
         (alias) => alias.key === autoName && alias.title === "Daily report",
       ),
     ).toBe(true);
+  });
+
+  test("expert isolation dirs map timestamp folder to real session id", () => {
+    const stamp = "1785029883722";
+    const { sessionIdByPathKey } = buildSessionIdByPathKeyFromSessionDirectories(
+      [
+        {
+          id: "ses_expert_1",
+          directory: `/ws/experts/quote-specialist/${stamp}`,
+          title: "Quote run",
+        },
+      ],
+      "/ws",
+    );
+    expect(sessionIdByPathKey[stamp]).toBe("ses_expert_1");
+    expect(sessionIdByPathKey[`experts/quote-specialist/${stamp}`]).toBe(
+      "ses_expert_1",
+    );
+
+    // Alias wins over path-encoded timestamp so open jumps to the conversation.
+    const opened = resolveOpenSourceSessionAction({
+      relativePath: `experts/quote-specialist/${stamp}`,
+      activeSessionIds: ["ses_expert_1"],
+      sessionIdByPathKey,
+    });
+    expect(opened).toEqual({
+      sessionId: "ses_expert_1",
+      status: "active",
+      canOpen: true,
+      isSessionFolder: true,
+    });
   });
 
   test("buildSessionTitleByKey prefers live over archive", () => {

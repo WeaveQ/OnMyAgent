@@ -49,6 +49,7 @@ export {
 export {
   buildSessionTitleByKey,
   buildSessionIdByPathKeyFromAutomationRecords,
+  buildSessionIdByPathKeyFromSessionDirectories,
   isHistoricalAutomationTaskFolder,
   resolveOpenSourceSessionAction,
   type OpenSourceSessionAction,

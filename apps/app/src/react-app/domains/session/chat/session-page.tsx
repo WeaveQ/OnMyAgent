@@ -338,9 +338,16 @@ export function SessionPage(props: SessionPageProps) {
       )?.sessions ?? [];
     return buildFilesOpenSessionMeta({
       workspaceId: props.selectedWorkspaceId,
+      workspaceRoot:
+        props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
       liveSessions: live,
     });
-  }, [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
+  }, [
+    props.selectedWorkspaceId,
+    props.selectedWorkspaceRoot,
+    props.workspaceFilesRoot,
+    props.sidebar.workspaceSessionGroups,
+  ]);
 
   const sessionActions = useSessionPageSessionActions({
     selectedSessionId: props.selectedSessionId,
