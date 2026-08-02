@@ -331,6 +331,8 @@ export function AgentSessionTabs(props: {
   sessionStatusById?: Record<string, string>;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onOpenDraftSession?: (sessionId: string) => void;
+  /** Hover/focus warm-up for non-active session chips. */
+  onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onCreateSession: () => void;
   onRenameSession: (sessionId: string, title: string) => void;
   /** Soft-archive (parity with assistant tasks). Optional when host has no archive path. */
@@ -742,6 +744,14 @@ export function AgentSessionTabs(props: {
                     }
                     if (isDraft) props.onOpenDraftSession?.(session.id);
                     else props.onOpenSession(props.workspaceId, session.id);
+                  }}
+                  onPointerEnter={() => {
+                    if (isDraft || active || !props.onPrefetchSession) return;
+                    props.onPrefetchSession(props.workspaceId, session.id);
+                  }}
+                  onFocus={() => {
+                    if (isDraft || active || !props.onPrefetchSession) return;
+                    props.onPrefetchSession(props.workspaceId, session.id);
                   }}
                   title={chipTitle}
                   aria-pressed={active}

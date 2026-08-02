@@ -1229,6 +1229,7 @@ export function ExpertPage(props: ExpertPageProps) {
         sessionStatusById={props.sidebar.sessionStatusById}
         onOpenSession={handleOpenExpertSession}
         onOpenDraftSession={handleOpenDraftSession}
+        onPrefetchSession={props.sidebar.onPrefetchSession}
         onCreateSession={handleCreateCurrentAgentSession}
         onRenameSession={openRenameModal}
         onArchiveSession={handleArchiveExpertSession}

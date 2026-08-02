@@ -1,19 +1,23 @@
 /**
  * Per-expert session tab memory: workspace + agentId → sessionId.
  * Selection is always by session id (never tab index).
+ *
+ * Reads are memoized in-process so expert list hover/open does not re-parse
+ * localStorage on every row. Writes update the cache; external storage
+ * changes are not observed (same process owns this key).
  */
 const EXPERT_SESSION_SELECTION_KEY = "onmyagent.expertSessionSelection.v1";
+
+let cachedRecord: Record<string, string> | null = null;
 
 function memoryKey(workspaceId: string, agentId: string) {
   return `${workspaceId.trim()}:${agentId.trim()}`;
 }
 
-function readRecord(): Record<string, string> {
-  if (typeof window === "undefined") return {};
+function parseRecord(raw: string | null): Record<string, string> {
+  if (!raw) return {};
   try {
-    const parsed: unknown = JSON.parse(
-      window.localStorage.getItem(EXPERT_SESSION_SELECTION_KEY) ?? "{}",
-    );
+    const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {};
     }
@@ -27,6 +31,27 @@ function readRecord(): Record<string, string> {
   } catch {
     return {};
   }
+}
+
+function readRecord(): Record<string, string> {
+  if (cachedRecord) return cachedRecord;
+  if (typeof window === "undefined") {
+    cachedRecord = {};
+    return cachedRecord;
+  }
+  try {
+    cachedRecord = parseRecord(
+      window.localStorage.getItem(EXPERT_SESSION_SELECTION_KEY),
+    );
+  } catch {
+    cachedRecord = {};
+  }
+  return cachedRecord;
+}
+
+/** Test / HMR helper — drop the in-memory cache so the next read hits storage. */
+export function clearExpertSessionSelectionCache(): void {
+  cachedRecord = null;
 }
 
 /** Last user-selected session id for this expert, or null. */
@@ -52,8 +77,9 @@ export function writeExpertSessionSelection(
   const session = sessionId.trim();
   if (!ws || !agent || !session || session.startsWith("draft:")) return;
   try {
-    const record = readRecord();
+    const record = { ...readRecord() };
     record[memoryKey(ws, agent)] = session;
+    cachedRecord = record;
     window.localStorage.setItem(
       EXPERT_SESSION_SELECTION_KEY,
       JSON.stringify(record),
@@ -89,4 +115,34 @@ export function resolveExpertSessionSelection(input: {
   }
 
   return realIds[0] ?? null;
+}
+
+/**
+ * Session id to warm before opening an expert row (hover/focus).
+ * Matches open-time resolveExpertSessionSelection so prefetch hits the
+ * same snapshot SessionSurface will request.
+ */
+export function resolveExpertPrefetchSessionId(input: {
+  workspaceId: string;
+  agentId: string;
+  sessionIds: readonly string[];
+  orderIds?: readonly string[];
+  fallbackSessionId?: string | null;
+}): string | null {
+  const agentId = input.agentId.trim();
+  if (!agentId) {
+    const fallback = input.fallbackSessionId?.trim() ?? "";
+    return fallback && !fallback.startsWith("draft:") ? fallback : null;
+  }
+  const resolved = resolveExpertSessionSelection({
+    rememberedSessionId: readExpertSessionSelection(
+      input.workspaceId,
+      agentId,
+    ),
+    sessionIds: input.sessionIds,
+    orderIds: input.orderIds,
+  });
+  if (resolved) return resolved;
+  const fallback = input.fallbackSessionId?.trim() ?? "";
+  return fallback && !fallback.startsWith("draft:") ? fallback : null;
 }
