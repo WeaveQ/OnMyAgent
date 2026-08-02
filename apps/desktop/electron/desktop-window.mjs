@@ -4,6 +4,7 @@
  */
 import path from "node:path";
 import { BrowserWindow } from "electron";
+import { MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB } from "./desktop-cold-start.mjs";
 
 /**
  * @param {object} options
@@ -310,7 +311,12 @@ export function createDesktopWindowController(options) {
 
     browserController.setMainWindow(mainWindow);
     artifactPreviewController.setMainWindow(mainWindow);
-    if (!browserController.hasActiveBrowserTab()) {
+    // Cold start: do not spawn an extra WebContents for about:blank. The first
+    // real browser open (desktop-ipc-browser / navigate) creates a tab on demand.
+    if (
+      MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB &&
+      !browserController.hasActiveBrowserTab()
+    ) {
       browserController.createBrowserTab("about:blank", { select: true });
     }
 
