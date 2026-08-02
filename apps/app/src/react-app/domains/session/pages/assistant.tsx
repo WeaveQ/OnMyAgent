@@ -1493,9 +1493,7 @@ export function AssistantPage(props: AssistantPageProps) {
                     primarySession={
                       canRenderReactSurface ? (
                           <SessionSurface
-                            // Stable per workspace — session switches are prop-driven
-                            // (session effects + scroll store). Full remount on every
-                            // sessionId was the main switch cost.
+                            // Workspace-stable key: session switches are prop-driven.
                             key={props.runtimeWorkspaceId ?? "assistant-surface"}
                             {...props.surface!}
                             onSendDraft={wrappedOnSendDraft}
