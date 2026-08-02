@@ -33,6 +33,16 @@ packages/onmyagent-ui-mcp UI 控制面 MCP server
 
 默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`；React 域细节只维护在 `apps/app/src/react-app/ARCHITECTURE.md`。
 
+### 包级手册
+
+改具体包时**先读该包短手册**（默认验证命令与禁止事项），再读本文件与 Architecture。不要把长文复制进包级文件。
+
+| 包 | 手册 |
+|----|------|
+| `apps/app` | [`apps/app/AGENTS.md`](apps/app/AGENTS.md) |
+| `apps/desktop` | [`apps/desktop/AGENTS.md`](apps/desktop/AGENTS.md) |
+| `apps/server` | [`apps/server/AGENTS.md`](apps/server/AGENTS.md) |
+
 ### 双运行时主辅（硬事实）
 
 - **OpenCode** = 产品主运行时与主会话真相源（server / archive / SSE / `domains/session`）。
@@ -153,6 +163,23 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 - Desktop messaging **channel unit gate**（纯本地、无飞书/微信凭证）：`node --test apps/desktop/electron/channels/test/*.test.mjs`（亦可包含 `apps/desktop/electron/channels/AgentReplyHeader.test.mjs`）。不要用需要 live credentials 的 E2E 代替。
 - 详细 Maker/Checker、验证分层、失败重试和终止规则见 `docs/loop/rules.md`。
 
+### 任务收尾（非琐碎任务）
+
+结束前必须留下**可解析的验收信号**（便于 harness / 后续会话对照；勿贴密钥或私有绝对路径）：
+
+1. **实际跑过的验证命令** + **退出码或一行结果摘要**。
+2. **变更范围一句话**（包或路径级）。
+
+常用示例：
+
+```bash
+pnpm task check app          # 改 apps/app 时
+pnpm check:file-size         # 触碰大文件 / session 页时
+pnpm task check server       # 改 apps/server 时
+pnpm task check desktop      # 改 apps/desktop 时
+```
+
+只讨论不跑 check、或无文件变更的闲聊，不算完成非琐碎任务。
 
 ## 文档导航（精简）
 
@@ -162,6 +189,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 |------|------|
 | 人类快速开始 / 贡献 | `README.md` · `CONTRIBUTING.md` |
 | 本文件之后的系统架构 | `docs/Architecture.md` |
+| 改 app / desktop / server | 对应包级 `AGENTS.md`（见上「包级手册」） |
 | React 域 / 路由身份 | `apps/app/src/react-app/ARCHITECTURE.md` |
 | UI 视觉契约 | `DESIGN.md` |
 | 重 loop / kill switch / graphify | `docs/loop/rules.md` |
