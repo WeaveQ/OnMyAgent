@@ -61,6 +61,14 @@ import {
   type ExpertCoachProposal,
 } from "./expert-creation-coach-model";
 import { runExpertCoachTurn } from "./expert-creation-coach-runtime";
+import {
+  clearExpertCreationStoredState,
+  readExpertCreationStoredState,
+  writeExpertCreationStoredState,
+  type ExpertCoachMessage,
+  type ExpertCoachState,
+  type ExpertCoachVersion,
+} from "./expert-creation-draft-storage";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -84,19 +92,6 @@ export type ExpertCreationPageProps = {
     draft: AgentWizardDraft,
     knowledge: ExpertKnowledgeEntry[],
   ) => Promise<void>;
-};
-
-type CoachMessage = {
-  id: string;
-  role: "assistant" | "user";
-  content: string;
-  proposal?: ExpertCoachProposal;
-};
-
-type CoachVersion = {
-  id: string;
-  createdAt: number;
-  proposal: ExpertCoachProposal;
 };
 
 const TABS: Array<{ id: ExpertCreationTab; label: string }> = [
@@ -202,15 +197,17 @@ function ExpertCoach(props: {
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
   onmyagentServerToken: string | null;
+  state: ExpertCoachState;
+  onStateChange: (state: ExpertCoachState) => void;
   onApplyProposal: (proposal: ExpertCoachProposal) => void;
 }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<CoachMessage[]>([]);
-  const [versions, setVersions] = useState<CoachVersion[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ExpertCoachMessage[]>(props.state.messages);
+  const [versions, setVersions] = useState<ExpertCoachVersion[]>(props.state.versions);
+  const [sessionId, setSessionId] = useState<string | null>(props.state.sessionId);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [appliedVersionId, setAppliedVersionId] = useState<string | null>(null);
+  const [appliedVersionId, setAppliedVersionId] = useState<string | null>(props.state.appliedVersionId);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -220,7 +217,11 @@ function ExpertCoach(props: {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const applyVersion = (version: CoachVersion) => {
+  useEffect(() => {
+    props.onStateChange({ sessionId, messages, versions, appliedVersionId });
+  }, [appliedVersionId, messages, props.onStateChange, sessionId, versions]);
+
+  const applyVersion = (version: ExpertCoachVersion) => {
     props.onApplyProposal(version.proposal);
     setAppliedVersionId(version.id);
   };
@@ -228,7 +229,7 @@ function ExpertCoach(props: {
   const send = async (retryValue?: string) => {
     const value = (retryValue ?? input).trim();
     if (!value || sending) return;
-    const userMessage: CoachMessage = {
+    const userMessage: ExpertCoachMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: value,
@@ -262,7 +263,7 @@ function ExpertCoach(props: {
         signal: controller.signal,
       });
       setSessionId(output.sessionId);
-      const assistantMessage: CoachMessage = {
+      const assistantMessage: ExpertCoachMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: output.result.reply,
@@ -1138,7 +1139,12 @@ function TryEffectPanel(props: {
 export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const sourceRegistry = props.registry ?? createDefaultAgentRegistry();
   const [activeTab, setActiveTab] = useState<ExpertCreationTab>("basic");
-  const [draft, setDraft] = useState(() => buildInitialDraft(props.registry, props.skills));
+  const [storedInitialState] = useState(() => readExpertCreationStoredState(
+    props.workspaceId,
+    buildInitialDraft(props.registry, props.skills),
+  ));
+  const [draft, setDraft] = useState(storedInitialState.draft);
+  const [coachState, setCoachState] = useState(storedInitialState.coach);
   const [availableSkills, setAvailableSkills] = useState(() =>
     props.skills.filter((skill) => skill.enabled),
   );
@@ -1146,6 +1152,10 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [tryOpen, setTryOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    writeExpertCreationStoredState(props.workspaceId, { draft, coach: coachState });
+  }, [coachState, draft, props.workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1267,6 +1277,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     setSubmitError(null);
     try {
       await props.onDone(draft, knowledge);
+      clearExpertCreationStoredState(props.workspaceId);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_saving"));
     }
@@ -1302,6 +1313,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           workspaceRoot={props.workspaceRoot}
           opencodeBaseUrl={props.opencodeBaseUrl}
           onmyagentServerToken={props.onmyagentServerToken}
+          state={coachState}
+          onStateChange={setCoachState}
           onApplyProposal={(proposal) => {
             setDraft((current) => applyExpertCoachProposal(current, proposal, availableSkills));
           }}
