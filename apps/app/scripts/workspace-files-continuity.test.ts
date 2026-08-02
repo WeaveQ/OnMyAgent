@@ -729,5 +729,9 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(browser).toContain("typeFilter");
     expect(browser).toContain("rounded-full");
     expect(browser).toContain("files.search_placeholder");
+    // Drill-in navigation parity with Mine (not tree-outline expand).
+    expect(browser).toContain("enterDirectory");
+    expect(browser).toContain("listDeep");
+    expect(browser).not.toContain("buildRootOutlineRows");
   });
 });
