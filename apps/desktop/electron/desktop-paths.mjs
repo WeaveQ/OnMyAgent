@@ -7,10 +7,13 @@ import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
+import { ensureLocalConfigMigrated } from "./ensure-local-config-migrated.mjs";
 import { ensureWorkMemoryAwareness } from "./ensure-work-memory-awareness.mjs";
 
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
 const MARKETPLACE_RESOURCE_DIR = "marketplace";
+/** Legacy subpath (pre profile tree); retained as dual-read fallback. */
 const ONMYAGENT_USER_SKILLS_DIR_SUBPATH = ".onmyagent/skills";
 const ONMYAGENT_LEGACY_USER_SKILLS_DIR_SUBPATH = "onmyagent/skills";
 
@@ -110,9 +113,21 @@ export function createDesktopPaths(options) {
     await mkdir(path.join(home, ".onmyagent", "agents"), {
       recursive: true,
     });
-    await mkdir(path.join(home, ONMYAGENT_USER_SKILLS_DIR_SUBPATH), {
-      recursive: true,
-    });
+    // Stage-2: copy skills/experts into profiles/local/config (never deletes legacy).
+    // Soft-fail: dual-read still serves legacy roots if migration fails.
+    try {
+      const migrated = await ensureLocalConfigMigrated({ homeDir: home });
+      if (!migrated.ok) {
+        console.warn(
+          "[config-profile] local migrate failed; using dual-read legacy",
+          migrated.error,
+        );
+      }
+    } catch (error) {
+      console.warn("[config-profile] local migrate threw", error);
+    }
+    // Ensure active skills root exists (profile after complete, else legacy).
+    await mkdir(onmyagentUserSkillsRoot(), { recursive: true });
     // Install / first cold-start: seed style.md, AGENTS.md, USER.md, MEMORY.md
     // under data/user/awareness/main (idempotent; never overwrites).
     try {
@@ -143,7 +158,8 @@ export function createDesktopPaths(options) {
   }
 
   function onmyagentUserSkillsRoot() {
-    return path.join(getRealHomeDir(), ONMYAGENT_USER_SKILLS_DIR_SUBPATH);
+    // Dual-read / post-migrate profile path (see config-profile-paths).
+    return resolveLocalSkillsRoot(getRealHomeDir());
   }
 
   function legacyOnmyagentUserSkillsRoot() {

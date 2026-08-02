@@ -2,6 +2,27 @@
 
 OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本地优先，消费 server API surface，不被单一实现锁定。
 
+## Product phase (Phase 2)
+
+| | |
+| --- | --- |
+| **Current product phase** | **Phase 2** — desktop config foundation + **B-side (enterprise control) prep** |
+| Roadmap SoT | [`design/2026-08-02-phase-2-enterprise-prep.md`](./design/2026-08-02-phase-2-enterprise-prep.md) |
+| Config foundation (2a) | [`design/2026-08-02-config-consistency.md`](./design/2026-08-02-config-consistency.md) |
+| Work memory paths | [`design/2026-08-02-work-memory-plan.md`](./design/2026-08-02-work-memory-plan.md) |
+
+**Layering (fixed):** **OnMyAgent** = desktop; **OnMyCompany** = intranet enterprise control plane (identity / isolation / policy / approval / audit / gateway). OpenConnector-class gateway is an **implementation detail inside OnMyCompany**, not a third product line.
+
+**Hard constraints for engineering:**
+
+- Mode A (logged-out) remains full local use — **no login wall**, no company HTTP without `companyBaseUrl` + session.
+- Config trees for `local` and future `company` share **one isomorphic schema** under `~/.onmyagent/profiles/{local\|company}/config/`.
+- Migration **copies** skills/experts into `profiles/local/config`; **never deletes** legacy `~/.onmyagent/skills` or `marketplaces/`.
+- This monorepo is still **desktop + local server**. Do not invent a second policy source of truth inside Electron that bypasses a future company server.
+- Provider **secrets must not** be returned to the desktop from any gateway path.
+
+Desktop modules already on the 2a path: `apps/desktop/electron/config-profile-paths.mjs`, `ensure-local-config-migrated.mjs`, wired from `desktop-paths.mjs`, `expert-marketplace.mjs`, and `runtime.mjs` skill materialization.
+
 ## Monorepo Skeleton
 
 pnpm monorepo，Turbo 编排构建。根包与 workspace 当前版本以各 `package.json` 为准。
