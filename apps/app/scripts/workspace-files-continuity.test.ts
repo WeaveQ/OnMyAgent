@@ -606,8 +606,7 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
     expect(uploads).toContain('data-files-create-folder="true"');
     expect(uploads).toContain('data-files-upload="true"');
     expect(uploads).toContain('data-files-mine-breadcrumb="true"');
-    expect(uploads).toContain('data-files-expand-all="true"');
-    expect(uploads).toContain('data-files-collapse-all="true"');
+    expect(uploads).toContain('data-files-expand-collapse="true"');
     expect(uploads).toContain("files.upload_files");
     expect(uploads).toContain("files.expand_all_folders");
     expect(uploads).toContain("files.collapse_all_folders");

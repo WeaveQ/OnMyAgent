@@ -1109,32 +1109,37 @@ export function WorkspaceFilesUploadsPanel(props: {
             variant="outline"
             size="default"
             disabled={!canLoad || loading || uploading}
-            onClick={() => setListDeep(true)}
+            aria-pressed={listDeep}
+            onClick={() => {
+              if (listDeep) {
+                setListDeep(false);
+                setCurrentFolderPath(WORKSPACE_UPLOADS_DIR);
+              } else {
+                setListDeep(true);
+              }
+            }}
             className={cn(
               "h-9 gap-1.5 rounded-full px-3 text-sm",
               listDeep && "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
             )}
-            data-files-expand-all="true"
-            title={t("files.expand_all_folders")}
+            data-files-expand-collapse="true"
+            data-files-list-deep={listDeep ? "true" : "false"}
+            title={
+              listDeep
+                ? t("files.collapse_all_folders")
+                : t("files.expand_all_folders")
+            }
           >
-            <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
-            <span className="hidden sm:inline">{t("files.expand_all_folders")}</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            disabled={!canLoad || loading || uploading}
-            onClick={() => {
-              setListDeep(false);
-              setCurrentFolderPath(WORKSPACE_UPLOADS_DIR);
-            }}
-            className="h-9 gap-1.5 rounded-full px-3 text-sm"
-            data-files-collapse-all="true"
-            title={t("files.collapse_all_folders")}
-          >
-            <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
-            <span className="hidden sm:inline">{t("files.collapse_all_folders")}</span>
+            {listDeep ? (
+              <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
+            ) : (
+              <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
+            )}
+            <span className="hidden sm:inline">
+              {listDeep
+                ? t("files.collapse_all_folders")
+                : t("files.expand_all_folders")}
+            </span>
           </Button>
           <div className="relative shrink-0">
             <Button
