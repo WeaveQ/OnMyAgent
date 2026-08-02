@@ -54,7 +54,7 @@ import {
   roleOptions,
   taskOptions,
   toolOptions,
-} from "../../domains/settings/pages/onboarding-profile-shared";
+} from "../../domains/settings";
 import {
   pickDirectory,
   type AgentManagementManagedProvider,

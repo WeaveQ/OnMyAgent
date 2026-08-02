@@ -2,7 +2,7 @@ import type {
   ConversationMemoryState,
   OnboardingProfile,
 } from "../kernel/local-provider";
-import { buildWorkMemoryContext } from "../domains/shared/memory/work-memory";
+import { buildWorkMemoryContext } from "../domains/shared";
 
 /**
  * Build system prompt for personal profile + confirmed work memory (B' split).
