@@ -1279,11 +1279,29 @@ export type MyExpertPackageWriteInput = {
   rolePrompt?: string;
   memory?: string;
   skillIds?: string[];
+  draftId?: string;
   knowledge?: Array<{
     kind: "file" | "directory";
     relativePath: string;
     dataBase64?: string;
   }>;
+};
+
+export type MyExpertKnowledgeStageInput = {
+  draftId: string;
+  discard?: boolean;
+  knowledge?: Array<{
+    kind: "file" | "directory";
+    relativePath: string;
+    sourcePath?: string;
+    dataBase64?: string;
+  }>;
+};
+
+export type MyExpertKnowledgeStageResult = {
+  ok: true;
+  path: string;
+  draftId: string;
 };
 
 // ---------------------------------------------------------------------------

@@ -50,6 +50,7 @@ export type SaveExpertCreationInput = {
   registry: AgentRegistry | null;
   workspaceId: string;
   client: OnMyAgentServerClient | null;
+  draftId?: string;
 };
 
 export type SaveExpertCreationResult = {
@@ -109,6 +110,7 @@ export async function saveExpertCreation(
       memory: createdAgent.agentMemory,
       skillIds: createdAgent.skillIds,
       knowledge,
+      ...(input.draftId ? { draftId: input.draftId } : {}),
     });
     agent = {
       ...createdAgent,
@@ -170,6 +172,7 @@ export function useExpertCreationController(
       draft: AgentWizardDraft,
       knowledge: ExpertKnowledgeEntry[],
       availableSkills: AgentSkillItem[],
+      draftId: string,
     ) => {
       const result = await saveExpertCreation({
         draft,
@@ -178,6 +181,7 @@ export function useExpertCreationController(
         registry: input.registry,
         workspaceId: input.workspaceId,
         client: input.client,
+        draftId,
       });
       useAgentRegistryStore.getState().setRegistry(result.registry);
       input.showToast({

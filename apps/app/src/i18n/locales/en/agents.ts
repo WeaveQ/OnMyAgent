@@ -321,6 +321,7 @@ export default {
   "agents.expert_creation_folder_name_error": "Use English letters, numbers, hyphens, or underscores.",
   "agents.expert_creation_folder_name_duplicate": "A knowledge item with this name already exists.",
   "agents.expert_creation_knowledge_path_error": "Some items were skipped because folder names may only use English letters, numbers, hyphens, or underscores.",
+  "agents.expert_creation_knowledge_stage_failed": "Could not copy this knowledge into the expert draft.",
   "agents.expert_creation_knowledge_files": "{count} items",
   "agents.expert_creation_preview_title": "Try it",
   "agents.expert_creation_preview_empty": "Complete the expert setup on the left before testing.",

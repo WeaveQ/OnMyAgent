@@ -305,6 +305,7 @@ export default {
   "agents.expert_creation_folder_name_error": "请使用英文字母、数字、短横线或下划线。",
   "agents.expert_creation_folder_name_duplicate": "已存在同名的知识条目。",
   "agents.expert_creation_knowledge_path_error": "部分内容未添加：文件夹名称只能使用英文字母、数字、短横线或下划线。",
+  "agents.expert_creation_knowledge_stage_failed": "无法将这些知识复制到专家草稿目录。",
   "agents.expert_creation_knowledge_files": "{count} 项",
   "agents.expert_creation_preview_title": "试试效果",
   "agents.expert_creation_preview_empty": "请先完善左侧专家配置再进行调试",
