@@ -46,6 +46,7 @@ export type ExpertCreationConversationProps = {
   emptyContent?: ReactNode;
   placeholder: string;
   systemPrompt?: string;
+  knowledgePaths?: readonly string[];
   emptyMessage: string;
   disabled?: boolean;
   hideHeader?: boolean;
@@ -147,6 +148,7 @@ export function ExpertCreationConversation(
         message,
         attachments: submittedAttachments.map((attachment) => attachment.file),
         draft: props.draft,
+        knowledgePaths: props.knowledgePaths,
         model: props.selectedModel,
         ...(props.systemPrompt ? { systemPrompt: props.systemPrompt } : {}),
         signal: controller.signal,
