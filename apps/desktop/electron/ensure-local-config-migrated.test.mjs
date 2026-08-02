@@ -131,6 +131,10 @@ describe("ensureLocalConfigMigrated", () => {
         resolveLocalSkillsRoot(home),
         resolveLocalSkillsProfilePath(home),
       );
+      // Logged-out stage-2 never creates company profile tree
+      await assert.rejects(
+        () => access(path.join(home, ".onmyagent", "profiles", "company")),
+      );
     });
   });
 
