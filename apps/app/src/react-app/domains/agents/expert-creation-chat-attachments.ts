@@ -2,6 +2,19 @@ export type ExpertChatPromptPart =
   | { type: "text"; text: string }
   | { type: "file"; mime: string; filename: string; url: string };
 
+function attachmentKey(file: File): string {
+  return `${file.name}\u0000${file.size}\u0000${file.type}\u0000${file.lastModified}`;
+}
+
+export function mergeExpertChatAttachments(
+  current: readonly File[],
+  incoming: readonly File[],
+): File[] {
+  const merged = new Map(current.map((file) => [attachmentKey(file), file]));
+  for (const file of incoming) merged.set(attachmentKey(file), file);
+  return Array.from(merged.values());
+}
+
 async function readFileAsDataUrl(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = "";
