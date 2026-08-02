@@ -158,6 +158,9 @@ export default {
   "settings.archived_tasks_kind_tasks": "任務",
   "settings.archived_tasks_kind_scheduled": "已安排的任務",
   "settings.archived_tasks_delete": "永久刪除",
+  "settings.archived_tasks_delete_confirm_title": "永久刪除？",
+  "settings.archived_tasks_delete_confirm":
+    "將永久刪除已歸檔任務「{title}」。對話無法恢復；工作區中的生成檔案預設保留。",
   "settings.archived_tasks_delete_project_all": "刪除項目中的全部已歸檔任務",
   "settings.archived_tasks_delete_project_all_confirm":
     "將永久刪除「{project}」中的 {count} 個已歸檔任務，此操作無法撤銷。",
