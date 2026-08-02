@@ -29,10 +29,12 @@ import {
   resolveSessionOwnedFilePaths,
 } from "../src/react-app/domains/workspace/workspace-files-session-cleanup";
 import {
+  WORKSPACE_INBOX_DIR,
   buildRootOutlineRows,
   buildUserUploadRelativePath,
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
+  workspaceRelativeForUploadRow,
 } from "../src/react-app/domains/workspace/workspace-files-model";
 import { buildIsolatedExpertSessionDirectory } from "../src/react-app/capabilities/session-identity/expert-session-directory";
 import {
@@ -401,6 +403,27 @@ describe("open source session + create folder (Sprint A/B)", () => {
     });
     expect(map.s1).toBe("Live title");
     expect(map.s2).toBe("Only archived");
+  });
+
+  test("workspaceRelativeForUploadRow distinguishes inbox vs workspace roots", () => {
+    expect(
+      workspaceRelativeForUploadRow({
+        path: "uploads/lark-auth-qr.png",
+        source: "workspace",
+      }),
+    ).toBe("uploads/lark-auth-qr.png");
+    expect(
+      workspaceRelativeForUploadRow({
+        path: "uploads/lark-auth-qr.png",
+        source: "inbox",
+      }),
+    ).toBe(`${WORKSPACE_INBOX_DIR}/uploads/lark-auth-qr.png`);
+    expect(
+      workspaceRelativeForUploadRow({
+        path: "note.md",
+        source: "inbox",
+      }),
+    ).toBe(`${WORKSPACE_INBOX_DIR}/note.md`);
   });
 
   test("create folder path stays under uploads/", () => {

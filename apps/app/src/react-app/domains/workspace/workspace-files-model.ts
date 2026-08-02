@@ -924,7 +924,41 @@ export type UserUploadRow = {
   updatedAt: number;
   /** Directory rows from product uploads/ layout (Mine create-folder). */
   kind?: "file" | "dir";
+  /**
+   * Where the path is rooted:
+   * - inbox: path is relative to `.opencode/onmyagent/inbox/`
+   * - workspace: path is workspace-relative (e.g. `uploads/…`)
+   */
+  source?: "inbox" | "workspace";
 };
+
+/**
+ * Resolve a Mine row to a workspace-relative path for read/download/preview APIs.
+ * Inbox rows are under `.opencode/onmyagent/inbox/…`; catalog rows stay `uploads/…`.
+ */
+export function workspaceRelativeForUploadRow(row: {
+  path: string;
+  kind?: "file" | "dir";
+  source?: "inbox" | "workspace";
+}): string {
+  const p = String(row.path ?? "")
+    .trim()
+    .replace(/\\/g, "/");
+  if (!p) return WORKSPACE_INBOX_DIR;
+  if (row.kind === "dir" || row.source === "workspace") {
+    if (
+      p === WORKSPACE_UPLOADS_DIR
+      || p.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
+      || p.startsWith(`${WORKSPACE_INBOX_DIR}/`)
+    ) {
+      return p;
+    }
+    // Catalog may return bare names under current prefix — still treat as workspace.
+    return p;
+  }
+  // Default / inbox: relative to inbox root.
+  return workspaceRelativeInboxPath(p);
+}
 
 /** True when a Mine row is OS/system junk (not user content). */
 export function isMineHiddenUploadPath(path: string, name?: string): boolean {
@@ -963,6 +997,7 @@ export function mapInboxItemsToUploadRows(
           ? item.updatedAt
           : 0,
       kind: "file",
+      source: "inbox",
     });
   }
   rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || a.name.localeCompare(b.name));
@@ -1044,6 +1079,7 @@ export function mapUploadsCatalogToRows(
             : 0,
       updatedAt,
       kind,
+      source: "workspace",
     });
   }
 
@@ -1066,12 +1102,17 @@ export function mergeMineUploadRows(
   for (const row of inboxRows) {
     if (isMineHiddenUploadPath(row.path, row.name)) continue;
     const key = row.path.replace(/\\/g, "/");
-    byPath.set(key, { ...row, kind: row.kind ?? "file" });
+    byPath.set(key, {
+      ...row,
+      kind: row.kind ?? "file",
+      source: row.source ?? "inbox",
+    });
   }
   for (const row of catalogRows) {
     if (isMineHiddenUploadPath(row.path, row.name)) continue;
     const key = row.path.replace(/\\/g, "/");
-    byPath.set(key, row);
+    // Prefer workspace catalog when both list the same relative name.
+    byPath.set(key, { ...row, source: row.source ?? "workspace" });
   }
   return Array.from(byPath.values()).sort((a, b) => {
     const ka = a.kind === "dir" ? 0 : 1;

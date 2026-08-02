@@ -78,7 +78,6 @@ import {
   shouldForceExternalPreviewForSize,
 } from "../../capabilities/artifacts/file-preview-policy";
 import {
-  absoluteInboxFilePath,
   buildUserUploadRelativePath,
   canPreviewWorkspaceFileInline,
   FILE_CATEGORIES,
@@ -89,6 +88,7 @@ import {
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
   usesLocalFileRenderer,
+  workspaceRelativeForUploadRow,
   workspaceRelativeInboxPath,
   WORKSPACE_UPLOADS_DIR,
   type FileCategory,
@@ -351,7 +351,7 @@ export function WorkspaceFilesUploadsPanel(props: {
   const selectedTarget = useMemo(() => {
     if (!selectedRow) return null;
     const root = workspaceRoot || "/";
-    const workspaceRel = workspaceRelativeInboxPath(selectedRow.path);
+    const workspaceRel = workspaceRelativeForUploadRow(selectedRow);
     return workspaceFileOpenTarget({
       fileRoot: root,
       path: workspaceRel,
@@ -365,7 +365,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     if (!selectedRow) return null;
     return {
       name: selectedRow.name,
-      path: workspaceRelativeInboxPath(selectedRow.path),
+      path: workspaceRelativeForUploadRow(selectedRow),
       kind: "file" as const,
       size: selectedRow.size,
       mtimeMs: selectedRow.updatedAt,
@@ -419,32 +419,68 @@ export function WorkspaceFilesUploadsPanel(props: {
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
-    const workspaceRel = workspaceRelativeInboxPath(activeRow.path);
-    const abs = absoluteInboxFilePath(workspaceRoot, activeRow.path);
+    const workspaceRel = workspaceRelativeForUploadRow(activeRow);
+    const abs = (() => {
+      const root = workspaceRoot.replace(/[/\\]+$/, "");
+      if (!root) return workspaceRel;
+      if (/^[A-Za-z]:[\\/]/.test(root) || root.includes("\\")) {
+        return `${root}\\${workspaceRel.replace(/\//g, "\\")}`;
+      }
+      return `${root}/${workspaceRel}`;
+    })();
 
     if (activeTarget.preview === "image") {
-      void props.client
-        .downloadWorkspaceFile(workspaceId, workspaceRel)
-        .then((result) => {
-          if (cancelled) return;
-          const objectUrl = URL.createObjectURL(
-            new Blob([result.data], {
-              type: result.contentType ?? "application/octet-stream",
-            }),
-          );
-          previewObjectUrlRef.current = objectUrl;
-          setPreviewState({ status: "binary", url: objectUrl });
-        })
-        .catch((previewError: unknown) => {
-          if (cancelled) return;
-          setPreviewState({
-            status: "error",
-            message:
-              previewError instanceof Error
-                ? previewError.message
-                : t("files.preview_failed"),
-          });
+      void (async () => {
+        const candidates = Array.from(
+          new Set(
+            [
+              workspaceRel,
+              `${WORKSPACE_UPLOADS_DIR}/${activeRow.name}`,
+              workspaceRelativeInboxPath(activeRow.path),
+              workspaceRelativeInboxPath(activeRow.name),
+              workspaceRelativeInboxPath(`uploads/${activeRow.name}`),
+            ].filter(Boolean),
+          ),
+        );
+        let lastError: unknown = null;
+        for (const candidate of candidates) {
+          try {
+            const result = await props.client!.downloadWorkspaceFile(
+              workspaceId,
+              candidate,
+            );
+            if (cancelled) return;
+            const lower = activeRow.name.toLowerCase();
+            const fallbackType = lower.endsWith(".png")
+              ? "image/png"
+              : lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+                ? "image/jpeg"
+                : lower.endsWith(".gif")
+                  ? "image/gif"
+                  : lower.endsWith(".webp")
+                    ? "image/webp"
+                    : "application/octet-stream";
+            const objectUrl = URL.createObjectURL(
+              new Blob([result.data], {
+                type: result.contentType || fallbackType,
+              }),
+            );
+            previewObjectUrlRef.current = objectUrl;
+            setPreviewState({ status: "binary", url: objectUrl });
+            return;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (cancelled) return;
+        setPreviewState({
+          status: "error",
+          message:
+            lastError instanceof Error
+              ? lastError.message
+              : t("files.preview_failed"),
         });
+      })();
       return () => {
         cancelled = true;
       };
@@ -590,33 +626,22 @@ export function WorkspaceFilesUploadsPanel(props: {
     [canLoad, importFiles, uploading],
   );
 
-  const workspaceRelativeForRow = useCallback((row: UserUploadRow) => {
-    const p = row.path.replace(/\\/g, "/");
-    if (
-      row.kind === "dir"
-      || p === WORKSPACE_UPLOADS_DIR
-      || p.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
-    ) {
-      return p;
-    }
-    return workspaceRelativeInboxPath(p);
-  }, []);
+  const workspaceRelativeForRow = useCallback(
+    (row: UserUploadRow) => workspaceRelativeForUploadRow(row),
+    [],
+  );
 
   const absoluteForRow = useCallback(
     (row: UserUploadRow) => {
-      const rel = workspaceRelativeForRow(row);
-      if (
-        row.kind === "dir"
-        || rel.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
-        || rel === WORKSPACE_UPLOADS_DIR
-      ) {
-        const root = workspaceRoot.replace(/[/\\]+$/, "");
-        if (!root) return rel;
-        return `${root}/${rel}`.replace(/\\/g, "/");
+      const rel = workspaceRelativeForUploadRow(row);
+      const root = workspaceRoot.replace(/[/\\]+$/, "");
+      if (!root) return rel;
+      if (/^[A-Za-z]:[\\/]/.test(root) || root.includes("\\")) {
+        return `${root}\\${rel.replace(/\//g, "\\")}`;
       }
-      return absoluteInboxFilePath(workspaceRoot, row.path);
+      return `${root}/${rel}`;
     },
-    [workspaceRelativeForRow, workspaceRoot],
+    [workspaceRoot],
   );
 
   const handleOpenInFolder = useCallback(
@@ -652,7 +677,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     async (row: UserUploadRow) => {
       const text = workspaceRoot
         ? absoluteForRow(row)
-        : workspaceRelativeInboxPath(row.path);
+        : workspaceRelativeForUploadRow(row);
       try {
         await navigator.clipboard.writeText(text);
         setPathCopiedFlash(row.id);
@@ -1214,14 +1239,14 @@ export function WorkspaceFilesUploadsPanel(props: {
           selectedRow && selectedTarget && props.onAskAgentAboutFile
             ? () =>
                 props.onAskAgentAboutFile?.({
-                  path: workspaceRelativeInboxPath(selectedRow.path),
+                  path: workspaceRelativeForUploadRow(selectedRow),
                   name: selectedRow.name,
                   preview: selectedTarget.preview,
                 })
             : selectedRow && props.onAddToTask
               ? () =>
                   props.onAddToTask?.(
-                    workspaceRelativeInboxPath(selectedRow.path),
+                    workspaceRelativeForUploadRow(selectedRow),
                   )
               : undefined
         }

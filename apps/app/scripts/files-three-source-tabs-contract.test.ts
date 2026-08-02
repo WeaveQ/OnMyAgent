@@ -243,7 +243,7 @@ describe("files three-source tabs (P0)", () => {
     // My files: preview drawer + open/reveal/copy parity with Task files.
     expect(uploads).toContain("FilePreviewDrawer");
     expect(uploads).toContain("workspaceRoot");
-    expect(uploads).toContain("absoluteInboxFilePath");
+    expect(uploads).toContain("workspaceRelativeForUploadRow");
     expect(uploads).toContain("openArtifactForEditing");
     expect(uploads).toContain("revealDesktopItemInDir");
     expect(uploads).toContain("handleCopyPath");
