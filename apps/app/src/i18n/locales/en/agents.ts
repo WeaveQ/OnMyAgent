@@ -270,18 +270,18 @@ export default {
   "agents.expert_creation_attachment_only": "{count} attachment(s)",
   "agents.expert_creation_coach_mic_unavailable": "Voice input is not available here",
   "agents.expert_creation_basic": "Basic info",
-  "agents.expert_creation_memory": "Memory",
+  "agents.expert_creation_memory": "Expert memory",
   "agents.expert_creation_skills": "Skills",
   "agents.expert_creation_knowledge": "Knowledge",
   "agents.expert_creation_role_prompt": "Role prompt",
   "agents.expert_creation_role_prompt_desc":
     "Core runtime configuration. Describe the expert’s role, capabilities, workflow, output, and boundaries.",
   "agents.expert_creation_role_prompt_placeholder":
-    "Use this structure:\n\n## Expert overview\nDescribe who this expert is, which scenarios it serves, and its core deliverable.\n\n## Key rules\nDescribe the methods and principles it must follow.\n\n## Prohibited behavior\nDescribe what the expert must never do.\n\n## Workflow\nList the steps it should follow in order.",
+    "Use this structure:\n\n## Expert overview\nDescribe who this expert is, which scenarios it serves, and its core deliverable.\n\n## Key rules\nDescribe the methods and principles it must follow, including how it moves work forward, handles missing information, makes tradeoffs, and confirms direction.\n\n## Prohibited behavior\nDescribe what the expert must never do, such as making unauthorized commitments, fabricating information, skipping required confirmation, or expanding work beyond its responsibilities.\n\n## Workflow\nList the steps it should follow in order.\n\n## Content structure\nDescribe what each deliverable should contain, such as requirement clarification, solution design, PRDs, research reports, summaries, and checklists.\n\n## Communication style\nDescribe its tone, expression habits, confirmation cadence, and output preferences, such as direct, warm, momentum-driven, choice-first, and stating assumptions before asking",
   "agents.expert_creation_memory_desc":
-    "Write long-term information this expert should remember about itself.",
+    "Write information that does not change often.",
   "agents.expert_creation_memory_placeholder":
-    "Write long-term information this expert should remember about itself…",
+    "For example:\n\n\n1. My project is an AI design tool\n\n\n2. My target users are designers.\n\n\n…",
   "agents.expert_creation_avatar_hint": "Choose an avatar or upload an image",
   "agents.expert_creation_avatar": "Expert avatar",
   "agents.expert_creation_generate_avatar": "Generate avatar with AI",

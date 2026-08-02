@@ -523,24 +523,15 @@ function PromptEditor(props: {
   placeholder: string;
   ariaLabel: string;
 }) {
-  const lineCount = Math.max(8, props.value.split("\n").length);
   return (
-    <div className="flex min-h-56 overflow-hidden rounded-xl border border-dls-border bg-dls-background focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
-      <div
-        aria-hidden="true"
-        className="select-none border-r border-dls-border px-3 py-3 text-right text-xs leading-6 text-dls-secondary"
-      >
-        {Array.from({ length: lineCount }, (_, index) => (
-          <div key={index}>{index + 1}</div>
-        ))}
-      </div>
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-dls-background focus-within:ring-3 focus-within:ring-ring/30">
       <Textarea
         value={props.value}
         onChange={(event) => props.onChange(event.currentTarget.value)}
         placeholder={props.placeholder}
         aria-label={props.ariaLabel}
         controlSize="editor"
-        className="min-h-56 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0"
+        className="min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0"
       />
     </div>
   );
@@ -577,8 +568,8 @@ function BasicInfoPanel(props: {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-dls-border bg-dls-surface p-5">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <section className="h-52 shrink-0 bg-dls-surface p-4">
         <div
           className={cn(
             "grid gap-6 xl:grid-cols-[8.5rem_minmax(0,1fr)]",
@@ -589,7 +580,7 @@ function BasicInfoPanel(props: {
             <button
               type="button"
               className="relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-              onClick={() => setAvatarPickerOpen(true)}
+              onClick={() => uploadInputRef.current?.click()}
               aria-label={t("agents.expert_creation_avatar")}
             >
               <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-24 text-2xl" />
@@ -609,12 +600,12 @@ function BasicInfoPanel(props: {
             />
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               size="sm"
               onClick={() => setAvatarPickerOpen(true)}
             >
-              <UserRound data-icon="inline-start" className="size-3.5" />
-              {t("agents.expert_creation_choose_avatar")}
+              <Sparkles data-icon="inline-start" className="size-3.5" />
+              {t("agents.expert_creation_generate_avatar")}
             </Button>
           </div>
           <div className="space-y-4">
@@ -625,19 +616,20 @@ function BasicInfoPanel(props: {
               variant="dls"
               controlSize="lg"
               radius="xl"
+              className="border-0 shadow-none"
               aria-label={t("agents.name")}
             />
             <Textarea
               value={props.draft.description}
               onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
               placeholder={t("agents.expert_creation_intro_placeholder")}
-              className="min-h-28"
+              className="min-h-28 border-0 shadow-none"
               aria-label={t("agents.expert_creation_intro")}
             />
           </div>
         </div>
       </section>
-      <section className="rounded-xl border border-dls-border bg-dls-surface p-5">
+      <section className="flex min-h-0 flex-1 flex-col bg-dls-surface p-4">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-dls-text">
             {t("agents.expert_creation_role_prompt")}
@@ -1595,7 +1587,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           }}
         />
         <main className="flex min-w-0 flex-1 flex-col bg-dls-background">
-          <div className="flex items-center justify-between gap-3 border-b border-dls-border bg-dls-surface px-5 py-3">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border bg-dls-surface px-4 py-3">
+            <span aria-hidden />
             <SegmentedTabGroup aria-label={t("agents.expert_creation_title")}>
               {TABS.map((tab) => (
                 <NavTabButton
@@ -1611,15 +1604,15 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
               ))}
             </SegmentedTabGroup>
             {!tryOpen ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setTryOpen(true)}>
+              <Button type="button" variant="ghost" size="sm" className="justify-self-end" onClick={() => setTryOpen(true)}>
                 <ChevronsLeft data-icon="inline-start" className="size-4" />
                 {t("agents.expert_creation_try")}
               </Button>
             ) : null}
           </div>
           <div className={cn("flex min-h-0 flex-1", tryOpen && "grid grid-cols-[minmax(0,1fr)_minmax(19rem,30%)]")}>
-            <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6 xl:px-10">
-              <div className="w-full">
+            <section className="min-w-0 flex-1 overflow-y-auto p-4">
+              <div className="h-full min-h-0 w-full">
                 {submitError ? (
                   <NoticeBox role="alert" tone="error" size="content" className="mb-4">
                     {submitError}
@@ -1634,7 +1627,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "memory" ? (
-                  <section className="rounded-xl border border-dls-border bg-dls-surface p-5">
+                  <section className="flex h-full min-h-0 flex-col bg-dls-surface p-4">
                     <div className="mb-4">
                       <h3 className="text-base font-semibold text-dls-text">
                         {t("agents.expert_creation_memory")}
