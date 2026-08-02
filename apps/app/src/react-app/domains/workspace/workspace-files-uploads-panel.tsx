@@ -20,6 +20,7 @@ import {
   ExternalLink,
   FileUp,
   Folder,
+  FolderInput,
   FolderOpen,
   FolderPlus,
   Loader2,
@@ -86,9 +87,7 @@ import {
   fileCategoryI18nKey,
   filterUploadRows,
   getFileCategory,
-  mapInboxItemsToUploadRows,
   mapUploadsCatalogToRows,
-  mergeMineUploadRows,
   usesLocalFileRenderer,
   workspaceRelativeForUploadRow,
   workspaceRelativeInboxPath,
@@ -100,13 +99,15 @@ import {
   resolveMineMoveDestination,
   resolveUploadFolderRelativePath,
 } from "./workspace-files-create-folder";
-
-/** Internal Mine drag payload (not OS file drops). */
-const MINE_DRAG_MIME = "application/x-onmyagent-mine-file";
+import { planInboxToUploadsMigration } from "./workspace-files-mine-migrate";
+import { MineMoveToDialog } from "./workspace-files-move-dialog";
 import {
   FilePreviewDrawer,
   type WorkspaceFilePreviewState,
 } from "./workspace-files-preview-drawer";
+
+/** Internal Mine drag payload (not OS file drops). */
+const MINE_DRAG_MIME = "application/x-onmyagent-mine-file";
 
 function fileCategoryLabel(category: FileCategory) {
   return t(fileCategoryI18nKey(category));
@@ -162,9 +163,11 @@ function formatUploadError(error: unknown, file?: File): string {
 function UploadRowActionsMenu(props: {
   name: string;
   pathCopied: boolean;
+  showMoveTo?: boolean;
   onPreview: () => void;
   onOpenExternally: () => void;
   onOpenInFolder: () => void;
+  onMoveTo?: () => void;
   onCopyPath: () => void;
   onDelete: () => void;
 }) {
@@ -212,6 +215,18 @@ function UploadRowActionsMenu(props: {
           <FolderOpen />
           {t("files.open_in_folder")}
         </DropdownMenuItem>
+        {props.showMoveTo && props.onMoveTo ? (
+          <DropdownMenuItem
+            data-files-move-to="true"
+            onClick={(event) => {
+              event.stopPropagation();
+              props.onMoveTo?.();
+            }}
+          >
+            <FolderInput />
+            {t("files.move_to")}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           onClick={(event) => {
             event.stopPropagation();
@@ -290,6 +305,8 @@ export function WorkspaceFilesUploadsPanel(props: {
    * true = expand all nested files under currentFolderPath.
    */
   const [listDeep, setListDeep] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<UserUploadRow | null>(null);
+  const migrateOnceRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
@@ -312,51 +329,45 @@ export function WorkspaceFilesUploadsPanel(props: {
     void (async () => {
       try {
         const client = props.client!;
-        const [inboxList, catalog] = await Promise.all([
-          client.listInbox(workspaceId).catch(() => ({ items: [] as never[] })),
-          client
-            .listWorkspaceFiles(workspaceId, {
-              includeDirs: true,
-              prefix: WORKSPACE_UPLOADS_DIR,
-              limit: 2000,
-            })
-            .catch(() => ({ items: [] as never[] })),
-        ]);
+        // One-shot best-effort migrate inbox user files → uploads/ (product layout).
+        if (!migrateOnceRef.current) {
+          migrateOnceRef.current = true;
+          try {
+            const inboxList = await client.listInbox(workspaceId);
+            const plan = planInboxToUploadsMigration(
+              (inboxList.items ?? []).map(
+                (item: { path?: string; name?: string }) =>
+                  item.path || item.name || "",
+              ),
+            );
+            for (const item of plan) {
+              try {
+                await client.renameWorkspaceFile(
+                  workspaceId,
+                  item.from,
+                  item.to,
+                );
+              } catch {
+                // Skip collisions / missing; list still uses uploads/ only.
+              }
+            }
+          } catch {
+            // Inbox disabled or empty — fine.
+          }
+        }
+
+        // Primary source of truth: workspace uploads/ only (no inbox merge in UI).
+        const catalog = await client.listWorkspaceFiles(workspaceId, {
+          includeDirs: true,
+          prefix: WORKSPACE_UPLOADS_DIR,
+          limit: 5000,
+        });
         if (cancelled) return;
-        const inboxRows = mapInboxItemsToUploadRows(inboxList.items ?? []);
         const catalogRows = mapUploadsCatalogToRows(catalog.items ?? [], {
           parentPrefix: currentFolderPath,
           shallow: !listDeep,
         });
-        // At uploads root, also show inbox files that are not under a subfolder.
-        const inboxScoped =
-          currentFolderPath === WORKSPACE_UPLOADS_DIR
-            ? inboxRows
-            : inboxRows.filter((row) => {
-                const p = row.path.replace(/\\/g, "/");
-                return (
-                  p.startsWith(`${currentFolderPath}/`)
-                  || p === currentFolderPath
-                );
-              });
-        // Deep expand: keep all scoped files; shallow: only top segment under parent.
-        const inboxAtLevel = listDeep
-          ? inboxScoped
-          : inboxScoped.filter((row) => {
-              const p = row.path.replace(/\\/g, "/");
-              if (currentFolderPath === WORKSPACE_UPLOADS_DIR) {
-                // inbox path may be "uploads/foo" or "foo" — keep one segment past root.
-                const rest = p.startsWith(`${WORKSPACE_UPLOADS_DIR}/`)
-                  ? p.slice(WORKSPACE_UPLOADS_DIR.length + 1)
-                  : p;
-                return Boolean(rest) && !rest.includes("/");
-              }
-              const rest = p.startsWith(`${currentFolderPath}/`)
-                ? p.slice(currentFolderPath.length + 1)
-                : "";
-              return Boolean(rest) && !rest.includes("/");
-            });
-        setRows(mergeMineUploadRows(inboxAtLevel, catalogRows));
+        setRows(catalogRows);
         if (manualRefreshRef.current) {
           manualRefreshRef.current = false;
           setRefreshDone(true);
@@ -595,8 +606,19 @@ export function WorkspaceFilesUploadsPanel(props: {
             });
             return;
           }
-          const path = buildUserUploadRelativePath(file.name);
-          await props.client.uploadInbox(workspaceId, file, { path });
+          // Product layout: write under workspace uploads/ (not inbox).
+          const basePath =
+            currentFolderPath === WORKSPACE_UPLOADS_DIR
+              ? buildUserUploadRelativePath(file.name)
+              : `${currentFolderPath}/${
+                  file.name.trim().replace(/\\/g, "/").split("/").pop() || "file"
+                }`.replace(/\/+/g, "/");
+          const data = await file.arrayBuffer();
+          await props.client.writeWorkspaceBinaryFile(workspaceId, {
+            path: basePath,
+            data,
+            force: true,
+          });
         }
         const description =
           files.length === 1
@@ -622,7 +644,7 @@ export function WorkspaceFilesUploadsPanel(props: {
         setUploading(false);
       }
     },
-    [props.client, props.onToast, workspaceId],
+    [currentFolderPath, props.client, props.onToast, workspaceId],
   );
 
   const onPickClick = () => {
@@ -1413,9 +1435,11 @@ export function WorkspaceFilesUploadsPanel(props: {
                           <UploadRowActionsMenu
                             name={row.name}
                             pathCopied={pathCopiedFlash === row.id}
+                            showMoveTo={!isDir}
                             onPreview={() => setSelectedId(row.id)}
                             onOpenExternally={() => void handleOpenExternally(row)}
                             onOpenInFolder={() => void handleOpenInFolder(row)}
+                            onMoveTo={() => setMoveTarget(row)}
                             onCopyPath={() => void handleCopyPath(row)}
                             onDelete={() => handleDeleteFile(row)}
                           />
@@ -1490,6 +1514,37 @@ export function WorkspaceFilesUploadsPanel(props: {
         variant="danger"
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
+      />
+
+      <MineMoveToDialog
+        open={moveTarget != null}
+        client={props.client}
+        workspaceId={workspaceId}
+        sourcePath={
+          moveTarget ? workspaceRelativeForUploadRow(moveTarget) : ""
+        }
+        sourceName={moveTarget?.name ?? ""}
+        onClose={() => setMoveTarget(null)}
+        onMoved={(targetFolderPath) => {
+          const folderLabel =
+            targetFolderPath === WORKSPACE_UPLOADS_DIR
+              ? t("files.move_to_root")
+              : targetFolderPath.split("/").pop() || targetFolderPath;
+          props.onToast?.({
+            tone: "success",
+            title: t("files.move_to_success", { folder: folderLabel }),
+            actionLabel: t("files.move_view"),
+            onAction: () => {
+              setListDeep(false);
+              setCurrentFolderPath(targetFolderPath);
+              setSelectedId(null);
+              setPreviewState({ status: "idle" });
+            },
+            dismissLabel: t("common.dismiss"),
+          });
+          setMoveTarget(null);
+          setRefreshKey((key) => key + 1);
+        }}
       />
 
       {createFolderOpen ? (

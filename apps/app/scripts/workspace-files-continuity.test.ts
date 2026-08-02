@@ -46,6 +46,11 @@ import {
   resolveUploadFolderRelativePath,
   sanitizeUploadFolderName,
 } from "../src/react-app/domains/workspace/workspace-files-create-folder";
+import {
+  mapInboxRelativeToUploadsPath,
+  planInboxToUploadsMigration,
+  displayMinePathUnderUploads,
+} from "../src/react-app/domains/workspace/workspace-files-mine-migrate";
 
 const appRoot = join(import.meta.dir, "..");
 
@@ -439,6 +444,31 @@ describe("open source session + create folder (Sprint A/B)", () => {
     ).toBe(`${WORKSPACE_UPLOADS_DIR}/parent/sub`);
   });
 
+  test("inbox → uploads migration maps product paths", () => {
+    expect(mapInboxRelativeToUploadsPath("uploads/a.xlsx")).toBe(
+      "uploads/a.xlsx",
+    );
+    expect(mapInboxRelativeToUploadsPath("a.xlsx")).toBe("uploads/a.xlsx");
+    expect(mapInboxRelativeToUploadsPath("session-uploads/x.png")).toBe(
+      "uploads/x.png",
+    );
+    expect(mapInboxRelativeToUploadsPath(".DS_Store")).toBeNull();
+    const plan = planInboxToUploadsMigration([
+      "uploads/note.md",
+      "old.pdf",
+      ".DS_Store",
+    ]);
+    expect(plan.map((p) => p.to).sort()).toEqual(
+      ["uploads/note.md", "uploads/old.pdf"].sort(),
+    );
+    expect(plan[0]?.from.startsWith(".opencode/onmyagent/inbox/")).toBe(true);
+    expect(
+      displayMinePathUnderUploads(
+        ".opencode/onmyagent/inbox/uploads/secret.png",
+      ),
+    ).toBe("uploads/secret.png");
+  });
+
   test("resolveMineMoveDestination moves into folder under uploads/", () => {
     const move = resolveMineMoveDestination({
       sourceWorkspaceRelativePath: "uploads/lark-auth-qr.png",
@@ -550,10 +580,15 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(uploads).toContain("mkdirWorkspaceDirectory");
     expect(uploads).toContain("mapUploadsCatalogToRows");
     expect(uploads).toContain("renameWorkspaceFile");
+    expect(uploads).toContain("writeWorkspaceBinaryFile");
+    expect(uploads).toContain("planInboxToUploadsMigration");
     expect(uploads).toContain("application/x-onmyagent-mine-file");
     expect(uploads).toContain("handleFolderDrop");
     expect(uploads).toContain("files.move_to_success");
     expect(uploads).toContain("files.move_view");
+    expect(uploads).toContain("files.move_to");
+    expect(uploads).toContain("data-files-move-to");
+    expect(uploads).toContain("MineMoveToDialog");
     expect(uploads).toContain("actionLabel");
     expect(page).toContain("onOpenSourceSession");
     expect(assistant).toContain("onOpenSourceSession");

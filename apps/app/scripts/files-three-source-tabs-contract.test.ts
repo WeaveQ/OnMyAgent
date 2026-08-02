@@ -236,10 +236,11 @@ describe("files three-source tabs (P0)", () => {
     expect(page).not.toContain('activeTab === "cloud"');
     expect(page).not.toContain("CloudDriveEmptyState");
 
-    expect(uploads).toContain("uploadInbox");
+    expect(uploads).toContain("writeWorkspaceBinaryFile");
     expect(uploads).toContain("listInbox");
     expect(uploads).toContain("buildUserUploadRelativePath");
-    expect(uploads).toContain("mapInboxItemsToUploadRows");
+    expect(uploads).toContain("mapUploadsCatalogToRows");
+    expect(uploads).toContain("planInboxToUploadsMigration");
     // My files: preview drawer + open/reveal/copy parity with Task files.
     expect(uploads).toContain("FilePreviewDrawer");
     expect(uploads).toContain("workspaceRoot");
