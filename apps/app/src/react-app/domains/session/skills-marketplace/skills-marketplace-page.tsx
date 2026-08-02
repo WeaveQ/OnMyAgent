@@ -42,6 +42,7 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -67,6 +68,27 @@ const OPC_AGGREGATED_CATEGORY_IDS = new Set([
   "office",
 ]);
 
+function skillFallbackInitial(name: string): string {
+  return name.trim().slice(0, 1).toUpperCase() || "S";
+}
+
+function SkillIcon(props: { skill: SkillMarketplaceEntry }) {
+  if (props.skill.iconUrl) {
+    return (
+      <img
+        src={props.skill.iconUrl}
+        alt=""
+        className="size-9 shrink-0 rounded-md object-cover"
+      />
+    );
+  }
+  return (
+    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
+      {skillFallbackInitial(props.skill.displayName)}
+    </span>
+  );
+}
+
 function skillMatchesCategory(skill: SkillMarketplaceEntry, categoryId: string): boolean {
   if (categoryId === "all") return true;
   // Retired engineering filter — treat as "all" if stale UI state still holds the id.
@@ -87,10 +109,6 @@ function skillMatchesCategory(skill: SkillMarketplaceEntry, categoryId: string):
 /** Max visible chips on outer card; each label truncated for single-line row. */
 const SKILL_CARD_CHIP_MAX = 3;
 const SKILL_CARD_CHIP_MAX_CHARS = 8;
-
-function skillFallbackInitial(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "S";
-}
 
 /** Localized short category name (not bilingual searchLabel). */
 function skillCategoryDisplayLabel(categoryId: string): string {
@@ -120,43 +138,6 @@ function skillCardChips(skill: SkillMarketplaceEntry): string[] {
     .slice(0, SKILL_CARD_CHIP_MAX)
     .map(truncateSkillChip)
     .filter(Boolean);
-}
-
-/** Bottom-aligned chip row so all cards share one baseline (mt-auto + fixed min height). */
-function SkillCardChipRow(props: { chips: string[] }) {
-  return (
-    <div className="mt-auto flex min-h-5 min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pt-3">
-      {props.chips.map((chip) => (
-        <StatusBadge
-          key={chip}
-          tone="surface"
-          shape="soft"
-          size="tiny"
-          className="max-w-[5.5rem] shrink-0 truncate"
-          title={chip}
-        >
-          {chip}
-        </StatusBadge>
-      ))}
-    </div>
-  );
-}
-
-function SkillIcon(props: { skill: SkillMarketplaceEntry }) {
-  if (props.skill.iconUrl) {
-    return (
-      <img
-        src={props.skill.iconUrl}
-        alt=""
-        className="size-9 shrink-0 rounded-md object-cover"
-      />
-    );
-  }
-  return (
-    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
-      {skillFallbackInitial(props.skill.displayName)}
-    </span>
-  );
 }
 
 function isOnmyagentSkillPath(path: string): boolean {
@@ -424,43 +405,19 @@ function SkillCard(props: {
 }) {
   const chips = skillCardChips(props.skill);
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      className={cn(
-        // Match ExpertCard: taller tile, soft surface, no permanent border.
-        "group flex h-full min-h-36 cursor-pointer flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow]",
-        // Light: list-selected + border-strong reads clearly on white (list-hover is too soft).
-        "hover:border-dls-border-strong hover:bg-dls-list-selected hover:shadow-sm dark:hover:border-dls-border-strong dark:hover:bg-dls-list-selected dark:hover:shadow-none",
-        "focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-        "mac:titlebar-no-drag",
-      )}
-      onClick={() => props.onOpen(props.skill)}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          props.onOpen(props.skill);
-        }
+    <SkillMarketplaceCard
+      skill={{
+        id: props.skill.id,
+        displayName: props.skill.displayName,
+        packageName: props.skill.skillName,
+        description: props.skill.description,
+        iconUrl: props.skill.iconUrl,
+        chips,
       }}
-      aria-label={t("skills_marketplace.view_detail", { name: props.skill.displayName })}
-    >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <SkillIcon skill={props.skill} />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold leading-5 text-dls-text">
-                {props.skill.displayName}
-              </div>
-              {props.skill.skillName &&
-              props.skill.skillName !== props.skill.displayName ? (
-                <div className="mt-0.5 truncate text-xs leading-5 text-dls-secondary">
-                  {props.skill.skillName}
-                </div>
-              ) : null}
-            </div>
-            {props.installed ? (
+      ariaLabel={t("skills_marketplace.view_detail", { name: props.skill.displayName })}
+      onClick={() => props.onOpen(props.skill)}
+      action={
+        props.installed ? (
               <span
                 className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary"
                 aria-label={t("skills_marketplace.installed")}
@@ -468,7 +425,7 @@ function SkillCard(props: {
               >
                 <Check className="size-3.5" />
               </span>
-            ) : (
+        ) : (
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -498,15 +455,9 @@ function SkillCard(props: {
                   <span>{t("skills_marketplace.install")}</span>
                 </TooltipContent>
               </Tooltip>
-            )}
-          </div>
-        </div>
-      </div>
-      <p className="mt-3 line-clamp-2 text-xs leading-5 text-dls-secondary">
-        {props.skill.description}
-      </p>
-      <SkillCardChipRow chips={chips} />
-    </div>
+        )
+      }
+    />
   );
 }
 
