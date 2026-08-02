@@ -49,7 +49,7 @@ import {
   readPinnedSkillIds,
   sortWithPinnedFirst,
   writePinnedSkillIds,
-} from "../surface/composer/pinned-skills";
+} from "../pinned-skills";
 import {
   SKILL_MARKETPLACE_CATEGORIES,
 } from "./categories";

@@ -508,6 +508,8 @@ function SyncPlugin(props: {
 }) {
   const [editor] = useLexicalComposerContext();
   const valueRef = useRef(props.value);
+  const mentionsRef = useRef(props.mentions);
+  const scenarioTagsRef = useRef(props.scenarioTags);
 
   useEffect(() => {
     editor.setEditable(!props.disabled);
@@ -519,12 +521,25 @@ function SyncPlugin(props: {
     // The valueRef check can false-positive when both refs converge to ""
     // through different paths (SyncPlugin vs OnChange).
     //
+    // Mentions/scenarioTags can land after the draft string (Ask Agent,
+    // add-to-task). Draft text is identical (`@path …`) but without the
+    // map @tokens stay plain text. Rebuild whenever the map identity
+    // changes so chips materialize.
+    //
     // NOTE: serializePromptFromRoot() calls $getRoot() which requires an
     // active editor state. Outside of editor.update()/editor.read() we
     // must wrap it in editor.getEditorState().read().
+    const mentionsChanged = mentionsRef.current !== props.mentions;
+    const scenarioTagsChanged = scenarioTagsRef.current !== props.scenarioTags;
+    mentionsRef.current = props.mentions;
+    scenarioTagsRef.current = props.scenarioTags;
+
     const currentText = editor.getEditorState().read(() => serializePromptFromRoot());
     const forceRebuild = !props.value.trim() && currentText.trim() !== "";
-    if (!forceRebuild && valueRef.current === props.value) return;
+    const valueUnchanged = valueRef.current === props.value;
+    if (!forceRebuild && valueUnchanged && !mentionsChanged && !scenarioTagsChanged) {
+      return;
+    }
     valueRef.current = props.value;
     // Check whether the editor already reflects the desired state BEFORE
     // entering editor.update(). Even a bail-out inside editor.update()
@@ -532,11 +547,27 @@ function SyncPlugin(props: {
     // selection and reset the cursor (e.g. after a multi-line paste the
     // cursor jumps to position 0 instead of staying after the pasted
     // content). The read() above already gave us `currentText` — reuse it.
-    if (!forceRebuild && currentText === props.value) return;
+    // Skip this short-circuit when mentions/tags changed: serialized text
+    // can match the draft while nodes are still plain @tokens.
+    if (
+      !forceRebuild &&
+      !mentionsChanged &&
+      !scenarioTagsChanged &&
+      currentText === props.value
+    ) {
+      return;
+    }
     editor.update(() => {
       // Double-check inside the update in case another queued update
       // changed the state between the read above and this callback.
-      if (!forceRebuild && serializePromptFromRoot() === props.value) return;
+      if (
+        !forceRebuild &&
+        !mentionsChanged &&
+        !scenarioTagsChanged &&
+        serializePromptFromRoot() === props.value
+      ) {
+        return;
+      }
       setPrompt(props.value, props.mentions, props.scenarioTags);
       // $getRoot().selectEnd() doesn't work when the last node is a
       // token (chip) — Lexical can't position a cursor inside a token,

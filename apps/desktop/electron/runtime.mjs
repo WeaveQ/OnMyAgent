@@ -1,25 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
-import { chmod, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { chmod, copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 
-import { createMessagingChannelServices } from "./channel-runtime.mjs";
-import { createPersonalAgentHeartbeatScheduler } from "./personal-agent-runtime/heartbeat-scheduler.mjs";
-import { createPersonalAgentRuntime } from "./personal-agent-runtime/index.mjs";
-import { createPersonalAgentLegacyHarness } from "./personal-agent-runtime/legacy-harness.mjs";
-import { createPersonalAgentNativeSessionBridge } from "./personal-agent-runtime/native-sessions.mjs";
-import {
-  ARTIFACT_PLUGIN_SKILL_IDS,
-  artifactPluginEnablementPath,
-  materializeEnabledArtifactSkills,
-  materializeLegacySkillLinks,
-  readArtifactPluginEnablementSnapshot,
-  scanBundledArtifactPlugins,
-} from "./artifact-plugin-runtime.mjs";
 import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
@@ -27,9 +14,13 @@ import {
 import {
   chooseOpencodeBinary,
   chooseProductRuntimeBinary,
-  parseVersionTokens,
 } from "./opencode-binary-policy.mjs";
 import { linkOrCopyDir } from "./runtime-dir-mirror.mjs";
+import { prepareOnMyAgentOpencodeConfigDir } from "./opencode-config-dir.mjs";
+export {
+  createDesktopPersonalRuntimeServices,
+  wrapChannelApiForLazyInit,
+} from "./personal-runtime-services.mjs";
 
 import {
   DIRECT_RUNTIME,
@@ -54,7 +45,6 @@ import {
   truncateOutput,
 } from "./runtime-opencode-lifecycle.mjs";
 import {
-  BUNDLED_EXTENSIONS_RESOURCE_DIR,
   BUNDLED_PLUGINS_RESOURCE_DIR,
   BUNDLED_SKILLS_RESOURCE_DIR,
   OPENCODE_BIN_ENV_KEYS,
@@ -63,9 +53,7 @@ import {
   buildSoftwareEnvironmentInfo,
   collectDockerCandidatePaths,
   deriveOrchestratorContainerName,
-  desiredOpencodePluginVersion,
   envForcedBinaryPath,
-  filterExisting,
   firstExisting,
   interpretDockerInfoFailure,
   normalizeWorkspaceKey,
@@ -77,7 +65,6 @@ import {
   productRuntimeBinaryRelativePath,
   prioritizeWorkspacePaths,
   selectBestLocalOpencodeFromProbed,
-  shouldAlignOpencodePluginPin,
   shouldSkipLocalOpencodeCandidate,
   validateStoppableSandboxContainerName,
 } from "./runtime-helpers.mjs";
@@ -90,81 +77,22 @@ const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
 const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 
+/** @returns {string | null} */
 function bundledSkillsRootPath() {
-  return firstExisting(
+  const found = firstExisting(
     buildBundledResourceCandidates(__runtimeDir, BUNDLED_SKILLS_RESOURCE_DIR, process.resourcesPath),
     existsSync,
   );
+  return found == null ? null : String(found);
 }
 
+/** @returns {string | null} */
 export function bundledPluginsRootPath() {
-  return firstExisting(
+  const found = firstExisting(
     buildBundledResourceCandidates(__runtimeDir, BUNDLED_PLUGINS_RESOURCE_DIR, process.resourcesPath),
     existsSync,
   );
-}
-
-function bundledExtensionRootPaths() {
-  return filterExisting(
-    buildBundledResourceCandidates(__runtimeDir, BUNDLED_EXTENSIONS_RESOURCE_DIR, process.resourcesPath),
-    existsSync,
-  );
-}
-
-export function createDesktopPersonalRuntimeServices(options = {}) {
-  const app = options.app;
-  const runtimeManager = options.runtimeManager;
-  const readWorkspaceState = options.readWorkspaceState;
-  if (!app || typeof app.getPath !== "function") throw new Error("app with getPath is required");
-  if (!runtimeManager) throw new Error("runtimeManager is required");
-  if (typeof readWorkspaceState !== "function") throw new Error("readWorkspaceState is required");
-
-  const personalAgentLegacyHarness = createPersonalAgentLegacyHarness({
-    runtimePathEntries: () => runtimeManager.runtimePathEntries(),
-  });
-  const personalAgentRuntime = createPersonalAgentRuntime({
-    userDataDir: app.getPath("userData"),
-    engineInfo: () => runtimeManager.engineInfo(),
-    onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
-    legacy: personalAgentLegacyHarness,
-    bundledExtensionRoots: bundledExtensionRootPaths(),
-  });
-  const personalAgentHeartbeatScheduler = createPersonalAgentHeartbeatScheduler({
-    personalAgentRuntime,
-    listWorkspaceRoots: async () =>
-      (await readWorkspaceState()).workspaces
-        .filter((entry) => entry?.workspaceType !== "remote")
-        .map((entry) => String(entry?.path ?? "").trim())
-        .filter(Boolean),
-  });
-  const personalAgentNativeSessions = createPersonalAgentNativeSessionBridge({
-    detectPersonalLocalAgent: personalAgentLegacyHarness.detectAgent,
-    runCommandCapture: personalAgentLegacyHarness.runCommandCapture,
-    claudeProjectsRoot: options.claudeProjectsRoot,
-  });
-  const channels = createMessagingChannelServices({
-    userDataDir: app.getPath("userData"),
-    personalAgentRuntime,
-  });
-
-  // Initialize channel infrastructure asynchronously
-  // We don't await here to avoid blocking app startup
-  channels.initialize().catch((error) => {
-    console.error("[runtime] Failed to initialize channel infrastructure:", error);
-  });
-
-  return {
-    personalAgentLegacyHarness,
-    personalAgentRuntime,
-    personalAgentHeartbeatScheduler,
-    personalAgentNativeSessions,
-    weixinService: channels.weixinService,
-    feishuService: channels.feishuService,
-    telegramService: channels.telegramService,
-    discordService: channels.discordService,
-    channelInfrastructureApi: channels.channelInfrastructureApi,
-    channelInfrastructure: channels,
-  };
+  return found == null ? null : String(found);
 }
 
 async function fileExists(targetPath) {
@@ -301,132 +229,17 @@ export function createRuntimeManager({
     return path.join(app.getPath("home"), ".onmyagent", "skills");
   }
 
-  function collectSkillDirs(root) {
-    if (!root || !existsSync(root)) return [];
-    const dirs = [];
-    for (const entry of readdirSync(root, { withFileTypes: true })) {
-      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-      const direct = path.join(root, entry.name);
-      if (existsSync(path.join(direct, "SKILL.md"))) {
-        dirs.push(direct);
-        continue;
-      }
-      let nestedEntries = [];
-      try {
-        nestedEntries = readdirSync(direct, { withFileTypes: true });
-      } catch {
-        nestedEntries = [];
-      }
-      for (const nested of nestedEntries) {
-        if (!nested.isDirectory() && !nested.isSymbolicLink()) continue;
-        const nestedDir = path.join(direct, nested.name);
-        if (existsSync(path.join(nestedDir, "SKILL.md"))) {
-          dirs.push(nestedDir);
-        }
-      }
-    }
-    return dirs;
-  }
-
-  /**
-   * Keep @opencode-ai/plugin package pin aligned with the product OpenCode
-   * version. A lagging pin (e.g. 1.14.x plugin against 1.17.x runtime) is a
-   * common root cause of "fn3 is not a function" during provider load.
-   */
-  async function ensureOpencodePluginPackagePin(configDir, opencodeVersion) {
-    const pin = parseVersionTokens(opencodeVersion);
-    if (!pin || !configDir) return;
-    const desired = desiredOpencodePluginVersion(opencodeVersion);
-    if (!desired) return;
-    const packagePath = path.join(configDir, "package.json");
-    /** @type {{ dependencies?: Record<string, string>, [key: string]: unknown }} */
-    let pkg = { dependencies: {} };
-    try {
-      if (existsSync(packagePath)) {
-        const parsed = JSON.parse(await readFile(packagePath, "utf8"));
-        if (parsed && typeof parsed === "object") pkg = parsed;
-      }
-    } catch {
-      pkg = { dependencies: {} };
-    }
-    if (!pkg.dependencies || typeof pkg.dependencies !== "object" || Array.isArray(pkg.dependencies)) {
-      pkg.dependencies = {};
-    }
-    const current = String(pkg.dependencies["@opencode-ai/plugin"] ?? "").trim();
-    if (!shouldAlignOpencodePluginPin(current, desired)) return;
-    pkg.dependencies["@opencode-ai/plugin"] = desired;
-    await writeFile(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
-    console.warn(
-      `[runtime] Aligned ${packagePath} @opencode-ai/plugin ${current || "(missing)"} -> ${desired}. Reinstall plugins if provider load still fails (fn3).`,
-    );
-  }
-
-  async function prepareOnMyAgentOpencodeConfigDir(configDir) {
-    activeOpencodeConfigDir = configDir; const skillsDir = path.join(configDir, "skills");
-    await mkdir(skillsDir, { recursive: true });
-
-    try {
-      const opencodeDecision = resolveOpencodeBinaryDecision(null);
-      const version = opencodeDecision?.bundledVersion || opencodeDecision?.localVersion;
-      if (version) {
-        await ensureOpencodePluginPackagePin(configDir, version);
-      }
-    } catch (error) {
-      console.warn("[runtime] Failed to align @opencode-ai/plugin pin:", error);
-    }
-
-    await import("./ensure-default-builtin-skills.mjs")
-      .then((m) =>
-        m.ensureDefaultBuiltinSkillsFromRoots(
-          bundledSkillsRootPath,
-          onmyagentUserSkillsRoot,
-        ),
-      )
-      .catch((error) =>
-        console.warn("[runtime] ensureDefaultBuiltinSkills failed:", error),
-      );
-
-    const artifactSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS);
-    const pluginRoot = bundledPluginsRootPath();
-    if (pluginRoot) {
-      const catalog = await scanBundledArtifactPlugins(pluginRoot);
-      for (const plugin of catalog.items) {
-        for (const skill of plugin.skills) artifactSkillIds.add(skill.id);
-      }
-      const snapshot = await readArtifactPluginEnablementSnapshot({
-        enablementPath: artifactPluginEnablementPath(
-          process.env.ONMYAGENT_SERVER_CONFIG?.trim() || undefined,
-        ),
-        catalog,
-      });
-      const materialized = await materializeEnabledArtifactSkills({
-        pluginRoot,
-        managedSkillsRoot: skillsDir,
-        enabledSkillIds: snapshot.enabledSkillIds,
-      });
-      for (const diagnostic of [
-        ...snapshot.diagnostics,
-        ...materialized.diagnostics,
-      ]) {
-        console.warn("[runtime] Artifact plugin skill diagnostic:", diagnostic);
-      }
-    }
-
-    // Only materialize *installed* user skills into OpenCode config.
-    // Full bundled-skills tree is catalog/install source, not always-on Agent load.
-    const roots = [onmyagentUserSkillsRoot()].filter(Boolean);
-    const legacySkillDirs = [];
-    for (const root of roots) {
-      for (const skillDir of collectSkillDirs(root)) {
-        legacySkillDirs.push(skillDir);
-      }
-    }
-    await materializeLegacySkillLinks({
-      skillDirs: legacySkillDirs,
-      managedSkillsRoot: skillsDir,
-      reservedSkillIds: artifactSkillIds,
+  async function prepareManagedOpencodeConfigDir(configDir) {
+    activeOpencodeConfigDir = configDir;
+    return prepareOnMyAgentOpencodeConfigDir(configDir, {
+      resolveOpencodeVersion: () => {
+        const opencodeDecision = resolveOpencodeBinaryDecision(null);
+        return opencodeDecision?.bundledVersion || opencodeDecision?.localVersion;
+      },
+      bundledSkillsRootPath,
+      onmyagentUserSkillsRoot,
+      bundledPluginsRootPath,
     });
-    return configDir;
   }
 
   async function refreshSkillLinks() {
@@ -434,7 +247,7 @@ export function createRuntimeManager({
       ? (await ensureDevModePaths()).opencodeConfigDir : null;
     const configDir = activeOpencodeConfigDir || (devConfigDir && (process.env.OPENCODE_CONFIG_DIR?.trim()
       || resolveLocalOpencodeConfigDir() || devConfigDir)) || onmyagentOpencodeConfigDir();
-    return prepareOnMyAgentOpencodeConfigDir(configDir);
+    return prepareManagedOpencodeConfigDir(configDir);
   }
 
   function orchestratorDataDir() {
@@ -632,7 +445,7 @@ export function createRuntimeManager({
       process.env.ONMYAGENT_DEV_MODE === "1"
         ? env.OPENCODE_CONFIG_DIR
         : onmyagentOpencodeConfigDir();
-    env.OPENCODE_CONFIG_DIR = await prepareOnMyAgentOpencodeConfigDir(configDir);
+    env.OPENCODE_CONFIG_DIR = await prepareManagedOpencodeConfigDir(configDir);
     if (!env.OPENCODE_CONFIG?.trim()) {
       const computerUseCommand = resolveComputerUseRuntimeCommand({
         platform: process.platform,

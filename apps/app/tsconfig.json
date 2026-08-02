@@ -45,7 +45,7 @@
     "vite.config.ts"
   ],
   "exclude": [
-    "src/react-app/domains/session/expert-marketplace/builtin-experts/plugins/**",
-    "src/react-app/domains/session/skills-marketplace/builtin-skills/**"
+    "src/react-app/domains/plugins/expert-marketplace/builtin-experts/plugins/**",
+    "src/react-app/domains/plugins/skills-marketplace/builtin-skills/**"
   ]
 }

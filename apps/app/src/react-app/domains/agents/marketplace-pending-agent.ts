@@ -1,5 +1,5 @@
-import type { PendingAgentContext } from "../../agents";
-import type { ExpertMarketplaceEntry } from "./types";
+import type { ExpertMarketplaceEntry } from "../plugins";
+import type { PendingAgentContext } from "./pending-agent-store";
 
 export function buildPendingAgentFromMarketplaceExpert(
   expert: ExpertMarketplaceEntry,

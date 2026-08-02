@@ -41,6 +41,9 @@ export default {
   "files.uploads_empty_title": "暂无上传",
   "files.uploads_empty_hint":
     "从本机导入文件。OnMyAgent 会复制到工作区，供对话安全引用。",
+  "files.drop_to_upload": "松开以上传文件",
+  "files.drop_to_upload_hint": "也可点击「导入到工作区」选择文件",
+  "files.upload_copy_success_title": "导入成功",
   "files.task_empty_title": "当前工作区暂无文件",
   "files.task_empty_hint":
     "任务产物与工作区文件会显示在这里。个人资料请到「我的」导入。",
@@ -49,8 +52,8 @@ export default {
     "专家会话产物将在启用写入来源打标后显示。现有工作区历史文件请在「任务」中查看，避免误归类。",
   "files.import_to_workspace": "导入到工作区",
   "files.uploading": "正在导入…",
-  "files.upload_copy_success":
-    "已保存工作区副本。对话中的修改只作用于副本，不会自动改本机原文件。",
+  "files.upload_copy_success": "已导入 {count} 个文件",
+  "files.upload_copy_success_one": "已导入 1 个文件",
   "files.upload_failed": "无法将文件导入工作区",
   "files.upload_too_large":
     "「{name}」大小为 {size}，超过导入上限（{max}）。",
@@ -86,6 +89,24 @@ export default {
   "files.preview_failed": "文件预览失败",
   "files.preview_opened_in_browser": "已在内置浏览器中打开",
   "files.preview_unsupported": "当前文件不支持预览",
+  "files.preview_unsupported_open_hint":
+    "此类型暂不支持应用内预览。点击图标可用本机默认程序打开。",
+  "files.open_with_default_app": "用默认程序打开 {name}",
+  "files.open_with_default_app_action": "用默认程序打开",
+  "files.ask_agent": "让 Agent 处理",
+  "files.ask_agent_done_title": "已交给对话",
+  "files.ask_agent_done": "文件已加入输入框，确认后发送即可",
+  "files.ask_agent_instruction_sheet":
+    "请查看该表格，总结关键数据，并说明需要我确认后才能改的地方。",
+  "files.ask_agent_instruction_document":
+    "请查看该文档，概括要点，并给出可执行的修改建议。",
+  "files.ask_agent_instruction_image":
+    "请查看该图片，描述内容并说明可如何处理。",
+  "files.ask_agent_instruction_pdf":
+    "请查看该 PDF，提炼要点并给出后续处理建议。",
+  "files.ask_agent_instruction_generic":
+    "请查看该文件，说明内容概要，并告诉我可以如何处理。",
+  "files.preview_too_large": "文件较大，建议用本机默认程序打开，而不是应用内预览。",
   "files.copy_path": "复制路径",
   "files.close_preview": "关闭预览",
   "files.collapse_tree": "收起文件树",

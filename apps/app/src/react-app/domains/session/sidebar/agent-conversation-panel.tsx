@@ -337,8 +337,8 @@ export function AgentConversationPanel(props: {
       );
     };
   }, [mode, props.selectedWorkspaceId]);
-  // Preview snapshots are deferred + capped. Selected session transcript is
-  // loaded by the main surface — do not N× snapshot the whole sidebar on boot.
+  // Non-selected preview snapshots are off (SIDEBAR_PREVIEW_SNAPSHOT_MAX=0).
+  // Selected session transcript loads via SessionSurface only.
   const { previewSessionIds: assistantPreviewIds } = useDeferredSidebarPreviews({
     enabled: mode === "assistant" && Boolean(props.client),
     sessions: assistantSessions,

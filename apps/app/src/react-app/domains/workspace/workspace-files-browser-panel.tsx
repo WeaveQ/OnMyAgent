@@ -4,7 +4,6 @@
  * until write-time provenance (P1) can filter assistant_task vs expert.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -15,20 +14,17 @@ import {
   CirclePlus,
   Cloud,
   Copy,
-  ExternalLink,
   FileSearch,
   FileStack,
   Folder,
   FolderOpen,
   MessageSquare,
   MoreHorizontal,
-  Pencil,
   RefreshCw,
   Search,
   SlidersHorizontal,
   Star,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -73,25 +69,19 @@ import type {
 import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
-import { OfficeFilePreview } from "../../capabilities/artifacts/office-file-preview";
 import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../../capabilities/artifacts/open-artifact-for-editing";
-import { ArtifactSpreadsheetEditor } from "../../capabilities/artifacts/artifact-spreadsheet-editor";
 import {
   type OpenTarget,
 } from "../../capabilities/artifacts/open-target";
-import {
-  HTMLPreview,
-  ImagePreview,
-  MarkdownPreview,
-  PlainText,
-  PreviewError,
-  PreviewLoading,
-  PreviewUnavailable,
-} from "../../capabilities/artifacts/preview";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
+import {
+  FilePreviewDrawer,
+  type WorkspaceFilePreviewNode,
+  type WorkspaceFilePreviewState,
+} from "./workspace-files-preview-drawer";
 import {
   buildWorkspaceFileTree,
   pruneEmptyDirectoriesFromTree,
@@ -108,6 +98,10 @@ import {
   type WorkspaceFileSortKey,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
+import {
+  FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
+  shouldForceExternalPreviewForSize,
+} from "../../capabilities/artifacts/file-preview-policy";
 import {
   FILE_CATEGORIES,
   buildRootOutlineRows,
@@ -159,198 +153,8 @@ function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) 
   );
 }
 
-type FileNode = {
-  name: string;
-  path: string;
-  kind: "file" | "dir";
-  size: number;
-  mtimeMs: number;
-};
-
-type FilePreviewState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ready"; content: string }
-  | { status: "binary"; url: string }
-  | {
-      status: "local";
-      filePath: string;
-      revision: number;
-    }
-  | { status: "external" }
-  | { status: "browser" }
-  | { status: "error"; message: string };
-function FilePreviewDrawer(props: {
-  open: boolean;
-  file: FileNode | null;
-  target: OpenTarget | null;
-  state: FilePreviewState;
-  copied: boolean;
-  onClose: () => void;
-  onCopyPath: () => void;
-  onEdit?: () => void;
-  onOpenInFolder?: () => void;
-  onOpenExternally?: () => void;
-}) {
-  const { open, file, target, state, copied, onClose, onCopyPath, onEdit, onOpenInFolder, onOpenExternally } = props;
-
-  if (typeof document === "undefined") return null;
-
-  const overlay = (
-    <div
-      aria-hidden={!open}
-      className={cn(
-        "pointer-events-none fixed inset-0 z-[300] transition-opacity duration-200",
-        open && "pointer-events-auto",
-      )}
-    >
-      <div
-        onClick={onClose}
-        className={cn(
-          "absolute inset-0 bg-black/25 opacity-0 transition-opacity duration-200 supports-backdrop-filter:backdrop-blur-[2px]",
-          open && "opacity-100",
-        )}
-      />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-hidden={!open}
-        aria-label={file?.name ?? t("files.preview_empty")}
-        className={cn(
-          "absolute inset-y-0 right-0 flex w-full max-w-[560px] min-w-[360px] translate-x-full flex-col border-l border-dls-border bg-dls-surface transition-transform duration-200 ease-out",
-          open && "translate-x-0",
-        )}
-      >
-        {file && target ? (
-          <>
-            <header className="flex items-start gap-3 border-b border-dls-border px-5 py-4">
-              <ArtifactIcon type={target.preview} name={file.name} className="mt-0.5 size-5 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
-                  {file.name}
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-dls-secondary">
-                  <span>{formatWorkspaceFileSize(file.size)}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatWorkspaceFileTime(file.mtimeMs)}</span>
-                </div>
-                <div
-                  className="mt-1 truncate font-mono text-xs text-dls-secondary/80"
-                  title={file.path}
-                >
-                  {file.path}
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={onClose}
-                aria-label={t("files.close_preview")}
-                title={t("files.close_preview")}
-              >
-                <X className="size-4" />
-              </Button>
-            </header>
-
-            <div className="flex shrink-0 items-center gap-1.5 border-b border-dls-border bg-dls-surface-muted/60 px-3 py-2">
-              {onEdit ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onEdit}
-                  className="text-dls-secondary hover:text-dls-text"
-                >
-                  <Pencil data-icon="inline-start" className="size-3.5" aria-hidden="true" />
-                  {t("files.edit_file")}
-                </Button>
-              ) : null}
-              {onOpenExternally ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onOpenExternally}
-                  className="text-dls-secondary hover:text-dls-text"
-                >
-                  <ExternalLink data-icon="inline-start" className="size-3.5" />
-                  {t("files.open_file")}
-                </Button>
-              ) : null}
-              {onOpenInFolder ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onOpenInFolder}
-                  className="text-dls-secondary hover:text-dls-text"
-                >
-                  <Folder data-icon="inline-start" className="size-3.5" />
-                  {t("files.open_in_folder")}
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onCopyPath}
-                className="text-dls-secondary hover:text-dls-text"
-              >
-                <Copy data-icon="inline-start" className="size-3.5" />
-                {copied ? t("files.copied") : t("files.copy_path")}
-              </Button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-hidden bg-dls-surface">
-              {state.status === "loading" ? (
-                <PreviewLoading />
-              ) : state.status === "error" ? (
-                <PreviewError message={state.message} />
-              ) : state.status === "local" ? (
-                <OfficeFilePreview
-                  filePath={state.filePath}
-                  name={file.name}
-                  revision={state.revision}
-                />
-              ) : state.status === "ready" && target.preview === "markdown" ? (
-                <MarkdownPreview content={state.content} />
-              ) : state.status === "ready" && target.preview === "html" ? (
-                <HTMLPreview type="text" title={file.name} content={state.content} />
-              ) : state.status === "ready" &&
-                target.preview === "sheet" &&
-                /\.(csv|tsv)$/i.test(file.name) ? (
-                <ArtifactSpreadsheetEditor
-                  className="h-full min-h-0"
-                  name={file.name}
-                  content={{ kind: "text", data: state.content }}
-                  readOnly
-                  onSave={async () => {}}
-                />
-              ) : state.status === "ready" ? (
-                <PlainText content={state.content} />
-              ) : state.status === "binary" && target.preview === "image" ? (
-                <ImagePreview src={state.url} alt={file.name} />
-              ) : state.status === "browser" ? (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
-                  {t("files.preview_opened_in_browser")}
-                </div>
-              ) : state.status === "external" ? (
-                <PreviewUnavailable />
-              ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">
-                  {t("files.preview_empty")}
-                </div>
-              )}
-            </div>
-          </>
-        ) : null}
-      </aside>
-    </div>
-  );
-
-  return createPortal(overlay, document.body);
-}
+type FileNode = WorkspaceFilePreviewNode;
+type FilePreviewState = WorkspaceFilePreviewState;
 
 function FilesListEmptyState(props: {
   filtered: boolean;
@@ -621,6 +425,12 @@ export function WorkspaceFilesBrowserPanel(props: {
   onEditError?: () => void;
   /** Optional: attach file into a new/current task (composer). */
   onAddToTask?: (relativePath: string) => void;
+  /** WP3: @mention + instruction for agent about any file type. */
+  onAskAgentAboutFile?: (input: {
+    path: string;
+    name: string;
+    preview: string;
+  }) => void;
 }) {
   const sourceTab = props.sourceTab ?? "task";
   const [query, setQuery] = useState("");
@@ -776,29 +586,53 @@ export function WorkspaceFilesBrowserPanel(props: {
     setCurrentDirectoryPath("");
   }, [query, typeFilter]);
 
+  // WP4: debounce selection so rapid row clicks don't thrash preview loads.
+  const [previewSelection, setPreviewSelection] = useState<{
+    file: FileNode | null;
+    target: OpenTarget | null;
+  }>({ file: null, target: null });
   useEffect(() => {
-    if (!props.client || !props.workspaceId.trim() || !selectedTarget) {
+    const handle = window.setTimeout(() => {
+      setPreviewSelection({ file: selectedFile, target: selectedTarget });
+    }, FILE_PREVIEW_SELECTION_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [selectedFile, selectedTarget]);
+
+  useEffect(() => {
+    const activeFile = previewSelection.file;
+    const activeTarget = previewSelection.target;
+    if (!props.client || !props.workspaceId.trim() || !activeTarget || !activeFile) {
       setPreviewState({ status: "idle" });
       return;
     }
 
-    if (selectedTarget.preview === "browser") {
+    if (activeTarget.preview === "browser") {
       setPreviewState({ status: "browser" });
       return;
     }
 
-    if (!canPreviewWorkspaceFileInline(selectedTarget)) {
+    if (!canPreviewWorkspaceFileInline(activeTarget)) {
       setPreviewState({ status: "external" });
+      return;
+    }
+
+    if (
+      shouldForceExternalPreviewForSize({
+        sizeBytes: activeFile.size,
+        preview: activeTarget.preview,
+      })
+    ) {
+      setPreviewState({ status: "too_large" });
       return;
     }
 
     let cancelled = false;
     setPreviewState({ status: "loading" });
 
-    if (selectedTarget.preview === "image") {
+    if (activeTarget.preview === "image") {
       let objectUrl: string | null = null;
       void props.client
-        .downloadWorkspaceFile(props.workspaceId, selectedTarget.value)
+        .downloadWorkspaceFile(props.workspaceId, activeTarget.value)
         .then((result) => {
           if (cancelled) return;
           objectUrl = URL.createObjectURL(new Blob([result.data], {
@@ -820,16 +654,16 @@ export function WorkspaceFilesBrowserPanel(props: {
       };
     }
 
-    const previewRequest = usesLocalFileRenderer(selectedTarget)
+    const previewRequest = usesLocalFileRenderer(activeTarget)
       ? Promise.resolve({
           status: "local" as const,
-          filePath: selectedFile?.path.startsWith("/")
-            ? selectedFile.path
-            : `${fileRoot.replace(/[/\\]+$/, "")}/${selectedFile?.path.replace(/^[/\\]+/, "") ?? ""}`,
-          revision: selectedTarget.updatedAt ?? Date.now(),
+          filePath: activeFile.path.startsWith("/")
+            ? activeFile.path
+            : `${fileRoot.replace(/[/\\]+$/, "")}/${activeFile.path.replace(/^[/\\]+/, "")}`,
+          revision: activeTarget.updatedAt ?? Date.now(),
         })
       : props.client
-          .readWorkspaceFile(props.workspaceId, selectedTarget.value)
+          .readWorkspaceFile(props.workspaceId, activeTarget.value)
           .then((result) => ({ status: "ready" as const, content: result.content }));
 
     void previewRequest
@@ -847,7 +681,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, props.client, props.workspaceId, selectedFile, selectedTarget]);
+  }, [fileRoot, previewSelection, props.client, props.workspaceId]);
 
   const visibleFileTree = useMemo(() => {
     // Hide system markers, then drop empty dirs (e.g. expert sessions with only
@@ -1123,18 +957,19 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => window.removeEventListener("keydown", handler);
   }, [closePreview, selectedFile]);
 
+  // Same gutters as 市场 pluginsLayoutClass.pageContainer
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
-          <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 max-w-xl">
-              <h1 className={typeScale.pageTitle}>
+    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
+          <div className="mb-4 flex w-full shrink-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 text-left">
+              <h1 className={cn(typeScale.pageTitle, "text-left")}>
                 {t(filesSourceTabTitleKey(sourceTab))}
               </h1>
-              <p className={cn(typeScale.pageSubtitle, "mt-1 truncate")}>
+              <p className={cn(typeScale.pageSubtitle, "mt-1 truncate text-left")}>
                 {t(filesSourceTabSubtitleKey(sourceTab))}
               </p>
             </div>
-            <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-md">
+            <div className="flex min-w-0 items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1204,7 +1039,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                   </div>
                 )}
               </div>
-              <InputGroup controlSize="default" radius="lg" tone="surface" className="min-w-[200px] max-w-[280px] flex-1">
+              <InputGroup controlSize="default" radius="lg" tone="surface" className="min-w-[200px] w-56 sm:w-64">
                 <InputGroupAddon align="inline-start">
                   <Search className="size-3.5" />
                 </InputGroupAddon>
@@ -1317,8 +1152,8 @@ export function WorkspaceFilesBrowserPanel(props: {
                       Sticky header + name column must use solid surfaces — glass
                       tokens (dls-surface*) are translucent and let row text bleed through.
                     */
-                    <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
-                      <table className="w-full caption-bottom text-sm">
+                    <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
+                      <table className="w-full table-fixed caption-bottom text-sm">
                         <TableHeader className="sticky top-0 z-10">
                           <TableRow className="hover:bg-transparent">
                             {(
@@ -1357,7 +1192,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 <TableHead
                                   key={column.label}
                                   className={cn(
-                                    "h-10 border-b border-dls-border bg-dls-surface-solid text-xs font-medium text-dls-secondary",
+                                    "h-10 border-b border-dls-border bg-dls-surface-solid text-left text-xs font-medium text-dls-secondary",
                                     column.className,
                                   )}
                                   style={{ backgroundColor: "var(--dls-surface-solid, #2c2c2c)" }}
@@ -1375,7 +1210,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                     <button
                                       type="button"
                                       className={cn(
-                                        "inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-dls-hover hover:text-dls-text",
+                                        "inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-dls-hover hover:text-dls-text",
                                         active ? "font-semibold text-dls-text" : "text-dls-secondary",
                                       )}
                                       onClick={() => toggleSort(column.key!)}
@@ -1463,15 +1298,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                           />
                                         </span>
                                       </TableCell>
-                                      <TableCell className="py-2 text-xs text-dls-secondary">
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary">
                                         {t("files.type_folder")}
                                       </TableCell>
-                                      <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary tabular-nums">
                                         {row.node.mtimeMs > 0
                                           ? formatWorkspaceFileTime(row.node.mtimeMs)
                                           : "-"}
                                       </TableCell>
-                                      <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-2 text-left text-xs text-dls-secondary tabular-nums">
                                         {formatWorkspaceFileSize(row.node.size)}
                                       </TableCell>
                                       <TableCell className="py-2" />
@@ -1525,15 +1360,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                           />
                                         </span>
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-dls-secondary">
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary">
                                         {t("files.type_folder")}
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary tabular-nums">
                                         {row.node.mtimeMs > 0
                                           ? formatWorkspaceFileTime(row.node.mtimeMs)
                                           : "-"}
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-dls-secondary tabular-nums">
+                                      <TableCell className="py-1.5 text-left text-xs text-dls-secondary tabular-nums">
                                         {formatWorkspaceFileSize(row.node.size)}
                                       </TableCell>
                                       <TableCell className="py-1.5" />
@@ -1585,15 +1420,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                         />
                                       </span>
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs text-dls-secondary">
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary">
                                       {fileCategoryLabel(getFileCategory(fileNode.name))}
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                                       {fileNode.mtimeMs > 0
                                         ? formatWorkspaceFileTime(fileNode.mtimeMs)
                                         : "-"}
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                                       {formatWorkspaceFileSize(fileNode.size)}
                                     </TableCell>
                                     <TableCell className="relative py-2">
@@ -1678,15 +1513,15 @@ export function WorkspaceFilesBrowserPanel(props: {
                                 />
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-dls-secondary">
+                            <TableCell className="text-left py-2 text-xs text-dls-secondary">
                               {node.kind === "dir"
                                 ? t("files.type_folder")
                                 : fileCategoryLabel(getFileCategory(node.name))}
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                            <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                               {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-dls-secondary tabular-nums">
+                            <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
                               {formatWorkspaceFileSize(node.size)}
                             </TableCell>
                             <TableCell className="relative py-2">
@@ -1737,6 +1572,18 @@ export function WorkspaceFilesBrowserPanel(props: {
                 selectedTarget && selectedFile
                   ? () => void openArtifactTarget(selectedTarget)
                   : undefined
+              }
+              onAskAgent={
+                selectedFile && selectedTarget && props.onAskAgentAboutFile
+                  ? () =>
+                      props.onAskAgentAboutFile?.({
+                        path: selectedFile.path,
+                        name: selectedFile.name,
+                        preview: selectedTarget.preview,
+                      })
+                  : props.onAddToTask && selectedFile
+                    ? () => props.onAddToTask?.(selectedFile.path)
+                    : undefined
               }
             />
           </div>
