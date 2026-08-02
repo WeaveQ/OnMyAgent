@@ -300,6 +300,8 @@ export default {
   "agents.expert_creation_folder_name": "資料夾名稱",
   "agents.expert_creation_folder_name_placeholder": "例如：product-notes",
   "agents.expert_creation_folder_name_error": "請使用英文字母、數字、短橫線或底線。",
+  "agents.expert_creation_folder_name_duplicate": "已存在同名的知識項目。",
+  "agents.expert_creation_knowledge_path_error": "部分內容未新增：資料夾名稱只能使用英文字母、數字、短橫線或底線。",
   "agents.expert_creation_knowledge_files": "{count} 項",
   "agents.expert_creation_preview_title": "試試效果",
   "agents.expert_creation_preview_empty": "請先完善左側專家設定再進行除錯",
