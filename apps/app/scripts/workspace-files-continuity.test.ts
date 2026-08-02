@@ -37,6 +37,7 @@ import {
   buildUngroupedFolderNode,
   buildUserUploadRelativePath,
   collectExpandableDirPaths,
+  isDirectChildOfPrefix,
   isFilesUngroupedPath,
   mapUploadsCatalogToRows,
   mergeMineUploadRows,
@@ -280,6 +281,15 @@ describe("product write paths", () => {
 });
 
 describe("buildRootOutlineRows conversation nesting", () => {
+  test("isDirectChildOfPrefix detects one-level children only", () => {
+    expect(isDirectChildOfPrefix("uploads/a.md", "uploads")).toBe(true);
+    expect(isDirectChildOfPrefix("uploads/docs/a.md", "uploads")).toBe(false);
+    expect(isDirectChildOfPrefix("uploads", "uploads")).toBe(false);
+    expect(isDirectChildOfPrefix("uploads/docs/nested", "uploads/docs")).toBe(
+      true,
+    );
+  });
+
   test("buildTreeNodesFromUploadRows nests descendants under parent", () => {
     const roots = buildTreeNodesFromUploadRows(
       [

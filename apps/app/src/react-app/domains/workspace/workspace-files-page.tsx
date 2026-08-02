@@ -1,10 +1,10 @@
 /** @jsxImportSource react */
 /**
- * Primary-rail Files page (P0 three-source IA + path heuristics).
+ * Primary-rail Files page (three-source IA).
  * Rail: Mine / Tasks / Experts / Projects (Projects coming soon, disabled)
- * - Mine: inbox list + import-by-copy
- * - Tasks: workspace browser excluding expert agent folders
- * - Experts: workspace browser of expert agent folders only
+ * - Mine: uploads/ catalog + import-by-copy + folder browse
+ * - Tasks: conversation outline of non-expert workspace files
+ * - Experts: conversation outline of expert agent folders
  * - Projects: not yet open
  */
 import { useState } from "react";

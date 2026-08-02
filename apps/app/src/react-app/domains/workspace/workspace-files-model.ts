@@ -151,6 +151,11 @@ export function getFileCategory(name: string): FileCategory {
 }
 
 /** i18n key for a file category chip (caller translates). */
+/** Localized chip/label for a file category (shared by Mine + Tasks/Experts). */
+export function fileCategoryLabel(category: FileCategory): string {
+  return t(fileCategoryI18nKey(category));
+}
+
 export function fileCategoryI18nKey(category: FileCategory): string {
   switch (category) {
     case "all":
@@ -432,6 +437,10 @@ function titleForSessionNode(
   );
 }
 
+/**
+ * @deprecated Prefer `buildTreeOutlineRows` + `buildUngroupedFolderNode` for UI.
+ * Kept for unit tests of the older project/task outline shape.
+ */
 export function buildRootOutlineRows(
   children: WorkspaceFileTreeNode[],
   expanded: ReadonlySet<string>,
@@ -1110,11 +1119,31 @@ export type UploadsCatalogEntryLike = {
   updatedAt?: number;
 };
 
+/** True when `path` is a direct child of `parentPrefix` (one segment under). */
+export function isDirectChildOfPrefix(
+  path: string,
+  parentPrefix: string,
+): boolean {
+  const parent = String(parentPrefix || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "");
+  const rel = String(path || "")
+    .trim()
+    .replace(/\\/g, "/");
+  if (!parent || !rel.startsWith(`${parent}/`)) return false;
+  const rest = rel.slice(parent.length + 1);
+  return Boolean(rest) && !rest.includes("/");
+}
+
 /**
  * Map workspace catalog entries under uploads/ into Mine rows (files + dirs).
  * Scoped to `parentPrefix` only (never rewrites sibling paths into the current
  * folder). When `shallow` is true (default), only direct children of the parent
  * are kept; when false, all descendants under the parent are kept.
+ *
+ * Prefer loading deep once and filtering with `isDirectChildOfPrefix` for
+ * one-level browse so expand/collapse does not re-fetch.
  */
 export function mapUploadsCatalogToRows(
   items: readonly UploadsCatalogEntryLike[],

@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 /**
- * Files page — 我的文件 (uploads): inbox list + import-by-copy + preview/open actions
- * (parity with Task files drawer chrome where applicable).
+ * Files page — 我的文件 (uploads/): catalog list, import-by-copy, folder browse,
+ * hierarchical expand/collapse, drag-move, and preview/open actions.
  */
 import {
   useCallback,
@@ -89,9 +89,10 @@ import {
   canPreviewWorkspaceFileInline,
   collectExpandableDirPaths,
   FILE_CATEGORIES,
-  fileCategoryI18nKey,
+  fileCategoryLabel,
   filterUploadRows,
   getFileCategory,
+  isDirectChildOfPrefix,
   mapUploadsCatalogToRows,
   usesLocalFileRenderer,
   workspaceRelativeForUploadRow,
@@ -114,10 +115,6 @@ import {
 
 /** Internal Mine drag payload (not OS file drops). */
 const MINE_DRAG_MIME = "application/x-onmyagent-mine-file";
-
-function fileCategoryLabel(category: FileCategory) {
-  return t(fileCategoryI18nKey(category));
-}
 
 /** Matches server DEFAULT_INBOX_MAX_BYTES (local precheck before upload). */
 const CLIENT_INBOX_MAX_BYTES_DEFAULT = 200_000_000;
@@ -320,8 +317,6 @@ export function WorkspaceFilesUploadsPanel(props: {
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
   const dragDepthRef = useRef(0);
-  /** After treeMode load, apply expand-all once descendants are available. */
-  const expandAllPendingRef = useRef(false);
 
   const workspaceId = props.workspaceId.trim();
   const workspaceRoot = String(props.workspaceRoot ?? "").trim();
@@ -367,17 +362,17 @@ export function WorkspaceFilesUploadsPanel(props: {
           }
         }
 
-        // Primary source of truth: workspace uploads/ only (no inbox merge in UI).
+        // Always load deep under current folder — shallow vs tree is client-side
+        // view only (avoids re-fetch flash when toggling expand-all).
         const catalog = await client.listWorkspaceFiles(workspaceId, {
           includeDirs: true,
           prefix: WORKSPACE_UPLOADS_DIR,
           limit: 5000,
         });
         if (cancelled) return;
-        // Tree mode needs descendants; one-level browse is shallow only.
         const catalogRows = mapUploadsCatalogToRows(catalog.items ?? [], {
           parentPrefix: currentFolderPath,
-          shallow: !treeMode,
+          shallow: false,
         });
         setRows(catalogRows);
         if (manualRefreshRef.current) {
@@ -399,16 +394,14 @@ export function WorkspaceFilesUploadsPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [canLoad, currentFolderPath, treeMode, props.client, refreshKey, workspaceId]);
+  }, [canLoad, currentFolderPath, props.client, refreshKey, workspaceId]);
 
   const filterActive = typeFilter !== "all" || Boolean(query.trim());
 
+  // Full subtree under current folder (always available for expand-all).
   const treeRoots = useMemo(
-    () =>
-      treeMode && !filterActive
-        ? buildTreeNodesFromUploadRows(rows, currentFolderPath)
-        : ([] as WorkspaceFileTreeNode[]),
-    [currentFolderPath, filterActive, rows, treeMode],
+    () => buildTreeNodesFromUploadRows(rows, currentFolderPath),
+    [currentFolderPath, rows],
   );
 
   const expandableDirPaths = useMemo(
@@ -426,10 +419,19 @@ export function WorkspaceFilesUploadsPanel(props: {
     expandableDirPaths.length > 0 &&
     expandableDirPaths.every((path) => expandedPaths.has(path));
 
-  const visibleRows = useMemo(
-    () => filterUploadRows(rows, query, typeFilter),
-    [query, rows, typeFilter],
-  );
+  /**
+   * One-level browse rows (default) or full filter matches.
+   * When treeMode is on without filter, the table uses treeRows instead.
+   */
+  const visibleRows = useMemo(() => {
+    const scoped =
+      filterActive || treeMode
+        ? rows
+        : rows.filter((row) =>
+            isDirectChildOfPrefix(row.path, currentFolderPath),
+          );
+    return filterUploadRows(scoped, query, typeFilter);
+  }, [currentFolderPath, filterActive, query, rows, treeMode, typeFilter]);
 
   /** Map path → row for tree row actions / preview. */
   const rowByPath = useMemo(() => {
@@ -441,7 +443,6 @@ export function WorkspaceFilesUploadsPanel(props: {
   }, [rows]);
 
   const enterFolder = useCallback((path: string) => {
-    expandAllPendingRef.current = false;
     setTreeMode(false);
     setExpandedPaths(new Set());
     setCurrentFolderPath(path.replace(/\\/g, "/"));
@@ -458,27 +459,11 @@ export function WorkspaceFilesUploadsPanel(props: {
   }, []);
 
   const expandAllTree = useCallback(() => {
-    expandAllPendingRef.current = true;
     setTreeMode(true);
-    if (expandableDirPaths.length > 0) {
-      setExpandedPaths(new Set(expandableDirPaths));
-      expandAllPendingRef.current = false;
-    } else {
-      setExpandedPaths(new Set());
-    }
+    setExpandedPaths(new Set(expandableDirPaths));
   }, [expandableDirPaths]);
 
-  // Deep catalog arrives after treeMode flips on — finish expand-all once.
-  useEffect(() => {
-    if (!expandAllPendingRef.current) return;
-    if (!treeMode || filterActive) return;
-    if (expandableDirPaths.length === 0) return;
-    setExpandedPaths(new Set(expandableDirPaths));
-    expandAllPendingRef.current = false;
-  }, [expandableDirPaths, filterActive, treeMode]);
-
   const collapseAllTree = useCallback(() => {
-    expandAllPendingRef.current = false;
     setTreeMode(false);
     setExpandedPaths(new Set());
   }, []);

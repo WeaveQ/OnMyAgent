@@ -256,7 +256,8 @@ describe("files three-source tabs (P0)", () => {
     );
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    expect(browser).toContain("data-workspace-file-breadcrumb");
+    expect(browser).toContain("data-files-browser-pathbar");
+    expect(browser).toContain("buildTreeOutlineRows");
     expect(browser).toContain("FilePreviewDrawer");
     expect(browser).toContain("workspace-files-preview-drawer");
   });
