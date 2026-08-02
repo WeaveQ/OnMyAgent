@@ -90,6 +90,8 @@ export default {
   "files.create_folder_invalid": "Enter a valid folder name",
   "files.move_here": "Move here",
   "files.move_success": "Moved “{name}”",
+  "files.move_to_success": "Moved to “{folder}”",
+  "files.move_view": "View",
   "files.move_failed": "Could not move the file",
   "files.move_invalid": "Cannot move to that location",
   "files.add_to_task": "Add to task",

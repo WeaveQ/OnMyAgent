@@ -552,6 +552,9 @@ describe("open source session + create folder (Sprint A/B)", () => {
     expect(uploads).toContain("renameWorkspaceFile");
     expect(uploads).toContain("application/x-onmyagent-mine-file");
     expect(uploads).toContain("handleFolderDrop");
+    expect(uploads).toContain("files.move_to_success");
+    expect(uploads).toContain("files.move_view");
+    expect(uploads).toContain("actionLabel");
     expect(page).toContain("onOpenSourceSession");
     expect(assistant).toContain("onOpenSourceSession");
     expect(assistant).toContain("filesOpenSessionMeta");

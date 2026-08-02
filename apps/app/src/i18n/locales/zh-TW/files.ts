@@ -89,6 +89,8 @@ export default {
   "files.create_folder_invalid": "請輸入有效的資料夾名稱",
   "files.move_here": "移動到此處",
   "files.move_success": "已移動「{name}」",
+  "files.move_to_success": "已移動到「{folder}」",
+  "files.move_view": "查看",
   "files.move_failed": "無法移動檔案",
   "files.move_invalid": "不能移動到該位置",
   "files.add_to_task": "添加到任務",
