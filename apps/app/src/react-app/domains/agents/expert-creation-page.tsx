@@ -65,6 +65,7 @@ import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ModelRef } from "../../../app/types";
 import {
+  installBuiltinSkillPackage,
   listLocalSkills,
   revealDesktopItemInDir,
   stageMyExpertKnowledge,
@@ -82,8 +83,11 @@ import {
 import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
 import {
+  expertCreationSkillKey,
   filterExpertCreationSkills,
-  toggleExpertCreationSkillId,
+  isExpertCreationSkillSelected,
+  materializeExpertCreationMarketplaceSkill,
+  toggleExpertCreationSkill,
 } from "./expert-creation-skill-picker-model";
 import { EXPERT_CREATION_VISIBLE_TABS } from "./expert-creation-tabs-model";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
@@ -112,6 +116,7 @@ import {
   type ExpertDraftSuggestion,
 } from "./expert-creation-suggestions";
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
+import { BUILTIN_MARKETPLACE_SKILLS } from "../plugins";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -188,6 +193,22 @@ const TABS: Array<{ id: ExpertCreationTab; label: string }> = EXPERT_CREATION_VI
   id,
   label: `agents.expert_creation_${id}`,
 }));
+
+const EXPERT_CREATION_MARKETPLACE_SKILLS: AgentSkillItem[] =
+  BUILTIN_MARKETPLACE_SKILLS.map((skill) => ({
+    id: `marketplace:${skill.id}`,
+    category: skill.categoryLabel,
+    group: "marketplace",
+    name: skill.skillName,
+    description: skill.description,
+    enabled: true,
+    displayNameEn: skill.displayName,
+    descriptionEn: skill.description,
+  }));
+
+const BUILTIN_MARKETPLACE_SKILL_BY_NAME = new Map(
+  BUILTIN_MARKETPLACE_SKILLS.map((skill) => [skill.skillName, skill]),
+);
 
 const EXPERT_FORM_FIELD_CLASS = "text-sm placeholder:text-dls-secondary/70";
 
@@ -485,22 +506,36 @@ function BasicInfoPanel(props: {
   );
 }
 
+type ExpertCreationSkillPickerTab = "mine" | "market";
+
 function SkillPickerPopover(props: {
   skills: AgentSkillItem[];
+  marketplaceSkills: AgentSkillItem[];
   selectedIds: string[];
   disabled?: boolean;
   triggerVariant?: "ghost" | "secondary";
   triggerClassName?: string;
-  onToggle: (id: string) => void;
+  installingSkillId?: string | null;
+  onToggle: (skill: AgentSkillItem) => void;
+  onInstall: (skill: AgentSkillItem) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ExpertCreationSkillPickerTab>("mine");
   const [query, setQuery] = useState("");
+  const sourceSkills = activeTab === "mine" ? props.skills : props.marketplaceSkills;
   const visibleSkills = useMemo(() => {
-    return filterExpertCreationSkills(props.skills, query);
-  }, [props.skills, query]);
+    return filterExpertCreationSkills(sourceSkills, query);
+  }, [query, sourceSkills]);
+  const installedSkillKeys = useMemo(
+    () => new Set(props.skills.map((skill) => expertCreationSkillKey(skill))),
+    [props.skills],
+  );
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (!nextOpen) setQuery("");
+    if (!nextOpen) {
+      setActiveTab("mine");
+      setQuery("");
+    }
   };
 
   return (
@@ -527,6 +562,31 @@ function SkillPickerPopover(props: {
         sideOffset={6}
         className="w-80 max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-1.5"
       >
+        <SegmentedTabGroup
+          aria-label={t("agents.expert_creation_skill_picker_title")}
+          className="w-full"
+        >
+          <NavTabButton
+            type="button"
+            size="tab"
+            shape="tab"
+            active={activeTab === "mine"}
+            onClick={() => setActiveTab("mine")}
+            className="min-w-0 flex-1 px-2"
+          >
+            {t("agents.expert_creation_skill_picker_my_skills")}
+          </NavTabButton>
+          <NavTabButton
+            type="button"
+            size="tab"
+            shape="tab"
+            active={activeTab === "market"}
+            onClick={() => setActiveTab("market")}
+            className="min-w-0 flex-1 px-2"
+          >
+            {t("agents.expert_creation_skill_picker_market")}
+          </NavTabButton>
+        </SegmentedTabGroup>
         <div className="relative p-1.5">
           <Search
             className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-1/2 text-dls-secondary"
@@ -549,26 +609,50 @@ function SkillPickerPopover(props: {
           ) : (
             <div className="grid gap-0.5">
               {visibleSkills.map((skill) => {
-                const selected = props.selectedIds.includes(skill.id);
+                const skillKey = expertCreationSkillKey(skill);
+                const selected = isExpertCreationSkillSelected(
+                  skill,
+                  props.selectedIds,
+                  props.skills,
+                );
+                const installed = installedSkillKeys.has(skillKey);
+                const installing = props.installingSkillId === skillKey;
+                const handleSkillClick = () => {
+                  if (activeTab === "market" && !installed) {
+                    props.onInstall(skill);
+                    return;
+                  }
+                  props.onToggle(skill);
+                };
                 return (
                   <div
-                    key={skill.id}
+                    key={skillKey}
                     className={cn(
                       "flex min-w-0 items-start gap-2 rounded-lg px-2.5 py-2 transition-colors hover:bg-dls-hover",
                       selected && "bg-dls-hover",
                     )}
                   >
-                    <Checkbox
-                      checked={selected}
-                      onCheckedChange={() => props.onToggle(skill.id)}
-                      aria-label={localSkillLabel(skill)}
-                      className="mt-0.5"
-                    />
+                    {installing ? (
+                      <span className="mt-0.5">
+                        <LoadingSpinner size="sm" />
+                        <span className="sr-only">
+                          {t("agents.expert_creation_installing_skill")}
+                        </span>
+                      </span>
+                    ) : (
+                      <Checkbox
+                        checked={selected}
+                        onCheckedChange={handleSkillClick}
+                        aria-label={localSkillLabel(skill)}
+                        className="mt-0.5"
+                      />
+                    )}
                     <button
                       type="button"
+                      disabled={installing}
                       className="min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30"
                       aria-pressed={selected}
-                      onClick={() => props.onToggle(skill.id)}
+                      onClick={handleSkillClick}
                     >
                       <span className="block truncate text-sm font-medium text-dls-text">
                         {localSkillLabel(skill)}
@@ -669,8 +753,11 @@ function SkillImportDialog(props: {
 
 function SkillsPanel(props: {
   skills: AgentSkillItem[];
+  marketplaceSkills: AgentSkillItem[];
   selectedIds: string[];
   onSelectedIdsChange: (ids: string[]) => void;
+  onInstallMarketplaceSkill: (skill: AgentSkillItem) => void;
+  installingSkillId?: string | null;
   onImport: (files: File[]) => void;
   importing: boolean;
   loading: boolean;
@@ -680,8 +767,10 @@ function SkillsPanel(props: {
   const [importOpen, setImportOpen] = useState(false);
   const selectedSkills = props.skills.filter((skill) => props.selectedIds.includes(skill.id));
 
-  const toggleSkill = (id: string) => {
-    props.onSelectedIdsChange(toggleExpertCreationSkillId(props.selectedIds, id));
+  const toggleSkill = (skill: AgentSkillItem) => {
+    props.onSelectedIdsChange(
+      toggleExpertCreationSkill(props.selectedIds, skill, props.skills),
+    );
   };
 
   return (
@@ -693,9 +782,12 @@ function SkillsPanel(props: {
         <div className="flex flex-wrap items-center gap-2">
           <SkillPickerPopover
             skills={props.skills}
+            marketplaceSkills={props.marketplaceSkills}
             selectedIds={props.selectedIds}
-            disabled={props.loading || props.loadError}
+            disabled={props.loading}
+            installingSkillId={props.installingSkillId}
             onToggle={toggleSkill}
+            onInstall={props.onInstallMarketplaceSkill}
           />
           <Button type="button" size="sm" variant="ghost" disabled={props.importing} onClick={() => setImportOpen(true)}>
             <Upload data-icon="inline-start" className="size-3.5" />
@@ -744,7 +836,7 @@ function SkillsPanel(props: {
                     type="button"
                     size="icon-xs"
                     variant="ghost"
-                    onClick={() => toggleSkill(skill.id)}
+                    onClick={() => toggleSkill(skill)}
                     aria-label={t("agents.expert_creation_remove_skill")}
                   >
                     <Trash2 className="size-3.5" aria-hidden />
@@ -1258,6 +1350,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [knowledgeStaging, setKnowledgeStaging] = useState(false);
   const [tryOpen, setTryOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [installingSkillId, setInstallingSkillId] = useState<string | null>(null);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsLoadError, setSkillsLoadError] = useState(false);
   const [skillsReloadToken, setSkillsReloadToken] = useState(0);
@@ -1393,6 +1486,64 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
       setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_import_failed"));
     } finally {
       setImporting(false);
+    }
+  };
+
+  const installMarketplaceSkill = async (marketplaceSkill: AgentSkillItem) => {
+    const skillKey = expertCreationSkillKey(marketplaceSkill);
+    const catalogSkill = BUILTIN_MARKETPLACE_SKILL_BY_NAME.get(skillKey);
+    if (!catalogSkill) {
+      setSubmitError(t("agents.expert_creation_install_skill_failed"));
+      return;
+    }
+    const existingSkill = availableSkills.find(
+      (skill) => expertCreationSkillKey(skill) === skillKey,
+    );
+    if (existingSkill) {
+      setDraft((current) => ({
+        ...current,
+        skillIds: current.skillIds.includes(existingSkill.id)
+          ? current.skillIds
+          : [...current.skillIds, existingSkill.id],
+      }));
+      return;
+    }
+    if (installingSkillId === skillKey) return;
+    setInstallingSkillId(skillKey);
+    setSubmitError(null);
+    try {
+      if (!isElectronRuntime()) {
+        throw new Error(t("agents.expert_creation_install_skill_failed"));
+      }
+      const result = await installBuiltinSkillPackage({
+        source: "builtin",
+        packageName: catalogSkill.packageName,
+        skillName: catalogSkill.skillName,
+      });
+      const installedSkill = materializeExpertCreationMarketplaceSkill(
+        marketplaceSkill,
+        result.path,
+      );
+      setAvailableSkills((current) => {
+        if (current.some((skill) => expertCreationSkillKey(skill) === skillKey)) {
+          return current;
+        }
+        return [installedSkill, ...current];
+      });
+      setDraft((current) => ({
+        ...current,
+        skillIds: current.skillIds.includes(installedSkill.id)
+          ? current.skillIds
+          : [...current.skillIds, installedSkill.id],
+      }));
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : t("agents.expert_creation_install_skill_failed"),
+      );
+    } finally {
+      setInstallingSkillId(null);
     }
   };
 
@@ -1615,8 +1766,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 {activeTab === "skills" ? (
                   <SkillsPanel
                     skills={availableSkills}
+                    marketplaceSkills={EXPERT_CREATION_MARKETPLACE_SKILLS}
                     selectedIds={selectedIds}
                     onSelectedIdsChange={(ids) => setDraftField("skillIds", ids)}
+                    onInstallMarketplaceSkill={(skill) => void installMarketplaceSkill(skill)}
+                    installingSkillId={installingSkillId}
                     onImport={(files) => void importSkillPackage(files)}
                     importing={importing}
                     loading={skillsLoading}
