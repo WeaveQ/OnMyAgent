@@ -18,7 +18,6 @@ import {
   clearPressedCodes,
   detectKeymapPlatform,
   matchKeymapAction,
-  matchSpecialAppSnapshot,
   noteKeyDownCode,
   noteKeyUpCode,
   resolveAccelerator,
@@ -73,13 +72,12 @@ function dispatchWindowEvent(name: string) {
   window.dispatchEvent(new CustomEvent(name));
 }
 
-async function runAppSnapshot() {
-  if (!isDesktopRuntime()) return;
-  try {
-    await desktopBridge.captureComputerUseAppshot();
-  } catch (error) {
-    console.warn("[keymap] app snapshot failed", error);
-  }
+/**
+ * Trigger desktop capture. Composer listens for KEYMAP_EVENT_APP_SNAPSHOT and
+ * attaches the result; globalShortcut path also sends computerUse.onAppshot payload.
+ */
+function requestAppSnapshot() {
+  dispatchWindowEvent(KEYMAP_EVENT_APP_SNAPSHOT);
 }
 
 /**
@@ -108,7 +106,7 @@ export function KeymapDispatcher() {
       .catch(() => undefined);
   }, [local.prefs.keymapOverrides]);
 
-  // Register app-snapshot globalShortcut when it's a normal accelerator (not dual-mod).
+  // Register app-snapshot globalShortcut (Electron; fully customizable in Settings).
   useEffect(() => {
     if (!isDesktopRuntime()) return;
     const platform = detectKeymapPlatform();
@@ -117,11 +115,7 @@ export function KeymapDispatcher() {
       local.prefs.keymapOverrides,
       platform,
     );
-    if (
-      !accel ||
-      accel === "double-command" ||
-      accel === "double-control"
-    ) {
+    if (!accel) {
       void desktopBridge.unregisterAppSnapshotHotkey().catch(() => undefined);
       return;
     }
@@ -163,8 +157,7 @@ export function KeymapDispatcher() {
           return true;
         case "appSnapshot":
           event.preventDefault();
-          void runAppSnapshot();
-          dispatchWindowEvent(KEYMAP_EVENT_APP_SNAPSHOT);
+          requestAppSnapshot();
           return true;
         default:
           return false;
@@ -173,25 +166,6 @@ export function KeymapDispatcher() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code) noteKeyDownCode(event.code);
-
-      // Dual-modifier app snapshot (⌘+⌘ / Ctrl+Ctrl)
-      const snapAccel = resolveAccelerator(
-        "appSnapshot",
-        overridesRef.current,
-        platform,
-      );
-      if (
-        matchSpecialAppSnapshot(platform, snapAccel) &&
-        (event.code === "MetaLeft" ||
-          event.code === "MetaRight" ||
-          event.code === "ControlLeft" ||
-          event.code === "ControlRight")
-      ) {
-        event.preventDefault();
-        void runAppSnapshot();
-        dispatchWindowEvent(KEYMAP_EVENT_APP_SNAPSHOT);
-        return;
-      }
 
       // Ignore pure modifier keys for normal matching
       if (

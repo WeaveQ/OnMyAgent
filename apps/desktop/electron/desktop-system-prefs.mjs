@@ -175,17 +175,18 @@ export function registerAppSnapshotHotkey(accelerator, onTrigger) {
     }
 
     const raw = typeof accelerator === "string" ? accelerator.trim() : "";
-    // double-command / double-control need native listeners; not via globalShortcut.
-    if (!raw || raw === "double-command" || raw === "double-control") {
-      return {
-        ok: true,
-        mode: raw || "none",
-        registered: false,
-        note: "special-combo-requires-native-hook",
-      };
+    // Legacy dual-mod tokens → standard Electron accelerator (no native helper).
+    const normalized =
+      !raw || raw === "double-command" || raw === "double-control"
+        ? raw
+          ? "CommandOrControl+Shift+A"
+          : ""
+        : raw;
+    if (!normalized) {
+      return { ok: true, mode: "none", registered: false };
     }
 
-    const ok = globalShortcut.register(raw, () => {
+    const ok = globalShortcut.register(normalized, () => {
       try {
         onTrigger?.();
       } catch (error) {
@@ -193,9 +194,9 @@ export function registerAppSnapshotHotkey(accelerator, onTrigger) {
       }
     });
     if (ok) {
-      registeredAppSnapshotAccelerator = raw;
+      registeredAppSnapshotAccelerator = normalized;
     }
-    return { ok: Boolean(ok), mode: raw, registered: Boolean(ok) };
+    return { ok: Boolean(ok), mode: normalized, registered: Boolean(ok) };
   } catch (error) {
     return {
       ok: false,

@@ -69,9 +69,13 @@ export function sanitizeAppshotFileName(
   return `Appshot-${stampText}.jpg`;
 }
 
-/** Native Appshot helper is macOS-only today (Swift HandsFree). */
+/**
+ * Appshot is available in the Electron desktop shell on macOS, Windows, and Linux
+ * (desktopCapturer + Settings → Shortcuts for global hotkey).
+ */
 export function isAppshotCaptureSupported(): boolean {
   if (typeof window === "undefined") return false;
   if (!window.__ONMYAGENT_ELECTRON__?.computerUse) return false;
-  return detectClientPlatform() === "macos";
+  const platform = detectClientPlatform();
+  return platform === "macos" || platform === "windows" || platform === "linux";
 }

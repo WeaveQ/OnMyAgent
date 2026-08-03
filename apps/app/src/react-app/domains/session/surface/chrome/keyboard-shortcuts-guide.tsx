@@ -32,12 +32,14 @@ function actionTitle(id: KeymapActionId): string {
 }
 
 function KbdChip(props: { label: string }) {
+  const isWide = props.label.length > 1;
   return (
     <kbd
       className={cn(
-        "inline-flex h-6 min-w-6 items-center justify-center rounded-md",
-        "border border-dls-border bg-dls-surface-muted px-1.5",
-        "text-2xs font-medium tabular-nums text-dls-text",
+        "inline-flex h-7 items-center justify-center rounded-md",
+        "border border-dls-border bg-dls-surface-muted",
+        "text-sm font-medium leading-none text-dls-text",
+        isWide ? "min-w-0 px-2" : "min-w-7 px-1.5",
       )}
     >
       {props.label}
@@ -58,18 +60,26 @@ function AcceleratorKeys(props: {
   }
   const groups = acceleratorToKeyGroups(props.accelerator, props.platform);
   return (
-    <span className="inline-flex flex-wrap items-center justify-end gap-1">
+    <span className="inline-flex shrink-0 flex-wrap items-center justify-end gap-x-1 gap-y-1">
       {groups.map((keys, groupIndex) => (
-        <span key={groupIndex} className="inline-flex items-center gap-1">
+        <span key={groupIndex} className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
           {groupIndex > 0 ? (
             <span className="px-0.5 text-2xs text-dls-secondary">
               {t("shortcuts_guide.or")}
             </span>
           ) : null}
           {keys.map((key, keyIndex) => (
-            <span key={`${groupIndex}-${keyIndex}-${key}`} className="inline-flex items-center gap-0.5">
+            <span
+              key={`${groupIndex}-${keyIndex}-${key}`}
+              className="inline-flex items-center gap-1"
+            >
               {keyIndex > 0 ? (
-                <span className="text-2xs text-dls-secondary">+</span>
+                <span
+                  className="select-none text-xs font-medium text-dls-secondary"
+                  aria-hidden
+                >
+                  +
+                </span>
               ) : null}
               <KbdChip label={key} />
             </span>
@@ -118,16 +128,16 @@ export function KeyboardShortcutsGuideButton(props: {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          className="max-h-[min(32rem,calc(100vh-4rem))] w-[min(22rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl border-dls-border bg-dls-surface p-0 shadow-lg"
+          className="w-[min(28rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl border-dls-border bg-dls-surface p-0 shadow-lg sm:max-w-md"
           showCloseButton={false}
         >
-          <DialogHeader className="gap-1 border-b border-dls-border px-4 pb-3 pt-4 text-left">
-            <div className="flex items-start justify-between gap-2">
+          <DialogHeader className="gap-1.5 border-b border-dls-border px-5 pb-4 pt-5 text-left">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <DialogTitle className="text-base font-semibold text-dls-text">
+                <DialogTitle className="text-lg font-semibold text-dls-text">
                   {t("shortcuts_guide.title")}
                 </DialogTitle>
-                <DialogDescription className="mt-1 text-xs leading-5 text-dls-secondary">
+                <DialogDescription className="mt-1.5 text-sm leading-6 text-dls-secondary">
                   {t("shortcuts_guide.description")}
                 </DialogDescription>
               </div>
@@ -135,7 +145,7 @@ export function KeyboardShortcutsGuideButton(props: {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-7 shrink-0 rounded-md text-dls-secondary"
+                className="size-8 shrink-0 rounded-md text-dls-secondary"
                 aria-label={t("common.close")}
                 onClick={() => setOpen(false)}
               >
@@ -144,13 +154,14 @@ export function KeyboardShortcutsGuideButton(props: {
             </div>
           </DialogHeader>
 
-          <ul className="max-h-[min(20rem,50vh)] overflow-y-auto px-2 py-1">
+          {/* Fixed short list — no scroll; keep all bindings visible. */}
+          <ul className="px-3 py-2">
             {rows.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center justify-between gap-3 border-b border-dls-border/70 px-2 py-2.5 last:border-b-0"
+                className="flex items-center justify-between gap-4 border-b border-dls-border/70 px-2 py-3.5 last:border-b-0"
               >
-                <span className="min-w-0 flex-1 text-sm font-medium text-dls-text">
+                <span className="min-w-0 flex-1 text-[0.9375rem] font-medium leading-snug text-dls-text">
                   {row.title}
                 </span>
                 <AcceleratorKeys
@@ -162,10 +173,10 @@ export function KeyboardShortcutsGuideButton(props: {
           </ul>
 
           {props.onConfigure ? (
-            <div className="border-t border-dls-border px-4 py-3">
+            <div className="border-t border-dls-border px-5 py-4">
               <Button
                 type="button"
-                className="w-full"
+                className="h-11 w-full text-sm"
                 onClick={() => {
                   setOpen(false);
                   props.onConfigure?.();
