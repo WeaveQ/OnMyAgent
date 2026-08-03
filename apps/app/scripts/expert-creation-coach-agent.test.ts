@@ -4,6 +4,7 @@ import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents/
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
 import { createBlankWizardDraft } from "../src/react-app/domains/agents/agent-registry";
 import {
+  buildExpertCreationCoachPendingContext,
   buildExpertCreationCoachSystemPrompt,
   buildExpertCreationCoachToolAccess,
   resolveExpertCreationCoachAgent,
@@ -37,5 +38,15 @@ describe("expert creation coach agent binding", () => {
     const tools = buildExpertCreationCoachToolAccess(coach!);
     expect(tools).toBeDefined();
     expect(Object.values(tools ?? {}).every((enabled) => enabled === false)).toBe(true);
+  });
+
+  test("pending context keeps coach id and live draft system prompt", () => {
+    const registry = createDefaultAgentRegistry();
+    const draft = createBlankWizardDraft(registry);
+    draft.name = "测试专家";
+    const pending = buildExpertCreationCoachPendingContext(registry, draft);
+    expect(pending?.id).toBe(EXPERT_CREATION_COACH_AGENT_ID);
+    expect(pending?.systemPrompt).toContain("测试专家");
+    expect(pending?.draftSource).toBe("agent-selection");
   });
 });

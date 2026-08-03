@@ -1,7 +1,12 @@
 import { EXPERT_CREATION_COACH_AGENT_ID } from "./agent-builtin";
+import { buildPendingAgentFromRecord } from "./agent-registry-store";
 import type { AgentRecord, AgentRegistry, AgentWizardDraft } from "./agent-registry-types";
-import { buildAgentSystemPrompt, buildAgentToolAccess } from "./pending-agent-store";
-import type { AgentToolAccessMap } from "./pending-agent-store";
+import {
+  buildAgentSystemPrompt,
+  buildAgentToolAccess,
+  type AgentToolAccessMap,
+  type PendingAgentContext,
+} from "./pending-agent-store";
 
 export function resolveExpertCreationCoachAgent(
   registry: AgentRegistry | null | undefined,
@@ -36,4 +41,25 @@ export function buildExpertCreationCoachToolAccess(
   coach: AgentRecord,
 ): AgentToolAccessMap | undefined {
   return buildAgentToolAccess(coach);
+}
+
+/**
+ * PendingAgentContext for SessionSurface agentContext — identity + live draft system.
+ * Does not touch the global pending-agent store.
+ */
+export function buildExpertCreationCoachPendingContext(
+  registry: AgentRegistry,
+  draft: AgentWizardDraft,
+): PendingAgentContext | null {
+  const coach = resolveExpertCreationCoachAgent(registry);
+  if (!coach) return null;
+  const base = buildPendingAgentFromRecord(coach, registry);
+  if (!base) return null;
+  return {
+    ...base,
+    systemPrompt: buildExpertCreationCoachSystemPrompt(coach, draft),
+    tools: buildExpertCreationCoachToolAccess(coach),
+    conversationStartId: Date.now(),
+    draftSource: "agent-selection",
+  };
 }

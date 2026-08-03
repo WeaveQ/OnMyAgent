@@ -10,7 +10,10 @@ export {
   type ExpertCreationTab,
   type ExpertKnowledgeEntry,
 } from "./expert-creation-page";
-export type { ExpertCreationComposerProps } from "./expert-creation-conversation";
+export type {
+  ExpertCreationComposerProps,
+  ExpertCreationSuggestionApplyOptions,
+} from "./expert-creation-conversation";
 export {
   buildExpertCreationPreview,
   saveExpertCreation,
@@ -19,6 +22,22 @@ export {
   type SaveExpertCreationInput,
   type SaveExpertCreationResult,
 } from "./expert-creation-actions";
+export {
+  buildExpertCreationCoachPendingContext,
+  buildExpertCreationCoachSystemPrompt,
+  buildExpertCreationCoachToolAccess,
+  resolveExpertCreationCoachAgent,
+} from "./expert-creation-coach-agent";
+export { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
+export {
+  expertDraftSuggestionFingerprint,
+  parseExpertDraftSuggestion,
+  partitionExpertDraftSuggestion,
+  type ExpertDraftSuggestion,
+  type ExpertDraftSuggestionApplyMode,
+  type ExpertDraftSuggestionField,
+} from "./expert-creation-suggestions";
+export { renderAvatar } from "./agents-avatar-rendering";
 
 /** Deferred loader so session host can code-split the heavy agents registry UI. */
 export const loadAgentsPage = () => import("./agents-page");

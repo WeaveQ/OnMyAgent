@@ -1,0 +1,383 @@
+/** @jsxImportSource react */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
+import { createClient, unwrap } from "../../../../app/lib/opencode";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import type { ComposerDraft, ModelRef } from "../../../../app/types";
+import { t } from "../../../../i18n";
+import { Button } from "@/components/ui/button";
+import {
+  sessionSnapshotQueryKey,
+} from "../sync/session-snapshot-query-policy";
+import { trackWorkspaceSessionSync } from "../sync/session-sync";
+import { SessionSurface } from "../surface/session-surface";
+import type { SessionSurfaceAssemblyProps } from "../surface/session-surface-types";
+import {
+  writeSessionAgentSnapshot,
+  type AgentRegistry,
+  type AgentWizardDraft,
+  type ExpertCreationSuggestionApplyOptions,
+  buildExpertCreationCoachPendingContext,
+  buildExpertCreationCoachSystemPrompt,
+  buildExpertCreationCoachToolAccess,
+  resolveExpertCreationCoachAgent,
+  buildExpertChatPromptParts,
+  expertDraftSuggestionFingerprint,
+  parseExpertDraftSuggestion,
+  partitionExpertDraftSuggestion,
+  type ExpertDraftSuggestion,
+  type ExpertDraftSuggestionApplyMode,
+  type ExpertDraftSuggestionField,
+  renderAvatar,
+} from "../../agents";
+
+export type ExpertCreationCoachSurfaceProps = {
+  surface: SessionSurfaceAssemblyProps;
+  client: OnMyAgentServerClient;
+  workspaceId: string;
+  workspaceRoot: string;
+  opencodeBaseUrl: string;
+  onmyagentToken: string;
+  registry: AgentRegistry;
+  draft: AgentWizardDraft;
+  selectedModel: ModelRef | null;
+  onApplyDraftSuggestion: (
+    suggestion: ExpertDraftSuggestion,
+    options: ExpertCreationSuggestionApplyOptions,
+  ) => void;
+};
+
+function suggestionFieldLabel(field: ExpertDraftSuggestionField): string {
+  switch (field) {
+    case "name":
+      return t("agents.expert_creation_suggestion_field_name");
+    case "description":
+      return t("agents.expert_creation_suggestion_field_description");
+    case "userNote":
+      return t("agents.expert_creation_suggestion_field_role_prompt");
+    case "agentMemory":
+      return t("agents.expert_creation_suggestion_field_memory");
+  }
+}
+
+function formatSuggestionFields(fields: readonly ExpertDraftSuggestionField[]): string {
+  return fields
+    .map(suggestionFieldLabel)
+    .join(t("agents.expert_creation_suggestion_field_sep"));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readAssistantTextParts(parts: unknown): string {
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        isRecord(part) &&
+        part.type === "text" &&
+        typeof part.text === "string",
+    )
+    .map((part) => part.text)
+    .join("");
+}
+
+/**
+ * Expert-creation left panel: full SessionSurface transcript/composer, fixed to
+ * the builtin coach agent, with an isolated session that does not enter the
+ * expert sidebar list.
+ */
+export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProps) {
+  const queryClient = useQueryClient();
+  const draftRef = useRef(props.draft);
+  draftRef.current = props.draft;
+
+  const coachAgent = resolveExpertCreationCoachAgent(props.registry);
+  const draftSessionId = useMemo(
+    () => `draft:expert-creation-coach:${props.workspaceId}`,
+    [props.workspaceId],
+  );
+  const [sessionId, setSessionId] = useState(draftSessionId);
+  const [draftOnly, setDraftOnly] = useState(true);
+  const [pendingSuggestion, setPendingSuggestion] = useState<{
+    messageId: string;
+    suggestion: ExpertDraftSuggestion;
+  } | null>(null);
+  const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(
+    null,
+  );
+  const [autoFilledSuggestionKey, setAutoFilledSuggestionKey] = useState<string | null>(
+    null,
+  );
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
+  const agentContext = useMemo(() => {
+    return buildExpertCreationCoachPendingContext(props.registry, props.draft);
+  }, [props.registry, props.draft]);
+
+  const ingestAssistantText = useCallback(
+    (messageId: string, content: string) => {
+      const parsed = parseExpertDraftSuggestion(content);
+      if (!parsed.suggestion) return;
+      setPendingSuggestion({ messageId, suggestion: parsed.suggestion });
+    },
+    [],
+  );
+
+  const onSendDraft = useCallback(
+    async (composerDraft: ComposerDraft) => {
+      if (!props.opencodeBaseUrl.trim() || !coachAgent) return;
+      const opencode = createClient(props.opencodeBaseUrl, props.workspaceRoot || undefined, {
+        token: props.onmyagentToken || undefined,
+        mode: "onmyagent",
+      });
+
+      let activeSessionId = sessionIdRef.current;
+      let createdSession = false;
+      if (draftOnly || activeSessionId.startsWith("draft:")) {
+        activeSessionId = unwrap(
+          await opencode.session.create({
+            directory: props.workspaceRoot || undefined,
+          }),
+        ).id;
+        createdSession = true;
+        setSessionId(activeSessionId);
+        setDraftOnly(false);
+        sessionIdRef.current = activeSessionId;
+        if (agentContext) {
+          writeSessionAgentSnapshot(activeSessionId, agentContext);
+        }
+      }
+
+      const text =
+        (composerDraft.resolvedText ?? composerDraft.text).trim() ||
+        composerDraft.parts
+          .filter((part): part is { type: "text"; text: string } => part.type === "text")
+          .map((part) => part.text)
+          .join("")
+          .trim();
+      const attachmentFiles = composerDraft.attachments.map((item) => item.file);
+      const parts = await buildExpertChatPromptParts(text, attachmentFiles);
+      const system = buildExpertCreationCoachSystemPrompt(coachAgent, draftRef.current);
+      const tools = buildExpertCreationCoachToolAccess(coachAgent);
+      const model = props.selectedModel ?? props.surface.model.selectedModel;
+
+      const release = trackWorkspaceSessionSync(
+        {
+          workspaceId: props.workspaceId,
+          baseUrl: props.opencodeBaseUrl,
+          directory: props.workspaceRoot,
+          onmyagentToken: props.onmyagentToken,
+        },
+        activeSessionId,
+      );
+      try {
+        const result = await opencode.session.promptAsync({
+          sessionID: activeSessionId,
+          directory: props.workspaceRoot || undefined,
+          system,
+          ...(tools ? { tools } : {}),
+          ...(model ? { model } : {}),
+          parts,
+        });
+        if (result.error) {
+          throw new Error(
+            typeof result.error === "object" &&
+              result.error &&
+              "message" in result.error &&
+              typeof result.error.message === "string"
+              ? result.error.message
+              : "Coach request failed",
+          );
+        }
+
+        // Pull final assistant text for suggestion parse (SSE may still be applying).
+        const messages = unwrap(
+          await opencode.session.messages({
+            sessionID: activeSessionId,
+            directory: props.workspaceRoot || undefined,
+            limit: 20,
+          }),
+        );
+        if (Array.isArray(messages)) {
+          for (let index = messages.length - 1; index >= 0; index -= 1) {
+            const message = messages[index];
+            if (!isRecord(message) || !isRecord(message.info)) continue;
+            if (message.info.role !== "assistant") continue;
+            const id =
+              typeof message.info.id === "string"
+                ? message.info.id
+                : `assistant-${index}`;
+            const textParts = readAssistantTextParts(message.parts);
+            if (textParts.trim()) {
+              ingestAssistantText(id, textParts);
+              break;
+            }
+          }
+        }
+      } finally {
+        release();
+        void queryClient.invalidateQueries({
+          queryKey: sessionSnapshotQueryKey(props.workspaceId, activeSessionId),
+        });
+        if (createdSession) {
+          // no-op: keep session private — never addExpertSession
+        }
+      }
+    },
+    [
+      agentContext,
+      coachAgent,
+      draftOnly,
+      ingestAssistantText,
+      props.opencodeBaseUrl,
+      props.onmyagentToken,
+      props.selectedModel,
+      props.surface.model.selectedModel,
+      props.workspaceId,
+      props.workspaceRoot,
+      queryClient,
+    ],
+  );
+
+  const onDraftChange = useCallback((_draft: ComposerDraft) => {
+    // Surface owns composer draft store per sessionId; no host mirror needed.
+  }, []);
+
+  const suggestionKey = pendingSuggestion
+    ? expertDraftSuggestionFingerprint(
+        pendingSuggestion.messageId,
+        pendingSuggestion.suggestion,
+      )
+    : null;
+  const partition = pendingSuggestion
+    ? partitionExpertDraftSuggestion(props.draft, pendingSuggestion.suggestion)
+    : null;
+
+  // Auto-fill empty fields once per proposal.
+  useEffect(() => {
+    if (!pendingSuggestion || !suggestionKey || !partition) return;
+    if (dismissedSuggestionKey === suggestionKey) return;
+    if (autoFilledSuggestionKey === suggestionKey) return;
+    setAutoFilledSuggestionKey(suggestionKey);
+    if (partition.emptyFillKeys.length === 0) return;
+    props.onApplyDraftSuggestion(pendingSuggestion.suggestion, {
+      mode: "empty-only",
+    });
+  }, [
+    autoFilledSuggestionKey,
+    dismissedSuggestionKey,
+    partition,
+    pendingSuggestion,
+    props.onApplyDraftSuggestion,
+    suggestionKey,
+  ]);
+
+  const showSuggestionBar = Boolean(
+    pendingSuggestion &&
+      suggestionKey &&
+      dismissedSuggestionKey !== suggestionKey &&
+      autoFilledSuggestionKey === suggestionKey &&
+      partition &&
+      partition.conflictKeys.length > 0,
+  );
+
+  const applySuggestion = (mode: ExpertDraftSuggestionApplyMode) => {
+    if (!pendingSuggestion) return;
+    props.onApplyDraftSuggestion(pendingSuggestion.suggestion, { mode });
+    if (mode === "force" && suggestionKey) {
+      setAutoFilledSuggestionKey(suggestionKey);
+      setDismissedSuggestionKey(null);
+      setPendingSuggestion(null);
+    }
+  };
+
+  if (!coachAgent || !agentContext) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-sm text-dls-secondary">
+        {t("agents.expert_creation_coach_unavailable")}
+      </div>
+    );
+  }
+
+  return (
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
+      <div className="flex shrink-0 items-center gap-3 pb-3">
+        {renderAvatar(
+          props.registry,
+          {
+            avatarStyle: coachAgent.avatarStyle,
+            avatarOptionId: coachAgent.avatarOptionId,
+            customAvatarDataUrl: coachAgent.customAvatarDataUrl,
+            name: coachAgent.name,
+          },
+          "size-10 shrink-0",
+        )}
+        <h2 className="truncate text-base font-semibold text-dls-text">
+          {coachAgent.name}
+        </h2>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <SessionSurface
+          {...props.surface}
+          chrome="embedded"
+          client={props.client}
+          workspaceId={props.workspaceId}
+          workspaceRoot={props.workspaceRoot}
+          sessionId={sessionId}
+          draftOnly={draftOnly}
+          opencodeBaseUrl={props.opencodeBaseUrl}
+          onmyagentToken={props.onmyagentToken}
+          agentContext={agentContext}
+          agentLabel={coachAgent.name}
+          selectedAgent={null}
+          onSelectAgent={() => undefined}
+          headerActions={null}
+          conversationTabs={null}
+          onSendDraft={onSendDraft}
+          onDraftChange={onDraftChange}
+          personalAssistantHome={false}
+          surfaceVisible
+        />
+      </div>
+      {showSuggestionBar && partition ? (
+        <div className="mt-3 shrink-0 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-3">
+          <p className="text-sm font-medium text-dls-text">
+            {t("agents.expert_creation_suggestion_bar_conflict")}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-dls-secondary">
+            {t("agents.expert_creation_suggestion_bar_conflict_detail", {
+              fields: formatSuggestionFields(partition.conflictKeys),
+            })}
+          </p>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (suggestionKey) setDismissedSuggestionKey(suggestionKey);
+              }}
+            >
+              {t("agents.expert_creation_suggestion_ignore")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => applySuggestion("force")}
+            >
+              {t("agents.expert_creation_suggestion_apply")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      <p className="pt-3 text-center text-xs text-dls-secondary">
+        {t("agents.expert_creation_coach_disclaimer")}
+      </p>
+    </aside>
+  );
+}

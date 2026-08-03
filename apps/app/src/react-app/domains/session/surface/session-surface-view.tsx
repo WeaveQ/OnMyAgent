@@ -123,6 +123,8 @@ export type SessionSurfaceViewProps = {
   hasTranscriptContent: boolean;
   activityIdle: boolean;
   draftOnly?: boolean;
+  /** Hide header/tabs when embedded in a host panel (creation coach). */
+  chrome?: "default" | "embedded";
   effectiveAgent: PendingAgentContext | null;
   typeComposerText: (text: string) => void | Promise<void>;
   typeComposerTemplate: (template: string) => void | Promise<void>;
@@ -297,8 +299,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
       {/* relative: anchors draft-home top-right chrome (keyboard guide). */}
       <div className="relative flex h-full min-h-0 flex-col">
         {/* New-task / draft home: no top agent chrome — hero + composer own the canvas.
-            Once a session has messages (or is loading), pin the header at the top. */}
-        {!personalAssistantDraftHome ? (
+            Once a session has messages (or is loading), pin the header at the top.
+            Embedded panels (creation coach) hide header/tabs — host owns chrome. */}
+        {!personalAssistantDraftHome && props.chrome !== "embedded" ? (
           <SessionSurfaceHeader
             agent={props.chatHeaderAgent}
             codeSceneToolbar={props.codeSceneToolbar}
@@ -308,7 +311,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             showBottomBorder={!sessionTabsExpanded}
           />
         ) : null}
-        {!personalAssistantDraftHome ? conversationTabsNode : null}
+        {!personalAssistantDraftHome && props.chrome !== "embedded"
+          ? conversationTabsNode
+          : null}
         <SessionSurfaceSwitchingBadge
           visible={props.transitionState === "switching" && props.showDelayedLoading}
           fromCache={props.renderSource === "cache"}
@@ -506,8 +511,13 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               isRemoteWorkspace={props.isRemoteWorkspace}
               isSandboxWorkspace={props.isSandboxWorkspace}
               onUploadInboxFiles={props.onUploadInboxFiles}
-              showOuterBorder={composerOuterBorderVisible}
-              compactTopSpacing={Boolean(props.composerAccessory)}
+              showOuterBorder={
+                props.chrome === "embedded" ? true : composerOuterBorderVisible
+              }
+              flushShell={props.chrome === "embedded"}
+              compactTopSpacing={
+                props.chrome === "embedded" || Boolean(props.composerAccessory)
+              }
               homeLayout={homeComposerLayout}
               heroHome={Boolean(personalAssistantDraftHome)}
               topAccessory={props.composerAccessory}
