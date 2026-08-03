@@ -28,6 +28,11 @@ export {
   buildExpertCreationCoachToolAccess,
   resolveExpertCreationCoachAgent,
 } from "./expert-creation-coach-agent";
+export {
+  buildExpertCreationPreviewPendingContext,
+  buildExpertCreationPreviewToolAccess,
+} from "./expert-creation-preview-agent";
+export { buildExpertPreviewSystemPrompt } from "./expert-creation-preview-runtime";
 export { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 export {
   expertDraftSuggestionFingerprint,

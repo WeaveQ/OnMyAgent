@@ -69,6 +69,7 @@ export type ExpertCreationControllerInput = {
   skills: AgentRegistry["skills"];
   selectedModel: ModelRef | null;
   renderCoachPanel?: import("./expert-creation-page").ExpertCreationPageProps["renderCoachPanel"];
+  renderPreviewPanel?: import("./expert-creation-page").ExpertCreationPageProps["renderPreviewPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   showToast: (input: {
     title: string;
@@ -211,6 +212,7 @@ export function useExpertCreationController(
         skills: input.skills,
         selectedModel: input.selectedModel,
         renderCoachPanel: input.renderCoachPanel,
+        renderPreviewPanel: input.renderPreviewPanel,
         renderComposer: input.renderComposer,
         showToast: input.showToast,
         onClose: closeCreation,
