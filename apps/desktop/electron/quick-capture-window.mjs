@@ -49,7 +49,9 @@ export function createQuickCaptureWindowController(input) {
 
   function hide() {
     if (!captureWindow || captureWindow.isDestroyed()) return;
-    captureWindow.hide();
+    // Destroy on hide so the next open always loads the latest static HTML.
+    captureWindow.destroy();
+    captureWindow = null;
   }
 
   function destroy() {
@@ -65,8 +67,8 @@ export function createQuickCaptureWindowController(input) {
     if (captureWindow && !captureWindow.isDestroyed()) return captureWindow;
 
     captureWindow = new BrowserWindow({
-      width: 520,
-      height: 268,
+      width: 480,
+      height: 196,
       show: false,
       frame: false,
       resizable: false,
