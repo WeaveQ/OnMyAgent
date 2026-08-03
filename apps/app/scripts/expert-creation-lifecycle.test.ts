@@ -5,6 +5,7 @@ import { EMPTY_EXPERT_COACH_STATE } from "../src/react-app/domains/agents/expert
 import {
   buildExpertPreviewDraftKey,
   hasExpertCreationProgress,
+  isExpertCreationPreviewReady,
 } from "../src/react-app/domains/agents/expert-creation-lifecycle";
 import { buildIsolatedExpertCreationModel } from "../src/react-app/domains/session/pages/expert-creation-embedded-model";
 
@@ -58,5 +59,24 @@ describe("expert creation lifecycle", () => {
 
     expect(model.modelPickerOpen).toBe(false);
     expect(model.onModelPickerOpenChange).toBe(onLocalOpenChange);
+  });
+
+  test("requires every basic-information field except the avatar before preview", () => {
+    const ready = {
+      ...baseline,
+      name: "Researcher",
+      description: "Researches a topic",
+      userNote: "Be rigorous",
+    };
+
+    expect(isExpertCreationPreviewReady(ready)).toBe(true);
+    expect(isExpertCreationPreviewReady({ ...ready, name: " " })).toBe(false);
+    expect(isExpertCreationPreviewReady({ ...ready, description: " " })).toBe(false);
+    expect(isExpertCreationPreviewReady({ ...ready, userNote: " " })).toBe(false);
+    expect(isExpertCreationPreviewReady({
+      ...ready,
+      avatarOptionId: null,
+      customAvatarDataUrl: null,
+    })).toBe(true);
   });
 });

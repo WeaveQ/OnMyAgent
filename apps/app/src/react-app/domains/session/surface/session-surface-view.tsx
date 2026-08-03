@@ -168,6 +168,7 @@ export type SessionSurfaceViewProps = {
   onDraftChange: (draft: string) => void;
   onSend: () => void | Promise<void>;
   onStop: () => void | Promise<void>;
+  composerDisabled: boolean;
   modelUnavailable: boolean;
   effectiveAccessMode: ComposerAccessMode;
   onAccessModeChange: (mode: ComposerAccessMode) => void;
@@ -459,8 +460,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onStop={props.onStop}
               busy={props.chatStreaming}
               disabled={
-                props.transitionState !== "idle" &&
-                props.transitionState !== "failed"
+                props.composerDisabled
+                || (props.transitionState !== "idle"
+                  && props.transitionState !== "failed")
               }
               modelUnavailable={Boolean(props.modelUnavailable)}
               accessMode={props.effectiveAccessMode}
