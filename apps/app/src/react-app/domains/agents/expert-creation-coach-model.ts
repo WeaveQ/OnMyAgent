@@ -1,5 +1,8 @@
 import type { AgentSkillItem, AgentWizardDraft } from "./agent-registry-types";
-import { buildExpertCreationCoachWorkflowInstructions } from "./expert-creation-coach-contract";
+import {
+  buildExpertCreationCoachWorkflowInstructions,
+  validateExpertCreationRolePrompt,
+} from "./expert-creation-coach-contract";
 
 export type ExpertCoachProposal = {
   name: string;
@@ -72,6 +75,7 @@ function parseNullableProposal(value: unknown): ExpertCoachProposal | null | und
   ) {
     return undefined;
   }
+  if (!validateExpertCreationRolePrompt(value.rolePrompt).valid) return undefined;
   return {
     name: value.name,
     description: value.description,

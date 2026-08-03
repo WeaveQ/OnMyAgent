@@ -1,4 +1,5 @@
 import type { AgentWizardDraft } from "./agent-registry-types";
+import { validateExpertCreationRolePrompt } from "./expert-creation-coach-contract";
 
 export type ExpertDraftSuggestion = {
   name?: string;
@@ -56,7 +57,10 @@ function suggestionFromRecord(parsed: Record<string, unknown>): ExpertDraftSugge
     suggestion.description = parsed.description.trim();
   }
   if (typeof parsed.userNote === "string" && parsed.userNote.trim()) {
-    suggestion.userNote = parsed.userNote.trim();
+    const userNote = parsed.userNote.trim();
+    if (validateExpertCreationRolePrompt(userNote).valid) {
+      suggestion.userNote = userNote;
+    }
   }
   if (typeof parsed.agentMemory === "string" && parsed.agentMemory.trim()) {
     suggestion.agentMemory = parsed.agentMemory.trim();

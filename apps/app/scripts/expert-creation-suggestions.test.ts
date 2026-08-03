@@ -9,6 +9,16 @@ import {
   partitionExpertDraftSuggestion,
 } from "../src/react-app/domains/agents/expert-creation-suggestions";
 
+const completeRolePrompt = [
+  "## 专家简介\n面向产品团队交付研究结论。",
+  "## 核心能力\n拆解问题并比较证据。",
+  "## 关键规则\n先确认目标和约束。",
+  "## 禁止行为\n不编造事实，不越权承诺。",
+  "## 工作流程\n澄清、分析、验证、交付。",
+  "## 内容结构\n结论、依据、风险、下一步。",
+  "## 沟通风格\n简洁直接，先给结论。",
+].join("\n\n");
+
 function draftStub(overrides: Partial<AgentWizardDraft> = {}): AgentWizardDraft {
   return {
     templateId: null,
@@ -68,9 +78,27 @@ describe("expert creation coach suggestions", () => {
     expect(parsed.suggestion).toEqual({
       name: "物流报价专家",
       description: "整理报价",
-      userNote: "角色",
       agentMemory: "记忆",
     });
+  });
+
+  test("does not expose an incomplete role prompt as an applicable update", () => {
+    const parsed = parseExpertDraftSuggestion(
+      '<expert-update>{"name":"研究专家","description":"整理证据","userNote":"## 专家简介\\n只有一节","agentMemory":"记住先确认范围"}</expert-update>',
+    );
+
+    expect(parsed.suggestion).toEqual({
+      name: "研究专家",
+      description: "整理证据",
+      agentMemory: "记住先确认范围",
+    });
+  });
+
+  test("keeps a complete seven-section role prompt", () => {
+    const parsed = parseExpertDraftSuggestion(
+      `<expert-update>${JSON.stringify({ name: "研究专家", userNote: completeRolePrompt })}</expert-update>`,
+    );
+    expect(parsed.suggestion?.userNote).toBe(completeRolePrompt);
   });
 
   test("partitions empty fill vs conflicts vs matches", () => {
