@@ -817,6 +817,18 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                       directory: workspace.path?.trim() || undefined,
                     }),
                   );
+                  // Composer reads Zustand store — saveSessionDraft alone is not enough.
+                  const { useComposerStateStore } = await import(
+                    "../../domains/session/surface/composer-state-store"
+                  );
+                  const seed = () =>
+                    useComposerStateStore
+                      .getState()
+                      .setDraft(session.id, prompt);
+                  seed();
+                  window.setTimeout(seed, 0);
+                  window.setTimeout(seed, 120);
+                  window.setTimeout(seed, 360);
                   saveSessionDraft(workspaceId, session.id, {
                     text: prompt,
                     mode: "prompt",

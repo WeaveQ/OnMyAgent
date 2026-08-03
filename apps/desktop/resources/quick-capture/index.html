@@ -7,25 +7,32 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #16181d;
-      --elevated: #1c1f26;
-      --border: rgba(255, 255, 255, 0.1);
-      --text: #f2f3f5;
+      --bg: #14161b;
+      --elevated: #1b1e26;
+      --input: #12141a;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.12);
+      --text: #f4f5f7;
       --muted: #9aa0ab;
       --dim: #6b7280;
       --accent: #3b82f6;
-      --accent-soft: rgba(59, 130, 246, 0.18);
+      --accent-hover: #4b8ff7;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --success: #34d399;
+      --danger: #f87171;
       --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
         "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: var(--bg);
+      background: transparent;
       color: var(--text);
       font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
       -webkit-user-select: none;
       user-select: none;
     }
@@ -33,140 +40,124 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 12px 14px 12px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
+      padding: 14px 16px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: 16px;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 24px 64px rgba(0, 0, 0, 0.45);
     }
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+      -webkit-app-region: drag;
     }
     .brand {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 500;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+      letter-spacing: -0.01em;
     }
     .logo {
-      width: 18px; height: 18px;
-      border-radius: 5px;
-      background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: linear-gradient(145deg, #3b82f6 0%, #60a5fa 100%);
       display: grid;
       place-items: center;
       color: #fff;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
     }
     .hotkey {
       font-size: 11px;
       color: var(--dim);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      background: rgba(255,255,255,0.05);
+      font-family: var(--mono);
+      background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
-      padding: 2px 7px;
+      padding: 3px 8px;
       border-radius: 6px;
+      -webkit-app-region: no-drag;
     }
     .modes {
-      display: flex;
-      gap: 4px;
-      padding: 3px;
-      background: rgba(0,0,0,0.28);
-      border-radius: 10px;
-      width: fit-content;
-      margin-bottom: 10px;
+      display: none; /* Agent-only MVP; hide unused todo tab */
     }
-    .mode {
-      border: 0;
-      background: transparent;
-      color: var(--muted);
+    .subtitle {
       font-size: 12px;
-      font-weight: 500;
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .mode.on {
-      background: var(--elevated);
-      color: var(--text);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.4;
     }
     textarea {
       flex: 1;
       width: 100%;
-      min-height: 88px;
+      min-height: 92px;
       resize: none;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: var(--elevated);
+      background: var(--input);
       color: var(--text);
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 14.5px;
+      line-height: 1.5;
       padding: 12px 14px;
       font-family: inherit;
       outline: none;
       -webkit-user-select: text;
       user-select: text;
+      -webkit-app-region: no-drag;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
     textarea:focus {
-      border-color: rgba(59, 130, 246, 0.45);
+      border-color: rgba(59, 130, 246, 0.55);
       box-shadow: 0 0 0 3px var(--accent-soft);
     }
     textarea::placeholder { color: var(--dim); }
+    .meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      -webkit-app-region: no-drag;
+    }
     .context {
       display: flex;
-      gap: 8px;
-      margin-top: 8px;
+      gap: 6px;
       flex-wrap: wrap;
+      min-width: 0;
+      flex: 1;
     }
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--muted);
-      padding: 3px 9px;
+      padding: 4px 10px;
       border-radius: 999px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.03);
-      max-width: 240px;
+      max-width: 200px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .pill .dot {
-      width: 6px; height: 6px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: #34d399;
-      box-shadow: 0 0 6px #34d399;
+      background: var(--success);
+      box-shadow: 0 0 6px rgba(52, 211, 153, 0.7);
       flex-shrink: 0;
     }
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 10px;
-      gap: 12px;
-    }
-    .hints {
-      display: flex;
-      gap: 10px;
-      font-size: 11px;
-      color: var(--dim);
-    }
-    kbd {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: 10px;
-      color: var(--muted);
-    }
+    .pill.model { color: var(--dim); }
     .send {
       border: 0;
       background: var(--accent);
@@ -174,48 +165,94 @@
       font-size: 13px;
       font-weight: 600;
       padding: 8px 14px;
-      border-radius: 9px;
+      border-radius: 10px;
       cursor: pointer;
       font-family: inherit;
-      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.32);
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.12s ease, transform 0.08s ease;
+      flex-shrink: 0;
     }
+    .send:hover:not(:disabled) { background: var(--accent-hover); }
+    .send:active:not(:disabled) { transform: scale(0.98); }
     .send:disabled {
-      opacity: 0.45;
+      opacity: 0.42;
       cursor: not-allowed;
       box-shadow: none;
     }
+    .send .arrow {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      gap: 12px;
+      -webkit-app-region: no-drag;
+    }
+    .hints {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--dim);
+    }
+    .hints span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    kbd {
+      font-family: var(--mono);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
     .error {
       margin-top: 6px;
-      font-size: 11px;
-      color: #f87171;
-      min-height: 14px;
+      font-size: 11.5px;
+      color: var(--danger);
+      min-height: 0;
+      line-height: 1.35;
+      -webkit-app-region: no-drag;
     }
+    .error:empty { display: none; }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="header">
-      <div class="brand"><span class="logo">O</span><span data-i18n="title">快速捕获</span></div>
+      <div class="brand"><span class="logo">O</span>快速捕获</div>
       <span class="hotkey" id="hotkeyHint">⌘⇧Space</span>
     </div>
-    <div class="modes" role="tablist">
-      <button type="button" class="mode on" data-mode="agent" id="modeAgent">丢给 Agent</button>
-      <button type="button" class="mode" data-mode="todo" id="modeTodo" disabled title="即将推出">记一条待办</button>
-    </div>
-    <textarea id="input" placeholder="描述要派发到当前工作区的任务…" autofocus></textarea>
-    <div class="context">
-      <span class="pill"><span class="dot"></span><span id="workspaceLabel">—</span></span>
-      <span class="pill" id="modelPill"><span id="modelLabel">默认模型</span></span>
+    <div class="subtitle">发送到当前工作区，创建新任务并派发给 Agent</div>
+    <textarea id="input" placeholder="例如：总结本周进度，并生成明天站会提纲…" autofocus></textarea>
+    <div class="meta">
+      <div class="context">
+        <span class="pill"><span class="dot"></span><span id="workspaceLabel">—</span></span>
+        <span class="pill model" id="modelPill"><span id="modelLabel">默认模型</span></span>
+      </div>
+      <button type="button" class="send" id="sendBtn">
+        派发
+        <span class="arrow">↵</span>
+      </button>
     </div>
     <div class="error" id="error"></div>
     <div class="footer">
       <div class="hints">
         <span><kbd>Enter</kbd> 发送</span>
-        <span><kbd>Esc</kbd> 关闭</span>
         <span><kbd>⇧</kbd><kbd>Enter</kbd> 换行</span>
+        <span><kbd>Esc</kbd> 关闭</span>
       </div>
-      <button type="button" class="send" id="sendBtn">派发到工作区 ↵</button>
     </div>
   </div>
   <script>
@@ -224,17 +261,30 @@
     const errorEl = document.getElementById("error");
     const workspaceLabel = document.getElementById("workspaceLabel");
     const modelLabel = document.getElementById("modelLabel");
-    let mode = "agent";
+    const hotkeyHint = document.getElementById("hotkeyHint");
     let submitting = false;
 
     function applyContext(ctx) {
       if (!ctx) return;
-      workspaceLabel.textContent = (ctx.workspaceLabel && String(ctx.workspaceLabel).trim()) || "未选择工作区";
-      modelLabel.textContent = (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
+      workspaceLabel.textContent =
+        (ctx.workspaceLabel && String(ctx.workspaceLabel).trim()) || "未选择工作区";
+      modelLabel.textContent =
+        (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
+      if (ctx.hotkeyLabel && String(ctx.hotkeyLabel).trim()) {
+        hotkeyHint.textContent = String(ctx.hotkeyLabel).trim();
+      }
     }
 
     function setError(msg) {
       errorEl.textContent = msg || "";
+    }
+
+    function syncSendEnabled() {
+      if (submitting) {
+        sendBtn.disabled = true;
+        return;
+      }
+      sendBtn.disabled = !(input.value || "").trim();
     }
 
     async function submit() {
@@ -246,25 +296,36 @@
         return;
       }
       submitting = true;
-      sendBtn.disabled = true;
+      syncSendEnabled();
       setError("");
       try {
-        const result = await window.quickCapture.submit({ text, mode });
+        const result = await window.quickCapture.submit({ text, mode: "agent" });
         if (!result || result.ok === false) {
-          setError((result && result.error) || "派发失败");
+          const err = (result && result.error) || "派发失败";
+          setError(
+            err === "empty"
+              ? "请输入任务内容"
+              : err === "no-main-window"
+                ? "主窗口未就绪，请先打开 OnMyAgent"
+                : String(err),
+          );
           submitting = false;
-          sendBtn.disabled = false;
+          syncSendEnabled();
           return;
         }
         input.value = "";
+        // Panel closes via main process; reset for next open.
+        submitting = false;
+        syncSendEnabled();
       } catch (e) {
         setError(e && e.message ? e.message : "派发失败");
         submitting = false;
-        sendBtn.disabled = false;
+        syncSendEnabled();
       }
     }
 
     sendBtn.addEventListener("click", () => void submit());
+    input.addEventListener("input", syncSendEnabled);
 
     input.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
@@ -289,14 +350,15 @@
       window.quickCapture.onContext?.(applyContext);
       window.quickCapture.onFocus?.(() => {
         submitting = false;
-        sendBtn.disabled = false;
         setError("");
+        syncSendEnabled();
         input.focus();
         input.select();
       });
       window.quickCapture.getContext?.().then(applyContext).catch(() => undefined);
     }
 
+    syncSendEnabled();
     input.focus();
   </script>
 </body>
