@@ -15,6 +15,7 @@ import { trackWorkspaceSessionSync } from "../sync/session-sync";
 import { SessionSurface } from "../surface/session-surface";
 import type { SessionSurfaceAssemblyProps } from "../surface/session-surface-types";
 import { buildIsolatedExpertCreationModel } from "./expert-creation-embedded-model";
+import { waitForExpertCreationSuggestion } from "./expert-creation-coach-suggestion-reader";
 import {
   writeSessionAgentSnapshot,
   type AgentRegistry,
@@ -26,7 +27,6 @@ import {
   resolveExpertCreationCoachAgent,
   buildExpertChatPromptParts,
   expertDraftSuggestionFingerprint,
-  parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
   type ExpertDraftSuggestion,
   type ExpertDraftSuggestionApplyMode,
@@ -73,23 +73,6 @@ function formatSuggestionFields(fields: readonly ExpertDraftSuggestionField[]): 
     .join(t("agents.expert_creation_suggestion_field_sep"));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readAssistantTextParts(parts: unknown): string {
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .filter(
-      (part): part is { type: "text"; text: string } =>
-        isRecord(part) &&
-        part.type === "text" &&
-        typeof part.text === "string",
-    )
-    .map((part) => part.text)
-    .join("");
-}
-
 /**
  * Expert-creation left panel: full SessionSurface transcript/composer, fixed to
  * the builtin coach agent, with an isolated session that does not enter the
@@ -133,11 +116,9 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
     registerExpertCreationEphemeralSession(restoredSessionId);
   }, [restoredSessionId]);
 
-  const ingestAssistantText = useCallback(
-    (messageId: string, content: string) => {
-      const parsed = parseExpertDraftSuggestion(content);
-      if (!parsed.suggestion) return;
-      setPendingSuggestion({ messageId, suggestion: parsed.suggestion });
+  const ingestAssistantSuggestion = useCallback(
+    (messageId: string, suggestion: ExpertDraftSuggestion) => {
+      setPendingSuggestion({ messageId, suggestion });
     },
     [],
   );
@@ -196,6 +177,18 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
         activeSessionId,
       );
       try {
+        const messagesBeforePrompt = unwrap(
+          await opencode.session.messages({
+            sessionID: activeSessionId,
+            directory: props.workspaceRoot || undefined,
+            limit: 20,
+          }),
+        );
+        const baselineAssistantMessageIds = new Set(
+          messagesBeforePrompt
+            .filter((message) => message.info.role === "assistant")
+            .map((message) => message.info.id),
+        );
         const result = await opencode.session.promptAsync({
           sessionID: activeSessionId,
           directory: props.workspaceRoot || undefined,
@@ -215,29 +208,19 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           );
         }
 
-        // Pull final assistant text for suggestion parse (SSE may still be applying).
-        const messages = unwrap(
-          await opencode.session.messages({
-            sessionID: activeSessionId,
-            directory: props.workspaceRoot || undefined,
-            limit: 20,
-          }),
-        );
-        if (Array.isArray(messages)) {
-          for (let index = messages.length - 1; index >= 0; index -= 1) {
-            const message = messages[index];
-            if (!isRecord(message) || !isRecord(message.info)) continue;
-            if (message.info.role !== "assistant") continue;
-            const id =
-              typeof message.info.id === "string"
-                ? message.info.id
-                : `assistant-${index}`;
-            const textParts = readAssistantTextParts(message.parts);
-            if (textParts.trim()) {
-              ingestAssistantText(id, textParts);
-              break;
-            }
-          }
+        const suggestion = await waitForExpertCreationSuggestion({
+          baselineAssistantMessageIds,
+          readMessages: async () =>
+            unwrap(
+              await opencode.session.messages({
+                sessionID: activeSessionId,
+                directory: props.workspaceRoot || undefined,
+                limit: 20,
+              }),
+            ),
+        });
+        if (suggestion) {
+          ingestAssistantSuggestion(suggestion.messageId, suggestion.suggestion);
         }
       } finally {
         release();
@@ -253,7 +236,7 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       agentContext,
       coachAgent,
       draftOnly,
-      ingestAssistantText,
+      ingestAssistantSuggestion,
       props.opencodeBaseUrl,
       props.onmyagentToken,
       props.onSessionIdChange,
