@@ -44,7 +44,7 @@ type Input = {
   workspaces: RouteWorkspace[];
   selectedWorkspaceId: string;
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
-  sessionMatchesPageMode: (session: SidebarSessionItem) => boolean;
+  sessionMatchesPageMode: (sessionId: string) => boolean;
   effectiveModelRef: ModelRef;
   allowedModelOptions: ModelOption[] | null | undefined;
   modelLabel: string | null | undefined;
