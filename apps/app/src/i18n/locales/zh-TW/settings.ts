@@ -178,6 +178,14 @@ export default {
   "settings.computer_use_setup_title": "Computer Use 設置",
   "settings.computer_use_setup_description":
     "連接本地 MCP 服務器，並授予它控制應用所需的 macOS 權限",
+  "settings.computer_use_setup_description_windows":
+    "Windows 使用內建 Cua Driver（非 macOS HandsFree）。請先開啟下方 MCP，再連接，以便 Composer 控制桌面應用。",
+  "settings.computer_use_mcp_toggle_title": "OpenCode computer-use MCP",
+  "settings.computer_use_mcp_toggle_ready":
+    "已就緒 Cua Driver。開關用於啟用 OpenCode 工作階段中的 MCP（Windows 預設關閉）。",
+  "settings.computer_use_mcp_toggle_missing":
+    "找不到 Cua Driver。請重新建置桌面端，或執行 prepare-cua-helper。",
+  "settings.computer_use_mcp_toggle_aria": "啟用 computer-use MCP",
   "settings.computer_use_step_connect": "連接",
   "settings.computer_use_step_permissions": "權限",
   "settings.computer_use_step_runtime": "運行狀態",
@@ -200,7 +208,7 @@ export default {
   "settings.computer_use_refresh_mcp": "刷新 MCP",
   "settings.computer_use_verify_permissions": "驗證權限",
   "settings.computer_use_desktop_required":
-    "Computer Use 設置需要在 macOS 版 OnMyAgent 桌面應用中完成。",
+    "Computer Use 設置需要在 OnMyAgent 桌面應用中完成。",
   "settings.computer_use_connecting": "正在連接…",
   "settings.computer_use_permissions_step_title": "2. 授予 macOS 權限",
   "settings.computer_use_permissions_step_description":

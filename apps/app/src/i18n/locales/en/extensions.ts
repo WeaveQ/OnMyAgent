@@ -40,16 +40,20 @@ export default {
   "extensions.computer_use_connect_mcp": "Connect Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "Control macOS apps through semantic accessibility, screenshots, background-safe input, and strict mode.",
+    "Control desktop apps via Computer Use (macOS HandsFree accessibility runtime; Windows bundled Cua Driver).",
   "extensions.computer_use_prompt": "Use Computer Use to ",
   "extensions.computer_use_suggestion_playlist": "Play a playlist to help me lock in",
   "extensions.computer_use_suggestion_xcode": "Build and run my open Xcode project, then test it for bugs",
   "extensions.computer_use_suggestion_chess": "Play a game in Chess.app",
-  "extensions.computer_use_check_permissions": "Check macOS permissions",
-  "extensions.computer_use_native_runtime": "macOS accessibility runtime",
+  "extensions.computer_use_check_permissions": "Check permissions",
+  "extensions.computer_use_native_runtime": "Desktop computer-use runtime",
   "extensions.computer_use_builtin_setup":
-    "Computer Use is built into local macOS workspaces through the OnMyAgent accessibility runtime. Grant Accessibility and Screen Recording permissions when macOS asks.",
+    "Computer Use is built into local desktop workspaces. On macOS, grant Accessibility and Screen Recording when prompted. On Windows, enable the Cua MCP in settings after the driver is staged.",
   "extensions.computer_use_mcp": "Computer Use MCP",
+  "extensions.computer_use_helper_unavailable":
+    "Computer Use helper is unavailable. Restart OnMyAgent or reinstall the app.",
+  "extensions.computer_use_cua_unavailable":
+    "Cua Driver is not available. Reinstall OnMyAgent or stage helpers/cua.",
   "extensions.mcp_server_connected": "MCP server connected",
   "extensions.computer_use_permissions": "Accessibility and Screen Recording",
   "extensions.computer_use_verify_mcp": "Verify Computer Use MCP",

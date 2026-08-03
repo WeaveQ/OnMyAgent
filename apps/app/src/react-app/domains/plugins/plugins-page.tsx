@@ -927,8 +927,7 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
     const message =
       error instanceof Error ? error.message : String(error ?? "");
     throw new Error(
-      message.trim() ||
-        "Computer Use helper is unavailable. Restart OnMyAgent or reinstall the app.",
+      message.trim() || t("extensions.computer_use_helper_unavailable"),
     );
   }
   if (entry.command?.length) return entry.command;
@@ -937,9 +936,7 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
     typeof navigator !== "undefined" &&
     /Windows/i.test(navigator.userAgent)
   ) {
-    throw new Error(
-      "Cua Driver is not available. Reinstall OnMyAgent or stage helpers/cua.",
-    );
+    throw new Error(t("extensions.computer_use_cua_unavailable"));
   }
   return [...COMPUTER_USE_MCP_FALLBACK_COMMAND];
 }
