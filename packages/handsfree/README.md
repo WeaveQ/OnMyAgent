@@ -5,14 +5,16 @@ Accessibility / Screen Recording). Packaged OnMyAgent builds wrap this runtime
 in a bundled `Computer Use.app` helper so TCC permissions belong to the helper
 app instead of a transient Node or Swift process.
 
-| Platform | Helper binary | Composer “capture desktop” (Appshot) | Agent Computer Use tools |
+| Platform | HandsFree helper | Composer “capture desktop” (Appshot) | Agent Computer Use tools |
 | --- | --- | --- | --- |
-| macOS | Built and bundled | Yes (shortcut + menu) | Yes |
-| Windows | Not shipped | Hidden; clear “macOS only” copy if invoked | N/A |
-| Linux | Not shipped | Same as Windows | N/A |
+| macOS | Built and bundled | Yes — Electron `desktopCapturer` + Settings shortcuts | Yes |
+| Windows | Not shipped | Yes — same Electron path | N/A |
+| Linux | Not shipped | Yes — same Electron path | N/A |
 
-Windows / Linux desktop shells still boot; they simply skip helper packaging
-(`prepare-computer-use-helper` early-returns off `darwin`) and hide Appshot UI.
+**Appshot** is Electron-only (`desktopCapturer` + customizable
+`globalShortcut`). This package remains the **macOS Computer Use** runtime (AX,
+MCP, Skysight). Windows / Linux skip HandsFree packaging
+(`prepare-computer-use-helper` early-returns off `darwin`).
 See [`docs/windows-compat.md`](../../docs/windows-compat.md).
 
 This package focuses on the reusable control layer:
@@ -20,11 +22,7 @@ This package focuses on the reusable control layer:
 - Semantic AX snapshots with compact refs like `{e1}`.
 - Strict background mode that avoids foreground cursor/HID fallbacks.
 - Target-window screenshots via `CGWindowListCreateImage(.optionIncludingWindow)`.
-- **Appshot** (`appshot capture` / `appshot monitor`): frontmost-app screenshot
-  for the composer attachment pipeline (`captureComputerUseAppshot` +
-  `onAppshot` IPC). Filenames are built as real `String` slugs
-  (`AppshotCaptureStore.makeFileName`); Electron also sanitizes the payload name
-  so Swift debug dumps never reach the UI notice/chip.
+- Historical **Appshot** CLI in Swift is reference only (product capture is Electron).
 - Background input through `CGEvent.postToPid` with window-addressing fields.
 - Background activation using per-process event taps plus AppKit and center-click primers.
 - Non-UI orchestration modules from the original Electron prototype: realtime tool schemas/instructions and the GPT computer-use loop.
@@ -50,11 +48,4 @@ Run it as an MCP-compatible adapter:
 pnpm --filter @onmyagent/handsfree exec onmyagent-handsfree-computer-use mcp
 ```
 
-Manual Appshot capture (JSON on stdout):
-
-```bash
-# requires built HandsFreeComputerUse binary
-<path-to-helper> appshot capture
-```
-
-The core runtime is intentionally MCP-independent. `ComputerUseRuntime` exposes a small direct surface (`snapshot`, `click`, `typeText`, `pressKey`, `scroll`, `wait`, `setValue`, `performAction`); `MCPServer` is only a thin stdio wrapper. Appshot is a separate CLI path (`appshot capture|monitor`) wired through `apps/desktop/electron/computer-use-desktop.mjs`.
+The core runtime is intentionally MCP-independent. `ComputerUseRuntime` exposes a small direct surface (`snapshot`, `click`, `typeText`, `pressKey`, `scroll`, `wait`, `setValue`, `performAction`); `MCPServer` is only a thin stdio wrapper.

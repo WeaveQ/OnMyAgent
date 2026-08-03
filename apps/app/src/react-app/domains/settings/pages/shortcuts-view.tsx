@@ -36,12 +36,14 @@ function actionTitle(id: KeymapActionId) {
 }
 
 function KbdChip(props: { label: string }) {
+  const isWide = props.label.length > 1;
   return (
     <kbd
       className={cn(
-        "inline-flex h-6 min-w-6 items-center justify-center rounded-md",
-        "border border-dls-border bg-dls-surface-muted px-1.5",
-        "text-2xs font-medium tabular-nums text-dls-text",
+        "inline-flex h-7 items-center justify-center rounded-md",
+        "border border-dls-border bg-dls-surface-muted",
+        "text-sm font-medium leading-none text-dls-text",
+        isWide ? "min-w-0 px-2" : "min-w-7 px-1.5",
       )}
     >
       {props.label}
@@ -63,14 +65,24 @@ function AcceleratorKeys(props: {
   }
   const groups = acceleratorToKeyGroups(props.accelerator, props.platform);
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
       {groups.map((keys, gi) => (
-        <span key={gi} className="inline-flex items-center gap-1">
+        <span key={gi} className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
           {gi > 0 ? (
             <span className="px-0.5 text-2xs text-dls-secondary">/</span>
           ) : null}
           {keys.map((key, ki) => (
-            <KbdChip key={`${gi}-${ki}-${key}`} label={key} />
+            <span key={`${gi}-${ki}-${key}`} className="inline-flex items-center gap-1">
+              {ki > 0 ? (
+                <span
+                  className="select-none text-xs font-medium text-dls-secondary"
+                  aria-hidden
+                >
+                  +
+                </span>
+              ) : null}
+              <KbdChip label={key} />
+            </span>
           ))}
         </span>
       ))}
