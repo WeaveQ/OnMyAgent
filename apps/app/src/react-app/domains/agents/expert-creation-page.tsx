@@ -124,6 +124,18 @@ export type ExpertCreationPageProps = {
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
   selectedModel: ModelRef | null;
+  /**
+   * Optional host-owned coach panel (SessionSurface embed from session domain).
+   * When omitted, falls back to the lightweight ExpertCreationConversation.
+   */
+  renderCoachPanel?: (input: {
+    draft: AgentWizardDraft;
+    registry: AgentRegistry;
+    onApplyDraftSuggestion: (
+      suggestion: ExpertDraftSuggestion,
+      options: ExpertCreationSuggestionApplyOptions,
+    ) => void;
+  }) => ReactNode;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onClose: () => void;
   onDone: (
@@ -241,6 +253,7 @@ function ExpertCoach(props: {
   opencodeBaseUrl: string | null;
   onmyagentServerToken: string | null;
   selectedModel: ModelRef | null;
+  renderCoachPanel?: ExpertCreationPageProps["renderCoachPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onApplyDraftSuggestion: (
     suggestion: ExpertDraftSuggestion,
@@ -262,6 +275,20 @@ function ExpertCoach(props: {
   const coachTools = coachAgent
     ? buildExpertCreationCoachToolAccess(coachAgent)
     : undefined;
+
+  // Session domain can inject a full SessionSurface coach panel (no agents→session import).
+  if (props.renderCoachPanel) {
+    return (
+      <>
+        {props.renderCoachPanel({
+          draft: props.draft,
+          registry: props.registry,
+          onApplyDraftSuggestion: props.onApplyDraftSuggestion,
+        })}
+      </>
+    );
+  }
+
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
       <div className="flex min-h-0 flex-1 flex-col">
@@ -1431,6 +1458,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             opencodeBaseUrl={props.opencodeBaseUrl}
             onmyagentServerToken={props.onmyagentServerToken}
             selectedModel={props.selectedModel}
+            renderCoachPanel={props.renderCoachPanel}
             renderComposer={props.renderComposer}
             onApplyDraftSuggestion={(suggestion, options) => {
               let appliedCount = 0;

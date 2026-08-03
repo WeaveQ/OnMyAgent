@@ -92,6 +92,11 @@ export type SessionSurfaceProps = {
   connectedProviderIds?: readonly string[] | null;
   draftOnly?: boolean;
   /**
+   * Panel embed (expert-creation coach): hide header/tabs chrome so the
+   * host owns title/avatar. Transcript + composer stay full SessionSurface.
+   */
+  chrome?: "default" | "embedded";
+  /**
    * False while the host keep-alive pane is hidden (other rail pages).
    * Used to persist / restore transcript scroll height across page leaves.
    */

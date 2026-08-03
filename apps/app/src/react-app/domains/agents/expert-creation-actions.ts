@@ -68,6 +68,7 @@ export type ExpertCreationControllerInput = {
   client: OnMyAgentServerClient | null;
   skills: AgentRegistry["skills"];
   selectedModel: ModelRef | null;
+  renderCoachPanel?: import("./expert-creation-page").ExpertCreationPageProps["renderCoachPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   showToast: (input: {
     title: string;
@@ -209,6 +210,7 @@ export function useExpertCreationController(
         registry: input.registry,
         skills: input.skills,
         selectedModel: input.selectedModel,
+        renderCoachPanel: input.renderCoachPanel,
         renderComposer: input.renderComposer,
         showToast: input.showToast,
         onClose: closeCreation,

@@ -4,10 +4,14 @@ import { useCallback } from "react";
 import { t } from "../../../../i18n";
 import { ReactSessionComposer } from "../surface/composer/composer";
 import type { SessionPageProps } from "./session-page-types";
+import { ExpertCreationCoachSurface } from "./expert-creation-coach-surface";
 import {
   type AgentRegistry,
+  type AgentWizardDraft,
   type ExpertCreationComposerProps,
   type ExpertCreationControllerInput,
+  type ExpertCreationSuggestionApplyOptions,
+  type ExpertDraftSuggestion,
   useExpertCreationController,
 } from "../../agents";
 
@@ -81,6 +85,39 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     [input.props.surface],
   );
 
+  const renderCoachPanel = useCallback(
+    (coach: {
+      draft: AgentWizardDraft;
+      registry: AgentRegistry;
+      onApplyDraftSuggestion: (
+        suggestion: ExpertDraftSuggestion,
+        options: ExpertCreationSuggestionApplyOptions,
+      ) => void;
+    }) => {
+      const surface = input.props.surface;
+      const client = input.props.onmyagentServerClient;
+      const baseUrl = input.props.opencodeBaseUrl;
+      if (!surface || !client || !baseUrl?.trim()) {
+        return null;
+      }
+      return (
+        <ExpertCreationCoachSurface
+          surface={surface}
+          client={client}
+          workspaceId={input.props.selectedWorkspaceId}
+          workspaceRoot={input.props.selectedWorkspaceRoot}
+          opencodeBaseUrl={baseUrl}
+          onmyagentToken={input.props.onmyagentServerToken ?? ""}
+          registry={coach.registry}
+          draft={coach.draft}
+          selectedModel={surface.model.selectedModel}
+          onApplyDraftSuggestion={coach.onApplyDraftSuggestion}
+        />
+      );
+    },
+    [input.props],
+  );
+
   const controller = useExpertCreationController({
     registry: input.registry,
     workspaceId: input.props.selectedWorkspaceId,
@@ -90,6 +127,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     client: input.props.onmyagentServerClient,
     skills: input.registry?.skills ?? [],
     selectedModel: input.props.surface?.model.selectedModel ?? null,
+    renderCoachPanel,
     renderComposer,
     showToast: input.showToast,
   });
