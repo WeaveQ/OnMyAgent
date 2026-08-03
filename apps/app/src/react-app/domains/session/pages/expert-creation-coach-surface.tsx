@@ -24,10 +24,10 @@ import {
   buildExpertCreationCoachSystemPrompt,
   buildExpertCreationCoachToolAccess,
   resolveExpertCreationCoachAgent,
-  buildExpertChatPromptParts,
   expertDraftSuggestionFingerprint,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
+  runExpertPreviewTurn,
   type ExpertDraftSuggestion,
   type ExpertDraftSuggestionApplyMode,
   type ExpertDraftSuggestionField,
@@ -71,23 +71,6 @@ function formatSuggestionFields(fields: readonly ExpertDraftSuggestionField[]): 
   return fields
     .map(suggestionFieldLabel)
     .join(t("agents.expert_creation_suggestion_field_sep"));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readAssistantTextParts(parts: unknown): string {
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .filter(
-      (part): part is { type: "text"; text: string } =>
-        isRecord(part) &&
-        part.type === "text" &&
-        typeof part.text === "string",
-    )
-    .map((part) => part.text)
-    .join("");
 }
 
 /**
@@ -177,7 +160,6 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           .join("")
           .trim();
       const attachmentFiles = composerDraft.attachments.map((item) => item.file);
-      const parts = await buildExpertChatPromptParts(text, attachmentFiles);
       const system = buildExpertCreationCoachSystemPrompt(
         coachAgent,
         draftRef.current,
@@ -196,49 +178,24 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
         activeSessionId,
       );
       try {
-        const result = await opencode.session.promptAsync({
-          sessionID: activeSessionId,
-          directory: props.workspaceRoot || undefined,
-          system,
-          ...(tools ? { tools } : {}),
+        const result = await runExpertPreviewTurn({
+          config: {
+            baseUrl: props.opencodeBaseUrl,
+            token: props.onmyagentToken || null,
+            workspaceRoot: props.workspaceRoot,
+          },
+          sessionId: activeSessionId,
+          message: text,
+          attachments: attachmentFiles,
+          draft: draftRef.current,
+          systemPrompt: system,
+          tools,
           ...(model ? { model } : {}),
-          parts,
         });
-        if (result.error) {
-          throw new Error(
-            typeof result.error === "object" &&
-              result.error &&
-              "message" in result.error &&
-              typeof result.error.message === "string"
-              ? result.error.message
-              : "Coach request failed",
-          );
-        }
-
-        // Pull final assistant text for suggestion parse (SSE may still be applying).
-        const messages = unwrap(
-          await opencode.session.messages({
-            sessionID: activeSessionId,
-            directory: props.workspaceRoot || undefined,
-            limit: 20,
-          }),
+        ingestAssistantText(
+          `${activeSessionId}:assistant-output`,
+          result.content,
         );
-        if (Array.isArray(messages)) {
-          for (let index = messages.length - 1; index >= 0; index -= 1) {
-            const message = messages[index];
-            if (!isRecord(message) || !isRecord(message.info)) continue;
-            if (message.info.role !== "assistant") continue;
-            const id =
-              typeof message.info.id === "string"
-                ? message.info.id
-                : `assistant-${index}`;
-            const textParts = readAssistantTextParts(message.parts);
-            if (textParts.trim()) {
-              ingestAssistantText(id, textParts);
-              break;
-            }
-          }
-        }
       } finally {
         release();
         void queryClient.invalidateQueries({

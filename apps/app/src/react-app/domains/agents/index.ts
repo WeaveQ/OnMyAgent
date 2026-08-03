@@ -32,7 +32,10 @@ export {
   buildExpertCreationPreviewPendingContext,
   buildExpertCreationPreviewToolAccess,
 } from "./expert-creation-preview-agent";
-export { buildExpertPreviewSystemPrompt } from "./expert-creation-preview-runtime";
+export {
+  buildExpertPreviewSystemPrompt,
+  runExpertPreviewTurn,
+} from "./expert-creation-preview-runtime";
 export {
   buildExpertCreationCoachWorkflowInstructions,
   validateExpertCreationRolePrompt,
