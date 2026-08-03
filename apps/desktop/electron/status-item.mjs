@@ -89,9 +89,6 @@ export function createStatusItemController(input) {
       case STATUS_ITEM_ACTION.NEW_TASK:
         await sendToMainWindow(STATUS_ITEM_EVENTS.NEW_TASK);
         return;
-      case STATUS_ITEM_ACTION.RECENT_SESSION:
-        await sendToMainWindow(STATUS_ITEM_EVENTS.RECENT_SESSION);
-        return;
       case STATUS_ITEM_ACTION.QUICK_CAPTURE:
         if (typeof openQuickCapture === "function") {
           await openQuickCapture();

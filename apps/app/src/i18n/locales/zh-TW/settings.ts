@@ -910,7 +910,13 @@ export default {
   "settings.shortcuts_action_sendMessage": "傳送訊息",
   "settings.shortcuts_action_insertNewline": "插入換行",
   "settings.shortcuts_action_appSnapshot": "擷取桌面",
-  "settings.shortcuts_action_quickCapture": "快速擷取",
+  "settings.shortcuts_action_quickCapture": "全域快捷對話",
+  "settings.shortcuts_action_quickCapture_desc":
+    "在任意應用中喚起快速輸入，派發到目前工作區 Agent",
+  "settings.shortcuts_group_global": "全域",
+  "settings.shortcuts_group_general": "通用",
+  "settings.shortcuts_group_task": "任務",
+  "settings.shortcuts_group_session": "工作階段",
   "shortcuts_guide.title": "快捷鍵指引",
   "shortcuts_guide.description":
     "常用快捷鍵可協助你快速建立任務、搜尋、切換上下文與傳送訊息。",

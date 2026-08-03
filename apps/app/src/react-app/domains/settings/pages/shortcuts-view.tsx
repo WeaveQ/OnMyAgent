@@ -35,6 +35,17 @@ function actionTitle(id: KeymapActionId) {
   );
 }
 
+function actionDescription(id: KeymapActionId): string | null {
+  if (id !== "quickCapture") return null;
+  return t("settings.shortcuts_action_quickCapture_desc");
+}
+
+function groupTitle(group: string) {
+  return t(
+    `settings.shortcuts_group_${group}` as "settings.shortcuts_group_general",
+  );
+}
+
 function KbdChip(props: { label: string }) {
   const isWide = props.label.length > 1;
   return (
@@ -107,14 +118,38 @@ export function ShortcutsView(props: ShortcutsViewProps) {
     return DEFAULT_KEYMAP_ACTIONS.filter((action) => {
       if (!q) return true;
       const title = actionTitle(action.id).toLowerCase();
+      const desc = (actionDescription(action.id) ?? "").toLowerCase();
+      const group = groupTitle(action.group).toLowerCase();
       const accel = resolveAccelerator(
         action.id,
         props.keymapOverrides,
         platform,
       ).toLowerCase();
-      return title.includes(q) || accel.includes(q);
+      return (
+        title.includes(q) ||
+        desc.includes(q) ||
+        group.includes(q) ||
+        accel.includes(q)
+      );
     });
   }, [query, props.keymapOverrides, platform]);
+
+  /** Preserve product order but insert group headers when group changes. */
+  const rows = useMemo(() => {
+    const out: Array<
+      | { kind: "group"; group: string }
+      | { kind: "action"; action: (typeof DEFAULT_KEYMAP_ACTIONS)[number] }
+    > = [];
+    let lastGroup = "";
+    for (const action of filtered) {
+      if (action.group !== lastGroup) {
+        out.push({ kind: "group", group: action.group });
+        lastGroup = action.group;
+      }
+      out.push({ kind: "action", action });
+    }
+    return out;
+  }, [filtered]);
 
   const total = DEFAULT_KEYMAP_ACTIONS.length;
   const hasOverrides = Object.keys(props.keymapOverrides ?? {}).length > 0;
@@ -209,7 +244,18 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                 {t("settings.shortcuts_empty")}
               </p>
             ) : (
-              filtered.map((action) => {
+              rows.map((row) => {
+                if (row.kind === "group") {
+                  return (
+                    <div
+                      key={`group-${row.group}`}
+                      className="bg-dls-surface-muted/40 px-4 py-1.5 text-2xs font-semibold uppercase tracking-wide text-dls-secondary"
+                    >
+                      {groupTitle(row.group)}
+                    </div>
+                  );
+                }
+                const action = row.action;
                 const accel = resolveAccelerator(
                   action.id,
                   props.keymapOverrides,
@@ -221,6 +267,7 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                 );
                 const isRecording = recordingId === action.id;
                 const isCleared = overridden && accel === "";
+                const description = actionDescription(action.id);
 
                 return (
                   <div
@@ -233,9 +280,16 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                         : "hover:bg-dls-list-hover",
                     )}
                   >
-                    <span className="min-w-0 truncate text-sm font-medium text-dls-text">
-                      {actionTitle(action.id)}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-dls-text">
+                        {actionTitle(action.id)}
+                      </div>
+                      {description ? (
+                        <p className="mt-0.5 line-clamp-2 text-2xs leading-snug text-dls-secondary">
+                          {description}
+                        </p>
+                      ) : null}
+                    </div>
 
                     <button
                       type="button"
