@@ -7,7 +7,7 @@
  * - No profiles/company write until login + successful config pull
  * - Logged-out stays local-only (D1)
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   normalizeOnMyAgentHome,
@@ -304,6 +304,62 @@ export function resolveActiveConfigRoot(homeDir) {
     profile: "local",
     root: path.join(normalizeOnMyAgentHome(homeDir), ".onmyagent", "profiles", "local", "config"),
   };
+}
+
+/**
+ * S4: personal skills root under local profile (mine).
+ * @param {string | undefined} homeDir
+ */
+export function resolvePersonalSkillsRoot(homeDir) {
+  return path.join(
+    normalizeOnMyAgentHome(homeDir),
+    ".onmyagent",
+    "profiles",
+    "local",
+    "config",
+    "skills",
+    "mine",
+  );
+}
+
+/**
+ * S4: whether personal skills may overlay company (policy.skills.allowPersonal !== false).
+ * @param {Record<string, unknown> | undefined} policy
+ */
+export function allowPersonalSkills(policy) {
+  const skills = policy && typeof policy === "object" ? /** @type {Record<string, unknown>} */ (policy.skills) : undefined;
+  if (!skills || typeof skills !== "object") return true;
+  return skills.allowPersonal !== false;
+}
+
+/**
+ * Merge company enabled package ids with personal mine ids.
+ * @param {string[]} companyPackageIds
+ * @param {string[]} personalPackageIds
+ * @param {Record<string, unknown> | undefined} policy
+ */
+export function mergeSkillPackageIds(companyPackageIds, personalPackageIds, policy) {
+  const org = [...new Set(companyPackageIds.filter(Boolean))];
+  if (!allowPersonalSkills(policy)) return { packageIds: org, personalIncluded: false };
+  const personal = personalPackageIds.filter((id) => id && !org.includes(id));
+  return { packageIds: [...org, ...personal], personalIncluded: true };
+}
+
+/**
+ * List personal skill package folder names under mine/.
+ * @param {string | undefined} homeDir
+ * @param {{ readdirSync?: typeof import("node:fs").readdirSync, existsSync?: typeof import("node:fs").existsSync }} [io]
+ */
+export function listPersonalSkillPackages(homeDir, io = {}) {
+  const readdir = io.readdirSync ?? readdirSync;
+  const exists = io.existsSync ?? existsSync;
+  const root = resolvePersonalSkillsRoot(homeDir);
+  if (!exists(root)) return [];
+  try {
+    return readdir(root).filter((name) => !name.startsWith("."));
+  } catch {
+    return [];
+  }
 }
 
 /**

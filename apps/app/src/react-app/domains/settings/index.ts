@@ -35,6 +35,7 @@ export {
   loadAuthorizedFoldersPanel,
   loadCloudMarketplacesView,
   loadCloudProvidersView,
+  loadCompanySettingsView,
   loadConversationMemoryView,
   loadDebugView,
   loadRecoveryView,

@@ -7,12 +7,16 @@ import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
 import {
+  allowPersonalSkills,
   connectCompany,
   disconnectCompany,
   hasCompanySession,
+  listPersonalSkillPackages,
+  mergeSkillPackageIds,
   normalizeCompanyBaseUrl,
   readCompanySettings,
   resolveActiveConfigRoot,
+  resolvePersonalSkillsRoot,
   shouldCallCompany,
   writeCompanySettings,
 } from "./company-client.mjs";
@@ -77,6 +81,31 @@ describe("company-client M5", () => {
       const active = resolveActiveConfigRoot(home);
       assert.equal(active.profile, "company");
       assert.equal(active.root, companyRoot);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("S4 personal overlay respects allowPersonal policy", () => {
+    assert.equal(allowPersonalSkills({ skills: { allowPersonal: false } }), false);
+    assert.equal(allowPersonalSkills({}), true);
+    const merged = mergeSkillPackageIds(["org@1"], ["mine@1", "org@1"], {
+      skills: { allowPersonal: true },
+    });
+    assert.deepEqual(merged.packageIds, ["org@1", "mine@1"]);
+    const blocked = mergeSkillPackageIds(["org@1"], ["mine@1"], {
+      skills: { allowPersonal: false },
+    });
+    assert.deepEqual(blocked.packageIds, ["org@1"]);
+    assert.equal(blocked.personalIncluded, false);
+  });
+
+  test("listPersonalSkillPackages reads mine folder", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-co-"));
+    try {
+      const mine = resolvePersonalSkillsRoot(home);
+      await mkdir(path.join(mine, "personal-note@0.1.0"), { recursive: true });
+      assert.deepEqual(listPersonalSkillPackages(home), ["personal-note@0.1.0"]);
     } finally {
       await rm(home, { recursive: true, force: true });
     }
