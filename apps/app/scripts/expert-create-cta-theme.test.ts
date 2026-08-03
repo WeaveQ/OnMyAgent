@@ -16,10 +16,12 @@ const createButtonSource = source.slice(
 );
 
 describe("expert create CTA theme contract", () => {
-  test("uses the primary decision button variant in the expert sidebar", () => {
-    expect(createButtonSource).toContain('variant="default"');
+  test("uses the original dark treatment and a soft neutral light surface", () => {
+    expect(createButtonSource).toContain('variant="ghost"');
     expect(createButtonSource).toContain('size="sidebar-cta"');
-    expect(createButtonSource).not.toContain("EXPERT_CREATE_CTA_CLASS");
-    expect(source).not.toContain("bg-dls-surface-muted text-dls-text shadow-none");
+    expect(source).toContain("bg-dls-surface-muted");
+    expect(source).toContain("text-dls-text");
+    expect(source).toContain("hover:bg-dls-hover");
+    expect(source).not.toContain("bg-dls-decision");
   });
 });
