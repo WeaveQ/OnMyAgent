@@ -85,6 +85,7 @@ import {
   filterExpertCreationSkills,
   toggleExpertCreationSkillId,
 } from "./expert-creation-skill-picker-model";
+import { EXPERT_CREATION_VISIBLE_TABS } from "./expert-creation-tabs-model";
 import { ExpertCreationExitDialog } from "./expert-creation-exit-dialog";
 import {
   buildExpertPreviewDraftKey,
@@ -183,12 +184,10 @@ async function encodeKnowledgeFile(file: File): Promise<string> {
   return btoa(binary);
 }
 
-const TABS: Array<{ id: ExpertCreationTab; label: string }> = [
-  { id: "basic", label: "agents.expert_creation_basic" },
-  { id: "memory", label: "agents.expert_creation_memory" },
-  { id: "skills", label: "agents.expert_creation_skills" },
-  { id: "knowledge", label: "agents.expert_creation_knowledge" },
-];
+const TABS: Array<{ id: ExpertCreationTab; label: string }> = EXPERT_CREATION_VISIBLE_TABS.map((id) => ({
+  id,
+  label: `agents.expert_creation_${id}`,
+}));
 
 function buildInitialDraft(registry: AgentRegistry | null, skills: AgentSkillItem[]) {
   const source = registry ?? createDefaultAgentRegistry();
