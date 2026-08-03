@@ -8,6 +8,16 @@ import {
 } from "../src/react-app/domains/agents/expert-creation-coach-model";
 import { createBlankWizardDraft, createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-registry";
 
+const completeRolePrompt = [
+  "## Expert overview\nServes product teams with research conclusions.",
+  "## Core capabilities\nBreaks down problems and compares evidence.",
+  "## Key rules\nConfirm goals and constraints first.",
+  "## Prohibited behavior\nDo not invent facts or make unauthorized promises.",
+  "## Workflow\nClarify, analyze, verify, and deliver.",
+  "## Deliverable structure\nConclusion, evidence, risks, and next steps.",
+  "## Communication style\nBe concise and lead with the conclusion.",
+].join("\n\n");
+
 describe("expert creation coach model", () => {
   test("uses strict native structured output", () => {
     expect(EXPERT_COACH_OUTPUT_FORMAT.type).toBe("json_schema");
@@ -25,11 +35,24 @@ describe("expert creation coach model", () => {
       proposal: {
         name: "Decision partner",
         description: "Compares options and explains tradeoffs.",
-        rolePrompt: "Ask for constraints before recommending an option.",
+        rolePrompt: completeRolePrompt,
         memory: "Remember the user's risk tolerance.",
         skillIds: ["research"],
       },
     })?.proposal?.name).toBe("Decision partner");
+  });
+
+  test("rejects a proposal with an incomplete role prompt", () => {
+    expect(parseExpertCoachTurnResult({
+      reply: "I need one more detail.",
+      proposal: {
+        name: "Decision partner",
+        description: "Compares options.",
+        rolePrompt: "## Expert overview\nOnly one section.",
+        memory: "Remember constraints.",
+        skillIds: [],
+      },
+    })).toBeNull();
   });
 
   test("rejects malformed structured output", () => {

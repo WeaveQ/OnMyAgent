@@ -3,6 +3,15 @@ import { describe, expect, test } from "bun:test";
 import { readExpertCoachRuntimeEvent } from "../src/react-app/domains/agents/expert-creation-coach-runtime";
 
 const sessionId = "session-coach";
+const completeRolePrompt = [
+  "## Expert overview\nServes product teams with research conclusions.",
+  "## Core capabilities\nBreaks down problems and compares evidence.",
+  "## Key rules\nConfirm goals and constraints first.",
+  "## Prohibited behavior\nDo not invent facts or make unauthorized promises.",
+  "## Workflow\nClarify, analyze, verify, and deliver.",
+  "## Deliverable structure\nConclusion, evidence, risks, and next steps.",
+  "## Communication style\nBe concise and lead with the conclusion.",
+].join("\n\n");
 
 describe("expert creation coach runtime events", () => {
   test("reads a completed native structured-output tool result", () => {
@@ -20,7 +29,7 @@ describe("expert creation coach runtime events", () => {
               proposal: {
                 name: "Research partner",
                 description: "Finds and compares evidence.",
-                rolePrompt: "Cite sources and explain uncertainty.",
+                rolePrompt: completeRolePrompt,
                 memory: "Remember preferred source types.",
                 skillIds: ["research"],
               },
@@ -35,7 +44,7 @@ describe("expert creation coach runtime events", () => {
         proposal: {
           name: "Research partner",
           description: "Finds and compares evidence.",
-          rolePrompt: "Cite sources and explain uncertainty.",
+          rolePrompt: completeRolePrompt,
           memory: "Remember preferred source types.",
           skillIds: ["research"],
         },
