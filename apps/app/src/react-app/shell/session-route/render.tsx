@@ -51,7 +51,6 @@ import {
   getActiveReloadBlockingSessions,
   getActiveSessionIds,
   sessionListOwnsSession,
-  toControlSessionEntries,
   toPaletteSessionOptions,
   type PendingCreatedSessionMap,
 } from "./sessions";
@@ -98,7 +97,6 @@ import {
   seedPermissionState,
   seedQuestionState,
   useSessionActivityStore,
-  useSessionControlActions,
 } from "../../domains/session";
 import { useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
@@ -112,14 +110,13 @@ import { useSessionRouteGlobalShortcuts } from "./global-shortcuts-hook";
 import { useSessionRouteSessionLoader } from "./session-loader-hook";
 import { useSessionRouteRefresh } from "./refresh-hook";
 import { useSessionRouteModelCatalog } from "./model-catalog-hook";
+import { useSessionRouteQuickCapture } from "./quick-capture-hook";
+import { useSessionRouteControlWiring } from "./session-control-wiring-hook";
 import { SessionRoutePageView } from "./page-view";
 import {
-  buildCommandPaletteControlAction,
-  resolveControlSessionWorkspaceId,
   resolveSessionRouteRestoreNavigation,
   shouldRedirectSessionRouteToWelcome,
 } from "./control";
-import { useControlAction } from "../control/control-provider";
 import {
   applyRuntimeSessionInfoUpdate,
   applyRuntimeSessionStatusUpdate,
@@ -1033,62 +1030,48 @@ export function SessionRouteRender() {
     workspaceOrderIdsRef,
   });
 
+  const { handleCreateTaskWithPrompt, handleOpenRecentSession } =
+    useSessionRouteQuickCapture({
+      baseUrl,
+      token,
+      pageMode,
+      workspaces,
+      selectedWorkspaceId,
+      sessionsByWorkspaceId,
+      sessionMatchesPageMode,
+      effectiveModelRef,
+      allowedModelOptions,
+      modelLabel,
+      handleCreateTaskInWorkspace,
+      navigateToWorkspaceSession,
+      rememberPendingCreatedSession,
+      setSessionsByWorkspaceId,
+    });
+
   useSessionRouteGlobalShortcuts({
     canCreateTask,
     handleCreateTaskInWorkspace,
+    handleCreateTaskWithPrompt,
+    handleOpenRecentSession,
     selectedWorkspaceId,
     setCommandPaletteOpen,
   });
 
-  const navigateToSessionForControl = useCallback(
-    (sessionId: string) => {
-      const owner = resolveControlSessionWorkspaceId({
-        sessionsByWorkspaceId,
-        sessionId,
-        fallbackWorkspaceId: selectedWorkspaceId,
-      });
-      navigateToWorkspaceSession(owner, sessionId);
-    },
-    [navigateToWorkspaceSession, selectedWorkspaceId, sessionsByWorkspaceId],
-  );
-
-  const navigateToSessionRootForControl = useCallback(() => {
-    navigateToWorkspaceSession(selectedWorkspaceId);
-  }, [navigateToWorkspaceSession, selectedWorkspaceId]);
-
-  const openModelPickerForControl = useCallback(() => {
-    setModelPickerOpen(true);
-  }, [setModelPickerOpen]);
-
-  const controlSessionsByWorkspaceId = useMemo(
-    () => toControlSessionEntries(sessionsByWorkspaceId),
-    [sessionsByWorkspaceId],
-  );
-
-  useSessionControlActions({
+  useSessionRouteControlWiring({
     workspaces,
-    sessionsByWorkspaceId: controlSessionsByWorkspaceId,
+    sessionsByWorkspaceId,
     selectedWorkspaceId,
-    selectedWorkspaceRoot: sessionWorkspaceRoot,
     selectedSessionId,
+    sessionWorkspaceRoot,
     canCreateTask,
-    onmyagentClient: client,
+    client,
     opencodeClient,
-    navigateToSession: navigateToSessionForControl,
-    navigateToSessionRoot: navigateToSessionRootForControl,
-    createTaskInWorkspace: handleCreateTaskInWorkspace,
-    openModelPicker: openModelPickerForControl,
+    handleCreateTaskInWorkspace,
+    navigateToWorkspaceSession,
+    setModelPickerOpen,
+    setCommandPaletteOpen,
     refreshRouteState,
   });
-
-  const commandPaletteControlAction = useMemo(
-    () =>
-      buildCommandPaletteControlAction({
-        openCommandPalette: () => setCommandPaletteOpen(true),
-      }),
-    [setCommandPaletteOpen],
-  );
-  useControlAction(commandPaletteControlAction);
 
   const paletteSessionOptions = useMemo(
     () =>

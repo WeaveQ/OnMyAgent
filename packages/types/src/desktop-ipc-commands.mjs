@@ -34,6 +34,8 @@ const commandGroups = /** @type {const} */ ({
     "setDockUnreadBadge", "getAgentReadySoundPath",
     "setStatusItemVisible", "getStatusItemVisible",
     "registerAppSnapshotHotkey", "unregisterAppSnapshotHotkey",
+    "registerQuickCaptureHotkey", "unregisterQuickCaptureHotkey",
+    "setQuickCaptureContext", "toggleQuickCapture",
     "setKeymapAcceleratorOverrides",
     "getDesktopBootstrapConfig", "debugDesktopBootstrapConfig",
     "setDesktopBootstrapConfig", "pickDirectory", "pickFile", "saveFile",

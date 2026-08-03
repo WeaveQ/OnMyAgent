@@ -195,6 +195,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
   ]);
 
   const workspaceRootFolder = props.selectedWorkspaceRoot.trim();
+  const hasSelectedWorkspace = Boolean(workspaceRootFolder);
   const workspaceRootNormalized =
     normalizeAuthorizedFolderPath(workspaceRootFolder);
   const authorizedNormalized = useMemo(
@@ -210,6 +211,10 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
     const root = workspaceRootFolder;
     return root ? [root, ...authorizedFolders] : authorizedFolders;
   }, [authorizedFolders, workspaceRootFolder]);
+
+  // Workspace root is always authorized once selected — hide the "Add folder"
+  // CTA so users are not prompted to re-add the same workspace.
+  const showAddFolderButton = !hasSelectedWorkspace;
 
   useEffect(() => {
     const onmyagentClient = props.onmyagentServerClient;
@@ -365,32 +370,34 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
       title={t("context_panel.authorized_folders")}
       description={t("context_panel.authorized_folders_desc")}
       actions={
-        <Tooltip>
-          <TooltipTrigger
-            render={(
-              <span className="inline-flex">
-                <Button
-                  onClick={() => void pickAuthorizedFolder()}
-                  disabled={
-                    authorizedFoldersLoading ||
-                    authorizedFoldersSaving ||
-                    !canPickAuthorizedFolder
-                  }
-                >
-                  <Plus className="size-4" />
-                  {t("context_panel.add_folder_button")}
-                </Button>
-              </span>
+        showAddFolderButton ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={(
+                <span className="inline-flex">
+                  <Button
+                    onClick={() => void pickAuthorizedFolder()}
+                    disabled={
+                      authorizedFoldersLoading ||
+                      authorizedFoldersSaving ||
+                      !canPickAuthorizedFolder
+                    }
+                  >
+                    <Plus className="size-4" />
+                    {t("context_panel.add_folder_button")}
+                  </Button>
+                </span>
+              )}
+            />
+            {pickDisabledReason ? (
+              <TooltipContent>{pickDisabledReason}</TooltipContent>
+            ) : (
+              <TooltipContent>
+                {t("context_panel.add_folder_hint")}
+              </TooltipContent>
             )}
-          />
-          {pickDisabledReason ? (
-            <TooltipContent>{pickDisabledReason}</TooltipContent>
-          ) : (
-            <TooltipContent>
-              {t("context_panel.add_folder_hint")}
-            </TooltipContent>
-          )}
-        </Tooltip>
+          </Tooltip>
+        ) : null
       }
     >
       {!canReadConfig ? (
@@ -427,19 +434,21 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
                   {t("context_panel.add_folder_hint")}
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent>
-                <Button
-                  onClick={() => void pickAuthorizedFolder()}
-                  disabled={
-                    authorizedFoldersLoading ||
-                    authorizedFoldersSaving ||
-                    !canPickAuthorizedFolder
-                  }
-                >
-                  <Plus className="size-4" />
-                  {t("context_panel.add_folder_button")}
-                </Button>
-              </EmptyContent>
+              {showAddFolderButton ? (
+                <EmptyContent>
+                  <Button
+                    onClick={() => void pickAuthorizedFolder()}
+                    disabled={
+                      authorizedFoldersLoading ||
+                      authorizedFoldersSaving ||
+                      !canPickAuthorizedFolder
+                    }
+                  >
+                    <Plus className="size-4" />
+                    {t("context_panel.add_folder_button")}
+                  </Button>
+                </EmptyContent>
+              ) : null}
             </Empty>
           )}
 

@@ -11,7 +11,8 @@ export type KeymapActionId =
   | "searchInCurrentTask"
   | "sendMessage"
   | "insertNewline"
-  | "appSnapshot";
+  | "appSnapshot"
+  | "quickCapture";
 
 export type KeymapGroupId = "general" | "task" | "session" | "global";
 
@@ -30,10 +31,16 @@ export const DEFAULT_KEYMAP_ACTIONS: readonly KeymapActionDef[] = [
     defaultAccelerator: "CommandOrControl+,",
   },
   {
+    id: "quickCapture",
+    group: "global",
+    // Global quick-chat capture (works while app is in background).
+    defaultAccelerator: "CommandOrControl+B",
+  },
+  {
     id: "toggleSidebar",
     group: "general",
-    // Match Electron menu default (⌘B / Ctrl+B).
-    defaultAccelerator: "CommandOrControl+B",
+    // ⌘B is reserved for global quick chat; use ⌘\ for sidebar.
+    defaultAccelerator: "CommandOrControl+\\",
   },
   {
     id: "newTask",
@@ -419,6 +426,7 @@ export function shouldIgnoreForTarget(
   if (actionId === "openSettings") return false;
   if (actionId === "toggleSidebar") return false;
   if (actionId === "appSnapshot") return false;
+  if (actionId === "quickCapture") return false;
   if (actionId === "newTask" && isEditableShortcutTarget(target)) return true;
   return false;
 }

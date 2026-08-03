@@ -35,6 +35,11 @@ function actionTitle(id: KeymapActionId) {
   );
 }
 
+function actionDescription(id: KeymapActionId): string | null {
+  if (id !== "quickCapture") return null;
+  return t("settings.shortcuts_action_quickCapture_desc");
+}
+
 function KbdChip(props: { label: string }) {
   const isWide = props.label.length > 1;
   return (
@@ -107,12 +112,13 @@ export function ShortcutsView(props: ShortcutsViewProps) {
     return DEFAULT_KEYMAP_ACTIONS.filter((action) => {
       if (!q) return true;
       const title = actionTitle(action.id).toLowerCase();
+      const desc = (actionDescription(action.id) ?? "").toLowerCase();
       const accel = resolveAccelerator(
         action.id,
         props.keymapOverrides,
         platform,
       ).toLowerCase();
-      return title.includes(q) || accel.includes(q);
+      return title.includes(q) || desc.includes(q) || accel.includes(q);
     });
   }, [query, props.keymapOverrides, platform]);
 
@@ -221,6 +227,7 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                 );
                 const isRecording = recordingId === action.id;
                 const isCleared = overridden && accel === "";
+                const description = actionDescription(action.id);
 
                 return (
                   <div
@@ -233,9 +240,16 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                         : "hover:bg-dls-list-hover",
                     )}
                   >
-                    <span className="min-w-0 truncate text-sm font-medium text-dls-text">
-                      {actionTitle(action.id)}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-dls-text">
+                        {actionTitle(action.id)}
+                      </div>
+                      {description ? (
+                        <p className="mt-0.5 line-clamp-2 text-2xs leading-snug text-dls-secondary">
+                          {description}
+                        </p>
+                      ) : null}
+                    </div>
 
                     <button
                       type="button"

@@ -37,12 +37,11 @@ test("hide-on-close: mac always; win only with tray visible", () => {
   assert.equal(shouldHideMainWindowOnClose("linux", false, true), false);
 });
 
-test("menu spec groups six actions with separators (IA)", () => {
+test("menu spec groups quick actions with separators (IA)", () => {
   const spec = buildStatusItemMenuSpec({ locale: "en" });
   const kinds = spec.map((entry) => entry.type);
   assert.deepEqual(kinds, [
     "item",
-    "separator",
     "item",
     "item",
     "separator",
@@ -54,9 +53,9 @@ test("menu spec groups six actions with separators (IA)", () => {
 
   const ids = statusItemActionIds({ locale: "en" });
   assert.deepEqual(ids, [
-    STATUS_ITEM_ACTION.SHOW_WINDOW,
+    STATUS_ITEM_ACTION.QUICK_CAPTURE,
     STATUS_ITEM_ACTION.NEW_TASK,
-    STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE,
+    STATUS_ITEM_ACTION.SHOW_WINDOW,
     STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS,
     STATUS_ITEM_ACTION.OPEN_SETTINGS,
     STATUS_ITEM_ACTION.QUIT,
@@ -78,7 +77,12 @@ test("labels are localized for zh and zh-TW", () => {
   assert.equal(statusItemLabels("zh-TW").newTask, "新建任務");
   assert.equal(statusItemLabels("en").quit, "Quit OnMyAgent");
   const zhSpec = buildStatusItemMenuSpec({ locale: "zh-CN" });
-  assert.ok(zhSpec.some((e) => e.type === "item" && e.label === "打开专家市场"));
+  assert.ok(zhSpec.some((e) => e.type === "item" && e.label === "快捷对话"));
+  assert.ok(!zhSpec.some((e) => e.type === "item" && e.label === "打开专家市场"));
+  const quick = zhSpec.find(
+    (e) => e.type === "item" && e.id === STATUS_ITEM_ACTION.QUICK_CAPTURE,
+  );
+  assert.equal(quick?.accelerator, "CommandOrControl+B");
 });
 
 test("status-item events reuse native-menu bridge naming", () => {
@@ -88,8 +92,8 @@ test("status-item events reuse native-menu bridge naming", () => {
   );
   assert.equal(STATUS_ITEM_EVENTS.NEW_TASK, "onmyagent:native-menu:new-task");
   assert.equal(
-    STATUS_ITEM_EVENTS.OPEN_EXPERT_MARKETPLACE,
-    "onmyagent:native-menu:open-expert-marketplace",
+    STATUS_ITEM_EVENTS.QUICK_CAPTURE,
+    "onmyagent:native-menu:quick-capture",
   );
   assert.equal(
     STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS,

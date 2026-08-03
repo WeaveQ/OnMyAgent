@@ -1085,10 +1085,28 @@ async function openComputerUseSetupApp() {
 
   // Open the GUI. Use the .app bundle if available so macOS shows it as
   // a real app with its own dock icon and permission identity.
+  //
+  // Always force a *new* instance (`open -n`): if a setup window was already
+  // open before the user toggled TCC, Launch Services would only activate the
+  // stale process and badges would keep saying "Needed".
   const appPath = computerUseHelperAppPath();
   if (appPath) {
-    const result = await shell.openPath(appPath);
-    if (result) console.error("[ComputerUse] shell.openPath error:", result);
+    const openResult = spawnSync(
+      "open",
+      ["-n", "-a", appPath],
+      { encoding: "utf8" },
+    );
+    if (openResult.status !== 0) {
+      const fallback = await shell.openPath(appPath);
+      if (fallback) {
+        console.error(
+          "[ComputerUse] open -n failed:",
+          openResult.stderr?.trim() || openResult.error,
+          "shell.openPath:",
+          fallback,
+        );
+      }
+    }
     return;
   }
 
