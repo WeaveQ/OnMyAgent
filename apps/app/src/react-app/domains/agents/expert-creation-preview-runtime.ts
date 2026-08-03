@@ -2,7 +2,11 @@ import { createClient, unwrap } from "../../../app/lib/opencode";
 import { normalizeEvent } from "../../../app/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
 import type { ModelRef } from "../../../app/types";
-import { buildAgentSystemPrompt, buildAgentToolAccess } from "./pending-agent-store";
+import {
+  buildAgentSystemPrompt,
+  buildAgentToolAccess,
+  type AgentToolAccessMap,
+} from "./pending-agent-store";
 import { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 
 export type ExpertPreviewRuntimeConfig = {
@@ -20,6 +24,8 @@ export type ExpertPreviewTurnInput = {
   knowledgePaths?: readonly string[];
   model?: ModelRef;
   systemPrompt?: string;
+  /** When set (including empty map), overrides draft-based tool access. */
+  tools?: AgentToolAccessMap;
   signal?: AbortSignal;
   onTextChange?: (text: string) => void;
 };
@@ -240,7 +246,7 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
       system:
         input.systemPrompt ??
         buildExpertPreviewSystemPrompt(input.draft, input.knowledgePaths ?? []),
-      tools: buildAgentToolAccess(input.draft),
+      tools: input.tools ?? buildAgentToolAccess(input.draft),
       ...(input.model ? { model: input.model } : {}),
       parts,
     });
