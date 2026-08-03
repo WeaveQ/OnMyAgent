@@ -1,4 +1,15 @@
 import { t } from "@/i18n";
+import {
+  isBuiltinAgentRecord,
+  mergeBuiltinAgents,
+} from "./agent-builtin";
+export {
+  EXPERT_CREATION_COACH_AGENT_ID,
+  buildBuiltinAgentRecords,
+  isBuiltinAgentId,
+  isBuiltinAgentRecord,
+  mergeBuiltinAgents,
+} from "./agent-builtin";
 import { createDefaultAgentRegistry } from "./agent-default-registry";
 export { createDefaultAgentRegistry } from "./agent-default-registry";
 import {
@@ -417,6 +428,7 @@ function parseAgent(value: unknown): AgentRecord | null {
       typeof value.sourceTemplateId === "string"
         ? value.sourceTemplateId
         : null,
+    ...(value.builtin === true ? { builtin: true as const } : {}),
     createdAt: readString(value.createdAt),
     updatedAt: readString(value.updatedAt),
   };
@@ -497,7 +509,7 @@ export function parseAgentRegistry(raw: string): AgentRegistry {
     templates: applyBundledTemplateVisibility(
       mergeById(templates, defaultRegistry.templates),
     ),
-    agents,
+    agents: mergeBuiltinAgents(agents),
     skills: defaultRegistry.skills,
   };
 }
@@ -514,7 +526,7 @@ export function createAgentRegistryWithUserAgents(
     templates: applyBundledTemplateVisibility(
       mergeById([...templates], registry.templates),
     ),
-    agents: [...agents],
+    agents: mergeBuiltinAgents(agents),
   };
 }
 
@@ -695,7 +707,8 @@ export function serializeUserAgentRegistry(registry: AgentRegistry) {
       version: 1,
       updatedAt: registry.updatedAt,
       templates: registry.templates,
-      agents: registry.agents,
+      // Builtins are product-owned and re-seeded on load — do not freeze them on disk.
+      agents: registry.agents.filter((agent) => !isBuiltinAgentRecord(agent)),
     },
     null,
     2,
