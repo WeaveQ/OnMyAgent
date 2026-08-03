@@ -7,6 +7,7 @@ import { t } from "../../../i18n";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
+import type { AgentToolAccessMap } from "./pending-agent-store";
 import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
 import {
   expertDraftSuggestionFingerprint,
@@ -56,6 +57,8 @@ export type ExpertCreationConversationProps = {
   emptyContent?: ReactNode;
   placeholder: string;
   systemPrompt?: string;
+  /** Optional tool policy for this conversation (e.g. coach chat-only). */
+  tools?: AgentToolAccessMap;
   knowledgePaths?: readonly string[];
   emptyMessage: string;
   disabled?: boolean;
@@ -284,6 +287,7 @@ export function ExpertCreationConversation(
         knowledgePaths: props.knowledgePaths,
         model: props.selectedModel,
         ...(props.systemPrompt ? { systemPrompt: props.systemPrompt } : {}),
+        ...(props.tools !== undefined ? { tools: props.tools } : {}),
         signal: controller.signal,
         onTextChange: (content) => {
           const parsed = parseExpertDraftSuggestion(content);

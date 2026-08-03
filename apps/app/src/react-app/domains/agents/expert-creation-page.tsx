@@ -91,6 +91,11 @@ import {
   type ExpertCreationSuggestionApplyOptions,
 } from "./expert-creation-conversation";
 import {
+  buildExpertCreationCoachSystemPrompt,
+  buildExpertCreationCoachToolAccess,
+  resolveExpertCreationCoachAgent,
+} from "./expert-creation-coach-agent";
+import {
   mergeExpertDraftSuggestion,
   type ExpertDraftSuggestion,
 } from "./expert-creation-suggestions";
@@ -229,26 +234,9 @@ function ExpertCreationAvatar(props: {
   );
 }
 
-function buildCreationCoachSystemPrompt(draft: AgentWizardDraft): string {
-  return [
-    "You are OnMyAgent's dedicated expert-creation coach.",
-    "Your only purpose is to help the user design a useful, dependable expert.",
-    "Use a natural conversation. Ask one focused question at a time and offer concrete suggestions.",
-    "Do not claim that you changed the form automatically. Suggestions are applied only after the user confirms in the UI.",
-    "When you have one or more concrete form values to propose, append exactly one machine-readable block at the very end of your answer:",
-    '<expert-update>{"name":"...","description":"...","userNote":"...","agentMemory":"..."}</expert-update>',
-    "Include only fields you are proposing now. Do not mention or explain this block in visible text.",
-    "",
-    "Current draft:",
-    `Name: ${draft.name || "Not set"}`,
-    `Description: ${draft.description || "Not set"}`,
-    `Role prompt: ${draft.userNote || "Not set"}`,
-    `Expert memory: ${draft.agentMemory || "Not set"}`,
-  ].join("\n");
-}
-
 function ExpertCoach(props: {
   draft: AgentWizardDraft;
+  registry: AgentRegistry;
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
   onmyagentServerToken: string | null;
@@ -259,12 +247,21 @@ function ExpertCoach(props: {
     options: ExpertCreationSuggestionApplyOptions,
   ) => void;
 }) {
+  const coachAgent = resolveExpertCreationCoachAgent(props.registry);
   const coachOptions = [
     t("agents.expert_creation_coach_option_1"),
     t("agents.expert_creation_coach_option_2"),
     t("agents.expert_creation_coach_option_3"),
     t("agents.expert_creation_coach_option_4"),
   ];
+  const coachTitle =
+    coachAgent?.name.trim() || t("agents.expert_creation_coach");
+  const coachSystemPrompt = coachAgent
+    ? buildExpertCreationCoachSystemPrompt(coachAgent, props.draft)
+    : undefined;
+  const coachTools = coachAgent
+    ? buildExpertCreationCoachToolAccess(coachAgent)
+    : undefined;
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
       <div className="flex min-h-0 flex-1 flex-col">
@@ -274,14 +271,27 @@ function ExpertCoach(props: {
           opencodeBaseUrl={props.opencodeBaseUrl}
           onmyagentServerToken={props.onmyagentServerToken}
           selectedModel={props.selectedModel}
-          title={t("agents.expert_creation_coach")}
-          avatar={(
-            <img
-              src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
-              alt=""
-              className="size-10 shrink-0 rounded-full object-cover"
-            />
-          )}
+          title={coachTitle}
+          avatar={
+            coachAgent ? (
+              renderAvatar(
+                props.registry,
+                {
+                  avatarStyle: coachAgent.avatarStyle,
+                  avatarOptionId: coachAgent.avatarOptionId,
+                  customAvatarDataUrl: coachAgent.customAvatarDataUrl,
+                  name: coachAgent.name,
+                },
+                "size-10 shrink-0",
+              )
+            ) : (
+              <img
+                src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
+                alt=""
+                className="size-10 shrink-0 rounded-full object-cover"
+              />
+            )
+          }
           initialContent={(
             <>
               <p>{t("agents.expert_creation_coach_greeting")}</p>
@@ -296,7 +306,8 @@ function ExpertCoach(props: {
             </>
           )}
           placeholder={t("agents.expert_creation_coach_placeholder")}
-          systemPrompt={buildCreationCoachSystemPrompt(props.draft)}
+          {...(coachSystemPrompt ? { systemPrompt: coachSystemPrompt } : {})}
+          {...(coachTools !== undefined ? { tools: coachTools } : {})}
           emptyMessage={t("agents.expert_creation_coach_failed")}
           renderComposer={props.renderComposer}
           onApplyDraftSuggestion={props.onApplyDraftSuggestion}
@@ -1415,6 +1426,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         <ResizablePanel defaultSize="34%" minSize="300px" maxSize="48%" className="min-w-0">
           <ExpertCoach
             draft={draft}
+            registry={sourceRegistry}
             workspaceRoot={props.workspaceRoot}
             opencodeBaseUrl={props.opencodeBaseUrl}
             onmyagentServerToken={props.onmyagentServerToken}
