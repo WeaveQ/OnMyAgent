@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import type { AgentSkillItem } from "../src/react-app/domains/agents/agent-registry-types";
 import {
+  expertCreationSkillKey,
   filterExpertCreationSkills,
+  isExpertCreationSkillSelected,
+  materializeExpertCreationMarketplaceSkill,
+  resolveExpertCreationSkillId,
+  toggleExpertCreationSkill,
   toggleExpertCreationSkillId,
 } from "../src/react-app/domains/agents/expert-creation-skill-picker-model";
 
@@ -56,5 +61,57 @@ describe("expert creation skill picker model", () => {
       "railway-12306",
       "affiliate-fleet",
     ]);
+  });
+
+  test("synchronizes market rows with installed rows by canonical skill name", () => {
+    const installed = {
+      ...skills[0],
+      id: "installed-railway-12306",
+      name: "railway-12306",
+    };
+    const market = {
+      ...skills[0],
+      id: "market:railway-12306",
+      name: "railway-12306",
+    };
+
+    expect(expertCreationSkillKey(market)).toBe("railway-12306");
+    expect(resolveExpertCreationSkillId(market, [installed])).toBe(
+      "installed-railway-12306",
+    );
+    expect(
+      isExpertCreationSkillSelected(
+        market,
+        ["installed-railway-12306"],
+        [installed],
+      ),
+    ).toBe(true);
+    expect(
+      toggleExpertCreationSkill(
+        ["installed-railway-12306"],
+        market,
+        [installed],
+      ),
+    ).toEqual([]);
+  });
+
+  test("materializes an installed marketplace skill with its persisted path", () => {
+    const market = {
+      ...skills[0],
+      id: "market:railway-12306",
+      name: "railway-12306",
+    };
+
+    expect(
+      materializeExpertCreationMarketplaceSkill(
+        market,
+        "/workspace/.onmyagent/skills/railway-12306/SKILL.md",
+      ),
+    ).toMatchObject({
+      id: "railway-12306",
+      name: "railway-12306",
+      enabled: true,
+      path: "/workspace/.onmyagent/skills/railway-12306/SKILL.md",
+    });
   });
 });
