@@ -267,8 +267,7 @@ function ExpertCoach(props: {
     t("agents.expert_creation_coach_option_3"),
     t("agents.expert_creation_coach_option_4"),
   ];
-  const coachTitle =
-    coachAgent?.name.trim() || t("agents.expert_creation_coach");
+  const coachTitle = t("agents.expert_creation_coach");
   const coachSystemPrompt = coachAgent
     ? buildExpertCreationCoachSystemPrompt(coachAgent, props.draft)
     : undefined;
@@ -299,26 +298,13 @@ function ExpertCoach(props: {
           onmyagentServerToken={props.onmyagentServerToken}
           selectedModel={props.selectedModel}
           title={coachTitle}
-          avatar={
-            coachAgent ? (
-              renderAvatar(
-                props.registry,
-                {
-                  avatarStyle: coachAgent.avatarStyle,
-                  avatarOptionId: coachAgent.avatarOptionId,
-                  customAvatarDataUrl: coachAgent.customAvatarDataUrl,
-                  name: coachAgent.name,
-                },
-                "size-10 shrink-0",
-              )
-            ) : (
-              <img
-                src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
-                alt=""
-                className="size-10 shrink-0 rounded-full object-cover"
-              />
-            )
-          }
+          avatar={(
+            <img
+              src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
+              alt=""
+              className="size-10 shrink-0 rounded-full object-cover"
+            />
+          )}
           initialContent={(
             <>
               <p>{t("agents.expert_creation_coach_greeting")}</p>

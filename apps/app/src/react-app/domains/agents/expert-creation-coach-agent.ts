@@ -1,6 +1,9 @@
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import { t } from "@/i18n";
 import {
   buildBuiltinAgentRecords,
   EXPERT_CREATION_COACH_AGENT_ID,
+  EXPERT_CREATION_COACH_AVATAR_PATH,
 } from "./agent-builtin";
 import { buildPendingAgentFromRecord } from "./agent-registry-store";
 import type { AgentRecord, AgentRegistry, AgentWizardDraft } from "./agent-registry-types";
@@ -62,8 +65,18 @@ export function buildExpertCreationCoachPendingContext(
   if (!coach) return null;
   const base = buildPendingAgentFromRecord(coach, registry);
   if (!base) return null;
+  const coachName = t("agents.expert_creation_coach");
+  const coachAvatarUrl = resolvePublicAssetUrl(EXPERT_CREATION_COACH_AVATAR_PATH);
   return {
     ...base,
+    name: coachName,
+    // Empty description avoids the centered marketing hero; host uses welcome copy.
+    description: "",
+    avatar: {
+      ...base.avatar,
+      customAvatarDataUrl: EXPERT_CREATION_COACH_AVATAR_PATH,
+      avatarUrl: coachAvatarUrl,
+    },
     systemPrompt: buildExpertCreationCoachSystemPrompt(coach, draft),
     tools: buildExpertCreationCoachToolAccess(coach),
     conversationStartId: Date.now(),

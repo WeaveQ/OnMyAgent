@@ -97,6 +97,11 @@ export type SessionSurfaceProps = {
    */
   chrome?: "default" | "embedded";
   /**
+   * Replace the default expert-empty hero (avatar + suggestion chips) when
+   * the session has no messages yet. Used by embedded coach welcome copy.
+   */
+  emptyContent?: ReactNode;
+  /**
    * False while the host keep-alive pane is hidden (other rail pages).
    * Used to persist / restore transcript scroll height across page leaves.
    */

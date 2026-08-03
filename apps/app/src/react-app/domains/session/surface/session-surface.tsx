@@ -865,6 +865,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       composerOuterBorderVisible={Boolean(composerOuterBorderVisible)}
       draftWorkspaceAccessoryActive={Boolean(draftWorkspaceAccessoryActive)}
       chrome={props.chrome}
+      emptyContent={props.emptyContent}
       conversationTabs={props.conversationTabs}
       chatHeaderAgent={chatHeaderAgent}
       codeSceneToolbar={codeSceneToolbar}
