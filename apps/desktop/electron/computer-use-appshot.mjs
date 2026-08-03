@@ -82,9 +82,14 @@ function mediaStatusToPermission(status) {
   return "unknown";
 }
 
+/**
+ * @param {string} code
+ * @param {string} message
+ * @returns {Error & { code: string }}
+ */
 function appshotError(code, message) {
-  const err = new Error(message);
-  err.code = code;
+  /** @type {Error & { code: string }} */
+  const err = Object.assign(new Error(message), { code });
   return err;
 }
 
@@ -287,7 +292,8 @@ export function createAppshotController(deps) {
           `Screen Recording is denied. ${permissionHint()}`,
         );
       }
-      if (status === "unknown" || status === "not-determined") {
+      // "unknown" covers not-determined and other non-granted states.
+      if (status === "unknown") {
         await primeScreenRecordingPermission();
       }
     }
