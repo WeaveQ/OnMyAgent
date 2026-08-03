@@ -1251,6 +1251,41 @@ export function AgentConversationPanel(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key is the stable signal
   }, [automationDirectoryKey]);
 
+  /**
+   * Search → click flow:
+   * 1) Clear filter first so the full expert list (and row menus) return.
+   * 2) Then open session / starter / draft.
+   * Must run even when the row is already selected (common after typing a
+   * query while that expert is open) — otherwise the UI stays stuck filtered.
+   */
+  const clearSearchIfNeeded = useCallback(() => {
+    if (props.query.trim()) props.onQueryChange("");
+  }, [props.onQueryChange, props.query]);
+
+  const handleOpenSessionClearingSearch = useCallback(
+    (workspaceId: string, sessionId: string) => {
+      clearSearchIfNeeded();
+      props.onOpenSession(workspaceId, sessionId);
+    },
+    [clearSearchIfNeeded, props.onOpenSession],
+  );
+
+  const handleOpenStarterClearingSearch = useCallback(
+    (agentId: string) => {
+      clearSearchIfNeeded();
+      props.onOpenAgentStarter?.(agentId);
+    },
+    [clearSearchIfNeeded, props.onOpenAgentStarter],
+  );
+
+  const handleOpenDraftClearingSearch = useCallback(
+    (sessionId: string) => {
+      clearSearchIfNeeded();
+      props.onOpenDraftAgent?.(sessionId);
+    },
+    [clearSearchIfNeeded, props.onOpenDraftAgent],
+  );
+
   return (
     <aside
       className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-dls-sidebar px-2.5 pb-5 mac:bg-dls-sidebar mac:titlebar-no-drag"
@@ -1262,8 +1297,18 @@ export function AgentConversationPanel(props: {
         selectedSessionId={props.selectedSessionId}
         automationActive={props.automationActive}
         onQueryChange={props.onQueryChange}
-        onOpenAgents={props.onOpenAgents}
-        onCreateExpert={props.onCreateExpert}
+        onOpenAgents={() => {
+          clearSearchIfNeeded();
+          props.onOpenAgents();
+        }}
+        onCreateExpert={
+          props.onCreateExpert
+            ? () => {
+                clearSearchIfNeeded();
+                props.onCreateExpert?.();
+              }
+            : undefined
+        }
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
         onOpenAutomation={props.onOpenAutomation}
@@ -1291,7 +1336,7 @@ export function AgentConversationPanel(props: {
             expandedAutomationDirectories={expandedAutomationDirectories}
             onExpandedDirectoriesChange={setExpandedAssistantDirectories}
             onExpandedAutomationDirectoriesChange={setExpandedAutomationDirectories}
-            onOpenSession={props.onOpenSession}
+            onOpenSession={handleOpenSessionClearingSearch}
             onPrefetchSession={props.onPrefetchSession}
             onTogglePinned={toggleAssistantPinnedSession}
             onToggleFolderPinned={toggleAssistantPinnedFolder}
@@ -1319,9 +1364,9 @@ export function AgentConversationPanel(props: {
             selectedAgentId={props.selectedAgentId}
             sessionStatusById={props.sessionStatusById}
             taskStatusVariant={props.taskStatusVariant}
-            onOpenSession={props.onOpenSession}
-            onOpenDraftSession={props.onOpenDraftAgent}
-            onOpenStarter={props.onOpenAgentStarter}
+            onOpenSession={handleOpenSessionClearingSearch}
+            onOpenDraftSession={handleOpenDraftClearingSearch}
+            onOpenStarter={handleOpenStarterClearingSearch}
             onPrefetchSession={props.onPrefetchSession}
             onDeleteExpert={props.onDeleteExpert}
           />
