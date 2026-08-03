@@ -7,6 +7,7 @@ import {
   Brain,
   Camera,
   ChartNoAxesCombined,
+  Building2,
   CloudCog,
   Cog,
   FolderLock,
@@ -65,6 +66,8 @@ export function getSettingsTabIcon(tab: SettingsTab) {
       return FolderLock;
     case "system":
       return MonitorSmartphone;
+    case "company":
+      return Building2;
     case "shortcuts":
       return Keyboard;
     case "app-snapshot":
@@ -104,6 +107,8 @@ export function getSettingsTabLabel(tab: SettingsTab) {
       return t("settings.permissions");
     case "system":
       return t("settings.tab_system");
+    case "company":
+      return t("settings.tab_company");
     case "shortcuts":
       return t("settings.tab_shortcuts");
     case "app-snapshot":
@@ -145,6 +150,8 @@ export function getSettingsTabDescription(tab: SettingsTab) {
       return t("settings.permissions_card_description");
     case "system":
       return t("settings.tab_description_system");
+    case "company":
+      return t("settings.tab_description_company");
     case "shortcuts":
       return t("settings.tab_description_shortcuts");
     case "app-snapshot":
@@ -207,6 +214,7 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
   const tabs: SettingsTab[] = [
     "system",
+    "company",
     "shortcuts",
     "environment",
     "updates",
