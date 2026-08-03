@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Blocks,
+  BookOpenCheck,
   ChevronsLeft,
   ChevronDown,
   ChevronRight,
@@ -585,9 +585,19 @@ function SkillPickerPopover(props: {
 
 function SkillsEmptyIllustration() {
   return (
-    <div className="relative flex size-20 items-center justify-center text-dls-secondary" aria-hidden="true">
-      <Blocks className="size-16" strokeWidth={1.2} />
-      <Sparkles className="absolute right-0 top-0 size-5" strokeWidth={1.4} />
+    <div className="relative flex size-20 items-center justify-center" aria-hidden="true">
+      <IconTile size="2xl" tone="softAccent" shape="xl" border>
+        <BookOpenCheck className="size-8" strokeWidth={1.5} />
+      </IconTile>
+      <IconTile
+        size="sm"
+        tone="accent"
+        shape="circle"
+        border
+        className="absolute right-0 top-0 text-dls-accent"
+      >
+        <Plus className="size-4" strokeWidth={2} />
+      </IconTile>
     </div>
   );
 }
