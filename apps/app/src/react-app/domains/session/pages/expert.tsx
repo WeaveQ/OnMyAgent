@@ -2,15 +2,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ChevronDown,
-  ChevronUp,
-  PanelRight,
-  Plus,
-  Search,
-  X,
-  Zap,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, PanelRight, Plus, Search, X, Zap } from "lucide-react";
 import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
@@ -46,25 +38,21 @@ import {
 
 import type { SessionPageProps } from "./session-page-types";
 
-import type { AgentCardItem } from "../../agents";
 import {
+  type AgentCardItem,
+  type AgentRegistry,
   buildAgentToolAccess,
   buildAgentSystemPrompt,
+  friendlyModelNameToModelRef,
+  isExpertSession,
+  isValidSdkModelRef,
   type PendingAgentContext,
-  usePendingAgentStore,
-} from "../../agents";
-import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
-  useAgentRegistryStore,
-} from "../../agents";
-import { isExpertSession } from "../../agents";
-import {
-  friendlyModelNameToModelRef,
-  isValidSdkModelRef,
   resolveAgentAvatarUrl,
+  useAgentRegistryStore,
+  usePendingAgentStore,
 } from "../../agents";
-import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
@@ -802,14 +790,14 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const { openExpertCreation, closeExpertCreation, expertCreationPage } = useSessionExpertCreation({
+  const {
+    openExpertCreation,
+    closeExpertCreation,
+    closeExpertCreationThen,
+    expertCreationPage,
+  } = useSessionExpertCreation({
+    props,
     registry,
-    workspaceId: props.selectedWorkspaceId,
-    workspaceRoot: props.selectedWorkspaceRoot,
-    opencodeBaseUrl: props.opencodeBaseUrl ?? null,
-    onmyagentServerToken: props.onmyagentServerToken ?? null,
-    client: props.onmyagentServerClient,
-    surface: props.surface,
     showToast,
   });
   const seedChatDraft = useCallback(
@@ -1269,23 +1257,11 @@ export function ExpertPage(props: ExpertPageProps) {
             openRailView(view);
             if (view === "chat") setAgentPanelCollapsed(false);
           }}
-          onOpenAccountSettings={() => {
-            closeExpertCreation();
-            props.onOpenAccountSettings?.();
-          }}
-          onOpenProfile={() => {
-            closeExpertCreation();
-            props.onOpenProfile?.();
-          }}
+          onOpenAccountSettings={closeExpertCreationThen(props.onOpenAccountSettings)}
+          onOpenProfile={closeExpertCreationThen(props.onOpenProfile)}
           onSignOut={props.onSignOut}
-          onOpenDevices={() => {
-            closeExpertCreation();
-            openRailView("devices");
-          }}
-          onOpenBilling={() => {
-            closeExpertCreation();
-            openRailView("billing");
-          }}
+          onOpenDevices={closeExpertCreationThen(() => openRailView("devices"))}
+          onOpenBilling={closeExpertCreationThen(() => openRailView("billing"))}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
