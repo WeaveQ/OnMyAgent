@@ -55,6 +55,19 @@ describe("expert creation coach model", () => {
     })).toBeNull();
   });
 
+  test("does not accept a runtime role prompt as expert memory", () => {
+    expect(parseExpertCoachTurnResult({
+      reply: "I prepared a version.",
+      proposal: {
+        name: "Decision partner",
+        description: "Compares options.",
+        rolePrompt: completeRolePrompt,
+        memory: completeRolePrompt,
+        skillIds: [],
+      },
+    })).toBeNull();
+  });
+
   test("rejects malformed structured output", () => {
     expect(parseExpertCoachTurnResult({ reply: "Ready", proposal: {} })).toBeNull();
     expect(parseExpertCoachTurnResult({ reply: 1, proposal: null })).toBeNull();
