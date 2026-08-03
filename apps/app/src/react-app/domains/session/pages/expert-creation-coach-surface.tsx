@@ -31,6 +31,7 @@ import {
   type ExpertDraftSuggestionApplyMode,
   type ExpertDraftSuggestionField,
   EXPERT_CREATION_COACH_AVATAR_PATH,
+  registerExpertCreationEphemeralSession,
 } from "../../agents";
 
 export type ExpertCreationCoachSurfaceProps = {
@@ -43,6 +44,8 @@ export type ExpertCreationCoachSurfaceProps = {
   registry: AgentRegistry;
   draft: AgentWizardDraft;
   selectedModel: ModelRef | null;
+  initialSessionId: string | null;
+  onSessionIdChange: (sessionId: string) => void;
   onApplyDraftSuggestion: (
     suggestion: ExpertDraftSuggestion,
     options: ExpertCreationSuggestionApplyOptions,
@@ -100,8 +103,11 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
     () => `draft:expert-creation-coach:${props.workspaceId}`,
     [props.workspaceId],
   );
-  const [sessionId, setSessionId] = useState(draftSessionId);
-  const [draftOnly, setDraftOnly] = useState(true);
+  const restoredSessionId = props.initialSessionId?.trim() ?? "";
+  const [sessionId, setSessionId] = useState(
+    restoredSessionId || draftSessionId,
+  );
+  const [draftOnly, setDraftOnly] = useState(!restoredSessionId);
   const [pendingSuggestion, setPendingSuggestion] = useState<{
     messageId: string;
     suggestion: ExpertDraftSuggestion;
@@ -118,6 +124,11 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
   const agentContext = useMemo(() => {
     return buildExpertCreationCoachPendingContext(props.registry, props.draft);
   }, [props.registry, props.draft]);
+
+  useEffect(() => {
+    if (!restoredSessionId) return;
+    registerExpertCreationEphemeralSession(restoredSessionId);
+  }, [restoredSessionId]);
 
   const ingestAssistantText = useCallback(
     (messageId: string, content: string) => {
@@ -145,6 +156,8 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           }),
         ).id;
         createdSession = true;
+        registerExpertCreationEphemeralSession(activeSessionId);
+        props.onSessionIdChange(activeSessionId);
         setSessionId(activeSessionId);
         setDraftOnly(false);
         sessionIdRef.current = activeSessionId;
@@ -236,6 +249,7 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       ingestAssistantText,
       props.opencodeBaseUrl,
       props.onmyagentToken,
+      props.onSessionIdChange,
       props.selectedModel,
       props.surface.model.selectedModel,
       props.workspaceId,

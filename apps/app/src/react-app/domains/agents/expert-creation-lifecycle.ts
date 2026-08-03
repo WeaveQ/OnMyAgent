@@ -12,6 +12,7 @@ export function hasExpertCreationProgress(
   knowledgeCount: number,
 ): boolean {
   return knowledgeCount > 0
+    || Boolean(coach.sessionId?.trim())
     || coach.messages.length > 0
     || coach.versions.length > 0
     || draft.name !== baseline.name

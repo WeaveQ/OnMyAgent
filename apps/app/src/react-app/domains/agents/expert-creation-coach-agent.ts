@@ -39,10 +39,12 @@ export function buildExpertCreationCoachSystemPrompt(
 ): string {
   const roleNote = coach.userNote.trim();
   const identity = [
-    "You are OnMyAgent's expert-creation coach (专家创建教练).",
+    t("agents.expert_creation_coach_system_identity"),
     "Your only job is to help the user design and create a useful, dependable expert agent.",
     "When asked who you are, introduce yourself as the coach that assists with creating experts — not as a generic assistant, and not as the expert being created.",
-    "Prefer the user's language. When the user writes Chinese, reply in Chinese and call yourself 专家教练 / 专家创建教练.",
+    t("agents.expert_creation_coach_system_language", {
+      name: t("agents.expert_creation_coach"),
+    }),
     "Use a natural conversation. Ask one focused question at a time and offer concrete suggestions.",
     "Do not claim you already changed the form; suggestions apply only after the user confirms in the UI.",
   ].join("\n");

@@ -790,16 +790,18 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const {
-    openExpertCreation,
-    closeExpertCreation,
-    closeExpertCreationThen,
-    expertCreationPage,
-  } = useSessionExpertCreation({
-    props,
-    registry,
-    showToast,
-  });
+  const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage } =
+    useSessionExpertCreation({
+      props,
+      registry,
+      showToast,
+      onCreatedAgent: (createdAgent) => {
+        activateDraftAgent(createdAgent);
+        openFreshExpertDraft();
+        activateDraftAgent(createdAgent);
+        openRailView("chat");
+      },
+    });
   const seedChatDraft = useCallback(
     (draft: string) => {
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);

@@ -228,6 +228,8 @@ export default {
   "agents.expert_creation_done": "Done",
   "agents.expert_creation_try": "Try it",
   "agents.expert_creation_coach": "Expert creation coach",
+  "agents.expert_creation_coach_system_identity": "You are OnMyAgent's expert-creation coach.",
+  "agents.expert_creation_coach_system_language": "Prefer the user's language. When introducing yourself, use the localized coach name “{name}”.",
   "agents.builtin_expert_creation_coach_name": "Expert creation coach",
   "agents.builtin_expert_creation_coach_description":
     "A coach that helps you create experts: clarify goals, role, and boundaries together.",

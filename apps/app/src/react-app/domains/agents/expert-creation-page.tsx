@@ -99,6 +99,7 @@ import {
   mergeExpertDraftSuggestion,
   type ExpertDraftSuggestion,
 } from "./expert-creation-suggestions";
+import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -131,6 +132,8 @@ export type ExpertCreationPageProps = {
   renderCoachPanel?: (input: {
     draft: AgentWizardDraft;
     registry: AgentRegistry;
+    initialSessionId: string | null;
+    onSessionIdChange: (sessionId: string) => void;
     onApplyDraftSuggestion: (
       suggestion: ExpertDraftSuggestion,
       options: ExpertCreationSuggestionApplyOptions,
@@ -154,6 +157,7 @@ export type ExpertCreationPageProps = {
     knowledge: ExpertKnowledgeEntry[],
     availableSkills: AgentSkillItem[],
     draftId: string,
+    coachSessionId: string | null,
   ) => Promise<void>;
 };
 
@@ -266,6 +270,8 @@ function ExpertCoach(props: {
   selectedModel: ModelRef | null;
   renderCoachPanel?: ExpertCreationPageProps["renderCoachPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
+  initialSessionId: string | null;
+  onSessionIdChange: (sessionId: string) => void;
   onApplyDraftSuggestion: (
     suggestion: ExpertDraftSuggestion,
     options: ExpertCreationSuggestionApplyOptions,
@@ -293,6 +299,8 @@ function ExpertCoach(props: {
         {props.renderCoachPanel({
           draft: props.draft,
           registry: props.registry,
+          initialSessionId: props.initialSessionId,
+          onSessionIdChange: props.onSessionIdChange,
           onApplyDraftSuggestion: props.onApplyDraftSuggestion,
         })}
       </>
@@ -1218,6 +1226,12 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     buildInitialDraft(props.registry, props.skills),
   ));
   const [draft, setDraft] = useState(storedInitialState.draft);
+  const [initialRetainedCoachSessionId] = useState(
+    storedInitialState.coach.sessionId,
+  );
+  const [coachSessionId, setCoachSessionId] = useState(
+    storedInitialState.coach.sessionId,
+  );
   const [availableSkills, setAvailableSkills] = useState(() =>
     props.skills.filter((skill) => skill.enabled),
   );
@@ -1236,9 +1250,12 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   useEffect(() => {
     writeExpertCreationStoredState(props.workspaceId, {
       draft,
-      coach: EMPTY_EXPERT_COACH_STATE,
+      coach: {
+        ...EMPTY_EXPERT_COACH_STATE,
+        sessionId: initialRetainedCoachSessionId,
+      },
     });
-  }, [draft, props.workspaceId]);
+  }, [draft, initialRetainedCoachSessionId, props.workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1407,7 +1424,13 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      await props.onDone(draft, knowledge, availableSkills, draftPackageId);
+      await props.onDone(
+        draft,
+        knowledge,
+        availableSkills,
+        draftPackageId,
+        coachSessionId,
+      );
       clearExpertCreationStoredState(props.workspaceId);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_create_failed"));
@@ -1421,7 +1444,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     if (hasExpertCreationProgress(
       draft,
       baselineDraft,
-      EMPTY_EXPERT_COACH_STATE,
+      { ...EMPTY_EXPERT_COACH_STATE, sessionId: coachSessionId },
       knowledge.length,
     )) {
       setExitDialogOpen(true);
@@ -1434,6 +1457,16 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     clearExpertCreationStoredState(props.workspaceId);
     if (isElectronRuntime()) {
       void stageMyExpertKnowledge({ draftId: draftPackageId, discard: true });
+    }
+    if (coachSessionId && props.client) {
+      void deleteExpertCreationEphemeralSession({
+        client: props.client,
+        workspaceId: props.workspaceId,
+        workspaceRoot: props.workspaceRoot,
+        sessionId: coachSessionId,
+      }).catch((error) => {
+        console.warn("[expert-creation] failed to delete discarded coach session", error);
+      });
     }
     setExitDialogOpen(false);
     props.onClose();
@@ -1473,6 +1506,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             selectedModel={props.selectedModel}
             renderCoachPanel={props.renderCoachPanel}
             renderComposer={props.renderComposer}
+            initialSessionId={coachSessionId}
+            onSessionIdChange={setCoachSessionId}
             onApplyDraftSuggestion={(suggestion, options) => {
               let appliedCount = 0;
               setDraft((current) => {
@@ -1607,6 +1642,13 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         hasKnowledge={knowledge.length > 0}
         onContinue={() => setExitDialogOpen(false)}
         onKeepAndExit={() => {
+          writeExpertCreationStoredState(props.workspaceId, {
+            draft,
+            coach: {
+              ...EMPTY_EXPERT_COACH_STATE,
+              sessionId: coachSessionId,
+            },
+          });
           setExitDialogOpen(false);
           props.onClose();
         }}

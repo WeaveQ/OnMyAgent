@@ -13,6 +13,7 @@ import {
   type ExpertCreationControllerInput,
   type ExpertCreationSuggestionApplyOptions,
   type ExpertDraftSuggestion,
+  type PendingAgentContext,
   useExpertCreationController,
 } from "../../agents";
 import type { ReactNode } from "react";
@@ -21,6 +22,7 @@ type SessionExpertCreationInput = {
   props: SessionPageProps;
   registry: AgentRegistry | null;
   showToast: ExpertCreationControllerInput["showToast"];
+  onCreatedAgent: (agent: PendingAgentContext) => void;
 };
 
 export function useSessionExpertCreation(input: SessionExpertCreationInput) {
@@ -91,6 +93,8 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     (coach: {
       draft: AgentWizardDraft;
       registry: AgentRegistry;
+      initialSessionId: string | null;
+      onSessionIdChange: (sessionId: string) => void;
       onApplyDraftSuggestion: (
         suggestion: ExpertDraftSuggestion,
         options: ExpertCreationSuggestionApplyOptions,
@@ -113,6 +117,8 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           registry={coach.registry}
           draft={coach.draft}
           selectedModel={surface.model.selectedModel}
+          initialSessionId={coach.initialSessionId}
+          onSessionIdChange={coach.onSessionIdChange}
           onApplyDraftSuggestion={coach.onApplyDraftSuggestion}
         />
       );
@@ -168,6 +174,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     renderPreviewPanel,
     renderComposer,
     showToast: input.showToast,
+    onCreatedAgent: input.onCreatedAgent,
   });
   const closeExpertCreationThen = useCallback(
     (next?: () => void) => () => {
