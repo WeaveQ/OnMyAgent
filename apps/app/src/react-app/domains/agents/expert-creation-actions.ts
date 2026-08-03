@@ -210,6 +210,7 @@ export function useExpertCreationController(
         skills: input.skills,
         selectedModel: input.selectedModel,
         renderComposer: input.renderComposer,
+        showToast: input.showToast,
         onClose: closeCreation,
         onDone: handleDone,
       })
