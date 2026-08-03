@@ -38,5 +38,6 @@ describe("expert creation coach quality contract", () => {
     expect(instructions).toContain("one focused question");
     expect(instructions).toContain("seven");
     expect(instructions).toContain("skill IDs");
+    expect(instructions).toContain("same proposal");
   });
 });

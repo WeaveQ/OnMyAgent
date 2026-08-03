@@ -12,7 +12,6 @@ import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
 import {
   expertDraftSuggestionFingerprint,
   expertDraftSuggestionNeedsSync,
-  expertDraftSuggestionPendingKeys,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
   type ExpertDraftSuggestion,
@@ -218,7 +217,7 @@ export function ExpertCreationConversation(
       dismissedSuggestionKey !== latestSuggestionKey &&
       autoFilledSuggestionKey === latestSuggestionKey &&
       latestPartition &&
-      expertDraftSuggestionPendingKeys(latestPartition).length > 0,
+      latestPartition.conflictKeys.length > 0,
   );
 
   const removeAttachment = (id: string) => {
@@ -410,18 +409,12 @@ export function ExpertCreationConversation(
       {showSuggestionBar && latestSuggestion && latestPartition ? (
         <div className="mt-3 shrink-0 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-3">
           <p className="text-sm font-medium text-dls-text">
-            {latestPartition.confirmationKeys.length > 0
-              ? t("agents.expert_creation_suggestion_bar_confirmation")
-              : t("agents.expert_creation_suggestion_bar_conflict")}
+            {t("agents.expert_creation_suggestion_bar_conflict")}
           </p>
           <p className="mt-1 text-xs leading-5 text-dls-secondary">
-            {latestPartition.confirmationKeys.length > 0
-              ? t("agents.expert_creation_suggestion_bar_confirmation_detail", {
-                  fields: formatSuggestionFields(expertDraftSuggestionPendingKeys(latestPartition)),
-                })
-              : t("agents.expert_creation_suggestion_bar_conflict_detail", {
-                  fields: formatSuggestionFields(latestPartition.conflictKeys),
-                })}
+            {t("agents.expert_creation_suggestion_bar_conflict_detail", {
+              fields: formatSuggestionFields(latestPartition.conflictKeys),
+            })}
           </p>
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button

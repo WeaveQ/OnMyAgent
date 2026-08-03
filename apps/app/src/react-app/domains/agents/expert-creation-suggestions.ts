@@ -21,11 +21,9 @@ export const EXPERT_DRAFT_SUGGESTION_FIELDS = [
 
 export type ExpertDraftSuggestionPartition = {
   emptyFill: ExpertDraftSuggestion;
-  confirmation: ExpertDraftSuggestion;
   conflicts: ExpertDraftSuggestion;
   matches: ExpertDraftSuggestion;
   emptyFillKeys: ExpertDraftSuggestionField[];
-  confirmationKeys: ExpertDraftSuggestionField[];
   conflictKeys: ExpertDraftSuggestionField[];
   matchKeys: ExpertDraftSuggestionField[];
 };
@@ -183,11 +181,9 @@ export function partitionExpertDraftSuggestion(
   suggestion: ExpertDraftSuggestion,
 ): ExpertDraftSuggestionPartition {
   const emptyFill: ExpertDraftSuggestion = {};
-  const confirmation: ExpertDraftSuggestion = {};
   const conflicts: ExpertDraftSuggestion = {};
   const matches: ExpertDraftSuggestion = {};
   const emptyFillKeys: ExpertDraftSuggestionField[] = [];
-  const confirmationKeys: ExpertDraftSuggestionField[] = [];
   const conflictKeys: ExpertDraftSuggestionField[] = [];
   const matchKeys: ExpertDraftSuggestionField[] = [];
 
@@ -196,11 +192,6 @@ export function partitionExpertDraftSuggestion(
     if (!next) continue;
     const current = readDraftField(draft, field);
     if (!current) {
-      if (field === "agentMemory") {
-        confirmation[field] = next;
-        confirmationKeys.push(field);
-        continue;
-      }
       emptyFill[field] = next;
       emptyFillKeys.push(field);
       continue;
@@ -216,11 +207,9 @@ export function partitionExpertDraftSuggestion(
 
   return {
     emptyFill,
-    confirmation,
     conflicts,
     matches,
     emptyFillKeys,
-    confirmationKeys,
     conflictKeys,
     matchKeys,
   };
@@ -234,11 +223,11 @@ export function mergeExpertDraftSuggestion(
   const partition = partitionExpertDraftSuggestion(draft, suggestion);
   const patch =
     mode === "force"
-      ? { ...partition.emptyFill, ...partition.confirmation, ...partition.conflicts }
+      ? { ...partition.emptyFill, ...partition.conflicts }
       : partition.emptyFill;
   const appliedKeys =
     mode === "force"
-      ? [...partition.emptyFillKeys, ...partition.confirmationKeys, ...partition.conflictKeys]
+      ? [...partition.emptyFillKeys, ...partition.conflictKeys]
       : partition.emptyFillKeys;
   if (appliedKeys.length === 0) {
     return { draft, appliedKeys };
@@ -252,13 +241,5 @@ export function mergeExpertDraftSuggestion(
 export function expertDraftSuggestionNeedsSync(
   partition: ExpertDraftSuggestionPartition,
 ): boolean {
-  return partition.emptyFillKeys.length > 0
-    || partition.confirmationKeys.length > 0
-    || partition.conflictKeys.length > 0;
-}
-
-export function expertDraftSuggestionPendingKeys(
-  partition: ExpertDraftSuggestionPartition,
-): ExpertDraftSuggestionField[] {
-  return [...partition.confirmationKeys, ...partition.conflictKeys];
+  return partition.emptyFillKeys.length > 0 || partition.conflictKeys.length > 0;
 }
