@@ -1679,17 +1679,19 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             initialSessionId={coachSessionId}
             onSessionIdChange={setCoachSessionId}
             onApplyDraftSuggestion={(suggestion, options) => {
-              let appliedCount = 0;
+              const merged = mergeExpertDraftSuggestion(
+                draft,
+                suggestion,
+                options.mode,
+              );
+              if (merged.appliedKeys.length === 0) return;
               setDraft((current) => {
-                const merged = mergeExpertDraftSuggestion(
+                return mergeExpertDraftSuggestion(
                   current,
                   suggestion,
                   options.mode,
-                );
-                appliedCount = merged.appliedKeys.length;
-                return merged.draft;
+                ).draft;
               });
-              if (appliedCount <= 0) return;
               setActiveTab("basic");
               props.showToast?.({
                 title:
