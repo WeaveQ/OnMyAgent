@@ -189,6 +189,8 @@ const TABS: Array<{ id: ExpertCreationTab; label: string }> = EXPERT_CREATION_VI
   label: `agents.expert_creation_${id}`,
 }));
 
+const EXPERT_FORM_FIELD_CLASS = "text-sm placeholder:text-dls-secondary/70";
+
 function buildInitialDraft(registry: AgentRegistry | null, skills: AgentSkillItem[]) {
   const source = registry ?? createDefaultAgentRegistry();
   const blank = createBlankWizardDraft(source, skills);
@@ -380,7 +382,10 @@ function PromptEditor(props: {
         placeholder={props.placeholder}
         aria-label={props.ariaLabel}
         controlSize="editor"
-        className="min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0"
+        className={cn(
+          "min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0",
+          EXPERT_FORM_FIELD_CLASS,
+        )}
       />
     </div>
   );
@@ -447,14 +452,14 @@ function BasicInfoPanel(props: {
               variant="dls"
               controlSize="lg"
               radius="xl"
-              className="border-0 shadow-none"
+              className={cn("border-0 shadow-none", EXPERT_FORM_FIELD_CLASS)}
               aria-label={t("agents.name")}
             />
             <Textarea
               value={props.draft.description}
               onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
               placeholder={t("agents.expert_creation_intro_placeholder")}
-              className="min-h-20 border-0 shadow-none"
+              className={cn("min-h-20 border-0 shadow-none", EXPERT_FORM_FIELD_CLASS)}
               aria-label={t("agents.expert_creation_intro")}
             />
           </div>
