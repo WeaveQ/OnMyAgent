@@ -33,3 +33,13 @@ export function buildExpertPreviewDraftKey(draft: AgentWizardDraft): string {
     skillIds: [...draft.skillIds].sort(),
   });
 }
+
+export function isExpertCreationPreviewReady(
+  draft: AgentWizardDraft,
+): boolean {
+  return Boolean(
+    draft.name.trim()
+      && draft.description.trim()
+      && draft.userNote.trim(),
+  );
+}

@@ -116,6 +116,8 @@ export type SessionSurfaceProps = {
   draftWorkspace: SessionSurfaceDraftWorkspaceBag;
   onSendDraft: (draft: ComposerDraft) => void;
   onDraftChange: (draft: ComposerDraft) => void;
+  /** Host-level readiness gate independent from provider/model availability. */
+  composerDisabled?: boolean;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   agentLabel: string;

@@ -22,6 +22,7 @@ import {
   buildExpertCreationPreviewToolAccess,
   buildExpertPreviewSystemPrompt,
   deleteExpertCreationEphemeralSession,
+  isExpertCreationPreviewReady,
   registerExpertCreationEphemeralSession,
 } from "../../agents";
 
@@ -104,11 +105,11 @@ export function ExpertCreationPreviewSurface(
     [props.draft, props.knowledgePaths, props.registry],
   );
 
-  const canChat = props.draft.name.trim().length > 0;
+  const previewReady = isExpertCreationPreviewReady(props.draft);
 
   const onSendDraft = useCallback(
     async (composerDraft: ComposerDraft) => {
-      if (!props.opencodeBaseUrl.trim() || !canChat) return;
+      if (!props.opencodeBaseUrl.trim() || !previewReady) return;
 
       const opencode = createClient(
         props.opencodeBaseUrl,
@@ -195,7 +196,7 @@ export function ExpertCreationPreviewSurface(
       }
     },
     [
-      canChat,
+      previewReady,
       draftOnly,
       props.opencodeBaseUrl,
       props.onmyagentToken,
@@ -244,17 +245,14 @@ export function ExpertCreationPreviewSurface(
         conversationTabs={null}
         onSendDraft={onSendDraft}
         onDraftChange={onDraftChange}
+        composerDisabled={!previewReady}
         personalAssistantHome={false}
         surfaceVisible
-        model={{
-          ...buildIsolatedExpertCreationModel(
-            props.surface.model,
-            modelPickerOpen,
-            setModelPickerOpen,
-          ),
-          modelUnavailable:
-            props.surface.model.modelUnavailable === true || !canChat,
-        }}
+        model={buildIsolatedExpertCreationModel(
+          props.surface.model,
+          modelPickerOpen,
+          setModelPickerOpen,
+        )}
       />
     </div>
   );

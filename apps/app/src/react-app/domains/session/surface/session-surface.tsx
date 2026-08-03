@@ -958,6 +958,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onDraftChange={handleComposerDraftChange}
       onSend={handleSend}
       onStop={handleAbort}
+      composerDisabled={Boolean(props.composerDisabled)}
       modelUnavailable={Boolean(props.modelUnavailable)}
       effectiveAccessMode={effectiveAccessMode}
       onAccessModeChange={updateAccessMode}

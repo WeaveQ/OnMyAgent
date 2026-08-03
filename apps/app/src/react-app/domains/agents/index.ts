@@ -33,6 +33,7 @@ export {
   buildExpertCreationPreviewToolAccess,
 } from "./expert-creation-preview-agent";
 export { buildExpertPreviewSystemPrompt } from "./expert-creation-preview-runtime";
+export { isExpertCreationPreviewReady } from "./expert-creation-lifecycle";
 export { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 export {
   expertDraftSuggestionFingerprint,
