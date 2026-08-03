@@ -5,6 +5,7 @@ import { t } from "../../../../i18n";
 import { ReactSessionComposer } from "../surface/composer/composer";
 import type { SessionPageProps } from "./session-page-types";
 import { ExpertCreationCoachSurface } from "./expert-creation-coach-surface";
+import { ExpertCreationPreviewSurface } from "./expert-creation-preview-surface";
 import {
   type AgentRegistry,
   type AgentWizardDraft,
@@ -14,6 +15,7 @@ import {
   type ExpertDraftSuggestion,
   useExpertCreationController,
 } from "../../agents";
+import type { ReactNode } from "react";
 
 type SessionExpertCreationInput = {
   props: SessionPageProps;
@@ -118,6 +120,41 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     [input.props],
   );
 
+  const renderPreviewPanel = useCallback(
+    (preview: {
+      draft: AgentWizardDraft;
+      registry: AgentRegistry;
+      knowledgePaths: readonly string[];
+      sessionKey: string;
+      emptyContent: ReactNode;
+    }) => {
+      const surface = input.props.surface;
+      const client = input.props.onmyagentServerClient;
+      const baseUrl = input.props.opencodeBaseUrl;
+      if (!surface || !client || !baseUrl?.trim()) {
+        return null;
+      }
+      return (
+        <ExpertCreationPreviewSurface
+          key={preview.sessionKey}
+          surface={surface}
+          client={client}
+          workspaceId={input.props.selectedWorkspaceId}
+          workspaceRoot={input.props.selectedWorkspaceRoot}
+          opencodeBaseUrl={baseUrl}
+          onmyagentToken={input.props.onmyagentServerToken ?? ""}
+          registry={preview.registry}
+          draft={preview.draft}
+          knowledgePaths={preview.knowledgePaths}
+          selectedModel={surface.model.selectedModel}
+          sessionKey={preview.sessionKey}
+          emptyContent={preview.emptyContent}
+        />
+      );
+    },
+    [input.props],
+  );
+
   const controller = useExpertCreationController({
     registry: input.registry,
     workspaceId: input.props.selectedWorkspaceId,
@@ -128,6 +165,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     skills: input.registry?.skills ?? [],
     selectedModel: input.props.surface?.model.selectedModel ?? null,
     renderCoachPanel,
+    renderPreviewPanel,
     renderComposer,
     showToast: input.showToast,
   });

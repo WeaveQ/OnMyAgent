@@ -136,6 +136,17 @@ export type ExpertCreationPageProps = {
       options: ExpertCreationSuggestionApplyOptions,
     ) => void;
   }) => ReactNode;
+  /**
+   * Optional host-owned "try draft expert" panel (SessionSurface embed).
+   * When omitted, falls back to ExpertCreationConversation preview.
+   */
+  renderPreviewPanel?: (input: {
+    draft: AgentWizardDraft;
+    registry: AgentRegistry;
+    knowledgePaths: readonly string[];
+    sessionKey: string;
+    emptyContent: ReactNode;
+  }) => ReactNode;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onClose: () => void;
   onDone: (
@@ -1130,11 +1141,26 @@ function TryEffectPanel(props: {
   opencodeBaseUrl: string | null;
   onmyagentServerToken: string | null;
   selectedModel: ModelRef | null;
+  renderPreviewPanel?: ExpertCreationPageProps["renderPreviewPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onClose: () => void;
 }) {
   const [sessionVersion, setSessionVersion] = useState(0);
   const draftKey = buildExpertPreviewDraftKey(props.draft);
+  const sessionKey = `${draftKey}:${sessionVersion}`;
+  const knowledgePaths = props.knowledge
+    .filter((entry) => entry.kind === "file" && entry.stagedPath)
+    .map((entry) => entry.stagedPath ?? "");
+  const emptyContent = (
+    <div className="flex min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
+      <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
+      <span className="mt-4 max-w-44">
+        {props.draft.name.trim()
+          ? t("agents.expert_creation_preview_ready")
+          : t("agents.expert_creation_preview_empty")}
+      </span>
+    </div>
+  );
 
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface">
@@ -1149,35 +1175,36 @@ function TryEffectPanel(props: {
           <Plus className="size-5" aria-hidden />
         </Button>
       </div>
-      <ExpertCreationConversation
-        key={`${draftKey}:${sessionVersion}`}
-        draft={props.draft}
-        workspaceRoot={props.workspaceRoot}
-        opencodeBaseUrl={props.opencodeBaseUrl}
-        onmyagentServerToken={props.onmyagentServerToken}
-        selectedModel={props.selectedModel}
-        knowledgePaths={props.knowledge
-          .filter((entry) => entry.kind === "file" && entry.stagedPath)
-          .map((entry) => entry.stagedPath ?? "")}
-        title={props.draft.name || t("agents.expert_creation_preview_title")}
-        avatar={null}
-        emptyContent={(
-          <div className="flex min-h-64 flex-col items-center justify-center text-center text-sm leading-6 text-dls-secondary">
-            <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20" />
-            <span className="mt-4 max-w-44">
-              {props.draft.name.trim()
-                ? t("agents.expert_creation_preview_ready")
-                : t("agents.expert_creation_preview_empty")}
-            </span>
-          </div>
-        )}
-        placeholder={t("agents.expert_creation_preview_placeholder")}
-        emptyMessage={t("agents.expert_creation_preview_failed")}
-        disabled={!props.draft.name.trim()}
-        hideHeader
-        className="p-4"
-        renderComposer={props.renderComposer}
-      />
+      {props.renderPreviewPanel ? (
+        <div className="min-h-0 flex-1 overflow-hidden p-2">
+          {props.renderPreviewPanel({
+            draft: props.draft,
+            registry: props.registry,
+            knowledgePaths,
+            sessionKey,
+            emptyContent,
+          })}
+        </div>
+      ) : (
+        <ExpertCreationConversation
+          key={sessionKey}
+          draft={props.draft}
+          workspaceRoot={props.workspaceRoot}
+          opencodeBaseUrl={props.opencodeBaseUrl}
+          onmyagentServerToken={props.onmyagentServerToken}
+          selectedModel={props.selectedModel}
+          knowledgePaths={knowledgePaths}
+          title={props.draft.name || t("agents.expert_creation_preview_title")}
+          avatar={null}
+          emptyContent={emptyContent}
+          placeholder={t("agents.expert_creation_preview_placeholder")}
+          emptyMessage={t("agents.expert_creation_preview_failed")}
+          disabled={!props.draft.name.trim()}
+          hideHeader
+          className="p-4"
+          renderComposer={props.renderComposer}
+        />
+      )}
     </aside>
   );
 }
@@ -1567,6 +1594,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 opencodeBaseUrl={props.opencodeBaseUrl}
                 onmyagentServerToken={props.onmyagentServerToken}
                 selectedModel={props.selectedModel}
+                renderPreviewPanel={props.renderPreviewPanel}
                 renderComposer={props.renderComposer}
                 onClose={() => setTryOpen(false)}
               />
