@@ -790,7 +790,7 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage } =
+  const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage, editableExpertIds, handleEditExpert } =
     useSessionExpertCreation({
       props,
       registry,
@@ -1290,7 +1290,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   setAgentPanelCollapsed((value) => !value)
                 }
                 onOpenAgents={openExpertMarket}
-                onCreateExpert={openExpertCreation}
+                onCreateExpert={openExpertCreation} onEditExpert={handleEditExpert} editableExpertIds={editableExpertIds}
                 onOpenAgentStarter={handleStartAgentById}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}

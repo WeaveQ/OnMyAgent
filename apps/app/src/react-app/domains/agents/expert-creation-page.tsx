@@ -73,12 +73,14 @@ import {
 import { isElectronRuntime } from "../../../app/utils";
 import type {
   AgentRegistry,
+  AgentRecord,
   AgentSkillItem,
   AgentWizardDraft,
 } from "./agent-registry";
 import {
   createBlankWizardDraft,
   createDefaultAgentRegistry,
+  createWizardDraftFromAgent,
 } from "./agent-registry";
 import { renderAvatar } from "./agents-avatar-rendering";
 import { findSkillMarkdownFile, readSkillMarkdown } from "./skill-package-import";
@@ -142,6 +144,7 @@ export type ExpertCreationPageProps = {
   registry: AgentRegistry | null;
   skills: AgentSkillItem[];
   selectedModel: ModelRef | null;
+  editingAgent?: AgentRecord | null;
   /**
    * Optional host-owned coach panel (SessionSurface embed from session domain).
    * When omitted, falls back to the lightweight ExpertCreationConversation.
@@ -212,7 +215,19 @@ const BUILTIN_MARKETPLACE_SKILL_BY_NAME = new Map(
 
 const EXPERT_FORM_FIELD_CLASS = "text-sm placeholder:text-dls-secondary/70";
 
-function buildInitialDraft(registry: AgentRegistry | null, skills: AgentSkillItem[]) {
+function buildInitialDraft(
+  registry: AgentRegistry | null,
+  skills: AgentSkillItem[],
+  editingAgent?: AgentRecord | null,
+) {
+  if (editingAgent) {
+    const draft = createWizardDraftFromAgent(editingAgent, skills);
+    return {
+      ...draft,
+      // Keep custom/local skill IDs until the async skill scan finishes.
+      skillIds: [...editingAgent.skillIds],
+    };
+  }
   const source = registry ?? createDefaultAgentRegistry();
   const blank = createBlankWizardDraft(source, skills);
   return {
@@ -1328,19 +1343,27 @@ function TryEffectPanel(props: {
 
 export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const sourceRegistry = props.registry ?? createDefaultAgentRegistry();
-  const [baselineDraft] = useState(() => buildInitialDraft(props.registry, props.skills));
+  const [baselineDraft] = useState(() =>
+    buildInitialDraft(props.registry, props.skills, props.editingAgent),
+  );
   const [activeTab, setActiveTab] = useState<ExpertCreationTab>("basic");
   const showModelPicker = activeTab !== "knowledge";
   const [storedInitialState] = useState(() => readExpertCreationStoredState(
     props.workspaceId,
-    buildInitialDraft(props.registry, props.skills),
+    baselineDraft,
   ));
-  const [draft, setDraft] = useState(storedInitialState.draft);
+  const initialState = props.editingAgent
+    ? {
+        draft: baselineDraft,
+        coach: EMPTY_EXPERT_COACH_STATE,
+      }
+    : storedInitialState;
+  const [draft, setDraft] = useState(initialState.draft);
   const [initialRetainedCoachSessionId] = useState(
-    storedInitialState.coach.sessionId,
+    initialState.coach.sessionId,
   );
   const [coachSessionId, setCoachSessionId] = useState(
-    storedInitialState.coach.sessionId,
+    initialState.coach.sessionId,
   );
   const [availableSkills, setAvailableSkills] = useState(() =>
     props.skills.filter((skill) => skill.enabled),
@@ -1359,6 +1382,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (props.editingAgent) return;
     writeExpertCreationStoredState(props.workspaceId, {
       draft,
       coach: {
@@ -1366,7 +1390,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         sessionId: initialRetainedCoachSessionId,
       },
     });
-  }, [draft, initialRetainedCoachSessionId, props.workspaceId]);
+  }, [draft, initialRetainedCoachSessionId, props.editingAgent, props.workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1600,9 +1624,19 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         draftPackageId,
         coachSessionId,
       );
-      clearExpertCreationStoredState(props.workspaceId);
+      if (!props.editingAgent) {
+        clearExpertCreationStoredState(props.workspaceId);
+      }
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : t("agents.expert_creation_create_failed"));
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : t(
+              props.editingAgent
+                ? "agents.expert_creation_update_failed"
+                : "agents.expert_creation_create_failed",
+            ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -1623,11 +1657,13 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   };
 
   const discardAndClose = () => {
-    clearExpertCreationStoredState(props.workspaceId);
-    if (isElectronRuntime()) {
+    if (!props.editingAgent) {
+      clearExpertCreationStoredState(props.workspaceId);
+    }
+    if (!props.editingAgent && isElectronRuntime()) {
       void stageMyExpertKnowledge({ draftId: draftPackageId, discard: true });
     }
-    if (coachSessionId && props.client) {
+    if (!props.editingAgent && coachSessionId && props.client) {
       void deleteExpertCreationEphemeralSession({
         client: props.client,
         workspaceId: props.workspaceId,
@@ -1650,7 +1686,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           <ArrowLeft data-icon="inline-start" className="size-4" />
           {t("agents.expert_creation_back")}
         </Button>
-        <h1 className="text-sm font-semibold text-dls-text">{t("common.create")}</h1>
+        <h1 className="text-sm font-semibold text-dls-text">
+          {props.editingAgent
+            ? t("agents.expert_creation_edit_title")
+            : t("common.create")}
+        </h1>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -1660,7 +1700,13 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             disabled={!draft.name.trim() || submitting}
             onClick={() => void submit()}
           >
-            {submitting ? t("agents.expert_creation_saving") : t("agents.expert_creation_done")}
+            {submitting
+              ? props.editingAgent
+                ? t("agents.expert_creation_updating")
+                : t("agents.expert_creation_saving")
+              : props.editingAgent
+                ? t("agents.expert_creation_update")
+                : t("agents.expert_creation_done")}
           </Button>
         </div>
       </header>

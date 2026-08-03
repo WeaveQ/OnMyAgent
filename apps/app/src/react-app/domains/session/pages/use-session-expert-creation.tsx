@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { t } from "../../../../i18n";
 import { ReactSessionComposer } from "../surface/composer/composer";
@@ -14,6 +14,7 @@ import {
   type ExpertCreationSuggestionApplyOptions,
   type ExpertDraftSuggestion,
   type PendingAgentContext,
+  isCreationExpertEditable,
   useExpertCreationController,
 } from "../../agents";
 import type { ReactNode } from "react";
@@ -181,6 +182,22 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     showToast: input.showToast,
     onCreatedAgent: input.onCreatedAgent,
   });
+  const editableExpertIds = useMemo(
+    () =>
+      new Set(
+        (input.registry?.agents ?? [])
+          .filter(isCreationExpertEditable)
+          .map((agent) => agent.id),
+      ),
+    [input.registry],
+  );
+  const handleEditExpert = useCallback(
+    (agentId: string) => {
+      const agent = input.registry?.agents.find((item) => item.id === agentId);
+      if (agent) controller.openExpertCreationForEdit(agent);
+    },
+    [controller.openExpertCreationForEdit, input.registry],
+  );
   const closeExpertCreationThen = useCallback(
     (next?: () => void) => () => {
       controller.closeExpertCreation();
@@ -188,5 +205,10 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     },
     [controller.closeExpertCreation],
   );
-  return { ...controller, closeExpertCreationThen };
+  return {
+    ...controller,
+    closeExpertCreationThen,
+    editableExpertIds,
+    handleEditExpert,
+  };
 }

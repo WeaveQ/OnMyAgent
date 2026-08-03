@@ -17,10 +17,12 @@ export type {
 export {
   buildExpertCreationPreview,
   saveExpertCreation,
+  updateExpertCreation,
   useExpertCreationController,
   type ExpertCreationControllerInput,
   type SaveExpertCreationInput,
   type SaveExpertCreationResult,
+  type UpdateExpertCreationInput,
 } from "./expert-creation-actions";
 export {
   buildExpertCreationCoachPendingContext,
@@ -95,6 +97,11 @@ export {
 export {
   AGENT_REGISTRY_PATH,
   createAgentRecordFromDraft,
+  createWizardDraftFromAgent,
   serializeAgentRegistry,
   serializeUserAgentRegistry,
 } from "./agent-registry";
+export {
+  isCreationExpertEditable,
+  updateExpertRecordFromDraft,
+} from "./expert-creation-save-model";
