@@ -17,13 +17,6 @@ import { t } from "../../../../i18n";
 // Re-export for callers that imported chrome from this header module.
 export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
 
-/**
- * Expert create CTA under search: filled, borderless so it doesn't stack a
- * second outline against the search field. Geometry still matches sidebar-cta.
- */
-const EXPERT_CREATE_CTA_CLASS =
-  "mac:titlebar-no-drag border-0 bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
-
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
@@ -94,10 +87,10 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
       </InputGroup>
       <Button
         type="button"
-        variant="ghost"
+        variant="default"
         size="sidebar-cta"
         onClick={props.onCreateExpert}
-        className={EXPERT_CREATE_CTA_CLASS}
+        className="mac:titlebar-no-drag"
       >
         <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
         {t("session.create_expert")}
