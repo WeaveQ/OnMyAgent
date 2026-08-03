@@ -828,7 +828,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   seed();
                   window.setTimeout(seed, 0);
                   window.setTimeout(seed, 120);
-                  window.setTimeout(seed, 360);
+                  window.setTimeout(seed, 200);
                   saveSessionDraft(workspaceId, session.id, {
                     text: prompt,
                     mode: "prompt",
