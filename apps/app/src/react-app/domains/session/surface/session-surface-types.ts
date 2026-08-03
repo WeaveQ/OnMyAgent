@@ -22,6 +22,7 @@ export type SessionSurfaceModelBag = {
   modelLabel: string;
   onModelClick: () => void;
   modelPickerOpen: boolean;
+  modelPickerVisible?: boolean;
   modelUnavailable?: boolean;
   selectedModel: ModelRef;
   onModelPickerOpenChange: (open: boolean) => void;
@@ -92,6 +93,16 @@ export type SessionSurfaceProps = {
   connectedProviderIds?: readonly string[] | null;
   draftOnly?: boolean;
   /**
+   * Panel embed (expert-creation coach): hide header/tabs chrome so the
+   * host owns title/avatar. Transcript + composer stay full SessionSurface.
+   */
+  chrome?: "default" | "embedded";
+  /**
+   * Replace the default expert-empty hero (avatar + suggestion chips) when
+   * the session has no messages yet. Used by embedded coach welcome copy.
+   */
+  emptyContent?: ReactNode;
+  /**
    * False while the host keep-alive pane is hidden (other rail pages).
    * Used to persist / restore transcript scroll height across page leaves.
    */
@@ -106,6 +117,8 @@ export type SessionSurfaceProps = {
   draftWorkspace: SessionSurfaceDraftWorkspaceBag;
   onSendDraft: (draft: ComposerDraft) => void;
   onDraftChange: (draft: ComposerDraft) => void;
+  /** Host-level readiness gate independent from provider/model availability. */
+  composerDisabled?: boolean;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
   agentLabel: string;
@@ -210,6 +223,7 @@ export function bagSessionSurfaceProps(
     modelLabel,
     onModelClick,
     modelPickerOpen,
+    modelPickerVisible,
     modelUnavailable,
     selectedModel,
     onModelPickerOpenChange,
@@ -253,6 +267,7 @@ export function bagSessionSurfaceProps(
       modelLabel,
       onModelClick,
       modelPickerOpen,
+      modelPickerVisible,
       modelUnavailable,
       selectedModel,
       onModelPickerOpenChange,

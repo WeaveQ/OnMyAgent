@@ -12,6 +12,7 @@ export function hasExpertCreationProgress(
   knowledgeCount: number,
 ): boolean {
   return knowledgeCount > 0
+    || Boolean(coach.sessionId?.trim())
     || coach.messages.length > 0
     || coach.versions.length > 0
     || draft.name !== baseline.name
@@ -31,4 +32,14 @@ export function buildExpertPreviewDraftKey(draft: AgentWizardDraft): string {
     memory: draft.agentMemory,
     skillIds: [...draft.skillIds].sort(),
   });
+}
+
+export function isExpertCreationPreviewReady(
+  draft: AgentWizardDraft,
+): boolean {
+  return Boolean(
+    draft.name.trim()
+      && draft.description.trim()
+      && draft.userNote.trim(),
+  );
 }

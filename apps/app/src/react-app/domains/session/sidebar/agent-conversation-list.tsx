@@ -35,6 +35,8 @@ type AgentConversationListProps = {
   onOpenDraftSession?: (sessionId: string) => void;
   onOpenStarter?: (agentId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
+  onEditExpert?: (agentId: string) => void;
+  editableExpertIds?: ReadonlySet<string>;
   onDeleteExpert?: (target: {
     agentId: string;
     name: string;
@@ -288,6 +290,11 @@ export function AgentConversationList(props: AgentConversationListProps) {
           onOpenSession={props.onOpenSession}
           onOpenDraftSession={props.onOpenDraftSession}
           onPrefetchSession={props.onPrefetchSession}
+          onEditExpert={
+            props.editableExpertIds?.has(group.agentId ?? "")
+              ? props.onEditExpert
+              : undefined
+          }
           onTogglePinned={togglePinned}
           onMarkUnread={handleMarkUnread}
           onMarkRead={handleMarkRead}

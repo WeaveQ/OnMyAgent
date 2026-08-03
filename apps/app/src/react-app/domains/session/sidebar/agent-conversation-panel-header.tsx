@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { LayoutGrid, Plus, Search, UserPlus } from "lucide-react";
+import { LayoutGrid, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,12 @@ import { t } from "../../../../i18n";
 // Re-export for callers that imported chrome from this header module.
 export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
 
+/**
+ * Expert create CTA under search: slightly deepen the light-theme surface
+ * while keeping the original dark-theme surface unchanged.
+ */
+const EXPERT_CREATE_CTA_CLASS =
+  "mac:titlebar-no-drag border-0 bg-dls-active dark:bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
@@ -56,16 +62,16 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="relative flex w-full shrink-0 items-center gap-1.5 pt-1.5">
+    <div className="relative flex w-full shrink-0 flex-col gap-2 pt-1.5">
       {/*
-        Expert list: search (with marketplace grid) + create as a separate
-        icon button to the right of the field — not inside the input.
+        Expert list: bordered search (field) + borderless filled create (action).
+        Avoids two stacked outlines of the same weight.
       */}
       <InputGroup
         controlSize="lg"
         radius="lg"
         tone="surface"
-        className="min-w-0 flex-1"
+        className="w-full"
       >
         <InputGroupAddon align="inline-start" inset="tight">
           <Search className="size-4" />
@@ -93,15 +99,14 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
       {props.onCreateExpert ? (
         <Button
           type="button"
-          variant="outline"
-          size="icon"
+          variant="ghost"
+          size="sidebar-cta"
           onClick={props.onCreateExpert}
-          className="mac:titlebar-no-drag size-10 shrink-0 rounded-lg border-dls-border text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-          title={t("session.create_expert")}
-          aria-label={t("session.create_expert")}
+          className={EXPERT_CREATE_CTA_CLASS}
           data-expert-create="true"
         >
-          <UserPlus className="size-4" strokeWidth={1.75} aria-hidden />
+          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          {t("session.create_expert")}
         </Button>
       ) : null}
     </div>

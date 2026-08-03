@@ -192,6 +192,10 @@ describe("composer tool menu model", () => {
       open: true,
       query: "obs",
     });
+    expect(matchComposerSlashQuery("Douyin/Kuaishou")).toEqual({
+      open: false,
+      query: "",
+    });
     // Zero-width space after the token should not poison the query.
     expect(matchComposerSlashQuery("/obsidian\u200b")).toEqual({
       open: true,

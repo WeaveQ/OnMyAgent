@@ -3,12 +3,52 @@ import { describe, expect, test } from "bun:test";
 import {
   applyExpertPreviewStreamEvent,
   buildExpertPreviewSystemPrompt,
+  createExpertPreviewAcceptanceGate,
+  createExpertPreviewStreamLifetime,
   createExpertPreviewStreamState,
   readLatestExpertPreviewReply,
 } from "../src/react-app/domains/agents/expert-creation-preview-runtime";
 import { createBlankWizardDraft, createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-registry";
 
 describe("expert creation preview stream", () => {
+  test("acknowledges submission before the assistant turn completes", async () => {
+    const gate = createExpertPreviewAcceptanceGate();
+    let finishTurn = () => {};
+    const turn = new Promise<void>((resolve) => {
+      finishTurn = resolve;
+    });
+    let turnCompleted = false;
+    void turn.then(() => {
+      turnCompleted = true;
+    });
+
+    const submitted = gate.waitForSubmission(turn);
+    gate.accept();
+    await submitted;
+
+    expect(turnCompleted).toBe(false);
+    finishTurn();
+    await turn;
+  });
+
+  test("closes the per-turn event stream when the turn finishes", () => {
+    const lifetime = createExpertPreviewStreamLifetime();
+    expect(lifetime.signal.aborted).toBe(false);
+
+    lifetime.release();
+
+    expect(lifetime.signal.aborted).toBe(true);
+  });
+
+  test("forwards caller cancellation to the per-turn event stream", () => {
+    const caller = new AbortController();
+    const lifetime = createExpertPreviewStreamLifetime(caller.signal);
+
+    caller.abort();
+
+    expect(lifetime.signal.aborted).toBe(true);
+  });
+
   test("recovers the latest assistant reply from the completed transcript", () => {
     expect(readLatestExpertPreviewReply([
       {

@@ -1,6 +1,7 @@
 import { t } from "@/i18n";
 
 import { ALL_SKILLS } from "../plugins";
+import { buildBuiltinAgentRecords } from "./agent-builtin";
 import type { AgentRegistry } from "./agent-registry-types";
 
 function localizedSkillCategoryLabel(category: string) {
@@ -355,7 +356,7 @@ function buildDefaultRegistry(): AgentRegistry {
       showInWizard: false,
     },
   ],
-  agents: [],
+  agents: buildBuiltinAgentRecords(),
   skills: ALL_SKILLS.map((skill) => ({
     id: skill.id,
     category: skillCategoryLabel(skill.category),

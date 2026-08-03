@@ -112,6 +112,7 @@ export default {
   "session.expert_mark_unread": "標為未讀",
   "session.expert_mark_read": "標為已讀",
   "session.expert_actions": "專家操作",
+  "session.expert_edit": "編輯專家",
   "session.expert_delete_conversation": "刪除專家",
   "session.delete_expert_title": "刪除專家？",
   "session.delete_named_expert_message":

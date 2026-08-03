@@ -126,7 +126,7 @@ export function useSessionRouteQuickCapture(input: Input) {
           });
           // Late retries: session surface may mount after navigate.
           window.setTimeout(seedComposer, 120);
-          window.setTimeout(seedComposer, 360);
+          window.setTimeout(seedComposer, 200);
         }
         saveSessionDraft(workspaceId, session.id, {
           text,

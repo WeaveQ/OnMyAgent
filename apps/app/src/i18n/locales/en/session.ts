@@ -115,6 +115,7 @@ export default {
   "session.expert_mark_unread": "Mark as unread",
   "session.expert_mark_read": "Mark as read",
   "session.expert_actions": "Expert actions",
+  "session.expert_edit": "Edit expert",
   "session.expert_delete_conversation": "Delete expert",
   "session.delete_expert_title": "Delete expert?",
   "session.delete_named_expert_message":

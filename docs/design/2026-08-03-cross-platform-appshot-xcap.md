@@ -1,6 +1,6 @@
 # Appshot capture (Electron-only) — superseded design
 
-**Branch:** `feat/cross-platform-appshot-xcap`  
+**Branch:** `feat/cross-platform-appshot-xcap`
 **Status:** **Superseded** — Rust/xcap helper removed.
 
 ## Final product path

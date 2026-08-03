@@ -1,20 +1,29 @@
 /** @jsxImportSource react */
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { t } from "../../../../i18n";
 import { ReactSessionComposer } from "../surface/composer/composer";
 import type { SessionPageProps } from "./session-page-types";
+import { ExpertCreationCoachSurface } from "./expert-creation-coach-surface";
+import { ExpertCreationPreviewSurface } from "./expert-creation-preview-surface";
 import {
   type AgentRegistry,
+  type AgentWizardDraft,
   type ExpertCreationComposerProps,
   type ExpertCreationControllerInput,
+  type ExpertCreationSuggestionApplyOptions,
+  type ExpertDraftSuggestion,
+  type PendingAgentContext,
+  isCreationExpertEditable,
   useExpertCreationController,
 } from "../../agents";
+import type { ReactNode } from "react";
 
 type SessionExpertCreationInput = {
   props: SessionPageProps;
   registry: AgentRegistry | null;
   showToast: ExpertCreationControllerInput["showToast"];
+  onCreatedAgent: (agent: PendingAgentContext) => void;
 };
 
 export function useSessionExpertCreation(input: SessionExpertCreationInput) {
@@ -39,6 +48,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           collaborationMode={{ planning: false, pursueGoal: false }}
           onCollaborationModeChange={() => undefined}
           modelPickerOpen={surface.model.modelPickerOpen}
+          modelPickerVisible={composer.showModelPicker}
           selectedModel={surface.model.selectedModel}
           onModelPickerOpenChange={surface.model.onModelPickerOpenChange}
           onModelChange={surface.model.onModelChange}
@@ -72,12 +82,89 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           isRemoteWorkspace={surface.isRemoteWorkspace}
           isSandboxWorkspace={surface.isSandboxWorkspace}
           onUploadInboxFiles={surface.onUploadInboxFiles}
-          showOuterBorder={false}
+          showOuterBorder
+          flushShell
           hideAccessPermissionSelect
         />
       );
     },
     [input.props.surface],
+  );
+
+  const renderCoachPanel = useCallback(
+    (coach: {
+      draft: AgentWizardDraft;
+      registry: AgentRegistry;
+      showModelPicker: boolean;
+      initialSessionId: string | null;
+      onSessionIdChange: (sessionId: string) => void;
+      onApplyDraftSuggestion: (
+        suggestion: ExpertDraftSuggestion,
+        options: ExpertCreationSuggestionApplyOptions,
+      ) => void;
+    }) => {
+      const surface = input.props.surface;
+      const client = input.props.onmyagentServerClient;
+      const baseUrl = input.props.opencodeBaseUrl;
+      if (!surface || !client || !baseUrl?.trim()) {
+        return null;
+      }
+      return (
+        <ExpertCreationCoachSurface
+          surface={surface}
+          client={client}
+          workspaceId={input.props.selectedWorkspaceId}
+          workspaceRoot={input.props.selectedWorkspaceRoot}
+          opencodeBaseUrl={baseUrl}
+          onmyagentToken={input.props.onmyagentServerToken ?? ""}
+          registry={coach.registry}
+          draft={coach.draft}
+          showModelPicker={coach.showModelPicker}
+          selectedModel={surface.model.selectedModel}
+          initialSessionId={coach.initialSessionId}
+          onSessionIdChange={coach.onSessionIdChange}
+          onApplyDraftSuggestion={coach.onApplyDraftSuggestion}
+        />
+      );
+    },
+    [input.props],
+  );
+
+  const renderPreviewPanel = useCallback(
+    (preview: {
+      draft: AgentWizardDraft;
+      registry: AgentRegistry;
+      showModelPicker: boolean;
+      knowledgePaths: readonly string[];
+      sessionKey: string;
+      emptyContent: ReactNode;
+    }) => {
+      const surface = input.props.surface;
+      const client = input.props.onmyagentServerClient;
+      const baseUrl = input.props.opencodeBaseUrl;
+      if (!surface || !client || !baseUrl?.trim()) {
+        return null;
+      }
+      return (
+        <ExpertCreationPreviewSurface
+          key={preview.sessionKey}
+          surface={surface}
+          client={client}
+          workspaceId={input.props.selectedWorkspaceId}
+          workspaceRoot={input.props.selectedWorkspaceRoot}
+          opencodeBaseUrl={baseUrl}
+          onmyagentToken={input.props.onmyagentServerToken ?? ""}
+          registry={preview.registry}
+          draft={preview.draft}
+          showModelPicker={preview.showModelPicker}
+          knowledgePaths={preview.knowledgePaths}
+          selectedModel={surface.model.selectedModel}
+          sessionKey={preview.sessionKey}
+          emptyContent={preview.emptyContent}
+        />
+      );
+    },
+    [input.props],
   );
 
   const controller = useExpertCreationController({
@@ -89,9 +176,28 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     client: input.props.onmyagentServerClient,
     skills: input.registry?.skills ?? [],
     selectedModel: input.props.surface?.model.selectedModel ?? null,
+    renderCoachPanel,
+    renderPreviewPanel,
     renderComposer,
     showToast: input.showToast,
+    onCreatedAgent: input.onCreatedAgent,
   });
+  const editableExpertIds = useMemo(
+    () =>
+      new Set(
+        (input.registry?.agents ?? [])
+          .filter(isCreationExpertEditable)
+          .map((agent) => agent.id),
+      ),
+    [input.registry],
+  );
+  const handleEditExpert = useCallback(
+    (agentId: string) => {
+      const agent = input.registry?.agents.find((item) => item.id === agentId);
+      if (agent) controller.openExpertCreationForEdit(agent);
+    },
+    [controller.openExpertCreationForEdit, input.registry],
+  );
   const closeExpertCreationThen = useCallback(
     (next?: () => void) => () => {
       controller.closeExpertCreation();
@@ -99,5 +205,10 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     },
     [controller.closeExpertCreation],
   );
-  return { ...controller, closeExpertCreationThen };
+  return {
+    ...controller,
+    closeExpertCreationThen,
+    editableExpertIds,
+    handleEditExpert,
+  };
 }

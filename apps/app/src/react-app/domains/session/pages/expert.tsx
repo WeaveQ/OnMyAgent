@@ -790,16 +790,18 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const {
-    openExpertCreation,
-    closeExpertCreation,
-    closeExpertCreationThen,
-    expertCreationPage,
-  } = useSessionExpertCreation({
-    props,
-    registry,
-    showToast,
-  });
+  const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage, editableExpertIds, handleEditExpert } =
+    useSessionExpertCreation({
+      props,
+      registry,
+      showToast,
+      onCreatedAgent: (createdAgent) => {
+        activateDraftAgent(createdAgent);
+        openFreshExpertDraft();
+        activateDraftAgent(createdAgent);
+        openRailView("chat");
+      },
+    });
   const seedChatDraft = useCallback(
     (draft: string) => {
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
@@ -1288,7 +1290,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   setAgentPanelCollapsed((value) => !value)
                 }
                 onOpenAgents={openExpertMarket}
-                onCreateExpert={openExpertCreation}
+                onCreateExpert={openExpertCreation} onEditExpert={handleEditExpert} editableExpertIds={editableExpertIds}
                 onOpenAgentStarter={handleStartAgentById}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}

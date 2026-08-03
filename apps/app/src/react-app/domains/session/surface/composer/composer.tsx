@@ -43,6 +43,7 @@ import { useComposerCatalogs } from "./use-composer-catalogs";
 import { useComposerAttachments } from "./use-composer-attachments";
 import { useComposerAgentMenu } from "./use-composer-agent-menu";
 import { useComposerMineFiles } from "./use-composer-mine-files";
+import { shouldRestoreComposerFocus } from "./composer-focus-policy";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
 
 export function ReactSessionComposer(props: ComposerProps) {
@@ -67,6 +68,7 @@ export function ReactSessionComposer(props: ComposerProps) {
   // compositionstart/compositionend events below.
   const imeComposingRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const previousBusyRef = useRef(props.busy);
   const draftRef = useRef(props.draft);
   // Live draft for slash/mention matching — updated in the same tick as editor
   // onChange so the menu filters while typing even if parent store re-render lags.
@@ -380,6 +382,30 @@ export function ReactSessionComposer(props: ComposerProps) {
     };
   }, [props.onDraftChange]);
 
+  useEffect(() => {
+    const wasBusy = previousBusyRef.current;
+    previousBusyRef.current = props.busy;
+    const root = rootRef.current;
+    const activeElement = document.activeElement;
+    const externalEditorActive = Boolean(
+      root &&
+        activeElement &&
+        !root.contains(activeElement) &&
+        (activeElement instanceof HTMLInputElement ||
+          activeElement instanceof HTMLTextAreaElement ||
+          (activeElement instanceof HTMLElement && activeElement.isContentEditable)),
+    );
+    if (!shouldRestoreComposerFocus({ wasBusy, busy: props.busy, externalEditorActive })) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      root
+        ?.querySelector<HTMLElement>("[contenteditable='true']")
+        ?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.busy]);
+
   const handleKeyDownCapture = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     // IME composition guard — block Enter while IME is mid-character.
     const imeActive =
@@ -432,6 +458,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     heroHome: props.heroHome,
     showOuterBorder: props.showOuterBorder,
     compactTopSpacing: props.compactTopSpacing,
+    flushShell: props.flushShell,
     hasBottomAccessory: Boolean(props.bottomAccessory),
     hasAttachments: props.attachments.length > 0,
     mentionOpen,
@@ -790,13 +817,15 @@ export function ReactSessionComposer(props: ComposerProps) {
                     className="p-0.5"
                   />
                 ) : null}
-                <ModelSelectContainer
-                  open={props.modelPickerOpen}
-                  value={props.selectedModel}
-                  onOpenChange={props.onModelPickerOpenChange}
-                  onChange={props.onModelChange}
-                  disabled={props.busy}
-                />
+                {props.modelPickerVisible !== false ? (
+                  <ModelSelectContainer
+                    open={props.modelPickerOpen}
+                    value={props.selectedModel}
+                    onOpenChange={props.onModelPickerOpenChange}
+                    onChange={props.onModelChange}
+                    disabled={props.busy}
+                  />
+                ) : null}
                 {props.busy && !canSend ? (
                   <Button variant="destructive" size="icon-lg"
                     type="button"
