@@ -96,9 +96,6 @@ export function createStatusItemController(input) {
           await sendToMainWindow(STATUS_ITEM_EVENTS.QUICK_CAPTURE);
         }
         return;
-      case STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE:
-        await sendToMainWindow(STATUS_ITEM_EVENTS.OPEN_EXPERT_MARKETPLACE);
-        return;
       case STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS:
         // Always open the main window + in-app settings (system / permissions).
         // Optional openDesktopPermissions may open OS privacy panes / helper apps.
@@ -127,22 +124,56 @@ export function createStatusItemController(input) {
     }
   }
 
+  /** @type {Record<string, string>} */
+  let acceleratorOverrides = {};
+
   function buildNativeMenu() {
     const locale = resolveStatusItemLocale(
       typeof app.getLocale === "function" ? app.getLocale() : "en",
     );
-    const spec = buildStatusItemMenuSpec({ locale });
+    const spec = buildStatusItemMenuSpec({
+      locale,
+      accelerators: acceleratorOverrides,
+    });
     /** @type {import("electron").MenuItemConstructorOptions[]} */
     const template = spec.map((entry) => {
       if (entry.type === "separator") return { type: "separator" };
-      return {
+      /** @type {import("electron").MenuItemConstructorOptions} */
+      const item = {
         label: entry.label,
         click: () => {
           void runAction(entry.id);
         },
       };
+      // Electron shows this on the trailing edge of the tray menu (⌘B style).
+      if (entry.accelerator) item.accelerator = entry.accelerator;
+      return item;
     });
     return Menu.buildFromTemplate(template);
+  }
+
+  /**
+   * Rebuild tray menu accelerators when Settings → Shortcuts change.
+   * Maps product keymap ids → status-item action ids.
+   * @param {Record<string, string> | null | undefined} overrides
+   */
+  function setKeymapAcceleratorOverrides(overrides) {
+    const next = overrides && typeof overrides === "object" ? overrides : {};
+    /** @type {Record<string, string>} */
+    const mapped = {};
+    if (typeof next.quickCapture === "string") {
+      mapped[STATUS_ITEM_ACTION.QUICK_CAPTURE] = next.quickCapture;
+    }
+    if (typeof next.newTask === "string") {
+      mapped[STATUS_ITEM_ACTION.NEW_TASK] = next.newTask;
+    }
+    if (typeof next.openSettings === "string") {
+      mapped[STATUS_ITEM_ACTION.OPEN_SETTINGS] = next.openSettings;
+    }
+    acceleratorOverrides = mapped;
+    if (tray) {
+      tray.setContextMenu(buildNativeMenu());
+    }
   }
 
   function loadStatusItemIcon() {
@@ -263,6 +294,7 @@ export function createStatusItemController(input) {
     setVisible,
     isVisible,
     refreshMenu,
+    setKeymapAcceleratorOverrides,
     runAction,
     showAndFocusMainWindow,
     markQuitting,
@@ -307,6 +339,8 @@ export function createStatusItemLifecycle(input) {
       }
     },
     isVisible: () => controller.isVisible(),
+    setKeymapAcceleratorOverrides: (overrides) =>
+      controller.setKeymapAcceleratorOverrides(overrides),
     installSafely() {
       try {
         controller.install();

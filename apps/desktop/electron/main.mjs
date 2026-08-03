@@ -1207,8 +1207,16 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
-  setKeymapAcceleratorOverrides:
-    applicationMenuController.setKeymapAcceleratorOverrides,
+  setKeymapAcceleratorOverrides: (overrides) => {
+    const result =
+      applicationMenuController.setKeymapAcceleratorOverrides(overrides);
+    try {
+      statusItem.setKeymapAcceleratorOverrides?.(overrides);
+    } catch {
+      // tray may not be installed yet
+    }
+    return result;
+  },
   BrowserWindow,
   setQuickCaptureContext: (next) => {
     const models = Array.isArray(next?.models)
