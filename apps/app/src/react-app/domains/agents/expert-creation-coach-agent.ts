@@ -1,4 +1,7 @@
-import { EXPERT_CREATION_COACH_AGENT_ID } from "./agent-builtin";
+import {
+  buildBuiltinAgentRecords,
+  EXPERT_CREATION_COACH_AGENT_ID,
+} from "./agent-builtin";
 import { buildPendingAgentFromRecord } from "./agent-registry-store";
 import type { AgentRecord, AgentRegistry, AgentWizardDraft } from "./agent-registry-types";
 import {
@@ -8,14 +11,18 @@ import {
   type PendingAgentContext,
 } from "./pending-agent-store";
 
+/**
+ * Prefer registry copy; fall back to product builtin so a stale localStorage
+ * cache (pre-coach) cannot blank the creation coach panel.
+ */
 export function resolveExpertCreationCoachAgent(
   registry: AgentRegistry | null | undefined,
 ): AgentRecord | null {
-  if (!registry) return null;
-  return (
-    registry.agents.find((agent) => agent.id === EXPERT_CREATION_COACH_AGENT_ID) ??
-    null
+  const fromRegistry = registry?.agents.find(
+    (agent) => agent.id === EXPERT_CREATION_COACH_AGENT_ID,
   );
+  if (fromRegistry) return fromRegistry;
+  return buildBuiltinAgentRecords()[0] ?? null;
 }
 
 /**
