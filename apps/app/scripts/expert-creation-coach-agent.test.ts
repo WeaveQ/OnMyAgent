@@ -43,6 +43,31 @@ describe("expert creation coach agent binding", () => {
     expect(prompt).toContain("角色草稿");
   });
 
+  test("current coach prompt includes the staged quality workflow and enabled skill catalog", () => {
+    const registry = createDefaultAgentRegistry();
+    const coach = resolveExpertCreationCoachAgent(registry);
+    const skills = [{
+      id: "research",
+      category: "research",
+      group: "",
+      name: "Research",
+      description: "Find and compare evidence.",
+      enabled: true,
+    }];
+    expect(coach).toBeTruthy();
+    if (!coach) return;
+
+    const prompt = buildExpertCreationCoachSystemPrompt(
+      coach,
+      createBlankWizardDraft(registry),
+      skills,
+    );
+
+    expect(prompt).toContain("seven non-empty level-two Markdown sections");
+    expect(prompt).toContain("skill IDs");
+    expect(prompt).toContain(skills[0].id);
+  });
+
   test("coach tool access disables tools when enabledToolIds is empty", () => {
     const registry = createDefaultAgentRegistry();
     const coach = resolveExpertCreationCoachAgent(registry);

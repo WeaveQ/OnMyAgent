@@ -286,7 +286,7 @@ function ExpertCoach(props: {
   ];
   const coachTitle = t("agents.expert_creation_coach");
   const coachSystemPrompt = coachAgent
-    ? buildExpertCreationCoachSystemPrompt(coachAgent, props.draft)
+    ? buildExpertCreationCoachSystemPrompt(coachAgent, props.draft, props.registry.skills)
     : undefined;
   const coachTools = coachAgent
     ? buildExpertCreationCoachToolAccess(coachAgent)

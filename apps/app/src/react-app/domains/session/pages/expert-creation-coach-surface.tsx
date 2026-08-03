@@ -177,7 +177,11 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           .trim();
       const attachmentFiles = composerDraft.attachments.map((item) => item.file);
       const parts = await buildExpertChatPromptParts(text, attachmentFiles);
-      const system = buildExpertCreationCoachSystemPrompt(coachAgent, draftRef.current);
+      const system = buildExpertCreationCoachSystemPrompt(
+        coachAgent,
+        draftRef.current,
+        props.registry.skills,
+      );
       const tools = buildExpertCreationCoachToolAccess(coachAgent);
       const model = props.selectedModel ?? props.surface.model.selectedModel;
 
