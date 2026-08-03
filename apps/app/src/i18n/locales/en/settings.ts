@@ -962,7 +962,13 @@ export default {
   "settings.shortcuts_action_sendMessage": "Send message",
   "settings.shortcuts_action_insertNewline": "Insert line break",
   "settings.shortcuts_action_appSnapshot": "Capture desktop",
-  "settings.shortcuts_action_quickCapture": "Quick capture",
+  "settings.shortcuts_action_quickCapture": "Global quick chat",
+  "settings.shortcuts_action_quickCapture_desc":
+    "Open a mini input from any app and dispatch to the current workspace Agent",
+  "settings.shortcuts_group_global": "Global",
+  "settings.shortcuts_group_general": "General",
+  "settings.shortcuts_group_task": "Task",
+  "settings.shortcuts_group_session": "Session",
   "shortcuts_guide.title": "Keyboard shortcuts",
   "shortcuts_guide.description":
     "Use shortcuts to create tasks, search, switch context, and send messages.",

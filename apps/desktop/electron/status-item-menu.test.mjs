@@ -46,7 +46,6 @@ test("menu spec groups quick actions with separators (IA)", () => {
     "item",
     "item",
     "item",
-    "item",
     "separator",
     "item",
     "item",
@@ -58,7 +57,6 @@ test("menu spec groups quick actions with separators (IA)", () => {
   assert.deepEqual(ids, [
     STATUS_ITEM_ACTION.SHOW_WINDOW,
     STATUS_ITEM_ACTION.NEW_TASK,
-    STATUS_ITEM_ACTION.RECENT_SESSION,
     STATUS_ITEM_ACTION.QUICK_CAPTURE,
     STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE,
     STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS,
@@ -91,10 +89,6 @@ test("status-item events reuse native-menu bridge naming", () => {
     "onmyagent:native-menu:open-settings",
   );
   assert.equal(STATUS_ITEM_EVENTS.NEW_TASK, "onmyagent:native-menu:new-task");
-  assert.equal(
-    STATUS_ITEM_EVENTS.RECENT_SESSION,
-    "onmyagent:native-menu:recent-session",
-  );
   assert.equal(
     STATUS_ITEM_EVENTS.QUICK_CAPTURE,
     "onmyagent:native-menu:quick-capture",

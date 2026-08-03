@@ -31,10 +31,16 @@ export const DEFAULT_KEYMAP_ACTIONS: readonly KeymapActionDef[] = [
     defaultAccelerator: "CommandOrControl+,",
   },
   {
+    id: "quickCapture",
+    group: "global",
+    // Global quick-chat capture (works while app is in background).
+    defaultAccelerator: "CommandOrControl+B",
+  },
+  {
     id: "toggleSidebar",
     group: "general",
-    // Match Electron menu default (⌘B / Ctrl+B).
-    defaultAccelerator: "CommandOrControl+B",
+    // ⌘B is reserved for global quick chat; use ⌘\ for sidebar.
+    defaultAccelerator: "CommandOrControl+\\",
   },
   {
     id: "newTask",
@@ -62,12 +68,6 @@ export const DEFAULT_KEYMAP_ACTIONS: readonly KeymapActionDef[] = [
     group: "global",
     // Electron globalShortcut-friendly (customizable in Settings → Shortcuts).
     defaultAccelerator: "CommandOrControl+Shift+A",
-  },
-  {
-    id: "quickCapture",
-    group: "global",
-    // Spotlight-style capture; customizable in Settings → Shortcuts.
-    defaultAccelerator: "CommandOrControl+Shift+Space",
   },
 ] as const;
 
