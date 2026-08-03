@@ -45,6 +45,7 @@ export { isExpertCreationPreviewReady } from "./expert-creation-lifecycle";
 export { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 export {
   expertDraftSuggestionFingerprint,
+  isExpertDraftSuggestionConfirmation,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
   stripExpertDraftSuggestionFromText,

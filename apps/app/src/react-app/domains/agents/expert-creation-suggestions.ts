@@ -19,6 +19,8 @@ export const EXPERT_DRAFT_SUGGESTION_FIELDS = [
   "agentMemory",
 ] as const satisfies readonly ExpertDraftSuggestionField[];
 
+const EXPERT_SUGGESTION_CONFIRMATION_RE = /^(?:\u786e\u8ba4|\u786e\u5b9a|\u786e\u8ba4\u56de\u586b|\u786e\u8ba4\u8986\u76d6|\u78ba\u8a8d|\u78ba\u5b9a|\u78ba\u8a8d\u56de\u586b|\u78ba\u8a8d\u8986\u5beb|confirm|confirm fill|confirm overwrite)$/iu;
+
 export type ExpertDraftSuggestionPartition = {
   emptyFill: ExpertDraftSuggestion;
   conflicts: ExpertDraftSuggestion;
@@ -30,6 +32,12 @@ export type ExpertDraftSuggestionPartition = {
 
 const EXPERT_UPDATE_START = "<expert-update>";
 const EXPERT_UPDATE_END = "</expert-update>";
+
+export function isExpertDraftSuggestionConfirmation(content: string): boolean {
+  return EXPERT_SUGGESTION_CONFIRMATION_RE.test(
+    content.trim().replace(/[.!\u3002\uff01]+$/u, "").trim(),
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

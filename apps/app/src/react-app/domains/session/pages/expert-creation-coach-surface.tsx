@@ -25,12 +25,12 @@ import {
   buildExpertCreationCoachToolAccess,
   resolveExpertCreationCoachAgent,
   expertDraftSuggestionFingerprint,
+  isExpertDraftSuggestionConfirmation,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
   createExpertPreviewAcceptanceGate,
   runExpertPreviewTurn,
   type ExpertDraftSuggestion,
-  type ExpertDraftSuggestionApplyMode,
   type ExpertDraftSuggestionField,
   EXPERT_CREATION_COACH_AVATAR_PATH,
   registerExpertCreationEphemeralSession,
@@ -102,9 +102,6 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
   const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(
     null,
   );
-  const [autoFilledSuggestionKey, setAutoFilledSuggestionKey] = useState<string | null>(
-    null,
-  );
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
 
@@ -160,6 +157,18 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           .map((part) => part.text)
           .join("")
           .trim();
+      const pendingKey = pendingSuggestion
+        ? expertDraftSuggestionFingerprint(
+            pendingSuggestion.messageId,
+            pendingSuggestion.suggestion,
+          )
+        : null;
+      const confirmedSuggestion =
+        pendingSuggestion &&
+        pendingKey !== dismissedSuggestionKey &&
+        isExpertDraftSuggestionConfirmation(text)
+          ? pendingSuggestion.suggestion
+          : null;
       const attachmentFiles = composerDraft.attachments.map((item) => item.file);
       const system = buildExpertCreationCoachSystemPrompt(
         coachAgent,
@@ -191,11 +200,18 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
         draft: draftRef.current,
         systemPrompt: system,
         tools,
-        onPromptAccepted: acceptance.accept,
+        onPromptAccepted: () => {
+          acceptance.accept();
+          if (!confirmedSuggestion) return;
+          props.onApplyDraftSuggestion(confirmedSuggestion, { mode: "force" });
+          setPendingSuggestion(null);
+          setDismissedSuggestionKey(null);
+        },
         ...(model ? { model } : {}),
       });
       const completedTurn = turn
         .then((result) => {
+          if (confirmedSuggestion) return;
           ingestAssistantText(
             `${activeSessionId}:assistant-output`,
             result.content,
@@ -218,7 +234,10 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       coachAgent,
       draftOnly,
       ingestAssistantText,
+      dismissedSuggestionKey,
+      pendingSuggestion,
       props.opencodeBaseUrl,
+      props.onApplyDraftSuggestion,
       props.onmyagentToken,
       props.onSessionIdChange,
       props.selectedModel,
@@ -243,43 +262,13 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
     ? partitionExpertDraftSuggestion(props.draft, pendingSuggestion.suggestion)
     : null;
 
-  // Auto-fill empty fields once per proposal.
-  useEffect(() => {
-    if (!pendingSuggestion || !suggestionKey || !partition) return;
-    if (dismissedSuggestionKey === suggestionKey) return;
-    if (autoFilledSuggestionKey === suggestionKey) return;
-    setAutoFilledSuggestionKey(suggestionKey);
-    if (partition.emptyFillKeys.length === 0) return;
-    props.onApplyDraftSuggestion(pendingSuggestion.suggestion, {
-      mode: "empty-only",
-    });
-  }, [
-    autoFilledSuggestionKey,
-    dismissedSuggestionKey,
-    partition,
-    pendingSuggestion,
-    props.onApplyDraftSuggestion,
-    suggestionKey,
-  ]);
-
   const showSuggestionBar = Boolean(
     pendingSuggestion &&
       suggestionKey &&
       dismissedSuggestionKey !== suggestionKey &&
-      autoFilledSuggestionKey === suggestionKey &&
       partition &&
-      partition.conflictKeys.length > 0,
+      (partition.emptyFillKeys.length > 0 || partition.conflictKeys.length > 0),
   );
-
-  const applySuggestion = (mode: ExpertDraftSuggestionApplyMode) => {
-    if (!pendingSuggestion) return;
-    props.onApplyDraftSuggestion(pendingSuggestion.suggestion, { mode });
-    if (mode === "force" && suggestionKey) {
-      setAutoFilledSuggestionKey(suggestionKey);
-      setDismissedSuggestionKey(null);
-      setPendingSuggestion(null);
-    }
-  };
 
   if (!coachAgent || !agentContext) {
     return (
@@ -351,14 +340,23 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       {showSuggestionBar && partition ? (
         <div className="mt-3 shrink-0 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-3">
           <p className="text-sm font-medium text-dls-text">
-            {t("agents.expert_creation_suggestion_bar_conflict")}
+            {partition.conflictKeys.length > 0
+              ? t("agents.expert_creation_suggestion_bar_conflict")
+              : t("agents.expert_creation_suggestion_bar_ready")}
           </p>
           <p className="mt-1 text-xs leading-5 text-dls-secondary">
-            {t("agents.expert_creation_suggestion_bar_conflict_detail", {
-              fields: formatSuggestionFields(partition.conflictKeys),
-            })}
+            {partition.conflictKeys.length > 0
+              ? t("agents.expert_creation_suggestion_bar_conflict_detail", {
+                  fields: formatSuggestionFields(partition.conflictKeys),
+                })
+              : t("agents.expert_creation_suggestion_bar_ready_detail", {
+                  fields: formatSuggestionFields(partition.emptyFillKeys),
+                })}
           </p>
-          <div className="mt-3 flex items-center justify-end gap-2">
+          <p className="mt-1 text-xs leading-5 text-dls-secondary">
+            {t("agents.expert_creation_suggestion_reply_confirm")}
+          </p>
+          <div className="mt-3 flex items-center justify-end">
             <Button
               type="button"
               variant="ghost"
@@ -368,14 +366,6 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
               }}
             >
               {t("agents.expert_creation_suggestion_ignore")}
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => applySuggestion("force")}
-            >
-              {t("agents.expert_creation_suggestion_apply")}
             </Button>
           </div>
         </div>

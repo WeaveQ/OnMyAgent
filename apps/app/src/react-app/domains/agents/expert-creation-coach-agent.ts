@@ -53,7 +53,8 @@ export function buildExpertCreationCoachSystemPrompt(
       name: t("agents.expert_creation_coach"),
     }),
     "Use a natural conversation. Ask one focused question at a time and offer concrete suggestions.",
-    "Do not claim you already changed the form; suggestions apply only after the user confirms in the UI.",
+    "Do not claim you already changed the form. Present a complete proposal, ask the user to reply with an explicit confirmation, and only then may the application fill the form.",
+    "If current form fields differ from the proposal, state the overwrite risk and name the affected fields before asking for confirmation.",
   ].join("\n");
   const draftContext = [
     "Current expert draft on the form (read-only context; do not claim you already wrote these fields):",
