@@ -63,6 +63,8 @@ packages/onmyagent-ui-mcp UI 控制面 MCP server
 | `apps/app` | [`apps/app/AGENTS.md`](apps/app/AGENTS.md) |
 | `apps/desktop` | [`apps/desktop/AGENTS.md`](apps/desktop/AGENTS.md) |
 | `apps/server` | [`apps/server/AGENTS.md`](apps/server/AGENTS.md) |
+| `apps/orchestrator` | [`apps/orchestrator/AGENTS.md`](apps/orchestrator/AGENTS.md) |
+| `packages/types` | [`packages/types/AGENTS.md`](packages/types/AGENTS.md) |
 
 ### 双运行时主辅（硬事实）
 
@@ -198,6 +200,8 @@ pnpm task check app          # 改 apps/app 时
 pnpm check:file-size         # 触碰大文件 / session 页时
 pnpm task check server       # 改 apps/server 时
 pnpm task check desktop      # 改 apps/desktop 时
+pnpm task check orchestrator # 改 apps/orchestrator 时
+pnpm task check types        # 改 packages/types 或全量 typecheck 时
 ```
 
 只讨论不跑 check、或无文件变更的闲聊，不算完成非琐碎任务。
@@ -210,7 +214,7 @@ pnpm task check desktop      # 改 apps/desktop 时
 |------|------|
 | 人类快速开始 / 贡献 | `README.md` · `CONTRIBUTING.md` |
 | 本文件之后的系统架构 | `docs/Architecture.md` |
-| 改 app / desktop / server | 对应包级 `AGENTS.md`（见上「包级手册」） |
+| 改 app / desktop / server / orchestrator / types | 对应包级 `AGENTS.md`（见上「包级手册」） |
 | React 域 / 路由身份 | `apps/app/src/react-app/ARCHITECTURE.md` |
 | UI 视觉契约 | `DESIGN.md` |
 | 重 loop / kill switch / graphify | `docs/loop/rules.md` |
