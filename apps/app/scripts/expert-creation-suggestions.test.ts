@@ -126,6 +126,32 @@ describe("expert creation coach suggestions", () => {
     expect(parsed.suggestion?.userNote).toBe(completeRolePrompt);
   });
 
+  test("parses field-tag output without breaking on quotes inside the role prompt", () => {
+    const rolePromptWithQuotes = completeRolePrompt.replace(
+      "先确认目标和约束。",
+      '先确认目标和约束，不使用"适量"或"少许"等模糊表述。',
+    );
+    const parsed = parseExpertDraftSuggestion([
+      "方案已经整理完成，请确认。",
+      "<expert-update>",
+      "<name>全能美食顾问</name>",
+      "<description>提供清晰、可执行的烹饪建议。</description>",
+      `<user-note>${rolePromptWithQuotes}</user-note>`,
+      "<agent-memory>1. 用户关注预算。\n2. 用户需要过敏原提醒。</agent-memory>",
+      "</expert-update>",
+    ].join("\n"));
+
+    expect(parsed).toEqual({
+      content: "方案已经整理完成，请确认。",
+      suggestion: {
+        name: "全能美食顾问",
+        description: "提供清晰、可执行的烹饪建议。",
+        userNote: rolePromptWithQuotes,
+        agentMemory: "1. 用户关注预算。\n2. 用户需要过敏原提醒。",
+      },
+    });
+  });
+
   test("partitions empty fill vs conflicts vs matches", () => {
     const partition = partitionExpertDraftSuggestion(
       draftStub({
