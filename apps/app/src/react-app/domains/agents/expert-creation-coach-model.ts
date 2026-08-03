@@ -1,4 +1,5 @@
 import type { AgentSkillItem, AgentWizardDraft } from "./agent-registry-types";
+import { buildExpertCreationCoachWorkflowInstructions } from "./expert-creation-coach-contract";
 
 export type ExpertCoachProposal = {
   name: string;
@@ -130,6 +131,7 @@ export function buildExpertCoachSystemPrompt(
     "Set `proposal` to null while clarification is still needed.",
     "When there is enough information, return a complete proposal. Only use skill IDs from the provided catalog.",
     "A proposal is only a version suggestion: it will not overwrite the user's form until they explicitly apply it.",
+    buildExpertCreationCoachWorkflowInstructions(),
     `Current form: ${JSON.stringify(currentDraft)}`,
     `Available skills: ${JSON.stringify(skillCatalog)}`,
   ].join("\n");

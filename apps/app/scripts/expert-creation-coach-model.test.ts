@@ -78,5 +78,7 @@ describe("expert creation coach model", () => {
     expect(prompt).toContain("Current role");
     expect(prompt).toContain("Available skills");
     expect(prompt).toContain("explicitly apply");
+    expect(prompt).toContain("seven non-empty level-two Markdown sections");
+    expect(prompt).toContain("skill IDs");
   });
 });

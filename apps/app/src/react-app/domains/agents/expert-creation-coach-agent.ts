@@ -6,7 +6,13 @@ import {
   EXPERT_CREATION_COACH_AVATAR_PATH,
 } from "./agent-builtin";
 import { buildPendingAgentFromRecord } from "./agent-registry-store";
-import type { AgentRecord, AgentRegistry, AgentWizardDraft } from "./agent-registry-types";
+import type {
+  AgentRecord,
+  AgentRegistry,
+  AgentSkillItem,
+  AgentWizardDraft,
+} from "./agent-registry-types";
+import { buildExpertCreationCoachWorkflowInstructions } from "./expert-creation-coach-contract";
 import {
   buildAgentToolAccess,
   type AgentToolAccessMap,
@@ -36,6 +42,7 @@ export function resolveExpertCreationCoachAgent(
 export function buildExpertCreationCoachSystemPrompt(
   coach: AgentRecord,
   draft: AgentWizardDraft,
+  skills?: readonly AgentSkillItem[],
 ): string {
   const roleNote = coach.userNote.trim();
   const identity = [
@@ -55,7 +62,23 @@ export function buildExpertCreationCoachSystemPrompt(
     `Role prompt: ${draft.userNote.trim() || "Not set"}`,
     `Expert memory: ${draft.agentMemory.trim() || "Not set"}`,
   ].join("\n");
-  return [identity, roleNote ? `Coach instructions:\n${roleNote}` : "", draftContext]
+  const skillCatalog = (skills ?? [])
+    .filter((skill) => skill.enabled)
+    .map((skill) => ({
+      id: skill.id,
+      name: skill.displayNameEn?.trim() || skill.name,
+      description: skill.descriptionEn?.trim() || skill.description.trim(),
+    }));
+  const skillContext = skills
+    ? `Enabled skill catalog (use IDs exactly from this list): ${JSON.stringify(skillCatalog)}`
+    : "";
+  return [
+    identity,
+    buildExpertCreationCoachWorkflowInstructions(),
+    roleNote ? `Coach instructions:\n${roleNote}` : "",
+    draftContext,
+    skillContext,
+  ]
     .filter(Boolean)
     .join("\n\n");
 }
@@ -91,7 +114,7 @@ export function buildExpertCreationCoachPendingContext(
       customAvatarDataUrl: EXPERT_CREATION_COACH_AVATAR_PATH,
       avatarUrl: coachAvatarUrl,
     },
-    systemPrompt: buildExpertCreationCoachSystemPrompt(coach, draft),
+    systemPrompt: buildExpertCreationCoachSystemPrompt(coach, draft, registry.skills),
     tools: buildExpertCreationCoachToolAccess(coach),
     conversationStartId: Date.now(),
     draftSource: "agent-selection",
