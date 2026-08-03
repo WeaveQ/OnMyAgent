@@ -55,10 +55,11 @@ describe("expert creation lifecycle", () => {
       modelVariantLabel: "",
       modelVariant: null,
       onModelVariantChange: () => undefined,
-    }, false, onLocalOpenChange);
+    }, false, onLocalOpenChange, false);
 
     expect(model.modelPickerOpen).toBe(false);
     expect(model.onModelPickerOpenChange).toBe(onLocalOpenChange);
+    expect(model.modelPickerVisible).toBe(false);
   });
 
   test("requires every basic-information field except the avatar before preview", () => {

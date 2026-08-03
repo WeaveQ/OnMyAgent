@@ -969,6 +969,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
         assistantFeatureCategoryId,
       })}
       modelPickerOpen={props.modelPickerOpen}
+      modelPickerVisible={props.modelPickerVisible}
       selectedModel={props.selectedModel}
       onModelPickerOpenChange={props.onModelPickerOpenChange}
       onModelChange={props.onModelChange}
