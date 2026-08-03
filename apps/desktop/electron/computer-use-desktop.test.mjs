@@ -34,6 +34,45 @@ test("resolveOnMyAgentProductVersion prefers product version over Electron runti
   );
 });
 
+test("getComputerUseMcpCommand on win32 uses staged Cua via runtime resolve", async () => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-cua-cmd-"));
+  try {
+    const exe = path.join(root, "resources/helpers/cua/cua-driver.exe");
+    await mkdir(path.dirname(exe), { recursive: true });
+    await writeFile(exe, "driver");
+    const helpers = createComputerUseDesktopHelpers({
+      app: {
+        getVersion: () => "0.4.16",
+        isPackaged: true,
+        getPath: () => root,
+      },
+      shell: {},
+      dialog: {},
+      systemPreferences: {},
+      // dirname is electron/ — desktop root is parent
+      dirname: path.join(root, "electron"),
+    });
+    // Point desktop root layout: helpers expects dirname/../resources
+    await mkdir(path.join(root, "electron"), { recursive: true });
+    // Re-stage under electron/../resources = root/resources (already written)
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      const cmd = helpers.getComputerUseMcpCommand();
+      assert.ok(Array.isArray(cmd));
+      assert.equal(cmd[0], "cmd.exe");
+      assert.ok(cmd.some((p) => String(p).includes("cua-driver.exe")));
+    } finally {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("parseComputerUseStatus preserves permission, version, activity, Skysight, and app authorization state", () => {
   const parsed = parseComputerUseStatus(
     JSON.stringify({

@@ -54,6 +54,8 @@ type PermissionResult = {
   helperVersion?: string;
   desktopVersion?: string;
   protocolVersion?: number;
+  backend?: "handsfree" | "cua" | "none";
+  mcpEnabled?: boolean;
   activity?: {
     phase?: "inactive" | "ready" | "running" | "paused" | "errored";
     app?: string;
@@ -181,6 +183,17 @@ function normalize(value: unknown): PermissionResult {
     protocolVersion:
       "protocolVersion" in value && typeof value.protocolVersion === "number"
         ? value.protocolVersion
+        : undefined,
+    backend:
+      "backend" in value &&
+      (value.backend === "handsfree" ||
+        value.backend === "cua" ||
+        value.backend === "none")
+        ? value.backend
+        : undefined,
+    mcpEnabled:
+      "mcpEnabled" in value && typeof value.mcpEnabled === "boolean"
+        ? value.mcpEnabled
         : undefined,
     activity:
       "activity" in value && typeof value.activity === "object" && value.activity !== null
@@ -333,6 +346,28 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
     result?.protocolVersion !== undefined && result.protocolVersion !== 1;
   const runtimeCompatible =
     result?.protocolVersion === 1 && !protocolMismatch;
+  const isCuaBackend = result?.backend === "cua";
+  const isWindowsHost =
+    typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
+
+  const setMcpEnabled = async (enabled: boolean) => {
+    if (!hasDesktopBridge()) {
+      setError(t("settings.computer_use_desktop_required"));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const raw = await desktopBridge.setComputerUseMcpEnabled(enabled);
+      const next = normalize(raw);
+      setResult(next);
+      if (next.error) setError(next.error);
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const setSkysightEnabled = async (enabled: boolean) => {
     if (!hasDesktopBridge()) {
@@ -467,6 +502,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
         <CardTitle>{t("settings.computer_use_setup_title")}</CardTitle>
         <CardDescription>
           {t("settings.computer_use_setup_description")}
+          {isCuaBackend || isWindowsHost
+            ? " Windows uses the bundled Cua Driver (not macOS HandsFree). Enable MCP below, then connect."
+            : null}
         </CardDescription>
         <CardAction>
           <Button
@@ -487,6 +525,29 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
             <CircleAlert />
             <AlertDescription className="break-words">{error}</AlertDescription>
           </Alert>
+        ) : null}
+
+        {isCuaBackend || isWindowsHost ? (
+          <SettingsActionRow>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm font-medium text-dls-text">
+                OpenCode computer-use MCP
+              </p>
+              <p className="text-xs text-dls-secondary">
+                {result?.ok
+                  ? "Cua Driver is staged. Toggle enables MCP for OpenCode (default off on Windows)."
+                  : "Cua Driver not found. Rebuild desktop or run prepare-cua-helper."}
+              </p>
+            </div>
+            <Switch
+              checked={result?.mcpEnabled === true}
+              disabled={busy || result?.ok === false}
+              onCheckedChange={(checked) => {
+                void setMcpEnabled(checked === true);
+              }}
+              aria-label="Enable computer-use MCP"
+            />
+          </SettingsActionRow>
         ) : null}
 
         <SegmentedTabGroup density="filter" className={computerUseLayoutClass.stepTabs}>

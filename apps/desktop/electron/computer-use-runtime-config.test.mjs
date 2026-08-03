@@ -6,8 +6,10 @@ import test from "node:test";
 
 import {
   isComputerUseMcpEnabled,
+  readComputerUseMcpPrefsEnabled,
   resolveComputerUseRuntimeCommand,
   resolveWindowsCuaDriver,
+  writeComputerUseMcpPrefsEnabled,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
 
@@ -121,6 +123,26 @@ test("MCP enabled defaults: darwin on, win32 off, env overrides", () => {
     }),
     true,
   );
+});
+
+test("MCP prefs file is read and written under userData", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-cua-prefs-"));
+  try {
+    assert.equal(readComputerUseMcpPrefsEnabled(root), null);
+    writeComputerUseMcpPrefsEnabled(root, true);
+    assert.equal(readComputerUseMcpPrefsEnabled(root), true);
+    assert.equal(
+      isComputerUseMcpEnabled({ platform: "win32", userDataDir: root }),
+      true,
+    );
+    writeComputerUseMcpPrefsEnabled(root, false);
+    assert.equal(
+      isComputerUseMcpEnabled({ platform: "win32", userDataDir: root }),
+      false,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("writes an isolated OpenCode config overlay for the built-in MCP", async () => {

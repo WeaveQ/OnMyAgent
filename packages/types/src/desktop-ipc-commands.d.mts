@@ -36,6 +36,7 @@ export type DesktopCommandName =
   | "getUiControlBridgeInfo"
   | "getComputerUseMcpCommand"
   | "checkComputerUsePermissions"
+  | "setComputerUseMcpEnabled"
   | "setComputerUseSkysightEnabled"
   | "setComputerUseSkysightPaused"
   | "updateComputerUseSkysightExclusion"

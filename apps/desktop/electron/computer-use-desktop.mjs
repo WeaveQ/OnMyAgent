@@ -15,6 +15,13 @@ import {
   isComputerUseAppshotSupported,
   sanitizeAppshotFileName,
 } from "./computer-use-appshot.mjs";
+import {
+  isComputerUseMcpEnabled,
+  resolveComputerUseRuntimeCommand,
+  resolveWindowsCuaDriver,
+  writeComputerUseMcpPrefsEnabled,
+  writeComputerUseRuntimeConfig,
+} from "./computer-use-runtime-config.mjs";
 
 export { isComputerUseAppshotSupported, sanitizeAppshotFileName };
 
@@ -135,6 +142,10 @@ export function createComputerUseDesktopHelpers(input) {
     return appshot;
   };
 
+function desktopRootPath() {
+  return path.resolve(dirname, "..");
+}
+
 function computerUseHelperExecutablePath() {
   const appPath = computerUseHelperAppPath();
   const explicitBinary = process.env.ONMYAGENT_COMPUTER_USE_BINARY?.trim();
@@ -172,8 +183,23 @@ function computerUseHelperAppPath() {
 }
 
 function getComputerUseMcpCommand() {
-  const helperExecutable = computerUseHelperExecutablePath();
-  if (helperExecutable) return [helperExecutable, "mcp"];
+  const command = resolveComputerUseRuntimeCommand({
+    platform: process.platform,
+    desktopRoot: desktopRootPath(),
+    resourcesPath: process.resourcesPath,
+    explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+    devMode:
+      process.env.ONMYAGENT_DEV_MODE === "1" || app.isPackaged === false,
+  });
+  if (command) return command;
+
+  if (process.platform === "win32") {
+    throw new Error(
+      app.isPackaged
+        ? "Cua Driver is missing from this OnMyAgent build. Reinstall the app."
+        : "Cua Driver not staged. Run: node apps/desktop/scripts/prepare-cua-helper.mjs --force-target",
+    );
+  }
 
   if (app.isPackaged) {
     throw new Error(
@@ -193,6 +219,52 @@ function getComputerUseMcpCommand() {
     ];
   }
   return ["npx", "-y", "@onmyagent/handsfree", "mcp"];
+}
+
+function resolveMcpEnabledForPlatform() {
+  let userDataDir;
+  try {
+    userDataDir = app.getPath("userData");
+  } catch {
+    userDataDir = undefined;
+  }
+  return isComputerUseMcpEnabled({
+    platform: process.platform,
+    userDataDir,
+  });
+}
+
+/**
+ * Persist MCP enable preference and refresh OpenCode overlay when possible.
+ * @param {boolean} enabled
+ */
+async function setComputerUseMcpEnabled(enabled) {
+  if (typeof enabled !== "boolean") {
+    throw new Error("Computer Use MCP enabled state must be a boolean.");
+  }
+  let userDataDir;
+  try {
+    userDataDir = app.getPath("userData");
+  } catch {
+    throw new Error("Cannot resolve userData for Computer Use preferences.");
+  }
+  writeComputerUseMcpPrefsEnabled(userDataDir, enabled);
+
+  // Keep managed OpenCode overlay in sync when we own computer-use config.
+  try {
+    const command = getComputerUseMcpCommand();
+    const configDir =
+      process.env.OPENCODE_CONFIG_DIR?.trim() ||
+      path.join(userDataDir, "opencode");
+    await writeComputerUseRuntimeConfig(configDir, command, { enabled });
+  } catch (error) {
+    console.warn(
+      "[ComputerUse] could not rewrite OpenCode overlay:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
+  return checkComputerUsePermissions();
 }
 
 // ---------------------------------------------------------------------------
@@ -254,20 +326,52 @@ function resolveComputerUseExecutable() {
 }
 
 async function checkComputerUsePermissions() {
-  // Spawn HandsFree --check → read JSON from stdout → exit. Always fresh.
+  const desktopVersion = resolveOnMyAgentProductVersion(app);
+  const mcpEnabled = resolveMcpEnabledForPlatform();
+
+  // Windows: Cua Driver stage check (no HandsFree --status / TCC).
+  if (process.platform === "win32") {
+    const cua = resolveWindowsCuaDriver({
+      desktopRoot: desktopRootPath(),
+      resourcesPath: process.resourcesPath,
+      explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+    });
+    const present = Boolean(cua);
+    return {
+      ok: present,
+      accessibility: present,
+      screenRecording: present,
+      backend: present ? "cua" : "none",
+      mcpEnabled,
+      helperVersion: present ? "cua-driver" : undefined,
+      // protocolVersion 1 keeps settings "runtime compatible" UI green when staged.
+      protocolVersion: present ? 1 : undefined,
+      desktopVersion,
+      error: present
+        ? undefined
+        : "Cua Driver not staged. Run prepare-cua-helper or reinstall OnMyAgent.",
+    };
+  }
+
+  // macOS: Spawn HandsFree --status → read JSON from stdout → exit.
   const bin = resolveComputerUseExecutable();
   if (!bin) {
     return {
       ok: false,
       accessibility: false,
       screenRecording: false,
+      backend: "none",
+      mcpEnabled,
+      desktopVersion,
       error: "Helper binary not found. Run pnpm dev to build it.",
     };
   }
   const status = await spawnCheckPermissions(bin);
   return {
     ...status,
-    desktopVersion: resolveOnMyAgentProductVersion(app),
+    backend: "handsfree",
+    mcpEnabled,
+    desktopVersion,
     ...(status.skysight
       ? {
           skysight: {
@@ -962,6 +1066,19 @@ function spawnCheckPermissions(bin) {
 }
 
 async function openComputerUseSetupApp() {
+  // Windows: no HandsFree setup GUI — open accessibility-related settings.
+  if (process.platform === "win32") {
+    try {
+      await shell.openExternal("ms-settings:easeofaccess-mouse");
+    } catch (error) {
+      console.warn(
+        "[ComputerUse] open Windows settings failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return;
+  }
+
   // Open the GUI. Use the .app bundle if available so macOS shows it as
   // a real app with its own dock icon and permission identity.
   const appPath = computerUseHelperAppPath();
@@ -983,6 +1100,7 @@ async function openComputerUseSetupApp() {
   return {
     getComputerUseMcpCommand,
     checkComputerUsePermissions,
+    setComputerUseMcpEnabled,
     setComputerUseSkysightEnabled,
     setComputerUseSkysightPaused,
     updateComputerUseSkysightExclusion,

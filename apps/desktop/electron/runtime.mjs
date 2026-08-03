@@ -465,6 +465,7 @@ export function createRuntimeManager({
           {
             enabled: isComputerUseMcpEnabled({
               platform: computerUsePlatform,
+              userDataDir,
             }),
           },
         );
