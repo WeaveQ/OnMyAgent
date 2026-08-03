@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents/agent-builtin";
+import {
+  buildBuiltinAgentRecords,
+  EXPERT_CREATION_COACH_AGENT_ID,
+} from "../src/react-app/domains/agents/agent-builtin";
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
 import { createBlankWizardDraft } from "../src/react-app/domains/agents/agent-registry";
+import { currentLocale, setLocale, type Language } from "../src/i18n";
 import {
   buildExpertCreationCoachPendingContext,
   buildExpertCreationCoachSystemPrompt,
@@ -66,6 +70,25 @@ describe("expert creation coach agent binding", () => {
     expect(prompt).toContain("seven non-empty level-two Markdown sections");
     expect(prompt).toContain("skill IDs");
     expect(prompt).toContain(skills[0].id);
+  });
+
+  test("bundled coach copy describes the structured workflow in every locale", () => {
+    const previousLocale = currentLocale();
+    const expectations: readonly [Language, string][] = [
+      ["en", "seven"],
+      ["zh", "七个"],
+      ["zh-TW", "七個"],
+    ];
+
+    try {
+      for (const [language, marker] of expectations) {
+        setLocale(language);
+        const coach = buildBuiltinAgentRecords()[0];
+        expect(coach?.userNote).toContain(marker);
+      }
+    } finally {
+      setLocale(previousLocale);
+    }
   });
 
   test("coach tool access disables tools when enabledToolIds is empty", () => {
