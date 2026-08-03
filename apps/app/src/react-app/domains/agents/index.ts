@@ -74,6 +74,15 @@ export {
   mergeBuiltinAgents,
 } from "./agent-builtin";
 export {
+  registerExpertCreationEphemeralSession,
+  isExpertCreationEphemeralSession,
+  listExpertCreationEphemeralSessions,
+  unregisterExpertCreationEphemeralSession,
+  clearExpertCreationEphemeralSessions,
+  deleteExpertCreationEphemeralSession,
+  type ExpertCreationSessionDeleteClient,
+} from "./expert-creation-ephemeral-sessions";
+export {
   AGENT_REGISTRY_PATH,
   createAgentRecordFromDraft,
   serializeAgentRegistry,

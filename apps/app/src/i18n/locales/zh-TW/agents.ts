@@ -223,6 +223,8 @@ export default {
   "agents.expert_creation_done": "完成",
   "agents.expert_creation_try": "試試效果",
   "agents.expert_creation_coach": "專家教練",
+  "agents.expert_creation_coach_system_identity": "你是 OnMyAgent 的專家建立教練。",
+  "agents.expert_creation_coach_system_language": "優先使用使用者的語言回覆；介紹自己時使用本地化名稱「{name}」。",
   "agents.builtin_expert_creation_coach_name": "專家教練",
   "agents.builtin_expert_creation_coach_description": "建立專家的教練：協助你釐清目標、角色與邊界，一起把專家設計好。",
   "agents.builtin_expert_creation_coach_quote": "我是專家建立教練，專門協助你建立專家。",

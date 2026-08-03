@@ -57,7 +57,10 @@ import {
   loadDesktopSessionWorkspaces,
   resolveSelectedDesktopSessionWorkspaceId,
 } from "./workspace-actions";
-import { maxSequence } from "./sessions";
+import {
+  filterExpertCreationEphemeralSessionsByWorkspace,
+  maxSequence,
+} from "./sessions";
 import {
   readActiveWorkspaceId,
   readCachedSidebarSessionsByWorkspace,
@@ -196,7 +199,9 @@ export function useSessionRouteRefresh(input: Input) {
       // Cache-first paint under the boot overlay (do not mark route ready yet —
       // that used to drop the overlay onto an empty/disconnected home).
       if (desktopWorkspaces.length > 0) {
-        const cachedSessions = readCachedSidebarSessionsByWorkspace();
+        const cachedSessions = filterExpertCreationEphemeralSessionsByWorkspace(
+          readCachedSidebarSessionsByWorkspace(),
+        );
         const desktopSelectedId =
           resolveSelectedDesktopSessionWorkspaceId(desktopList);
         const disconnectedPreview = buildDisconnectedRouteState({
@@ -245,7 +250,9 @@ export function useSessionRouteRefresh(input: Input) {
         // Keep cached sidebar titles during transient disconnect on cold start
         // so the shell does not flash empty while the runtime is still booting.
         if (Object.keys(sessionsByWorkspaceIdRef.current).length === 0) {
-          const cachedSessions = readCachedSidebarSessionsByWorkspace();
+          const cachedSessions = filterExpertCreationEphemeralSessionsByWorkspace(
+            readCachedSidebarSessionsByWorkspace(),
+          );
           if (Object.keys(cachedSessions).length > 0) {
             sessionsByWorkspaceIdRef.current = cachedSessions;
             setSessionsByWorkspaceId(cachedSessions);

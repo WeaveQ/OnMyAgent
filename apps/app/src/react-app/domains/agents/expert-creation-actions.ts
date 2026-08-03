@@ -19,6 +19,7 @@ import {
 import {
   buildPendingAgentFromRecord,
   useAgentRegistryStore,
+  writeSessionAgentSnapshot,
 } from "./agent-registry-store";
 import type {
   AgentRecord,
@@ -31,7 +32,11 @@ import {
   ExpertCreationPage,
   type ExpertKnowledgeEntry,
 } from "./expert-creation-page";
-import { createExpertRecordForSave } from "./expert-creation-save-model";
+import {
+  buildSavedExpertPendingContext,
+  createExpertRecordForSave,
+} from "./expert-creation-save-model";
+import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
 
 async function encodeFileAsBase64(file: File): Promise<string> {
@@ -77,6 +82,7 @@ export type ExpertCreationControllerInput = {
     tone: "success";
     durationMs: number;
   }) => void;
+  onCreatedAgent: (agent: PendingAgentContext) => void;
 };
 
 export async function saveExpertCreation(
@@ -178,6 +184,7 @@ export function useExpertCreationController(
       knowledge: ExpertKnowledgeEntry[],
       availableSkills: AgentSkillItem[],
       draftId: string,
+      coachSessionId: string | null,
     ) => {
       const result = await saveExpertCreation({
         draft,
@@ -188,7 +195,24 @@ export function useExpertCreationController(
         client: input.client,
         draftId,
       });
+      if (coachSessionId && input.client) {
+        writeSessionAgentSnapshot(coachSessionId, null);
+        try {
+          await deleteExpertCreationEphemeralSession({
+            client: input.client,
+            workspaceId: input.workspaceId,
+            workspaceRoot: input.workspaceRoot,
+            sessionId: coachSessionId,
+          });
+        } catch (error) {
+          console.warn("[expert-creation] failed to delete completed coach session", error);
+        }
+      }
       useAgentRegistryStore.getState().setRegistry(result.registry);
+      const pending = buildSavedExpertPendingContext(
+        result.agent,
+        result.registry,
+      );
       input.showToast({
         title: t("agents.created_title", { name: result.agent.name }),
         description: t("agents.config_written_desc", {
@@ -198,6 +222,7 @@ export function useExpertCreationController(
         durationMs: 4000,
       });
       setOpen(false);
+      if (pending) input.onCreatedAgent(pending);
     },
     [input],
   );

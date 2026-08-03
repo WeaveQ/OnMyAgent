@@ -25,6 +25,13 @@ describe("expert creation lifecycle", () => {
     expect(hasExpertCreationProgress(baseline, baseline, EMPTY_EXPERT_COACH_STATE, 1)).toBe(true);
   });
 
+  test("treats a created coach session as progress that requires an exit choice", () => {
+    expect(hasExpertCreationProgress(baseline, baseline, {
+      ...EMPTY_EXPERT_COACH_STATE,
+      sessionId: "session-coach",
+    }, 0)).toBe(true);
+  });
+
   test("tracks behavior changes for preview sessions without depending on skill order", () => {
     const first = { ...baseline, name: "Researcher", skillIds: ["writing", "research"] };
     const sameBehavior = { ...first, skillIds: ["research", "writing"] };

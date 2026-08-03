@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { createClient, unwrap } from "../../../../app/lib/opencode";
@@ -20,6 +20,8 @@ import {
   buildExpertCreationPreviewPendingContext,
   buildExpertCreationPreviewToolAccess,
   buildExpertPreviewSystemPrompt,
+  deleteExpertCreationEphemeralSession,
+  registerExpertCreationEphemeralSession,
 } from "../../agents";
 
 export type ExpertCreationPreviewSurfaceProps = {
@@ -60,6 +62,35 @@ export function ExpertCreationPreviewSurface(
   const [draftOnly, setDraftOnly] = useState(true);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
+  const disposableSessionIdRef = useRef<string | null>(null);
+  const cleanupContextRef = useRef({
+    client: props.client,
+    workspaceId: props.workspaceId,
+    workspaceRoot: props.workspaceRoot,
+  });
+  cleanupContextRef.current = {
+    client: props.client,
+    workspaceId: props.workspaceId,
+    workspaceRoot: props.workspaceRoot,
+  };
+
+  useEffect(
+    () => () => {
+      const disposableSessionId = disposableSessionIdRef.current;
+      if (!disposableSessionId) return;
+      writeSessionAgentSnapshot(disposableSessionId, null);
+      const cleanup = cleanupContextRef.current;
+      void deleteExpertCreationEphemeralSession({
+        client: cleanup.client,
+        workspaceId: cleanup.workspaceId,
+        workspaceRoot: cleanup.workspaceRoot,
+        sessionId: disposableSessionId,
+      }).catch((error) => {
+        console.warn("[expert-creation] failed to delete preview session", error);
+      });
+    },
+    [],
+  );
 
   const agentContext = useMemo(
     () =>
@@ -93,6 +124,8 @@ export function ExpertCreationPreviewSurface(
             directory: props.workspaceRoot || undefined,
           }),
         ).id;
+        registerExpertCreationEphemeralSession(activeSessionId);
+        disposableSessionIdRef.current = activeSessionId;
         setSessionId(activeSessionId);
         setDraftOnly(false);
         sessionIdRef.current = activeSessionId;

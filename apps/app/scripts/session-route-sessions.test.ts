@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   findFirstSessionIdMatching,
   findWorkspaceIdOwningSession,
+  filterExpertCreationEphemeralSessionsByWorkspace,
   getActiveReloadBlockingSessions,
   getActiveSessionIds,
   insertSidebarSession,
@@ -21,6 +22,12 @@ import {
 } from "../src/react-app/shell/session-route/sessions";
 import type { SidebarSessionItem } from "../src/app/types";
 import type { RouteWorkspace } from "../src/react-app/shell/session-route/model";
+import {
+  clearExpertCreationEphemeralSessions,
+  registerExpertCreationEphemeralSession,
+} from "../src/react-app/domains/agents/expert-creation-ephemeral-sessions";
+import { writeSessionAgentSnapshot } from "../src/react-app/domains/agents/agent-registry-store";
+import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents/agent-builtin";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -100,6 +107,58 @@ describe("session route sessions", () => {
     expect(inserted.ws_a?.map((item) => item.id)).toEqual(["ses_new", "ses_existing"]);
     expect(insertSidebarSession({ current: inserted, workspaceId: "ws_a", session: { id: "ses_new" } }))
       .toBe(inserted);
+  });
+
+  test("never inserts an expert-creation ephemeral session into Home", () => {
+    clearExpertCreationEphemeralSessions();
+    registerExpertCreationEphemeralSession("preview-session");
+    const current = { ws_a: [session({ id: "existing" })] };
+
+    const result = insertSidebarSession({
+      current,
+      workspaceId: "ws_a",
+      session: { id: "preview-session", title: "Preview" },
+    });
+
+    expect(result).toBe(current);
+    clearExpertCreationEphemeralSessions();
+  });
+
+  test("hides legacy creation sessions identified by their saved agent snapshot", () => {
+    localStorage.clear();
+    writeSessionAgentSnapshot("legacy-coach-session", {
+      id: EXPERT_CREATION_COACH_AGENT_ID,
+      name: "Expert coach",
+      description: "Creates experts",
+      avatar: {
+        avatarStyle: "robot",
+        avatarOptionId: "robot-1",
+        customAvatarDataUrl: null,
+        avatarUrl: null,
+        avatarBackground: null,
+      },
+      systemPrompt: "Help create an expert.",
+    });
+
+    expect(
+      shouldKeepWorkspaceSessionItem({
+        sessionId: "legacy-coach-session",
+        directory: "/tmp/workspace",
+        assistantSessionIds: new Set(),
+        normalizedWorkspaceRoot: "/tmp/workspace",
+        normalizeDirectoryPath: (path) => path,
+      }),
+    ).toBe(false);
+    expect(
+      filterExpertCreationEphemeralSessionsByWorkspace({
+        ws_a: [
+          session({ id: "legacy-coach-session" }),
+          session({ id: "normal-session" }),
+        ],
+      }).ws_a?.map((item) => item.id),
+    ).toEqual(["normal-session"]);
+
+    localStorage.clear();
   });
 
   test("keeps registered expert sessions even when their directory differs from workspace root", () => {

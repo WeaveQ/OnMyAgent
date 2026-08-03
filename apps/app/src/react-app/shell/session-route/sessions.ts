@@ -3,7 +3,11 @@ import type { SidebarSessionItem } from "../../../app/types";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import { t } from "../../../i18n";
-import { addAssistantSession, isExpertSession } from "../../domains/agents";
+import {
+  addAssistantSession,
+  isExpertCreationEphemeralSession,
+  isExpertSession,
+} from "../../domains/agents";
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
@@ -62,6 +66,8 @@ export function shouldKeepWorkspaceSessionItem(input: {
   normalizedWorkspaceRoot: string;
   normalizeDirectoryPath: (path: string) => string;
 }) {
+  // Coach / try-preview sessions from expert creation are disposable.
+  if (isExpertCreationEphemeralSession(input.sessionId)) return false;
   if (input.assistantSessionIds.has(input.sessionId)) return true;
   if (isExpertSession(input.sessionId)) return true;
   return (
@@ -142,6 +148,7 @@ export async function collectWorkspaceSessionItems(input: {
       const id = session?.id;
       const dir = session?.directory;
       if (!id || !dir) continue;
+      if (isExpertCreationEphemeralSession(id)) continue;
       if (input.normalizeDirectoryPath(dir) === normalizedWorkspaceRoot && !assistantSessionIds.has(id)) {
         addAssistantSession(id);
         assistantSessionIds.add(id);
@@ -173,10 +180,26 @@ export function insertSidebarSession(input: {
   if (!insertedSession || existing.some((session) => session.id === insertedSession.id)) {
     return input.current;
   }
+  if (isExpertCreationEphemeralSession(insertedSession.id)) {
+    return input.current;
+  }
   return {
     ...input.current,
     [input.workspaceId]: [insertedSession, ...existing],
   };
+}
+
+export function filterExpertCreationEphemeralSessionsByWorkspace(
+  sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>,
+): Record<string, SidebarSessionItem[]> {
+  return Object.fromEntries(
+    Object.entries(sessionsByWorkspaceId).map(([workspaceId, sessions]) => [
+      workspaceId,
+      sessions.filter(
+        (session) => !isExpertCreationEphemeralSession(session.id),
+      ),
+    ]),
+  );
 }
 
 export function insertCreatedSessionForWorkspace(input: {
