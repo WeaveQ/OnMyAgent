@@ -123,18 +123,17 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 
 - **Computer Use / HandsFree helper**: `packages/handsfree` is Swift/AppKit
   and macOS-only. `prepare-computer-use-helper.mjs` early-returns on
-  `process.platform !== "darwin"`. UI entry points hide Computer Use setup
-  and the composer **capture desktop (Appshot)** action off macOS.
+  `process.platform !== "darwin"`. UI entry points hide **agent Computer Use
+  setup** off macOS (click/type MCP). This is separate from Appshot.
 - **Appshot (composer desktop capture)**:
-  - **Native**: only the macOS helper implements `appshot capture|monitor`.
-  - **Electron**: `isComputerUseAppshotSupported()` / `captureComputerUseAppshot`
-    refuse non-`darwin` hosts with an explicit “macOS only” error.
-  - **Renderer**: menu item is gated on macOS; success uses a short composer
-    **notice** (not a full-name toast). Filenames are sanitized in Electron and
-    the UI so bad native names never dump into the chip.
-  - **Windows reserved names / illegal path chars** are stripped in the shared
-    sanitizer even though Appshot itself does not run on Windows (defensive
-    for any future capture path that reuses the helper).
+  - **Capture**: Electron `desktopCapturer` only (macOS / Windows / Linux).
+    No native helper binary. Identity is OnMyAgent (dev: Electron) for Screen
+    Recording privacy.
+  - **Hotkey**: Settings → Shortcuts → **App snapshot** (default
+    `CommandOrControl+Shift+A`, fully customizable via `globalShortcut`).
+  - **Renderer**: menu + shortcut attach into Composer; filenames sanitized for
+    Windows illegal chars.
+  - **Not included**: full Computer Use agent tools / Skysight on Windows.
 - **Sandbox profiles**: `apps/orchestrator/src/runtime-sandbox.ts` returns
   an empty profile on non-macOS. Orchestrator still runs, but without
   `sandbox-exec` isolation.

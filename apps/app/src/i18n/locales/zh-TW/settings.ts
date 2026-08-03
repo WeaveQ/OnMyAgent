@@ -901,7 +901,7 @@ export default {
   "settings.shortcuts_action_searchInCurrentTask": "在目前任務中搜尋",
   "settings.shortcuts_action_sendMessage": "傳送訊息",
   "settings.shortcuts_action_insertNewline": "插入換行",
-  "settings.shortcuts_action_appSnapshot": "應用程式截圖",
+  "settings.shortcuts_action_appSnapshot": "擷取桌面",
   "shortcuts_guide.title": "快捷鍵指引",
   "shortcuts_guide.description":
     "常用快捷鍵可協助你快速建立任務、搜尋、切換上下文與傳送訊息。",

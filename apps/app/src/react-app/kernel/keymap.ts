@@ -59,8 +59,8 @@ export const DEFAULT_KEYMAP_ACTIONS: readonly KeymapActionDef[] = [
   {
     id: "appSnapshot",
     group: "global",
-    // Special: mac both Command keys; win both Control keys (see match).
-    defaultAccelerator: "double-command",
+    // Electron globalShortcut-friendly (customizable in Settings → Shortcuts).
+    defaultAccelerator: "CommandOrControl+Shift+A",
   },
 ] as const;
 
@@ -81,8 +81,9 @@ export function detectKeymapPlatform(
 }
 
 /**
- * Resolved default for an action. App snapshot uses double-control on Windows
- * so both sides of the Ctrl key work without clashing with Cmd-less chords.
+ * Resolved default for an action.
+ * Legacy prefs may still store double-command / double-control — map them to
+ * the Electron accelerator default so old installs keep a working binding.
  */
 export function resolveDefaultAccelerator(
   actionId: KeymapActionId,
@@ -90,11 +91,16 @@ export function resolveDefaultAccelerator(
 ): string {
   const def = DEFAULT_KEYMAP_ACTIONS.find((a) => a.id === actionId);
   if (!def) return "";
-  if (actionId === "appSnapshot") {
-    if (platform === "windows" || platform === "linux") return "double-control";
-    return "double-command";
-  }
   return def.defaultAccelerator;
+}
+
+/** Normalize stored accelerators (migrate dual-mod tokens → real shortcuts). */
+export function normalizeAppSnapshotAccelerator(raw: string | null | undefined): string {
+  const a = (raw ?? "").trim();
+  if (!a || a === "double-command" || a === "double-control") {
+    return "CommandOrControl+Shift+A";
+  }
+  return a;
 }
 
 export function resolveAccelerator(
@@ -104,11 +110,22 @@ export function resolveAccelerator(
 ): string {
   if (overrides && Object.prototype.hasOwnProperty.call(overrides, actionId)) {
     // Explicit clear → unbound
-    return (overrides[actionId] ?? "").trim();
+    const raw = (overrides[actionId] ?? "").trim();
+    if (actionId === "appSnapshot") {
+      // Empty string means user cleared the binding.
+      if (!raw) return "";
+      return normalizeAppSnapshotAccelerator(raw);
+    }
+    return raw;
   }
   return resolveDefaultAccelerator(actionId, platform);
 }
 
+/**
+ * Map accelerator tokens to readable chip labels.
+ * Prefer short words for Shift/Ctrl so multi-key chords stay scannable in UI
+ * (lone "⇧" is easy to misread as a caret).
+ */
 function mapToken(
   token: string,
   platform: KeymapPlatform,
@@ -117,8 +134,8 @@ function mapToken(
   const t = token.trim();
   if (/^CommandOrControl$/i.test(t)) return isMac ? "⌘" : "Ctrl";
   if (/^Command$/i.test(t)) return isMac ? "⌘" : "Ctrl";
-  if (/^Control$/i.test(t)) return isMac ? "⌃" : "Ctrl";
-  if (/^Shift$/i.test(t)) return isMac ? "⇧" : "Shift";
+  if (/^Control$/i.test(t)) return "Ctrl";
+  if (/^Shift$/i.test(t)) return "Shift";
   if (/^(Alt|Option)$/i.test(t)) return isMac ? "⌥" : "Alt";
   if (/^Enter$/i.test(t) || /^Return$/i.test(t)) return isMac ? "↵" : "Enter";
   if (/^Tab$/i.test(t)) return "Tab";
@@ -157,7 +174,7 @@ export function formatAcceleratorForDisplay(
   platform: KeymapPlatform = "macos",
 ): string {
   return acceleratorToKeyGroups(accelerator, platform)
-    .map((keys) => keys.join(""))
+    .map((keys) => keys.join(" + "))
     .join(" / ");
 }
 

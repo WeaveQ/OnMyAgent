@@ -27,6 +27,7 @@ import {
   ipcMain,
   nativeImage,
   nativeTheme,
+  screen,
   session,
   shell,
   systemPreferences,
@@ -212,6 +213,7 @@ const computerUseDesktopHelpers = createComputerUseDesktopHelpers({
   dialog,
   systemPreferences,
   desktopCapturer,
+  screen,
   dirname: __dirname,
 });
 const {
@@ -1180,15 +1182,24 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   setKeymapAcceleratorOverrides:
     applicationMenuController.setKeymapAcceleratorOverrides,
   BrowserWindow,
-  onAppSnapshotHotkey: () => {
-    const wins = BrowserWindow.getAllWindows();
-    for (const win of wins) {
-      if (win.isDestroyed()) continue;
-      try {
-        win.webContents.send("onmyagent:app-snapshot-hotkey");
-      } catch {
-        // ignore
+  onAppSnapshotHotkey: async () => {
+    // Capture in main (desktopCapturer) and deliver payload so Composer attaches
+    // even when the window is not focused (globalShortcut path).
+    try {
+      const payload = await captureComputerUseAppshot();
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (win.isDestroyed()) continue;
+        try {
+          win.webContents.send(COMPUTER_USE_APPSHOT_EVENT, payload);
+        } catch {
+          // ignore
+        }
       }
+    } catch (error) {
+      console.warn(
+        "[app-snapshot-hotkey] capture failed",
+        error instanceof Error ? error.message : error,
+      );
     }
   },
 });

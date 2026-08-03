@@ -51,12 +51,12 @@ describe("keymap product set", () => {
     );
   });
 
-  test("app snapshot default is dual-mod per platform", () => {
+  test("app snapshot default is Electron accelerator (customizable)", () => {
     expect(resolveDefaultAccelerator("appSnapshot", "macos")).toBe(
-      "double-command",
+      "CommandOrControl+Shift+A",
     );
     expect(resolveDefaultAccelerator("appSnapshot", "windows")).toBe(
-      "double-control",
+      "CommandOrControl+Shift+A",
     );
   });
 
