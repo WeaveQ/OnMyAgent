@@ -246,6 +246,12 @@ function ExpertCoach(props: {
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
   onApplyDraftSuggestion: (suggestion: ExpertDraftSuggestion) => void;
 }) {
+  const coachOptions = [
+    t("agents.expert_creation_coach_option_1"),
+    t("agents.expert_creation_coach_option_2"),
+    t("agents.expert_creation_coach_option_3"),
+    t("agents.expert_creation_coach_option_4"),
+  ];
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
       <div className="flex min-h-0 flex-1 flex-col">
@@ -269,10 +275,8 @@ function ExpertCoach(props: {
               <p>{t("agents.expert_creation_coach_intro")}</p>
               <p>{t("agents.expert_creation_coach_question")}</p>
               <ol className="list-decimal space-y-1 pl-5">
-                {[1, 2, 3, 4].map((index) => (
-                  <li key={index}>
-                    {t(`agents.expert_creation_coach_option_${index}`)}
-                  </li>
+                {coachOptions.map((option) => (
+                  <li key={option}>{option}</li>
                 ))}
               </ol>
               <p>{t("agents.expert_creation_coach_reply_hint")}</p>
