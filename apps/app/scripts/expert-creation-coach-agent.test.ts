@@ -18,6 +18,16 @@ describe("expert creation coach agent binding", () => {
     expect(coach?.builtin).toBe(true);
   });
 
+  test("falls back to product builtin when registry cache omitted the coach", () => {
+    const registry = createDefaultAgentRegistry();
+    registry.agents = registry.agents.filter(
+      (agent) => agent.id !== EXPERT_CREATION_COACH_AGENT_ID,
+    );
+    const coach = resolveExpertCreationCoachAgent(registry);
+    expect(coach?.id).toBe(EXPERT_CREATION_COACH_AGENT_ID);
+    expect(coach?.builtin).toBe(true);
+  });
+
   test("system prompt uses coach identity and live draft fields", () => {
     const registry = createDefaultAgentRegistry();
     const coach = resolveExpertCreationCoachAgent(registry);
