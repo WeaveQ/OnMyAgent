@@ -11,6 +11,11 @@ import {
   ensureWorkMemoryAwareness,
   resolveWorkMemoryAwarenessMainDir,
 } from "../ensure-work-memory-awareness.mjs";
+import {
+  disconnectCompany,
+  readCompanySettings,
+  writeCompanySettings,
+} from "../company-client.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "userAgentRegistryRead",
@@ -72,6 +77,9 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "workMemoryReadFile",
   "workMemoryWriteFile",
   "workMemoryListFiles",
+  "companySettingsRead",
+  "companySettingsWrite",
+  "companySettingsDisconnect",
 ]);
 
 /**
@@ -621,6 +629,31 @@ export function createSystemDomainHandlers({
       ok: false,
       message: `${tool} is bundled with OnMyAgent and cannot be installed separately.`,
     };
+  },
+
+  /**
+   * Durable company session store (SoT: company-client company-settings.json).
+   * Renderer Company settings must use these instead of localStorage-only.
+   */
+  companySettingsRead: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return readCompanySettings(homeDir);
+  },
+
+  companySettingsWrite: async (event, args) => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const patch = args[0] && typeof args[0] === "object" ? args[0] : {};
+    return writeCompanySettings(homeDir, patch);
+  },
+
+  companySettingsDisconnect: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return disconnectCompany(homeDir, {
+      fetch: async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    });
   },
 
   };

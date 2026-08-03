@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
 /**
  * M5ui — Connect company (OnMyCompany) settings panel.
- * Stores BaseUrl/session in localStorage for the renderer; pulls org config via HTTP.
+ * Durable store: Electron IPC → company-client company-settings.json.
+ * Non-desktop fallback: localStorage (dev/browser only).
  */
 import { useCallback, useEffect, useState } from "react";
 import { Building2, LogIn, LogOut, RefreshCw } from "lucide-react";
@@ -9,6 +10,8 @@ import { Building2, LogIn, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { desktopBridge } from "../../../../app/lib/desktop";
+import { isDesktopRuntime } from "../../../../app/utils";
 import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
 
@@ -21,13 +24,18 @@ type CompanySettings = {
   email?: string;
   activeProfile?: "local" | "company";
   lastSyncedVersion?: string;
+  lastSyncedAt?: string;
 };
 
 type CompanyViewProps = {
   busy?: boolean;
 };
 
-function readSettings(): CompanySettings {
+function normalizeBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "");
+}
+
+function readLocalFallback(): CompanySettings {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as CompanySettings;
   } catch {
@@ -35,25 +43,79 @@ function readSettings(): CompanySettings {
   }
 }
 
-function writeSettings(next: CompanySettings): CompanySettings {
+function writeLocalFallback(next: CompanySettings): CompanySettings {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }
 
-function normalizeBaseUrl(url: string): string {
-  return url.trim().replace(/\/+$/, "");
+async function readDurableSettings(): Promise<CompanySettings> {
+  if (isDesktopRuntime()) {
+    try {
+      const result = (await desktopBridge.companySettingsRead()) as CompanySettings;
+      return result && typeof result === "object" ? result : {};
+    } catch {
+      return readLocalFallback();
+    }
+  }
+  return readLocalFallback();
+}
+
+async function writeDurableSettings(patch: CompanySettings): Promise<CompanySettings> {
+  if (isDesktopRuntime()) {
+    try {
+      const result = (await desktopBridge.companySettingsWrite(patch)) as CompanySettings;
+      // Mirror to localStorage for same-session UI consistency
+      writeLocalFallback(result);
+      return result;
+    } catch {
+      return writeLocalFallback({ ...readLocalFallback(), ...patch });
+    }
+  }
+  return writeLocalFallback({ ...readLocalFallback(), ...patch });
+}
+
+async function disconnectDurable(): Promise<CompanySettings> {
+  if (isDesktopRuntime()) {
+    try {
+      const result = (await desktopBridge.companySettingsDisconnect()) as CompanySettings;
+      writeLocalFallback(result);
+      return result;
+    } catch {
+      const current = readLocalFallback();
+      return writeLocalFallback({
+        companyBaseUrl: current.companyBaseUrl,
+        activeProfile: "local",
+      });
+    }
+  }
+  const current = readLocalFallback();
+  return writeLocalFallback({
+    companyBaseUrl: current.companyBaseUrl,
+    activeProfile: "local",
+  });
 }
 
 export function CompanySettingsView(_props: CompanyViewProps) {
-  const [settings, setSettings] = useState<CompanySettings>(() => readSettings());
-  const [baseUrl, setBaseUrl] = useState(settings.companyBaseUrl || "http://127.0.0.1:3000");
-  const [email, setEmail] = useState(settings.email || "admin@company.internal");
+  const [settings, setSettings] = useState<CompanySettings>({});
+  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:3000");
+  const [email, setEmail] = useState("admin@company.internal");
   const [code, setCode] = useState("000000");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<string | null>(null);
   const [usage, setUsage] = useState<string | null>(null);
+  const [storeMode, setStoreMode] = useState<"desktop" | "local">("local");
+
+  useEffect(() => {
+    void (async () => {
+      const loaded = await readDurableSettings();
+      setSettings(loaded);
+      if (loaded.companyBaseUrl) setBaseUrl(loaded.companyBaseUrl);
+      if (loaded.email) setEmail(loaded.email);
+      setStoreMode(isDesktopRuntime() ? "desktop" : "local");
+    })();
+  }, []);
 
   const refreshHealth = useCallback(async () => {
     const root = normalizeBaseUrl(baseUrl);
@@ -63,6 +125,7 @@ export function CompanySettingsView(_props: CompanyViewProps) {
       if (!res.ok) throw new Error(`health ${res.status}`);
       const body = (await res.json()) as { orgId?: string; version?: string };
       setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+      setError(null);
     } catch (err) {
       setHealth(null);
       setError(err instanceof Error ? err.message : "Health check failed");
@@ -100,16 +163,19 @@ export function CompanySettingsView(_props: CompanyViewProps) {
       const manifest = manifestRes.ok
         ? ((await manifestRes.json()) as { version?: string })
         : {};
-      const next = writeSettings({
+      const next = await writeDurableSettings({
         companyBaseUrl: root,
         memberToken: body.token,
         memberId: body.member?.id,
         email: body.member?.email || email,
         activeProfile: "company",
         lastSyncedVersion: manifest.version,
+        lastSyncedAt: new Date().toISOString(),
       });
       setSettings(next);
-      setStatus(`已连接 · member ${next.memberId || ""} · config ${manifest.version || ""}`);
+      setStatus(
+        `已连接 · member ${next.memberId || ""} · config ${manifest.version || ""} · store=${storeMode}`,
+      );
       try {
         const usageRes = await fetch(`${root}/api/company/usage`, {
           headers: { authorization: `Bearer ${body.token}` },
@@ -139,12 +205,13 @@ export function CompanySettingsView(_props: CompanyViewProps) {
           headers: { authorization: `Bearer ${settings.memberToken}` },
         }).catch(() => undefined);
       }
-      const next = writeSettings({
+      // Ensure BaseUrl is persisted before disconnect clears session
+      await writeDurableSettings({
         companyBaseUrl: normalizeBaseUrl(baseUrl) || settings.companyBaseUrl,
-        activeProfile: "local",
       });
+      const next = await disconnectDurable();
       setSettings(next);
-      setStatus("已断开，回到 local");
+      setStatus("已断开，回到 local（BaseUrl 保留）");
       setUsage(null);
     } finally {
       setLoading(false);
@@ -161,7 +228,7 @@ export function CompanySettingsView(_props: CompanyViewProps) {
           <div>
             <div className="text-sm font-medium text-dls-text">连接公司 (OnMyCompany)</div>
             <p className="text-xs text-dls-secondary">
-              设置 companyBaseUrl，登录后拉取组织配置。未登录保持本机可用。
+              设置 companyBaseUrl，登录后拉取组织配置。会话写入本机 company-settings.json（桌面）。
             </p>
           </div>
         </div>
@@ -221,11 +288,12 @@ export function CompanySettingsView(_props: CompanyViewProps) {
           {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
           <div className="rounded-lg border border-dls-border bg-dls-surface-muted/40 px-3 py-2 text-xs text-dls-secondary">
+            <div>store: {storeMode === "desktop" ? "company-settings.json (IPC)" : "localStorage fallback"}</div>
             <div>activeProfile: {settings.activeProfile || "local"}</div>
             <div>memberId: {settings.memberId || "—"}</div>
             <div>lastSyncedVersion: {settings.lastSyncedVersion || "—"}</div>
             <div className="mt-1">
-              个人 Skills 在本机 `profiles/local/config/skills/mine`；company 模式默认可叠加（policy.skills.allowPersonal）。
+              个人 Skills：`profiles/local/config/skills/mine`；company 模式叠加受 policy.skills.allowPersonal 控制。
             </div>
           </div>
         </div>

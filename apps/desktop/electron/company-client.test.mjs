@@ -86,6 +86,40 @@ describe("company-client M5", () => {
     }
   });
 
+  test("settings UI path: write session then disconnect clears token keeps BaseUrl", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-co-"));
+    try {
+      // Simulate Company settings connect write (same functions IPC handlers call)
+      writeCompanySettings(home, {
+        companyBaseUrl: "http://company.example:3000",
+        memberToken: "omc_session_token",
+        memberId: "member-xyz",
+        email: "admin@acme.test",
+        activeProfile: "company",
+        lastSyncedVersion: "cfg-9",
+      });
+      const afterConnect = readCompanySettings(home);
+      assert.equal(afterConnect.companyBaseUrl, "http://company.example:3000");
+      assert.equal(afterConnect.memberToken, "omc_session_token");
+      assert.equal(afterConnect.activeProfile, "company");
+      assert.equal(hasCompanySession(afterConnect), true);
+
+      const afterDisconnect = await disconnectCompany(home, {
+        fetch: async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      });
+      assert.equal(afterDisconnect.memberToken, undefined);
+      assert.equal(afterDisconnect.activeProfile, "local");
+      assert.equal(afterDisconnect.companyBaseUrl, "http://company.example:3000");
+      // Re-read from disk (durable path company-settings.json)
+      const disk = readCompanySettings(home);
+      assert.equal(disk.memberToken, undefined);
+      assert.equal(disk.companyBaseUrl, "http://company.example:3000");
+      assert.equal(shouldCallCompany(disk), false);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   test("S4 personal overlay respects allowPersonal policy", () => {
     assert.equal(allowPersonalSkills({ skills: { allowPersonal: false } }), false);
     assert.equal(allowPersonalSkills({}), true);
