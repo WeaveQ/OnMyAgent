@@ -176,6 +176,7 @@ export function createExpertMarketplace(options = {}) {
     const extension = path.extname(filePath).toLowerCase();
     if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
     if (extension === ".webp") return "image/webp";
+    if (extension === ".svg") return "image/svg+xml";
     return "image/png";
   }
 
@@ -186,7 +187,7 @@ export function createExpertMarketplace(options = {}) {
     const avatarsRoot = path.join(packagePath, "avatars");
     const firstAvatar = firstFileInDirectory(
       avatarsRoot,
-      (name) => /\.(png|jpe?g|webp)$/i.test(name),
+      (name) => /\.(png|jpe?g|webp|svg)$/i.test(name),
     );
     if (firstAvatar) candidates.push(path.join(avatarsRoot, firstAvatar));
     const avatarFile = candidates.find((candidate) => existsSync(candidate));
@@ -287,6 +288,11 @@ export function createExpertMarketplace(options = {}) {
     const name = String(input.name ?? packageName).trim() || packageName;
     const description = String(input.description ?? "").trim();
     const quote = String(input.quote ?? description).trim();
+    const rolePrompt = String(input.rolePrompt ?? "").trim();
+    const memory = String(input.memory ?? "").trim();
+    const skillIds = Array.isArray(input.skillIds)
+      ? input.skillIds.map((item) => String(item ?? "").trim()).filter(Boolean)
+      : [];
     const now = new Date().toISOString();
     const plugin = {
       name: packageName,
@@ -304,6 +310,11 @@ export function createExpertMarketplace(options = {}) {
       tags: [],
       quickPrompts: [],
       promptTemplates: [],
+      agentConfig: {
+        rolePrompt,
+        memory,
+        skillIds,
+      },
       createdAt: now,
     };
     const agentMarkdown = `---
@@ -322,9 +333,18 @@ export function createExpertMarketplace(options = {}) {
 
   ${quote || description || "我是一个专业的智能体助手。"}
 
-  ## 工作方式
+  ## 角色提示词
 
-  ${description || quote || "根据用户目标提供结构化、可执行的帮助。"}
+  ${rolePrompt || description || quote || "根据用户目标提供结构化、可执行的帮助。"}
+
+  ${memory ? `## 专家记忆
+
+  ${memory}
+
+  ` : ""}${skillIds.length > 0 ? `## 已配置技能
+
+  仅在需要时优先使用以下已安装技能：${skillIds.map((skillId) => `\`${skillId}\``).join("、")}。
+  ` : ""}
   `;
     const readme = `# ${name}
 

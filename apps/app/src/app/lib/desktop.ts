@@ -79,6 +79,7 @@ import type {
   ExpertPackageInstallInput,
   ExpertPackageInstallResult,
   MessagingChannelStatus,
+  MyExpertKnowledgeStageInput,
   MyExpertPackageWriteInput,
   UserAgentRegistryWriteResult,
 } from "./desktop-types";
@@ -92,6 +93,9 @@ declare global {
     __ONMYAGENT_ZOOM_FACTOR__?: number;
     __ONMYAGENT_ELECTRON__?: {
       invokeDesktop?: DesktopInvoke;
+      files?: {
+        getPathForFile?: (file: File) => string | null;
+      };
       computerUse?: {
         onActivity?: (callback: (activity: {
           phase: "inactive" | "ready" | "running" | "paused" | "errored";
@@ -742,6 +746,9 @@ export const listExpertRegistryRecords = (marketplace: ExpertMarketplaceName) =>
 
 export const writeMyExpertPackage = (input: MyExpertPackageWriteInput) =>
   invokeDesktopCommand("writeMyExpertPackage", input);
+
+export const stageMyExpertKnowledge = (input: MyExpertKnowledgeStageInput) =>
+  invokeDesktopCommand("stageMyExpertKnowledge", input);
 
 // ---------------------------------------------------------------------------
 // Domain wrapper modules (stable public API re-exports)

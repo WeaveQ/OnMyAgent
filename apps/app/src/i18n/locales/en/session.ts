@@ -45,6 +45,7 @@ export default {
   "session.logistics_expert_self_intro_prompt": "Introduce yourself — what can you help me with?",
   "session.try_ask_expert": "Try asking",
   "session.summon": "Summon",
+  "session.summon_experts": "Summon experts",
   "session.summon_expert": "Summon {name}",
   "session.expert_marketplace_category_all": "All",
   "session.expert_marketplace_category_opc": "OPC Solo Company",

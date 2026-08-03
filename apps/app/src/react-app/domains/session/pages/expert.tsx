@@ -2,20 +2,12 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ChevronDown,
-  ChevronUp,
-  PanelRight,
-  Plus,
-  Search,
-  X,
-  Zap,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, PanelRight, Plus, Search, X, Zap } from "lucide-react";
 import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
-import { type OpenTarget } from "../artifacts/open-target";
+import type { OpenTarget } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
@@ -46,25 +38,21 @@ import {
 
 import type { SessionPageProps } from "./session-page-types";
 
-import type { AgentCardItem } from "../../agents";
 import {
+  type AgentCardItem,
+  type AgentRegistry,
   buildAgentToolAccess,
   buildAgentSystemPrompt,
+  friendlyModelNameToModelRef,
+  isExpertSession,
+  isValidSdkModelRef,
   type PendingAgentContext,
-  usePendingAgentStore,
-} from "../../agents";
-import {
   readCustomAgentIdForSession,
   readCustomAgentSessionEntries,
-  useAgentRegistryStore,
-} from "../../agents";
-import { isExpertSession } from "../../agents";
-import {
-  friendlyModelNameToModelRef,
-  isValidSdkModelRef,
   resolveAgentAvatarUrl,
+  useAgentRegistryStore,
+  usePendingAgentStore,
 } from "../../agents";
-import type { AgentRegistry } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
@@ -129,6 +117,9 @@ import {
 } from "./shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import {
+  EXPERT_SIDE_PANEL_DEFAULT_WIDTH,
+  EXPERT_SIDE_PANEL_MIN_WIDTH,
+  NO_EXPERT_CONVERSATIONS_ASSET,
   expertFeatureCategoryForAgent,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
@@ -160,10 +151,7 @@ import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { useExpertSkillNavigation } from "./use-expert-skill-navigation";
-
-const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
-const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
-const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
+import { useSessionExpertCreation } from "./use-session-expert-creation";
 
 export type ExpertPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -582,24 +570,25 @@ export function ExpertPage(props: ExpertPageProps) {
     [],
   );
 
-  const activateDraftAgent = useCallback(
-    (agent: PendingAgentContext) => {
-      setDraftAgentContexts((current) => ({ ...current, [agent.id]: agent }));
-      usePendingAgentStore.getState().setAgent(agent);
-      setDraftAgentId(agent.id);
-      setDraftSessionActive(true);
-      openRailView("chat");
-    },
-    [],
-  );
+  const activateDraftAgent = useCallback((agent: PendingAgentContext) => {
+    setDraftAgentContexts((current) => ({ ...current, [agent.id]: agent }));
+    usePendingAgentStore.getState().setAgent(agent);
+    setDraftAgentId(agent.id);
+    setDraftSessionActive(true);
+  }, []);
+  const openFreshExpertDraft = useCallback(() => {
+    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
+  }, [props.selectedWorkspaceId, props.sidebar]);
   const handleOpenDraftSession = useCallback(
     (sessionId: string) => {
       const agentId = sessionId.split(":").slice(2).join(":");
       const agent = agentId ? draftAgentContexts[agentId] : null;
       if (!agent) return;
       activateDraftAgent(agent);
+      openFreshExpertDraft();
+      activateDraftAgent(agent);
     },
-    [activateDraftAgent, draftAgentContexts],
+    [activateDraftAgent, draftAgentContexts, openFreshExpertDraft],
   );
   const resolveSessionTabForAgent = useCallback(
     (agentId: string, sessionIds: readonly string[]) => {
@@ -758,8 +747,10 @@ export function ExpertPage(props: ExpertPageProps) {
       };
 
       activateDraftAgent(pending);
+      openFreshExpertDraft();
+      activateDraftAgent(pending);
     },
-    [activateDraftAgent],
+    [activateDraftAgent, openFreshExpertDraft],
   );
 
   const handleStartAgentById = useCallback(
@@ -788,10 +779,6 @@ export function ExpertPage(props: ExpertPageProps) {
     setStoreActiveTab("experts");
     openRailView("store");
   }, []);
-  const openFreshExpertDraft = useCallback(() => {
-    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
-  }, [props.selectedWorkspaceId, props.sidebar]);
-
   const {
     handleCreateExpert,
     handleCreateSkill,
@@ -803,6 +790,16 @@ export function ExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
+  const {
+    openExpertCreation,
+    closeExpertCreation,
+    closeExpertCreationThen,
+    expertCreationPage,
+  } = useSessionExpertCreation({
+    props,
+    registry,
+    showToast,
+  });
   const seedChatDraft = useCallback(
     (draft: string) => {
       props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
@@ -1247,6 +1244,7 @@ export function ExpertPage(props: ExpertPageProps) {
           }
           account={props.account}
           onOpenView={(view) => {
+            closeExpertCreation();
             if (view === "assistant") {
               props.onNavigateToMode("assistant");
               return;
@@ -1259,10 +1257,11 @@ export function ExpertPage(props: ExpertPageProps) {
             openRailView(view);
             if (view === "chat") setAgentPanelCollapsed(false);
           }}
-          onOpenAccountSettings={props.onOpenAccountSettings}
-          onOpenProfile={props.onOpenProfile} onSignOut={props.onSignOut}
-          onOpenDevices={() => openRailView("devices")}
-          onOpenBilling={() => openRailView("billing")}
+          onOpenAccountSettings={closeExpertCreationThen(props.onOpenAccountSettings)}
+          onOpenProfile={closeExpertCreationThen(props.onOpenProfile)}
+          onSignOut={props.onSignOut}
+          onOpenDevices={closeExpertCreationThen(() => openRailView("devices"))}
+          onOpenBilling={closeExpertCreationThen(() => openRailView("billing"))}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
@@ -1289,6 +1288,7 @@ export function ExpertPage(props: ExpertPageProps) {
                   setAgentPanelCollapsed((value) => !value)
                 }
                 onOpenAgents={openExpertMarket}
+                onCreateExpert={openExpertCreation}
                 onOpenAgentStarter={handleStartAgentById}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}
@@ -1767,6 +1767,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 </>
               ) : null}
             </ResizablePanelGroup>
+            {expertCreationPage}
           </div>
         </div>
 
@@ -1785,7 +1786,6 @@ export function ExpertPage(props: ExpertPageProps) {
           },
         })
       ) : null}
-
       {props.providerAuthModal ? (
         <ProviderAuthModal {...props.providerAuthModal} />
       ) : null}

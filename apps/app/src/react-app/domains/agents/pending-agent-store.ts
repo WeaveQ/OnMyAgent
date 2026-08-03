@@ -118,6 +118,11 @@ export function buildAgentSystemPrompt(agent: {
   if (agent.enabledToolIds && agent.enabledToolIds.length > 0) {
     parts.push(`Available tool categories: ${agent.enabledToolIds.join(", ")}`);
   }
+  if (agent.skillIds && agent.skillIds.length > 0) {
+    parts.push(
+      `[Assigned skills] Prefer these installed skills when they match the task: ${agent.skillIds.join(", ")}`,
+    );
+  }
   if (agent.preferredLanguage)
     parts.push(`Reply language: ${agent.preferredLanguage}`);
   return parts.join("\n\n");
