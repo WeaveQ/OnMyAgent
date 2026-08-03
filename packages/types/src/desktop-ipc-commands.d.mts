@@ -236,6 +236,7 @@ export type DesktopCommandName =
   | "installExpertPackage"
   | "installBuiltinSkillPackage"
   | "writeMyExpertPackage"
+  | "stageMyExpertKnowledge"
   | "readLocalSkill"
   | "writeLocalSkill"
   | "uninstallSkill";

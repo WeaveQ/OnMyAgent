@@ -150,6 +150,7 @@ export function AgentConversationPanel(props: {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onToggleCollapsed: () => void;
   onOpenAgents: () => void;
+  onCreateExpert?: () => void;
   onCreateTask?: () => void;
   onOpenAssistant?: () => void;
   assistantCategoryId?: AssistantCategoryId;
@@ -1252,10 +1253,7 @@ export function AgentConversationPanel(props: {
 
   return (
     <aside
-      className={cn(
-        "flex shrink-0 flex-col bg-dls-sidebar px-2.5 pb-5 mac:bg-dls-sidebar mac:titlebar-no-drag",
-        mode === "agent" ? "overflow-visible" : "overflow-hidden",
-      )}
+      className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-dls-sidebar px-2.5 pb-5 mac:bg-dls-sidebar mac:titlebar-no-drag"
       style={{ width: props.width }}
     >
       <AgentConversationPanelHeader
@@ -1265,6 +1263,7 @@ export function AgentConversationPanel(props: {
         automationActive={props.automationActive}
         onQueryChange={props.onQueryChange}
         onOpenAgents={props.onOpenAgents}
+        onCreateExpert={props.onCreateExpert}
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
         onOpenAutomation={props.onOpenAutomation}
@@ -1272,6 +1271,7 @@ export function AgentConversationPanel(props: {
 
       <div
         className={cn(
+          // Only the conversation list scrolls; search + create stay pinned above.
           "min-h-0 flex-1 overflow-y-auto pr-0.5",
           // Even gap under primary chrome (home CTA strip / expert search+create).
           "pt-1.5",

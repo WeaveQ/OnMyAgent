@@ -118,7 +118,6 @@ export function useExpertSessionStarters(input: {
           startPrompt.prompt,
         );
       }
-      input.openRailView("chat");
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn(
           "[expert-marketplace] failed to install expert package",
@@ -184,8 +183,8 @@ export function useExpertSessionStarters(input: {
       void Promise.resolve(
         input.onCreateFreshSessionForAgent(input.selectedWorkspaceId),
       );
+      input.openRailView("chat");
     }
-    input.openRailView("chat");
   }, [input]);
 
   return {

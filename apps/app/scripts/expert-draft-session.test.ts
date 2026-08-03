@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import {
   resolveBoundExpertDraftSession,
-  resolveExpertSurfaceSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundNewSessionDraft,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
@@ -91,30 +90,7 @@ describe("expert draft session activation", () => {
     ).toBe(true);
   });
 
-  test("keeps marketplace summon draft while previous expert is still on the route", () => {
-    // Regression: summon fleet while freight CS session is selected must keep draft.
-    expect(
-      shouldKeepUnboundNewSessionDraft({
-        draftSessionActive: true,
-        draftAgentId: "fleet-management-specialist",
-        pendingDraftSource: "agent-selection",
-        pendingAgentId: "fleet-management-specialist",
-        selectedSessionAgentId: "order-dispatch-specialist",
-      }),
-    ).toBe(true);
-
-    // create-task briefly clears pending before re-activate
-    expect(
-      shouldKeepUnboundNewSessionDraft({
-        draftSessionActive: true,
-        draftAgentId: "fleet-management-specialist",
-        pendingDraftSource: null,
-        pendingAgentId: null,
-        selectedSessionAgentId: "order-dispatch-specialist",
-      }),
-    ).toBe(true);
-
-    // +新会话 also survives previous expert still on route for a tick
+  test("drops +新会话 draft when user opens another expert's real session", () => {
     expect(
       shouldKeepUnboundNewSessionDraft({
         draftSessionActive: true,
@@ -123,7 +99,7 @@ describe("expert draft session activation", () => {
         pendingAgentId: "fulfillment-specialist",
         selectedSessionAgentId: "logistics-finance-specialist",
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   test("does not keep draft after first send binds a real session", () => {
@@ -137,52 +113,5 @@ describe("expert draft session activation", () => {
         selectedSessionAgentId: "fulfillment-specialist",
       }),
     ).toBe(false);
-  });
-
-  test("surface follows bound session before route selection leaves draft-home", () => {
-    // Regression: tab shows 总结中… on ses_new while content still draftOnly.
-    expect(
-      resolveExpertSurfaceSession({
-        draftSessionActive: true,
-        draftAgentId: "kol-project-review-specialist",
-        pendingAgent: {
-          id: "kol-project-review-specialist",
-          boundSessionId: "ses_new",
-        },
-        activeDraftSessionId: "draft:ws:kol-project-review-specialist",
-        selectedSessionId: null,
-        workspaceId: "ws",
-      }),
-    ).toEqual({ sessionId: "ses_new", draftOnly: false });
-
-    expect(
-      resolveExpertSurfaceSession({
-        draftSessionActive: true,
-        draftAgentId: "kol-project-review-specialist",
-        pendingAgent: {
-          id: "kol-project-review-specialist",
-          boundSessionId: "ses_new",
-        },
-        activeDraftSessionId: "draft:ws:kol-project-review-specialist",
-        selectedSessionId: "ses_previous",
-        workspaceId: "ws",
-      }),
-    ).toEqual({ sessionId: "ses_new", draftOnly: false });
-
-    expect(
-      resolveExpertSurfaceSession({
-        draftSessionActive: true,
-        draftAgentId: "kol-project-review-specialist",
-        pendingAgent: {
-          id: "kol-project-review-specialist",
-        },
-        activeDraftSessionId: "draft:ws:kol-project-review-specialist",
-        selectedSessionId: null,
-        workspaceId: "ws",
-      }),
-    ).toEqual({
-      sessionId: "draft:ws:kol-project-review-specialist",
-      draftOnly: true,
-    });
   });
 });

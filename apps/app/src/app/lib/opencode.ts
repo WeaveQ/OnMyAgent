@@ -1,4 +1,4 @@
-import { createOpencodeClient, type Message, type Part, type Session, type Todo } from "@opencode-ai/sdk/v2/client";
+import { createOpencodeClient, type Message, type OutputFormat, type Part, type Session, type Todo } from "@opencode-ai/sdk/v2/client";
 
 import { desktopFetch } from "./desktop";
 import { createOnMyAgentServerClient, OnMyAgentServerError } from "./onmyagent-server";
@@ -16,6 +16,7 @@ type PromptAsyncParameters = {
   agent?: string;
   noReply?: boolean;
   tools?: { [key: string]: boolean };
+  format?: OutputFormat;
   system?: string;
   variant?: string;
   parts?: unknown[];

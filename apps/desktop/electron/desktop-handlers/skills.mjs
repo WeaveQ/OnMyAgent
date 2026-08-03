@@ -18,6 +18,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "installExpertPackage",
   "installBuiltinSkillPackage",
   "writeMyExpertPackage",
+  "stageMyExpertKnowledge",
   "readLocalSkill",
   "writeLocalSkill",
   "uninstallSkill",
@@ -56,6 +57,29 @@ export function createSkillsDomainHandlers({
   isBundledSkillPath,
   refreshRuntimeSkillLinks,
 } = {}) {
+  const normalizeKnowledgePath = (value) => {
+    const normalized = String(value ?? "").replaceAll("\\", "/").trim();
+    const segments = normalized.split("/").filter(Boolean);
+    if (
+      !normalized ||
+      normalized.startsWith("/") ||
+      /^[A-Za-z]:\//.test(normalized) ||
+      segments.some((segment) => segment === "." || segment === ".." || segment.includes("\0"))
+    ) {
+      throw new Error("Invalid expert knowledge path");
+    }
+    return segments.join("/");
+  };
+  const parseAvatarDataUrl = (value) => {
+    const match = String(value ?? "").match(/^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) return null;
+    const extension = match[1] === "image/jpeg"
+      ? "jpg"
+      : match[1] === "image/svg+xml"
+        ? "svg"
+        : match[1].slice("image/".length);
+    return { extension, bytes: Buffer.from(match[2], "base64") };
+  };
   return {
   importSkill: async (event, args) => {
     const projectDir = String(args[0] ?? "").trim();
@@ -207,9 +231,25 @@ export function createSkillsDomainHandlers({
     const destinationRoot = onmyagentMarketplaceRoot("my-experts");
     const destination = path.join(destinationRoot, safePackage);
     const files = myExpertPackageFiles(input, safePackage);
+    const avatar = parseAvatarDataUrl(input.avatarDataUrl);
+    if (avatar) files.plugin.avatar = `./avatars/avatar.${avatar.extension}`;
     await rm(destination, { recursive: true, force: true });
     await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
     await mkdir(path.join(destination, "agents"), { recursive: true });
+    if (avatar) {
+      const avatarRoot = path.join(destination, "avatars");
+      await mkdir(avatarRoot, { recursive: true });
+      await writeFile(path.join(avatarRoot, `avatar.${avatar.extension}`), avatar.bytes);
+    }
+    const knowledgeRoot = path.join(destination, "knowledge");
+    await mkdir(knowledgeRoot, { recursive: true });
+    if (input.draftId) {
+      const safeDraft = validateExpertPackageName(input.draftId);
+      const stagedKnowledgeRoot = path.join(destinationRoot, ".drafts", safeDraft, "knowledge");
+      if (await pathExists(stagedKnowledgeRoot)) {
+        await cp(stagedKnowledgeRoot, knowledgeRoot, { recursive: true });
+      }
+    }
     await writeFile(
       path.join(destination, ".expert-plugin", "plugin.json"),
       `${JSON.stringify(files.plugin, null, 2)}\n`,
@@ -221,7 +261,54 @@ export function createSkillsDomainHandlers({
       "utf8",
     );
     await writeFile(path.join(destination, "README.md"), files.readme, "utf8");
+    for (const entry of Array.isArray(input.knowledge) ? input.knowledge : []) {
+      const relativePath = normalizeKnowledgePath(entry.relativePath);
+      const target = path.join(knowledgeRoot, ...relativePath.split("/"));
+      if (entry.kind === "directory") {
+        await mkdir(target, { recursive: true });
+        continue;
+      }
+      if (entry.kind !== "file") throw new Error("Invalid expert knowledge entry");
+      await mkdir(path.dirname(target), { recursive: true });
+      const encoded = typeof entry.dataBase64 === "string" ? entry.dataBase64 : "";
+      await writeFile(target, Buffer.from(encoded, "base64"));
+    }
+    if (input.draftId) {
+      const safeDraft = validateExpertPackageName(input.draftId);
+      await rm(path.join(destinationRoot, ".drafts", safeDraft), { recursive: true, force: true });
+    }
     return { ok: true, path: destination, packageName: safePackage, marketplace: "my-experts" };
+  },
+
+  stageMyExpertKnowledge: async (event, args) => {
+    const input = args[0] ?? {};
+    const safeDraft = validateExpertPackageName(input.draftId);
+    const destinationRoot = onmyagentMarketplaceRoot("my-experts");
+    const draftRoot = path.join(destinationRoot, ".drafts", safeDraft);
+    const knowledgeRoot = path.join(draftRoot, "knowledge");
+    await rm(draftRoot, { recursive: true, force: true });
+    if (input.discard === true) {
+      return { ok: true, path: knowledgeRoot, draftId: safeDraft };
+    }
+    await mkdir(knowledgeRoot, { recursive: true });
+    for (const entry of Array.isArray(input.knowledge) ? input.knowledge : []) {
+      const relativePath = normalizeKnowledgePath(entry.relativePath);
+      const target = path.join(knowledgeRoot, ...relativePath.split("/"));
+      if (entry.kind === "directory") {
+        await mkdir(target, { recursive: true });
+        continue;
+      }
+      if (entry.kind !== "file") throw new Error("Invalid expert knowledge entry");
+      await mkdir(path.dirname(target), { recursive: true });
+      const sourcePath = String(entry.sourcePath ?? "").trim();
+      if (sourcePath) {
+        await cp(sourcePath, target);
+        continue;
+      }
+      const encoded = typeof entry.dataBase64 === "string" ? entry.dataBase64 : "";
+      await writeFile(target, Buffer.from(encoded, "base64"));
+    }
+    return { ok: true, path: knowledgeRoot, draftId: safeDraft };
   },
 
   readLocalSkill: async (event, args) => {

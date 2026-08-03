@@ -71,6 +71,8 @@ import type {
   MessagingAccessibleRootProbe,
   MessagingChannelStatus,
   MyExpertPackageWriteInput,
+  MyExpertKnowledgeStageInput,
+  MyExpertKnowledgeStageResult,
   OnMyAgentDockerCleanupResult,
   OnMyAgentServerInfo,
   OpencodeCommandDraft,
@@ -1056,6 +1058,10 @@ type TypedDesktopCommandMap = {
   writeMyExpertPackage: DesktopCommandContract<
     [MyExpertPackageWriteInput],
     ExpertPackageInstallResult
+  >;
+  stageMyExpertKnowledge: DesktopCommandContract<
+    [MyExpertKnowledgeStageInput],
+    MyExpertKnowledgeStageResult
   >;
   readLocalSkill: DesktopCommandContract<[string], LocalSkillContent>;
   writeLocalSkill: DesktopCommandContract<

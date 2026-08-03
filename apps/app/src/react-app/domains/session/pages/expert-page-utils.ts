@@ -10,6 +10,17 @@ import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { PendingAgentContext } from "../../agents";
 
+export const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
+export const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
+export const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
+
+export type ExpertGroupDeleteTarget = {
+  kind: "expert";
+  agentId: string;
+  name: string;
+  sessionIds: string[];
+};
+
 export function expertFeatureCategoryForCategoryId(
   _categoryId: string | null | undefined,
 ): AssistantCategoryId {
