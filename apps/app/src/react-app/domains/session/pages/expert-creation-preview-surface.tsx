@@ -12,6 +12,7 @@ import {
 import { trackWorkspaceSessionSync } from "../sync/session-sync";
 import { SessionSurface } from "../surface/session-surface";
 import type { SessionSurfaceAssemblyProps } from "../surface/session-surface-types";
+import { buildIsolatedExpertCreationModel } from "./expert-creation-embedded-model";
 import {
   writeSessionAgentSnapshot,
   type AgentRegistry,
@@ -48,6 +49,7 @@ export function ExpertCreationPreviewSurface(
   props: ExpertCreationPreviewSurfaceProps,
 ) {
   const queryClient = useQueryClient();
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const draftRef = useRef(props.draft);
   draftRef.current = props.draft;
   const knowledgeRef = useRef(props.knowledgePaths);
@@ -245,7 +247,11 @@ export function ExpertCreationPreviewSurface(
         personalAssistantHome={false}
         surfaceVisible
         model={{
-          ...props.surface.model,
+          ...buildIsolatedExpertCreationModel(
+            props.surface.model,
+            modelPickerOpen,
+            setModelPickerOpen,
+          ),
           modelUnavailable:
             props.surface.model.modelUnavailable === true || !canChat,
         }}

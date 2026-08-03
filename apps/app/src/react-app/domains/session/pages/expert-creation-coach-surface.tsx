@@ -14,6 +14,7 @@ import {
 import { trackWorkspaceSessionSync } from "../sync/session-sync";
 import { SessionSurface } from "../surface/session-surface";
 import type { SessionSurfaceAssemblyProps } from "../surface/session-surface-types";
+import { buildIsolatedExpertCreationModel } from "./expert-creation-embedded-model";
 import {
   writeSessionAgentSnapshot,
   type AgentRegistry,
@@ -95,6 +96,7 @@ function readAssistantTextParts(parts: unknown): string {
  */
 export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProps) {
   const queryClient = useQueryClient();
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const draftRef = useRef(props.draft);
   draftRef.current = props.draft;
 
@@ -369,6 +371,11 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           onDraftChange={onDraftChange}
           personalAssistantHome={false}
           surfaceVisible
+          model={buildIsolatedExpertCreationModel(
+            props.surface.model,
+            modelPickerOpen,
+            setModelPickerOpen,
+          )}
         />
       </div>
       {showSuggestionBar && partition ? (
