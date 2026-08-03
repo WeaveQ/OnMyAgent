@@ -86,11 +86,19 @@ final class PermissionSetupViewController: NSViewController {
     private var srBadge = StatusBadge()
     private var axGrantButton: NSButton?
     private var srGrantButton: NSButton?
+    /// Background poll while the window stays open.
     private var timer: Timer?
+    /// Faster poll after the user grants/opens Settings until status settles.
+    private var burstTimer: Timer?
+    private var burstDeadline: Date?
 
     init() { super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { nil }
-    deinit { timer?.invalidate() }
+    deinit {
+        timer?.invalidate()
+        burstTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
 
     override func loadView() {
         // Liquid glass: NSVisualEffectView blending with content behind the window
@@ -111,6 +119,54 @@ final class PermissionSetupViewController: NSViewController {
         timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             guard let controller = self else { return }
             Task { @MainActor in controller.refresh() }
+        }
+        // User often grants in System Settings then clicks back — refresh immediately.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidBecomeActive),
+            name: NSApplication.didChangeOcclusionStateNotification,
+            object: nil
+        )
+    }
+
+    @objc private func appDidBecomeActive() {
+        refresh()
+        // Keep polling briefly after returning from System Settings.
+        startBurstRefresh(seconds: 20)
+    }
+
+    /// Poll status frequently after an explicit grant / open-settings action.
+    private func startBurstRefresh(seconds: TimeInterval = 30) {
+        burstDeadline = Date().addingTimeInterval(seconds)
+        burstTimer?.invalidate()
+        burstTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let controller = self else { return }
+            Task { @MainActor in
+                controller.refresh()
+                if let deadline = controller.burstDeadline, Date() >= deadline {
+                    controller.burstTimer?.invalidate()
+                    controller.burstTimer = nil
+                    controller.burstDeadline = nil
+                }
+                // Stop early once both permissions are granted.
+                if ComputerUsePermissions.status().ok {
+                    controller.burstTimer?.invalidate()
+                    controller.burstTimer = nil
+                    controller.burstDeadline = nil
+                }
+            }
+        }
+        // Also fire a few delayed refreshes for macOS's delayed TCC propagation.
+        for delay in [0.3, 0.8, 1.5, 3.0] as [TimeInterval] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.refresh()
+            }
         }
     }
 
@@ -269,25 +325,45 @@ final class PermissionSetupViewController: NSViewController {
         let status = ComputerUsePermissions.status()
         axBadge.update(granted: status.accessibility)
         srBadge.update(granted: status.screenRecording)
-        axGrantButton?.isEnabled = !status.accessibility
-        srGrantButton?.isEnabled = !status.screenRecording
+        // Keep the grant affordance usable until granted; update label when done.
+        if let btn = axGrantButton {
+            btn.isEnabled = !status.accessibility
+            btn.title = status.accessibility ? copy.granted : copy.grantAccessibility
+        }
+        if let btn = srGrantButton {
+            btn.isEnabled = !status.screenRecording
+            btn.title = status.screenRecording ? copy.granted : copy.requestScreenRecording
+        }
     }
 
     // MARK: Actions
 
     @objc private func grantAccessibility() {
         ComputerUsePermissions.request(.accessibility)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.refresh() }
+        refresh()
+        startBurstRefresh()
     }
 
     @objc private func requestScreenRecording() {
         ComputerUsePermissions.request(.screenRecording)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.refresh() }
+        refresh()
+        startBurstRefresh()
     }
 
     @objc private func openPrivacySecurity() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else { return }
-        NSWorkspace.shared.open(url)
+        // Prefer modern System Settings URL on newer macOS; fall back to legacy.
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture",
+        ]
+        for raw in candidates {
+            if let url = URL(string: raw) {
+                NSWorkspace.shared.open(url)
+                break
+            }
+        }
+        // User will toggle the switch in Settings — burst-refresh until status flips.
+        startBurstRefresh(seconds: 60)
     }
 
     @objc private func done() {
