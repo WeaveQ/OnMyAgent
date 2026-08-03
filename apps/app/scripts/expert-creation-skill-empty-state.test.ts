@@ -26,11 +26,14 @@ describe("expert creation skill empty state", () => {
     expect(emptyStateSource).not.toContain("expert_creation_import_skill");
   });
 
-  test("uses a bounded skills handbook illustration instead of loose blocks", () => {
-    expect(illustrationSource).toContain("<IconTile");
-    expect(illustrationSource).toContain("BookOpenCheck");
-    expect(illustrationSource).toContain("dls-accent");
+  test("uses a quiet file-search placeholder without accent chrome", () => {
+    expect(illustrationSource).toContain("FileSearch");
+    expect(illustrationSource).toContain("text-dls-secondary/60");
+    expect(illustrationSource).toContain("strokeWidth={1.25}");
+    expect(illustrationSource).not.toContain("<IconTile");
+    expect(illustrationSource).not.toContain("BookOpenCheck");
     expect(illustrationSource).not.toContain("<Blocks");
+    expect(illustrationSource).not.toContain("dls-accent");
   });
 
   test("keeps the add-skill action in the panel header", () => {
