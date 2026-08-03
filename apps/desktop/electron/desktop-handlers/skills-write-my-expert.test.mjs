@@ -87,6 +87,42 @@ test("writeMyExpertPackage persists an uploaded avatar in the expert package", a
   }
 });
 
+test("writeMyExpertPackage preserves existing knowledge when requested", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-preserve-"));
+  try {
+    const handlers = createHandlers(root);
+    await handlers.writeMyExpertPackage({}, [
+      {
+        packageName: "preserved-helper",
+        knowledge: [
+          {
+            kind: "file",
+            relativePath: "notes/context.txt",
+            dataBase64: Buffer.from("Keep this", "utf8").toString("base64"),
+          },
+        ],
+      },
+    ]);
+    await handlers.writeMyExpertPackage({}, [
+      {
+        packageName: "preserved-helper",
+        name: "Updated helper",
+        preserveKnowledge: true,
+      },
+    ]);
+
+    assert.equal(
+      await readFile(
+        path.join(root, "my-experts", "preserved-helper", "knowledge", "notes", "context.txt"),
+        "utf8",
+      ),
+      "Keep this",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("stageMyExpertKnowledge copies source files into a hidden draft and finalizes them", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-stage-"));
   try {
