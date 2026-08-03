@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { create } from "zustand";
 
+import { mergeBuiltinAgents } from "./agent-builtin";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
@@ -13,6 +14,13 @@ import type {
   AgentRegistry,
   AgentTemplate,
 } from "./agent-registry-types";
+
+function withBuiltinAgents(registry: AgentRegistry): AgentRegistry {
+  return {
+    ...registry,
+    agents: mergeBuiltinAgents(registry.agents),
+  };
+}
 
 const REGISTRY_CACHE_KEY = "onmyagent:agentRegistryCache";
 const AGENT_ID_BY_SESSION_KEY = "onmyagent:customAgentBySessionId";
@@ -70,11 +78,15 @@ type AgentRegistryStore = {
 };
 
 export const useAgentRegistryStore = create<AgentRegistryStore>((set, get) => ({
-  registry: readRegistryCache(),
+  registry: (() => {
+    const cached = readRegistryCache();
+    return cached ? withBuiltinAgents(cached) : null;
+  })(),
   setRegistry: (registry) => {
-    if (registryContentEqual(get().registry, registry)) return;
-    writeRegistryCache(registry);
-    set({ registry });
+    const next = registry ? withBuiltinAgents(registry) : null;
+    if (registryContentEqual(get().registry, next)) return;
+    writeRegistryCache(next);
+    set({ registry: next });
   },
   getRegistry: () => get().registry,
 }));

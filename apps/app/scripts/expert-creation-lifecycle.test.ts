@@ -5,7 +5,9 @@ import { EMPTY_EXPERT_COACH_STATE } from "../src/react-app/domains/agents/expert
 import {
   buildExpertPreviewDraftKey,
   hasExpertCreationProgress,
+  isExpertCreationPreviewReady,
 } from "../src/react-app/domains/agents/expert-creation-lifecycle";
+import { buildIsolatedExpertCreationModel } from "../src/react-app/domains/session/pages/expert-creation-embedded-model";
 
 describe("expert creation lifecycle", () => {
   const registry = createDefaultAgentRegistry();
@@ -25,6 +27,13 @@ describe("expert creation lifecycle", () => {
     expect(hasExpertCreationProgress(baseline, baseline, EMPTY_EXPERT_COACH_STATE, 1)).toBe(true);
   });
 
+  test("treats a created coach session as progress that requires an exit choice", () => {
+    expect(hasExpertCreationProgress(baseline, baseline, {
+      ...EMPTY_EXPERT_COACH_STATE,
+      sessionId: "session-coach",
+    }, 0)).toBe(true);
+  });
+
   test("tracks behavior changes for preview sessions without depending on skill order", () => {
     const first = { ...baseline, name: "Researcher", skillIds: ["writing", "research"] };
     const sameBehavior = { ...first, skillIds: ["research", "writing"] };
@@ -32,5 +41,43 @@ describe("expert creation lifecycle", () => {
 
     expect(buildExpertPreviewDraftKey(first)).toBe(buildExpertPreviewDraftKey(sameBehavior));
     expect(buildExpertPreviewDraftKey(first)).not.toBe(buildExpertPreviewDraftKey(changed));
+  });
+
+  test("keeps each embedded expert-creation model picker locally scoped", () => {
+    const onLocalOpenChange = () => undefined;
+    const model = buildIsolatedExpertCreationModel({
+      modelLabel: "Model",
+      onModelClick: () => undefined,
+      modelPickerOpen: true,
+      selectedModel: { providerID: "provider", modelID: "model" },
+      onModelPickerOpenChange: () => undefined,
+      onModelChange: () => undefined,
+      modelVariantLabel: "",
+      modelVariant: null,
+      onModelVariantChange: () => undefined,
+    }, false, onLocalOpenChange, false);
+
+    expect(model.modelPickerOpen).toBe(false);
+    expect(model.onModelPickerOpenChange).toBe(onLocalOpenChange);
+    expect(model.modelPickerVisible).toBe(false);
+  });
+
+  test("requires every basic-information field except the avatar before preview", () => {
+    const ready = {
+      ...baseline,
+      name: "Researcher",
+      description: "Researches a topic",
+      userNote: "Be rigorous",
+    };
+
+    expect(isExpertCreationPreviewReady(ready)).toBe(true);
+    expect(isExpertCreationPreviewReady({ ...ready, name: " " })).toBe(false);
+    expect(isExpertCreationPreviewReady({ ...ready, description: " " })).toBe(false);
+    expect(isExpertCreationPreviewReady({ ...ready, userNote: " " })).toBe(false);
+    expect(isExpertCreationPreviewReady({
+      ...ready,
+      avatarOptionId: null,
+      customAvatarDataUrl: null,
+    })).toBe(true);
   });
 });

@@ -148,6 +148,8 @@ export function AgentConversationPanel(props: {
   onOpenDraftAgent?: (sessionId: string) => void;
   onOpenAgentStarter?: (agentId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
+  onEditExpert?: (agentId: string) => void;
+  editableExpertIds?: ReadonlySet<string>;
   onToggleCollapsed: () => void;
   onOpenAgents: () => void;
   onCreateExpert?: () => void;
@@ -1368,6 +1370,8 @@ export function AgentConversationPanel(props: {
             onOpenDraftSession={handleOpenDraftClearingSearch}
             onOpenStarter={handleOpenStarterClearingSearch}
             onPrefetchSession={props.onPrefetchSession}
+            onEditExpert={props.onEditExpert}
+            editableExpertIds={props.editableExpertIds}
             onDeleteExpert={props.onDeleteExpert}
           />
         )}

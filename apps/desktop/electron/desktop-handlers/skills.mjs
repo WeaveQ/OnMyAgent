@@ -233,51 +233,69 @@ export function createSkillsDomainHandlers({
     const files = myExpertPackageFiles(input, safePackage);
     const avatar = parseAvatarDataUrl(input.avatarDataUrl);
     if (avatar) files.plugin.avatar = `./avatars/avatar.${avatar.extension}`;
-    await rm(destination, { recursive: true, force: true });
-    await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
-    await mkdir(path.join(destination, "agents"), { recursive: true });
-    if (avatar) {
-      const avatarRoot = path.join(destination, "avatars");
-      await mkdir(avatarRoot, { recursive: true });
-      await writeFile(path.join(avatarRoot, `avatar.${avatar.extension}`), avatar.bytes);
-    }
     const knowledgeRoot = path.join(destination, "knowledge");
-    await mkdir(knowledgeRoot, { recursive: true });
-    if (input.draftId) {
-      const safeDraft = validateExpertPackageName(input.draftId);
-      const stagedKnowledgeRoot = path.join(destinationRoot, ".drafts", safeDraft, "knowledge");
-      if (await pathExists(stagedKnowledgeRoot)) {
-        await cp(stagedKnowledgeRoot, knowledgeRoot, { recursive: true });
+    let preservedKnowledgeRoot = null;
+    try {
+      if (input.preserveKnowledge === true && await pathExists(knowledgeRoot)) {
+        preservedKnowledgeRoot = path.join(
+          destinationRoot,
+          `.knowledge-backup-${safePackage}-${Date.now()}`,
+        );
+        await rm(preservedKnowledgeRoot, { recursive: true, force: true });
+        await cp(knowledgeRoot, preservedKnowledgeRoot, { recursive: true });
+      }
+      await rm(destination, { recursive: true, force: true });
+      await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
+      await mkdir(path.join(destination, "agents"), { recursive: true });
+      if (avatar) {
+        const avatarRoot = path.join(destination, "avatars");
+        await mkdir(avatarRoot, { recursive: true });
+        await writeFile(path.join(avatarRoot, `avatar.${avatar.extension}`), avatar.bytes);
+      }
+      await mkdir(knowledgeRoot, { recursive: true });
+      if (preservedKnowledgeRoot) {
+        await cp(preservedKnowledgeRoot, knowledgeRoot, { recursive: true });
+      }
+      if (input.draftId) {
+        const safeDraft = validateExpertPackageName(input.draftId);
+        const stagedKnowledgeRoot = path.join(destinationRoot, ".drafts", safeDraft, "knowledge");
+        if (await pathExists(stagedKnowledgeRoot)) {
+          await cp(stagedKnowledgeRoot, knowledgeRoot, { recursive: true });
+        }
+      }
+      await writeFile(
+        path.join(destination, ".expert-plugin", "plugin.json"),
+        `${JSON.stringify(files.plugin, null, 2)}\n`,
+        "utf8",
+      );
+      await writeFile(
+        path.join(destination, "agents", `${safePackage}.md`),
+        files.agentMarkdown,
+        "utf8",
+      );
+      await writeFile(path.join(destination, "README.md"), files.readme, "utf8");
+      for (const entry of Array.isArray(input.knowledge) ? input.knowledge : []) {
+        const relativePath = normalizeKnowledgePath(entry.relativePath);
+        const target = path.join(knowledgeRoot, ...relativePath.split("/"));
+        if (entry.kind === "directory") {
+          await mkdir(target, { recursive: true });
+          continue;
+        }
+        if (entry.kind !== "file") throw new Error("Invalid expert knowledge entry");
+        await mkdir(path.dirname(target), { recursive: true });
+        const encoded = typeof entry.dataBase64 === "string" ? entry.dataBase64 : "";
+        await writeFile(target, Buffer.from(encoded, "base64"));
+      }
+      if (input.draftId) {
+        const safeDraft = validateExpertPackageName(input.draftId);
+        await rm(path.join(destinationRoot, ".drafts", safeDraft), { recursive: true, force: true });
+      }
+      return { ok: true, path: destination, packageName: safePackage, marketplace: "my-experts" };
+    } finally {
+      if (preservedKnowledgeRoot) {
+        await rm(preservedKnowledgeRoot, { recursive: true, force: true });
       }
     }
-    await writeFile(
-      path.join(destination, ".expert-plugin", "plugin.json"),
-      `${JSON.stringify(files.plugin, null, 2)}\n`,
-      "utf8",
-    );
-    await writeFile(
-      path.join(destination, "agents", `${safePackage}.md`),
-      files.agentMarkdown,
-      "utf8",
-    );
-    await writeFile(path.join(destination, "README.md"), files.readme, "utf8");
-    for (const entry of Array.isArray(input.knowledge) ? input.knowledge : []) {
-      const relativePath = normalizeKnowledgePath(entry.relativePath);
-      const target = path.join(knowledgeRoot, ...relativePath.split("/"));
-      if (entry.kind === "directory") {
-        await mkdir(target, { recursive: true });
-        continue;
-      }
-      if (entry.kind !== "file") throw new Error("Invalid expert knowledge entry");
-      await mkdir(path.dirname(target), { recursive: true });
-      const encoded = typeof entry.dataBase64 === "string" ? entry.dataBase64 : "";
-      await writeFile(target, Buffer.from(encoded, "base64"));
-    }
-    if (input.draftId) {
-      const safeDraft = validateExpertPackageName(input.draftId);
-      await rm(path.join(destinationRoot, ".drafts", safeDraft), { recursive: true, force: true });
-    }
-    return { ok: true, path: destination, packageName: safePackage, marketplace: "my-experts" };
   },
 
   stageMyExpertKnowledge: async (event, args) => {

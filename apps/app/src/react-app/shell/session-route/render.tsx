@@ -48,17 +48,14 @@ import {
 } from "./sidebar-model";
 import {
   findFirstSessionIdMatching,
+  filterExpertCreationEphemeralSessionsByWorkspace,
   getActiveReloadBlockingSessions,
   getActiveSessionIds,
   sessionListOwnsSession,
   toPaletteSessionOptions,
   type PendingCreatedSessionMap,
 } from "./sessions";
-import {
-  isAssistantSession,
-  isExpertSession,
-} from "../../domains/agents";
-import { useEnsureAgentRegistry } from "../../domains/agents";
+import { isAssistantSession, isExpertSession, useEnsureAgentRegistry } from "../../domains/agents";
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type {
   PendingPermission,
@@ -162,7 +159,7 @@ export function SessionRouteRender() {
   );
   const [sessionsByWorkspaceId, setSessionsByWorkspaceId] = useState<
     Record<string, SidebarSessionItem[]>
-  >(() => readCachedSidebarSessionsByWorkspace());
+  >(() => filterExpertCreationEphemeralSessionsByWorkspace(readCachedSidebarSessionsByWorkspace()));
   const [errorsByWorkspaceId, setErrorsByWorkspaceId] = useState<
     Record<string, string | null>
   >({});

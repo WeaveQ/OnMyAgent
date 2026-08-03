@@ -114,6 +114,7 @@ export default {
   "session.expert_mark_unread": "标为未读",
   "session.expert_mark_read": "标为已读",
   "session.expert_actions": "专家操作",
+  "session.expert_edit": "编辑专家",
   "session.expert_delete_conversation": "删除专家",
   "session.delete_expert_title": "删除专家？",
   "session.delete_named_expert_message":

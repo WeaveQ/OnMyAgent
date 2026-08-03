@@ -1,4 +1,8 @@
 import type { AgentSkillItem, AgentWizardDraft } from "./agent-registry-types";
+import {
+  buildExpertCreationCoachWorkflowInstructions,
+  validateExpertCreationRolePrompt,
+} from "./expert-creation-coach-contract";
 
 export type ExpertCoachProposal = {
   name: string;
@@ -71,6 +75,8 @@ function parseNullableProposal(value: unknown): ExpertCoachProposal | null | und
   ) {
     return undefined;
   }
+  if (!validateExpertCreationRolePrompt(value.rolePrompt).valid) return undefined;
+  if (validateExpertCreationRolePrompt(value.memory).valid) return undefined;
   return {
     name: value.name,
     description: value.description,
@@ -130,6 +136,7 @@ export function buildExpertCoachSystemPrompt(
     "Set `proposal` to null while clarification is still needed.",
     "When there is enough information, return a complete proposal. Only use skill IDs from the provided catalog.",
     "A proposal is only a version suggestion: it will not overwrite the user's form until they explicitly apply it.",
+    buildExpertCreationCoachWorkflowInstructions(),
     `Current form: ${JSON.stringify(currentDraft)}`,
     `Available skills: ${JSON.stringify(skillCatalog)}`,
   ].join("\n");

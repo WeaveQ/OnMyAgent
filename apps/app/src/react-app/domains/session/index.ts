@@ -151,9 +151,11 @@ export {
 } from "./sync/session-delete-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
+  clearOptimisticSessionUserMessage,
   permissionKey,
   questionKey,
   seedPermissionState,
+  seedOptimisticSessionUserMessage,
   seedQuestionState,
   seedSessionState,
   statusKey,

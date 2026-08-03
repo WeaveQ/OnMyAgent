@@ -30,7 +30,7 @@ export function matchComposerSlashQuery(draft: string): {
   query: string;
 } {
   const text = draft.replace(/[\n\r]+$/u, "");
-  const match = text.match(/\/([^\s/]*)$/u);
+  const match = text.match(/(?:^|\s)\/([^\s/]*)$/u);
   if (!match) return { open: false, query: "" };
   const query = (match[1] ?? "").replace(INVISIBLE_TOKEN_CHARS, "");
   return { open: true, query };

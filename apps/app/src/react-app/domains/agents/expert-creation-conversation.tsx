@@ -1,15 +1,22 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ComposerAttachment, ModelRef } from "../../../app/types";
 import { t } from "../../../i18n";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
+import type { AgentToolAccessMap } from "./pending-agent-store";
 import { runExpertPreviewTurn } from "./expert-creation-preview-runtime";
 import {
+  expertDraftSuggestionFingerprint,
+  expertDraftSuggestionNeedsSync,
   parseExpertDraftSuggestion,
+  partitionExpertDraftSuggestion,
   type ExpertDraftSuggestion,
+  type ExpertDraftSuggestionApplyMode,
+  type ExpertDraftSuggestionField,
 } from "./expert-creation-suggestions";
 
 export type ExpertCreationComposerProps = {
@@ -18,6 +25,7 @@ export type ExpertCreationComposerProps = {
   placeholder: string;
   busy: boolean;
   disabled?: boolean;
+  showModelPicker?: boolean;
   attachments: ComposerAttachment[];
   onDraftChange: (value: string) => void;
   onAttachFiles: (files: File[]) => void;
@@ -34,6 +42,10 @@ type ConversationMessage = {
   suggestionApplied?: boolean;
 };
 
+export type ExpertCreationSuggestionApplyOptions = {
+  mode: ExpertDraftSuggestionApplyMode;
+};
+
 export type ExpertCreationConversationProps = {
   draft: AgentWizardDraft;
   workspaceRoot: string;
@@ -46,13 +58,19 @@ export type ExpertCreationConversationProps = {
   emptyContent?: ReactNode;
   placeholder: string;
   systemPrompt?: string;
+  /** Optional tool policy for this conversation (e.g. coach chat-only). */
+  tools?: AgentToolAccessMap;
   knowledgePaths?: readonly string[];
   emptyMessage: string;
   disabled?: boolean;
+  showModelPicker?: boolean;
   hideHeader?: boolean;
   className?: string;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
-  onApplyDraftSuggestion?: (suggestion: ExpertDraftSuggestion) => void;
+  onApplyDraftSuggestion?: (
+    suggestion: ExpertDraftSuggestion,
+    options: ExpertCreationSuggestionApplyOptions,
+  ) => void;
 };
 
 function createAttachments(files: File[]): ComposerAttachment[] {
@@ -73,6 +91,23 @@ function revokePreview(attachment: ComposerAttachment): void {
   if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
 }
 
+function suggestionFieldLabel(field: ExpertDraftSuggestionField): string {
+  switch (field) {
+    case "name":
+      return t("agents.expert_creation_suggestion_field_name");
+    case "description":
+      return t("agents.expert_creation_suggestion_field_description");
+    case "userNote":
+      return t("agents.expert_creation_suggestion_field_role_prompt");
+    case "agentMemory":
+      return t("agents.expert_creation_suggestion_field_memory");
+  }
+}
+
+function formatSuggestionFields(fields: readonly ExpertDraftSuggestionField[]): string {
+  return fields.map(suggestionFieldLabel).join(t("agents.expert_creation_suggestion_field_sep"));
+}
+
 export function ExpertCreationConversation(
   props: ExpertCreationConversationProps,
 ) {
@@ -84,13 +119,20 @@ export function ExpertCreationConversation(
     () => `expert-creation-draft-${crypto.randomUUID()}`,
   );
   const [sending, setSending] = useState(false);
+  const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(null);
+  const [autoFilledSuggestionKey, setAutoFilledSuggestionKey] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef(attachments);
+  const onApplyDraftSuggestionRef = useRef(props.onApplyDraftSuggestion);
 
   useEffect(() => {
     attachmentsRef.current = attachments;
   }, [attachments]);
+
+  useEffect(() => {
+    onApplyDraftSuggestionRef.current = props.onApplyDraftSuggestion;
+  }, [props.onApplyDraftSuggestion]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -107,12 +149,108 @@ export function ExpertCreationConversation(
     [],
   );
 
+  const latestSuggestion = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === "assistant" && message.suggestion) {
+        return {
+          messageId: message.id,
+          suggestion: message.suggestion,
+          suggestionApplied: Boolean(message.suggestionApplied),
+        };
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const latestSuggestionKey = latestSuggestion
+    ? expertDraftSuggestionFingerprint(
+        latestSuggestion.messageId,
+        latestSuggestion.suggestion,
+      )
+    : null;
+
+  const latestPartition = useMemo(() => {
+    if (!latestSuggestion) return null;
+    return partitionExpertDraftSuggestion(props.draft, latestSuggestion.suggestion);
+  }, [latestSuggestion, props.draft]);
+
+  const latestNeedsSync = Boolean(
+    latestPartition && expertDraftSuggestionNeedsSync(latestPartition),
+  );
+
+  // Auto-fill empty right-panel fields once per proposal after streaming ends.
+  // Conflict fields stay pending until the sticky bar force-apply.
+  useEffect(() => {
+    if (sending || !latestSuggestion || !latestSuggestionKey || !latestPartition) return;
+    if (dismissedSuggestionKey === latestSuggestionKey) return;
+    if (autoFilledSuggestionKey === latestSuggestionKey) return;
+    setAutoFilledSuggestionKey(latestSuggestionKey);
+    if (latestPartition.emptyFillKeys.length === 0) return;
+    onApplyDraftSuggestionRef.current?.(latestSuggestion.suggestion, {
+      mode: "empty-only",
+    });
+  }, [
+    autoFilledSuggestionKey,
+    dismissedSuggestionKey,
+    latestPartition,
+    latestSuggestion,
+    latestSuggestionKey,
+    sending,
+  ]);
+
+  // When draft catches up to the latest proposal, mark that message applied.
+  useEffect(() => {
+    if (!latestSuggestion || latestSuggestion.suggestionApplied || latestNeedsSync) return;
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === latestSuggestion.messageId
+          ? { ...item, suggestionApplied: true }
+          : item,
+      ),
+    );
+  }, [latestNeedsSync, latestSuggestion]);
+
+  // Sticky bar only for remaining conflicts after empty-only auto-fill.
+  const showSuggestionBar = Boolean(
+    !sending &&
+      latestSuggestion &&
+      latestSuggestionKey &&
+      dismissedSuggestionKey !== latestSuggestionKey &&
+      autoFilledSuggestionKey === latestSuggestionKey &&
+      latestPartition &&
+      latestPartition.conflictKeys.length > 0,
+  );
+
   const removeAttachment = (id: string) => {
     setAttachments((current) => {
       const removed = current.find((attachment) => attachment.id === id);
       if (removed) revokePreview(removed);
       return current.filter((attachment) => attachment.id !== id);
     });
+  };
+
+  const applySuggestion = (
+    messageId: string,
+    suggestion: ExpertDraftSuggestion,
+    mode: ExpertDraftSuggestionApplyMode,
+  ) => {
+    props.onApplyDraftSuggestion?.(suggestion, { mode });
+    if (mode === "force") {
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === messageId ? { ...item, suggestionApplied: true } : item,
+        ),
+      );
+      if (
+        latestSuggestion &&
+        messageId === latestSuggestion.messageId &&
+        latestSuggestionKey
+      ) {
+        setAutoFilledSuggestionKey(latestSuggestionKey);
+        setDismissedSuggestionKey(null);
+      }
+    }
   };
 
   const send = async () => {
@@ -151,6 +289,7 @@ export function ExpertCreationConversation(
         knowledgePaths: props.knowledgePaths,
         model: props.selectedModel,
         ...(props.systemPrompt ? { systemPrompt: props.systemPrompt } : {}),
+        ...(props.tools !== undefined ? { tools: props.tools } : {}),
         signal: controller.signal,
         onTextChange: (content) => {
           const parsed = parseExpertDraftSuggestion(content);
@@ -252,15 +391,12 @@ export function ExpertCreationConversation(
                   onClick={() => {
                     const suggestion = message.suggestion;
                     if (!suggestion) return;
-                    props.onApplyDraftSuggestion?.(suggestion);
-                    setMessages((current) => current.map((item) => (
-                      item.id === message.id ? { ...item, suggestionApplied: true } : item
-                    )));
+                    applySuggestion(message.id, suggestion, "force");
                   }}
                 >
                   {message.suggestionApplied
                     ? t("agents.expert_creation_suggestion_applied")
-                    : t("agents.expert_creation_apply_suggestion")}
+                    : t("agents.expert_creation_suggestion_reapply")}
                 </button>
               ) : null}
             </div>
@@ -272,6 +408,46 @@ export function ExpertCreationConversation(
           ) : null}
         </div>
       </div>
+      {showSuggestionBar && latestSuggestion && latestPartition ? (
+        <div className="mt-3 shrink-0 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-3">
+          <p className="text-sm font-medium text-dls-text">
+            {t("agents.expert_creation_suggestion_bar_conflict")}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-dls-secondary">
+            {t("agents.expert_creation_suggestion_bar_conflict_detail", {
+              fields: formatSuggestionFields(latestPartition.conflictKeys),
+            })}
+          </p>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (latestSuggestionKey) {
+                  setDismissedSuggestionKey(latestSuggestionKey);
+                }
+              }}
+            >
+              {t("agents.expert_creation_suggestion_ignore")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => {
+                applySuggestion(
+                  latestSuggestion.messageId,
+                  latestSuggestion.suggestion,
+                  "force",
+                );
+              }}
+            >
+              {t("agents.expert_creation_suggestion_apply")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <div className="shrink-0 pt-4">
         {props.renderComposer({
           sessionId: sessionId ?? draftSessionId,
@@ -279,6 +455,7 @@ export function ExpertCreationConversation(
           placeholder: props.placeholder,
           busy: sending,
           disabled: props.disabled,
+          showModelPicker: props.showModelPicker,
           attachments,
           onDraftChange: setComposerDraft,
           onAttachFiles: (files) =>

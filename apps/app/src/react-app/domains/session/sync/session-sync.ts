@@ -25,6 +25,10 @@ import {
   type TranscriptMessageSourceInfo,
 } from "./message-metadata";
 import { selectFullStreamSessionIds } from "./stream-session-policy";
+import {
+  addOptimisticSessionUserMessage,
+  removeOptimisticSessionUserMessage,
+} from "./optimistic-session-user-message";
 
 type SyncOptions = {
   workspaceId: string;
@@ -86,6 +90,32 @@ export const permissionKey = (workspaceId: string, sessionId: string) =>
   ["react-session-permissions", workspaceId, sessionId] as const;
 export const questionKey = (workspaceId: string, sessionId: string) =>
   ["react-session-questions", workspaceId, sessionId] as const;
+
+export function seedOptimisticSessionUserMessage(input: {
+  workspaceId: string;
+  sessionId: string;
+  messageId: string;
+  text: string;
+  createdAt: number;
+}) {
+  const queryClient = getReactQueryClient();
+  const key = transcriptKey(input.workspaceId, input.sessionId);
+  queryClient.setQueryData<UIMessage[]>(key, (current = []) =>
+    addOptimisticSessionUserMessage(current, input),
+  );
+}
+
+export function clearOptimisticSessionUserMessage(input: {
+  workspaceId: string;
+  sessionId: string;
+  messageId: string;
+}) {
+  const queryClient = getReactQueryClient();
+  const key = transcriptKey(input.workspaceId, input.sessionId);
+  queryClient.setQueryData<UIMessage[]>(key, (current = []) =>
+    removeOptimisticSessionUserMessage(current, input.messageId),
+  );
+}
 
 function syncKey(input: SyncOptions) {
   return `${input.workspaceId}:${input.baseUrl}:${input.directory?.trim() ?? ""}:${input.onmyagentToken}`;

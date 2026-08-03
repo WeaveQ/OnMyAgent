@@ -2,7 +2,11 @@ import { createClient, unwrap } from "../../../app/lib/opencode";
 import { normalizeEvent } from "../../../app/utils";
 import type { AgentWizardDraft } from "./agent-registry-types";
 import type { ModelRef } from "../../../app/types";
-import { buildAgentSystemPrompt, buildAgentToolAccess } from "./pending-agent-store";
+import {
+  buildAgentSystemPrompt,
+  buildAgentToolAccess,
+  type AgentToolAccessMap,
+} from "./pending-agent-store";
 import { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 
 export type ExpertPreviewRuntimeConfig = {
@@ -20,7 +24,10 @@ export type ExpertPreviewTurnInput = {
   knowledgePaths?: readonly string[];
   model?: ModelRef;
   systemPrompt?: string;
+  /** When set (including empty map), overrides draft-based tool access. */
+  tools?: AgentToolAccessMap;
   signal?: AbortSignal;
+  onPromptAccepted?: () => void;
   onTextChange?: (text: string) => void;
 };
 
@@ -202,6 +209,40 @@ export function createExpertPreviewStreamState(): PreviewStreamState {
   };
 }
 
+export function createExpertPreviewAcceptanceGate(): {
+  accept: () => void;
+  waitForSubmission: (turn: Promise<unknown>) => Promise<void>;
+} {
+  let resolveAccepted: (() => void) | null = null;
+  const accepted = new Promise<void>((resolve) => {
+    resolveAccepted = resolve;
+  });
+  return {
+    accept: () => resolveAccepted?.(),
+    waitForSubmission: async (turn) => {
+      await Promise.race([accepted, turn.then(() => undefined)]);
+    },
+  };
+}
+
+export function createExpertPreviewStreamLifetime(parentSignal?: AbortSignal): {
+  signal: AbortSignal;
+  release: () => void;
+} {
+  const controller = new AbortController();
+  const forwardAbort = () => controller.abort();
+  if (parentSignal?.aborted) forwardAbort();
+  else parentSignal?.addEventListener("abort", forwardAbort, { once: true });
+
+  return {
+    signal: controller.signal,
+    release: () => {
+      parentSignal?.removeEventListener("abort", forwardAbort);
+      controller.abort();
+    },
+  };
+}
+
 export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promise<ExpertPreviewTurnOutput> {
   const client = createClient(input.config.baseUrl, input.config.workspaceRoot || undefined, {
     token: input.config.token ?? undefined,
@@ -212,27 +253,29 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
   })).id;
   if (input.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  const subscription = await client.event.subscribe(undefined, { signal: input.signal });
-  const streamState = createExpertPreviewStreamState();
-  let finalText = "";
-  const consume = (async () => {
-    for await (const raw of subscription.stream) {
-      const event = applyExpertPreviewStreamEvent(raw, sessionId, streamState);
-      if (!event) continue;
-      if (event.text !== undefined) {
-        finalText = event.text;
-        input.onTextChange?.(event.text);
-      }
-      if (event.kind === "error") throw new Error(event.message || "Session failed");
-      if (event.kind === "done") return;
-    }
-  })();
-
+  const streamLifetime = createExpertPreviewStreamLifetime(input.signal);
   const abort = () => {
     void client.session.abort({ sessionID: sessionId, directory: input.config.workspaceRoot || undefined });
   };
   input.signal?.addEventListener("abort", abort, { once: true });
   try {
+    const subscription = await client.event.subscribe(undefined, { signal: streamLifetime.signal });
+    const streamState = createExpertPreviewStreamState();
+    let finalText = "";
+    const consume = (async () => {
+      for await (const raw of subscription.stream) {
+        const event = applyExpertPreviewStreamEvent(raw, sessionId, streamState);
+        if (!event) continue;
+        if (event.text !== undefined) {
+          finalText = event.text;
+          input.onTextChange?.(event.text);
+        }
+        if (event.kind === "error") throw new Error(event.message || "Session failed");
+        if (event.kind === "done") return;
+      }
+    })();
+    void consume.catch(() => undefined);
+
     const parts = await buildExpertChatPromptParts(input.message, input.attachments ?? []);
     const promptResult = await client.session.promptAsync({
       sessionID: sessionId,
@@ -240,11 +283,12 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
       system:
         input.systemPrompt ??
         buildExpertPreviewSystemPrompt(input.draft, input.knowledgePaths ?? []),
-      tools: buildAgentToolAccess(input.draft),
+      tools: input.tools ?? buildAgentToolAccess(input.draft),
       ...(input.model ? { model: input.model } : {}),
       parts,
     });
     if (promptResult.error) throw new Error(readErrorMessage(promptResult.error) || "Expert preview request failed");
+    input.onPromptAccepted?.();
     await consume;
     if (!finalText.trim()) {
       const messages = unwrap(await client.session.messages({
@@ -258,5 +302,6 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
     return { sessionId, content: finalText };
   } finally {
     input.signal?.removeEventListener("abort", abort);
+    streamLifetime.release();
   }
 }

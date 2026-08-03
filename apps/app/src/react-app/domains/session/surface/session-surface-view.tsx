@@ -123,6 +123,10 @@ export type SessionSurfaceViewProps = {
   hasTranscriptContent: boolean;
   activityIdle: boolean;
   draftOnly?: boolean;
+  /** Hide header/tabs when embedded in a host panel (creation coach). */
+  chrome?: "default" | "embedded";
+  /** Override default expert-empty hero when provided. */
+  emptyContent?: ReactNode;
   effectiveAgent: PendingAgentContext | null;
   typeComposerText: (text: string) => void | Promise<void>;
   typeComposerTemplate: (template: string) => void | Promise<void>;
@@ -164,6 +168,7 @@ export type SessionSurfaceViewProps = {
   onDraftChange: (draft: string) => void;
   onSend: () => void | Promise<void>;
   onStop: () => void | Promise<void>;
+  composerDisabled: boolean;
   modelUnavailable: boolean;
   effectiveAccessMode: ComposerAccessMode;
   onAccessModeChange: (mode: ComposerAccessMode) => void;
@@ -171,6 +176,7 @@ export type SessionSurfaceViewProps = {
   onCollaborationModeChange: (mode: ComposerCollaborationMode) => void;
   collaborationModeVariant: "office" | "legacy";
   modelPickerOpen: boolean;
+  modelPickerVisible?: boolean;
   selectedModel: ModelRef;
   onModelPickerOpenChange: (open: boolean) => void;
   onModelChange: (model: ModelRef) => void;
@@ -297,8 +303,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
       {/* relative: anchors draft-home top-right chrome (keyboard guide). */}
       <div className="relative flex h-full min-h-0 flex-col">
         {/* New-task / draft home: no top agent chrome — hero + composer own the canvas.
-            Once a session has messages (or is loading), pin the header at the top. */}
-        {!personalAssistantDraftHome ? (
+            Once a session has messages (or is loading), pin the header at the top.
+            Embedded panels (creation coach) hide header/tabs — host owns chrome. */}
+        {!personalAssistantDraftHome && props.chrome !== "embedded" ? (
           <SessionSurfaceHeader
             agent={props.chatHeaderAgent}
             codeSceneToolbar={props.codeSceneToolbar}
@@ -308,7 +315,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             showBottomBorder={!sessionTabsExpanded}
           />
         ) : null}
-        {!personalAssistantDraftHome ? conversationTabsNode : null}
+        {!personalAssistantDraftHome && props.chrome !== "embedded"
+          ? conversationTabsNode
+          : null}
         <SessionSurfaceSwitchingBadge
           visible={props.transitionState === "switching" && props.showDelayedLoading}
           fromCache={props.renderSource === "cache"}
@@ -367,7 +376,8 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             )}
             personalAssistantHome={props.personalAssistantHome}
             expertEmpty={
-              props.effectiveAgent ? (
+              props.emptyContent ??
+              (props.effectiveAgent ? (
                 <SessionSurfaceExpertEmpty
                   agent={{
                     name: props.effectiveAgent.name,
@@ -388,7 +398,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                     />
                   }
                 />
-              ) : null
+              ) : null)
             }
             waitingLabel={getAssistantActivityPhaseLabel(props.assistantActivity)}
             onDismissError={props.onDismissError}
@@ -451,8 +461,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onStop={props.onStop}
               busy={props.chatStreaming}
               disabled={
-                props.transitionState !== "idle" &&
-                props.transitionState !== "failed"
+                props.composerDisabled
+                || (props.transitionState !== "idle"
+                  && props.transitionState !== "failed")
               }
               modelUnavailable={Boolean(props.modelUnavailable)}
               accessMode={props.effectiveAccessMode}
@@ -461,6 +472,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onCollaborationModeChange={props.onCollaborationModeChange}
               collaborationModeVariant={props.collaborationModeVariant}
               modelPickerOpen={props.modelPickerOpen}
+              modelPickerVisible={props.modelPickerVisible}
               selectedModel={props.selectedModel}
               onModelPickerOpenChange={props.onModelPickerOpenChange}
               onModelChange={props.onModelChange}
@@ -506,8 +518,13 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               isRemoteWorkspace={props.isRemoteWorkspace}
               isSandboxWorkspace={props.isSandboxWorkspace}
               onUploadInboxFiles={props.onUploadInboxFiles}
-              showOuterBorder={composerOuterBorderVisible}
-              compactTopSpacing={Boolean(props.composerAccessory)}
+              showOuterBorder={
+                props.chrome === "embedded" ? true : composerOuterBorderVisible
+              }
+              flushShell={props.chrome === "embedded"}
+              compactTopSpacing={
+                props.chrome === "embedded" || Boolean(props.composerAccessory)
+              }
               homeLayout={homeComposerLayout}
               heroHome={Boolean(personalAssistantDraftHome)}
               topAccessory={props.composerAccessory}
