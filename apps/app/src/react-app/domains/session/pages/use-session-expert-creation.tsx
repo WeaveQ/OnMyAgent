@@ -12,20 +12,15 @@ import {
 } from "../../agents";
 
 type SessionExpertCreationInput = {
+  props: SessionPageProps;
   registry: AgentRegistry | null;
-  workspaceId: string;
-  workspaceRoot: string;
-  opencodeBaseUrl: string | null;
-  onmyagentServerToken: string | null;
-  client: SessionPageProps["onmyagentServerClient"];
-  surface: SessionPageProps["surface"];
   showToast: ExpertCreationControllerInput["showToast"];
 };
 
 export function useSessionExpertCreation(input: SessionExpertCreationInput) {
   const renderComposer = useCallback(
     (composer: ExpertCreationComposerProps) => {
-      const surface = input.surface;
+      const surface = input.props.surface;
       if (!surface) return null;
       return (
         <ReactSessionComposer
@@ -82,19 +77,27 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
         />
       );
     },
-    [input.surface],
+    [input.props.surface],
   );
 
-  return useExpertCreationController({
+  const controller = useExpertCreationController({
     registry: input.registry,
-    workspaceId: input.workspaceId,
-    workspaceRoot: input.workspaceRoot,
-    opencodeBaseUrl: input.opencodeBaseUrl,
-    onmyagentServerToken: input.onmyagentServerToken,
-    client: input.client,
+    workspaceId: input.props.selectedWorkspaceId,
+    workspaceRoot: input.props.selectedWorkspaceRoot,
+    opencodeBaseUrl: input.props.opencodeBaseUrl ?? null,
+    onmyagentServerToken: input.props.onmyagentServerToken ?? null,
+    client: input.props.onmyagentServerClient,
     skills: input.registry?.skills ?? [],
-    selectedModel: input.surface?.model.selectedModel ?? null,
+    selectedModel: input.props.surface?.model.selectedModel ?? null,
     renderComposer,
     showToast: input.showToast,
   });
+  const closeExpertCreationThen = useCallback(
+    (next?: () => void) => () => {
+      controller.closeExpertCreation();
+      next?.();
+    },
+    [controller.closeExpertCreation],
+  );
+  return { ...controller, closeExpertCreationThen };
 }
