@@ -29,6 +29,10 @@ import { useUiStateStore } from "./ui-state-store";
 export const KEYMAP_EVENT_NEW_TASK = "onmyagent:keymap:new-task";
 export const KEYMAP_EVENT_SEARCH_IN_TASK = "onmyagent:keymap:search-in-task";
 export const KEYMAP_EVENT_APP_SNAPSHOT = "onmyagent:keymap:app-snapshot";
+export const KEYMAP_EVENT_QUICK_CAPTURE = "onmyagent:keymap:quick-capture";
+export const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
+export const NATIVE_MENU_RECENT_SESSION_EVENT =
+  "onmyagent:native-menu:recent-session";
 
 function pageModeFromPathname(pathname: string): "assistant" | "expert" {
   return pathname.includes("/assistant") ? "assistant" : "expert";
@@ -135,6 +139,29 @@ export function KeymapDispatcher() {
     };
   }, [local.prefs.keymapOverrides, local.prefs.appSnapshotHotkey]);
 
+  // Register quick-capture globalShortcut (mini panel; works while app is backgrounded).
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    const platform = detectKeymapPlatform();
+    const accel = resolveAccelerator(
+      "quickCapture",
+      local.prefs.keymapOverrides,
+      platform,
+    );
+    if (!accel) {
+      void desktopBridge.unregisterQuickCaptureHotkey().catch(() => undefined);
+      return;
+    }
+    const first = accel.split("|")[0]?.trim();
+    if (!first) return;
+    void desktopBridge
+      .registerQuickCaptureHotkey(first)
+      .catch(() => undefined);
+    return () => {
+      void desktopBridge.unregisterQuickCaptureHotkey().catch(() => undefined);
+    };
+  }, [local.prefs.keymapOverrides]);
+
   useEffect(() => {
     const platform = detectKeymapPlatform();
 
@@ -163,6 +190,14 @@ export function KeymapDispatcher() {
         case "appSnapshot":
           event.preventDefault();
           requestAppSnapshot();
+          return true;
+        case "quickCapture":
+          event.preventDefault();
+          if (isDesktopRuntime()) {
+            void desktopBridge.toggleQuickCapture().catch(() => undefined);
+          } else {
+            dispatchWindowEvent(KEYMAP_EVENT_QUICK_CAPTURE);
+          }
           return true;
         default:
           return false;
@@ -232,6 +267,15 @@ export function KeymapDispatcher() {
       toggleSidebarRef.current,
     );
     window.addEventListener("onmyagent:native-menu:new-task", onNewTask);
+    const onQuickCaptureMenu = () => {
+      if (isDesktopRuntime()) {
+        void desktopBridge.toggleQuickCapture().catch(() => undefined);
+      }
+    };
+    window.addEventListener(
+      "onmyagent:native-menu:quick-capture",
+      onQuickCaptureMenu,
+    );
     window.addEventListener(
       "onmyagent:native-menu:desktop-permissions",
       onDesktopPermissions,
@@ -246,6 +290,10 @@ export function KeymapDispatcher() {
         toggleSidebarRef.current,
       );
       window.removeEventListener("onmyagent:native-menu:new-task", onNewTask);
+      window.removeEventListener(
+        "onmyagent:native-menu:quick-capture",
+        onQuickCaptureMenu,
+      );
       window.removeEventListener(
         "onmyagent:native-menu:desktop-permissions",
         onDesktopPermissions,

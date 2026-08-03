@@ -41,7 +41,7 @@ export function createApplicationMenuController(input) {
   function installApplicationMenu() {
     const isMac = process.platform === "darwin";
     const settingsAccel = accel("openSettings", "CommandOrControl+,");
-    const sidebarAccel = accel("toggleSidebar", "CommandOrControl+B");
+    const sidebarAccel = accel("toggleSidebar", "CommandOrControl+\\");
     const fileSubmenu = isMac
       ? [
           {

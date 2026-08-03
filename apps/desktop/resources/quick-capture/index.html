@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
+  <title>Quick Capture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --surface: #2c2c2c;
+      --surface-muted: #333333;
+      --border: #3a3a3a;
+      --text: #f8fafc;
+      --secondary: #94a3b8;
+      --primary: #2f7bff;
+      --primary-hover: #5b96ff;
+      --danger: #f87171;
+      --radius: 12px;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .panel {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 0;
+      -webkit-app-region: drag;
+    }
+    .top-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .model-wrap {
+      min-width: 0;
+      max-width: 58%;
+      -webkit-app-region: no-drag;
+      position: relative;
+    }
+    select#modelSelect {
+      appearance: none;
+      -webkit-appearance: none;
+      max-width: 100%;
+      width: auto;
+      min-width: 120px;
+      max-width: 100%;
+      height: 32px;
+      padding: 0 28px 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E")
+        no-repeat right 10px center;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 32px;
+      outline: none;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    select#modelSelect:focus {
+      border-color: rgba(47, 123, 255, 0.55);
+      box-shadow: 0 0 0 3px rgba(47, 123, 255, 0.18);
+    }
+    select#modelSelect:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+    .body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 12px 16px 14px;
+      -webkit-app-region: no-drag;
+    }
+    textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 88px;
+      resize: none;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.5;
+      font-family: inherit;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    textarea::placeholder { color: #64748b; font-size: 16px; }
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      margin-top: 6px;
+    }
+    .hint {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .hint kbd {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--secondary);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .error {
+      font-size: 12px;
+      color: var(--danger);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .error:empty { display: none; }
+    .send {
+      appearance: none;
+      border: none;
+      cursor: pointer;
+      color: #fff;
+      background: var(--primary);
+      border-radius: 999px;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s ease, opacity 0.12s ease, transform 0.08s ease;
+      flex-shrink: 0;
+    }
+    .send:hover:not(:disabled) { background: var(--primary-hover); }
+    .send:active:not(:disabled) { transform: scale(0.96); }
+    .send:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .send svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="top">
+      <div class="top-label">快捷对话</div>
+      <div class="model-wrap">
+        <select id="modelSelect" aria-label="选择模型" disabled>
+          <option value="">默认模型</option>
+        </select>
+      </div>
+    </div>
+    <div class="body">
+      <textarea
+        id="input"
+        placeholder="描述任务，Enter 派发到工作区…"
+        autofocus
+        rows="3"
+      ></textarea>
+      <div class="bar">
+        <div class="hint"><kbd>Enter</kbd> 发送 · <kbd>Esc</kbd> 关闭</div>
+        <div class="actions">
+          <span class="error" id="error"></span>
+          <button type="button" class="send" id="sendBtn" disabled aria-label="发送" title="发送">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("sendBtn");
+    const errorEl = document.getElementById("error");
+    const modelSelect = document.getElementById("modelSelect");
+    let submitting = false;
+
+    function modelKey(providerID, modelID) {
+      return `${providerID || ""}::${modelID || ""}`;
+    }
+
+    function parseModelKey(value) {
+      const raw = String(value || "");
+      const idx = raw.indexOf("::");
+      if (idx < 0) return null;
+      const providerID = raw.slice(0, idx).trim();
+      const modelID = raw.slice(idx + 2).trim();
+      if (!providerID || !modelID) return null;
+      return { providerID, modelID };
+    }
+
+    function applyContext(ctx) {
+      if (!ctx) return;
+      const models = Array.isArray(ctx.models) ? ctx.models : [];
+      const selected =
+        ctx.selectedModelKey ||
+        (ctx.selectedProviderID && ctx.selectedModelID
+          ? modelKey(ctx.selectedProviderID, ctx.selectedModelID)
+          : "");
+
+      modelSelect.innerHTML = "";
+      if (!models.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
+        modelSelect.appendChild(opt);
+        modelSelect.disabled = true;
+        return;
+      }
+
+      modelSelect.disabled = false;
+      for (const m of models) {
+        const providerID = String(m.providerID || "").trim();
+        const modelID = String(m.modelID || "").trim();
+        if (!providerID || !modelID) continue;
+        const opt = document.createElement("option");
+        opt.value = modelKey(providerID, modelID);
+        opt.textContent = String(m.title || modelID).trim() || modelID;
+        if (m.disabled) opt.disabled = true;
+        modelSelect.appendChild(opt);
+      }
+      if ([...modelSelect.options].some((o) => o.value === selected)) {
+        modelSelect.value = selected;
+      } else if (modelSelect.options.length) {
+        modelSelect.selectedIndex = 0;
+      }
+    }
+
+    function setError(msg) {
+      errorEl.textContent = msg || "";
+    }
+
+    function syncSendEnabled() {
+      sendBtn.disabled = submitting || !(input.value || "").trim();
+    }
+
+    async function submit() {
+      if (submitting) return;
+      const text = (input.value || "").trim();
+      if (!text) {
+        setError("请输入内容");
+        input.focus();
+        return;
+      }
+      submitting = true;
+      syncSendEnabled();
+      setError("");
+      const model = parseModelKey(modelSelect.value);
+      try {
+        const result = await window.quickCapture.submit({
+          text,
+          mode: "agent",
+          model: model || undefined,
+        });
+        if (!result || result.ok === false) {
+          const err = (result && result.error) || "派发失败";
+          setError(
+            err === "empty"
+              ? "请输入内容"
+              : err === "no-main-window"
+                ? "主窗口未就绪"
+                : String(err),
+          );
+          submitting = false;
+          syncSendEnabled();
+          return;
+        }
+        input.value = "";
+        submitting = false;
+        syncSendEnabled();
+      } catch (e) {
+        setError(e && e.message ? e.message : "派发失败");
+        submitting = false;
+        syncSendEnabled();
+      }
+    }
+
+    sendBtn.addEventListener("click", () => void submit());
+    input.addEventListener("input", syncSendEnabled);
+
+    // Don't close the panel when interacting with the native select.
+    modelSelect.addEventListener("mousedown", (e) => e.stopPropagation());
+    modelSelect.addEventListener("click", (e) => e.stopPropagation());
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void window.quickCapture.close();
+        return;
+      }
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        void submit();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void window.quickCapture.close();
+      }
+    });
+
+    if (window.quickCapture) {
+      window.quickCapture.onContext?.(applyContext);
+      window.quickCapture.onFocus?.(() => {
+        submitting = false;
+        setError("");
+        syncSendEnabled();
+        input.focus();
+        input.select();
+      });
+      window.quickCapture.getContext?.().then(applyContext).catch(() => undefined);
+    }
+
+    syncSendEnabled();
+    input.focus();
+  </script>
+</body>
+</html>

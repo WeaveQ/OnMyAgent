@@ -113,8 +113,19 @@ test("status item install builds native menu with template tray on darwin", () =
   const template = mocks.lastTemplate();
   assert.ok(template.some((item) => item.type === "separator"));
   assert.ok(template.some((item) => item.label === "新建任务"));
-  assert.ok(template.some((item) => item.label === "打开专家市场"));
+  assert.ok(template.some((item) => item.label === "快捷对话"));
+  assert.ok(
+    template.some(
+      (item) =>
+        item.label === "快捷对话" && item.accelerator === "CommandOrControl+B",
+    ),
+  );
+  assert.ok(!template.some((item) => item.label === "打开专家市场"));
   assert.ok(template.some((item) => typeof item.click === "function"));
+  // Order: quick chat first, show window after new task.
+  const labels = template.map((item) => item.label).filter(Boolean);
+  assert.equal(labels[0], "快捷对话");
+  assert.ok(labels.indexOf("显示主窗口") > labels.indexOf("新建任务"));
 });
 
 test("setVisible hides and restores menu-bar tray on darwin", () => {
@@ -205,7 +216,7 @@ test("darwin tray uses trayTemplate as template image, not brand PNG as template
   void iconsDir;
 });
 
-test("runAction show/settings/new-task/marketplace/permissions/quit use real handlers", async () => {
+test("runAction show/settings/new-task/permissions/quit use real handlers", async () => {
   const sent = [];
   let shown = 0;
   let quitCalls = 0;
@@ -248,9 +259,6 @@ test("runAction show/settings/new-task/marketplace/permissions/quit use real han
 
   await controller.runAction(STATUS_ITEM_ACTION.NEW_TASK);
   assert.ok(sent.includes(STATUS_ITEM_EVENTS.NEW_TASK));
-
-  await controller.runAction(STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE);
-  assert.ok(sent.includes(STATUS_ITEM_EVENTS.OPEN_EXPERT_MARKETPLACE));
 
   await controller.runAction(STATUS_ITEM_ACTION.OPEN_SETTINGS);
   assert.ok(sent.includes(STATUS_ITEM_EVENTS.OPEN_SETTINGS));

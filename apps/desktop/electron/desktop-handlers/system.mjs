@@ -42,6 +42,10 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "getAgentReadySoundPath",
   "registerAppSnapshotHotkey",
   "unregisterAppSnapshotHotkey",
+  "registerQuickCaptureHotkey",
+  "unregisterQuickCaptureHotkey",
+  "setQuickCaptureContext",
+  "toggleQuickCapture",
   "setKeymapAcceleratorOverrides",
   "getDesktopBootstrapConfig",
   "debugDesktopBootstrapConfig",
@@ -110,7 +114,12 @@ export function createSystemDomainHandlers({
   getAgentReadySoundPath,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
+  registerQuickCaptureHotkey,
+  unregisterQuickCaptureHotkey,
   setKeymapAcceleratorOverrides,
+  onQuickCaptureHotkey,
+  setQuickCaptureContext,
+  toggleQuickCapture,
   getDesktopBootstrapConfig,
   debugDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
@@ -266,6 +275,25 @@ export function createSystemDomainHandlers({
       }
     }),
   unregisterAppSnapshotHotkey: async () => unregisterAppSnapshotHotkey(),
+  registerQuickCaptureHotkey: async (event, args) =>
+    registerQuickCaptureHotkey(args[0], () => {
+      try {
+        onQuickCaptureHotkey?.();
+      } catch (error) {
+        console.error("[registerQuickCaptureHotkey] callback failed", error);
+      }
+    }),
+  unregisterQuickCaptureHotkey: async () => unregisterQuickCaptureHotkey(),
+  setQuickCaptureContext: async (event, args) => {
+    const next = args[0] ?? {};
+    return setQuickCaptureContext?.(next) ?? { ok: true };
+  },
+  toggleQuickCapture: async () => {
+    if (typeof toggleQuickCapture === "function") {
+      return await toggleQuickCapture();
+    }
+    return { open: false, ok: false };
+  },
   setKeymapAcceleratorOverrides: async (event, args) =>
     setKeymapAcceleratorOverrides(args[0] ?? {}),
 
