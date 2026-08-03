@@ -102,11 +102,11 @@ import {
   saveSessionDraft,
   seedPermissionState,
   seedQuestionState,
+  setComposerDraftAfterNewTask,
+  useComposerStateStore,
   useSessionActivityStore,
   useSessionControlActions,
 } from "../../domains/session";
-import { setComposerDraftAfterNewTask } from "../../domains/session/pages/shared-page-utils";
-import { useComposerStateStore } from "../../domains/session/surface/composer-state-store";
 import { useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
 import { useSessionRouteChromeState } from "./chrome-state-hook";

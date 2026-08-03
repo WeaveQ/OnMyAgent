@@ -819,7 +819,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   );
                   // Composer reads Zustand store — saveSessionDraft alone is not enough.
                   const { useComposerStateStore } = await import(
-                    "../../domains/session/surface/composer-state-store"
+                    "../../domains/session"
                   );
                   const seed = () =>
                     useComposerStateStore
