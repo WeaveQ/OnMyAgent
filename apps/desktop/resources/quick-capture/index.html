@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
+  <title>Quick Capture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #16181d;
+      --elevated: #1c1f26;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f2f3f5;
+      --muted: #9aa0ab;
+      --dim: #6b7280;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.18);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .shell {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 14px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .logo {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .hotkey {
+      font-size: 11px;
+      color: var(--dim);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+    .modes {
+      display: flex;
+      gap: 4px;
+      padding: 3px;
+      background: rgba(0,0,0,0.28);
+      border-radius: 10px;
+      width: fit-content;
+      margin-bottom: 10px;
+    }
+    .mode {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .mode.on {
+      background: var(--elevated);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 88px;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--elevated);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.45;
+      padding: 12px 14px;
+      font-family: inherit;
+      outline: none;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    textarea:focus {
+      border-color: rgba(59, 130, 246, 0.45);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    textarea::placeholder { color: var(--dim); }
+    .context {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pill .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px #34d399;
+      flex-shrink: 0;
+    }
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      gap: 12px;
+    }
+    .hints {
+      display: flex;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--dim);
+    }
+    kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .send {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+      white-space: nowrap;
+    }
+    .send:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .error {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #f87171;
+      min-height: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="brand"><span class="logo">O</span><span data-i18n="title">快速捕获</span></div>
+      <span class="hotkey" id="hotkeyHint">⌘⇧Space</span>
+    </div>
+    <div class="modes" role="tablist">
+      <button type="button" class="mode on" data-mode="agent" id="modeAgent">丢给 Agent</button>
+      <button type="button" class="mode" data-mode="todo" id="modeTodo" disabled title="即将推出">记一条待办</button>
+    </div>
+    <textarea id="input" placeholder="描述要派发到当前工作区的任务…" autofocus></textarea>
+    <div class="context">
+      <span class="pill"><span class="dot"></span><span id="workspaceLabel">—</span></span>
+      <span class="pill" id="modelPill"><span id="modelLabel">默认模型</span></span>
+    </div>
+    <div class="error" id="error"></div>
+    <div class="footer">
+      <div class="hints">
+        <span><kbd>Enter</kbd> 发送</span>
+        <span><kbd>Esc</kbd> 关闭</span>
+        <span><kbd>⇧</kbd><kbd>Enter</kbd> 换行</span>
+      </div>
+      <button type="button" class="send" id="sendBtn">派发到工作区 ↵</button>
+    </div>
+  </div>
+  <script>
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("sendBtn");
+    const errorEl = document.getElementById("error");
+    const workspaceLabel = document.getElementById("workspaceLabel");
+    const modelLabel = document.getElementById("modelLabel");
+    let mode = "agent";
+    let submitting = false;
+
+    function applyContext(ctx) {
+      if (!ctx) return;
+      workspaceLabel.textContent = (ctx.workspaceLabel && String(ctx.workspaceLabel).trim()) || "未选择工作区";
+      modelLabel.textContent = (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
+    }
+
+    function setError(msg) {
+      errorEl.textContent = msg || "";
+    }
+
+    async function submit() {
+      if (submitting) return;
+      const text = (input.value || "").trim();
+      if (!text) {
+        setError("请输入任务内容");
+        input.focus();
+        return;
+      }
+      submitting = true;
+      sendBtn.disabled = true;
+      setError("");
+      try {
+        const result = await window.quickCapture.submit({ text, mode });
+        if (!result || result.ok === false) {
+          setError((result && result.error) || "派发失败");
+          submitting = false;
+          sendBtn.disabled = false;
+          return;
+        }
+        input.value = "";
+      } catch (e) {
+        setError(e && e.message ? e.message : "派发失败");
+        submitting = false;
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", () => void submit());
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void window.quickCapture.close();
+        return;
+      }
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        void submit();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void window.quickCapture.close();
+      }
+    });
+
+    if (window.quickCapture) {
+      window.quickCapture.onContext?.(applyContext);
+      window.quickCapture.onFocus?.(() => {
+        submitting = false;
+        sendBtn.disabled = false;
+        setError("");
+        input.focus();
+        input.select();
+      });
+      window.quickCapture.getContext?.().then(applyContext).catch(() => undefined);
+    }
+
+    input.focus();
+  </script>
+</body>
+</html>

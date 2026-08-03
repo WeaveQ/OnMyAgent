@@ -390,6 +390,19 @@ type TypedDesktopCommandMap = {
     { ok: boolean; registered?: boolean; mode?: string; note?: string; error?: string }
   >;
   unregisterAppSnapshotHotkey: DesktopCommandContract<[], { ok: boolean }>;
+  registerQuickCaptureHotkey: DesktopCommandContract<
+    [string | null | undefined],
+    { ok: boolean; registered?: boolean; mode?: string; note?: string; error?: string }
+  >;
+  unregisterQuickCaptureHotkey: DesktopCommandContract<[], { ok: boolean }>;
+  setQuickCaptureContext: DesktopCommandContract<
+    [{ workspaceLabel?: string; modelLabel?: string }?],
+    { ok: boolean; workspaceLabel?: string; modelLabel?: string }
+  >;
+  toggleQuickCapture: DesktopCommandContract<
+    [],
+    { open?: boolean; ok?: boolean }
+  >;
   setKeymapAcceleratorOverrides: DesktopCommandContract<
     [Record<string, string>?],
     { ok: boolean; keys: string[] }

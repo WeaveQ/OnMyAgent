@@ -11,7 +11,8 @@ export type KeymapActionId =
   | "searchInCurrentTask"
   | "sendMessage"
   | "insertNewline"
-  | "appSnapshot";
+  | "appSnapshot"
+  | "quickCapture";
 
 export type KeymapGroupId = "general" | "task" | "session" | "global";
 
@@ -61,6 +62,12 @@ export const DEFAULT_KEYMAP_ACTIONS: readonly KeymapActionDef[] = [
     group: "global",
     // Electron globalShortcut-friendly (customizable in Settings → Shortcuts).
     defaultAccelerator: "CommandOrControl+Shift+A",
+  },
+  {
+    id: "quickCapture",
+    group: "global",
+    // Spotlight-style capture; customizable in Settings → Shortcuts.
+    defaultAccelerator: "CommandOrControl+Shift+Space",
   },
 ] as const;
 
@@ -419,6 +426,7 @@ export function shouldIgnoreForTarget(
   if (actionId === "openSettings") return false;
   if (actionId === "toggleSidebar") return false;
   if (actionId === "appSnapshot") return false;
+  if (actionId === "quickCapture") return false;
   if (actionId === "newTask" && isEditableShortcutTarget(target)) return true;
   return false;
 }

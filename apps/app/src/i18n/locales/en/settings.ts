@@ -962,6 +962,7 @@ export default {
   "settings.shortcuts_action_sendMessage": "Send message",
   "settings.shortcuts_action_insertNewline": "Insert line break",
   "settings.shortcuts_action_appSnapshot": "Capture desktop",
+  "settings.shortcuts_action_quickCapture": "Quick capture",
   "shortcuts_guide.title": "Keyboard shortcuts",
   "shortcuts_guide.description":
     "Use shortcuts to create tasks, search, switch context, and send messages.",
