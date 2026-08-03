@@ -1,11 +1,21 @@
 ---
 name: computer-use
-description: Control local macOS apps through OnMyAgent Computer Use. Use for tasks that require reading or operating native app UI, accessibility elements, windows, screenshots, keyboard input, scrolling, or background-safe clicks when no purpose-built connector, API, or CLI is a better fit.
+description: Control local desktop apps through OnMyAgent Computer Use (macOS HandsFree; Windows Cua Driver). Use for native app UI, screenshots, keyboard/mouse when no purpose-built connector, API, or CLI fits better.
 ---
 
 # Computer Use
 
 Use the bundled `computer-use` MCP server. Prefer a purpose-built connector, API, or CLI when one can complete the task more directly.
+
+## Platform backends
+
+| OS | Backend | Notes |
+|----|---------|--------|
+| **macOS** | HandsFree helper | Semantic accessibility (`get_app_state`, `{eN}`), strict background, optional Skysight. MCP enabled when helper is present. |
+| **Windows** | Bundled **Cua Driver** (`resources/helpers/cua/`) | Coordinate / Cua-native tools from the driver MCP. **Not** HandsFree tool names. Enable via settings or `ONMYAGENT_COMPUTER_USE_ENABLED=1` (default **off**). No Skysight. |
+| **Linux** | — | Not wired yet. |
+
+On Windows, list MCP tools first and call only tools the Cua server exposes. Do not assume macOS-only names (`skysight_*`, `set_strict_mode`, Sky `{eN}` refs).
 
 ## Choose the right surface
 

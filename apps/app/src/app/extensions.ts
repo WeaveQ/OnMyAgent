@@ -160,8 +160,12 @@ export function isTrustedBuiltInExtension(
   return manifest?.source.origin === "builtin" && manifest.source.trusted;
 }
 
-export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[] =
-  [
+/**
+ * Built-in extension manifests. Always call this function (do not cache the
+ * array across locale switches) so `t()` resolves the active language.
+ */
+export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManifest[] {
+  return [
     {
       schemaVersion: 1,
       id: "computer-use",
@@ -242,7 +246,8 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         },
       ],
       lifecycle: { reload: ["mcp"], detection: ["mcp:computer-use"] },
-      platform: ["darwin"],
+      // macOS HandsFree + Windows Cua Driver (Linux not wired yet).
+      platform: ["darwin", "windows"],
     },
     {
       schemaVersion: 1,
@@ -320,11 +325,11 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
     {
       schemaVersion: 1,
       id: "openai-image-gen",
-      name: "OpenAI Image Gen",
+      name: t("extensions.openai_image_name"),
       description: t("extensions.openai_image_desc"),
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/ext-openai.svg" },
-      composer: { prompt: "Use the OpenAI Image Gen extension to " },
+      composer: { prompt: t("extensions.openai_image_prompt") },
       setup: {
         instructions:
           t("extensions.openai_image_setup"),
@@ -366,7 +371,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         },
         {
           type: "composer-prompt",
-          prompt: "Use the OpenAI Image Gen extension to ",
+          prompt: t("extensions.openai_image_prompt"),
           location: "composer",
         },
       ],
@@ -386,13 +391,13 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
     {
       schemaVersion: 1,
       id: "onmyagent-voice",
-      name: "Voice Mode",
+      name: t("extensions.voice_mode"),
       description:
         t("extensions.voice_desc"),
       preview: true,
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/on-my-agent-logo.png" },
-      composer: { prompt: "Use Voice Mode to " },
+      composer: { prompt: t("extensions.voice_prompt") },
       setup: {
         instructions:
           t("extensions.voice_setup"),
@@ -451,7 +456,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         },
         {
           type: "composer-prompt",
-          prompt: "Use Voice Mode to ",
+          prompt: t("extensions.voice_prompt"),
           location: "composer",
         },
       ],
@@ -467,11 +472,11 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
     {
       schemaVersion: 1,
       id: "ollama",
-      name: "Ollama",
+      name: t("extensions.ollama_name"),
       description: t("extensions.ollama_desc"),
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/ext-ollama.svg" },
-      composer: { prompt: "Use the Ollama extension to " },
+      composer: { prompt: t("extensions.ollama_prompt") },
       setup: {
         instructions:
           t("extensions.ollama_setup"),
@@ -507,7 +512,7 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
         },
         {
           type: "composer-prompt",
-          prompt: "Use the Ollama extension to ",
+          prompt: t("extensions.ollama_prompt"),
           location: "composer",
         },
       ],
@@ -517,3 +522,8 @@ export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[
       lifecycle: { reload: ["config"], detection: ["provider:ollama"] },
     },
   ];
+}
+
+/** @deprecated Prefer getBuiltInOnMyAgentExtensionManifests() for live locale. */
+export const BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS: OnMyAgentExtensionManifest[] =
+  getBuiltInOnMyAgentExtensionManifests();

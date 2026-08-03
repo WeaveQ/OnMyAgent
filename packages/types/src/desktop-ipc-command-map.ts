@@ -312,6 +312,10 @@ type TypedDesktopCommandMap = {
     [],
     ComputerUsePermissionResult
   >;
+  setComputerUseMcpEnabled: DesktopCommandContract<
+    [boolean],
+    ComputerUsePermissionResult
+  >;
   setComputerUseSkysightEnabled: DesktopCommandContract<
     [boolean],
     ComputerUsePermissionResult

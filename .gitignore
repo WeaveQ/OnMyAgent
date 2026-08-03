@@ -122,3 +122,6 @@ docs/superpowers/
 **/.build/
 **/__pycache__/
 *.pyc
+
+# Local Grok harness reports (do not commit)
+.grok/better-harness/

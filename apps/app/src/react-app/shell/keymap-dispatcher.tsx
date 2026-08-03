@@ -37,12 +37,17 @@ function pageModeFromPathname(pathname: string): "assistant" | "expert" {
 function openSettingsNavigate(
   navigate: ReturnType<typeof useNavigate>,
   location: ReturnType<typeof useLocation>,
+  tab: string = "general",
 ) {
+  const safeTab = tab.trim() || "general";
   if (location.pathname.includes("/settings")) {
     navigate(
       location.pathname.includes("/workspace/")
-        ? location.pathname.replace(/\/settings\/.*$/, "/settings/general")
-        : "/settings/general",
+        ? location.pathname.replace(
+            /\/settings\/.*$/,
+            `/settings/${safeTab}`,
+          )
+        : `/settings/${safeTab}`,
       { replace: true, state: location.state },
     );
     return;
@@ -56,8 +61,8 @@ function openSettingsNavigate(
   );
   const sessionId = sessionMatch ? decodeURIComponent(sessionMatch[1]) : null;
   const target = workspaceId
-    ? `/workspace/${encodeURIComponent(workspaceId)}/settings/general`
-    : "/settings/general";
+    ? `/workspace/${encodeURIComponent(workspaceId)}/settings/${safeTab}`
+    : `/settings/${safeTab}`;
   navigate(target, {
     state: {
       workspaceId,
@@ -206,10 +211,16 @@ export function KeymapDispatcher() {
   // Native menu / menu-bar status-item events (Electron main → preload → window).
   useEffect(() => {
     const openSettings = () =>
-      openSettingsNavigate(navigateRef.current, locationRef.current);
+      openSettingsNavigate(navigateRef.current, locationRef.current, "general");
     const onNewTask = () => dispatchWindowEvent(KEYMAP_EVENT_NEW_TASK);
     const onDesktopPermissions = () => {
-      // Prefer opening the OS permission helper; fall back is no-op if not desktop.
+      // Tray "桌面控制权限": open in-app System settings (authorizations),
+      // not AI/model settings. Also open OS/helper grant flow when available.
+      openSettingsNavigate(
+        navigateRef.current,
+        locationRef.current,
+        "system",
+      );
       if (!isDesktopRuntime()) return;
       void desktopBridge.openComputerUsePermissionSetup().catch((error) => {
         console.warn("[native-menu] desktop permissions failed", error);

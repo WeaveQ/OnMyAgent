@@ -219,6 +219,7 @@ const computerUseDesktopHelpers = createComputerUseDesktopHelpers({
 const {
   getComputerUseMcpCommand,
   checkComputerUsePermissions,
+  setComputerUseMcpEnabled,
   setComputerUseSkysightEnabled,
   setComputerUseSkysightPaused,
   updateComputerUseSkysightExclusion,
@@ -1148,6 +1149,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   randomBytes,
   getComputerUseMcpCommand,
   checkComputerUsePermissions,
+  setComputerUseMcpEnabled,
   setComputerUseSkysightEnabled,
   setComputerUseSkysightPaused,
   updateComputerUseSkysightExclusion,
