@@ -46,10 +46,12 @@ import {
 import { usePendingAgentStore } from "../../domains/agents";
 import {
   buildIsolatedExpertSessionDirectory,
+  clearOptimisticSessionUserMessage,
   dispatchAssistantSessionWorkspacesChanged,
   isSameDirectory,
   materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
+  seedOptimisticSessionUserMessage,
   shouldIsolateExpertSessionDirectory,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
@@ -973,29 +975,56 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
-        const result = await runWithCreatedSessionRuntimeSync(() =>
-          opencodeClient.session.promptAsync({
-            sessionID: sessionId,
-            parts,
-            ...(draft.messageID ? { messageID: draft.messageID } : {}),
-            // Priority: user's manual override > agent's configured model > global default.
-            // Never modify `pendingAgentSnapshot.model` — the agent's configured model
-            // is owned by the agent page edit dialog.
-            model: selectedPromptModel,
-            agent: selectedAgent ?? undefined,
-            ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-            ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
-            ...(combinedSystem ? { system: combinedSystem } : {}),
-            directory: taskWorkspaceRoot || undefined,
-          }),
-        );
-        if (result.error) {
-          throw new Error(serializeSDKError(result.error));
+        const optimisticMessageId =
+          createdSession && !draft.messageID
+            ? `msg_${crypto.randomUUID()}`
+            : null;
+        const runtimeMessageId = draft.messageID ?? optimisticMessageId;
+        const runtimeWorkspaceId =
+          selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+        const userTurnText = resolveDraftText(promptDraft);
+        if (optimisticMessageId && userTurnText) {
+          seedOptimisticSessionUserMessage({
+            workspaceId: runtimeWorkspaceId,
+            sessionId,
+            messageId: optimisticMessageId,
+            text: userTurnText,
+            createdAt: Date.now(),
+          });
+        }
+        try {
+          const result = await runWithCreatedSessionRuntimeSync(() =>
+            opencodeClient.session.promptAsync({
+              sessionID: sessionId,
+              parts,
+              ...(runtimeMessageId ? { messageID: runtimeMessageId } : {}),
+              // Priority: user's manual override > agent's configured model > global default.
+              // Never modify `pendingAgentSnapshot.model` — the agent's configured model
+              // is owned by the agent page edit dialog.
+              model: selectedPromptModel,
+              agent: selectedAgent ?? undefined,
+              ...(modelVariantValue ? { variant: modelVariantValue } : {}),
+              ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
+              ...(combinedSystem ? { system: combinedSystem } : {}),
+              directory: taskWorkspaceRoot || undefined,
+            }),
+          );
+          if (result.error) {
+            throw new Error(serializeSDKError(result.error));
+          }
+        } catch (error) {
+          if (optimisticMessageId && userTurnText) {
+            clearOptimisticSessionUserMessage({
+              workspaceId: runtimeWorkspaceId,
+              sessionId,
+              messageId: optimisticMessageId,
+            });
+          }
+          throw error;
         }
         // Work memory auto-capture: only when enabled + autoCapture.
         // Writes long-term items + short-term notes (no silent path when auto off).
         const memoryState = local.prefs.conversationMemory;
-        const userTurnText = resolveDraftText(promptDraft);
         if (
           memoryState?.enabled &&
           memoryState.autoCapture &&
