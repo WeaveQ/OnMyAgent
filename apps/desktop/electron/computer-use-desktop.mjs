@@ -1066,13 +1066,17 @@ function spawnCheckPermissions(bin) {
 }
 
 async function openComputerUseSetupApp() {
-  // Windows: no HandsFree setup GUI — open accessibility-related settings.
+  // Windows: no HandsFree setup GUI. In-app Settings → System is the primary
+  // surface (renderer navigates there). Optionally open capture privacy pane.
   if (process.platform === "win32") {
     try {
-      await shell.openExternal("ms-settings:easeofaccess-mouse");
+      // Programmatic capture / screen access — closer to Computer Use than mouse ease-of-access.
+      await shell.openExternal(
+        "ms-settings:privacy-graphicscaptureprogrammatic",
+      );
     } catch (error) {
       console.warn(
-        "[ComputerUse] open Windows settings failed:",
+        "[ComputerUse] open Windows privacy settings failed:",
         error instanceof Error ? error.message : String(error),
       );
     }
