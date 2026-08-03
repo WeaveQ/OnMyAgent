@@ -21,9 +21,11 @@ export const EXPERT_DRAFT_SUGGESTION_FIELDS = [
 
 export type ExpertDraftSuggestionPartition = {
   emptyFill: ExpertDraftSuggestion;
+  confirmation: ExpertDraftSuggestion;
   conflicts: ExpertDraftSuggestion;
   matches: ExpertDraftSuggestion;
   emptyFillKeys: ExpertDraftSuggestionField[];
+  confirmationKeys: ExpertDraftSuggestionField[];
   conflictKeys: ExpertDraftSuggestionField[];
   matchKeys: ExpertDraftSuggestionField[];
 };
@@ -56,14 +58,24 @@ function suggestionFromRecord(parsed: Record<string, unknown>): ExpertDraftSugge
   if (typeof parsed.description === "string" && parsed.description.trim()) {
     suggestion.description = parsed.description.trim();
   }
-  if (typeof parsed.userNote === "string" && parsed.userNote.trim()) {
-    const userNote = parsed.userNote.trim();
-    if (validateExpertCreationRolePrompt(userNote).valid) {
-      suggestion.userNote = userNote;
-    }
+  const userNote = typeof parsed.userNote === "string" ? parsed.userNote.trim() : "";
+  const memoryValue = parsed.agentMemory ?? parsed.memory;
+  const agentMemory = typeof memoryValue === "string" ? memoryValue.trim() : "";
+  const userNoteIsRolePrompt = userNote
+    ? validateExpertCreationRolePrompt(userNote).valid
+    : false;
+  const memoryIsRolePrompt = agentMemory
+    ? validateExpertCreationRolePrompt(agentMemory).valid
+    : false;
+  if (userNoteIsRolePrompt) {
+    suggestion.userNote = userNote;
+  } else if (memoryIsRolePrompt) {
+    // Recover a valid role prompt if a model accidentally put it in memory.
+    // Never persist the runtime prompt as long-term expert memory.
+    suggestion.userNote = agentMemory;
   }
-  if (typeof parsed.agentMemory === "string" && parsed.agentMemory.trim()) {
-    suggestion.agentMemory = parsed.agentMemory.trim();
+  if (agentMemory && !memoryIsRolePrompt) {
+    suggestion.agentMemory = agentMemory;
   }
   return Object.keys(suggestion).length > 0 ? suggestion : null;
 }
@@ -171,9 +183,11 @@ export function partitionExpertDraftSuggestion(
   suggestion: ExpertDraftSuggestion,
 ): ExpertDraftSuggestionPartition {
   const emptyFill: ExpertDraftSuggestion = {};
+  const confirmation: ExpertDraftSuggestion = {};
   const conflicts: ExpertDraftSuggestion = {};
   const matches: ExpertDraftSuggestion = {};
   const emptyFillKeys: ExpertDraftSuggestionField[] = [];
+  const confirmationKeys: ExpertDraftSuggestionField[] = [];
   const conflictKeys: ExpertDraftSuggestionField[] = [];
   const matchKeys: ExpertDraftSuggestionField[] = [];
 
@@ -182,6 +196,11 @@ export function partitionExpertDraftSuggestion(
     if (!next) continue;
     const current = readDraftField(draft, field);
     if (!current) {
+      if (field === "agentMemory") {
+        confirmation[field] = next;
+        confirmationKeys.push(field);
+        continue;
+      }
       emptyFill[field] = next;
       emptyFillKeys.push(field);
       continue;
@@ -197,9 +216,11 @@ export function partitionExpertDraftSuggestion(
 
   return {
     emptyFill,
+    confirmation,
     conflicts,
     matches,
     emptyFillKeys,
+    confirmationKeys,
     conflictKeys,
     matchKeys,
   };
@@ -213,11 +234,11 @@ export function mergeExpertDraftSuggestion(
   const partition = partitionExpertDraftSuggestion(draft, suggestion);
   const patch =
     mode === "force"
-      ? { ...partition.emptyFill, ...partition.conflicts }
+      ? { ...partition.emptyFill, ...partition.confirmation, ...partition.conflicts }
       : partition.emptyFill;
   const appliedKeys =
     mode === "force"
-      ? [...partition.emptyFillKeys, ...partition.conflictKeys]
+      ? [...partition.emptyFillKeys, ...partition.confirmationKeys, ...partition.conflictKeys]
       : partition.emptyFillKeys;
   if (appliedKeys.length === 0) {
     return { draft, appliedKeys };
@@ -231,5 +252,13 @@ export function mergeExpertDraftSuggestion(
 export function expertDraftSuggestionNeedsSync(
   partition: ExpertDraftSuggestionPartition,
 ): boolean {
-  return partition.emptyFillKeys.length > 0 || partition.conflictKeys.length > 0;
+  return partition.emptyFillKeys.length > 0
+    || partition.confirmationKeys.length > 0
+    || partition.conflictKeys.length > 0;
+}
+
+export function expertDraftSuggestionPendingKeys(
+  partition: ExpertDraftSuggestionPartition,
+): ExpertDraftSuggestionField[] {
+  return [...partition.confirmationKeys, ...partition.conflictKeys];
 }

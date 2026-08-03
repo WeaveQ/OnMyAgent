@@ -70,21 +70,25 @@ describe("expert creation coach agent binding", () => {
     expect(prompt).toContain("seven non-empty level-two Markdown sections");
     expect(prompt).toContain("skill IDs");
     expect(prompt).toContain(skills[0].id);
+    expect(prompt).toContain("userNote");
+    expect(prompt).toContain("agentMemory");
+    expect(prompt).toContain("stable facts");
   });
 
   test("bundled coach copy describes the structured workflow in every locale", () => {
     const previousLocale = currentLocale();
-    const expectations: readonly [Language, string][] = [
-      ["en", "seven"],
-      ["zh", "七个"],
-      ["zh-TW", "七個"],
+    const expectations: readonly [Language, string, string][] = [
+      ["en", "seven", "stable facts"],
+      ["zh", "七个", "稳定事实"],
+      ["zh-TW", "七個", "穩定事實"],
     ];
 
     try {
-      for (const [language, marker] of expectations) {
+      for (const [language, marker, memoryMarker] of expectations) {
         setLocale(language);
         const coach = buildBuiltinAgentRecords()[0];
         expect(coach?.userNote).toContain(marker);
+        expect(coach?.userNote).toContain(memoryMarker);
       }
     } finally {
       setLocale(previousLocale);

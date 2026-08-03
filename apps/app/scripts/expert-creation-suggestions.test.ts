@@ -7,6 +7,7 @@ import {
   mergeExpertDraftSuggestion,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
+  expertDraftSuggestionPendingKeys,
 } from "../src/react-app/domains/agents/expert-creation-suggestions";
 
 const completeRolePrompt = [
@@ -94,6 +95,31 @@ describe("expert creation coach suggestions", () => {
     });
   });
 
+  test("moves a role prompt accidentally placed in memory back to the role prompt field", () => {
+    const parsed = parseExpertDraftSuggestion(
+      `<expert-update>${JSON.stringify({
+        name: "美食制作专家",
+        agentMemory: completeRolePrompt,
+      })}</expert-update>`,
+    );
+
+    expect(parsed.suggestion).toEqual({
+      name: "美食制作专家",
+      userNote: completeRolePrompt,
+    });
+  });
+
+  test("accepts the structured coach memory alias without changing its target field", () => {
+    const parsed = parseExpertDraftSuggestion(
+      '<expert-update>{"name":"美食制作专家","memory":"1. 项目是一个 AI 设计工具。\\n2. 目标用户是设计师。"}</expert-update>',
+    );
+
+    expect(parsed.suggestion).toEqual({
+      name: "美食制作专家",
+      agentMemory: "1. 项目是一个 AI 设计工具。\n2. 目标用户是设计师。",
+    });
+  });
+
   test("keeps a complete seven-section role prompt", () => {
     const parsed = parseExpertDraftSuggestion(
       `<expert-update>${JSON.stringify({ name: "研究专家", userNote: completeRolePrompt })}</expert-update>`,
@@ -117,10 +143,32 @@ describe("expert creation coach suggestions", () => {
       },
     );
 
-    expect(partition.emptyFillKeys).toEqual(["name"]);
-    expect(partition.conflictKeys).toEqual(["description", "agentMemory"]);
-    expect(partition.matchKeys).toEqual(["userNote"]);
-    expect(expertDraftSuggestionNeedsSync(partition)).toBe(true);
+      expect(partition.emptyFillKeys).toEqual(["name"]);
+      expect(partition.conflictKeys).toEqual(["description", "agentMemory"]);
+      expect(partition.matchKeys).toEqual(["userNote"]);
+      expect(partition.confirmationKeys).toEqual([]);
+      expect(expertDraftSuggestionPendingKeys(partition)).toEqual(["description", "agentMemory"]);
+      expect(expertDraftSuggestionNeedsSync(partition)).toBe(true);
+  });
+
+  test("requires confirmation before filling an empty expert memory", () => {
+    const partition = partitionExpertDraftSuggestion(
+      draftStub(),
+      { agentMemory: "1. 我的项目是一个 AI 设计工具\n2. 我的目标用户是设计师。" },
+    );
+
+    expect(partition.emptyFillKeys).toEqual([]);
+    expect(partition.confirmationKeys).toEqual(["agentMemory"]);
+    expect(mergeExpertDraftSuggestion(
+      draftStub(),
+      { agentMemory: "1. 我的项目是一个 AI 设计工具\n2. 我的目标用户是设计师。" },
+      "empty-only",
+    ).draft.agentMemory).toBe("");
+    expect(mergeExpertDraftSuggestion(
+      draftStub(),
+      { agentMemory: "1. 我的项目是一个 AI 设计工具\n2. 我的目标用户是设计师。" },
+      "force",
+    ).draft.agentMemory).toContain("目标用户");
   });
 
   test("empty-only merge fills blanks without overwriting conflicts", () => {

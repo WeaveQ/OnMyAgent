@@ -76,6 +76,7 @@ function parseNullableProposal(value: unknown): ExpertCoachProposal | null | und
     return undefined;
   }
   if (!validateExpertCreationRolePrompt(value.rolePrompt).valid) return undefined;
+  if (validateExpertCreationRolePrompt(value.memory).valid) return undefined;
   return {
     name: value.name,
     description: value.description,
