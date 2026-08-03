@@ -10,6 +10,9 @@ const pageSource = readFileSync(
 const emptyStateStart = pageSource.indexOf("        <Empty\n          variant=\"ghost\"");
 const emptyStateEnd = pageSource.indexOf("        </Empty>", emptyStateStart);
 const emptyStateSource = pageSource.slice(emptyStateStart, emptyStateEnd);
+const illustrationStart = pageSource.indexOf("function SkillsEmptyIllustration()");
+const illustrationEnd = pageSource.indexOf("function SkillImportDialog", illustrationStart);
+const illustrationSource = pageSource.slice(illustrationStart, illustrationEnd);
 
 describe("expert creation skill empty state", () => {
   test("uses an illustration, title, and guidance without inline actions", () => {
@@ -21,6 +24,13 @@ describe("expert creation skill empty state", () => {
     expect(emptyStateSource).not.toContain("EmptyContent");
     expect(emptyStateSource).not.toContain("SkillPickerPopover");
     expect(emptyStateSource).not.toContain("expert_creation_import_skill");
+  });
+
+  test("uses a bounded skills handbook illustration instead of loose blocks", () => {
+    expect(illustrationSource).toContain("<IconTile");
+    expect(illustrationSource).toContain("BookOpenCheck");
+    expect(illustrationSource).toContain("dls-accent");
+    expect(illustrationSource).not.toContain("<Blocks");
   });
 
   test("keeps the add-skill action in the panel header", () => {
