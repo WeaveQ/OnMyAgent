@@ -416,7 +416,15 @@ const artifactPreviewController = createArtifactPreviewController({
 });
 
 /** Last known labels for the quick-capture context strip (set from renderer). */
-let quickCaptureContext = { workspaceLabel: "", modelLabel: "" };
+let quickCaptureContext = {
+  workspaceLabel: "",
+  modelLabel: "",
+  selectedProviderID: "",
+  selectedModelID: "",
+  models: /** @type {Array<{ providerID: string; modelID: string; title: string; disabled?: boolean }>} */ (
+    []
+  ),
+};
 
 const quickCapture = createQuickCaptureWindowController({
   BrowserWindow,
@@ -1203,9 +1211,22 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
     applicationMenuController.setKeymapAcceleratorOverrides,
   BrowserWindow,
   setQuickCaptureContext: (next) => {
+    const models = Array.isArray(next?.models)
+      ? next.models
+          .map((entry) => ({
+            providerID: String(entry?.providerID ?? "").trim(),
+            modelID: String(entry?.modelID ?? "").trim(),
+            title: String(entry?.title ?? entry?.modelID ?? "").trim(),
+            disabled: entry?.disabled === true,
+          }))
+          .filter((entry) => entry.providerID && entry.modelID)
+      : [];
     quickCaptureContext = {
       workspaceLabel: String(next?.workspaceLabel ?? "").trim(),
       modelLabel: String(next?.modelLabel ?? "").trim(),
+      selectedProviderID: String(next?.selectedProviderID ?? "").trim(),
+      selectedModelID: String(next?.selectedModelID ?? "").trim(),
+      models,
     };
     return { ok: true, ...quickCaptureContext };
   },

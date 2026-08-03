@@ -396,8 +396,33 @@ type TypedDesktopCommandMap = {
   >;
   unregisterQuickCaptureHotkey: DesktopCommandContract<[], { ok: boolean }>;
   setQuickCaptureContext: DesktopCommandContract<
-    [{ workspaceLabel?: string; modelLabel?: string }?],
-    { ok: boolean; workspaceLabel?: string; modelLabel?: string }
+    [
+      {
+        workspaceLabel?: string;
+        modelLabel?: string;
+        selectedProviderID?: string;
+        selectedModelID?: string;
+        models?: Array<{
+          providerID: string;
+          modelID: string;
+          title: string;
+          disabled?: boolean;
+        }>;
+      }?,
+    ],
+    {
+      ok: boolean;
+      workspaceLabel?: string;
+      modelLabel?: string;
+      selectedProviderID?: string;
+      selectedModelID?: string;
+      models?: Array<{
+        providerID: string;
+        modelID: string;
+        title: string;
+        disabled?: boolean;
+      }>;
+    }
   >;
   toggleQuickCapture: DesktopCommandContract<
     [],

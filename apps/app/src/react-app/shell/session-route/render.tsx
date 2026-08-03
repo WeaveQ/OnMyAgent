@@ -1041,7 +1041,11 @@ export function SessionRouteRender() {
   });
 
   const handleCreateTaskWithPrompt = useCallback(
-    async (workspaceId: string, prompt: string) => {
+    async (
+      workspaceId: string,
+      prompt: string,
+      modelOverride?: { providerID: string; modelID: string } | null,
+    ) => {
       const text = prompt.trim();
       if (!text) {
         void handleCreateTaskInWorkspace(workspaceId);
@@ -1104,8 +1108,11 @@ export function SessionRouteRender() {
         navigateToWorkspaceSession(workspaceId, session.id);
         focusPromptSoon();
 
-        // Auto-send when a default model is available so capture feels like dispatch.
-        const model = effectiveModelRef;
+        // Prefer model chosen in the quick-capture panel; fall back to session default.
+        const model =
+          modelOverride?.providerID && modelOverride?.modelID
+            ? modelOverride
+            : effectiveModelRef;
         if (model?.providerID && model?.modelID) {
           void (async () => {
             try {
@@ -1183,23 +1190,29 @@ export function SessionRouteRender() {
     setCommandPaletteOpen,
   });
 
-  // Keep quick-capture panel context strip in sync with the active workspace/model.
+  // Keep quick-capture model picker in sync with available models / default.
   useEffect(() => {
     if (!isDesktopRuntime()) return;
-    const workspaceLabelText =
-      selectedWorkspace?.displayName?.trim() ||
-      selectedWorkspace?.path?.split(/[/\\]/).filter(Boolean).pop() ||
-      selectedWorkspace?.path?.trim() ||
-      "";
+    const models = (allowedModelOptions ?? [])
+      .filter((option) => option?.providerID && option?.modelID)
+      .slice(0, 80)
+      .map((option) => ({
+        providerID: option.providerID,
+        modelID: option.modelID,
+        title: option.title?.trim() || option.modelID,
+        disabled: option.disabled === true,
+      }));
     void import("../../../app/lib/desktop")
       .then(({ desktopBridge }) =>
         desktopBridge.setQuickCaptureContext({
-          workspaceLabel: workspaceLabelText,
           modelLabel: modelLabel?.trim() || "",
+          selectedProviderID: effectiveModelRef?.providerID ?? "",
+          selectedModelID: effectiveModelRef?.modelID ?? "",
+          models,
         }),
       )
       .catch(() => undefined);
-  }, [modelLabel, selectedWorkspace]);
+  }, [allowedModelOptions, effectiveModelRef, modelLabel]);
 
   const navigateToSessionForControl = useCallback(
     (sessionId: string) => {

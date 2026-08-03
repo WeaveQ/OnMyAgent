@@ -21,6 +21,7 @@ type Input = {
   handleCreateTaskWithPrompt: (
     workspaceId: string,
     prompt: string,
+    model?: { providerID: string; modelID: string } | null,
   ) => void | Promise<void>;
   /** Navigate to the most recently used session for the active workspace. */
   handleOpenRecentSession?: () => void | Promise<void>;
@@ -45,8 +46,13 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
 
   const onQuickCaptureSubmit = useEffectEvent(
     (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string; mode?: string }>)
-        .detail;
+      const detail = (
+        event as CustomEvent<{
+          text?: string;
+          mode?: string;
+          model?: { providerID?: string; modelID?: string };
+        }>
+      ).detail;
       const text = String(detail?.text ?? "").trim();
       if (!text) return;
       if (!canCreateTask || !selectedWorkspaceId) {
@@ -56,8 +62,12 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
         }
         return;
       }
+      const providerID = String(detail?.model?.providerID ?? "").trim();
+      const modelID = String(detail?.model?.modelID ?? "").trim();
+      const model =
+        providerID && modelID ? { providerID, modelID } : undefined;
       // mode=todo reserved for a future inbox path; treat as agent for now.
-      void handleCreateTaskWithPrompt(selectedWorkspaceId, text);
+      void handleCreateTaskWithPrompt(selectedWorkspaceId, text, model);
     },
   );
 

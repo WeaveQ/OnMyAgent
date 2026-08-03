@@ -5,14 +5,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
   <title>Quick Capture</title>
   <style>
-    /* Align with DESIGN.md dark tokens + command-palette restraint */
     :root {
       color-scheme: dark;
       --surface: #2c2c2c;
       --surface-muted: #333333;
-      --background: #1f1f1f;
       --border: #3a3a3a;
-      --border-strong: #4a4a4a;
       --text: #f8fafc;
       --secondary: #94a3b8;
       --primary: #2f7bff;
@@ -48,94 +45,101 @@
     .top {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px 14px 0;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 0;
       -webkit-app-region: drag;
     }
     .top-label {
-      flex: 1;
-      min-width: 0;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--secondary);
-      letter-spacing: 0.01em;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
     }
-    .context {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .model-wrap {
       min-width: 0;
-      max-width: 62%;
+      max-width: 58%;
       -webkit-app-region: no-drag;
+      position: relative;
     }
-    .chip {
-      min-width: 0;
+    select#modelSelect {
+      appearance: none;
+      -webkit-appearance: none;
       max-width: 100%;
+      width: auto;
+      min-width: 120px;
+      max-width: 100%;
+      height: 32px;
+      padding: 0 28px 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E")
+        no-repeat right 10px center;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 32px;
+      outline: none;
+      cursor: pointer;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 11px;
-      color: var(--secondary);
-      background: var(--surface-muted);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 2px 8px;
     }
-    .chip.ws::before {
-      content: "";
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      margin-right: 5px;
-      border-radius: 50%;
-      background: #28b276;
-      vertical-align: 0.05em;
+    select#modelSelect:focus {
+      border-color: rgba(47, 123, 255, 0.55);
+      box-shadow: 0 0 0 3px rgba(47, 123, 255, 0.18);
+    }
+    select#modelSelect:disabled {
+      opacity: 0.55;
+      cursor: default;
     }
     .body {
       flex: 1;
       display: flex;
       flex-direction: column;
       min-height: 0;
-      padding: 10px 14px 12px;
+      padding: 12px 16px 14px;
       -webkit-app-region: no-drag;
     }
     textarea {
       flex: 1;
       width: 100%;
-      min-height: 72px;
+      min-height: 88px;
       resize: none;
       border: none;
       outline: none;
       background: transparent;
       color: var(--text);
-      font-size: 15px;
-      line-height: 1.45;
+      font-size: 17px;
+      line-height: 1.5;
       font-family: inherit;
       -webkit-user-select: text;
       user-select: text;
     }
-    textarea::placeholder { color: #64748b; }
+    textarea::placeholder { color: #64748b; font-size: 16px; }
     .bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding-top: 8px;
+      padding-top: 10px;
       border-top: 1px solid var(--border);
-      margin-top: 4px;
+      margin-top: 6px;
     }
     .hint {
-      font-size: 11px;
+      font-size: 12px;
       color: #64748b;
     }
     .hint kbd {
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       color: var(--secondary);
       background: var(--surface-muted);
       border: 1px solid var(--border);
       border-radius: 4px;
-      padding: 0 5px;
+      padding: 1px 6px;
       line-height: 1.5;
     }
     .actions {
@@ -144,9 +148,9 @@
       gap: 8px;
     }
     .error {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--danger);
-      max-width: 220px;
+      max-width: 200px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -157,13 +161,13 @@
       border: none;
       cursor: pointer;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       color: #fff;
       background: var(--primary);
       border-radius: 8px;
-      height: 32px;
-      padding: 0 12px;
+      height: 36px;
+      padding: 0 14px;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -175,8 +179,8 @@
       cursor: not-allowed;
     }
     .send svg {
-      width: 14px;
-      height: 14px;
+      width: 15px;
+      height: 15px;
       display: block;
     }
   </style>
@@ -185,9 +189,10 @@
   <div class="panel">
     <div class="top">
       <div class="top-label">快捷对话</div>
-      <div class="context">
-        <span class="chip ws" id="workspaceLabel">—</span>
-        <span class="chip" id="modelLabel">默认模型</span>
+      <div class="model-wrap">
+        <select id="modelSelect" aria-label="选择模型" disabled>
+          <option value="">默认模型</option>
+        </select>
       </div>
     </div>
     <div class="body">
@@ -215,16 +220,58 @@
     const input = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
     const errorEl = document.getElementById("error");
-    const workspaceLabel = document.getElementById("workspaceLabel");
-    const modelLabel = document.getElementById("modelLabel");
+    const modelSelect = document.getElementById("modelSelect");
     let submitting = false;
+
+    function modelKey(providerID, modelID) {
+      return `${providerID || ""}::${modelID || ""}`;
+    }
+
+    function parseModelKey(value) {
+      const raw = String(value || "");
+      const idx = raw.indexOf("::");
+      if (idx < 0) return null;
+      const providerID = raw.slice(0, idx).trim();
+      const modelID = raw.slice(idx + 2).trim();
+      if (!providerID || !modelID) return null;
+      return { providerID, modelID };
+    }
 
     function applyContext(ctx) {
       if (!ctx) return;
-      workspaceLabel.textContent =
-        (ctx.workspaceLabel && String(ctx.workspaceLabel).trim()) || "未选择工作区";
-      modelLabel.textContent =
-        (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
+      const models = Array.isArray(ctx.models) ? ctx.models : [];
+      const selected =
+        ctx.selectedModelKey ||
+        (ctx.selectedProviderID && ctx.selectedModelID
+          ? modelKey(ctx.selectedProviderID, ctx.selectedModelID)
+          : "");
+
+      modelSelect.innerHTML = "";
+      if (!models.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
+        modelSelect.appendChild(opt);
+        modelSelect.disabled = true;
+        return;
+      }
+
+      modelSelect.disabled = false;
+      for (const m of models) {
+        const providerID = String(m.providerID || "").trim();
+        const modelID = String(m.modelID || "").trim();
+        if (!providerID || !modelID) continue;
+        const opt = document.createElement("option");
+        opt.value = modelKey(providerID, modelID);
+        opt.textContent = String(m.title || modelID).trim() || modelID;
+        if (m.disabled) opt.disabled = true;
+        modelSelect.appendChild(opt);
+      }
+      if ([...modelSelect.options].some((o) => o.value === selected)) {
+        modelSelect.value = selected;
+      } else if (modelSelect.options.length) {
+        modelSelect.selectedIndex = 0;
+      }
     }
 
     function setError(msg) {
@@ -246,8 +293,13 @@
       submitting = true;
       syncSendEnabled();
       setError("");
+      const model = parseModelKey(modelSelect.value);
       try {
-        const result = await window.quickCapture.submit({ text, mode: "agent" });
+        const result = await window.quickCapture.submit({
+          text,
+          mode: "agent",
+          model: model || undefined,
+        });
         if (!result || result.ok === false) {
           const err = (result && result.error) || "派发失败";
           setError(
@@ -273,6 +325,10 @@
 
     sendBtn.addEventListener("click", () => void submit());
     input.addEventListener("input", syncSendEnabled);
+
+    // Don't close the panel when interacting with the native select.
+    modelSelect.addEventListener("mousedown", (e) => e.stopPropagation());
+    modelSelect.addEventListener("click", (e) => e.stopPropagation());
 
     input.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
