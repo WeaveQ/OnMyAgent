@@ -26,6 +26,7 @@ import {
   resolveExpertCreationCoachAgent,
   buildExpertChatPromptParts,
   expertDraftSuggestionFingerprint,
+  expertDraftSuggestionPendingKeys,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
   type ExpertDraftSuggestion,
@@ -303,7 +304,7 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       dismissedSuggestionKey !== suggestionKey &&
       autoFilledSuggestionKey === suggestionKey &&
       partition &&
-      partition.conflictKeys.length > 0,
+      expertDraftSuggestionPendingKeys(partition).length > 0,
   );
 
   const applySuggestion = (mode: ExpertDraftSuggestionApplyMode) => {
@@ -385,12 +386,18 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       {showSuggestionBar && partition ? (
         <div className="mt-3 shrink-0 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-3">
           <p className="text-sm font-medium text-dls-text">
-            {t("agents.expert_creation_suggestion_bar_conflict")}
+            {partition.confirmationKeys.length > 0
+              ? t("agents.expert_creation_suggestion_bar_confirmation")
+              : t("agents.expert_creation_suggestion_bar_conflict")}
           </p>
           <p className="mt-1 text-xs leading-5 text-dls-secondary">
-            {t("agents.expert_creation_suggestion_bar_conflict_detail", {
-              fields: formatSuggestionFields(partition.conflictKeys),
-            })}
+            {partition.confirmationKeys.length > 0
+              ? t("agents.expert_creation_suggestion_bar_confirmation_detail", {
+                  fields: formatSuggestionFields(expertDraftSuggestionPendingKeys(partition)),
+                })
+              : t("agents.expert_creation_suggestion_bar_conflict_detail", {
+                  fields: formatSuggestionFields(partition.conflictKeys),
+                })}
           </p>
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button
