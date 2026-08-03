@@ -91,11 +91,19 @@ export function createStatusItemController(input) {
         await sendToMainWindow(STATUS_ITEM_EVENTS.OPEN_EXPERT_MARKETPLACE);
         return;
       case STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS:
+        // Always open the main window + in-app settings (system / permissions).
+        // Optional openDesktopPermissions may open OS privacy panes / helper apps.
         await showAndFocusMainWindow();
+        await sendToMainWindow(STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS);
         if (typeof openDesktopPermissions === "function") {
-          await openDesktopPermissions();
-        } else {
-          await sendToMainWindow(STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS);
+          try {
+            await openDesktopPermissions();
+          } catch (error) {
+            console.warn(
+              "[status-item] openDesktopPermissions failed:",
+              error instanceof Error ? error.message : String(error),
+            );
+          }
         }
         return;
       case STATUS_ITEM_ACTION.OPEN_SETTINGS:

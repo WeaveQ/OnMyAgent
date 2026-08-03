@@ -5,7 +5,7 @@
  * Surfaces (also documented in each skill's "Choose the right surface" table):
  * - browser-automation: OnMyAgent in-app browser (no real Chrome logins)
  * - browser-skill: real Chrome/Edge via external `bsk` + extension
- * - computer-use: native macOS app UI (not web page automation)
+ * - computer-use: native desktop app UI (macOS HandsFree / Windows Cua; not web page automation)
  */
 
 export type BrowserSurfaceId =

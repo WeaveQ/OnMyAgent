@@ -40,16 +40,20 @@ export default {
   "extensions.computer_use_connect_mcp": "連接 Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "透過語意輔助功能、截圖、背景安全輸入與嚴格模式控制 macOS 應用程式。",
+    "透過 Computer Use 控制桌面應用（macOS 為 HandsFree 輔助功能執行環境；Windows 為內建 Cua Driver）。",
   "extensions.computer_use_prompt": "使用 Computer Use 來",
   "extensions.computer_use_suggestion_playlist": "播放一個能幫助我專注的歌單",
   "extensions.computer_use_suggestion_xcode": "建置並執行我已開啟的 Xcode 專案，然後測試其中的問題",
   "extensions.computer_use_suggestion_chess": "在 Chess.app 裡下一盤棋",
-  "extensions.computer_use_check_permissions": "檢查 macOS 權限",
-  "extensions.computer_use_native_runtime": "macOS 輔助功能執行環境",
+  "extensions.computer_use_check_permissions": "檢查權限",
+  "extensions.computer_use_native_runtime": "桌面 Computer Use 執行環境",
   "extensions.computer_use_builtin_setup":
-    "Computer Use 已透過 OnMyAgent 輔助功能執行環境內建於本機 macOS 工作區。macOS 提示時，請授予輔助功能與螢幕錄製權限。",
+    "Computer Use 已內建於本機桌面工作區。macOS 上請在系統提示時授予輔助功能與螢幕錄製；Windows 上請在 Cua 就緒後於設定中啟用 MCP。",
   "extensions.computer_use_mcp": "Computer Use MCP",
+  "extensions.computer_use_helper_unavailable":
+    "Computer Use 助手不可用。請重新啟動 OnMyAgent 或重新安裝應用程式。",
+  "extensions.computer_use_cua_unavailable":
+    "Cua Driver 不可用。請重新安裝 OnMyAgent，或準備 helpers/cua。",
   "extensions.mcp_server_connected": "MCP 服務器已連接",
   "extensions.computer_use_permissions": "輔助功能和屏幕錄製",
   "extensions.computer_use_verify_mcp": "驗證 Computer Use MCP",
@@ -80,7 +84,7 @@ export default {
   "extensions.browser_skill_status_ready": "就緒",
   "extensions.browser_skill_status_setup": "需要設定",
   "extensions.browser_skill_vs_in_app":
-    "選擇合適的介面：應用內 Browser（無需真實 Chrome 登入）、BrowserSkill（真實 Chrome/Edge，經 bsk + 擴充功能）、或 Computer Use（原生 macOS 應用）。本面板是 BrowserSkill。",
+    "選擇合適的介面：應用內 Browser（無需真實 Chrome 登入）、BrowserSkill（真實 Chrome/Edge，經 bsk + 擴充功能）、或 Computer Use（原生桌面應用）。本面板是 BrowserSkill。",
   "extensions.browser_skill_choose_surface":
     "應用內 Browser · BrowserSkill（真實 Chrome）· Computer Use（原生應用）",
   "extensions.browser_skill_setup_intro": "依下面三步操作即可，每台機器只需一次。",
@@ -105,7 +109,9 @@ export default {
   "extensions.browser_skill_ready_message":
     "BrowserSkill 已就緒。Agent 可透過 bsk 使用你的真實瀏覽器。",
   "extensions.browser_skill_doctor_details": "Doctor 輸出",
-  "extensions.openai_image_desc": "生成圖片",
+  "extensions.openai_image_name": "OpenAI 圖片生成",
+  "extensions.openai_image_desc": "使用 OpenAI 生成圖片。",
+  "extensions.openai_image_prompt": "使用 OpenAI 圖片生成擴充功能來",
   "extensions.openai_image_setup": `添加 OpenAI API key，啟用圖片生成`,
   "extensions.openai_image_config_desc": "配置 OpenAI 圖片生成",
   "extensions.openai_image_env_key_desc":
@@ -123,7 +129,8 @@ export default {
   "extensions.openai_api_key": "OpenAI API key",
   "extensions.api_key_found_environment": "環境中檢測到 API key",
   "extensions.voice_desc": `通過 Realtime 語音面板與 ${APP_NAME} 對話，並驅動與 ${APP_NAME} UI MCP 相同的語義 UI 控制。`,
-  "extensions.voice_setup": `Voice Mode 使用 OpenAI Realtime。請在 ${APP_NAME} 環境變量中保存 OpenAI API key，然後打開會話側欄面板，說話或發送文字語音命令。`,
+  "extensions.voice_prompt": "使用語音模式來",
+  "extensions.voice_setup": `語音模式使用 OpenAI Realtime。請在 ${APP_NAME} 環境變量中保存 OpenAI API key，然後打開會話側欄面板，說話或發送文字語音命令。`,
   "extensions.voice_realtime_title": "Realtime 語音",
   "extensions.voice_realtime_desc":
     "語音模式使用 OpenAI Realtime，並複用通過 OnMyAgent UI MCP 暴露的 {app} UI 控制面。",
@@ -141,7 +148,9 @@ export default {
   "extensions.local_provider_server_not_connected": `${APP_NAME} 尚未連接到此工作區。`,
   "extensions.local_provider_model_required": "請填寫模型 ID。",
   "extensions.local_provider_added_status": "已添加 {name}，模型：{modelId}。",
+  "extensions.ollama_name": "Ollama",
   "extensions.ollama_desc": "位於 http://localhost:11434 的本地模型服務商。",
+  "extensions.ollama_prompt": "使用 Ollama 擴充功能來",
   "extensions.ollama_setup": "在本地運行 Ollama，選擇或拉取模型，然後將它添加為 模型服務商。",
   "extensions.ollama_add_model": "添加 Ollama 模型",
   "extensions.ollama_pull_model": "拉取模型",

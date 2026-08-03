@@ -257,6 +257,10 @@ test("runAction show/settings/new-task/marketplace/permissions/quit use real han
 
   await controller.runAction(STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS);
   assert.equal(permissionCalls, 1);
+  assert.ok(
+    sent.includes(STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS),
+    "desktop permissions should notify renderer to open Settings → System",
+  );
 
   assert.equal(controller.isAppQuitting(), false);
   await controller.runAction(STATUS_ITEM_ACTION.QUIT);
