@@ -88,8 +88,12 @@ import {
 import {
   ExpertCreationConversation,
   type ExpertCreationComposerProps,
+  type ExpertCreationSuggestionApplyOptions,
 } from "./expert-creation-conversation";
-import type { ExpertDraftSuggestion } from "./expert-creation-suggestions";
+import {
+  mergeExpertDraftSuggestion,
+  type ExpertDraftSuggestion,
+} from "./expert-creation-suggestions";
 
 export type ExpertCreationTab = "basic" | "memory" | "skills" | "knowledge";
 
@@ -101,6 +105,12 @@ export type ExpertKnowledgeEntry = {
 };
 
 export type ExpertCreationPageProps = {
+  showToast?: (input: {
+    title: string;
+    description: string;
+    tone: "success";
+    durationMs: number;
+  }) => void;
   workspaceId: string;
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
@@ -244,7 +254,10 @@ function ExpertCoach(props: {
   onmyagentServerToken: string | null;
   selectedModel: ModelRef | null;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
-  onApplyDraftSuggestion: (suggestion: ExpertDraftSuggestion) => void;
+  onApplyDraftSuggestion: (
+    suggestion: ExpertDraftSuggestion,
+    options: ExpertCreationSuggestionApplyOptions,
+  ) => void;
 }) {
   const coachOptions = [
     t("agents.expert_creation_coach_option_1"),
@@ -1407,9 +1420,28 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             onmyagentServerToken={props.onmyagentServerToken}
             selectedModel={props.selectedModel}
             renderComposer={props.renderComposer}
-            onApplyDraftSuggestion={(suggestion) => {
-              setDraft((current) => ({ ...current, ...suggestion }));
+            onApplyDraftSuggestion={(suggestion, options) => {
+              let appliedCount = 0;
+              setDraft((current) => {
+                const merged = mergeExpertDraftSuggestion(
+                  current,
+                  suggestion,
+                  options.mode,
+                );
+                appliedCount = merged.appliedKeys.length;
+                return merged.draft;
+              });
+              if (appliedCount <= 0) return;
               setActiveTab("basic");
+              props.showToast?.({
+                title:
+                  options.mode === "empty-only"
+                    ? t("agents.expert_creation_suggestion_synced")
+                    : t("agents.expert_creation_suggestion_applied_toast"),
+                description: "",
+                tone: "success",
+                durationMs: 3200,
+              });
             }}
           />
         </ResizablePanel>
