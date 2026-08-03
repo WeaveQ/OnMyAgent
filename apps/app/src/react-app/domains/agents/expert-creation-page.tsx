@@ -1510,7 +1510,6 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             onSessionIdChange={setCoachSessionId}
             onApplyDraftSuggestion={(suggestion, options) => {
               let appliedCount = 0;
-              const memoryWasConfirmed = options.mode === "force" && Boolean(suggestion.agentMemory?.trim());
               setDraft((current) => {
                 const merged = mergeExpertDraftSuggestion(
                   current,
@@ -1521,7 +1520,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 return merged.draft;
               });
               if (appliedCount <= 0) return;
-              setActiveTab(memoryWasConfirmed ? "memory" : "basic");
+              setActiveTab("basic");
               props.showToast?.({
                 title:
                   options.mode === "empty-only"

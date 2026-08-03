@@ -7,7 +7,6 @@ import {
   mergeExpertDraftSuggestion,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
-  expertDraftSuggestionPendingKeys,
 } from "../src/react-app/domains/agents/expert-creation-suggestions";
 
 const completeRolePrompt = [
@@ -143,27 +142,24 @@ describe("expert creation coach suggestions", () => {
       },
     );
 
-      expect(partition.emptyFillKeys).toEqual(["name"]);
-      expect(partition.conflictKeys).toEqual(["description", "agentMemory"]);
-      expect(partition.matchKeys).toEqual(["userNote"]);
-      expect(partition.confirmationKeys).toEqual([]);
-      expect(expertDraftSuggestionPendingKeys(partition)).toEqual(["description", "agentMemory"]);
-      expect(expertDraftSuggestionNeedsSync(partition)).toBe(true);
+    expect(partition.emptyFillKeys).toEqual(["name"]);
+    expect(partition.conflictKeys).toEqual(["description", "agentMemory"]);
+    expect(partition.matchKeys).toEqual(["userNote"]);
+    expect(expertDraftSuggestionNeedsSync(partition)).toBe(true);
   });
 
-  test("requires confirmation before filling an empty expert memory", () => {
+  test("fills an empty expert memory with the same proposal as other empty fields", () => {
     const partition = partitionExpertDraftSuggestion(
       draftStub(),
       { agentMemory: "1. 我的项目是一个 AI 设计工具\n2. 我的目标用户是设计师。" },
     );
 
-    expect(partition.emptyFillKeys).toEqual([]);
-    expect(partition.confirmationKeys).toEqual(["agentMemory"]);
+    expect(partition.emptyFillKeys).toEqual(["agentMemory"]);
     expect(mergeExpertDraftSuggestion(
       draftStub(),
       { agentMemory: "1. 我的项目是一个 AI 设计工具\n2. 我的目标用户是设计师。" },
       "empty-only",
-    ).draft.agentMemory).toBe("");
+    ).draft.agentMemory).toContain("目标用户");
     expect(mergeExpertDraftSuggestion(
       draftStub(),
       { agentMemory: "1. 我的项目是一个 AI 设计工具\n2. 我的目标用户是设计师。" },

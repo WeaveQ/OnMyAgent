@@ -42,7 +42,7 @@ export function buildExpertCreationCoachWorkflowInstructions(): string {
     "A complete role prompt must contain seven non-empty level-two Markdown sections before it can be proposed.",
     "Keep the proposal fields separate: userNote is only the seven-section runtime role prompt; agentMemory is only concise stable facts about the user's project, audience, preferences, or recurring context.",
     "Write agentMemory as a short numbered or bulleted list of durable facts (for example, 1. The project is an AI design tool. 2. The target users are designers.). Never put role-prompt headings, capabilities, rules, workflow, or deliverable instructions in agentMemory.",
-    "When stable facts are available, generate agentMemory together with the role prompt, but treat it as a suggestion that requires the user's confirmation in the form.",
+    "When stable facts are available, generate agentMemory together with the role prompt as the same proposal; keep both fields in one update and do not ask for separate memory confirmation.",
     "Only propose skill IDs present in the enabled catalog, and explain what work each selected skill supports.",
     "Write executable rules and checks, not vague adjectives or generic encouragement.",
   ].join("\n");
