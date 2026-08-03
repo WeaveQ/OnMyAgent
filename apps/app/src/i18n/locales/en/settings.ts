@@ -163,6 +163,14 @@ export default {
   "settings.computer_use_setup_title": "Computer Use setup",
   "settings.computer_use_setup_description":
     "Connect the local MCP server and grant the macOS permissions it needs to control apps",
+  "settings.computer_use_setup_description_windows":
+    "Windows uses the bundled Cua Driver (not macOS HandsFree). Enable the MCP below, then connect so Composer can control desktop apps.",
+  "settings.computer_use_mcp_toggle_title": "OpenCode computer-use MCP",
+  "settings.computer_use_mcp_toggle_ready":
+    "Cua Driver is staged. Toggle enables the MCP for OpenCode sessions (default off on Windows).",
+  "settings.computer_use_mcp_toggle_missing":
+    "Cua Driver not found. Rebuild the desktop app or run prepare-cua-helper.",
+  "settings.computer_use_mcp_toggle_aria": "Enable computer-use MCP",
   "settings.computer_use_step_connect": "Connect",
   "settings.computer_use_step_permissions": "Permissions",
   "settings.computer_use_step_runtime": "Health",
@@ -187,7 +195,7 @@ export default {
   "settings.computer_use_refresh_mcp": "Refresh MCP",
   "settings.computer_use_verify_permissions": "Verify permissions",
   "settings.computer_use_desktop_required":
-    "Computer Use setup requires the OnMyAgent desktop app on macOS.",
+    "Computer Use setup requires the OnMyAgent desktop app.",
   "settings.computer_use_connecting": "Connecting…",
   "settings.computer_use_permissions_step_title": "2. Grant macOS permissions",
   "settings.computer_use_permissions_step_description":

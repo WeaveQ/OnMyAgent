@@ -501,10 +501,9 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
       <CardHeader>
         <CardTitle>{t("settings.computer_use_setup_title")}</CardTitle>
         <CardDescription>
-          {t("settings.computer_use_setup_description")}
           {isCuaBackend || isWindowsHost
-            ? " Windows uses the bundled Cua Driver (not macOS HandsFree). Enable MCP below, then connect."
-            : null}
+            ? t("settings.computer_use_setup_description_windows")
+            : t("settings.computer_use_setup_description")}
         </CardDescription>
         <CardAction>
           <Button
@@ -531,12 +530,12 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
           <SettingsActionRow>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium text-dls-text">
-                OpenCode computer-use MCP
+                {t("settings.computer_use_mcp_toggle_title")}
               </p>
               <p className="text-xs text-dls-secondary">
                 {result?.ok
-                  ? "Cua Driver is staged. Toggle enables MCP for OpenCode (default off on Windows)."
-                  : "Cua Driver not found. Rebuild desktop or run prepare-cua-helper."}
+                  ? t("settings.computer_use_mcp_toggle_ready")
+                  : t("settings.computer_use_mcp_toggle_missing")}
               </p>
             </div>
             <Switch
@@ -545,7 +544,7 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
               onCheckedChange={(checked) => {
                 void setMcpEnabled(checked === true);
               }}
-              aria-label="Enable computer-use MCP"
+              aria-label={t("settings.computer_use_mcp_toggle_aria")}
             />
           </SettingsActionRow>
         ) : null}

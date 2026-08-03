@@ -40,16 +40,20 @@ export default {
   "extensions.computer_use_connect_mcp": "連接 Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "透過語意輔助功能、截圖、背景安全輸入與嚴格模式控制 macOS 應用程式。",
+    "透過 Computer Use 控制桌面應用（macOS 為 HandsFree 輔助功能執行環境；Windows 為內建 Cua Driver）。",
   "extensions.computer_use_prompt": "使用 Computer Use 來",
   "extensions.computer_use_suggestion_playlist": "播放一個能幫助我專注的歌單",
   "extensions.computer_use_suggestion_xcode": "建置並執行我已開啟的 Xcode 專案，然後測試其中的問題",
   "extensions.computer_use_suggestion_chess": "在 Chess.app 裡下一盤棋",
-  "extensions.computer_use_check_permissions": "檢查 macOS 權限",
-  "extensions.computer_use_native_runtime": "macOS 輔助功能執行環境",
+  "extensions.computer_use_check_permissions": "檢查權限",
+  "extensions.computer_use_native_runtime": "桌面 Computer Use 執行環境",
   "extensions.computer_use_builtin_setup":
-    "Computer Use 已透過 OnMyAgent 輔助功能執行環境內建於本機 macOS 工作區。macOS 提示時，請授予輔助功能與螢幕錄製權限。",
+    "Computer Use 已內建於本機桌面工作區。macOS 上請在系統提示時授予輔助功能與螢幕錄製；Windows 上請在 Cua 就緒後於設定中啟用 MCP。",
   "extensions.computer_use_mcp": "Computer Use MCP",
+  "extensions.computer_use_helper_unavailable":
+    "Computer Use 助手不可用。請重新啟動 OnMyAgent 或重新安裝應用程式。",
+  "extensions.computer_use_cua_unavailable":
+    "Cua Driver 不可用。請重新安裝 OnMyAgent，或準備 helpers/cua。",
   "extensions.mcp_server_connected": "MCP 服務器已連接",
   "extensions.computer_use_permissions": "輔助功能和屏幕錄製",
   "extensions.computer_use_verify_mcp": "驗證 Computer Use MCP",
