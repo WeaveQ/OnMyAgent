@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  BookOpenCheck,
   ChevronsLeft,
   ChevronDown,
   ChevronRight,
   FileText,
+  FileSearch,
   Folder,
   FolderPlus,
   MoreHorizontal,
@@ -584,22 +584,7 @@ function SkillPickerPopover(props: {
 }
 
 function SkillsEmptyIllustration() {
-  return (
-    <div className="relative flex size-20 items-center justify-center" aria-hidden="true">
-      <IconTile size="2xl" tone="softAccent" shape="xl" border>
-        <BookOpenCheck className="size-8" strokeWidth={1.5} />
-      </IconTile>
-      <IconTile
-        size="sm"
-        tone="accent"
-        shape="circle"
-        border
-        className="absolute right-0 top-0 text-dls-accent"
-      >
-        <Plus className="size-4" strokeWidth={2} />
-      </IconTile>
-    </div>
-  );
+  return <FileSearch className="size-16 text-dls-secondary/60" strokeWidth={1.25} aria-hidden />;
 }
 
 function SkillImportDialog(props: {
