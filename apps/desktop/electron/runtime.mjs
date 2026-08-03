@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 
 import {
+  isComputerUseMcpEnabled,
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
@@ -449,8 +450,9 @@ export function createRuntimeManager({
         : onmyagentOpencodeConfigDir();
     env.OPENCODE_CONFIG_DIR = await prepareManagedOpencodeConfigDir(configDir);
     if (!env.OPENCODE_CONFIG?.trim()) {
+      const computerUsePlatform = process.platform;
       const computerUseCommand = resolveComputerUseRuntimeCommand({
-        platform: process.platform,
+        platform: computerUsePlatform,
         desktopRoot,
         resourcesPath: process.resourcesPath,
         explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
@@ -460,6 +462,11 @@ export function createRuntimeManager({
         env.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig(
           env.OPENCODE_CONFIG_DIR,
           computerUseCommand,
+          {
+            enabled: isComputerUseMcpEnabled({
+              platform: computerUsePlatform,
+            }),
+          },
         );
       }
     }
