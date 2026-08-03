@@ -27,6 +27,7 @@ import {
   expertDraftSuggestionFingerprint,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
+  createExpertPreviewAcceptanceGate,
   runExpertPreviewTurn,
   type ExpertDraftSuggestion,
   type ExpertDraftSuggestionApplyMode,
@@ -177,34 +178,40 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
         },
         activeSessionId,
       );
-      try {
-        const result = await runExpertPreviewTurn({
-          config: {
-            baseUrl: props.opencodeBaseUrl,
-            token: props.onmyagentToken || null,
-            workspaceRoot: props.workspaceRoot,
-          },
-          sessionId: activeSessionId,
-          message: text,
-          attachments: attachmentFiles,
-          draft: draftRef.current,
-          systemPrompt: system,
-          tools,
-          ...(model ? { model } : {}),
-        });
-        ingestAssistantText(
-          `${activeSessionId}:assistant-output`,
-          result.content,
-        );
-      } finally {
-        release();
-        void queryClient.invalidateQueries({
-          queryKey: sessionSnapshotQueryKey(props.workspaceId, activeSessionId),
-        });
-        if (createdSession) {
-          // no-op: keep session private — never addExpertSession
-        }
-      }
+      const acceptance = createExpertPreviewAcceptanceGate();
+      const turn = runExpertPreviewTurn({
+        config: {
+          baseUrl: props.opencodeBaseUrl,
+          token: props.onmyagentToken || null,
+          workspaceRoot: props.workspaceRoot,
+        },
+        sessionId: activeSessionId,
+        message: text,
+        attachments: attachmentFiles,
+        draft: draftRef.current,
+        systemPrompt: system,
+        tools,
+        onPromptAccepted: acceptance.accept,
+        ...(model ? { model } : {}),
+      });
+      const completedTurn = turn
+        .then((result) => {
+          ingestAssistantText(
+            `${activeSessionId}:assistant-output`,
+            result.content,
+          );
+        })
+        .finally(() => {
+          release();
+          void queryClient.invalidateQueries({
+            queryKey: sessionSnapshotQueryKey(props.workspaceId, activeSessionId),
+          });
+          if (createdSession) {
+            // no-op: keep session private — never addExpertSession
+          }
+      });
+      void completedTurn.catch(() => undefined);
+      await acceptance.waitForSubmission(turn);
     },
     [
       agentContext,
