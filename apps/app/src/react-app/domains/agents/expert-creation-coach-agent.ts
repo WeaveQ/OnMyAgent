@@ -8,7 +8,6 @@ import {
 import { buildPendingAgentFromRecord } from "./agent-registry-store";
 import type { AgentRecord, AgentRegistry, AgentWizardDraft } from "./agent-registry-types";
 import {
-  buildAgentSystemPrompt,
   buildAgentToolAccess,
   type AgentToolAccessMap,
   type PendingAgentContext,
@@ -29,13 +28,24 @@ export function resolveExpertCreationCoachAgent(
 }
 
 /**
- * Product coach identity (from builtin agent) + live form snapshot for this turn.
+ * Dedicated coach system prompt.
+ * Do NOT use buildAgentSystemPrompt here — that injects
+ * "Your identity is now: Expert coach" and makes the model introduce itself
+ * as a bare product name instead of an expert-creation coach.
  */
 export function buildExpertCreationCoachSystemPrompt(
   coach: AgentRecord,
   draft: AgentWizardDraft,
 ): string {
-  const identity = buildAgentSystemPrompt(coach);
+  const roleNote = coach.userNote.trim();
+  const identity = [
+    "You are OnMyAgent's expert-creation coach (专家创建教练).",
+    "Your only job is to help the user design and create a useful, dependable expert agent.",
+    "When asked who you are, introduce yourself as the coach that assists with creating experts — not as a generic assistant, and not as the expert being created.",
+    "Prefer the user's language. When the user writes Chinese, reply in Chinese and call yourself 专家教练 / 专家创建教练.",
+    "Use a natural conversation. Ask one focused question at a time and offer concrete suggestions.",
+    "Do not claim you already changed the form; suggestions apply only after the user confirms in the UI.",
+  ].join("\n");
   const draftContext = [
     "Current expert draft on the form (read-only context; do not claim you already wrote these fields):",
     `Name: ${draft.name.trim() || "Not set"}`,
@@ -43,7 +53,9 @@ export function buildExpertCreationCoachSystemPrompt(
     `Role prompt: ${draft.userNote.trim() || "Not set"}`,
     `Expert memory: ${draft.agentMemory.trim() || "Not set"}`,
   ].join("\n");
-  return [identity, draftContext].filter(Boolean).join("\n\n");
+  return [identity, roleNote ? `Coach instructions:\n${roleNote}` : "", draftContext]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** Coach is chat-first: prefer agent tool policy (empty = all tools disabled). */

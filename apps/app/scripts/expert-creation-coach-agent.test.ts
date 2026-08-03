@@ -28,7 +28,7 @@ describe("expert creation coach agent binding", () => {
     expect(coach?.builtin).toBe(true);
   });
 
-  test("system prompt uses coach identity and live draft fields", () => {
+  test("system prompt uses creation-coach role and live draft fields", () => {
     const registry = createDefaultAgentRegistry();
     const coach = resolveExpertCreationCoachAgent(registry);
     expect(coach).toBeTruthy();
@@ -36,7 +36,9 @@ describe("expert creation coach agent binding", () => {
     draft.name = "运营专家";
     draft.userNote = "角色草稿";
     const prompt = buildExpertCreationCoachSystemPrompt(coach!, draft);
-    expect(prompt).toContain(coach!.name);
+    expect(prompt).toContain("expert-creation coach");
+    expect(prompt).toContain("help the user design and create");
+    expect(prompt).not.toContain("Your identity is now:");
     expect(prompt).toContain("运营专家");
     expect(prompt).toContain("角色草稿");
   });
