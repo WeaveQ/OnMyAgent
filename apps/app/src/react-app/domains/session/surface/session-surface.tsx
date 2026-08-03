@@ -95,6 +95,7 @@ export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
 import { flattenSessionSurfaceProps } from "./session-surface-types";
 import { useSessionSurfaceSearch } from "./session-surface-search";
+import { stripExpertDraftSuggestionFromText } from "../../agents";
 
 export function SessionSurface(bagProps: SessionSurfaceProps) {
   const props = flattenSessionSurfaceProps(bagProps);
@@ -300,10 +301,25 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     sessionActivityStatus,
     autoApprovedPermissionNoticeId: props.autoApprovedPermissionNoticeId,
   });
-  const renderedMessages = useMemo(
-    () => filterCompactionMessages(rawRenderedMessages, compactBoundary),
-    [compactBoundary, rawRenderedMessages],
-  );
+  const renderedMessages = useMemo(() => {
+    const filtered = filterCompactionMessages(rawRenderedMessages, compactBoundary);
+    // Creation-coach embed: never paint machine form payloads in the transcript.
+    if (props.chrome !== "embedded") return filtered;
+    return filtered.map((message) => {
+      if (message.role !== "assistant") return message;
+      let changed = false;
+      const parts = message.parts.map((part) => {
+        if (part.type !== "text") return part;
+        const text = typeof part.text === "string" ? part.text : "";
+        if (!text) return part;
+        const stripped = stripExpertDraftSuggestionFromText(text);
+        if (stripped === text) return part;
+        changed = true;
+        return { ...part, text: stripped };
+      });
+      return changed ? { ...message, parts } : message;
+    });
+  }, [compactBoundary, props.chrome, rawRenderedMessages]);
   const scrollToMessageByIdRef = useRef<
     ((messageId: string, behavior?: ScrollBehavior) => boolean) | null
   >(null);

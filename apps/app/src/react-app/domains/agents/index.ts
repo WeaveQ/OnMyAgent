@@ -33,6 +33,7 @@ export {
   expertDraftSuggestionFingerprint,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
+  stripExpertDraftSuggestionFromText,
   type ExpertDraftSuggestion,
   type ExpertDraftSuggestionApplyMode,
   type ExpertDraftSuggestionField,
