@@ -40,12 +40,6 @@ function actionDescription(id: KeymapActionId): string | null {
   return t("settings.shortcuts_action_quickCapture_desc");
 }
 
-function groupTitle(group: string) {
-  return t(
-    `settings.shortcuts_group_${group}` as "settings.shortcuts_group_general",
-  );
-}
-
 function KbdChip(props: { label: string }) {
   const isWide = props.label.length > 1;
   return (
@@ -119,37 +113,14 @@ export function ShortcutsView(props: ShortcutsViewProps) {
       if (!q) return true;
       const title = actionTitle(action.id).toLowerCase();
       const desc = (actionDescription(action.id) ?? "").toLowerCase();
-      const group = groupTitle(action.group).toLowerCase();
       const accel = resolveAccelerator(
         action.id,
         props.keymapOverrides,
         platform,
       ).toLowerCase();
-      return (
-        title.includes(q) ||
-        desc.includes(q) ||
-        group.includes(q) ||
-        accel.includes(q)
-      );
+      return title.includes(q) || desc.includes(q) || accel.includes(q);
     });
   }, [query, props.keymapOverrides, platform]);
-
-  /** Preserve product order but insert group headers when group changes. */
-  const rows = useMemo(() => {
-    const out: Array<
-      | { kind: "group"; group: string }
-      | { kind: "action"; action: (typeof DEFAULT_KEYMAP_ACTIONS)[number] }
-    > = [];
-    let lastGroup = "";
-    for (const action of filtered) {
-      if (action.group !== lastGroup) {
-        out.push({ kind: "group", group: action.group });
-        lastGroup = action.group;
-      }
-      out.push({ kind: "action", action });
-    }
-    return out;
-  }, [filtered]);
 
   const total = DEFAULT_KEYMAP_ACTIONS.length;
   const hasOverrides = Object.keys(props.keymapOverrides ?? {}).length > 0;
@@ -244,18 +215,7 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                 {t("settings.shortcuts_empty")}
               </p>
             ) : (
-              rows.map((row) => {
-                if (row.kind === "group") {
-                  return (
-                    <div
-                      key={`group-${row.group}`}
-                      className="bg-dls-surface-muted/40 px-4 py-1.5 text-2xs font-semibold uppercase tracking-wide text-dls-secondary"
-                    >
-                      {groupTitle(row.group)}
-                    </div>
-                  );
-                }
-                const action = row.action;
+              filtered.map((action) => {
                 const accel = resolveAccelerator(
                   action.id,
                   props.keymapOverrides,

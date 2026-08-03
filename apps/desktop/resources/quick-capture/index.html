@@ -160,27 +160,27 @@
       appearance: none;
       border: none;
       cursor: pointer;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 600;
       color: #fff;
       background: var(--primary);
-      border-radius: 8px;
+      border-radius: 999px;
+      width: 36px;
       height: 36px;
-      padding: 0 14px;
+      padding: 0;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: background 0.12s ease, opacity 0.12s ease;
+      justify-content: center;
+      transition: background 0.12s ease, opacity 0.12s ease, transform 0.08s ease;
+      flex-shrink: 0;
     }
     .send:hover:not(:disabled) { background: var(--primary-hover); }
+    .send:active:not(:disabled) { transform: scale(0.96); }
     .send:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
     .send svg {
-      width: 15px;
-      height: 15px;
+      width: 16px;
+      height: 16px;
       display: block;
     }
   </style>
@@ -206,10 +206,9 @@
         <div class="hint"><kbd>Enter</kbd> 发送 · <kbd>Esc</kbd> 关闭</div>
         <div class="actions">
           <span class="error" id="error"></span>
-          <button type="button" class="send" id="sendBtn" disabled aria-label="派发">
-            派发
+          <button type="button" class="send" id="sendBtn" disabled aria-label="发送" title="发送">
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>

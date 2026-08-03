@@ -11,7 +11,6 @@ export const STATUS_ITEM_ACTION = Object.freeze({
   SHOW_WINDOW: "showWindow",
   NEW_TASK: "newTask",
   QUICK_CAPTURE: "quickCapture",
-  OPEN_EXPERT_MARKETPLACE: "openExpertMarketplace",
   DESKTOP_PERMISSIONS: "desktopPermissions",
   OPEN_SETTINGS: "openSettings",
   QUIT: "quit",
@@ -22,7 +21,6 @@ export const STATUS_ITEM_EVENTS = Object.freeze({
   OPEN_SETTINGS: "onmyagent:native-menu:open-settings",
   NEW_TASK: "onmyagent:native-menu:new-task",
   QUICK_CAPTURE: "onmyagent:native-menu:quick-capture",
-  OPEN_EXPERT_MARKETPLACE: "onmyagent:native-menu:open-expert-marketplace",
   DESKTOP_PERMISSIONS: "onmyagent:native-menu:desktop-permissions",
 });
 
@@ -30,8 +28,7 @@ const LABELS = Object.freeze({
   en: Object.freeze({
     showWindow: "Show Main Window",
     newTask: "New Task",
-    quickCapture: "Quick Capture…",
-    openExpertMarketplace: "Open Expert Marketplace",
+    quickCapture: "Quick Chat",
     desktopPermissions: "Desktop Control Permissions…",
     openSettings: "Open Settings…",
     quit: "Quit OnMyAgent",
@@ -39,8 +36,7 @@ const LABELS = Object.freeze({
   zh: Object.freeze({
     showWindow: "显示主窗口",
     newTask: "新建任务",
-    quickCapture: "快速捕获…",
-    openExpertMarketplace: "打开专家市场",
+    quickCapture: "快捷对话",
     desktopPermissions: "桌面控制权限…",
     openSettings: "打开设置…",
     quit: "退出 OnMyAgent",
@@ -48,12 +44,18 @@ const LABELS = Object.freeze({
   "zh-TW": Object.freeze({
     showWindow: "顯示主視窗",
     newTask: "新建任務",
-    quickCapture: "快速擷取…",
-    openExpertMarketplace: "打開專家市場",
+    quickCapture: "快捷對話",
     desktopPermissions: "桌面控制權限…",
     openSettings: "打開設定…",
     quit: "結束 OnMyAgent",
   }),
+});
+
+/** Default accelerators shown in the tray menu (display; global hotkeys registered elsewhere). */
+export const STATUS_ITEM_DEFAULT_ACCELERATORS = Object.freeze({
+  [STATUS_ITEM_ACTION.QUICK_CAPTURE]: "CommandOrControl+B",
+  [STATUS_ITEM_ACTION.NEW_TASK]: "CommandOrControl+N",
+  [STATUS_ITEM_ACTION.OPEN_SETTINGS]: "CommandOrControl+,",
 });
 
 /**
@@ -76,28 +78,49 @@ export function statusItemLabels(locale) {
 }
 
 /**
- * Menu structure: window / quick actions / system / quit (with separators).
+ * Menu structure: quick chat first, then new task / show window, system, quit.
  * Pure data — consumers map `id` to click handlers and build Electron Menu.
  *
- * @param {{ locale?: string | null }} [options]
- * @returns {Array<{ type: "separator" } | { type: "item", id: string, label: string }>}
+ * @param {{
+ *   locale?: string | null,
+ *   accelerators?: Record<string, string | null | undefined> | null,
+ * }} [options]
+ * @returns {Array<{ type: "separator" } | { type: "item", id: string, label: string, accelerator?: string }>}
  */
 export function buildStatusItemMenuSpec(options = {}) {
   const locale = resolveStatusItemLocale(options.locale);
   const labels = statusItemLabels(locale);
+  const accelOverrides =
+    options.accelerators && typeof options.accelerators === "object"
+      ? options.accelerators
+      : {};
+
+  /** @param {string} actionId */
+  const acceleratorFor = (actionId) => {
+    if (Object.prototype.hasOwnProperty.call(accelOverrides, actionId)) {
+      const raw = String(accelOverrides[actionId] ?? "").trim();
+      return raw || undefined;
+    }
+    return STATUS_ITEM_DEFAULT_ACCELERATORS[actionId] || undefined;
+  };
+
   return [
-    { type: "item", id: STATUS_ITEM_ACTION.SHOW_WINDOW, label: labels.showWindow },
-    { type: "separator" },
-    { type: "item", id: STATUS_ITEM_ACTION.NEW_TASK, label: labels.newTask },
     {
       type: "item",
       id: STATUS_ITEM_ACTION.QUICK_CAPTURE,
       label: labels.quickCapture,
+      accelerator: acceleratorFor(STATUS_ITEM_ACTION.QUICK_CAPTURE),
     },
     {
       type: "item",
-      id: STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE,
-      label: labels.openExpertMarketplace,
+      id: STATUS_ITEM_ACTION.NEW_TASK,
+      label: labels.newTask,
+      accelerator: acceleratorFor(STATUS_ITEM_ACTION.NEW_TASK),
+    },
+    {
+      type: "item",
+      id: STATUS_ITEM_ACTION.SHOW_WINDOW,
+      label: labels.showWindow,
     },
     { type: "separator" },
     {
@@ -109,6 +132,7 @@ export function buildStatusItemMenuSpec(options = {}) {
       type: "item",
       id: STATUS_ITEM_ACTION.OPEN_SETTINGS,
       label: labels.openSettings,
+      accelerator: acceleratorFor(STATUS_ITEM_ACTION.OPEN_SETTINGS),
     },
     { type: "separator" },
     { type: "item", id: STATUS_ITEM_ACTION.QUIT, label: labels.quit },
