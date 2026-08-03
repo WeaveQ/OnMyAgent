@@ -125,6 +125,8 @@ export type SessionSurfaceViewProps = {
   draftOnly?: boolean;
   /** Hide header/tabs when embedded in a host panel (creation coach). */
   chrome?: "default" | "embedded";
+  /** Override default expert-empty hero when provided. */
+  emptyContent?: ReactNode;
   effectiveAgent: PendingAgentContext | null;
   typeComposerText: (text: string) => void | Promise<void>;
   typeComposerTemplate: (template: string) => void | Promise<void>;
@@ -372,7 +374,8 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             )}
             personalAssistantHome={props.personalAssistantHome}
             expertEmpty={
-              props.effectiveAgent ? (
+              props.emptyContent ??
+              (props.effectiveAgent ? (
                 <SessionSurfaceExpertEmpty
                   agent={{
                     name: props.effectiveAgent.name,
@@ -393,7 +396,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                     />
                   }
                 />
-              ) : null
+              ) : null)
             }
             waitingLabel={getAssistantActivityPhaseLabel(props.assistantActivity)}
             onDismissError={props.onDismissError}

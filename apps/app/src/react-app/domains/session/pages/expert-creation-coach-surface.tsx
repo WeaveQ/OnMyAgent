@@ -6,6 +6,7 @@ import { createClient, unwrap } from "../../../../app/lib/opencode";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import type { ComposerDraft, ModelRef } from "../../../../app/types";
 import { t } from "../../../../i18n";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { Button } from "@/components/ui/button";
 import {
   sessionSnapshotQueryKey,
@@ -29,7 +30,7 @@ import {
   type ExpertDraftSuggestion,
   type ExpertDraftSuggestionApplyMode,
   type ExpertDraftSuggestionField,
-  renderAvatar,
+  EXPERT_CREATION_COACH_AVATAR_PATH,
 } from "../../agents";
 
 export type ExpertCreationCoachSurfaceProps = {
@@ -303,27 +304,40 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
     );
   }
 
+  const coachTitle = t("agents.expert_creation_coach");
+  const coachAvatarSrc = resolvePublicAssetUrl(EXPERT_CREATION_COACH_AVATAR_PATH);
+  const coachWelcome = (
+    <div className="space-y-5 px-1 pt-2 text-sm leading-7 text-dls-text">
+      <p>{t("agents.expert_creation_coach_greeting")}</p>
+      <p>{t("agents.expert_creation_coach_intro")}</p>
+      <p>{t("agents.expert_creation_coach_question")}</p>
+      <ol className="list-decimal space-y-1 pl-5">
+        <li>{t("agents.expert_creation_coach_option_1")}</li>
+        <li>{t("agents.expert_creation_coach_option_2")}</li>
+        <li>{t("agents.expert_creation_coach_option_3")}</li>
+        <li>{t("agents.expert_creation_coach_option_4")}</li>
+      </ol>
+      <p>{t("agents.expert_creation_coach_reply_hint")}</p>
+    </div>
+  );
+
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
       <div className="flex shrink-0 items-center gap-3 pb-3">
-        {renderAvatar(
-          props.registry,
-          {
-            avatarStyle: coachAgent.avatarStyle,
-            avatarOptionId: coachAgent.avatarOptionId,
-            customAvatarDataUrl: coachAgent.customAvatarDataUrl,
-            name: coachAgent.name,
-          },
-          "size-10 shrink-0",
-        )}
+        <img
+          src={coachAvatarSrc}
+          alt=""
+          className="size-10 shrink-0 rounded-full object-cover"
+        />
         <h2 className="truncate text-base font-semibold text-dls-text">
-          {coachAgent.name}
+          {coachTitle}
         </h2>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         <SessionSurface
           {...props.surface}
           chrome="embedded"
+          emptyContent={coachWelcome}
           client={props.client}
           workspaceId={props.workspaceId}
           workspaceRoot={props.workspaceRoot}
@@ -332,7 +346,7 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           opencodeBaseUrl={props.opencodeBaseUrl}
           onmyagentToken={props.onmyagentToken}
           agentContext={agentContext}
-          agentLabel={coachAgent.name}
+          agentLabel={coachTitle}
           selectedAgent={null}
           onSelectAgent={() => undefined}
           headerActions={null}

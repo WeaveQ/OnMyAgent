@@ -23,17 +23,22 @@ export function isBuiltinAgentRecord(
  * Product-owned agent definitions. Always rebuilt from code so copy/prompt
  * updates ship without depending on user registry JSON.
  */
+/** Product avatar for the creation coach (same asset as the original coach UI). */
+export const EXPERT_CREATION_COACH_AVATAR_PATH = "/expert-creation-coach-avatar.png";
+
 export function buildBuiltinAgentRecords(): AgentRecord[] {
   return [
     {
       id: EXPERT_CREATION_COACH_AGENT_ID,
-      name: t("agents.builtin_expert_creation_coach_name"),
+      // Keep product name aligned with the original creation-coach chrome.
+      name: t("agents.expert_creation_coach"),
       description: t("agents.builtin_expert_creation_coach_description"),
       quote: t("agents.builtin_expert_creation_coach_quote"),
       tone: "friendly",
       avatarStyle: "lorelei",
       avatarOptionId: "lorelei-mentor",
-      customAvatarDataUrl: null,
+      // Public path is valid as <img src>; host/pending also resolve via asset URL.
+      customAvatarDataUrl: EXPERT_CREATION_COACH_AVATAR_PATH,
       modelProvider: "auto",
       model: "Auto",
       // Chat-only coach: no tool categories enabled.

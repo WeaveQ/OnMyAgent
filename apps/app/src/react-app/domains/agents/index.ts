@@ -61,6 +61,7 @@ export * from "./agent-registry-helpers";
 export { createDefaultAgentRegistry } from "./agent-default-registry";
 export {
   EXPERT_CREATION_COACH_AGENT_ID,
+  EXPERT_CREATION_COACH_AVATAR_PATH,
   isBuiltinAgentId,
   isBuiltinAgentRecord,
   buildBuiltinAgentRecords,

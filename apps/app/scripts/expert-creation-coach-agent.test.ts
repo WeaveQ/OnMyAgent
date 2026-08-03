@@ -58,5 +58,8 @@ describe("expert creation coach agent binding", () => {
     expect(pending?.id).toBe(EXPERT_CREATION_COACH_AGENT_ID);
     expect(pending?.systemPrompt).toContain("测试专家");
     expect(pending?.draftSource).toBe("agent-selection");
+    expect(pending?.name).toBeTruthy();
+    expect(pending?.avatar.avatarUrl).toContain("expert-creation-coach-avatar");
+    expect(pending?.description).toBe("");
   });
 });
