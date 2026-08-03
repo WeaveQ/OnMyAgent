@@ -325,6 +325,7 @@ export default {
   "agents.expert_creation_skill_picker_title": "Choose skills",
   "agents.expert_creation_skill_picker_desc": "Choose installed skills from the skill market for this expert.",
   "agents.expert_creation_no_skills": "No skills yet. Use the buttons below to add one.",
+  "agents.expert_creation_no_matching_skills": "No skills match your search.",
   "agents.expert_creation_no_skills_desc": "Add skills from the skill market to give this expert more capabilities.",
   "agents.expert_creation_remove_skill": "Remove skill",
   "agents.expert_creation_remove_knowledge": "Remove knowledge",
