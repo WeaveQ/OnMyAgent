@@ -49,6 +49,9 @@ const commandGroups = /** @type {const} */ ({
     "workMemoryReadFile",
     "workMemoryWriteFile",
     "workMemoryListFiles",
+    "companySettingsRead",
+    "companySettingsWrite",
+    "companySettingsDisconnect",
   ],
   localAgents: [
     "personalLocalAgentsList", "personalLocalAgentMetadataList",
