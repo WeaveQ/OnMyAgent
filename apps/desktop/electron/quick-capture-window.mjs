@@ -16,7 +16,13 @@ export const QUICK_CAPTURE_OPEN_EVENT = "onmyagent:quick-capture:open";
  * @param {typeof import("electron").BrowserWindow} input.BrowserWindow
  * @param {() => Promise<import("electron").BrowserWindow | null | undefined> | import("electron").BrowserWindow | null | undefined} input.getMainWindow
  * @param {() => Promise<import("electron").BrowserWindow>} [input.createMainWindow]
- * @param {() => { workspaceLabel?: string; modelLabel?: string }} [input.getCaptureContext]
+ * @param {() => {
+ *   workspaceLabel?: string;
+ *   modelLabel?: string;
+ *   selectedProviderID?: string;
+ *   selectedModelID?: string;
+ *   models?: Array<{ providerID: string; modelID: string; title: string; disabled?: boolean }>;
+ * }} [input.getCaptureContext]
  * @param {string} [input.preloadPath]
  * @param {string} [input.htmlPath]
  */
@@ -67,8 +73,8 @@ export function createQuickCaptureWindowController(input) {
     if (captureWindow && !captureWindow.isDestroyed()) return captureWindow;
 
     captureWindow = new BrowserWindow({
-      width: 480,
-      height: 196,
+      width: 520,
+      height: 220,
       show: false,
       frame: false,
       resizable: false,
@@ -90,8 +96,13 @@ export function createQuickCaptureWindowController(input) {
 
     captureWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     captureWindow.on("blur", () => {
-      // Close on blur so it behaves like a spotlight panel.
-      hide();
+      // Delay: native <select> menus briefly steal focus and would otherwise
+      // destroy the panel before the user can pick a model.
+      setTimeout(() => {
+        if (!captureWindow || captureWindow.isDestroyed()) return;
+        if (captureWindow.isFocused()) return;
+        hide();
+      }, 180);
     });
     captureWindow.on("closed", () => {
       captureWindow = null;
@@ -119,10 +130,7 @@ export function createQuickCaptureWindowController(input) {
 
     const context = getCaptureContext() ?? {};
     try {
-      win.webContents.send("onmyagent:quick-capture:context", {
-        workspaceLabel: context.workspaceLabel ?? "",
-        modelLabel: context.modelLabel ?? "",
-      });
+      win.webContents.send("onmyagent:quick-capture:context", context);
     } catch {
       // window may still be loading
     }
@@ -148,11 +156,15 @@ export function createQuickCaptureWindowController(input) {
 
   /**
    * Forward capture submit to the main renderer and hide the panel.
-   * @param {{ text?: string; mode?: string }} payload
+   * @param {{ text?: string; mode?: string; model?: { providerID?: string; modelID?: string } }} payload
    */
   async function submit(payload) {
     const text = String(payload?.text ?? "").trim();
     const mode = String(payload?.mode ?? "agent").trim() || "agent";
+    const providerID = String(payload?.model?.providerID ?? "").trim();
+    const modelID = String(payload?.model?.modelID ?? "").trim();
+    const model =
+      providerID && modelID ? { providerID, modelID } : undefined;
     hide();
     if (!text) return { ok: false, error: "empty" };
 
@@ -167,7 +179,7 @@ export function createQuickCaptureWindowController(input) {
     if (mainWin.isMinimized()) mainWin.restore();
     if (!mainWin.isVisible()) mainWin.show();
     mainWin.focus();
-    mainWin.webContents.send(QUICK_CAPTURE_SUBMIT_EVENT, { text, mode });
+    mainWin.webContents.send(QUICK_CAPTURE_SUBMIT_EVENT, { text, mode, model });
     return { ok: true };
   }
 
