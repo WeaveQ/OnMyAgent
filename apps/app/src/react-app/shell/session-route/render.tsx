@@ -105,6 +105,8 @@ import {
   useSessionActivityStore,
   useSessionControlActions,
 } from "../../domains/session";
+import { setComposerDraftAfterNewTask } from "../../domains/session/pages/shared-page-utils";
+import { useComposerStateStore } from "../../domains/session/surface/composer-state-store";
 import { useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
 import { useSessionRouteChromeState } from "./chrome-state-hook";
@@ -1055,7 +1057,9 @@ export function SessionRouteRender() {
         token,
       });
       if (!endpoint?.token) {
+        // No runtime endpoint yet — open empty new-task and seed draft key.
         void handleCreateTaskInWorkspace(workspaceId);
+        setComposerDraftAfterNewTask(workspaceId, text);
         return;
       }
       const workspaceClient = createClient(
@@ -1069,6 +1073,20 @@ export function SessionRouteRender() {
             directory: workspace.path?.trim() || undefined,
           }),
         );
+        // Composer UI reads Zustand composer-state-store (not saveSessionDraft alone).
+        const seedComposer = () => {
+          useComposerStateStore.getState().setDraft(session.id, text);
+        };
+        seedComposer();
+        if (typeof window !== "undefined") {
+          window.setTimeout(seedComposer, 0);
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(seedComposer);
+          });
+          // Late retries: session surface may mount after navigate.
+          window.setTimeout(seedComposer, 120);
+          window.setTimeout(seedComposer, 360);
+        }
         saveSessionDraft(workspaceId, session.id, {
           text,
           mode: "prompt",
@@ -1085,12 +1103,42 @@ export function SessionRouteRender() {
         );
         navigateToWorkspaceSession(workspaceId, session.id);
         focusPromptSoon();
-      } catch {
+
+        // Auto-send when a default model is available so capture feels like dispatch.
+        const model = effectiveModelRef;
+        if (model?.providerID && model?.modelID) {
+          void (async () => {
+            try {
+              await workspaceClient.session.promptAsync({
+                sessionID: session.id,
+                model: {
+                  providerID: model.providerID,
+                  modelID: model.modelID,
+                },
+                parts: [{ type: "text", text }],
+              });
+              // Clear draft after successful send so composer does not re-show it.
+              useComposerStateStore.getState().setDraft(session.id, "");
+            } catch (error) {
+              // Keep draft in composer so the user can press send manually.
+              console.warn(
+                "[quick-capture] auto-send failed; draft left in composer",
+                error,
+              );
+              seedComposer();
+              focusPromptSoon();
+            }
+          })();
+        }
+      } catch (error) {
+        console.warn("[quick-capture] create session failed", error);
         void handleCreateTaskInWorkspace(workspaceId);
+        setComposerDraftAfterNewTask(workspaceId, text);
       }
     },
     [
       baseUrl,
+      effectiveModelRef,
       handleCreateTaskInWorkspace,
       navigateToWorkspaceSession,
       pageMode,

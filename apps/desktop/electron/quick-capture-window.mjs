@@ -65,8 +65,8 @@ export function createQuickCaptureWindowController(input) {
     if (captureWindow && !captureWindow.isDestroyed()) return captureWindow;
 
     captureWindow = new BrowserWindow({
-      width: 560,
-      height: 280,
+      width: 520,
+      height: 268,
       show: false,
       frame: false,
       resizable: false,
@@ -75,8 +75,8 @@ export function createQuickCaptureWindowController(input) {
       fullscreenable: false,
       skipTaskbar: true,
       alwaysOnTop: true,
-      transparent: false,
-      backgroundColor: "#16181d",
+      transparent: true,
+      backgroundColor: "#00000000",
       hasShadow: true,
       webPreferences: {
         preload: preloadPath,
