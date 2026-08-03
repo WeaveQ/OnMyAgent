@@ -78,6 +78,31 @@ function suggestionFromRecord(parsed: Record<string, unknown>): ExpertDraftSugge
   return Object.keys(suggestion).length > 0 ? suggestion : null;
 }
 
+function readTaggedValue(content: string, tag: string): string | undefined {
+  const startTag = `<${tag}>`;
+  const endTag = `</${tag}>`;
+  const start = content.indexOf(startTag);
+  if (start < 0) return undefined;
+  const valueStart = start + startTag.length;
+  const end = content.indexOf(endTag, valueStart);
+  if (end < 0) return undefined;
+  const value = content.slice(valueStart, end).trim();
+  return value || undefined;
+}
+
+function suggestionFromTaggedBlock(content: string): ExpertDraftSuggestion | null {
+  const name = readTaggedValue(content, "name");
+  const description = readTaggedValue(content, "description");
+  const userNote = readTaggedValue(content, "user-note");
+  const agentMemory = readTaggedValue(content, "agent-memory");
+  return suggestionFromRecord({
+    ...(name ? { name } : {}),
+    ...(description ? { description } : {}),
+    ...(userNote ? { userNote } : {}),
+    ...(agentMemory ? { agentMemory } : {}),
+  });
+}
+
 /**
  * Strip tagged <expert-update> blocks and bare expert-draft JSON objects from
  * visible assistant text. Machine payload must never render in the transcript.
@@ -96,15 +121,14 @@ export function parseExpertDraftSuggestion(content: string): {
     if (end < 0) {
       visible = before;
     } else {
+      const payload = visible.slice(start + EXPERT_UPDATE_START.length, end);
       try {
-        const parsed: unknown = JSON.parse(
-          visible.slice(start + EXPERT_UPDATE_START.length, end),
-        );
+        const parsed: unknown = JSON.parse(payload);
         if (isRecord(parsed)) {
           suggestion = suggestionFromRecord(parsed);
         }
       } catch {
-        // keep suggestion null; still strip broken machine block from view
+        suggestion = suggestionFromTaggedBlock(payload);
       }
       visible = `${before}${visible.slice(end + EXPERT_UPDATE_END.length)}`.trimEnd();
     }

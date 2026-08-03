@@ -73,6 +73,9 @@ describe("expert creation coach agent binding", () => {
     expect(prompt).toContain("userNote");
     expect(prompt).toContain("agentMemory");
     expect(prompt).toContain("stable facts");
+    expect(prompt).toContain("<expert-update>");
+    expect(prompt).toContain("<user-note>");
+    expect(prompt).toContain("<agent-memory>");
   });
 
   test("bundled coach copy describes the structured workflow in every locale", () => {
