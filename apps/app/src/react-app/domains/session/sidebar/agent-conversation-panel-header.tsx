@@ -18,11 +18,11 @@ import { t } from "../../../../i18n";
 export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
 
 /**
- * Expert create CTA under search: keeps the original dark treatment while
- * using the theme's softest neutral surface in light mode.
+ * Expert create CTA under search: slightly deepen the light-theme surface
+ * while keeping the original dark-theme surface unchanged.
  */
 const EXPERT_CREATE_CTA_CLASS =
-  "mac:titlebar-no-drag border-0 bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
+  "mac:titlebar-no-drag border-0 bg-dls-active dark:bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
 
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";

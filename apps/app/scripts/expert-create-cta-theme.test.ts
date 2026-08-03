@@ -16,10 +16,11 @@ const createButtonSource = source.slice(
 );
 
 describe("expert create CTA theme contract", () => {
-  test("uses the original dark treatment and a soft neutral light surface", () => {
+  test("uses a slightly darker light surface while preserving the dark treatment", () => {
     expect(createButtonSource).toContain('variant="ghost"');
     expect(createButtonSource).toContain('size="sidebar-cta"');
-    expect(source).toContain("bg-dls-surface-muted");
+    expect(source).toContain("bg-dls-active");
+    expect(source).toContain("dark:bg-dls-surface-muted");
     expect(source).toContain("text-dls-text");
     expect(source).toContain("hover:bg-dls-hover");
     expect(source).not.toContain("bg-dls-decision");
