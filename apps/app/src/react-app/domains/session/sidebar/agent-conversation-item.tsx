@@ -197,9 +197,9 @@ export function AgentConversationItem(props: {
       props.onOpenDraftSession?.(latestSession.id);
       return;
     }
-    // Already viewing this expert (any of its session tabs) — do not jump
-    // to latestSession and steal the active tab.
-    if (props.selected) return;
+    // Always notify open — even when already selected — so search filter can
+    // dismiss and the full list returns. Upstream open-expert resolves the
+    // remembered tab and no-ops tab steal when this agent is already active.
     props.onOpenSession(props.workspaceId, latestSession.id);
   };
 
