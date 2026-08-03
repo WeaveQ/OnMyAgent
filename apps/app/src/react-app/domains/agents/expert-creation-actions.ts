@@ -35,6 +35,8 @@ import {
 import {
   buildSavedExpertPendingContext,
   createExpertRecordForSave,
+  isCreationExpertEditable,
+  updateExpertRecordFromDraft,
 } from "./expert-creation-save-model";
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
@@ -62,6 +64,10 @@ export type SaveExpertCreationResult = {
   agent: AgentRecord;
   registry: AgentRegistry;
   configPath: string;
+};
+
+export type UpdateExpertCreationInput = Omit<SaveExpertCreationInput, "draftId"> & {
+  agent: AgentRecord;
 };
 
 export type ExpertCreationControllerInput = {
@@ -153,6 +159,74 @@ export async function saveExpertCreation(
   return { agent, registry: nextRegistry, configPath };
 }
 
+export async function updateExpertCreation(
+  input: UpdateExpertCreationInput,
+): Promise<SaveExpertCreationResult> {
+  if (!isCreationExpertEditable(input.agent)) {
+    throw new Error("Only experts created in the expert creation flow can be edited");
+  }
+
+  const baseRegistry = input.registry ?? createDefaultAgentRegistry();
+  if (!baseRegistry.agents.some((agent) => agent.id === input.agent.id)) {
+    throw new Error("Expert is no longer available");
+  }
+  const nowIso = new Date().toISOString();
+  const updatedDraftAgent = updateExpertRecordFromDraft(
+    input.agent,
+    input.draft,
+    nowIso,
+    input.availableSkills,
+  );
+  let agent = updatedDraftAgent;
+  let configPath = AGENT_REGISTRY_PATH;
+
+  if (isElectronRuntime()) {
+    const packageName =
+      input.agent.marketplacePackageName?.trim() || input.agent.id;
+    const written = await writeMyExpertPackage({
+      id: input.agent.id,
+      packageName,
+      name: updatedDraftAgent.name,
+      description: updatedDraftAgent.description,
+      quote: updatedDraftAgent.quote,
+      rolePrompt: updatedDraftAgent.userNote,
+      memory: updatedDraftAgent.agentMemory,
+      skillIds: updatedDraftAgent.skillIds,
+      preserveKnowledge: true,
+      ...(updatedDraftAgent.customAvatarDataUrl
+        ? { avatarDataUrl: updatedDraftAgent.customAvatarDataUrl }
+        : {}),
+    });
+    agent = {
+      ...updatedDraftAgent,
+      marketplaceSource: "mine",
+      marketplacePath: written.path,
+      marketplacePackageName: written.packageName,
+    };
+    configPath = "~/.onmyagent/agents/registry.json";
+  } else if (!input.client || !input.workspaceId.trim()) {
+    throw new Error("OnMyAgent server client is unavailable");
+  }
+
+  const nextRegistry: AgentRegistry = {
+    ...baseRegistry,
+    updatedAt: nowIso,
+    agents: baseRegistry.agents.map((item) =>
+      item.id === agent.id ? agent : item,
+    ),
+  };
+  if (isElectronRuntime()) {
+    await writeUserAgentRegistry(serializeUserAgentRegistry(nextRegistry));
+  } else if (input.client) {
+    await input.client.writeWorkspaceFile(input.workspaceId, {
+      path: AGENT_REGISTRY_PATH,
+      content: serializeAgentRegistry(nextRegistry),
+    });
+  }
+
+  return { agent, registry: nextRegistry, configPath };
+}
+
 export function buildExpertCreationPreview(
   draft: AgentWizardDraft,
   registry: AgentRegistry | null,
@@ -176,8 +250,20 @@ export function useExpertCreationController(
   input: ExpertCreationControllerInput,
 ) {
   const [open, setOpen] = useState(false);
-  const openCreation = useCallback(() => setOpen(true), []);
-  const closeCreation = useCallback(() => setOpen(false), []);
+  const [editingAgent, setEditingAgent] = useState<AgentRecord | null>(null);
+  const openCreation = useCallback(() => {
+    setEditingAgent(null);
+    setOpen(true);
+  }, []);
+  const openExpertCreationForEdit = useCallback((agent: AgentRecord) => {
+    if (!isCreationExpertEditable(agent)) return;
+    setEditingAgent(agent);
+    setOpen(true);
+  }, []);
+  const closeCreation = useCallback(() => {
+    setOpen(false);
+    setEditingAgent(null);
+  }, []);
   const handleDone = useCallback(
     async (
       draft: AgentWizardDraft,
@@ -186,16 +272,26 @@ export function useExpertCreationController(
       draftId: string,
       coachSessionId: string | null,
     ) => {
-      const result = await saveExpertCreation({
-        draft,
-        knowledge,
-        availableSkills,
-        registry: input.registry,
-        workspaceId: input.workspaceId,
-        client: input.client,
-        draftId,
-      });
-      if (coachSessionId && input.client) {
+      const result = editingAgent
+        ? await updateExpertCreation({
+            agent: editingAgent,
+            draft,
+            knowledge,
+            availableSkills,
+            registry: input.registry,
+            workspaceId: input.workspaceId,
+            client: input.client,
+          })
+        : await saveExpertCreation({
+            draft,
+            knowledge,
+            availableSkills,
+            registry: input.registry,
+            workspaceId: input.workspaceId,
+            client: input.client,
+            draftId,
+          });
+      if (!editingAgent && coachSessionId && input.client) {
         writeSessionAgentSnapshot(coachSessionId, null);
         try {
           await deleteExpertCreationEphemeralSession({
@@ -209,6 +305,18 @@ export function useExpertCreationController(
         }
       }
       useAgentRegistryStore.getState().setRegistry(result.registry);
+      if (editingAgent) {
+        input.showToast({
+          title: t("agents.updated_agent_title", { name: result.agent.name }),
+          description: t("agents.config_written_desc", {
+            path: result.configPath,
+          }),
+          tone: "success",
+          durationMs: 4000,
+        });
+        closeCreation();
+        return;
+      }
       const pending = buildSavedExpertPendingContext(
         result.agent,
         result.registry,
@@ -221,13 +329,14 @@ export function useExpertCreationController(
         tone: "success",
         durationMs: 4000,
       });
-      setOpen(false);
+      closeCreation();
       if (pending) input.onCreatedAgent(pending);
     },
-    [input],
+    [closeCreation, editingAgent, input],
   );
   const expertCreationPage: ReactNode = open
     ? createElement(ExpertCreationPage, {
+        key: editingAgent ? `edit-${editingAgent.id}` : "create",
         workspaceId: input.workspaceId,
         workspaceRoot: input.workspaceRoot,
         opencodeBaseUrl: input.opencodeBaseUrl,
@@ -240,6 +349,7 @@ export function useExpertCreationController(
         renderPreviewPanel: input.renderPreviewPanel,
         renderComposer: input.renderComposer,
         showToast: input.showToast,
+        editingAgent,
         onClose: closeCreation,
         onDone: handleDone,
       })
@@ -247,6 +357,7 @@ export function useExpertCreationController(
   return {
     expertCreationPage,
     openExpertCreation: openCreation,
+    openExpertCreationForEdit,
     closeExpertCreation: closeCreation,
   };
 }

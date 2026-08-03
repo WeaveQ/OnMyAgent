@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Mail, MailOpen, MoreHorizontal, Pin, PinOff, Trash2 } from "lucide-react";
+import { Mail, MailOpen, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 
 import { SessionRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
@@ -34,8 +34,8 @@ const agentConversationTextClass = {
     "inline-flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-dls-accent",
 };
 
-/** Keep fixed menus fully on-screen (4 rows + separator ≈ 200px). */
-const EXPERT_MENU_HEIGHT = 200;
+/** Keep fixed menus fully on-screen when all expert actions are available. */
+const EXPERT_MENU_HEIGHT = 240;
 
 function ExpertMenuItem(props: {
   onClick: () => void;
@@ -71,6 +71,7 @@ export function AgentConversationItem(props: {
   onTogglePinned?: (agentId: string) => void;
   onMarkUnread?: (agentId: string) => void;
   onMarkRead?: (agentId: string) => void;
+  onEditExpert?: (agentId: string) => void;
   /**
    * Delete this expert row: all non-draft sessions under the agent
    * (confirm + batch delete upstream).
@@ -103,13 +104,15 @@ export function AgentConversationItem(props: {
   const subtitle =
     props.group.preview?.trim() || props.group.description;
   const canDeleteExpert = Boolean(props.onDeleteExpert) && Boolean(agentId) && !isDraftSession;
+  const canEditExpert = Boolean(props.onEditExpert) && Boolean(agentId) && !isDraftSession;
   const hasMenu =
     Boolean(agentId) &&
     !isDraftSession &&
     Boolean(
       props.onTogglePinned ||
-        props.onMarkUnread ||
-        props.onMarkRead ||
+      props.onMarkUnread ||
+      props.onMarkRead ||
+        canEditExpert ||
         canDeleteExpert,
     );
 
@@ -264,6 +267,17 @@ export function AgentConversationItem(props: {
               >
                 <Mail strokeWidth={1.75} />
                 {t("session.expert_mark_unread")}
+              </ExpertMenuItem>
+            ) : null}
+            {canEditExpert ? (
+              <ExpertMenuItem
+                onClick={() => {
+                  setMenuOpen(false);
+                  props.onEditExpert?.(agentId);
+                }}
+              >
+                <Pencil strokeWidth={1.75} />
+                {t("session.expert_edit")}
               </ExpertMenuItem>
             ) : null}
             {/* Delete is always last when available — portaled so scroll clip cannot hide it. */}
