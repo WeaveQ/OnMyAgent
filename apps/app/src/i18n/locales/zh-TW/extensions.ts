@@ -84,7 +84,7 @@ export default {
   "extensions.browser_skill_status_ready": "就緒",
   "extensions.browser_skill_status_setup": "需要設定",
   "extensions.browser_skill_vs_in_app":
-    "選擇合適的介面：應用內 Browser（無需真實 Chrome 登入）、BrowserSkill（真實 Chrome/Edge，經 bsk + 擴充功能）、或 Computer Use（原生 macOS 應用）。本面板是 BrowserSkill。",
+    "選擇合適的介面：應用內 Browser（無需真實 Chrome 登入）、BrowserSkill（真實 Chrome/Edge，經 bsk + 擴充功能）、或 Computer Use（原生桌面應用）。本面板是 BrowserSkill。",
   "extensions.browser_skill_choose_surface":
     "應用內 Browser · BrowserSkill（真實 Chrome）· Computer Use（原生應用）",
   "extensions.browser_skill_setup_intro": "依下面三步操作即可，每台機器只需一次。",
@@ -109,7 +109,9 @@ export default {
   "extensions.browser_skill_ready_message":
     "BrowserSkill 已就緒。Agent 可透過 bsk 使用你的真實瀏覽器。",
   "extensions.browser_skill_doctor_details": "Doctor 輸出",
-  "extensions.openai_image_desc": "生成圖片",
+  "extensions.openai_image_name": "OpenAI 圖片生成",
+  "extensions.openai_image_desc": "使用 OpenAI 生成圖片。",
+  "extensions.openai_image_prompt": "使用 OpenAI 圖片生成擴充功能來",
   "extensions.openai_image_setup": `添加 OpenAI API key，啟用圖片生成`,
   "extensions.openai_image_config_desc": "配置 OpenAI 圖片生成",
   "extensions.openai_image_env_key_desc":
@@ -127,7 +129,8 @@ export default {
   "extensions.openai_api_key": "OpenAI API key",
   "extensions.api_key_found_environment": "環境中檢測到 API key",
   "extensions.voice_desc": `通過 Realtime 語音面板與 ${APP_NAME} 對話，並驅動與 ${APP_NAME} UI MCP 相同的語義 UI 控制。`,
-  "extensions.voice_setup": `Voice Mode 使用 OpenAI Realtime。請在 ${APP_NAME} 環境變量中保存 OpenAI API key，然後打開會話側欄面板，說話或發送文字語音命令。`,
+  "extensions.voice_prompt": "使用語音模式來",
+  "extensions.voice_setup": `語音模式使用 OpenAI Realtime。請在 ${APP_NAME} 環境變量中保存 OpenAI API key，然後打開會話側欄面板，說話或發送文字語音命令。`,
   "extensions.voice_realtime_title": "Realtime 語音",
   "extensions.voice_realtime_desc":
     "語音模式使用 OpenAI Realtime，並複用通過 OnMyAgent UI MCP 暴露的 {app} UI 控制面。",
@@ -145,7 +148,9 @@ export default {
   "extensions.local_provider_server_not_connected": `${APP_NAME} 尚未連接到此工作區。`,
   "extensions.local_provider_model_required": "請填寫模型 ID。",
   "extensions.local_provider_added_status": "已添加 {name}，模型：{modelId}。",
+  "extensions.ollama_name": "Ollama",
   "extensions.ollama_desc": "位於 http://localhost:11434 的本地模型服務商。",
+  "extensions.ollama_prompt": "使用 Ollama 擴充功能來",
   "extensions.ollama_setup": "在本地運行 Ollama，選擇或拉取模型，然後將它添加為 模型服務商。",
   "extensions.ollama_add_model": "添加 Ollama 模型",
   "extensions.ollama_pull_model": "拉取模型",

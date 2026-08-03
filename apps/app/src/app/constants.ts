@@ -2,7 +2,7 @@ import type { ModelRef, SuggestedPlugin } from "./types";
 import { t } from "../i18n";
 import { readDenBootstrapConfig } from "./lib/den";
 import {
-  BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS,
+  getBuiltInOnMyAgentExtensionManifests,
   extensionContribution,
   extensionResource,
   isTrustedBuiltInExtension,
@@ -56,27 +56,78 @@ export type McpDirectoryInfo = {
   extensionManifest?: OnMyAgentExtensionManifest;
 };
 
-function extensionManifestToDirectoryInfo(manifest: OnMyAgentExtensionManifest): McpDirectoryInfo {
-  const mcpResource = extensionResource(manifest, "mcp");
+function loadBuiltInManifest(id: string): OnMyAgentExtensionManifest {
+  const manifest = getBuiltInOnMyAgentExtensionManifests().find((item) => item.id === id);
+  if (!manifest) {
+    throw new Error(`Unknown built-in extension: ${id}`);
+  }
+  return manifest;
+}
+
+/**
+ * Map a built-in extension id to directory info with live `t()` getters so
+ * name/description follow the active locale (not frozen at module load).
+ */
+function extensionManifestToDirectoryInfo(id: string): McpDirectoryInfo {
   return {
-    id: manifest.id,
-    name: manifest.name,
-    serverName: mcpResource?.mcpServerName ?? manifest.id,
-    description: manifest.description,
-    type: mcpResource?.command ? "local" : undefined,
-    command: mcpResource?.command,
+    id,
+    get name() {
+      return loadBuiltInManifest(id).name;
+    },
+    get serverName() {
+      const mcpResource = extensionResource(loadBuiltInManifest(id), "mcp");
+      return mcpResource?.mcpServerName ?? id;
+    },
+    get description() {
+      return loadBuiltInManifest(id).description;
+    },
+    get type() {
+      const mcpResource = extensionResource(loadBuiltInManifest(id), "mcp");
+      return mcpResource?.command ? "local" : undefined;
+    },
+    get command() {
+      return extensionResource(loadBuiltInManifest(id), "mcp")?.command;
+    },
     oauth: false,
     kind: "extension",
-    iconSlug: manifest.icon?.simpleIconSlug,
-    iconSrc: manifest.icon?.src,
-    composerPrompt: extensionContribution(manifest, "composer-prompt")?.prompt ?? manifest.composer?.prompt,
-    suggestedPrompts: manifest.composer?.suggestions,
-    defaultEnabled: manifest.defaultEnabled,
-    defaultHidden: manifest.defaultHidden,
-    preview: manifest.preview,
-    extensionManifest: manifest,
+    get iconSlug() {
+      return loadBuiltInManifest(id).icon?.simpleIconSlug;
+    },
+    get iconSrc() {
+      return loadBuiltInManifest(id).icon?.src;
+    },
+    get composerPrompt() {
+      const manifest = loadBuiltInManifest(id);
+      return (
+        extensionContribution(manifest, "composer-prompt")?.prompt ??
+        manifest.composer?.prompt
+      );
+    },
+    get suggestedPrompts() {
+      return loadBuiltInManifest(id).composer?.suggestions;
+    },
+    get defaultEnabled() {
+      return loadBuiltInManifest(id).defaultEnabled;
+    },
+    get defaultHidden() {
+      return loadBuiltInManifest(id).defaultHidden;
+    },
+    get preview() {
+      return loadBuiltInManifest(id).preview;
+    },
+    get extensionManifest() {
+      return loadBuiltInManifest(id);
+    },
   };
 }
+
+const BUILT_IN_EXTENSION_IDS = [
+  "computer-use",
+  "browser-skill",
+  "openai-image-gen",
+  "onmyagent-voice",
+  "ollama",
+] as const;
 
 export function isBuiltInOnMyAgentExtension(entry: Pick<McpDirectoryInfo, "kind" | "extensionManifest">): boolean {
   return entry.kind === "extension" && isTrustedBuiltInExtension(entry.extensionManifest);
@@ -175,7 +226,9 @@ export const MCP_QUICK_CONNECT: McpDirectoryInfo[] = [
     kind: "ui-control",
     iconSrc: "/on-my-agent-logo.png",
   },
-  ...BUILT_IN_ONMYAGENT_EXTENSION_MANIFESTS.map(extensionManifestToDirectoryInfo),
+  ...BUILT_IN_EXTENSION_IDS.map((id) => extensionManifestToDirectoryInfo(id)),
 ];
 
-export const ONMYAGENT_EXTENSION_CATALOG = MCP_QUICK_CONNECT.filter((entry) => entry.kind === "extension");
+export const ONMYAGENT_EXTENSION_CATALOG = MCP_QUICK_CONNECT.filter(
+  (entry) => entry.kind === "extension",
+);
