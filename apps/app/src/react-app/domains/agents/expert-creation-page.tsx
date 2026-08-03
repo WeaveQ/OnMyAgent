@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Blocks,
   ChevronsLeft,
   ChevronDown,
   ChevronRight,
   FileText,
-  FileSearch,
   Folder,
   FolderPlus,
   MoreHorizontal,
@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/action-row";
 import {
   Empty,
-  EmptyContent,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -583,6 +583,15 @@ function SkillPickerPopover(props: {
   );
 }
 
+function SkillsEmptyIllustration() {
+  return (
+    <div className="relative flex size-20 items-center justify-center text-dls-secondary" aria-hidden="true">
+      <Blocks className="size-16" strokeWidth={1.2} />
+      <Sparkles className="absolute right-0 top-0 size-5" strokeWidth={1.4} />
+    </div>
+  );
+}
+
 function SkillImportDialog(props: {
   open: boolean;
   importing: boolean;
@@ -750,27 +759,17 @@ function SkillsPanel(props: {
           variant="ghost"
           className="min-h-[calc(100dvh-12rem)] rounded-xl bg-dls-surface px-6"
         >
-          <EmptyHeader className="gap-3">
+          <EmptyHeader className="max-w-lg gap-4">
             <EmptyMedia>
-              <FileSearch className="size-16 text-dls-secondary" strokeWidth={1.2} aria-hidden />
+              <SkillsEmptyIllustration />
             </EmptyMedia>
-            <EmptyTitle className="text-sm font-semibold">
+            <EmptyTitle className="text-base font-semibold">
               {t("agents.expert_creation_no_skills")}
             </EmptyTitle>
+            <EmptyDescription className="max-w-lg leading-relaxed">
+              {t("agents.expert_creation_no_skills_desc")}
+            </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent className="w-auto max-w-none flex-row flex-wrap justify-center gap-2">
-            <SkillPickerPopover
-              skills={props.skills}
-              selectedIds={props.selectedIds}
-              disabled={props.loading || props.loadError}
-              triggerVariant="secondary"
-              onToggle={toggleSkill}
-            />
-            <Button type="button" variant="secondary" size="sm" disabled={props.importing} onClick={() => setImportOpen(true)}>
-              <Upload data-icon="inline-start" className="size-3.5" />
-              {props.importing ? t("agents.expert_creation_importing") : t("agents.expert_creation_import_skill")}
-            </Button>
-          </EmptyContent>
         </Empty>
       )}
       <SkillImportDialog
