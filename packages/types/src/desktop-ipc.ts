@@ -1055,6 +1055,10 @@ export type ComputerUsePermissionResult = {
   helperVersion?: string;
   protocolVersion?: number;
   desktopVersion?: string;
+  /** Runtime backend: HandsFree (mac) or Cua Driver (Windows). */
+  backend?: "handsfree" | "cua" | "none";
+  /** Whether OpenCode computer-use MCP is enabled (user pref / env). */
+  mcpEnabled?: boolean;
   activity?: ComputerUseActivity;
   skysight?: ComputerUseSkysightStatus;
   appAuthorizations?: ComputerUseAppAuthorizations;

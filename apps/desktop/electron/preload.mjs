@@ -4,8 +4,8 @@ const NATIVE_DEEP_LINK_EVENT = "onmyagent:deep-link-native";
 const NATIVE_MENU_OPEN_SETTINGS_EVENT = "onmyagent:native-menu:open-settings";
 const NATIVE_MENU_TOGGLE_SIDEBAR_EVENT = "onmyagent:native-menu:toggle-sidebar";
 const NATIVE_MENU_NEW_TASK_EVENT = "onmyagent:native-menu:new-task";
-const NATIVE_MENU_OPEN_EXPERT_MARKETPLACE_EVENT =
-  "onmyagent:native-menu:open-expert-marketplace";
+const NATIVE_MENU_QUICK_CAPTURE_EVENT = "onmyagent:native-menu:quick-capture";
+const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
 const NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT =
   "onmyagent:native-menu:desktop-permissions";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
@@ -232,9 +232,16 @@ ipcRenderer.on(NATIVE_MENU_NEW_TASK_EVENT, () => {
   window.dispatchEvent(new Event(NATIVE_MENU_NEW_TASK_EVENT));
 });
 
-ipcRenderer.on(NATIVE_MENU_OPEN_EXPERT_MARKETPLACE_EVENT, () => {
+ipcRenderer.on(NATIVE_MENU_QUICK_CAPTURE_EVENT, () => {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(NATIVE_MENU_OPEN_EXPERT_MARKETPLACE_EVENT));
+  window.dispatchEvent(new Event(NATIVE_MENU_QUICK_CAPTURE_EVENT));
+});
+
+ipcRenderer.on(QUICK_CAPTURE_SUBMIT_EVENT, (_event, payload) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(QUICK_CAPTURE_SUBMIT_EVENT, { detail: payload ?? {} }),
+  );
 });
 
 ipcRenderer.on(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT, () => {

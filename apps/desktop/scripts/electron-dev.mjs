@@ -226,6 +226,7 @@ const prepareRuntimeArgs = [
 ];
 runSync(nodeCmd, prepareRuntimeArgs, { cwd: desktopRoot });
 runSync(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], { cwd: desktopRoot });
+runSync(nodeCmd, [resolve(__dirname, "prepare-cua-helper.mjs"), "--outdir", electronHelperDir], { cwd: desktopRoot });
 // Patch Electron.app Info.plist so the macOS menu bar and Dock show "OnMyAgent"
 // instead of "Electron" during dev. The bundled Electron binary gets regenerated
 // on `pnpm install`, so re-patching on every dev start is safe and cheap.

@@ -40,16 +40,20 @@ export default {
   "extensions.computer_use_connect_mcp": "Connect Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "Control macOS apps through semantic accessibility, screenshots, background-safe input, and strict mode.",
+    "Control desktop apps via Computer Use (macOS HandsFree accessibility runtime; Windows bundled Cua Driver).",
   "extensions.computer_use_prompt": "Use Computer Use to ",
   "extensions.computer_use_suggestion_playlist": "Play a playlist to help me lock in",
   "extensions.computer_use_suggestion_xcode": "Build and run my open Xcode project, then test it for bugs",
   "extensions.computer_use_suggestion_chess": "Play a game in Chess.app",
-  "extensions.computer_use_check_permissions": "Check macOS permissions",
-  "extensions.computer_use_native_runtime": "macOS accessibility runtime",
+  "extensions.computer_use_check_permissions": "Check permissions",
+  "extensions.computer_use_native_runtime": "Desktop computer-use runtime",
   "extensions.computer_use_builtin_setup":
-    "Computer Use is built into local macOS workspaces through the OnMyAgent accessibility runtime. Grant Accessibility and Screen Recording permissions when macOS asks.",
+    "Computer Use is built into local desktop workspaces. On macOS, grant Accessibility and Screen Recording when prompted. On Windows, enable the Cua MCP in settings after the driver is staged.",
   "extensions.computer_use_mcp": "Computer Use MCP",
+  "extensions.computer_use_helper_unavailable":
+    "Computer Use helper is unavailable. Restart OnMyAgent or reinstall the app.",
+  "extensions.computer_use_cua_unavailable":
+    "Cua Driver is not available. Reinstall OnMyAgent or stage helpers/cua.",
   "extensions.mcp_server_connected": "MCP server connected",
   "extensions.computer_use_permissions": "Accessibility and Screen Recording",
   "extensions.computer_use_verify_mcp": "Verify Computer Use MCP",
@@ -80,7 +84,7 @@ export default {
   "extensions.browser_skill_status_ready": "Ready",
   "extensions.browser_skill_status_setup": "Needs setup",
   "extensions.browser_skill_vs_in_app":
-    "Choose the right surface: in-app Browser (no real Chrome logins), BrowserSkill (real Chrome/Edge via bsk + extension), or Computer Use (native macOS apps). This panel is BrowserSkill.",
+    "Choose the right surface: in-app Browser (no real Chrome logins), BrowserSkill (real Chrome/Edge via bsk + extension), or Computer Use (native desktop apps). This panel is BrowserSkill.",
   "extensions.browser_skill_choose_surface":
     "In-app Browser · BrowserSkill (real Chrome) · Computer Use (native apps)",
   "extensions.browser_skill_setup_intro":
@@ -107,7 +111,9 @@ export default {
   "extensions.browser_skill_ready_message":
     "BrowserSkill is ready. Agents can use your real browser via bsk.",
   "extensions.browser_skill_doctor_details": "Doctor output",
-  "extensions.openai_image_desc": "Generate images",
+  "extensions.openai_image_name": "OpenAI Image Gen",
+  "extensions.openai_image_desc": "Generate images with OpenAI.",
+  "extensions.openai_image_prompt": "Use the OpenAI Image Gen extension to ",
   "extensions.openai_image_setup": `Add an OpenAI API key to enable image generation`,
   "extensions.openai_image_config_desc": "Configure OpenAI image generation",
   "extensions.openai_image_env_key_desc":
@@ -125,6 +131,7 @@ export default {
   "extensions.openai_api_key": "OpenAI API key",
   "extensions.api_key_found_environment": "API key found in environment",
   "extensions.voice_desc": `Talk to ${APP_NAME} through a Realtime voice panel that drives the same semantic UI controls as ${APP_NAME} UI MCP.`,
+  "extensions.voice_prompt": "Use Voice Mode to ",
   "extensions.voice_setup": `Voice Mode uses OpenAI Realtime. Save an OpenAI API key in ${APP_NAME} env vars, then open the session rail panel and speak or send a typed voice command.`,
   "extensions.voice_realtime_title": "Realtime voice",
   "extensions.voice_realtime_desc":
@@ -143,7 +150,9 @@ export default {
   "extensions.local_provider_server_not_connected": `${APP_NAME} server is not connected for this workspace.`,
   "extensions.local_provider_model_required": "Model ID is required.",
   "extensions.local_provider_added_status": "Added {name} with {modelId}.",
+  "extensions.ollama_name": "Ollama",
   "extensions.ollama_desc": "Local model provider at http://localhost:11434.",
+  "extensions.ollama_prompt": "Use the Ollama extension to ",
   "extensions.ollama_setup": "Run Ollama locally, choose or pull a model, then add it as a model provider.",
   "extensions.ollama_add_model": "Add Ollama model",
   "extensions.ollama_pull_model": "Pull model",

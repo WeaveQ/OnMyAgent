@@ -144,7 +144,7 @@ export function useComposerAttachments(input: UseComposerAttachmentsInput) {
     [addAttachments],
   );
 
-  // Appshot requires the macOS Computer Use helper; hide the action elsewhere.
+  // Appshot uses Electron desktopCapturer in the desktop shell.
   const canCaptureAppshot = isAppshotCaptureSupported();
 
   const captureAppshot = useCallback(async () => {
@@ -154,16 +154,20 @@ export function useComposerAttachments(input: UseComposerAttachmentsInput) {
       await attachAppshot(await desktopBridge.captureComputerUseAppshot());
     } catch (error) {
       const platform = detectClientPlatform();
-      const fallback =
-        platform === "windows"
-          ? t("composer.appshot_unsupported_windows")
-          : platform === "linux"
-            ? t("composer.appshot_unsupported_linux")
-            : t("composer.appshot_failed");
-      inputRef.current.onNotice({
-        title: error instanceof Error ? error.message : fallback,
-        tone: "warning",
-      });
+      const raw = error instanceof Error ? error.message : "";
+      const permissionLike =
+        /screen recording|permission|APPSHOT_|black image|empty image/i.test(raw);
+      let title = t("composer.appshot_failed");
+      if (permissionLike) {
+        title = t("composer.appshot_permission");
+      } else if (raw && raw.length > 0 && raw.length <= 180) {
+        title = raw;
+      } else if (platform === "windows") {
+        title = t("composer.appshot_unsupported_windows");
+      } else if (platform === "linux") {
+        title = t("composer.appshot_unsupported_linux");
+      }
+      inputRef.current.onNotice({ title, tone: "warning" });
     }
   }, [attachAppshot, canCaptureAppshot]);
 
@@ -173,10 +177,27 @@ export function useComposerAttachments(input: UseComposerAttachmentsInput) {
     if (!subscribe) return;
     return subscribe((payload) => {
       const root = inputRef.current.rootRef.current;
-      if (!root || root.offsetParent === null) return;
+      // Do NOT use offsetParent: fixed/sticky roots report null while still on screen.
+      if (!root?.isConnected) return;
+      if (root.getClientRects().length === 0) return;
       void attachAppshot(payload);
     });
-  });
+  }, [attachAppshot, canCaptureAppshot]);
+
+  // Settings / in-window keymap + menu all funnel here so attach is consistent.
+  useEffect(() => {
+    if (!canCaptureAppshot) return;
+    const onKeymapSnapshot = () => {
+      void captureAppshot();
+    };
+    window.addEventListener("onmyagent:keymap:app-snapshot", onKeymapSnapshot);
+    return () => {
+      window.removeEventListener(
+        "onmyagent:keymap:app-snapshot",
+        onKeymapSnapshot,
+      );
+    };
+  }, [canCaptureAppshot, captureAppshot]);
 
   return {
     addAttachments,

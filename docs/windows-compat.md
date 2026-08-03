@@ -121,20 +121,27 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 
 ### macOS-only features gracefully degrade
 
-- **Computer Use / HandsFree helper**: `packages/handsfree` is Swift/AppKit
-  and macOS-only. `prepare-computer-use-helper.mjs` early-returns on
-  `process.platform !== "darwin"`. UI entry points hide Computer Use setup
-  and the composer **capture desktop (Appshot)** action off macOS.
+- **Computer Use**:
+  - **macOS**: `packages/handsfree` (Swift/AppKit). `prepare-computer-use-helper.mjs`
+    stages `OnMyAgent Computer Use.app`. OpenCode MCP `computer-use` is
+    **enabled by default** when the helper is present.
+  - **Windows**: TryCua **Cua Driver** staged by `prepare-cua-helper.mjs` into
+    `resources/helpers/cua/` (full binary pack: `cua-driver.exe` + siblings).
+    Resolver: `computer-use-runtime-config.mjs` (`resolveWindowsCuaDriver`).
+    OpenCode MCP `computer-use` is registered when staged but **disabled by
+    default** (`ONMYAGENT_COMPUTER_USE_ENABLED=1` to enable). Not HandsFree /
+    Skysight parity. Separate from Appshot.
+  - **Linux**: no Computer Use MCP helper yet.
 - **Appshot (composer desktop capture)**:
-  - **Native**: only the macOS helper implements `appshot capture|monitor`.
-  - **Electron**: `isComputerUseAppshotSupported()` / `captureComputerUseAppshot`
-    refuse non-`darwin` hosts with an explicit “macOS only” error.
-  - **Renderer**: menu item is gated on macOS; success uses a short composer
-    **notice** (not a full-name toast). Filenames are sanitized in Electron and
-    the UI so bad native names never dump into the chip.
-  - **Windows reserved names / illegal path chars** are stripped in the shared
-    sanitizer even though Appshot itself does not run on Windows (defensive
-    for any future capture path that reuses the helper).
+  - **Capture**: Electron `desktopCapturer` only (macOS / Windows / Linux).
+    No native helper binary. Identity is OnMyAgent (dev: Electron) for Screen
+    Recording privacy.
+  - **Hotkey**: Settings → Shortcuts → **App snapshot** (default
+    `CommandOrControl+Shift+A`, fully customizable via `globalShortcut`).
+  - **Renderer**: menu + shortcut attach into Composer; filenames sanitized for
+    Windows illegal chars.
+  - **Not included on Windows Appshot path**: Skysight, HandsFree AX semantics
+    (use Cua MCP tools after enabling Computer Use).
 - **Sandbox profiles**: `apps/orchestrator/src/runtime-sandbox.ts` returns
   an empty profile on non-macOS. Orchestrator still runs, but without
   `sandbox-exec` isolation.
@@ -208,8 +215,9 @@ Windows roadmap.
 | Orchestrator sidecar | ✓ | ✓ (`.exe`) |
 | Bundled Node + Python | ✓ | ✓ |
 | `browser-use` agent | ✓ | ✓ (Chromium via CDP) |
-| `packages/handsfree` Computer Use | ✓ | — (macOS-only; helper not packaged) |
-| Composer Appshot (desktop capture) | ✓ | — (menu hidden; capture API rejects) |
+| Computer Use MCP (HandsFree) | ✓ | — |
+| Computer Use MCP (bundled Cua Driver) | — | ✓ (staged helper; MCP default off) |
+| Composer Appshot (desktop capture) | ✓ | ✓ (Electron desktopCapturer) |
 | `sandbox-exec` isolation | ✓ | — (no isolation) |
 | Titlebar vibrancy | ✓ | — (system frame) |
 | Docker Desktop integration | ✓ | ✓ (auto-detect) |

@@ -32,6 +32,7 @@ const DEFAULT_APP_ICON_PATH = path.join(
  * @param {() => import("electron").BrowserWindow | null} input.getMainWindow
  * @param {() => void} [input.quitApp]
  * @param {() => Promise<unknown>} [input.openDesktopPermissions]
+ * @param {() => Promise<unknown> | unknown} [input.openQuickCapture]
  * @param {string | null} [input.appIconPath] Brand app icon (icon.png); used to
  *   locate trayTemplate.png beside it, or as a color fallback.
  * @param {string} [input.iconPath] Deprecated alias of appIconPath.
@@ -47,6 +48,7 @@ export function createStatusItemController(input) {
     getMainWindow,
     quitApp = () => app.quit(),
     openDesktopPermissions,
+    openQuickCapture,
     appIconPath = input.iconPath ?? DEFAULT_APP_ICON_PATH,
     platform = process.platform,
   } = input;
@@ -87,15 +89,27 @@ export function createStatusItemController(input) {
       case STATUS_ITEM_ACTION.NEW_TASK:
         await sendToMainWindow(STATUS_ITEM_EVENTS.NEW_TASK);
         return;
-      case STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE:
-        await sendToMainWindow(STATUS_ITEM_EVENTS.OPEN_EXPERT_MARKETPLACE);
+      case STATUS_ITEM_ACTION.QUICK_CAPTURE:
+        if (typeof openQuickCapture === "function") {
+          await openQuickCapture();
+        } else {
+          await sendToMainWindow(STATUS_ITEM_EVENTS.QUICK_CAPTURE);
+        }
         return;
       case STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS:
+        // Always open the main window + in-app settings (system / permissions).
+        // Optional openDesktopPermissions may open OS privacy panes / helper apps.
         await showAndFocusMainWindow();
+        await sendToMainWindow(STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS);
         if (typeof openDesktopPermissions === "function") {
-          await openDesktopPermissions();
-        } else {
-          await sendToMainWindow(STATUS_ITEM_EVENTS.DESKTOP_PERMISSIONS);
+          try {
+            await openDesktopPermissions();
+          } catch (error) {
+            console.warn(
+              "[status-item] openDesktopPermissions failed:",
+              error instanceof Error ? error.message : String(error),
+            );
+          }
         }
         return;
       case STATUS_ITEM_ACTION.OPEN_SETTINGS:
@@ -110,22 +124,56 @@ export function createStatusItemController(input) {
     }
   }
 
+  /** @type {Record<string, string>} */
+  let acceleratorOverrides = {};
+
   function buildNativeMenu() {
     const locale = resolveStatusItemLocale(
       typeof app.getLocale === "function" ? app.getLocale() : "en",
     );
-    const spec = buildStatusItemMenuSpec({ locale });
+    const spec = buildStatusItemMenuSpec({
+      locale,
+      accelerators: acceleratorOverrides,
+    });
     /** @type {import("electron").MenuItemConstructorOptions[]} */
     const template = spec.map((entry) => {
       if (entry.type === "separator") return { type: "separator" };
-      return {
+      /** @type {import("electron").MenuItemConstructorOptions} */
+      const item = {
         label: entry.label,
         click: () => {
           void runAction(entry.id);
         },
       };
+      // Electron shows this on the trailing edge of the tray menu (⌘B style).
+      if (entry.accelerator) item.accelerator = entry.accelerator;
+      return item;
     });
     return Menu.buildFromTemplate(template);
+  }
+
+  /**
+   * Rebuild tray menu accelerators when Settings → Shortcuts change.
+   * Maps product keymap ids → status-item action ids.
+   * @param {Record<string, string> | null | undefined} overrides
+   */
+  function setKeymapAcceleratorOverrides(overrides) {
+    const next = overrides && typeof overrides === "object" ? overrides : {};
+    /** @type {Record<string, string>} */
+    const mapped = {};
+    if (typeof next.quickCapture === "string") {
+      mapped[STATUS_ITEM_ACTION.QUICK_CAPTURE] = next.quickCapture;
+    }
+    if (typeof next.newTask === "string") {
+      mapped[STATUS_ITEM_ACTION.NEW_TASK] = next.newTask;
+    }
+    if (typeof next.openSettings === "string") {
+      mapped[STATUS_ITEM_ACTION.OPEN_SETTINGS] = next.openSettings;
+    }
+    acceleratorOverrides = mapped;
+    if (tray) {
+      tray.setContextMenu(buildNativeMenu());
+    }
   }
 
   function loadStatusItemIcon() {
@@ -246,6 +294,7 @@ export function createStatusItemController(input) {
     setVisible,
     isVisible,
     refreshMenu,
+    setKeymapAcceleratorOverrides,
     runAction,
     showAndFocusMainWindow,
     markQuitting,
@@ -290,6 +339,8 @@ export function createStatusItemLifecycle(input) {
       }
     },
     isVisible: () => controller.isVisible(),
+    setKeymapAcceleratorOverrides: (overrides) =>
+      controller.setKeymapAcceleratorOverrides(overrides),
     installSafely() {
       try {
         controller.install();

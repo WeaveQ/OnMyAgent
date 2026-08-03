@@ -23,7 +23,6 @@ export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
  */
 const EXPERT_CREATE_CTA_CLASS =
   "mac:titlebar-no-drag border-0 bg-dls-active dark:bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
-
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
@@ -68,7 +67,12 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
         Expert list: bordered search (field) + borderless filled create (action).
         Avoids two stacked outlines of the same weight.
       */}
-      <InputGroup controlSize="lg" radius="lg" tone="surface" className="w-full">
+      <InputGroup
+        controlSize="lg"
+        radius="lg"
+        tone="surface"
+        className="w-full"
+      >
         <InputGroupAddon align="inline-start" inset="tight">
           <Search className="size-4" />
         </InputGroupAddon>
@@ -92,16 +96,19 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sidebar-cta"
-        onClick={props.onCreateExpert}
-        className={EXPERT_CREATE_CTA_CLASS}
-      >
-        <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-        {t("session.create_expert")}
-      </Button>
+      {props.onCreateExpert ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sidebar-cta"
+          onClick={props.onCreateExpert}
+          className={EXPERT_CREATE_CTA_CLASS}
+          data-expert-create="true"
+        >
+          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          {t("session.create_expert")}
+        </Button>
+      ) : null}
     </div>
   );
 }

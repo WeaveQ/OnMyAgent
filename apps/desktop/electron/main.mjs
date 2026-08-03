@@ -27,6 +27,7 @@ import {
   ipcMain,
   nativeImage,
   nativeTheme,
+  screen,
   session,
   shell,
   systemPreferences,
@@ -70,7 +71,10 @@ import {
   getAgentReadySoundPath,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
+  registerQuickCaptureHotkey,
+  unregisterQuickCaptureHotkey,
 } from "./desktop-system-prefs.mjs";
+import { createQuickCaptureWindowController } from "./quick-capture-window.mjs";
 import { createBrowserSkillDesktopHelpers as createBskDesktopHelpers } from "./browser-skill-desktop.mjs";
 import { configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
@@ -212,11 +216,13 @@ const computerUseDesktopHelpers = createComputerUseDesktopHelpers({
   dialog,
   systemPreferences,
   desktopCapturer,
+  screen,
   dirname: __dirname,
 });
 const {
   getComputerUseMcpCommand,
   checkComputerUsePermissions,
+  setComputerUseMcpEnabled,
   setComputerUseSkysightEnabled,
   setComputerUseSkysightPaused,
   updateComputerUseSkysightExclusion,
@@ -409,10 +415,31 @@ const artifactPreviewController = createArtifactPreviewController({
   preloadPath: path.join(__dirname, "artifact-preview-preload.cjs"),
 });
 
+/** Last known labels for the quick-capture context strip (set from renderer). */
+let quickCaptureContext = {
+  workspaceLabel: "",
+  modelLabel: "",
+  selectedProviderID: "",
+  selectedModelID: "",
+  models: /** @type {Array<{ providerID: string; modelID: string; title: string; disabled?: boolean }>} */ (
+    []
+  ),
+};
+
+const quickCapture = createQuickCaptureWindowController({
+  BrowserWindow,
+  getMainWindow: () => mainWindow,
+  createMainWindow,
+  getCaptureContext: () => quickCaptureContext,
+  preloadPath: path.join(__dirname, "quick-capture-preload.cjs"),
+  htmlPath: path.join(__dirname, "../resources/quick-capture/index.html"),
+});
+
 const statusItem = createStatusItemLifecycle({
   app, Tray, Menu, nativeImage, createMainWindow,
   getMainWindow: () => mainWindow, quitApp: () => app.quit(),
   openDesktopPermissions: () => openComputerUseSetupApp(),
+  openQuickCapture: () => quickCapture.show(),
   appIconPath: APP_ICON_PATH, // trayTemplate / trayIcon sit beside brand icon
 });
 desktopWindowController = createDesktopWindowController({
@@ -1146,6 +1173,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   randomBytes,
   getComputerUseMcpCommand,
   checkComputerUsePermissions,
+  setComputerUseMcpEnabled,
   setComputerUseSkysightEnabled,
   setComputerUseSkysightPaused,
   updateComputerUseSkysightExclusion,
@@ -1168,6 +1196,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   getAgentReadySoundPath,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
+  registerQuickCaptureHotkey,
+  unregisterQuickCaptureHotkey,
   getDesktopBootstrapConfig,
   debugDesktopBootstrapConfig,
   setDesktopBootstrapConfig,
@@ -1177,18 +1207,59 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   os,
   applyNativeTheme,
   setApplicationMenuVisible,
-  setKeymapAcceleratorOverrides:
-    applicationMenuController.setKeymapAcceleratorOverrides,
+  setKeymapAcceleratorOverrides: (overrides) => {
+    const result =
+      applicationMenuController.setKeymapAcceleratorOverrides(overrides);
+    try {
+      statusItem.setKeymapAcceleratorOverrides?.(overrides);
+    } catch {
+      // tray may not be installed yet
+    }
+    return result;
+  },
   BrowserWindow,
-  onAppSnapshotHotkey: () => {
-    const wins = BrowserWindow.getAllWindows();
-    for (const win of wins) {
-      if (win.isDestroyed()) continue;
-      try {
-        win.webContents.send("onmyagent:app-snapshot-hotkey");
-      } catch {
-        // ignore
+  setQuickCaptureContext: (next) => {
+    const models = Array.isArray(next?.models)
+      ? next.models
+          .map((entry) => ({
+            providerID: String(entry?.providerID ?? "").trim(),
+            modelID: String(entry?.modelID ?? "").trim(),
+            title: String(entry?.title ?? entry?.modelID ?? "").trim(),
+            disabled: entry?.disabled === true,
+          }))
+          .filter((entry) => entry.providerID && entry.modelID)
+      : [];
+    quickCaptureContext = {
+      workspaceLabel: String(next?.workspaceLabel ?? "").trim(),
+      modelLabel: String(next?.modelLabel ?? "").trim(),
+      selectedProviderID: String(next?.selectedProviderID ?? "").trim(),
+      selectedModelID: String(next?.selectedModelID ?? "").trim(),
+      models,
+    };
+    return { ok: true, ...quickCaptureContext };
+  },
+  toggleQuickCapture: () => quickCapture.toggle(),
+  onQuickCaptureHotkey: () => {
+    void quickCapture.toggle();
+  },
+  onAppSnapshotHotkey: async () => {
+    // Capture in main (desktopCapturer) and deliver payload so Composer attaches
+    // even when the window is not focused (globalShortcut path).
+    try {
+      const payload = await captureComputerUseAppshot();
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (win.isDestroyed()) continue;
+        try {
+          win.webContents.send(COMPUTER_USE_APPSHOT_EVENT, payload);
+        } catch {
+          // ignore
+        }
       }
+    } catch (error) {
+      console.warn(
+        "[app-snapshot-hotkey] capture failed",
+        error instanceof Error ? error.message : error,
+      );
     }
   },
 });
@@ -1207,6 +1278,14 @@ const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 ipcMain.handle(DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
 ipcMain.handle(LEGACY_DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
+ipcMain.handle("quick-capture:get-context", async () => quickCaptureContext);
+ipcMain.handle("quick-capture:submit", async (_event, payload) =>
+  quickCapture.submit(payload ?? {}),
+);
+ipcMain.handle("quick-capture:close", async () => {
+  quickCapture.hide();
+  return { ok: true };
+});
 ipcMain.handle("onmyagent:shell:openExternal", async (_event, url) => {
   return browserController.openAllowedExternalUrl(url);
 });

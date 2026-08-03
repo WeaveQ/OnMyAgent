@@ -19,6 +19,9 @@ let powerSaveBlockerId = null;
 /** @type {string | null} */
 let registeredAppSnapshotAccelerator = null;
 
+/** @type {string | null} */
+let registeredQuickCaptureAccelerator = null;
+
 /**
  * @returns {{
  *   enabled: boolean;
@@ -175,17 +178,18 @@ export function registerAppSnapshotHotkey(accelerator, onTrigger) {
     }
 
     const raw = typeof accelerator === "string" ? accelerator.trim() : "";
-    // double-command / double-control need native listeners; not via globalShortcut.
-    if (!raw || raw === "double-command" || raw === "double-control") {
-      return {
-        ok: true,
-        mode: raw || "none",
-        registered: false,
-        note: "special-combo-requires-native-hook",
-      };
+    // Legacy dual-mod tokens → standard Electron accelerator (no native helper).
+    const normalized =
+      !raw || raw === "double-command" || raw === "double-control"
+        ? raw
+          ? "CommandOrControl+Shift+A"
+          : ""
+        : raw;
+    if (!normalized) {
+      return { ok: true, mode: "none", registered: false };
     }
 
-    const ok = globalShortcut.register(raw, () => {
+    const ok = globalShortcut.register(normalized, () => {
       try {
         onTrigger?.();
       } catch (error) {
@@ -193,9 +197,9 @@ export function registerAppSnapshotHotkey(accelerator, onTrigger) {
       }
     });
     if (ok) {
-      registeredAppSnapshotAccelerator = raw;
+      registeredAppSnapshotAccelerator = normalized;
     }
-    return { ok: Boolean(ok), mode: raw, registered: Boolean(ok) };
+    return { ok: Boolean(ok), mode: normalized, registered: Boolean(ok) };
   } catch (error) {
     return {
       ok: false,
@@ -213,5 +217,57 @@ export function unregisterAppSnapshotHotkey() {
     // ignore
   }
   registeredAppSnapshotAccelerator = null;
+  return { ok: true };
+}
+
+/**
+ * Global shortcut for the quick-capture mini panel (Spotlight-style).
+ * @param {string | null | undefined} accelerator Electron accelerator
+ * @param {() => void} onTrigger
+ */
+export function registerQuickCaptureHotkey(accelerator, onTrigger) {
+  try {
+    if (registeredQuickCaptureAccelerator) {
+      try {
+        globalShortcut.unregister(registeredQuickCaptureAccelerator);
+      } catch {
+        // ignore
+      }
+      registeredQuickCaptureAccelerator = null;
+    }
+
+    const normalized = typeof accelerator === "string" ? accelerator.trim() : "";
+    if (!normalized) {
+      return { ok: true, mode: "none", registered: false };
+    }
+
+    const ok = globalShortcut.register(normalized, () => {
+      try {
+        onTrigger?.();
+      } catch (error) {
+        console.error("[quick-capture-hotkey] trigger failed", error);
+      }
+    });
+    if (ok) {
+      registeredQuickCaptureAccelerator = normalized;
+    }
+    return { ok: Boolean(ok), mode: normalized, registered: Boolean(ok) };
+  } catch (error) {
+    return {
+      ok: false,
+      registered: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export function unregisterQuickCaptureHotkey() {
+  if (!registeredQuickCaptureAccelerator) return { ok: true };
+  try {
+    globalShortcut.unregister(registeredQuickCaptureAccelerator);
+  } catch {
+    // ignore
+  }
+  registeredQuickCaptureAccelerator = null;
   return { ok: true };
 }

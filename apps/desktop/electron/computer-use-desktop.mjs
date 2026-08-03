@@ -10,15 +10,23 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  createAppshotController,
+  isComputerUseAppshotSupported,
+  sanitizeAppshotFileName,
+} from "./computer-use-appshot.mjs";
+import {
+  isComputerUseMcpEnabled,
+  resolveComputerUseRuntimeCommand,
+  resolveWindowsCuaDriver,
+  writeComputerUseMcpPrefsEnabled,
+  writeComputerUseRuntimeConfig,
+} from "./computer-use-runtime-config.mjs";
+
+export { isComputerUseAppshotSupported, sanitizeAppshotFileName };
+
 const COMPUTER_USE_HELPER_APP_NAME = "OnMyAgent Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
-
-/** Appshot native helper is macOS-only (Swift HandsFree). */
-export function isComputerUseAppshotSupported(
-  platform = process.platform,
-) {
-  return platform === "darwin";
-}
 
 /** Product version for Computer Use UI (not Electron runtime version). */
 export function resolveOnMyAgentProductVersion(app) {
@@ -46,66 +54,6 @@ export function resolveOnMyAgentProductVersion(app) {
     // leave undefined
   }
   return undefined;
-}
-
-/**
- * Normalize native Appshot filenames across platforms.
- * - macOS: strips Swift JoinedSequence / ArraySlice debug dumps
- * - Windows: strips reserved names and illegal path characters
- * - Linux: same safe basename rules
- */
-export function sanitizeAppshotFileName(
-  rawName,
-  { platform = process.platform, now = Date.now() } = {},
-) {
-  const raw = typeof rawName === "string" ? rawName.trim() : "";
-  const looksLikeSwiftDump =
-    /JoinedSequence|ArraySlice|ContiguousArray|_base|_separator|Array</i.test(
-      raw,
-    );
-  const base = path.basename(raw.replace(/\\/g, "/"));
-  let candidate = base || raw;
-
-  // Windows-illegal characters + control chars
-  candidate = candidate.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "-");
-  candidate = candidate.replace(/\.+$/g, ""); // trailing dots invalid on Windows
-  candidate = candidate.replace(/\s+/g, " ").trim();
-
-  const reserved =
-    platform === "win32" &&
-    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(candidate);
-
-  const extMatch = candidate.match(/\.(jpe?g|png|webp)$/i);
-  const ext = extMatch ? extMatch[0].toLowerCase() : ".jpg";
-  const stem = extMatch
-    ? candidate.slice(0, -extMatch[0].length)
-    : candidate;
-
-  const safeStem =
-    stem &&
-    stem.length <= 80 &&
-    !looksLikeSwiftDump &&
-    !reserved &&
-    !/JoinedSequence|ArraySlice/i.test(stem)
-      ? stem
-      : null;
-
-  if (safeStem && /^Appshot[-_\w. ()]+$/i.test(safeStem)) {
-    return `${safeStem}${ext === ".jpeg" ? ".jpg" : ext}`;
-  }
-
-  const stamp = new Date(now);
-  const pad = (n) => String(n).padStart(2, "0");
-  const stampText = [
-    stamp.getFullYear(),
-    pad(stamp.getMonth() + 1),
-    pad(stamp.getDate()),
-    "-",
-    pad(stamp.getHours()),
-    pad(stamp.getMinutes()),
-    pad(stamp.getSeconds()),
-  ].join("");
-  return `Appshot-${stampText}.jpg`;
 }
 
 export function parseComputerUseStatus(stdout) {
@@ -176,9 +124,27 @@ export function createComputerUseDesktopHelpers(input) {
   const readFile = input.readFile ?? readFileSync;
   const resolveComputerUseExecutableOverride = input.resolveComputerUseExecutable;
   let skysightRecorder = null;
-  let appshotMonitor = null;
   let watchedActivityFile = null;
-  let watchedAppshotFile = null;
+
+  // Appshot is a separate controller (capture / hotkey monitor / event watch).
+  let appshot = null;
+  const getAppshot = () => {
+    if (!appshot) {
+      appshot = createAppshotController({
+        app,
+        systemPreferences,
+        desktopCapturer,
+        screen: input.screen ?? null,
+        readFile,
+        writeFile: input.writeFile,
+      });
+    }
+    return appshot;
+  };
+
+function desktopRootPath() {
+  return path.resolve(dirname, "..");
+}
 
 function computerUseHelperExecutablePath() {
   const appPath = computerUseHelperAppPath();
@@ -217,8 +183,23 @@ function computerUseHelperAppPath() {
 }
 
 function getComputerUseMcpCommand() {
-  const helperExecutable = computerUseHelperExecutablePath();
-  if (helperExecutable) return [helperExecutable, "mcp"];
+  const command = resolveComputerUseRuntimeCommand({
+    platform: process.platform,
+    desktopRoot: desktopRootPath(),
+    resourcesPath: process.resourcesPath,
+    explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+    devMode:
+      process.env.ONMYAGENT_DEV_MODE === "1" || app.isPackaged === false,
+  });
+  if (command) return command;
+
+  if (process.platform === "win32") {
+    throw new Error(
+      app.isPackaged
+        ? "Cua Driver is missing from this OnMyAgent build. Reinstall the app."
+        : "Cua Driver not staged. Run: node apps/desktop/scripts/prepare-cua-helper.mjs --force-target",
+    );
+  }
 
   if (app.isPackaged) {
     throw new Error(
@@ -238,6 +219,52 @@ function getComputerUseMcpCommand() {
     ];
   }
   return ["npx", "-y", "@onmyagent/handsfree", "mcp"];
+}
+
+function resolveMcpEnabledForPlatform() {
+  let userDataDir;
+  try {
+    userDataDir = app.getPath("userData");
+  } catch {
+    userDataDir = undefined;
+  }
+  return isComputerUseMcpEnabled({
+    platform: process.platform,
+    userDataDir,
+  });
+}
+
+/**
+ * Persist MCP enable preference and refresh OpenCode overlay when possible.
+ * @param {boolean} enabled
+ */
+async function setComputerUseMcpEnabled(enabled) {
+  if (typeof enabled !== "boolean") {
+    throw new Error("Computer Use MCP enabled state must be a boolean.");
+  }
+  let userDataDir;
+  try {
+    userDataDir = app.getPath("userData");
+  } catch {
+    throw new Error("Cannot resolve userData for Computer Use preferences.");
+  }
+  writeComputerUseMcpPrefsEnabled(userDataDir, enabled);
+
+  // Keep managed OpenCode overlay in sync when we own computer-use config.
+  try {
+    const command = getComputerUseMcpCommand();
+    const configDir =
+      process.env.OPENCODE_CONFIG_DIR?.trim() ||
+      path.join(userDataDir, "opencode");
+    await writeComputerUseRuntimeConfig(configDir, command, { enabled });
+  } catch (error) {
+    console.warn(
+      "[ComputerUse] could not rewrite OpenCode overlay:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
+  return checkComputerUsePermissions();
 }
 
 // ---------------------------------------------------------------------------
@@ -299,23 +326,52 @@ function resolveComputerUseExecutable() {
 }
 
 async function checkComputerUsePermissions() {
-  // Spawn binary --check → read JSON from stdout → exit. Always fresh.
+  const desktopVersion = resolveOnMyAgentProductVersion(app);
+  const mcpEnabled = resolveMcpEnabledForPlatform();
+
+  // Windows: Cua Driver stage check (no HandsFree --status / TCC).
+  if (process.platform === "win32") {
+    const cua = resolveWindowsCuaDriver({
+      desktopRoot: desktopRootPath(),
+      resourcesPath: process.resourcesPath,
+      explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+    });
+    const present = Boolean(cua);
+    return {
+      ok: present,
+      accessibility: present,
+      screenRecording: present,
+      backend: present ? "cua" : "none",
+      mcpEnabled,
+      helperVersion: present ? "cua-driver" : undefined,
+      // protocolVersion 1 keeps settings "runtime compatible" UI green when staged.
+      protocolVersion: present ? 1 : undefined,
+      desktopVersion,
+      error: present
+        ? undefined
+        : "Cua Driver not staged. Run prepare-cua-helper or reinstall OnMyAgent.",
+    };
+  }
+
+  // macOS: Spawn HandsFree --status → read JSON from stdout → exit.
   const bin = resolveComputerUseExecutable();
   if (!bin) {
     return {
       ok: false,
       accessibility: false,
       screenRecording: false,
+      backend: "none",
+      mcpEnabled,
+      desktopVersion,
       error: "Helper binary not found. Run pnpm dev to build it.",
     };
   }
   const status = await spawnCheckPermissions(bin);
-  if (status.accessibility === true && status.screenRecording === true) {
-    startAppshotMonitor(bin);
-  }
   return {
     ...status,
-    desktopVersion: resolveOnMyAgentProductVersion(app),
+    backend: "handsfree",
+    mcpEnabled,
+    desktopVersion,
     ...(status.skysight
       ? {
           skysight: {
@@ -404,70 +460,16 @@ function runComputerUseJSONCommand(bin, args) {
   });
 }
 
-function appshotAttachmentPayload(result) {
-  if (
-    typeof result !== "object" || result === null || result.ok !== true ||
-    typeof result.path !== "string" || typeof result.name !== "string" ||
-    typeof result.mimeType !== "string"
-  ) {
-    throw new Error("Computer Use returned an invalid Appshot result.");
-  }
-  return {
-    // Sanitize on every platform so a bad native name never reaches the UI.
-    name: sanitizeAppshotFileName(result.name),
-    mimeType: result.mimeType,
-    data: readFile(result.path).toString("base64"),
-    ...(typeof result.appName === "string" ? { appName: result.appName } : {}),
-  };
-}
-
-function appshotUnsupportedError() {
-  const platform = process.platform;
-  if (platform === "win32") {
-    return new Error(
-      "Appshot is only available on macOS. Windows support is not available yet.",
-    );
-  }
-  if (platform === "linux") {
-    return new Error(
-      "Appshot is only available on macOS. Linux support is not available yet.",
-    );
-  }
-  return new Error("Appshot is not available on this platform.");
-}
-
 async function captureComputerUseAppshot() {
-  // Native Appshot helper is Swift / Accessibility / Screen Recording — macOS only.
-  if (!isComputerUseAppshotSupported()) {
-    throw appshotUnsupportedError();
-  }
-  const bin = resolveComputerUseExecutable();
-  if (!bin) {
-    throw new Error("Helper binary not found. Run pnpm dev to build it.");
-  }
-  return appshotAttachmentPayload(
-    await runComputerUseJSONCommand(bin, ["appshot", "capture"]),
-  );
+  return getAppshot().captureComputerUseAppshot();
 }
 
-function startAppshotMonitor(bin) {
-  if (!isComputerUseAppshotSupported()) return;
-  if (appshotMonitor !== null && appshotMonitor.exitCode === null) return;
-  const child = spawnProcess(bin, ["appshot", "monitor"], { stdio: "ignore" });
-  appshotMonitor = child;
-  child.on("error", (error) => {
-    console.warn("[ComputerUse] Appshot monitor failed:", error.message);
-  });
-  child.on("exit", () => {
-    if (appshotMonitor === child) appshotMonitor = null;
-  });
+function startAppshotMonitor() {
+  getAppshot().startAppshotMonitor();
 }
 
 function stopAppshotMonitor() {
-  if (appshotMonitor !== null && appshotMonitor.exitCode === null) {
-    appshotMonitor.kill("SIGTERM");
-  }
-  appshotMonitor = null;
+  getAppshot().stopAppshotMonitor();
 }
 
 async function setComputerUseSkysightEnabled(enabled) {
@@ -553,50 +555,23 @@ async function clearComputerUseAppAuthorizations() {
 
 async function restoreComputerUseServices() {
   const bin = resolveComputerUseExecutable();
-  if (!bin) return;
-  const status = await spawnCheckPermissions(bin);
-  if (status.skysight?.enabled === true) startSkysightRecorder(bin);
-  if (status.accessibility === true && status.screenRecording === true) {
-    startAppshotMonitor(bin);
+  if (bin) {
+    const status = await spawnCheckPermissions(bin);
+    if (status.skysight?.enabled === true) startSkysightRecorder(bin);
   }
 }
 
 function disposeComputerUseServices() {
   stopSkysightRecorder();
-  stopAppshotMonitor();
+  getAppshot().disposeAppshot();
   if (watchedActivityFile) {
     unwatchFile(watchedActivityFile);
     watchedActivityFile = null;
   }
-  if (watchedAppshotFile) {
-    unwatchFile(watchedAppshotFile);
-    watchedAppshotFile = null;
-  }
 }
 
 function watchComputerUseAppshots(onAppshot) {
-  if (!isComputerUseAppshotSupported()) {
-    return () => {};
-  }
-  if (watchedAppshotFile) unwatchFile(watchedAppshotFile);
-  const eventFile = path.join(
-    os.homedir(),
-    "Library", "Application Support", "OnMyAgent", "ComputerUse",
-    "Appshots", "latest-event.json",
-  );
-  watchedAppshotFile = eventFile;
-  watchFile(eventFile, { interval: 250 }, (current, previous) => {
-    if (current.mtimeMs === previous.mtimeMs || !existsSync(eventFile)) return;
-    try {
-      onAppshot(appshotAttachmentPayload(JSON.parse(readFile(eventFile, "utf8"))));
-    } catch (error) {
-      console.warn("[ComputerUse] Failed to deliver Appshot:", error.message);
-    }
-  });
-  return () => {
-    if (watchedAppshotFile === eventFile) watchedAppshotFile = null;
-    unwatchFile(eventFile);
-  };
+  return getAppshot().watchComputerUseAppshots(onAppshot);
 }
 
 function watchComputerUseActivity(onActivity) {
@@ -983,21 +958,10 @@ async function openSystemPermissionSettings(type) {
     }
   }
 
-  // Screen recording: touch desktopCapturer to surface the app in the list,
+  // Screen recording: touch desktopCapturer so the app appears in the list,
   // then open Privacy → Screen Recording (no askForMediaAccess for screen).
   if (type === "screen-recording") {
-    try {
-      if (desktopCapturer?.getSources) {
-        void desktopCapturer
-          .getSources({
-            types: ["screen"],
-            thumbnailSize: { width: 1, height: 1 },
-          })
-          .catch(() => undefined);
-      }
-    } catch {
-      // ignore
-    }
+    await getAppshot().primeScreenRecordingPermission();
   }
 
   // Automation: register in Privacy → Automation list, then re-probe cache.
@@ -1102,12 +1066,47 @@ function spawnCheckPermissions(bin) {
 }
 
 async function openComputerUseSetupApp() {
+  // Windows: no HandsFree setup GUI. In-app Settings → System is the primary
+  // surface (renderer navigates there). Optionally open capture privacy pane.
+  if (process.platform === "win32") {
+    try {
+      // Programmatic capture / screen access — closer to Computer Use than mouse ease-of-access.
+      await shell.openExternal(
+        "ms-settings:privacy-graphicscaptureprogrammatic",
+      );
+    } catch (error) {
+      console.warn(
+        "[ComputerUse] open Windows privacy settings failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return;
+  }
+
   // Open the GUI. Use the .app bundle if available so macOS shows it as
   // a real app with its own dock icon and permission identity.
+  //
+  // Always force a *new* instance (`open -n`): if a setup window was already
+  // open before the user toggled TCC, Launch Services would only activate the
+  // stale process and badges would keep saying "Needed".
   const appPath = computerUseHelperAppPath();
   if (appPath) {
-    const result = await shell.openPath(appPath);
-    if (result) console.error("[ComputerUse] shell.openPath error:", result);
+    const openResult = spawnSync(
+      "open",
+      ["-n", "-a", appPath],
+      { encoding: "utf8" },
+    );
+    if (openResult.status !== 0) {
+      const fallback = await shell.openPath(appPath);
+      if (fallback) {
+        console.error(
+          "[ComputerUse] open -n failed:",
+          openResult.stderr?.trim() || openResult.error,
+          "shell.openPath:",
+          fallback,
+        );
+      }
+    }
     return;
   }
 
@@ -1123,6 +1122,7 @@ async function openComputerUseSetupApp() {
   return {
     getComputerUseMcpCommand,
     checkComputerUsePermissions,
+    setComputerUseMcpEnabled,
     setComputerUseSkysightEnabled,
     setComputerUseSkysightPaused,
     updateComputerUseSkysightExclusion,
