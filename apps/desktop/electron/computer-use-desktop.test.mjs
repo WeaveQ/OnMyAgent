@@ -8,6 +8,8 @@ import {
   parseComputerUseActivity,
   parseComputerUseStatus,
   resolveOnMyAgentProductVersion,
+  sanitizeAppshotFileName,
+  isComputerUseAppshotSupported,
 } from "./computer-use-desktop.mjs";
 
 class FakeChildProcess extends EventEmitter {
@@ -18,53 +20,82 @@ class FakeChildProcess extends EventEmitter {
   /** @type {string[]} */
   killSignals = [];
 
-  /** @param {string} signal */
-  kill(signal) {
+  kill(signal = "SIGTERM") {
     this.killSignals.push(signal);
     this.exitCode = 0;
+    this.emit("exit", 0, signal);
   }
 }
 
 test("resolveOnMyAgentProductVersion prefers product version over Electron runtime version", () => {
   assert.equal(
-    resolveOnMyAgentProductVersion({ getVersion: () => "0.4.13" }),
-    "0.4.13",
+    resolveOnMyAgentProductVersion({ getVersion: () => "0.4.16" }),
+    "0.4.16",
   );
-  // Electron majors are large; fall back to apps/desktop/package.json.
-  const fallback = resolveOnMyAgentProductVersion({ getVersion: () => "39.8.10" });
-  assert.match(fallback, /^\d+\.\d+\.\d+/);
-  assert.notEqual(fallback, "39.8.10");
+});
+
+test("getComputerUseMcpCommand on win32 uses staged Cua via runtime resolve", async () => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-cua-cmd-"));
+  try {
+    const exe = path.join(root, "resources/helpers/cua/cua-driver.exe");
+    await mkdir(path.dirname(exe), { recursive: true });
+    await writeFile(exe, "driver");
+    const helpers = createComputerUseDesktopHelpers({
+      app: {
+        getVersion: () => "0.4.16",
+        isPackaged: true,
+        getPath: () => root,
+      },
+      shell: {},
+      dialog: {},
+      systemPreferences: {},
+      // dirname is electron/ — desktop root is parent
+      dirname: path.join(root, "electron"),
+    });
+    // Point desktop root layout: helpers expects dirname/../resources
+    await mkdir(path.join(root, "electron"), { recursive: true });
+    // Re-stage under electron/../resources = root/resources (already written)
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      const cmd = helpers.getComputerUseMcpCommand();
+      assert.ok(Array.isArray(cmd));
+      assert.equal(cmd[0], "cmd.exe");
+      assert.ok(cmd.some((p) => String(p).includes("cua-driver.exe")));
+    } finally {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("parseComputerUseStatus preserves permission, version, activity, Skysight, and app authorization state", () => {
-  assert.deepEqual(
-    parseComputerUseStatus(JSON.stringify({
+  const parsed = parseComputerUseStatus(
+    JSON.stringify({
       ok: true,
       accessibility: true,
       screenRecording: true,
       helperVersion: "1.2.3",
-      protocolVersion: 1,
-      activity: { phase: "paused", reason: "physical_input" },
+      protocolVersion: 2,
+      activity: { phase: "running", app: "Safari" },
       skysight: { enabled: true, retentionDays: 30 },
-      appAuthorizations: {
-        version: 1,
-        allowedBundleIdentifiers: ["com.apple.Safari"],
-      },
-    })),
-    {
-      ok: true,
-      accessibility: true,
-      screenRecording: true,
-      helperVersion: "1.2.3",
-      protocolVersion: 1,
-      activity: { phase: "paused", reason: "physical_input" },
-      skysight: { enabled: true, retentionDays: 30 },
-      appAuthorizations: {
-        version: 1,
-        allowedBundleIdentifiers: ["com.apple.Safari"],
-      },
-    },
+      appAuthorizations: { allowedBundleIdentifiers: ["com.apple.Safari"] },
+    }),
   );
+  assert.deepEqual(parsed, {
+    ok: true,
+    accessibility: true,
+    screenRecording: true,
+    helperVersion: "1.2.3",
+    protocolVersion: 2,
+    activity: { phase: "running", app: "Safari" },
+    skysight: { enabled: true, retentionDays: 30 },
+    appAuthorizations: { allowedBundleIdentifiers: ["com.apple.Safari"] },
+  });
 });
 
 test("authorization helpers revoke one app or clear all and return fresh status", async () => {
@@ -74,12 +105,14 @@ test("authorization helpers revoke one app or clear all and return fresh status"
     const child = new FakeChildProcess();
     queueMicrotask(() => {
       if (args[0] === "--status") {
-        child.stdout.write(`${JSON.stringify({
-          ok: true,
-          accessibility: true,
-          screenRecording: true,
-          appAuthorizations: { version: 1, allowedBundleIdentifiers: [] },
-        })}\n`);
+        child.stdout.write(
+          `${JSON.stringify({
+            ok: true,
+            accessibility: true,
+            screenRecording: true,
+            appAuthorizations: { allowedBundleIdentifiers: [] },
+          })}\n`,
+        );
         child.stdout.end();
       }
       child.exitCode = 0;
@@ -96,12 +129,10 @@ test("authorization helpers revoke one app or clear all and return fresh status"
     spawnProcess,
     resolveComputerUseExecutable: () => "/fake/ComputerUse",
   });
-
-  await helpers.revokeComputerUseAppAuthorization("com.apple.Safari");
+  await helpers.revokeComputerUseAppAuthorization("com.apple.Notes");
   await helpers.clearComputerUseAppAuthorizations();
-
   assert.equal(
-    spawned.some((args) => args.join(" ") === "authorization revoke com.apple.Safari"),
+    spawned.some((args) => args.join(" ") === "authorization revoke com.apple.Notes"),
     true,
   );
   assert.equal(
@@ -111,41 +142,47 @@ test("authorization helpers revoke one app or clear all and return fresh status"
 });
 
 test("parseComputerUseStatus rejects malformed helper output", () => {
-  assert.equal(parseComputerUseStatus("not-json"), null);
-  assert.equal(parseComputerUseStatus("{}"), null);
+  assert.equal(parseComputerUseStatus("{"), null);
+  assert.equal(parseComputerUseStatus(JSON.stringify({ ok: true })), null);
 });
 
 test("parseComputerUseActivity accepts only known runtime phases", () => {
-  assert.deepEqual(parseComputerUseActivity({
-    phase: "paused",
-    app: "Safari",
-    reason: "physical_input",
-  }), {
-    phase: "paused",
-    app: "Safari",
-    reason: "physical_input",
+  assert.deepEqual(parseComputerUseActivity({ phase: "ready" }), {
+    phase: "ready",
   });
+  assert.deepEqual(
+    parseComputerUseActivity({
+      phase: "paused",
+      app: "Safari",
+      reason: "physical_input",
+    }),
+    {
+      phase: "paused",
+      app: "Safari",
+      reason: "physical_input",
+    },
+  );
   assert.equal(parseComputerUseActivity({ phase: "unknown" }), null);
 });
 
 test("Skysight restore starts one managed recorder and dispose terminates it", async () => {
   const spawned = [];
   const recorder = new FakeChildProcess();
-  const appshotMonitor = new FakeChildProcess();
 
   const spawnProcess = (_bin, args) => {
     spawned.push(args);
     if (args[0] === "skysight" && args[1] === "record") return recorder;
-    if (args[0] === "appshot" && args[1] === "monitor") return appshotMonitor;
     const child = new FakeChildProcess();
     queueMicrotask(() => {
       if (args[0] === "--status") {
-        child.stdout.write(`${JSON.stringify({
-          ok: true,
-          accessibility: true,
-          screenRecording: true,
-          skysight: { enabled: true, retentionDays: 30 },
-        })}\n`);
+        child.stdout.write(
+          `${JSON.stringify({
+            ok: true,
+            accessibility: true,
+            screenRecording: true,
+            skysight: { enabled: true, retentionDays: 30 },
+          })}\n`,
+        );
         child.stdout.end();
       }
       child.exitCode = 0;
@@ -169,11 +206,9 @@ test("Skysight restore starts one managed recorder and dispose terminates it", a
   const status = await helpers.checkComputerUsePermissions();
 
   assert.equal(spawned.filter((args) => args.join(" ") === "skysight record").length, 1);
-  assert.equal(spawned.filter((args) => args.join(" ") === "appshot monitor").length, 1);
   assert.equal(status.skysight.recording, true);
   helpers.disposeComputerUseServices();
   assert.deepEqual(recorder.killSignals, ["SIGTERM"]);
-  assert.deepEqual(appshotMonitor.killSignals, ["SIGTERM"]);
 });
 
 test("Skysight helpers pause, resume, and update exclusions", async () => {
@@ -183,17 +218,18 @@ test("Skysight helpers pause, resume, and update exclusions", async () => {
     const child = new FakeChildProcess();
     queueMicrotask(() => {
       if (args[0] === "--status") {
-        child.stdout.write(`${JSON.stringify({
-          ok: true,
-          accessibility: true,
-          screenRecording: true,
-          skysight: {
-            enabled: true,
-            paused: false,
-            retentionDays: 30,
-            exclusions: [{ scope: "private_browsing" }],
-          },
-        })}\n`);
+        child.stdout.write(
+          `${JSON.stringify({
+            ok: true,
+            accessibility: true,
+            screenRecording: true,
+            skysight: {
+              enabled: true,
+              paused: args[1] === "pause",
+              retentionDays: 30,
+            },
+          })}\n`,
+        );
         child.stdout.end();
       }
       child.exitCode = 0;
@@ -210,12 +246,10 @@ test("Skysight helpers pause, resume, and update exclusions", async () => {
     spawnProcess,
     resolveComputerUseExecutable: () => "/fake/ComputerUse",
   });
-
   await helpers.setComputerUseSkysightPaused(true);
   await helpers.setComputerUseSkysightPaused(false);
   await helpers.updateComputerUseSkysightExclusion("add", "website", "example.com");
   await helpers.updateComputerUseSkysightExclusion("remove", "private_browsing");
-
   assert.equal(spawned.some((args) => args.join(" ") === "skysight pause"), true);
   assert.equal(spawned.some((args) => args.join(" ") === "skysight resume"), true);
   assert.equal(
@@ -228,50 +262,97 @@ test("Skysight helpers pause, resume, and update exclusions", async () => {
   );
 });
 
-test("Appshot capture returns an attachable image payload", async () => {
-  const spawned = [];
-  const spawnProcess = (_bin, args) => {
-    spawned.push(args);
-    const child = new FakeChildProcess();
-    queueMicrotask(() => {
-      child.stdout.write(`${JSON.stringify({
-        ok: true,
-        path: "/tmp/appshot.jpg",
-        name: "Appshot-Safari.jpg",
-        mimeType: "image/jpeg",
-      })}\n`);
-      child.stdout.end();
-      child.exitCode = 0;
-      child.emit("close", 0);
-    });
-    return child;
+test("Appshot is supported on desktop platforms", () => {
+  assert.equal(isComputerUseAppshotSupported("darwin"), true);
+  assert.equal(isComputerUseAppshotSupported("win32"), true);
+  assert.equal(isComputerUseAppshotSupported("linux"), true);
+  assert.equal(isComputerUseAppshotSupported("android"), false);
+});
+
+test("Appshot capture uses Electron desktopCapturer", async () => {
+  const jpeg = Buffer.alloc(12_000, 0x80);
+  const nativeImage = {
+    isEmpty: () => false,
+    resize: () => ({
+      toBitmap: () => Buffer.alloc(32 * 32 * 4, 180),
+    }),
+    toJPEG: () => jpeg,
   };
+  /** @type {Map<string, Buffer>} */
+  const files = new Map();
+  const helpers = createComputerUseDesktopHelpers({
+    app: { getVersion: () => "0.1.0", isPackaged: false, getName: () => "OnMyAgent" },
+    shell: {},
+    dialog: {},
+    systemPreferences: { getMediaAccessStatus: () => "granted" },
+    dirname: "/tmp/onmyagent/electron",
+    desktopCapturer: {
+      getSources: async () => [{ name: "Entire Screen", thumbnail: nativeImage }],
+    },
+    screen: {
+      getPrimaryDisplay: () => ({
+        id: 1,
+        size: { width: 1280, height: 720 },
+        scaleFactor: 2,
+      }),
+    },
+    writeFile: (p, data) => {
+      files.set(String(p), Buffer.isBuffer(data) ? data : Buffer.from(String(data)));
+    },
+    readFile: (p) => {
+      const hit = files.get(String(p));
+      if (!hit) throw new Error(`missing ${p}`);
+      return hit;
+    },
+  });
+  const result = await helpers.captureComputerUseAppshot();
+  assert.equal(result.mimeType, "image/jpeg");
+  assert.match(result.name, /^Appshot-.*-Desktop\.jpg$/);
+  assert.equal(result.data, jpeg.toString("base64"));
+});
+
+test("Appshot capture fails clearly when desktopCapturer returns black", async () => {
+  const blackThumb = {
+    isEmpty: () => false,
+    resize: () => ({
+      toBitmap: () => Buffer.alloc(32 * 32 * 4, 0),
+    }),
+    toJPEG: () => Buffer.alloc(100, 0),
+  };
+  const helpers = createComputerUseDesktopHelpers({
+    app: { getVersion: () => "0.1.0", isPackaged: false, getName: () => "OnMyAgent" },
+    shell: {},
+    dialog: {},
+    systemPreferences: { getMediaAccessStatus: () => "granted" },
+    dirname: "/tmp/onmyagent/electron",
+    desktopCapturer: {
+      getSources: async () => [{ name: "Entire Screen", thumbnail: blackThumb }],
+    },
+    screen: {
+      getPrimaryDisplay: () => ({ id: 1, size: { width: 800, height: 600 }, scaleFactor: 1 }),
+    },
+  });
+  await assert.rejects(
+    () => helpers.captureComputerUseAppshot(),
+    /black image|Screen Recording/i,
+  );
+});
+
+test("Appshot capture fails when desktopCapturer is missing", async () => {
   const helpers = createComputerUseDesktopHelpers({
     app: { getVersion: () => "0.1.0", isPackaged: false },
     shell: {},
     dialog: {},
     systemPreferences: {},
     dirname: "/tmp/onmyagent/electron",
-    spawnProcess,
-    readFile: () => Buffer.from("jpeg-bytes"),
-    resolveComputerUseExecutable: () => "/fake/ComputerUse",
   });
-  // Force macOS path for this unit test regardless of host OS.
-  const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
-  Object.defineProperty(process, "platform", { value: "darwin" });
-  try {
-    const result = await helpers.captureComputerUseAppshot();
-    assert.equal(spawned.some((args) => args.join(" ") === "appshot capture"), true);
-    assert.equal(result.mimeType, "image/jpeg");
-    assert.equal(result.name, "Appshot-Safari.jpg");
-    assert.equal(result.data, Buffer.from("jpeg-bytes").toString("base64"));
-  } finally {
-    if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
-  }
+  await assert.rejects(
+    () => helpers.captureComputerUseAppshot(),
+    /not available/i,
+  );
 });
 
-test("sanitizeAppshotFileName strips Swift JoinedSequence dumps", async () => {
-  const { sanitizeAppshotFileName } = await import("./computer-use-desktop.mjs");
+test("sanitizeAppshotFileName strips Swift JoinedSequence dumps", () => {
   const garbage =
     'Appshot-20260720-JoinedSequence<Array<ArraySlice<Character>>>(_base: [ArraySlice(["O"])], _separator: ContiguousArray(["-"])).jpg';
   const safe = sanitizeAppshotFileName(garbage, { platform: "darwin", now: 0 });
@@ -279,32 +360,8 @@ test("sanitizeAppshotFileName strips Swift JoinedSequence dumps", async () => {
   assert.match(safe, /^Appshot-\d{8}-\d{6}\.jpg$/);
 });
 
-test("sanitizeAppshotFileName handles Windows reserved names", async () => {
-  const { sanitizeAppshotFileName } = await import("./computer-use-desktop.mjs");
+test("sanitizeAppshotFileName handles Windows reserved names", () => {
   const safe = sanitizeAppshotFileName("CON.jpg", { platform: "win32", now: 0 });
   assert.equal(safe.toLowerCase().startsWith("con"), false);
   assert.match(safe, /^Appshot-\d{8}-\d{6}\.jpg$/);
-});
-
-test("Appshot capture rejects non-macOS platforms", async () => {
-  const helpers = createComputerUseDesktopHelpers({
-    app: { getVersion: () => "0.1.0", isPackaged: false },
-    shell: {},
-    dialog: {},
-    systemPreferences: {},
-    dirname: "/tmp/onmyagent/electron",
-    spawnProcess: () => new FakeChildProcess(),
-    readFile: () => Buffer.from("jpeg-bytes"),
-    resolveComputerUseExecutable: () => "/fake/ComputerUse",
-  });
-  const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
-  Object.defineProperty(process, "platform", { value: "win32" });
-  try {
-    await assert.rejects(
-      () => helpers.captureComputerUseAppshot(),
-      /only available on macOS/i,
-    );
-  } finally {
-    if (originalPlatform) Object.defineProperty(process, "platform", originalPlatform);
-  }
 });

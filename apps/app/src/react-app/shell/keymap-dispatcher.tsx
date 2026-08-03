@@ -18,7 +18,6 @@ import {
   clearPressedCodes,
   detectKeymapPlatform,
   matchKeymapAction,
-  matchSpecialAppSnapshot,
   noteKeyDownCode,
   noteKeyUpCode,
   resolveAccelerator,
@@ -30,6 +29,10 @@ import { useUiStateStore } from "./ui-state-store";
 export const KEYMAP_EVENT_NEW_TASK = "onmyagent:keymap:new-task";
 export const KEYMAP_EVENT_SEARCH_IN_TASK = "onmyagent:keymap:search-in-task";
 export const KEYMAP_EVENT_APP_SNAPSHOT = "onmyagent:keymap:app-snapshot";
+export const KEYMAP_EVENT_QUICK_CAPTURE = "onmyagent:keymap:quick-capture";
+export const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
+export const NATIVE_MENU_RECENT_SESSION_EVENT =
+  "onmyagent:native-menu:recent-session";
 
 function pageModeFromPathname(pathname: string): "assistant" | "expert" {
   return pathname.includes("/assistant") ? "assistant" : "expert";
@@ -38,12 +41,17 @@ function pageModeFromPathname(pathname: string): "assistant" | "expert" {
 function openSettingsNavigate(
   navigate: ReturnType<typeof useNavigate>,
   location: ReturnType<typeof useLocation>,
+  tab: string = "general",
 ) {
+  const safeTab = tab.trim() || "general";
   if (location.pathname.includes("/settings")) {
     navigate(
       location.pathname.includes("/workspace/")
-        ? location.pathname.replace(/\/settings\/.*$/, "/settings/general")
-        : "/settings/general",
+        ? location.pathname.replace(
+            /\/settings\/.*$/,
+            `/settings/${safeTab}`,
+          )
+        : `/settings/${safeTab}`,
       { replace: true, state: location.state },
     );
     return;
@@ -57,8 +65,8 @@ function openSettingsNavigate(
   );
   const sessionId = sessionMatch ? decodeURIComponent(sessionMatch[1]) : null;
   const target = workspaceId
-    ? `/workspace/${encodeURIComponent(workspaceId)}/settings/general`
-    : "/settings/general";
+    ? `/workspace/${encodeURIComponent(workspaceId)}/settings/${safeTab}`
+    : `/settings/${safeTab}`;
   navigate(target, {
     state: {
       workspaceId,
@@ -73,13 +81,12 @@ function dispatchWindowEvent(name: string) {
   window.dispatchEvent(new CustomEvent(name));
 }
 
-async function runAppSnapshot() {
-  if (!isDesktopRuntime()) return;
-  try {
-    await desktopBridge.captureComputerUseAppshot();
-  } catch (error) {
-    console.warn("[keymap] app snapshot failed", error);
-  }
+/**
+ * Trigger desktop capture. Composer listens for KEYMAP_EVENT_APP_SNAPSHOT and
+ * attaches the result; globalShortcut path also sends computerUse.onAppshot payload.
+ */
+function requestAppSnapshot() {
+  dispatchWindowEvent(KEYMAP_EVENT_APP_SNAPSHOT);
 }
 
 /**
@@ -108,7 +115,7 @@ export function KeymapDispatcher() {
       .catch(() => undefined);
   }, [local.prefs.keymapOverrides]);
 
-  // Register app-snapshot globalShortcut when it's a normal accelerator (not dual-mod).
+  // Register app-snapshot globalShortcut (Electron; fully customizable in Settings).
   useEffect(() => {
     if (!isDesktopRuntime()) return;
     const platform = detectKeymapPlatform();
@@ -117,11 +124,7 @@ export function KeymapDispatcher() {
       local.prefs.keymapOverrides,
       platform,
     );
-    if (
-      !accel ||
-      accel === "double-command" ||
-      accel === "double-control"
-    ) {
+    if (!accel) {
       void desktopBridge.unregisterAppSnapshotHotkey().catch(() => undefined);
       return;
     }
@@ -135,6 +138,29 @@ export function KeymapDispatcher() {
       void desktopBridge.unregisterAppSnapshotHotkey().catch(() => undefined);
     };
   }, [local.prefs.keymapOverrides, local.prefs.appSnapshotHotkey]);
+
+  // Register quick-capture globalShortcut (mini panel; works while app is backgrounded).
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    const platform = detectKeymapPlatform();
+    const accel = resolveAccelerator(
+      "quickCapture",
+      local.prefs.keymapOverrides,
+      platform,
+    );
+    if (!accel) {
+      void desktopBridge.unregisterQuickCaptureHotkey().catch(() => undefined);
+      return;
+    }
+    const first = accel.split("|")[0]?.trim();
+    if (!first) return;
+    void desktopBridge
+      .registerQuickCaptureHotkey(first)
+      .catch(() => undefined);
+    return () => {
+      void desktopBridge.unregisterQuickCaptureHotkey().catch(() => undefined);
+    };
+  }, [local.prefs.keymapOverrides]);
 
   useEffect(() => {
     const platform = detectKeymapPlatform();
@@ -163,8 +189,15 @@ export function KeymapDispatcher() {
           return true;
         case "appSnapshot":
           event.preventDefault();
-          void runAppSnapshot();
-          dispatchWindowEvent(KEYMAP_EVENT_APP_SNAPSHOT);
+          requestAppSnapshot();
+          return true;
+        case "quickCapture":
+          event.preventDefault();
+          if (isDesktopRuntime()) {
+            void desktopBridge.toggleQuickCapture().catch(() => undefined);
+          } else {
+            dispatchWindowEvent(KEYMAP_EVENT_QUICK_CAPTURE);
+          }
           return true;
         default:
           return false;
@@ -173,25 +206,6 @@ export function KeymapDispatcher() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code) noteKeyDownCode(event.code);
-
-      // Dual-modifier app snapshot (⌘+⌘ / Ctrl+Ctrl)
-      const snapAccel = resolveAccelerator(
-        "appSnapshot",
-        overridesRef.current,
-        platform,
-      );
-      if (
-        matchSpecialAppSnapshot(platform, snapAccel) &&
-        (event.code === "MetaLeft" ||
-          event.code === "MetaRight" ||
-          event.code === "ControlLeft" ||
-          event.code === "ControlRight")
-      ) {
-        event.preventDefault();
-        void runAppSnapshot();
-        dispatchWindowEvent(KEYMAP_EVENT_APP_SNAPSHOT);
-        return;
-      }
 
       // Ignore pure modifier keys for normal matching
       if (
@@ -232,10 +246,16 @@ export function KeymapDispatcher() {
   // Native menu / menu-bar status-item events (Electron main → preload → window).
   useEffect(() => {
     const openSettings = () =>
-      openSettingsNavigate(navigateRef.current, locationRef.current);
+      openSettingsNavigate(navigateRef.current, locationRef.current, "general");
     const onNewTask = () => dispatchWindowEvent(KEYMAP_EVENT_NEW_TASK);
     const onDesktopPermissions = () => {
-      // Prefer opening the OS permission helper; fall back is no-op if not desktop.
+      // Tray "桌面控制权限": open in-app System settings (authorizations),
+      // not AI/model settings. Also open OS/helper grant flow when available.
+      openSettingsNavigate(
+        navigateRef.current,
+        locationRef.current,
+        "system",
+      );
       if (!isDesktopRuntime()) return;
       void desktopBridge.openComputerUsePermissionSetup().catch((error) => {
         console.warn("[native-menu] desktop permissions failed", error);
@@ -247,6 +267,15 @@ export function KeymapDispatcher() {
       toggleSidebarRef.current,
     );
     window.addEventListener("onmyagent:native-menu:new-task", onNewTask);
+    const onQuickCaptureMenu = () => {
+      if (isDesktopRuntime()) {
+        void desktopBridge.toggleQuickCapture().catch(() => undefined);
+      }
+    };
+    window.addEventListener(
+      "onmyagent:native-menu:quick-capture",
+      onQuickCaptureMenu,
+    );
     window.addEventListener(
       "onmyagent:native-menu:desktop-permissions",
       onDesktopPermissions,
@@ -261,6 +290,10 @@ export function KeymapDispatcher() {
         toggleSidebarRef.current,
       );
       window.removeEventListener("onmyagent:native-menu:new-task", onNewTask);
+      window.removeEventListener(
+        "onmyagent:native-menu:quick-capture",
+        onQuickCaptureMenu,
+      );
       window.removeEventListener(
         "onmyagent:native-menu:desktop-permissions",
         onDesktopPermissions,

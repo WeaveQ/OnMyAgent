@@ -41,7 +41,13 @@ describe("settings keymap defaults", () => {
     expect(
       formatAcceleratorForDisplay("CommandOrControl+,", "windows"),
     ).toContain("Ctrl");
-    expect(formatAcceleratorForDisplay("double-command", "macos")).toBe("⌘⌘");
+    expect(formatAcceleratorForDisplay("double-command", "macos")).toBe("⌘ + ⌘");
+    expect(
+      formatAcceleratorForDisplay("CommandOrControl+Shift+A", "macos"),
+    ).toBe("⌘ + Shift + A");
+    expect(
+      formatAcceleratorForDisplay("CommandOrControl+Shift+A", "windows"),
+    ).toBe("Ctrl + Shift + A");
   });
 });
 

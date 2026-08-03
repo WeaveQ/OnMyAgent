@@ -91,6 +91,21 @@ export {
   useSessionDraftState,
 } from "./sync/draft-store";
 export type { SessionDraftSnapshot } from "./sync/draft-store";
+/** Composer Zustand store — shell seeds drafts via domain barrel only. */
+export {
+  useComposerStateStore,
+  getComposerDraft,
+  getComposerAttachments,
+  getComposerMentions,
+  getComposerPasteParts,
+} from "./surface/composer-state-store";
+export type {
+  ComposerPastePart,
+  ComposerSessionState,
+  ComposerStateStore,
+} from "./surface/composer-state-store";
+/** Post-create composer seed used by quick-capture / new-task flows. */
+export { setComposerDraftAfterNewTask } from "./pages/shared-page-utils";
 /** Sidebar cold-start list limits — shell loads via domain barrel only. */
 export {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,

@@ -178,6 +178,14 @@ export default {
   "settings.computer_use_setup_title": "Computer Use 設置",
   "settings.computer_use_setup_description":
     "連接本地 MCP 服務器，並授予它控制應用所需的 macOS 權限",
+  "settings.computer_use_setup_description_windows":
+    "Windows 使用內建 Cua Driver（非 macOS HandsFree）。請先開啟下方 MCP，再連接，以便 Composer 控制桌面應用。",
+  "settings.computer_use_mcp_toggle_title": "OpenCode computer-use MCP",
+  "settings.computer_use_mcp_toggle_ready":
+    "已就緒 Cua Driver。開關用於啟用 OpenCode 工作階段中的 MCP（Windows 預設關閉）。",
+  "settings.computer_use_mcp_toggle_missing":
+    "找不到 Cua Driver。請重新建置桌面端，或執行 prepare-cua-helper。",
+  "settings.computer_use_mcp_toggle_aria": "啟用 computer-use MCP",
   "settings.computer_use_step_connect": "連接",
   "settings.computer_use_step_permissions": "權限",
   "settings.computer_use_step_runtime": "運行狀態",
@@ -200,7 +208,7 @@ export default {
   "settings.computer_use_refresh_mcp": "刷新 MCP",
   "settings.computer_use_verify_permissions": "驗證權限",
   "settings.computer_use_desktop_required":
-    "Computer Use 設置需要在 macOS 版 OnMyAgent 桌面應用中完成。",
+    "Computer Use 設置需要在 OnMyAgent 桌面應用中完成。",
   "settings.computer_use_connecting": "正在連接…",
   "settings.computer_use_permissions_step_title": "2. 授予 macOS 權限",
   "settings.computer_use_permissions_step_description":
@@ -901,7 +909,14 @@ export default {
   "settings.shortcuts_action_searchInCurrentTask": "在目前任務中搜尋",
   "settings.shortcuts_action_sendMessage": "傳送訊息",
   "settings.shortcuts_action_insertNewline": "插入換行",
-  "settings.shortcuts_action_appSnapshot": "應用程式截圖",
+  "settings.shortcuts_action_appSnapshot": "擷取桌面",
+  "settings.shortcuts_action_quickCapture": "全域快捷對話",
+  "settings.shortcuts_action_quickCapture_desc":
+    "在任意應用中喚起快速輸入，派發到目前工作區 Agent",
+  "settings.shortcuts_group_global": "全域",
+  "settings.shortcuts_group_general": "通用",
+  "settings.shortcuts_group_task": "任務",
+  "settings.shortcuts_group_session": "工作階段",
   "shortcuts_guide.title": "快捷鍵指引",
   "shortcuts_guide.description":
     "常用快捷鍵可協助你快速建立任務、搜尋、切換上下文與傳送訊息。",

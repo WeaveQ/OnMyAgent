@@ -35,13 +35,20 @@ function actionTitle(id: KeymapActionId) {
   );
 }
 
+function actionDescription(id: KeymapActionId): string | null {
+  if (id !== "quickCapture") return null;
+  return t("settings.shortcuts_action_quickCapture_desc");
+}
+
 function KbdChip(props: { label: string }) {
+  const isWide = props.label.length > 1;
   return (
     <kbd
       className={cn(
-        "inline-flex h-6 min-w-6 items-center justify-center rounded-md",
-        "border border-dls-border bg-dls-surface-muted px-1.5",
-        "text-2xs font-medium tabular-nums text-dls-text",
+        "inline-flex h-7 items-center justify-center rounded-md",
+        "border border-dls-border bg-dls-surface-muted",
+        "text-sm font-medium leading-none text-dls-text",
+        isWide ? "min-w-0 px-2" : "min-w-7 px-1.5",
       )}
     >
       {props.label}
@@ -63,14 +70,24 @@ function AcceleratorKeys(props: {
   }
   const groups = acceleratorToKeyGroups(props.accelerator, props.platform);
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
       {groups.map((keys, gi) => (
-        <span key={gi} className="inline-flex items-center gap-1">
+        <span key={gi} className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
           {gi > 0 ? (
             <span className="px-0.5 text-2xs text-dls-secondary">/</span>
           ) : null}
           {keys.map((key, ki) => (
-            <KbdChip key={`${gi}-${ki}-${key}`} label={key} />
+            <span key={`${gi}-${ki}-${key}`} className="inline-flex items-center gap-1">
+              {ki > 0 ? (
+                <span
+                  className="select-none text-xs font-medium text-dls-secondary"
+                  aria-hidden
+                >
+                  +
+                </span>
+              ) : null}
+              <KbdChip label={key} />
+            </span>
           ))}
         </span>
       ))}
@@ -95,12 +112,13 @@ export function ShortcutsView(props: ShortcutsViewProps) {
     return DEFAULT_KEYMAP_ACTIONS.filter((action) => {
       if (!q) return true;
       const title = actionTitle(action.id).toLowerCase();
+      const desc = (actionDescription(action.id) ?? "").toLowerCase();
       const accel = resolveAccelerator(
         action.id,
         props.keymapOverrides,
         platform,
       ).toLowerCase();
-      return title.includes(q) || accel.includes(q);
+      return title.includes(q) || desc.includes(q) || accel.includes(q);
     });
   }, [query, props.keymapOverrides, platform]);
 
@@ -209,6 +227,7 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                 );
                 const isRecording = recordingId === action.id;
                 const isCleared = overridden && accel === "";
+                const description = actionDescription(action.id);
 
                 return (
                   <div
@@ -221,9 +240,16 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                         : "hover:bg-dls-list-hover",
                     )}
                   >
-                    <span className="min-w-0 truncate text-sm font-medium text-dls-text">
-                      {actionTitle(action.id)}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-dls-text">
+                        {actionTitle(action.id)}
+                      </div>
+                      {description ? (
+                        <p className="mt-0.5 line-clamp-2 text-2xs leading-snug text-dls-secondary">
+                          {description}
+                        </p>
+                      ) : null}
+                    </div>
 
                     <button
                       type="button"

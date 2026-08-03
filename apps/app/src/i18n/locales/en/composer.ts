@@ -43,9 +43,11 @@ export default {
   "composer.uploaded_single_file_short": "{name}",
   "composer.appshot_success": "Desktop screenshot added",
   "composer.appshot_unsupported_windows":
-    "Desktop capture is only available on macOS for now",
+    "Desktop capture helper is not ready. Restart the app after build, or check Screen capture privacy settings.",
   "composer.appshot_unsupported_linux":
-    "Desktop capture is only available on macOS for now",
+    "Desktop capture helper is not ready. On Wayland you may need to allow screen share when prompted.",
+  "composer.appshot_permission":
+    "Screen Recording permission is required. Enable it in System Settings, then fully quit and reopen the app.",
   "composer.access_default": "Default permissions",
   "composer.access_default_desc": "Always ask before editing external files or using the internet",
   "composer.access_delegate": "Let me approve",

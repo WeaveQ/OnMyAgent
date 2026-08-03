@@ -45,7 +45,7 @@ const RESET_ONBOARDING_PREFS = {
   menuBarStatusItem: true,
   conversationWidth: "fixed",
   keymapOverrides: {},
-  appSnapshotHotkey: "double-command",
+  appSnapshotHotkey: "CommandOrControl+Shift+A",
   releaseChannel: "stable",
   featureFlags: { microsandboxCreateSandbox: true },
   hasCompletedOnboarding: false,
