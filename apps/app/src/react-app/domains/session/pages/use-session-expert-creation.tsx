@@ -47,6 +47,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           collaborationMode={{ planning: false, pursueGoal: false }}
           onCollaborationModeChange={() => undefined}
           modelPickerOpen={surface.model.modelPickerOpen}
+          modelPickerVisible={composer.showModelPicker}
           selectedModel={surface.model.selectedModel}
           onModelPickerOpenChange={surface.model.onModelPickerOpenChange}
           onModelChange={surface.model.onModelChange}
@@ -93,6 +94,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     (coach: {
       draft: AgentWizardDraft;
       registry: AgentRegistry;
+      showModelPicker: boolean;
       initialSessionId: string | null;
       onSessionIdChange: (sessionId: string) => void;
       onApplyDraftSuggestion: (
@@ -116,6 +118,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           onmyagentToken={input.props.onmyagentServerToken ?? ""}
           registry={coach.registry}
           draft={coach.draft}
+          showModelPicker={coach.showModelPicker}
           selectedModel={surface.model.selectedModel}
           initialSessionId={coach.initialSessionId}
           onSessionIdChange={coach.onSessionIdChange}
@@ -130,6 +133,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     (preview: {
       draft: AgentWizardDraft;
       registry: AgentRegistry;
+      showModelPicker: boolean;
       knowledgePaths: readonly string[];
       sessionKey: string;
       emptyContent: ReactNode;
@@ -151,6 +155,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           onmyagentToken={input.props.onmyagentServerToken ?? ""}
           registry={preview.registry}
           draft={preview.draft}
+          showModelPicker={preview.showModelPicker}
           knowledgePaths={preview.knowledgePaths}
           selectedModel={surface.model.selectedModel}
           sessionKey={preview.sessionKey}

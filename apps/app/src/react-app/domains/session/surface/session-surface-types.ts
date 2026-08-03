@@ -22,6 +22,7 @@ export type SessionSurfaceModelBag = {
   modelLabel: string;
   onModelClick: () => void;
   modelPickerOpen: boolean;
+  modelPickerVisible?: boolean;
   modelUnavailable?: boolean;
   selectedModel: ModelRef;
   onModelPickerOpenChange: (open: boolean) => void;
@@ -222,6 +223,7 @@ export function bagSessionSurfaceProps(
     modelLabel,
     onModelClick,
     modelPickerOpen,
+    modelPickerVisible,
     modelUnavailable,
     selectedModel,
     onModelPickerOpenChange,
@@ -265,6 +267,7 @@ export function bagSessionSurfaceProps(
       modelLabel,
       onModelClick,
       modelPickerOpen,
+      modelPickerVisible,
       modelUnavailable,
       selectedModel,
       onModelPickerOpenChange,

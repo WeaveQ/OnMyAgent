@@ -176,6 +176,7 @@ export type SessionSurfaceViewProps = {
   onCollaborationModeChange: (mode: ComposerCollaborationMode) => void;
   collaborationModeVariant: "office" | "legacy";
   modelPickerOpen: boolean;
+  modelPickerVisible?: boolean;
   selectedModel: ModelRef;
   onModelPickerOpenChange: (open: boolean) => void;
   onModelChange: (model: ModelRef) => void;
@@ -471,6 +472,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onCollaborationModeChange={props.onCollaborationModeChange}
               collaborationModeVariant={props.collaborationModeVariant}
               modelPickerOpen={props.modelPickerOpen}
+              modelPickerVisible={props.modelPickerVisible}
               selectedModel={props.selectedModel}
               onModelPickerOpenChange={props.onModelPickerOpenChange}
               onModelChange={props.onModelChange}

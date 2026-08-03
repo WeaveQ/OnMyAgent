@@ -132,6 +132,7 @@ export type ExpertCreationPageProps = {
   renderCoachPanel?: (input: {
     draft: AgentWizardDraft;
     registry: AgentRegistry;
+    showModelPicker: boolean;
     initialSessionId: string | null;
     onSessionIdChange: (sessionId: string) => void;
     onApplyDraftSuggestion: (
@@ -146,6 +147,7 @@ export type ExpertCreationPageProps = {
   renderPreviewPanel?: (input: {
     draft: AgentWizardDraft;
     registry: AgentRegistry;
+    showModelPicker: boolean;
     knowledgePaths: readonly string[];
     sessionKey: string;
     emptyContent: ReactNode;
@@ -270,6 +272,7 @@ function ExpertCoach(props: {
   selectedModel: ModelRef | null;
   renderCoachPanel?: ExpertCreationPageProps["renderCoachPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
+  showModelPicker: boolean;
   initialSessionId: string | null;
   onSessionIdChange: (sessionId: string) => void;
   onApplyDraftSuggestion: (
@@ -299,6 +302,7 @@ function ExpertCoach(props: {
         {props.renderCoachPanel({
           draft: props.draft,
           registry: props.registry,
+          showModelPicker: props.showModelPicker,
           initialSessionId: props.initialSessionId,
           onSessionIdChange: props.onSessionIdChange,
           onApplyDraftSuggestion: props.onApplyDraftSuggestion,
@@ -316,6 +320,7 @@ function ExpertCoach(props: {
           opencodeBaseUrl={props.opencodeBaseUrl}
           onmyagentServerToken={props.onmyagentServerToken}
           selectedModel={props.selectedModel}
+          showModelPicker={props.showModelPicker}
           title={coachTitle}
           avatar={(
             <img
@@ -1151,6 +1156,7 @@ function TryEffectPanel(props: {
   selectedModel: ModelRef | null;
   renderPreviewPanel?: ExpertCreationPageProps["renderPreviewPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
+  showModelPicker: boolean;
   onClose: () => void;
 }) {
   const [sessionVersion, setSessionVersion] = useState(0);
@@ -1188,6 +1194,7 @@ function TryEffectPanel(props: {
           {props.renderPreviewPanel({
             draft: props.draft,
             registry: props.registry,
+            showModelPicker: props.showModelPicker,
             knowledgePaths,
             sessionKey,
             emptyContent,
@@ -1201,6 +1208,7 @@ function TryEffectPanel(props: {
           opencodeBaseUrl={props.opencodeBaseUrl}
           onmyagentServerToken={props.onmyagentServerToken}
           selectedModel={props.selectedModel}
+          showModelPicker={props.showModelPicker}
           knowledgePaths={knowledgePaths}
           title={props.draft.name || t("agents.expert_creation_preview_title")}
           avatar={null}
@@ -1221,6 +1229,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
   const sourceRegistry = props.registry ?? createDefaultAgentRegistry();
   const [baselineDraft] = useState(() => buildInitialDraft(props.registry, props.skills));
   const [activeTab, setActiveTab] = useState<ExpertCreationTab>("basic");
+  const showModelPicker = activeTab !== "knowledge";
   const [storedInitialState] = useState(() => readExpertCreationStoredState(
     props.workspaceId,
     buildInitialDraft(props.registry, props.skills),
@@ -1506,6 +1515,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             selectedModel={props.selectedModel}
             renderCoachPanel={props.renderCoachPanel}
             renderComposer={props.renderComposer}
+            showModelPicker={showModelPicker}
             initialSessionId={coachSessionId}
             onSessionIdChange={setCoachSessionId}
             onApplyDraftSuggestion={(suggestion, options) => {
@@ -1625,6 +1635,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                 draft={draft}
                 knowledge={knowledge}
                 registry={sourceRegistry}
+                showModelPicker={showModelPicker}
                 workspaceRoot={props.workspaceRoot}
                 opencodeBaseUrl={props.opencodeBaseUrl}
                 onmyagentServerToken={props.onmyagentServerToken}

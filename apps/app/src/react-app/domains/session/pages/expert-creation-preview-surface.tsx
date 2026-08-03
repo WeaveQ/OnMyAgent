@@ -36,6 +36,7 @@ export type ExpertCreationPreviewSurfaceProps = {
   registry: AgentRegistry;
   draft: AgentWizardDraft;
   knowledgePaths: readonly string[];
+  showModelPicker?: boolean;
   selectedModel: ModelRef | null;
   /** Remount key when draft identity fields change or user starts a new session. */
   sessionKey: string;
@@ -252,6 +253,7 @@ export function ExpertCreationPreviewSurface(
           props.surface.model,
           modelPickerOpen,
           setModelPickerOpen,
+          props.showModelPicker,
         )}
       />
     </div>

@@ -44,6 +44,7 @@ export type ExpertCreationCoachSurfaceProps = {
   onmyagentToken: string;
   registry: AgentRegistry;
   draft: AgentWizardDraft;
+  showModelPicker?: boolean;
   selectedModel: ModelRef | null;
   initialSessionId: string | null;
   onSessionIdChange: (sessionId: string) => void;
@@ -379,6 +380,7 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
             props.surface.model,
             modelPickerOpen,
             setModelPickerOpen,
+            props.showModelPicker,
           )}
         />
       </div>

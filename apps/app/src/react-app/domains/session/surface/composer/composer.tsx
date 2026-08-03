@@ -791,13 +791,15 @@ export function ReactSessionComposer(props: ComposerProps) {
                     className="p-0.5"
                   />
                 ) : null}
-                <ModelSelectContainer
-                  open={props.modelPickerOpen}
-                  value={props.selectedModel}
-                  onOpenChange={props.onModelPickerOpenChange}
-                  onChange={props.onModelChange}
-                  disabled={props.busy}
-                />
+                {props.modelPickerVisible !== false ? (
+                  <ModelSelectContainer
+                    open={props.modelPickerOpen}
+                    value={props.selectedModel}
+                    onOpenChange={props.onModelPickerOpenChange}
+                    onChange={props.onModelChange}
+                    disabled={props.busy}
+                  />
+                ) : null}
                 {props.busy && !canSend ? (
                   <Button variant="destructive" size="icon-lg"
                     type="button"

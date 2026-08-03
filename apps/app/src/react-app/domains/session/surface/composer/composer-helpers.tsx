@@ -202,6 +202,7 @@ export type ComposerProps = {
   onCollaborationModeChange: (value: ComposerCollaborationMode) => void;
   collaborationModeVariant?: "office" | "legacy";
   modelPickerOpen: boolean;
+  modelPickerVisible?: boolean;
   selectedModel: ModelRef;
   onModelPickerOpenChange: (open: boolean) => void;
   onModelChange: (model: ModelRef) => void;

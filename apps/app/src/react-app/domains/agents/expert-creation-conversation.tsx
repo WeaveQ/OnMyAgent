@@ -25,6 +25,7 @@ export type ExpertCreationComposerProps = {
   placeholder: string;
   busy: boolean;
   disabled?: boolean;
+  showModelPicker?: boolean;
   attachments: ComposerAttachment[];
   onDraftChange: (value: string) => void;
   onAttachFiles: (files: File[]) => void;
@@ -62,6 +63,7 @@ export type ExpertCreationConversationProps = {
   knowledgePaths?: readonly string[];
   emptyMessage: string;
   disabled?: boolean;
+  showModelPicker?: boolean;
   hideHeader?: boolean;
   className?: string;
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
@@ -453,6 +455,7 @@ export function ExpertCreationConversation(
           placeholder: props.placeholder,
           busy: sending,
           disabled: props.disabled,
+          showModelPicker: props.showModelPicker,
           attachments,
           onDraftChange: setComposerDraft,
           onAttachFiles: (files) =>
