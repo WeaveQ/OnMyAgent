@@ -58,21 +58,33 @@ describe("composer tool menu model", () => {
       "utf8",
     );
 
+    // Skills + connectors live in the main menu; Mine search is extracted.
+    const mine = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer-tool-menu-mine.tsx",
+      ),
+      "utf8",
+    );
+    const searchChrome = [menu, mine].join("\n");
     expect(
-      menu.match(
+      searchChrome.match(
         /controlSize="sm"\s*\n\s*radius="lg"\s*\n\s*tone="surfaceMuted"/g,
       ) ?? [],
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
-      menu.match(
+      searchChrome.match(
         /<Search aria-hidden="true" className="size-3\.5 text-dls-secondary" \/>/g,
       ) ?? [],
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
-      menu.match(
+      searchChrome.match(
         /className="text-sm text-dls-text placeholder:text-dls-secondary\/70"/g,
       ) ?? [],
-    ).toHaveLength(2);
+    ).toHaveLength(3);
+    expect(mine).toContain('t("composer.search_mine_files")');
+    expect(source).toContain("useComposerMineFiles");
+    expect(source).toContain("minePanel");
     // Configure prefers connectors marketplace; falls back to settings mcps.
     expect(source).toContain("openCustomConnectorOrMarketplace");
     expect(source).toContain("openConnectorsConfigure");
@@ -108,9 +120,10 @@ describe("composer tool menu model", () => {
       "utf8",
     );
 
-    expect(helpers).toContain(
-      'export type ToolMenuSection = "files" | "templates" | "modes" | "skills" | "mcps";',
-    );
+    expect(helpers).toContain('"mine"');
+    expect(helpers).toContain("ToolMenuSection");
+    expect(menu).toContain('t("files.source_uploads")');
+    expect(menu).toContain('toolMenuSection === "mine"');
     expect(menu).toContain('t("composer.prompt_templates")');
     expect(menu).toContain("selectedPromptTemplate.prompts.map");
     expect(menu).toContain(
@@ -121,7 +134,15 @@ describe("composer tool menu model", () => {
     expect(menu).toContain("max-w-[17.5rem]");
     expect(menu).toContain('toolMenuSection === "templates" ? "max-h-48" : "max-h-56"');
     // WorkBuddy cascade: open 3rd panel when the prompts section becomes active.
-    expect(source).toContain("WorkBuddy-style cascade");
+    const catalogs = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/use-composer-catalogs.ts",
+      ),
+      "utf8",
+    );
+    expect(catalogs).toContain("WorkBuddy-style cascade");
+    expect(source).toContain("useComposerMineFiles");
     expect(menu).toContain(
       "applyPromptTemplate(selectedPromptTemplate.id, prompt)",
     );

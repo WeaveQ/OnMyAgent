@@ -10,6 +10,7 @@ import {
   clearConsumedPermissionNotice,
   draftHasSendableContent,
   draftToParts,
+  attachmentInstructionPaths,
   inboxAbsolutePath,
   inboxRelativePath,
   joinSystemParts,
@@ -438,25 +439,25 @@ describe("session route composer", () => {
       {
         uploadAttachment: async (item, uploadPath) => {
           uploaded.push({ name: item.name, path: uploadPath });
-          return { path: "session-uploads/report.pdf" };
+          // uploadUserFileToWorkspace remaps to product uploads/.
+          return { path: uploadPath.startsWith("uploads/") ? uploadPath : `uploads/${item.name}` };
         },
       },
     );
 
     expect(uploaded).toHaveLength(1);
-    expect(uploaded[0]?.path).toContain("session-uploads/");
+    expect(uploaded[0]?.path).toContain("uploads/");
     // Must stay text-only for non-native MIME (no file parts → model reject).
     expect(parts).toHaveLength(1);
     expect(parts[0]).toMatchObject({ type: "text" });
     expect(parts[0]?.text).toContain("report.pdf (application/pdf)");
-    expect(parts[0]?.text).toContain(
-      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/report.pdf",
-    );
+    expect(parts[0]?.text).toContain("/tmp/workspace/uploads/");
+    expect(parts[0]?.text).toContain("workspace-relative path: uploads/");
   });
 
-  test("resolves inbox absolute paths against catalog workspace, not expert session dir", async () => {
-    // Expert cwd is isolated under workspace/agent/session while inbox files
-    // still land in workspace/.opencode/onmyagent/inbox/.
+  test("resolves product upload paths against catalog workspace, not expert session dir", async () => {
+    // Expert cwd is isolated under workspace/agent/session while product files
+    // still land under workspace/uploads/.
     const parts = await draftToParts(
       draft({
         attachments: [
@@ -471,17 +472,31 @@ describe("session route composer", () => {
       "/tmp/workspace/货运客服专家-id/1785000000000",
       {
         inboxWorkspaceRoot: "/tmp/workspace",
-        uploadAttachment: async () => ({
-          path: "session-uploads/1785000000000-0-演练材料.xlsx",
+        uploadAttachment: async (_item, uploadPath) => ({
+          path: uploadPath,
         }),
       },
     );
 
-    expect(parts[0]?.text).toContain(
-      "/tmp/workspace/.opencode/onmyagent/inbox/session-uploads/1785000000000-0-演练材料.xlsx",
-    );
+    expect(parts[0]?.text).toContain("/tmp/workspace/uploads/");
+    expect(parts[0]?.text).toContain("演练材料.xlsx");
     expect(parts[0]?.text).not.toContain(
-      "/tmp/workspace/货运客服专家-id/1785000000000/.opencode/onmyagent/inbox",
+      "/tmp/workspace/货运客服专家-id/1785000000000/uploads",
     );
+  });
+
+  test("attachmentInstructionPaths keeps uploads under workspace root", () => {
+    expect(
+      attachmentInstructionPaths("/tmp/ws", "uploads/a.png"),
+    ).toEqual({
+      relativePath: "uploads/a.png",
+      absolutePath: "/tmp/ws/uploads/a.png",
+    });
+    expect(
+      attachmentInstructionPaths("/tmp/ws", "session-uploads/a.png"),
+    ).toEqual({
+      relativePath: ".opencode/onmyagent/inbox/session-uploads/a.png",
+      absolutePath: "/tmp/ws/.opencode/onmyagent/inbox/session-uploads/a.png",
+    });
   });
 });

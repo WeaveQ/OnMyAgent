@@ -500,6 +500,43 @@ function serializePromptFromRoot(): string {
     .join("\n");
 }
 
+function isLexicalComposing(editor: {
+  isComposing?: () => boolean;
+}): boolean {
+  try {
+    return typeof editor.isComposing === "function" ? editor.isComposing() : false;
+  } catch {
+    return false;
+  }
+}
+
+function mentionsMapEqual(
+  a: Record<string, ComposerMentionKind>,
+  b: Record<string, ComposerMentionKind>,
+): boolean {
+  if (a === b) return true;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+function scenarioTagsEqual(
+  a: Array<{ id: string; label: string }> | undefined,
+  b: Array<{ id: string; label: string }> | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i]?.id !== b[i]?.id || a[i]?.label !== b[i]?.label) return false;
+  }
+  return true;
+}
+
 function SyncPlugin(props: {
   value: string;
   mentions: Record<string, ComposerMentionKind>;
@@ -508,23 +545,46 @@ function SyncPlugin(props: {
 }) {
   const [editor] = useLexicalComposerContext();
   const valueRef = useRef(props.value);
+  const mentionsRef = useRef(props.mentions);
+  const scenarioTagsRef = useRef(props.scenarioTags);
 
   useEffect(() => {
     editor.setEditable(!props.disabled);
   }, [editor, props.disabled]);
 
   useEffect(() => {
+    // Never rebuild the editor while IME composition is active — rewriting
+    // the tree mid-composition doubles glyphs (especially CJK input).
+    if (isLexicalComposing(editor)) return;
+
     // When the external value is cleared (e.g. after sending a message),
     // always force-rebuild the editor to remove any stale chip nodes.
     // The valueRef check can false-positive when both refs converge to ""
     // through different paths (SyncPlugin vs OnChange).
     //
+    // Mentions/scenarioTags can land after the draft string (Ask Agent,
+    // add-to-task). Draft text is identical (`@path …`) but without the
+    // map @tokens stay plain text. Rebuild when map *content* changes so
+    // chips materialize (compare by value, not object identity — identity
+    // thrashing would force rebuilds on every keystroke and corrupt IME).
+    //
     // NOTE: serializePromptFromRoot() calls $getRoot() which requires an
     // active editor state. Outside of editor.update()/editor.read() we
     // must wrap it in editor.getEditorState().read().
+    const mentionsChanged = !mentionsMapEqual(mentionsRef.current, props.mentions);
+    const scenarioTagsChanged = !scenarioTagsEqual(
+      scenarioTagsRef.current,
+      props.scenarioTags,
+    );
+    mentionsRef.current = props.mentions;
+    scenarioTagsRef.current = props.scenarioTags;
+
     const currentText = editor.getEditorState().read(() => serializePromptFromRoot());
     const forceRebuild = !props.value.trim() && currentText.trim() !== "";
-    if (!forceRebuild && valueRef.current === props.value) return;
+    const valueUnchanged = valueRef.current === props.value;
+    if (!forceRebuild && valueUnchanged && !mentionsChanged && !scenarioTagsChanged) {
+      return;
+    }
     valueRef.current = props.value;
     // Check whether the editor already reflects the desired state BEFORE
     // entering editor.update(). Even a bail-out inside editor.update()
@@ -532,11 +592,27 @@ function SyncPlugin(props: {
     // selection and reset the cursor (e.g. after a multi-line paste the
     // cursor jumps to position 0 instead of staying after the pasted
     // content). The read() above already gave us `currentText` — reuse it.
-    if (!forceRebuild && currentText === props.value) return;
+    // Skip this short-circuit when mentions/tags changed: serialized text
+    // can match the draft while nodes are still plain @tokens.
+    if (
+      !forceRebuild &&
+      !mentionsChanged &&
+      !scenarioTagsChanged &&
+      currentText === props.value
+    ) {
+      return;
+    }
     editor.update(() => {
       // Double-check inside the update in case another queued update
       // changed the state between the read above and this callback.
-      if (!forceRebuild && serializePromptFromRoot() === props.value) return;
+      if (
+        !forceRebuild &&
+        !mentionsChanged &&
+        !scenarioTagsChanged &&
+        serializePromptFromRoot() === props.value
+      ) {
+        return;
+      }
       setPrompt(props.value, props.mentions, props.scenarioTags);
       // $getRoot().selectEnd() doesn't work when the last node is a
       // token (chip) — Lexical can't position a cursor inside a token,
@@ -958,7 +1034,13 @@ export function LexicalPromptEditor(props: EditorProps) {
   );
 
   const syncPromptFromEditorState = useCallback(
-    (state: Parameters<NonNullable<React.ComponentProps<typeof OnChangePlugin>["onChange"]>>[0]) => {
+    (
+      state: Parameters<NonNullable<React.ComponentProps<typeof OnChangePlugin>["onChange"]>>[0],
+      editor?: { isComposing?: () => boolean },
+    ) => {
+      // Skip mid-IME updates so parent draft + SyncPlugin do not rewrite the
+      // tree until composition commits (prevents doubled CJK/Latin glyphs).
+      if (editor && isLexicalComposing(editor)) return;
       state.read(() => {
         const next = serializePromptFromRoot();
         if (next === valueRef.current) return;

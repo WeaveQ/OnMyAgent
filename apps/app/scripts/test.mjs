@@ -35,6 +35,7 @@ const testTargets = new Map([
   ['automation-prompt-tools-contract', ['bun', ['test', 'scripts/automation-prompt-tools-contract.test.ts']]],
   ['automation-title-required-contract', ['bun', ['test', 'scripts/automation-title-required-contract.test.ts']]],
   ['personal-usage-ui-contract', ['bun', ['test', 'scripts/personal-usage-ui-contract.test.ts']]],
+  ['context-usage-model', ['bun', ['test', 'scripts/context-usage-model.test.ts']]],
   ['right-side-panel-titlebar-contract', ['bun', ['test', 'scripts/right-side-panel-titlebar-contract.test.ts']]],
   ['session-transcript-layout-contract', ['bun', ['test', 'scripts/session-transcript-layout-contract.test.ts']]],
   ['infinite-canvas-model', ['bun', ['test', 'scripts/infinite-canvas-model.test.ts']]],
@@ -47,6 +48,9 @@ const testTargets = new Map([
   ['open-target', ['bun', ['test', 'scripts/open-target.test.ts']]],
   ['artifact-spreadsheet', ['bun', ['test', 'scripts/artifact-spreadsheet.test.ts']]],
   ['assistant-selection-memory', ['bun', ['test', 'scripts/assistant-selection-memory.test.ts']]],
+  ['conversation-memory-extract', ['bun', ['test', 'scripts/conversation-memory-extract.test.ts']]],
+  ['resolve-session-expert-id', ['bun', ['test', 'scripts/resolve-session-expert-id.test.ts']]],
+  ['settings-personal-memory-nav', ['bun', ['test', 'scripts/settings-personal-memory-nav.test.ts']]],
   ['composer-state-store', ['bun', ['test', 'scripts/composer-state-store.test.ts']]],
   ['conversation-model', ['bun', ['test', 'scripts/conversation-model.test.ts']]],
   ['conversation-adapters', ['bun', ['test', 'scripts/conversation-adapters.test.ts']]],
@@ -149,6 +153,7 @@ const composedTargets = new Map([
     'session-visual-files-contract',
     'open-target',
     'agent-brand-icon-dark-plate-contract',
+    'context-usage-model',
     // Other style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],
@@ -159,7 +164,7 @@ function printUsage() {
 
 Targets:
   health|mention-send|sessions|events|todos|permissions
-  remote-diagnostics|open-target|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|personal-local-agent-codex-acp-tool-smoke|artifact-spreadsheet|assistant-selection-memory|composer-state-store|conversation-model|session-memory|session-activity-store|session-sync|session-draft-store|session-page-info-models|session-page-conversation-model|session-page-files-model|session-page-model|session-page-session-archive-model|session-route-agent-context|session-route-created-session-actions|session-route-control|session-route-model-options|session-route-sessions|session-scroll-store|session-surface-model|session-surface-helpers|session-transition-controller|session-route-state|session-route-storage|session-render-state|session-process-summary|session-shared-pages-layout|session-shared-models|session-side-panel-toggle-contract|settings-route-model|session-route-composer|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|session-archive-pagination|session-archive-message-pagination|session-archive-command-palette|session-archive-keyboard|session-archive-grouping|session-archive-transcript-controls|session-archive-inline-rename|session-archive-ui-smoke|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|shared-pending-agent-store|shared-desktop-config-context|shared-agent-session-state|shared-agent-registry-store|shared-agent-registry-types|shared-agent-registry-helpers|shared-agent-default-registry|dev-log
+  remote-diagnostics|open-target|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|personal-local-agent-codex-acp-tool-smoke|artifact-spreadsheet|assistant-selection-memory|conversation-memory-extract|resolve-session-expert-id|settings-personal-memory-nav|composer-state-store|conversation-model|session-memory|session-activity-store|session-sync|session-draft-store|session-page-info-models|session-page-conversation-model|session-page-files-model|session-page-model|session-page-session-archive-model|session-route-agent-context|session-route-created-session-actions|session-route-control|session-route-model-options|session-route-sessions|session-scroll-store|session-surface-model|session-surface-helpers|session-transition-controller|session-route-state|session-route-storage|session-render-state|session-process-summary|session-shared-pages-layout|session-shared-models|session-side-panel-toggle-contract|settings-route-model|session-route-composer|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|session-archive-pagination|session-archive-message-pagination|session-archive-command-palette|session-archive-keyboard|session-archive-grouping|session-archive-transcript-controls|session-archive-inline-rename|session-archive-ui-smoke|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|shared-pending-agent-store|shared-desktop-config-context|shared-agent-session-state|shared-agent-registry-store|shared-agent-registry-types|shared-agent-registry-helpers|shared-agent-default-registry|dev-log
   session-error-recovery|session-scope|session-switch|fs-engine
   local-file-path|browser-entry|version-gate
   refactor|e2e|ui-contracts|ui`)

@@ -12,25 +12,31 @@ export const SIDEBAR_SESSION_LIST_LIMIT = 40;
 export const SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT = 3;
 
 /**
- * Max non-selected sessions that may request a lightweight preview snapshot
- * after the deferred warm phase. Selected session already loads via surface.
+ * Max non-selected sessions that may request a lightweight preview snapshot.
+ * Off (0): cold-start path only loads the focused session via SessionSurface.
+ * Hover/focus prefetch remains explicit user intent (app-sidebar / page-view).
  */
-export const SIDEBAR_PREVIEW_SNAPSHOT_MAX = 5;
+export const SIDEBAR_PREVIEW_SNAPSHOT_MAX = 0;
 
 /** Message limit for sidebar preview snapshots (not full transcript). */
 export const SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT = 8;
 
 /**
  * Delay before any non-critical sidebar preview snapshots are allowed.
- * Keep well after cold listSessions so first-install OpenCode is not flooded.
+ * Unused while SIDEBAR_PREVIEW_SNAPSHOT_MAX is 0; kept for opt-in re-enable.
  */
 export const SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS = 4_000;
 
 /** Non-selected expert tab titles wait until after the cold-start warm phase. */
 export const TAB_TITLE_SNAPSHOT_DEFER_MS = 6_000;
 
-/** Cap lightweight expert-tab title snapshots, including the selected tab. */
-export const TAB_TITLE_SNAPSHOT_MAX = 8;
+/**
+ * Cap lightweight expert-tab title snapshots.
+ * 1 = selected tab only (surface already owns full transcript; tab chip needs
+ * a tiny snapshot for default OpenCode titles). Non-selected tabs use list
+ * metadata / "New session" until selected.
+ */
+export const TAB_TITLE_SNAPSHOT_MAX = 1;
 
 /** Delay before automation list polling starts (not needed for first paint). */
 export const SIDEBAR_AUTOMATION_LIST_DEFER_MS = 2_500;
@@ -43,7 +49,8 @@ export function isDraftSessionId(sessionId: string | null | undefined): boolean 
  * Sessions allowed to fetch preview snapshots.
  * - Before defer: none (selected session uses the main surface snapshot),
  *   unless `prioritizeSelected` is set (tab titles need the focused session).
- * - After defer: up to max recent non-draft sessions.
+ * - After defer: up to max recent non-draft sessions (default max is 0 —
+ *   non-selected automatic prefetch is off for cold start).
  * - By default the selected id is excluded (surface already owns its transcript).
  *   Pass `includeSelected` when the consumer cannot reuse the surface snapshot
  *   (expert session tab chips).
@@ -75,6 +82,9 @@ export function selectSidebarPreviewSessionIds(input: {
   if (!input.deferred) return ids;
 
   const max = input.maxPreviews ?? SIDEBAR_PREVIEW_SNAPSHOT_MAX;
+  // max <= 0: selected-only (or empty) — no non-selected automatic prefetch.
+  if (max <= 0) return ids;
+
   for (const session of input.sessions) {
     if (ids.size >= max) break;
     const id = session.id?.trim();

@@ -1,0 +1,147 @@
+/**
+ * Settings-route default-model picker open state + catalog load.
+ * Extracted from settings-route/render.tsx (mechanical split).
+ */
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+
+import type { Client, ModelOption } from "../../../app/types";
+import { isProviderModelFree } from "../../../app/utils/providers";
+import { t } from "../../../i18n";
+import {
+  ensureProviderListQuery,
+  getConnectedProviderItems,
+} from "../../domains/connections";
+import { getReactQueryClient } from "../../infra/query-client";
+import type { UserErrorScenario } from "../../kernel/user-error";
+import {
+  openModelPickerEvent,
+  pendingModelPickerProviderIdsKey,
+} from "../new-providers-toast";
+
+export type SettingsModelPickerInput = {
+  opencodeClient: Client | null;
+  opencodeBaseUrl: string;
+  selectedWorkspaceRoot: string;
+  providerAuthStore: {
+    refreshProviders: () => void | Promise<unknown>;
+  };
+  setFacingRouteError: (
+    raw: string | null,
+    forcedScenario?: UserErrorScenario,
+  ) => void;
+};
+
+/** Mechanical extract of model picker open + options load for settings. */
+export function useSettingsModelPicker(input: SettingsModelPickerInput) {
+  const {
+    opencodeClient,
+    opencodeBaseUrl,
+    selectedWorkspaceRoot,
+    providerAuthStore,
+    setFacingRouteError,
+  } = input;
+
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelPickerQuery, setModelPickerQuery] = useState("");
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+
+  useEffect(() => {
+    const openFromPending = (raw: string | null) => {
+      if (!raw) return false;
+      setModelPickerQuery("");
+      setModelPickerOpen(true);
+      return true;
+    };
+
+    try {
+      const raw = window.localStorage.getItem(pendingModelPickerProviderIdsKey);
+      if (openFromPending(raw)) {
+        window.localStorage.removeItem(pendingModelPickerProviderIdsKey);
+      }
+    } catch {
+      window.localStorage.removeItem(pendingModelPickerProviderIdsKey);
+    }
+
+    const handler = () => {
+      setModelPickerQuery("");
+      setModelPickerOpen(true);
+      try {
+        window.localStorage.removeItem(pendingModelPickerProviderIdsKey);
+      } catch {}
+    };
+    window.addEventListener(openModelPickerEvent, handler);
+    return () => window.removeEventListener(openModelPickerEvent, handler);
+  }, []);
+
+  useEffect(() => {
+    if (!modelPickerOpen || !opencodeClient) return;
+    let cancelled = false;
+    void providerAuthStore.refreshProviders();
+    void (async () => {
+      try {
+        const data = await ensureProviderListQuery(getReactQueryClient(), {
+          client: opencodeClient,
+          baseUrl: opencodeBaseUrl,
+          directory: selectedWorkspaceRoot || undefined,
+        });
+        if (cancelled || !data?.all) return;
+        let seenIds: Set<string>;
+        try {
+          const raw = window.localStorage.getItem("onmyagent.seenProviderIds");
+          seenIds = new Set(raw ? JSON.parse(raw) : []);
+        } catch {
+          seenIds = new Set();
+        }
+        const options: ModelOption[] = [];
+        for (const provider of getConnectedProviderItems(data)) {
+          const modelIds = Object.keys(provider.models);
+          const isNew = !seenIds.has(provider.id);
+          for (const id of modelIds) {
+            const model = provider.models[id];
+            options.push({
+              providerID: provider.id,
+              modelID: id,
+              title: model.name || id,
+              description: provider.name,
+              behaviorTitle: t("settings.model_reasoning"),
+              behaviorLabel: t("settings.default_label"),
+              behaviorDescription: "",
+              behaviorValue: null,
+              isFree: isProviderModelFree({
+                providerId: provider.id,
+                modelId: id,
+                model,
+              }),
+              isConnected: true,
+              isRecommended: isNew,
+              source: /^lpr_/i.test(provider.id) ? ("cloud" as const) : undefined,
+            });
+          }
+        }
+        setModelOptions(options);
+      } catch (error) {
+        setFacingRouteError(
+          error instanceof Error ? error.message : t("app.unknown_error"),
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    modelPickerOpen,
+    opencodeBaseUrl,
+    opencodeClient,
+    providerAuthStore,
+    selectedWorkspaceRoot,
+    setFacingRouteError,
+  ]);
+
+  return {
+    modelPickerOpen,
+    setModelPickerOpen,
+    modelPickerQuery,
+    setModelPickerQuery,
+    modelOptions,
+  };
+}

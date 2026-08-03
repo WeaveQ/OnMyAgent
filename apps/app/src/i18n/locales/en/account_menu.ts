@@ -1,17 +1,32 @@
 import { APP_NAME } from "../brand";
 
 export default {
+  "account_menu.appearance": "Appearance",
+  "account_menu.avatar_bg": "Background",
+  "account_menu.avatar_edit": "Edit avatar",
+  "account_menu.avatar_open_profile": "Open profile",
+  "account_menu.avatar_hint": "Avatar, account color, and icon",
+  "account_menu.avatar_icon": "Icon",
+  "account_menu.avatar_mode_initial": "Name initial",
+  "account_menu.avatar_section": "Profile",
+  "account_menu.avatar_unnamed": "You",
+  "account_menu.check_for_updates": "Check for updates",
+  "account_menu.checking_for_updates": "Checking for updates…",
   "account_menu.credits": "credits",
   "account_menu.free_plan": "Free plan",
   "account_menu.language": "Language",
   "account_menu.language_chinese": "中文",
   "account_menu.preferences": "Preferences",
+  "account_menu.quit": "Quit",
   "account_menu.settings": "Settings",
   "account_menu.sign_out": "Sign out",
   "account_menu.sign_out_confirm_message":
     "You will return to the welcome page and need to sign in again before creating a workspace.",
   "account_menu.sign_out_confirm_title": "Sign out?",
   "account_menu.theme": "Theme",
+  "account_menu.update_available": "Update available: v{version}",
+  "account_menu.update_check_failed": "Could not check for updates",
+  "account_menu.update_latest": "You're on the latest version",
   "account_menu.used_percent": "28% used",
   "account_menu.view_details": "Details",
 } as const;

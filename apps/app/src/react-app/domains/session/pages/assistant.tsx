@@ -44,9 +44,9 @@ import {
   LazyInfiniteCanvasPanel,
   LazyVoicePanel,
 } from "./lazy-session-side-panels";
-import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
-import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
+import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 
 import type {
   SessionAgentManagementIntent,
@@ -76,11 +76,16 @@ import {
   writeAutomationFocus,
 } from "../artifacts/automation-focus-memory";
 import { useSessionAutomationOffer } from "../artifacts/use-session-automation-offer";
-import { WorkspaceFilesPage } from "../../workspace";
+import {
+  WorkspaceFilesPage,
+  deleteSessionOwnedWorkspaceFiles,
+} from "../../workspace";
 import {
   archiveAssistantTask,
   permanentlyRemoveAssistantArchivedTask,
+  readAssistantArchivedTasks,
 } from "../../shared";
+import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
 import {
   AgentConversationPanel,
   SidebarPaneCollapseToggle,
@@ -139,9 +144,10 @@ export type AssistantPageProps = SessionPageProps & {
 };
 
 import {
-  appendComposerFileMention,
+  createWorkspaceFilesAgentHandlers,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
+import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
@@ -346,6 +352,22 @@ export function AssistantPage(props: AssistantPageProps) {
     [
       props.selectedWorkspaceId,
       props.sidebar.workspaceSessionGroups,
+    ],
+  );
+
+  const filesOpenSessionMeta = useMemo(
+    () =>
+      buildFilesOpenSessionMeta({
+        workspaceId: props.selectedWorkspaceId,
+        workspaceRoot:
+          props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
+        liveSessions: assistantWorkspaceSessions,
+      }),
+    [
+      assistantWorkspaceSessions,
+      props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
+      props.workspaceFilesRoot,
     ],
   );
 
@@ -714,6 +736,51 @@ export function AssistantPage(props: AssistantPageProps) {
   const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] =
     useState(false);
 
+  const resolveSessionDirectory = useCallback(
+    (sessionId: string): string | null => {
+      const id = sessionId.trim();
+      if (!id) return null;
+      for (const group of props.sidebar.workspaceSessionGroups) {
+        const match = group.sessions.find((session) => session.id === id);
+        if (match?.directory) return match.directory;
+      }
+      const archived = readAssistantArchivedTasks(
+        props.selectedWorkspaceId,
+      ).find((task) => task.sessionId === id);
+      return archived?.directory ?? null;
+    },
+    [props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups],
+  );
+
+  const purgeSessionWorkspaceFiles = useCallback(
+    async (sessionId: string) => {
+      const client = props.onmyagentServerClient;
+      const workspaceId = props.selectedWorkspaceId.trim();
+      if (!client || !workspaceId || !sessionId.trim()) return;
+      try {
+        await deleteSessionOwnedWorkspaceFiles({
+          client,
+          workspaceId,
+          sessionId,
+          directory: resolveSessionDirectory(sessionId),
+          workspaceRoot: props.selectedWorkspaceRoot,
+        });
+      } catch (error) {
+        console.warn(
+          "[assistant] best-effort session file cleanup failed",
+          sessionId,
+          error,
+        );
+      }
+    },
+    [
+      props.onmyagentServerClient,
+      props.selectedWorkspaceId,
+      props.selectedWorkspaceRoot,
+      resolveSessionDirectory,
+    ],
+  );
+
   const executeAssistantDelete = useCallback(
     async (
       target:
@@ -722,6 +789,7 @@ export function AssistantPage(props: AssistantPageProps) {
     ) => {
       if (!props.onDeleteSession) return;
       if (target.kind === "session") {
+        await purgeSessionWorkspaceFiles(target.sessionId);
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           target.sessionId,
@@ -734,6 +802,7 @@ export function AssistantPage(props: AssistantPageProps) {
       // definition is never deleted and "定时" returns. Parallel budgeted
       // deletes keep multi-run groups from stacking full remote timeouts.
       for (const sessionId of target.sessionIds) {
+        await purgeSessionWorkspaceFiles(sessionId);
         permanentlyRemoveAssistantArchivedTask(
           props.selectedWorkspaceId,
           sessionId,
@@ -781,6 +850,7 @@ export function AssistantPage(props: AssistantPageProps) {
       props.onDeleteSession,
       props.onmyagentServerClient,
       props.selectedWorkspaceId,
+      purgeSessionWorkspaceFiles,
       showToast,
     ],
   );
@@ -1061,6 +1131,7 @@ export function AssistantPage(props: AssistantPageProps) {
             openRailView(view);
           }}
           onOpenAccountSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenDevices={() => {
             openRailView("devices");
@@ -1285,24 +1356,30 @@ export function AssistantPage(props: AssistantPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
-                          onOpenArtifact={openTarget}
-                          onAddToTask={(relativePath) => {
-                            if (!appendComposerFileMention(renderedSessionId, relativePath)) {
-                              return;
-                            }
+                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                          archivedSessionIds={
+                            filesOpenSessionMeta.archivedSessionIds
+                          }
+                          sessionTitleByKey={
+                            filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          sessionIdByPathKey={
+                            filesOpenSessionMeta.sessionIdByPathKey
+                          }
+                          onOpenSourceSession={(sessionId) => {
+                            props.sidebar.onOpenSession(
+                              props.selectedWorkspaceId,
+                              sessionId,
+                            );
                             openRailView("assistant");
-                            showToast({
-                              tone: "success",
-                              title: t("files.added_to_task_title"),
-                              description: t("files.added_to_task"),
-                              dismissLabel: t("common.dismiss"),
-                            });
                           }}
-                          onEditError={() => showToast({
-                            tone: "error",
-                            title: t("files.edit_file_failed"),
-                            dismissLabel: t("common.dismiss"),
-                            durationMs: 0,
+                          onOpenArtifact={openTarget}
+                          {...createWorkspaceFilesAgentHandlers({
+                            sessionId: renderedSessionId,
+                            openRail: () => openRailView("assistant"),
+                            showToast,
+                            buildInstruction: buildAskAgentFileInstruction,
+                            t,
                           })}
                         />
                       ),
@@ -1416,7 +1493,8 @@ export function AssistantPage(props: AssistantPageProps) {
                     primarySession={
                       canRenderReactSurface ? (
                           <SessionSurface
-                            key={renderedSessionId}
+                            // Workspace-stable key: session switches are prop-driven.
+                            key={props.runtimeWorkspaceId ?? "assistant-surface"}
                             {...props.surface!}
                             onSendDraft={wrappedOnSendDraft}
                             client={props.onmyagentServerClient!}

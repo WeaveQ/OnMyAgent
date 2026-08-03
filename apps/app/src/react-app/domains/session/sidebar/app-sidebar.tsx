@@ -11,11 +11,12 @@ import {
   FileText,
   Info,
   KeyRound,
-  LogOut,
   MonitorSmartphone,
   MoreHorizontal,
+  Palette,
   Pencil,
   Plus,
+  Power,
   Trash2,
   RefreshCw,
   RotateCcw,
@@ -73,6 +74,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -80,8 +82,19 @@ import { IconTile } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 
+import {
+  getResolvedThemeMode,
+  setThemeMode as setAppThemeMode,
+  subscribeToTheme,
+  type ResolvedThemeMode,
+} from "@/app/theme";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import { AccountPreferencesSubmenu } from "./account-preferences-submenu";
+import { useStatusToasts } from "../../shell-feedback";
+import {
+  readProfileUserNameFromStorage,
+  resolveAccountDisplayName,
+} from "../../../capabilities/account-avatar/account-avatar-prefs";
+import { AccountUserAvatar } from "../../../capabilities/account-avatar/account-user-avatar";
 import { SidebarContext, useSidebarContext } from "./app-sidebar-provider";
 import type { SidebarContextValue } from "./app-sidebar-provider";
 import {
@@ -100,6 +113,9 @@ import {
 const sidebarAccountMenuRowClass =
   "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:!bg-dls-hover hover:!text-dls-text focus:!bg-dls-hover focus:!text-dls-text data-highlighted:!bg-dls-hover data-highlighted:!text-dls-text data-open:!bg-dls-hover data-open:!text-dls-text data-popup-open:!bg-dls-hover data-popup-open:!text-dls-text data-state-open:!bg-dls-hover data-state-open:!text-dls-text aria-expanded:!bg-dls-hover aria-expanded:!text-dls-text [&_svg]:text-current";
 
+const sidebarAccountThemeChipClass =
+  "rounded-md px-2 py-0.5 text-xs font-medium transition-colors";
+
 const appSidebarTextClass = {
   noticeTitle: "text-xs font-medium text-dls-text",
   noticeDescription: "mt-1 text-xs leading-5 text-dls-secondary",
@@ -107,6 +123,7 @@ const appSidebarTextClass = {
   billingUsage: "text-sm font-medium",
   accountName: "block truncate text-sm font-medium",
   accountEmail: "block truncate text-xs text-sidebar-foreground/55",
+  menuTitle: "min-w-0 flex-1 truncate text-sm font-semibold leading-none text-dls-text",
   brand: "truncate text-xl font-medium leading-none text-sidebar-foreground",
   groupLabel: "flex h-8 w-full items-center gap-2 px-2 text-left text-sm font-medium text-sidebar-foreground/45",
 };
@@ -393,6 +410,7 @@ export type AppSidebarProps = {
   onOpenPrimaryView: (view: SidebarPrimaryView) => void;
   account?: SidebarAccountInfo | null;
   onOpenAccountSettings?: () => void;
+  onOpenProfile?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
 };
@@ -741,6 +759,7 @@ export function AppSidebar(props: AppSidebarProps) {
                 <SidebarAccountButton
                   account={props.account || undefined}
                   onOpenSettings={props.onOpenAccountSettings}
+                  onOpenProfile={props.onOpenProfile}
                   onSignOut={props.onSignOut}
                   onOpenBilling={props.onOpenBilling}
                 />
@@ -797,83 +816,259 @@ export function SidebarAccountButton(props: {
   /** Open agent management center (moved off the main rail into this menu). */
   onOpenAgentManagement?: () => void;
   onOpenSettings?: () => void;
+  /** Open Settings → Personal profile (avatar / name). */
+  onOpenProfile?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
   compact?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
+  const [checkingUpdates, setCheckingUpdates] = React.useState(false);
+  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedThemeMode>(
+    () => getResolvedThemeMode(),
+  );
+  const { showToast } = useStatusToasts();
   const [localUser] = React.useState(() => readLocalAuthUser());
   const account = localUser
     ? { name: localUser.username, email: localUser.email }
     : props.account;
-  const initial = (account?.name || account?.email || "xxx")
-    .charAt(0)
-    .toUpperCase();
+  // Personal profile name (settings) → local auth → account email.
+  const displayName = resolveAccountDisplayName({
+    profileUserName: readProfileUserNameFromStorage(),
+    accountName: account?.name,
+    accountEmail: account?.email,
+  });
+
+  React.useEffect(
+    () =>
+      subscribeToTheme(() => {
+        setResolvedTheme(getResolvedThemeMode());
+      }),
+    [],
+  );
+
+  const closeMenu = React.useCallback(() => setOpen(false), []);
+
+  const handleCheckUpdates = React.useCallback(async () => {
+    closeMenu();
+    const bridge = window.__ONMYAGENT_ELECTRON__?.updater;
+    if (!bridge?.check) {
+      showToast({
+        tone: "info",
+        title: t("settings.updates_desktop_only"),
+      });
+      return;
+    }
+    setCheckingUpdates(true);
+    showToast({
+      tone: "info",
+      title: t("account_menu.checking_for_updates"),
+    });
+    try {
+      const result = await bridge.check("stable");
+      if (result.reason === "unavailable") {
+        showToast({
+          tone: "info",
+          title: t("settings.auto_updates_packaged_only"),
+        });
+        return;
+      }
+      if (result.available && result.latestVersion) {
+        showToast({
+          tone: "success",
+          title: t("account_menu.update_available", {
+            version: result.latestVersion,
+          }),
+        });
+        return;
+      }
+      showToast({
+        tone: "success",
+        title: t("account_menu.update_latest"),
+      });
+    } catch {
+      showToast({
+        tone: "error",
+        title: t("account_menu.update_check_failed"),
+      });
+    } finally {
+      setCheckingUpdates(false);
+    }
+  }, [closeMenu, showToast]);
+
+  const handleQuit = React.useCallback(() => {
+    closeMenu();
+    const quit = window.__ONMYAGENT_ELECTRON__?.shell?.quit;
+    if (quit) {
+      void quit();
+      return;
+    }
+    // Web / non-desktop: fall back to sign-out if provided.
+    if (props.onSignOut) {
+      setSignOutConfirmOpen(true);
+      return;
+    }
+    window.close();
+  }, [closeMenu, props.onSignOut]);
+
+  const setThemeChip = React.useCallback((mode: "light" | "dark") => {
+    setAppThemeMode(mode);
+    setResolvedTheme(mode);
+  }, []);
+
+  const openProfile = React.useCallback(() => {
+    closeMenu();
+    if (props.onOpenProfile) {
+      props.onOpenProfile();
+      return;
+    }
+    props.onOpenSettings?.();
+  }, [closeMenu, props.onOpenProfile, props.onOpenSettings]);
 
   const menuContent = (
     <>
-      <div className="hidden p-3 pb-2">
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            props.onOpenBilling?.();
-          }}
-          className="hidden w-full rounded-lg bg-sidebar-accent/40 p-3 text-left transition-colors hover:bg-sidebar-accent/70"
+      {/* Header: open personal profile (avatar is edited there). */}
+      <div className="px-1.5 pb-1 pt-1.5">
+        <DropdownMenuItem
+          onClick={openProfile}
+          className={cn(sidebarAccountMenuRowClass, "h-auto min-h-10 py-1.5")}
+          title={t("account_menu.avatar_open_profile")}
+          aria-label={t("account_menu.avatar_open_profile")}
         >
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <span className={appSidebarTextClass.billingTitle}>
-              {t("account_menu.free_plan")}
-            </span>
-            <StatusBadge size="sm" className="bg-dls-surface-muted text-dls-secondary">
-              {t("account_menu.view_details")}
-            </StatusBadge>
-          </div>
-          <div className="mb-2 h-1 overflow-hidden rounded-full bg-dls-surface-muted">
-            <div className="h-full w-[28%] rounded-full bg-dls-accent" />
-          </div>
-          <div className="flex items-center justify-between gap-3 text-sidebar-foreground">
-            <span className={appSidebarTextClass.billingUsage}>
-              146 / 520 {t("account_menu.credits")}
-              <span className="ml-1 text-xs font-normal text-dls-secondary">
-                {t("account_menu.used_percent")}
-              </span>
-            </span>
-            <ChevronRight className="size-3.5 text-dls-secondary" />
-          </div>
-        </button>
-      </div>
-      <div className="px-1.5 py-1.5">
-        {/* Inline language / theme / font size (no conversation width). */}
-        <AccountPreferencesSubmenu />
-        {props.onOpenLocalAgent ? (
-          <SidebarAccountMenuItem
-            icon={Bot}
-            label={t("nav.local_agent")}
-            onSelect={() => {
-              setOpen(false);
-              props.onOpenLocalAgent?.();
-            }}
+          <AccountUserAvatar
+            displayName={displayName}
+            size="md"
+            trailing={
+              displayName ? (
+                <div
+                  className={appSidebarTextClass.menuTitle}
+                  title={displayName}
+                >
+                  {displayName}
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    appSidebarTextClass.menuTitle,
+                    "text-dls-secondary",
+                  )}
+                >
+                  {t("account_menu.avatar_unnamed")}
+                </div>
+              )
+            }
           />
-        ) : null}
+          <ChevronRight
+            className="ml-auto size-3.5 shrink-0 text-dls-secondary"
+            aria-hidden
+          />
+        </DropdownMenuItem>
+      </div>
+
+      <DropdownMenuSeparator className="my-0.5 bg-dls-border" />
+
+      {/* Section 1 — pages you can enter (chevron) */}
+      <div className="px-1.5 py-1">
         {props.onOpenAgentManagement ? (
           <SidebarAccountMenuItem
             icon={Settings2}
             label={t("nav.management")}
+            showChevron
             onSelect={() => {
-              setOpen(false);
+              closeMenu();
               props.onOpenAgentManagement?.();
             }}
           />
         ) : null}
+        {props.onOpenLocalAgent ? (
+          <SidebarAccountMenuItem
+            icon={Bot}
+            label={t("nav.local_agent")}
+            showChevron
+            onSelect={() => {
+              closeMenu();
+              props.onOpenLocalAgent?.();
+            }}
+          />
+        ) : null}
+      </div>
+
+      <DropdownMenuSeparator className="my-0.5 bg-dls-border" />
+
+      {/* Section 2 — appearance · settings · check for updates */}
+      <div className="px-1.5 py-1">
+        <div
+          className={cn(
+            sidebarAccountMenuRowClass,
+            "cursor-default hover:!bg-transparent data-highlighted:!bg-transparent",
+          )}
+          // Keep menu open while switching theme chips.
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={(event) => event.preventDefault()}
+        >
+          <Palette className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            {t("account_menu.appearance")}
+          </span>
+          <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-dls-surface-muted p-0.5">
+            <button
+              type="button"
+              className={cn(
+                sidebarAccountThemeChipClass,
+                resolvedTheme === "light"
+                  ? "bg-dls-surface text-dls-text shadow-sm"
+                  : "text-dls-secondary hover:text-dls-text",
+              )}
+              onClick={() => setThemeChip("light")}
+            >
+              {t("settings.theme_light")}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                sidebarAccountThemeChipClass,
+                resolvedTheme === "dark"
+                  ? "bg-dls-surface text-dls-text shadow-sm"
+                  : "text-dls-secondary hover:text-dls-text",
+              )}
+              onClick={() => setThemeChip("dark")}
+            >
+              {t("settings.theme_dark")}
+            </button>
+          </div>
+        </div>
         <SidebarAccountMenuItem
           icon={Settings}
           label={t("account_menu.settings")}
+          showChevron
           onSelect={() => {
-            setOpen(false);
+            closeMenu();
             props.onOpenSettings?.();
           }}
+        />
+        <SidebarAccountMenuItem
+          icon={RefreshCw}
+          label={
+            checkingUpdates
+              ? t("account_menu.checking_for_updates")
+              : t("account_menu.check_for_updates")
+          }
+          onSelect={() => {
+            if (checkingUpdates) return;
+            void handleCheckUpdates();
+          }}
+        />
+      </div>
+
+      <DropdownMenuSeparator className="my-0.5 bg-dls-border" />
+
+      {/* Section 3 — quit app */}
+      <div className="px-1.5 py-1">
+        <SidebarAccountMenuItem
+          icon={Power}
+          label={t("account_menu.quit")}
+          onSelect={handleQuit}
         />
       </div>
     </>
@@ -906,7 +1101,7 @@ export function SidebarAccountButton(props: {
           align="center"
           side="right"
           sideOffset={12}
-          className="w-48 rounded-lg border-sidebar-border/70 bg-dls-surface p-0"
+          className="w-56 rounded-lg border-sidebar-border/70 bg-dls-surface p-0"
         >
           {menuContent}
         </DropdownMenuContent>
@@ -927,12 +1122,10 @@ export function SidebarAccountButton(props: {
               "h-auto w-full justify-start gap-3 border border-sidebar-border/70 bg-sidebar-accent/50 px-3 py-3 text-left text-sidebar-foreground hover:bg-sidebar-accent",
             )}
           >
-            <IconTile size="sm" shape="circle" tone="softAccent" className="bg-dls-accent text-xs font-medium text-white">
-              {initial}
-            </IconTile>
+            <AccountUserAvatar displayName={displayName} size="sm" />
             <span className="min-w-0 flex-1">
               <span className={appSidebarTextClass.accountName}>
-                {account?.name || "..."}
+                {displayName || t("account_menu.avatar_unnamed")}
               </span>
               {account?.email ? (
                 <span className={appSidebarTextClass.accountEmail}>
@@ -948,7 +1141,7 @@ export function SidebarAccountButton(props: {
         align="start"
         side="top"
         sideOffset={8}
-        className="w-48 rounded-lg border-sidebar-border/70 bg-dls-surface p-0"
+        className="w-56 rounded-lg border-sidebar-border/70 bg-dls-surface p-0"
       >
         {menuContent}
       </DropdownMenuContent>
@@ -974,6 +1167,8 @@ function SidebarAccountMenuItem(props: {
   label: string;
   onSelect?: () => void;
   destructive?: boolean;
+  /** Trailing chevron for items that open another page / panel. */
+  showChevron?: boolean;
 }) {
   const Icon = props.icon;
 
@@ -989,7 +1184,6 @@ function SidebarAccountMenuItem(props: {
     );
   }
 
-  // Page navigations: no trailing chevron (submenus use DropdownMenuSubTrigger).
   return (
     <DropdownMenuItem
       onClick={props.onSelect}
@@ -997,6 +1191,9 @@ function SidebarAccountMenuItem(props: {
     >
       <Icon className="size-3.5 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
+      {props.showChevron ? (
+        <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
+      ) : null}
     </DropdownMenuItem>
   );
 }

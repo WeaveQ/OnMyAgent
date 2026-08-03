@@ -18,7 +18,7 @@ import {
   ensureSelectedAgentSessionVisible,
   type AgentConversationGroup,
 } from "../sidebar/session-chrome";
-import { findBuiltinMarketplaceExpertById } from "../expert-marketplace/data";
+import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 
 export { buildAgentConversationGroups };
 

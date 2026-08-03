@@ -41,13 +41,18 @@ const fileAllowlist = new Set([
   'apps/app/src/i18n/index.ts',
   // Marketplace category haystacks：这两个文件是搜索匹配用的字典，同时承载
   // zh+en 关键词，不是普通 UI 文案。UI 展示走各自 labelKey 的 t() 键。
-  'apps/app/src/react-app/domains/session/expert-marketplace/categories.ts',
-  'apps/app/src/react-app/domains/session/skills-marketplace/categories.ts',
+  'apps/app/src/react-app/domains/plugins/expert-marketplace/categories.ts',
+  'apps/app/src/react-app/domains/plugins/skills-marketplace/categories.ts',
   // Legacy value normalizer: CJK map keys are backend value keys, not UI copy.
   'apps/app/src/react-app/domains/settings/pages/legacy-profile-options.ts',
   // Agent-output matching heuristics (product cards / follow-up chips), not UI copy.
   'apps/app/src/react-app/capabilities/artifacts/open-target.ts',
   'apps/app/src/react-app/domains/session/surface/follow-up-suggestions.ts',
+  // Work-memory disk templates (USER/style/MEMORY/AGENTS.md): locale-aware file
+  // bodies for the user's machine, not in-app chrome. Content language follows
+  // Settings language (zh / zh-TW / en); CJK hardcode gate does not apply here.
+  'apps/app/src/react-app/domains/shared/memory/work-memory.ts',
+  'apps/app/src/react-app/domains/shared/memory/work-memory-file-sync.ts',
 ])
 
 const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/

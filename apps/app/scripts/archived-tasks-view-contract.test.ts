@@ -84,16 +84,16 @@ describe("archived-tasks-view filter UX contract", () => {
     expect(source).toContain("function ArchivedTaskRow");
   });
 
-  test("project groups: header outside card with count + bulk-delete menu", () => {
+  test("project groups: card header with count + bulk-delete menu", () => {
     expect(source).toContain("ARCHIVE_ROW_INSET");
     expect(source).toContain('data-archived-task-list="true"');
-    // WorkBuddy layout: group header above rounded card, spacing between groups.
+    // WorkBuddy layout: spaced groups; folder header shares inset with rows.
     expect(source).toContain('className="flex flex-col gap-5"');
     expect(source).toContain(
       "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
     );
-    // Header is outside the card (no border-b header inside the card).
-    expect(source).not.toContain("border-b border-dls-border");
+    // Header lives inside the card (muted strip + shared ARCHIVE_ROW_INSET).
+    expect(source).toContain("border-b border-dls-border/70");
     expect(source).toContain("MoreHorizontal");
     expect(source).toContain(
       't("settings.archived_tasks_delete_project_all")',
@@ -105,10 +105,12 @@ describe("archived-tasks-view filter UX contract", () => {
     expect(source).toContain("ConfirmModal");
     // Unarchive is text-only (reference has no leading undo icon).
     expect(source).not.toContain("Undo2");
-    // Filter chips match files-tab radius (rounded-lg), not capsule pills.
+    // Filter chips: rounded-full capsule on archive filters.
     expect(source).toContain(
-      "h-9 shrink-0 gap-1.5 rounded-lg border-dls-border bg-dls-surface px-3 font-normal text-dls-text",
+      "h-9 shrink-0 gap-1.5 rounded-full border-dls-border bg-dls-surface px-3 font-normal text-dls-text",
     );
     expect(source).not.toContain("leadSlot");
+    // C1: permanent delete removes session-owned workspace files.
+    expect(source).toContain("deleteSessionOwnedWorkspaceFiles");
   });
 });

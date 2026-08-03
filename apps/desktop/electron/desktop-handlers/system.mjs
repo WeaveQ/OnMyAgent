@@ -6,6 +6,11 @@ import {
   createVisualSnapshotPdf,
   exportVisualSnapshot,
 } from "../visual-snapshot-export.mjs";
+import {
+  WORK_MEMORY_SEED_FILES,
+  ensureWorkMemoryAwareness,
+  resolveWorkMemoryAwarenessMainDir,
+} from "../ensure-work-memory-awareness.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "userAgentRegistryRead",
@@ -58,6 +63,10 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "installSoftwareEnv",
   "checkBrowserSkillStatus",
   "openBrowserSkillInstallPage",
+  "workMemoryEnsureAwareness",
+  "workMemoryReadFile",
+  "workMemoryWriteFile",
+  "workMemoryListFiles",
 ]);
 
 /**
@@ -110,6 +119,7 @@ export function createSystemDomainHandlers({
   applyNativeTheme,
   setApplicationMenuVisible,
   BrowserWindow,
+  getRealHomeDir,
   onAppSnapshotHotkey,
 } = {}) {
   return {
@@ -394,6 +404,117 @@ export function createSystemDomainHandlers({
 
   __homeDir: async (event, args) => {
     return os.homedir();
+  },
+
+  /**
+   * Ensure ~/.onmyagent/data/user/awareness/main exists with seed files
+   * (style.md / AGENTS.md / USER.md / MEMORY.md + profile / pending).
+   * Same path as cold-start install seed (idempotent).
+   */
+  workMemoryEnsureAwareness: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return ensureWorkMemoryAwareness({
+      homeDir,
+      mkdir,
+      stat,
+      writeFile,
+    });
+  },
+
+  workMemoryListFiles: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    // List always seeds missing files so UI never shows "not created" after install.
+    const ensured = await ensureWorkMemoryAwareness({
+      homeDir,
+      mkdir,
+      stat,
+      writeFile,
+    });
+    const names = Object.keys(WORK_MEMORY_SEED_FILES);
+    const files = [];
+    for (const name of names) {
+      const filePath = path.join(ensured.path, name);
+      try {
+        const st = await stat(filePath);
+        files.push({
+          name,
+          size: st.size,
+          mtimeMs: st.mtimeMs,
+          exists: true,
+        });
+      } catch {
+        files.push({ name, size: 0, mtimeMs: 0, exists: false });
+      }
+    }
+    return { ok: true, path: ensured.path, files };
+  },
+
+  workMemoryReadFile: async (event, args) => {
+    const name = String(args[0] ?? "").trim();
+    if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) {
+      return { ok: false, reason: "invalid_name" };
+    }
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    // Missing files get seed content so view/edit never hits a hard empty state.
+    await ensureWorkMemoryAwareness({
+      homeDir,
+      mkdir,
+      stat,
+      writeFile,
+    });
+    const mainDir = resolveWorkMemoryAwarenessMainDir(homeDir);
+    const filePath = path.join(mainDir, name);
+    try {
+      const content = await readFile(filePath, "utf8");
+      const st = await stat(filePath);
+      return {
+        ok: true,
+        path: filePath,
+        content,
+        size: st.size,
+        mtimeMs: st.mtimeMs,
+      };
+    } catch {
+      // Last resort: materialize this one seed and retry.
+      const seed = WORK_MEMORY_SEED_FILES[name];
+      if (typeof seed === "string") {
+        try {
+          await mkdir(mainDir, { recursive: true });
+          await writeFile(filePath, seed, "utf8");
+          const st = await stat(filePath);
+          return {
+            ok: true,
+            path: filePath,
+            content: seed,
+            size: st.size,
+            mtimeMs: st.mtimeMs,
+          };
+        } catch {
+          // fall through
+        }
+      }
+      return { ok: false, reason: "not_found", path: filePath };
+    }
+  },
+
+  workMemoryWriteFile: async (event, args) => {
+    const payload = args[0] ?? {};
+    const name = String(payload.name ?? "").trim();
+    const content = typeof payload.content === "string" ? payload.content : "";
+    if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) {
+      return { ok: false, reason: "invalid_name" };
+    }
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const mainDir = resolveWorkMemoryAwarenessMainDir(homeDir);
+    await mkdir(mainDir, { recursive: true });
+    const filePath = path.join(mainDir, name);
+    await writeFile(filePath, content, "utf8");
+    const st = await stat(filePath);
+    return { ok: true, path: filePath, size: st.size, mtimeMs: st.mtimeMs };
   },
 
   __joinPath: async (event, args) => {

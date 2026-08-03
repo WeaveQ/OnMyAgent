@@ -38,6 +38,8 @@ import {
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
+  readCustomAgentIdForSession,
+  readSessionAgentSnapshot,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
@@ -55,12 +57,14 @@ import {
 import { useSessionActivityStore } from "../../domains/session";
 import {
   buildOnMyAgentEnvSystemContext,
-  appendMemoryItems,
+  applyAutoCaptureMemory,
   extractMemoryCandidatesFromUserText,
+  scheduleSyncMemoryAwarenessFiles,
   shouldAttemptMemoryExtract,
 } from "../../domains/shared";
 import { getReactQueryClient } from "../../infra/query-client";
 import { buildOnboardingProfileSystemPrompt } from "../onboarding-profile";
+import { resolveSessionExpertId } from "./resolve-session-expert-id";
 import {
   buildCustomInstructionsSystemPrompt,
   buildResponseToneSystemPrompt,
@@ -319,8 +323,12 @@ export function useSessionRouteSurfaceProps(
     // `surfaceProps` in SessionPage overrides those correct values with the
     // local server's, and remote workspaces silently end up calling the
     // local server with the local `rem_*` id.
+    const catalogWorkspaceRoot =
+      selectedWorkspace?.path?.trim() || sessionWorkspaceRoot;
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
+      // Product Files / @ Mine use the catalog workspace, not expert session cwd.
+      filesWorkspaceRoot: catalogWorkspaceRoot,
       connectedProviderIds: providerConnectedIds,
       developerMode: false,
       modelLabel,
@@ -850,15 +858,20 @@ export function useSessionRouteSurfaceProps(
         const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
           uploadAttachment:
             attachmentUploadTarget
-              ? (attachment, uploadPath) =>
-                  attachmentUploadTarget.client.uploadInbox(
+              ? async (attachment, uploadPath) => {
+                  const { uploadUserFileToWorkspace } = await import(
+                    "../../domains/workspace"
+                  );
+                  return uploadUserFileToWorkspace(
+                    attachmentUploadTarget.client,
                     attachmentUploadTarget.workspaceId,
                     attachment.file,
                     { path: uploadPath },
-                  )
+                  );
+                }
               : undefined,
-          // Inbox lives on the catalog workspace; expert task cwd may be an
-          // isolated session subdir — never join inbox under that subdir.
+          // User files land under uploads/ on the catalog workspace; expert task
+          // cwd may be an isolated session subdir — do not nest under that cwd.
           inboxWorkspaceRoot:
             workspaceRootForSession || taskWorkspaceRoot || undefined,
         });
@@ -923,12 +936,26 @@ export function useSessionRouteSurfaceProps(
           storedRuntimeForGoalPrompt?.source === "goal_intent"
             ? storedRuntimeForGoalPrompt
             : undefined;
+        const currentPendingAgent = usePendingAgentStore.getState().getAgent();
+        const storedSessionAgentId =
+          readCustomAgentIdForSession(sessionId) ||
+          readSessionAgentSnapshot(sessionId)?.id ||
+          null;
+        const boundExpertId = resolveSessionExpertId({
+          sessionId,
+          pendingAgentId: pendingAgentSnapshot?.id ?? null,
+          currentAgentId: currentPendingAgent?.id ?? null,
+          currentAgentBoundSessionId:
+            currentPendingAgent?.boundSessionId ?? null,
+          sessionAgentId: storedSessionAgentId,
+        });
         const combinedSystem = joinSystemParts([
           envSystemContext,
           skillCommandPrompt?.systemPrompt,
           buildOnboardingProfileSystemPrompt(
             local.prefs.onboardingProfile,
             local.prefs.conversationMemory,
+            { expertId: boundExpertId },
           ) ||
             undefined,
           buildResponseToneSystemPrompt(local.prefs.responseTone) || undefined,
@@ -965,26 +992,30 @@ export function useSessionRouteSurfaceProps(
         if (result.error) {
           throw new Error(serializeSDKError(result.error));
         }
-        // Opt-in conversation memory: rule-extract profile lines and write
-        // straight into items (list UI). User can delete any row anytime.
+        // Work memory auto-capture: only when enabled + autoCapture.
+        // Writes long-term items + short-term notes (no silent path when auto off).
         const memoryState = local.prefs.conversationMemory;
         const userTurnText = resolveDraftText(promptDraft);
         if (
           memoryState?.enabled &&
+          memoryState.autoCapture &&
           userTurnText &&
           shouldAttemptMemoryExtract(userTurnText)
         ) {
           const candidates = extractMemoryCandidatesFromUserText(userTurnText, {
             sessionId,
+            expertId: boundExpertId ?? undefined,
           });
           if (candidates.length > 0) {
+            const nextMemory = applyAutoCaptureMemory(
+              local.prefs.conversationMemory,
+              candidates,
+            );
             local.setPrefs((previous) => ({
               ...previous,
-              conversationMemory: appendMemoryItems(
-                previous.conversationMemory,
-                candidates,
-              ),
+              conversationMemory: nextMemory,
             }));
+            scheduleSyncMemoryAwarenessFiles(nextMemory);
           }
         }
         if (createdSession) {
@@ -1119,6 +1150,9 @@ export function useSessionRouteSurfaceProps(
         pageMode === "assistant" || pageMode === "expert"
           ? () => setAssistantDraftWorkspaceRoot("")
           : undefined,
+      onOpenShortcutsSettings: () => {
+        handleOpenSettings("/settings/shortcuts");
+      },
     };
     return bagSessionSurfaceProps(flatSurfaceProps);
   }, [

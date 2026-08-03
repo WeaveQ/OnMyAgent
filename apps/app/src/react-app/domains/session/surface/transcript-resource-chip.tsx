@@ -8,6 +8,7 @@ import { t } from "@/i18n";
 import { usePlatform } from "../../../kernel/platform";
 import { resolveArtifactRevealCandidates } from "../artifacts/open-target";
 import { ArtifactIcon } from "../artifacts/artifact-icon";
+import { FileHoverPopup } from "../../../capabilities/artifacts/file-hover-popup";
 import { formatBytes } from "./composer/composer-helpers";
 import { ImageAttachmentLightbox } from "./image-attachment-lightbox";
 import { absolutePathFromFileUrl } from "./user-upload-display";
@@ -124,11 +125,27 @@ export function TranscriptResourceChip(props: {
     })();
   };
 
-  return (
+  const absolute = absolutePathFromFileUrl(props.url);
+  const pathLabel =
+    absolute ||
+    props.relativePath?.trim() ||
+    props.url ||
+    label;
+  const sizeLabel =
+    typeof props.size === "number" && props.size > 0
+      ? formatBytes(props.size)
+      : undefined;
+
+  const handleCopyPath = () => {
+    const text = pathLabel.trim();
+    if (!text) return;
+    void navigator.clipboard.writeText(text);
+  };
+
+  const chipButton = (
     <button
       type="button"
       className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-left text-xs transition hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent disabled:opacity-50"
-      title={t("files.open_in_folder")}
       aria-label={`${label} · ${t("files.open_in_folder")}`}
       disabled={(!props.url && !props.relativePath) || busy}
       onClick={(event) => {
@@ -146,11 +163,30 @@ export function TranscriptResourceChip(props: {
         </span>
         <span className="block truncate text-2xs text-dls-secondary">
           {t("composer.file_kind")}
-          {typeof props.size === "number" && props.size > 0
-            ? ` · ${formatBytes(props.size)}`
-            : ""}
+          {sizeLabel ? ` · ${sizeLabel}` : ""}
         </span>
       </span>
     </button>
+  );
+
+  // Remote / data URLs: keep chip-only (no local path hover card).
+  if (isRemote) {
+    return chipButton;
+  }
+
+  return (
+    <FileHoverPopup
+      name={label}
+      pathLabel={pathLabel}
+      sizeLabel={sizeLabel}
+      onOpenFile={() => {
+        if (absolute) void openDesktopPath(absolute);
+        else handleOpen();
+      }}
+      onOpenInFolder={handleOpen}
+      onCopyPath={handleCopyPath}
+    >
+      {chipButton}
+    </FileHoverPopup>
   );
 }

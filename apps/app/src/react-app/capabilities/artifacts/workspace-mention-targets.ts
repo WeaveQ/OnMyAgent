@@ -146,7 +146,7 @@ function toTarget(
   };
 }
 
-/** Empty @ query: product three-source roots only (no raw disk dump). */
+/** Product source roots (still used when a search matches the source name). */
 export function workspaceMentionRootTargets(): ComposerMentionTarget[] {
   return [
     {
@@ -170,13 +170,88 @@ export function workspaceMentionRootTargets(): ComposerMentionTarget[] {
   ];
 }
 
+/** Source rank: Files → Tasks → Experts (projects/ counts as Tasks). */
+function productSourceRank(path: string): number {
+  const top = path.replace(/\\/g, "/").split("/").filter(Boolean)[0]?.toLowerCase();
+  if (top === WORKSPACE_UPLOADS_DIR) return 0;
+  if (top === WORKSPACE_TASKS_DIR || top === WORKSPACE_PROJECTS_DIR) return 1;
+  if (top === WORKSPACE_EXPERTS_DIR) return 2;
+  return 9;
+}
+
+function isUnderProductSourceRoot(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized || isMentionHiddenPath(normalized)) return false;
+  const top = normalized.split("/").filter(Boolean)[0]?.toLowerCase() ?? "";
+  return (
+    top === WORKSPACE_UPLOADS_DIR ||
+    top === WORKSPACE_TASKS_DIR ||
+    top === WORKSPACE_PROJECTS_DIR ||
+    top === WORKSPACE_EXPERTS_DIR
+  );
+}
+
+/**
+ * Empty @: flatten files (and folders) under Files/Tasks/Experts so users do not
+ * only see three source roots and have to drill in for every pick.
+ */
+export function workspaceMentionFlatBrowseTargets(
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
+  limit = 50,
+): ComposerMentionTarget[] {
+  const roots = new Set([
+    WORKSPACE_UPLOADS_DIR,
+    WORKSPACE_TASKS_DIR,
+    WORKSPACE_PROJECTS_DIR,
+    WORKSPACE_EXPERTS_DIR,
+  ]);
+
+  const candidates = entries
+    .filter((entry) => isUnderProductSourceRoot(entry.path))
+    // Never list the product root dirs themselves as rows (they are not useful).
+    .filter((entry) => !roots.has(entry.path.replace(/\\/g, "/")))
+    .map((entry) => ({
+      entry,
+      target: toTarget(entry),
+      rank: productSourceRank(entry.path),
+      mtime:
+        typeof entry.mtimeMs === "number" && Number.isFinite(entry.mtimeMs)
+          ? entry.mtimeMs
+          : 0,
+    }))
+    .sort((left, right) => {
+      if (left.rank !== right.rank) return left.rank - right.rank;
+      // Files first when flattened — folders still available for multi-select drill-in.
+      if (left.target.kind !== right.target.kind) {
+        return left.target.kind === "file" ? -1 : 1;
+      }
+      if (left.mtime !== right.mtime) return right.mtime - left.mtime;
+      return (left.target.label ?? left.target.path).localeCompare(
+        right.target.label ?? right.target.path,
+      );
+    });
+
+  const out: ComposerMentionTarget[] = [];
+  const seen = new Set<string>();
+  for (const item of candidates) {
+    if (seen.has(item.target.path)) continue;
+    seen.add(item.target.path);
+    out.push(item.target);
+    if (out.length >= limit) break;
+  }
+
+  // Empty workspace: still offer source roots so users can open the folder UI.
+  if (out.length === 0) return workspaceMentionRootTargets();
+  return out;
+}
+
 export function workspaceMentionTargets(
   entries: OnMyAgentWorkspaceFileCatalogEntry[],
   query: string,
 ): ComposerMentionTarget[] {
   const trimmed = query.trim();
   if (!trimmed) {
-    return workspaceMentionRootTargets();
+    return workspaceMentionFlatBrowseTargets(entries);
   }
 
   const rootLabels = workspaceMentionRootTargets();
@@ -199,7 +274,7 @@ export function workspaceMentionTargets(
     })
     .map(toTarget)
     .sort((left, right) => {
-      if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
+      if (left.kind !== right.kind) return left.kind === "file" ? -1 : 1;
       return (left.label ?? left.path).localeCompare(right.label ?? right.path);
     })
     .slice(0, 50);

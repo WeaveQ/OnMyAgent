@@ -27,7 +27,7 @@ export default {
   "session.no_expert_conversations_title": "暫無專家會話",
   "session.no_expert_conversations_desc": "先選擇一位專家開始對話；產生會話後會在這裡繼續。",
   "session.no_expert_conversations_action": "選擇專家",
-  "session.my_experts": "我的專家",
+  "session.my_experts": "我創建的專家",
   "session.search_experts_placeholder": "搜尋專家職稱或描述",
   "session.create_expert": "創建專家",
   "session.create_expert_prompt": "/expert-manager 幫我創建一個 XXX 專家，擅長 XXXXX。我的經驗是：[請補充你的行業背景、相關經驗]",
@@ -115,9 +115,9 @@ export default {
   "session.expert_delete_conversation": "刪除專家",
   "session.delete_expert_title": "刪除專家？",
   "session.delete_named_expert_message":
-    "這將永久刪除專家「{name}」及其全部會話訊息，且不可恢復。",
+    "這將永久刪除專家「{name}」、其全部會話訊息，以及這些會話生成的工作區檔案，且不可恢復。",
   "session.delete_expert_generic":
-    "這將永久刪除該專家及其全部會話訊息，且不可恢復。",
+    "這將永久刪除該專家、其全部會話訊息，以及這些會話生成的工作區檔案，且不可恢復。",
   "session.badge_cloud": "雲端",
   "session.badge_current": "當前",
   "session.provider_enable": "啟用",
@@ -295,8 +295,10 @@ export default {
   "session.send_prompt_failed": "發送提示詞失敗。",
   "session.default_title": "新建會話",
   "session.delete": "刪除",
-  "session.delete_named_session_message": "這將永久刪除「{title}」及其消息。",
-  "session.delete_session_generic": "這將永久刪除所選會話及其消息。",
+  "session.delete_named_session_message":
+    "這將永久刪除「{title}」及其訊息，並刪除該會話生成的工作區檔案。此操作無法撤銷。",
+  "session.delete_session_generic":
+    "這將永久刪除所選會話及其訊息，並刪除該會話生成的工作區檔案。此操作無法撤銷。",
   "session.delete_session_title": "刪除會話？",
   "session.deleting": "正在刪除…",
   "session.deny": "拒絕",
@@ -857,8 +859,10 @@ export default {
   "session.archive_task_done": "已歸檔任務",
   "session.delete_task": "刪除任務",
   "session.delete_task_title": "刪除任務？",
-  "session.delete_named_task_message": "這將永久刪除「{title}」及其消息。",
-  "session.delete_task_generic": "這將永久刪除所選任務及其消息。",
+  "session.delete_named_task_message":
+    "這將永久刪除「{title}」及其訊息，並刪除該任務生成的工作區檔案。此操作無法撤銷。",
+  "session.delete_task_generic":
+    "這將永久刪除所選任務及其訊息，並刪除該任務生成的工作區檔案。此操作無法撤銷。",
   "session.pinned_section": "置頂",
   "session.recent_section": "最近",
   "session.no_space_tasks": "暫無空間任務",
@@ -931,8 +935,8 @@ export default {
   "session.billing_col_credits": "積分",
   "session.billing_view_details": "查看詳情",
   "session.billing_no_records": "暫無帳單紀錄",
-  "session.projects_coming_soon_title": "開發中",
-  "session.projects_coming_soon_body": "敬請期待",
+  "session.projects_coming_soon_title": "正在開發中",
+  "session.projects_coming_soon_body": "項目能力即將上線",
   "session.billing_mock_scene": "AccioWork任務",
   "session.billing_mock_session_who": "你是誰?",
   "session.billing_mock_session_hello": "打個招呼",

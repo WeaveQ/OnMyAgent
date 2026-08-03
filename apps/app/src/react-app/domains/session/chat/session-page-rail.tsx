@@ -45,6 +45,7 @@ export function OnMyAgentRail(props: {
   onOpenView: (view: OnMyAgentPrimaryView) => void;
   onOpenDevices: () => void;
   onOpenAccountSettings?: () => void;
+  onOpenProfile?: () => void;
   onSignOut?: () => void;
   onOpenBilling?: () => void;
 }) {
@@ -81,6 +82,7 @@ export function OnMyAgentRail(props: {
           account={props.account || undefined}
           onOpenDevices={props.onOpenDevices}
           onOpenSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenBilling={props.onOpenBilling}
         />

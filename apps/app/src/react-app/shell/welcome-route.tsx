@@ -56,6 +56,10 @@ import {
 } from "../../app/lib/desktop";
 import { isDesktopRuntime } from "../../app/utils";
 import { useLocal, type OnboardingProfile } from "../kernel/local-provider";
+import {
+  buildUserProfileLabelMaps,
+  syncPersonalAwarenessFiles,
+} from "../domains/shared";
 import { createOnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import { prewarmAgentManagementCore } from "../domains/local-agents";
 import { prewarmProvidersForWorkspace } from "../domains/settings";
@@ -481,11 +485,23 @@ export function WelcomeRoute() {
     (skipped: boolean) => {
       // Completing (not skip) requires a display name.
       if (!skipped && !profile.userName.trim()) return;
+      const nextProfile = toProfile(profile, skipped);
       local.setPrefs((previous) => ({
         ...previous,
         hasCompletedOnboarding: true,
-        onboardingProfile: toProfile(profile, skipped),
+        onboardingProfile: nextProfile,
       }));
+      void syncPersonalAwarenessFiles({
+        profile: nextProfile,
+        labels: buildUserProfileLabelMaps({
+          roles: roleOptions,
+          industries: industryOptions,
+          tools: toolOptions,
+          tasks: taskOptions,
+        }),
+        responseTone: local.prefs.responseTone,
+        customInstructions: local.prefs.customInstructions,
+      });
       navigate(
         createdWorkspaceId
           ? workspaceAssistantRoute(createdWorkspaceId)

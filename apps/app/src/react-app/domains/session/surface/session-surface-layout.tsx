@@ -106,6 +106,8 @@ export function SessionSurfaceComposerColumn(props: {
 }) {
   return (
     <>
+      {/* Draft-home floating chrome (e.g. shortcuts) is pinned on SessionSurfaceView
+          so it sits in the true surface top-right, not the centered hero column. */}
       {props.personalAssistantDraftHome && props.floatingToolbar ? (
         <div className="absolute right-5 top-14 z-20 flex items-center gap-1.5 mac:titlebar-no-drag">
           {props.floatingToolbar}

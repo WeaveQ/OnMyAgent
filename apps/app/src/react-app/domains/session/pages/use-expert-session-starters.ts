@@ -6,10 +6,10 @@ import {
   type PendingAgentContext,
   usePendingAgentStore,
 } from "../../agents";
-import { buildPendingAgentFromMarketplaceExpert } from "../expert-marketplace/pending-agent";
-import { installSummonedMarketplaceExpert } from "../expert-marketplace/install";
-import { resolveMarketplaceExpertStartPrompt } from "../expert-marketplace/start-prompt";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
+import { resolveMarketplaceExpertStartPrompt } from "@/react-app/domains/plugins";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import type {
   AgentConversationGroup,
   OnMyAgentPrimaryView,

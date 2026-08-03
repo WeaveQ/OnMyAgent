@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveMarketplaceExpertStartPrompt } from "../src/react-app/domains/session/expert-marketplace/start-prompt";
+import { resolveMarketplaceExpertStartPrompt } from "../src/react-app/domains/plugins/expert-marketplace/start-prompt";
 
 const firstTemplate = {
   id: "organize",

@@ -543,7 +543,16 @@ export type PersonalLocalAgentConversationMessage = {
   startedAt?: number | null;
   ownership?: string | null;
   resolution?: { target?: string; kind?: string; message?: string } | null;
-  contextUsage?: { used: number; total: number; label?: string | null } | null;
+  contextUsage?: {
+    used: number;
+    total: number;
+    label?: string | null;
+    totalSource?: string | null;
+    usedSource?: string | null;
+    breakdown?: Array<{ id: string; tokens: number }> | null;
+    breakdownSource?: string | null;
+    modelId?: string | null;
+  } | null;
   commands?: unknown[];
 };
 

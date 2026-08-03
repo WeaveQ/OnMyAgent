@@ -56,7 +56,7 @@ describe("main rail channel icon contract", () => {
       "text-dls-secondary hover:bg-black/5 hover:text-dls-text",
     );
     expect(primitiveSource).toContain(
-      'top: "w-rail-pill gap-1 rounded-2xl px-0.5 py-1.5 text-xs leading-none"',
+      'top: "w-rail-pill gap-2 rounded-2xl px-0.5 py-1.5 text-xs leading-none"',
     );
   });
 });

@@ -111,23 +111,22 @@ export function createPersonalAgentRuntime(options) {
     listAgentConversationsByProvider,
     importAgentConversationFromArchive,
   } = conversationApi;
-  void recoverAgentProcesses().catch(() => undefined);
-  // Reap any process trees left behind by the previous runtime session before
-  // finalizing their orphaned run logs. `recoverAgentProcesses` only marks them
-  // stale; this actually SIGTERM -> SIGKILLs the (possibly still-alive, hung)
-  // trees so `reconcileOrphanRuns` can reclaim the logs.
-  void cleanupRegisteredAgentProcesses().catch(() => undefined);
-  void reconcileOrphanRuns().catch(() => undefined);
-  // Channel active-run locks (<userDataDir>/<platform>/accounts/*.active-runs.json)
-  // are normally reclaimed by each channel's poll loop, but that loop only runs
-  // while the channel service is active. If the app restarts mid-run the lock
-  // can be left behind forever, locking the conversation ("还在处理上一条消息").
-  // Reconcile them here against the same run snapshots reconcileOrphanRuns uses.
-  void reconcileChannelActiveRuns({
-    userDataDir: String(options.userDataDir ?? "").trim(),
-    getRun: status,
-    reconcileCutoffMs,
-  }).catch(() => undefined);
+  // Startup reconcile can defer off cold path (deferStartupReconcileMs).
+  // recover marks stale; cleanup SIGTERM/KILL hung trees; orphan logs finalize;
+  // channel active-run locks reclaim mid-run restarts ("还在处理上一条消息").
+  const runStartupReconcile = () => {
+    void recoverAgentProcesses().catch(() => undefined);
+    void cleanupRegisteredAgentProcesses().catch(() => undefined);
+    void reconcileOrphanRuns().catch(() => undefined);
+    void reconcileChannelActiveRuns({
+      userDataDir: String(options.userDataDir ?? "").trim(),
+      getRun: status,
+      reconcileCutoffMs,
+    }).catch(() => undefined);
+  };
+  const deferMs = Math.max(0, Number(options.deferStartupReconcileMs ?? 0) || 0);
+  if (deferMs > 0) setTimeout(runStartupReconcile, deferMs);
+  else runStartupReconcile();
   const adapterFactories = {
     opencode: createOpenCodeAdapter,
     codex: createCodexAdapter,

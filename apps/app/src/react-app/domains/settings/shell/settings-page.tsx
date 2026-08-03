@@ -177,16 +177,21 @@ export function getSettingsTabDescription(tab: SettingsTab) {
 }
 
 /**
- * Top-level tabs (no group label) — preferences first so language/theme/font
- * sit above Overview at the top of Settings.
+ * Top-level tabs (no group label) — Overview only.
+ * Preferences (language/theme/font) live under Workspace.
  */
 export function getOverviewSettingsTabs(): SettingsTab[] {
-  return ["preferences", "general"];
+  return ["general"];
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // Models + personal profile/memory; system auth lives under Global → System.
-  return ["ai", "memory", "conversation-memory"];
+  // Preferences + models; system auth under Global → System.
+  return ["preferences", "ai"];
+}
+
+/** Personal profile + conversation/work memory (own nav group for discoverability). */
+export function getPersonalMemorySettingsTabs(): SettingsTab[] {
+  return ["memory", "conversation-memory"];
 }
 
 /** Usage + reset/recovery + archive. */
@@ -278,6 +283,7 @@ function SettingsNavGroup(props: {
 export function SettingsSidebar(props: SettingsSidebarProps) {
   const overviewTabs = getOverviewSettingsTabs();
   const workspaceTabs = getWorkspaceSettingsTabs();
+  const personalMemoryTabs = getPersonalMemorySettingsTabs();
   const dataTabs = getDataSettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
 
@@ -308,6 +314,12 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         <SettingsNavGroup
           label={t("settings.group_workspace")}
           tabs={workspaceTabs}
+          activeTab={props.activeTab}
+          onSelectTab={props.onSelectTab}
+        />
+        <SettingsNavGroup
+          label={t("settings.group_personal_memory")}
+          tabs={personalMemoryTabs}
           activeTab={props.activeTab}
           onSelectTab={props.onSelectTab}
         />

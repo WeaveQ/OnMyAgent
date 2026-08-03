@@ -12,6 +12,7 @@ import {
   type TaskStatusIndicator,
 } from "./conversation-model";
 import { ExpertStatusDots } from "./expert-status-dots";
+import { resolveExpertPrefetchSessionId } from "./expert-session-selection-memory";
 import { resolveTaskRowTrailingStatus } from "./task-row-trailing-status";
 import {
   TASK_CONTEXT_MENU_CLASS,
@@ -202,6 +203,20 @@ export function AgentConversationItem(props: {
     props.onOpenSession(props.workspaceId, latestSession.id);
   };
 
+  /** Warm the same session id open-path will resolve (memory → order → first). */
+  const prefetchConversation = () => {
+    if (isDraftSession || !props.onPrefetchSession) return;
+    const sessionIds = props.group.sessions.map((session) => session.id);
+    const target = resolveExpertPrefetchSessionId({
+      workspaceId: props.workspaceId,
+      agentId: props.group.agentId,
+      sessionIds,
+      fallbackSessionId: latestSession.id,
+    });
+    if (!target) return;
+    props.onPrefetchSession(props.workspaceId, target);
+  };
+
   const menu =
     menuOpen && menuPosition && typeof document !== "undefined"
       ? createPortal(
@@ -286,16 +301,8 @@ export function AgentConversationItem(props: {
         type="button"
         size="expert"
         onClick={openConversation}
-        onPointerEnter={() =>
-          isDraftSession
-            ? undefined
-            : props.onPrefetchSession?.(props.workspaceId, latestSession.id)
-        }
-        onFocus={() =>
-          isDraftSession
-            ? undefined
-            : props.onPrefetchSession?.(props.workspaceId, latestSession.id)
-        }
+        onPointerEnter={prefetchConversation}
+        onFocus={prefetchConversation}
         active={props.selected}
       >
         <div className="relative shrink-0">
