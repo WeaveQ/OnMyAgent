@@ -1,17 +1,32 @@
 import { APP_NAME } from "../brand";
 
 export default {
+  "account_menu.appearance": "外觀",
+  "account_menu.avatar_bg": "背景色",
+  "account_menu.avatar_edit": "編輯頭像",
+  "account_menu.avatar_open_profile": "開啟個人資料",
+  "account_menu.avatar_hint": "頭像、帳號與訂閱展示用",
+  "account_menu.avatar_icon": "圖示",
+  "account_menu.avatar_mode_initial": "使用者名稱首字元",
+  "account_menu.avatar_section": "個人資料",
+  "account_menu.avatar_unnamed": "我",
+  "account_menu.check_for_updates": "檢查更新",
+  "account_menu.checking_for_updates": "正在檢查更新…",
   "account_menu.credits": "積分",
   "account_menu.free_plan": "免費版",
   "account_menu.language": "語言",
   "account_menu.language_chinese": "中文",
   "account_menu.preferences": "偏好",
+  "account_menu.quit": "結束程式",
   "account_menu.settings": "設置",
   "account_menu.sign_out": "退出登錄",
   "account_menu.sign_out_confirm_message":
     "退出後將回到歡迎頁，需要重新登錄後才能創建工作區。",
   "account_menu.sign_out_confirm_title": "確認退出登錄？",
   "account_menu.theme": "主題",
+  "account_menu.update_available": "發現新版本：v{version}",
+  "account_menu.update_check_failed": "檢查更新失敗",
+  "account_menu.update_latest": "已是最新版本",
   "account_menu.used_percent": "已用28%",
   "account_menu.view_details": "查看詳情",
 } as const;

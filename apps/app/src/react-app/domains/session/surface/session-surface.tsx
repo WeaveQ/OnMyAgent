@@ -6,82 +6,30 @@ import {
   useRef,
   useState,
 } from "react";
-import type { UIMessage } from "ai";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createClient, unwrap } from "../../../../app/lib/opencode";
+import { useQueryClient } from "@tanstack/react-query";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
-import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { t } from "../../../../i18n";
-import {
-  readWorkspaceCloudImports,
-  type CloudImportedPlugin,
-} from "../../../../app/cloud/import-state";
-import type {
-  OnMyAgentSessionSnapshot,
-} from "../../../../app/lib/onmyagent-server";
+import type { CloudImportedPlugin } from "../../../../app/cloud/import-state";
 import type {
   ComposerAttachment,
   ComposerDraft,
-  CollaborationGoalRuntime,
   McpServerEntry,
   McpStatusMap,
   SkillCard,
   TodoItem,
 } from "../../../../app/types";
-import { publishInspectorSlice, recordInspectorEvent, useReactRenderWatchdog } from "../../../shell";
-import {
-  getAssistantActivityPhaseLabel,
-} from "./chrome/assistant-activity";
+import { useReactRenderWatchdog } from "../../../shell";
 import { CodeSceneToolbar } from "./code-scene-toolbar";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import {
-  listSessionMentionFolder as listSessionMentionFolderImpl,
-  loadSessionMentionFiles as loadSessionMentionFilesImpl,
-  searchSessionMentionTargets as searchSessionMentionTargetsImpl,
-} from "./session-surface-mention-files";
-
 import type { ReactComposerNotice } from "./composer/notice";
-import {
-  deriveRenderedSessionMessages,
-  resolveRenderedSessionSnapshot,
-} from "./session-render-state";
+import { deriveRenderedSessionMessages } from "./session-render-state";
 import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
-import {
-  useSessionActivityStore,
-} from "../status/session-activity-store";
-import {
-  deriveOpenTargets,
-} from "../artifacts/open-target";
-import {
-  seedSessionState,
-  statusKey as reactStatusKey,
-  transcriptKey as reactTranscriptKey,
-} from "../sync/session-sync";
-import { SESSION_SNAPSHOT_STALE_TIME_MS } from "../sync/session-poll-policy";
-import { sessionSnapshotFetchOptions, sessionSnapshotQueryKey } from "../sync/session-snapshot-query-policy";
-import {
-  OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
-  buildOutputLimitContinuationDraft,
-  latestOutputLimitedAssistantMessage,
-} from "../sync/output-limit-recovery";
-import {
-  manualStopNoticeKind,
-  resolveSessionCollaborationKind,
-  resolveSessionRunPolicy,
-  hasRepeatedGoalAssistantOutput,
-} from "./session-run-controller";
-import {
-  applySendDraftIntents,
-  buildGoalPauseRuntime,
-  buildGoalResumeRuntime,
-  buildPlanExecutionRequest,
-  goalResumeCollaborationMode,
-  makeSessionRunKey,
-  resolveAbortAction,
-  shouldBlockCodeDraftSend,
-} from "./session-surface-run-orchestration";
+import { useSessionActivityStore } from "../status/session-activity-store";
+import { deriveOpenTargets } from "../artifacts/open-target";
+import { latestOutputLimitedAssistantMessage } from "../sync/output-limit-recovery";
+import { resolveSessionRunPolicy } from "./session-run-controller";
 import {
   getComposerAttachments,
   getComposerDraft,
@@ -96,21 +44,13 @@ import {
   type AssistantCategoryId,
 } from "./personal-assistant-config";
 import { personalizeAssistantScenariosForMenu } from "./personalize-assistant-scenarios";
+import { transcriptToText } from "./session-surface-model";
 import {
-  messageToReadableText,
-  transcriptToText,
-} from "./session-surface-model";
-import {
-  parseSessionError,
   readSnapshotSessionError,
-  revokeAttachmentPreview,
   type SessionError,
 } from "./session-surface-support";
-import {
-  filterCompactionMessages,
-} from "./transcript/message-compaction";
+import { filterCompactionMessages } from "./transcript/message-compaction";
 import { useSessionFollowUpFooter } from "./use-session-follow-up-footer";
-import { useSharedQueryState } from "./session-surface-hooks";
 import { useSessionSurfaceControlActions } from "./session-surface-control-actions";
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import { useSessionSurfaceCollaboration } from "./session-surface-collaboration";
@@ -121,40 +61,13 @@ import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-ef
 import { useSessionSurfaceTranscriptNotices } from "./session-surface-transcript-notices";
 import { useSessionSurfaceActivityModel } from "./session-surface-activity-model";
 import { SessionSurfaceView } from "./session-surface-view";
-import {
-  AssistantNoVisibleOutputCard,
-  AssistantStatusSpacer,
-  AssistantWaitingCard,
-  OutputLimitContinueCard,
-} from "./chrome/assistant-status";
 import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
+import { assistantScenarioDraftToken, isUserCancelledError } from "./chrome/personal-assistant";
 import {
-  buildGoalHiddenSystemPrompt,
-  createSessionInterruptionNotice,
-  goalElapsedMs,
-  isGoalIntentRuntime,
-  removeRecordKey,
-  shouldRecordSessionInterruption,
-} from "./plan-goal/goal-runtime";
-import {
-  assistantScenarioDraftToken,
-  isUserCancelledError,
-} from "./chrome/personal-assistant";
-import {
-  EMPTY_TRANSCRIPT,
-  IDLE_STATUS,
-  MAX_TRANSCRIPT_NOTICES_PER_SESSION,
-} from "./session-surface-constants";
-import {
-  renderSessionComposerAccessories,
   applyGoalWaitingReason,
   resolveVisibleGoalRuntime,
 } from "./session-surface-goal";
 import {
-  COMPOSER_NOTICE_TIMEOUT_MS,
-  DELAYED_SESSION_LOADING_MS,
-  FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
-  NO_VISIBLE_ASSISTANT_OUTPUT_DELAY_MS,
   buildComposerDraft,
   deriveActiveGoalWaitingReason,
   deriveChatStreaming,
@@ -168,6 +81,15 @@ import {
   shouldShowCodeSceneToolbar,
   snapshotQueryErrorMessage,
 } from "./session-surface-helpers";
+import { useSessionSurfaceSnapshot } from "./session-surface-snapshot";
+import { useSessionSurfaceRunHandlers } from "./session-surface-run-handlers";
+import { useSessionSurfaceAssistantStatusFooter } from "./session-surface-assistant-status-footer";
+import {
+  buildSessionComposerAccessory,
+  respondPermissionWithTranscriptNotice,
+} from "./session-surface-permission-chrome";
+import { useSessionSurfaceMentionLoaders } from "./session-surface-mention-loaders";
+import { useSessionSurfaceSessionEffects } from "./session-surface-session-effects";
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
@@ -313,10 +235,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     noVisibleAssistantOutputBaseline,
     setNoVisibleAssistantOutputBaseline,
   ] = useState<number | null>(null);
-  const [rendered, setRendered] = useState<{
-    sessionId: string;
-    snapshot: OnMyAgentSessionSnapshot;
-  } | null>(null);
   const [toolSkills, setToolSkills] = useState<SkillCard[]>([]);
   const [toolMcpServers, setToolMcpServers] = useState<McpServerEntry[]>([]);
   const [toolMcpStatus, setToolMcpStatus] = useState<string | null>(null);
@@ -325,75 +243,25 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     CloudImportedPlugin[]
   >([]);
   const composerShellRef = useRef<HTMLDivElement>(null);
-  const hydratedKeyRef = useRef<string | null>(null);
-  const opencodeClient = useMemo(
-    () =>
-      createClient(props.opencodeBaseUrl, undefined, {
-        token: props.onmyagentToken,
-        mode: "onmyagent",
-      }),
-    [props.opencodeBaseUrl, props.onmyagentToken],
-  );
-  const snapshotQueryKey = sessionSnapshotQueryKey(
-    props.workspaceId,
-    props.sessionId,
-  );
-  const transcriptQueryKey = useMemo(
-    () => reactTranscriptKey(props.workspaceId, props.sessionId),
-    [props.workspaceId, props.sessionId],
-  );
-  const statusQueryKey = useMemo(
-    () => reactStatusKey(props.workspaceId, props.sessionId),
-    [props.workspaceId, props.sessionId],
-  );
-  const snapshotQuery = useQuery<OnMyAgentSessionSnapshot>({
-    queryKey: snapshotQueryKey,
-    enabled: !props.draftOnly,
-    queryFn: async () =>
-      (await props.client.getSessionSnapshot(
-        props.workspaceId,
-        props.sessionId,
-        sessionSnapshotFetchOptions(props.workspaceRoot),
-      )).item,
-    staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
-  });
-  const currentSnapshot =
-    snapshotQuery.data?.session.id === props.sessionId ? snapshotQuery.data : null;
-  const transcriptState = useSharedQueryState<UIMessage[]>(
-    transcriptQueryKey,
-    EMPTY_TRANSCRIPT,
-  );
-  const statusState = useSharedQueryState(
+
+  const {
+    opencodeClient,
+    snapshotQueryKey,
     statusQueryKey,
-    currentSnapshot?.status ?? IDLE_STATUS,
-  );
-  const activeRunStartedAtRef = useRef<number | null>(null);
-  const activeRunKeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
-    setRendered({ sessionId: props.sessionId, snapshot: currentSnapshot });
-  }, [props.sessionId, currentSnapshot]);
-
-  useEffect(() => {
-    hydratedKeyRef.current = null;
-    setError(null);
-    setSending(false);
-    setShowDelayedLoading(false);
-    setAwaitingAssistantBaseline(null);
-    setNoVisibleAssistantOutputBaseline(null);
-    activeRunStartedAtRef.current = null;
-    activeRunKeyRef.current = null;
-    // Composer draft state lives in the shared store keyed by session id, so
-    // switching sessions preserves each session's own in-progress composer.
-    setNotice(null);
-  }, [props.sessionId]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const id = window.setTimeout(() => setNotice(null), COMPOSER_NOTICE_TIMEOUT_MS);
-    return () => window.clearTimeout(id);
-  }, [notice]);
+    snapshotQuery,
+    transcriptState,
+    snapshot,
+    liveStatus,
+    resetHydrationKey,
+  } = useSessionSurfaceSnapshot({
+    workspaceId: props.workspaceId,
+    sessionId: props.sessionId,
+    workspaceRoot: props.workspaceRoot,
+    draftOnly: props.draftOnly,
+    opencodeBaseUrl: props.opencodeBaseUrl,
+    onmyagentToken: props.onmyagentToken,
+    client: props.client,
+  });
 
   useEffect(() => {
     if (!props.personalAssistantHome) return;
@@ -406,72 +274,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setComposerDraft,
   ]);
 
-  // Publish a composer inspector slice so external drivers can read draft
-  // state, attachments, mentions, and sending status from the running app.
-  useEffect(() => {
-    const dispose = publishInspectorSlice("composer", () => ({
-      workspaceId: props.workspaceId,
-      sessionId: props.sessionId,
-      draft,
-      draftLength: draft.length,
-      attachments: attachments.map((attachment) => ({
-        id: attachment.id,
-        name: attachment.name,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        kind: attachment.kind,
-      })),
-      mentions,
-      pasteParts: pasteParts.map((part) => ({
-        id: part.id,
-        label: part.label,
-        lines: part.lines,
-      })),
-      sending,
-      error,
-      hasNotice: Boolean(notice),
-    }));
-    return dispose;
-  }, [
-    attachments,
-    draft,
-    error,
-    mentions,
-    notice,
-    pasteParts,
-    props.sessionId,
-    props.workspaceId,
-    sending,
-  ]);
-
-  useEffect(() => {
-    recordInspectorEvent("session.mounted", {
-      workspaceId: props.workspaceId,
-      sessionId: props.sessionId,
-    });
-  }, [props.sessionId, props.workspaceId]);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
-    seedSessionState(props.workspaceId, currentSnapshot);
-  }, [currentSnapshot, props.sessionId, props.workspaceId]);
-
-  useEffect(() => {
-    if (!currentSnapshot) return;
-    const key = `${props.sessionId}:${currentSnapshot.session.time?.updated ?? currentSnapshot.session.time?.created ?? 0}:${currentSnapshot.messages.length}`;
-    if (hydratedKeyRef.current === key) return;
-    hydratedKeyRef.current = key;
-    seedSessionState(props.workspaceId, currentSnapshot);
-  }, [props.sessionId, currentSnapshot, props.workspaceId]);
-  const snapshot = resolveRenderedSessionSnapshot({
-    sessionId: props.sessionId,
-    currentSnapshot,
-    cachedRendered: rendered,
-  });
-  const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
-  // User stop must clear the red stop button immediately. Backend may keep
-  // reporting busy/retry briefly after abort (especially failed skill runs),
-  // so respect stopRequested and don't keep the composer locked.
   const chatStreaming = deriveChatStreaming({
     sending,
     remoteBusy: isRemoteSessionBusy(liveStatus.type),
@@ -521,56 +323,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     () => latestOutputLimitedAssistantMessage(renderedMessages),
     [renderedMessages],
   );
-  const handleOutputLimitContinue = useCallback(async () => {
-    if (!outputLimitedAssistantMessage || sending || chatStreaming) return;
-    setError(null);
-    setDismissedErrorMessage(null);
-    const startedAt = Date.now();
-    const runKey = `${props.sessionId}:${startedAt}`;
-    activeRunStartedAtRef.current = startedAt;
-    activeRunKeyRef.current = runKey;
-    if (!props.draftOnly) {
-      useSessionActivityStore
-        .getState()
-        .startRun(props.workspaceId, props.sessionId, {
-          runKey,
-          runStartedAt: startedAt,
-        });
-    }
-    setSending(true);
-    setAwaitingAssistantBaseline(renderedMessages.length);
-    setNoVisibleAssistantOutputBaseline(null);
-    try {
-      const continuationDraft = buildOutputLimitContinuationDraft({
-        messageID: `${OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX}${crypto.randomUUID()}`,
-        prompt: t("session.output_limit_continue_content"),
-        hiddenSystemPrompt: t("session.output_limit_continue_hidden"),
-      });
-      await props.onSendDraft(continuationDraft);
-    } catch (nextError) {
-      const parsed = parseSessionError(nextError);
-      setError(parsed);
-      setDismissedErrorMessage(null);
-      if (!props.draftOnly) {
-        useSessionActivityStore
-          .getState()
-          .setError(props.workspaceId, props.sessionId, parsed.message);
-      }
-      setAwaitingAssistantBaseline(null);
-      setNoVisibleAssistantOutputBaseline(null);
-    } finally {
-      setSending(false);
-    }
-  }, [
-    chatStreaming,
-    outputLimitedAssistantMessage,
-    props.draftOnly,
-    props.onSendDraft,
-    props.sessionId,
-    props.workspaceId,
-    renderedMessages.length,
-    sending,
-  ]);
   const renderedMessageCountRef = useRef(renderedMessages.length);
   renderedMessageCountRef.current = renderedMessages.length;
   useSessionSurfacePlanGoalEffects({
@@ -679,107 +431,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     awaitingAssistantBaseline !== null &&
     assistantOutputAfterAwaitStart &&
     !chatStreaming;
-  // Keep footer identity stable across unrelated SessionSurface renders so
-  // SessionTranscript's React.memo can skip (avoids full list re-render).
-  const assistantStatusFooter = useMemo(() => {
-    if (showInlineActivityIndicator) {
-      return (
-        <AssistantWaitingCard
-          collapseLayout
-          label={getAssistantActivityPhaseLabel(assistantActivity)}
-        />
-      );
-    }
-    if (showNoVisibleAssistantOutput) {
-      return (
-        <AssistantNoVisibleOutputCard text={noVisibleAssistantOutputText} />
-      );
-    }
-    if (outputLimitedAssistantMessage && !visibleTranscriptError) {
-      return (
-        <OutputLimitContinueCard
-          key={outputLimitedAssistantMessage.id}
-          busy={sending || chatStreaming}
-          onContinue={() => {
-            void handleOutputLimitContinue();
-          }}
-        />
-      );
-    }
-    if (reserveAssistantStatusSpace) {
-      return <AssistantStatusSpacer />;
-    }
-    return null;
-  }, [
-    assistantActivity,
-    chatStreaming,
-    noVisibleAssistantOutputText,
-    outputLimitedAssistantMessage,
-    reserveAssistantStatusSpace,
-    sending,
-    showInlineActivityIndicator,
-    showNoVisibleAssistantOutput,
-    visibleTranscriptError,
-  ]);
-  useReactRenderWatchdog("SessionSurface", {
-    sessionId: props.sessionId,
-    workspaceId: props.workspaceId,
-    messageCount: renderedMessages.length,
-    liveStatus: liveStatus.type,
-    sending,
-    pendingSessionLoad,
-    showAssistantWaitState,
-    showAssistantRespondingState,
-    noVisibleAssistantOutputBaseline,
-    hasSnapshot: Boolean(snapshot),
-  });
 
-  useEffect(() => {
-    if (!pendingSessionLoad) {
-      setShowDelayedLoading(false);
-      return;
-    }
-    const id = window.setTimeout(
-      () => setShowDelayedLoading(true),
-      DELAYED_SESSION_LOADING_MS,
-    );
-    return () => window.clearTimeout(id);
-  }, [pendingSessionLoad]);
-
-  useEffect(() => {
-    if (!snapshotSessionError) return;
-    setSending(false);
-    setAwaitingAssistantBaseline(null);
-    setNoVisibleAssistantOutputBaseline(null);
-  }, [snapshotSessionError]);
-
-  useEffect(() => {
-    setDismissedErrorMessage(null);
-  }, [props.sessionId]);
-
-  useEffect(() => {
-    if (awaitingAssistantBaseline === null) return;
-    if (assistantOutputAfterAwaitStart) {
-      return;
-    }
-    if (
-      sending ||
-      liveStatus.type !== "idle" ||
-      renderedMessages.length <= awaitingAssistantBaseline
-    )
-      return;
-    const id = window.setTimeout(() => {
-      setNoVisibleAssistantOutputBaseline(awaitingAssistantBaseline);
-      setAwaitingAssistantBaseline(null);
-    }, NO_VISIBLE_ASSISTANT_OUTPUT_DELAY_MS);
-    return () => window.clearTimeout(id);
-  }, [
-    assistantOutputAfterAwaitStart,
-    awaitingAssistantBaseline,
-    liveStatus.type,
-    renderedMessages.length,
-    sending,
-  ]);
   const model = deriveSessionRenderModel({
     intendedSessionId: props.sessionId,
     renderedSessionId:
@@ -809,66 +461,118 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     [props.sessionId, setComposerDraft],
   );
 
-  const recordSessionInterruption = useCallback(
-    (
-      kind: "cancelled" | "stopped",
-      goalRuntime?: CollaborationGoalRuntime,
-    ) => {
-      const now = Date.now();
-      const afterMessageCount = renderedMessageCountRef.current;
-      const elapsedMs =
-        kind === "stopped" && goalRuntime
-          ? goalElapsedMs(goalRuntime, now)
-          : undefined;
-      setTranscriptNoticesBySessionId((current) => {
-        const existing = current[props.sessionId] ?? [];
-        const latestTerminal = [...existing]
-          .reverse()
-          .find((notice) => notice.kind === "cancelled" || notice.kind === "stopped");
-        const storedRunIdentity = useSessionActivityStore
-          .getState()
-          .getRunIdentity(props.workspaceId, props.sessionId);
-        const runStartedAt =
-          activeRunStartedAtRef.current ??
-          storedRunIdentity?.runStartedAt ??
-          goalRuntime?.lastRunStartedAt ??
-          latestTerminal?.runStartedAt ??
-          now;
-        const runKey =
-          activeRunKeyRef.current ??
-          storedRunIdentity?.runKey ??
-          latestTerminal?.runKey ??
-          `${props.sessionId}:remote:${runStartedAt}`;
-        const notice = createSessionInterruptionNotice({
-          sessionId: props.sessionId,
-          kind,
-          runKey,
-          afterMessageCount,
-          runStartedAt,
-          now,
-          ...(elapsedMs !== undefined ? { elapsedMs } : {}),
-        });
-        if (!shouldRecordSessionInterruption({ existing, candidate: notice })) {
-          return current;
-        }
-        return {
-          ...current,
-          [props.sessionId]: [...existing, notice].slice(
-            -MAX_TRANSCRIPT_NOTICES_PER_SESSION,
-          ),
-        };
-      });
-    },
-    [
-      props.sessionId,
-      props.workspaceId,
-    ],
-  );
+  const {
+    resetActiveRunRefs,
+    handleOutputLimitContinue,
+    handleSend,
+    executeApprovedPlan,
+    resumeGoalRuntime,
+    stopActiveRun,
+    pauseGoalRuntime,
+    handleAbort,
+    handleDismissError,
+  } = useSessionSurfaceRunHandlers({
+    sessionId: props.sessionId,
+    workspaceId: props.workspaceId,
+    draftOnly: props.draftOnly,
+    draftWorkspaceDirectory: props.draftWorkspaceDirectory,
+    assistantCodeFeaturesActive,
+    assistantFeatureCategoryId,
+    draft,
+    attachments,
+    effectiveCollaborationMode,
+    goalRuntime: props.goalRuntime,
+    planRuntime: props.planRuntime,
+    todos: props.todos,
+    renderedMessages,
+    renderedMessageCountRef,
+    chatStreaming,
+    sending,
+    setSending,
+    setError,
+    setDismissedErrorMessage,
+    setAwaitingAssistantBaseline,
+    setNoVisibleAssistantOutputBaseline,
+    setShowFolderRequiredBubble,
+    setDismissedPlanBySessionId,
+    setDismissedGoalBySessionId,
+    setTranscriptNoticesBySessionId,
+    stallRecoveryBySessionId,
+    setStallRecoveryBySessionId,
+    buildDraft,
+    clearComposerSession,
+    setComposerDraft,
+    updateCollaborationMode,
+    onSendDraft: props.onSendDraft,
+    onDraftChange: props.onDraftChange,
+    onGoalRuntimeChange: props.onGoalRuntimeChange,
+    onPlanRuntimeChange: props.onPlanRuntimeChange,
+    outputLimitedAssistantMessage,
+    opencodeClient,
+    queryClient,
+    snapshotQueryKey,
+    statusQueryKey,
+    snapshotQuery,
+    visibleError,
+    cancelledError,
+  });
 
-  useEffect(() => {
-    if (!cancelledError) return;
-    recordSessionInterruption("cancelled");
-  }, [cancelledError?.message, recordSessionInterruption]);
+  useSessionSurfaceSessionEffects({
+    workspaceId: props.workspaceId,
+    sessionId: props.sessionId,
+    draft,
+    attachments,
+    mentions,
+    pasteParts,
+    sending,
+    error,
+    notice,
+    setNotice,
+    setError,
+    setSending,
+    setShowDelayedLoading,
+    setAwaitingAssistantBaseline,
+    setNoVisibleAssistantOutputBaseline,
+    setDismissedErrorMessage,
+    resetHydrationKey,
+    resetActiveRunRefs,
+    pendingSessionLoad,
+    snapshotSessionError,
+    awaitingAssistantBaseline,
+    assistantOutputAfterAwaitStart,
+    liveStatusType: liveStatus.type,
+    renderedMessageCount: renderedMessages.length,
+    buildDraft,
+    onDraftChange: props.onDraftChange,
+  });
+
+  const assistantStatusFooter = useSessionSurfaceAssistantStatusFooter({
+    showInlineActivityIndicator,
+    assistantActivity,
+    showNoVisibleAssistantOutput,
+    noVisibleAssistantOutputText,
+    outputLimitedAssistantMessage,
+    visibleTranscriptError,
+    sending,
+    chatStreaming,
+    reserveAssistantStatusSpace,
+    onOutputLimitContinue: () => {
+      void handleOutputLimitContinue();
+    },
+  });
+
+  useReactRenderWatchdog("SessionSurface", {
+    sessionId: props.sessionId,
+    workspaceId: props.workspaceId,
+    messageCount: renderedMessages.length,
+    liveStatus: liveStatus.type,
+    sending,
+    pendingSessionLoad,
+    showAssistantWaitState,
+    showAssistantRespondingState,
+    noVisibleAssistantOutputBaseline,
+    hasSnapshot: Boolean(snapshot),
+  });
 
   const handleCopyTranscript = async () => {
     try {
@@ -882,378 +586,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       });
     }
   };
-
-  const handleSend = useCallback(async () => {
-    const text = draft.trim();
-    if (!text && attachments.length === 0) return;
-    if (
-      shouldBlockCodeDraftSend({
-        assistantCodeFeaturesActive,
-        draftOnly: props.draftOnly,
-        assistantFeatureCategoryId,
-        draftWorkspaceDirectory: props.draftWorkspaceDirectory,
-      })
-    ) {
-      setShowFolderRequiredBubble(true);
-      window.setTimeout(
-        () => setShowFolderRequiredBubble(false),
-        FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
-      );
-      return;
-    }
-    // Intentionally allow sending while the assistant is still streaming.
-    // OpenCode accepts follow-up user turns mid-run and queues them; if the
-    // backend can't accept the follow-up it'll surface an error via the
-    // catch below. This restores the "append a prompt while it's still
-    // talking" behavior that the Solid composer had.
-    setDismissedPlanBySessionId((current) =>
-      removeRecordKey(current, props.sessionId),
-    );
-    setDismissedGoalBySessionId((current) =>
-      removeRecordKey(current, props.sessionId),
-    );
-    setError(null);
-    setDismissedErrorMessage(null);
-    const startedAt = Date.now();
-    const runKey = makeSessionRunKey(props.sessionId, startedAt);
-    activeRunStartedAtRef.current = startedAt;
-    activeRunKeyRef.current = runKey;
-    if (!props.draftOnly) {
-      useSessionActivityStore
-        .getState()
-        .startRun(props.workspaceId, props.sessionId, {
-          runKey,
-          runStartedAt: startedAt,
-        });
-    }
-    setSending(true);
-    setAwaitingAssistantBaseline(renderedMessages.length);
-    setNoVisibleAssistantOutputBaseline(null);
-    try {
-      const stallKey = props.sessionId;
-      const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
-      const { draft: nextDraft, nextGoalRuntime } = applySendDraftIntents({
-        draft: buildDraft(text, attachments),
-        text,
-        messageBaseline: renderedMessages.length,
-        startedAt,
-        effectiveCollaborationMode,
-        assistantFeatureCategoryId,
-        goalRuntime: props.goalRuntime,
-        stallRecoveryHiddenPrompt: hadStallRecovery
-          ? t("session.stall_recovery_hidden")
-          : null,
-      });
-      if (hadStallRecovery) {
-        setStallRecoveryBySessionId((current) =>
-          removeRecordKey(current, props.sessionId),
-        );
-      }
-      if (nextGoalRuntime) {
-        props.onGoalRuntimeChange?.(nextGoalRuntime);
-      }
-      await props.onSendDraft(nextDraft);
-      attachments.forEach(revokeAttachmentPreview);
-      clearComposerSession(props.sessionId);
-      props.onDraftChange(buildDraft("", []));
-      setSending(false);
-    } catch (nextError) {
-      const parsed = parseSessionError(nextError);
-      setError(parsed);
-      setDismissedErrorMessage(null);
-      if (!props.draftOnly) {
-        useSessionActivityStore
-          .getState()
-          .setError(props.workspaceId, props.sessionId, parsed.message);
-      }
-      setComposerDraft(props.sessionId, "");
-      setAwaitingAssistantBaseline(null);
-      setNoVisibleAssistantOutputBaseline(null);
-      setSending(false);
-    }
-  }, [
-    attachments,
-    assistantCodeFeaturesActive,
-    assistantFeatureCategoryId,
-    buildDraft,
-    clearComposerSession,
-    draft,
-    effectiveCollaborationMode.kind,
-    effectiveCollaborationMode.planning,
-    effectiveCollaborationMode.pursueGoal,
-    props.onDraftChange,
-    props.onGoalRuntimeChange,
-    props.onSendDraft,
-    props.draftOnly,
-    props.draftWorkspaceDirectory,
-    props.goalRuntime,
-    props.sessionId,
-    props.workspaceId,
-    recordSessionInterruption,
-    renderedMessages.length,
-    setComposerDraft,
-    stallRecoveryBySessionId,
-  ]);
-
-  const executeApprovedPlan = useCallback(async () => {
-    const runtime = props.planRuntime;
-    if (!runtime) return;
-    const request = buildPlanExecutionRequest({
-      planRuntime: runtime,
-      pursueGoal: effectiveCollaborationMode.pursueGoal,
-      messageBaseline: renderedMessages.length,
-    });
-    if (!request) return;
-    const executionPrompt = t("session.plan_runtime_execute");
-
-    setError(null);
-    setDismissedErrorMessage(null);
-    const startedAt = Date.now();
-    const runKey = makeSessionRunKey(props.sessionId, startedAt);
-    activeRunStartedAtRef.current = startedAt;
-    activeRunKeyRef.current = runKey;
-    if (!props.draftOnly) {
-      useSessionActivityStore
-        .getState()
-        .startRun(props.workspaceId, props.sessionId, {
-          runKey,
-          runStartedAt: startedAt,
-        });
-    }
-    setSending(true);
-    setAwaitingAssistantBaseline(renderedMessages.length);
-    setNoVisibleAssistantOutputBaseline(null);
-    updateCollaborationMode(request.executionMode);
-    props.onPlanRuntimeChange?.(request.nextPlanRuntime);
-    try {
-      await props.onSendDraft({
-        ...buildDraft(executionPrompt, []),
-        messageID: `msg_onmyagent-internal-plan-execute-${crypto.randomUUID()}`,
-        collaborationMode: request.executionMode,
-        hiddenSystemPrompt: request.executionSystemPrompt,
-      });
-      props.onDraftChange(buildDraft("", []));
-      setSending(false);
-    } catch (nextError) {
-      const parsed = parseSessionError(nextError);
-      setError(parsed);
-      setDismissedErrorMessage(null);
-      if (!props.draftOnly) {
-        useSessionActivityStore
-          .getState()
-          .setError(props.workspaceId, props.sessionId, parsed.message);
-      }
-      props.onPlanRuntimeChange?.(runtime);
-      setAwaitingAssistantBaseline(null);
-      setNoVisibleAssistantOutputBaseline(null);
-      setSending(false);
-    }
-  }, [
-    buildDraft,
-    effectiveCollaborationMode.pursueGoal,
-    props.draftOnly,
-    props.onDraftChange,
-    props.onPlanRuntimeChange,
-    props.onSendDraft,
-    props.planRuntime,
-    props.sessionId,
-    props.workspaceId,
-    recordSessionInterruption,
-    renderedMessages.length,
-    updateCollaborationMode,
-  ]);
-
-  const resumeGoalRuntime = useCallback(async () => {
-    const runtime = isGoalIntentRuntime(props.goalRuntime)
-      ? props.goalRuntime
-      : null;
-    if (!runtime) return;
-    const now = Date.now();
-    const nextRuntime = buildGoalResumeRuntime({
-      runtime,
-      messageBaseline: renderedMessages.length,
-      now,
-      todos: props.todos,
-    });
-    if (!nextRuntime) return;
-    const goalMode = goalResumeCollaborationMode();
-
-    setError(null);
-    setDismissedErrorMessage(null);
-    const runKey = makeSessionRunKey(props.sessionId, now);
-    activeRunStartedAtRef.current = now;
-    activeRunKeyRef.current = runKey;
-    if (!props.draftOnly) {
-      useSessionActivityStore
-        .getState()
-        .startRun(props.workspaceId, props.sessionId, {
-          runKey,
-          runStartedAt: now,
-        });
-    }
-    setSending(true);
-    setAwaitingAssistantBaseline(renderedMessages.length);
-    setNoVisibleAssistantOutputBaseline(null);
-    updateCollaborationMode(goalMode);
-    props.onGoalRuntimeChange?.(nextRuntime);
-    try {
-      await props.onSendDraft({
-        ...buildDraft(t("session.goal_runtime_continue_prompt"), []),
-        messageID: `msg_onmyagent-internal-goal-resume-${crypto.randomUUID()}`,
-        collaborationMode: goalMode,
-        hiddenSystemPrompt: buildGoalHiddenSystemPrompt(nextRuntime),
-      });
-      props.onDraftChange(buildDraft("", []));
-      setSending(false);
-    } catch (nextError) {
-      const parsed = parseSessionError(nextError);
-      setError(parsed);
-      setDismissedErrorMessage(null);
-      if (!props.draftOnly) {
-        useSessionActivityStore
-          .getState()
-          .setError(props.workspaceId, props.sessionId, parsed.message);
-      }
-      props.onGoalRuntimeChange?.(runtime);
-      setAwaitingAssistantBaseline(null);
-      setNoVisibleAssistantOutputBaseline(null);
-      setSending(false);
-    }
-  }, [
-    buildDraft,
-    props.draftOnly,
-    props.goalRuntime,
-    props.onDraftChange,
-    props.onGoalRuntimeChange,
-    props.onSendDraft,
-    props.sessionId,
-    props.todos,
-    props.workspaceId,
-    recordSessionInterruption,
-    renderedMessages.length,
-    updateCollaborationMode,
-  ]);
-
-  const stopActiveRun = useCallback(async () => {
-    setError(null);
-    setDismissedErrorMessage(null);
-    setSending(false);
-    setAwaitingAssistantBaseline(null);
-    setNoVisibleAssistantOutputBaseline(null);
-    if (!props.draftOnly) {
-      useSessionActivityStore
-        .getState()
-        .markRunStopped(props.workspaceId, props.sessionId);
-      // Optimistic idle so the send button restores even if the worker lags
-      // on session.status after abort (common on stuck skill retries).
-      queryClient.setQueryData(statusQueryKey, IDLE_STATUS);
-      queryClient.setQueryData(
-        snapshotQueryKey,
-        (current: OnMyAgentSessionSnapshot | undefined) =>
-          current && current.session.id === props.sessionId
-            ? { ...current, status: IDLE_STATUS }
-            : current,
-      );
-    }
-    await abortSessionSafe(opencodeClient, props.sessionId);
-    await snapshotQuery.refetch();
-  }, [
-    opencodeClient,
-    props.draftOnly,
-    props.sessionId,
-    props.workspaceId,
-    queryClient,
-    snapshotQuery.refetch,
-    snapshotQueryKey,
-    statusQueryKey,
-  ]);
-
-  useEffect(() => {
-    const runtime = props.goalRuntime;
-    if (!isGoalIntentRuntime(runtime) || runtime.status !== "running") return;
-    const baseline = runtime.lastRunMessageBaseline ?? runtime.messageBaseline;
-    const assistantTexts = renderedMessages
-      .slice(baseline)
-      .filter((message) => message.role === "assistant")
-      .map(messageToReadableText);
-    if (!hasRepeatedGoalAssistantOutput(assistantTexts)) return;
-
-    props.onGoalRuntimeChange?.({
-      ...runtime,
-      status: "waiting",
-      waitingReason: "idle",
-      updatedAt: Date.now(),
-    });
-    void stopActiveRun();
-  }, [props.goalRuntime, props.onGoalRuntimeChange, renderedMessages, stopActiveRun]);
-
-  const pauseGoalRuntime = useCallback(async () => {
-    const now = Date.now();
-    const pausedRuntime = buildGoalPauseRuntime({
-      runtime: props.goalRuntime,
-      now,
-    });
-    if (pausedRuntime) {
-      recordSessionInterruption("stopped", pausedRuntime);
-      props.onGoalRuntimeChange?.(pausedRuntime);
-    }
-    await stopActiveRun();
-  }, [props.goalRuntime, props.onGoalRuntimeChange, recordSessionInterruption, stopActiveRun]);
-
-  const handleAbort = useCallback(async () => {
-    const collaborationKind = resolveSessionCollaborationKind(
-      effectiveCollaborationMode,
-      assistantFeatureCategoryId,
-    );
-    const decision = resolveAbortAction({
-      chatStreaming,
-      collaborationKind,
-      goalRuntime: props.goalRuntime,
-      planRuntime: props.planRuntime,
-    });
-    if (decision.action === "noop") return;
-    if (decision.action === "pause-goal") {
-      await pauseGoalRuntime();
-      return;
-    }
-    if (decision.nextPlanRuntime) {
-      props.onPlanRuntimeChange?.(decision.nextPlanRuntime);
-    }
-    recordSessionInterruption(manualStopNoticeKind(collaborationKind));
-    await stopActiveRun();
-  }, [
-    assistantFeatureCategoryId,
-    chatStreaming,
-    effectiveCollaborationMode,
-    pauseGoalRuntime,
-    props.goalRuntime,
-    props.onPlanRuntimeChange,
-    props.planRuntime,
-    recordSessionInterruption,
-    stopActiveRun,
-  ]);
-
-  const handleDismissError = useCallback(() => {
-    if (visibleError?.message) {
-      setDismissedErrorMessage(visibleError.message);
-    }
-    setError(null);
-    if (!props.draftOnly) {
-      useSessionActivityStore
-        .getState()
-        .clearError(props.workspaceId, props.sessionId);
-    }
-  }, [props.draftOnly, props.sessionId, props.workspaceId, visibleError]);
-
-  useEffect(() => {
-    if (liveStatus.type === "idle") {
-      setSending(false);
-    }
-  }, [liveStatus.type]);
-
-  useEffect(() => {
-    props.onDraftChange(buildDraft(draft, attachments));
-  }, [attachments, buildDraft, draft, props.onDraftChange]);
+  void handleCopyTranscript; // retained parity with pre-extract surface
 
   const {
     handleAttachFiles,
@@ -1295,38 +628,18 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     client: props.client,
     opencodeClient,
   });
-  const searchSessionMentionTargets = useCallback(
-    (query: string) =>
-      searchSessionMentionTargetsImpl({
-        client: props.client,
-        workspaceId: props.workspaceId,
-        workspaceRoot: props.workspaceRoot,
-        query,
-      }),
-    [props.client, props.workspaceId, props.workspaceRoot],
-  );
 
-  const listSessionMentionFolder = useCallback(
-    (path: string) =>
-      listSessionMentionFolderImpl({
-        client: props.client,
-        workspaceId: props.workspaceId,
-        workspaceRoot: props.workspaceRoot,
-        path,
-      }),
-    [props.client, props.workspaceId, props.workspaceRoot],
-  );
-
-  const loadSessionMentionFiles = useCallback(
-    (paths: string[]) =>
-      loadSessionMentionFilesImpl({
-        client: props.client,
-        workspaceId: props.workspaceId,
-        workspaceRoot: props.workspaceRoot,
-        paths,
-      }),
-    [props.client, props.workspaceId, props.workspaceRoot],
-  );
+  const {
+    searchSessionMentionTargets,
+    listSessionMentionFolder,
+    loadSessionMentionFiles,
+  } = useSessionSurfaceMentionLoaders({
+    client: props.client,
+    workspaceId: props.workspaceId,
+    // Prefer catalog workspace root so uploads/ list+download stay aligned
+    // (session cwd may be an isolated expert subdirectory).
+    workspaceRoot: props.filesWorkspaceRoot?.trim() || props.workspaceRoot,
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1444,45 +757,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     goalRuntime: visibleGoalRuntimeForUi,
     stalled: showStalledActivityNotice,
   });
-  const respondPermissionWithTranscriptNotice = (
-    requestID: string,
-    reply: "reject" | "once" | "always",
-  ) => {
-    if (reply === "reject") {
-      const now = Date.now();
-      appendTranscriptNotice({
-        id: `${props.sessionId}:permission-rejected:${renderedMessages.length}:${now}`,
-        kind: "permission-rejected",
-        afterMessageCount: renderedMessages.length,
-      });
-      if (
-        visibleGoalRuntime &&
-        visibleGoalRuntime.status !== "paused" &&
-        visibleGoalRuntime.status !== "completed"
-      ) {
-        props.onGoalRuntimeChange?.({
-          ...visibleGoalRuntime,
-          status: "paused",
-          waitingReason: "permission",
-          updatedAt: now,
-          pauseStartedAt: now,
-        });
-      }
-      if (
-        visiblePlanRuntime &&
-        (visiblePlanRuntime.status === "executing" ||
-          visiblePlanRuntime.status === "drafting")
-      ) {
-        props.onPlanRuntimeChange?.({
-          ...visiblePlanRuntime,
-          status: "blocked",
-          blockedReason: "permission_rejected",
-        });
-      }
-    }
-    props.respondPermission?.(requestID, reply);
-  };
-  const composerAccessory = renderSessionComposerAccessories({
+  const composerAccessory = buildSessionComposerAccessory({
     sessionId: props.sessionId,
     draftOnly: props.draftOnly,
     visiblePlanRuntime,
@@ -1502,7 +777,19 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     activePermission: props.activePermission,
     activePermissionNeedsApproval,
     permissionReplyBusy: props.permissionReplyBusy,
-    respondPermission: respondPermissionWithTranscriptNotice,
+    respondPermission: (requestID, reply) =>
+      respondPermissionWithTranscriptNotice({
+        requestID,
+        reply,
+        sessionId: props.sessionId,
+        renderedMessageCount: renderedMessages.length,
+        appendTranscriptNotice,
+        visibleGoalRuntime,
+        visiblePlanRuntime,
+        onGoalRuntimeChange: props.onGoalRuntimeChange,
+        onPlanRuntimeChange: props.onPlanRuntimeChange,
+        respondPermission: props.respondPermission,
+      }),
     safeStringify: props.safeStringify,
     onExecutePlan: () => void executeApprovedPlan(),
     onPauseGoal: () => void pauseGoalRuntime(),
@@ -1580,6 +867,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       conversationTabs={props.conversationTabs}
       chatHeaderAgent={chatHeaderAgent}
       codeSceneToolbar={codeSceneToolbar}
+      onOpenShortcutsSettings={props.onOpenShortcutsSettings}
       personalAssistantHome={props.personalAssistantHome}
       onOpenAgentSettings={props.onOpenAgentSettings}
       headerActions={props.headerActions}

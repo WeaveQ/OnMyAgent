@@ -83,13 +83,21 @@ describe("session visual and file contracts", () => {
     expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
     expect(filesPage).toContain("WorkspaceFilesBrowserPanel");
-    expect(uploadsPanel).toContain("uploadInbox");
+    expect(uploadsPanel).toContain("writeWorkspaceBinaryFile");
     expect(uploadsPanel).toContain("listInbox");
     expect(uploadsPanel).toContain("ArtifactIcon");
-    // Task-files browser keeps preview branches for historical workspace files
+    expect(uploadsPanel).toContain("FilePreviewDrawer");
+    // Task-files browser: conversation outline + preview.
+    expect(browserPanel).toContain("buildTreeOutlineRows");
+    expect(browserPanel).toContain("openSessionForPath");
     expect(browserPanel).toContain("workspaceFileOpenTarget");
-    expect(browserPanel).toContain("MarkdownPreview content={state.content}");
-    expect(browserPanel).toContain("<OfficeFilePreview");
+    expect(browserPanel).toContain("FilePreviewDrawer");
+    expect(browserPanel).toContain("workspace-files-preview-drawer");
+    const previewDrawer = readWorkspaceFile(
+      "apps/app/src/react-app/domains/workspace/workspace-files-preview-drawer.tsx",
+    );
+    expect(previewDrawer).toContain("MarkdownPreview content={state.content}");
+    expect(previewDrawer).toContain("<OfficeFilePreview");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");
@@ -102,8 +110,9 @@ describe("session visual and file contracts", () => {
     );
 
     expect(sidePanel).toContain('t("files.file_actions", { name: props.node.name })');
-    expect(sidePanel).toContain('t("files.open_in_folder")');
-    expect(sidePanel).toContain('t("session.open_artifact")');
+    expect(sidePanel).toContain("FilePreviewActionBar");
+    expect(sidePanel).toContain("files.open_in_folder");
+    expect(sidePanel).toContain("files.open_with_default_app_action");
     expect(sidePanel).toContain('t("files.preview_unsupported")');
     expect(sidePanel).toContain('targetPreview === "external"');
     expect(sidePanel).toContain("usesLocalFileRenderer");
@@ -130,7 +139,7 @@ describe("session visual and file contracts", () => {
       ["apps/app/src/react-app/domains/session/surface/message-list/file-card.tsx", "name={title}"],
       ["apps/app/src/react-app/domains/session/surface/message-list/message-block-row.tsx", "name={target.name || target.value}"],
       ["apps/app/src/react-app/domains/session/surface/transcript-resource-chip.tsx", "name={label}"],
-      ["apps/app/src/react-app/domains/session/surface/composer/composer.tsx", "name={attachment.name}"],
+      ["apps/app/src/react-app/domains/session/surface/composer/composer-attachment-chips.tsx", "name={attachment.name}"],
       ["apps/app/src/react-app/domains/session/surface/composer/slash-mention-menus.tsx", "name={item.value || item.label}"],
       ["apps/app/src/react-app/domains/local-agents/local-agent-draft-composer.tsx", "name={entry.name}"],
       ["apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx", "name={target.name || target.value}"],

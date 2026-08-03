@@ -7,6 +7,7 @@
 import type { ReactNode } from "react";
 import type { SettingsTabBodyCtx } from "./settings-tab-body-ctx";
 import { SettingsStack } from "../../domains/settings";
+import { deleteSessionOwnedWorkspaceFiles } from "../../domains/workspace";
 import {
   canDeleteOpenCodeProvider,
   canDisconnectProviderRow,
@@ -252,17 +253,27 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             busy={ctx.busy}
             responseTone={ctx.local.prefs.responseTone}
             onResponseToneChange={(responseTone) => {
-              ctx.local.setPrefs((previous) => ({
-                ...previous,
-                responseTone,
-              }));
+              if (typeof ctx.persistResponseTone === "function") {
+                ctx.persistResponseTone(responseTone);
+              } else {
+                ctx.local.setPrefs((previous: { responseTone?: string }) => ({
+                  ...previous,
+                  responseTone,
+                }));
+              }
             }}
             customInstructions={ctx.local.prefs.customInstructions}
             onCustomInstructionsChange={(customInstructions) => {
-              ctx.local.setPrefs((previous) => ({
-                ...previous,
-                customInstructions,
-              }));
+              if (typeof ctx.persistCustomInstructions === "function") {
+                ctx.persistCustomInstructions(customInstructions);
+              } else {
+                ctx.local.setPrefs(
+                  (previous: { customInstructions?: string }) => ({
+                    ...previous,
+                    customInstructions,
+                  }),
+                );
+              }
             }}
           />
         </SettingsTabSuspense>
@@ -273,6 +284,59 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
           <LazyConversationMemoryView
             conversationMemory={ctx.conversationMemoryDraft}
             onConversationMemoryChange={ctx.persistConversationMemory}
+            onboardingProfile={ctx.local.prefs.onboardingProfile}
+            responseTone={ctx.local.prefs.responseTone}
+            customInstructions={ctx.local.prefs.customInstructions}
+            userProfileLabels={ctx.userProfileLabels}
+            onApplyAwarenessFileToPrefs={(patch) => {
+              // Viewer save → prefs; file already written by modal.
+              if (
+                patch.onboardingProfile &&
+                typeof ctx.persistMemoryDraft === "function"
+              ) {
+                ctx.persistMemoryDraft(patch.onboardingProfile);
+              }
+              if (
+                patch.responseTone !== undefined ||
+                patch.customInstructions !== undefined
+              ) {
+                // Batch tone + instructions so neither field is applied with a stale sibling.
+                const nextTone =
+                  patch.responseTone ?? ctx.local.prefs.responseTone;
+                const nextInstructions =
+                  patch.customInstructions ??
+                  ctx.local.prefs.customInstructions;
+                ctx.local.setPrefs((previous: Record<string, unknown>) => ({
+                  ...previous,
+                  responseTone: nextTone,
+                  customInstructions: nextInstructions,
+                }));
+              }
+              if (
+                patch.conversationMemory &&
+                typeof ctx.persistConversationMemory === "function"
+              ) {
+                ctx.persistConversationMemory(patch.conversationMemory);
+              }
+            }}
+            onResetCollaborationStyle={() => {
+              if (typeof ctx.persistResponseTone === "function") {
+                ctx.persistResponseTone("default");
+              } else {
+                ctx.local.setPrefs((previous: Record<string, unknown>) => ({
+                  ...previous,
+                  responseTone: "default",
+                }));
+              }
+              if (typeof ctx.persistCustomInstructions === "function") {
+                ctx.persistCustomInstructions("");
+              } else {
+                ctx.local.setPrefs((previous: Record<string, unknown>) => ({
+                  ...previous,
+                  customInstructions: "",
+                }));
+              }
+            }}
           />
         </SettingsTabSuspense>
       );
@@ -415,6 +479,8 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
           <LazyArchivedTasksView
             client={ctx.onmyagentClient ?? ctx.onmyagentServerSnapshot.onmyagentServerClient}
             workspaceId={ctx.runtimeWorkspaceId?.trim() || ctx.selectedWorkspaceId}
+            workspaceRoot={ctx.selectedWorkspaceRoot}
+            deleteSessionOwnedWorkspaceFiles={deleteSessionOwnedWorkspaceFiles}
           />
         </SettingsTabSuspense>
       );

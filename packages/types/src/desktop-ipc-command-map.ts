@@ -438,6 +438,31 @@ type TypedDesktopCommandMap = {
     SoftwareEnvironmentInstallResult
   >;
   checkBrowserSkillStatus: DesktopCommandContract<[], BrowserSkillStatusResult>;
+  workMemoryEnsureAwareness: DesktopCommandContract<
+    [],
+    { ok: boolean; path: string }
+  >;
+  workMemoryReadFile: DesktopCommandContract<
+    [string],
+    { ok: boolean; path?: string; content?: string; size?: number; mtimeMs?: number; reason?: string }
+  >;
+  workMemoryWriteFile: DesktopCommandContract<
+    [{ name: string; content: string }],
+    { ok: boolean; path?: string; size?: number; mtimeMs?: number; reason?: string }
+  >;
+  workMemoryListFiles: DesktopCommandContract<
+    [],
+    {
+      ok: boolean;
+      path: string;
+      files: Array<{
+        name: string;
+        size: number;
+        mtimeMs: number;
+        exists: boolean;
+      }>;
+    }
+  >;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
     OkResult & {

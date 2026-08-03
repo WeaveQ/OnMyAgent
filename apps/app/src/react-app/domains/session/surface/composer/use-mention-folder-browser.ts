@@ -88,9 +88,10 @@ export function useMentionFolderBrowser(input: MentionFolderBrowserInput) {
   const filtered = useMemo(() => {
     if (!input.open) return [];
     // Root / search results already curated by workspaceMentionTargets.
-    if (!input.query) return items.slice(0, 12);
+    // Empty @: show more flat product files, not only ~12 roots.
+    if (!input.query) return items.slice(0, 40);
     return fuzzysort
-      .go(input.query, items, { keys: ["label", "value", "subtitle"], limit: 12 })
+      .go(input.query, items, { keys: ["label", "value", "subtitle"], limit: 24 })
       .map((entry) => entry.obj);
   }, [input.open, input.query, items]);
 
@@ -136,7 +137,18 @@ export function useMentionFolderBrowser(input: MentionFolderBrowserInput) {
     setFolderError(null);
     try {
       const files = await loadFiles(paths);
-      return (await addFiles(files)) > 0;
+      if (!files.length) {
+        setFolderError(t("composer.folder_files_failed"));
+        return false;
+      }
+      const added = await addFiles(files);
+      if (!(added > 0)) {
+        // Oversize / disabled paths already toast via addAttachments; still
+        // keep the folder open so the user can retry after dismissing.
+        return false;
+      }
+      setSelectedFilePaths(new Set());
+      return true;
     } catch {
       setFolderError(t("composer.folder_files_failed"));
       return false;

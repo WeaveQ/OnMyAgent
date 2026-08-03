@@ -63,9 +63,22 @@ import {
   type ArchivedSourceFilter,
 } from "./archived-tasks-filters";
 
+/** Injected by shell — settings must not import the workspace domain. */
+export type DeleteSessionOwnedWorkspaceFiles = (input: {
+  client: OnMyAgentServerClient;
+  workspaceId: string;
+  sessionId: string;
+  directory?: string | null;
+  workspaceRoot?: string | null;
+  agentSlug?: string | null;
+}) => Promise<{ deleted: string[]; failed: string[] } | void>;
+
 export type ArchivedTasksViewProps = {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
+  /** Absolute workspace root — strips absolute session directories for C1 unlink. */
+  workspaceRoot?: string | null;
+  deleteSessionOwnedWorkspaceFiles?: DeleteSessionOwnedWorkspaceFiles;
 };
 
 /**
@@ -215,6 +228,10 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
   const [pendingDeleteGroupKey, setPendingDeleteGroupKey] = useState<
     string | null
   >(null);
+  /** Single archived row pending permanent delete confirmation. */
+  const [pendingDeleteRow, setPendingDeleteRow] = useState<UnifiedRow | null>(
+    null,
+  );
 
   const refreshAssistant = useCallback(() => {
     setAssistantTasks(readAssistantArchivedTasks(props.workspaceId));
@@ -419,8 +436,23 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       setBusyId(sessionId);
       setError(null);
       try {
+        const archived = readAssistantArchivedTasks(props.workspaceId).find(
+          (task) => task.sessionId === sessionId,
+        );
         permanentlyRemoveAssistantArchivedTask(props.workspaceId, sessionId);
         if (props.client && props.workspaceId.trim()) {
+          // C1: remove session-owned workspace files (best-effort) after confirm.
+          if (props.deleteSessionOwnedWorkspaceFiles) {
+            await props
+              .deleteSessionOwnedWorkspaceFiles({
+                client: props.client,
+                workspaceId: props.workspaceId,
+                sessionId,
+                directory: archived?.directory,
+                workspaceRoot: props.workspaceRoot,
+              })
+              .catch(() => undefined);
+          }
           await props.client.deleteSession(props.workspaceId, sessionId);
         }
         refreshAssistant();
@@ -431,7 +463,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
         setBusyId(null);
       }
     },
-    [props.client, props.workspaceId, refreshAssistant],
+    [props.client, props.workspaceId, props.workspaceRoot, refreshAssistant],
   );
 
   const handleRestoreTrash = useCallback(
@@ -494,8 +526,22 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     try {
       for (const row of items) {
         if (row.kind === "assistant") {
+          const directory = row.task.directory;
           permanentlyRemoveAssistantArchivedTask(props.workspaceId, row.id);
           if (props.client && props.workspaceId.trim()) {
+            if (props.deleteSessionOwnedWorkspaceFiles) {
+              try {
+                await props.deleteSessionOwnedWorkspaceFiles({
+                  client: props.client,
+                  workspaceId: props.workspaceId,
+                  sessionId: row.id,
+                  directory,
+                  workspaceRoot: props.workspaceRoot,
+                });
+              } catch {
+                // Best-effort file cleanup; continue with session delete.
+              }
+            }
             try {
               await props.client.deleteSession(props.workspaceId, row.id);
             } catch {
@@ -503,6 +549,19 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
             }
           }
         } else if (props.client) {
+          if (props.deleteSessionOwnedWorkspaceFiles) {
+            try {
+              await props.deleteSessionOwnedWorkspaceFiles({
+                client: props.client,
+                workspaceId: props.workspaceId,
+                sessionId: row.id,
+                directory: null,
+                workspaceRoot: props.workspaceRoot,
+              });
+            } catch {
+              // Best-effort.
+            }
+          }
           await props.client.permanentlyDeleteSessionArchiveSession(
             props.workspaceId,
             row.id,
@@ -522,6 +581,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     pendingDeleteGroup,
     props.client,
     props.workspaceId,
+    props.workspaceRoot,
     refreshAssistant,
     refreshTrash,
   ]);
@@ -845,13 +905,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                           busy={groupBusy || busyId === row.id}
                           /** Project view: date only (folder is the group header). */
                           meta={formatTime(row.updatedAt)}
-                          onDelete={() => {
-                            if (row.kind === "assistant") {
-                              void handleDeleteAssistant(row.id);
-                            } else {
-                              void handleDeleteTrash(row.id);
-                            }
-                          }}
+                          onDelete={() => setPendingDeleteRow(row)}
                           onRestore={() => {
                             if (row.kind === "assistant") {
                               handleRestoreAssistant(row.id);
@@ -884,13 +938,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                   projectKey: row.projectKey,
                   projectLabel: row.projectLabel,
                 })}
-                onDelete={() => {
-                  if (row.kind === "assistant") {
-                    void handleDeleteAssistant(row.id);
-                  } else {
-                    void handleDeleteTrash(row.id);
-                  }
-                }}
+                onDelete={() => setPendingDeleteRow(row)}
                 onRestore={() => {
                   if (row.kind === "assistant") {
                     handleRestoreAssistant(row.id);
@@ -923,9 +971,38 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
         }}
         onCancel={() => setPendingDeleteGroupKey(null)}
       />
+      <ConfirmModal
+        open={pendingDeleteRow != null}
+        variant="danger"
+        title={t("settings.archived_tasks_delete_confirm_title")}
+        message={
+          pendingDeleteRow
+            ? t("settings.archived_tasks_delete_confirm", {
+                title: pendingDeleteRow.title,
+              })
+            : ""
+        }
+        confirmLabel={t("settings.archived_tasks_delete")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => {
+          const row = pendingDeleteRow;
+          setPendingDeleteRow(null);
+          if (!row) return;
+          if (row.kind === "assistant") {
+            void handleDeleteAssistant(row.id);
+          } else {
+            void handleDeleteTrash(row.id);
+          }
+        }}
+        onCancel={() => setPendingDeleteRow(null)}
+      />
     </LayoutStack>
   );
 }
+
+/** Shared archive row actions: restore first, permanent delete second (same pills). */
+const archiveRowActionBtnClass =
+  "h-7 rounded-full border-dls-border bg-dls-surface-muted/40 px-3 text-xs font-medium text-dls-text hover:bg-dls-surface-muted";
 
 function ArchivedTaskRow(props: {
   row: UnifiedRow;
@@ -956,29 +1033,29 @@ function ArchivedTaskRow(props: {
       <div className="flex shrink-0 items-center gap-1.5">
         <Button
           type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={props.onDelete}
+          variant="outline"
+          size="sm"
+          onClick={props.onRestore}
           disabled={props.busy}
-          title={t("settings.archived_tasks_delete")}
-          aria-label={t("settings.archived_tasks_delete")}
-          className="size-7 text-dls-secondary hover:bg-dls-danger-soft hover:text-dls-danger"
+          className={archiveRowActionBtnClass}
         >
           {props.busy ? (
-            <LoadingSpinner size="sm" />
-          ) : (
-            <Trash2 className="size-3.5" />
-          )}
+            <LoadingSpinner size="sm" className="me-1.5" />
+          ) : null}
+          {t("settings.archived_tasks_unarchive")}
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={props.onRestore}
+          onClick={props.onDelete}
           disabled={props.busy}
-          className="h-7 rounded-full border-dls-border bg-dls-surface-muted/40 px-3 text-xs font-medium text-dls-text hover:bg-dls-surface-muted"
+          className={cn(
+            archiveRowActionBtnClass,
+            "text-dls-danger hover:border-dls-danger/40 hover:bg-dls-danger-soft hover:text-dls-danger",
+          )}
         >
-          {t("settings.archived_tasks_unarchive")}
+          {t("settings.archived_tasks_delete")}
         </Button>
       </div>
     </li>

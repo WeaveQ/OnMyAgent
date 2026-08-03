@@ -41,6 +41,11 @@ import type {
   ComposerPromptTemplate,
   PastedTextChip,
 } from "./composer/composer-helpers";
+import {
+  buildSessionContextUsage,
+  estimateContextUsedFromTokens,
+} from "../../../capabilities/context-usage/session-context-usage";
+import { readTranscriptMessageMetadata } from "../sync/message-metadata";
 import { SessionDebugPanel } from "./debug-panel";
 import {
   SessionTranscript,
@@ -69,6 +74,7 @@ import {
 import type { AssistantCategoryId } from "./personal-assistant-config";
 import type { SessionError } from "./session-surface-support";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
+import { KeyboardShortcutsGuideButton } from "./chrome/keyboard-shortcuts-guide";
 
 export type SessionSurfaceViewProps = {
   // Layout / chrome
@@ -81,6 +87,8 @@ export type SessionSurfaceViewProps = {
   codeSceneToolbar: ReactNode;
   personalAssistantHome?: boolean;
   onOpenAgentSettings?: () => void;
+  /** Open Settings → Shortcuts from draft-home keyboard guide. */
+  onOpenShortcutsSettings?: () => void;
   headerActions?: ReactNode;
   /** Keep-alive rail visibility — remeasure transcript when becoming true. */
   surfaceVisible?: boolean;
@@ -257,9 +265,37 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     draftWorkspaceAccessoryActive,
   } = props;
 
+  // Context ring next to model select: last assistant prompt occupancy vs model window.
+  const sessionContextUsage = useMemo(() => {
+    let usedTokens: number | null = null;
+    for (let index = props.renderedMessages.length - 1; index >= 0; index -= 1) {
+      const message = props.renderedMessages[index];
+      if (message?.role !== "assistant") continue;
+      const tokens = readTranscriptMessageMetadata(message.metadata).tokens;
+      const estimated = estimateContextUsedFromTokens(
+        tokens
+          ? {
+              input: tokens.input,
+              cacheRead: tokens.cacheRead,
+              total: tokens.total,
+            }
+          : null,
+      );
+      if (estimated != null) {
+        usedTokens = estimated;
+        break;
+      }
+    }
+    return buildSessionContextUsage({
+      modelId: props.selectedModel?.modelID ?? null,
+      usedTokens,
+    });
+  }, [props.renderedMessages, props.selectedModel?.modelID]);
+
   return (
     <DevProfiler id="SessionSurface">
-      <div className="flex h-full min-h-0 flex-col">
+      {/* relative: anchors draft-home top-right chrome (keyboard guide). */}
+      <div className="relative flex h-full min-h-0 flex-col">
         {/* New-task / draft home: no top agent chrome — hero + composer own the canvas.
             Once a session has messages (or is loading), pin the header at the top. */}
         {!personalAssistantDraftHome ? (
@@ -277,6 +313,18 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
           visible={props.transitionState === "switching" && props.showDelayedLoading}
           fromCache={props.renderSource === "cache"}
         />
+
+        {/* Draft home only: pin shortcuts to the surface corner (not the centered hero). */}
+        {personalAssistantDraftHome ? (
+          <div className="pointer-events-none absolute right-4 top-3 z-30 flex items-center gap-1.5 mac:right-5 mac:top-4 mac:titlebar-no-drag">
+            <div className="pointer-events-auto flex items-center gap-1.5">
+              {props.codeSceneToolbar}
+              <KeyboardShortcutsGuideButton
+                onConfigure={props.onOpenShortcutsSettings}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {/* Body: draft home centers title+composer; chat fills remaining height. */}
         <SessionSurfaceBody personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}>
@@ -377,9 +425,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
         <SessionSurfaceComposerColumn
           personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}
           homeComposerLayout={Boolean(homeComposerLayout)}
-          floatingToolbar={
-            personalAssistantDraftHome ? props.codeSceneToolbar : null
-          }
+          floatingToolbar={null}
           draftHome={
             personalAssistantDraftHome ? (
               <SessionSurfaceDraftHome
@@ -396,6 +442,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               sessionId={props.sessionId}
               draft={props.draft}
               mentions={props.mentions}
+              contextUsage={sessionContextUsage}
               scenarioTags={props.assistantScenarioTags}
               promptTemplates={props.personalizedPromptTemplates}
               onSelectPromptTemplate={props.onSelectPromptTemplate}

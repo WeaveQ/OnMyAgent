@@ -5,8 +5,8 @@
 import {
   findBuiltinMarketplaceExpertById,
   isBuiltinMarketplaceExpertAgentId,
-} from "../expert-marketplace/data";
-import type { ExpertMarketplaceEntry } from "../expert-marketplace/types";
+} from "@/react-app/domains/plugins";
+import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { PendingAgentContext } from "../../agents";
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 const marketplaceRoot = join(
   repoRoot,
-  "apps/app/src/react-app/domains/session/expert-marketplace",
+  "apps/app/src/react-app/domains/plugins/expert-marketplace",
 );
 const builtinPluginsRoot = join(
   repoRoot,
@@ -455,7 +455,9 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
     );
     const installHelper = readMarketplaceFile("install.ts");
-    const pendingAgent = readMarketplaceFile("pending-agent.ts");
+    const pendingAgent = readWorkspaceFile(
+      "apps/app/src/react-app/domains/agents/marketplace-pending-agent.ts",
+    );
 
     expect(storePage).toContain(
       'export type StorePrimaryTab = "experts" | "skills" | "plugins"',
@@ -466,8 +468,9 @@ describe("expert marketplace UI contract", () => {
     expect(storePage).toContain('t("store.skills_tab")');
     expect(storePage).toContain('t("plugins.artifact_tab")');
     expect(storePage).toContain('t("store.all_experts")');
-    // Skills market uses "my installed" entry (with count), not a bare add_skill CTA.
-    expect(storePage).toContain('t("store.my_installed")');
+    // Experts market: my-experts CTA; skills market: my-skills entry with count.
+    expect(storePage).toContain('t("session.my_experts")');
+    expect(storePage).toContain('t("store.my_skills")');
     expect(storePage).toContain('t("store.skills_marketplace")');
     expect(storePage).toContain("CustomConnectorEntryButton");
     expect(expertPage).toContain("const openExpertMarket = useCallback");
@@ -575,13 +578,13 @@ describe("expert marketplace UI contract", () => {
     const expertManifest = readMarketplaceFile("builtin-experts.manifest.json");
     const expertAssets = readMarketplaceFile("builtin-expert-assets.ts");
     const skillManifest = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills.manifest.json",
+      "apps/app/src/react-app/domains/plugins/skills-marketplace/builtin-skills.manifest.json",
     );
     const skillAssets = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skill-assets.ts",
+      "apps/app/src/react-app/domains/plugins/skills-marketplace/builtin-skill-assets.ts",
     );
     const skillData = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/skills-marketplace/data.ts",
+      "apps/app/src/react-app/domains/plugins/skills-marketplace/data.ts",
     );
 
     expect(generator).toContain("writeAssetMap");

@@ -76,6 +76,7 @@ import {
   PreviewError,
   PreviewLoading,
 } from "../artifacts/preview";
+import { FilePreviewActionBar } from "../../../capabilities/artifacts/file-preview-action-bar";
 import { OfficeFilePreview } from "../artifacts/office-file-preview";
 import {
   canEditArtifactTarget,
@@ -696,38 +697,62 @@ function WorkspaceFilesPanel(props: {
           <span className="min-w-0 flex-1 truncate">
             {selectedPath ?? t("session.code_side_panel_files")}
           </span>
-          {preview.kind === "local" && canEditArtifactTarget({ preview: "", name: preview.name }) ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className="shrink-0 mac:titlebar-no-drag"
-              onClick={() => void editFile(preview.filePath)}
-            >
-              <Pencil aria-hidden="true" />
-              {t("files.edit_file")}
-            </Button>
-          ) : null}
-          {selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath) ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className="shrink-0 mac:titlebar-no-drag"
-              onClick={() => void revealFile(selectedPath)}
-            >
-              <FolderOpen />
-              {t("session.open_artifact")}
-            </Button>
-          ) : null}
         </div>
+        {selectedPath ? (
+          <FilePreviewActionBar
+            compact
+            className="mac:titlebar-no-drag"
+            onEdit={
+              preview.kind === "local" &&
+              canEditArtifactTarget({ preview: "", name: preview.name })
+                ? () => void editFile(preview.filePath)
+                : undefined
+            }
+            onOpenExternally={
+              preview.kind === "local"
+                ? () => void editFile(preview.filePath)
+                : selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath)
+                  ? () => void revealFile(selectedPath)
+                  : undefined
+            }
+            onOpenInFolder={
+              selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath)
+                ? () => void revealFile(selectedPath)
+                : undefined
+            }
+            onCopyPath={
+              selectedPath
+                ? () => {
+                    const abs =
+                      selectedPath.startsWith("/")
+                        ? selectedPath
+                        : absoluteWorkspaceFilePath(
+                            fileRoot || props.workspacePath || "",
+                            selectedPath,
+                          );
+                    void navigator.clipboard.writeText(abs);
+                  }
+                : undefined
+            }
+          />
+        ) : null}
         {error ? (
           <PreviewError className="min-h-0 flex-1" message={t("files.preview_failed")} />
         ) : preview.kind === "loading" ? (
           <PreviewLoading className="min-h-0 flex-1" />
         ) : preview.kind === "unsupported" ? (
-          <div className="min-h-0 flex-1 p-4 text-sm text-dls-secondary">
-            {t("files.preview_unsupported")}
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
+            <p className="text-sm text-dls-secondary">{t("files.preview_unsupported")}</p>
+            {selectedPath && isElectronRuntime() && (fileRoot || props.workspacePath) ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void revealFile(selectedPath)}
+              >
+                <FolderOpen data-icon="inline-start" className="size-3.5" />
+                {t("files.open_with_default_app_action")}
+              </Button>
+            ) : null}
           </div>
         ) : preview.kind === "local" ? (
           <OfficeFilePreview

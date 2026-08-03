@@ -20,7 +20,9 @@ export type TopRightNotificationsProps = {
 };
 
 const topRightNotificationsClass = {
-  viewport: "pointer-events-none fixed right-4 top-4 z-50 flex w-[min(24rem,calc(100vw-1.5rem))] max-w-full flex-col gap-3 sm:right-6 sm:top-6",
+  // Bottom-right: clear of mac titlebar / Files header, always readable.
+  viewport:
+    "pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[min(24rem,calc(100vw-1.5rem))] max-w-full flex-col-reverse gap-3 sm:bottom-6 sm:right-6",
   item: "pointer-events-auto",
 };
 

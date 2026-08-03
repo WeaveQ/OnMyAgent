@@ -7,6 +7,8 @@ import {
   FILES_SOURCE_RAIL_TABS,
   FILES_SOURCE_TABS,
   USER_UPLOADS_RELATIVE_DIR,
+  WORKSPACE_INBOX_DIR,
+  absoluteInboxFilePath,
   buildUserUploadRelativePath,
   filterUploadRows,
   filterWorkspaceTreeBySourceTab,
@@ -14,6 +16,7 @@ import {
   isFilesSourceRailTabEnabled,
   isLikelyExpertAgentFolderName,
   mapInboxItemsToUploadRows,
+  workspaceRelativeInboxPath,
 } from "../src/react-app/domains/workspace/workspace-files-model";
 import type { WorkspaceFileTreeNode } from "../src/react-app/capabilities/artifacts/workspace-file-tree";
 
@@ -171,6 +174,43 @@ describe("files three-source tabs (P0)", () => {
     expect(rows.map((r) => r.id)).toEqual(["a", "b"]);
     expect(filterUploadRows(rows, "A.TXT")).toEqual([rows[0]]);
     expect(filterUploadRows(rows, "nope")).toEqual([]);
+    expect(filterUploadRows(rows, "", "document")).toEqual(rows);
+    expect(filterUploadRows(rows, "", "spreadsheet")).toEqual([]);
+  });
+
+  test("Mine upload rows hide .DS_Store and other system junk", () => {
+    const rows = mapInboxItemsToUploadRows([
+      {
+        id: "ds1",
+        name: ".DS_Store",
+        path: "uploads/.DS_Store",
+        size: 6148,
+        updatedAt: 30,
+      },
+      {
+        id: "ds2",
+        name: ".DS_Store",
+        path: ".DS_Store",
+        size: 6148,
+        updatedAt: 29,
+      },
+      {
+        id: "thumbs",
+        name: "Thumbs.db",
+        path: "uploads/Thumbs.db",
+        size: 1,
+        updatedAt: 28,
+      },
+      {
+        id: "keep",
+        name: "应收台账模板.xlsx",
+        path: "uploads/应收台账模板.xlsx",
+        size: 43_000,
+        updatedAt: 27,
+      },
+    ]);
+    expect(rows.map((r) => r.name)).toEqual(["应收台账模板.xlsx"]);
+    expect(rows.some((r) => r.name === ".DS_Store")).toBe(false);
   });
 
   test("Files page wires rail NavTabs without bg-white active override", () => {
@@ -196,18 +236,51 @@ describe("files three-source tabs (P0)", () => {
     expect(page).not.toContain('activeTab === "cloud"');
     expect(page).not.toContain("CloudDriveEmptyState");
 
-    expect(uploads).toContain("uploadInbox");
+    expect(uploads).toContain("writeWorkspaceBinaryFile");
     expect(uploads).toContain("listInbox");
     expect(uploads).toContain("buildUserUploadRelativePath");
-    expect(uploads).toContain("mapInboxItemsToUploadRows");
+    expect(uploads).toContain("mapUploadsCatalogToRows");
+    expect(uploads).toContain("sortUploadRows");
+    expect(uploads).toContain("useFilesTableSort");
+    expect(uploads).toContain("FilesSortableTableHeader");
+    expect(uploads).toContain("planInboxToUploadsMigration");
+    // My files: preview drawer + open/reveal/copy parity with Task files.
+    expect(uploads).toContain("FilePreviewDrawer");
+    expect(uploads).toContain("workspaceRoot");
+    expect(uploads).toContain("workspaceRelativeForUploadRow");
+    expect(uploads).toContain("openArtifactForEditing");
+    expect(uploads).toContain("revealDesktopItemInDir");
+    expect(uploads).toContain("handleCopyPath");
+    expect(uploads).toContain("UploadRowActionsMenu");
+    const sortHeader = read(
+      "apps/app/src/react-app/domains/workspace/workspace-files-table-sort.tsx",
+    );
+    expect(sortHeader).toContain("data-files-sort-key");
+    expect(sortHeader).toContain("toggleSort");
+    expect(page).toContain("workspaceRoot={props.workspaceRoot}");
 
     const browser = read(
       "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
-    expect(browser).toContain("data-workspace-file-breadcrumb");
+    expect(browser).toContain("data-files-browser-pathbar");
+    expect(browser).toContain("buildTreeOutlineRows");
     expect(browser).toContain("FilePreviewDrawer");
+    expect(browser).toContain("workspace-files-preview-drawer");
+  });
+
+  test("inbox path helpers map list paths to workspace + absolute locations", () => {
+    expect(WORKSPACE_INBOX_DIR).toBe(".opencode/onmyagent/inbox");
+    expect(workspaceRelativeInboxPath("uploads/a.key")).toBe(
+      ".opencode/onmyagent/inbox/uploads/a.key",
+    );
+    expect(
+      workspaceRelativeInboxPath(".opencode/onmyagent/inbox/x.pdf"),
+    ).toBe(".opencode/onmyagent/inbox/x.pdf");
+    expect(absoluteInboxFilePath("/Users/me/ws", "note.md")).toBe(
+      "/Users/me/ws/.opencode/onmyagent/inbox/note.md",
+    );
   });
 
   test("i18n locales define short rail labels and upload copy semantics", () => {
@@ -227,11 +300,13 @@ describe("files three-source tabs (P0)", () => {
       expect(source).toContain('"files.upload_too_large"');
       expect(source).toContain('"files.session_folder_title"');
       expect(source).toContain('"files.task_empty_hint"');
+      expect(source).toContain('"files.ask_agent"');
+      expect(source).toContain('"files.preview_too_large"');
       expect(source).toContain('"files.expert_empty_hint"');
       expect(source).toContain('"files.title"');
     }
     const zh = read("apps/app/src/i18n/locales/zh/files.ts");
-    expect(zh).toContain('"files.source_uploads": "我的"');
+    expect(zh).toContain('"files.source_uploads": "文件"');
     expect(zh).toContain('"files.source_task": "任务"');
     expect(zh).toContain('"files.source_expert": "专家"');
     expect(zh).toContain('"files.source_project": "项目"');

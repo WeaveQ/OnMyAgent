@@ -121,15 +121,23 @@ describe("session page files model", () => {
       entry("onmyagent-session.json"),
     ];
 
-    // Empty @: product three-source roots only (no disk dump / system files).
+    // Empty @: flatten files under product roots (not only three source folders).
     const root = workspaceMentionTargets(entries, "");
     expect(root.map((item) => item.path)).toEqual([
+      "uploads/台账.xlsx",
+      "tasks/自动化任务-1/任务说明.md",
+      "experts/报价作业-quote-specialist/1785/报价单.xlsx",
+    ]);
+    expect(root.every((item) => item.kind === "file")).toBe(true);
+    expect(root.some((item) => item.path === "registry.json")).toBe(false);
+    expect(root.some((item) => item.path.startsWith(".process"))).toBe(false);
+
+    // Empty catalog still falls back to three source roots for drill-in.
+    expect(workspaceMentionTargets([], "").map((item) => item.path)).toEqual([
       "uploads",
       "tasks",
       "experts",
     ]);
-    expect(root.every((item) => item.kind === "directory")).toBe(true);
-    expect(root[0]?.label).toBeTruthy();
 
     const quoteHits = workspaceMentionTargets(entries, "报价");
     expect(quoteHits.some((item) => item.path.includes("报价单.xlsx"))).toBe(

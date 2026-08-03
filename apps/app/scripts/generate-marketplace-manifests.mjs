@@ -8,19 +8,19 @@ const repoRoot = path.resolve(appScriptsRoot, "../../..");
 const desktopMarketplaceRoot = path.join(repoRoot, "apps/desktop/resources/marketplace");
 const expertOutputPath = path.join(
   repoRoot,
-  "apps/app/src/react-app/domains/session/expert-marketplace/builtin-experts.manifest.json",
+  "apps/app/src/react-app/domains/plugins/expert-marketplace/builtin-experts.manifest.json",
 );
 const expertAssetMapOutputPath = path.join(
   repoRoot,
-  "apps/app/src/react-app/domains/session/expert-marketplace/builtin-expert-assets.ts",
+  "apps/app/src/react-app/domains/plugins/expert-marketplace/builtin-expert-assets.ts",
 );
 const skillOutputPath = path.join(
   repoRoot,
-  "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skills.manifest.json",
+  "apps/app/src/react-app/domains/plugins/skills-marketplace/builtin-skills.manifest.json",
 );
 const skillAssetMapOutputPath = path.join(
   repoRoot,
-  "apps/app/src/react-app/domains/session/skills-marketplace/builtin-skill-assets.ts",
+  "apps/app/src/react-app/domains/plugins/skills-marketplace/builtin-skill-assets.ts",
 );
 
 function readText(filePath) {

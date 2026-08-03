@@ -110,10 +110,15 @@ import {
 } from "./session-page-view-model";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
+import { buildFilesOpenSessionMeta } from "../pages/session-files-open-meta";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
-import { appendComposerFileMention } from "../pages/shared-page-utils";
+import {
+  createWorkspaceFilesAgentHandlers,
+  seedComposerFileAgentTask,
+} from "../pages/shared-page-utils";
+import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import { VoicePanel } from "../voice/voice-panel";
 import { useSessionPageVoiceControls } from "./session-page-voice-controls";
 import {
@@ -325,6 +330,24 @@ export function SessionPage(props: SessionPageProps) {
     workspaceSessionGroups: props.sidebar.workspaceSessionGroups,
     onOpenSession: props.sidebar.onOpenSession,
   });
+
+  const filesOpenSessionMeta = useMemo(() => {
+    const live =
+      props.sidebar.workspaceSessionGroups.find(
+        (group) => group.workspace.id === props.selectedWorkspaceId,
+      )?.sessions ?? [];
+    return buildFilesOpenSessionMeta({
+      workspaceId: props.selectedWorkspaceId,
+      workspaceRoot:
+        props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
+      liveSessions: live,
+    });
+  }, [
+    props.selectedWorkspaceId,
+    props.selectedWorkspaceRoot,
+    props.workspaceFilesRoot,
+    props.sidebar.workspaceSessionGroups,
+  ]);
 
   const sessionActions = useSessionPageSessionActions({
     selectedSessionId: props.selectedSessionId,
@@ -608,6 +631,7 @@ export function SessionPage(props: SessionPageProps) {
           account={props.account}
           onOpenView={agentPanel.openSidebarView}
           onOpenAccountSettings={props.onOpenAccountSettings}
+          onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}
           onOpenDevices={agentPanel.openDevicesView}
           onOpenBilling={agentPanel.openBillingView}
@@ -744,29 +768,30 @@ export function SessionPage(props: SessionPageProps) {
                             props.workspaceFilesRoot?.trim() ||
                             props.selectedWorkspaceRoot
                           }
-                          onOpenArtifact={openTarget}
-                          onAddToTask={(relativePath) => {
-                            if (
-                              !appendComposerFileMention(
-                                pageView.renderedSessionId,
-                                relativePath,
-                              )
-                            ) {
-                              return;
-                            }
+                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                          archivedSessionIds={
+                            filesOpenSessionMeta.archivedSessionIds
+                          }
+                          sessionTitleByKey={
+                            filesOpenSessionMeta.sessionTitleByKey
+                          }
+                          sessionIdByPathKey={
+                            filesOpenSessionMeta.sessionIdByPathKey
+                          }
+                          onOpenSourceSession={(sessionId) => {
+                            props.sidebar.onOpenSession(
+                              props.selectedWorkspaceId,
+                              sessionId,
+                            );
                             agentPanel.openChatView();
-                            showToast({
-                              tone: "success",
-                              title: t("files.added_to_task_title"),
-                              description: t("files.added_to_task"),
-                              dismissLabel: t("common.dismiss"),
-                            });
                           }}
-                          onEditError={() => showToast({
-                            tone: "error",
-                            title: t("files.edit_file_failed"),
-                            dismissLabel: t("common.dismiss"),
-                            durationMs: 0,
+                          onOpenArtifact={openTarget}
+                          {...createWorkspaceFilesAgentHandlers({
+                            sessionId: pageView.renderedSessionId,
+                            openRail: () => agentPanel.openChatView(),
+                            showToast,
+                            buildInstruction: buildAskAgentFileInstruction,
+                            t,
                           })}
                         />
                       ) : null}
@@ -825,7 +850,8 @@ export function SessionPage(props: SessionPageProps) {
                       !showDelayedSessionLoadingState &&
                       pageView.canRenderReactSurface ? (
                         <SessionSurface
-                          key={pageView.renderedSessionId}
+                          // Stable per workspace — session switches are prop-driven.
+                          key={props.runtimeWorkspaceId ?? "session-surface"}
                           // Spread `surface` first so the explicit per-workspace
                           // routing props below CAN'T be silently overridden by
                           // anything that leaks into `surface`. SessionSurface's
@@ -1152,6 +1178,27 @@ export function SessionPage(props: SessionPageProps) {
                         onSelectTarget={openTarget}
                         onDeleteTarget={removeAccessibleTarget}
                         onClose={closeRightPane}
+                        onAskAgentAboutFile={({ path, name, preview }) => {
+                          if (
+                            !seedComposerFileAgentTask(
+                              pageView.renderedSessionId,
+                              path,
+                              buildAskAgentFileInstruction({
+                                fileName: name,
+                                preview,
+                              }),
+                            )
+                          ) {
+                            return;
+                          }
+                          agentPanel.openChatView();
+                          showToast({
+                            tone: "success",
+                            title: t("files.ask_agent_done_title"),
+                            description: t("files.ask_agent_done"),
+                            dismissLabel: t("common.dismiss"),
+                          });
+                        }}
                       />
                     ) : activeSidePanel === "artifacts" ? (
                       <EmptyArtifactsPanel onClose={closeRightPane} />

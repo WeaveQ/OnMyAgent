@@ -27,7 +27,7 @@ export default {
   "session.no_expert_conversations_title": "暂无专家会话",
   "session.no_expert_conversations_desc": "先选择一位专家开始对话；产生会话后会在这里继续。",
   "session.no_expert_conversations_action": "选择专家",
-  "session.my_experts": "我的专家",
+  "session.my_experts": "我创建的专家",
   "session.search_experts_placeholder": "搜索专家职称或描述",
   "session.create_expert": "创建专家",
   "session.create_expert_prompt": "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]",
@@ -117,9 +117,9 @@ export default {
   "session.expert_delete_conversation": "删除专家",
   "session.delete_expert_title": "删除专家？",
   "session.delete_named_expert_message":
-    "这将永久删除专家「{name}」及其全部会话消息，且不可恢复。",
+    "这将永久删除专家「{name}」、其全部会话消息，以及这些会话生成的工作区文件，且不可恢复。",
   "session.delete_expert_generic":
-    "这将永久删除该专家及其全部会话消息，且不可恢复。",
+    "这将永久删除该专家、其全部会话消息，以及这些会话生成的工作区文件，且不可恢复。",
   "session.provider_enable": "启用",
   "session.provider_enabled": "已启用",
   "session.models_recommended": "推荐",
@@ -297,8 +297,10 @@ export default {
   "session.send_prompt_failed": "发送提示词失败。",
   "session.default_title": "新建会话",
   "session.delete": "删除",
-  "session.delete_named_session_message": "这将永久删除「{title}」及其消息。",
-  "session.delete_session_generic": "这将永久删除所选会话及其消息。",
+  "session.delete_named_session_message":
+    "这将永久删除「{title}」及其消息，并删除该会话生成的工作区文件。此操作无法撤销。",
+  "session.delete_session_generic":
+    "这将永久删除所选会话及其消息，并删除该会话生成的工作区文件。此操作无法撤销。",
   "session.delete_session_title": "删除会话？",
   "session.deleting": "正在删除…",
   "session.deny": "拒绝",
@@ -859,8 +861,10 @@ export default {
   "session.archive_task_done": "已归档任务",
   "session.delete_task": "删除任务",
   "session.delete_task_title": "删除任务？",
-  "session.delete_named_task_message": "这将永久删除「{title}」及其消息。",
-  "session.delete_task_generic": "这将永久删除所选任务及其消息。",
+  "session.delete_named_task_message":
+    "这将永久删除「{title}」及其消息，并删除该任务生成的工作区文件。此操作无法撤销。",
+  "session.delete_task_generic":
+    "这将永久删除所选任务及其消息，并删除该任务生成的工作区文件。此操作无法撤销。",
   "session.pinned_section": "置顶",
   "session.recent_section": "最近",
   "session.no_space_tasks": "暂无空间任务",
@@ -933,8 +937,8 @@ export default {
   "session.billing_col_credits": "积分",
   "session.billing_view_details": "查看详情",
   "session.billing_no_records": "暂无账单记录",
-  "session.projects_coming_soon_title": "开发中",
-  "session.projects_coming_soon_body": "敬请期待",
+  "session.projects_coming_soon_title": "正在开发中",
+  "session.projects_coming_soon_body": "项目能力即将上线",
   "session.billing_mock_scene": "AccioWork任务",
   "session.billing_mock_session_who": "你是谁?",
   "session.billing_mock_session_hello": "打个招呼",

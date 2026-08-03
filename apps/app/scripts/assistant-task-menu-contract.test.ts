@@ -33,6 +33,15 @@ describe("assistant task context menu contract", () => {
     expect(item).toContain("openFolderPath && props.onOpenFolder");
     expect(item).toContain("TASK_CONTEXT_MENU_CLASS");
     expect(item).toContain("TASK_CONTEXT_MENU_SEPARATOR_CLASS");
+    // Shared chrome: size-4 icons (bare Lucide defaults blow up automation menus).
+    const chrome = read("src/components/ui/sidebar-chrome.ts");
+    expect(chrome).toContain("TASK_CONTEXT_MENU_ITEM_CLASS");
+    expect(chrome).toContain("[&_svg]:size-4");
+    const automation = read(
+      "src/react-app/domains/messaging/automation-nav-sidebar.tsx",
+    );
+    expect(automation).toContain("TASK_CONTEXT_MENU_ITEM_CLASS");
+    expect(automation).toContain('from "@/components/ui/sidebar-chrome"');
     expect(item).toContain('data-task-context-menu="true"');
     // Shared row-action chrome (single source in sidebar-chrome).
     expect(item).toContain("TASK_ROW_ACTION_CLASS");
@@ -61,5 +70,7 @@ describe("assistant task context menu contract", () => {
     expect(settings).toContain("permanentlyRemoveAssistantArchivedTask");
     expect(settings).toContain('data-archived-task-list="true"');
     expect(settings).toContain("deleteSession");
+    // C1: permanent delete unlinks session-owned workspace files
+    expect(settings).toContain("deleteSessionOwnedWorkspaceFiles");
   });
 });

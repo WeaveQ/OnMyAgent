@@ -4,7 +4,7 @@
  * to match denser product rails (icon-above-label + free-float selected pill).
  */
 import {
-  Bot,
+  Briefcase,
   CalendarClock,
   Folder,
   House,
@@ -12,6 +12,7 @@ import {
   MonitorSmartphone,
   Settings2,
   ShoppingBag,
+  UserRound,
 } from "lucide-react";
 
 type PrimaryRailIconProps = {
@@ -36,12 +37,12 @@ export function AssistantRailIcon(props: PrimaryRailIconProps) {
   return <House {...railIconProps(props.className)} />;
 }
 
-/** Experts — robot head outline. */
+/** Experts — person silhouette (marketplace specialists; not the old robot head). */
 export function ExpertRailIcon(props: PrimaryRailIconProps) {
-  return <Bot {...railIconProps(props.className)} />;
+  return <UserRound {...railIconProps(props.className)} />;
 }
 
-/** Local agent — device / monitor outline (distinct from Expert Bot). */
+/** Local agent — device / monitor outline (distinct from Expert UserRound). */
 export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
   return <MonitorSmartphone {...railIconProps(props.className)} />;
 }
@@ -49,6 +50,11 @@ export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
 /** Files / workspace — folder outline. */
 export function FilesRailIcon(props: PrimaryRailIconProps) {
   return <Folder {...railIconProps(props.className)} />;
+}
+
+/** Projects — briefcase outline (solid stroke, not dashed placeholder). */
+export function ProjectsRailIcon(props: PrimaryRailIconProps) {
+  return <Briefcase {...railIconProps(props.className)} />;
 }
 
 /** Marketplace / store — shopping bag outline. */

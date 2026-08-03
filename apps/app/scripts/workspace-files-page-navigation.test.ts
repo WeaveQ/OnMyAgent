@@ -30,13 +30,21 @@ describe("workspace files page navigation", () => {
       ),
       "utf8",
     );
-    // Task/expert browsers share catalog UI; filter splits expert agent folders.
-    expect(browser).toContain("const [currentDirectoryPath, setCurrentDirectoryPath]");
-    expect(browser).toContain("workspaceFileBreadcrumbs(currentDirectoryPath)");
-    expect(browser).toContain('data-workspace-file-breadcrumb="true"');
+    // Task/expert: conversation outline (expand in place + open session).
+    expect(browser).not.toContain('data-files-browser-breadcrumb="true"');
     expect(browser).toContain("listCodeWorkspaceFiles");
     expect(browser).toContain("collectMatchingFilesUnder");
     expect(browser).toContain("filterWorkspaceTreeBySourceTab");
+    expect(browser).toContain("buildTreeOutlineRows");
+    expect(browser).toContain("data-files-tree-depth");
+    expect(browser).toContain("data-files-session-title");
+    expect(browser).toContain("openSessionForPath");
+    expect(browser).not.toContain("enterDirectory");
+    expect(browser).not.toContain("currentDirectoryPath");
+    expect(browser).not.toContain("groupLooseAsOrphan");
+    expect(browser).not.toContain("orphan-header");
+    expect(browser).toContain("buildUngroupedFolderNode");
+    expect(browser).toContain("files.ungrouped");
   });
 
   test("matches the compact shell tab switcher (bare SegmentedTabGroup + tab NavTab)", () => {
@@ -59,7 +67,8 @@ describe("workspace files page navigation", () => {
     expect(source).toContain('density="bare"');
     expect(source).toContain('size="tab"');
     expect(source).toContain('shape="tab"');
-    expect(browser).toContain("max-w-6xl");
+    // Browser uses full-width shell (no max-w-6xl constraint).
+    expect(browser).toMatch(/flex min-h-0 flex-1|w-full min-h-0/);
     // No raw white active override (dark theme remaps bg-white)
     expect(source).not.toMatch(/className=\{?["'`][^"'`]*bg-white/);
   });

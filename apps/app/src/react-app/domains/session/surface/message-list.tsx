@@ -65,7 +65,6 @@ import {
 } from "./message-list/block-model";
 import {
   attachmentsForParts,
-  isAttachmentPart,
   messageToText,
   partToText,
   partsForUserVisibleGroups,
@@ -309,8 +308,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
         return;
       }
       const attachments = attachmentsForParts(renderableParts);
-      // File parts render as chips only; never as raw text rows.
-      const nonAttachmentParts = renderableParts.filter((part) => !isAttachmentPart(part));
+      // File parts render as chips only (attachments row); never as raw text rows.
+      // Include all file:// / data / http parts so Ask-agent mentions become cards.
+      const nonAttachmentParts = renderableParts.filter((part) => part.type !== "file");
       // Strip model-only upload path dump from user bubbles (chips carry the files).
       const visibleParts = isUser
         ? partsForUserVisibleGroups(nonAttachmentParts)

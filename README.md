@@ -12,15 +12,19 @@
 | Architecture | [`docs/Architecture.md`](./docs/Architecture.md) |
 | UI / visual contract | [`DESIGN.md`](./DESIGN.md) |
 | Full doc map | [`docs/README.md`](./docs/README.md) |
+| Phase 2 / enterprise prep | [`docs/design/2026-08-02-phase-2-enterprise-prep.md`](./docs/design/2026-08-02-phase-2-enterprise-prep.md) |
 
 **Local office workspace. Work stays on your machine; pick any model.**
 
 OnMyAgent is an open-source **desktop office agent workspace** — drafts, sheets, automations, and approvals on your computer, not another cloud chat window.
 
+**Product phase:** **Phase 2** — ship a durable local config foundation and prepare for optional **intranet B-side control** (OnMyCompany: identity, isolation, policy, audit, gateway). **Logged-out local use remains the default**; company connect is opt-in, not a login wall. Details: [phase-2 roadmap](./docs/design/2026-08-02-phase-2-enterprise-prep.md).
+
 - **Office-first**: home chat, files, automations, and channels for everyday work deliverables.
 - **Local-first**: workspace and outputs default to this machine; sensitive actions can require approval.
 - **Any model (BYOK)**: hosted providers, compatible APIs, local Ollama, and more — not locked to one vendor.
 - **Experts & verticals later**: marketplace and industry experts keep improving; the current promise is a solid office path, not unfinished verticals.
+- **Org control (roadmap)**: prepare isomorphic config + dual-mode for internal OnMyCompany pilots — not a public multi-tenant SaaS claim.
 
 Advanced access (local coding CLIs, MCP, multi-agent) remains available under settings / advanced entry points, not as the default home story.
 
@@ -47,7 +51,7 @@ OnMyAgent is not:
 
 - A generic chat clone.
 - A cloud workflow platform like n8n, Dify, or Zapier.
-- A full hosted enterprise governance suite (org features may grow; not the main path today).
+- A public multi-tenant hosted enterprise SaaS (Phase 2 prepares **intranet** OnMyCompany-style control for pilots; local-first remains the default).
 - A replacement for Cursor / Claude Code as a coding IDE (local coding agents are advanced attach points).
 
 ## How It Relates to Other Tools

@@ -36,12 +36,12 @@ src/react-app/
     │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)
     │   ├── sidebar/           Rail, conversation lists, chrome barrel (session-chrome.ts)
     │   │                        main rail bottom: channels + devices icons
-    │   ├── voice/ browser/ infinite-canvas/ skills-marketplace/ expert-marketplace/
+    │   ├── voice/ browser/ infinite-canvas/
     │   └── modals/
     ├── local-agents/          ACP / local agent editors, cards, agent-management, personal host
     ├── messaging/             Automations + Feishu/Weixin channel panels
     ├── agents/                Agent registry UI + personal agent pages
-    ├── plugins/               Skills catalog / plugins / connectors pages
+    ├── plugins/               Skills/plugins/connectors + expert/skills marketplace
     ├── workspace/             Create + share + rename + workspace files
     ├── settings/              Settings shell + tab bodies under pages/ (incl. global Updates,
     │                            `state/ai-providers-controller.ts` for AI tab load/merge UX)

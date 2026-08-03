@@ -14,6 +14,7 @@ import {
   Search,
   Sparkles,
   Upload,
+  UserPlus,
   UserRound,
   Zap,
 } from "lucide-react";
@@ -37,24 +38,18 @@ import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 import type { SidebarPrimaryView } from "../sidebar/app-sidebar";
 import {
-  ExpertMarketplacePage,
-  type ExpertMarketplaceView,
-} from "../expert-marketplace/expert-marketplace-dialog";
-import type {
-  ExpertMarketplaceEntry,
-  ExpertMarketplaceSummonHandler,
-} from "../expert-marketplace/types";
-import { SkillsMarketplacePage } from "../skills-marketplace/skills-marketplace-page";
-import { useStatusToasts } from "../../shell-feedback";
-import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
-import {
-  PluginsPage,
-  type ArtifactPluginPromptSelection,
-} from "@/react-app/domains/plugins";
-import {
   CustomConnectorDialog,
   CustomConnectorEntryButton,
+  ExpertMarketplacePage,
+  PluginsPage,
+  SkillsMarketplacePage,
+  type ArtifactPluginPromptSelection,
+  type ExpertMarketplaceEntry,
+  type ExpertMarketplaceSummonHandler,
+  type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
+import { useStatusToasts } from "../../shell-feedback";
+import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {
   emptyTitle: "mt-5 text-base font-medium text-dls-text",
@@ -453,6 +448,16 @@ export function StorePage(props: {
                 type="button"
                 variant="outline"
                 size="sm"
+                onClick={() => setExpertView("mine")}
+                className="mac:titlebar-no-drag"
+              >
+                <UserPlus data-icon="inline-start" className="size-3.5" />
+                {t("session.my_experts")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() =>
                   (props.onCreateExpert ?? showComingSoonToast)()
                 }
@@ -460,15 +465,6 @@ export function StorePage(props: {
               >
                 <Plus data-icon="inline-start" className="size-3.5" />
                 {t("session.create_expert")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setExpertView("mine")}
-                className="mac:titlebar-no-drag"
-              >
-                {t("session.my_experts")}
               </Button>
             </>
           ) : null}
@@ -484,7 +480,7 @@ export function StorePage(props: {
                 }}
                 className="rounded-md mac:titlebar-no-drag"
               >
-                {t("store.my_installed")}
+                {t("store.my_skills")}
                 <CountBadge size="dot" className="ml-1.5">
                   {installedSkillCount}
                 </CountBadge>
@@ -590,12 +586,28 @@ export function StorePage(props: {
   );
 }
 
+const PROJECTS_PLACEHOLDER_ASSET = "/empty-states/projects-placeholder.jpg";
+
 export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
-      <div className="space-y-2">
-        <div className={sidePanelTextClass.panelTitle}>{t("session.projects_coming_soon_title")}</div>
-        <div className="text-sm text-dls-secondary">{t("session.projects_coming_soon_body")}</div>
+      <div className="flex max-w-sm flex-col items-center gap-6">
+        <img
+          src={PROJECTS_PLACEHOLDER_ASSET}
+          alt=""
+          width={280}
+          height={280}
+          className="size-[min(17.5rem,56vw)] max-w-full select-none rounded-2xl object-cover shadow-sm ring-1 ring-dls-border/50"
+          draggable={false}
+        />
+        <div className="space-y-1.5">
+          <div className={sidePanelTextClass.panelTitle}>
+            {t("session.projects_coming_soon_title")}
+          </div>
+          <div className="text-sm text-dls-secondary">
+            {t("session.projects_coming_soon_body")}
+          </div>
+        </div>
       </div>
     </div>
   );
