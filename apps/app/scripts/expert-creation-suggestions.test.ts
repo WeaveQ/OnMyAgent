@@ -4,6 +4,7 @@ import type { AgentWizardDraft } from "../src/react-app/domains/agents/agent-reg
 import {
   expertDraftSuggestionFingerprint,
   expertDraftSuggestionNeedsSync,
+  isExpertDraftSuggestionConfirmation,
   mergeExpertDraftSuggestion,
   parseExpertDraftSuggestion,
   partitionExpertDraftSuggestion,
@@ -45,6 +46,14 @@ function draftStub(overrides: Partial<AgentWizardDraft> = {}): AgentWizardDraft 
 }
 
 describe("expert creation coach suggestions", () => {
+  test("accepts only an explicit reply as proposal confirmation", () => {
+    expect(isExpertDraftSuggestionConfirmation("确认")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("确认回填")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("confirm overwrite")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("继续完善方案")).toBe(false);
+    expect(isExpertDraftSuggestionConfirmation("确认一下规则是否完整")).toBe(false);
+  });
+
   test("extracts a proposed expert name without exposing the machine block", () => {
     const parsed = parseExpertDraftSuggestion(
       '这个名字更清楚，请确认是否应用。\n<expert-update>{"name":"物流报价专家"}</expert-update>',
