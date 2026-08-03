@@ -34,6 +34,7 @@ export {
 } from "./expert-creation-preview-agent";
 export {
   buildExpertPreviewSystemPrompt,
+  createExpertPreviewAcceptanceGate,
   runExpertPreviewTurn,
 } from "./expert-creation-preview-runtime";
 export {
