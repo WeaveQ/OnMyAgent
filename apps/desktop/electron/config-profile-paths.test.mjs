@@ -10,6 +10,8 @@ import { describe, test } from "node:test";
 import {
   dirNonEmpty,
   readLocalConfigMigrationStatus,
+  resolveCompanyConfigRoot,
+  resolveCompanySettingsPath,
   resolveLegacyExpertsPath,
   resolveLegacySkillsPath,
   resolveLocalConfigRoot,
@@ -39,6 +41,17 @@ describe("config-profile-paths", () => {
     assert.equal(
       root,
       path.join("/Users/hope", ".onmyagent", "profiles", "local", "config"),
+    );
+  });
+
+  test("company config root and settings path (M5)", () => {
+    assert.equal(
+      resolveCompanyConfigRoot("/Users/hope"),
+      path.join("/Users/hope", ".onmyagent", "profiles", "company", "config"),
+    );
+    assert.equal(
+      resolveCompanySettingsPath("/Users/hope"),
+      path.join("/Users/hope", ".onmyagent", "company-settings.json"),
     );
   });
 
