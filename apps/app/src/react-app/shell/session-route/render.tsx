@@ -29,7 +29,6 @@ import {
   emptyPendingPermissions,
   emptyPendingQuestions,
   emptyTodos,
-  focusPromptSoon,
   permissionQueryKeyForSession,
   questionQueryKeyForSession,
   todoQueryKeyForSession,
@@ -51,9 +50,7 @@ import {
   findFirstSessionIdMatching,
   getActiveReloadBlockingSessions,
   getActiveSessionIds,
-  insertSidebarSession,
   sessionListOwnsSession,
-  toControlSessionEntries,
   toPaletteSessionOptions,
   type PendingCreatedSessionMap,
 } from "./sessions";
@@ -88,8 +85,6 @@ import {
   readLastSessionFor,
   readSessionTodos,
   readWorkspaceOrderIds,
-  writeActiveWorkspaceId,
-  writeLastSessionFor,
   writeSessionTodos,
 } from "../session-memory";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
@@ -99,13 +94,9 @@ import { useStatusToasts } from "../../domains/shell-feedback";
 import {
   readAssistantSessionWorkspace,
   resolveSelectedSessionFileRoot,
-  saveSessionDraft,
   seedPermissionState,
   seedQuestionState,
-  setComposerDraftAfterNewTask,
-  useComposerStateStore,
   useSessionActivityStore,
-  useSessionControlActions,
 } from "../../domains/session";
 import { useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
@@ -119,14 +110,13 @@ import { useSessionRouteGlobalShortcuts } from "./global-shortcuts-hook";
 import { useSessionRouteSessionLoader } from "./session-loader-hook";
 import { useSessionRouteRefresh } from "./refresh-hook";
 import { useSessionRouteModelCatalog } from "./model-catalog-hook";
+import { useSessionRouteQuickCapture } from "./quick-capture-hook";
+import { useSessionRouteControlWiring } from "./session-control-wiring-hook";
 import { SessionRoutePageView } from "./page-view";
 import {
-  buildCommandPaletteControlAction,
-  resolveControlSessionWorkspaceId,
   resolveSessionRouteRestoreNavigation,
   shouldRedirectSessionRouteToWelcome,
 } from "./control";
-import { useControlAction } from "../control/control-provider";
 import {
   applyRuntimeSessionInfoUpdate,
   applyRuntimeSessionStatusUpdate,
@@ -1040,146 +1030,23 @@ export function SessionRouteRender() {
     workspaceOrderIdsRef,
   });
 
-  const handleCreateTaskWithPrompt = useCallback(
-    async (
-      workspaceId: string,
-      prompt: string,
-      modelOverride?: { providerID: string; modelID: string } | null,
-    ) => {
-      const text = prompt.trim();
-      if (!text) {
-        void handleCreateTaskInWorkspace(workspaceId);
-        return;
-      }
-      const workspace = workspaces.find((item) => item.id === workspaceId);
-      if (!workspace) {
-        void handleCreateTaskInWorkspace(workspaceId);
-        return;
-      }
-      const endpoint = resolveWorkspaceEndpoint(workspace, {
-        baseUrl,
-        token,
-      });
-      if (!endpoint?.token) {
-        // No runtime endpoint yet — open empty new-task and seed draft key.
-        void handleCreateTaskInWorkspace(workspaceId);
-        setComposerDraftAfterNewTask(workspaceId, text);
-        return;
-      }
-      const workspaceClient = createClient(
-        endpoint.opencodeBaseUrl,
-        workspace.path?.trim() || undefined,
-        { token: endpoint.token, mode: "onmyagent" },
-      );
-      try {
-        const session = unwrap(
-          await workspaceClient.session.create({
-            directory: workspace.path?.trim() || undefined,
-          }),
-        );
-        // Composer UI reads Zustand composer-state-store (not saveSessionDraft alone).
-        const seedComposer = () => {
-          useComposerStateStore.getState().setDraft(session.id, text);
-        };
-        seedComposer();
-        if (typeof window !== "undefined") {
-          window.setTimeout(seedComposer, 0);
-          window.requestAnimationFrame(() => {
-            window.requestAnimationFrame(seedComposer);
-          });
-          // Late retries: session surface may mount after navigate.
-          window.setTimeout(seedComposer, 120);
-          window.setTimeout(seedComposer, 360);
-        }
-        saveSessionDraft(workspaceId, session.id, {
-          text,
-          mode: "prompt",
-        });
-        writeActiveWorkspaceId(workspaceId || null);
-        writeLastSessionFor(workspaceId, session.id, pageMode);
-        rememberPendingCreatedSession(workspaceId, session.id);
-        setSessionsByWorkspaceId((current) =>
-          insertSidebarSession({
-            current,
-            workspaceId,
-            session,
-          }),
-        );
-        navigateToWorkspaceSession(workspaceId, session.id);
-        focusPromptSoon();
-
-        // Prefer model chosen in the quick-capture panel; fall back to session default.
-        const model =
-          modelOverride?.providerID && modelOverride?.modelID
-            ? modelOverride
-            : effectiveModelRef;
-        if (model?.providerID && model?.modelID) {
-          void (async () => {
-            try {
-              await workspaceClient.session.promptAsync({
-                sessionID: session.id,
-                model: {
-                  providerID: model.providerID,
-                  modelID: model.modelID,
-                },
-                parts: [{ type: "text", text }],
-              });
-              // Clear draft after successful send so composer does not re-show it.
-              useComposerStateStore.getState().setDraft(session.id, "");
-            } catch (error) {
-              // Keep draft in composer so the user can press send manually.
-              console.warn(
-                "[quick-capture] auto-send failed; draft left in composer",
-                error,
-              );
-              seedComposer();
-              focusPromptSoon();
-            }
-          })();
-        }
-      } catch (error) {
-        console.warn("[quick-capture] create session failed", error);
-        void handleCreateTaskInWorkspace(workspaceId);
-        setComposerDraftAfterNewTask(workspaceId, text);
-      }
-    },
-    [
+  const { handleCreateTaskWithPrompt, handleOpenRecentSession } =
+    useSessionRouteQuickCapture({
       baseUrl,
+      token,
+      pageMode,
+      workspaces,
+      selectedWorkspaceId,
+      sessionsByWorkspaceId,
+      sessionMatchesPageMode,
       effectiveModelRef,
+      allowedModelOptions,
+      modelLabel,
       handleCreateTaskInWorkspace,
       navigateToWorkspaceSession,
-      pageMode,
       rememberPendingCreatedSession,
-      token,
-      workspaces,
-    ],
-  );
-
-  const handleOpenRecentSession = useCallback(() => {
-    const workspaceId = selectedWorkspaceId.trim();
-    if (!workspaceId) return;
-    const lastId = readLastSessionFor(workspaceId, pageMode);
-    if (lastId) {
-      navigateToWorkspaceSession(workspaceId, lastId);
-      return;
-    }
-    const first = findFirstSessionIdMatching(
-      sessionsByWorkspaceId[workspaceId] ?? [],
-      sessionMatchesPageMode,
-    );
-    if (first) {
-      navigateToWorkspaceSession(workspaceId, first);
-      return;
-    }
-    void handleCreateTaskInWorkspace(workspaceId);
-  }, [
-    handleCreateTaskInWorkspace,
-    navigateToWorkspaceSession,
-    pageMode,
-    selectedWorkspaceId,
-    sessionMatchesPageMode,
-    sessionsByWorkspaceId,
-  ]);
+      setSessionsByWorkspaceId,
+    });
 
   useSessionRouteGlobalShortcuts({
     canCreateTask,
@@ -1190,79 +1057,21 @@ export function SessionRouteRender() {
     setCommandPaletteOpen,
   });
 
-  // Keep quick-capture model picker in sync with available models / default.
-  useEffect(() => {
-    if (!isDesktopRuntime()) return;
-    const models = (allowedModelOptions ?? [])
-      .filter((option) => option?.providerID && option?.modelID)
-      .slice(0, 80)
-      .map((option) => ({
-        providerID: option.providerID,
-        modelID: option.modelID,
-        title: option.title?.trim() || option.modelID,
-        disabled: option.disabled === true,
-      }));
-    void import("../../../app/lib/desktop")
-      .then(({ desktopBridge }) =>
-        desktopBridge.setQuickCaptureContext({
-          modelLabel: modelLabel?.trim() || "",
-          selectedProviderID: effectiveModelRef?.providerID ?? "",
-          selectedModelID: effectiveModelRef?.modelID ?? "",
-          models,
-        }),
-      )
-      .catch(() => undefined);
-  }, [allowedModelOptions, effectiveModelRef, modelLabel]);
-
-  const navigateToSessionForControl = useCallback(
-    (sessionId: string) => {
-      const owner = resolveControlSessionWorkspaceId({
-        sessionsByWorkspaceId,
-        sessionId,
-        fallbackWorkspaceId: selectedWorkspaceId,
-      });
-      navigateToWorkspaceSession(owner, sessionId);
-    },
-    [navigateToWorkspaceSession, selectedWorkspaceId, sessionsByWorkspaceId],
-  );
-
-  const navigateToSessionRootForControl = useCallback(() => {
-    navigateToWorkspaceSession(selectedWorkspaceId);
-  }, [navigateToWorkspaceSession, selectedWorkspaceId]);
-
-  const openModelPickerForControl = useCallback(() => {
-    setModelPickerOpen(true);
-  }, [setModelPickerOpen]);
-
-  const controlSessionsByWorkspaceId = useMemo(
-    () => toControlSessionEntries(sessionsByWorkspaceId),
-    [sessionsByWorkspaceId],
-  );
-
-  useSessionControlActions({
+  useSessionRouteControlWiring({
     workspaces,
-    sessionsByWorkspaceId: controlSessionsByWorkspaceId,
+    sessionsByWorkspaceId,
     selectedWorkspaceId,
-    selectedWorkspaceRoot: sessionWorkspaceRoot,
     selectedSessionId,
+    sessionWorkspaceRoot,
     canCreateTask,
-    onmyagentClient: client,
+    client,
     opencodeClient,
-    navigateToSession: navigateToSessionForControl,
-    navigateToSessionRoot: navigateToSessionRootForControl,
-    createTaskInWorkspace: handleCreateTaskInWorkspace,
-    openModelPicker: openModelPickerForControl,
+    handleCreateTaskInWorkspace,
+    navigateToWorkspaceSession,
+    setModelPickerOpen,
+    setCommandPaletteOpen,
     refreshRouteState,
   });
-
-  const commandPaletteControlAction = useMemo(
-    () =>
-      buildCommandPaletteControlAction({
-        openCommandPalette: () => setCommandPaletteOpen(true),
-      }),
-    [setCommandPaletteOpen],
-  );
-  useControlAction(commandPaletteControlAction);
 
   const paletteSessionOptions = useMemo(
     () =>
