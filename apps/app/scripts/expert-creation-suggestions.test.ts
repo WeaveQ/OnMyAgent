@@ -53,6 +53,26 @@ describe("expert creation coach suggestions", () => {
     expect(parsed.suggestion).toBeNull();
   });
 
+  test("strips bare expert draft JSON that models dump into visible text", () => {
+    const parsed = parseExpertDraftSuggestion(
+      [
+        "如果你觉得以上方向没问题，我帮你把表单字段填好：",
+        '{"name":"物流报价专家","description":"整理报价","userNote":"角色","agentMemory":"记忆"}',
+        "你可以看看有没有需要调整的地方。",
+      ].join("\n"),
+    );
+
+    expect(parsed.content).toContain("如果你觉得以上方向没问题");
+    expect(parsed.content).toContain("你可以看看有没有需要调整的地方");
+    expect(parsed.content.includes('"name":"物流报价专家"')).toBe(false);
+    expect(parsed.suggestion).toEqual({
+      name: "物流报价专家",
+      description: "整理报价",
+      userNote: "角色",
+      agentMemory: "记忆",
+    });
+  });
+
   test("partitions empty fill vs conflicts vs matches", () => {
     const partition = partitionExpertDraftSuggestion(
       draftStub({
