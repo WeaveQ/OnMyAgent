@@ -41,6 +41,13 @@ export * from "./agent-registry-types";
 export * from "./agent-registry-helpers";
 export { createDefaultAgentRegistry } from "./agent-default-registry";
 export {
+  EXPERT_CREATION_COACH_AGENT_ID,
+  isBuiltinAgentId,
+  isBuiltinAgentRecord,
+  buildBuiltinAgentRecords,
+  mergeBuiltinAgents,
+} from "./agent-builtin";
+export {
   AGENT_REGISTRY_PATH,
   createAgentRecordFromDraft,
   serializeAgentRegistry,

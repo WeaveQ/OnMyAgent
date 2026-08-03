@@ -48,6 +48,7 @@ import {
   agentAvatarStyleLabel,
   agentToneLabel,
   createAgentRecordFromDraft,
+  isBuiltinAgentRecord,
   createBlankWizardDraft,
   createDefaultAgentRegistry,
   createAgentRegistryWithUserAgents,
@@ -159,7 +160,9 @@ function AgentCard(props: {
         }
       }}
     >
-      {props.item.kind === "custom" && props.onDelete ? (
+      {props.item.kind === "custom" &&
+      props.onDelete &&
+      !isBuiltinAgentRecord(props.item.agent) ? (
         <Button variant="ghost" size="icon-xs"
           type="button"
           className={agentsLayoutClass.deleteButton}
@@ -615,7 +618,7 @@ export function AgentsPage(props: AgentsPageProps) {
 
   const handleDeleteAgent = useCallback(
     async (item: AgentCardItem) => {
-      if (item.kind !== "custom" || !registry) return;
+      if (item.kind !== "custom" || !registry || isBuiltinAgentRecord(item.agent)) return;
       const confirmed = window.confirm(
         t("agents.delete_confirm", { name: item.agent.name }),
       );

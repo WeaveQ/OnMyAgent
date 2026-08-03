@@ -88,6 +88,11 @@ export type AgentRecord = {
   marketplacePath?: string;
   marketplacePackageName?: string;
   sourceTemplateId: string | null;
+  /**
+   * Product-bundled agent. Always re-seeded from code on load; user cannot delete.
+   * Not persisted in the user registry file.
+   */
+  builtin?: boolean;
   createdAt: string;
   updatedAt: string;
 };
