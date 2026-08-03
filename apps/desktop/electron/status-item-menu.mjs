@@ -10,6 +10,8 @@ import path from "node:path";
 export const STATUS_ITEM_ACTION = Object.freeze({
   SHOW_WINDOW: "showWindow",
   NEW_TASK: "newTask",
+  RECENT_SESSION: "recentSession",
+  QUICK_CAPTURE: "quickCapture",
   OPEN_EXPERT_MARKETPLACE: "openExpertMarketplace",
   DESKTOP_PERMISSIONS: "desktopPermissions",
   OPEN_SETTINGS: "openSettings",
@@ -20,6 +22,8 @@ export const STATUS_ITEM_ACTION = Object.freeze({
 export const STATUS_ITEM_EVENTS = Object.freeze({
   OPEN_SETTINGS: "onmyagent:native-menu:open-settings",
   NEW_TASK: "onmyagent:native-menu:new-task",
+  RECENT_SESSION: "onmyagent:native-menu:recent-session",
+  QUICK_CAPTURE: "onmyagent:native-menu:quick-capture",
   OPEN_EXPERT_MARKETPLACE: "onmyagent:native-menu:open-expert-marketplace",
   DESKTOP_PERMISSIONS: "onmyagent:native-menu:desktop-permissions",
 });
@@ -28,6 +32,8 @@ const LABELS = Object.freeze({
   en: Object.freeze({
     showWindow: "Show Main Window",
     newTask: "New Task",
+    recentSession: "Continue Last Session",
+    quickCapture: "Quick Capture…",
     openExpertMarketplace: "Open Expert Marketplace",
     desktopPermissions: "Desktop Control Permissions…",
     openSettings: "Open Settings…",
@@ -36,6 +42,8 @@ const LABELS = Object.freeze({
   zh: Object.freeze({
     showWindow: "显示主窗口",
     newTask: "新建任务",
+    recentSession: "继续最近会话",
+    quickCapture: "快速捕获…",
     openExpertMarketplace: "打开专家市场",
     desktopPermissions: "桌面控制权限…",
     openSettings: "打开设置…",
@@ -44,6 +52,8 @@ const LABELS = Object.freeze({
   "zh-TW": Object.freeze({
     showWindow: "顯示主視窗",
     newTask: "新建任務",
+    recentSession: "繼續最近工作階段",
+    quickCapture: "快速擷取…",
     openExpertMarketplace: "打開專家市場",
     desktopPermissions: "桌面控制權限…",
     openSettings: "打開設定…",
@@ -84,6 +94,16 @@ export function buildStatusItemMenuSpec(options = {}) {
     { type: "item", id: STATUS_ITEM_ACTION.SHOW_WINDOW, label: labels.showWindow },
     { type: "separator" },
     { type: "item", id: STATUS_ITEM_ACTION.NEW_TASK, label: labels.newTask },
+    {
+      type: "item",
+      id: STATUS_ITEM_ACTION.RECENT_SESSION,
+      label: labels.recentSession,
+    },
+    {
+      type: "item",
+      id: STATUS_ITEM_ACTION.QUICK_CAPTURE,
+      label: labels.quickCapture,
+    },
     {
       type: "item",
       id: STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE,

@@ -910,6 +910,7 @@ export default {
   "settings.shortcuts_action_sendMessage": "傳送訊息",
   "settings.shortcuts_action_insertNewline": "插入換行",
   "settings.shortcuts_action_appSnapshot": "擷取桌面",
+  "settings.shortcuts_action_quickCapture": "快速擷取",
   "shortcuts_guide.title": "快捷鍵指引",
   "shortcuts_guide.description":
     "常用快捷鍵可協助你快速建立任務、搜尋、切換上下文與傳送訊息。",

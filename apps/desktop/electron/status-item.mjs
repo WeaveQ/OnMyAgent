@@ -32,6 +32,7 @@ const DEFAULT_APP_ICON_PATH = path.join(
  * @param {() => import("electron").BrowserWindow | null} input.getMainWindow
  * @param {() => void} [input.quitApp]
  * @param {() => Promise<unknown>} [input.openDesktopPermissions]
+ * @param {() => Promise<unknown> | unknown} [input.openQuickCapture]
  * @param {string | null} [input.appIconPath] Brand app icon (icon.png); used to
  *   locate trayTemplate.png beside it, or as a color fallback.
  * @param {string} [input.iconPath] Deprecated alias of appIconPath.
@@ -47,6 +48,7 @@ export function createStatusItemController(input) {
     getMainWindow,
     quitApp = () => app.quit(),
     openDesktopPermissions,
+    openQuickCapture,
     appIconPath = input.iconPath ?? DEFAULT_APP_ICON_PATH,
     platform = process.platform,
   } = input;
@@ -86,6 +88,16 @@ export function createStatusItemController(input) {
         return;
       case STATUS_ITEM_ACTION.NEW_TASK:
         await sendToMainWindow(STATUS_ITEM_EVENTS.NEW_TASK);
+        return;
+      case STATUS_ITEM_ACTION.RECENT_SESSION:
+        await sendToMainWindow(STATUS_ITEM_EVENTS.RECENT_SESSION);
+        return;
+      case STATUS_ITEM_ACTION.QUICK_CAPTURE:
+        if (typeof openQuickCapture === "function") {
+          await openQuickCapture();
+        } else {
+          await sendToMainWindow(STATUS_ITEM_EVENTS.QUICK_CAPTURE);
+        }
         return;
       case STATUS_ITEM_ACTION.OPEN_EXPERT_MARKETPLACE:
         await sendToMainWindow(STATUS_ITEM_EVENTS.OPEN_EXPERT_MARKETPLACE);

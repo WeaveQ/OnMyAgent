@@ -29,6 +29,7 @@ import {
   emptyPendingPermissions,
   emptyPendingQuestions,
   emptyTodos,
+  focusPromptSoon,
   permissionQueryKeyForSession,
   questionQueryKeyForSession,
   todoQueryKeyForSession,
@@ -50,6 +51,7 @@ import {
   findFirstSessionIdMatching,
   getActiveReloadBlockingSessions,
   getActiveSessionIds,
+  insertSidebarSession,
   sessionListOwnsSession,
   toControlSessionEntries,
   toPaletteSessionOptions,
@@ -86,6 +88,8 @@ import {
   readLastSessionFor,
   readSessionTodos,
   readWorkspaceOrderIds,
+  writeActiveWorkspaceId,
+  writeLastSessionFor,
   writeSessionTodos,
 } from "../session-memory";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
@@ -95,6 +99,7 @@ import { useStatusToasts } from "../../domains/shell-feedback";
 import {
   readAssistantSessionWorkspace,
   resolveSelectedSessionFileRoot,
+  saveSessionDraft,
   seedPermissionState,
   seedQuestionState,
   useSessionActivityStore,
@@ -1033,12 +1038,120 @@ export function SessionRouteRender() {
     workspaceOrderIdsRef,
   });
 
+  const handleCreateTaskWithPrompt = useCallback(
+    async (workspaceId: string, prompt: string) => {
+      const text = prompt.trim();
+      if (!text) {
+        void handleCreateTaskInWorkspace(workspaceId);
+        return;
+      }
+      const workspace = workspaces.find((item) => item.id === workspaceId);
+      if (!workspace) {
+        void handleCreateTaskInWorkspace(workspaceId);
+        return;
+      }
+      const endpoint = resolveWorkspaceEndpoint(workspace, {
+        baseUrl,
+        token,
+      });
+      if (!endpoint?.token) {
+        void handleCreateTaskInWorkspace(workspaceId);
+        return;
+      }
+      const workspaceClient = createClient(
+        endpoint.opencodeBaseUrl,
+        workspace.path?.trim() || undefined,
+        { token: endpoint.token, mode: "onmyagent" },
+      );
+      try {
+        const session = unwrap(
+          await workspaceClient.session.create({
+            directory: workspace.path?.trim() || undefined,
+          }),
+        );
+        saveSessionDraft(workspaceId, session.id, {
+          text,
+          mode: "prompt",
+        });
+        writeActiveWorkspaceId(workspaceId || null);
+        writeLastSessionFor(workspaceId, session.id, pageMode);
+        rememberPendingCreatedSession(workspaceId, session.id);
+        setSessionsByWorkspaceId((current) =>
+          insertSidebarSession({
+            current,
+            workspaceId,
+            session,
+          }),
+        );
+        navigateToWorkspaceSession(workspaceId, session.id);
+        focusPromptSoon();
+      } catch {
+        void handleCreateTaskInWorkspace(workspaceId);
+      }
+    },
+    [
+      baseUrl,
+      handleCreateTaskInWorkspace,
+      navigateToWorkspaceSession,
+      pageMode,
+      rememberPendingCreatedSession,
+      token,
+      workspaces,
+    ],
+  );
+
+  const handleOpenRecentSession = useCallback(() => {
+    const workspaceId = selectedWorkspaceId.trim();
+    if (!workspaceId) return;
+    const lastId = readLastSessionFor(workspaceId, pageMode);
+    if (lastId) {
+      navigateToWorkspaceSession(workspaceId, lastId);
+      return;
+    }
+    const first = findFirstSessionIdMatching(
+      sessionsByWorkspaceId[workspaceId] ?? [],
+      sessionMatchesPageMode,
+    );
+    if (first) {
+      navigateToWorkspaceSession(workspaceId, first);
+      return;
+    }
+    void handleCreateTaskInWorkspace(workspaceId);
+  }, [
+    handleCreateTaskInWorkspace,
+    navigateToWorkspaceSession,
+    pageMode,
+    selectedWorkspaceId,
+    sessionMatchesPageMode,
+    sessionsByWorkspaceId,
+  ]);
+
   useSessionRouteGlobalShortcuts({
     canCreateTask,
     handleCreateTaskInWorkspace,
+    handleCreateTaskWithPrompt,
+    handleOpenRecentSession,
     selectedWorkspaceId,
     setCommandPaletteOpen,
   });
+
+  // Keep quick-capture panel context strip in sync with the active workspace/model.
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    const workspaceLabelText =
+      selectedWorkspace?.displayName?.trim() ||
+      selectedWorkspace?.path?.split(/[/\\]/).filter(Boolean).pop() ||
+      selectedWorkspace?.path?.trim() ||
+      "";
+    void import("../../../app/lib/desktop")
+      .then(({ desktopBridge }) =>
+        desktopBridge.setQuickCaptureContext({
+          workspaceLabel: workspaceLabelText,
+          modelLabel: modelLabel?.trim() || "",
+        }),
+      )
+      .catch(() => undefined);
+  }, [modelLabel, selectedWorkspace]);
 
   const navigateToSessionForControl = useCallback(
     (sessionId: string) => {
