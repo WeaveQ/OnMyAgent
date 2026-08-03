@@ -20,6 +20,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "getUiControlBridgeInfo",
   "getComputerUseMcpCommand",
   "checkComputerUsePermissions",
+  "setComputerUseMcpEnabled",
   "setComputerUseSkysightEnabled",
   "setComputerUseSkysightPaused",
   "updateComputerUseSkysightExclusion",
@@ -86,6 +87,7 @@ export function createSystemDomainHandlers({
   app,
   getComputerUseMcpCommand,
   checkComputerUsePermissions,
+  setComputerUseMcpEnabled,
   setComputerUseSkysightEnabled,
   setComputerUseSkysightPaused,
   updateComputerUseSkysightExclusion,
@@ -188,6 +190,10 @@ export function createSystemDomainHandlers({
   checkComputerUsePermissions: async (event, args) => {
     // Spawn --check → fresh TCC read → always accurate.
     return checkComputerUsePermissions();
+  },
+
+  setComputerUseMcpEnabled: async (event, args) => {
+    return setComputerUseMcpEnabled(args[0]);
   },
 
   setComputerUseSkysightEnabled: async (event, args) => {

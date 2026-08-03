@@ -1,6 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+/** User-data preference file for MCP enable/disable (Windows opt-in). */
+export const COMPUTER_USE_MCP_PREFS_FILE = "computer-use-mcp.json";
 
 const COMPUTER_USE_HELPER_APP_NAME = "OnMyAgent Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
@@ -10,10 +13,47 @@ export const CUA_DRIVER_EXECUTABLE = "cua-driver.exe";
 const COMPUTER_USE_CONFIG_FILE = "onmyagent-computer-use.json";
 
 /**
+ * @param {string} userDataDir
+ * @returns {string}
+ */
+export function computerUseMcpPrefsPath(userDataDir) {
+  return path.join(userDataDir, COMPUTER_USE_MCP_PREFS_FILE);
+}
+
+/**
+ * @param {string} userDataDir
+ * @returns {boolean | null} null when unset
+ */
+export function readComputerUseMcpPrefsEnabled(userDataDir) {
+  if (!userDataDir) return null;
+  try {
+    const raw = JSON.parse(
+      readFileSync(computerUseMcpPrefsPath(userDataDir), "utf8"),
+    );
+    if (typeof raw?.enabled === "boolean") return raw.enabled;
+  } catch {
+    // missing or invalid
+  }
+  return null;
+}
+
+/**
+ * @param {string} userDataDir
+ * @param {boolean} enabled
+ */
+export function writeComputerUseMcpPrefsEnabled(userDataDir, enabled) {
+  const filePath = computerUseMcpPrefsPath(userDataDir);
+  writeFileSync(
+    filePath,
+    `${JSON.stringify({ enabled: Boolean(enabled) }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+/**
  * Whether the computer-use MCP entry should be enabled in OpenCode config.
- * - Explicit options.enabled wins.
- * - ONMYAGENT_COMPUTER_USE_ENABLED=0|false|1|true overrides defaults.
- * - Default: darwin on, win32 off (user must opt in via settings later).
+ * Priority: options.enabled → env → userData prefs → platform default
+ * (darwin on, win32 off).
  */
 export function isComputerUseMcpEnabled(options = {}) {
   if (options.enabled === true) return true;
@@ -31,6 +71,15 @@ export function isComputerUseMcpEnabled(options = {}) {
   }
   if (env === "1" || env === "true" || env === "on" || env === "yes") {
     return true;
+  }
+
+  if (typeof options.prefsEnabled === "boolean") {
+    return options.prefsEnabled;
+  }
+
+  if (options.userDataDir) {
+    const prefs = readComputerUseMcpPrefsEnabled(options.userDataDir);
+    if (prefs !== null) return prefs;
   }
 
   const platform = options.platform ?? process.platform;

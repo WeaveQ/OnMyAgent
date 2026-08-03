@@ -923,12 +923,24 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
     ) {
       return command;
     }
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? "");
     throw new Error(
-      "Computer Use helper app is unavailable. Restart OnMyAgent or reinstall the app.",
+      message.trim() ||
+        "Computer Use helper is unavailable. Restart OnMyAgent or reinstall the app.",
     );
   }
   if (entry.command?.length) return entry.command;
+  // Windows must use staged Cua, not HandsFree npx fallback.
+  if (
+    typeof navigator !== "undefined" &&
+    /Windows/i.test(navigator.userAgent)
+  ) {
+    throw new Error(
+      "Cua Driver is not available. Reinstall OnMyAgent or stage helpers/cua.",
+    );
+  }
   return [...COMPUTER_USE_MCP_FALLBACK_COMMAND];
 }
 

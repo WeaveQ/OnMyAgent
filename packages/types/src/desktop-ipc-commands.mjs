@@ -22,6 +22,7 @@ const commandGroups = /** @type {const} */ ({
     "userAgentRegistryRead", "userAgentRegistryWrite",
     "prepareFreshRuntime", "appBuildInfo", "getUiControlBridgeInfo",
     "getComputerUseMcpCommand", "checkComputerUsePermissions",
+    "setComputerUseMcpEnabled",
     "setComputerUseSkysightEnabled", "setComputerUseSkysightPaused",
     "updateComputerUseSkysightExclusion", "clearComputerUseSkysightData",
     "captureComputerUseAppshot",
