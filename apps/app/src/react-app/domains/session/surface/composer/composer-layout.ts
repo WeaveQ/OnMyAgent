@@ -13,6 +13,8 @@ export type ComposerLayoutInput = {
   heroHome?: boolean;
   showOuterBorder?: boolean;
   compactTopSpacing?: boolean;
+  /** Parent already pads the host (expert-creation coach); drop sticky shell air. */
+  flushShell?: boolean;
   hasBottomAccessory?: boolean;
   hasAttachments?: boolean;
   mentionOpen?: boolean;
@@ -58,8 +60,10 @@ export function resolveComposerLayoutClasses(
 
   // Same width for hero home, expert empty, and in-session (1120 + side pad).
   // Bottom inset matches in-session chat so draft-home is not flush to the edge.
+  // flushShell (expert-creation coach) skips sticky air — parent panel owns pad.
   const shellPadClass = resolveComposerShellPadClass({
     compactTopSpacing: input.compactTopSpacing,
+    flushShell: input.flushShell,
   });
   const panelChromeClass = heroHome
     ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
@@ -73,7 +77,7 @@ export function resolveComposerLayoutClasses(
       : "px-4 pb-2 pt-3";
 
   const rootChromeClass =
-    homeLayout || heroHome
+    homeLayout || heroHome || input.flushShell
       ? `bg-transparent ${shellPadClass}`
       : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`;
 

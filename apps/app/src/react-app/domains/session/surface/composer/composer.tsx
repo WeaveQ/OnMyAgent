@@ -432,6 +432,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     heroHome: props.heroHome,
     showOuterBorder: props.showOuterBorder,
     compactTopSpacing: props.compactTopSpacing,
+    flushShell: props.flushShell,
     hasBottomAccessory: Boolean(props.bottomAccessory),
     hasAttachments: props.attachments.length > 0,
     mentionOpen,

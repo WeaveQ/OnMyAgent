@@ -253,6 +253,11 @@ export type ComposerProps = {
   compactTopSpacing?: boolean;
   showOuterBorder?: boolean;
   /**
+   * Parent already owns outer padding (expert-creation coach sidebar).
+   * Zero sticky-shell inset and drop the chat fade gradient.
+   */
+  flushShell?: boolean;
+  /**
    * Draft-home empty state: parent owns max width; strip outer padding so the
    * card aligns with the brand title, and use a denser editor/toolbar.
    */

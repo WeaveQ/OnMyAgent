@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   COMPOSER_COLUMN_BOTTOM_PAD_CLASS,
   COMPOSER_SHELL_BOTTOM_PAD_CLASS,
+  COMPOSER_SHELL_FLUSH_PAD_CLASS,
+  COMPOSER_SHELL_X_PAD_CLASS,
   resolveComposerColumnShellClass,
   resolveComposerShellPadClass,
 } from "../src/react-app/domains/session/surface/composer-shell-inset";
@@ -25,6 +27,18 @@ describe("composer shell bottom inset", () => {
     expect(normal).toContain("pt-3");
     expect(compact).toContain(COMPOSER_SHELL_BOTTOM_PAD_CLASS);
     expect(normal).toContain(COMPOSER_SHELL_BOTTOM_PAD_CLASS);
+  });
+
+  test("flushShell zeros sticky inset for embedded hosts (expert creation)", () => {
+    const flush = resolveComposerShellPadClass({ flushShell: true });
+    const flushWithCompact = resolveComposerShellPadClass({
+      flushShell: true,
+      compactTopSpacing: true,
+    });
+    expect(flush).toBe(COMPOSER_SHELL_FLUSH_PAD_CLASS);
+    expect(flushWithCompact).toBe(COMPOSER_SHELL_FLUSH_PAD_CLASS);
+    expect(flush.includes(COMPOSER_SHELL_X_PAD_CLASS)).toBe(false);
+    expect(flush.includes(COMPOSER_SHELL_BOTTOM_PAD_CLASS)).toBe(false);
   });
 
   test("draft-home column keeps bottom pad instead of pb-0", () => {

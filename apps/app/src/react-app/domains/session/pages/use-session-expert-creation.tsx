@@ -72,7 +72,8 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           isRemoteWorkspace={surface.isRemoteWorkspace}
           isSandboxWorkspace={surface.isSandboxWorkspace}
           onUploadInboxFiles={surface.onUploadInboxFiles}
-          showOuterBorder={false}
+          showOuterBorder
+          flushShell
           hideAccessPermissionSelect
         />
       );
