@@ -143,6 +143,37 @@ test("accepts the uploaded Alibaba OSS manifest shape with signed URL overrides"
   }
 });
 
+test("publishes the refreshed status after a background update check", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-status-event-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    const statuses = [];
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: fixtureFetch({
+        pointerManifest: pointer("1.0.102", releaseManifest),
+        releaseManifest,
+        binary,
+        skill,
+      }),
+      platform: "darwin",
+      arch: "arm64",
+      onStatus: (status) => statuses.push(status),
+    });
+
+    const status = await manager.checkForUpdates(true);
+
+    assert.equal(status.state, "not_installed");
+    assert.equal(statuses.length, 1);
+    assert.equal(statuses[0].latestVersion, "1.0.102");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test("installs a verified OfficeCLI release and materializes the official skill", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-manager-"));
   try {

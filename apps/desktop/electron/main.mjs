@@ -925,6 +925,10 @@ const officeCliManager = createOfficeCliManager({
     if (mainWindow?.isDestroyed()) return;
     mainWindow?.webContents?.send("onmyagent:officecli:progress", progress);
   },
+  onStatus: (status) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:officecli:status", status);
+  },
 });
 
 // Push channel state / pairing changes from the main process to the renderer

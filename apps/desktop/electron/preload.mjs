@@ -93,6 +93,13 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
         ipcRenderer.removeListener("onmyagent:officecli:progress", handler);
       };
     },
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:officecli:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:officecli:status", handler);
+      };
+    },
   },
   computerUse: {
     onActivity(callback) {

@@ -150,6 +150,7 @@ declare global {
         onProgress?: (
           callback: (progress: OfficeCliProgress) => void,
         ) => () => void;
+        onStatus?: (callback: (status: OfficeCliStatus) => void) => () => void;
       };
       migration?: {
         readSnapshot?: () => Promise<unknown>;
@@ -769,6 +770,12 @@ export function subscribeOfficeCliProgress(
   callback: (progress: OfficeCliProgress) => void,
 ) {
   return window.__ONMYAGENT_ELECTRON__?.officeCli?.onProgress?.(callback) ?? (() => undefined);
+}
+
+export function subscribeOfficeCliStatus(
+  callback: (status: OfficeCliStatus) => void,
+) {
+  return window.__ONMYAGENT_ELECTRON__?.officeCli?.onStatus?.(callback) ?? (() => undefined);
 }
 
 // ---------------------------------------------------------------------------
