@@ -480,6 +480,14 @@ export function createRuntimeManager({
     return env;
   }
 
+  // Normal OpenCode sessions and expert/detached sessions must inherit the
+  // same managed-tool PATH and prepared OpenCode skill directory. Keep this
+  // as the single runtime boundary so optional tools such as OfficeCLI are
+  // available consistently in both session modes.
+  async function resolveChildEnvironment(extra = {}, options = {}) {
+    return buildChildEnv(extra, options);
+  }
+
   function envForcedOpencodeBinaryPath() {
     return envForcedBinaryPath(process.env, OPENCODE_BIN_ENV_KEYS, existsSync);
   }
@@ -858,7 +866,7 @@ export function createRuntimeManager({
     }
 
     // Inject user env vars so the server and managed OpenCode inherit them.
-    const serverEnv = await buildChildEnv(
+    const serverEnv = await resolveChildEnvironment(
       {
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
         ONMYAGENT_BUNDLED_PLUGINS_DIR: bundledPluginsRootPath() ?? undefined,
@@ -996,7 +1004,7 @@ export function createRuntimeManager({
       throw new Error("Failed to locate opencode.");
     }
 
-    const env = await buildChildEnv(
+    const env = await resolveChildEnvironment(
       {
         ONMYAGENT_INTERNAL_ALLOW_OPENCODE_CREDENTIALS: "1",
         ONMYAGENT_OPENCODE_USERNAME: username,
@@ -1066,7 +1074,7 @@ export function createRuntimeManager({
 
     const port = await findFreePort("127.0.0.1");
     const [username, password] = generateManagedCredentials();
-    const env = await buildChildEnv(
+    const env = await resolveChildEnvironment(
       {
         OPENCODE_SERVER_USERNAME: username,
         OPENCODE_SERVER_PASSWORD: password,
@@ -1377,7 +1385,7 @@ export function createRuntimeManager({
 
     const result = await runShellCommand(program, ["mcp", "auth", safeServerName], {
       cwd: safeProjectDir,
-      env: await buildChildEnv(),
+      env: await resolveChildEnvironment(),
       timeoutMs: 120_000,
     });
     return {
@@ -1559,7 +1567,11 @@ export function createRuntimeManager({
     ];
 
     const child = spawn(program, args, {
-      env: { ...(await buildChildEnv()), ONMYAGENT_TOKEN: token, ONMYAGENT_HOST_TOKEN: hostToken },
+      env: {
+        ...(await resolveChildEnvironment()),
+        ONMYAGENT_TOKEN: token,
+        ONMYAGENT_HOST_TOKEN: hostToken,
+      },
       detached: true,
       stdio: "ignore",
       windowsHide: true,
@@ -1684,6 +1696,8 @@ export function createRuntimeManager({
     engineInstall,
     softwareEnvironmentInfo,
     runtimePathEntries: () => [...runtimeBinDirs],
+    resolveChildEnvironment: (extra, options) =>
+      withRuntimeLifecycle(() => resolveChildEnvironment(extra, options)),
     onmyagentServerInfo,
     onmyagentServerRestart,
     orchestratorStatus,
