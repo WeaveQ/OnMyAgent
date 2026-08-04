@@ -28,6 +28,8 @@ import {
 } from "../config-profile-paths.mjs";
 
 export const OFFICECLI_PLUGIN_ID = "officecli";
+// TODO: replace with the Alibaba OSS root manifest URL before distribution.
+// ONMYAGENT_OFFICECLI_MANIFEST_URL remains available for staging overrides.
 export const OFFICECLI_DEFAULT_MANIFEST_URL =
   "__OFFICECLI_OSS_MANIFEST_URL__";
 export const OFFICECLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
