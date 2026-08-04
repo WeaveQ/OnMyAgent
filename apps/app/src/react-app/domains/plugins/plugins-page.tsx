@@ -78,6 +78,7 @@ import {
   type ArtifactPluginDetailLabels,
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
+import { OfficeCliPluginSection } from "./officecli-plugin";
 import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
 import {
   getExtensionConfigSlot,
@@ -1343,9 +1344,10 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         {/*
-          Two clear bands only:
+          Three clear bands:
           1) Built-in — product extensions + file tools
-          2) Recommended — third-party preview catalog (flat, no nested categories)
+          2) Optional enhancements — managed tools installed on demand
+          3) Recommended — third-party preview catalog (flat, no nested categories)
         */}
         <div className={cn(pluginsLayoutClass.pluginPageContainer, "space-y-10")}>
           <section
@@ -1373,6 +1375,8 @@ export function PluginsPage(props: PluginsPageProps) {
               <ArtifactPluginsCatalog {...props} embedded />
             </div>
           </section>
+
+          <OfficeCliPluginSection />
 
           <section
             className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
