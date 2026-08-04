@@ -364,6 +364,50 @@ test("installs a verified OfficeCLI release and materializes the official skill"
   }
 });
 
+test("marks an installed runtime unusable when its binary is tampered with", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-integrity-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: fixtureFetch({
+        pointerManifest: pointer("1.0.102", releaseManifest),
+        releaseManifest,
+        binary,
+        skill,
+      }),
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    await manager.installLatest();
+    await writeFile(
+      path.join(
+        manager.paths.managedRoot,
+        "releases",
+        "1.0.102",
+        "officecli-mac-arm64",
+        "officecli",
+      ),
+      "tampered",
+      "utf8",
+    );
+
+    const status = await manager.getStatus();
+
+    assert.equal(status.usable, false);
+    assert.equal(status.state, "error");
+    assert.equal(status.errorCode, "integrity_mismatch");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test(
   "the stable launcher dispatches commands to the active release",
   { skip: process.platform !== "darwin" || os.arch() !== "arm64" },
