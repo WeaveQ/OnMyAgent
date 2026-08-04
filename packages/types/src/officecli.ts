@@ -15,12 +15,10 @@ const officeCliRelativePathSchema = z
   );
 
 export const officeCliAssetKeySchema = z.enum([
-  "darwin-arm64",
-  "darwin-x64",
-  "win32-arm64",
-  "win32-x64",
-  "linux-arm64",
-  "linux-x64",
+  "officecli-mac-arm64",
+  "officecli-mac-x64",
+  "officecli-win-arm64",
+  "officecli-win-x64",
 ]);
 
 export const officeCliVersionSchema = z
@@ -32,26 +30,42 @@ const officeCliFileSchema = z
     path: officeCliRelativePathSchema,
     sha256: z.string().regex(/^[a-f0-9]{64}$/i),
     size: z.number().int().nonnegative(),
+    url: z
+      .string()
+      .url()
+      .refine((value) => value.startsWith("https://"), "url must use HTTPS")
+      .optional(),
   })
   .strict();
+
+const officeCliFileReferenceSchema = z.union([
+  officeCliRelativePathSchema,
+  officeCliFileSchema,
+]);
 
 export const officeCliReleaseManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
-    pluginId: z.literal("officecli"),
+    pluginId: z.literal("officecli").optional(),
     version: officeCliVersionSchema,
-    skill: officeCliFileSchema,
+    officecliVersion: officeCliVersionSchema.optional(),
+    skill: officeCliFileSchema.optional(),
+    skillPath: officeCliRelativePathSchema.optional(),
     assets: z.partialRecord(officeCliAssetKeySchema, officeCliFileSchema),
+  })
+  .refine((value) => value.skill !== undefined || value.skillPath !== undefined, {
+    message: "release manifest must provide skill or skillPath",
+    path: ["skill"],
   })
   .strict();
 
 export const officeCliLatestManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
-    pluginId: z.literal("officecli"),
+    pluginId: z.literal("officecli").optional(),
     channel: z.literal("stable"),
     latestVersion: officeCliVersionSchema,
-    releaseManifest: officeCliFileSchema,
+    releaseManifest: officeCliFileReferenceSchema,
   })
   .strict();
 

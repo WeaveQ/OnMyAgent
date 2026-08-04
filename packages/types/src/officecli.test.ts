@@ -17,8 +17,8 @@ const releaseManifest = {
   version: "1.0.103",
   skill: { path: "SKILL.md", sha256: digest, size: 1200 },
   assets: {
-    "darwin-arm64": {
-      path: "officecli-darwin-arm64",
+    "officecli-mac-arm64": {
+      path: "officecli-mac-arm64",
       sha256: digest,
       size: 1200,
     },
@@ -29,7 +29,7 @@ test("accepts a stable OfficeCLI release manifest", () => {
   const parsed = officeCliReleaseManifestSchema.parse(releaseManifest);
 
   assert.equal(parsed.pluginId, "officecli");
-  assert.equal(parsed.assets["darwin-arm64"]?.size, 1200);
+  assert.equal(parsed.assets["officecli-mac-arm64"]?.size, 1200);
 });
 
 test("rejects unsafe release paths and invalid versions", () => {
@@ -64,7 +64,7 @@ test("accepts the remote pointer and local installation state", () => {
     pluginId: "officecli",
     activeVersion: "1.0.103",
     previousVersion: "1.0.102",
-    platform: "darwin-arm64",
+    platform: "officecli-mac-arm64",
     installedSkillPath: "/tmp/skills/officecli",
     installedAt: 1,
     updatedAt: 2,
@@ -73,20 +73,18 @@ test("accepts the remote pointer and local installation state", () => {
     },
   });
 
+  if (typeof latest.releaseManifest === "string") {
+    throw new Error("expected a release manifest file descriptor");
+  }
   assert.equal(latest.releaseManifest.path, "releases/1.0.103/manifest.json");
   assert.equal(state.previousVersion, "1.0.102");
 });
 
 test("keeps the platform key vocabulary explicit", () => {
-  assert.deepEqual(
-    officeCliAssetKeySchema.options,
-    [
-      "darwin-arm64",
-      "darwin-x64",
-      "win32-arm64",
-      "win32-x64",
-      "linux-arm64",
-      "linux-x64",
-    ],
-  );
+  assert.deepEqual(officeCliAssetKeySchema.options, [
+    "officecli-mac-arm64",
+    "officecli-mac-x64",
+    "officecli-win-arm64",
+    "officecli-win-x64",
+  ]);
 });

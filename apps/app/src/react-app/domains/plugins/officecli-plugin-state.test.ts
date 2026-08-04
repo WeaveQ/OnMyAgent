@@ -13,7 +13,7 @@ function status(overrides: Partial<OfficeCliStatus>): OfficeCliStatus {
     pluginId: "officecli",
     state: "not_installed",
     supported: true,
-    platform: "darwin-arm64",
+    platform: "officecli-mac-arm64",
     installedVersion: null,
     latestVersion: null,
     previousVersion: null,

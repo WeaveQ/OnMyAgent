@@ -39,7 +39,7 @@ function release(version, binary, skill) {
       size: Buffer.byteLength(skill),
     },
     assets: {
-      "darwin-arm64": {
+      "officecli-mac-arm64": {
         path: `officecli-${version}`,
         sha256: sha256(binary),
         size: binary.byteLength,
@@ -77,12 +77,70 @@ function fixtureFetch({ pointerManifest, releaseManifest, binary, skill }) {
 }
 
 test("maps supported platforms and compares OfficeCLI versions", () => {
-  assert.equal(officeCliPlatformKey("darwin", "arm64"), "darwin-arm64");
-  assert.equal(officeCliPlatformKey("win32", "x64"), "win32-x64");
+  assert.equal(officeCliPlatformKey("darwin", "arm64"), "officecli-mac-arm64");
+  assert.equal(officeCliPlatformKey("win32", "x64"), "officecli-win-x64");
+  assert.equal(officeCliPlatformKey("linux", "x64"), null);
   assert.equal(officeCliPlatformKey("freebsd", "x64"), null);
   assert.equal(compareOfficeCliVersions("1.0.103", "1.0.102"), 1);
   assert.equal(compareOfficeCliVersions("1.0.102", "1.0.102"), 0);
   assert.equal(compareOfficeCliVersions("1.0.101", "1.0.102"), -1);
+});
+
+test("accepts the uploaded Alibaba OSS manifest shape with signed URL overrides", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-oss-manifest-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const rootUrl = "https://oss.test/officecli/manifest.json?root-signature";
+    const releaseUrl = "https://oss.test/officecli/releases/1.0.102/manifest.json?release-signature";
+    const skillUrl = "https://oss.test/officecli/releases/1.0.102/SKILL.md?skill-signature";
+    const assetUrl = "https://oss.test/officecli/releases/1.0.102/officecli-mac-arm64?asset-signature";
+    const latest = {
+      schemaVersion: 1,
+      channel: "stable",
+      latestVersion: "1.0.102",
+      releaseManifest: "releases/1.0.102/manifest.json",
+    };
+    const releaseManifest = {
+      schemaVersion: 1,
+      version: "1.0.102",
+      officecliVersion: "1.0.102",
+      skillPath: "SKILL.md",
+      assets: {
+        "officecli-mac-arm64": {
+          path: "officecli-mac-arm64",
+          sha256: sha256(binary),
+          size: binary.byteLength,
+        },
+      },
+    };
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: rootUrl,
+      releaseManifestUrl: releaseUrl,
+      skillUrl,
+      assetUrlOverrides: { "officecli-mac-arm64": assetUrl },
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url === rootUrl) return jsonResponse(latest);
+        if (url === releaseUrl) return jsonResponse(releaseManifest);
+        if (url === assetUrl) return bytesResponse(binary);
+        if (url === skillUrl) return bytesResponse(skill);
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    const status = await manager.installLatest();
+
+    assert.equal(status.installedVersion, "1.0.102");
+    assert.equal(status.usable, true);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
 });
 
 test("installs a verified OfficeCLI release and materializes the official skill", async () => {
@@ -203,8 +261,8 @@ test("keeps the active release when a later update fails verification", async ()
     releaseForLatest = {
       ...release("1.0.103", binary103, skill103),
       assets: {
-        "darwin-arm64": {
-          ...release("1.0.103", binary103, skill103).assets["darwin-arm64"],
+        "officecli-mac-arm64": {
+          ...release("1.0.103", binary103, skill103).assets["officecli-mac-arm64"],
           sha256: "0".repeat(64),
         },
       },
@@ -221,8 +279,8 @@ test("keeps the active release when a later update fails verification", async ()
       ...releaseForLatest,
       assets: {
         ...releaseForLatest.assets,
-        "darwin-arm64": {
-          ...releaseForLatest.assets["darwin-arm64"],
+        "officecli-mac-arm64": {
+          ...releaseForLatest.assets["officecli-mac-arm64"],
           sha256: "0".repeat(64),
         },
       },
