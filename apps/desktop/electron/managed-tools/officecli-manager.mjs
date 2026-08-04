@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { createReadStream } from "node:fs";
 import {
   access,
   chmod,
@@ -268,10 +269,10 @@ async function responseBytes(
 
 function verifyDigest(size, digest, expected, label) {
   if (size !== expected.size) {
-    throw new Error(`${label} size mismatch`);
+    throw codedError(`${label} size mismatch`, "integrity_mismatch");
   }
   if (digest.toLowerCase() !== expected.sha256.toLowerCase()) {
-    throw new Error(`${label} checksum mismatch`);
+    throw codedError(`${label} checksum mismatch`, "integrity_mismatch");
   }
   return digest;
 }
@@ -289,9 +290,30 @@ function digestBytes(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+async function hashFile(target, maximum, label) {
+  const stream = createReadStream(target);
+  const hash = createHash("sha256");
+  let size = 0;
+  for await (const chunk of stream) {
+    size += chunk.byteLength;
+    if (size > maximum) {
+      stream.destroy();
+      throw codedError(`${label} exceeds size limit`, "integrity_mismatch");
+    }
+    hash.update(chunk);
+  }
+  return { size, sha256: hash.digest("hex") };
+}
+
 function verifyOptionalBytes(bytes, expected, label) {
   if (!expected || typeof expected !== "object") return digestBytes(bytes);
   return verifyBytes(bytes, expected, label);
+}
+
+function verifyHash(digest, expected, label) {
+  if (digest.toLowerCase() !== expected.toLowerCase()) {
+    throw codedError(`${label} checksum mismatch`, "integrity_mismatch");
+  }
 }
 
 /**
@@ -613,6 +635,29 @@ export function createOfficeCliManager(options = {}) {
           (await pathExists(path.join(skillPath, "SKILL.md"))),
       );
       status.state = status.usable ? "installed" : "error";
+      if (status.usable) {
+        const expectedRelease = state.releases[state.activeVersion];
+        if (!expectedRelease) {
+          status.usable = false;
+          status.state = "error";
+          status.errorCode = "integrity_missing";
+          status.errorMessage = "OfficeCLI integrity metadata is missing";
+        } else {
+          try {
+            const [binaryDigest, skillDigest] = await Promise.all([
+              hashFile(binaryPath, MAX_BINARY_BYTES, "OfficeCLI binary"),
+              hashFile(path.join(skillPath, "SKILL.md"), MAX_SKILL_BYTES, "OfficeCLI SKILL.md"),
+            ]);
+            verifyHash(binaryDigest.sha256, expectedRelease.binarySha256, "OfficeCLI binary");
+            verifyHash(skillDigest.sha256, expectedRelease.skillSha256, "OfficeCLI SKILL.md");
+          } catch (error) {
+            status.usable = false;
+            status.state = "error";
+            status.errorCode = errorCode(error);
+            status.errorMessage = error instanceof Error ? error.message : String(error);
+          }
+        }
+      }
     }
     try {
       const cache = await readJson(cachePath);
