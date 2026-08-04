@@ -408,6 +408,71 @@ test("marks an installed runtime unusable when its binary is tampered with", asy
   }
 });
 
+test("selects the Windows x64 asset and launcher names", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-win32-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-win-x64-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = {
+      schemaVersion: 1,
+      pluginId: "officecli",
+      version: "1.0.102",
+      skill: {
+        path: "SKILL.md",
+        sha256: sha256(skill),
+        size: Buffer.byteLength(skill),
+      },
+      assets: {
+        "officecli-win-x64": {
+          path: "officecli-win-x64.exe",
+          sha256: sha256(binary),
+          size: binary.byteLength,
+        },
+      },
+    };
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.endsWith("/releases/1.0.102/manifest.json")) {
+          return jsonResponse(releaseManifest);
+        }
+        if (url.endsWith("/manifest.json")) {
+          return jsonResponse(pointer("1.0.102", releaseManifest));
+        }
+        if (url.endsWith("/officecli-win-x64.exe")) return bytesResponse(binary);
+        if (url.endsWith("/SKILL.md")) return bytesResponse(skill);
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "win32",
+      arch: "x64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    const status = await manager.installLatest();
+
+    assert.equal(status.platform, "officecli-win-x64");
+    assert.equal(status.usable, true);
+    assert.equal(
+      (await stat(
+        path.join(
+          manager.paths.managedRoot,
+          "releases",
+          "1.0.102",
+          "officecli-win-x64",
+          "officecli.exe",
+        ),
+      )).isFile(),
+      true,
+    );
+    assert.equal((await stat(path.join(manager.paths.toolsBinRoot, "officecli.cmd"))).isFile(), true);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test(
   "the stable launcher dispatches commands to the active release",
   { skip: process.platform !== "darwin" || os.arch() !== "arm64" },
