@@ -6,10 +6,8 @@ import {
   cp,
   mkdir,
   readFile,
-  readdir,
   rename,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -28,17 +26,15 @@ import {
 } from "../config-profile-paths.mjs";
 
 export const OFFICECLI_PLUGIN_ID = "officecli";
-// TODO: replace with the Alibaba OSS root manifest URL before distribution.
-// ONMYAGENT_OFFICECLI_MANIFEST_URL remains available for staging overrides.
 export const OFFICECLI_DEFAULT_MANIFEST_URL =
-  "__OFFICECLI_OSS_MANIFEST_URL__";
+  "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json";
 export const OFFICECLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_SKILL_BYTES = 1024 * 1024;
 const MAX_BINARY_BYTES = 512 * 1024 * 1024;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
-const PLATFORM_PATTERN = /^(?:darwin|win32|linux)-(?:arm64|x64)$/;
+const PLATFORM_PATTERN = /^officecli-(?:mac|win)-(?:arm64|x64)$/;
 
 export const OFFICECLI_LAUNCHER_SOURCE = `
 import { readFileSync } from "node:fs";
@@ -52,7 +48,7 @@ const state = JSON.parse(readFileSync(statePath, "utf8"));
 if (!/^\\d+\\.\\d+\\.\\d+$/.test(String(state.activeVersion ?? ""))) {
   throw new Error("Invalid OfficeCLI active version");
 }
-if (!/^(?:darwin|win32|linux)-(?:arm64|x64)$/.test(String(state.platform ?? ""))) {
+if (!/^officecli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? ""))) {
   throw new Error("Invalid OfficeCLI platform");
 }
 const binaryName = process.platform === "win32" ? "officecli.exe" : "officecli";
@@ -74,10 +70,9 @@ function normalizeArch(arch) {
 export function officeCliPlatformKey(platform = process.platform, arch = os.arch()) {
   const normalizedArch = normalizeArch(arch);
   if (!normalizedArch) return null;
-  if (platform !== "darwin" && platform !== "win32" && platform !== "linux") {
-    return null;
-  }
-  return `${platform}-${normalizedArch}`;
+  if (platform === "darwin") return `officecli-mac-${normalizedArch}`;
+  if (platform === "win32") return `officecli-win-${normalizedArch}`;
+  return null;
 }
 
 export function compareOfficeCliVersions(left, right) {
@@ -122,6 +117,34 @@ function resolveSameOriginUrl(base, relativeReference) {
     throw new Error("OfficeCLI download must stay on the configured OSS origin");
   }
   return resolved.href;
+}
+
+function resolveOfficeCliUrl(base, reference) {
+  const baseUrl = new URL(base);
+  if (baseUrl.protocol !== "https:") {
+    throw new Error("OfficeCLI downloads require HTTPS");
+  }
+  if (typeof reference === "string") {
+    return resolveSameOriginUrl(base, reference);
+  }
+  if (reference.url) {
+    const directUrl = new URL(reference.url);
+    if (directUrl.protocol !== "https:" || directUrl.origin !== baseUrl.origin) {
+      throw new Error("OfficeCLI download must stay on the configured OSS origin");
+    }
+    return directUrl.href;
+  }
+  return resolveSameOriginUrl(base, reference.path);
+}
+
+function referenceWithOverride(reference, override) {
+  return override ? override : reference;
+}
+
+function releaseSkillReference(release) {
+  if (release.skill) return release.skill;
+  if (release.skillPath) return release.skillPath;
+  throw new Error("OfficeCLI release manifest does not provide SKILL.md");
 }
 
 function binaryName(platform) {
@@ -196,6 +219,15 @@ function verifyBytes(bytes, expected, label) {
   return digest;
 }
 
+function digestBytes(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function verifyOptionalBytes(bytes, expected, label) {
+  if (!expected || typeof expected !== "object") return digestBytes(bytes);
+  return verifyBytes(bytes, expected, label);
+}
+
 async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
   return new Promise((resolve) => {
     const child = spawn(binaryPath, ["--version"], {
@@ -227,7 +259,7 @@ async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
 function statusBase(platform) {
   return {
     pluginId: OFFICECLI_PLUGIN_ID,
-    state: "not_installed",
+    state: platform ? "not_installed" : "unsupported",
     supported: Boolean(platform),
     platform: platform ?? `${process.platform}-${os.arch()}`,
     installedVersion: null,
@@ -248,6 +280,15 @@ export function createOfficeCliManager(options = {}) {
       process.env.ONMYAGENT_OFFICECLI_MANIFEST_URL ??
       OFFICECLI_DEFAULT_MANIFEST_URL,
   ).trim();
+  const releaseManifestUrlOverride = String(
+    options.releaseManifestUrl ??
+      process.env.ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL ??
+      "",
+  ).trim() || null;
+  const skillUrlOverride = String(
+    options.skillUrl ?? process.env.ONMYAGENT_OFFICECLI_SKILL_URL ?? "",
+  ).trim() || null;
+  const assetUrlOverrides = options.assetUrlOverrides ?? {};
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const refreshSkillLinks = options.refreshSkillLinks ?? (async () => undefined);
   const runBinaryVersion = options.runBinaryVersion ?? defaultRunBinaryVersion;
@@ -280,6 +321,18 @@ export function createOfficeCliManager(options = {}) {
     return { bytes, value: JSON.parse(bytes.toString("utf8")) };
   }
 
+  function assetUrlOverride(platformKey) {
+    const configured = assetUrlOverrides[platformKey];
+    if (typeof configured === "string" && configured.trim()) return configured.trim();
+    const envKey = `ONMYAGENT_OFFICECLI_ASSET_URL_${platformKey
+      .replace(/^officecli-/, "")
+      .replaceAll("-", "_")
+      .toUpperCase()}`;
+    const environmentValue = process.env[envKey]?.trim();
+    if (environmentValue) return environmentValue;
+    return process.env.ONMYAGENT_OFFICECLI_ASSET_URL?.trim() || null;
+  }
+
   async function loadRemote(forceRefresh) {
     let cached = null;
     try {
@@ -295,24 +348,32 @@ export function createOfficeCliManager(options = {}) {
     ) {
       const latest = officeCliLatestManifestSchema.parse(cached.latest);
       const release = officeCliReleaseManifestSchema.parse(cached.release);
-      return { latest, release, fetchedAt: Number(cached.fetchedAt) };
+      const releaseUrl =
+        releaseManifestUrlOverride ??
+        resolveOfficeCliUrl(manifestUrl, latest.releaseManifest);
+      return { latest, release, releaseUrl, fetchedAt: Number(cached.fetchedAt) };
     }
 
     const root = await fetchJson(manifestUrl, MAX_MANIFEST_BYTES);
     const latest = officeCliLatestManifestSchema.parse(root.value);
-    const releaseUrl = resolveSameOriginUrl(manifestUrl, latest.releaseManifest.path);
+    const releaseUrl =
+      releaseManifestUrlOverride ??
+      resolveOfficeCliUrl(manifestUrl, latest.releaseManifest);
     const releaseResponse = await fetchJson(releaseUrl, MAX_MANIFEST_BYTES);
-    verifyBytes(releaseResponse.bytes, latest.releaseManifest, "release manifest");
+    if (typeof latest.releaseManifest !== "string") {
+      verifyBytes(releaseResponse.bytes, latest.releaseManifest, "release manifest");
+    }
     const release = officeCliReleaseManifestSchema.parse(releaseResponse.value);
     if (
-      release.pluginId !== OFFICECLI_PLUGIN_ID ||
-      release.version !== latest.latestVersion
+      (release.pluginId && release.pluginId !== OFFICECLI_PLUGIN_ID) ||
+      release.version !== latest.latestVersion ||
+      (release.officecliVersion && release.officecliVersion !== release.version)
     ) {
       throw new Error("OfficeCLI release manifest does not match the latest pointer");
     }
     const fetchedAt = now();
     await writeJsonAtomic(cachePath, { fetchedAt, latest, release });
-    return { latest, release, fetchedAt };
+    return { latest, release, releaseUrl, fetchedAt };
   }
 
   async function readOwnership(skillPath) {
@@ -434,17 +495,20 @@ export function createOfficeCliManager(options = {}) {
       const stagingRoot = path.join(managedRoot, "staging", randomUUID());
       const stagingSkill = path.join(stagingRoot, "SKILL.md");
       const stagingBinary = path.join(stagingRoot, binaryName(platform));
+      const skillReference = releaseSkillReference(remote.release);
+      const expectedSkill =
+        typeof skillReference === "object" ? skillReference : undefined;
       await mkdir(stagingRoot, { recursive: true });
       try {
         const releaseManifestText = `${JSON.stringify(remote.release, null, 2)}\n`;
         await writeFile(path.join(stagingRoot, "manifest.json"), releaseManifestText, "utf8");
-        const binaryUrl = resolveSameOriginUrl(
-          new URL(remote.latest.releaseManifest.path, manifestUrl).href,
-          asset.path,
+        const binaryUrl = resolveOfficeCliUrl(
+          remote.releaseUrl,
+          referenceWithOverride(asset, assetUrlOverride(platformKey)),
         );
-        const skillUrl = resolveSameOriginUrl(
-          new URL(remote.latest.releaseManifest.path, manifestUrl).href,
-          remote.release.skill.path,
+        const skillUrl = resolveOfficeCliUrl(
+          remote.releaseUrl,
+          referenceWithOverride(skillReference, skillUrlOverride),
         );
         const binaryResponse = await fetchImpl(binaryUrl, { redirect: "error" });
         emitProgress({ operation: operationName, phase: "downloading_binary" });
@@ -456,7 +520,11 @@ export function createOfficeCliManager(options = {}) {
         const skillResponse = await fetchImpl(skillUrl, { redirect: "error" });
         emitProgress({ operation: operationName, phase: "downloading_skill" });
         const skillBytes = await responseBytes(skillResponse, MAX_SKILL_BYTES, skillUrl);
-        verifyBytes(skillBytes, remote.release.skill, "OfficeCLI SKILL.md");
+        const skillSha256 = verifyOptionalBytes(
+          skillBytes,
+          expectedSkill,
+          "OfficeCLI SKILL.md",
+        );
         const skillText = skillBytes.toString("utf8");
         if (!/^---[\r\n]+[\s\S]*?name:\s*officecli(?:\r?\n|$)/m.test(skillText)) {
           throw new Error("OfficeCLI SKILL.md has an invalid name");
@@ -501,7 +569,7 @@ export function createOfficeCliManager(options = {}) {
             ...(current?.releases ?? {}),
             [remote.release.version]: {
               binarySha256: asset.sha256,
-              skillSha256: remote.release.skill.sha256,
+              skillSha256,
             },
           };
           if (previousVersion && current?.releases?.[previousVersion]) {
