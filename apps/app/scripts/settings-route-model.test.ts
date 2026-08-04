@@ -205,6 +205,15 @@ describe("settings route workspace model", () => {
       tab: "archived-tasks",
       redirectPath: null,
     });
+    // Company / OnMyCompany connect panel
+    expect(parseSettingsPath("/settings/company")).toEqual({
+      tab: "company",
+      redirectPath: null,
+    });
+    expect(parseSettingsPath("/workspace/ws_1/settings/company")).toEqual({
+      tab: "company",
+      redirectPath: null,
+    });
     expect(parseSettingsPath("/settings/nope")).toEqual({ tab: "general", redirectPath: "general" });
     expect(settingsPathForRoute({ tab: "general", redirectPath: null })).toBe("general");
   });
