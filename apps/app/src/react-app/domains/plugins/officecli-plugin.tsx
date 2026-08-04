@@ -71,6 +71,7 @@ type OfficeCliProgressKey =
   | "plugins.officecli_progress_downloading_skill"
   | "plugins.officecli_progress_installing"
   | "plugins.officecli_progress_refreshing_skills"
+  | "plugins.officecli_progress_uninstalling"
   | "plugins.officecli_progress_verifying";
 
 function createErrorStatus(
@@ -122,6 +123,9 @@ function statusLabelKey(status: OfficeCliStatus): OfficeCliStatusKey {
 }
 
 function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | null {
+  if (progress.operation === "uninstall" && progress.phase === "installing") {
+    return "plugins.officecli_progress_uninstalling";
+  }
   switch (progress.phase) {
     case "checking":
       return "plugins.officecli_progress_checking";
@@ -338,7 +342,9 @@ export function OfficeCliPluginSection() {
               </Button>
             ) : (
               <span className="text-xs text-dls-secondary">
-                {t("plugins.officecli_desktop_only")}
+                {status?.supported
+                  ? t("plugins.officecli_desktop_only")
+                  : t("plugins.officecli_unsupported_hint")}
               </span>
             )}
           </div>

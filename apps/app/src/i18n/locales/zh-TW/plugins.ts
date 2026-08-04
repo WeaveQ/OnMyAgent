@@ -75,6 +75,7 @@ export default {
   "plugins.officecli_retry": "重試",
   "plugins.officecli_uninstall": "解除安裝",
   "plugins.officecli_desktop_only": "桌面端可用",
+  "plugins.officecli_unsupported_hint": "目前系統暫不支援",
   "plugins.officecli_status_checking": "檢查中",
   "plugins.officecli_status_error": "需要重試",
   "plugins.officecli_status_installing": "安裝中",
@@ -91,5 +92,6 @@ export default {
   "plugins.officecli_progress_verifying": "校驗檔案",
   "plugins.officecli_progress_installing": "寫入本機目錄",
   "plugins.officecli_progress_refreshing_skills": "刷新會話能力",
+  "plugins.officecli_progress_uninstalling": "移除本機檔案",
   "plugins.officecli_error_hint": "OfficeCLI 安裝或更新失敗，請檢查網路後重試。",
 } as const;
