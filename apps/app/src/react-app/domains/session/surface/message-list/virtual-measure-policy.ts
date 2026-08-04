@@ -3,8 +3,10 @@
  * transcript streaming vs idle scroll.
  *
  * Product rule:
- * - While streaming: only measure the active turn index (live row). Historical
- *   virtual rows keep estimates to avoid per-token remeasure storms.
+ * - While streaming with a virtualized active turn: only measure that live row.
+ * - While streaming with a detached active turn: measure visible historical
+ *   rows because their work is unrelated to per-token updates, and stale
+ *   estimates can otherwise leave large blank regions in the transcript.
  * - On stream end: batch-measure is allowed (caller remeasures once).
  * - While the user is actively scrolling (and not streaming): skip measure.
  */
@@ -46,8 +48,15 @@ export function resolveVirtualRowMeasurePolicy(
 
   if (input.isStreaming) {
     const active = input.activeTurnVirtualIndex;
+    if (active === null) {
+      return {
+        shouldMeasure: true,
+        preferBatchRemeasure: false,
+        measureActiveTurnOnly: false,
+      };
+    }
     const shouldMeasure =
-      active !== null && input.virtualIndex === active;
+      input.virtualIndex === active;
     return {
       shouldMeasure,
       preferBatchRemeasure: false,
@@ -96,8 +105,8 @@ export function shouldBatchRemeasureOnStreamEnd(input: {
 
 /**
  * Active turn index inside the virtual window.
- * Detached tail lives outside the virtualizer → return null so historical
- * virtual rows are not measured while streaming.
+ * Detached tail lives outside the virtualizer → return null so the measure
+ * policy can keep visible historical rows aligned with their real heights.
  */
 export function resolveActiveTurnVirtualIndex(input: {
   detachedTail: boolean;

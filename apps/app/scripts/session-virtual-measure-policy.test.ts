@@ -28,14 +28,15 @@ describe("virtual measure policy", () => {
     expect(historical.measureActiveTurnOnly).toBe(true);
   });
 
-  test("detached active turn → no virtual row measured while streaming", () => {
+  test("detached active turn measures visible history while streaming", () => {
     const policy = resolveVirtualRowMeasurePolicy({
       isStreaming: true,
       scrollBlocksMeasure: false,
       activeTurnVirtualIndex: null,
       virtualIndex: 3,
     });
-    expect(policy.shouldMeasure).toBe(false);
+    expect(policy.shouldMeasure).toBe(true);
+    expect(policy.measureActiveTurnOnly).toBe(false);
   });
 
   test("idle measures all rows unless scroll blocks", () => {
