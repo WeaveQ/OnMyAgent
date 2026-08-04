@@ -7,7 +7,6 @@ import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server
 import type { ComposerDraft, ModelRef } from "../../../../app/types";
 import { t } from "../../../../i18n";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { Button } from "@/components/ui/button";
 import {
   sessionSnapshotQueryKey,
 } from "../sync/session-snapshot-query-policy";
@@ -15,6 +14,10 @@ import { trackWorkspaceSessionSync } from "../sync/session-sync";
 import { SessionSurface } from "../surface/session-surface";
 import type { SessionSurfaceAssemblyProps } from "../surface/session-surface-types";
 import { buildIsolatedExpertCreationModel } from "./expert-creation-embedded-model";
+import {
+  ExpertCreationSuggestionAccessory,
+  confirmExpertCreationSuggestion,
+} from "./expert-creation-suggestion-accessory";
 import {
   writeSessionAgentSnapshot,
   type AgentRegistry,
@@ -294,6 +297,39 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       <p>{t("agents.expert_creation_coach_reply_hint")}</p>
     </div>
   );
+  const suggestionAccessory = showSuggestionBar && partition ? (
+    <ExpertCreationSuggestionAccessory
+      title={
+        partition.conflictKeys.length > 0
+          ? t("agents.expert_creation_suggestion_bar_conflict")
+          : t("agents.expert_creation_suggestion_bar_ready")
+      }
+      detail={
+        partition.conflictKeys.length > 0
+          ? t("agents.expert_creation_suggestion_bar_conflict_detail", {
+              fields: formatSuggestionFields(partition.conflictKeys),
+            })
+          : t("agents.expert_creation_suggestion_bar_ready_detail", {
+              fields: formatSuggestionFields(partition.emptyFillKeys),
+            })
+      }
+      dismissLabel={t("agents.expert_creation_suggestion_ignore")}
+      confirmLabel={t("agents.expert_creation_suggestion_apply")}
+      onDismiss={() => {
+        if (suggestionKey) setDismissedSuggestionKey(suggestionKey);
+      }}
+      onConfirm={() => {
+        confirmExpertCreationSuggestion({
+          pendingSuggestion: pendingSuggestion?.suggestion ?? null,
+          onApplyDraftSuggestion: props.onApplyDraftSuggestion,
+          onConfirmed: () => {
+            setPendingSuggestion(null);
+            setDismissedSuggestionKey(null);
+          },
+        });
+      }}
+    />
+  ) : null;
 
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
@@ -327,6 +363,7 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           conversationTabs={null}
           onSendDraft={onSendDraft}
           onDraftChange={onDraftChange}
+          extraComposerAccessory={suggestionAccessory}
           personalAssistantHome={false}
           surfaceVisible
           model={buildIsolatedExpertCreationModel(
@@ -337,39 +374,6 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           )}
         />
       </div>
-      {showSuggestionBar && partition ? (
-        <div className="mt-3 shrink-0 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-3">
-          <p className="text-sm font-medium text-dls-text">
-            {partition.conflictKeys.length > 0
-              ? t("agents.expert_creation_suggestion_bar_conflict")
-              : t("agents.expert_creation_suggestion_bar_ready")}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-dls-secondary">
-            {partition.conflictKeys.length > 0
-              ? t("agents.expert_creation_suggestion_bar_conflict_detail", {
-                  fields: formatSuggestionFields(partition.conflictKeys),
-                })
-              : t("agents.expert_creation_suggestion_bar_ready_detail", {
-                  fields: formatSuggestionFields(partition.emptyFillKeys),
-                })}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-dls-secondary">
-            {t("agents.expert_creation_suggestion_reply_confirm")}
-          </p>
-          <div className="mt-3 flex items-center justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (suggestionKey) setDismissedSuggestionKey(suggestionKey);
-              }}
-            >
-              {t("agents.expert_creation_suggestion_ignore")}
-            </Button>
-          </div>
-        </div>
-      ) : null}
       <p className="pt-3 text-center text-xs text-dls-secondary">
         {t("agents.expert_creation_coach_disclaimer")}
       </p>
