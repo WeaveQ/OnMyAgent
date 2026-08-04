@@ -22,6 +22,7 @@ import {
   getOfficeCliStatus,
   installOfficeCli,
   subscribeOfficeCliProgress,
+  subscribeOfficeCliStatus,
   uninstallOfficeCli,
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
@@ -204,9 +205,16 @@ export function OfficeCliPluginSection() {
   useEffect(() => {
     void refreshStatus(true);
     if (!isDesktopRuntime()) return undefined;
-    return subscribeOfficeCliProgress((nextProgress) => {
+    const unsubscribeProgress = subscribeOfficeCliProgress((nextProgress) => {
       setProgress(nextProgress.phase === "complete" ? null : nextProgress);
     });
+    const unsubscribeStatus = subscribeOfficeCliStatus((nextStatus) => {
+      setStatus(nextStatus);
+    });
+    return () => {
+      unsubscribeProgress();
+      unsubscribeStatus();
+    };
   }, [refreshStatus]);
 
   const primaryAction = useMemo(

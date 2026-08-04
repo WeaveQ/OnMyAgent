@@ -293,6 +293,7 @@ export function createOfficeCliManager(options = {}) {
   const refreshSkillLinks = options.refreshSkillLinks ?? (async () => undefined);
   const runBinaryVersion = options.runBinaryVersion ?? defaultRunBinaryVersion;
   const emitProgress = options.onProgress ?? (() => undefined);
+  const emitStatus = options.onStatus ?? (() => undefined);
   const now = options.now ?? nowMs;
   const managedRoot = resolveOfficeCliManagedRoot(homeDir);
   const toolsBinRoot = resolveLocalManagedToolsBinRoot(homeDir);
@@ -422,23 +423,26 @@ export function createOfficeCliManager(options = {}) {
   async function getStatus() {
     const status = statusBase(platformKey);
     const state = await readState();
-    if (!state || !platformKey) return status;
-    status.installedVersion = state.activeVersion;
-    status.previousVersion = state.previousVersion;
-    const binaryPath = await activeBinaryPath(state);
-    const skillPath = currentSkillPath();
-    status.usable = Boolean(
-      binaryPath &&
-        (await pathExists(binaryPath)) &&
-        (await pathExists(path.join(skillPath, "SKILL.md"))),
-    );
-    status.state = status.usable ? "installed" : "error";
+    if (!platformKey) return status;
+    if (state) {
+      status.installedVersion = state.activeVersion;
+      status.previousVersion = state.previousVersion;
+      const binaryPath = await activeBinaryPath(state);
+      const skillPath = currentSkillPath();
+      status.usable = Boolean(
+        binaryPath &&
+          (await pathExists(binaryPath)) &&
+          (await pathExists(path.join(skillPath, "SKILL.md"))),
+      );
+      status.state = status.usable ? "installed" : "error";
+    }
     try {
       const cache = await readJson(cachePath);
       const latest = officeCliLatestManifestSchema.parse(cache.latest);
       status.latestVersion = latest.latestVersion;
       status.lastCheckedAt = Number(cache.fetchedAt) || null;
       if (
+        state &&
         status.usable &&
         compareOfficeCliVersions(latest.latestVersion, state.activeVersion) > 0
       ) {
@@ -453,12 +457,15 @@ export function createOfficeCliManager(options = {}) {
   async function checkForUpdates(forceRefresh = false) {
     try {
       await loadRemote(forceRefresh);
-      return getStatus();
+      const status = await getStatus();
+      emitStatus(status);
+      return status;
     } catch (error) {
       const status = await getStatus();
       if (!status.usable) status.state = "error";
       status.errorCode = errorCode(error);
       status.errorMessage = error instanceof Error ? error.message : String(error);
+      emitStatus(status);
       return status;
     }
   }
@@ -483,7 +490,9 @@ export function createOfficeCliManager(options = {}) {
         current.activeVersion === remote.release.version &&
         (await getStatus()).usable
       ) {
-        return getStatus();
+        const status = await getStatus();
+        emitStatus(status);
+        return status;
       }
 
       const releaseRoot = path.join(
@@ -598,6 +607,7 @@ export function createOfficeCliManager(options = {}) {
           throw error;
         }
         const status = await getStatus();
+        emitStatus(status);
         emitProgress({ operation: operationName, phase: "complete" });
         return status;
       } finally {
@@ -629,8 +639,10 @@ export function createOfficeCliManager(options = {}) {
       await rm(path.join(toolsBinRoot, "officecli"), { force: true });
       await rm(path.join(toolsBinRoot, "officecli.cmd"), { force: true });
       await refreshSkillLinks();
+      const status = statusBase(platformKey);
+      emitStatus(status);
       emitProgress({ operation: "uninstall", phase: "complete" });
-      return statusBase(platformKey);
+      return status;
     })();
     try {
       return await operation;
