@@ -75,6 +75,7 @@ export default {
   "plugins.officecli_retry": "Retry",
   "plugins.officecli_uninstall": "Uninstall",
   "plugins.officecli_desktop_only": "Available on desktop",
+  "plugins.officecli_unsupported_hint": "Not supported on this system",
   "plugins.officecli_status_checking": "Checking",
   "plugins.officecli_status_error": "Retry needed",
   "plugins.officecli_status_installing": "Installing",
@@ -91,5 +92,6 @@ export default {
   "plugins.officecli_progress_verifying": "Verifying files",
   "plugins.officecli_progress_installing": "Installing locally",
   "plugins.officecli_progress_refreshing_skills": "Refreshing session capabilities",
+  "plugins.officecli_progress_uninstalling": "Removing local files",
   "plugins.officecli_error_hint": "OfficeCLI could not be installed or updated. Check the network and try again.",
 } as const;
