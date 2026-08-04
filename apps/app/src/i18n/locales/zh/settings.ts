@@ -880,7 +880,7 @@ export default {
   "settings.tab_system": "系统设置",
   "settings.tab_company": "公司",
   "settings.tab_description_company":
-    "连接 OnMyCompany：Base URL、登录、组织配置同步与个人 Skills 叠加",
+    "连接 OnMyCompany（组织技能/专家）。路径：设置 → 全局 → 公司",
   "settings.tab_description_system": "开机自启、通知与系统权限",
   "settings.tab_shortcuts": "快捷键",
   "settings.tab_description_shortcuts": "自定义通用、任务与会话操作的快捷键",
