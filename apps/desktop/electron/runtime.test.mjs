@@ -108,6 +108,42 @@ describe("runtime skill links", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("uses the explicit user home for managed skill discovery", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-runtime-home-"));
+    const electronHome = path.join(root, "electron-home");
+    const realHome = path.join(root, "real-home");
+    const skillRoot = path.join(realHome, ".onmyagent", "skills", "officecli");
+    await mkdir(skillRoot, { recursive: true });
+    await writeFile(
+      path.join(skillRoot, "SKILL.md"),
+      "---\nname: officecli\ndescription: test\n---\n",
+      "utf8",
+    );
+    const manager = createRuntimeManager({
+      app: {
+        getPath(name) {
+          if (name === "home") return electronHome;
+          if (name === "exe") return process.execPath;
+          return path.join(root, name);
+        },
+      },
+      desktopRoot: path.join(root, "desktop"),
+      listLocalWorkspacePaths: async () => [],
+      homeDir: realHome,
+    });
+
+    try {
+      await manager.refreshSkillLinks();
+      assert.equal(
+        existsSync(path.join(root, "userData", "opencode", "skills", "officecli", "SKILL.md")),
+        true,
+      );
+    } finally {
+      await manager.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("software environment", () => {

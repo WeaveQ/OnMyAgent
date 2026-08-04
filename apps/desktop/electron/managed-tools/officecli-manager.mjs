@@ -14,7 +14,6 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   officeCliLatestManifestSchema,
@@ -364,7 +363,7 @@ export function createOfficeCliManager(options = {}) {
     status.installedVersion = state.activeVersion;
     status.previousVersion = state.previousVersion;
     const binaryPath = await activeBinaryPath(state);
-    const skillPath = state.installedSkillPath || currentSkillPath();
+    const skillPath = currentSkillPath();
     status.usable = Boolean(
       binaryPath &&
         (await pathExists(binaryPath)) &&
@@ -404,10 +403,11 @@ export function createOfficeCliManager(options = {}) {
   async function installLatest() {
     if (operation) return operation;
     operation = (async () => {
-      const remote = await loadRemote(true);
       const current = await readState();
       const operationName = current ? "update" : "install";
       emitProgress({ operation: operationName, phase: "checking" });
+      emitProgress({ operation: operationName, phase: "downloading_manifest" });
+      const remote = await loadRemote(true);
       const asset = platformKey ? remote.release.assets[platformKey] : undefined;
       if (!platformKey || !asset) {
         throw codedError(

@@ -861,6 +861,7 @@ const runtimeManager = createRuntimeManager({
   desktopRoot: path.resolve(__dirname, ".."),
   runtimeEnvironment: () => browserController.browserEnvironment(),
   listLocalWorkspacePaths,
+  homeDir: getRealHomeDir(),
 });
 
 const {
@@ -1468,6 +1469,12 @@ if (!app.requestSingleInstanceLock()) {
         console.warn(`[${label}] deferred start failed`, error);
       },
     });
+
+    // Refresh the optional OfficeCLI release pointer after the first window is
+    // ready. A cached pointer makes the marketplace card instant; this
+    // background check makes a later OSS version visible as “Update” without
+    // requiring a renderer reload or a manual command.
+    void officeCliManager.checkForUpdates(false);
   });
 
   app.on("activate", async () => {
