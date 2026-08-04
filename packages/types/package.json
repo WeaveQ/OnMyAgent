@@ -68,6 +68,11 @@
       "types": "./src/artifact-plugin.ts",
       "development": "./src/artifact-plugin.ts",
       "default": "./dist/artifact-plugin.js"
+    },
+    "./officecli": {
+      "types": "./src/officecli.ts",
+      "development": "./src/officecli.ts",
+      "default": "./dist/officecli.js"
     }
   },
   "files": [
