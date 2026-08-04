@@ -424,12 +424,13 @@ export function createRuntimeManager({
         ? "PATH"
         : "Path";
     const pathEnv = enrichedPath(
-      [managedToolsBinRoot, ...runtimeBinDirs, ...sidecarDirs],
+      [...runtimeBinDirs, ...sidecarDirs],
       env[pathKey],
     );
-    if (pathEnv) {
-      env[pathKey] = pathEnv;
-    }
+    const pathEntries = String(pathEnv ?? "")
+      .split(path.delimiter)
+      .filter((entry) => entry && entry !== managedToolsBinRoot);
+    env[pathKey] = [managedToolsBinRoot, ...pathEntries].join(path.delimiter);
     if (process.env.ONMYAGENT_DEV_MODE === "1") {
       const devPaths = await ensureDevModePaths();
       const localOpencodeConfigDir = resolveLocalOpencodeConfigDir();
