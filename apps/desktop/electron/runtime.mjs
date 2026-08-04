@@ -134,6 +134,7 @@ export function createRuntimeManager({
   desktopRoot,
   listLocalWorkspacePaths,
   runtimeEnvironment = () => ({}),
+  homeDir,
 }) {
   const engineState = createEngineState(), onmyagentServerState = createOnMyAgentServerState(), orchestratorState = createOrchestratorState();
   // Serialize engine lifecycle operations. Without this, concurrent renderer
@@ -153,7 +154,8 @@ export function createRuntimeManager({
     process.resourcesPath ? path.join(process.resourcesPath, "sidecars") : null,
     path.join(path.dirname(app.getPath("exe")), "sidecars"),
   ].filter(Boolean);
-  const managedToolsBinRoot = resolveLocalManagedToolsBinRoot(app.getPath("home"));
+  const resolvedHomeDir = homeDir ?? app.getPath("home");
+  const managedToolsBinRoot = resolveLocalManagedToolsBinRoot(resolvedHomeDir);
   const runtimeRoot = [
     process.resourcesPath && targetTriple()
       ? path.join(process.resourcesPath, "runtimes", targetTriple())
@@ -233,7 +235,7 @@ export function createRuntimeManager({
 
   function onmyagentUserSkillsRoot() {
     // Dual-read / post-migrate profile path (same resolve as desktop-paths).
-    return resolveLocalSkillsRoot(app.getPath("home"));
+    return resolveLocalSkillsRoot(resolvedHomeDir);
   }
 
   async function prepareManagedOpencodeConfigDir(configDir) {
