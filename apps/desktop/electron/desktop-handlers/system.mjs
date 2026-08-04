@@ -14,6 +14,7 @@ import {
 import {
   connectCompany,
   disconnectCompany,
+  fetchCompanyHealth,
   listCompanyCatalog,
   pullAndWriteCompanyConfig,
   readCompanySettings,
@@ -86,6 +87,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "companyConnect",
   "companySyncConfig",
   "companyCatalog",
+  "companyHealth",
 ]);
 
 /**
@@ -658,6 +660,15 @@ export function createSystemDomainHandlers({
     const homeDir =
       typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
     return disconnectCompany(homeDir);
+  },
+
+  /**
+   * Probe company health from main process (renderer must not fetch OMC — CORS).
+   * args[0] = companyBaseUrl string
+   */
+  companyHealth: async (event, args) => {
+    const baseUrl = String(args[0] ?? "").trim();
+    return fetchCompanyHealth(baseUrl);
   },
 
   /**

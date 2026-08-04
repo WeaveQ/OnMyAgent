@@ -55,6 +55,7 @@ const commandGroups = /** @type {const} */ ({
     "companyConnect",
     "companySyncConfig",
     "companyCatalog",
+    "companyHealth",
   ],
   localAgents: [
     "personalLocalAgentsList", "personalLocalAgentMetadataList",
