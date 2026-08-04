@@ -163,6 +163,29 @@ test("accepts the uploaded Alibaba OSS manifest shape with signed URL overrides"
   }
 });
 
+test("does not expose signed URL query parameters in network errors", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-safe-error-"));
+  try {
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl:
+        "https://oss.test/officecli/manifest.json?OSSAccessKeyId=secret&Signature=secret",
+      networkRetryCount: 0,
+      fetchImpl: async () => new Response("temporary failure", { status: 503 }),
+      platform: "darwin",
+      arch: "arm64",
+    });
+
+    const status = await manager.checkForUpdates(true);
+
+    assert.equal(status.state, "error");
+    assert.match(status.errorMessage ?? "", /manifest\.json/);
+    assert.doesNotMatch(status.errorMessage ?? "", /OSSAccessKeyId|Signature|secret/);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test("publishes the refreshed status after a background update check", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-status-event-"));
   try {
