@@ -67,6 +67,7 @@ export type {
   ExpertRegistryListEntry,
   MyExpertPackageWriteInput,
 } from "./desktop-types";
+import type { OfficeCliProgress, OfficeCliStatus } from "@onmyagent/types/officecli";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -143,6 +144,11 @@ declare global {
       softwareEnvironment?: {
         onProgress?: (
           callback: (progress: SoftwareEnvironmentProgress) => void,
+        ) => () => void;
+      };
+      officeCli?: {
+        onProgress?: (
+          callback: (progress: OfficeCliProgress) => void,
         ) => () => void;
       };
       migration?: {
@@ -749,6 +755,21 @@ export const writeMyExpertPackage = (input: MyExpertPackageWriteInput) =>
 
 export const stageMyExpertKnowledge = (input: MyExpertKnowledgeStageInput) =>
   invokeDesktopCommand("stageMyExpertKnowledge", input);
+
+export const getOfficeCliStatus = (options?: { forceRefresh?: boolean }) =>
+  invokeDesktopCommand("officeCliGetStatus", options);
+
+export const installOfficeCli = (): Promise<OfficeCliStatus> =>
+  invokeDesktopCommand("officeCliInstallLatest");
+
+export const uninstallOfficeCli = (): Promise<OfficeCliStatus> =>
+  invokeDesktopCommand("officeCliUninstall");
+
+export function subscribeOfficeCliProgress(
+  callback: (progress: OfficeCliProgress) => void,
+) {
+  return window.__ONMYAGENT_ELECTRON__?.officeCli?.onProgress?.(callback) ?? (() => undefined);
+}
 
 // ---------------------------------------------------------------------------
 // Domain wrapper modules (stable public API re-exports)

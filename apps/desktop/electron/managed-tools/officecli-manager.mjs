@@ -14,6 +14,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   officeCliLatestManifestSchema,
@@ -42,8 +43,9 @@ export const OFFICECLI_LAUNCHER_SOURCE = `
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.dirname(new URL(import.meta.url).pathname);
+const root = path.dirname(fileURLToPath(import.meta.url));
 const statePath = path.join(root, "state.json");
 const state = JSON.parse(readFileSync(statePath, "utf8"));
 if (!/^\\d+\\.\\d+\\.\\d+$/.test(String(state.activeVersion ?? ""))) {
@@ -138,6 +140,13 @@ function codedError(message, code) {
   const error = new Error(message);
   error.code = code;
   return error;
+}
+
+function errorCode(error) {
+  if (error && typeof error === "object" && "code" in error) {
+    return typeof error.code === "string" ? error.code : "officecli_error";
+  }
+  return "officecli_error";
 }
 
 async function pathExists(target) {
@@ -241,6 +250,7 @@ export function createOfficeCliManager(options = {}) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const refreshSkillLinks = options.refreshSkillLinks ?? (async () => undefined);
   const runBinaryVersion = options.runBinaryVersion ?? defaultRunBinaryVersion;
+  const emitProgress = options.onProgress ?? (() => undefined);
   const now = options.now ?? nowMs;
   const managedRoot = resolveOfficeCliManagedRoot(homeDir);
   const toolsBinRoot = resolveLocalManagedToolsBinRoot(homeDir);
@@ -378,11 +388,26 @@ export function createOfficeCliManager(options = {}) {
     return status;
   }
 
+  async function checkForUpdates(forceRefresh = false) {
+    try {
+      await loadRemote(forceRefresh);
+      return getStatus();
+    } catch (error) {
+      const status = await getStatus();
+      if (!status.usable) status.state = "error";
+      status.errorCode = errorCode(error);
+      status.errorMessage = error instanceof Error ? error.message : String(error);
+      return status;
+    }
+  }
+
   async function installLatest() {
     if (operation) return operation;
     operation = (async () => {
       const remote = await loadRemote(true);
       const current = await readState();
+      const operationName = current ? "update" : "install";
+      emitProgress({ operation: operationName, phase: "checking" });
       const asset = platformKey ? remote.release.assets[platformKey] : undefined;
       if (!platformKey || !asset) {
         throw codedError(
@@ -420,12 +445,14 @@ export function createOfficeCliManager(options = {}) {
           remote.release.skill.path,
         );
         const binaryResponse = await fetchImpl(binaryUrl, { redirect: "error" });
+        emitProgress({ operation: operationName, phase: "downloading_binary" });
         const binaryBytes = await responseBytes(binaryResponse, MAX_BINARY_BYTES, binaryUrl);
         verifyBytes(binaryBytes, asset, "OfficeCLI binary");
         await writeFile(stagingBinary, binaryBytes);
         if (platform !== "win32") await chmod(stagingBinary, 0o755);
 
         const skillResponse = await fetchImpl(skillUrl, { redirect: "error" });
+        emitProgress({ operation: operationName, phase: "downloading_skill" });
         const skillBytes = await responseBytes(skillResponse, MAX_SKILL_BYTES, skillUrl);
         verifyBytes(skillBytes, remote.release.skill, "OfficeCLI SKILL.md");
         const skillText = skillBytes.toString("utf8");
@@ -434,6 +461,7 @@ export function createOfficeCliManager(options = {}) {
         }
         await writeFile(stagingSkill, skillBytes);
 
+        emitProgress({ operation: operationName, phase: "verifying" });
         if (!(await runBinaryVersion(stagingBinary, remote.release.version))) {
           throw new Error("OfficeCLI binary version check failed");
         }
@@ -448,6 +476,7 @@ export function createOfficeCliManager(options = {}) {
         }
 
         await mkdir(path.dirname(releaseRoot), { recursive: true });
+        emitProgress({ operation: operationName, phase: "installing" });
         await rm(releaseRoot, { recursive: true, force: true });
         await rename(stagingRoot, releaseRoot);
         const movedSkillPath = path.join(releaseRoot, "SKILL.md");
@@ -488,6 +517,7 @@ export function createOfficeCliManager(options = {}) {
             releases,
           });
           await ensureLauncher();
+          emitProgress({ operation: operationName, phase: "refreshing_skills" });
           await refreshSkillLinks();
           if (skillBackup) await rm(skillBackup, { recursive: true, force: true });
         } catch (error) {
@@ -497,7 +527,9 @@ export function createOfficeCliManager(options = {}) {
           else await rm(statePath, { force: true });
           throw error;
         }
-        return getStatus();
+        const status = await getStatus();
+        emitProgress({ operation: operationName, phase: "complete" });
+        return status;
       } finally {
         await rm(stagingRoot, { recursive: true, force: true });
       }
@@ -512,6 +544,7 @@ export function createOfficeCliManager(options = {}) {
   async function uninstall() {
     if (operation) return operation;
     operation = (async () => {
+      emitProgress({ operation: "uninstall", phase: "installing" });
       const skillPath = currentSkillPath();
       if (await pathExists(skillPath)) {
         if (!(await readOwnership(skillPath))) {
@@ -526,6 +559,7 @@ export function createOfficeCliManager(options = {}) {
       await rm(path.join(toolsBinRoot, "officecli"), { force: true });
       await rm(path.join(toolsBinRoot, "officecli.cmd"), { force: true });
       await refreshSkillLinks();
+      emitProgress({ operation: "uninstall", phase: "complete" });
       return statusBase(platformKey);
     })();
     try {
@@ -537,6 +571,7 @@ export function createOfficeCliManager(options = {}) {
 
   return {
     getStatus,
+    checkForUpdates,
     installLatest,
     uninstall,
     loadRemote,

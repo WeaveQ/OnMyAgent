@@ -100,6 +100,7 @@ import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
+import { createOfficeCliManager } from "./managed-tools/officecli-manager.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 import { createSkillsScan } from "./skills-scan.mjs";
 import { createOpencodeWorkspaceFiles } from "./opencode-workspace-files.mjs";
@@ -916,6 +917,15 @@ async function refreshRuntimeSkillLinks() {
   return runtimeManager.refreshSkillLinks();
 }
 
+const officeCliManager = createOfficeCliManager({
+  homeDir: getRealHomeDir(),
+  refreshSkillLinks: refreshRuntimeSkillLinks,
+  onProgress: (progress) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:officecli:progress", progress);
+  },
+});
+
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
 // singleton event bus is shared by every channel service's dispatcher, so a
@@ -1165,6 +1175,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   findSkillFile,
   isBundledSkillPath,
   refreshRuntimeSkillLinks,
+  officeCliManager,
   // system
   userAgentRegistryPath,
   getRealHomeDir,

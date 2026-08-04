@@ -12,7 +12,10 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
-import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
+import {
+  resolveLocalManagedToolsBinRoot,
+  resolveLocalSkillsRoot,
+} from "./config-profile-paths.mjs";
 import {
   chooseOpencodeBinary,
   chooseProductRuntimeBinary,
@@ -150,6 +153,7 @@ export function createRuntimeManager({
     process.resourcesPath ? path.join(process.resourcesPath, "sidecars") : null,
     path.join(path.dirname(app.getPath("exe")), "sidecars"),
   ].filter(Boolean);
+  const managedToolsBinRoot = resolveLocalManagedToolsBinRoot(app.getPath("home"));
   const runtimeRoot = [
     process.resourcesPath && targetTriple()
       ? path.join(process.resourcesPath, "runtimes", targetTriple())
@@ -418,7 +422,7 @@ export function createRuntimeManager({
         ? "PATH"
         : "Path";
     const pathEnv = enrichedPath(
-      [...runtimeBinDirs, ...sidecarDirs],
+      [managedToolsBinRoot, ...runtimeBinDirs, ...sidecarDirs],
       env[pathKey],
     );
     if (pathEnv) {
