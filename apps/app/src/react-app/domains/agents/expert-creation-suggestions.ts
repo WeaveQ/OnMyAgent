@@ -19,7 +19,9 @@ export const EXPERT_DRAFT_SUGGESTION_FIELDS = [
   "agentMemory",
 ] as const satisfies readonly ExpertDraftSuggestionField[];
 
-const EXPERT_SUGGESTION_CONFIRMATION_RE = /^(?:\u786e\u8ba4|\u786e\u5b9a|\u786e\u8ba4\u56de\u586b|\u786e\u8ba4\u8986\u76d6|\u78ba\u8a8d|\u78ba\u5b9a|\u78ba\u8a8d\u56de\u586b|\u78ba\u8a8d\u8986\u5beb|confirm|confirm fill|confirm overwrite)$/iu;
+const EXPERT_SUGGESTION_SIMPLE_CONFIRMATION_RE = /^(?:\u786e\u8ba4|\u786e\u5b9a|\u78ba\u8a8d|\u78ba\u5b9a|\u53ef\u4ee5|\u540c\u610f|\u6ca1\u95ee\u9898|\u6c92\u554f\u984c|\u597d|\u597d\u7684|\u884c|confirm|confirm fill|confirm overwrite)$/iu;
+const EXPERT_SUGGESTION_APPLY_CONFIRMATION_RE = /^(?:(?:\u8bf7|\u8acb|\u786e\u8ba4|\u78ba\u8a8d|\u53ef\u4ee5|\u540c\u610f)\s*)?(?:\u56de\u586b|\u540c\u6b65|\u5e94\u7528|\u61c9\u7528|\u5957\u7528|\u586b\u5199|\u586b\u5beb|\u66f4\u65b0|\u8986\u76d6|\u8986\u5beb)(?:\u5427|\u5373\u53ef)?$/iu;
+const EXPERT_SUGGESTION_COMPOUND_CONFIRMATION_RE = /^(?:\u786e\u8ba4|\u786e\u5b9a|\u78ba\u8a8d|\u78ba\u5b9a|\u53ef\u4ee5|\u540c\u610f|\u597d|\u597d\u7684|\u884c)[\s,\uff0c\u3001;\uff1b]*(?:\u6ca1\u95ee\u9898|\u6c92\u554f\u984c|\u53ef\u4ee5|\u597d|\u597d\u7684|\u884c)$/iu;
 
 export type ExpertDraftSuggestionPartition = {
   emptyFill: ExpertDraftSuggestion;
@@ -34,8 +36,11 @@ const EXPERT_UPDATE_START = "<expert-update>";
 const EXPERT_UPDATE_END = "</expert-update>";
 
 export function isExpertDraftSuggestionConfirmation(content: string): boolean {
-  return EXPERT_SUGGESTION_CONFIRMATION_RE.test(
-    content.trim().replace(/[.!\u3002\uff01]+$/u, "").trim(),
+  const normalized = content.trim().replace(/[.!\u3002\uff01]+$/u, "").trim();
+  return (
+    EXPERT_SUGGESTION_SIMPLE_CONFIRMATION_RE.test(normalized) ||
+    EXPERT_SUGGESTION_APPLY_CONFIRMATION_RE.test(normalized) ||
+    EXPERT_SUGGESTION_COMPOUND_CONFIRMATION_RE.test(normalized)
   );
 }
 

@@ -13,6 +13,7 @@ export default defineConfig({
     browser: "src/browser.ts",
     channel: "src/channel.ts",
     "artifact-plugin": "src/artifact-plugin.ts",
+    officecli: "src/officecli.ts",
   },
   tsconfig: "./tsconfig.json",
   format: ["esm"],

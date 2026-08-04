@@ -5,6 +5,7 @@ import {
   readFile,
   readdir,
   realpath,
+  readlink,
   rm,
   stat,
   symlink,
@@ -370,14 +371,17 @@ export async function materializeLegacySkillLinks({
   skillDirs,
   managedSkillsRoot,
   reservedSkillIds = new Set(ARTIFACT_PLUGIN_SKILL_IDS),
+  legacySkillRoots = [],
 }) {
   await mkdir(managedSkillsRoot, { recursive: true });
   const linked = new Set();
+  const desiredSkillIds = new Set();
   const items = [];
   for (const skillDir of skillDirs) {
     const skillId = path.basename(skillDir);
     if (reservedSkillIds.has(skillId) || linked.has(skillId)) continue;
     linked.add(skillId);
+    desiredSkillIds.add(skillId);
     const destinationPath = path.join(managedSkillsRoot, skillId);
     try {
       await symlink(
@@ -388,6 +392,33 @@ export async function materializeLegacySkillLinks({
       items.push({ skillId, sourcePath: skillDir, destinationPath });
     } catch {
       // Managed config preparation must preserve an existing destination.
+    }
+  }
+
+  const sourceRoots = legacySkillRoots.map((root) => path.resolve(root));
+  if (sourceRoots.length > 0) {
+    const managedEntries = await readdir(managedSkillsRoot, { withFileTypes: true });
+    for (const entry of managedEntries) {
+      if (
+        reservedSkillIds.has(entry.name) ||
+        desiredSkillIds.has(entry.name) ||
+        !entry.isSymbolicLink()
+      ) {
+        continue;
+      }
+      const destinationPath = path.join(managedSkillsRoot, entry.name);
+      let linkTarget;
+      try {
+        linkTarget = path.resolve(
+          path.dirname(destinationPath),
+          await readlink(destinationPath),
+        );
+      } catch {
+        linkTarget = null;
+      }
+      if (linkTarget && sourceRoots.some((root) => isWithin(root, linkTarget))) {
+        await rm(destinationPath, { recursive: true, force: true });
+      }
     }
   }
   return items;

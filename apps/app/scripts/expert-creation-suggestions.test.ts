@@ -49,9 +49,14 @@ describe("expert creation coach suggestions", () => {
   test("accepts only an explicit reply as proposal confirmation", () => {
     expect(isExpertDraftSuggestionConfirmation("确认")).toBe(true);
     expect(isExpertDraftSuggestionConfirmation("确认回填")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("同步")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("可以")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("确定, 没问题")).toBe(true);
+    expect(isExpertDraftSuggestionConfirmation("请回填吧")).toBe(true);
     expect(isExpertDraftSuggestionConfirmation("confirm overwrite")).toBe(true);
     expect(isExpertDraftSuggestionConfirmation("继续完善方案")).toBe(false);
     expect(isExpertDraftSuggestionConfirmation("确认一下规则是否完整")).toBe(false);
+    expect(isExpertDraftSuggestionConfirmation("可以继续问")).toBe(false);
   });
 
   test("extracts a proposed expert name without exposing the machine block", () => {

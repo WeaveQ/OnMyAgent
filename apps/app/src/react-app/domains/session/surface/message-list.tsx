@@ -87,6 +87,8 @@ import {
   activeTurnReserveStyle,
   resolveVirtualItemEstimate,
   shouldRemeasureVirtualHistory,
+  shouldVirtualizeTranscript,
+  TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
 } from "./message-list/virtual-window";
 import {
   resolveActiveTurnVirtualIndex,
@@ -129,6 +131,8 @@ type SessionTranscriptProps = {
    * virtualizer remeasure — display:none zeros the scroll parent.
    */
   surfaceVisible?: boolean;
+  /** Embedded constrained panels can keep rows in normal document flow. */
+  virtualization?: "auto" | "disabled";
   /**
    * Prefer a stable ref over a register callback so parent re-renders
    * (composer typing, sending flag) do not bust SessionTranscript memo.
@@ -170,7 +174,6 @@ type SessionTranscriptProps = {
 // more to render eagerly than to run the virtualizer, so there's no reason
 // to defer. The only reason the threshold exists at all is to avoid the
 // virtualizer's baseline overhead for tiny sessions.
-const VIRTUALIZATION_THRESHOLD = 20;
 const VIRTUAL_OVERSCAN = 4;
 
 function TranscriptDividerRow(props: {
@@ -648,9 +651,12 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   // render of a session, which used to make us render every message
   // eagerly (freezing the UI on large sessions) for one tick before
   // switching to virtualization.
-  const shouldVirtualize =
-    renderItems.length >= VIRTUALIZATION_THRESHOLD ||
-    messageBlocks.length >= VIRTUALIZATION_THRESHOLD;
+  const shouldVirtualize = shouldVirtualizeTranscript(
+    renderItems.length,
+    messageBlocks.length,
+    TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
+    props.virtualization !== "disabled",
+  );
   // Keep the newest turn in normal document flow even after streaming ends.
   // Re-inserting a just-grown row into the virtualizer on completion causes a
   // visible measurement correction before sticky-bottom catches up.
@@ -736,14 +742,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     isStreaming: props.isStreaming,
     scrollBlocksMeasure,
   });
-  // Detached live tail is measured via ResizeObserver; virtual rows only
-  // measure the active turn while streaming (none when tail is detached).
+  // Detached live tail is measured via ResizeObserver. While it streams,
+  // visible historical rows can still correct stale virtual estimates.
   const activeTurnVirtualIndex = resolveActiveTurnVirtualIndex({
     detachedTail: Boolean(detachedTailRenderItem),
     virtualItemCount: virtualRenderItems.length,
   });
 
-  // Batch remeasure once when a stream ends so historical sizes catch up.
+  // A detached live tail leaves the virtual history measured and stable, so
+  // avoid clearing its cache when the stream ends. Non-detached transcripts
+  // retain the one-shot catch-up behavior.
   const wasStreamingRef = useRef(props.isStreaming);
   useEffect(() => {
     const wasStreaming = wasStreamingRef.current;
@@ -753,12 +761,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       !shouldBatchRemeasureOnStreamEnd({
         wasStreaming,
         isStreaming: props.isStreaming,
+        hasDetachedTail: Boolean(detachedTailRenderItem),
       })
     ) {
       return;
     }
     virtualizer.measure();
-  }, [props.isStreaming, shouldVirtualize, virtualizer]);
+  }, [detachedTailRenderItem, props.isStreaming, shouldVirtualize, virtualizer]);
 
   // Keep-alive hide/show: scroll parent was display:none — remeasure when visible.
   const surfaceVisible = props.surfaceVisible !== false;
@@ -1022,7 +1031,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                     <div
                       key={virtualRow.key}
                       data-index={virtualRow.index}
-                      // Streaming: only active turn. Idle: all (unless scroll-blocked).
+                      // Streaming: active turn, or visible history when the live
+                      // turn is detached. Idle: all unless scroll-blocked.
                       ref={
                         allowVirtualMeasure && rowMeasure.shouldMeasure
                           ? virtualizer.measureElement
