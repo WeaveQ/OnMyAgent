@@ -79,23 +79,33 @@ describe("virtual measure policy", () => {
     ).toBe(true);
   });
 
-  test("batch remeasure on stream end edge", () => {
+  test("preserves measurements when a detached tail finishes streaming", () => {
     expect(
       shouldBatchRemeasureOnStreamEnd({
         wasStreaming: true,
         isStreaming: false,
+        hasDetachedTail: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldBatchRemeasureOnStreamEnd({
+        wasStreaming: true,
+        isStreaming: false,
+        hasDetachedTail: false,
       }),
     ).toBe(true);
     expect(
       shouldBatchRemeasureOnStreamEnd({
         wasStreaming: false,
         isStreaming: false,
+        hasDetachedTail: false,
       }),
     ).toBe(false);
     expect(
       shouldBatchRemeasureOnStreamEnd({
         wasStreaming: true,
         isStreaming: true,
+        hasDetachedTail: false,
       }),
     ).toBe(false);
   });
