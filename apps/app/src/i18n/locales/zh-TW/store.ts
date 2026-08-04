@@ -27,6 +27,8 @@ export default {
     "通過 OnMyAgent 安裝或創建，存放在 ~/.onmyagent/skills",
   "store.skills_marketplace": "技能市場",
   "store.skills_tab": "技能",
+  "store.search_company": "搜尋企業技能、專家、連接器",
+  "store.company_tab": "企業",
   "store.upload": "上傳",
   "skills_marketplace.category_all": "全部",
   "skills_marketplace.category_opc": "OPC-一人公司",

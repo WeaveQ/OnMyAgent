@@ -28,6 +28,8 @@ export default {
     "Installed or created through OnMyAgent and stored in ~/.onmyagent/skills",
   "store.skills_marketplace": "Skill marketplace",
   "store.skills_tab": "Skills",
+  "store.search_company": "Search org skills, experts, connectors",
+  "store.company_tab": "Enterprise",
   "store.upload": "Upload",
   "skills_marketplace.category_all": "All",
   "skills_marketplace.category_opc": "OPC solo company",

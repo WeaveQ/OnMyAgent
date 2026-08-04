@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import {
   Bot,
+  Building2,
   ChevronDown,
   ChevronLeft,
   Clock3,
@@ -33,8 +34,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { CountBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
-import { desktopBridge } from "../../../../app/lib/desktop";
-import { isDesktopRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
@@ -50,6 +49,7 @@ import {
   type ExpertMarketplaceSummonHandler,
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
+import { CompanyStorePage } from "@/react-app/domains/plugins/company-store-page";
 import { useStatusToasts } from "../../shell-feedback";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
@@ -301,7 +301,7 @@ export function DevicesPage() {
   );
 }
 
-export type StorePrimaryTab = "experts" | "skills" | "plugins";
+export type StorePrimaryTab = "experts" | "skills" | "plugins" | "company";
 
 function StorePrimaryTabs(props: {
   value: StorePrimaryTab;
@@ -315,6 +315,7 @@ function StorePrimaryTabs(props: {
     { id: "experts", label: t("store.experts_tab"), icon: UserRound },
     { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
     { id: "plugins", label: t("plugins.artifact_tab"), icon: Package },
+    { id: "company", label: t("store.company_tab"), icon: Building2 },
   ];
 
   return (
@@ -366,13 +367,8 @@ export function StorePage(props: {
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
     useState<StorePrimaryTab>(props.activeTab ?? "experts");
   const [expertView, setExpertView] = useState<ExpertMarketplaceView>("market");
-  const [skillView, setSkillView] = useState<"market" | "installed" | "company">(
-    "market",
-  );
-  // company expert count is loaded with company catalog prefetch below
+  const [skillView, setSkillView] = useState<"market" | "installed">("market");
   const [installedSkillCount, setInstalledSkillCount] = useState(0);
-  const [companySkillCount, setCompanySkillCount] = useState(0);
-  const [companyExpertCount, setCompanyExpertCount] = useState(0);
   const [query, setQuery] = useState("");
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
@@ -384,34 +380,6 @@ export function StorePage(props: {
   useEffect(() => {
     if (props.activeTab) setUncontrolledActiveTab(props.activeTab);
   }, [props.activeTab]);
-
-  // Prefetch company skill count for the toolbar badge (desktop IPC only).
-  useEffect(() => {
-    if (!isDesktopRuntime()) {
-      setCompanySkillCount(0);
-      return undefined;
-    }
-    let cancelled = false;
-    void desktopBridge
-      .companyCatalog()
-      .then((raw) => {
-        if (cancelled) return;
-        const catalog = raw as { skills?: unknown[]; experts?: unknown[] };
-        setCompanySkillCount(Array.isArray(catalog?.skills) ? catalog.skills.length : 0);
-        setCompanyExpertCount(
-          Array.isArray(catalog?.experts) ? catalog.experts.length : 0,
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCompanySkillCount(0);
-          setCompanyExpertCount(0);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, skillView, expertView]);
 
   const handleTabChange = (tab: StorePrimaryTab) => {
     setUncontrolledActiveTab(tab);
@@ -429,15 +397,16 @@ export function StorePage(props: {
   };
 
   const searchPlaceholder =
-    activeTab === "skills"
-      ? t("store.search_skills")
-      : t("session.search_experts_placeholder");
+    activeTab === "company"
+      ? t("store.search_company")
+      : activeTab === "skills"
+        ? t("store.search_skills")
+        : t("session.search_experts_placeholder");
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div className={cn(shellChrome.pageHeader, "border-b-0 mac:titlebar-drag")}>
-        {activeTab === "experts" &&
-        (expertView === "mine" || expertView === "company") ? (
+        {activeTab === "experts" && expertView === "mine" ? (
           <Button
             type="button"
             variant="ghost"
@@ -448,8 +417,7 @@ export function StorePage(props: {
             <ChevronLeft data-icon="inline-start" className="size-4" />
             {t("store.all_experts")}
           </Button>
-        ) : activeTab === "skills" &&
-          (skillView === "installed" || skillView === "company") ? (
+        ) : activeTab === "skills" && skillView === "installed" ? (
           <Button
             type="button"
             variant="ghost"
@@ -464,7 +432,7 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
-          {/* Search on expert market + skill market/installed (not plugins, not my-experts). */}
+          {/* Search on expert/skill markets + company tab (not plugins, not my-experts). */}
           {activeTab !== "plugins" &&
           !(activeTab === "experts" && expertView === "mine") ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
@@ -490,23 +458,6 @@ export function StorePage(props: {
               >
                 <UserPlus data-icon="inline-start" className="size-3.5" />
                 {t("session.my_experts")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setExpertView("company");
-                  setQuery("");
-                }}
-                className="mac:titlebar-no-drag"
-              >
-                公司
-                {companyExpertCount > 0 ? (
-                  <CountBadge size="dot" className="ml-1.5">
-                    {companyExpertCount}
-                  </CountBadge>
-                ) : null}
               </Button>
               <Button
                 type="button"
@@ -538,23 +489,6 @@ export function StorePage(props: {
                 <CountBadge size="dot" className="ml-1.5">
                   {installedSkillCount}
                 </CountBadge>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSkillView("company");
-                  setQuery("");
-                }}
-                className="rounded-md mac:titlebar-no-drag"
-              >
-                公司
-                {companySkillCount > 0 ? (
-                  <CountBadge size="dot" className="ml-1.5">
-                    {companySkillCount}
-                  </CountBadge>
-                ) : null}
               </Button>
               {/* Far right of skills market toolbar — find / upload / create. */}
               <DropdownMenu>
@@ -638,6 +572,30 @@ export function StorePage(props: {
             workspaceRoot={props.workspaceRoot}
             client={props.client}
             onSelectArtifactPrompt={props.onSelectArtifactPrompt}
+          />
+        ) : activeTab === "company" ? (
+          <CompanyStorePage
+            query={query}
+            onChatWithSkill={props.onChatWithSkill}
+            onOpenCompanySettings={() => {
+              // Hosts open settings via hash/path; company tab deep-link when possible.
+              try {
+                const path = "/settings/company";
+                if (typeof window !== "undefined") {
+                  const hash = window.location.hash || "";
+                  if (hash.includes("/workspace/")) {
+                    const match = hash.match(/#(\/workspace\/[^/]+)/);
+                    if (match?.[1]) {
+                      window.location.hash = `${match[1]}${path}`;
+                      return;
+                    }
+                  }
+                  window.location.hash = path;
+                }
+              } catch {
+                // ignore
+              }
+            }}
           />
         ) : null}
       </div>
