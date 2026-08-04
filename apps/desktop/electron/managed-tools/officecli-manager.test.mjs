@@ -364,6 +364,33 @@ test("installs a verified OfficeCLI release and materializes the official skill"
   }
 });
 
+test("rejects a binary whose version only contains the requested version", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-version-boundary-"));
+  try {
+    const binary = Buffer.from(
+      "#!/usr/bin/env node\nprocess.stdout.write(\"1.0.1029\\n\");\n",
+    );
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: fixtureFetch({
+        pointerManifest: pointer("1.0.102", releaseManifest),
+        releaseManifest,
+        binary,
+        skill,
+      }),
+      platform: "darwin",
+      arch: "arm64",
+    });
+
+    await assert.rejects(() => manager.installLatest(), /version check failed/);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test("marks an installed runtime unusable when its binary is tampered with", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-integrity-"));
   try {

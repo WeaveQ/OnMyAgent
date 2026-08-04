@@ -416,7 +416,14 @@ async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
     });
     child.once("close", (code) => {
       clearTimeout(timer);
-      resolve(code === 0 && output.includes(expectedVersion));
+      const versions = output.match(/\bv?\d+\.\d+\.\d+\b/g)?.map((version) =>
+        version.replace(/^v/, ""),
+      ) ?? [];
+      resolve(
+        code === 0 &&
+          versions.length > 0 &&
+          versions.every((version) => version === expectedVersion),
+      );
     });
   });
 }
