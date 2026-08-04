@@ -428,3 +428,44 @@ test("reserves Artifact identities when packages are missing or malformed", asyn
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("removes stale legacy links only when they point into legacy skill roots", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-legacy-links-"));
+  try {
+    const legacyRoot = path.join(root, "legacy");
+    const managedSkillsRoot = path.join(root, "managed-skills");
+    const staleSource = path.join(legacyRoot, "stale");
+    const currentSource = path.join(legacyRoot, "current");
+    const unrelated = path.join(root, "unrelated");
+    await mkdir(staleSource, { recursive: true });
+    await mkdir(currentSource, { recursive: true });
+    await mkdir(unrelated, { recursive: true });
+    await writeFile(path.join(staleSource, "SKILL.md"), "stale", "utf8");
+    await writeFile(path.join(currentSource, "SKILL.md"), "current", "utf8");
+    await materializeLegacySkillLinks({
+      skillDirs: [staleSource, currentSource],
+      managedSkillsRoot,
+      legacySkillRoots: [legacyRoot],
+    });
+    await symlink(unrelated, path.join(managedSkillsRoot, "unrelated-link"), "dir");
+    await rm(staleSource, { recursive: true, force: true });
+
+    await materializeLegacySkillLinks({
+      skillDirs: [currentSource],
+      managedSkillsRoot,
+      legacySkillRoots: [legacyRoot],
+    });
+
+    await assert.rejects(lstat(path.join(managedSkillsRoot, "stale")), { code: "ENOENT" });
+    assert.equal(
+      await realpath(path.join(managedSkillsRoot, "current")),
+      await realpath(currentSource),
+    );
+    assert.equal(
+      await realpath(path.join(managedSkillsRoot, "unrelated-link")),
+      await realpath(unrelated),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
