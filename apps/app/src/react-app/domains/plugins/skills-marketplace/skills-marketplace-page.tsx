@@ -924,6 +924,7 @@ type InstalledSkillsSubTab = "builtin" | "installed" | "company";
 type CompanyCatalogSkill = {
   id: string;
   name: string;
+  description?: string;
   source: "company";
   kind: "skill";
 };
@@ -1313,13 +1314,35 @@ export function SkillsMarketplacePage(props: {
                         {skill.name}
                       </div>
                       <p className="mt-1 text-xs text-dls-secondary">
-                        组织下发 · 只读 · 由管理员在 OnMyCompany 配置
+                        {skill.description || "组织下发 · 只读"}
+                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[10px] text-dls-secondary/80">
+                        {skill.id}
                       </p>
                     </div>
                     <StatusBadge tone="neutral" className="shrink-0">
                       组织
                     </StatusBadge>
                   </div>
+                  {props.onChatWithSkill ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-3"
+                      onClick={() =>
+                        props.onChatWithSkill?.({
+                          name: skill.id,
+                          path: skill.id,
+                          description: skill.description || skill.name,
+                          displayNameZh: skill.name,
+                        })
+                      }
+                    >
+                      <MessageCircle className="size-3.5" />
+                      用于对话
+                    </Button>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -1332,7 +1355,7 @@ export function SkillsMarketplacePage(props: {
                   : (companyCatalogHint ?? "未连接公司")}
               </p>
               <p className="max-w-sm text-xs leading-5">
-                打开左侧菜单 设置 → 全局 → 公司，填写 Base URL（如
+                打开 设置 → 全局 → 公司，填写 Base URL（如
                 http://127.0.0.1:3100）并登录后，这里会显示组织技能。
               </p>
             </div>

@@ -153,7 +153,16 @@ export async function fetchCompanyMe(baseUrl, token, opts = {}) {
 }
 
 /**
- * Pull org config snapshot and write profiles/company/config (atomic-ish replace of JSON sections).
+ * Company skills packages root (SKILL.md packages for Agent scan).
+ * @param {string | undefined} homeDir
+ */
+export function resolveCompanySkillsInstalledRoot(homeDir) {
+  return path.join(resolveCompanyConfigRoot(homeDir), "skills", "installed");
+}
+
+/**
+ * Pull org config snapshot and write profiles/company/config.
+ * Also materializes skill packages (SKILL.md) so slash/skills can load them.
  * @param {string | undefined} homeDir
  * @param {string} baseUrl
  * @param {string} token
@@ -164,15 +173,16 @@ export async function pullAndWriteCompanyConfig(homeDir, baseUrl, token, opts = 
   if (!root) throw new Error("companyBaseUrl required");
   if (!token) throw new Error("member token required");
   const fetchImpl = opts.fetch ?? globalThis.fetch;
+  const auth = { authorization: `Bearer ${token}` };
 
   const manifestRes = await fetchImpl(`${root}/api/org/config/manifest`, {
-    headers: { authorization: `Bearer ${token}` },
+    headers: auth,
   });
   if (!manifestRes.ok) throw new Error(`manifest HTTP ${manifestRes.status}`);
   const manifest = await manifestRes.json();
 
   const configRes = await fetchImpl(`${root}/api/org/config`, {
-    headers: { authorization: `Bearer ${token}` },
+    headers: auth,
   });
   if (!configRes.ok) throw new Error(`org config HTTP ${configRes.status}`);
   const snapshot = await configRes.json();
@@ -188,10 +198,34 @@ export async function pullAndWriteCompanyConfig(homeDir, baseUrl, token, opts = 
   const config = snapshot.config && typeof snapshot.config === "object" ? snapshot.config : {};
   for (const [section, body] of Object.entries(config)) {
     if (section === "skills" || section === "experts") {
-      // Directory sections may be objects; write as JSON index for MVP mirror
       writeFileSync(
         path.join(companyRoot, `${section}.json`),
         `${JSON.stringify(body ?? {}, null, 2)}\n`,
+        "utf8",
+      );
+      continue;
+    }
+    if (section === "tools" && body && typeof body === "object") {
+      const toolsDir = path.join(companyRoot, "tools");
+      mkdirSync(toolsDir, { recursive: true });
+      const tools = /** @type {Record<string, unknown>} */ (body);
+      if (tools.mcp !== undefined) {
+        writeFileSync(
+          path.join(toolsDir, "mcp.json"),
+          `${JSON.stringify(tools.mcp, null, 2)}\n`,
+          "utf8",
+        );
+      }
+      if (tools.gateway !== undefined) {
+        writeFileSync(
+          path.join(toolsDir, "gateway.json"),
+          `${JSON.stringify(tools.gateway, null, 2)}\n`,
+          "utf8",
+        );
+      }
+      writeFileSync(
+        path.join(companyRoot, "tools.json"),
+        `${JSON.stringify(body, null, 2)}\n`,
         "utf8",
       );
       continue;
@@ -203,7 +237,6 @@ export async function pullAndWriteCompanyConfig(homeDir, baseUrl, token, opts = 
     );
   }
 
-  // Prefer skills.enabled from org if present as nested tree
   if (snapshot.skillsEnabled) {
     mkdirSync(path.join(companyRoot, "skills"), { recursive: true });
     writeFileSync(
@@ -213,10 +246,77 @@ export async function pullAndWriteCompanyConfig(homeDir, baseUrl, token, opts = 
     );
   }
 
+  // Materialize skill packages for Agent (display name + SKILL.md body).
+  const skillIds = new Set();
+  const skillsSection = config.skills && typeof config.skills === "object" ? config.skills : {};
+  if (Array.isArray(skillsSection.installed)) {
+    for (const id of skillsSection.installed) {
+      if (typeof id === "string" && id.trim()) skillIds.add(id.trim());
+    }
+  }
+  const enabled = skillsSection.enabled;
+  if (enabled && typeof enabled === "object" && Array.isArray(enabled.enabled)) {
+    for (const row of enabled.enabled) {
+      if (typeof row === "string" && row.trim()) skillIds.add(row.trim());
+      else if (row && typeof row === "object" && typeof row.packageId === "string") {
+        skillIds.add(row.packageId.trim());
+      }
+    }
+  }
+
+  try {
+    const catalogRes = await fetchImpl(`${root}/api/catalog/skills?scope=org`, {
+      headers: auth,
+    });
+    if (catalogRes.ok) {
+      const catalog = await catalogRes.json();
+      const items = Array.isArray(catalog?.items) ? catalog.items : [];
+      for (const item of items) {
+        if (item?.added && typeof item.packageId === "string") {
+          skillIds.add(item.packageId.trim());
+        }
+      }
+    }
+  } catch {
+    // index from org config is enough
+  }
+
+  const installedRoot = resolveCompanySkillsInstalledRoot(homeDir);
+  mkdirSync(installedRoot, { recursive: true });
+  let packagesWritten = 0;
+  for (const packageId of skillIds) {
+    if (!packageId || packageId.endsWith(".json")) continue;
+    try {
+      const detailRes = await fetchImpl(
+        `${root}/api/catalog/skills/${encodeURIComponent(packageId)}`,
+        { headers: auth },
+      );
+      if (!detailRes.ok) continue;
+      const detail = await detailRes.json();
+      const skillMd =
+        typeof detail?.skillMd === "string" && detail.skillMd.trim()
+          ? detail.skillMd
+          : `# ${packageId}\n\nOrg skill package.\n`;
+      const meta = detail?.meta && typeof detail.meta === "object" ? detail.meta : { packageId };
+      const pkgDir = path.join(installedRoot, packageId);
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(path.join(pkgDir, "SKILL.md"), skillMd.endsWith("\n") ? skillMd : `${skillMd}\n`, "utf8");
+      writeFileSync(
+        path.join(pkgDir, "meta.json"),
+        `${JSON.stringify(meta, null, 2)}\n`,
+        "utf8",
+      );
+      packagesWritten += 1;
+    } catch {
+      // skip individual package failures
+    }
+  }
+
   return {
     version: String(manifest.version ?? snapshot.version ?? ""),
     companyRoot,
     manifest,
+    packagesWritten,
   };
 }
 
@@ -363,17 +463,9 @@ export function listPersonalSkillPackages(homeDir, io = {}) {
 }
 
 /**
- * Read company mirror catalog for UI "公司" tabs (skills + experts).
+ * Read company mirror catalog for UI "公司" tabs (skills + experts + tools summary).
  * Empty when logged out or mirror missing — never invents packages.
  * @param {string | undefined} homeDir
- * @returns {{
- *   connected: boolean,
- *   companyBaseUrl?: string,
- *   email?: string,
- *   lastSyncedVersion?: string,
- *   skills: Array<{ id: string, name: string, source: "company", kind: "skill" }>,
- *   experts: Array<{ id: string, name: string, source: "company", kind: "expert" }>,
- * }}
  */
 export function listCompanyCatalog(homeDir) {
   const settings = readCompanySettings(homeDir);
@@ -382,9 +474,17 @@ export function listCompanyCatalog(homeDir) {
     connected,
     companyBaseUrl: settings.companyBaseUrl,
     email: settings.email,
+    memberId: settings.memberId,
     lastSyncedVersion: settings.lastSyncedVersion,
-    skills: /** @type {Array<{ id: string, name: string, source: "company", kind: "skill" }>} */ ([]),
+    lastSyncedAt: settings.lastSyncedAt,
+    skills: /** @type {Array<{ id: string, name: string, description?: string, source: "company", kind: "skill" }>} */ ([]),
     experts: /** @type {Array<{ id: string, name: string, source: "company", kind: "expert" }>} */ ([]),
+    models: /** @type {Array<{ id: string, name: string }>} */ ([]),
+    gatewayServices: /** @type {Array<{ id: string, name: string }>} */ ([]),
+    policy: /** @type {Record<string, unknown> | null} */ (null),
+    adminConsoleUrl: settings.companyBaseUrl
+      ? String(settings.companyBaseUrl).replace(/:\d+$/, ":5180")
+      : undefined,
   };
   if (!connected) return base;
 
@@ -465,12 +565,32 @@ export function listCompanyCatalog(homeDir) {
     // ignore
   }
 
-  base.skills = [...skillIds].sort().map((id) => ({
-    id,
-    name: id,
-    source: "company",
-    kind: "skill",
-  }));
+  base.skills = [...skillIds].sort().map((id) => {
+    let name = id;
+    let description = "";
+    try {
+      const metaPath = path.join(companyRoot, "skills", "installed", id, "meta.json");
+      if (existsSync(metaPath)) {
+        const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+        if (typeof meta?.name === "string" && meta.name.trim()) name = meta.name.trim();
+      }
+      const mdPath = path.join(companyRoot, "skills", "installed", id, "SKILL.md");
+      if (existsSync(mdPath)) {
+        const md = readFileSync(mdPath, "utf8");
+        const firstLine = md.split("\n").find((l) => l.trim() && !l.startsWith("#"));
+        if (firstLine) description = firstLine.trim().slice(0, 160);
+      }
+    } catch {
+      // keep id as name
+    }
+    return {
+      id,
+      name,
+      description,
+      source: "company",
+      kind: "skill",
+    };
+  });
 
   const expertsSection = readJson("experts.json");
   const expertIds = new Set();
@@ -502,7 +622,126 @@ export function listCompanyCatalog(homeDir) {
     kind: "expert",
   }));
 
+  const modelsJson = readJson("models.json");
+  if (modelsJson && typeof modelsJson === "object") {
+    const list = Array.isArray(modelsJson.models)
+      ? modelsJson.models
+      : Array.isArray(modelsJson.items)
+        ? modelsJson.items
+        : [];
+    for (const row of list) {
+      if (typeof row === "string" && row.trim()) {
+        base.models.push({ id: row.trim(), name: row.trim() });
+      } else if (row && typeof row === "object") {
+        const id = String(row.id ?? row.modelID ?? row.modelId ?? row.name ?? "").trim();
+        const name = String(row.name ?? row.title ?? id).trim();
+        if (id) base.models.push({ id, name: name || id });
+      }
+    }
+  }
+
+  const policy = readJson("policy.json");
+  if (policy && typeof policy === "object") base.policy = policy;
+
+  let gateway = null;
+  try {
+    gateway = JSON.parse(
+      readFileSync(path.join(companyRoot, "tools", "gateway.json"), "utf8"),
+    );
+  } catch {
+    const tools = readJson("tools.json");
+    gateway = tools?.gateway ?? null;
+  }
+  if (gateway && typeof gateway === "object") {
+    const services = Array.isArray(gateway.services) ? gateway.services : [];
+    for (const svc of services) {
+      if (typeof svc === "string" && svc.trim()) {
+        base.gatewayServices.push({ id: svc.trim(), name: svc.trim() });
+      } else if (svc && typeof svc === "object") {
+        const id = String(svc.id ?? svc.serviceId ?? svc.name ?? "").trim();
+        const name = String(svc.name ?? svc.title ?? id).trim();
+        if (id) base.gatewayServices.push({ id, name: name || id });
+      }
+    }
+  }
+
+  // Prefer admin console on same host :5180 when BaseUrl is API port
+  if (settings.companyBaseUrl) {
+    try {
+      const u = new URL(settings.companyBaseUrl);
+      if (u.port === "3100" || u.port === "3000") {
+        u.port = "5180";
+        base.adminConsoleUrl = u.toString().replace(/\/$/, "");
+      } else {
+        base.adminConsoleUrl = settings.companyBaseUrl.replace(/\/$/, "");
+      }
+    } catch {
+      base.adminConsoleUrl = settings.companyBaseUrl;
+    }
+  }
+
   return base;
+}
+
+/**
+ * Evaluate whether an action id is denied by mirrored company policy.
+ * @param {string | undefined} homeDir
+ * @param {string} actionId
+ * @returns {{ allowed: boolean, reason?: string, source: "none" | "org" }}
+ */
+export function evaluateCompanyActionPolicy(homeDir, actionId) {
+  const settings = readCompanySettings(homeDir);
+  if (!hasCompanySession(settings)) {
+    return { allowed: true, source: "none" };
+  }
+  const companyRoot = resolveCompanyConfigRoot(homeDir);
+  let policy = null;
+  try {
+    policy = JSON.parse(readFileSync(path.join(companyRoot, "policy.json"), "utf8"));
+  } catch {
+    return { allowed: true, source: "none" };
+  }
+  if (!policy || typeof policy !== "object") return { allowed: true, source: "none" };
+
+  const action = String(actionId ?? "").trim();
+  if (!action) return { allowed: true, source: "org" };
+
+  /** @param {unknown} patterns @param {string} value */
+  const matches = (patterns, value) => {
+    if (!Array.isArray(patterns)) return false;
+    return patterns.some((p) => {
+      if (typeof p !== "string") return false;
+      if (p === "*") return true;
+      if (p.endsWith(".*")) return value.startsWith(p.slice(0, -1));
+      return p === value;
+    });
+  };
+
+  const blocked =
+    policy.blockedActions ??
+    policy.actions?.deny ??
+    policy.deny;
+  if (matches(blocked, action)) {
+    return {
+      allowed: false,
+      reason: `组织策略禁止：${action}`,
+      source: "org",
+    };
+  }
+
+  const allowed =
+    policy.allowedActions ??
+    policy.actions?.allow ??
+    policy.allow;
+  if (Array.isArray(allowed) && allowed.length > 0 && !matches(allowed, action)) {
+    return {
+      allowed: false,
+      reason: `组织策略未允许：${action}`,
+      source: "org",
+    };
+  }
+
+  return { allowed: true, source: "org" };
 }
 
 /**

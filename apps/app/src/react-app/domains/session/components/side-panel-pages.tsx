@@ -369,8 +369,10 @@ export function StorePage(props: {
   const [skillView, setSkillView] = useState<"market" | "installed" | "company">(
     "market",
   );
+  // company expert count is loaded with company catalog prefetch below
   const [installedSkillCount, setInstalledSkillCount] = useState(0);
   const [companySkillCount, setCompanySkillCount] = useState(0);
+  const [companyExpertCount, setCompanyExpertCount] = useState(0);
   const [query, setQuery] = useState("");
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
@@ -394,16 +396,22 @@ export function StorePage(props: {
       .companyCatalog()
       .then((raw) => {
         if (cancelled) return;
-        const catalog = raw as { skills?: unknown[] };
+        const catalog = raw as { skills?: unknown[]; experts?: unknown[] };
         setCompanySkillCount(Array.isArray(catalog?.skills) ? catalog.skills.length : 0);
+        setCompanyExpertCount(
+          Array.isArray(catalog?.experts) ? catalog.experts.length : 0,
+        );
       })
       .catch(() => {
-        if (!cancelled) setCompanySkillCount(0);
+        if (!cancelled) {
+          setCompanySkillCount(0);
+          setCompanyExpertCount(0);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [activeTab, skillView]);
+  }, [activeTab, skillView, expertView]);
 
   const handleTabChange = (tab: StorePrimaryTab) => {
     setUncontrolledActiveTab(tab);
@@ -428,7 +436,8 @@ export function StorePage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div className={cn(shellChrome.pageHeader, "border-b-0 mac:titlebar-drag")}>
-        {activeTab === "experts" && expertView === "mine" ? (
+        {activeTab === "experts" &&
+        (expertView === "mine" || expertView === "company") ? (
           <Button
             type="button"
             variant="ghost"
@@ -481,6 +490,23 @@ export function StorePage(props: {
               >
                 <UserPlus data-icon="inline-start" className="size-3.5" />
                 {t("session.my_experts")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setExpertView("company");
+                  setQuery("");
+                }}
+                className="mac:titlebar-no-drag"
+              >
+                公司
+                {companyExpertCount > 0 ? (
+                  <CountBadge size="dot" className="ml-1.5">
+                    {companyExpertCount}
+                  </CountBadge>
+                ) : null}
               </Button>
               <Button
                 type="button"
