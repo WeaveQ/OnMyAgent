@@ -28,14 +28,15 @@ describe("virtual measure policy", () => {
     expect(historical.measureActiveTurnOnly).toBe(true);
   });
 
-  test("detached active turn → no virtual row measured while streaming", () => {
+  test("detached active turn measures visible history while streaming", () => {
     const policy = resolveVirtualRowMeasurePolicy({
       isStreaming: true,
       scrollBlocksMeasure: false,
       activeTurnVirtualIndex: null,
       virtualIndex: 3,
     });
-    expect(policy.shouldMeasure).toBe(false);
+    expect(policy.shouldMeasure).toBe(true);
+    expect(policy.measureActiveTurnOnly).toBe(false);
   });
 
   test("idle measures all rows unless scroll blocks", () => {
@@ -78,23 +79,33 @@ describe("virtual measure policy", () => {
     ).toBe(true);
   });
 
-  test("batch remeasure on stream end edge", () => {
+  test("preserves measurements when a detached tail finishes streaming", () => {
     expect(
       shouldBatchRemeasureOnStreamEnd({
         wasStreaming: true,
         isStreaming: false,
+        hasDetachedTail: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldBatchRemeasureOnStreamEnd({
+        wasStreaming: true,
+        isStreaming: false,
+        hasDetachedTail: false,
       }),
     ).toBe(true);
     expect(
       shouldBatchRemeasureOnStreamEnd({
         wasStreaming: false,
         isStreaming: false,
+        hasDetachedTail: false,
       }),
     ).toBe(false);
     expect(
       shouldBatchRemeasureOnStreamEnd({
         wasStreaming: true,
         isStreaming: true,
+        hasDetachedTail: false,
       }),
     ).toBe(false);
   });

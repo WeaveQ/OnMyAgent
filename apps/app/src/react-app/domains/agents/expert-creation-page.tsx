@@ -397,9 +397,6 @@ function ExpertCoach(props: {
           renderComposer={props.renderComposer}
           onApplyDraftSuggestion={props.onApplyDraftSuggestion}
         />
-        <p className="pt-3 text-center text-xs text-dls-secondary">
-          {t("agents.expert_creation_coach_disclaimer")}
-        </p>
       </div>
     </aside>
   );

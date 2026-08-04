@@ -12,7 +12,10 @@ import {
   resolveComputerUseRuntimeCommand,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
-import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
+import {
+  resolveLocalManagedToolsBinRoot,
+  resolveLocalSkillsRoot,
+} from "./config-profile-paths.mjs";
 import {
   chooseOpencodeBinary,
   chooseProductRuntimeBinary,
@@ -131,6 +134,7 @@ export function createRuntimeManager({
   desktopRoot,
   listLocalWorkspacePaths,
   runtimeEnvironment = () => ({}),
+  homeDir,
 }) {
   const engineState = createEngineState(), onmyagentServerState = createOnMyAgentServerState(), orchestratorState = createOrchestratorState();
   // Serialize engine lifecycle operations. Without this, concurrent renderer
@@ -150,6 +154,8 @@ export function createRuntimeManager({
     process.resourcesPath ? path.join(process.resourcesPath, "sidecars") : null,
     path.join(path.dirname(app.getPath("exe")), "sidecars"),
   ].filter(Boolean);
+  const resolvedHomeDir = homeDir ?? app.getPath("home");
+  const managedToolsBinRoot = resolveLocalManagedToolsBinRoot(resolvedHomeDir);
   const runtimeRoot = [
     process.resourcesPath && targetTriple()
       ? path.join(process.resourcesPath, "runtimes", targetTriple())
@@ -229,7 +235,7 @@ export function createRuntimeManager({
 
   function onmyagentUserSkillsRoot() {
     // Dual-read / post-migrate profile path (same resolve as desktop-paths).
-    return resolveLocalSkillsRoot(app.getPath("home"));
+    return resolveLocalSkillsRoot(resolvedHomeDir);
   }
 
   async function prepareManagedOpencodeConfigDir(configDir) {
@@ -421,9 +427,10 @@ export function createRuntimeManager({
       [...runtimeBinDirs, ...sidecarDirs],
       env[pathKey],
     );
-    if (pathEnv) {
-      env[pathKey] = pathEnv;
-    }
+    const pathEntries = String(pathEnv ?? "")
+      .split(path.delimiter)
+      .filter((entry) => entry && entry !== managedToolsBinRoot);
+    env[pathKey] = [managedToolsBinRoot, ...pathEntries].join(path.delimiter);
     if (process.env.ONMYAGENT_DEV_MODE === "1") {
       const devPaths = await ensureDevModePaths();
       const localOpencodeConfigDir = resolveLocalOpencodeConfigDir();
@@ -472,6 +479,14 @@ export function createRuntimeManager({
       }
     }
     return env;
+  }
+
+  // Normal OpenCode sessions and expert/detached sessions must inherit the
+  // same managed-tool PATH and prepared OpenCode skill directory. Keep this
+  // as the single runtime boundary so optional tools such as OfficeCLI are
+  // available consistently in both session modes.
+  async function resolveChildEnvironment(extra = {}, options = {}) {
+    return buildChildEnv(extra, options);
   }
 
   function envForcedOpencodeBinaryPath() {
@@ -852,7 +867,7 @@ export function createRuntimeManager({
     }
 
     // Inject user env vars so the server and managed OpenCode inherit them.
-    const serverEnv = await buildChildEnv(
+    const serverEnv = await resolveChildEnvironment(
       {
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
         ONMYAGENT_BUNDLED_PLUGINS_DIR: bundledPluginsRootPath() ?? undefined,
@@ -990,7 +1005,7 @@ export function createRuntimeManager({
       throw new Error("Failed to locate opencode.");
     }
 
-    const env = await buildChildEnv(
+    const env = await resolveChildEnvironment(
       {
         ONMYAGENT_INTERNAL_ALLOW_OPENCODE_CREDENTIALS: "1",
         ONMYAGENT_OPENCODE_USERNAME: username,
@@ -1060,7 +1075,7 @@ export function createRuntimeManager({
 
     const port = await findFreePort("127.0.0.1");
     const [username, password] = generateManagedCredentials();
-    const env = await buildChildEnv(
+    const env = await resolveChildEnvironment(
       {
         OPENCODE_SERVER_USERNAME: username,
         OPENCODE_SERVER_PASSWORD: password,
@@ -1371,7 +1386,7 @@ export function createRuntimeManager({
 
     const result = await runShellCommand(program, ["mcp", "auth", safeServerName], {
       cwd: safeProjectDir,
-      env: await buildChildEnv(),
+      env: await resolveChildEnvironment(),
       timeoutMs: 120_000,
     });
     return {
@@ -1553,7 +1568,11 @@ export function createRuntimeManager({
     ];
 
     const child = spawn(program, args, {
-      env: { ...(await buildChildEnv()), ONMYAGENT_TOKEN: token, ONMYAGENT_HOST_TOKEN: hostToken },
+      env: {
+        ...(await resolveChildEnvironment()),
+        ONMYAGENT_TOKEN: token,
+        ONMYAGENT_HOST_TOKEN: hostToken,
+      },
       detached: true,
       stdio: "ignore",
       windowsHide: true,
@@ -1678,6 +1697,8 @@ export function createRuntimeManager({
     engineInstall,
     softwareEnvironmentInfo,
     runtimePathEntries: () => [...runtimeBinDirs],
+    resolveChildEnvironment: (extra, options) =>
+      withRuntimeLifecycle(() => resolveChildEnvironment(extra, options)),
     onmyagentServerInfo,
     onmyagentServerRestart,
     orchestratorStatus,
