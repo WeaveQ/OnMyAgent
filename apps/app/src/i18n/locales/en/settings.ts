@@ -932,7 +932,7 @@ export default {
   "settings.tab_system": "System",
   "settings.tab_company": "Company",
   "settings.tab_description_company":
-    "Connect OnMyCompany: Base URL, login, org config sync, and personal skills overlay",
+    "Connect OnMyCompany (org skills/experts). Path: Settings → Global → Company",
   "settings.tab_description_system": "Startup, notifications, and permissions",
   "settings.tab_shortcuts": "Keyboard shortcuts",
   "settings.tab_description_shortcuts": "Customize general, task, and session shortcuts",

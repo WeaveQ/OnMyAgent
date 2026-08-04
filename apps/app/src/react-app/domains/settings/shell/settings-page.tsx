@@ -212,9 +212,10 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
+  // Company near top so “连接公司” is easy to find (not buried under the fold).
   const tabs: SettingsTab[] = [
-    "system",
     "company",
+    "system",
     "shortcuts",
     "environment",
     "updates",

@@ -957,7 +957,8 @@ export function SkillsMarketplacePage(props: {
   workspaceRoot?: string | null;
   client?: OnMyAgentServerClient | null;
   query?: string;
-  view?: "market" | "installed";
+  /** market = 货架; installed = 我的; company = 组织下发（一级入口） */
+  view?: "market" | "installed" | "company";
   importOpen?: boolean;
   onImportOpenChange?: (open: boolean) => void;
   onInstalledCountChange?: (count: number) => void;
@@ -1042,12 +1043,13 @@ export function SkillsMarketplacePage(props: {
     };
   }, [props.workspaceRoot, props.onInstalledCountChange]);
 
-  // Load company-mirrored skills for the 「公司」 tab (no HTTP when disconnected).
+  // Load company-mirrored skills for the 「公司」 view (no HTTP when disconnected).
   useEffect(() => {
+    if (props.view !== "company" && installedSubTab !== "company") return undefined;
     if (!isDesktopRuntime()) {
       setCompanyConnected(false);
       setCompanySkills([]);
-      setCompanyCatalogHint(null);
+      setCompanyCatalogHint("请在桌面端查看公司技能");
       return undefined;
     }
     let cancelled = false;
@@ -1067,19 +1069,19 @@ export function SkillsMarketplacePage(props: {
             ? catalog.email
               ? `已连接 · ${catalog.email}`
               : "已连接公司"
-            : "未连接公司 · 在设置 → 公司中登录后显示组织技能",
+            : "未连接公司 · 请打开 设置 → 全局 → 公司 登录",
         );
       })
       .catch(() => {
         if (cancelled) return;
         setCompanyConnected(false);
         setCompanySkills([]);
-        setCompanyCatalogHint("无法读取公司目录");
+        setCompanyCatalogHint("无法读取公司目录（需桌面端 IPC）");
       });
     return () => {
       cancelled = true;
     };
-  }, [props.workspaceRoot, installedSubTab]);
+  }, [props.workspaceRoot, props.view, installedSubTab]);
 
   const filteredSkills = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
@@ -1289,6 +1291,56 @@ export function SkillsMarketplacePage(props: {
       `${skill.name} ${skill.id}`.toLowerCase().includes(normalizedQuery),
     );
   }, [companySkills, props.query]);
+
+  // Primary 「公司」 entry (store toolbar) — full-page org catalog.
+  if (props.view === "company") {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
+          {companyCatalogHint ? (
+            <p className="mb-3 text-xs text-dls-secondary">{companyCatalogHint}</p>
+          ) : null}
+          {filteredCompanySkills.length > 0 ? (
+            <div className={SKILL_INSTALLED_CARD_GRID}>
+              {filteredCompanySkills.map((skill) => (
+                <div
+                  key={skill.id}
+                  className="rounded-xl border border-dls-border bg-dls-surface p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-dls-text">
+                        {skill.name}
+                      </div>
+                      <p className="mt-1 text-xs text-dls-secondary">
+                        组织下发 · 只读 · 由管理员在 OnMyCompany 配置
+                      </p>
+                    </div>
+                    <StatusBadge tone="neutral" className="shrink-0">
+                      组织
+                    </StatusBadge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+              <p className="text-base font-medium text-dls-text">公司技能</p>
+              <p>
+                {companyConnected
+                  ? "公司暂无下发技能"
+                  : (companyCatalogHint ?? "未连接公司")}
+              </p>
+              <p className="max-w-sm text-xs leading-5">
+                打开左侧菜单 设置 → 全局 → 公司，填写 Base URL（如
+                http://127.0.0.1:3100）并登录后，这里会显示组织技能。
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (props.view === "installed") {
     const emptyForSubTab =

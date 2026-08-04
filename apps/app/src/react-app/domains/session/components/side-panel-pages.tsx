@@ -33,6 +33,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { CountBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import { desktopBridge } from "../../../../app/lib/desktop";
+import { isDesktopRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
@@ -364,8 +366,11 @@ export function StorePage(props: {
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
     useState<StorePrimaryTab>(props.activeTab ?? "experts");
   const [expertView, setExpertView] = useState<ExpertMarketplaceView>("market");
-  const [skillView, setSkillView] = useState<"market" | "installed">("market");
+  const [skillView, setSkillView] = useState<"market" | "installed" | "company">(
+    "market",
+  );
   const [installedSkillCount, setInstalledSkillCount] = useState(0);
+  const [companySkillCount, setCompanySkillCount] = useState(0);
   const [query, setQuery] = useState("");
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
@@ -377,6 +382,28 @@ export function StorePage(props: {
   useEffect(() => {
     if (props.activeTab) setUncontrolledActiveTab(props.activeTab);
   }, [props.activeTab]);
+
+  // Prefetch company skill count for the toolbar badge (desktop IPC only).
+  useEffect(() => {
+    if (!isDesktopRuntime()) {
+      setCompanySkillCount(0);
+      return undefined;
+    }
+    let cancelled = false;
+    void desktopBridge
+      .companyCatalog()
+      .then((raw) => {
+        if (cancelled) return;
+        const catalog = raw as { skills?: unknown[] };
+        setCompanySkillCount(Array.isArray(catalog?.skills) ? catalog.skills.length : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setCompanySkillCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, skillView]);
 
   const handleTabChange = (tab: StorePrimaryTab) => {
     setUncontrolledActiveTab(tab);
@@ -412,7 +439,8 @@ export function StorePage(props: {
             <ChevronLeft data-icon="inline-start" className="size-4" />
             {t("store.all_experts")}
           </Button>
-        ) : activeTab === "skills" && skillView === "installed" ? (
+        ) : activeTab === "skills" &&
+          (skillView === "installed" || skillView === "company") ? (
           <Button
             type="button"
             variant="ghost"
@@ -485,6 +513,23 @@ export function StorePage(props: {
                   {installedSkillCount}
                 </CountBadge>
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSkillView("company");
+                  setQuery("");
+                }}
+                className="rounded-md mac:titlebar-no-drag"
+              >
+                公司
+                {companySkillCount > 0 ? (
+                  <CountBadge size="dot" className="ml-1.5">
+                    {companySkillCount}
+                  </CountBadge>
+                ) : null}
+              </Button>
               {/* Far right of skills market toolbar — find / upload / create. */}
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -555,7 +600,9 @@ export function StorePage(props: {
             view={skillView}
             importOpen={skillImportOpen}
             onImportOpenChange={setSkillImportOpen}
-            onInstalledCountChange={setInstalledSkillCount}
+            onInstalledCountChange={(count) => {
+              setInstalledSkillCount(count);
+            }}
             onChatWithSkill={props.onChatWithSkill}
             onEditSkill={props.onEditSkill}
           />
