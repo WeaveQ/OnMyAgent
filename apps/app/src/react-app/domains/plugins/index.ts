@@ -28,6 +28,7 @@ export {
 export { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 export { OfficeCliPluginSection } from "./officecli-plugin";
 export {
+  canUninstallOfficeCli,
   getOfficeCliPrimaryAction,
   getOfficeCliStatusTone,
   isOfficeCliBusy,

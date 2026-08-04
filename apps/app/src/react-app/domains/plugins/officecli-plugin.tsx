@@ -18,6 +18,7 @@ import { IconTile } from "@/components/ui/action-row";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
+import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
   getOfficeCliStatus,
   installOfficeCli,
@@ -36,6 +37,7 @@ import {
   connectorTileHeaderClassName,
 } from "./connector-tile";
 import {
+  canUninstallOfficeCli,
   getOfficeCliPrimaryAction,
   getOfficeCliStatusTone,
   isOfficeCliBusy,
@@ -185,6 +187,7 @@ function officeCliVersionSummary(status: OfficeCliStatus): string {
 export function OfficeCliPluginSection() {
   const [status, setStatus] = useState<OfficeCliStatus | null>(null);
   const [progress, setProgress] = useState<OfficeCliProgress | null>(null);
+  const [uninstallConfirmOpen, setUninstallConfirmOpen] = useState(false);
 
   const refreshStatus = useCallback(async (forceRefresh: boolean) => {
     if (!isDesktopRuntime()) {
@@ -225,6 +228,7 @@ export function OfficeCliPluginSection() {
   const tone: StatusBadgeTone = status
     ? getOfficeCliStatusTone(status)
     : "neutral";
+  const canUninstall = status ? canUninstallOfficeCli(status) : false;
 
   const handlePrimaryAction = async () => {
     if (!status || !primaryAction || busy) return;
@@ -249,6 +253,7 @@ export function OfficeCliPluginSection() {
 
   const handleUninstall = async () => {
     if (!status || busy || !status.installedVersion) return;
+    setUninstallConfirmOpen(false);
     setStatus({ ...status, state: "uninstalling" });
     setProgress({ operation: "uninstall", phase: "installing" });
     try {
@@ -338,12 +343,12 @@ export function OfficeCliPluginSection() {
                 <PrimaryActionIcon aria-hidden="true" />
                 {primaryActionLabel(primaryAction)}
               </Button>
-            ) : status?.installedVersion ? (
+            ) : canUninstall ? (
               <Button
                 size="xs"
                 variant="ghost"
                 disabled={busy}
-                onClick={() => void handleUninstall()}
+                onClick={() => setUninstallConfirmOpen(true)}
               >
                 <Trash2 aria-hidden="true" />
                 {t("plugins.officecli_uninstall")}
@@ -364,6 +369,17 @@ export function OfficeCliPluginSection() {
           {t("plugins.officecli_error_hint")}
         </NoticeBox>
       ) : null}
+
+      <ConfirmModal
+        open={uninstallConfirmOpen}
+        title={t("plugins.officecli_uninstall_title")}
+        message={t("plugins.officecli_uninstall_message")}
+        confirmLabel={t("plugins.officecli_uninstall")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void handleUninstall()}
+        onCancel={() => setUninstallConfirmOpen(false)}
+      />
     </section>
   );
 }

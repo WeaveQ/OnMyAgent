@@ -74,6 +74,9 @@ export default {
   "plugins.officecli_update": "Update",
   "plugins.officecli_retry": "Retry",
   "plugins.officecli_uninstall": "Uninstall",
+  "plugins.officecli_uninstall_title": "Uninstall OfficeCLI?",
+  "plugins.officecli_uninstall_message":
+    "This removes the local OfficeCLI runtime and its session skill. You can install it again later.",
   "plugins.officecli_desktop_only": "Available on desktop",
   "plugins.officecli_unsupported_hint": "Not supported on this system",
   "plugins.officecli_status_checking": "Checking",

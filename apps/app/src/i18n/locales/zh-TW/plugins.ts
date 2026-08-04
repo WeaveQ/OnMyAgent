@@ -74,6 +74,9 @@ export default {
   "plugins.officecli_update": "更新",
   "plugins.officecli_retry": "重試",
   "plugins.officecli_uninstall": "解除安裝",
+  "plugins.officecli_uninstall_title": "確定要解除安裝 OfficeCLI？",
+  "plugins.officecli_uninstall_message":
+    "這會移除本機 OfficeCLI 執行檔及其會話技能，之後仍可重新安裝。",
   "plugins.officecli_desktop_only": "桌面端可用",
   "plugins.officecli_unsupported_hint": "目前系統暫不支援",
   "plugins.officecli_status_checking": "檢查中",

@@ -29,6 +29,10 @@ export function isOfficeCliBusy(status: OfficeCliStatus): boolean {
   );
 }
 
+export function canUninstallOfficeCli(status: OfficeCliStatus): boolean {
+  return status.supported && Boolean(status.installedVersion) && !isOfficeCliBusy(status);
+}
+
 export function getOfficeCliStatusTone(
   status: OfficeCliStatus,
 ): OfficeCliStatusTone {

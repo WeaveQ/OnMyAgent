@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import type { OfficeCliStatus } from "@onmyagent/types/officecli";
 
 import {
+  canUninstallOfficeCli,
   getOfficeCliPrimaryAction,
   getOfficeCliStatusTone,
   isOfficeCliBusy,
@@ -24,6 +25,22 @@ function status(overrides: Partial<OfficeCliStatus>): OfficeCliStatus {
 }
 
 describe("OfficeCLI plugin state", () => {
+  test("only exposes uninstall when a usable install is idle", () => {
+    assert.equal(
+      canUninstallOfficeCli(
+        status({ installedVersion: "1.0.102", usable: true, state: "installed" }),
+      ),
+      true,
+    );
+    assert.equal(
+      canUninstallOfficeCli(
+        status({ installedVersion: "1.0.102", usable: true, state: "updating" }),
+      ),
+      false,
+    );
+    assert.equal(canUninstallOfficeCli(status({})), false);
+  });
+
   test("maps install and update actions to the marketplace card", () => {
     assert.equal(getOfficeCliPrimaryAction(status({})), "install");
     assert.equal(
