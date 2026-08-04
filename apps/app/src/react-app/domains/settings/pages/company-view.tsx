@@ -97,7 +97,8 @@ async function disconnectDurable(): Promise<CompanySettings> {
 
 export function CompanySettingsView(_props: CompanyViewProps) {
   const [settings, setSettings] = useState<CompanySettings>({});
-  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:3000");
+  // Default matches common local OMC; override via health probe / saved settings.
+  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:3100");
   const [email, setEmail] = useState("admin@company.internal");
   const [code, setCode] = useState("000000");
   const [status, setStatus] = useState<string | null>(null);
@@ -142,53 +143,85 @@ export function CompanySettingsView(_props: CompanyViewProps) {
     setStatus(null);
     try {
       const root = normalizeBaseUrl(baseUrl);
-      await fetch(`${root}/api/company/auth/email/start`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const verify = await fetch(`${root}/api/company/auth/email/verify`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      });
-      if (!verify.ok) throw new Error(`login ${verify.status}: ${await verify.text()}`);
-      const body = (await verify.json()) as {
-        token: string;
-        member?: { id?: string; email?: string };
-      };
-      const manifestRes = await fetch(`${root}/api/org/config/manifest`, {
-        headers: { authorization: `Bearer ${body.token}` },
-      });
-      const manifest = manifestRes.ok
-        ? ((await manifestRes.json()) as { version?: string })
-        : {};
-      const next = await writeDurableSettings({
-        companyBaseUrl: root,
-        memberToken: body.token,
-        memberId: body.member?.id,
-        email: body.member?.email || email,
-        activeProfile: "company",
-        lastSyncedVersion: manifest.version,
-        lastSyncedAt: new Date().toISOString(),
-      });
-      setSettings(next);
-      setStatus(
-        `已连接 · member ${next.memberId || ""} · config ${manifest.version || ""} · store=${storeMode}`,
-      );
-      try {
-        const usageRes = await fetch(`${root}/api/company/usage`, {
-          headers: { authorization: `Bearer ${body.token}` },
+      // Persist BaseUrl first so disconnect keeps it.
+      await writeDurableSettings({ companyBaseUrl: root });
+
+      if (isDesktopRuntime()) {
+        const result = (await desktopBridge.companyConnect({
+          companyBaseUrl: root,
+          email,
+          code,
+        })) as {
+          settings?: CompanySettings;
+          pulled?: { version?: string };
+        };
+        const next = result.settings ?? (await readDurableSettings());
+        setSettings(next);
+        setStatus(
+          `已连接 · ${next.email || email} · 配置 ${result.pulled?.version || next.lastSyncedVersion || ""} · 技能/专家见「公司」栏目`,
+        );
+      } else {
+        // Browser fallback: login only (no disk mirror).
+        await fetch(`${root}/api/company/auth/email/start`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email }),
         });
-        if (usageRes.ok) {
-          const u = (await usageRes.json()) as { totalRuns?: number; failedRuns?: number };
-          setUsage(`用量：${u.totalRuns ?? 0} 次运行 · ${u.failedRuns ?? 0} 失败`);
+        const verify = await fetch(`${root}/api/company/auth/email/verify`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email, code }),
+        });
+        if (!verify.ok) throw new Error(`login ${verify.status}: ${await verify.text()}`);
+        const body = (await verify.json()) as {
+          token: string;
+          member?: { id?: string; email?: string };
+        };
+        const next = await writeDurableSettings({
+          companyBaseUrl: root,
+          memberToken: body.token,
+          memberId: body.member?.id,
+          email: body.member?.email || email,
+          activeProfile: "company",
+          lastSyncedAt: new Date().toISOString(),
+        });
+        setSettings(next);
+        setStatus(`已连接 · ${next.email || email}（浏览器无磁盘镜像）`);
+      }
+      try {
+        const token = (await readDurableSettings()).memberToken;
+        if (token) {
+          const usageRes = await fetch(`${root}/api/company/usage`, {
+            headers: { authorization: `Bearer ${token}` },
+          });
+          if (usageRes.ok) {
+            const u = (await usageRes.json()) as { totalRuns?: number; failedRuns?: number };
+            setUsage(`用量：${u.totalRuns ?? 0} 次运行 · ${u.failedRuns ?? 0} 失败`);
+          }
         }
       } catch {
         setUsage(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connect failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function syncConfig(): Promise<void> {
+    if (!isDesktopRuntime()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = (await desktopBridge.companySyncConfig()) as {
+        settings?: CompanySettings;
+        pulled?: { version?: string };
+      };
+      if (result.settings) setSettings(result.settings);
+      setStatus(`已同步配置 · ${result.pulled?.version || result.settings?.lastSyncedVersion || ""}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setLoading(false);
     }
@@ -218,7 +251,7 @@ export function CompanySettingsView(_props: CompanyViewProps) {
     }
   }
 
-  const connected = Boolean(settings.memberToken && settings.activeProfile === "company");
+  const connected = Boolean(settings.memberToken);
 
   return (
     <LayoutStack className="mx-auto w-full max-w-2xl gap-4">
@@ -228,7 +261,9 @@ export function CompanySettingsView(_props: CompanyViewProps) {
           <div>
             <div className="text-sm font-medium text-dls-text">连接公司 (OnMyCompany)</div>
             <p className="text-xs text-dls-secondary">
-              设置 companyBaseUrl，登录后拉取组织配置。会话写入本机 company-settings.json（桌面）。
+              填写内网服务地址并登录后，组织技能/专家会出现在「技能 / 专家」页的
+              <span className="text-dls-text"> 公司 </span>
+              栏目（本机配置不变，不切换整站模式）。
             </p>
           </div>
         </div>
@@ -276,6 +311,12 @@ export function CompanySettingsView(_props: CompanyViewProps) {
                 断开
               </Button>
             )}
+            {connected && isDesktopRuntime() ? (
+              <Button size="sm" variant="outline" disabled={loading} onClick={() => void syncConfig()}>
+                <RefreshCw size={14} />
+                同步配置
+              </Button>
+            ) : null}
             <Button size="sm" variant="outline" disabled={loading} onClick={() => void refreshHealth()}>
               <RefreshCw size={14} />
               探活
@@ -288,12 +329,12 @@ export function CompanySettingsView(_props: CompanyViewProps) {
           {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
           <div className="rounded-lg border border-dls-border bg-dls-surface-muted/40 px-3 py-2 text-xs text-dls-secondary">
-            <div>store: {storeMode === "desktop" ? "company-settings.json (IPC)" : "localStorage fallback"}</div>
-            <div>activeProfile: {settings.activeProfile || "local"}</div>
+            <div>状态：{connected ? "已连接 · 公司栏目可用" : "未连接 · 仅本机"}</div>
+            <div>store: {storeMode === "desktop" ? "company-settings.json" : "localStorage"}</div>
             <div>memberId: {settings.memberId || "—"}</div>
-            <div>lastSyncedVersion: {settings.lastSyncedVersion || "—"}</div>
+            <div>config version: {settings.lastSyncedVersion || "—"}</div>
             <div className="mt-1">
-              个人 Skills：`profiles/local/config/skills/mine`；company 模式叠加受 policy.skills.allowPersonal 控制。
+              本机技能/专家不变；公司下发写入 profiles/company/config，在列表「公司」Tab 展示。
             </div>
           </div>
         </div>
