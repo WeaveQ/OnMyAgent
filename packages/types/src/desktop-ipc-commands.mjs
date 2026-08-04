@@ -126,6 +126,9 @@ const commandGroups = /** @type {const} */ ({
     "installBuiltinSkillPackage", "writeMyExpertPackage", "stageMyExpertKnowledge", "readLocalSkill",
     "writeLocalSkill", "uninstallSkill",
   ],
+  managedTools: [
+    "officeCliGetStatus", "officeCliInstallLatest", "officeCliUninstall",
+  ],
 });
 
 export const desktopCommandGroups = Object.freeze(commandGroups);

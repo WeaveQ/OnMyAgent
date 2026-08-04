@@ -37,6 +37,10 @@ import {
   createSkillsDomainHandlers,
 } from "./skills.mjs";
 import {
+  HANDLER_COMMAND_NAMES as managedToolsCommands,
+  createManagedToolsDomainHandlers,
+} from "./managed-tools.mjs";
+import {
   createAllDesktopDomainHandlers,
   DESKTOP_HANDLER_COMMANDS,
   listImplementedDesktopCommands,
@@ -70,6 +74,7 @@ const domains = [
   { name: "opencode", names: opencodeCommands, create: createOpencodeDomainHandlers },
   { name: "runtime", names: runtimeCommands, create: createRuntimeDomainHandlers },
   { name: "skills", names: skillsCommands, create: createSkillsDomainHandlers },
+  { name: "managed-tools", names: managedToolsCommands, create: createManagedToolsDomainHandlers },
 ];
 
 test("each domain factory exposes exactly its HANDLER_COMMAND_NAMES", () => {

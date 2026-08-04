@@ -177,6 +177,9 @@ import type {
   WorkspaceOnMyAgentConfig,
   WorkspaceUpdateRemoteInput,
 } from "./desktop-ipc.js";
+import type {
+  OfficeCliStatus,
+} from "./officecli.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -1111,6 +1114,14 @@ type TypedDesktopCommandMap = {
     LocalSkillContent
   >;
   uninstallSkill: DesktopCommandContract<[string], OkResult>;
+
+  // managed tools
+  officeCliGetStatus: DesktopCommandContract<
+    [{ forceRefresh?: boolean }?],
+    OfficeCliStatus
+  >;
+  officeCliInstallLatest: DesktopCommandContract<[], OfficeCliStatus>;
+  officeCliUninstall: DesktopCommandContract<[], OfficeCliStatus>;
 };
 
 /**
