@@ -9,7 +9,9 @@ export function shouldVirtualizeTranscript(
   renderItemCount: number,
   messageBlockCount: number,
   threshold: number = TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
+  enabled: boolean = true,
 ): boolean {
+  if (!enabled) return false;
   return renderItemCount >= threshold || messageBlockCount >= threshold;
 }
 

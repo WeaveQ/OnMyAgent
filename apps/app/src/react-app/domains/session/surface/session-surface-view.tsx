@@ -413,6 +413,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                 dividers={props.interruptionDividers}
                 scrollElement={props.resolveTranscriptScrollElement}
                 surfaceVisible={props.surfaceVisible !== false}
+                virtualization={
+                  props.chrome === "embedded" ? "disabled" : "auto"
+                }
                 onRevertToMessage={props.onRevertToMessage}
                 openTargets={props.verifiedOpenTargets}
                 onOpenTarget={props.onOpenTarget}
