@@ -217,8 +217,8 @@ function createCompanyFetchMock() {
       return json({
         version: "cfg-1",
         config: {
-          policy: { allowedActions: ["*"] },
-          models: { items: [] },
+          policy: { allowedActions: ["*"], blockedActions: ["admin.*"] },
+          models: { models: [{ id: "org-model", name: "Org Model" }] },
           skills: {
             installed: ["org-weekly-report"],
             enabled: { enabled: ["org-weekly-report"] },
@@ -227,7 +227,29 @@ function createCompanyFetchMock() {
             installed: ["org-legal-expert"],
             mine: [],
           },
+          tools: {
+            gateway: { services: [{ id: "mail", name: "Org Mail" }] },
+            mcp: { servers: [] },
+          },
         },
+      });
+    }
+    if (u.includes("/api/catalog/skills?") || u.endsWith("/api/catalog/skills?scope=org")) {
+      return json({
+        items: [
+          {
+            packageId: "org-weekly-report",
+            name: "Weekly Report",
+            added: true,
+          },
+        ],
+      });
+    }
+    if (u.includes("/api/catalog/skills/")) {
+      const id = decodeURIComponent(u.split("/api/catalog/skills/")[1] || "");
+      return json({
+        meta: { packageId: id, name: id === "org-weekly-report" ? "Weekly Report" : id },
+        skillMd: `# ${id}\n\nOrg skill body.\n`,
       });
     }
     return new Response(`unexpected ${u} ${init.method || "GET"}`, { status: 404 });

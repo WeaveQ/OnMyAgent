@@ -5,7 +5,7 @@
  * Renderer must not fetch OMC directly — Vite origin → :3100 hits CORS → "Failed to fetch".
  */
 import { useCallback, useEffect, useState } from "react";
-import { Building2, LogIn, LogOut, RefreshCw } from "lucide-react";
+import { Building2, ExternalLink, LogIn, LogOut, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,25 @@ import { desktopBridge } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
 import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
+
+type CompanyCatalogSnapshot = {
+  connected?: boolean;
+  email?: string;
+  memberId?: string;
+  lastSyncedVersion?: string;
+  lastSyncedAt?: string;
+  companyBaseUrl?: string;
+  adminConsoleUrl?: string;
+  skills?: Array<{ id: string; name: string }>;
+  experts?: Array<{ id: string; name: string }>;
+  models?: Array<{ id: string; name: string }>;
+  gatewayServices?: Array<{ id: string; name: string }>;
+  policy?: {
+    allowedActions?: string[];
+    blockedActions?: string[];
+    egress?: { mode?: string };
+  } | null;
+};
 
 const STORAGE_KEY = "onmyagent.companySettings";
 
@@ -113,8 +132,22 @@ export function CompanySettingsView(props: CompanyViewProps) {
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<string | null>(null);
   const [storeMode, setStoreMode] = useState<"desktop" | "local">("local");
+  const [catalog, setCatalog] = useState<CompanyCatalogSnapshot | null>(null);
 
   const busy = loading || hostBusy;
+
+  const refreshCatalog = useCallback(async () => {
+    if (!isDesktopRuntime()) {
+      setCatalog(null);
+      return;
+    }
+    try {
+      const raw = (await desktopBridge.companyCatalog()) as CompanyCatalogSnapshot;
+      setCatalog(raw && typeof raw === "object" ? raw : null);
+    } catch {
+      setCatalog(null);
+    }
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -123,8 +156,9 @@ export function CompanySettingsView(props: CompanyViewProps) {
       if (loaded.companyBaseUrl) setBaseUrl(loaded.companyBaseUrl);
       if (loaded.email) setEmail(loaded.email);
       setStoreMode(isDesktopRuntime() ? "desktop" : "local");
+      if (loaded.memberToken) await refreshCatalog();
     })();
-  }, []);
+  }, [refreshCatalog]);
 
   const refreshHealth = useCallback(async () => {
     const root = normalizeBaseUrl(baseUrl);
@@ -202,10 +236,17 @@ export function CompanySettingsView(props: CompanyViewProps) {
       };
       const next = result.settings ?? (await readDurableSettings());
       setSettings(next);
+      const packagesWritten =
+        result.pulled &&
+        typeof (result.pulled as { packagesWritten?: number }).packagesWritten ===
+          "number"
+          ? (result.pulled as { packagesWritten: number }).packagesWritten
+          : undefined;
       setStatus(
-        `已连接 · ${next.email || email} · 配置 ${result.pulled?.version || next.lastSyncedVersion || ""} · 技能见「公司」栏目`,
+        `已连接 · ${next.email || email} · 配置 ${result.pulled?.version || next.lastSyncedVersion || ""}${
+          packagesWritten != null ? ` · 技能包 ${packagesWritten}` : ""
+        }`,
       );
-      // Refresh health after connect
       try {
         const body = (await desktopBridge.companyHealth(root)) as {
           orgId?: string;
@@ -215,6 +256,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
       } catch {
         // non-fatal
       }
+      await refreshCatalog();
     } catch (err) {
       setError(formatError(err, "连接失败"));
     } finally {
@@ -238,6 +280,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
       setStatus(
         `已同步配置 · ${result.pulled?.version || result.settings?.lastSyncedVersion || ""}`,
       );
+      await refreshCatalog();
     } catch (err) {
       setError(formatError(err, "同步失败"));
     } finally {
@@ -257,6 +300,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
       setSettings(next);
       setStatus("已断开（BaseUrl 保留）");
       setHealth(null);
+      setCatalog(null);
     } catch (err) {
       // Still try to reflect local clear
       const loaded = await readDurableSettings();
@@ -367,9 +411,76 @@ export function CompanySettingsView(props: CompanyViewProps) {
             <div>memberId: {settings.memberId || "—"}</div>
             <div>config version: {settings.lastSyncedVersion || "—"}</div>
             <div className="mt-1">
-              请求经桌面主进程转发，避免渲染进程 CORS。本机技能不变；公司下发在列表「公司」Tab。
+              请求经桌面主进程转发。本机技能不变；公司技能/专家在商店页「公司」入口。
             </div>
           </div>
+
+          {connected && catalog ? (
+            <div className="grid gap-2 rounded-lg border border-dls-border bg-dls-surface px-3 py-3 text-xs text-dls-secondary">
+              <div className="text-sm font-medium text-dls-text">组织能力摘要</div>
+              <div>
+                技能 {catalog.skills?.length ?? 0} · 专家 {catalog.experts?.length ?? 0} ·
+                模型 {catalog.models?.length ?? 0} · Gateway 服务{" "}
+                {catalog.gatewayServices?.length ?? 0}
+              </div>
+              {catalog.policy ? (
+                <div>
+                  策略：allow{" "}
+                  {Array.isArray(catalog.policy.allowedActions)
+                    ? catalog.policy.allowedActions.join(", ")
+                    : "—"}
+                  {Array.isArray(catalog.policy.blockedActions) &&
+                  catalog.policy.blockedActions.length
+                    ? ` · deny ${catalog.policy.blockedActions.join(", ")}`
+                    : ""}
+                  {catalog.policy.egress?.mode
+                    ? ` · egress ${catalog.policy.egress.mode}`
+                    : ""}
+                </div>
+              ) : null}
+              {catalog.gatewayServices && catalog.gatewayServices.length > 0 ? (
+                <div>
+                  Gateway：
+                  {catalog.gatewayServices.map((s) => s.name || s.id).join(" · ")}
+                </div>
+              ) : (
+                <div>Gateway：暂无组织连接（在 OMC 管理台配置应用连接后同步）</div>
+              )}
+              {catalog.models && catalog.models.length > 0 ? (
+                <div>
+                  模型目录：
+                  {catalog.models
+                    .slice(0, 6)
+                    .map((m) => m.name || m.id)
+                    .join(" · ")}
+                  {catalog.models.length > 6 ? " …" : ""}
+                </div>
+              ) : (
+                <div>模型目录：空（仍使用本机已连接模型）</div>
+              )}
+              {catalog.adminConsoleUrl ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-1 w-fit"
+                  onClick={() => {
+                    const url = catalog.adminConsoleUrl!;
+                    const openExternal =
+                      window.__ONMYAGENT_ELECTRON__?.shell?.openExternal;
+                    if (openExternal) {
+                      void openExternal(url);
+                      return;
+                    }
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <ExternalLink size={14} />
+                  打开管理台
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </SettingsSurfaceCard>
     </LayoutStack>

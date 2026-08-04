@@ -102,6 +102,11 @@ import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 import { createSkillsScan } from "./skills-scan.mjs";
+import {
+  hasCompanySession,
+  readCompanySettings,
+  resolveCompanySkillsInstalledRoot,
+} from "./company-client.mjs";
 import { createOpencodeWorkspaceFiles } from "./opencode-workspace-files.mjs";
 import {
   localWorkspaceId,
@@ -904,6 +909,16 @@ const {
   legacyOnmyagentUserSkillsRoot,
   globalOpencodeRoot,
   bundledSkillsRootPath,
+  companySkillsRoot: () => {
+    try {
+      const home = getRealHomeDir();
+      const settings = readCompanySettings(home);
+      if (!hasCompanySession(settings)) return null;
+      return resolveCompanySkillsInstalledRoot(home);
+    } catch {
+      return null;
+    }
+  },
   packageSourceCandidates: (packageName) => {
     const { candidates } = builtinSkillPackageSource(packageName);
     return candidates;

@@ -14,6 +14,7 @@ import {
 import {
   connectCompany,
   disconnectCompany,
+  evaluateCompanyActionPolicy,
   fetchCompanyHealth,
   listCompanyCatalog,
   pullAndWriteCompanyConfig,
@@ -88,6 +89,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "companySyncConfig",
   "companyCatalog",
   "companyHealth",
+  "companyEvaluateAction",
 ]);
 
 /**
@@ -669,6 +671,13 @@ export function createSystemDomainHandlers({
   companyHealth: async (event, args) => {
     const baseUrl = String(args[0] ?? "").trim();
     return fetchCompanyHealth(baseUrl);
+  },
+
+  /** Policy check for org-gated actions (args[0] = actionId). */
+  companyEvaluateAction: async (event, args) => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return evaluateCompanyActionPolicy(homeDir, String(args[0] ?? ""));
   },
 
   /**

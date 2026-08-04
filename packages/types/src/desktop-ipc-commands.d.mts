@@ -95,6 +95,7 @@ export type DesktopCommandName =
   | "companySyncConfig"
   | "companyCatalog"
   | "companyHealth"
+  | "companyEvaluateAction"
   | "personalLocalAgentsList"
   | "personalLocalAgentMetadataList"
   | "personalLocalAgentAcpAgentsList"
