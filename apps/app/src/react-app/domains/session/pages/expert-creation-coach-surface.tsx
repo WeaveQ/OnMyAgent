@@ -374,9 +374,6 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
           )}
         />
       </div>
-      <p className="pt-3 text-center text-xs text-dls-secondary">
-        {t("agents.expert_creation_coach_disclaimer")}
-      </p>
     </aside>
   );
 }

@@ -244,7 +244,6 @@ export default {
   "agents.expert_creation_coach_option_4": "帮你沟通和表达",
   "agents.expert_creation_coach_reply_hint": "直接回复序号，或用一句话说说你的想法~",
   "agents.expert_creation_coach_mic": "使用麦克风",
-  "agents.expert_creation_coach_disclaimer": "以上内容均由AI大模型生成，仅供参考",
   "agents.expert_creation_coach_placeholder": "说出你的想法，我帮你创建专家",
   "agents.expert_creation_coach_welcome": "我可以帮你定义这个专家。先说说它的用途、服务对象，以及它应该提供什么帮助。",
   "agents.expert_creation_coach_unavailable": "智能体运行服务尚未连接，暂时无法使用专家教练。",

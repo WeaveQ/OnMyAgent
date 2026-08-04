@@ -244,7 +244,6 @@ export default {
   "agents.expert_creation_coach_option_4": "幫你溝通和表達",
   "agents.expert_creation_coach_reply_hint": "直接回覆序號，或用一句話說說你的想法~",
   "agents.expert_creation_coach_mic": "使用麥克風",
-  "agents.expert_creation_coach_disclaimer": "以上內容均由 AI 大模型生成，僅供參考",
   "agents.expert_creation_coach_placeholder": "說出你的想法，我幫你建立專家",
   "agents.expert_creation_coach_welcome": "我可以幫你定義這個專家。先說說它的用途、服務對象，以及它應該提供什麼幫助。",
   "agents.expert_creation_coach_unavailable": "智慧體執行服務尚未連線，暫時無法使用專家教練。",
