@@ -163,6 +163,18 @@ function nowMs() {
   return Date.now();
 }
 
+function safeDownloadTarget(value) {
+  const text = String(value);
+  try {
+    const url = new URL(text);
+    url.search = "";
+    url.hash = "";
+    return url.href;
+  } catch {
+    return text.split(/[?#]/, 1)[0] || "OfficeCLI resource";
+  }
+}
+
 function codedError(message, code) {
   /** @type {Error & { code?: string }} */
   const error = new Error(message);
@@ -198,13 +210,14 @@ async function writeJsonAtomic(target, value) {
 }
 
 async function readStreamChunk(reader, timeoutMs, label) {
+  const safeLabel = safeDownloadTarget(label);
   let timeout = null;
   try {
     return await Promise.race([
       reader.read(),
       new Promise((_, reject) => {
         timeout = setTimeout(
-          () => reject(codedError(`OfficeCLI response timed out: ${label}`, "network_timeout")),
+          () => reject(codedError(`OfficeCLI response timed out: ${safeLabel}`, "network_timeout")),
           timeoutMs,
         );
       }),
@@ -228,17 +241,18 @@ async function responseBytes(
   onProgress = () => undefined,
   timeoutMs = OFFICECLI_NETWORK_TIMEOUT_MS,
 ) {
+  const safeUrl = safeDownloadTarget(url);
   if (!response.ok) {
-    throw new Error(`OfficeCLI download failed (${response.status}): ${url}`);
+    throw new Error(`OfficeCLI download failed (${response.status}): ${safeUrl}`);
   }
   const contentLength = Number(response.headers.get("content-length") ?? "0");
   if (contentLength > maximum) {
-    throw new Error(`OfficeCLI response exceeds size limit: ${url}`);
+    throw new Error(`OfficeCLI response exceeds size limit: ${safeUrl}`);
   }
   if (!response.body) {
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.byteLength > maximum) {
-      throw new Error(`OfficeCLI response exceeds size limit: ${url}`);
+      throw new Error(`OfficeCLI response exceeds size limit: ${safeUrl}`);
     }
     onProgress(bytes.byteLength, contentLength || undefined);
     return bytes;
@@ -255,7 +269,7 @@ async function responseBytes(
       receivedBytes += chunk.byteLength;
       if (receivedBytes > maximum) {
         await reader.cancel();
-        throw new Error(`OfficeCLI response exceeds size limit: ${url}`);
+        throw new Error(`OfficeCLI response exceeds size limit: ${safeUrl}`);
       }
       chunks.push(chunk);
       onProgress(receivedBytes, contentLength || undefined);
@@ -384,7 +398,10 @@ function retryableError(error) {
 
 function networkError(error, url) {
   if (error?.name === "AbortError") {
-    return codedError(`OfficeCLI request timed out: ${url}`, "network_timeout");
+    return codedError(
+      `OfficeCLI request timed out: ${safeDownloadTarget(url)}`,
+      "network_timeout",
+    );
   }
   return error;
 }
@@ -520,7 +537,7 @@ export function createOfficeCliManager(options = {}) {
         clearTimeout(timeout);
       }
     }
-    throw lastError ?? new Error(`OfficeCLI request failed: ${url}`);
+    throw lastError ?? new Error(`OfficeCLI request failed: ${safeDownloadTarget(url)}`);
   }
 
   async function fetchJson(url, maximum) {
