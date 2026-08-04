@@ -52,6 +52,9 @@ const commandGroups = /** @type {const} */ ({
     "companySettingsRead",
     "companySettingsWrite",
     "companySettingsDisconnect",
+    "companyConnect",
+    "companySyncConfig",
+    "companyCatalog",
   ],
   localAgents: [
     "personalLocalAgentsList", "personalLocalAgentMetadataList",

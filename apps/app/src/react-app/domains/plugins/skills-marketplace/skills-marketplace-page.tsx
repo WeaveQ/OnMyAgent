@@ -18,6 +18,7 @@ import {
   uninstallSkill,
 } from "@/app/lib/desktop";
 import type { LocalSkillCard } from "@/app/lib/desktop";
+import { desktopBridge } from "@/app/lib/desktop";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
 import {
@@ -918,7 +919,14 @@ function ImportSkillDialog(props: {
   );
 }
 
-type InstalledSkillsSubTab = "builtin" | "installed";
+type InstalledSkillsSubTab = "builtin" | "installed" | "company";
+
+type CompanyCatalogSkill = {
+  id: string;
+  name: string;
+  source: "company";
+  kind: "skill";
+};
 
 /**
  * Fallback when listBuiltinSkillCatalog is unavailable (older desktop / IPC fail).
@@ -969,6 +977,9 @@ export function SkillsMarketplacePage(props: {
   );
   const [installedSubTab, setInstalledSubTab] =
     useState<InstalledSkillsSubTab>("builtin");
+  const [companySkills, setCompanySkills] = useState<CompanyCatalogSkill[]>([]);
+  const [companyConnected, setCompanyConnected] = useState(false);
+  const [companyCatalogHint, setCompanyCatalogHint] = useState<string | null>(null);
   const [installingSkillName, setInstallingSkillName] = useState<string | null>(null);
   const [uninstallingSkillName, setUninstallingSkillName] = useState<string | null>(null);
   const [skillEnabledMap, setSkillEnabledMap] = useState<Record<string, boolean>>(() =>
@@ -1030,6 +1041,45 @@ export function SkillsMarketplacePage(props: {
       cancelled = true;
     };
   }, [props.workspaceRoot, props.onInstalledCountChange]);
+
+  // Load company-mirrored skills for the 「公司」 tab (no HTTP when disconnected).
+  useEffect(() => {
+    if (!isDesktopRuntime()) {
+      setCompanyConnected(false);
+      setCompanySkills([]);
+      setCompanyCatalogHint(null);
+      return undefined;
+    }
+    let cancelled = false;
+    void desktopBridge
+      .companyCatalog()
+      .then((raw) => {
+        if (cancelled) return;
+        const catalog = raw as {
+          connected?: boolean;
+          email?: string;
+          skills?: CompanyCatalogSkill[];
+        };
+        setCompanyConnected(Boolean(catalog?.connected));
+        setCompanySkills(Array.isArray(catalog?.skills) ? catalog.skills : []);
+        setCompanyCatalogHint(
+          catalog?.connected
+            ? catalog.email
+              ? `已连接 · ${catalog.email}`
+              : "已连接公司"
+            : "未连接公司 · 在设置 → 公司中登录后显示组织技能",
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCompanyConnected(false);
+        setCompanySkills([]);
+        setCompanyCatalogHint("无法读取公司目录");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.workspaceRoot, installedSubTab]);
 
   const filteredSkills = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
@@ -1200,6 +1250,7 @@ export function SkillsMarketplacePage(props: {
   }, [installedSkills, builtinPackageNames]);
 
   const filteredInstalledSkills = useMemo(() => {
+    if (installedSubTab === "company") return [] as LocalSkillCard[];
     const source =
       installedSubTab === "builtin" ? builtinInstalled : userInstalled;
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
@@ -1231,11 +1282,21 @@ export function SkillsMarketplacePage(props: {
     pinnedSkillIds,
   ]);
 
+  const filteredCompanySkills = useMemo(() => {
+    const normalizedQuery = (props.query ?? "").trim().toLowerCase();
+    if (!normalizedQuery) return companySkills;
+    return companySkills.filter((skill) =>
+      `${skill.name} ${skill.id}`.toLowerCase().includes(normalizedQuery),
+    );
+  }, [companySkills, props.query]);
+
   if (props.view === "installed") {
     const emptyForSubTab =
-      installedSubTab === "builtin"
-        ? builtinInstalled.length === 0
-        : userInstalled.length === 0;
+      installedSubTab === "company"
+        ? filteredCompanySkills.length === 0
+        : installedSubTab === "builtin"
+          ? builtinInstalled.length === 0
+          : userInstalled.length === 0;
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
         <ImportSkillDialog
@@ -1305,10 +1366,71 @@ export function SkillsMarketplacePage(props: {
                 {userInstalled.length}
               </span>
             </NavTabButton>
+            <NavTabButton
+              type="button"
+              active={installedSubTab === "company"}
+              size="tab"
+              shape="tab"
+              aria-pressed={installedSubTab === "company"}
+              onClick={() => setInstalledSubTab("company")}
+            >
+              <span>公司</span>
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  installedSubTab === "company"
+                    ? "opacity-70"
+                    : "text-dls-secondary",
+                )}
+              >
+                {companySkills.length}
+              </span>
+            </NavTabButton>
           </SegmentedTabGroup>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
-          {filteredInstalledSkills.length > 0 ? (
+          {installedSubTab === "company" ? (
+            filteredCompanySkills.length > 0 ? (
+              <div className="space-y-3">
+                {companyCatalogHint ? (
+                  <p className="text-xs text-dls-secondary">{companyCatalogHint}</p>
+                ) : null}
+                <div className={SKILL_INSTALLED_CARD_GRID}>
+                  {filteredCompanySkills.map((skill) => (
+                    <div
+                      key={skill.id}
+                      className="rounded-xl border border-dls-border bg-dls-surface p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-dls-text">
+                            {skill.name}
+                          </div>
+                          <p className="mt-1 text-xs text-dls-secondary">
+                            组织下发 · 只读 · 由管理员在 OnMyCompany 配置
+                          </p>
+                        </div>
+                        <StatusBadge tone="neutral" className="shrink-0">
+                          组织
+                        </StatusBadge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+                <p>
+                  {companyConnected
+                    ? "公司暂无下发技能"
+                    : (companyCatalogHint ?? "未连接公司")}
+                </p>
+                <p className="text-xs">
+                  在 设置 → 公司 填写 BaseUrl 并登录后，组织技能会出现在这里。
+                </p>
+              </div>
+            )
+          ) : filteredInstalledSkills.length > 0 ? (
             <div className={SKILL_INSTALLED_CARD_GRID}>
               {filteredInstalledSkills.map((skill) => {
                 const market = marketplaceSkillForLocalSkill(skill);

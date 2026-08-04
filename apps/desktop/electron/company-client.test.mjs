@@ -11,6 +11,7 @@ import {
   connectCompany,
   disconnectCompany,
   hasCompanySession,
+  listCompanyCatalog,
   listPersonalSkillPackages,
   mergeSkillPackageIds,
   normalizeCompanyBaseUrl,
@@ -145,6 +146,27 @@ describe("company-client M5", () => {
     }
   });
 
+  test("listCompanyCatalog empty when logged out; lists skills after connect", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-co-"));
+    try {
+      assert.equal(listCompanyCatalog(home).connected, false);
+      assert.deepEqual(listCompanyCatalog(home).skills, []);
+
+      await connectCompany(home, {
+        companyBaseUrl: "http://company.test",
+        email: "admin@acme.test",
+        code: "000000",
+        fetch: createCompanyFetchMock(),
+      });
+      const catalog = listCompanyCatalog(home);
+      assert.equal(catalog.connected, true);
+      assert.ok(catalog.skills.some((s) => s.id === "org-weekly-report"));
+      assert.ok(catalog.experts.some((e) => e.id === "org-legal-expert"));
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   test("disconnectCompany clears session and keeps BaseUrl", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "oma-co-"));
     try {
@@ -197,6 +219,14 @@ function createCompanyFetchMock() {
         config: {
           policy: { allowedActions: ["*"] },
           models: { items: [] },
+          skills: {
+            installed: ["org-weekly-report"],
+            enabled: { enabled: ["org-weekly-report"] },
+          },
+          experts: {
+            installed: ["org-legal-expert"],
+            mine: [],
+          },
         },
       });
     }

@@ -363,6 +363,149 @@ export function listPersonalSkillPackages(homeDir, io = {}) {
 }
 
 /**
+ * Read company mirror catalog for UI "公司" tabs (skills + experts).
+ * Empty when logged out or mirror missing — never invents packages.
+ * @param {string | undefined} homeDir
+ * @returns {{
+ *   connected: boolean,
+ *   companyBaseUrl?: string,
+ *   email?: string,
+ *   lastSyncedVersion?: string,
+ *   skills: Array<{ id: string, name: string, source: "company", kind: "skill" }>,
+ *   experts: Array<{ id: string, name: string, source: "company", kind: "expert" }>,
+ * }}
+ */
+export function listCompanyCatalog(homeDir) {
+  const settings = readCompanySettings(homeDir);
+  const connected = hasCompanySession(settings);
+  const base = {
+    connected,
+    companyBaseUrl: settings.companyBaseUrl,
+    email: settings.email,
+    lastSyncedVersion: settings.lastSyncedVersion,
+    skills: /** @type {Array<{ id: string, name: string, source: "company", kind: "skill" }>} */ ([]),
+    experts: /** @type {Array<{ id: string, name: string, source: "company", kind: "expert" }>} */ ([]),
+  };
+  if (!connected) return base;
+
+  const companyRoot = resolveCompanyConfigRoot(homeDir);
+  if (!existsSync(companyRoot)) return base;
+
+  /** @param {string} fileName */
+  const readJson = (fileName) => {
+    try {
+      return JSON.parse(readFileSync(path.join(companyRoot, fileName), "utf8"));
+    } catch {
+      return null;
+    }
+  };
+
+  const skillIds = new Set();
+  /** @param {unknown} value */
+  const addSkillId = (value) => {
+    if (typeof value === "string") {
+      const id = value.trim();
+      // Skip filesystem noise from entries[] (dirs/files, not package ids)
+      if (!id || id === "installed" || id === "registry" || id === "enabled.json" || id.endsWith(".json")) {
+        return;
+      }
+      skillIds.add(id);
+      return;
+    }
+    if (value && typeof value === "object") {
+      const pkg = /** @type {{ packageId?: unknown, id?: unknown, name?: unknown }} */ (value);
+      for (const key of ["packageId", "id", "name"]) {
+        if (typeof pkg[key] === "string" && pkg[key].trim()) {
+          addSkillId(pkg[key]);
+          return;
+        }
+      }
+    }
+  };
+
+  const skillsSection = readJson("skills.json");
+  if (skillsSection && typeof skillsSection === "object") {
+    const installed = /** @type {unknown} */ (skillsSection.installed);
+    if (Array.isArray(installed)) {
+      for (const id of installed) addSkillId(id);
+    }
+    const enabled = /** @type {unknown} */ (skillsSection.enabled);
+    // shapes: { enabled: string[] | object[] } OR string[]
+    if (Array.isArray(enabled)) {
+      for (const id of enabled) addSkillId(id);
+    } else if (enabled && typeof enabled === "object") {
+      const list = /** @type {{ enabled?: unknown }} */ (enabled).enabled;
+      if (Array.isArray(list)) {
+        for (const id of list) addSkillId(id);
+      }
+    }
+  }
+  // Also read skills/enabled.json written by pull
+  try {
+    const enabledPath = path.join(companyRoot, "skills", "enabled.json");
+    if (existsSync(enabledPath)) {
+      const body = JSON.parse(readFileSync(enabledPath, "utf8"));
+      const list = body?.enabled;
+      if (Array.isArray(list)) {
+        for (const id of list) addSkillId(id);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  // Disk packages under skills/installed (package dirs only)
+  try {
+    const installedDir = path.join(companyRoot, "skills", "installed");
+    if (existsSync(installedDir)) {
+      for (const name of readdirSync(installedDir)) {
+        if (!name.startsWith(".") && !name.endsWith(".json")) skillIds.add(name);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  base.skills = [...skillIds].sort().map((id) => ({
+    id,
+    name: id,
+    source: "company",
+    kind: "skill",
+  }));
+
+  const expertsSection = readJson("experts.json");
+  const expertIds = new Set();
+  if (expertsSection && typeof expertsSection === "object") {
+    for (const key of ["installed", "mine"]) {
+      const list = /** @type {unknown} */ (expertsSection[key]);
+      if (Array.isArray(list)) {
+        for (const id of list) {
+          if (typeof id === "string" && id.trim()) expertIds.add(id.trim());
+        }
+      }
+    }
+  }
+  try {
+    const installedDir = path.join(companyRoot, "experts", "installed");
+    if (existsSync(installedDir)) {
+      for (const name of readdirSync(installedDir)) {
+        if (!name.startsWith(".")) expertIds.add(name);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  base.experts = [...expertIds].sort().map((id) => ({
+    id,
+    name: id,
+    source: "company",
+    kind: "expert",
+  }));
+
+  return base;
+}
+
+/**
  * @param {unknown} raw
  * @returns {CompanySettings}
  */

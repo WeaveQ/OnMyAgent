@@ -12,7 +12,10 @@ import {
   resolveWorkMemoryAwarenessMainDir,
 } from "../ensure-work-memory-awareness.mjs";
 import {
+  connectCompany,
   disconnectCompany,
+  listCompanyCatalog,
+  pullAndWriteCompanyConfig,
   readCompanySettings,
   writeCompanySettings,
 } from "../company-client.mjs";
@@ -80,6 +83,9 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "companySettingsRead",
   "companySettingsWrite",
   "companySettingsDisconnect",
+  "companyConnect",
+  "companySyncConfig",
+  "companyCatalog",
 ]);
 
 /**
@@ -651,9 +657,49 @@ export function createSystemDomainHandlers({
   companySettingsDisconnect: async () => {
     const homeDir =
       typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return disconnectCompany(homeDir, {
-      fetch: async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    return disconnectCompany(homeDir);
+  },
+
+  /**
+   * Full connect: health + email OTP + pull OrgConfig mirror + session.
+   * args[0] = { companyBaseUrl, email, code }
+   */
+  companyConnect: async (event, args) => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const input = args[0] && typeof args[0] === "object" ? args[0] : {};
+    return connectCompany(homeDir, {
+      companyBaseUrl: String(input.companyBaseUrl ?? ""),
+      email: String(input.email ?? ""),
+      code: String(input.code ?? ""),
     });
+  },
+
+  /** Re-pull OrgConfig when already logged in. */
+  companySyncConfig: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const settings = readCompanySettings(homeDir);
+    if (!settings.companyBaseUrl || !settings.memberToken) {
+      throw new Error("not connected to company");
+    }
+    const pulled = await pullAndWriteCompanyConfig(
+      homeDir,
+      settings.companyBaseUrl,
+      settings.memberToken,
+    );
+    const next = writeCompanySettings(homeDir, {
+      lastSyncedVersion: pulled.version,
+      lastSyncedAt: new Date().toISOString(),
+    });
+    return { settings: next, pulled };
+  },
+
+  /** Catalog for 公司 tabs (skills + experts from mirror). */
+  companyCatalog: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return listCompanyCatalog(homeDir);
   },
 
   };
