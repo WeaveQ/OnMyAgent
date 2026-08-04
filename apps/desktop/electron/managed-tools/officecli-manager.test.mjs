@@ -28,6 +28,26 @@ function bytesResponse(value) {
   return new Response(value, { status: 200 });
 }
 
+function streamingBytesResponse(value) {
+  const chunks = [value.subarray(0, 3), value.subarray(3)];
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(chunk);
+        controller.close();
+      },
+    }),
+    {
+      status: 200,
+      headers: { "content-length": String(value.byteLength) },
+    },
+  );
+}
+
+function stallingResponse() {
+  return new Response(new ReadableStream({ start() {} }), { status: 200 });
+}
+
 function release(version, binary, skill) {
   return {
     schemaVersion: 1,
@@ -169,6 +189,138 @@ test("publishes the refreshed status after a background update check", async () 
     assert.equal(status.state, "not_installed");
     assert.equal(statuses.length, 1);
     assert.equal(statuses[0].latestVersion, "1.0.102");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("retries a transient manifest fetch before reporting an error", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-retry-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    let rootAttempts = 0;
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      networkRetryCount: 2,
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.endsWith("/releases/1.0.102/manifest.json")) {
+          return jsonResponse(releaseManifest);
+        }
+        if (url.endsWith("/manifest.json")) {
+          rootAttempts += 1;
+          if (rootAttempts < 3) throw new Error("temporary network failure");
+          return jsonResponse(pointer("1.0.102", releaseManifest));
+        }
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "darwin",
+      arch: "arm64",
+    });
+
+    const status = await manager.checkForUpdates(true);
+
+    assert.equal(status.errorCode, undefined);
+    assert.equal(status.latestVersion, "1.0.102");
+    assert.equal(rootAttempts, 3);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("returns a typed timeout when the manifest request never completes", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-timeout-"));
+  try {
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      networkTimeoutMs: 10,
+      networkRetryCount: 0,
+      fetchImpl: async (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener("abort", () => {
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          });
+        }),
+      platform: "darwin",
+      arch: "arm64",
+    });
+
+    const status = await manager.checkForUpdates(true);
+
+    assert.equal(status.state, "error");
+    assert.equal(status.errorCode, "network_timeout");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("times out when a response stream stalls after its headers arrive", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-stream-timeout-"));
+  try {
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      networkTimeoutMs: 10,
+      networkRetryCount: 0,
+      fetchImpl: async () => stallingResponse(),
+      platform: "darwin",
+      arch: "arm64",
+    });
+
+    const status = await manager.checkForUpdates(true);
+
+    assert.equal(status.state, "error");
+    assert.equal(status.errorCode, "network_timeout");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("streams binary downloads and reports received bytes", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-stream-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    const progress = [];
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.endsWith("/releases/1.0.102/manifest.json")) {
+          return jsonResponse(releaseManifest);
+        }
+        if (url.endsWith("/manifest.json")) {
+          return jsonResponse(pointer("1.0.102", releaseManifest));
+        }
+        if (url.endsWith("/officecli-1.0.102")) return streamingBytesResponse(binary);
+        if (url.endsWith("/SKILL.md")) return bytesResponse(skill);
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      onProgress: (event) => progress.push(event),
+    });
+
+    await manager.installLatest();
+
+    assert.equal(
+      progress.some(
+        (event) =>
+          event.phase === "downloading_binary" &&
+          event.receivedBytes === binary.byteLength &&
+          event.totalBytes === binary.byteLength,
+      ),
+      true,
+    );
   } finally {
     await rm(home, { recursive: true, force: true });
   }
