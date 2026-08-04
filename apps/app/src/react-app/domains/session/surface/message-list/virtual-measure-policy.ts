@@ -99,8 +99,9 @@ export function shouldAttachVirtualMeasure(input: {
 export function shouldBatchRemeasureOnStreamEnd(input: {
   wasStreaming: boolean;
   isStreaming: boolean;
+  hasDetachedTail: boolean;
 }): boolean {
-  return input.wasStreaming && !input.isStreaming;
+  return input.wasStreaming && !input.isStreaming && !input.hasDetachedTail;
 }
 
 /**

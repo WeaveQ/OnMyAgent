@@ -736,14 +736,16 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     isStreaming: props.isStreaming,
     scrollBlocksMeasure,
   });
-  // Detached live tail is measured via ResizeObserver; virtual rows only
-  // measure the active turn while streaming (none when tail is detached).
+  // Detached live tail is measured via ResizeObserver. While it streams,
+  // visible historical rows can still correct stale virtual estimates.
   const activeTurnVirtualIndex = resolveActiveTurnVirtualIndex({
     detachedTail: Boolean(detachedTailRenderItem),
     virtualItemCount: virtualRenderItems.length,
   });
 
-  // Batch remeasure once when a stream ends so historical sizes catch up.
+  // A detached live tail leaves the virtual history measured and stable, so
+  // avoid clearing its cache when the stream ends. Non-detached transcripts
+  // retain the one-shot catch-up behavior.
   const wasStreamingRef = useRef(props.isStreaming);
   useEffect(() => {
     const wasStreaming = wasStreamingRef.current;
@@ -753,12 +755,13 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
       !shouldBatchRemeasureOnStreamEnd({
         wasStreaming,
         isStreaming: props.isStreaming,
+        hasDetachedTail: Boolean(detachedTailRenderItem),
       })
     ) {
       return;
     }
     virtualizer.measure();
-  }, [props.isStreaming, shouldVirtualize, virtualizer]);
+  }, [detachedTailRenderItem, props.isStreaming, shouldVirtualize, virtualizer]);
 
   // Keep-alive hide/show: scroll parent was display:none — remeasure when visible.
   const surfaceVisible = props.surfaceVisible !== false;
@@ -1022,7 +1025,8 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
                     <div
                       key={virtualRow.key}
                       data-index={virtualRow.index}
-                      // Streaming: only active turn. Idle: all (unless scroll-blocked).
+                      // Streaming: active turn, or visible history when the live
+                      // turn is detached. Idle: all unless scroll-blocked.
                       ref={
                         allowVirtualMeasure && rowMeasure.shouldMeasure
                           ? virtualizer.measureElement
