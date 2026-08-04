@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 /**
- * M5ui — Connect company (OnMyCompany) settings panel.
- * Durable store: Electron IPC → company-client company-settings.json.
- * Non-desktop fallback: localStorage (dev/browser only).
+ * Connect company (OnMyCompany) settings panel.
+ * All company HTTP goes through Electron IPC (main process).
+ * Renderer must not fetch OMC directly — Vite origin → :3100 hits CORS → "Failed to fetch".
  */
 import { useCallback, useEffect, useState } from "react";
 import { Building2, LogIn, LogOut, RefreshCw } from "lucide-react";
@@ -48,6 +48,12 @@ function writeLocalFallback(next: CompanySettings): CompanySettings {
   return next;
 }
 
+function formatError(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message.trim()) return err.message;
+  if (typeof err === "string" && err.trim()) return err;
+  return fallback;
+}
+
 async function readDurableSettings(): Promise<CompanySettings> {
   if (isDesktopRuntime()) {
     try {
@@ -64,7 +70,6 @@ async function writeDurableSettings(patch: CompanySettings): Promise<CompanySett
   if (isDesktopRuntime()) {
     try {
       const result = (await desktopBridge.companySettingsWrite(patch)) as CompanySettings;
-      // Mirror to localStorage for same-session UI consistency
       writeLocalFallback(result);
       return result;
     } catch {
@@ -80,12 +85,14 @@ async function disconnectDurable(): Promise<CompanySettings> {
       const result = (await desktopBridge.companySettingsDisconnect()) as CompanySettings;
       writeLocalFallback(result);
       return result;
-    } catch {
+    } catch (err) {
+      // Local clear even if IPC fails so UI is not stuck "connected"
       const current = readLocalFallback();
-      return writeLocalFallback({
+      const cleared = writeLocalFallback({
         companyBaseUrl: current.companyBaseUrl,
         activeProfile: "local",
       });
+      throw err instanceof Error ? err : new Error("disconnect failed");
     }
   }
   const current = readLocalFallback();
@@ -95,9 +102,9 @@ async function disconnectDurable(): Promise<CompanySettings> {
   });
 }
 
-export function CompanySettingsView(_props: CompanyViewProps) {
+export function CompanySettingsView(props: CompanyViewProps) {
+  const hostBusy = props.busy === true;
   const [settings, setSettings] = useState<CompanySettings>({});
-  // Default matches common local OMC; override via health probe / saved settings.
   const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:3100");
   const [email, setEmail] = useState("admin@company.internal");
   const [code, setCode] = useState("000000");
@@ -105,8 +112,9 @@ export function CompanySettingsView(_props: CompanyViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<string | null>(null);
-  const [usage, setUsage] = useState<string | null>(null);
   const [storeMode, setStoreMode] = useState<"desktop" | "local">("local");
+
+  const busy = loading || hostBusy;
 
   useEffect(() => {
     void (async () => {
@@ -120,22 +128,56 @@ export function CompanySettingsView(_props: CompanyViewProps) {
 
   const refreshHealth = useCallback(async () => {
     const root = normalizeBaseUrl(baseUrl);
-    if (!root) return;
+    if (!root) {
+      setError("请先填写 Company Base URL");
+      return;
+    }
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${root}/api/company/health`);
-      if (!res.ok) throw new Error(`health ${res.status}`);
-      const body = (await res.json()) as { orgId?: string; version?: string };
-      setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
-      setError(null);
+      if (isDesktopRuntime()) {
+        const body = (await desktopBridge.companyHealth(root)) as {
+          orgId?: string;
+          version?: string;
+          ok?: boolean;
+        };
+        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+      } else {
+        // Browser-only fallback (may fail CORS against local OMC)
+        const res = await fetch(`${root}/api/company/health`);
+        if (!res.ok) throw new Error(`health ${res.status}`);
+        const body = (await res.json()) as { orgId?: string; version?: string };
+        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+      }
+      setStatus(null);
     } catch (err) {
       setHealth(null);
-      setError(err instanceof Error ? err.message : "Health check failed");
+      setError(formatError(err, "探活失败"));
+    } finally {
+      setLoading(false);
     }
   }, [baseUrl]);
 
+  // One-shot health after durable settings load (not on every keystroke).
   useEffect(() => {
-    void refreshHealth();
-  }, [refreshHealth]);
+    if (!settings.companyBaseUrl && !baseUrl.trim()) return;
+    void (async () => {
+      const root = normalizeBaseUrl(settings.companyBaseUrl || baseUrl);
+      if (!root || !isDesktopRuntime()) return;
+      try {
+        const body = (await desktopBridge.companyHealth(root)) as {
+          orgId?: string;
+          version?: string;
+        };
+        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+        setError(null);
+      } catch (err) {
+        setHealth(null);
+        setError(formatError(err, "探活失败"));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when session/settings first applied
+  }, [settings.companyBaseUrl, settings.memberToken]);
 
   async function connect(): Promise<void> {
     setLoading(true);
@@ -143,74 +185,48 @@ export function CompanySettingsView(_props: CompanyViewProps) {
     setStatus(null);
     try {
       const root = normalizeBaseUrl(baseUrl);
-      // Persist BaseUrl first so disconnect keeps it.
+      if (!root) throw new Error("Company Base URL required");
       await writeDurableSettings({ companyBaseUrl: root });
 
-      if (isDesktopRuntime()) {
-        const result = (await desktopBridge.companyConnect({
-          companyBaseUrl: root,
-          email,
-          code,
-        })) as {
-          settings?: CompanySettings;
-          pulled?: { version?: string };
-        };
-        const next = result.settings ?? (await readDurableSettings());
-        setSettings(next);
-        setStatus(
-          `已连接 · ${next.email || email} · 配置 ${result.pulled?.version || next.lastSyncedVersion || ""} · 技能/专家见「公司」栏目`,
-        );
-      } else {
-        // Browser fallback: login only (no disk mirror).
-        await fetch(`${root}/api/company/auth/email/start`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-        const verify = await fetch(`${root}/api/company/auth/email/verify`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email, code }),
-        });
-        if (!verify.ok) throw new Error(`login ${verify.status}: ${await verify.text()}`);
-        const body = (await verify.json()) as {
-          token: string;
-          member?: { id?: string; email?: string };
-        };
-        const next = await writeDurableSettings({
-          companyBaseUrl: root,
-          memberToken: body.token,
-          memberId: body.member?.id,
-          email: body.member?.email || email,
-          activeProfile: "company",
-          lastSyncedAt: new Date().toISOString(),
-        });
-        setSettings(next);
-        setStatus(`已连接 · ${next.email || email}（浏览器无磁盘镜像）`);
+      if (!isDesktopRuntime()) {
+        throw new Error("请在桌面端连接公司（浏览器无法安全拉取配置）");
       }
+
+      const result = (await desktopBridge.companyConnect({
+        companyBaseUrl: root,
+        email,
+        code,
+      })) as {
+        settings?: CompanySettings;
+        pulled?: { version?: string };
+      };
+      const next = result.settings ?? (await readDurableSettings());
+      setSettings(next);
+      setStatus(
+        `已连接 · ${next.email || email} · 配置 ${result.pulled?.version || next.lastSyncedVersion || ""} · 技能见「公司」栏目`,
+      );
+      // Refresh health after connect
       try {
-        const token = (await readDurableSettings()).memberToken;
-        if (token) {
-          const usageRes = await fetch(`${root}/api/company/usage`, {
-            headers: { authorization: `Bearer ${token}` },
-          });
-          if (usageRes.ok) {
-            const u = (await usageRes.json()) as { totalRuns?: number; failedRuns?: number };
-            setUsage(`用量：${u.totalRuns ?? 0} 次运行 · ${u.failedRuns ?? 0} 失败`);
-          }
-        }
+        const body = (await desktopBridge.companyHealth(root)) as {
+          orgId?: string;
+          version?: string;
+        };
+        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
       } catch {
-        setUsage(null);
+        // non-fatal
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connect failed");
+      setError(formatError(err, "连接失败"));
     } finally {
       setLoading(false);
     }
   }
 
   async function syncConfig(): Promise<void> {
-    if (!isDesktopRuntime()) return;
+    if (!isDesktopRuntime()) {
+      setError("同步配置仅桌面端可用");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -219,9 +235,11 @@ export function CompanySettingsView(_props: CompanyViewProps) {
         pulled?: { version?: string };
       };
       if (result.settings) setSettings(result.settings);
-      setStatus(`已同步配置 · ${result.pulled?.version || result.settings?.lastSyncedVersion || ""}`);
+      setStatus(
+        `已同步配置 · ${result.pulled?.version || result.settings?.lastSyncedVersion || ""}`,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
+      setError(formatError(err, "同步失败"));
     } finally {
       setLoading(false);
     }
@@ -231,21 +249,19 @@ export function CompanySettingsView(_props: CompanyViewProps) {
     setLoading(true);
     setError(null);
     try {
-      const root = normalizeBaseUrl(settings.companyBaseUrl || baseUrl);
-      if (root && settings.memberToken) {
-        await fetch(`${root}/api/company/auth/logout`, {
-          method: "POST",
-          headers: { authorization: `Bearer ${settings.memberToken}` },
-        }).catch(() => undefined);
-      }
-      // Ensure BaseUrl is persisted before disconnect clears session
+      // Persist BaseUrl before session clear
       await writeDurableSettings({
         companyBaseUrl: normalizeBaseUrl(baseUrl) || settings.companyBaseUrl,
       });
       const next = await disconnectDurable();
       setSettings(next);
-      setStatus("已断开，回到 local（BaseUrl 保留）");
-      setUsage(null);
+      setStatus("已断开（BaseUrl 保留）");
+      setHealth(null);
+    } catch (err) {
+      // Still try to reflect local clear
+      const loaded = await readDurableSettings();
+      setSettings(loaded);
+      setError(formatError(err, "断开失败"));
     } finally {
       setLoading(false);
     }
@@ -275,7 +291,8 @@ export function CompanySettingsView(_props: CompanyViewProps) {
               id="company-base-url"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="http://127.0.0.1:3000"
+              placeholder="http://127.0.0.1:3100"
+              disabled={busy}
             />
           </div>
           <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-3">
@@ -285,7 +302,7 @@ export function CompanySettingsView(_props: CompanyViewProps) {
                 id="company-email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={connected}
+                disabled={connected || busy}
               />
             </div>
             <div className="grid gap-1.5">
@@ -294,47 +311,63 @@ export function CompanySettingsView(_props: CompanyViewProps) {
                 id="company-otp"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                disabled={connected}
+                disabled={connected || busy}
               />
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {!connected ? (
-              <Button size="sm" disabled={loading} onClick={() => void connect()}>
+              <Button size="sm" disabled={busy} onClick={() => void connect()}>
                 <LogIn size={14} />
-                登录并连接
+                {loading ? "连接中…" : "登录并连接"}
               </Button>
             ) : (
-              <Button size="sm" variant="outline" disabled={loading} onClick={() => void disconnect()}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void disconnect()}
+              >
                 <LogOut size={14} />
-                断开
+                {loading ? "处理中…" : "断开"}
               </Button>
             )}
             {connected && isDesktopRuntime() ? (
-              <Button size="sm" variant="outline" disabled={loading} onClick={() => void syncConfig()}>
-                <RefreshCw size={14} />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void syncConfig()}
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
                 同步配置
               </Button>
             ) : null}
-            <Button size="sm" variant="outline" disabled={loading} onClick={() => void refreshHealth()}>
-              <RefreshCw size={14} />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void refreshHealth()}
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
               探活
             </Button>
           </div>
 
           {health ? <p className="text-xs text-dls-secondary">Health: {health}</p> : null}
-          {status ? <p className="text-xs text-emerald-700 dark:text-emerald-400">{status}</p> : null}
-          {usage ? <p className="text-xs text-dls-secondary">{usage}</p> : null}
+          {status ? (
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">{status}</p>
+          ) : null}
           {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
           <div className="rounded-lg border border-dls-border bg-dls-surface-muted/40 px-3 py-2 text-xs text-dls-secondary">
             <div>状态：{connected ? "已连接 · 公司栏目可用" : "未连接 · 仅本机"}</div>
-            <div>store: {storeMode === "desktop" ? "company-settings.json" : "localStorage"}</div>
+            <div>store: {storeMode === "desktop" ? "company-settings.json (IPC)" : "localStorage"}</div>
             <div>memberId: {settings.memberId || "—"}</div>
             <div>config version: {settings.lastSyncedVersion || "—"}</div>
             <div className="mt-1">
-              本机技能/专家不变；公司下发写入 profiles/company/config，在列表「公司」Tab 展示。
+              请求经桌面主进程转发，避免渲染进程 CORS。本机技能不变；公司下发在列表「公司」Tab。
             </div>
           </div>
         </div>
