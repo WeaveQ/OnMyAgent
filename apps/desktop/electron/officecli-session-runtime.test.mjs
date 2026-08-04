@@ -10,6 +10,35 @@ import {
 } from "./config-profile-paths.mjs";
 import { createRuntimeManager } from "./runtime.mjs";
 
+test("reserves the OfficeCLI PATH before the plugin is installed", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-officecli-path-"));
+  const home = path.join(root, "home");
+  const userData = path.join(root, "user-data");
+  const toolsBinRoot = resolveLocalManagedToolsBinRoot(home);
+  const manager = createRuntimeManager({
+    app: {
+      getPath(name) {
+        if (name === "home") return home;
+        if (name === "userData") return userData;
+        if (name === "exe") return process.execPath;
+        return path.join(root, name);
+      },
+    },
+    desktopRoot: path.join(root, "desktop"),
+    listLocalWorkspacePaths: async () => [],
+    homeDir: home,
+  });
+
+  try {
+    const environment = await manager.resolveChildEnvironment();
+
+    assert.equal(environment.PATH?.split(path.delimiter)[0], toolsBinRoot);
+  } finally {
+    await manager.dispose();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("normal and expert child environments share the installed OfficeCLI runtime", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-officecli-runtime-"));
   const home = path.join(root, "home");
