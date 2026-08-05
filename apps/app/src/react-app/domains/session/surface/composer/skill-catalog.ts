@@ -68,18 +68,22 @@ export function buildOnmyagentInstalledNames(skills: SkillCard[]): Set<string> {
 }
 
 /**
- * Skills page model: market → installed (onmyagent), plus product builtin
- * (artifact plugins / preinstalled into the user root). Exclude project-local
- * and third-party legacy scopes from the session `+` / `/` skill menus.
+ * Composer shows all three product buckets:
+ * - onmyagent: profile 已安装 + 内置 (preinstall/market into user root)
+ * - builtin: artifact plugins
+ * - local: project / legacy / third-party discovered skills
  */
 export function isComposerManagedSkill(skill: SkillCard): boolean {
-  return skill.scope === "onmyagent" || skill.scope === "builtin";
+  return (
+    skill.scope === "onmyagent" ||
+    skill.scope === "builtin" ||
+    skill.scope === "local"
+  );
 }
 
 /**
  * Shared skill catalog for `+` skills flyout and `/` slash menu so count + order match.
- * Only managed skills (installed + builtin). Prefer OpenCode command.list metadata when
- * the same name is already managed, but never re-introduce unbundled package skills.
+ * Includes installed, builtin, and local discovered skills.
  */
 export function buildCombinedSkillItems(
   skills: SkillCard[],

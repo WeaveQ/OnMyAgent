@@ -9,6 +9,11 @@ import { ApiError } from "../core/errors.js";
 import {
   globalSkillsDir,
   globalSkillsDirs,
+  legacyAgentSkillsDir,
+  legacyAgentsSkillsDir,
+  legacyClaudeSkillsDir,
+  legacyOnmyagentSkillsDir,
+  legacyOpencodeSkillsDir,
 } from "../workspace/workspace-files.js";
 
 type SkillScope = SkillItem["scope"];
@@ -135,13 +140,11 @@ export async function listSkills(
 ): Promise<SkillItem[]> {
   const items: SkillItem[] = [];
 
-  // Product model (skills page + composer):
-  // - Market install / core preinstall / imports → user skills root (onmyagent)
-  // - Enabled artifact plugins → built-in
-  // - Optional project skills → workspace `.opencode/skills` (local)
-  // Do NOT scan packaged `bundled-skills` or third-party home roots
-  // (`~/.config/opencode/skills`, `~/.claude/skills`, …); those leaked into the
-  // session `+` menu as a fourth unnamed source.
+  // Product model — three UI buckets (composer shows all):
+  // - 已安装 / 内置: profiles/local/config/skills (scope onmyagent; UI splits by package)
+  // - 本地: project + legacy home skill roots (scope local)
+  // - artifact plugins: built-in
+  // Packaged bundled-skills / marketplace catalog are install sources only.
   if (options?.artifactSkills) {
     for (const skill of options.artifactSkills) {
       const item = await parseSkillEntry(skill.path, skill.name, "built-in");
@@ -149,12 +152,24 @@ export async function listSkills(
     }
   }
 
+  for (const dir of globalSkillsDirs()) {
+    items.push(...(await listSkillsInDir(dir, "onmyagent")));
+  }
+
   const projectDir = join(workspaceRoot, ".opencode", "skills");
   items.push(...(await listSkillsInDir(projectDir, "local")));
 
-  // Profile + legacy dual-read (same roots as desktop listLocalSkills).
-  for (const dir of globalSkillsDirs()) {
-    items.push(...(await listSkillsInDir(dir, "onmyagent")));
+  const localDirs = [
+    legacyOnmyagentSkillsDir(),
+    legacyOpencodeSkillsDir(),
+    legacyClaudeSkillsDir(),
+    legacyAgentsSkillsDir(),
+    legacyAgentSkillsDir(),
+  ];
+  const profileRoots = new Set(globalSkillsDirs().map((dir) => dir.replace(/[/\\]+$/, "")));
+  for (const dir of localDirs) {
+    if (profileRoots.has(dir.replace(/[/\\]+$/, ""))) continue;
+    items.push(...(await listSkillsInDir(dir, "local")));
   }
 
   const seen = new Set<string>();
