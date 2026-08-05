@@ -1,0 +1,13 @@
+{
+  "slug": "unclecheng-reduce-ai-perception-v2",
+  "name": "文章去AI味工具",
+  "version": "1.0.4",
+  "installedAt": 1785921678971,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/81015f94-5620-494e-bbd6-ac3268e7ccd3.png",
+  "labels": {
+    "requires_api_key": "false"
+  },
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/unclecheng-reduce-ai-perception-v2__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/81015f94-5620-494e-bbd6-ac3268e7ccd3.png"
+}
