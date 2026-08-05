@@ -462,8 +462,8 @@ function BasicInfoPanel(props: {
               aria-label={t("agents.expert_creation_avatar")}
             >
               <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20 text-xl" />
-              <span className="absolute -bottom-1 -right-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
-                <Plus className="size-4" aria-hidden />
+              <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-5 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
+                <Plus className="size-3" aria-hidden />
               </span>
             </button>
             <input
