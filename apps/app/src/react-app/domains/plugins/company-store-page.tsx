@@ -1,13 +1,13 @@
 /** @jsxImportSource react */
 /**
  * Store primary tab: Company (OnMyCompany).
+ * Visual chrome aligned with Market (shell header, SkillMarketplaceCard grid).
  * Sub-sections: overview / skills / experts / connectors — org-mirrored only.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Building2,
   ExternalLink,
-  MessageCircle,
   Network,
   Puzzle,
   RefreshCw,
@@ -17,9 +17,11 @@ import {
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
+import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
 import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
+import { shellChrome } from "@/react-app/design-system/type-scale";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
@@ -44,8 +46,82 @@ type CompanyCatalog = {
   } | null;
 };
 
-const GRID =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+/** Same density as skills marketplace grid. */
+const MARKET_CARD_GRID =
+  "grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+
+function OrgBadge() {
+  return (
+    <StatusBadge tone="neutral" size="sm" className="shrink-0">
+      {t("store.company_org_badge")}
+    </StatusBadge>
+  );
+}
+
+function EmptyState(props: { title: string; desc: string }) {
+  return (
+    <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+      <p className="text-base font-medium text-dls-text">{props.title}</p>
+      <p className="max-w-sm text-xs leading-5">{props.desc}</p>
+    </div>
+  );
+}
+
+function CompanyExpertCard(props: { expert: { id: string; name: string } }) {
+  return (
+    <SkillMarketplaceCard
+      skill={{
+        id: props.expert.id,
+        displayName: props.expert.name,
+        packageName: props.expert.id !== props.expert.name ? props.expert.id : undefined,
+        description: t("store.company_org_readonly"),
+        chips: [t("store.company_org_badge")],
+      }}
+      ariaLabel={props.expert.name}
+      action={<OrgBadge />}
+    />
+  );
+}
+
+function CompanyGatewayCard(props: { id: string; name: string }) {
+  return (
+    <SkillMarketplaceCard
+      skill={{
+        id: props.id,
+        displayName: props.name,
+        packageName: props.id !== props.name ? props.id : undefined,
+        description: t("store.company_gateway_card_desc"),
+        chips: [t("store.company_badge_gateway")],
+      }}
+      ariaLabel={props.name}
+      action={
+        <StatusBadge tone="surface" size="sm" className="shrink-0">
+          {t("store.company_badge_gateway")}
+        </StatusBadge>
+      }
+    />
+  );
+}
+
+function CompanyModelCard(props: { id: string; name: string }) {
+  return (
+    <SkillMarketplaceCard
+      skill={{
+        id: props.id,
+        displayName: props.name,
+        packageName: props.id !== props.name ? props.id : undefined,
+        description: t("store.company_model_desc"),
+        chips: [t("store.company_badge_model")],
+      }}
+      ariaLabel={props.name}
+      action={
+        <StatusBadge tone="surface" size="sm" className="shrink-0">
+          {t("store.company_badge_model")}
+        </StatusBadge>
+      }
+    />
+  );
+}
 
 export function CompanyStorePage(props: {
   query?: string;
@@ -58,7 +134,8 @@ export function CompanyStorePage(props: {
     displayNameZh?: string;
   }) => void;
 }) {
-  const [subTab, setSubTab] = useState<CompanyStoreSubTab>("overview");
+  // Default skills (primary use), not overview — matches market-first usage.
+  const [subTab, setSubTab] = useState<CompanyStoreSubTab>("skills");
   const [catalog, setCatalog] = useState<CompanyCatalog | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +186,12 @@ export function CompanyStorePage(props: {
     return list.filter((c) => `${c.name} ${c.id}`.toLowerCase().includes(q));
   }, [catalog?.gatewayServices, q]);
 
+  const models = useMemo(() => {
+    const list = catalog?.models ?? [];
+    if (!q) return list;
+    return list.filter((m) => `${m.name} ${m.id}`.toLowerCase().includes(q));
+  }, [catalog?.models, q]);
+
   const openAdmin = () => {
     const url = catalog?.adminConsoleUrl;
     if (!url) return;
@@ -154,7 +237,7 @@ export function CompanyStorePage(props: {
         props.className,
       )}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 px-6 pb-1 pt-1">
+      <div className={cn(shellChrome.pageHeader, "border-b-0 mac:titlebar-drag")}>
         <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
           {subItems.map((item) => {
             const Icon = item.icon;
@@ -166,34 +249,35 @@ export function CompanyStorePage(props: {
                 active={active}
                 size="tab"
                 shape="tab"
+                className="mac:titlebar-no-drag"
                 aria-pressed={active}
+                aria-current={active ? "page" : undefined}
                 onClick={() => setSubTab(item.id)}
               >
-                <Icon className="size-3.5" aria-hidden />
+                <Icon aria-hidden />
                 <span>{item.label}</span>
-                {typeof item.count === "number" ? (
-                  <span
-                    className={cn(
-                      "text-xs font-medium tabular-nums",
-                      active ? "opacity-70" : "text-dls-secondary",
-                    )}
-                  >
+                {typeof item.count === "number" && item.id !== "overview" ? (
+                  <CountBadge size="dot" className="ml-1">
                     {item.count}
-                  </span>
+                  </CountBadge>
                 ) : null}
               </NavTabButton>
             );
           })}
         </SegmentedTabGroup>
-        <div className="flex items-center gap-2 mac:titlebar-no-drag">
+        <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
           <Button
             type="button"
             size="sm"
             variant="outline"
             disabled={loading}
             onClick={() => void load()}
+            className="mac:titlebar-no-drag"
           >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            <RefreshCw
+              data-icon="inline-start"
+              className={cn("size-3.5", loading && "animate-spin")}
+            />
             {t("store.company_refresh")}
           </Button>
           <Button
@@ -201,8 +285,9 @@ export function CompanyStorePage(props: {
             size="sm"
             variant="outline"
             onClick={() => props.onOpenCompanySettings?.()}
+            className="mac:titlebar-no-drag"
           >
-            <Settings2 className="size-3.5" />
+            <Settings2 data-icon="inline-start" className="size-3.5" />
             {t("store.company_connection_settings")}
           </Button>
         </div>
@@ -210,13 +295,15 @@ export function CompanyStorePage(props: {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
         {error ? (
-          <p className="mb-3 text-xs text-red-600">{error}</p>
+          <p className="mb-3 text-xs text-red-600 dark:text-red-400">{error}</p>
         ) : null}
 
         {!connected ? (
           <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-center">
             <Building2 className="size-10 text-dls-secondary/60" />
-            <p className="text-base font-medium text-dls-text">{t("store.company_not_connected_title")}</p>
+            <p className="text-base font-medium text-dls-text">
+              {t("store.company_not_connected_title")}
+            </p>
             <p className="max-w-sm text-sm text-dls-secondary">
               {t("store.company_not_connected_desc")}
             </p>
@@ -225,19 +312,21 @@ export function CompanyStorePage(props: {
               size="sm"
               onClick={() => props.onOpenCompanySettings?.()}
             >
-              <Settings2 className="size-3.5" />
+              <Settings2 data-icon="inline-start" className="size-3.5" />
               {t("store.company_go_connect")}
             </Button>
           </div>
         ) : subTab === "overview" ? (
           <div className="mx-auto grid max-w-3xl gap-4">
-            <div className="rounded-xl border border-dls-border bg-dls-surface p-4">
+            <div className="rounded-2xl border border-dls-border bg-dls-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-medium text-dls-text">
-                    {t("store.company_connected_member", { email: catalog?.email || t("store.company_member_fallback") })}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-dls-text">
+                    {t("store.company_connected_member", {
+                      email: catalog?.email || t("store.company_member_fallback"),
+                    })}
                   </div>
-                  <p className="mt-1 text-xs text-dls-secondary">
+                  <p className="mt-1 truncate text-xs text-dls-secondary">
                     {catalog?.companyBaseUrl || "—"}
                     {catalog?.lastSyncedVersion
                       ? ` · config ${catalog.lastSyncedVersion}`
@@ -247,7 +336,7 @@ export function CompanyStorePage(props: {
                 <div className="flex flex-wrap gap-2">
                   {catalog?.adminConsoleUrl ? (
                     <Button type="button" size="sm" variant="outline" onClick={openAdmin}>
-                      <ExternalLink className="size-3.5" />
+                      <ExternalLink data-icon="inline-start" className="size-3.5" />
                       {t("store.company_admin_console")}
                     </Button>
                   ) : null}
@@ -261,10 +350,18 @@ export function CompanyStorePage(props: {
                   </Button>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {[
-                  { label: t("store.company_subtab_skills"), value: catalog?.skills?.length ?? 0, tab: "skills" as const },
-                  { label: t("store.company_subtab_experts"), value: catalog?.experts?.length ?? 0, tab: "experts" as const },
+                  {
+                    label: t("store.company_subtab_skills"),
+                    value: catalog?.skills?.length ?? 0,
+                    tab: "skills" as const,
+                  },
+                  {
+                    label: t("store.company_subtab_experts"),
+                    value: catalog?.experts?.length ?? 0,
+                    tab: "experts" as const,
+                  },
                   {
                     label: t("store.company_subtab_connectors"),
                     value: catalog?.gatewayServices?.length ?? 0,
@@ -279,7 +376,7 @@ export function CompanyStorePage(props: {
                   <button
                     key={card.label}
                     type="button"
-                    className="rounded-lg border border-dls-border bg-dls-surface-muted/30 px-3 py-3 text-left hover:bg-dls-list-hover"
+                    className="rounded-2xl border border-transparent bg-dls-surface-muted/40 px-3 py-3 text-left transition-colors hover:border-dls-border hover:bg-dls-list-selected"
                     onClick={() => setSubTab(card.tab)}
                   >
                     <div className="text-lg font-semibold tabular-nums text-dls-text">
@@ -290,8 +387,10 @@ export function CompanyStorePage(props: {
                 ))}
               </div>
             </div>
-            <div className="rounded-xl border border-dls-border bg-dls-surface p-4 text-xs text-dls-secondary">
-              <div className="mb-2 text-sm font-medium text-dls-text">{t("store.company_policy_title")}</div>
+            <div className="rounded-2xl border border-dls-border bg-dls-surface p-4 text-xs text-dls-secondary">
+              <div className="mb-2 text-sm font-semibold text-dls-text">
+                {t("store.company_policy_title")}
+              </div>
               {catalog?.policy ? (
                 <div className="space-y-1">
                   <div>
@@ -317,48 +416,32 @@ export function CompanyStorePage(props: {
           </div>
         ) : subTab === "skills" ? (
           skills.length > 0 ? (
-            <div className={GRID}>
+            <div className={MARKET_CARD_GRID}>
               {skills.map((skill) => (
-                <div
+                <SkillMarketplaceCard
                   key={skill.id}
-                  className="rounded-xl border border-dls-border bg-dls-surface p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-dls-text">
-                        {skill.name}
-                      </div>
-                      <p className="mt-1 text-xs text-dls-secondary">
-                        {skill.description || t("store.company_org_readonly")}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[10px] text-dls-secondary/80">
-                        {skill.id}
-                      </p>
-                    </div>
-                    <StatusBadge tone="neutral" className="shrink-0">
-                      {t("store.company_org_badge")}
-                    </StatusBadge>
-                  </div>
-                  {props.onChatWithSkill ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="mt-3"
-                      onClick={() =>
-                        props.onChatWithSkill?.({
-                          name: skill.id,
-                          path: skill.id,
-                          description: skill.description || skill.name,
-                          displayNameZh: skill.name,
-                        })
-                      }
-                    >
-                      <MessageCircle className="size-3.5" />
-                      {t("store.company_use_in_chat")}
-                    </Button>
-                  ) : null}
-                </div>
+                  skill={{
+                    id: skill.id,
+                    displayName: skill.name,
+                    packageName: skill.id !== skill.name ? skill.id : undefined,
+                    description:
+                      skill.description?.trim() || t("store.company_org_readonly"),
+                    chips: [t("store.company_org_badge")],
+                  }}
+                  ariaLabel={skill.name}
+                  action={<OrgBadge />}
+                  onClick={
+                    props.onChatWithSkill
+                      ? () =>
+                          props.onChatWithSkill?.({
+                            name: skill.id,
+                            path: skill.id,
+                            description: skill.description || skill.name,
+                            displayNameZh: skill.name,
+                          })
+                      : undefined
+                  }
+                />
               ))}
             </div>
           ) : (
@@ -369,24 +452,9 @@ export function CompanyStorePage(props: {
           )
         ) : subTab === "experts" ? (
           experts.length > 0 ? (
-            <div className={GRID}>
+            <div className={MARKET_CARD_GRID}>
               {experts.map((expert) => (
-                <div
-                  key={expert.id}
-                  className="rounded-xl border border-dls-border bg-dls-surface p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-dls-text">
-                        {expert.name}
-                      </div>
-                      <p className="mt-1 text-xs text-dls-secondary">{t("store.company_org_readonly")}</p>
-                    </div>
-                    <StatusBadge tone="neutral" className="shrink-0">
-                      {t("store.company_org_badge")}
-                    </StatusBadge>
-                  </div>
-                </div>
+                <CompanyExpertCard key={expert.id} expert={expert} />
               ))}
             </div>
           ) : (
@@ -395,34 +463,16 @@ export function CompanyStorePage(props: {
               desc={t("store.company_no_experts_desc")}
             />
           )
-        ) : connectors.length > 0 || (catalog?.models?.length ?? 0) > 0 ? (
+        ) : connectors.length > 0 || models.length > 0 ? (
           <div className="space-y-6">
             <section>
-              <h3 className="mb-2 text-sm font-medium text-dls-text">{t("store.company_gateway_title")}</h3>
+              <h3 className="mb-2.5 text-sm font-semibold text-dls-text">
+                {t("store.company_gateway_title")}
+              </h3>
               {connectors.length > 0 ? (
-                <div className={GRID}>
+                <div className={MARKET_CARD_GRID}>
                   {connectors.map((c) => (
-                    <div
-                      key={c.id}
-                      className="rounded-xl border border-dls-border bg-dls-surface p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-dls-text">
-                            {c.name}
-                          </div>
-                          <p className="mt-1 text-xs text-dls-secondary">
-                            {t("store.company_gateway_card_desc")}
-                          </p>
-                          <p className="mt-0.5 font-mono text-[10px] text-dls-secondary/80">
-                            {c.id}
-                          </p>
-                        </div>
-                        <StatusBadge tone="neutral" className="shrink-0">
-                          Gateway
-                        </StatusBadge>
-                      </div>
-                    </div>
+                    <CompanyGatewayCard key={c.id} id={c.id} name={c.name} />
                   ))}
                 </div>
               ) : (
@@ -432,13 +482,13 @@ export function CompanyStorePage(props: {
               )}
             </section>
             <section>
-              <h3 className="mb-2 text-sm font-medium text-dls-text">{t("store.company_models_title")}</h3>
-              {(catalog?.models?.length ?? 0) > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {catalog!.models!.map((m) => (
-                    <StatusBadge key={m.id} tone="surface" shape="soft" size="tiny">
-                      {m.name || m.id}
-                    </StatusBadge>
+              <h3 className="mb-2.5 text-sm font-semibold text-dls-text">
+                {t("store.company_models_title")}
+              </h3>
+              {models.length > 0 ? (
+                <div className={MARKET_CARD_GRID}>
+                  {models.map((m) => (
+                    <CompanyModelCard key={m.id} id={m.id} name={m.name || m.id} />
                   ))}
                 </div>
               ) : (
@@ -455,15 +505,6 @@ export function CompanyStorePage(props: {
           />
         )}
       </div>
-    </div>
-  );
-}
-
-function EmptyState(props: { title: string; desc: string }) {
-  return (
-    <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
-      <p className="text-base font-medium text-dls-text">{props.title}</p>
-      <p className="max-w-sm text-xs leading-5">{props.desc}</p>
     </div>
   );
 }
