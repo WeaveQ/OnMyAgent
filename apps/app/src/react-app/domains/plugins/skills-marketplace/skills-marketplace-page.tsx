@@ -1304,46 +1304,34 @@ export function SkillsMarketplacePage(props: {
           {filteredCompanySkills.length > 0 ? (
             <div className={SKILL_INSTALLED_CARD_GRID}>
               {filteredCompanySkills.map((skill) => (
-                <div
+                <SkillMarketplaceCard
                   key={skill.id}
-                  className="rounded-xl border border-dls-border bg-dls-surface p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-dls-text">
-                        {skill.name}
-                      </div>
-                      <p className="mt-1 text-xs text-dls-secondary">
-                        {skill.description || t("store.company_org_readonly")}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[10px] text-dls-secondary/80">
-                        {skill.id}
-                      </p>
-                    </div>
-                    <StatusBadge tone="neutral" className="shrink-0">
+                  skill={{
+                    id: skill.id,
+                    displayName: skill.name,
+                    packageName: skill.id !== skill.name ? skill.id : undefined,
+                    description:
+                      skill.description?.trim() || t("store.company_org_readonly"),
+                    chips: [t("store.company_org_badge")],
+                  }}
+                  ariaLabel={skill.name}
+                  action={
+                    <StatusBadge tone="neutral" size="sm" className="shrink-0">
                       {t("store.company_org_badge")}
                     </StatusBadge>
-                  </div>
-                  {props.onChatWithSkill ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="mt-3"
-                      onClick={() =>
-                        props.onChatWithSkill?.({
-                          name: skill.id,
-                          path: skill.id,
-                          description: skill.description || skill.name,
-                          displayNameZh: skill.name,
-                        })
-                      }
-                    >
-                      <MessageCircle className="size-3.5" />
-                      {t("store.company_use_in_chat")}
-                    </Button>
-                  ) : null}
-                </div>
+                  }
+                  onClick={
+                    props.onChatWithSkill
+                      ? () =>
+                          props.onChatWithSkill?.({
+                            name: skill.id,
+                            path: skill.id,
+                            description: skill.description || skill.name,
+                            displayNameZh: skill.name,
+                          })
+                      : undefined
+                  }
+                />
               ))}
             </div>
           ) : (
@@ -1356,7 +1344,6 @@ export function SkillsMarketplacePage(props: {
               </p>
               <p className="max-w-sm text-xs leading-5">
                 {t("store.company_open_settings_hint")}
-                http://127.0.0.1:3100）并登录后，这里会显示组织技能。
               </p>
             </div>
           )}
@@ -1472,24 +1459,23 @@ export function SkillsMarketplacePage(props: {
                 ) : null}
                 <div className={SKILL_INSTALLED_CARD_GRID}>
                   {filteredCompanySkills.map((skill) => (
-                    <div
+                    <SkillMarketplaceCard
                       key={skill.id}
-                      className="rounded-xl border border-dls-border bg-dls-surface p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-dls-text">
-                            {skill.name}
-                          </div>
-                          <p className="mt-1 text-xs text-dls-secondary">
-                            {t("store.company_org_readonly_admin")}
-                          </p>
-                        </div>
-                        <StatusBadge tone="neutral" className="shrink-0">
+                      skill={{
+                        id: skill.id,
+                        displayName: skill.name,
+                        packageName:
+                          skill.id !== skill.name ? skill.id : undefined,
+                        description: t("store.company_org_readonly_admin"),
+                        chips: [t("store.company_org_badge")],
+                      }}
+                      ariaLabel={skill.name}
+                      action={
+                        <StatusBadge tone="neutral" size="sm" className="shrink-0">
                           {t("store.company_org_badge")}
                         </StatusBadge>
-                      </div>
-                    </div>
+                      }
+                    />
                   ))}
                 </div>
               </div>
