@@ -62,6 +62,27 @@ export function resolveLocalSkillsProfilePath(homeDir) {
 }
 
 /** @param {string | undefined} homeDir */
+export function resolveLocalManagedToolsRoot(homeDir) {
+  return path.join(
+    normalizeOnMyAgentHome(homeDir),
+    ".onmyagent",
+    "profiles",
+    "local",
+    "tools",
+  );
+}
+
+/** @param {string | undefined} homeDir */
+export function resolveLocalManagedToolsBinRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "bin");
+}
+
+/** @param {string | undefined} homeDir */
+export function resolveOfficeCliManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "officecli");
+}
+
+/** @param {string | undefined} homeDir */
 export function resolveLegacySkillsPath(homeDir) {
   return path.join(normalizeOnMyAgentHome(homeDir), ".onmyagent", "skills");
 }

@@ -171,6 +171,7 @@ export async function prepareOnMyAgentOpencodeConfigDir(configDir, deps) {
   await materializeLegacySkillLinks({
     skillDirs: legacySkillDirs,
     managedSkillsRoot: skillsDir,
+    legacySkillRoots: roots,
     reservedSkillIds: artifactSkillIds,
   });
   return configDir;

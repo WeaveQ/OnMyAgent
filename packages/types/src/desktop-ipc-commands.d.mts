@@ -252,9 +252,12 @@ export type DesktopCommandName =
   | "stageMyExpertKnowledge"
   | "readLocalSkill"
   | "writeLocalSkill"
-  | "uninstallSkill";
+  | "uninstallSkill"
+  | "officeCliGetStatus"
+  | "officeCliInstallLatest"
+  | "officeCliUninstall";
 
-export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills";
+export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
 
 export const desktopCommandGroups: Readonly<Record<DesktopCommandDomain, readonly DesktopCommandName[]>>;
 export const desktopCommandNames: readonly DesktopCommandName[];

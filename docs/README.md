@@ -9,6 +9,7 @@ docs/
   README.md                 ← this map
   Architecture.md           ← monorepo / runtime / commands / boundaries
   release.md                ← GitHub release / tags / signing
+  officecli-oss-release.md  ← OfficeCLI optional plugin OSS layout / validation
   loop/
     rules.md                ← non-trivial Loop / ledger / kill switch / graphify
     incidents.md            ← severe incident log only
@@ -41,6 +42,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | UI / tokens | [`../DESIGN.md`](../DESIGN.md) |
 | Local packaging | [`../BUILD.md`](../BUILD.md) |
 | Release / tags | [`release.md`](release.md) |
+| OfficeCLI OSS 发布 | [`officecli-oss-release.md`](officecli-oss-release.md) |
 | Heavy Loop work | [`loop/rules.md`](loop/rules.md) |
 | Windows support | [`windows-compat.md`](windows-compat.md) |
 
@@ -61,6 +63,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
 | Local packaging | `../BUILD.md` |
 | Release | `release.md` |
+| OfficeCLI OSS release contract | `officecli-oss-release.md` + `packages/types/src/officecli.ts` |
 | Security reporting | `../SECURITY.md` |
 | Handoff / run log / plans / feature drafts | **local** `.loop/` only (gitignored) |
 | Severe incidents | `loop/incidents.md` |
