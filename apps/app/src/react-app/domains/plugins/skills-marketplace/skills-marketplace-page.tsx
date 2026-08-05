@@ -54,6 +54,7 @@ import {
 import {
   SKILL_MARKETPLACE_CATEGORIES,
 } from "./categories";
+import { BUNDLED_SKILL_ICON_URLS } from "./bundled-skill-assets";
 import { BUILTIN_MARKETPLACE_SKILLS } from "./data";
 import type { SkillMarketplaceEntry } from "./types";
 
@@ -72,11 +73,14 @@ function skillFallbackInitial(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "S";
 }
 
-function SkillIcon(props: { skill: SkillMarketplaceEntry }) {
-  if (props.skill.iconUrl) {
+function SkillIcon(props: {
+  iconUrl?: string | null;
+  displayName: string;
+}) {
+  if (props.iconUrl) {
     return (
       <img
-        src={props.skill.iconUrl}
+        src={props.iconUrl}
         alt=""
         className="size-9 shrink-0 rounded-md object-cover"
       />
@@ -84,9 +88,17 @@ function SkillIcon(props: { skill: SkillMarketplaceEntry }) {
   }
   return (
     <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
-      {skillFallbackInitial(props.skill.displayName)}
+      {skillFallbackInitial(props.displayName)}
     </span>
   );
+}
+
+function resolveInstalledSkillIconUrl(
+  skill: LocalSkillCard,
+  marketplaceSkill: SkillMarketplaceEntry | null,
+): string | null {
+  if (marketplaceSkill?.iconUrl) return marketplaceSkill.iconUrl;
+  return BUNDLED_SKILL_ICON_URLS[skill.name] ?? null;
 }
 
 function skillMatchesCategory(skill: SkillMarketplaceEntry, categoryId: string): boolean {
@@ -585,13 +597,13 @@ function InstalledSkillCard(props: {
             !props.enabled && "opacity-45 grayscale-[0.35]",
           )}
         >
-          {props.marketplaceSkill ? (
-            <SkillIcon skill={props.marketplaceSkill} />
-          ) : (
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
-              {skillFallbackInitial(name)}
-            </span>
-          )}
+          <SkillIcon
+            iconUrl={resolveInstalledSkillIconUrl(
+              props.skill,
+              props.marketplaceSkill,
+            )}
+            displayName={name}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
@@ -791,7 +803,7 @@ function MarketplaceSkillDetailDialog(props: {
         {skill ? (
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5 pr-12">
             <header className="flex items-start gap-3">
-              <SkillIcon skill={skill} />
+              <SkillIcon iconUrl={skill.iconUrl} displayName={skill.displayName} />
               <div className="min-w-0 flex-1">
                 <h2 className="text-base font-medium leading-6 text-dls-text">
                   {skill.displayName}
