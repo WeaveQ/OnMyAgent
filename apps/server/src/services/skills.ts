@@ -6,7 +6,10 @@ import { parseFrontmatter, buildFrontmatter } from "../core/frontmatter.js";
 import { exists } from "../core/utils.js";
 import { validateDescription, validateSkillName } from "../core/validators.js";
 import { ApiError } from "../core/errors.js";
-import { globalSkillsDir } from "../workspace/workspace-files.js";
+import {
+  globalSkillsDir,
+  globalSkillsDirs,
+} from "../workspace/workspace-files.js";
 
 type SkillScope = SkillItem["scope"];
 
@@ -148,7 +151,10 @@ export async function listSkills(
   const projectDir = join(workspaceRoot, ".opencode", "skills");
   items.push(...(await listSkillsInDir(projectDir, "local")));
 
-  items.push(...(await listSkillsInDir(globalSkillsDir(), "onmyagent")));
+  // Profile + legacy dual-read (same roots as desktop listLocalSkills).
+  for (const dir of globalSkillsDirs()) {
+    items.push(...(await listSkillsInDir(dir, "onmyagent")));
+  }
 
   const seen = new Set<string>();
   const artifactPaths = new Set(options?.artifactSkills?.map((skill) => skill.path));
