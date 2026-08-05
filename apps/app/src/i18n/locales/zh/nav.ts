@@ -33,4 +33,6 @@ export default {
   "nav.scheduled_tasks": "定时任务",
   "nav.store": "市场",
   "nav.store_short": "市场",
+  "nav.company": "企业",
+  "nav.company_short": "企业",
 } as const;

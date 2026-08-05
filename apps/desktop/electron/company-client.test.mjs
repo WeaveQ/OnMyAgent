@@ -162,6 +162,9 @@ describe("company-client M5", () => {
       assert.equal(catalog.connected, true);
       assert.ok(catalog.skills.some((s) => s.id === "org-weekly-report"));
       assert.ok(catalog.experts.some((e) => e.id === "org-legal-expert"));
+      // Live connections enrich 连接器 list (gateway.services).
+      assert.ok(catalog.gatewayServices.some((s) => s.id === "hackernews"));
+      assert.ok(catalog.gatewayServices.some((s) => s.id === "arxiv"));
     } finally {
       await rm(home, { recursive: true, force: true });
     }
@@ -251,6 +254,22 @@ function createCompanyFetchMock() {
         meta: { packageId: id, name: id === "org-weekly-report" ? "Weekly Report" : id },
         skillMd: `# ${id}\n\nOrg skill body.\n`,
       });
+    }
+    if (u.endsWith("/api/connections")) {
+      return json([
+        {
+          id: "hackernews:default",
+          service: "hackernews",
+          connectionName: "default",
+          profile: { displayName: "Hacker News" },
+        },
+        {
+          id: "arxiv:default",
+          service: "arxiv",
+          connectionName: "default",
+          profile: { displayName: "arXiv Public" },
+        },
+      ]);
     }
     return new Response(`unexpected ${u} ${init.method || "GET"}`, { status: 404 });
   };
