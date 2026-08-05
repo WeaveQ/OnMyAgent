@@ -9,7 +9,6 @@ export const EXPERT_MARKETPLACE_CATEGORIES: ExpertMarketplaceCategory[] = [
   { id: "01-OPC", labelKey: "session.expert_marketplace_category_opc", searchLabel: "OPC-一人公司 opc" },
   { id: "product-development", labelKey: "session.expert_marketplace_category_product_development", searchLabel: "产品研发 product development engineering quality" },
   { id: "08-FinanceInvestment", labelKey: "session.expert_marketplace_category_finance_investment", searchLabel: "金融投资 finance investment" },
-  { id: "03-GameSpatial", labelKey: "session.expert_marketplace_category_game_spatial", searchLabel: "游戏空间 game spatial" },
   { id: "04-DataAI", labelKey: "session.expert_marketplace_category_data_ai", searchLabel: "数据智能 data ai" },
   { id: "product-operations", labelKey: "session.expert_marketplace_category_product_operations", searchLabel: "产品运营 content marketing growth operations" },
   { id: "07-SalesCommerce", labelKey: "session.expert_marketplace_category_sales_commerce", searchLabel: "销售商务 sales commerce" },
@@ -38,6 +37,8 @@ export function normalizeExpertMarketplaceCategoryId(
     return "hr-legal";
   }
   if (id === "13-TencentZone") return "all";
+  // Game / spatial tab retired; keep experts under "all" if still tagged.
+  if (id === "03-GameSpatial") return "all";
   return id;
 }
 
