@@ -255,7 +255,7 @@ const INITIAL_PREFS: LocalPreferences = {
   soundNotifyOnAgentReady: true,
   launchAtLogin: true,
   keepSystemAwake: false,
-  dockUnreadBadge: true,
+  dockUnreadBadge: false,
   menuBarStatusItem: true,
   conversationWidth: "fixed",
   keymapOverrides: {},
