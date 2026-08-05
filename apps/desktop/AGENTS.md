@@ -21,6 +21,7 @@ runtime smoke：`pnpm test:runtime`（按变更范围选用）。
 | [`../../docs/design/2026-08-02-phase-2-enterprise-prep.md`](../../docs/design/2026-08-02-phase-2-enterprise-prep.md) | 阶段二 + B 端管控准备 |
 | [`../../docs/design/2026-08-02-config-consistency.md`](../../docs/design/2026-08-02-config-consistency.md) | `profiles/local` 迁移与 dual-read |
 | [`../../BUILD.md`](../../BUILD.md) | 本地打包 |
+| [`../../docs/windows-compat.md`](../../docs/windows-compat.md) | Windows 预检、Cua Computer Use、Appshot、NSIS |
 
 ## 硬边界
 
@@ -29,3 +30,4 @@ runtime smoke：`pnpm test:runtime`（按变更范围选用）。
 - Personal Local Agent runtime 是辅轨 harness，禁止当成第二主引擎写主会话 archive。
 - **配置 / skills 根路径**：经 `config-profile-paths` resolve；OpenCode skill 物化在 `runtime.mjs` 也必须走 resolve（禁止写死 `~/.onmyagent/skills`）。
 - **未登录零企业流量**；迁移只复制不删 legacy skills/marketplaces；禁止擅自创建 `profiles/company`。
+- **Computer Use**：macOS → HandsFree（`packages/handsfree`）；Windows → bundled Cua（`prepare-cua-helper` / `computer-use-runtime-config`，MCP 默认关）。Appshot 全平台 Electron `desktopCapturer`，勿再引入 Rust/xcap helper。

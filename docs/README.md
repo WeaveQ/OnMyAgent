@@ -16,14 +16,12 @@ docs/
   design/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
-    files-module-product-spec.md  ← Files module product spec
+    files-module-product-spec.md  ← Files module product SoT（三来源 Tab）
     2026-08-02-phase-2-enterprise-prep.md  ← **Phase 2 roadmap + B-side (OnMyCompany) prep SoT**
-    2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）开发计划 SoT
+    2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）路径 SoT
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
-    2026-07-22-external-office-edit-refresh.md  ← feature design note (dated)
-    2026-07-30-settings-optimization-plan.md    ← settings batch shipped summary (historical)
     preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift
-  windows-compat.md         ← Windows preflight, NSIS, macOS-only gaps (Computer Use / Appshot)
+  windows-compat.md         ← Windows preflight, NSIS, CU (Cua) / Appshot, remaining gaps
   windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
   x-project-bp/             ← product/strategy notes (not engineering SoT)
 ```
@@ -57,9 +55,12 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
 | Visual tokens / components | `../DESIGN.md` |
 | Design philosophy only | `design/theme-system.md` |
+| UI primitive refactor habits | `design/ui-primitive-refactor-best-practices.md` |
+| Files module (三来源) | `design/files-module-product-spec.md` |
 | **Phase 2 + B-side prep** | `design/2026-08-02-phase-2-enterprise-prep.md` |
 | Config profile migrate / resolve | `design/2026-08-02-config-consistency.md` |
 | Work memory / awareness | `design/2026-08-02-work-memory-plan.md` |
+| Windows / Computer Use / Appshot | `windows-compat.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
 | Local packaging | `../BUILD.md` |
 | Release | `release.md` |
@@ -99,5 +100,6 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 
 1. Keep this folder to the layout above — no plan/feature draft trees under `docs/`.
 2. Prefer one SoT update over copying paragraphs.
-3. After edits: link smoke + `git diff --check`.
-4. Audit workflow: `.agents/skills/documentation-audit/SKILL.md`.
+3. **`docs/design/` only holds durable SoT** (roadmap, paths, product rules, theme/preview). Shipped one-shot feature notes and superseded experiments stay in git history or local `.loop/` — do not reintroduce dated “已落地 / superseded” stubs, or tracked `docs/superpowers/`.
+4. After edits: link smoke + `git diff --check`.
+5. Audit workflow: `.agents/skills/documentation-audit/SKILL.md`.

@@ -18,7 +18,8 @@ Requirements:
 - Node.js `24` from `.nvmrc`.
 
 - pnpm `10.27.0` from `package.json`.
-- macOS is the primary desktop development target today.
+- macOS is the primary desktop development target today. Windows developer
+  preview notes (preflight, Cua Computer Use, Appshot, NSIS): `docs/windows-compat.md`.
 
 Install and run:
 

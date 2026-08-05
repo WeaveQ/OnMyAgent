@@ -119,7 +119,7 @@ check the three standard Docker Desktop locations on Windows:
 
 If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 
-### macOS-only features gracefully degrade
+### Platform-specific features (Computer Use, Appshot, sandbox)
 
 - **Computer Use**:
   - **macOS**: `packages/handsfree` (Swift/AppKit). `prepare-computer-use-helper.mjs`
@@ -142,8 +142,8 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
     Windows illegal chars.
   - **Not included on Windows Appshot path**: Skysight, HandsFree AX semantics
     (use Cua MCP tools after enabling Computer Use).
-- **Sandbox profiles**: `apps/orchestrator/src/runtime-sandbox.ts` returns
-  an empty profile on non-macOS. Orchestrator still runs, but without
+- **Sandbox profiles** (macOS-only isolation): `apps/orchestrator/src/runtime-sandbox.ts`
+  returns an empty profile on non-macOS. Orchestrator still runs, but without
   `sandbox-exec` isolation.
 - **`.env` file `chmod 0o600`**: `apps/server/src/services/env-file.ts`
   catches the Windows no-op. Secret files are readable by other Windows
@@ -231,7 +231,8 @@ Windows roadmap.
 - [ ] NSIS installer smoke (install → launch → quit) on `windows-2022`
 - [ ] Recovery panel copy pass for Windows-specific paths
 - [ ] Investigate WSL2 fallback for `sandbox-exec` equivalent
-- [ ] Optional: Windows desktop-capture path for Appshot (not HandsFree AX)
+- [x] Appshot via Electron `desktopCapturer` on Windows (no HandsFree AX)
+- [x] Windows Computer Use MCP via bundled Cua Driver (default off)
 
 ## Fixed recently (kill tree + open terminal)
 
