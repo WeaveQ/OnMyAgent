@@ -4,6 +4,7 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { ensureDir, exists } from "../core/utils.js";
 import { ApiError } from "../core/errors.js";
 import { isBrowserAutomationEnabled } from "../services/browser-plugin-enablement.js";
+import { isOfficeCliInstalled } from "../services/officecli-install-status.js";
 import { buildArtifactPluginGuidance } from "../services/artifact-plugin-guidance.js";
 import { opencodeBrowserNodeReplToolSource } from "./browser-tool-source.js";
 import {
@@ -188,6 +189,24 @@ If the tool errors with "Browser runtime is unavailable", say the desktop Browse
 - Finalize temporary tabs when done; leave user-owned tabs open unless asked otherwise.
 <!-- ${APP_NAME}_BROWSER_AUTOMATION_END -->`;
 
+/**
+ * Injected only when OfficeCLI skill is installed (see isOfficeCliInstalled).
+ * Steers office-file tasks away from bundled JS document skills.
+ */
+const ONMYAGENT_OFFICECLI_GUIDANCE = `<!-- ${APP_NAME}_OFFICECLI_START -->
+## Office documents (OfficeCLI)
+
+OfficeCLI is **installed** on this machine.
+
+When the user asks to read, inspect, edit, create, merge, convert, or otherwise work with Word / Excel / PowerPoint / common Office files (\`.docx\`, \`.xlsx\`, \`.xls\`, \`.pptx\`, and related office workflows):
+
+1. **Prefer skill \`officecli\`** and the \`officecli\` CLI (already on PATH).
+2. Do **not** default to \`document-processing\`, \`documents\`, \`spreadsheets\`, or \`pptx\` JavaScript \`artifact_runtime\` workflows when OfficeCLI can complete the task.
+3. Fall back to those bundled JS skills only if OfficeCLI is missing, fails, or the task is clearly outside its scope (for example pure PDF tooling via \`pdf\`).
+
+The user does not need to name OfficeCLI — choose it automatically for office document work.
+<!-- ${APP_NAME}_OFFICECLI_END -->`;
+
 const ONMYAGENT_AGENT = `---
 description: ${APP_NAME} default agent
 mode: primary
@@ -370,6 +389,7 @@ async function ensureOnMyAgentAgent(
   workspaceRoot: string,
   browserEnabled: boolean,
   artifactPluginGuidance: string | undefined,
+  officeCliEnabled: boolean,
 ): Promise<boolean> {
   const agentsDir = join(workspaceRoot, ".opencode", "agents");
   const agentPath = join(agentsDir, `${DEFAULT_OPENCODE_AGENT}.md`);
@@ -386,6 +406,9 @@ async function ensureOnMyAgentAgent(
         initial = `${initial.slice(0, startIdx).trimEnd()}\n\n${initial.slice(endIdx + end.length).trimStart()}`;
         if (!initial.endsWith("\n")) initial = `${initial}\n`;
       }
+    }
+    if (officeCliEnabled) {
+      initial = `${initial.trimEnd()}\n\n${ONMYAGENT_OFFICECLI_GUIDANCE}\n`;
     }
     if (artifactPluginGuidance) {
       initial = `${initial.trimEnd()}\n\n<!-- ${APP_NAME}_FILE_CONNECTORS_START -->\n${artifactPluginGuidance}\n<!-- ${APP_NAME}_FILE_CONNECTORS_END -->\n`;
@@ -487,6 +510,27 @@ async function ensureOnMyAgentAgent(
     }
   } else if (browserAutoStartIdx >= 0 && browserAutoEndIdx > browserAutoStartIdx) {
     current = `${current.slice(0, browserAutoStartIdx).trimEnd()}\n\n${current.slice(browserAutoEndIdx + browserAutoEnd.length).trimStart()}`;
+    changed = true;
+  }
+
+  // OfficeCLI routing: inject when installed; strip when uninstalled.
+  const officeCliStart = `<!-- ${APP_NAME}_OFFICECLI_START -->`;
+  const officeCliEnd = `<!-- ${APP_NAME}_OFFICECLI_END -->`;
+  const officeCliStartIdx = current.indexOf(officeCliStart);
+  const officeCliEndIdx = current.indexOf(officeCliEnd);
+  if (officeCliEnabled) {
+    if (officeCliStartIdx >= 0 && officeCliEndIdx > officeCliStartIdx) {
+      const patched = `${current.slice(0, officeCliStartIdx)}${ONMYAGENT_OFFICECLI_GUIDANCE}${current.slice(officeCliEndIdx + officeCliEnd.length)}`;
+      if (patched !== current) {
+        current = patched;
+        changed = true;
+      }
+    } else {
+      current = `${current.trimEnd()}\n\n${ONMYAGENT_OFFICECLI_GUIDANCE}\n`;
+      changed = true;
+    }
+  } else if (officeCliStartIdx >= 0 && officeCliEndIdx > officeCliStartIdx) {
+    current = `${current.slice(0, officeCliStartIdx).trimEnd()}\n\n${current.slice(officeCliEndIdx + officeCliEnd.length).trimStart()}`;
     changed = true;
   }
 
@@ -631,6 +675,10 @@ async function ensureVisualTools(
 export async function ensureWorkspaceFiles(
   workspaceRoot: string,
   presetInput: string,
+  options?: {
+    /** Override OfficeCLI install detection (tests). */
+    officeCliInstalled?: boolean;
+  },
 ): Promise<EnsureWorkspaceFilesResult> {
   const preset = normalizePreset(presetInput);
   if (!workspaceRoot.trim()) {
@@ -642,6 +690,10 @@ export async function ensureWorkspaceFiles(
   }
   await ensureDir(workspaceRoot);
   const browserEnabled = await isBrowserAutomationEnabled();
+  const officeCliEnabled =
+    typeof options?.officeCliInstalled === "boolean"
+      ? options.officeCliInstalled
+      : await isOfficeCliInstalled();
   const artifactPluginGuidance = await buildArtifactPluginGuidance();
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
@@ -650,6 +702,7 @@ export async function ensureWorkspaceFiles(
       workspaceRoot,
       browserEnabled,
       artifactPluginGuidance,
+      officeCliEnabled,
     )
   ) {
     reloadReasons.add("agents");

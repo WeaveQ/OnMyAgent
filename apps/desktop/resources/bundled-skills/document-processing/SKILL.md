@@ -16,7 +16,9 @@ description: 统一处理 Word、Excel、CSV、PowerPoint 和 PDF 文件。用�
 
 ## 按格式路由
 
-处理文件前，加载并遵循对应的专用技能：
+**优先 OfficeCLI：** 若可用 skill `officecli`（已安装），对 Word / Excel / PowerPoint 等办公文档的读取、编辑、创建、合并、转换**优先加载并使用 `officecli`**，不要默认走下方 JS `artifact_runtime` 方案；仅当 OfficeCLI 不可用或失败时再回退。
+
+处理文件前，若未走 OfficeCLI，再按格式加载并遵循对应专用技能：
 
 - `.docx`：使用 `documents`。读取 [references/word.md](references/word.md)。
 - `.xlsx`、`.xls`、`.csv`、`.tsv`：使用 `spreadsheets`。读取 [references/spreadsheets.md](references/spreadsheets.md)。
