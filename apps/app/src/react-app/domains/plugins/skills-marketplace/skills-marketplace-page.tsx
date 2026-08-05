@@ -54,9 +54,14 @@ import {
 import {
   SKILL_MARKETPLACE_CATEGORIES,
 } from "./categories";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+
 import { BUNDLED_SKILL_ICON_URLS } from "./bundled-skill-assets";
 import { BUILTIN_MARKETPLACE_SKILLS } from "./data";
 import type { SkillMarketplaceEntry } from "./types";
+
+/** Shared with connectors optional-enhancement card. */
+const OFFICECLI_SKILL_ICON_SRC = "/connector-icons/officecli.png";
 
 /** Align with expert marketplace grid density. */
 const SKILL_CARD_GRID =
@@ -98,6 +103,9 @@ function resolveInstalledSkillIconUrl(
   marketplaceSkill: SkillMarketplaceEntry | null,
 ): string | null {
   if (marketplaceSkill?.iconUrl) return marketplaceSkill.iconUrl;
+  if (skill.name === "officecli") {
+    return resolvePublicAssetUrl(OFFICECLI_SKILL_ICON_SRC);
+  }
   return BUNDLED_SKILL_ICON_URLS[skill.name] ?? null;
 }
 
