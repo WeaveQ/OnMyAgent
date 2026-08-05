@@ -17,6 +17,9 @@ import {
   resolveLocalConfigRoot,
   resolveLocalExpertsProfilePath,
   resolveLocalExpertsRoot,
+  resolveLocalManagedToolsBinRoot,
+  resolveLocalManagedToolsRoot,
+  resolveOfficeCliManagedRoot,
   resolveLocalSkillsProfilePath,
   resolveLocalSkillsRoot,
 } from "./config-profile-paths.mjs";
@@ -36,6 +39,22 @@ async function mkdtempSafe() {
 }
 
 describe("config-profile-paths", () => {
+  test("managed tools use the local profile data root", () => {
+    const home = "/Users/hope";
+    assert.equal(
+      resolveLocalManagedToolsRoot(home),
+      path.join(home, ".onmyagent", "profiles", "local", "tools"),
+    );
+    assert.equal(
+      resolveLocalManagedToolsBinRoot(home),
+      path.join(home, ".onmyagent", "profiles", "local", "tools", "bin"),
+    );
+    assert.equal(
+      resolveOfficeCliManagedRoot(home),
+      path.join(home, ".onmyagent", "profiles", "local", "tools", "officecli"),
+    );
+  });
+
   test("local config root is under profiles/local/config", () => {
     const root = resolveLocalConfigRoot("/Users/hope");
     assert.equal(

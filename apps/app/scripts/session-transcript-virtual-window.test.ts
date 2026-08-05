@@ -29,6 +29,17 @@ describe("session transcript virtual window (shipped helpers)", () => {
     ).toBe(true);
   });
 
+  test("embedded transcript can keep normal document flow", () => {
+    expect(
+      shouldVirtualizeTranscript(
+        TRANSCRIPT_VIRTUALIZATION_THRESHOLD * 2,
+        TRANSCRIPT_VIRTUALIZATION_THRESHOLD * 2,
+        TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
+        false,
+      ),
+    ).toBe(false);
+  });
+
   test("selectVirtualRenderWindow keeps full list when not virtualizing", () => {
     const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
     const window = selectVirtualRenderWindow(items, false);

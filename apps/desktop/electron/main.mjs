@@ -100,6 +100,7 @@ import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
+import { createOfficeCliManager } from "./managed-tools/officecli-manager.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 import { createSkillsScan } from "./skills-scan.mjs";
 import {
@@ -865,6 +866,7 @@ const runtimeManager = createRuntimeManager({
   desktopRoot: path.resolve(__dirname, ".."),
   runtimeEnvironment: () => browserController.browserEnvironment(),
   listLocalWorkspacePaths,
+  homeDir: getRealHomeDir(),
 });
 
 const {
@@ -930,6 +932,19 @@ async function refreshRuntimeSkillLinks() {
   invalidateGlobalSkillRootsCache();
   return runtimeManager.refreshSkillLinks();
 }
+
+const officeCliManager = createOfficeCliManager({
+  homeDir: getRealHomeDir(),
+  refreshSkillLinks: refreshRuntimeSkillLinks,
+  onProgress: (progress) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:officecli:progress", progress);
+  },
+  onStatus: (status) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:officecli:status", status);
+  },
+});
 
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
@@ -1180,6 +1195,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   findSkillFile,
   isBundledSkillPath,
   refreshRuntimeSkillLinks,
+  officeCliManager,
   // system
   userAgentRegistryPath,
   getRealHomeDir,
@@ -1472,6 +1488,12 @@ if (!app.requestSingleInstanceLock()) {
         console.warn(`[${label}] deferred start failed`, error);
       },
     });
+
+    // Refresh the optional OfficeCLI release pointer after the first window is
+    // ready. A cached pointer makes the marketplace card instant; this
+    // background check makes a later OSS version visible as “Update” without
+    // requiring a renderer reload or a manual command.
+    void officeCliManager.checkForUpdates(false);
   });
 
   app.on("activate", async () => {
