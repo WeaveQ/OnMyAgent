@@ -836,6 +836,7 @@ export function SessionPage(props: SessionPageProps) {
                       agentPanel.activeSidebarView !== "agents" &&
                       agentPanel.activeSidebarView !== "files" &&
                       agentPanel.activeSidebarView !== "store" &&
+                      agentPanel.activeSidebarView !== "company" &&
                       agentPanel.activeSidebarView !== "projects" &&
                       agentPanel.activeSidebarView !== "localAgent" &&
                       agentPanel.activeSidebarView !== "devices" &&
