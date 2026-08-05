@@ -140,9 +140,23 @@ function skillCardChips(skill: SkillMarketplaceEntry): string[] {
     .filter(Boolean);
 }
 
+/**
+ * User-installed / preinstalled OnMyAgent skill roots (not project `.opencode/skills`).
+ * Covers legacy `~/.onmyagent/skills` and Phase-2 profile dual-read roots.
+ */
 function isOnmyagentSkillPath(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
-  return normalized.includes("/.onmyagent/skills/") || normalized.includes("/onmyagent/skills/");
+  if (
+    normalized.includes("/.onmyagent/skills/") ||
+    normalized.includes("/onmyagent/skills/")
+  ) {
+    return true;
+  }
+  // ~/.onmyagent/profiles/<profile>/config/skills/<name>
+  if (/\/\.onmyagent\/profiles\/[^/]+\/config\/skills\//.test(normalized)) {
+    return true;
+  }
+  return false;
 }
 
 /** Prefer Chinese skill titles when available. */
