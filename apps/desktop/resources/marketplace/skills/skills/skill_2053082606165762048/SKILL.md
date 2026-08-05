@@ -1,5 +1,7 @@
 ---
 name: pptx-generator
+display_name: "PPTX 幻灯片生成"
+display_name_zh: "PPTX 幻灯片生成"
 description: "Generate, edit, and read PowerPoint presentations. Create from scratch with PptxGenJS (cover, TOC, content, section divider, summary slides), edit existing PPTX via XML workflows, or extract text with markitdown. Triggers: PPT, PPTX, PowerPoint, presentation, slide, deck, slides."
 description_zh: "PowerPoint 演示文稿生成"
 description_en: "Generate and edit PowerPoint presentations"
@@ -11,7 +13,6 @@ metadata:
   sources:
     - https://gitbrent.github.io/PptxGenJS/
     - https://github.com/microsoft/markitdown
-display_name: "pptx-generator"
 display_name_en: "pptx-generator"
 visibility: "public"
 ---

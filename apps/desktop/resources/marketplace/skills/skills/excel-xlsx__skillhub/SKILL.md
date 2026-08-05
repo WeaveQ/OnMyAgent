@@ -1,5 +1,7 @@
 ---
 name: Excel / XLSX
+display_name: "Excel 表格处理"
+display_name_zh: "Excel 表格处理"
 slug: excel-xlsx
 version: 1.0.2
 homepage: https://clawic.com/skills/excel-xlsx

@@ -1,5 +1,7 @@
 ---
 name: web-tools-guide
+display_name: "Web 工具策略"
+display_name_zh: "Web 工具策略"
 description: "MANDATORY before calling web_search, web_fetch, browser, or opencli. Contains required error-handling procedures (web_search failure → must guide user to configure API), fallback chain (opencli CLI covers 70+ sites as structured fallback before browser), and site-specific login URLs. Without reading this skill, you WILL handle failures incorrectly and miss available tools. Trigger on: 搜索/上网/查资料/打开网站/抓取网页/新闻/热点/web search/fetch/browser/opencli."
 ---
 

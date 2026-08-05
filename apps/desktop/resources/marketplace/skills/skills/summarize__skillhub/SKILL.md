@@ -1,5 +1,7 @@
 ---
 name: summarize
+display_name: "智能内容摘要"
+display_name_zh: "智能内容摘要"
 version: 1.0.0
 description: 智能内容摘要工具，支持长文本、文档、网页内容自动摘要，提取核心要点、关键词，支持自定义摘要长度。
 metadata:

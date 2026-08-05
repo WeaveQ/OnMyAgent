@@ -1,5 +1,7 @@
 ---
 name: find-skills
+display_name: "技能发现助手"
+display_name_zh: "技能发现助手"
 slug: guipi-find-skills
 displayName: Find Skills（场景驱动技能发现）
 version: "1.7.0"
