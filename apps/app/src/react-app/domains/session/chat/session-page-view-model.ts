@@ -106,6 +106,7 @@ export function buildSessionPageViewModel(input: BuildSessionPageViewModelInput)
     input.activeSidebarView === "chat" ||
     input.activeSidebarView === "files" ||
     input.activeSidebarView === "store" ||
+    input.activeSidebarView === "company" ||
     input.activeSidebarView === "projects" ||
     input.activeSidebarView === "skills" ||
     input.activeSidebarView === "connectors" ||

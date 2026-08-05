@@ -11,6 +11,16 @@ import {
   ensureWorkMemoryAwareness,
   resolveWorkMemoryAwarenessMainDir,
 } from "../ensure-work-memory-awareness.mjs";
+import {
+  connectCompany,
+  disconnectCompany,
+  evaluateCompanyActionPolicy,
+  fetchCompanyHealth,
+  listCompanyCatalog,
+  pullAndWriteCompanyConfig,
+  readCompanySettings,
+  writeCompanySettings,
+} from "../company-client.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "userAgentRegistryRead",
@@ -72,6 +82,14 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "workMemoryReadFile",
   "workMemoryWriteFile",
   "workMemoryListFiles",
+  "companySettingsRead",
+  "companySettingsWrite",
+  "companySettingsDisconnect",
+  "companyConnect",
+  "companySyncConfig",
+  "companyCatalog",
+  "companyHealth",
+  "companyEvaluateAction",
 ]);
 
 /**
@@ -621,6 +639,87 @@ export function createSystemDomainHandlers({
       ok: false,
       message: `${tool} is bundled with OnMyAgent and cannot be installed separately.`,
     };
+  },
+
+  /**
+   * Durable company session store (SoT: company-client company-settings.json).
+   * Renderer Company settings must use these instead of localStorage-only.
+   */
+  companySettingsRead: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return readCompanySettings(homeDir);
+  },
+
+  companySettingsWrite: async (event, args) => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const patch = args[0] && typeof args[0] === "object" ? args[0] : {};
+    return writeCompanySettings(homeDir, patch);
+  },
+
+  companySettingsDisconnect: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return disconnectCompany(homeDir);
+  },
+
+  /**
+   * Probe company health from main process (renderer must not fetch OMC — CORS).
+   * args[0] = companyBaseUrl string
+   */
+  companyHealth: async (event, args) => {
+    const baseUrl = String(args[0] ?? "").trim();
+    return fetchCompanyHealth(baseUrl);
+  },
+
+  /** Policy check for org-gated actions (args[0] = actionId). */
+  companyEvaluateAction: async (event, args) => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return evaluateCompanyActionPolicy(homeDir, String(args[0] ?? ""));
+  },
+
+  /**
+   * Full connect: health + email OTP + pull OrgConfig mirror + session.
+   * args[0] = { companyBaseUrl, email, code }
+   */
+  companyConnect: async (event, args) => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const input = args[0] && typeof args[0] === "object" ? args[0] : {};
+    return connectCompany(homeDir, {
+      companyBaseUrl: String(input.companyBaseUrl ?? ""),
+      email: String(input.email ?? ""),
+      code: String(input.code ?? ""),
+    });
+  },
+
+  /** Re-pull OrgConfig when already logged in. */
+  companySyncConfig: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const settings = readCompanySettings(homeDir);
+    if (!settings.companyBaseUrl || !settings.memberToken) {
+      throw new Error("not connected to company");
+    }
+    const pulled = await pullAndWriteCompanyConfig(
+      homeDir,
+      settings.companyBaseUrl,
+      settings.memberToken,
+    );
+    const next = writeCompanySettings(homeDir, {
+      lastSyncedVersion: pulled.version,
+      lastSyncedAt: new Date().toISOString(),
+    });
+    return { settings: next, pulled };
+  },
+
+  /** Catalog for 公司 tabs (skills + experts from mirror). */
+  companyCatalog: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return listCompanyCatalog(homeDir);
   },
 
   };

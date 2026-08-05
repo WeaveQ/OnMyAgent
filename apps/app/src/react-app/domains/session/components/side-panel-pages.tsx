@@ -299,6 +299,7 @@ export function DevicesPage() {
   );
 }
 
+/** Market tab only — company/enterprise lives on the primary rail. */
 export type StorePrimaryTab = "experts" | "skills" | "plugins";
 
 function StorePrimaryTabs(props: {
@@ -427,7 +428,7 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
-          {/* Search on expert market + skill market/installed (not plugins, not my-experts). */}
+          {/* Search on expert/skill markets (not plugins, not my-experts). */}
           {activeTab !== "plugins" &&
           !(activeTab === "experts" && expertView === "mine") ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
@@ -555,7 +556,9 @@ export function StorePage(props: {
             view={skillView}
             importOpen={skillImportOpen}
             onImportOpenChange={setSkillImportOpen}
-            onInstalledCountChange={setInstalledSkillCount}
+            onInstalledCountChange={(count) => {
+              setInstalledSkillCount(count);
+            }}
             onChatWithSkill={props.onChatWithSkill}
             onEditSkill={props.onEditSkill}
           />

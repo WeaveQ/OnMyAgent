@@ -754,6 +754,19 @@ export function AppSidebar(props: AppSidebarProps) {
 
         <SidebarFooter>
           <div className="space-y-1 pb-2">
+            <CompanyConnectionChip
+              onOpenCompanySettings={() => {
+                // Prefer deep-link to company tab when host supports path navigate.
+                const open = props.onOpenAccountSettings as
+                  | ((path?: string) => void)
+                  | undefined;
+                try {
+                  open?.("/settings/company");
+                } catch {
+                  open?.();
+                }
+              }}
+            />
             <div className="flex items-stretch gap-1">
               <div className="min-w-0 flex-1">
                 <SidebarAccountButton
@@ -805,6 +818,62 @@ export function AppSidebar(props: AppSidebarProps) {
         />
       </Sidebar>
     </SidebarContext.Provider>
+  );
+}
+
+/** Compact company connection status above the account button. */
+function CompanyConnectionChip(props: {
+  onOpenCompanySettings?: () => void;
+}) {
+  const [label, setLabel] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      if (!window.__ONMYAGENT_ELECTRON__) {
+        setLabel(null);
+        return;
+      }
+      void import("../../../../app/lib/desktop")
+        .then(({ desktopBridge }) => desktopBridge.companyCatalog())
+        .then((raw) => {
+          if (cancelled || !raw) return;
+          const catalog = raw as {
+            connected?: boolean;
+            email?: string;
+          };
+          if (catalog.connected) {
+            setLabel(
+              catalog.email
+                ? t("store.company_sidebar_connected_email", { email: catalog.email })
+                : t("store.company_sidebar_connected"),
+            );
+          } else {
+            setLabel(null);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setLabel(null);
+        });
+    };
+    tick();
+    const id = window.setInterval(tick, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  if (!label) return null;
+  return (
+    <button
+      type="button"
+      className="mb-1 w-full truncate rounded-md border border-dls-border/60 bg-dls-surface-muted/40 px-2 py-1 text-left text-[11px] text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+      title={label}
+      onClick={() => props.onOpenCompanySettings?.()}
+    >
+      {label}
+    </button>
   );
 }
 

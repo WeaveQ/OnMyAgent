@@ -25,6 +25,32 @@ export function resolveLocalConfigRoot(homeDir) {
   );
 }
 
+/**
+ * Company profile config root (created only after login + pull — never while logged out).
+ * @param {string | undefined} homeDir
+ */
+export function resolveCompanyConfigRoot(homeDir) {
+  return path.join(
+    normalizeOnMyAgentHome(homeDir),
+    ".onmyagent",
+    "profiles",
+    "company",
+    "config",
+  );
+}
+
+/**
+ * Desktop company shell settings (BaseUrl / activeProfile / session meta).
+ * @param {string | undefined} homeDir
+ */
+export function resolveCompanySettingsPath(homeDir) {
+  return path.join(
+    normalizeOnMyAgentHome(homeDir),
+    ".onmyagent",
+    "company-settings.json",
+  );
+}
+
 /** @param {string | undefined} homeDir */
 export function resolveLocalConfigManifestPath(homeDir) {
   return path.join(resolveLocalConfigRoot(homeDir), "manifest.json");

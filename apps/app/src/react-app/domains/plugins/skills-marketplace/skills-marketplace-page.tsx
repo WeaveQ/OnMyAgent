@@ -18,6 +18,7 @@ import {
   uninstallSkill,
 } from "@/app/lib/desktop";
 import type { LocalSkillCard } from "@/app/lib/desktop";
+import { desktopBridge } from "@/app/lib/desktop";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
 import {
@@ -976,8 +977,16 @@ function ImportSkillDialog(props: {
   );
 }
 
-/** Tab order: 已安装 → 内置 → 本地 */
-type InstalledSkillsSubTab = "installed" | "builtin" | "local";
+/** Tab order: 已安装 → 内置 → 本地 → 公司 */
+type InstalledSkillsSubTab = "installed" | "builtin" | "local" | "company";
+
+type CompanyCatalogSkill = {
+  id: string;
+  name: string;
+  description?: string;
+  source: "company";
+  kind: "skill";
+};
 
 /**
  * Fallback when listBuiltinSkillCatalog is unavailable (older desktop / IPC fail).
@@ -1008,7 +1017,8 @@ export function SkillsMarketplacePage(props: {
   workspaceRoot?: string | null;
   client?: OnMyAgentServerClient | null;
   query?: string;
-  view?: "market" | "installed";
+  /** market = shelf; installed = mine; company = org-distributed primary entry */
+  view?: "market" | "installed" | "company";
   importOpen?: boolean;
   onImportOpenChange?: (open: boolean) => void;
   onInstalledCountChange?: (count: number) => void;
@@ -1028,6 +1038,9 @@ export function SkillsMarketplacePage(props: {
   );
   const [installedSubTab, setInstalledSubTab] =
     useState<InstalledSkillsSubTab>("installed");
+  const [companySkills, setCompanySkills] = useState<CompanyCatalogSkill[]>([]);
+  const [companyConnected, setCompanyConnected] = useState(false);
+  const [companyCatalogHint, setCompanyCatalogHint] = useState<string | null>(null);
   const [installingSkillName, setInstallingSkillName] = useState<string | null>(null);
   const [uninstallingSkillName, setUninstallingSkillName] = useState<string | null>(null);
   const [skillEnabledMap, setSkillEnabledMap] = useState<Record<string, boolean>>(() =>
@@ -1103,6 +1116,46 @@ export function SkillsMarketplacePage(props: {
       cancelled = true;
     };
   }, [props.workspaceRoot, props.onInstalledCountChange]);
+
+  // Load company-mirrored skills for the 「公司」 view (no HTTP when disconnected).
+  useEffect(() => {
+    if (props.view !== "company" && installedSubTab !== "company") return undefined;
+    if (!isDesktopRuntime()) {
+      setCompanyConnected(false);
+      setCompanySkills([]);
+      setCompanyCatalogHint(t("store.company_skills_desktop_only"));
+      return undefined;
+    }
+    let cancelled = false;
+    void desktopBridge
+      .companyCatalog()
+      .then((raw) => {
+        if (cancelled) return;
+        const catalog = raw as {
+          connected?: boolean;
+          email?: string;
+          skills?: CompanyCatalogSkill[];
+        };
+        setCompanyConnected(Boolean(catalog?.connected));
+        setCompanySkills(Array.isArray(catalog?.skills) ? catalog.skills : []);
+        setCompanyCatalogHint(
+          catalog?.connected
+            ? catalog.email
+              ? t("store.company_connected_member", { email: catalog.email })
+              : t("store.company_connected_short")
+            : t("store.company_skills_not_connected_hint"),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCompanyConnected(false);
+        setCompanySkills([]);
+        setCompanyCatalogHint(t("store.company_catalog_ipc_failed"));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.workspaceRoot, props.view, installedSubTab]);
 
   const filteredSkills = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
@@ -1285,6 +1338,7 @@ export function SkillsMarketplacePage(props: {
   }, [installedSkills, builtinPackageNames]);
 
   const filteredInstalledSkills = useMemo(() => {
+    if (installedSubTab === "company") return [] as LocalSkillCard[];
     const source =
       installedSubTab === "builtin"
         ? builtinInstalled
@@ -1321,13 +1375,82 @@ export function SkillsMarketplacePage(props: {
     pinnedSkillIds,
   ]);
 
+  const filteredCompanySkills = useMemo(() => {
+    const normalizedQuery = (props.query ?? "").trim().toLowerCase();
+    if (!normalizedQuery) return companySkills;
+    return companySkills.filter((skill) =>
+      `${skill.name} ${skill.id}`.toLowerCase().includes(normalizedQuery),
+    );
+  }, [companySkills, props.query]);
+
+  // Primary 「公司」 entry (store toolbar) — full-page org catalog.
+  if (props.view === "company") {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
+          {companyCatalogHint ? (
+            <p className="mb-3 text-xs text-dls-secondary">{companyCatalogHint}</p>
+          ) : null}
+          {filteredCompanySkills.length > 0 ? (
+            <div className={SKILL_INSTALLED_CARD_GRID}>
+              {filteredCompanySkills.map((skill) => (
+                <SkillMarketplaceCard
+                  key={skill.id}
+                  skill={{
+                    id: skill.id,
+                    displayName: skill.name,
+                    packageName: skill.id !== skill.name ? skill.id : undefined,
+                    description:
+                      skill.description?.trim() || t("store.company_org_readonly"),
+                    chips: [t("store.company_org_badge")],
+                  }}
+                  ariaLabel={skill.name}
+                  action={
+                    <StatusBadge tone="neutral" size="sm" className="shrink-0">
+                      {t("store.company_org_badge")}
+                    </StatusBadge>
+                  }
+                  onClick={
+                    props.onChatWithSkill
+                      ? () =>
+                          props.onChatWithSkill?.({
+                            name: skill.id,
+                            path: skill.id,
+                            description: skill.description || skill.name,
+                            displayNameZh: skill.name,
+                          })
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+              <p className="text-base font-medium text-dls-text">{t("store.company_skills_title")}</p>
+              <p>
+                {companyConnected
+                  ? t("store.company_no_skills_short")
+                  : (companyCatalogHint ?? t("store.company_not_connected_short"))}
+              </p>
+              <p className="max-w-sm text-xs leading-5">
+                {t("store.company_open_settings_hint")}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (props.view === "installed") {
     const emptyForSubTab =
-      installedSubTab === "builtin"
-        ? builtinInstalled.length === 0
-        : installedSubTab === "local"
-          ? localDiscovered.length === 0
-          : userInstalled.length === 0;
+      installedSubTab === "company"
+        ? filteredCompanySkills.length === 0
+        : installedSubTab === "builtin"
+          ? builtinInstalled.length === 0
+          : installedSubTab === "local"
+            ? localDiscovered.length === 0
+            : userInstalled.length === 0;
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
         <ImportSkillDialog
@@ -1417,10 +1540,70 @@ export function SkillsMarketplacePage(props: {
                 {localDiscovered.length}
               </span>
             </NavTabButton>
+            <NavTabButton
+              type="button"
+              active={installedSubTab === "company"}
+              size="tab"
+              shape="tab"
+              aria-pressed={installedSubTab === "company"}
+              onClick={() => setInstalledSubTab("company")}
+            >
+              <span>{t("store.company_label")}</span>
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  installedSubTab === "company"
+                    ? "opacity-70"
+                    : "text-dls-secondary",
+                )}
+              >
+                {companySkills.length}
+              </span>
+            </NavTabButton>
           </SegmentedTabGroup>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
-          {filteredInstalledSkills.length > 0 ? (
+          {installedSubTab === "company" ? (
+            filteredCompanySkills.length > 0 ? (
+              <div className="space-y-3">
+                {companyCatalogHint ? (
+                  <p className="text-xs text-dls-secondary">{companyCatalogHint}</p>
+                ) : null}
+                <div className={SKILL_INSTALLED_CARD_GRID}>
+                  {filteredCompanySkills.map((skill) => (
+                    <SkillMarketplaceCard
+                      key={skill.id}
+                      skill={{
+                        id: skill.id,
+                        displayName: skill.name,
+                        packageName:
+                          skill.id !== skill.name ? skill.id : undefined,
+                        description: t("store.company_org_readonly_admin"),
+                        chips: [t("store.company_org_badge")],
+                      }}
+                      ariaLabel={skill.name}
+                      action={
+                        <StatusBadge tone="neutral" size="sm" className="shrink-0">
+                          {t("store.company_org_badge")}
+                        </StatusBadge>
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+                <p>
+                  {companyConnected
+                    ? t("store.company_no_skills_short")
+                    : (companyCatalogHint ?? t("store.company_not_connected_short"))}
+                </p>
+                <p className="text-xs">
+                  {t("store.company_skills_connect_hint")}
+                </p>
+              </div>
+            )
+          ) : filteredInstalledSkills.length > 0 ? (
             <div className={SKILL_INSTALLED_CARD_GRID}>
               {filteredInstalledSkills.map((skill) => {
                 const market = marketplaceSkillForLocalSkill(skill);
