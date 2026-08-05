@@ -172,8 +172,6 @@ const BUILTIN_EXTENSION_DISPLAY_ORDER = [
   "computer-use",
   "browser-skill",
   "onmyagent-voice",
-  "openai-image-gen",
-  "ollama",
 ] as const;
 
 function rankById(order: readonly string[], id: string): number {

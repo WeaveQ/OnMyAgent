@@ -324,72 +324,6 @@ export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManif
     },
     {
       schemaVersion: 1,
-      id: "openai-image-gen",
-      name: t("extensions.openai_image_name"),
-      description: t("extensions.openai_image_desc"),
-      source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
-      icon: { src: "/ext-openai.svg" },
-      composer: { prompt: t("extensions.openai_image_prompt") },
-      setup: {
-        instructions:
-          t("extensions.openai_image_setup"),
-        primaryCta: t("extensions.openai_image_enable"),
-        secondaryCta: t("extensions.openai_image_test"),
-        requiredEnv: ["OPENAI_API_KEY"],
-        testActionRef: "onmyagent.imageGen.testGenerate",
-      },
-      resources: [
-        {
-          type: "opencode-plugin",
-          id: "onmyagent-image-generation",
-          path: ".opencode/plugins/onmyagent-image-generation.ts",
-          required: true,
-        },
-        {
-          type: "secret",
-          id: "openai-api-key",
-          envKey: "OPENAI_API_KEY",
-          required: true,
-        },
-        {
-          type: "file",
-          id: "openai-image-config",
-          path: ".opencode/onmyagent-extensions/openai-image-generation.json",
-          required: true,
-        },
-      ],
-      contributions: [
-        {
-          type: "settings-panel",
-          ref: "onmyagent.imageGen.settings",
-          location: "settings-detail",
-        },
-        {
-          type: "test-action",
-          ref: "onmyagent.imageGen.testGenerate",
-          label: t("extensions.openai_image_test"),
-        },
-        {
-          type: "composer-prompt",
-          prompt: t("extensions.openai_image_prompt"),
-          location: "composer",
-        },
-      ],
-      enablement: [
-        {
-          type: "plugin-loaded",
-          ref: "onmyagent-image-generation",
-          label: t("extensions.openai_image_plugin_installed"),
-        },
-        { type: "env-set", ref: "OPENAI_API_KEY", label: t("extensions.openai_api_key") },
-      ],
-      lifecycle: {
-        reload: ["plugins"],
-        detection: ["plugin:onmyagent-image-generation"],
-      },
-    },
-    {
-      schemaVersion: 1,
       id: "onmyagent-voice",
       name: t("extensions.voice_mode"),
       description:
@@ -468,58 +402,6 @@ export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManif
         reload: ["config"],
         detection: ["env:OPENAI_REALTIME_API_KEY", "env:OPENAI_API_KEY"],
       },
-    },
-    {
-      schemaVersion: 1,
-      id: "ollama",
-      name: t("extensions.ollama_name"),
-      description: t("extensions.ollama_desc"),
-      source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
-      icon: { src: "/ext-ollama.svg" },
-      composer: { prompt: t("extensions.ollama_prompt") },
-      setup: {
-        instructions:
-          t("extensions.ollama_setup"),
-        primaryCta: t("extensions.ollama_add_model"),
-        secondaryCta: t("extensions.ollama_pull_model"),
-      },
-      resources: [
-        {
-          type: "local-service",
-          id: "ollama-api",
-          label: t("extensions.ollama_api"),
-          description: "http://localhost:11434",
-          required: true,
-        },
-        {
-          type: "provider",
-          id: "ollama",
-          providerId: "ollama",
-          packageName: "@ai-sdk/openai-compatible",
-          required: true,
-        },
-      ],
-      contributions: [
-        {
-          type: "settings-panel",
-          ref: "onmyagent.ollama.settings",
-          location: "settings-detail",
-        },
-        {
-          type: "test-action",
-          ref: "onmyagent.ollama.listModels",
-          label: t("extensions.ollama_check_models"),
-        },
-        {
-          type: "composer-prompt",
-          prompt: t("extensions.ollama_prompt"),
-          location: "composer",
-        },
-      ],
-      enablement: [
-        { type: "provider-connected", ref: "ollama", label: t("extensions.ollama_provider") },
-      ],
-      lifecycle: { reload: ["config"], detection: ["provider:ollama"] },
     },
   ];
 }
