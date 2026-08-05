@@ -1,0 +1,12 @@
+{
+  "name": "小红书作品爬取",
+  "installedAt": 1785920048555,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084833976124182528",
+  "description_zh": "按关键词爬取小红书热门作品，支持日期筛选与多种排序",
+  "description_en": "Crawl trending Xiaohongshu posts by keywords with date filtering and sorting",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_56595f25-d37.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-crawler/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_56595f25-d37.svg"
+}

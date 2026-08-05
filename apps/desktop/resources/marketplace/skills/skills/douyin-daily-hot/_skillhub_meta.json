@@ -1,0 +1,12 @@
+{
+  "name": "抖音每日热门作品榜",
+  "installedAt": 1785919877623,
+  "source": "marketplace",
+  "version": "1.0.2",
+  "skillId": "skill_2082737232975196160",
+  "description_zh": "抖音每日最热作品榜查询工具，输出单日点赞TOP50榜单，支持赛道筛选、30天回溯与订阅推送。",
+  "description_en": "Douyin daily hottest works ranking. Outputs the TOP50 works by daily likes, with category filters, 30-day history lookup and subscription push.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_39b69be3-8f6.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/douyin-daily-hot/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_39b69be3-8f6.svg"
+}
