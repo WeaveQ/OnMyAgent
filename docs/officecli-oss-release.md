@@ -124,6 +124,16 @@ node scripts/officecli/validate-manifest.mjs \
 
 临时签名 URL 必须覆盖根 manifest、release manifest、SKILL 和当前平台资产。切换到公共读 URL 后，把配置文件字段清空或删掉对应键，重启桌面端即可恢复默认路径。
 
+## 会话产物卡
+
+桌面端 managed launcher（`profiles/local/tools/officecli/launcher.mjs`）在 `create` / `save` / `set` / `add` 等写文件类命令成功后，会追加一行：
+
+```text
+ONMYAGENT_DELIVERABLE: <path>
+```
+
+与 `artifact-runtime` 的交付标记相同，会话底部产物卡靠此注册文件。已安装用户在下次 status 检查时会自动刷新 launcher，无需重装。
+
 ## 版本更新顺序
 
 例如从 `1.0.102` 发布 `1.0.103`：
