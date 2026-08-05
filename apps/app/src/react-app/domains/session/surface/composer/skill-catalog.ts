@@ -69,7 +69,7 @@ export function buildOnmyagentInstalledNames(skills: SkillCard[]): Set<string> {
 
 /**
  * Composer shows all three product buckets:
- * - onmyagent: profile 已安装 + 内置 (preinstall/market into user root)
+ * - onmyagent: profile installed + builtin (preinstall/market into user root)
  * - builtin: artifact plugins
  * - local: project / legacy / third-party discovered skills
  */

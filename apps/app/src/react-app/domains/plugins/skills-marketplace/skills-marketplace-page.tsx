@@ -162,7 +162,7 @@ function skillCardChips(skill: SkillMarketplaceEntry): string[] {
 }
 
 /**
- * Profile user skills root — 已安装 / 内置 (after install from market or preinstall).
+ * Profile user skills root — Installed / Built-in (after install from market or preinstall).
  * `~/.onmyagent/profiles/<profile>/config/skills/<name>`
  */
 function isProfileSkillsPath(path: string): boolean {
@@ -182,7 +182,7 @@ function isBundledSkillsPath(path: string): boolean {
 }
 
 /**
- * 本地 tab: project / legacy / third-party skill roots (not profile install root).
+ * Local tab: project / legacy / third-party skill roots (not profile install root).
  */
 function isLocalDiscoveredSkillPath(path: string): boolean {
   if (isProfileSkillsPath(path) || isBundledSkillsPath(path)) return false;
@@ -977,7 +977,7 @@ function ImportSkillDialog(props: {
   );
 }
 
-/** Tab order: 已安装 → 内置 → 本地 → 公司 */
+/** Tab order: Installed → Built-in → Local → Company */
 type InstalledSkillsSubTab = "installed" | "builtin" | "local" | "company";
 
 type CompanyCatalogSkill = {
@@ -1073,7 +1073,7 @@ export function SkillsMarketplacePage(props: {
         const skills: LocalSkillCard[] = [];
         const seen = new Set<string>();
         if (Array.isArray(response)) {
-          // Profile roots first so they win name collisions over 本地.
+          // Profile roots first so they win name collisions over Local.
           const ordered = [...response].sort((left, right) => {
             const lp = isProfileSkillsPath(left.path) ? 0 : 1;
             const rp = isProfileSkillsPath(right.path) ? 0 : 1;
