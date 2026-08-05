@@ -206,6 +206,51 @@ describe("skills", () => {
     expect(detailResponse.item).toEqual(expect.objectContaining({ name: "documents", scope: "local" }));
     expect(detailResponse.content).toContain("Local documents policy");
   });
+
+
+  test("dual-reads Phase-2 profile skills root for session list", async () => {
+    const home = join(tempRoot, "home");
+    const workspace = join(tempRoot, "workspace");
+    const profile = join(home, ".onmyagent", "profiles", "local", "config", "skills");
+    const legacy = join(home, ".onmyagent", "skills");
+    await mkdir(join(home, ".onmyagent", "profiles", "local", "config"), { recursive: true });
+    await writeFile(
+      join(home, ".onmyagent", "profiles", "local", "config", "manifest.json"),
+      JSON.stringify({ migration: { status: "complete" } }),
+      "utf8",
+    );
+    await writeSkill(profile, "find-skills", "Discover skills");
+    await writeSkill(legacy, "legacy-only", "Legacy skill");
+
+    const { resolveGlobalSkillsDir, resolveGlobalSkillsDirs } = await import(
+      "../src/workspace/workspace-files.js"
+    );
+    expect(resolveGlobalSkillsDir(home)).toBe(profile);
+    expect(resolveGlobalSkillsDirs(home)).toEqual([profile, legacy]);
+
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = profile;
+    try {
+      // Env override pins list to profile only (production uses resolveGlobalSkillsDirs(homedir)).
+      const items = await listSkills(workspace, true);
+      const names = new Set(items.map((item) => item.name));
+      expect(names.has("find-skills")).toBe(true);
+    } finally {
+      delete process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+    }
+
+    // Dual-root list: scan both dirs via temporary sequential env is insufficient;
+    // assert listSkillsInDir coverage by setting env to each root.
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = legacy;
+    try {
+      const items = await listSkills(workspace, true);
+      expect(items.some((item) => item.name === "legacy-only")).toBe(true);
+    } finally {
+      delete process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+    }
+  });
+
+
+
 });
 
 async function callSkillRoute(
