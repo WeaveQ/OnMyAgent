@@ -144,7 +144,7 @@ export function ExpertMarketplacePage(props: {
     if (!isDesktopRuntime()) {
       setCompanyConnected(false);
       setCompanyExperts([]);
-      setCompanyHint("请在桌面端查看公司专家");
+      setCompanyHint(t("store.company_experts_desktop_only"));
       return undefined;
     }
     let cancelled = false;
@@ -162,16 +162,16 @@ export function ExpertMarketplacePage(props: {
         setCompanyHint(
           catalog?.connected
             ? catalog.email
-              ? `已连接 · ${catalog.email}`
-              : "已连接公司"
-            : "未连接公司 · 设置 → 全局 → 公司 登录后显示",
+              ? t("store.company_connected_member", { email: catalog.email })
+              : t("store.company_connected_short")
+            : t("store.company_not_connected_settings_hint"),
         );
       })
       .catch(() => {
         if (!cancelled) {
           setCompanyConnected(false);
           setCompanyExperts([]);
-          setCompanyHint("无法读取公司目录");
+          setCompanyHint(t("store.company_catalog_read_failed"));
         }
       });
     return () => {
@@ -223,10 +223,10 @@ export function ExpertMarketplacePage(props: {
                       <div className="truncate text-sm font-semibold text-dls-text">
                         {expert.name}
                       </div>
-                      <p className="mt-1 text-xs text-dls-secondary">组织下发 · 只读</p>
+                      <p className="mt-1 text-xs text-dls-secondary">{t("store.company_org_readonly")}</p>
                     </div>
                     <StatusBadge tone="surface" shape="soft" size="tiny">
-                      组织
+                      {t("store.company_org_badge")}
                     </StatusBadge>
                   </div>
                 </div>
@@ -234,11 +234,11 @@ export function ExpertMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-dls-secondary">
-              <p className="text-base font-medium text-dls-text">公司专家</p>
+              <p className="text-base font-medium text-dls-text">{t("store.company_experts_title")}</p>
               <p>
                 {companyConnected
-                  ? "公司暂无下发专家（在 OMC 管理台配置 experts/installed）"
-                  : (companyHint ?? "未连接公司")}
+                  ? t("store.company_no_experts_omc")
+                  : (companyHint ?? t("store.company_not_connected_short"))}
               </p>
             </div>
           )}

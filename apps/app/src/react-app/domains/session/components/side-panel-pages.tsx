@@ -299,7 +299,7 @@ export function DevicesPage() {
   );
 }
 
-/** Market (市场) only — company/enterprise lives on the primary rail. */
+/** Market tab only — company/enterprise lives on the primary rail. */
 export type StorePrimaryTab = "experts" | "skills" | "plugins";
 
 function StorePrimaryTabs(props: {
