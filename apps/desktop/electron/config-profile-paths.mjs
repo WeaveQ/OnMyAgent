@@ -147,7 +147,7 @@ export function dirNonEmpty(dir) {
  * Skills root for install + list.
  * Product model: only profiles/local/config/skills (no ~/.onmyagent/skills dual-read).
  * @param {string | undefined} homeDir
- * @param {{ readFileSync?: typeof readFileSync }} [io]
+ * @param {{ readFileSync?: typeof readFileSync }} [_io] unused; kept for call-site parity
  */
 export function resolveLocalSkillsRoot(homeDir, _io = {}) {
   void _io;
