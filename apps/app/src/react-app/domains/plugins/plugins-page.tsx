@@ -209,90 +209,14 @@ const pluginsLayoutClass = {
 };
 
 function getSamplePlugins(): PluginItem[] {
+  // Recommended catalog: keep Feishu only for now.
   return [
-    {
-      id: "wordpress",
-      name: "WordPress",
-      description: t("session.plugins_desc_wordpress"),
-      category: "commerce",
-      iconKey: "wordpress",
-    },
-    {
-      id: "notion",
-      name: "Notion",
-      description: t("session.plugins_desc_notion"),
-      category: "productivity",
-      iconKey: "notion",
-    },
-    {
-      id: "microsoft365",
-      name: "Microsoft 365",
-      description: t("session.plugins_desc_microsoft365"),
-      category: "productivity",
-      iconKey: "m365",
-    },
-    {
-      id: "twitter-x",
-      name: "Twitter/X",
-      description: t("session.plugins_desc_twitter_x"),
-      category: "social",
-      iconKey: "x",
-    },
-    {
-      id: "linkedin",
-      name: "LinkedIn",
-      description: t("session.plugins_desc_linkedin"),
-      category: "social",
-      iconKey: "linkedin",
-    },
-    {
-      id: "gmail",
-      name: "Gmail",
-      description: t("session.plugins_desc_gmail"),
-      category: "communication",
-      iconKey: "gmail",
-    },
     {
       id: "feishu",
       name: t("session.plugins_name_feishu"),
       description: t("session.plugins_desc_feishu"),
       category: "communication",
       iconKey: "feishu",
-    },
-    {
-      id: "supabase",
-      name: "Supabase",
-      description: t("session.plugins_desc_supabase"),
-      category: "developer",
-      iconKey: "supabase",
-    },
-    {
-      id: "cloudflare",
-      name: "Cloudflare",
-      description: t("session.plugins_desc_cloudflare"),
-      category: "developer",
-      iconKey: "cloudflare",
-    },
-    {
-      id: "github",
-      name: "GitHub",
-      description: t("session.plugins_desc_github"),
-      category: "developer",
-      iconKey: "github",
-    },
-    {
-      id: "vercel",
-      name: "Vercel",
-      description: t("session.plugins_desc_vercel"),
-      category: "developer",
-      iconKey: "vercel",
-    },
-    {
-      id: "huggingface",
-      name: "HuggingFace",
-      description: t("session.plugins_desc_huggingface"),
-      category: "developer",
-      iconKey: "huggingface",
     },
   ];
 }
