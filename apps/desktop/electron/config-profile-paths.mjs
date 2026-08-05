@@ -118,17 +118,14 @@ export function dirNonEmpty(dir) {
 }
 
 /**
- * Skills root for install + list (dual-read until migration complete).
+ * Skills root for install + list.
+ * Product model: only profiles/local/config/skills (no ~/.onmyagent/skills dual-read).
  * @param {string | undefined} homeDir
  * @param {{ readFileSync?: typeof readFileSync }} [io]
  */
-export function resolveLocalSkillsRoot(homeDir, io = {}) {
-  const profile = resolveLocalSkillsProfilePath(homeDir);
-  const legacy = resolveLegacySkillsPath(homeDir);
-  const status = readLocalConfigMigrationStatus(homeDir, io);
-  if (status === "complete") return profile;
-  if (dirNonEmpty(profile)) return profile;
-  return legacy;
+export function resolveLocalSkillsRoot(homeDir, _io = {}) {
+  void _io;
+  return resolveLocalSkillsProfilePath(homeDir);
 }
 
 /**

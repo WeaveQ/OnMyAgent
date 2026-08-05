@@ -30,13 +30,13 @@ describe("composer skill catalog product model", () => {
     },
   ];
 
-  test("only onmyagent + builtin skills are composer-managed", () => {
+  test("onmyagent + builtin + local skills are composer-managed", () => {
     expect(isComposerManagedSkill(skills[0]!)).toBe(true);
     expect(isComposerManagedSkill(skills[1]!)).toBe(true);
-    expect(isComposerManagedSkill(skills[2]!)).toBe(false);
+    expect(isComposerManagedSkill(skills[2]!)).toBe(true);
   });
 
-  test("combined catalog drops unmanaged package skills even if OpenCode lists them", () => {
+  test("combined catalog includes local skills and managed OpenCode rows", () => {
     const commands: SlashCommandOption[] = [
       {
         id: "cmd:browser-automation",
@@ -54,6 +54,7 @@ describe("composer skill catalog product model", () => {
     const names = buildOnmyagentInstalledNames(skills);
     const items = buildCombinedSkillItems(skills, commands, names);
     expect(items.map((item) => item.name).sort()).toEqual([
+      "browser-automation",
       "documents",
       "find-skills",
     ]);
@@ -78,7 +79,7 @@ describe("composer skill catalog product model", () => {
     expect(items[0]?.name).toBe("douyin-content-surge");
   });
 
-  test("slash merge keeps managed skills only", () => {
+  test("slash merge keeps managed skills including local", () => {
     const cmds: SlashCommandOption[] = [
       {
         id: "cmd:browser-automation",
@@ -89,8 +90,14 @@ describe("composer skill catalog product model", () => {
     ];
     const merged = mergeSlashCommandsWithSkills(cmds, skills);
     const names = merged.commands.map((c) => c.name).sort();
-    expect(names).toEqual(["documents", "find-skills", "my-cmd"]);
+    expect(names).toEqual([
+      "browser-automation",
+      "documents",
+      "find-skills",
+      "my-cmd",
+    ]);
     expect(merged.skillsForState?.map((s) => s.name).sort()).toEqual([
+      "browser-automation",
       "documents",
       "find-skills",
     ]);

@@ -308,13 +308,19 @@ export function useSessionSurfaceComposerHandlers(
           const name = String(skill.name ?? "").trim();
           if (!name) continue;
           const skillPath = String(skill.path ?? "").replaceAll("\\", "/");
-          const isOnmyagentRoot =
-            skillPath.includes("/.onmyagent/skills") ||
-            skillPath.includes("/onmyagent/skills") ||
-            /\/\.onmyagent\/profiles\/[^/]+\/config\/skills/.test(skillPath);
-          if (!isOnmyagentRoot) continue;
+          const isBundled =
+            skillPath.includes("/bundled-skills/") ||
+            skillPath.endsWith("/bundled-skills");
+          if (isBundled) continue;
+          const isProfile =
+            /\/\.onmyagent\/profiles\/[^/]+\/config\/skills(?:\/|$)/.test(
+              skillPath,
+            );
           const existing = byName.get(name);
-          // Prefer desktop locale fields; keep server entry for path/scope.
+          // Profile wins name collisions over local discovery.
+          if (existing?.scope === "onmyagent" || existing?.scope === "builtin") {
+            if (!isProfile) continue;
+          }
           byName.set(name, {
             name,
             path: existing?.path || skill.path,
@@ -324,7 +330,12 @@ export function useSessionSurfaceComposerHandlers(
               skill.description ||
               existing?.description,
             trigger: skill.trigger ?? existing?.trigger,
-            scope: existing?.scope === "builtin" ? "builtin" : "onmyagent",
+            scope:
+              existing?.scope === "builtin"
+                ? "builtin"
+                : isProfile
+                  ? "onmyagent"
+                  : "local",
             displayNameZh:
               skill.displayNameZh?.trim() || existing?.displayNameZh,
             displayNameEn:

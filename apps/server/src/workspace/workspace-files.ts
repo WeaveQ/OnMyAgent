@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
@@ -19,59 +19,28 @@ export function onmyagentConfigPath(workspaceRoot: string): string {
 }
 
 /**
- * Phase-2 profile skills root (see docs/design/2026-08-02-config-consistency.md).
+ * User-installed skills root (market install + core preinstall).
+ * Phase-2: profiles/local/config/skills — write target for 已安装/内置.
  */
 export function profileSkillsDir(home = homedir()): string {
   return join(home, ".onmyagent", "profiles", "local", "config", "skills");
 }
 
-/** Pre-migration user skills root (never deleted by migration). */
+/** Legacy user skills path (scanned for 本地 tab only; not write target). */
 export function legacyOnmyagentSkillsDir(home = homedir()): string {
   return join(home, ".onmyagent", "skills");
 }
 
-function dirNonEmpty(dir: string): boolean {
-  try {
-    if (!existsSync(dir)) return false;
-    return readdirSync(dir).length > 0;
-  } catch {
-    return false;
-  }
-}
-
-function readLocalMigrationComplete(home = homedir()): boolean {
-  try {
-    const manifestPath = join(
-      home,
-      ".onmyagent",
-      "profiles",
-      "local",
-      "config",
-      "manifest.json",
-    );
-    if (!existsSync(manifestPath)) return false;
-    const raw = readFileSync(manifestPath, "utf8");
-    const parsed = JSON.parse(raw) as { migration?: { status?: string } };
-    return parsed?.migration?.status === "complete";
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Resolve write/primary skills root for a home directory (Phase-2 dual-read).
+ * Resolve write skills root for a home directory (profile only).
  */
 export function resolveGlobalSkillsDir(home = homedir()): string {
-  const profile = profileSkillsDir(home);
-  const legacy = legacyOnmyagentSkillsDir(home);
-  if (readLocalMigrationComplete(home)) return profile;
-  if (dirNonEmpty(profile)) return profile;
-  return legacy;
+  return profileSkillsDir(home);
 }
 
 /**
- * OnMyAgent user-installed skills root (write + primary list target).
- * Dual-read with Phase-2 profile path; env override for tests.
+ * OnMyAgent profile skills root (write + 已安装/内置 list).
+ * Env override for tests only.
  */
 export function globalSkillsDir(): string {
   const envOverride = process.env.OPENCODE_GLOBAL_SKILLS_DIR;
@@ -81,30 +50,12 @@ export function globalSkillsDir(): string {
   return resolveGlobalSkillsDir(homedir());
 }
 
-/**
- * All OnMyAgent skill roots to list (profile + legacy when both exist).
- * Dedup by skill name happens in listSkills.
- */
 export function resolveGlobalSkillsDirs(home = homedir()): string[] {
-  const profile = profileSkillsDir(home);
-  const legacy = legacyOnmyagentSkillsDir(home);
-  const primary = resolveGlobalSkillsDir(home);
-  const dirs: string[] = [];
-  const push = (dir: string) => {
-    if (!dirs.includes(dir)) dirs.push(dir);
-  };
-  push(primary);
-  if (primary === profile && dirNonEmpty(legacy)) push(legacy);
-  else if (primary === legacy && dirNonEmpty(profile)) push(profile);
-  return dirs;
+  return [resolveGlobalSkillsDir(home)];
 }
 
 export function globalSkillsDirs(): string[] {
-  const envOverride = process.env.OPENCODE_GLOBAL_SKILLS_DIR;
-  if (envOverride && envOverride.trim().length > 0) {
-    return [envOverride];
-  }
-  return resolveGlobalSkillsDirs(homedir());
+  return [globalSkillsDir()];
 }
 
 export function legacyOpencodeSkillsDir(): string {

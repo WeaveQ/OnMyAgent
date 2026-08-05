@@ -161,22 +161,36 @@ function skillCardChips(skill: SkillMarketplaceEntry): string[] {
 }
 
 /**
- * User-installed / preinstalled OnMyAgent skill roots (not project `.opencode/skills`).
- * Covers legacy `~/.onmyagent/skills` and Phase-2 profile dual-read roots.
+ * Profile user skills root — 已安装 / 内置 (after install from market or preinstall).
+ * `~/.onmyagent/profiles/<profile>/config/skills/<name>`
  */
-function isOnmyagentSkillPath(path: string): boolean {
+function isProfileSkillsPath(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
-  if (
-    normalized.includes("/.onmyagent/skills/") ||
-    normalized.includes("/onmyagent/skills/")
-  ) {
-    return true;
-  }
-  // ~/.onmyagent/profiles/<profile>/config/skills/<name>
-  if (/\/\.onmyagent\/profiles\/[^/]+\/config\/skills\//.test(normalized)) {
-    return true;
-  }
-  return false;
+  return /\/\.onmyagent\/profiles\/[^/]+\/config\/skills(?:\/|$)/.test(
+    normalized,
+  );
+}
+
+/** Packaged bundled-skills tree is install source only — never a list bucket. */
+function isBundledSkillsPath(path: string): boolean {
+  const normalized = path.replaceAll("\\", "/");
+  return (
+    normalized.includes("/bundled-skills/") ||
+    normalized.endsWith("/bundled-skills")
+  );
+}
+
+/**
+ * 本地 tab: project / legacy / third-party skill roots (not profile install root).
+ */
+function isLocalDiscoveredSkillPath(path: string): boolean {
+  if (isProfileSkillsPath(path) || isBundledSkillsPath(path)) return false;
+  return true;
+}
+
+/** @deprecated use isProfileSkillsPath / isLocalDiscoveredSkillPath */
+function isOnmyagentSkillPath(path: string): boolean {
+  return isProfileSkillsPath(path);
 }
 
 /** Prefer Chinese skill titles when available. */
@@ -538,6 +552,8 @@ function InstalledSkillCard(props: {
   uninstalling: boolean;
   /** Product-packaged origin (core preinstall / builtin catalog). */
   originBuiltin?: boolean;
+  /** Discovered from project / legacy / third-party roots. */
+  originLocal?: boolean;
   onEnabledChange: (skill: LocalSkillCard, enabled: boolean) => void;
   onPinnedChange: (skill: LocalSkillCard, pinned: boolean) => void;
   onChat?: (skill: LocalSkillCard) => void;
@@ -547,9 +563,11 @@ function InstalledSkillCard(props: {
 }) {
   const description = skillDescription(props.skill);
   const name = skillDisplayName(props.skill);
-  const typeLabel = props.originBuiltin
-    ? t("skills.source_builtin")
-    : t("skills.source_user_installed");
+  const typeLabel = props.originLocal
+    ? t("skills.source_local")
+    : props.originBuiltin
+      ? t("skills.source_builtin")
+      : t("skills.source_user_installed");
 
   const handleCardActivate = () => {
     // Product: installed/builtin cards always start a chat when possible.
@@ -691,15 +709,17 @@ function InstalledSkillCard(props: {
                       <Pencil className="size-4 shrink-0 text-dls-secondary" />
                       {t("store.skill_edit")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      disabled={props.uninstalling || props.skill.readonly}
-                      onClick={() => props.onUninstall(props.skill)}
-                      className="cursor-pointer"
-                    >
-                      <Trash2 className="size-4" />
-                      {t("skills.uninstall")}
-                    </DropdownMenuItem>
+                    {!props.originLocal ? (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={props.uninstalling || props.skill.readonly}
+                        onClick={() => props.onUninstall(props.skill)}
+                        className="cursor-pointer"
+                      >
+                        <Trash2 className="size-4" />
+                        {t("skills.uninstall")}
+                      </DropdownMenuItem>
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Tooltip>
@@ -956,7 +976,8 @@ function ImportSkillDialog(props: {
   );
 }
 
-type InstalledSkillsSubTab = "builtin" | "installed";
+/** Tab order: 已安装 → 内置 → 本地 */
+type InstalledSkillsSubTab = "installed" | "builtin" | "local";
 
 /**
  * Fallback when listBuiltinSkillCatalog is unavailable (older desktop / IPC fail).
@@ -1006,7 +1027,7 @@ export function SkillsMarketplacePage(props: {
     () => new Set(),
   );
   const [installedSubTab, setInstalledSubTab] =
-    useState<InstalledSkillsSubTab>("builtin");
+    useState<InstalledSkillsSubTab>("installed");
   const [installingSkillName, setInstallingSkillName] = useState<string | null>(null);
   const [uninstallingSkillName, setUninstallingSkillName] = useState<string | null>(null);
   const [skillEnabledMap, setSkillEnabledMap] = useState<Record<string, boolean>>(() =>
@@ -1037,17 +1058,31 @@ export function SkillsMarketplacePage(props: {
         );
         const names = new Set<string>();
         const skills: LocalSkillCard[] = [];
+        const seen = new Set<string>();
         if (Array.isArray(response)) {
-          for (const entry of response) {
-            if (isOnmyagentSkillPath(entry.path)) {
-              names.add(entry.name);
-              skills.push(
-                mergeLocalSkillWithCatalog(
-                  entry,
-                  catalogByName.get(entry.name) ?? null,
-                ),
-              );
+          // Profile roots first so they win name collisions over 本地.
+          const ordered = [...response].sort((left, right) => {
+            const lp = isProfileSkillsPath(left.path) ? 0 : 1;
+            const rp = isProfileSkillsPath(right.path) ? 0 : 1;
+            return lp - rp;
+          });
+          for (const entry of ordered) {
+            if (isBundledSkillsPath(entry.path)) continue;
+            if (seen.has(entry.name)) continue;
+            if (
+              !isProfileSkillsPath(entry.path) &&
+              !isLocalDiscoveredSkillPath(entry.path)
+            ) {
+              continue;
             }
+            seen.add(entry.name);
+            names.add(entry.name);
+            skills.push(
+              mergeLocalSkillWithCatalog(
+                entry,
+                catalogByName.get(entry.name) ?? null,
+              ),
+            );
           }
         }
         setInstalledSkillNames(names);
@@ -1225,21 +1260,37 @@ export function SkillsMarketplacePage(props: {
   };
 
   const isBuiltinOriginSkill = (skill: LocalSkillCard) =>
-    builtinPackageNames.has(skill.name);
+    isProfileSkillsPath(skill.path) && builtinPackageNames.has(skill.name);
 
-  const { builtinInstalled, userInstalled } = useMemo(() => {
+  const isLocalOriginSkill = (skill: LocalSkillCard) =>
+    isLocalDiscoveredSkillPath(skill.path);
+
+  const { builtinInstalled, userInstalled, localDiscovered } = useMemo(() => {
     const builtin: LocalSkillCard[] = [];
     const user: LocalSkillCard[] = [];
+    const local: LocalSkillCard[] = [];
     for (const skill of installedSkills) {
+      if (isLocalOriginSkill(skill)) {
+        local.push(skill);
+        continue;
+      }
       if (isBuiltinOriginSkill(skill)) builtin.push(skill);
-      else user.push(skill);
+      else if (isProfileSkillsPath(skill.path)) user.push(skill);
     }
-    return { builtinInstalled: builtin, userInstalled: user };
+    return {
+      builtinInstalled: builtin,
+      userInstalled: user,
+      localDiscovered: local,
+    };
   }, [installedSkills, builtinPackageNames]);
 
   const filteredInstalledSkills = useMemo(() => {
     const source =
-      installedSubTab === "builtin" ? builtinInstalled : userInstalled;
+      installedSubTab === "builtin"
+        ? builtinInstalled
+        : installedSubTab === "local"
+          ? localDiscovered
+          : userInstalled;
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
     const filtered = !normalizedQuery
       ? source
@@ -1264,6 +1315,7 @@ export function SkillsMarketplacePage(props: {
   }, [
     builtinInstalled,
     userInstalled,
+    localDiscovered,
     installedSubTab,
     props.query,
     pinnedSkillIds,
@@ -1273,7 +1325,9 @@ export function SkillsMarketplacePage(props: {
     const emptyForSubTab =
       installedSubTab === "builtin"
         ? builtinInstalled.length === 0
-        : userInstalled.length === 0;
+        : installedSubTab === "local"
+          ? localDiscovered.length === 0
+          : userInstalled.length === 0;
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden bg-dls-background">
         <ImportSkillDialog
@@ -1305,6 +1359,26 @@ export function SkillsMarketplacePage(props: {
           <SegmentedTabGroup density="bare" className="mac:titlebar-no-drag">
             <NavTabButton
               type="button"
+              active={installedSubTab === "installed"}
+              size="tab"
+              shape="tab"
+              aria-pressed={installedSubTab === "installed"}
+              onClick={() => setInstalledSubTab("installed")}
+            >
+              <span>{t("skills.mine_tab_installed")}</span>
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  installedSubTab === "installed"
+                    ? "opacity-70"
+                    : "text-dls-secondary",
+                )}
+              >
+                {userInstalled.length}
+              </span>
+            </NavTabButton>
+            <NavTabButton
+              type="button"
               active={installedSubTab === "builtin"}
               size="tab"
               shape="tab"
@@ -1325,22 +1399,22 @@ export function SkillsMarketplacePage(props: {
             </NavTabButton>
             <NavTabButton
               type="button"
-              active={installedSubTab === "installed"}
+              active={installedSubTab === "local"}
               size="tab"
               shape="tab"
-              aria-pressed={installedSubTab === "installed"}
-              onClick={() => setInstalledSubTab("installed")}
+              aria-pressed={installedSubTab === "local"}
+              onClick={() => setInstalledSubTab("local")}
             >
-              <span>{t("skills.mine_tab_installed")}</span>
+              <span>{t("skills.mine_tab_local")}</span>
               <span
                 className={cn(
                   "text-xs font-medium tabular-nums",
-                  installedSubTab === "installed"
+                  installedSubTab === "local"
                     ? "opacity-70"
                     : "text-dls-secondary",
                 )}
               >
-                {userInstalled.length}
+                {localDiscovered.length}
               </span>
             </NavTabButton>
           </SegmentedTabGroup>
@@ -1352,6 +1426,7 @@ export function SkillsMarketplacePage(props: {
                 const market = marketplaceSkillForLocalSkill(skill);
                 const enabled = skillEnabledMap[skill.name] !== false;
                 const originBuiltin = isBuiltinOriginSkill(skill);
+                const originLocal = isLocalOriginSkill(skill);
                 return (
                   <InstalledSkillCard
                     key={skill.name}
@@ -1360,6 +1435,7 @@ export function SkillsMarketplacePage(props: {
                     enabled={enabled}
                     pinned={isSkillPinned(skill.name)}
                     originBuiltin={originBuiltin}
+                    originLocal={originLocal}
                     uninstalling={uninstallingSkillName === skill.name}
                     onEnabledChange={handleSkillEnabledChange}
                     onPinnedChange={handleSkillPinnedChange}
@@ -1393,7 +1469,9 @@ export function SkillsMarketplacePage(props: {
               {emptyForSubTab
                 ? installedSubTab === "builtin"
                   ? t("skills.mine_builtin_empty")
-                  : t("skills.mine_user_empty")
+                  : installedSubTab === "local"
+                    ? t("skills.mine_local_empty")
+                    : t("skills.mine_user_empty")
                 : t("skills_marketplace.installed_no_match")}
             </div>
           )}
