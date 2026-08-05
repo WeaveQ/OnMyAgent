@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { CompanyStorePage } from "@/react-app/domains/plugins/company-store-page";
+import { CompanyStorePage } from "@/react-app/domains/plugins";
 import { openCompanySettingsPath } from "../navigation/open-company-settings";
 
 export function CompanyRailPane(props: {
