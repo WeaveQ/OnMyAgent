@@ -8,8 +8,8 @@
   "expertType": "agent",
   "agentName": "legal-compliance-reviewer",
   "displayName": {
-    "en": "Uri",
-    "zh": "守规规"
+    "en": "Legal Compliance Expert",
+    "zh": "法务合规专家"
   },
   "profession": {
     "en": "Legal Compliance Reviewer",

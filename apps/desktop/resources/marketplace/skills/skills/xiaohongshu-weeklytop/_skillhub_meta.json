@@ -1,0 +1,12 @@
+{
+  "name": "小红书七日爆款笔记",
+  "installedAt": 1785919953210,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084103638281773056",
+  "description_zh": "基于近7天热门笔记TOP50深度洞察，支持25个垂直领域查询与每日订阅推送",
+  "description_en": "Weekly TOP50 trending Xiaohongshu notes across 25 verticals, with daily subscription.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_219757a9-358.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-weeklytop/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_219757a9-358.svg"
+}

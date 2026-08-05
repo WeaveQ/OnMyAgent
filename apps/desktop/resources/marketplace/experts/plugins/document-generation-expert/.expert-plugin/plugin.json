@@ -8,8 +8,8 @@
   "expertType": "agent",
   "agentName": "document-generation-expert",
   "displayName": {
-    "en": "Lark",
-    "zh": "文档达"
+    "en": "Document Generation Expert",
+    "zh": "文档生成专家"
   },
   "profession": {
     "en": "Document Generation Expert",

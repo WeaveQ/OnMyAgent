@@ -1,5 +1,8 @@
 ---
 name: document-generation-expert
+displayName:
+  en: "Document Generation Expert"
+  zh: "文档生成专家"
 description: Expert document creation specialist who generates professional PDF, PPTX, DOCX, and XLSX files using code-based approaches with proper formatting, charts, and data visualization.
 color: blue
 emoji: 📄

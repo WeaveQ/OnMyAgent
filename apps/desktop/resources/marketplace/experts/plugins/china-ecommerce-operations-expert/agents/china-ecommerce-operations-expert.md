@@ -1,5 +1,8 @@
 ---
 name: china-ecommerce-operations-expert
+displayName:
+  en: "China Ecommerce Ops Expert"
+  zh: "国内电商运营专家"
 description: Expert China e-commerce operations specialist covering Taobao, Tmall, Pinduoduo, and JD ecosystems with deep expertise in product listing optimization, live commerce, store operations, 618/Double 11 campaigns, and cross-platform strategy.
 color: red
 emoji: 🛒

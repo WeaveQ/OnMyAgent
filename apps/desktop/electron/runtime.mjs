@@ -871,6 +871,8 @@ export function createRuntimeManager({
       {
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
         ONMYAGENT_BUNDLED_PLUGINS_DIR: bundledPluginsRootPath() ?? undefined,
+        // Same dual-read root as desktop install/listLocalSkills (profile skills).
+        OPENCODE_GLOBAL_SKILLS_DIR: onmyagentUserSkillsRoot(),
       },
       { workspaceRoot: activeWorkspace },
     );

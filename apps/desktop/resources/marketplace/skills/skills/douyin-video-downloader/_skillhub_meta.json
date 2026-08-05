@@ -1,0 +1,12 @@
+{
+  "name": "抖音账号视频批量下载器",
+  "installedAt": 1785919777098,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2083031752854405120",
+  "description_zh": "输入抖音号即可拉取该账号全部作品，解析无水印下载直链，支持批量一键下载视频与图片到本地",
+  "description_en": "Batch download watermark-free videos and images from any Douyin account by entering the account ID.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_48e4a1e5-c2f.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/douyin-video-downloader/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_48e4a1e5-c2f.svg"
+}

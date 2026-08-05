@@ -13,12 +13,9 @@ export function resolveBundledSkillDisplay(
   skill: LocalizableSkill,
 ): { name: string; description: string } {
   const locale = currentLocale();
-  // Skill *names* stay English (displayNameEn / package name). Only descriptions
-  // follow the UI locale so cards never show translated titles like “发现技能”.
-  const name = skill.displayNameEn ?? skill.name;
   if (locale === "zh" || locale === "zh-TW") {
     return {
-      name,
+      name: skill.displayNameZh ?? skill.displayNameEn ?? skill.name,
       description:
         skill.descriptionZh ??
         skill.descriptionEn ??
@@ -27,7 +24,7 @@ export function resolveBundledSkillDisplay(
     };
   }
   return {
-    name,
+    name: skill.displayNameEn ?? skill.displayNameZh ?? skill.name,
     description:
       skill.descriptionEn ??
       skill.descriptionZh ??

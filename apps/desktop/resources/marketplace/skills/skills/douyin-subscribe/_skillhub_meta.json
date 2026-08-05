@@ -1,0 +1,12 @@
+{
+  "name": "抖音账号订阅追踪",
+  "installedAt": 1785919976244,
+  "source": "marketplace",
+  "version": "1.1.3",
+  "skillId": "skill_2082737464437194752",
+  "description_zh": "抖音账号订阅追踪工具，订阅后每日9点自动拉取最新作品并生成HTML报告。",
+  "description_en": "Subscribe to Douyin accounts and get their latest works pulled automatically at 9:00 every day with a polished HTML report.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_89863a22-02c.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/douyin-subscribe/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_89863a22-02c.svg"
+}

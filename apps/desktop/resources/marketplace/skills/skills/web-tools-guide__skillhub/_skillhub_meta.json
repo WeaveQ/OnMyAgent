@@ -1,0 +1,13 @@
+{
+  "slug": "web-tools-guide",
+  "name": "web-tools-guide",
+  "version": "1.0.2",
+  "installedAt": 1785921427399,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/7422abc7-fa86-4505-a723-0575c56e7a2d.png",
+  "labels": {
+    "requires_api_key": "false"
+  },
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/web-tools-guide__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/7422abc7-fa86-4505-a723-0575c56e7a2d.png"
+}

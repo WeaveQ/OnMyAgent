@@ -152,9 +152,9 @@ describe("ensureLocalConfigMigrated", () => {
       assert.equal(result.ok, false);
       assert.equal(result.status, "failed");
       assert.equal(readLocalConfigMigrationStatus(home), "failed");
-      // Profile skills may be empty dirs only → dual-read legacy
-      assert.equal(resolveLocalSkillsRoot(home), resolveLegacySkillsPath(home));
-      // Legacy still present
+      // Product skills root is always profile (no legacy dual-read).
+      assert.equal(resolveLocalSkillsRoot(home), resolveLocalSkillsProfilePath(home));
+      // Legacy files remain on disk (migration never deletes).
       await access(
         path.join(resolveLegacySkillsPath(home), "demo-skill", "SKILL.md"),
       );

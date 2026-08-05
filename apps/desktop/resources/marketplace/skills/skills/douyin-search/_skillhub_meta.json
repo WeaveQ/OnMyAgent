@@ -1,0 +1,12 @@
+{
+  "name": "抖音作品查询",
+  "installedAt": 1785919745570,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084463227337162752",
+  "description_zh": "根据关键词搜索抖音热门爆款作品，支持日期筛选，结构化展示互动数据",
+  "description_en": "Search trending Douyin videos by keywords with date filtering and engagement metrics",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_7b889404-4fe.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/douyin-search/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_7b889404-4fe.svg"
+}

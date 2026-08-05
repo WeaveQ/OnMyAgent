@@ -20,6 +20,42 @@ import {
 } from "./composer-helpers";
 import { sortWithPinnedFirst } from "@/react-app/domains/plugins";
 
+/** Same title priority as skills marketplace cards. */
+export function skillCardDisplayName(skill: {
+  name: string;
+  displayNameZh?: string | null;
+  displayNameEn?: string | null;
+}): string {
+  return (
+    skill.displayNameZh?.trim() ||
+    skill.displayNameEn?.trim() ||
+    skill.name
+  );
+}
+
+/** Same description priority as skills marketplace cards. */
+export function skillCardDescription(skill: {
+  description?: string | null;
+  descriptionZh?: string | null;
+  descriptionEn?: string | null;
+  trigger?: string | null;
+}): string | undefined {
+  const candidates = [
+    skill.descriptionZh,
+    skill.descriptionEn,
+    skill.description,
+    skill.trigger,
+  ];
+  for (const candidate of candidates) {
+    const text = String(candidate ?? "").trim();
+    if (!text) continue;
+    if (/^>-?$/.test(text) || /^\|[-+]?$/.test(text) || /^>$/.test(text)) continue;
+    if (text.length < 3) continue;
+    return text;
+  }
+  return undefined;
+}
+
 export function buildOnmyagentInstalledNames(skills: SkillCard[]): Set<string> {
   const names = new Set<string>();
   for (const skill of skills) {
@@ -32,9 +68,22 @@ export function buildOnmyagentInstalledNames(skills: SkillCard[]): Set<string> {
 }
 
 /**
+ * Composer shows all three product buckets:
+ * - onmyagent: profile installed + builtin (preinstall/market into user root)
+ * - builtin: artifact plugins
+ * - local: project / legacy / third-party discovered skills
+ */
+export function isComposerManagedSkill(skill: SkillCard): boolean {
+  return (
+    skill.scope === "onmyagent" ||
+    skill.scope === "builtin" ||
+    skill.scope === "local"
+  );
+}
+
+/**
  * Shared skill catalog for `+` skills flyout and `/` slash menu so count + order match.
- * Prefer OpenCode command.list rows when both sources have the same name, but keep
- * the OnMyAgent install set so those can sort first after pins.
+ * Includes installed, builtin, and local discovered skills.
  */
 export function buildCombinedSkillItems(
   skills: SkillCard[],
@@ -43,29 +92,49 @@ export function buildCombinedSkillItems(
 ): SlashCommandOption[] {
   const byName = new Map<string, SlashCommandOption>();
   for (const skill of skills) {
+    if (!isComposerManagedSkill(skill)) continue;
     const name = String(skill.name ?? "").trim();
     if (!name) continue;
+    const label = skillCardDisplayName(skill);
     byName.set(name, {
       id: `skill:${name}`,
       name,
-      description: skill.description,
+      label: label !== name ? label : undefined,
+      description: skillCardDescription(skill) ?? skill.description,
       source: "skill",
     });
   }
+  const managedNames = new Set(byName.keys());
   for (const command of commands) {
     if (command.source === "mcp") continue;
     const name = String(command.name ?? "").trim();
     if (!name) continue;
+    // Drop OpenCode skill rows that are not installed/builtin (e.g. raw package tree).
+    if (command.source === "skill" || !command.source) {
+      if (!managedNames.has(name)) continue;
+    } else if (!managedNames.has(name)) {
+      // Non-skill commands stay out of the skill flyout catalog.
+      continue;
+    }
+    const existing = byName.get(name);
     // Stable pin key: skill:<name> so + menu pins still match slash rows.
     byName.set(name, {
       ...command,
       id: command.source === "skill" || !command.source ? `skill:${name}` : command.id,
       name,
+      // Keep marketplace-style label from SkillCard when OpenCode row has none.
+      label: command.label?.trim() || existing?.label,
+      description: existing?.description || command.description,
     });
   }
-  const alpha = (left: SlashCommandOption, right: SlashCommandOption) =>
-    left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
-  // OnMyAgent-installed first (alpha), then everything else (alpha).
+  const alpha = (left: SlashCommandOption, right: SlashCommandOption) => {
+    const leftTitle = left.label?.trim() || left.name;
+    const rightTitle = right.label?.trim() || right.name;
+    return leftTitle.localeCompare(rightTitle, "zh-Hans-CN", {
+      sensitivity: "base",
+    });
+  };
+  // OnMyAgent-installed first (alpha), then builtin/rest (alpha).
   const installed: SlashCommandOption[] = [];
   const rest: SlashCommandOption[] = [];
   for (const item of byName.values()) {
@@ -112,7 +181,8 @@ export function filterSlashSkillItems(
     ? filterToolMenuItems(
         skillCatalogOrdered,
         slashQuery,
-        (item) => `${item.name} ${item.name} ${item.description ?? ""}`,
+        (item) =>
+          `${item.label ?? ""} ${item.name} ${item.name} ${item.description ?? ""}`,
       )
     : skillCatalogOrdered;
 }
@@ -124,7 +194,7 @@ export function filterSkillMenuItems(
   return filterToolMenuItems(
     skillCatalogOrdered,
     skillSearchQuery,
-    (item) => `${item.name} ${item.description ?? ""}`,
+    (item) => `${item.label ?? ""} ${item.name} ${item.name} ${item.description ?? ""}`,
   );
 }
 

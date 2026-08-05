@@ -8,8 +8,8 @@
   "expertType": "agent",
   "agentName": "customer-support-expert",
   "displayName": {
-    "en": "Olin",
-    "zh": "暖心心"
+    "en": "Customer Support Expert",
+    "zh": "客户支持专家"
   },
   "profession": {
     "en": "Customer Support Expert",

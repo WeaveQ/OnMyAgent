@@ -1,0 +1,12 @@
+{
+  "name": "小红书低粉爆款笔记",
+  "installedAt": 1785919906153,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084103440648671232",
+  "description_zh": "挖掘粉丝低于5000但互动超500的小红书低粉爆款笔记榜单，附爆款规律分析",
+  "description_en": "Discover viral Xiaohongshu notes from accounts under 5000 followers, with pattern analysis.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_45bec6b8-61f.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-lowtop/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_45bec6b8-61f.svg"
+}

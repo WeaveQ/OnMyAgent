@@ -15,8 +15,8 @@
     "./skills/pdf-toolbox"
   ],
   "displayName": {
-    "en": "KDocs PDF Toolbox Assistant",
-    "zh": "金山文档PDF处理助手"
+    "en": "KDocs PDF Toolbox",
+    "zh": "金山文档PDF助手"
   },
   "profession": {
     "en": "PDF Toolbox Expert",

@@ -202,6 +202,10 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
 
   useEffect(() => {
     if (!input.toolMenuOpen) return;
+    // Invalidate slash/skill caches so marketplace installs show without restart.
+    commandsLoadVersionRef.current += 1;
+    commandsCacheRef.current = null;
+    commandsRequestRef.current = null;
     toolMenuLoadRef.current = {
       openId: toolMenuLoadRef.current.openId + 1,
       commands: false,
