@@ -17,12 +17,13 @@ export type OnMyAgentPrimaryView =
   | SidebarPrimaryView
   | "files"
   | "store"
+  | "company"
   | "projects"
   | "localAgent";
 
 export type SidebarFeatureView = Exclude<
   OnMyAgentPrimaryView,
-  "chat" | "files" | "store" | "projects"
+  "chat" | "files" | "store" | "company" | "projects"
 >;
 
 export const SIDEBAR_VIEW_LABELS: Record<SidebarFeatureView, string> = {

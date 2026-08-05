@@ -112,6 +112,7 @@ import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import { buildFilesOpenSessionMeta } from "../pages/session-files-open-meta";
 import { StorePage, type StorePrimaryTab } from "../components/side-panel-pages";
+import { CompanyRailPane } from "../components/company-rail-pane";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
 import {
@@ -752,6 +753,10 @@ export function SessionPage(props: SessionPageProps) {
                         />
                       ) : null}
 
+                      {agentPanel.activeSidebarView === "company" ? (
+                        <CompanyRailPane />
+                      ) : null}
+
                       {agentPanel.activeSidebarView === "files" ? (
                         <WorkspaceFilesPage
                           client={props.onmyagentServerClient}
@@ -812,6 +817,7 @@ export function SessionPage(props: SessionPageProps) {
                       agentPanel.activeSidebarView !== "agents" &&
                       agentPanel.activeSidebarView !== "files" &&
                       agentPanel.activeSidebarView !== "store" &&
+                      agentPanel.activeSidebarView !== "company" &&
                       agentPanel.activeSidebarView !== "projects" &&
                       agentPanel.activeSidebarView !== "localAgent" &&
                       agentPanel.activeSidebarView !== "devices" &&
