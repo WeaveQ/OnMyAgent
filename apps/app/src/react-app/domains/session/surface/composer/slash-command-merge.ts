@@ -3,7 +3,11 @@
  */
 import type { SlashCommandOption } from "../../../../../app/types";
 import type { SkillCard } from "../../../../../app/types";
-import { isComposerManagedSkill } from "./skill-catalog";
+import {
+  isComposerManagedSkill,
+  skillCardDescription,
+  skillCardDisplayName,
+} from "./skill-catalog";
 
 export function mergeSlashCommandsWithSkills(
   cmds: SlashCommandOption[],
@@ -14,10 +18,13 @@ export function mergeSlashCommandsWithSkills(
   for (const skill of managedSkills) {
     const name = String(skill.name ?? "").trim();
     if (!name) continue;
+    const label = skillCardDisplayName(skill);
     byName.set(name, {
       id: `skill:${name}`,
       name,
-      description: skill.description ? String(skill.description) : undefined,
+      label: label !== name ? label : undefined,
+      description: skillCardDescription(skill) ??
+        (skill.description ? String(skill.description) : undefined),
       source: "skill",
     });
   }
@@ -29,7 +36,12 @@ export function mergeSlashCommandsWithSkills(
     if (cmd.source === "skill" || !cmd.source) {
       if (!managedNames.has(name)) continue;
     }
-    byName.set(name, cmd);
+    const existing = byName.get(name);
+    byName.set(name, {
+      ...cmd,
+      label: cmd.label?.trim() || existing?.label,
+      description: existing?.description || cmd.description,
+    });
   }
   return {
     commands: Array.from(byName.values()),

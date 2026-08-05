@@ -259,8 +259,10 @@ export function createSkillsScan(options = {}) {
     await ensureDefaultBuiltinSkillsOnce();
 
     const LOCALE_KEYS = [
+      "display_name",
       "display_name_zh",
       "display_name_en",
+      "description",
       "description_zh",
       "description_en",
     ];
@@ -292,8 +294,10 @@ export function createSkillsScan(options = {}) {
           trigger: extractTrigger(raw) ?? undefined,
           root,
           readonly: bundledSkillsRootPath() === root,
-          displayNameZh: localeMap.display_name_zh,
-          displayNameEn: localeMap.display_name_en,
+          // Prefer explicit zh; fall back to generic display_name (often Chinese).
+          displayNameZh:
+            localeMap.display_name_zh || localeMap.display_name || undefined,
+          displayNameEn: localeMap.display_name_en || undefined,
           descriptionZh: pickUsableSkillDescription(localeMap.description_zh),
           descriptionEn: pickUsableSkillDescription(
             localeMap.description_en,

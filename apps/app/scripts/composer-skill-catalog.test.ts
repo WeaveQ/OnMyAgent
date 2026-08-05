@@ -59,6 +59,25 @@ describe("composer skill catalog product model", () => {
     ]);
   });
 
+  test("uses marketplace-style Chinese display labels when present", () => {
+    const localized: SkillCard[] = [
+      {
+        name: "douyin-content-surge",
+        path: "/x/skills/douyin-content-surge",
+        description: "en desc",
+        descriptionZh: "抖音飙升榜说明",
+        displayNameZh: "抖音每日点赞飙升榜",
+        displayNameEn: "Douyin Daily Like Surge",
+        scope: "onmyagent",
+      },
+    ];
+    const items = buildCombinedSkillItems(localized, [], new Set(["douyin-content-surge"]));
+    expect(items).toHaveLength(1);
+    expect(items[0]?.label).toBe("抖音每日点赞飙升榜");
+    expect(items[0]?.description).toBe("抖音飙升榜说明");
+    expect(items[0]?.name).toBe("douyin-content-surge");
+  });
+
   test("slash merge keeps managed skills only", () => {
     const cmds: SlashCommandOption[] = [
       {
