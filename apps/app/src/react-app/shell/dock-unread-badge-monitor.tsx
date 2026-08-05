@@ -6,21 +6,12 @@ import { isDesktopRuntime } from "../../app/utils";
 import { useExpertUnreadStore } from "../domains/session";
 import { useLocal } from "../kernel/local-provider";
 
-function totalUnreadCount(
-  byWorkspace: Record<string, Record<string, { unreadCount?: number }>>,
-): number {
-  let total = 0;
-  for (const agents of Object.values(byWorkspace)) {
-    for (const record of Object.values(agents ?? {})) {
-      const n = record?.unreadCount ?? 0;
-      if (typeof n === "number" && n > 0) total += n;
-    }
-  }
-  return total;
-}
-
 /**
- * Pushes expert unread totals to Dock (mac) / taskbar badge (win) when enabled.
+ * Pushes unread expert count to Dock (mac) / taskbar badge (win) when enabled.
+ *
+ * Count = number of experts (or pure-assistant scopes) with unread replies —
+ * not summed assistant-turn counts (those accumulate and are not true
+ * per-message unread). Server has no message-level read cursor.
  */
 export function DockUnreadBadgeMonitor() {
   const local = useLocal();
@@ -42,8 +33,7 @@ export function DockUnreadBadgeMonitor() {
         push(0);
         return;
       }
-      const state = useExpertUnreadStore.getState();
-      push(totalUnreadCount(state.byWorkspace));
+      push(useExpertUnreadStore.getState().getTotalUnreadAgentCount());
     };
 
     apply();
