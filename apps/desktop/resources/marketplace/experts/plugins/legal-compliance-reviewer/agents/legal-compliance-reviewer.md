@@ -1,5 +1,8 @@
 ---
 name: legal-compliance-reviewer
+displayName:
+  en: "Legal Compliance Expert"
+  zh: "法务合规专家"
 description: Expert legal and compliance specialist ensuring business operations, data handling, and content creation comply with relevant laws, regulations, and industry standards across multiple jurisdictions.
 color: red
 emoji: ⚖️

@@ -1,5 +1,8 @@
 ---
 name: supply-chain-strategist
+displayName:
+  en: "Supply Chain Strategist"
+  zh: "供应链策略专家"
 description: Expert supply chain management and procurement strategy specialist — skilled in supplier development, strategic sourcing, quality control, and supply chain digitalization. Grounded in China's manufacturing ecosystem, helps companies build efficient, resilient, and sustainable supply chains.
 color: blue
 emoji: 🔗

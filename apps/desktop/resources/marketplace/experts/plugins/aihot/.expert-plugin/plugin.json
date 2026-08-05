@@ -14,8 +14,8 @@
   "expertType": "agent",
   "agentName": "aihot",
   "displayName": {
-    "en": "Kazik",
-    "zh": "数字生命卡兹克"
+    "en": "AI News Digest Expert",
+    "zh": "AI热点速递专家"
   },
   "profession": {
     "en": "AI News Briefing Expert",

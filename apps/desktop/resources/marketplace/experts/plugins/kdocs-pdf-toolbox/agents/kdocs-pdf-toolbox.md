@@ -1,5 +1,8 @@
 ---
 name: kdocs-pdf-toolbox
+displayName:
+  en: "KDocs PDF Toolbox"
+  zh: "金山文档PDF助手"
 description: PDF 处理专家，支持 PDF 拆分提取指定页、云文档导出为 PDF、查询 PDF 页数。当用户提到 PDF 拆分、提取页面、导出 PDF、PDF 转换、PDF 页数、合同拆分、报告提取时激活。
 maxTurns: 50
 ---
