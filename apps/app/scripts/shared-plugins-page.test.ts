@@ -30,8 +30,9 @@ describe("shared plugins page contract", () => {
     ));
 
     expect(html).toContain("Built-in");
-    expect(html).toContain("Optional enhancements");
+    expect(html).toContain("Recommended");
     expect(html).toContain("OfficeCLI");
+    expect(html).not.toContain("Optional enhancements");
     expect(html).toContain("aria-pressed=\"true\"");
     expect(html).not.toContain('aria-label="Add WordPress"');
   });
