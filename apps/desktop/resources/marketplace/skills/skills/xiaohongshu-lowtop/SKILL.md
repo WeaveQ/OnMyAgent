@@ -1,10 +1,11 @@
 ---
 name: xiaohongshu-lowtop
+display_name: "小红书低粉爆款笔记"
+display_name_zh: "小红书低粉爆款笔记"
 description: 小红书低粉爆款笔记专注于挖掘小红书平台上的低粉爆款数据，获取粉丝量低于5000但互动量超过500的笔记榜单。寻找拥有爆款规律和热门趋势的优质样本。
 dependency:
   python:
   - requests>=2.28.0
-display_name: 小红书低粉爆款笔记
 display_name_en: Xiaohongshu Low-Follower Hits
 description_zh: 挖掘粉丝低于5000但互动超500的小红书低粉爆款笔记榜单，附爆款规律分析
 description_en: Discover viral Xiaohongshu notes from accounts under 5000 followers, with pattern analysis.

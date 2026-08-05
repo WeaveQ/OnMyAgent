@@ -1,5 +1,7 @@
 ---
 name: Word / DOCX
+display_name: "Word 文档处理"
+display_name_zh: "Word 文档处理"
 slug: word-docx
 version: 1.0.2
 homepage: https://clawic.com/skills/word-docx
