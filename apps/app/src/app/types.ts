@@ -261,6 +261,7 @@ export type SettingsTab =
   | "preferences"
   | "permissions"
   | "system"
+  | "company"
   | "shortcuts"
   | "app-snapshot"
   | "cloud-marketplaces"

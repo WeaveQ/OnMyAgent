@@ -17,6 +17,7 @@ import {
   loadDebugView,
   loadRecoveryView,
   loadEnvironmentView,
+  loadCompanySettingsView,
   loadGeneralSettingsView,
   loadMemoryView,
   loadPreferencesView,
@@ -54,6 +55,12 @@ export function SettingsAiTabSuspense(props: { children: ReactNode }) {
 export const LazyGeneralSettingsView = lazy(() =>
   loadGeneralSettingsView().then((module) => ({
     default: module.GeneralSettingsView,
+  })),
+);
+
+export const LazyCompanySettingsView = lazy(() =>
+  loadCompanySettingsView().then((module) => ({
+    default: module.CompanySettingsView,
   })),
 );
 

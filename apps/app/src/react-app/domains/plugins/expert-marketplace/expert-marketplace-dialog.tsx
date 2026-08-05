@@ -1,11 +1,13 @@
 /** @jsxImportSource react */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
+import { desktopBridge } from "@/app/lib/desktop";
+import { isDesktopRuntime } from "@/app/utils";
 import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
 import { EXPERT_MARKETPLACE_CATEGORIES } from "./categories";
@@ -15,7 +17,7 @@ import type {
   ExpertMarketplaceSummonHandler,
 } from "./types";
 
-export type ExpertMarketplaceView = "market" | "mine";
+export type ExpertMarketplaceView = "market" | "mine" | "company";
 
 // DESIGN.md motion.duration.normal: let the dialog finish its exit animation
 // before the marketplace page becomes keepalive-hidden.
@@ -131,6 +133,51 @@ export function ExpertMarketplacePage(props: {
   const [categoryId, setCategoryId] = useState("all");
   const [selectedExpert, setSelectedExpert] =
     useState<ExpertMarketplaceEntry | null>(null);
+  const [companyExperts, setCompanyExperts] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [companyHint, setCompanyHint] = useState<string | null>(null);
+  const [companyConnected, setCompanyConnected] = useState(false);
+
+  useEffect(() => {
+    if (view !== "company") return undefined;
+    if (!isDesktopRuntime()) {
+      setCompanyConnected(false);
+      setCompanyExperts([]);
+      setCompanyHint(t("store.company_experts_desktop_only"));
+      return undefined;
+    }
+    let cancelled = false;
+    void desktopBridge
+      .companyCatalog()
+      .then((raw) => {
+        if (cancelled) return;
+        const catalog = raw as {
+          connected?: boolean;
+          email?: string;
+          experts?: Array<{ id: string; name: string }>;
+        };
+        setCompanyConnected(Boolean(catalog?.connected));
+        setCompanyExperts(Array.isArray(catalog?.experts) ? catalog.experts : []);
+        setCompanyHint(
+          catalog?.connected
+            ? catalog.email
+              ? t("store.company_connected_member", { email: catalog.email })
+              : t("store.company_connected_short")
+            : t("store.company_not_connected_settings_hint"),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCompanyConnected(false);
+          setCompanyExperts([]);
+          setCompanyHint(t("store.company_catalog_read_failed"));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
 
   const filteredExperts = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
@@ -150,6 +197,55 @@ export function ExpertMarketplacePage(props: {
       return text.includes(normalizedQuery);
     });
   }, [categoryId, props.query]);
+
+  if (view === "company") {
+    const q = (props.query ?? "").trim().toLowerCase();
+    const rows = !q
+      ? companyExperts
+      : companyExperts.filter((e) =>
+          `${e.name} ${e.id}`.toLowerCase().includes(q),
+        );
+    return (
+      <div className={cn("flex h-full min-h-0 flex-col bg-dls-background", props.className)}>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
+          {companyHint ? (
+            <p className="mb-3 text-xs text-dls-secondary">{companyHint}</p>
+          ) : null}
+          {rows.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {rows.map((expert) => (
+                <div
+                  key={expert.id}
+                  className="rounded-2xl border border-dls-border bg-dls-surface px-4 py-3.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-dls-text">
+                        {expert.name}
+                      </div>
+                      <p className="mt-1 text-xs text-dls-secondary">{t("store.company_org_readonly")}</p>
+                    </div>
+                    <StatusBadge tone="surface" shape="soft" size="tiny">
+                      {t("store.company_org_badge")}
+                    </StatusBadge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-dls-secondary">
+              <p className="text-base font-medium text-dls-text">{t("store.company_experts_title")}</p>
+              <p>
+                {companyConnected
+                  ? t("store.company_no_experts_omc")
+                  : (companyHint ?? t("store.company_not_connected_short"))}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

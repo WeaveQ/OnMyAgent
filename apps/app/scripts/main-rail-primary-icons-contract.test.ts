@@ -51,7 +51,9 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain("icon: FilesRailIcon");
     expect(railSource).toContain("icon: ProjectsRailIcon");
     expect(railSource).toContain("icon: StoreRailIcon");
+    expect(railSource).toContain("icon: CompanyRailIcon");
     expect(railSource).toContain("icon: AutomationRailIcon");
+    expect(railSource).toContain('id: "company"');
 
     // Outline set — no solid fill glyphs in the primary rail icon module.
     expect(iconSource).toContain('from "lucide-react"');
@@ -64,6 +66,7 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).not.toContain("SquareDashed");
     expect(iconSource).not.toContain("FileStack");
     expect(iconSource).toContain("ShoppingBag");
+    expect(iconSource).toContain("Building2");
     expect(iconSource).toContain("Settings2");
     expect(iconSource).toContain("MonitorSmartphone");
     expect(iconSource).toContain("MessagesSquare");
@@ -77,6 +80,7 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("export function FilesRailIcon");
     expect(iconSource).toContain("export function ProjectsRailIcon");
     expect(iconSource).toContain("export function StoreRailIcon");
+    expect(iconSource).toContain("export function CompanyRailIcon");
     expect(iconSource).toContain("export function ManageRailIcon");
     expect(iconSource).toContain("export function DevicesRailIcon");
     expect(iconSource).toContain("export function AutomationRailIcon");

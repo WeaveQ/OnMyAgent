@@ -5,6 +5,7 @@
  */
 import {
   Briefcase,
+  Building2,
   CalendarClock,
   Folder,
   House,
@@ -60,6 +61,11 @@ export function ProjectsRailIcon(props: PrimaryRailIconProps) {
 /** Marketplace / store — shopping bag outline. */
 export function StoreRailIcon(props: PrimaryRailIconProps) {
   return <ShoppingBag {...railIconProps(props.className)} />;
+}
+
+/** Company / OnMyCompany — building outline (enterprise control plane). */
+export function CompanyRailIcon(props: PrimaryRailIconProps) {
+  return <Building2 {...railIconProps(props.className)} />;
 }
 
 /** Management — settings/sliders outline. */

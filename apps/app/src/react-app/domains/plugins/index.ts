@@ -63,6 +63,12 @@ export {
   sortWithPinnedFirst,
 } from "./pinned-skills";
 
+/** Company / enterprise store (OnMyCompany catalog). */
+export {
+  CompanyStorePage,
+  type CompanyStoreSubTab,
+} from "./company-store-page";
+
 /** Expert marketplace (catalog + install + UI). */
 export {
   ExpertMarketplacePage,
