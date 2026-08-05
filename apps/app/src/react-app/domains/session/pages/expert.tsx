@@ -94,6 +94,7 @@ import {
   StorePage,
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
+import { CompanyStorePage } from "@/react-app/domains/plugins/company-store-page";
 import { EmptyArtifactsPanel } from "../surface/chrome/empty-artifacts-panel";
 import {
   ResizableHandle,
@@ -1109,6 +1110,7 @@ export function ExpertPage(props: ExpertPageProps) {
     activeSidebarView === "assistant" ||
     activeSidebarView === "files" ||
     activeSidebarView === "store" ||
+    activeSidebarView === "company" ||
     activeSidebarView === "projects" ||
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
@@ -1379,6 +1381,29 @@ export function ExpertPage(props: ExpertPageProps) {
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),
+                      company: (
+                        <CompanyStorePage
+                          onChatWithSkill={handleChatWithSkill}
+                          onOpenCompanySettings={() => {
+                            try {
+                              const path = "/settings/company";
+                              if (typeof window !== "undefined") {
+                                const hash = window.location.hash || "";
+                                if (hash.includes("/workspace/")) {
+                                  const match = hash.match(/#(\/workspace\/[^/]+)/);
+                                  if (match?.[1]) {
+                                    window.location.hash = `${match[1]}${path}`;
+                                    return;
+                                  }
+                                }
+                                window.location.hash = path;
+                              }
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                        />
+                      ),
                       localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
@@ -1461,6 +1486,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       activeSidebarView !== "agents" &&
                       activeSidebarView !== "files" &&
                       activeSidebarView !== "store" &&
+                      activeSidebarView !== "company" &&
                       activeSidebarView !== "projects" &&
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&

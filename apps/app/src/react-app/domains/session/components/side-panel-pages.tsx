@@ -1,7 +1,6 @@
 /** @jsxImportSource react */
 import {
   Bot,
-  Building2,
   ChevronDown,
   ChevronLeft,
   Clock3,
@@ -49,7 +48,6 @@ import {
   type ExpertMarketplaceSummonHandler,
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
-import { CompanyStorePage } from "@/react-app/domains/plugins/company-store-page";
 import { useStatusToasts } from "../../shell-feedback";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
@@ -301,7 +299,8 @@ export function DevicesPage() {
   );
 }
 
-export type StorePrimaryTab = "experts" | "skills" | "plugins" | "company";
+/** Market (市场) only — company/enterprise lives on the primary rail. */
+export type StorePrimaryTab = "experts" | "skills" | "plugins";
 
 function StorePrimaryTabs(props: {
   value: StorePrimaryTab;
@@ -315,7 +314,6 @@ function StorePrimaryTabs(props: {
     { id: "experts", label: t("store.experts_tab"), icon: UserRound },
     { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
     { id: "plugins", label: t("plugins.artifact_tab"), icon: Package },
-    { id: "company", label: t("store.company_tab"), icon: Building2 },
   ];
 
   return (
@@ -397,11 +395,9 @@ export function StorePage(props: {
   };
 
   const searchPlaceholder =
-    activeTab === "company"
-      ? t("store.search_company")
-      : activeTab === "skills"
-        ? t("store.search_skills")
-        : t("session.search_experts_placeholder");
+    activeTab === "skills"
+      ? t("store.search_skills")
+      : t("session.search_experts_placeholder");
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
@@ -432,7 +428,7 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
-          {/* Search on expert/skill markets + company tab (not plugins, not my-experts). */}
+          {/* Search on expert/skill markets (not plugins, not my-experts). */}
           {activeTab !== "plugins" &&
           !(activeTab === "experts" && expertView === "mine") ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
@@ -572,30 +568,6 @@ export function StorePage(props: {
             workspaceRoot={props.workspaceRoot}
             client={props.client}
             onSelectArtifactPrompt={props.onSelectArtifactPrompt}
-          />
-        ) : activeTab === "company" ? (
-          <CompanyStorePage
-            query={query}
-            onChatWithSkill={props.onChatWithSkill}
-            onOpenCompanySettings={() => {
-              // Hosts open settings via hash/path; company tab deep-link when possible.
-              try {
-                const path = "/settings/company";
-                if (typeof window !== "undefined") {
-                  const hash = window.location.hash || "";
-                  if (hash.includes("/workspace/")) {
-                    const match = hash.match(/#(\/workspace\/[^/]+)/);
-                    if (match?.[1]) {
-                      window.location.hash = `${match[1]}${path}`;
-                      return;
-                    }
-                  }
-                  window.location.hash = path;
-                }
-              } catch {
-                // ignore
-              }
-            }}
           />
         ) : null}
       </div>

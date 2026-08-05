@@ -15,6 +15,7 @@ import {
   AssistantRailIcon,
   AutomationRailIcon,
   ChannelsRailIcon,
+  CompanyRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
   ProjectsRailIcon,
@@ -26,6 +27,7 @@ export type OnMyAgentPrimaryView =
   | "assistant"
   | "files"
   | "store"
+  | "company"
   | "projects"
   | "localAgent"
   | "agentManagement"
@@ -57,7 +59,7 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Automation → Files → Store → Projects
+// Order: Home → Experts → Automation → Files → Store → Company → Projects
 // Local agents + agent management live under the account/settings menu.
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
@@ -65,6 +67,7 @@ const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
+  { id: "company", get label() { return t("nav.company"); }, get shortLabel() { return t("nav.company_short"); }, icon: CompanyRailIcon },
   { id: "projects", get label() { return t("nav.projects"); }, get shortLabel() { return t("nav.projects_short"); }, icon: ProjectsRailIcon },
 ];
 

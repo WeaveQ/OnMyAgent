@@ -312,11 +312,72 @@ export async function pullAndWriteCompanyConfig(homeDir, baseUrl, token, opts = 
     }
   }
 
+  // Gateway connector catalog for 企业 → 连接器 tab.
+  // Org config tools.gateway.services is often empty; enrich from live /api/connections
+  // (no secrets — only service ids + display names).
+  let gatewayServicesWritten = 0;
+  try {
+    const connRes = await fetchImpl(`${root}/api/connections`, { headers: auth });
+    if (connRes.ok) {
+      const rows = await connRes.json();
+      const list = Array.isArray(rows) ? rows : Array.isArray(rows?.items) ? rows.items : [];
+      /** @type {Map<string, string>} */
+      const byService = new Map();
+      for (const row of list) {
+        if (!row || typeof row !== "object") continue;
+        const service = String(
+          /** @type {{ service?: unknown }} */ (row).service ?? "",
+        ).trim();
+        if (!service) continue;
+        const display = String(
+          /** @type {{ profile?: { displayName?: unknown }, connectionName?: unknown }} */ (
+            row
+          ).profile?.displayName ??
+            /** @type {{ connectionName?: unknown }} */ (row).connectionName ??
+            service,
+        ).trim();
+        if (!byService.has(service)) {
+          byService.set(service, display || service);
+        }
+      }
+      const services = [...byService.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, name]) => ({ id, name }));
+      gatewayServicesWritten = services.length;
+      const toolsDir = path.join(companyRoot, "tools");
+      mkdirSync(toolsDir, { recursive: true });
+      // Preserve existing mcp block if present.
+      let mcp = { servers: [] };
+      try {
+        const existing = JSON.parse(
+          readFileSync(path.join(toolsDir, "mcp.json"), "utf8"),
+        );
+        if (existing && typeof existing === "object") mcp = existing;
+      } catch {
+        // default
+      }
+      const gatewayBody = { services };
+      writeFileSync(
+        path.join(toolsDir, "gateway.json"),
+        `${JSON.stringify(gatewayBody, null, 2)}\n`,
+        "utf8",
+      );
+      writeFileSync(
+        path.join(companyRoot, "tools.json"),
+        `${JSON.stringify({ mcp, gateway: gatewayBody }, null, 2)}\n`,
+        "utf8",
+      );
+    }
+  } catch {
+    // non-fatal: skills/experts still usable without connector list
+  }
+
   return {
     version: String(manifest.version ?? snapshot.version ?? ""),
     companyRoot,
     manifest,
     packagesWritten,
+    gatewayServicesWritten,
   };
 }
 

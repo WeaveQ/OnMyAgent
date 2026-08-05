@@ -12,6 +12,7 @@
 export type SessionRailPaneKey =
   | "agents"
   | "store"
+  | "company"
   | "localAgent"
   | "agentManagement"
   | "files"
@@ -24,6 +25,7 @@ export type SessionRailPaneKey =
 export const SESSION_RAIL_KEEP_ALIVE_PANE_KEYS = [
   "agents",
   "store",
+  "company",
   "localAgent",
   "agentManagement",
   "files",
