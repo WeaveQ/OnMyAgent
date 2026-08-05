@@ -145,9 +145,13 @@ function isOnmyagentSkillPath(path: string): boolean {
   return normalized.includes("/.onmyagent/skills/") || normalized.includes("/onmyagent/skills/");
 }
 
-/** Skill titles stay English (package / EN display). Do not localize names to zh. */
+/** Prefer Chinese skill titles when available. */
 function skillDisplayName(skill: LocalSkillCard): string {
-  return skill.displayNameEn || skill.name;
+  return (
+    skill.displayNameZh?.trim() ||
+    skill.displayNameEn?.trim() ||
+    skill.name
+  );
 }
 
 /** Drop leaked YAML block markers and empty stubs from skill descriptions. */
