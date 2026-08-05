@@ -6,14 +6,7 @@ import { parseFrontmatter, buildFrontmatter } from "../core/frontmatter.js";
 import { exists } from "../core/utils.js";
 import { validateDescription, validateSkillName } from "../core/validators.js";
 import { ApiError } from "../core/errors.js";
-import {
-  bundledSkillsDir,
-  globalSkillsDir,
-  legacyAgentSkillsDir,
-  legacyAgentsSkillsDir,
-  legacyClaudeSkillsDir,
-  legacyOpencodeSkillsDir,
-} from "../workspace/workspace-files.js";
+import { globalSkillsDir } from "../workspace/workspace-files.js";
 
 type SkillScope = SkillItem["scope"];
 
@@ -138,6 +131,13 @@ export async function listSkills(
 ): Promise<SkillItem[]> {
   const items: SkillItem[] = [];
 
+  // Product model (skills page + composer):
+  // - Market install / core preinstall / imports → user skills root (onmyagent)
+  // - Enabled artifact plugins → built-in
+  // - Optional project skills → workspace `.opencode/skills` (local)
+  // Do NOT scan packaged `bundled-skills` or third-party home roots
+  // (`~/.config/opencode/skills`, `~/.claude/skills`, …); those leaked into the
+  // session `+` menu as a fourth unnamed source.
   if (options?.artifactSkills) {
     for (const skill of options.artifactSkills) {
       const item = await parseSkillEntry(skill.path, skill.name, "built-in");
@@ -145,26 +145,10 @@ export async function listSkills(
     }
   }
 
-  const bundledDir = bundledSkillsDir();
-  if (bundledDir) {
-    items.push(...(await listSkillsInDir(bundledDir, "built-in")));
-  }
-
   const projectDir = join(workspaceRoot, ".opencode", "skills");
   items.push(...(await listSkillsInDir(projectDir, "local")));
 
   items.push(...(await listSkillsInDir(globalSkillsDir(), "onmyagent")));
-
-  const localDirs: string[] = [
-    legacyOpencodeSkillsDir(),
-    legacyClaudeSkillsDir(),
-    legacyAgentsSkillsDir(),
-    legacyAgentSkillsDir(),
-  ];
-
-  for (const dir of localDirs) {
-    items.push(...(await listSkillsInDir(dir, "local")));
-  }
 
   const seen = new Set<string>();
   const artifactPaths = new Set(options?.artifactSkills?.map((skill) => skill.path));

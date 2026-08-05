@@ -32,9 +32,18 @@ export function buildOnmyagentInstalledNames(skills: SkillCard[]): Set<string> {
 }
 
 /**
+ * Skills page model: market → installed (onmyagent), plus product builtin
+ * (artifact plugins / preinstalled into the user root). Exclude project-local
+ * and third-party legacy scopes from the session `+` / `/` skill menus.
+ */
+export function isComposerManagedSkill(skill: SkillCard): boolean {
+  return skill.scope === "onmyagent" || skill.scope === "builtin";
+}
+
+/**
  * Shared skill catalog for `+` skills flyout and `/` slash menu so count + order match.
- * Prefer OpenCode command.list rows when both sources have the same name, but keep
- * the OnMyAgent install set so those can sort first after pins.
+ * Only managed skills (installed + builtin). Prefer OpenCode command.list metadata when
+ * the same name is already managed, but never re-introduce unbundled package skills.
  */
 export function buildCombinedSkillItems(
   skills: SkillCard[],
@@ -43,6 +52,7 @@ export function buildCombinedSkillItems(
 ): SlashCommandOption[] {
   const byName = new Map<string, SlashCommandOption>();
   for (const skill of skills) {
+    if (!isComposerManagedSkill(skill)) continue;
     const name = String(skill.name ?? "").trim();
     if (!name) continue;
     byName.set(name, {
@@ -52,10 +62,18 @@ export function buildCombinedSkillItems(
       source: "skill",
     });
   }
+  const managedNames = new Set(byName.keys());
   for (const command of commands) {
     if (command.source === "mcp") continue;
     const name = String(command.name ?? "").trim();
     if (!name) continue;
+    // Drop OpenCode skill rows that are not installed/builtin (e.g. raw package tree).
+    if (command.source === "skill" || !command.source) {
+      if (!managedNames.has(name)) continue;
+    } else if (!managedNames.has(name)) {
+      // Non-skill commands stay out of the skill flyout catalog.
+      continue;
+    }
     // Stable pin key: skill:<name> so + menu pins still match slash rows.
     byName.set(name, {
       ...command,
@@ -65,7 +83,7 @@ export function buildCombinedSkillItems(
   }
   const alpha = (left: SlashCommandOption, right: SlashCommandOption) =>
     left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
-  // OnMyAgent-installed first (alpha), then everything else (alpha).
+  // OnMyAgent-installed first (alpha), then builtin/rest (alpha).
   const installed: SlashCommandOption[] = [];
   const rest: SlashCommandOption[] = [];
   for (const item of byName.values()) {

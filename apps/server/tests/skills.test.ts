@@ -51,7 +51,7 @@ describe("skills", () => {
     await rm(tempRoot, { recursive: true, force: true });
   });
 
-  test("classifies bundled, OnMyAgent, and local project skills separately", async () => {
+  test("lists OnMyAgent and local project skills without raw packaged bundled tree", async () => {
     const workspace = join(tempRoot, "workspace");
     const onmyagent = join(tempRoot, "onmyagent-skills");
     const bundled = join(tempRoot, "bundled-skills");
@@ -66,7 +66,8 @@ describe("skills", () => {
     const items = await listSkills(workspace, true);
     const scopes = new Map(items.map((item) => [item.name, item.scope]));
 
-    expect(scopes.get("builtin-only")).toBe("built-in");
+    // Packaged bundled-skills are not session-available until installed to user root.
+    expect(scopes.has("builtin-only")).toBe(false);
     expect(scopes.get("onmyagent-only")).toBe("onmyagent");
     expect(scopes.get("local-only")).toBe("local");
   });
@@ -117,12 +118,14 @@ describe("skills", () => {
     const workspace = join(tempRoot, "workspace");
     const bundled = join(tempRoot, "bundled-skills");
     const project = join(workspace, ".opencode", "skills");
-    process.env.OPENCODE_GLOBAL_SKILLS_DIR = join(tempRoot, "onmyagent-skills");
+    const onmyagent = join(tempRoot, "onmyagent-skills");
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = onmyagent;
     process.env.ONMYAGENT_BUNDLED_SKILLS_DIR = bundled;
 
     await writeSkill(bundled, "documents", "Bundled documents skill");
     await writeSkill(bundled, "pdf", "Bundled PDF skill");
     await writeSkill(bundled, "weather", "Unrelated bundled skill");
+    await writeSkill(onmyagent, "weather", "Installed weather skill");
     await writeSkill(project, "documents", "Local documents policy");
     const pluginPdf = join(tempRoot, "plugins", "pdf", "SKILL.md");
     await writeSkill(join(tempRoot, "plugins"), "pdf", "Plugin PDF skill");
@@ -136,7 +139,9 @@ describe("skills", () => {
     expect(items.some((item) => item.scope === "built-in" && item.name === "documents")).toBe(false);
     expect(items.some((item) => item.scope === "local" && item.name === "documents")).toBe(true);
     expect(items.some((item) => item.scope === "built-in" && item.name === "pdf")).toBe(true);
-    expect(items.some((item) => item.scope === "built-in" && item.name === "weather")).toBe(true);
+    // weather only via user root install, not raw bundled tree.
+    expect(items.some((item) => item.scope === "onmyagent" && item.name === "weather")).toBe(true);
+    expect(items.filter((item) => item.name === "weather")).toHaveLength(1);
   });
 
   test("skill list and content routes share effective Artifact filtering", async () => {
