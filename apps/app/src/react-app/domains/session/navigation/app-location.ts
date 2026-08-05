@@ -24,6 +24,7 @@ const KNOWN_RAIL_VIEWS = new Set<string>([
   "localAgent",
   "files",
   "store",
+  "company",
   "projects",
   "agentManagement",
   "devices",

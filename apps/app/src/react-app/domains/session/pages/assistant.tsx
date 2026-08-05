@@ -129,6 +129,7 @@ import {
   StorePage,
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
+import { CompanyRailPane } from "../components/company-rail-pane";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -995,6 +996,7 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "assistant" ||
     activeSidebarView === "files" ||
     activeSidebarView === "store" ||
+    activeSidebarView === "company" ||
     activeSidebarView === "projects" ||
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
@@ -1304,6 +1306,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),
+                      company: (
+                        <CompanyRailPane onChatWithSkill={handleChatWithSkill} />
+                      ),
                       localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
@@ -1457,6 +1462,7 @@ export function AssistantPage(props: AssistantPageProps) {
                       {activePlaceholderView &&
                       activeSidebarView !== "files" &&
                       activeSidebarView !== "store" &&
+                      activeSidebarView !== "company" &&
                       activeSidebarView !== "projects" &&
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&

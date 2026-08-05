@@ -33,4 +33,6 @@ export default {
   "nav.scheduled_tasks": "Scheduled tasks",
   "nav.store": "Market",
   "nav.store_short": "Market",
+  "nav.company": "Company",
+  "nav.company_short": "Company",
 } as const;

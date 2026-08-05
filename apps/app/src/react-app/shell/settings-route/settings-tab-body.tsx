@@ -27,6 +27,7 @@ import {
   LazyDebugView,
   LazyRecoveryView,
   LazyEnvironmentView,
+  LazyCompanySettingsView,
   LazyGeneralSettingsView,
   LazyMemoryView,
   LazyPreferencesView,
@@ -53,6 +54,12 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             developerMode={ctx.developerMode}
             onReportIssue={() => ctx.platform.openLink("https://github.com/WeaveQ/onmyagent/issues/new?template=bug.yml")}
           />
+        </SettingsTabSuspense>
+      );
+    case "company":
+      return (
+        <SettingsTabSuspense>
+          <LazyCompanySettingsView busy={ctx.busy} />
         </SettingsTabSuspense>
       );
     case "permissions":

@@ -40,6 +40,7 @@ async function isDirectory(targetPath) {
  *   bundledSkillsRootPath?: () => string | null,
  *   packageSourceCandidates?: (packageName: string) => string[],
  *   refreshSkillLinks?: () => Promise<unknown>,
+ *   companySkillsRoot?: () => string | null | undefined,
  * }} [options]
  */
 export function createSkillsScan(options = {}) {
@@ -50,6 +51,7 @@ export function createSkillsScan(options = {}) {
   const bundledSkillsRootPath = options.bundledSkillsRootPath;
   const packageSourceCandidates = options.packageSourceCandidates;
   const refreshSkillLinks = options.refreshSkillLinks;
+  const companySkillsRoot = options.companySkillsRoot;
 
   if (typeof getRealHomeDir !== "function") {
     throw new Error("createSkillsScan requires getRealHomeDir");
@@ -110,6 +112,8 @@ export function createSkillsScan(options = {}) {
       const candidates = [
         onmyagentUserSkillsRoot(),
         legacyOnmyagentUserSkillsRoot(),
+        // Org skills mirrored after company login (profiles/company/.../skills/installed)
+        typeof companySkillsRoot === "function" ? companySkillsRoot() : null,
         path.join(sandboxHome, ".claude", "skills"),
         path.join(sandboxHome, ".agents", "skills"),
         path.join(sandboxHome, ".agent", "skills"),
@@ -119,7 +123,7 @@ export function createSkillsScan(options = {}) {
         path.join(sandboxHome, ".onmyagent", "skills"),
         path.join(sandboxHome, "onmyagent", "skills"),
         path.join(globalOpencodeRoot(), "skills"),
-      ];
+      ].filter((p) => typeof p === "string" && p.trim());
 
       // 如果沙箱家目录和真实家目录不同，也添加真实家目录路径
       if (sandboxHome !== realHome) {

@@ -94,6 +94,8 @@ import {
   StorePage,
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
+import { CompanyRailPane } from "../components/company-rail-pane";
+import { isPrimaryOrHostedRailView } from "../navigation/rail-view-guards";
 import { EmptyArtifactsPanel } from "../surface/chrome/empty-artifacts-panel";
 import {
   ResizableHandle,
@@ -1104,19 +1106,9 @@ export function ExpertPage(props: ExpertPageProps) {
     !showWorkspaceSetupEmptyState &&
     !showSelectedWorkspaceError &&
     !showBlockingStartupSkeleton;
-  const activePlaceholderView =
-    activeSidebarView === "chat" ||
-    activeSidebarView === "assistant" ||
-    activeSidebarView === "files" ||
-    activeSidebarView === "store" ||
-    activeSidebarView === "projects" ||
-    activeSidebarView === "localAgent" ||
-    activeSidebarView === "agentManagement" ||
-    activeSidebarView === "skills" ||
-    activeSidebarView === "connectors" ||
-    isAutomationRailView(activeSidebarView)
-      ? null
-      : activeSidebarView;
+  const activePlaceholderView = isPrimaryOrHostedRailView(activeSidebarView)
+    ? null
+    : activeSidebarView;
   useEffect(() => {
     if (!showSessionLoadingState) {
       setShowDelayedSessionLoadingState(false);
@@ -1379,6 +1371,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),
+                      company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
                       localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}
@@ -1461,6 +1454,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       activeSidebarView !== "agents" &&
                       activeSidebarView !== "files" &&
                       activeSidebarView !== "store" &&
+                      activeSidebarView !== "company" &&
                       activeSidebarView !== "projects" &&
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&

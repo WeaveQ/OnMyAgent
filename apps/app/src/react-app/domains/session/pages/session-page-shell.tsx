@@ -105,6 +105,15 @@ export function SessionRailKeepAliveStack(props: SessionRailKeepAliveStackProps)
         </KeepAlivePane>
       ) : null}
 
+      {props.panes.company != null ? (
+        <KeepAlivePane
+          active={props.activeSidebarView === "company"}
+          mounted={props.visitedRailViews.has("company")}
+        >
+          {props.panes.company}
+        </KeepAlivePane>
+      ) : null}
+
       {props.panes.localAgent != null ? (
         <KeepAlivePane
           active={props.activeSidebarView === "localAgent"}
