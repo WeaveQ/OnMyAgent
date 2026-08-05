@@ -69,7 +69,6 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
               desktopNotificationsEnabled={
                 ctx.local.prefs.desktopNotificationsEnabled !== false
               }
-              dockUnreadBadge={ctx.local.prefs.dockUnreadBadge !== false}
               soundNotifyOnAgentReady={
                 ctx.local.prefs.soundNotifyOnAgentReady !== false
               }
@@ -92,12 +91,6 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 ctx.local.setPrefs((previous) => ({
                   ...previous,
                   desktopNotificationsEnabled: enabled,
-                }));
-              }}
-              onDockUnreadBadgeChange={(enabled) => {
-                ctx.local.setPrefs((previous) => ({
-                  ...previous,
-                  dockUnreadBadge: enabled,
                 }));
               }}
               onSoundNotifyOnAgentReadyChange={(enabled) => {
