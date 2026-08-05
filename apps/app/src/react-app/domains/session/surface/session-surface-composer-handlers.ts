@@ -6,6 +6,8 @@
 import { useCallback, useEffect } from "react";
 import type { CloudImportedPlugin } from "../../../../app/cloud/import-state";
 import { readWorkspaceCloudImports } from "../../../../app/cloud/import-state";
+import { listLocalSkills } from "../../../../app/lib/desktop";
+import type { LocalSkillCard } from "../../../../app/lib/desktop-types";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import type {
@@ -16,6 +18,7 @@ import type {
   McpStatusMap,
   SkillCard,
 } from "../../../../app/types";
+import { isDesktopRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import { recordInspectorEvent } from "../../../shell";
 import { encodeComposerMentionValue } from "./composer/mention-encoding";
@@ -263,7 +266,8 @@ export function useSessionSurfaceComposerHandlers(
     const response = await client.listSkills(workspaceId, {
       includeGlobal: true,
     });
-    const next = (response.items ?? []).map((skill) => {
+    const byName = new Map<string, SkillCard>();
+    for (const skill of response.items ?? []) {
       // Map server scopes onto SkillCard; "onmyagent" marks marketplace/global installs.
       const rawScope = skill.scope;
       const scope: SkillCard["scope"] =
@@ -276,14 +280,59 @@ export function useSessionSurfaceComposerHandlers(
               : rawScope === "global"
                 ? "onmyagent"
                 : undefined;
-      return {
-        name: skill.name,
+      const name = String(skill.name ?? "").trim();
+      if (!name) continue;
+      byName.set(name, {
+        name,
         path: skill.path,
         description: skill.description,
         trigger: skill.trigger,
         scope,
-      } satisfies SkillCard;
-    });
+      });
+    }
+
+    // Align with skills marketplace: desktop install/list uses profile dual-read
+    // roots. Merge those so + menu sees marketplace installs even when server
+    // list lags or only scanned a legacy path.
+    if (isDesktopRuntime() && workspaceRoot.trim()) {
+      try {
+        const localRaw: unknown = await listLocalSkills(workspaceRoot.trim());
+        const local = Array.isArray(localRaw)
+          ? (localRaw as LocalSkillCard[])
+          : [];
+        for (const skill of local) {
+          const name = String(skill.name ?? "").trim();
+          if (!name) continue;
+          const skillPath = String(skill.path ?? "").replaceAll("\\", "/");
+          const isOnmyagentRoot =
+            skillPath.includes("/.onmyagent/skills") ||
+            skillPath.includes("/onmyagent/skills") ||
+            /\/\.onmyagent\/profiles\/[^/]+\/config\/skills/.test(skillPath);
+          if (!isOnmyagentRoot) continue;
+          const existing = byName.get(name);
+          if (existing?.scope === "onmyagent" || existing?.scope === "builtin") {
+            continue;
+          }
+          byName.set(name, {
+            name,
+            path: skill.path,
+            description:
+              skill.descriptionZh ||
+              skill.descriptionEn ||
+              skill.description ||
+              existing?.description,
+            trigger: skill.trigger ?? existing?.trigger,
+            scope: "onmyagent",
+          });
+        }
+      } catch {
+        // Desktop IPC unavailable (web / early boot) — server list only.
+      }
+    }
+
+    const next = Array.from(byName.values()).sort((left, right) =>
+      left.name.localeCompare(right.name, undefined, { sensitivity: "base" }),
+    );
     setToolSkills(next);
     return next;
   };
