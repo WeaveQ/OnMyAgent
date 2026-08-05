@@ -1,0 +1,7 @@
+{
+  "name": "kwiki-cli",
+  "version": "2.0.1",
+  "entry": "install.js",
+  "description": "Knowledge base CLI and skill for AI agents",
+  "install_command": "node install.js"
+}
