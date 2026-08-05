@@ -9,27 +9,25 @@ import asset7 from "../../../../../../desktop/resources/marketplace/skills/skill
 import asset8 from "../../../../../../desktop/resources/marketplace/skills/skills/find-skills__skillhub/_icon.png?url";
 import asset9 from "../../../../../../desktop/resources/marketplace/skills/skills/pdf-image-text-extractor/_icon.svg?url";
 import asset10 from "../../../../../../desktop/resources/marketplace/skills/skills/self-improving-agent__skillhub/_icon.png?url";
-import asset11 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082401071824896/_icon.svg?url";
-import asset12 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082401866706944/_icon.svg?url";
-import asset13 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082606165762048/_icon.svg?url";
-import asset14 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082618982096896/_icon.png?url";
-import asset15 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082745828995072/_icon.svg?url";
-import asset16 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082758542479360/_icon.png?url";
-import asset17 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053083151135014912/_icon.svg?url";
-import asset18 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053084036212973568/_icon.png?url";
-import asset20 from "../../../../../../desktop/resources/marketplace/skills/skills/summarize__skillhub/_icon.png?url";
-import asset21 from "../../../../../../desktop/resources/marketplace/skills/skills/unclecheng-reduce-ai-perception-v2__skillhub/_icon.png?url";
-import asset22 from "../../../../../../desktop/resources/marketplace/skills/skills/web-tools-guide__skillhub/_icon.png?url";
-import asset23 from "../../../../../../desktop/resources/marketplace/skills/skills/word-docx__skillhub/_icon.png?url";
-import asset24 from "../../../../../../desktop/resources/marketplace/skills/skills/wps-knowledgebase/_icon.svg?url";
-import asset25 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-cover/_icon.svg?url";
-import asset26 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-crawler/_icon.svg?url";
-import asset27 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-lowtop/_icon.svg?url";
-import asset28 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-rankings/_icon.svg?url";
-import asset29 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-search/_icon.svg?url";
-import asset30 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-top-account/_icon.svg?url";
-import asset31 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-weeklytop/_icon.svg?url";
-import asset32 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-write/_icon.svg?url";
+import asset11 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082606165762048/_icon.svg?url";
+import asset12 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082618982096896/_icon.png?url";
+import asset13 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082745828995072/_icon.svg?url";
+import asset14 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053082758542479360/_icon.png?url";
+import asset15 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053083151135014912/_icon.svg?url";
+import asset16 from "../../../../../../desktop/resources/marketplace/skills/skills/skill_2053084036212973568/_icon.png?url";
+import asset18 from "../../../../../../desktop/resources/marketplace/skills/skills/summarize__skillhub/_icon.png?url";
+import asset19 from "../../../../../../desktop/resources/marketplace/skills/skills/unclecheng-reduce-ai-perception-v2__skillhub/_icon.png?url";
+import asset20 from "../../../../../../desktop/resources/marketplace/skills/skills/web-tools-guide__skillhub/_icon.png?url";
+import asset21 from "../../../../../../desktop/resources/marketplace/skills/skills/word-docx__skillhub/_icon.png?url";
+import asset22 from "../../../../../../desktop/resources/marketplace/skills/skills/wps-knowledgebase/_icon.svg?url";
+import asset23 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-cover/_icon.svg?url";
+import asset24 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-crawler/_icon.svg?url";
+import asset25 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-lowtop/_icon.svg?url";
+import asset26 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-rankings/_icon.svg?url";
+import asset27 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-search/_icon.svg?url";
+import asset28 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-top-account/_icon.svg?url";
+import asset29 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-weeklytop/_icon.svg?url";
+import asset30 from "../../../../../../desktop/resources/marketplace/skills/skills/xiaohongshu-write/_icon.svg?url";
 
 export const BUILTIN_SKILL_ICON_URLS: Record<string, string> = {
   "agent-browser__skillhub": asset0,
@@ -43,25 +41,23 @@ export const BUILTIN_SKILL_ICON_URLS: Record<string, string> = {
   "find-skills__skillhub": asset8,
   "pdf-image-text-extractor": asset9,
   "self-improving-agent__skillhub": asset10,
-  "skill_2053082401071824896": asset11,
-  "skill_2053082401866706944": asset12,
-  "skill_2053082606165762048": asset13,
-  "skill_2053082618982096896": asset14,
-  "skill_2053082745828995072": asset15,
-  "skill_2053082758542479360": asset16,
-  "skill_2053083151135014912": asset17,
-  "skill_2053084036212973568": asset18,
-  "summarize__skillhub": asset20,
-  "unclecheng-reduce-ai-perception-v2__skillhub": asset21,
-  "web-tools-guide__skillhub": asset22,
-  "word-docx__skillhub": asset23,
-  "wps-knowledgebase": asset24,
-  "xiaohongshu-cover": asset25,
-  "xiaohongshu-crawler": asset26,
-  "xiaohongshu-lowtop": asset27,
-  "xiaohongshu-rankings": asset28,
-  "xiaohongshu-search": asset29,
-  "xiaohongshu-top-account": asset30,
-  "xiaohongshu-weeklytop": asset31,
-  "xiaohongshu-write": asset32,
+  "skill_2053082606165762048": asset11,
+  "skill_2053082618982096896": asset12,
+  "skill_2053082745828995072": asset13,
+  "skill_2053082758542479360": asset14,
+  "skill_2053083151135014912": asset15,
+  "skill_2053084036212973568": asset16,
+  "summarize__skillhub": asset18,
+  "unclecheng-reduce-ai-perception-v2__skillhub": asset19,
+  "web-tools-guide__skillhub": asset20,
+  "word-docx__skillhub": asset21,
+  "wps-knowledgebase": asset22,
+  "xiaohongshu-cover": asset23,
+  "xiaohongshu-crawler": asset24,
+  "xiaohongshu-lowtop": asset25,
+  "xiaohongshu-rankings": asset26,
+  "xiaohongshu-search": asset27,
+  "xiaohongshu-top-account": asset28,
+  "xiaohongshu-weeklytop": asset29,
+  "xiaohongshu-write": asset30,
 };
