@@ -233,6 +233,32 @@ describe("ensureWorkspaceFiles", () => {
     });
   });
 
+  test("injects OfficeCLI routing when installed and strips when not", async () => {
+    await withWorkspace(async (root) => {
+      await ensureWorkspaceFiles(root, "starter", { officeCliInstalled: true });
+      const withOffice = await readFile(
+        join(root, ".opencode", "agents", "onmyagent.md"),
+        "utf8",
+      );
+      expect(withOffice).toContain(`<!-- ${APP_NAME}_OFFICECLI_START -->`);
+      expect(withOffice).toContain("Prefer skill `officecli`");
+      expect(withOffice).toContain("Do **not** default to `document-processing`");
+
+      const second = await ensureWorkspaceFiles(root, "starter", {
+        officeCliInstalled: true,
+      });
+      expect(second.changed).toBe(false);
+
+      await ensureWorkspaceFiles(root, "starter", { officeCliInstalled: false });
+      const withoutOffice = await readFile(
+        join(root, ".opencode", "agents", "onmyagent.md"),
+        "utf8",
+      );
+      expect(withoutOffice).not.toContain(`<!-- ${APP_NAME}_OFFICECLI_START -->`);
+      expect(withoutOffice).not.toContain("Prefer skill `officecli`");
+    });
+  });
+
   test("strips browser automation when the Browser plugin is disabled", async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), "onmyagent-browser-disabled-"));
     try {
