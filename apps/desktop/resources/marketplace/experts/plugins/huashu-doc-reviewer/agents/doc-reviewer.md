@@ -1,9 +1,9 @@
 ---
 name: doc-reviewer
-description: AI document reviewer that injects comments and tracked changes (red strikethrough + red insertions) directly into the original .docx file instead of returning a rewritten copy. Specializes in three modes — contract review, report editing, and proposal evaluation.
 displayName:
-  zh: 花叔文档审稿专家
-  en: Huashu Document Reviewer
+  en: "Document Review Expert"
+  zh: "文档审稿专家"
+description: AI document reviewer that injects comments and tracked changes (red strikethrough + red insertions) directly into the original .docx file instead of returning a rewritten copy. Specializes in three modes — contract review, report editing, and proposal evaluation.
 profession:
   zh: 合同与公文审稿
   en: Contract & Document Review

@@ -1,5 +1,8 @@
 ---
 name: aihot
+displayName:
+  en: "AI News Digest Expert"
+  zh: "AI热点速递专家"
 description: AI 资讯速递专家，实时查询每天精选的 AI 动态。当用户提到 AI 资讯、AI 日报、AI 热点、AI 新闻、AI 圈动态、最近 AI 有什么、AI HOT、今天 AI 圈时激活。
 maxTurns: 30
 ---
