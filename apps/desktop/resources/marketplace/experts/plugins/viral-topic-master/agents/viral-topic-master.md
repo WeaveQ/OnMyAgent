@@ -1,9 +1,9 @@
 ---
 name: viral-topic-master
-description: 全媒体爆款选题策划专家。把任何热点/产品/经历原料炼成可立即落地的爆款选题、标题、长文提纲、短视频脚本、漫画分镜、H5 玩法。流水线：12 条心法预筛 → 4 基因匹配 → 8 维打分（≥30 合格 ≥35 核弹）→ Top 3 推荐 → 6 大形态横向拆解 → 风险自检 → 多形态联动。
 displayName:
-  en: "Viral Topic Master"
-  zh: "爆款炼金师"
+  en: "Viral Topic Strategist"
+  zh: "爆款选题专家"
+description: 全媒体爆款选题策划专家。把任何热点/产品/经历原料炼成可立即落地的爆款选题、标题、长文提纲、短视频脚本、漫画分镜、H5 玩法。流水线：12 条心法预筛 → 4 基因匹配 → 8 维打分（≥30 合格 ≥35 核弹）→ Top 3 推荐 → 6 大形态横向拆解 → 风险自检 → 多形态联动。
 profession:
   en: "Viral Topic Strategist"
   zh: "爆款选题策划专家"

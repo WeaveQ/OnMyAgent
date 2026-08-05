@@ -440,11 +440,16 @@ function shellOutputText(output: unknown): string {
 const RUNTIME_DELIVERABLE_MARKER =
   /(?:^|\n)ONMYAGENT_DELIVERABLE:\s*(.+?)(?=\s*(?:\n|$))/g;
 
+/** OfficeCLI verbs that create or flush document files (managed launcher also emits markers). */
+const OFFICECLI_MUTATING_VERB =
+  /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b/i;
+
 /**
  * Paths registered by first-class artifact-runtime writes:
  * - `ONMYAGENT_DELIVERABLE: path` lines
  * - JSON payloads with `deliverable: true` + `wrote[]` / `path`
  * - `write-xlsx` / `extract-sheets --out <file>` command args
+ * - OfficeCLI mutating commands (create/save/set/…)
  */
 export function collectRuntimeRegisteredDeliverablePaths(
   input: unknown,
@@ -503,6 +508,22 @@ export function collectRuntimeRegisteredDeliverablePaths(
     if (outFile?.[2]) paths.push(outFile[2]);
   }
 
+  // OfficeCLI: file path is the first positional after a mutating verb.
+  // Launcher also prints ONMYAGENT_DELIVERABLE; keep command-arg fallback for
+  // older launchers and bare binary invocations.
+  if (/\bofficecli(?:\.cmd|\.exe)?\b/i.test(command) && OFFICECLI_MUTATING_VERB.test(command)) {
+    const officeFile = command.match(
+      /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\b(?:create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b\s+(["']?)([^"'\s]+)\1/i,
+    );
+    if (officeFile?.[2] && /\.(docx|xlsx|pptx)$/i.test(officeFile[2])) {
+      paths.push(officeFile[2]);
+    }
+    for (const match of out.matchAll(/(?:^|\n)Created:\s*(.+?)(?:\s*\(|\s*$)/gim)) {
+      const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
+      if (raw && /\.(docx|xlsx|pptx)$/i.test(raw)) paths.push(raw);
+    }
+  }
+
   const seen = new Set<string>();
   return paths.filter((value) => {
     if (!value || seen.has(value)) return false;
@@ -526,6 +547,13 @@ function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
   }
   // First-class spreadsheet runtime write commands always mint deliverables.
   if (/\b(extract-sheets|write-xlsx)\b/i.test(command)) {
+    return true;
+  }
+  // Managed OfficeCLI mutating verbs create/update Office documents.
+  if (
+    /\bofficecli(?:\.cmd|\.exe)?\b/i.test(command)
+    && OFFICECLI_MUTATING_VERB.test(command)
+  ) {
     return true;
   }
   // Pure discovery / read-style commands never mint deliverable cards.

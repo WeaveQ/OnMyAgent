@@ -1,0 +1,13 @@
+{
+  "slug": "agent-browser",
+  "name": "Agent Browser",
+  "version": "1.0.0",
+  "installedAt": 1785921590976,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/a00e31c7-8d6a-4e65-84fc-16a177f95674.png",
+  "labels": {
+    "requires_api_key": "false"
+  },
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/agent-browser__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/a00e31c7-8d6a-4e65-84fc-16a177f95674.png"
+}

@@ -7,11 +7,12 @@ import { exists } from "../core/utils.js";
 import { validateDescription, validateSkillName } from "../core/validators.js";
 import { ApiError } from "../core/errors.js";
 import {
-  bundledSkillsDir,
   globalSkillsDir,
+  globalSkillsDirs,
   legacyAgentSkillsDir,
   legacyAgentsSkillsDir,
   legacyClaudeSkillsDir,
+  legacyOnmyagentSkillsDir,
   legacyOpencodeSkillsDir,
 } from "../workspace/workspace-files.js";
 
@@ -74,6 +75,7 @@ async function parseSkillEntry(
     trigger: trigger.trim() || undefined,
   };
   if (typeof data.display_name_zh === "string") item.displayNameZh = data.display_name_zh;
+  else if (typeof data.display_name === "string") item.displayNameZh = data.display_name;
   if (typeof data.display_name_en === "string") item.displayNameEn = data.display_name_en;
   if (typeof data.description_zh === "string") item.descriptionZh = data.description_zh;
   if (typeof data.description_en === "string") item.descriptionEn = data.description_en;
@@ -138,6 +140,11 @@ export async function listSkills(
 ): Promise<SkillItem[]> {
   const items: SkillItem[] = [];
 
+  // Product model — three UI buckets (composer shows all):
+  // - 已安装 / 内置: profiles/local/config/skills (scope onmyagent; UI splits by package)
+  // - 本地: project + legacy home skill roots (scope local)
+  // - artifact plugins: built-in
+  // Packaged bundled-skills / marketplace catalog are install sources only.
   if (options?.artifactSkills) {
     for (const skill of options.artifactSkills) {
       const item = await parseSkillEntry(skill.path, skill.name, "built-in");
@@ -145,24 +152,23 @@ export async function listSkills(
     }
   }
 
-  const bundledDir = bundledSkillsDir();
-  if (bundledDir) {
-    items.push(...(await listSkillsInDir(bundledDir, "built-in")));
+  for (const dir of globalSkillsDirs()) {
+    items.push(...(await listSkillsInDir(dir, "onmyagent")));
   }
 
   const projectDir = join(workspaceRoot, ".opencode", "skills");
   items.push(...(await listSkillsInDir(projectDir, "local")));
 
-  items.push(...(await listSkillsInDir(globalSkillsDir(), "onmyagent")));
-
-  const localDirs: string[] = [
+  const localDirs = [
+    legacyOnmyagentSkillsDir(),
     legacyOpencodeSkillsDir(),
     legacyClaudeSkillsDir(),
     legacyAgentsSkillsDir(),
     legacyAgentSkillsDir(),
   ];
-
+  const profileRoots = new Set(globalSkillsDirs().map((dir) => dir.replace(/[/\\]+$/, "")));
   for (const dir of localDirs) {
+    if (profileRoots.has(dir.replace(/[/\\]+$/, ""))) continue;
     items.push(...(await listSkillsInDir(dir, "local")));
   }
 

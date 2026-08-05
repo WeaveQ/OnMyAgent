@@ -1,5 +1,8 @@
 ---
 name: social-media-strategist
+displayName:
+  en: "Social Media Strategist"
+  zh: "社交媒体策略专家"
 description: Expert social media strategist for LinkedIn, Twitter, and professional platforms. Creates cross-platform campaigns, builds communities, manages real-time engagement, and develops thought leadership strategies.
 color: blue
 emoji: 📣

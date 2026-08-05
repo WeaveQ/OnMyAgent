@@ -1,0 +1,12 @@
+{
+  "name": "小红书笔记创作",
+  "installedAt": 1785919721432,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084461612836143104",
+  "description_zh": "基于爆款笔记数据，AI 提炼流量密码，生成可直接发布的小红书文案",
+  "description_en": "Generate ready-to-publish Xiaohongshu notes based on trending note data analysis",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_56b0caf3-feb.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-write/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_56b0caf3-feb.svg"
+}

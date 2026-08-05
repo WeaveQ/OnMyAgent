@@ -53,11 +53,20 @@ const MAX_BINARY_BYTES = 512 * 1024 * 1024;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const PLATFORM_PATTERN = /^officecli-(?:mac|win)-(?:arm64|x64)$/;
 
+/**
+ * Managed launcher: runs the pinned binary, then emits ONMYAGENT_DELIVERABLE
+ * markers so session product cards can open Office files the same way as
+ * artifact-runtime writes.
+ */
 export const OFFICECLI_LAUNCHER_SOURCE = `
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  collectOfficeCliDeliverablePaths,
+  formatOfficeCliDeliverableMarkers,
+} from "./officecli-deliverable.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const statePath = path.join(root, "state.json");
@@ -70,13 +79,33 @@ if (!/^officecli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? "")))
 }
 const binaryName = process.platform === "win32" ? "officecli.exe" : "officecli";
 const binaryPath = path.join(root, "releases", state.activeVersion, state.platform, binaryName);
-const result = spawnSync(binaryPath, process.argv.slice(2), {
-  stdio: "inherit",
+const cliArgs = process.argv.slice(2);
+const result = spawnSync(binaryPath, cliArgs, {
+  encoding: "utf8",
+  maxBuffer: 32 * 1024 * 1024,
   windowsHide: true,
 });
 if (result.error) throw result.error;
-process.exit(result.status ?? 1);
+const stdout = result.stdout ?? "";
+const stderr = result.stderr ?? "";
+if (stdout) process.stdout.write(stdout);
+if (stderr) process.stderr.write(stderr);
+const exitCode = result.status ?? 1;
+const deliverables = collectOfficeCliDeliverablePaths({
+  argv: cliArgs,
+  stdout,
+  exitCode,
+});
+const markers = formatOfficeCliDeliverableMarkers(deliverables);
+if (markers) process.stdout.write(markers);
+process.exit(exitCode);
 `;
+
+const OFFICECLI_DELIVERABLE_MODULE_NAME = "officecli-deliverable.mjs";
+const OFFICECLI_DELIVERABLE_SOURCE_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  OFFICECLI_DELIVERABLE_MODULE_NAME,
+);
 
 function normalizeArch(arch) {
   if (arch === "arm64") return "arm64";
@@ -745,6 +774,11 @@ export function createOfficeCliManager(options = {}) {
   async function ensureLauncher() {
     await mkdir(toolsBinRoot, { recursive: true });
     await mkdir(managedRoot, { recursive: true });
+    // Keep deliverable helper next to launcher.mjs (relative import).
+    await cp(
+      OFFICECLI_DELIVERABLE_SOURCE_PATH,
+      path.join(managedRoot, OFFICECLI_DELIVERABLE_MODULE_NAME),
+    );
     await writeFile(path.join(managedRoot, "launcher.mjs"), OFFICECLI_LAUNCHER_SOURCE, "utf8");
     const posixLauncher = path.join(toolsBinRoot, "officecli");
     const windowsLauncher = path.join(toolsBinRoot, "officecli.cmd");
@@ -779,6 +813,8 @@ export function createOfficeCliManager(options = {}) {
     const state = await readState();
     if (!platformKey) return status;
     if (state) {
+      // Refresh launcher so existing installs pick up deliverable markers without reinstall.
+      await ensureLauncher().catch(() => undefined);
       status.installedVersion = state.activeVersion;
       status.previousVersion = state.previousVersion;
       const binaryPath = await activeBinaryPath(state);

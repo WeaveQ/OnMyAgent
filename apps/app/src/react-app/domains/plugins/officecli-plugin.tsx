@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Download,
-  FileText,
   RefreshCw,
   RotateCcw,
   Trash2,
@@ -14,7 +13,6 @@ import type {
 } from "@onmyagent/types/officecli";
 
 import { Button } from "@/components/ui/button";
-import { IconTile } from "@/components/ui/action-row";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
@@ -28,7 +26,10 @@ import {
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
+
+const OFFICECLI_ICON_SRC = "/connector-icons/officecli.png";
 
 import {
   connectorTileClassName,
@@ -292,9 +293,14 @@ export function OfficeCliPluginSection() {
           aria-busy={busy}
         >
           <div className={connectorTileHeaderClassName}>
-            <IconTile size="sm" tone="accent" shape="lg">
-              <FileText className="size-4.5" aria-hidden="true" />
-            </IconTile>
+            <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
+              <img
+                src={resolvePublicAssetUrl(OFFICECLI_ICON_SRC)}
+                alt=""
+                className="size-full object-cover"
+                draggable={false}
+              />
+            </div>
             <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
               <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
                 {t("plugins.officecli_title")}

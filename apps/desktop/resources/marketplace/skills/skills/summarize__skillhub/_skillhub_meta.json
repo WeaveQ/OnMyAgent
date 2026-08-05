@@ -1,0 +1,13 @@
+{
+  "slug": "summarize",
+  "name": "Summarize",
+  "version": "1.0.0",
+  "installedAt": 1785921570022,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/0c9b068f-f22e-44e2-96fe-d2b6f5b43b07.png",
+  "labels": {
+    "requires_api_key": "true"
+  },
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/summarize__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/0c9b068f-f22e-44e2-96fe-d2b6f5b43b07.png"
+}

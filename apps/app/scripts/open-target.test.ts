@@ -775,6 +775,30 @@ describe("deriveOpenTargets", () => {
     expect(paths).toContain("合并对账.xlsx");
   });
 
+  it("mints product cards from OfficeCLI create with deliverable markers", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        { command: "officecli create report.docx" },
+        [
+          "Created: report.docx (kept open in background for faster subsequent commands)",
+          "ONMYAGENT_DELIVERABLE: report.docx",
+        ].join("\n"),
+      ),
+      message("msg_final", "assistant", "已创建 Word 文档。"),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("report.docx");
+  });
+
+  it("collects OfficeCLI mutating command file paths without markers", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      { command: "officecli create slides.pptx --force" },
+      "Created: slides.pptx (kept open)\n",
+    );
+    expect(paths).toContain("slides.pptx");
+  });
+
   it("shows pdf/html/md content deliverables written by write tools", () => {
     const messages = [
       toolMessage("msg_pdf", "write", { filePath: "回单核对.pdf" }, { filePath: "回单核对.pdf" }),

@@ -90,6 +90,11 @@ type ExpertUnreadStore = {
   hasUnreadRecord: (workspaceId: string, agentId: string) => boolean;
   isSessionUnread: (workspaceId: string, sessionId: string) => boolean;
   getUnreadCount: (workspaceId: string, agentId: string) => number;
+  /**
+   * Dock / taskbar badge: number of unread experts (or pure-assistant scopes),
+   * not summed turn counts. True per-message unread is not available.
+   */
+  getTotalUnreadAgentCount: () => number;
   hydrate: () => void;
 };
 
@@ -566,6 +571,17 @@ export const useExpertUnreadStore = create<ExpertUnreadStore>((set, get) => ({
       get().byWorkspace[normalizeId(workspaceId)]?.[normalizeId(agentId)]
         ?.unreadCount ?? 0
     );
+  },
+
+  getTotalUnreadAgentCount: () => {
+    const state = get();
+    let total = 0;
+    for (const [workspaceId, agents] of Object.entries(state.byWorkspace)) {
+      for (const agentId of Object.keys(agents ?? {})) {
+        if (state.isUnread(workspaceId, agentId)) total += 1;
+      }
+    }
+    return total;
   },
 }));
 

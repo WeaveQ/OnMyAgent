@@ -1,0 +1,12 @@
+{
+  "name": "抖音每日点赞飙升榜",
+  "installedAt": 1785920017598,
+  "source": "marketplace",
+  "version": "1.0.2",
+  "skillId": "skill_2082737090347888640",
+  "description_zh": "抖音每日点赞飙升榜查询工具，输出单日新增点赞TOP50榜单，支持28个赛道筛选和30天历史回溯。",
+  "description_en": "Douyin daily like-surge ranking tool. Outputs the TOP50 works by single-day new likes, with 28 category filters and up to 30 days of history lookup.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_7527fc89-02e.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/douyin-content-surge/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_7527fc89-02e.svg"
+}

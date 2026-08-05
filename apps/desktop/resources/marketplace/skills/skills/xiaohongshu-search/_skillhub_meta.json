@@ -1,0 +1,12 @@
+{
+  "name": "小红书爆款笔记查询",
+  "installedAt": 1785919693939,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2082739746649649152",
+  "description_zh": "小红书热门笔记搜索工具，关键词搜索热门爆款笔记并按三维评分智能排序。",
+  "description_en": "Xiaohongshu hot notes search tool with keyword search and smart 3-dimension score ranking.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_9b2828b0-5b6.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-search/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_9b2828b0-5b6.svg"
+}

@@ -1,5 +1,8 @@
 ---
 name: brand-guardian
+displayName:
+  en: "Brand Strategy Expert"
+  zh: "品牌策略专家"
 description: Expert brand strategist and guardian specializing in brand identity development, consistency maintenance, and strategic brand positioning
 color: blue
 emoji: 🎨

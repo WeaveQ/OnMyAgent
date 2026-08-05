@@ -1,0 +1,12 @@
+{
+  "name": "抖音作品爬取",
+  "installedAt": 1785919860364,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084102491874119680",
+  "description_zh": "输入抖音名称或ID，获取账号基础信息和近期最多50条作品内容列表",
+  "description_en": "Fetch Douyin account info and up to 50 recent works by account name or ID.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_4a7e2c6d-c29.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/douyin-works-crawler/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_4a7e2c6d-c29.svg"
+}

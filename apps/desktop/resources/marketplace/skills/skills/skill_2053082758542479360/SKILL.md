@@ -1,11 +1,12 @@
 ---
 name: qq-email
+display_name: "QQ 邮箱收发"
+display_name_zh: "QQ 邮箱收发"
 description: "QQ邮箱 IMAP receive and SMTP send via Node.js scripts; credentials read from env vars QQ_EMAIL_ACCOUNT and QQ_EMAIL_AUTH_CODE. Use when a user asks to send QQ email, receive/check QQ email, forward email, or configure QQ mailbox."
 description_zh: "QQ邮箱收发邮件（IMAP/SMTP），支持发信、收信、查看正文"
 description_en: "Send & receive QQ Mail via IMAP/SMTP with Node.js scripts"
 version: 1.0.0
 allowed-tools: Read,Write,Bash
-display_name: "qq-email"
 display_name_en: "qq-email"
 visibility: "public"
 icon: "https://codebuddy-platform-1258344699.cos.accelerate.myqcloud.com/public/45edac6b-2078-4678-89f3-6f9800cf5e5f/avatar/skill/au_77d09459-285.png"

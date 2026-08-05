@@ -129,6 +129,8 @@ export type ComposerAttachment = {
 export type SlashCommandOption = {
   id: string;
   name: string;
+  /** UI title (e.g. zh display name). Invoke still uses `name`. */
+  label?: string;
   description?: string;
   source?: "command" | "mcp" | "skill";
 };
@@ -358,6 +360,10 @@ export type SkillCard = {
   trigger?: string;
   scope?: "builtin" | "onmyagent" | "local";
   readonly?: boolean;
+  displayNameZh?: string;
+  displayNameEn?: string;
+  descriptionZh?: string;
+  descriptionEn?: string;
 };
 
 export type HubSkillRepo = {

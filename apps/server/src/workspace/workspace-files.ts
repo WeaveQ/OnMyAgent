@@ -19,16 +19,43 @@ export function onmyagentConfigPath(workspaceRoot: string): string {
 }
 
 /**
- * OnMyAgent 用户安装 Skill 全局目录，与工作区解耦。
- * 新安装/创建的 Skills 写入此目录，而不是 OpenCode 或工作区目录。
- * 支持通过环境变量 `OPENCODE_GLOBAL_SKILLS_DIR` 覆盖，用于测试。
+ * User-installed skills root (market install + core preinstall).
+ * Phase-2: profiles/local/config/skills — write target for 已安装/内置.
+ */
+export function profileSkillsDir(home = homedir()): string {
+  return join(home, ".onmyagent", "profiles", "local", "config", "skills");
+}
+
+/** Legacy user skills path (scanned for 本地 tab only; not write target). */
+export function legacyOnmyagentSkillsDir(home = homedir()): string {
+  return join(home, ".onmyagent", "skills");
+}
+
+/**
+ * Resolve write skills root for a home directory (profile only).
+ */
+export function resolveGlobalSkillsDir(home = homedir()): string {
+  return profileSkillsDir(home);
+}
+
+/**
+ * OnMyAgent profile skills root (write + 已安装/内置 list).
+ * Env override for tests only.
  */
 export function globalSkillsDir(): string {
   const envOverride = process.env.OPENCODE_GLOBAL_SKILLS_DIR;
   if (envOverride && envOverride.trim().length > 0) {
     return envOverride;
   }
-  return join(homedir(), ".onmyagent", "skills");
+  return resolveGlobalSkillsDir(homedir());
+}
+
+export function resolveGlobalSkillsDirs(home = homedir()): string[] {
+  return [resolveGlobalSkillsDir(home)];
+}
+
+export function globalSkillsDirs(): string[] {
+  return [globalSkillsDir()];
 }
 
 export function legacyOpencodeSkillsDir(): string {
