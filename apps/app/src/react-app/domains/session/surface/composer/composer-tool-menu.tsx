@@ -516,7 +516,7 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
                       >
                         <div className="min-w-0 flex-1 overflow-hidden text-left">
                           <div className="truncate text-sm font-medium text-dls-text">
-                            {command.name}
+                            {command.label?.trim() || command.name}
                           </div>
                           {description ? (
                             <div className="truncate text-xs text-dls-secondary">

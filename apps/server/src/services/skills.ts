@@ -70,6 +70,7 @@ async function parseSkillEntry(
     trigger: trigger.trim() || undefined,
   };
   if (typeof data.display_name_zh === "string") item.displayNameZh = data.display_name_zh;
+  else if (typeof data.display_name === "string") item.displayNameZh = data.display_name;
   if (typeof data.display_name_en === "string") item.displayNameEn = data.display_name_en;
   if (typeof data.description_zh === "string") item.descriptionZh = data.description_zh;
   if (typeof data.description_en === "string") item.descriptionEn = data.description_en;

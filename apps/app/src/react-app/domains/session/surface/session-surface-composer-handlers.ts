@@ -288,6 +288,10 @@ export function useSessionSurfaceComposerHandlers(
         description: skill.description,
         trigger: skill.trigger,
         scope,
+        displayNameZh: skill.displayNameZh,
+        displayNameEn: skill.displayNameEn,
+        descriptionZh: skill.descriptionZh,
+        descriptionEn: skill.descriptionEn,
       });
     }
 
@@ -310,19 +314,25 @@ export function useSessionSurfaceComposerHandlers(
             /\/\.onmyagent\/profiles\/[^/]+\/config\/skills/.test(skillPath);
           if (!isOnmyagentRoot) continue;
           const existing = byName.get(name);
-          if (existing?.scope === "onmyagent" || existing?.scope === "builtin") {
-            continue;
-          }
+          // Prefer desktop locale fields; keep server entry for path/scope.
           byName.set(name, {
             name,
-            path: skill.path,
+            path: existing?.path || skill.path,
             description:
               skill.descriptionZh ||
               skill.descriptionEn ||
               skill.description ||
               existing?.description,
             trigger: skill.trigger ?? existing?.trigger,
-            scope: "onmyagent",
+            scope: existing?.scope === "builtin" ? "builtin" : "onmyagent",
+            displayNameZh:
+              skill.displayNameZh?.trim() || existing?.displayNameZh,
+            displayNameEn:
+              skill.displayNameEn?.trim() || existing?.displayNameEn,
+            descriptionZh:
+              skill.descriptionZh?.trim() || existing?.descriptionZh,
+            descriptionEn:
+              skill.descriptionEn?.trim() || existing?.descriptionEn,
           });
         }
       } catch {
