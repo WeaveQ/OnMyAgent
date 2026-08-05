@@ -1,18 +1,40 @@
 /** @jsxImportSource react */
 /**
  * Connect company (OnMyCompany) settings panel.
+ * Layout aligned with System settings: LayoutStack max-w-3xl, section chrome,
+ * IconTile rows, 2-col metric cards, divided list surfaces.
  * All company HTTP goes through Electron IPC (main process).
- * Renderer must not fetch OMC directly — Vite origin → :3100 hits CORS → "Failed to fetch".
  */
-import { useCallback, useEffect, useState } from "react";
-import { Building2, ExternalLink, LogIn, LogOut, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Building2,
+  ExternalLink,
+  LogIn,
+  LogOut,
+  RefreshCw,
+  Server,
+  Bot,
+  Boxes,
+  Cable,
+  Cpu,
+} from "lucide-react";
 
+import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { desktopBridge } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
-import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
+import { SettingsNotice } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
 
 type CompanyCatalogSnapshot = {
@@ -50,6 +72,12 @@ type CompanyViewProps = {
   busy?: boolean;
 };
 
+type HealthInfo = {
+  ok: boolean;
+  orgId: string;
+  version: string;
+};
+
 function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
@@ -71,6 +99,51 @@ function formatError(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message.trim()) return err.message;
   if (typeof err === "string" && err.trim()) return err;
   return fallback;
+}
+
+function formatRelativeTime(iso?: string): string | null {
+  if (!iso) return null;
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return iso;
+  const delta = Date.now() - ts;
+  if (delta < 60_000) return t("settings.company_synced_just_now");
+  if (delta < 3_600_000) {
+    return t("settings.company_synced_minutes", {
+      count: Math.max(1, Math.floor(delta / 60_000)),
+    });
+  }
+  if (delta < 86_400_000) {
+    return t("settings.company_synced_hours", {
+      count: Math.max(1, Math.floor(delta / 3_600_000)),
+    });
+  }
+  return t("settings.company_synced_days", {
+    count: Math.max(1, Math.floor(delta / 86_400_000)),
+  });
+}
+
+function isJsonishAction(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
+function summarizePolicyActions(actions: string[] | undefined): string[] {
+  if (!Array.isArray(actions) || actions.length === 0) return [];
+  const out: string[] = [];
+  for (const raw of actions) {
+    const item = String(raw ?? "").trim();
+    if (!item) continue;
+    if (item === "*") {
+      out.push(t("settings.company_policy_allow_all"));
+      continue;
+    }
+    if (isJsonishAction(item)) {
+      out.push(t("settings.company_policy_structured"));
+      continue;
+    }
+    out.push(item);
+  }
+  return Array.from(new Set(out));
 }
 
 async function readDurableSettings(): Promise<CompanySettings> {
@@ -105,9 +178,8 @@ async function disconnectDurable(): Promise<CompanySettings> {
       writeLocalFallback(result);
       return result;
     } catch (err) {
-      // Local clear even if IPC fails so UI is not stuck "connected"
       const current = readLocalFallback();
-      const cleared = writeLocalFallback({
+      writeLocalFallback({
         companyBaseUrl: current.companyBaseUrl,
         activeProfile: "local",
       });
@@ -121,20 +193,78 @@ async function disconnectDurable(): Promise<CompanySettings> {
   });
 }
 
+/** Match SystemOptionCard surface: IconTile + title/desc + trailing. */
+function MetricCard(props: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  value: number;
+}) {
+  const Icon = props.icon;
+  return (
+    <div
+      className={cn(
+        "flex min-h-[4.75rem] items-center gap-3 rounded-xl border border-dls-border",
+        "bg-dls-surface px-3.5 py-3",
+      )}
+    >
+      <IconTile border className="size-9 shrink-0">
+        <Icon size={16} className="text-dls-secondary" />
+      </IconTile>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium leading-5 text-dls-text">{props.title}</div>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
+          {props.description}
+        </p>
+      </div>
+      <div className="shrink-0 text-lg font-semibold tabular-nums leading-none text-dls-text">
+        {props.value}
+      </div>
+    </div>
+  );
+}
+
+function ListRow(props: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  trailing?: ReactNode;
+}) {
+  const Icon = props.icon;
+  return (
+    <div className="flex items-center gap-3 px-4 py-3.5">
+      <IconTile border className="size-9 shrink-0">
+        <Icon size={16} className="text-dls-secondary" />
+      </IconTile>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium leading-5 text-dls-text">{props.title}</div>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
+          {props.description}
+        </p>
+      </div>
+      {props.trailing ? (
+        <div className="flex shrink-0 items-center gap-2">{props.trailing}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export function CompanySettingsView(props: CompanyViewProps) {
   const hostBusy = props.busy === true;
   const [settings, setSettings] = useState<CompanySettings>({});
   const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:3100");
-  const [email, setEmail] = useState("admin@company.internal");
-  const [code, setCode] = useState("000000");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [health, setHealth] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthInfo | null>(null);
   const [storeMode, setStoreMode] = useState<"desktop" | "local">("local");
   const [catalog, setCatalog] = useState<CompanyCatalogSnapshot | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const busy = loading || hostBusy;
+  const connected = Boolean(settings.memberToken);
 
   const refreshCatalog = useCallback(async () => {
     if (!isDesktopRuntime()) {
@@ -160,10 +290,18 @@ export function CompanySettingsView(props: CompanyViewProps) {
     })();
   }, [refreshCatalog]);
 
+  const applyHealth = useCallback((body: { orgId?: string; version?: string; ok?: boolean }) => {
+    setHealth({
+      ok: body.ok !== false,
+      orgId: body.orgId || "default",
+      version: body.version || "",
+    });
+  }, []);
+
   const refreshHealth = useCallback(async () => {
     const root = normalizeBaseUrl(baseUrl);
     if (!root) {
-      setError("请先填写 Company Base URL");
+      setError(t("settings.company_error_base_url_required"));
       return;
     }
     setLoading(true);
@@ -175,24 +313,22 @@ export function CompanySettingsView(props: CompanyViewProps) {
           version?: string;
           ok?: boolean;
         };
-        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+        applyHealth(body);
       } else {
-        // Browser-only fallback (may fail CORS against local OMC)
         const res = await fetch(`${root}/api/company/health`);
         if (!res.ok) throw new Error(`health ${res.status}`);
         const body = (await res.json()) as { orgId?: string; version?: string };
-        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+        applyHealth(body);
       }
       setStatus(null);
     } catch (err) {
       setHealth(null);
-      setError(formatError(err, "探活失败"));
+      setError(formatError(err, t("settings.company_error_health")));
     } finally {
       setLoading(false);
     }
-  }, [baseUrl]);
+  }, [applyHealth, baseUrl]);
 
-  // One-shot health after durable settings load (not on every keystroke).
   useEffect(() => {
     if (!settings.companyBaseUrl && !baseUrl.trim()) return;
     void (async () => {
@@ -202,12 +338,13 @@ export function CompanySettingsView(props: CompanyViewProps) {
         const body = (await desktopBridge.companyHealth(root)) as {
           orgId?: string;
           version?: string;
+          ok?: boolean;
         };
-        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+        applyHealth(body);
         setError(null);
       } catch (err) {
         setHealth(null);
-        setError(formatError(err, "探活失败"));
+        setError(formatError(err, t("settings.company_error_health")));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when session/settings first applied
@@ -219,11 +356,11 @@ export function CompanySettingsView(props: CompanyViewProps) {
     setStatus(null);
     try {
       const root = normalizeBaseUrl(baseUrl);
-      if (!root) throw new Error("Company Base URL required");
+      if (!root) throw new Error(t("settings.company_error_base_url_required"));
       await writeDurableSettings({ companyBaseUrl: root });
 
       if (!isDesktopRuntime()) {
-        throw new Error("请在桌面端连接公司（浏览器无法安全拉取配置）");
+        throw new Error(t("settings.company_error_desktop_only"));
       }
 
       const result = (await desktopBridge.companyConnect({
@@ -232,33 +369,37 @@ export function CompanySettingsView(props: CompanyViewProps) {
         code,
       })) as {
         settings?: CompanySettings;
-        pulled?: { version?: string };
+        pulled?: { version?: string; packagesWritten?: number };
       };
       const next = result.settings ?? (await readDurableSettings());
       setSettings(next);
       const packagesWritten =
-        result.pulled &&
-        typeof (result.pulled as { packagesWritten?: number }).packagesWritten ===
-          "number"
-          ? (result.pulled as { packagesWritten: number }).packagesWritten
+        typeof result.pulled?.packagesWritten === "number"
+          ? result.pulled.packagesWritten
           : undefined;
       setStatus(
-        `已连接 · ${next.email || email} · 配置 ${result.pulled?.version || next.lastSyncedVersion || ""}${
-          packagesWritten != null ? ` · 技能包 ${packagesWritten}` : ""
-        }`,
+        t("settings.company_status_connected", {
+          email: next.email || email,
+          version: result.pulled?.version || next.lastSyncedVersion || "—",
+          packages:
+            packagesWritten != null
+              ? t("settings.company_status_packages", { count: packagesWritten })
+              : "",
+        }),
       );
       try {
         const body = (await desktopBridge.companyHealth(root)) as {
           orgId?: string;
           version?: string;
+          ok?: boolean;
         };
-        setHealth(`ok · org ${body.orgId || "default"} · ${body.version || ""}`);
+        applyHealth(body);
       } catch {
         // non-fatal
       }
       await refreshCatalog();
     } catch (err) {
-      setError(formatError(err, "连接失败"));
+      setError(formatError(err, t("settings.company_error_connect")));
     } finally {
       setLoading(false);
     }
@@ -266,7 +407,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
 
   async function syncConfig(): Promise<void> {
     if (!isDesktopRuntime()) {
-      setError("同步配置仅桌面端可用");
+      setError(t("settings.company_error_sync_desktop_only"));
       return;
     }
     setLoading(true);
@@ -278,11 +419,14 @@ export function CompanySettingsView(props: CompanyViewProps) {
       };
       if (result.settings) setSettings(result.settings);
       setStatus(
-        `已同步配置 · ${result.pulled?.version || result.settings?.lastSyncedVersion || ""}`,
+        t("settings.company_status_synced", {
+          version:
+            result.pulled?.version || result.settings?.lastSyncedVersion || "—",
+        }),
       );
       await refreshCatalog();
     } catch (err) {
-      setError(formatError(err, "同步失败"));
+      setError(formatError(err, t("settings.company_error_sync")));
     } finally {
       setLoading(false);
     }
@@ -292,197 +436,418 @@ export function CompanySettingsView(props: CompanyViewProps) {
     setLoading(true);
     setError(null);
     try {
-      // Persist BaseUrl before session clear
       await writeDurableSettings({
         companyBaseUrl: normalizeBaseUrl(baseUrl) || settings.companyBaseUrl,
       });
       const next = await disconnectDurable();
       setSettings(next);
-      setStatus("已断开（BaseUrl 保留）");
+      setStatus(t("settings.company_status_disconnected"));
       setHealth(null);
       setCatalog(null);
     } catch (err) {
-      // Still try to reflect local clear
       const loaded = await readDurableSettings();
       setSettings(loaded);
-      setError(formatError(err, "断开失败"));
+      setError(formatError(err, t("settings.company_error_disconnect")));
     } finally {
       setLoading(false);
     }
   }
 
-  const connected = Boolean(settings.memberToken);
+  function openAdminConsole(url: string): void {
+    const openExternal = window.__ONMYAGENT_ELECTRON__?.shell?.openExternal;
+    if (openExternal) {
+      void openExternal(url);
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  const displayEmail = catalog?.email || settings.email || email || "—";
+  const displayBaseUrl =
+    catalog?.companyBaseUrl || settings.companyBaseUrl || baseUrl || "—";
+  const configVersion =
+    catalog?.lastSyncedVersion || settings.lastSyncedVersion || "—";
+  const syncedAtLabel = formatRelativeTime(
+    catalog?.lastSyncedAt || settings.lastSyncedAt,
+  );
+
+  const allowActions = useMemo(
+    () => summarizePolicyActions(catalog?.policy?.allowedActions),
+    [catalog?.policy?.allowedActions],
+  );
+  const denyActions = useMemo(
+    () => summarizePolicyActions(catalog?.policy?.blockedActions),
+    [catalog?.policy?.blockedActions],
+  );
+
+  const skillCount = catalog?.skills?.length ?? 0;
+  const expertCount = catalog?.experts?.length ?? 0;
+  const modelCount = catalog?.models?.length ?? 0;
+  const gatewayCount = catalog?.gatewayServices?.length ?? 0;
+
+  const gatewayNames =
+    catalog?.gatewayServices
+      ?.map((s) => s.name || s.id)
+      .filter(Boolean)
+      .slice(0, 4) ?? [];
+  const modelNames =
+    catalog?.models
+      ?.map((m) => m.name || m.id)
+      .filter(Boolean)
+      .slice(0, 6) ?? [];
 
   return (
-    <LayoutStack className="mx-auto w-full max-w-2xl gap-4">
-      <SettingsSurfaceCard size="compact" tone="surface" className="p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <Building2 size={16} className="text-dls-secondary" />
-          <div>
-            <div className="text-sm font-medium text-dls-text">连接公司 (OnMyCompany)</div>
-            <p className="text-xs text-dls-secondary">
-              填写内网服务地址并登录后，组织技能/专家会出现在「技能 / 专家」页的
-              <span className="text-dls-text"> 公司 </span>
-              栏目（本机配置不变，不切换整站模式）。
+    <LayoutStack>
+      {/* Connection section — same chrome as System options */}
+      <section className="flex w-full max-w-3xl flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h3 className="flex flex-wrap items-center gap-2 text-lg font-medium leading-7 text-dls-text">
+              {t("settings.company_connection_section_title")}
+              <StatusBadge
+                tone={connected ? "success" : "neutral"}
+                size="sm"
+                shape="soft"
+              >
+                {connected
+                  ? t("settings.company_status_badge_connected")
+                  : t("settings.company_status_badge_disconnected")}
+              </StatusBadge>
+              {health ? (
+                <StatusBadge
+                  tone={health.ok ? "success" : "warning"}
+                  size="sm"
+                  shape="soft"
+                >
+                  {t("settings.company_health_badge", {
+                    org: health.orgId,
+                    version: health.version || "—",
+                  })}
+                </StatusBadge>
+              ) : null}
+            </h3>
+            <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
+              {connected
+                ? t("settings.company_desc_connected")
+                : t("settings.company_desc_disconnected")}
             </p>
           </div>
-        </div>
-
-        <div className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="company-base-url">Company Base URL</Label>
-            <Input
-              id="company-base-url"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="http://127.0.0.1:3100"
-              disabled={busy}
-            />
-          </div>
-          <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="company-email">邮箱</Label>
-              <Input
-                id="company-email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={connected || busy}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="company-otp">OTP</Label>
-              <Input
-                id="company-otp"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                disabled={connected || busy}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {!connected ? (
-              <Button size="sm" disabled={busy} onClick={() => void connect()}>
-                <LogIn size={14} />
-                {loading ? "连接中…" : "登录并连接"}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void disconnect()}
-              >
-                <LogOut size={14} />
-                {loading ? "处理中…" : "断开"}
-              </Button>
-            )}
-            {connected && isDesktopRuntime() ? (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void syncConfig()}
-              >
-                <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
-                同步配置
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={() => void refreshHealth()}
-            >
-              <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
-              探活
-            </Button>
-          </div>
-
-          {health ? <p className="text-xs text-dls-secondary">Health: {health}</p> : null}
-          {status ? (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400">{status}</p>
-          ) : null}
-          {error ? <p className="text-xs text-red-600">{error}</p> : null}
-
-          <div className="rounded-lg border border-dls-border bg-dls-surface-muted/40 px-3 py-2 text-xs text-dls-secondary">
-            <div>状态：{connected ? "已连接 · 公司栏目可用" : "未连接 · 仅本机"}</div>
-            <div>store: {storeMode === "desktop" ? "company-settings.json (IPC)" : "localStorage"}</div>
-            <div>memberId: {settings.memberId || "—"}</div>
-            <div>config version: {settings.lastSyncedVersion || "—"}</div>
-            <div className="mt-1">
-              请求经桌面主进程转发。本机技能不变；公司技能/专家在商店页「公司」入口。
-            </div>
-          </div>
-
-          {connected && catalog ? (
-            <div className="grid gap-2 rounded-lg border border-dls-border bg-dls-surface px-3 py-3 text-xs text-dls-secondary">
-              <div className="text-sm font-medium text-dls-text">组织能力摘要</div>
-              <div>
-                技能 {catalog.skills?.length ?? 0} · 专家 {catalog.experts?.length ?? 0} ·
-                模型 {catalog.models?.length ?? 0} · Gateway 服务{" "}
-                {catalog.gatewayServices?.length ?? 0}
-              </div>
-              {catalog.policy ? (
-                <div>
-                  策略：allow{" "}
-                  {Array.isArray(catalog.policy.allowedActions)
-                    ? catalog.policy.allowedActions.join(", ")
-                    : "—"}
-                  {Array.isArray(catalog.policy.blockedActions) &&
-                  catalog.policy.blockedActions.length
-                    ? ` · deny ${catalog.policy.blockedActions.join(", ")}`
-                    : ""}
-                  {catalog.policy.egress?.mode
-                    ? ` · egress ${catalog.policy.egress.mode}`
-                    : ""}
-                </div>
-              ) : null}
-              {catalog.gatewayServices && catalog.gatewayServices.length > 0 ? (
-                <div>
-                  Gateway：
-                  {catalog.gatewayServices.map((s) => s.name || s.id).join(" · ")}
-                </div>
-              ) : (
-                <div>Gateway：暂无组织连接（在 OMC 管理台配置应用连接后同步）</div>
-              )}
-              {catalog.models && catalog.models.length > 0 ? (
-                <div>
-                  模型目录：
-                  {catalog.models
-                    .slice(0, 6)
-                    .map((m) => m.name || m.id)
-                    .join(" · ")}
-                  {catalog.models.length > 6 ? " …" : ""}
-                </div>
-              ) : (
-                <div>模型目录：空（仍使用本机已连接模型）</div>
-              )}
-              {catalog.adminConsoleUrl ? (
+          {connected ? (
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {catalog?.adminConsoleUrl ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="mt-1 w-fit"
-                  onClick={() => {
-                    const url = catalog.adminConsoleUrl!;
-                    const openExternal =
-                      window.__ONMYAGENT_ELECTRON__?.shell?.openExternal;
-                    if (openExternal) {
-                      void openExternal(url);
-                      return;
-                    }
-                    window.open(url, "_blank", "noopener,noreferrer");
-                  }}
+                  disabled={busy}
+                  onClick={() => openAdminConsole(catalog.adminConsoleUrl!)}
                 >
-                  <ExternalLink size={14} />
-                  打开管理台
+                  <ExternalLink data-icon="inline-start" className="size-3.5" />
+                  {t("settings.company_open_admin")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void refreshHealth()}
+              >
+                <Server data-icon="inline-start" className="size-3.5" />
+                {t("settings.company_probe")}
+              </Button>
+              {isDesktopRuntime() ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void syncConfig()}
+                >
+                  <RefreshCw
+                    data-icon="inline-start"
+                    className={cn("size-3.5", loading && "animate-spin")}
+                  />
+                  {t("settings.company_sync")}
                 </Button>
               ) : null}
             </div>
           ) : null}
         </div>
-      </SettingsSurfaceCard>
+
+        {connected ? (
+          <>
+            {/* Identity row — same divided list surface as system authorizations */}
+            <div
+              className={cn(
+                "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
+                "divide-y divide-dls-border",
+              )}
+            >
+              <ListRow
+                icon={Building2}
+                title={t("settings.company_connected_as", { email: displayEmail })}
+                description={[
+                  displayBaseUrl,
+                  t("settings.company_config_version", { version: configVersion }),
+                  syncedAtLabel,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                trailing={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void disconnect()}
+                  >
+                    <LogOut data-icon="inline-start" className="size-3.5" />
+                    {loading
+                      ? t("settings.company_working")
+                      : t("settings.company_disconnect")}
+                  </Button>
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <MetricCard
+                icon={Boxes}
+                title={t("settings.company_metric_skills")}
+                description={t("settings.company_metric_skills_desc")}
+                value={skillCount}
+              />
+              <MetricCard
+                icon={Bot}
+                title={t("settings.company_metric_experts")}
+                description={t("settings.company_metric_experts_desc")}
+                value={expertCount}
+              />
+              <MetricCard
+                icon={Cable}
+                title={t("settings.company_metric_gateways")}
+                description={t("settings.company_metric_gateways_desc")}
+                value={gatewayCount}
+              />
+              <MetricCard
+                icon={Cpu}
+                title={t("settings.company_metric_models")}
+                description={t("settings.company_metric_models_desc")}
+                value={modelCount}
+              />
+            </div>
+          </>
+        ) : (
+          <div
+            className={cn(
+              "rounded-xl border border-dls-border bg-dls-surface",
+              "px-4 py-4",
+            )}
+          >
+            <div className="grid gap-4">
+              <Field>
+                <FieldLabel htmlFor="company-base-url">
+                  {t("settings.company_base_url")}
+                </FieldLabel>
+                <Input
+                  id="company-base-url"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:3100"
+                  disabled={busy}
+                  autoComplete="url"
+                />
+                <FieldDescription className="text-xs">
+                  {t("settings.company_base_url_hint")}
+                </FieldDescription>
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="company-email">
+                    {t("settings.company_email")}
+                  </FieldLabel>
+                  <Input
+                    id="company-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t("settings.company_email_placeholder")}
+                    disabled={busy}
+                    autoComplete="email"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="company-otp">
+                    {t("settings.company_otp")}
+                  </FieldLabel>
+                  <Input
+                    id="company-otp"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder={t("settings.company_otp_placeholder")}
+                    disabled={busy}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                  />
+                </Field>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || !baseUrl.trim() || !email.trim() || !code.trim()}
+                  onClick={() => void connect()}
+                >
+                  <LogIn data-icon="inline-start" className="size-3.5" />
+                  {loading
+                    ? t("settings.company_connecting")
+                    : t("settings.company_connect")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !baseUrl.trim()}
+                  onClick={() => void refreshHealth()}
+                >
+                  <Server data-icon="inline-start" className="size-3.5" />
+                  {t("settings.company_probe")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status ? <SettingsNotice tone="success">{status}</SettingsNotice> : null}
+        {error ? <SettingsNotice tone="error">{error}</SettingsNotice> : null}
+      </section>
+
+      {/* Capability section — same second-section pattern as System permissions */}
+      {connected ? (
+        <section className="flex w-full max-w-3xl flex-col gap-3">
+          <div className="space-y-1">
+            <h3 className="text-lg font-medium leading-7 text-dls-text">
+              {t("settings.company_capability_title")}
+            </h3>
+            <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
+              {t("settings.company_capability_desc")}
+            </p>
+          </div>
+
+          <div
+            className={cn(
+              "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
+              "divide-y divide-dls-border",
+            )}
+          >
+            <ListRow
+              icon={Cable}
+              title={t("settings.company_gateway_section")}
+              description={
+                gatewayNames.length > 0
+                  ? gatewayNames.join(" · ") +
+                    (gatewayCount > gatewayNames.length
+                      ? t("settings.company_list_more", {
+                          count: gatewayCount - gatewayNames.length,
+                        })
+                      : "")
+                  : t("settings.company_gateway_empty")
+              }
+              trailing={
+                <StatusBadge tone="neutral" size="sm">
+                  {gatewayCount}
+                </StatusBadge>
+              }
+            />
+            <ListRow
+              icon={Cpu}
+              title={t("settings.company_models_section")}
+              description={
+                modelNames.length > 0
+                  ? modelNames.join(" · ") +
+                    (modelCount > modelNames.length
+                      ? t("settings.company_list_more", {
+                          count: modelCount - modelNames.length,
+                        })
+                      : "")
+                  : t("settings.company_models_empty")
+              }
+              trailing={
+                <StatusBadge tone="neutral" size="sm">
+                  {modelCount}
+                </StatusBadge>
+              }
+            />
+            <ListRow
+              icon={Server}
+              title={t("settings.company_policy_title")}
+              description={
+                catalog?.policy
+                  ? [
+                      allowActions.length
+                        ? `${t("settings.company_policy_allow")}: ${allowActions.slice(0, 4).join(", ")}`
+                        : null,
+                      denyActions.length
+                        ? `${t("settings.company_policy_deny")}: ${denyActions.slice(0, 4).join(", ")}`
+                        : null,
+                      catalog.policy.egress?.mode
+                        ? `${t("settings.company_policy_egress")}: ${catalog.policy.egress.mode}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || t("settings.company_policy_empty")
+                  : t("settings.company_policy_empty")
+              }
+            />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="flex w-full max-w-3xl flex-col gap-2">
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <CollapsibleTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-fit self-start text-dls-secondary"
+              />
+            }
+          >
+            {advancedOpen
+              ? t("settings.company_advanced_hide")
+              : t("settings.company_advanced_show")}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div
+              className={cn(
+                "mt-2 overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
+                "divide-y divide-dls-border text-xs text-dls-secondary",
+              )}
+            >
+              <div className="px-4 py-3">
+                {t("settings.company_adv_store")}:{" "}
+                {storeMode === "desktop"
+                  ? t("settings.company_adv_store_desktop")
+                  : t("settings.company_adv_store_local")}
+              </div>
+              <div className="px-4 py-3">
+                {t("settings.company_adv_member")}: {settings.memberId || "—"}
+              </div>
+              <div className="px-4 py-3">
+                {t("settings.company_adv_base_url")}: {displayBaseUrl}
+              </div>
+              <div className="px-4 py-3 text-dls-secondary/90">
+                {t("settings.company_adv_hint")}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </section>
     </LayoutStack>
   );
 }

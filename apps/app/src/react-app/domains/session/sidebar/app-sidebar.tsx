@@ -844,7 +844,9 @@ function CompanyConnectionChip(props: {
           };
           if (catalog.connected) {
             setLabel(
-              catalog.email ? `公司 · ${catalog.email}` : "公司 · 已连接",
+              catalog.email
+                ? t("store.company_sidebar_connected_email", { email: catalog.email })
+                : t("store.company_sidebar_connected"),
             );
           } else {
             setLabel(null);

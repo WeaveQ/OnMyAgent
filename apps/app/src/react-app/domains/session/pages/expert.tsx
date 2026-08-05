@@ -94,7 +94,8 @@ import {
   StorePage,
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
-import { CompanyStorePage } from "@/react-app/domains/plugins/company-store-page";
+import { CompanyRailPane } from "../components/company-rail-pane";
+import { isPrimaryOrHostedRailView } from "../navigation/rail-view-guards";
 import { EmptyArtifactsPanel } from "../surface/chrome/empty-artifacts-panel";
 import {
   ResizableHandle,
@@ -1105,20 +1106,9 @@ export function ExpertPage(props: ExpertPageProps) {
     !showWorkspaceSetupEmptyState &&
     !showSelectedWorkspaceError &&
     !showBlockingStartupSkeleton;
-  const activePlaceholderView =
-    activeSidebarView === "chat" ||
-    activeSidebarView === "assistant" ||
-    activeSidebarView === "files" ||
-    activeSidebarView === "store" ||
-    activeSidebarView === "company" ||
-    activeSidebarView === "projects" ||
-    activeSidebarView === "localAgent" ||
-    activeSidebarView === "agentManagement" ||
-    activeSidebarView === "skills" ||
-    activeSidebarView === "connectors" ||
-    isAutomationRailView(activeSidebarView)
-      ? null
-      : activeSidebarView;
+  const activePlaceholderView = isPrimaryOrHostedRailView(activeSidebarView)
+    ? null
+    : activeSidebarView;
   useEffect(() => {
     if (!showSessionLoadingState) {
       setShowDelayedSessionLoadingState(false);
@@ -1381,29 +1371,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),
-                      company: (
-                        <CompanyStorePage
-                          onChatWithSkill={handleChatWithSkill}
-                          onOpenCompanySettings={() => {
-                            try {
-                              const path = "/settings/company";
-                              if (typeof window !== "undefined") {
-                                const hash = window.location.hash || "";
-                                if (hash.includes("/workspace/")) {
-                                  const match = hash.match(/#(\/workspace\/[^/]+)/);
-                                  if (match?.[1]) {
-                                    window.location.hash = `${match[1]}${path}`;
-                                    return;
-                                  }
-                                }
-                                window.location.hash = path;
-                              }
-                            } catch {
-                              // ignore
-                            }
-                          }}
-                        />
-                      ),
+                      company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
                       localAgent: (
                         <PersonalLocalAgentPage
                           resumeRequest={pendingArchiveResume}

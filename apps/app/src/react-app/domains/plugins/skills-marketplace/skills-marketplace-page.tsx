@@ -958,7 +958,7 @@ export function SkillsMarketplacePage(props: {
   workspaceRoot?: string | null;
   client?: OnMyAgentServerClient | null;
   query?: string;
-  /** market = 货架; installed = 我的; company = 组织下发（一级入口） */
+  /** market = shelf; installed = mine; company = org-distributed primary entry */
   view?: "market" | "installed" | "company";
   importOpen?: boolean;
   onImportOpenChange?: (open: boolean) => void;
@@ -1050,7 +1050,7 @@ export function SkillsMarketplacePage(props: {
     if (!isDesktopRuntime()) {
       setCompanyConnected(false);
       setCompanySkills([]);
-      setCompanyCatalogHint("请在桌面端查看公司技能");
+      setCompanyCatalogHint(t("store.company_skills_desktop_only"));
       return undefined;
     }
     let cancelled = false;
@@ -1068,16 +1068,16 @@ export function SkillsMarketplacePage(props: {
         setCompanyCatalogHint(
           catalog?.connected
             ? catalog.email
-              ? `已连接 · ${catalog.email}`
-              : "已连接公司"
-            : "未连接公司 · 请打开 设置 → 全局 → 公司 登录",
+              ? t("store.company_connected_member", { email: catalog.email })
+              : t("store.company_connected_short")
+            : t("store.company_skills_not_connected_hint"),
         );
       })
       .catch(() => {
         if (cancelled) return;
         setCompanyConnected(false);
         setCompanySkills([]);
-        setCompanyCatalogHint("无法读取公司目录（需桌面端 IPC）");
+        setCompanyCatalogHint(t("store.company_catalog_ipc_failed"));
       });
     return () => {
       cancelled = true;
@@ -1314,14 +1314,14 @@ export function SkillsMarketplacePage(props: {
                         {skill.name}
                       </div>
                       <p className="mt-1 text-xs text-dls-secondary">
-                        {skill.description || "组织下发 · 只读"}
+                        {skill.description || t("store.company_org_readonly")}
                       </p>
                       <p className="mt-0.5 truncate font-mono text-[10px] text-dls-secondary/80">
                         {skill.id}
                       </p>
                     </div>
                     <StatusBadge tone="neutral" className="shrink-0">
-                      组织
+                      {t("store.company_org_badge")}
                     </StatusBadge>
                   </div>
                   {props.onChatWithSkill ? (
@@ -1340,7 +1340,7 @@ export function SkillsMarketplacePage(props: {
                       }
                     >
                       <MessageCircle className="size-3.5" />
-                      用于对话
+                      {t("store.company_use_in_chat")}
                     </Button>
                   ) : null}
                 </div>
@@ -1348,14 +1348,14 @@ export function SkillsMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
-              <p className="text-base font-medium text-dls-text">公司技能</p>
+              <p className="text-base font-medium text-dls-text">{t("store.company_skills_title")}</p>
               <p>
                 {companyConnected
-                  ? "公司暂无下发技能"
-                  : (companyCatalogHint ?? "未连接公司")}
+                  ? t("store.company_no_skills_short")
+                  : (companyCatalogHint ?? t("store.company_not_connected_short"))}
               </p>
               <p className="max-w-sm text-xs leading-5">
-                打开 设置 → 全局 → 公司，填写 Base URL（如
+                {t("store.company_open_settings_hint")}
                 http://127.0.0.1:3100）并登录后，这里会显示组织技能。
               </p>
             </div>
@@ -1449,7 +1449,7 @@ export function SkillsMarketplacePage(props: {
               aria-pressed={installedSubTab === "company"}
               onClick={() => setInstalledSubTab("company")}
             >
-              <span>公司</span>
+              <span>{t("store.company_label")}</span>
               <span
                 className={cn(
                   "text-xs font-medium tabular-nums",
@@ -1482,11 +1482,11 @@ export function SkillsMarketplacePage(props: {
                             {skill.name}
                           </div>
                           <p className="mt-1 text-xs text-dls-secondary">
-                            组织下发 · 只读 · 由管理员在 OnMyCompany 配置
+                            {t("store.company_org_readonly_admin")}
                           </p>
                         </div>
                         <StatusBadge tone="neutral" className="shrink-0">
-                          组织
+                          {t("store.company_org_badge")}
                         </StatusBadge>
                       </div>
                     </div>
@@ -1497,11 +1497,11 @@ export function SkillsMarketplacePage(props: {
               <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
                 <p>
                   {companyConnected
-                    ? "公司暂无下发技能"
-                    : (companyCatalogHint ?? "未连接公司")}
+                    ? t("store.company_no_skills_short")
+                    : (companyCatalogHint ?? t("store.company_not_connected_short"))}
                 </p>
                 <p className="text-xs">
-                  在 设置 → 公司 填写 BaseUrl 并登录后，组织技能会出现在这里。
+                  {t("store.company_skills_connect_hint")}
                 </p>
               </div>
             )

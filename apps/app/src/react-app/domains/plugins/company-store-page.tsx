@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 /**
- * Store primary tab: 企业 (OnMyCompany).
- * Sub-sections: 概览 / 技能 / 专家 / 连接器 — org-mirrored capabilities only.
+ * Store primary tab: Company (OnMyCompany).
+ * Sub-sections: overview / skills / experts / connectors — org-mirrored only.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export type CompanyStoreSubTab = "overview" | "skills" | "experts" | "connectors";
 
@@ -75,7 +76,7 @@ export function CompanyStorePage(props: {
       setCatalog(raw && typeof raw === "object" ? raw : { connected: false });
     } catch (err) {
       setCatalog({ connected: false });
-      setError(err instanceof Error ? err.message : "加载失败");
+      setError(err instanceof Error ? err.message : t("store.company_load_failed"));
     } finally {
       setLoading(false);
     }
@@ -125,22 +126,22 @@ export function CompanyStorePage(props: {
     icon: typeof Puzzle;
     count?: number;
   }> = [
-    { id: "overview", label: "概览", icon: Building2 },
+    { id: "overview", label: t("store.company_subtab_overview"), icon: Building2 },
     {
       id: "skills",
-      label: "技能",
+      label: t("store.company_subtab_skills"),
       icon: Puzzle,
       count: catalog?.skills?.length ?? 0,
     },
     {
       id: "experts",
-      label: "专家",
+      label: t("store.company_subtab_experts"),
       icon: UserRound,
       count: catalog?.experts?.length ?? 0,
     },
     {
       id: "connectors",
-      label: "连接器",
+      label: t("store.company_subtab_connectors"),
       icon: Network,
       count: catalog?.gatewayServices?.length ?? 0,
     },
@@ -193,7 +194,7 @@ export function CompanyStorePage(props: {
             onClick={() => void load()}
           >
             <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-            刷新
+            {t("store.company_refresh")}
           </Button>
           <Button
             type="button"
@@ -202,7 +203,7 @@ export function CompanyStorePage(props: {
             onClick={() => props.onOpenCompanySettings?.()}
           >
             <Settings2 className="size-3.5" />
-            连接设置
+            {t("store.company_connection_settings")}
           </Button>
         </div>
       </div>
@@ -215,9 +216,9 @@ export function CompanyStorePage(props: {
         {!connected ? (
           <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-center">
             <Building2 className="size-10 text-dls-secondary/60" />
-            <p className="text-base font-medium text-dls-text">尚未连接公司</p>
+            <p className="text-base font-medium text-dls-text">{t("store.company_not_connected_title")}</p>
             <p className="max-w-sm text-sm text-dls-secondary">
-              连接 OnMyCompany 后，组织技能、专家与 Gateway 连接器会出现在此页。
+              {t("store.company_not_connected_desc")}
             </p>
             <Button
               type="button"
@@ -225,7 +226,7 @@ export function CompanyStorePage(props: {
               onClick={() => props.onOpenCompanySettings?.()}
             >
               <Settings2 className="size-3.5" />
-              去设置连接
+              {t("store.company_go_connect")}
             </Button>
           </div>
         ) : subTab === "overview" ? (
@@ -234,7 +235,7 @@ export function CompanyStorePage(props: {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-medium text-dls-text">
-                    已连接 · {catalog?.email || "成员"}
+                    {t("store.company_connected_member", { email: catalog?.email || t("store.company_member_fallback") })}
                   </div>
                   <p className="mt-1 text-xs text-dls-secondary">
                     {catalog?.companyBaseUrl || "—"}
@@ -247,7 +248,7 @@ export function CompanyStorePage(props: {
                   {catalog?.adminConsoleUrl ? (
                     <Button type="button" size="sm" variant="outline" onClick={openAdmin}>
                       <ExternalLink className="size-3.5" />
-                      管理台
+                      {t("store.company_admin_console")}
                     </Button>
                   ) : null}
                   <Button
@@ -256,21 +257,21 @@ export function CompanyStorePage(props: {
                     variant="outline"
                     onClick={() => props.onOpenCompanySettings?.()}
                   >
-                    连接设置
+                    {t("store.company_connection_settings")}
                   </Button>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
-                  { label: "技能", value: catalog?.skills?.length ?? 0, tab: "skills" as const },
-                  { label: "专家", value: catalog?.experts?.length ?? 0, tab: "experts" as const },
+                  { label: t("store.company_subtab_skills"), value: catalog?.skills?.length ?? 0, tab: "skills" as const },
+                  { label: t("store.company_subtab_experts"), value: catalog?.experts?.length ?? 0, tab: "experts" as const },
                   {
-                    label: "连接器",
+                    label: t("store.company_subtab_connectors"),
                     value: catalog?.gatewayServices?.length ?? 0,
                     tab: "connectors" as const,
                   },
                   {
-                    label: "模型",
+                    label: t("store.company_metric_models"),
                     value: catalog?.models?.length ?? 0,
                     tab: "connectors" as const,
                   },
@@ -290,7 +291,7 @@ export function CompanyStorePage(props: {
               </div>
             </div>
             <div className="rounded-xl border border-dls-border bg-dls-surface p-4 text-xs text-dls-secondary">
-              <div className="mb-2 text-sm font-medium text-dls-text">策略摘要</div>
+              <div className="mb-2 text-sm font-medium text-dls-text">{t("store.company_policy_title")}</div>
               {catalog?.policy ? (
                 <div className="space-y-1">
                   <div>
@@ -310,7 +311,7 @@ export function CompanyStorePage(props: {
                   ) : null}
                 </div>
               ) : (
-                <p>暂无策略镜像</p>
+                <p>{t("store.company_policy_empty")}</p>
               )}
             </div>
           </div>
@@ -328,14 +329,14 @@ export function CompanyStorePage(props: {
                         {skill.name}
                       </div>
                       <p className="mt-1 text-xs text-dls-secondary">
-                        {skill.description || "组织下发 · 只读"}
+                        {skill.description || t("store.company_org_readonly")}
                       </p>
                       <p className="mt-0.5 truncate font-mono text-[10px] text-dls-secondary/80">
                         {skill.id}
                       </p>
                     </div>
                     <StatusBadge tone="neutral" className="shrink-0">
-                      组织
+                      {t("store.company_org_badge")}
                     </StatusBadge>
                   </div>
                   {props.onChatWithSkill ? (
@@ -354,7 +355,7 @@ export function CompanyStorePage(props: {
                       }
                     >
                       <MessageCircle className="size-3.5" />
-                      用于对话
+                      {t("store.company_use_in_chat")}
                     </Button>
                   ) : null}
                 </div>
@@ -362,8 +363,8 @@ export function CompanyStorePage(props: {
             </div>
           ) : (
             <EmptyState
-              title="暂无组织技能"
-              desc="管理员在 OnMyCompany 启用技能后，点「同步配置」即可出现在这里。"
+              title={t("store.company_no_skills_title")}
+              desc={t("store.company_no_skills_desc")}
             />
           )
         ) : subTab === "experts" ? (
@@ -379,10 +380,10 @@ export function CompanyStorePage(props: {
                       <div className="truncate text-sm font-medium text-dls-text">
                         {expert.name}
                       </div>
-                      <p className="mt-1 text-xs text-dls-secondary">组织下发 · 只读</p>
+                      <p className="mt-1 text-xs text-dls-secondary">{t("store.company_org_readonly")}</p>
                     </div>
                     <StatusBadge tone="neutral" className="shrink-0">
-                      组织
+                      {t("store.company_org_badge")}
                     </StatusBadge>
                   </div>
                 </div>
@@ -390,14 +391,14 @@ export function CompanyStorePage(props: {
             </div>
           ) : (
             <EmptyState
-              title="暂无组织专家"
-              desc="在 OMC 管理台配置 experts/installed 后同步到桌面。"
+              title={t("store.company_no_experts_title")}
+              desc={t("store.company_no_experts_desc")}
             />
           )
         ) : connectors.length > 0 || (catalog?.models?.length ?? 0) > 0 ? (
           <div className="space-y-6">
             <section>
-              <h3 className="mb-2 text-sm font-medium text-dls-text">Gateway 连接器</h3>
+              <h3 className="mb-2 text-sm font-medium text-dls-text">{t("store.company_gateway_title")}</h3>
               {connectors.length > 0 ? (
                 <div className={GRID}>
                   {connectors.map((c) => (
@@ -411,7 +412,7 @@ export function CompanyStorePage(props: {
                             {c.name}
                           </div>
                           <p className="mt-1 text-xs text-dls-secondary">
-                            组织连接 · secret 不落桌面 · 经 Gateway 执行
+                            {t("store.company_gateway_card_desc")}
                           </p>
                           <p className="mt-0.5 font-mono text-[10px] text-dls-secondary/80">
                             {c.id}
@@ -426,12 +427,12 @@ export function CompanyStorePage(props: {
                 </div>
               ) : (
                 <p className="text-sm text-dls-secondary">
-                  暂无 Gateway 服务（在 OMC 管理台配置应用连接后同步）。
+                  {t("store.company_gateway_empty")}
                 </p>
               )}
             </section>
             <section>
-              <h3 className="mb-2 text-sm font-medium text-dls-text">组织模型目录</h3>
+              <h3 className="mb-2 text-sm font-medium text-dls-text">{t("store.company_models_title")}</h3>
               {(catalog?.models?.length ?? 0) > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {catalog!.models!.map((m) => (
@@ -442,15 +443,15 @@ export function CompanyStorePage(props: {
                 </div>
               ) : (
                 <p className="text-sm text-dls-secondary">
-                  空目录 · 对话仍使用本机已连接模型
+                  {t("store.company_models_empty")}
                 </p>
               )}
             </section>
           </div>
         ) : (
           <EmptyState
-            title="暂无组织连接器"
-            desc="在 OMC 配置应用连接 / 模型目录后，点设置里的「同步配置」。"
+            title={t("store.company_no_connectors_title")}
+            desc={t("store.company_no_connectors_desc")}
           />
         )}
       </div>

@@ -129,7 +129,7 @@ import {
   StorePage,
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
-import { CompanyStorePage } from "@/react-app/domains/plugins/company-store-page";
+import { CompanyRailPane } from "../components/company-rail-pane";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -1307,27 +1307,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ),
                       company: (
-                        <CompanyStorePage
-                          onChatWithSkill={handleChatWithSkill}
-                          onOpenCompanySettings={() => {
-                            try {
-                              const path = "/settings/company";
-                              if (typeof window !== "undefined") {
-                                const hash = window.location.hash || "";
-                                if (hash.includes("/workspace/")) {
-                                  const match = hash.match(/#(\/workspace\/[^/]+)/);
-                                  if (match?.[1]) {
-                                    window.location.hash = `${match[1]}${path}`;
-                                    return;
-                                  }
-                                }
-                                window.location.hash = path;
-                              }
-                            } catch {
-                              // ignore
-                            }
-                          }}
-                        />
+                        <CompanyRailPane onChatWithSkill={handleChatWithSkill} />
                       ),
                       localAgent: (
                         <PersonalLocalAgentPage
