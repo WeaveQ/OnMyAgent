@@ -78,7 +78,7 @@ import {
   type ArtifactPluginDetailLabels,
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
-import { OfficeCliPluginSection } from "./officecli-plugin";
+import { OfficeCliPluginCard } from "./officecli-plugin";
 import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
 import {
   getExtensionConfigSlot,
@@ -1266,10 +1266,9 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         {/*
-          Three clear bands:
+          Two bands:
           1) Built-in — product extensions + file tools
-          2) Optional enhancements — managed tools installed on demand
-          3) Recommended — third-party preview catalog (flat, no nested categories)
+          2) Recommended — OfficeCLI (installable) + third-party preview catalog
         */}
         <div className={cn(pluginsLayoutClass.pluginPageContainer, "space-y-10")}>
           <section
@@ -1298,8 +1297,6 @@ export function PluginsPage(props: PluginsPageProps) {
             </div>
           </section>
 
-          <OfficeCliPluginSection />
-
           <section
             className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
             aria-labelledby="connectors-recommend-heading"
@@ -1316,6 +1313,7 @@ export function PluginsPage(props: PluginsPageProps) {
               </p>
             </div>
             <div className={pluginsLayoutClass.connectorCardGrid}>
+              <OfficeCliPluginCard />
               {samplePlugins.map((item) => (
                 <PluginCard key={item.id} item={item} />
               ))}

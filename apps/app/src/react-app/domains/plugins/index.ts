@@ -26,7 +26,10 @@ export {
   type ArtifactPluginDetail as ArtifactPluginDetailModel,
 } from "./artifact-plugin-client";
 export { resolveBundledSkillDisplay } from "./bundled-skill-locale";
-export { OfficeCliPluginSection } from "./officecli-plugin";
+export {
+  OfficeCliPluginCard,
+  OfficeCliPluginSection,
+} from "./officecli-plugin";
 export {
   canUninstallOfficeCli,
   getOfficeCliPrimaryAction,

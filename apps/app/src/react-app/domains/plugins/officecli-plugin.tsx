@@ -185,7 +185,11 @@ function officeCliVersionSummary(status: OfficeCliStatus): string {
   });
 }
 
-export function OfficeCliPluginSection() {
+/**
+ * OfficeCLI card for the connectors recommended-install grid.
+ * Section chrome lives on PluginsPage (no separate "optional enhancements" band).
+ */
+export function OfficeCliPluginCard() {
   const [status, setStatus] = useState<OfficeCliStatus | null>(null);
   const [progress, setProgress] = useState<OfficeCliProgress | null>(null);
   const [uninstallConfirmOpen, setUninstallConfirmOpen] = useState(false);
@@ -269,112 +273,96 @@ export function OfficeCliPluginSection() {
   const progressLabel = progress ? progressLabelKey(progress) : null;
   const PrimaryActionIcon = primaryAction ? primaryActionIcon(primaryAction) : null;
 
+  // Single grid cell: modal portals but must not become a second grid item.
   return (
-    <section
-      className="space-y-3 border-t border-dls-border/50 pt-8"
-      aria-labelledby="officecli-section-heading"
-    >
-      <div className="space-y-1">
-        <h2
-          id="officecli-section-heading"
-          className="mb-2 text-sm font-medium leading-5 text-dls-text"
-        >
-          {t("plugins.officecli_section_title")}
-        </h2>
-        <p className="max-w-3xl text-pretty text-xs leading-5 text-dls-secondary">
-          {t("plugins.officecli_section_hint")}
-        </p>
-      </div>
-
-      <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <article
-          className={cn(connectorTileClassName, "cursor-default")}
-          data-plugin-id="officecli"
-          aria-busy={busy}
-        >
-          <div className={connectorTileHeaderClassName}>
-            <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
-              <img
-                src={resolvePublicAssetUrl(OFFICECLI_ICON_SRC)}
-                alt=""
-                className="size-full object-cover"
-                draggable={false}
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-              <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-                {t("plugins.officecli_title")}
-              </h3>
-              {status ? (
-                <StatusBadge tone={tone} size="tiny">
-                  {t(statusLabelKey(status))}
-                </StatusBadge>
-              ) : (
-                <LoadingSpinner size="sm" />
-              )}
-            </div>
+    <div className="min-w-0">
+      <article
+        className={cn(connectorTileClassName, "cursor-default")}
+        data-plugin-id="officecli"
+        aria-busy={busy}
+      >
+        <div className={connectorTileHeaderClassName}>
+          <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
+            <img
+              src={resolvePublicAssetUrl(OFFICECLI_ICON_SRC)}
+              alt=""
+              className="size-full object-cover"
+              draggable={false}
+            />
           </div>
-
-          <p
-            className={connectorTileDescClassName}
-            title={t("plugins.officecli_description")}
-          >
-            {status ? officeCliVersionSummary(status) : t("plugins.officecli_checking")}
-          </p>
-
-          <div className={connectorTileFooterClassName}>
-            {!status || status.state === "checking" ? (
-              <span
-                className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
-                aria-live="polite"
-              >
-                <LoadingSpinner size="sm" />
-                {t("plugins.officecli_checking")}
-              </span>
-            ) : progressLabel ? (
-              <span
-                className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
-                aria-live="polite"
-              >
-                <LoadingSpinner size="sm" />
-                {t(progressLabel)}
-              </span>
-            ) : primaryAction && PrimaryActionIcon ? (
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void handlePrimaryAction()}
-              >
-                <PrimaryActionIcon aria-hidden="true" />
-                {primaryActionLabel(primaryAction)}
-              </Button>
-            ) : canUninstall ? (
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => setUninstallConfirmOpen(true)}
-              >
-                <Trash2 aria-hidden="true" />
-                {t("plugins.officecli_uninstall")}
-              </Button>
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
+              {t("plugins.officecli_title")}
+            </h3>
+            {status ? (
+              <StatusBadge tone={tone} size="tiny">
+                {t(statusLabelKey(status))}
+              </StatusBadge>
             ) : (
-              <span className="text-xs text-dls-secondary">
-                {status?.supported
-                  ? t("plugins.officecli_desktop_only")
-                  : t("plugins.officecli_unsupported_hint")}
-              </span>
+              <LoadingSpinner size="sm" />
             )}
           </div>
-        </article>
-      </div>
+        </div>
 
-      {status?.state === "error" ? (
-        <NoticeBox tone="error" role="alert" className="max-w-xl">
-          {t("plugins.officecli_error_hint")}
-        </NoticeBox>
-      ) : null}
+        <p
+          className={connectorTileDescClassName}
+          title={t("plugins.officecli_description")}
+        >
+          {status ? officeCliVersionSummary(status) : t("plugins.officecli_checking")}
+        </p>
+
+        <div className={connectorTileFooterClassName}>
+          {!status || status.state === "checking" ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
+              aria-live="polite"
+            >
+              <LoadingSpinner size="sm" />
+              {t("plugins.officecli_checking")}
+            </span>
+          ) : progressLabel ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
+              aria-live="polite"
+            >
+              <LoadingSpinner size="sm" />
+              {t(progressLabel)}
+            </span>
+          ) : primaryAction && PrimaryActionIcon ? (
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void handlePrimaryAction()}
+            >
+              <PrimaryActionIcon aria-hidden="true" />
+              {primaryActionLabel(primaryAction)}
+            </Button>
+          ) : canUninstall ? (
+            <Button
+              size="xs"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setUninstallConfirmOpen(true)}
+            >
+              <Trash2 aria-hidden="true" />
+              {t("plugins.officecli_uninstall")}
+            </Button>
+          ) : (
+            <span className="text-xs text-dls-secondary">
+              {status?.supported
+                ? t("plugins.officecli_desktop_only")
+                : t("plugins.officecli_unsupported_hint")}
+            </span>
+          )}
+        </div>
+
+        {status?.state === "error" ? (
+          <NoticeBox tone="error" role="alert" className="mt-2">
+            {t("plugins.officecli_error_hint")}
+          </NoticeBox>
+        ) : null}
+      </article>
 
       <ConfirmModal
         open={uninstallConfirmOpen}
@@ -386,6 +374,11 @@ export function OfficeCliPluginSection() {
         onConfirm={() => void handleUninstall()}
         onCancel={() => setUninstallConfirmOpen(false)}
       />
-    </section>
+    </div>
   );
+}
+
+/** @deprecated Use OfficeCliPluginCard inside the recommended-install grid. */
+export function OfficeCliPluginSection() {
+  return <OfficeCliPluginCard />;
 }
