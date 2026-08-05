@@ -59,7 +59,6 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     defaultWorkbench: "office",
     featuredExperts: [
       "ask-liuxiaopai",
-      "chuangye-manor",
       "xiaohongshu-operations-expert",
       "content-creator",
       "smb-finance",
@@ -139,9 +138,8 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     tasks: ["code", "content-ops", "weekly-report"],
     tools: ["github", "figma", "claude-code"],
     defaultWorkbench: "office",
-    // Game engineering experts removed — keep narrative/content office path.
+    // Game engineering experts removed — keep content office path.
     featuredExperts: [
-      "narrative-designer",
       "content-creator",
       "viral-topic-master",
       "kidd-content-expert",
@@ -221,8 +219,7 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
       "proposal-strategist",
       "legal-compliance-reviewer",
       "recruitment-expert",
-      "fbsir-board-secretary-assistant",
-      "corporate-training-designer",
+      "document-generation-expert",
     ],
     templateIds: [
       "meeting-prep",
@@ -240,7 +237,6 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     featuredExperts: [
       "earnings-reviewer",
       "smb-finance",
-      "fbsir-board-secretary-assistant",
       "data-analytics-reporter",
     ],
     templateIds: [
@@ -258,9 +254,9 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     tools: ["wps", "feishu", "notion"],
     defaultWorkbench: "office",
     featuredExperts: [
-      "gaokao-advisor",
-      "corporate-training-designer",
       "kdocs-ppt-creator",
+      "document-generation-expert",
+      "content-creator",
     ],
     templateIds: [
       "daily-english-words",
@@ -276,7 +272,7 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     tasks: ["customer-communication", "daily-brief", "weekly-report"],
     tools: ["feishu", "wecom", "excel"],
     defaultWorkbench: "office",
-    featuredExperts: ["tripstar-agent", "customer-support-expert"],
+    featuredExperts: ["customer-support-expert", "content-creator"],
     templateIds: ["daily-ai-news", "weekly-work-report", "meeting-prep"],
   },
   {
@@ -289,7 +285,6 @@ export const PERSONALIZATION_VERTICALS: PersonalizationVertical[] = [
     featuredExperts: [
       "document-generation-expert",
       "legal-compliance-reviewer",
-      "fbsir-board-secretary-assistant",
     ],
     templateIds: ["meeting-prep", "weekly-work-report", "daily-ai-news"],
   },

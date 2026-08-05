@@ -54,8 +54,8 @@ describe("files three-source tabs (P0)", () => {
       true,
     );
     expect(
-      isLikelyExpertAgentFolderName("创业教练-chuangye-manor", [
-        "chuangye-manor",
+      isLikelyExpertAgentFolderName("B站内容策略师-bilibili-content-strategist", [
+        "bilibili-content-strategist",
       ]),
     ).toBe(true);
     expect(isLikelyExpertAgentFolderName("uploads")).toBe(false);
