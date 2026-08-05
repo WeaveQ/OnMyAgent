@@ -293,11 +293,11 @@ export function OfficeCliPluginSection() {
           aria-busy={busy}
         >
           <div className={connectorTileHeaderClassName}>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-black/5 bg-dls-surface p-1.5">
+            <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
               <img
                 src={resolvePublicAssetUrl(OFFICECLI_ICON_SRC)}
                 alt=""
-                className="size-full object-contain"
+                className="size-full object-cover"
                 draggable={false}
               />
             </div>
