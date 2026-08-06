@@ -208,16 +208,9 @@ const pluginsLayoutClass = {
 };
 
 function getSamplePlugins(): PluginItem[] {
-  // Recommended catalog: keep Feishu only for now.
-  return [
-    {
-      id: "feishu",
-      name: t("session.plugins_name_feishu"),
-      description: t("session.plugins_desc_feishu"),
-      category: "communication",
-      iconKey: "feishu",
-    },
-  ];
+  // Recommended catalog previews (installable managed CLIs are separate cards).
+  // Feishu preview removed: managed Feishu CLI card covers that surface.
+  return [];
 }
 
 const CONNECTOR_ICON_SRC: Partial<Record<string, string>> = {
