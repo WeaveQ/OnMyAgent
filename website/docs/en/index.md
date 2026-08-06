@@ -42,11 +42,17 @@ OnMyAgent is a **local-first office Agent workbench**. Describe what you need in
 
 Left rail: **Home · Experts · Automation · Files · Marketplace · Projects**. Sessions in the middle; chat and input on the right. Bottom: **Agent chat / Settings**.
 
-| View | Screenshot |
-|------|------------|
-| Home session | ![Home](/images/home-session.png) |
-| Files | ![Files](/images/files-list.png) |
-| Marketplace · Experts | ![Marketplace](/images/marketplace.png) |
+![Home session](/images/home-session.png)
+
+<p class="oma-shot-caption">Home session</p>
+
+![Files](/images/files-list.png)
+
+<p class="oma-shot-caption">Files</p>
+
+![Marketplace · Experts](/images/marketplace.png)
+
+<p class="oma-shot-caption">Marketplace · Experts</p>
 
 ## Language note
 

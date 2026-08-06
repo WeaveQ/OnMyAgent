@@ -42,11 +42,17 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 
 左侧主栏切换：**首页 · 专家 · 自动 · 文件 · 市场 · 项目**；会话列表在中栏；右侧为对话与输入区。底部可打开 **Agent 对话 / 设置**。
 
-| 页面 | 截图 |
-|------|------|
-| 首页会话 | ![首页](/images/home-session.png) |
-| 文件 | ![文件](/images/files-list.png) |
-| 市场 · 专家 | ![市场](/images/marketplace.png) |
+![首页会话](/images/home-session.png)
+
+<p class="oma-shot-caption">首页会话</p>
+
+![文件](/images/files-list.png)
+
+<p class="oma-shot-caption">文件</p>
+
+![市场 · 专家](/images/marketplace.png)
+
+<p class="oma-shot-caption">市场 · 专家</p>
 
 ## 建议阅读顺序
 
