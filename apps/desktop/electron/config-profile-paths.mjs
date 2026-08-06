@@ -83,6 +83,24 @@ export function resolveOfficeCliManagedRoot(homeDir) {
 }
 
 /** @param {string | undefined} homeDir */
+export function resolveLarkCliManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "lark-cli");
+}
+
+/**
+ * Managed remote CLI install root under profiles/local/tools/<pluginId>.
+ * @param {string} pluginId
+ * @param {string | undefined} homeDir
+ */
+export function resolveManagedCliPluginRoot(pluginId, homeDir) {
+  const id = String(pluginId ?? "").trim();
+  if (!id || id.includes("/") || id.includes("\\") || id.includes("..")) {
+    throw new Error(`Invalid managed CLI plugin id: ${pluginId}`);
+  }
+  return path.join(resolveLocalManagedToolsRoot(homeDir), id);
+}
+
+/** @param {string | undefined} homeDir */
 export function resolveLegacySkillsPath(homeDir) {
   return path.join(normalizeOnMyAgentHome(homeDir), ".onmyagent", "skills");
 }

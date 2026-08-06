@@ -1,0 +1,1270 @@
+import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
+import {
+  access,
+  chmod,
+  cp,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  officeCliLatestManifestSchema,
+  officeCliReleaseManifestSchema,
+  officeCliRootCatalogSchema,
+  officeCliStateSchema,
+} from "@onmyagent/types/officecli";
+
+import {
+  resolveLocalManagedToolsBinRoot,
+  resolveLocalSkillsRoot,
+  resolveLarkCliManagedRoot,
+} from "../config-profile-paths.mjs";
+import {
+  codedError,
+  compareManagedCliVersions,
+  createManagedCliDownloader,
+  errorCode as managedErrorCode,
+  extractZipEntry,
+  extractZipToDir,
+  hashFile,
+  loadManagedCliDownloadConfig,
+  loadManagedCliPluginEntry,
+  MANAGED_CLI_DEFAULT_REGISTRY_PATH,
+  MANAGED_CLI_NETWORK_RETRY_COUNT,
+  MANAGED_CLI_NETWORK_TIMEOUT_MS,
+  nonEmptyString,
+  resolveManagedCliRegistryPath,
+  safeDownloadTarget,
+  verifyBytes,
+  verifyDigest,
+  verifyHash,
+  verifyOptionalBytes,
+} from "./managed-cli/index.mjs";
+
+export const LARK_CLI_PLUGIN_ID = "lark-cli";
+/** @deprecated Use MANAGED_CLI_DEFAULT_REGISTRY_PATH / resolveManagedCliRegistryPath. */
+export const LARK_CLI_DEFAULT_DOWNLOAD_CONFIG_PATH = MANAGED_CLI_DEFAULT_REGISTRY_PATH;
+export const LARK_CLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+export const LARK_CLI_NETWORK_TIMEOUT_MS = MANAGED_CLI_NETWORK_TIMEOUT_MS;
+export const LARK_CLI_NETWORK_RETRY_COUNT = MANAGED_CLI_NETWORK_RETRY_COUNT;
+
+const ASSET_PLATFORM_KEYS = [
+  "lark-cli-mac-arm64",
+  "lark-cli-mac-x64",
+  "lark-cli-win-arm64",
+  "lark-cli-win-x64",
+];
+
+const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
+const MAX_SKILL_BYTES = 1024 * 1024;
+const MAX_SKILLS_PACK_BYTES = 64 * 1024 * 1024;
+const MAX_BINARY_BYTES = 512 * 1024 * 1024;
+const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
+const PLATFORM_PATTERN = /^lark-cli-(?:mac|win)-(?:arm64|x64)$/;
+/** Entry skill is installed from skill.url; pack may still contain a stub dir. */
+const ENTRY_SKILL_ID = "lark-cli";
+const SKILL_DIR_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+/** Managed launcher: runs the pinned lark-cli binary via tools/bin. */
+export const LARK_CLI_LAUNCHER_SOURCE = `
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const statePath = path.join(root, "state.json");
+const state = JSON.parse(readFileSync(statePath, "utf8"));
+if (!/^\d+\.\d+\.\d+$/.test(String(state.activeVersion ?? ""))) {
+  throw new Error("Invalid lark-cli active version");
+}
+if (!/^lark-cli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? ""))) {
+  throw new Error("Invalid lark-cli platform");
+}
+const binaryName = process.platform === "win32" ? "lark-cli.exe" : "lark-cli";
+const binaryPath = path.join(root, "releases", state.activeVersion, state.platform, binaryName);
+const result = spawnSync(binaryPath, process.argv.slice(2), {
+  encoding: "utf8",
+  maxBuffer: 32 * 1024 * 1024,
+  windowsHide: true,
+});
+if (result.error) throw result.error;
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`;
+
+
+function normalizeArch(arch) {
+  if (arch === "arm64") return "arm64";
+  if (arch === "x64") return "x64";
+  return null;
+}
+
+export function larkCliPlatformKey(platform = process.platform, arch = os.arch()) {
+  const normalizedArch = normalizeArch(arch);
+  if (!normalizedArch) return null;
+  if (platform === "darwin") return `lark-cli-mac-${normalizedArch}`;
+  if (platform === "win32") return `lark-cli-win-${normalizedArch}`;
+  return null;
+}
+
+export function compareLarkCliVersions(left, right) {
+  return compareManagedCliVersions(left, right);
+}
+
+/**
+ * Resolve managed-cli registry path (multi-plugin manifestUrl map).
+ * Priority: explicit path → ONMYAGENT_MANAGED_CLI_REGISTRY →
+ * ONMYAGENT_LARK_CLI_DOWNLOAD_CONFIG (legacy) → default registry.
+ */
+export function resolveLarkCliDownloadConfigPath(customPath) {
+  const fromOption = nonEmptyString(customPath);
+  if (fromOption) return fromOption;
+  const fromRegistryEnv = nonEmptyString(process.env.ONMYAGENT_MANAGED_CLI_REGISTRY);
+  if (fromRegistryEnv) return fromRegistryEnv;
+  const fromLegacyEnv = nonEmptyString(process.env.ONMYAGENT_LARK_CLI_DOWNLOAD_CONFIG);
+  if (fromLegacyEnv) return fromLegacyEnv;
+  return resolveManagedCliRegistryPath();
+}
+
+/**
+ * Load lark-cli entry from the shared managed-cli registry (or a legacy
+ * single-plugin download-config JSON used in unit tests).
+ *
+ * @returns {{
+ *   version: string | null,
+ *   manifestUrl: string | null,
+ *   releaseManifestUrl: string | null,
+ *   skillUrl: string | null,
+ *   assets: Record<string, { url: string, archive: "raw" | "zip", entry: string | null }>,
+ *   assetUrlOverrides: Record<string, string>,
+ * }}
+ */
+export function loadLarkCliDownloadConfig(configPath) {
+  const resolvedPath = resolveLarkCliDownloadConfigPath(configPath);
+  const pluginEntry = loadManagedCliPluginEntry(LARK_CLI_PLUGIN_ID, resolvedPath);
+  if (pluginEntry.manifestUrl) {
+    return {
+      version: null,
+      manifestUrl: pluginEntry.manifestUrl,
+      releaseManifestUrl: null,
+      skillUrl: null,
+      assets: {},
+      assetUrlOverrides: {},
+    };
+  }
+  // Unit tests / overrides may still pass a single-plugin download-config file.
+  const loaded = loadManagedCliDownloadConfig({
+    configPath: resolvedPath,
+    assetKeys: ASSET_PLATFORM_KEYS,
+  });
+  /** @type {Record<string, string>} */
+  const assetUrlOverrides = Object.create(null);
+  for (const [key, spec] of Object.entries(loaded.assets)) {
+    assetUrlOverrides[key] = spec.url;
+  }
+  return {
+    version: loaded.version,
+    manifestUrl: loaded.manifestUrl,
+    releaseManifestUrl: loaded.releaseManifestUrl,
+    skillUrl: loaded.skillUrl,
+    assets: loaded.assets,
+    assetUrlOverrides,
+  };
+}
+
+function firstConfiguredUrl(...candidates) {
+  for (const candidate of candidates) {
+    const value = nonEmptyString(candidate);
+    if (value) return value;
+  }
+  return null;
+}
+
+function isSafeVersion(value) {
+  return VERSION_PATTERN.test(String(value));
+}
+
+function isSafePlatform(value) {
+  return PLATFORM_PATTERN.test(String(value));
+}
+
+function assertSafeRelativePath(value) {
+  const text = String(value ?? "");
+  if (
+    !text ||
+    text.startsWith("/") ||
+    text.startsWith("\\") ||
+    /^[A-Za-z]:[\\/]/.test(text) ||
+    text.split(/[\\/]/).includes("..")
+  ) {
+    throw new Error(`Unsafe lark-cli release path: ${text}`);
+  }
+}
+
+function resolveSameOriginUrl(base, relativeReference) {
+  assertSafeRelativePath(relativeReference);
+  const baseUrl = new URL(base);
+  if (baseUrl.protocol !== "https:") {
+    throw new Error("lark-cli downloads require HTTPS");
+  }
+  const resolved = new URL(relativeReference, baseUrl);
+  if (resolved.origin !== baseUrl.origin) {
+    throw new Error("lark-cli download must stay on the configured OSS origin");
+  }
+  return resolved.href;
+}
+
+function assertHttpsUrl(value, label) {
+  const url = new URL(value);
+  if (url.protocol !== "https:") {
+    throw new Error(`${label} must use HTTPS`);
+  }
+  return url.href;
+}
+
+/**
+ * Resolve download URL. Absolute https:// URLs (permanent CDN) are accepted as-is;
+ * relative paths stay same-origin to the release base.
+ */
+function resolveLarkCliUrl(base, reference) {
+  if (typeof reference === "string") {
+    if (/^https:\/\//i.test(reference)) {
+      return assertHttpsUrl(reference, "lark-cli download URL");
+    }
+    return resolveSameOriginUrl(base, reference);
+  }
+  if (reference.url) {
+    return assertHttpsUrl(reference.url, "lark-cli download URL");
+  }
+  return resolveSameOriginUrl(base, reference.path);
+}
+
+function referenceWithOverride(reference, override) {
+  if (!override) return reference;
+  // Absolute override URL — drop path/size from relative reference for fetch.
+  if (/^https:\/\//i.test(override)) return override;
+  return override;
+}
+
+function releaseSkillReference(release) {
+  if (release.skill) return release.skill;
+  if (release.skillPath) return release.skillPath;
+  // CDN release manifests may omit skill; skillUrl comes from download config.
+  return "SKILL.md";
+}
+
+function releaseSkillsPackReference(release) {
+  if (release.skillsPack && typeof release.skillsPack === "object") {
+    return release.skillsPack;
+  }
+  return null;
+}
+
+/**
+ * Walk extract root for skill package directories (contain SKILL.md).
+ * Skips entry skill id, macOS junk, and broken symlinks.
+ * @param {string} root
+ * @returns {Promise<Array<{ id: string, sourceDir: string }>>}
+ */
+async function discoverSkillPackages(root) {
+  /** @type {Array<{ id: string, sourceDir: string }>} */
+  const found = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    let entries;
+    try {
+      entries = await readdir(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "__MACOSX") continue;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+        continue;
+      }
+      if (entry.name !== "SKILL.md") continue;
+      // Skip broken / external symlinks (entry skill stub in pack).
+      try {
+        const st = await lstat(full);
+        if (st.isSymbolicLink()) {
+          try {
+            await access(full);
+          } catch {
+            continue;
+          }
+        }
+      } catch {
+        continue;
+      }
+      const skillDir = path.dirname(full);
+      const id = path.basename(skillDir);
+      if (!SKILL_DIR_NAME_PATTERN.test(id) || id === ENTRY_SKILL_ID) continue;
+      if (found.some((item) => item.id === id)) {
+        throw new Error(`Duplicate lark-cli skill package in pack: ${id}`);
+      }
+      found.push({ id, sourceDir: skillDir });
+    }
+  }
+  return found;
+}
+
+/** Ensure Zod accepts release payloads that omit skill/skillPath (CDN pin mode). */
+function normalizeReleaseManifestPayload(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const next = { ...value };
+  const hasSkillObject = next.skill && typeof next.skill === "object";
+  const hasSkillPath = typeof next.skillPath === "string" && next.skillPath.trim();
+  if (!hasSkillObject && !hasSkillPath) {
+    next.skillPath = "SKILL.md";
+  }
+  return next;
+}
+
+function binaryName(platform) {
+  return platform === "win32" ? "lark-cli.exe" : "lark-cli";
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function errorCode(error) {
+  return managedErrorCode(error, "lark_cli_error");
+}
+
+async function pathExists(target) {
+  try {
+    await access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJson(target) {
+  return JSON.parse(await readFile(target, "utf8"));
+}
+
+async function writeJsonAtomic(target, value) {
+  await mkdir(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await rename(temporary, target);
+}
+
+async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
+  return new Promise((resolve) => {
+    const child = spawn(binaryPath, ["--version"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    let output = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve(false);
+    }, 15_000);
+    child.stdout?.on("data", (chunk) => {
+      output += chunk.toString("utf8");
+    });
+    child.stderr?.on("data", (chunk) => {
+      output += chunk.toString("utf8");
+    });
+    child.once("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      const versions = output.match(/\bv?\d+\.\d+\.\d+\b/g)?.map((version) =>
+        version.replace(/^v/, ""),
+      ) ?? [];
+      resolve(
+        code === 0 &&
+          versions.length > 0 &&
+          versions.every((version) => version === expectedVersion),
+      );
+    });
+  });
+}
+
+function statusBase(platform) {
+  return {
+    pluginId: LARK_CLI_PLUGIN_ID,
+    state: platform ? "not_installed" : "unsupported",
+    supported: Boolean(platform),
+    platform: platform ?? `${process.platform}-${os.arch()}`,
+    installedVersion: null,
+    latestVersion: null,
+    previousVersion: null,
+    usable: false,
+    lastCheckedAt: null,
+  };
+}
+
+export function createLarkCliManager(options = {}) {
+  const homeDir = options.homeDir ?? os.homedir();
+  const platform = options.platform ?? process.platform;
+  const arch = options.arch ?? os.arch();
+  const platformKey = larkCliPlatformKey(platform, arch);
+  // options > env > local download-config.json (version pin + permanent CDN URLs).
+  // Pass downloadConfig: false to skip the on-disk file (unit tests).
+  const emptyFileConfig = {
+    version: null,
+    manifestUrl: null,
+    releaseManifestUrl: null,
+    skillUrl: null,
+    assets: {},
+    assetUrlOverrides: {},
+  };
+  const fileConfig =
+    options.downloadConfig === false
+      ? emptyFileConfig
+      : options.downloadConfig && typeof options.downloadConfig === "object"
+        ? (() => {
+            const assetsRaw =
+              options.downloadConfig.assets &&
+              typeof options.downloadConfig.assets === "object"
+                ? options.downloadConfig.assets
+                : options.downloadConfig.assetUrlOverrides &&
+                    typeof options.downloadConfig.assetUrlOverrides === "object"
+                  ? options.downloadConfig.assetUrlOverrides
+                  : {};
+            /** @type {Record<string, { url: string, archive: "raw" | "zip", entry: string | null }>} */
+            const assets = Object.create(null);
+            /** @type {Record<string, string>} */
+            const assetUrlOverrides = Object.create(null);
+            for (const key of ASSET_PLATFORM_KEYS) {
+              const entry = assetsRaw[key];
+              if (typeof entry === "string" && entry.trim()) {
+                assets[key] = { url: entry.trim(), archive: "raw", entry: null };
+                assetUrlOverrides[key] = entry.trim();
+              } else if (entry && typeof entry === "object" && entry.url) {
+                const url = String(entry.url).trim();
+                if (!url) continue;
+                const archive = entry.archive === "zip" ? "zip" : "raw";
+                const extractEntry =
+                  typeof entry.entry === "string" ? entry.entry.trim() : null;
+                assets[key] = {
+                  url,
+                  archive,
+                  entry: extractEntry || null,
+                };
+                assetUrlOverrides[key] = url;
+              }
+            }
+            return {
+              version: nonEmptyString(options.downloadConfig.version),
+              manifestUrl: nonEmptyString(options.downloadConfig.manifestUrl),
+              releaseManifestUrl: nonEmptyString(
+                options.downloadConfig.releaseManifestUrl,
+              ),
+              skillUrl: nonEmptyString(options.downloadConfig.skillUrl),
+              assets,
+              assetUrlOverrides,
+            };
+          })()
+        : loadLarkCliDownloadConfig(options.downloadConfigPath);
+  // Optional root pointer (legacy). Prefer releaseManifestUrl + version from config.
+  const manifestUrl = firstConfiguredUrl(
+    options.manifestUrl,
+    process.env.ONMYAGENT_LARK_CLI_MANIFEST_URL,
+    fileConfig.manifestUrl,
+  );
+  const releaseManifestUrlOverride = firstConfiguredUrl(
+    options.releaseManifestUrl,
+    process.env.ONMYAGENT_LARK_CLI_RELEASE_MANIFEST_URL,
+    fileConfig.releaseManifestUrl,
+  );
+  const skillUrlOverride = firstConfiguredUrl(
+    options.skillUrl,
+    process.env.ONMYAGENT_LARK_CLI_SKILL_URL,
+    fileConfig.skillUrl,
+  );
+  const pinnedVersion =
+    nonEmptyString(options.version) ||
+    nonEmptyString(process.env.ONMYAGENT_LARK_CLI_VERSION) ||
+    fileConfig.version;
+  /** @type {Record<string, string>} */
+  const envAssetUrlOverrides = Object.create(null);
+  for (const assetKey of ASSET_PLATFORM_KEYS) {
+    const envKey = `ONMYAGENT_LARK_CLI_ASSET_URL_${assetKey
+      .replace(/^lark-cli-/, "")
+      .replaceAll("-", "_")
+      .toUpperCase()}`;
+    const environmentValue = nonEmptyString(process.env[envKey]);
+    if (environmentValue) envAssetUrlOverrides[assetKey] = environmentValue;
+  }
+  const assetUrlOverrides = {
+    ...fileConfig.assetUrlOverrides,
+    ...envAssetUrlOverrides,
+    ...(options.assetUrlOverrides ?? {}),
+  };
+  /** @type {Record<string, { url: string, archive: "raw" | "zip", entry: string | null }>} */
+  const assetSpecs = { ...fileConfig.assets };
+  for (const [key, url] of Object.entries(assetUrlOverrides)) {
+    if (!assetSpecs[key]) {
+      assetSpecs[key] = { url, archive: "raw", entry: null };
+    } else {
+      assetSpecs[key] = { ...assetSpecs[key], url };
+    }
+  }
+  const networkTimeoutMs = Number.isFinite(Number(options.networkTimeoutMs))
+    ? Math.max(1, Number(options.networkTimeoutMs))
+    : LARK_CLI_NETWORK_TIMEOUT_MS;
+  const networkRetryCount = Number.isInteger(Number(options.networkRetryCount))
+    ? Math.max(0, Number(options.networkRetryCount))
+    : LARK_CLI_NETWORK_RETRY_COUNT;
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const downloader = createManagedCliDownloader({
+    label: "lark-cli",
+    networkTimeoutMs,
+    networkRetryCount,
+    fetchImpl,
+  });
+  const {
+    fetchWithRetry,
+    fetchJson,
+    responseBytes,
+    streamResponseToFile,
+  } = downloader;
+  const refreshSkillLinks = options.refreshSkillLinks ?? (async () => undefined);
+  const runBinaryVersion = options.runBinaryVersion ?? defaultRunBinaryVersion;
+  const emitProgress = options.onProgress ?? (() => undefined);
+  const emitStatus = options.onStatus ?? (() => undefined);
+  const now = options.now ?? nowMs;
+  const managedRoot = resolveLarkCliManagedRoot(homeDir);
+  const toolsBinRoot = resolveLocalManagedToolsBinRoot(homeDir);
+  const statePath = path.join(managedRoot, "state.json");
+  const cachePath = path.join(managedRoot, "update-cache.json");
+  let operation = null;
+
+  function skillsRoot() {
+    return resolveLocalSkillsRoot(homeDir);
+  }
+
+  function currentSkillPath() {
+    return path.join(skillsRoot(), LARK_CLI_PLUGIN_ID);
+  }
+
+  function skillPackagePath(skillId) {
+    return path.join(skillsRoot(), skillId);
+  }
+
+  async function readState() {
+    try {
+      return officeCliStateSchema.parse(await readJson(statePath));
+    } catch {
+      return null;
+    }
+  }
+
+  function assetUrlOverride(key) {
+    const configured = assetUrlOverrides[key];
+    if (typeof configured === "string" && configured.trim()) return configured.trim();
+    return process.env.ONMYAGENT_LARK_CLI_ASSET_URL?.trim() || null;
+  }
+
+  /**
+   * Prefer self-contained root catalog (skill + assets URLs inline).
+   * Fall back to legacy root pointer → release manifest pair.
+   */
+  async function loadRemote(forceRefresh) {
+    let cached = null;
+    try {
+      const candidate = await readJson(cachePath);
+      if (candidate && typeof candidate === "object") cached = candidate;
+    } catch {
+      cached = null;
+    }
+    if (
+      !forceRefresh &&
+      cached &&
+      Number(cached.fetchedAt) + LARK_CLI_CACHE_TTL_MS > now()
+    ) {
+      const latest = officeCliLatestManifestSchema.parse(cached.latest);
+      const release = officeCliReleaseManifestSchema.parse(cached.release);
+      return {
+        latest,
+        release,
+        releaseUrl: nonEmptyString(cached.releaseUrl) || manifestUrl || "https://localhost/",
+        fetchedAt: Number(cached.fetchedAt),
+      };
+    }
+
+    if (!manifestUrl) {
+      throw new Error(
+        "lark-cli download config must provide manifestUrl (permanent root catalog)",
+      );
+    }
+
+    const root = await fetchJson(manifestUrl, MAX_MANIFEST_BYTES);
+    const raw = root.value;
+
+    // New hot-update catalog: one permanent JSON with version + absolute URLs.
+    if (
+      raw &&
+      typeof raw === "object" &&
+      raw.skill &&
+      typeof raw.skill === "object" &&
+      raw.assets &&
+      typeof raw.assets === "object"
+    ) {
+      const catalog = officeCliRootCatalogSchema.parse(raw);
+      if (
+        catalog.pluginId &&
+        catalog.pluginId !== LARK_CLI_PLUGIN_ID
+      ) {
+        throw new Error("lark-cli root catalog pluginId mismatch");
+      }
+      const release = officeCliReleaseManifestSchema.parse({
+        schemaVersion: 1,
+        pluginId: LARK_CLI_PLUGIN_ID,
+        version: catalog.latestVersion,
+        officecliVersion: catalog.latestVersion,
+        skill: catalog.skill,
+        skillsPack: catalog.skillsPack,
+        assets: catalog.assets,
+      });
+      const latest = {
+        schemaVersion: 1,
+        channel: catalog.channel,
+        latestVersion: catalog.latestVersion,
+        releaseManifest: "inline",
+      };
+      officeCliLatestManifestSchema.parse({
+        ...latest,
+        // Satisfy legacy schema: relative path placeholder when catalog is inline.
+        releaseManifest: "manifest.json",
+      });
+      const fetchedAt = now();
+      await writeJsonAtomic(cachePath, {
+        fetchedAt,
+        latest: {
+          schemaVersion: 1,
+          channel: "stable",
+          latestVersion: catalog.latestVersion,
+          releaseManifest: "manifest.json",
+        },
+        release,
+        releaseUrl: manifestUrl,
+        mode: "root_catalog",
+      });
+      return {
+        latest: {
+          schemaVersion: 1,
+          channel: "stable",
+          latestVersion: catalog.latestVersion,
+          releaseManifest: "manifest.json",
+        },
+        release,
+        releaseUrl: manifestUrl,
+        fetchedAt,
+      };
+    }
+
+    // Legacy: root pointer → separate release manifest.
+    const latest = officeCliLatestManifestSchema.parse(raw);
+    const releaseUrl =
+      releaseManifestUrlOverride ??
+      resolveLarkCliUrl(manifestUrl, latest.releaseManifest);
+    const releaseResponse = await fetchJson(releaseUrl, MAX_MANIFEST_BYTES);
+    if (typeof latest.releaseManifest !== "string") {
+      verifyBytes(releaseResponse.bytes, latest.releaseManifest, "release manifest");
+    }
+    const release = officeCliReleaseManifestSchema.parse(
+      normalizeReleaseManifestPayload(releaseResponse.value),
+    );
+    if (
+      (release.pluginId && release.pluginId !== LARK_CLI_PLUGIN_ID) ||
+      release.version !== latest.latestVersion ||
+      (release.officecliVersion && release.officecliVersion !== release.version)
+    ) {
+      throw new Error("lark-cli release manifest does not match the latest pointer");
+    }
+    const fetchedAt = now();
+    await writeJsonAtomic(cachePath, {
+      fetchedAt,
+      latest,
+      release,
+      releaseUrl,
+      mode: "legacy_pointer",
+    });
+    return { latest, release, releaseUrl, fetchedAt };
+  }
+
+  async function readOwnership(skillPath) {
+    try {
+      const marker = JSON.parse(
+        await readFile(path.join(skillPath, ".onmyagent-managed.json"), "utf8"),
+      );
+      return marker?.owner === "onmyagent" && marker?.pluginId === LARK_CLI_PLUGIN_ID;
+    } catch {
+      return false;
+    }
+  }
+
+  async function writeManagedMarker(skillPath, version) {
+    await writeJsonAtomic(path.join(skillPath, ".onmyagent-managed.json"), {
+      schemaVersion: 1,
+      owner: "onmyagent",
+      pluginId: LARK_CLI_PLUGIN_ID,
+      version,
+    });
+  }
+
+  /**
+   * Install discovered skill packages into the profile skills root.
+   * @returns {Promise<string[]>} installed skill ids
+   */
+  async function installSkillPackages(packages, version) {
+    /** @type {string[]} */
+    const installedIds = [];
+    for (const pkg of packages) {
+      const dest = skillPackagePath(pkg.id);
+      if (await pathExists(dest)) {
+        if (!(await readOwnership(dest))) {
+          throw codedError(
+            `An existing user-owned skill was not overwritten: ${pkg.id}`,
+            "skill_conflict",
+          );
+        }
+        await rm(dest, { recursive: true, force: true });
+      }
+      await mkdir(path.dirname(dest), { recursive: true });
+      await cp(pkg.sourceDir, dest, { recursive: true });
+      await writeManagedMarker(dest, version);
+      installedIds.push(pkg.id);
+    }
+    return installedIds;
+  }
+
+  /**
+   * Remove managed lark-cli skill dirs (entry + pack). Prefers state list,
+   * then scans skills root for owned markers so orphans are cleaned.
+   * @param {string[] | undefined | null} knownIds
+   */
+  async function removeManagedSkills(knownIds) {
+    const root = skillsRoot();
+    /** @type {Set<string>} */
+    const ids = new Set(
+      Array.isArray(knownIds) ? knownIds.filter((id) => SKILL_DIR_NAME_PATTERN.test(id)) : [],
+    );
+    ids.add(ENTRY_SKILL_ID);
+    try {
+      const entries = await readdir(root, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || !SKILL_DIR_NAME_PATTERN.test(entry.name)) continue;
+        const full = path.join(root, entry.name);
+        if (await readOwnership(full)) ids.add(entry.name);
+      }
+    } catch {
+      // skills root may not exist
+    }
+
+    for (const id of ids) {
+      const full = skillPackagePath(id);
+      if (!(await pathExists(full))) continue;
+      if (!(await readOwnership(full))) {
+        if (id === ENTRY_SKILL_ID) {
+          throw codedError(
+            "An existing user-owned lark-cli skill was not removed",
+            "skill_conflict",
+          );
+        }
+        continue;
+      }
+      await rm(full, { recursive: true, force: true });
+    }
+  }
+
+  async function ensureLauncher() {
+    await mkdir(toolsBinRoot, { recursive: true });
+    await mkdir(managedRoot, { recursive: true });
+    await writeFile(path.join(managedRoot, "launcher.mjs"), LARK_CLI_LAUNCHER_SOURCE, "utf8");
+    const posixLauncher = path.join(toolsBinRoot, "lark-cli");
+    const windowsLauncher = path.join(toolsBinRoot, "lark-cli.cmd");
+    await writeFile(
+      posixLauncher,
+      `#!/bin/sh\nexec node ${shellQuote(path.join(managedRoot, "launcher.mjs"))} "$@"\n`,
+      { encoding: "utf8", mode: 0o755 },
+    );
+    await chmod(posixLauncher, 0o755).catch(() => undefined);
+    await writeFile(
+      windowsLauncher,
+      `@echo off\r\nnode "%~dp0..\\lark-cli\\launcher.mjs" %*\r\n`,
+      "utf8",
+    );
+  }
+
+  async function activeBinaryPath(state) {
+    if (!state || !isSafeVersion(state.activeVersion) || !isSafePlatform(state.platform)) {
+      return null;
+    }
+    return path.join(
+      managedRoot,
+      "releases",
+      state.activeVersion,
+      state.platform,
+      binaryName(platform),
+    );
+  }
+
+  async function getStatus() {
+    const status = statusBase(platformKey);
+    const state = await readState();
+    if (!platformKey) return status;
+    if (state) {
+      // Refresh launcher so existing installs pick up deliverable markers without reinstall.
+      await ensureLauncher().catch(() => undefined);
+      status.installedVersion = state.activeVersion;
+      status.previousVersion = state.previousVersion;
+      const binaryPath = await activeBinaryPath(state);
+      const skillPath = currentSkillPath();
+      status.usable = Boolean(
+        binaryPath &&
+          (await pathExists(binaryPath)) &&
+          (await pathExists(path.join(skillPath, "SKILL.md"))),
+      );
+      status.state = status.usable ? "installed" : "error";
+      if (status.usable) {
+        const expectedRelease = state.releases[state.activeVersion];
+        if (!expectedRelease) {
+          status.usable = false;
+          status.state = "error";
+          status.errorCode = "integrity_missing";
+          status.errorMessage = "lark-cli integrity metadata is missing";
+        } else {
+          try {
+            const [binaryDigest, skillDigest] = await Promise.all([
+              hashFile(binaryPath, MAX_BINARY_BYTES, "lark-cli binary"),
+              hashFile(path.join(skillPath, "SKILL.md"), MAX_SKILL_BYTES, "lark-cli SKILL.md"),
+            ]);
+            verifyHash(binaryDigest.sha256, expectedRelease.binarySha256, "lark-cli binary");
+            verifyHash(skillDigest.sha256, expectedRelease.skillSha256, "lark-cli SKILL.md");
+          } catch (error) {
+            status.usable = false;
+            status.state = "error";
+            status.errorCode = errorCode(error);
+            status.errorMessage = error instanceof Error ? error.message : String(error);
+          }
+        }
+      }
+    }
+    try {
+      const cache = await readJson(cachePath);
+      const latest = officeCliLatestManifestSchema.parse(cache.latest);
+      status.latestVersion = latest.latestVersion;
+      status.lastCheckedAt = Number(cache.fetchedAt) || null;
+      if (
+        state &&
+        status.usable &&
+        compareLarkCliVersions(latest.latestVersion, state.activeVersion) > 0
+      ) {
+        status.state = "update_available";
+      }
+    } catch {
+      // A missing or stale cache does not make an installed version unusable.
+    }
+    return status;
+  }
+
+  async function checkForUpdates(forceRefresh = false) {
+    try {
+      await loadRemote(forceRefresh);
+      const status = await getStatus();
+      emitStatus(status);
+      return status;
+    } catch (error) {
+      const status = await getStatus();
+      if (!status.usable) status.state = "error";
+      status.errorCode = errorCode(error);
+      status.errorMessage = error instanceof Error ? error.message : String(error);
+      emitStatus(status);
+      return status;
+    }
+  }
+
+  async function installLatest() {
+    if (operation) return operation;
+    operation = (async () => {
+      const current = await readState();
+      const operationName = current ? "update" : "install";
+      emitProgress({ operation: operationName, phase: "checking" });
+      emitProgress({ operation: operationName, phase: "downloading_manifest" });
+      const remote = await loadRemote(true);
+      const asset = platformKey ? remote.release.assets[platformKey] : undefined;
+      if (!platformKey || !asset) {
+        throw codedError(
+          "lark-cli is not supported on this platform",
+          "unsupported_platform",
+        );
+      }
+      if (
+        current &&
+        current.activeVersion === remote.release.version &&
+        (await getStatus()).usable
+      ) {
+        const status = await getStatus();
+        emitStatus(status);
+        return status;
+      }
+
+      const releaseRoot = path.join(
+        managedRoot,
+        "releases",
+        remote.release.version,
+        platformKey,
+      );
+      const stagingRoot = path.join(managedRoot, "staging", randomUUID());
+      const stagingSkill = path.join(stagingRoot, "SKILL.md");
+      const stagingBinary = path.join(stagingRoot, binaryName(platform));
+      const skillReference = releaseSkillReference(remote.release);
+      const expectedSkill =
+        typeof skillReference === "object" ? skillReference : undefined;
+      await mkdir(stagingRoot, { recursive: true });
+      try {
+        const releaseManifestText = `${JSON.stringify(remote.release, null, 2)}\n`;
+        await writeFile(path.join(stagingRoot, "manifest.json"), releaseManifestText, "utf8");
+        // Prefer archive metadata from root catalog / release asset descriptor.
+        const archiveKind =
+          asset.archive === "zip" || assetSpecs[platformKey]?.archive === "zip"
+            ? "zip"
+            : "raw";
+        const zipEntry =
+          nonEmptyString(asset.entry) ||
+          assetSpecs[platformKey]?.entry ||
+          nonEmptyString(asset.path) ||
+          "lark-cli";
+        const binaryUrl = resolveLarkCliUrl(
+          remote.releaseUrl,
+          referenceWithOverride(
+            asset,
+            asset.url || assetSpecs[platformKey]?.url || assetUrlOverride(platformKey),
+          ),
+        );
+        const skillUrl = resolveLarkCliUrl(
+          remote.releaseUrl,
+          referenceWithOverride(
+            skillReference,
+            (typeof skillReference === "object" && skillReference.url) ||
+              skillUrlOverride,
+          ),
+        );
+        emitProgress({ operation: operationName, phase: "downloading_binary" });
+        if (archiveKind === "zip") {
+          const stagingZip = path.join(stagingRoot, "binary.zip");
+          const binaryResponse = await fetchWithRetry(binaryUrl);
+          // Checksums in the catalog apply to the extracted binary, not the zip.
+          await streamResponseToFile(
+            binaryResponse,
+            stagingZip,
+            MAX_BINARY_BYTES,
+            undefined,
+            "lark-cli binary archive",
+            (receivedBytes, totalBytes) =>
+              emitProgress({
+                operation: operationName,
+                phase: "downloading_binary",
+                receivedBytes,
+                totalBytes,
+              }),
+            networkTimeoutMs,
+          );
+          await extractZipEntry({
+            archivePath: stagingZip,
+            entryName: zipEntry,
+            destPath: stagingBinary,
+            platform,
+          });
+          await rm(stagingZip, { force: true });
+          const binaryDigest = await hashFile(
+            stagingBinary,
+            MAX_BINARY_BYTES,
+            "lark-cli binary",
+          );
+          verifyDigest(
+            binaryDigest.size,
+            binaryDigest.sha256,
+            asset,
+            "lark-cli binary",
+          );
+        } else {
+          const binaryResponse = await fetchWithRetry(binaryUrl);
+          await streamResponseToFile(
+            binaryResponse,
+            stagingBinary,
+            MAX_BINARY_BYTES,
+            asset,
+            "lark-cli binary",
+            (receivedBytes, totalBytes) =>
+              emitProgress({
+                operation: operationName,
+                phase: "downloading_binary",
+                receivedBytes,
+                totalBytes,
+              }),
+            networkTimeoutMs,
+          );
+        }
+        if (platform !== "win32") await chmod(stagingBinary, 0o755);
+
+        emitProgress({ operation: operationName, phase: "downloading_skill" });
+        const skillResponse = await fetchWithRetry(skillUrl);
+        const skillBytes = await responseBytes(
+          skillResponse,
+          MAX_SKILL_BYTES,
+          skillUrl,
+          (receivedBytes, totalBytes) =>
+            emitProgress({
+              operation: operationName,
+              phase: "downloading_skill",
+              receivedBytes,
+              totalBytes,
+            }),
+          networkTimeoutMs,
+        );
+        const skillSha256 = verifyOptionalBytes(
+          skillBytes,
+          expectedSkill,
+          "lark-cli SKILL.md",
+        );
+        const skillText = skillBytes.toString("utf8");
+        if (!/^---[\r\n]+[\s\S]*?name:\s*lark-cli(?:\r?\n|$)/m.test(skillText)) {
+          throw new Error("lark-cli SKILL.md has an invalid name");
+        }
+        await writeFile(stagingSkill, skillBytes);
+
+        /** @type {Array<{ id: string, sourceDir: string }>} */
+        let packPackages = [];
+        /** @type {string | undefined} */
+        let skillsPackSha256;
+        const skillsPackRef = releaseSkillsPackReference(remote.release);
+        if (skillsPackRef?.url) {
+          emitProgress({ operation: operationName, phase: "downloading_skills_pack" });
+          const packUrl = resolveLarkCliUrl(remote.releaseUrl, skillsPackRef);
+          const stagingPackZip = path.join(stagingRoot, "skills-pack.zip");
+          const stagingPackDir = path.join(stagingRoot, "skills-pack");
+          const packResponse = await fetchWithRetry(packUrl);
+          const packExpected =
+            typeof skillsPackRef.sha256 === "string" &&
+            typeof skillsPackRef.size === "number"
+              ? { sha256: skillsPackRef.sha256, size: skillsPackRef.size }
+              : undefined;
+          const packStream = await streamResponseToFile(
+            packResponse,
+            stagingPackZip,
+            MAX_SKILLS_PACK_BYTES,
+            packExpected,
+            "lark-cli skills pack",
+            (receivedBytes, totalBytes) =>
+              emitProgress({
+                operation: operationName,
+                phase: "downloading_skills_pack",
+                receivedBytes,
+                totalBytes,
+              }),
+            networkTimeoutMs,
+          );
+          if (
+            typeof skillsPackRef.sha256 === "string" &&
+            typeof skillsPackRef.size !== "number"
+          ) {
+            verifyHash(
+              packStream.digest,
+              skillsPackRef.sha256,
+              "lark-cli skills pack",
+            );
+          }
+          skillsPackSha256 = packStream.digest;
+          await extractZipToDir({
+            archivePath: stagingPackZip,
+            destDir: stagingPackDir,
+            platform,
+          });
+          packPackages = await discoverSkillPackages(stagingPackDir);
+          if (packPackages.length === 0) {
+            throw new Error("lark-cli skills pack contained no skill packages");
+          }
+        }
+
+        emitProgress({ operation: operationName, phase: "verifying" });
+        if (!(await runBinaryVersion(stagingBinary, remote.release.version))) {
+          throw new Error("lark-cli binary version check failed");
+        }
+
+        const skillPath = currentSkillPath();
+        const skillExists = await pathExists(skillPath);
+        if (skillExists && !(await readOwnership(skillPath))) {
+          throw codedError(
+            "An existing user-owned lark-cli skill was not overwritten",
+            "skill_conflict",
+          );
+        }
+
+        // Pre-check pack skill ownership before mutating release root.
+        for (const pkg of packPackages) {
+          const dest = skillPackagePath(pkg.id);
+          if ((await pathExists(dest)) && !(await readOwnership(dest))) {
+            throw codedError(
+              `An existing user-owned skill was not overwritten: ${pkg.id}`,
+              "skill_conflict",
+            );
+          }
+        }
+
+        await mkdir(path.dirname(releaseRoot), { recursive: true });
+        emitProgress({ operation: operationName, phase: "installing" });
+        await rm(releaseRoot, { recursive: true, force: true });
+        await rename(stagingRoot, releaseRoot);
+        const movedSkillPath = path.join(releaseRoot, "SKILL.md");
+        const skillBackup = skillExists
+          ? path.join(managedRoot, "staging", `${randomUUID()}-skill-backup`)
+          : null;
+        if (skillBackup) await rename(skillPath, skillBackup);
+        /** @type {string[]} */
+        const previousManagedIds = Array.isArray(current?.managedSkillIds)
+          ? current.managedSkillIds
+          : [];
+        /** @type {string[]} */
+        let installedPackIds = [];
+        try {
+          await mkdir(path.dirname(skillPath), { recursive: true });
+          await mkdir(skillPath, { recursive: true });
+          await cp(movedSkillPath, path.join(skillPath, "SKILL.md"));
+          await writeManagedMarker(skillPath, remote.release.version);
+
+          // Remap pack sources after stagingRoot moved to releaseRoot.
+          const remappedPackages = packPackages.map((pkg) => ({
+            id: pkg.id,
+            sourceDir: path.join(
+              releaseRoot,
+              path.relative(stagingRoot, pkg.sourceDir),
+            ),
+          }));
+          installedPackIds = await installSkillPackages(
+            remappedPackages,
+            remote.release.version,
+          );
+
+          // Drop pack skills from the previous version that are no longer present.
+          for (const oldId of previousManagedIds) {
+            if (installedPackIds.includes(oldId)) continue;
+            const oldPath = skillPackagePath(oldId);
+            if ((await pathExists(oldPath)) && (await readOwnership(oldPath))) {
+              await rm(oldPath, { recursive: true, force: true });
+            }
+          }
+
+          const previousVersion = current?.activeVersion ?? null;
+          const releases = {
+            ...(current?.releases ?? {}),
+            [remote.release.version]: {
+              binarySha256: asset.sha256,
+              skillSha256,
+              ...(skillsPackSha256 ? { skillsPackSha256 } : {}),
+            },
+          };
+          if (previousVersion && current?.releases?.[previousVersion]) {
+            releases[previousVersion] = current.releases[previousVersion];
+          }
+          await writeJsonAtomic(statePath, {
+            schemaVersion: 1,
+            pluginId: LARK_CLI_PLUGIN_ID,
+            activeVersion: remote.release.version,
+            previousVersion,
+            platform: platformKey,
+            installedSkillPath: skillPath,
+            managedSkillIds: installedPackIds,
+            installedAt: current?.installedAt ?? now(),
+            updatedAt: now(),
+            releases,
+          });
+          await ensureLauncher();
+          emitProgress({ operation: operationName, phase: "refreshing_skills" });
+          await refreshSkillLinks();
+          if (skillBackup) await rm(skillBackup, { recursive: true, force: true });
+        } catch (error) {
+          // Best-effort rollback of newly written pack skills.
+          for (const id of installedPackIds) {
+            const dest = skillPackagePath(id);
+            if ((await pathExists(dest)) && (await readOwnership(dest))) {
+              await rm(dest, { recursive: true, force: true }).catch(() => undefined);
+            }
+          }
+          await rm(skillPath, { recursive: true, force: true });
+          if (skillBackup) await rename(skillBackup, skillPath);
+          if (current) await writeJsonAtomic(statePath, current);
+          else await rm(statePath, { force: true });
+          throw error;
+        }
+        const status = await getStatus();
+        emitStatus(status);
+        emitProgress({ operation: operationName, phase: "complete" });
+        return status;
+      } finally {
+        await rm(stagingRoot, { recursive: true, force: true });
+      }
+    })();
+    try {
+      return await operation;
+    } finally {
+      operation = null;
+    }
+  }
+
+  async function uninstall() {
+    if (operation) return operation;
+    operation = (async () => {
+      emitProgress({ operation: "uninstall", phase: "installing" });
+      const state = await readState();
+      await removeManagedSkills(state?.managedSkillIds);
+      await rm(managedRoot, { recursive: true, force: true });
+      await rm(path.join(toolsBinRoot, "lark-cli"), { force: true });
+      await rm(path.join(toolsBinRoot, "lark-cli.cmd"), { force: true });
+      await refreshSkillLinks();
+      const status = statusBase(platformKey);
+      emitStatus(status);
+      emitProgress({ operation: "uninstall", phase: "complete" });
+      return status;
+    })();
+    try {
+      return await operation;
+    } finally {
+      operation = null;
+    }
+  }
+
+  return {
+    getStatus,
+    checkForUpdates,
+    installLatest,
+    uninstall,
+    loadRemote,
+    paths: {
+      managedRoot,
+      toolsBinRoot,
+      statePath,
+      cachePath,
+      skillPath: currentSkillPath(),
+    },
+  };
+}
