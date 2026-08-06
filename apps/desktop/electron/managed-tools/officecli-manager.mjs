@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { createReadStream, readFileSync } from "node:fs";
+import { createReadStream } from "node:fs";
 import {
   access,
   chmod,
@@ -27,10 +27,13 @@ import {
   resolveLocalSkillsRoot,
   resolveOfficeCliManagedRoot,
 } from "../config-profile-paths.mjs";
+import {
+  extractZipEntry,
+  loadManagedCliDownloadConfig,
+  nonEmptyString,
+} from "./managed-cli/index.mjs";
 
 export const OFFICECLI_PLUGIN_ID = "officecli";
-export const OFFICECLI_DEFAULT_MANIFEST_URL =
-  "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json";
 /** Packaged + dev default path (next to this module; included in electron asar). */
 export const OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -131,12 +134,6 @@ export function compareOfficeCliVersions(left, right) {
   return 0;
 }
 
-function nonEmptyString(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
 /**
  * Resolve which download-config JSON to load.
  * Priority: explicit path → ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG → default next to this module.
@@ -150,55 +147,35 @@ export function resolveOfficeCliDownloadConfigPath(customPath) {
 }
 
 /**
- * Load local OfficeCLI download URL overrides from a JSON file.
- * Missing / invalid file → empty config (fall through to env / default public URL).
+ * Load local OfficeCLI download config (version pin + permanent CDN URLs).
+ * Missing / invalid file → empty config (fall through to env / options).
  *
  * @returns {{
+ *   version: string | null,
  *   manifestUrl: string | null,
  *   releaseManifestUrl: string | null,
  *   skillUrl: string | null,
+ *   assets: Record<string, { url: string, archive: "raw" | "zip", entry: string | null }>,
  *   assetUrlOverrides: Record<string, string>,
  * }}
  */
 export function loadOfficeCliDownloadConfig(configPath) {
-  const empty = {
-    manifestUrl: null,
-    releaseManifestUrl: null,
-    skillUrl: null,
-    assetUrlOverrides: {},
-  };
   const resolvedPath = resolveOfficeCliDownloadConfigPath(configPath);
-  let raw;
-  try {
-    raw = readFileSync(resolvedPath, "utf8");
-  } catch {
-    return empty;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return empty;
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return empty;
-  }
-
-  const assets =
-    parsed.assets && typeof parsed.assets === "object" && !Array.isArray(parsed.assets)
-      ? parsed.assets
-      : {};
+  const loaded = loadManagedCliDownloadConfig({
+    configPath: resolvedPath,
+    assetKeys: ASSET_PLATFORM_KEYS,
+  });
   /** @type {Record<string, string>} */
   const assetUrlOverrides = Object.create(null);
-  for (const key of ASSET_PLATFORM_KEYS) {
-    const url = nonEmptyString(assets[key]);
-    if (url) assetUrlOverrides[key] = url;
+  for (const [key, spec] of Object.entries(loaded.assets)) {
+    assetUrlOverrides[key] = spec.url;
   }
-
   return {
-    manifestUrl: nonEmptyString(parsed.manifestUrl),
-    releaseManifestUrl: nonEmptyString(parsed.releaseManifestUrl),
-    skillUrl: nonEmptyString(parsed.skillUrl),
+    version: loaded.version,
+    manifestUrl: loaded.manifestUrl,
+    releaseManifestUrl: loaded.releaseManifestUrl,
+    skillUrl: loaded.skillUrl,
+    assets: loaded.assets,
     assetUrlOverrides,
   };
 }
@@ -245,32 +222,55 @@ function resolveSameOriginUrl(base, relativeReference) {
   return resolved.href;
 }
 
-function resolveOfficeCliUrl(base, reference) {
-  const baseUrl = new URL(base);
-  if (baseUrl.protocol !== "https:") {
-    throw new Error("OfficeCLI downloads require HTTPS");
+function assertHttpsUrl(value, label) {
+  const url = new URL(value);
+  if (url.protocol !== "https:") {
+    throw new Error(`${label} must use HTTPS`);
   }
+  return url.href;
+}
+
+/**
+ * Resolve download URL. Absolute https:// URLs (permanent CDN) are accepted as-is;
+ * relative paths stay same-origin to the release base.
+ */
+function resolveOfficeCliUrl(base, reference) {
   if (typeof reference === "string") {
+    if (/^https:\/\//i.test(reference)) {
+      return assertHttpsUrl(reference, "OfficeCLI download URL");
+    }
     return resolveSameOriginUrl(base, reference);
   }
   if (reference.url) {
-    const directUrl = new URL(reference.url);
-    if (directUrl.protocol !== "https:" || directUrl.origin !== baseUrl.origin) {
-      throw new Error("OfficeCLI download must stay on the configured OSS origin");
-    }
-    return directUrl.href;
+    return assertHttpsUrl(reference.url, "OfficeCLI download URL");
   }
   return resolveSameOriginUrl(base, reference.path);
 }
 
 function referenceWithOverride(reference, override) {
-  return override ? override : reference;
+  if (!override) return reference;
+  // Absolute override URL — drop path/size from relative reference for fetch.
+  if (/^https:\/\//i.test(override)) return override;
+  return override;
 }
 
 function releaseSkillReference(release) {
   if (release.skill) return release.skill;
   if (release.skillPath) return release.skillPath;
-  throw new Error("OfficeCLI release manifest does not provide SKILL.md");
+  // CDN release manifests may omit skill; skillUrl comes from download config.
+  return "SKILL.md";
+}
+
+/** Ensure Zod accepts release payloads that omit skill/skillPath (CDN pin mode). */
+function normalizeReleaseManifestPayload(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const next = { ...value };
+  const hasSkillObject = next.skill && typeof next.skill === "object";
+  const hasSkillPath = typeof next.skillPath === "string" && next.skillPath.trim();
+  if (!hasSkillObject && !hasSkillPath) {
+    next.skillPath = "SKILL.md";
+  }
+  return next;
 }
 
 function binaryName(platform) {
@@ -586,38 +586,70 @@ export function createOfficeCliManager(options = {}) {
   const platform = options.platform ?? process.platform;
   const arch = options.arch ?? os.arch();
   const platformKey = officeCliPlatformKey(platform, arch);
-  // options > env > local download-config.json > built-in public URL
+  // options > env > local download-config.json (version pin + permanent CDN URLs).
   // Pass downloadConfig: false to skip the on-disk file (unit tests).
   const emptyFileConfig = {
+    version: null,
     manifestUrl: null,
     releaseManifestUrl: null,
     skillUrl: null,
+    assets: {},
     assetUrlOverrides: {},
   };
   const fileConfig =
     options.downloadConfig === false
       ? emptyFileConfig
       : options.downloadConfig && typeof options.downloadConfig === "object"
-        ? {
-            manifestUrl: nonEmptyString(options.downloadConfig.manifestUrl),
-            releaseManifestUrl: nonEmptyString(
-              options.downloadConfig.releaseManifestUrl,
-            ),
-            skillUrl: nonEmptyString(options.downloadConfig.skillUrl),
-            assetUrlOverrides:
-              options.downloadConfig.assetUrlOverrides &&
-              typeof options.downloadConfig.assetUrlOverrides === "object"
-                ? options.downloadConfig.assetUrlOverrides
-                : {},
-          }
+        ? (() => {
+            const assetsRaw =
+              options.downloadConfig.assets &&
+              typeof options.downloadConfig.assets === "object"
+                ? options.downloadConfig.assets
+                : options.downloadConfig.assetUrlOverrides &&
+                    typeof options.downloadConfig.assetUrlOverrides === "object"
+                  ? options.downloadConfig.assetUrlOverrides
+                  : {};
+            /** @type {Record<string, { url: string, archive: "raw" | "zip", entry: string | null }>} */
+            const assets = Object.create(null);
+            /** @type {Record<string, string>} */
+            const assetUrlOverrides = Object.create(null);
+            for (const key of ASSET_PLATFORM_KEYS) {
+              const entry = assetsRaw[key];
+              if (typeof entry === "string" && entry.trim()) {
+                assets[key] = { url: entry.trim(), archive: "raw", entry: null };
+                assetUrlOverrides[key] = entry.trim();
+              } else if (entry && typeof entry === "object" && entry.url) {
+                const url = String(entry.url).trim();
+                if (!url) continue;
+                const archive = entry.archive === "zip" ? "zip" : "raw";
+                const extractEntry =
+                  typeof entry.entry === "string" ? entry.entry.trim() : null;
+                assets[key] = {
+                  url,
+                  archive,
+                  entry: extractEntry || null,
+                };
+                assetUrlOverrides[key] = url;
+              }
+            }
+            return {
+              version: nonEmptyString(options.downloadConfig.version),
+              manifestUrl: nonEmptyString(options.downloadConfig.manifestUrl),
+              releaseManifestUrl: nonEmptyString(
+                options.downloadConfig.releaseManifestUrl,
+              ),
+              skillUrl: nonEmptyString(options.downloadConfig.skillUrl),
+              assets,
+              assetUrlOverrides,
+            };
+          })()
         : loadOfficeCliDownloadConfig(options.downloadConfigPath);
-  const manifestUrl =
-    firstConfiguredUrl(
-      options.manifestUrl,
-      process.env.ONMYAGENT_OFFICECLI_MANIFEST_URL,
-      fileConfig.manifestUrl,
-      OFFICECLI_DEFAULT_MANIFEST_URL,
-    ) ?? OFFICECLI_DEFAULT_MANIFEST_URL;
+  // Optional root pointer (legacy). Prefer releaseManifestUrl + version from config.
+  const manifestUrl = firstConfiguredUrl(
+    options.manifestUrl,
+    process.env.ONMYAGENT_OFFICECLI_MANIFEST_URL,
+    fileConfig.manifestUrl,
+  );
   const releaseManifestUrlOverride = firstConfiguredUrl(
     options.releaseManifestUrl,
     process.env.ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL,
@@ -628,7 +660,12 @@ export function createOfficeCliManager(options = {}) {
     process.env.ONMYAGENT_OFFICECLI_SKILL_URL,
     fileConfig.skillUrl,
   );
-  const envAssetUrlOverrides = {};
+  const pinnedVersion =
+    nonEmptyString(options.version) ||
+    nonEmptyString(process.env.ONMYAGENT_OFFICECLI_VERSION) ||
+    fileConfig.version;
+  /** @type {Record<string, string>} */
+  const envAssetUrlOverrides = Object.create(null);
   for (const assetKey of ASSET_PLATFORM_KEYS) {
     const envKey = `ONMYAGENT_OFFICECLI_ASSET_URL_${assetKey
       .replace(/^officecli-/, "")
@@ -637,12 +674,20 @@ export function createOfficeCliManager(options = {}) {
     const environmentValue = nonEmptyString(process.env[envKey]);
     if (environmentValue) envAssetUrlOverrides[assetKey] = environmentValue;
   }
-  // options > env > download-config.json
   const assetUrlOverrides = {
     ...fileConfig.assetUrlOverrides,
     ...envAssetUrlOverrides,
     ...(options.assetUrlOverrides ?? {}),
   };
+  /** @type {Record<string, { url: string, archive: "raw" | "zip", entry: string | null }>} */
+  const assetSpecs = { ...fileConfig.assets };
+  for (const [key, url] of Object.entries(assetUrlOverrides)) {
+    if (!assetSpecs[key]) {
+      assetSpecs[key] = { url, archive: "raw", entry: null };
+    } else {
+      assetSpecs[key] = { ...assetSpecs[key], url };
+    }
+  }
   const networkTimeoutMs = Number.isFinite(Number(options.networkTimeoutMs))
     ? Math.max(1, Number(options.networkTimeoutMs))
     : OFFICECLI_NETWORK_TIMEOUT_MS;
@@ -734,8 +779,52 @@ export function createOfficeCliManager(options = {}) {
       const release = officeCliReleaseManifestSchema.parse(cached.release);
       const releaseUrl =
         releaseManifestUrlOverride ??
-        resolveOfficeCliUrl(manifestUrl, latest.releaseManifest);
+        (manifestUrl
+          ? resolveOfficeCliUrl(manifestUrl, latest.releaseManifest)
+          : null);
+      if (!releaseUrl) {
+        throw new Error("OfficeCLI release manifest URL is not configured");
+      }
       return { latest, release, releaseUrl, fetchedAt: Number(cached.fetchedAt) };
+    }
+
+    // Pinned mode: download-config supplies releaseManifestUrl + version (no root pointer).
+    if (releaseManifestUrlOverride && !manifestUrl) {
+      const releaseResponse = await fetchJson(
+        releaseManifestUrlOverride,
+        MAX_MANIFEST_BYTES,
+      );
+      const rawRelease = normalizeReleaseManifestPayload(releaseResponse.value);
+      const release = officeCliReleaseManifestSchema.parse(rawRelease);
+      const latestVersion = pinnedVersion || release.version;
+      if (
+        (release.pluginId && release.pluginId !== OFFICECLI_PLUGIN_ID) ||
+        (pinnedVersion && release.version !== pinnedVersion) ||
+        (release.officecliVersion && release.officecliVersion !== release.version)
+      ) {
+        throw new Error("OfficeCLI release manifest does not match the download config pin");
+      }
+      const latest = {
+        schemaVersion: 1,
+        channel: "stable",
+        latestVersion,
+        releaseManifest: "manifest.json",
+      };
+      officeCliLatestManifestSchema.parse(latest);
+      const fetchedAt = now();
+      await writeJsonAtomic(cachePath, { fetchedAt, latest, release });
+      return {
+        latest,
+        release,
+        releaseUrl: releaseManifestUrlOverride,
+        fetchedAt,
+      };
+    }
+
+    if (!manifestUrl) {
+      throw new Error(
+        "OfficeCLI download config must provide releaseManifestUrl (or legacy manifestUrl)",
+      );
     }
 
     const root = await fetchJson(manifestUrl, MAX_MANIFEST_BYTES);
@@ -747,7 +836,9 @@ export function createOfficeCliManager(options = {}) {
     if (typeof latest.releaseManifest !== "string") {
       verifyBytes(releaseResponse.bytes, latest.releaseManifest, "release manifest");
     }
-    const release = officeCliReleaseManifestSchema.parse(releaseResponse.value);
+    const release = officeCliReleaseManifestSchema.parse(
+      normalizeReleaseManifestPayload(releaseResponse.value),
+    );
     if (
       (release.pluginId && release.pluginId !== OFFICECLI_PLUGIN_ID) ||
       release.version !== latest.latestVersion ||
@@ -924,31 +1015,74 @@ export function createOfficeCliManager(options = {}) {
       try {
         const releaseManifestText = `${JSON.stringify(remote.release, null, 2)}\n`;
         await writeFile(path.join(stagingRoot, "manifest.json"), releaseManifestText, "utf8");
+        const assetSpec = platformKey ? assetSpecs[platformKey] : null;
         const binaryUrl = resolveOfficeCliUrl(
           remote.releaseUrl,
-          referenceWithOverride(asset, assetUrlOverride(platformKey)),
+          referenceWithOverride(
+            asset,
+            assetSpec?.url ?? assetUrlOverride(platformKey),
+          ),
         );
         const skillUrl = resolveOfficeCliUrl(
           remote.releaseUrl,
           referenceWithOverride(skillReference, skillUrlOverride),
         );
         emitProgress({ operation: operationName, phase: "downloading_binary" });
-        const binaryResponse = await fetchWithRetry(binaryUrl);
-        await streamResponseToFile(
-          binaryResponse,
-          stagingBinary,
-          MAX_BINARY_BYTES,
-          asset,
-          "OfficeCLI binary",
-          (receivedBytes, totalBytes) =>
-            emitProgress({
-              operation: operationName,
-              phase: "downloading_binary",
-              receivedBytes,
-              totalBytes,
-            }),
-          networkTimeoutMs,
-        );
+        if (assetSpec?.archive === "zip") {
+          const stagingZip = path.join(stagingRoot, "binary.zip");
+          const binaryResponse = await fetchWithRetry(binaryUrl);
+          // Zip integrity is not in release manifest (checksums are for extracted binary).
+          await streamResponseToFile(
+            binaryResponse,
+            stagingZip,
+            MAX_BINARY_BYTES,
+            undefined,
+            "OfficeCLI binary archive",
+            (receivedBytes, totalBytes) =>
+              emitProgress({
+                operation: operationName,
+                phase: "downloading_binary",
+                receivedBytes,
+                totalBytes,
+              }),
+            networkTimeoutMs,
+          );
+          await extractZipEntry({
+            archivePath: stagingZip,
+            entryName: assetSpec.entry || asset.path || "officecli",
+            destPath: stagingBinary,
+            platform,
+          });
+          await rm(stagingZip, { force: true });
+          const binaryDigest = await hashFile(
+            stagingBinary,
+            MAX_BINARY_BYTES,
+            "OfficeCLI binary",
+          );
+          verifyDigest(
+            binaryDigest.size,
+            binaryDigest.sha256,
+            asset,
+            "OfficeCLI binary",
+          );
+        } else {
+          const binaryResponse = await fetchWithRetry(binaryUrl);
+          await streamResponseToFile(
+            binaryResponse,
+            stagingBinary,
+            MAX_BINARY_BYTES,
+            asset,
+            "OfficeCLI binary",
+            (receivedBytes, totalBytes) =>
+              emitProgress({
+                operation: operationName,
+                phase: "downloading_binary",
+                receivedBytes,
+                totalBytes,
+              }),
+            networkTimeoutMs,
+          );
+        }
         if (platform !== "win32") await chmod(stagingBinary, 0o755);
 
         emitProgress({ operation: operationName, phase: "downloading_skill" });

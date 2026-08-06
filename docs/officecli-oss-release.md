@@ -1,32 +1,42 @@
-# OfficeCLI OSS 发布约定
+# OfficeCLI OSS / CDN 发布约定
 
-OfficeCLI 是“市场 → 插件”中的可选增强。桌面端安装包不内置二进制；用户点击安装后，桌面端从 OSS 下载当前平台的二进制和 `SKILL.md`，写入用户目录，并让后续普通会话与专家会话共用同一份已安装能力。
+OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端安装包不内置二进制；用户点击安装后，桌面端按 **打包进 asar 的 download-config** 拉取 release metadata、`SKILL.md` 与当前平台 zip，解压出二进制后写入用户目录。
 
-## OSS 目录
+## 永久 CDN（当前生产）
 
-固定版本的推荐目录如下：
+CDN 对象键**不可覆盖**、每次上传 URL 唯一。因此客户端**不能**靠「同一链接换内容」做热更新；升级路径是：
 
-```text
-officecli/
-  manifest.json
-  releases/
-    1.0.102/
-      manifest.json
-      SKILL.md
-      officecli-mac-arm64
-      officecli-mac-x64
-      officecli-win-arm64.exe
-      officecli-win-x64.exe
+1. 上传新版本对象（新路径，如 `…/release/1_0_144/…`）
+2. 改仓库内 `apps/desktop/electron/managed-tools/officecli-download-config.json`
+3. 重新打包发布桌面端
+
+**不需要**根级 “latest pointer” `manifest.json`。版本钉在 download-config 的 `version` 字段。
+
+```json
+{
+  "version": "1.0.143",
+  "releaseManifestUrl": "https://imagecdn…/release/1_0_143/manifest.json",
+  "skillUrl": "https://imagecdn…/release/1_0_143/SKILL.md",
+  "assets": {
+    "officecli-mac-arm64": {
+      "url": "https://imagecdn…/officecli_mac_arm64.zip",
+      "archive": "zip",
+      "entry": "officecli-mac-arm64"
+    }
+  }
+}
 ```
 
-当前不发布 Linux 二进制；受支持的平台键只有：
+zip 下载后解压 `entry` 得到可执行文件；integrity（sha256/size）校验的是**解压后的二进制**，与 release `manifest.json` 中资产描述一致。
 
-- `officecli-mac-arm64`
-- `officecli-mac-x64`
-- `officecli-win-arm64`
-- `officecli-win-x64`
+当前不发布 Linux 二进制；平台键：
 
-根 `manifest.json` 是更新检查入口。它的 `latestVersion` 指向当前版本，`releaseManifest` 指向对应版本的 release manifest。版本切换时先上传完整的新版本目录，再更新根 manifest，避免客户端看到“更新”后下载到不完整目录。
+- `officecli-mac-arm64` / `officecli-mac-x64`
+- `officecli-win-arm64` / `officecli-win-x64`
+
+## 可复用能力
+
+下载/解压/配置加载在 `apps/desktop/electron/managed-tools/managed-cli/`，供 OfficeCLI 与后续飞书 CLI 等复用。
 
 ## Manifest 格式
 

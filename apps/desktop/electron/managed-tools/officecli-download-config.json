@@ -1,11 +1,27 @@
 {
-  "manifestUrl": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json?Expires=1785933874&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=w2kTHrjZ7TGmXJeWX1HdBESG14w%3D",
-  "releaseManifestUrl": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/manifest.json?Expires=1785933932&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=7mcSKbGVjXXaAkzPJn%2FVax%2FMvR4%3D",
-  "skillUrl": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/SKILL.md?Expires=1785933908&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=kR6n7pe%2BPmxwF6JujIhUVSAPGow%3D",
+  "version": "1.0.143",
+  "releaseManifestUrl": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/manifest.json",
+  "skillUrl": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/SKILL.md",
   "assets": {
-    "officecli-mac-arm64": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/officecli-mac-arm64?Expires=1785933957&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=QQjaCTitopJCGmCMRNSLtRhr5MU%3D",
-    "officecli-mac-x64": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/officecli-mac-x64?Expires=1785935562&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=xgh%2BPGCCgbXUTUwvgTJU%2B33dgt8%3D",
-    "officecli-win-arm64": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/officecli-win-arm64.exe?Expires=1785935587&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=KFHePkM%2BuL%2Bw9w31yC4J%2FMm6CKE%3D",
-    "officecli-win-x64": "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/officecli-win-x64.exe?Expires=1785935608&OSSAccessKeyId=TMP.3KuDKHPLff5ogg9dtwQoLYtZuXrErtrz4m5xn4uvy7ExNquo1zuZQgXw6F9siVW12w4nSHdBdiWNFmm29hD8rcdQXC3kvv&Signature=5BslRQSK%2BPLqy5W3xUO1yzmyp%2BA%3D"
+    "officecli-mac-arm64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_mac_arm64.zip",
+      "archive": "zip",
+      "entry": "officecli-mac-arm64"
+    },
+    "officecli-mac-x64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_mac_x64.zip",
+      "archive": "zip",
+      "entry": "officecli-mac-x64"
+    },
+    "officecli-win-arm64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_win_arm64.zip",
+      "archive": "zip",
+      "entry": "officecli-win-arm64.exe"
+    },
+    "officecli-win-x64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_win_x64.zip",
+      "archive": "zip",
+      "entry": "officecli-win-x64.exe"
+    }
   }
 }
