@@ -41,7 +41,7 @@ const RESET_ONBOARDING_PREFS = {
   soundNotifyOnAgentReady: true,
   launchAtLogin: true,
   keepSystemAwake: false,
-  dockUnreadBadge: true,
+  dockUnreadBadge: false,
   menuBarStatusItem: true,
   conversationWidth: "fixed",
   keymapOverrides: {},

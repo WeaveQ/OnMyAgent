@@ -1,0 +1,13 @@
+{
+  "slug": "word-docx",
+  "name": "Word / DOCX",
+  "version": "1.0.2",
+  "installedAt": 1785921628666,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/e9a58ede-ead5-43fd-9523-d1ba7f1b78cd.png",
+  "labels": {
+    "requires_api_key": "false"
+  },
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/word-docx__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/e9a58ede-ead5-43fd-9523-d1ba7f1b78cd.png"
+}

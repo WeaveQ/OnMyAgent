@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <marker id="arrowC" markerUnits="userSpaceOnUse" markerWidth="190" markerHeight="190" refX="140" refY="95" orient="auto">
+      <path d="M20,20 L170,95 L20,170 Z" fill="#25F4EE"/>
+    </marker>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="#161823"/>
+  <path d="M210 700 L405 555 L550 625 L770 350" fill="none" stroke="#FE2C55" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" transform="translate(16,16)" opacity="0.85"/>
+  <path d="M210 700 L405 555 L550 625 L770 350" fill="none" stroke="#25F4EE" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowC)"/>
+</svg>

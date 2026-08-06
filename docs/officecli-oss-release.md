@@ -88,7 +88,31 @@ node scripts/officecli/validate-manifest.mjs \
 
 最终面向国内用户时，推荐将 `officecli/manifest.json`、release manifest、`SKILL.md` 和四个平台文件设置为 OSS 公共读，并保持稳定的 HTTPS 路径。这样客户端只需要内置根 manifest 地址，用户点击市场卡片的安装或更新即可完成整个流程。
 
-临时测试阶段可以使用签名 URL，但不要把签名参数提交到仓库。桌面端提供以下本地覆盖入口：
+临时测试 / 内测打包阶段可以使用签名 URL。推荐直接改本地配置文件（会打进 electron asar，无需 `source .env`）：
+
+**配置文件路径：** `apps/desktop/electron/managed-tools/officecli-download-config.json`
+
+```json
+{
+  "manifestUrl": "https://…/officecli/manifest.json?…",
+  "releaseManifestUrl": "https://…/officecli/releases/1.0.143/manifest.json?…",
+  "skillUrl": "https://…/officecli/releases/1.0.143/SKILL.md?…",
+  "assets": {
+    "officecli-mac-arm64": "https://…/officecli-mac-arm64?…",
+    "officecli-mac-x64": "https://…/officecli-mac-x64?…",
+    "officecli-win-arm64": "https://…/officecli-win-arm64.exe?…",
+    "officecli-win-x64": "https://…/officecli-win-x64.exe?…"
+  }
+}
+```
+
+更新链接后：`pnpm dev` 直接生效；给内测用户则重新打包即可。签名过期后只改该文件里的 URL。
+
+可选：`ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG=/abs/path.json` 指向其它配置文件。
+
+优先级：`createOfficeCliManager` 入参 > 环境变量 > 配置文件 > 内置公共读默认 URL。
+
+环境变量覆盖（测试 / 一次性调试仍可用）：
 
 - `ONMYAGENT_OFFICECLI_MANIFEST_URL`
 - `ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL`
@@ -98,7 +122,17 @@ node scripts/officecli/validate-manifest.mjs \
 - `ONMYAGENT_OFFICECLI_ASSET_URL_WIN_ARM64`
 - `ONMYAGENT_OFFICECLI_ASSET_URL_WIN_X64`
 
-临时签名 URL 必须覆盖根 manifest、release manifest、SKILL 和当前平台资产；它们过期后需要重新设置。切换到公共读 URL 后，移除这些覆盖变量并重新启动桌面端即可恢复默认路径。
+临时签名 URL 必须覆盖根 manifest、release manifest、SKILL 和当前平台资产。切换到公共读 URL 后，把配置文件字段清空或删掉对应键，重启桌面端即可恢复默认路径。
+
+## 会话产物卡
+
+桌面端 managed launcher（`profiles/local/tools/officecli/launcher.mjs`）在 `create` / `save` / `set` / `add` 等写文件类命令成功后，会追加一行：
+
+```text
+ONMYAGENT_DELIVERABLE: <path>
+```
+
+与 `artifact-runtime` 的交付标记相同，会话底部产物卡靠此注册文件。已安装用户在下次 status 检查时会自动刷新 launcher，无需重装。
 
 ## 版本更新顺序
 

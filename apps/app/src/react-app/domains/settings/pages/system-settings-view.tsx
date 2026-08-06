@@ -3,7 +3,6 @@
  * System options — security-center style: 2-column toggle cards, then stack
  * of section panels (authorizations / folders are siblings in the host).
  */
-import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
@@ -11,12 +10,10 @@ import {
   Monitor,
   Power,
   Volume2,
-  AppWindow,
 } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
 import { IconTile } from "@/components/ui/action-row";
-import { desktopBridge } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import { LayoutStack } from "../settings-layout";
@@ -27,13 +24,11 @@ export type SystemSettingsViewProps = {
   launchAtLogin: boolean;
   keepSystemAwake: boolean;
   desktopNotificationsEnabled: boolean;
-  dockUnreadBadge: boolean;
   soundNotifyOnAgentReady: boolean;
   desktopNotifyOnAgentReady: boolean;
   onLaunchAtLoginChange: (enabled: boolean) => void | Promise<void>;
   onKeepSystemAwakeChange: (enabled: boolean) => void | Promise<void>;
   onDesktopNotificationsEnabledChange: (enabled: boolean) => void | Promise<void>;
-  onDockUnreadBadgeChange: (enabled: boolean) => void | Promise<void>;
   onSoundNotifyOnAgentReadyChange: (enabled: boolean) => void | Promise<void>;
   onDesktopNotifyOnAgentReadyChange: (enabled: boolean) => void | Promise<void>;
 };
@@ -88,33 +83,10 @@ function SystemOptionCard(props: {
 
 export function SystemSettingsView(props: SystemSettingsViewProps) {
   const desktop = isDesktopRuntime();
-  const [platform, setPlatform] = useState<string>("unknown");
-
-  useEffect(() => {
-    if (!desktop) return;
-    void (async () => {
-      try {
-        const result = (await desktopBridge.checkSystemPermissions()) as {
-          platform?: string;
-        };
-        if (result?.platform) setPlatform(result.platform);
-      } catch {
-        // ignore
-      }
-    })();
-  }, [desktop]);
-
-  const badgeLabel =
-    platform === "windows"
-      ? t("settings.taskbar_unread_badge_label")
-      : t("settings.dock_unread_badge_label");
-  const badgeDesc =
-    platform === "windows"
-      ? t("settings.taskbar_unread_badge_desc")
-      : t("settings.dock_unread_badge_desc");
 
   // Launch / keep-awake IPC is owned by SystemPrefsRuntime (boot sync +
   // agent-busy linkage). Settings only writes LocalPreferences.
+  // Dock / taskbar unread badge is intentionally not exposed (always off).
   const options: OptionCard[] = [
     {
       id: "launch",
@@ -154,15 +126,6 @@ export function SystemSettingsView(props: SystemSettingsViewProps) {
         !desktop ||
         props.desktopNotificationsEnabled !== true,
       onChange: (v) => void props.onDesktopNotifyOnAgentReadyChange(v),
-    },
-    {
-      id: "badge",
-      icon: AppWindow,
-      title: badgeLabel,
-      description: badgeDesc,
-      checked: props.dockUnreadBadge,
-      disabled: props.busy || !desktop,
-      onChange: (v) => void props.onDockUnreadBadgeChange(v),
     },
     {
       id: "sound",

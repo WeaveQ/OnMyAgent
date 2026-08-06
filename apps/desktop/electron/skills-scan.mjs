@@ -74,6 +74,9 @@ export function createSkillsScan(options = {}) {
   let globalSkillRootsInflight = null;
   let defaultBuiltinSkillsEnsured = false;
 
+  /**
+   * Project-local skill roots (shown under 本地 tab, not install target).
+   */
   async function collectProjectSkillRoots(projectDir) {
     const roots = [];
     let current = path.resolve(projectDir);
@@ -99,6 +102,12 @@ export function createSkillsScan(options = {}) {
     return roots;
   }
 
+  /**
+   * Global roots for listLocalSkills:
+   * - Profile user root → 已安装 / 内置 (UI classifies by package name)
+   * - Legacy + third-party homes → 本地 tab
+   * Bundled-skills is install source only (never listed as discovered).
+   */
   async function collectGlobalSkillRoots() {
     if (globalSkillRootsCache) return globalSkillRootsCache;
     if (globalSkillRootsInflight) return globalSkillRootsInflight;
@@ -125,7 +134,6 @@ export function createSkillsScan(options = {}) {
         path.join(globalOpencodeRoot(), "skills"),
       ].filter((p) => typeof p === "string" && p.trim());
 
-      // 如果沙箱家目录和真实家目录不同，也添加真实家目录路径
       if (sandboxHome !== realHome) {
         candidates.push(
           path.join(realHome, ".config", "opencode", "skills"),
@@ -140,13 +148,11 @@ export function createSkillsScan(options = {}) {
         );
       }
 
-      // Do NOT push bundledRoot here. Bundled packages are install sources only;
-      // Agent loads skills from user/workspace roots after install (connector model).
+      // Do NOT push bundledRoot — install source only.
       void bundledRoot;
 
       for (const candidate of candidates) {
-        const isDir = await isDirectory(candidate);
-        if (isDir) {
+        if (await isDirectory(candidate)) {
           roots.push(candidate);
         }
       }
@@ -263,8 +269,10 @@ export function createSkillsScan(options = {}) {
     await ensureDefaultBuiltinSkillsOnce();
 
     const LOCALE_KEYS = [
+      "display_name",
       "display_name_zh",
       "display_name_en",
+      "description",
       "description_zh",
       "description_en",
     ];
@@ -296,8 +304,10 @@ export function createSkillsScan(options = {}) {
           trigger: extractTrigger(raw) ?? undefined,
           root,
           readonly: bundledSkillsRootPath() === root,
-          displayNameZh: localeMap.display_name_zh,
-          displayNameEn: localeMap.display_name_en,
+          // Prefer explicit zh; fall back to generic display_name (often Chinese).
+          displayNameZh:
+            localeMap.display_name_zh || localeMap.display_name || undefined,
+          displayNameEn: localeMap.display_name_en || undefined,
           descriptionZh: pickUsableSkillDescription(localeMap.description_zh),
           descriptionEn: pickUsableSkillDescription(
             localeMap.description_en,

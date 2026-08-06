@@ -1,0 +1,12 @@
+{
+  "name": "小红书爆款封面生成",
+  "installedAt": 1785919814752,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2084103311138643968",
+  "description_zh": "基于每日2000+爆款笔记数据，AI分析封面视觉规律，生成小红书爆款封面设计方案",
+  "description_en": "AI cover design for Xiaohongshu based on 2000+ daily trending notes, with visual pattern analysis.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_0d03fabf-fc0.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-cover/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_0d03fabf-fc0.svg"
+}

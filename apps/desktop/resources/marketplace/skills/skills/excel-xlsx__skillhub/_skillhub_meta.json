@@ -1,0 +1,13 @@
+{
+  "slug": "excel-xlsx",
+  "name": "Excel / XLSX",
+  "version": "1.0.2",
+  "installedAt": 1785921641828,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/27205dc2-3c4b-4854-85b1-8902f05745a3.png",
+  "labels": {
+    "requires_api_key": "false"
+  },
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/excel-xlsx__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/27205dc2-3c4b-4854-85b1-8902f05745a3.png"
+}

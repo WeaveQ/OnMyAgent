@@ -1,0 +1,22 @@
+{
+  "name": "WPS 知识库",
+  "installedAt": 1785919519503,
+  "source": "marketplace",
+  "version": "2.0.1",
+  "skillId": "skill_2076883140207054848",
+  "examples_zh": [
+    "帮我看看我的知识库里都有哪些库",
+    "在我的知识库里问一下关于年假政策的规定是什么",
+    "帮我整理一下产品文档知识库，把里面的文件按类型分类"
+  ],
+  "examples_en": [
+    "Show me all my knowledge bases",
+    "Ask my knowledge base about the annual leave policy",
+    "Organize my product docs knowledge base by file type"
+  ],
+  "description_zh": "WPS/zhishi（金山知识库）云端知识库 CLI：支持知识库列表/详情、文件树浏览、智能问答（RAG）、分享链接、创建关闭与文件 CRUD、导入上传与格式转换。通过 kwiki-cli 命令行工具管理你的云端知识库。",
+  "description_en": "WPS/zhishi cloud knowledge base CLI: list/detail, file tree browsing, smart Q&A (RAG), share links, create/close and file CRUD, import/upload and format conversion. Manage your cloud knowledge base via kwiki-cli.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2076883140207054848/030b0851a736c4a6.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/wps-knowledgebase/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2076883140207054848/030b0851a736c4a6.svg"
+}

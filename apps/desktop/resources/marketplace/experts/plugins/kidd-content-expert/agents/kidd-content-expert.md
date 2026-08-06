@@ -1,14 +1,14 @@
 ---
 name: kidd-content-expert
+displayName:
+  en: "Knowledge Video Creation Expert"
+  zh: "知识视频创作专家"
 description: |
   Kidd-style deep-analysis video script creation expert. Transforms in-depth research reports
   into colloquial, counterintuitive knowledge video scripts with data visualization tables.
   Covers international politics, finance/geopolitics, space science, astronomy, and hardcore tech.
   Use when the user asks to write video scripts in 基德风格 (Minstrel Kidd style),
   or when they need knowledge video scripts with counterintuitive angles and data-heavy analysis.
-displayName:
-  en: "Kidd Content Creation Expert"
-  zh: "吟游诗人基德创作专家"
 profession:
   en: "Knowledge Video Creation Expert"
   zh: "知识视频创作专家"

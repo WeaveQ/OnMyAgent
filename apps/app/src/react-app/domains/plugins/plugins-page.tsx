@@ -78,7 +78,7 @@ import {
   type ArtifactPluginDetailLabels,
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
-import { OfficeCliPluginSection } from "./officecli-plugin";
+import { OfficeCliPluginCard } from "./officecli-plugin";
 import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
 import {
   getExtensionConfigSlot,
@@ -172,8 +172,6 @@ const BUILTIN_EXTENSION_DISPLAY_ORDER = [
   "computer-use",
   "browser-skill",
   "onmyagent-voice",
-  "openai-image-gen",
-  "ollama",
 ] as const;
 
 function rankById(order: readonly string[], id: string): number {
@@ -209,90 +207,14 @@ const pluginsLayoutClass = {
 };
 
 function getSamplePlugins(): PluginItem[] {
+  // Recommended catalog: keep Feishu only for now.
   return [
-    {
-      id: "wordpress",
-      name: "WordPress",
-      description: t("session.plugins_desc_wordpress"),
-      category: "commerce",
-      iconKey: "wordpress",
-    },
-    {
-      id: "notion",
-      name: "Notion",
-      description: t("session.plugins_desc_notion"),
-      category: "productivity",
-      iconKey: "notion",
-    },
-    {
-      id: "microsoft365",
-      name: "Microsoft 365",
-      description: t("session.plugins_desc_microsoft365"),
-      category: "productivity",
-      iconKey: "m365",
-    },
-    {
-      id: "twitter-x",
-      name: "Twitter/X",
-      description: t("session.plugins_desc_twitter_x"),
-      category: "social",
-      iconKey: "x",
-    },
-    {
-      id: "linkedin",
-      name: "LinkedIn",
-      description: t("session.plugins_desc_linkedin"),
-      category: "social",
-      iconKey: "linkedin",
-    },
-    {
-      id: "gmail",
-      name: "Gmail",
-      description: t("session.plugins_desc_gmail"),
-      category: "communication",
-      iconKey: "gmail",
-    },
     {
       id: "feishu",
       name: t("session.plugins_name_feishu"),
       description: t("session.plugins_desc_feishu"),
       category: "communication",
       iconKey: "feishu",
-    },
-    {
-      id: "supabase",
-      name: "Supabase",
-      description: t("session.plugins_desc_supabase"),
-      category: "developer",
-      iconKey: "supabase",
-    },
-    {
-      id: "cloudflare",
-      name: "Cloudflare",
-      description: t("session.plugins_desc_cloudflare"),
-      category: "developer",
-      iconKey: "cloudflare",
-    },
-    {
-      id: "github",
-      name: "GitHub",
-      description: t("session.plugins_desc_github"),
-      category: "developer",
-      iconKey: "github",
-    },
-    {
-      id: "vercel",
-      name: "Vercel",
-      description: t("session.plugins_desc_vercel"),
-      category: "developer",
-      iconKey: "vercel",
-    },
-    {
-      id: "huggingface",
-      name: "HuggingFace",
-      description: t("session.plugins_desc_huggingface"),
-      category: "developer",
-      iconKey: "huggingface",
     },
   ];
 }
@@ -1344,10 +1266,9 @@ export function PluginsPage(props: PluginsPageProps) {
     >
       <div className={pluginsLayoutClass.scrollArea}>
         {/*
-          Three clear bands:
+          Two bands:
           1) Built-in — product extensions + file tools
-          2) Optional enhancements — managed tools installed on demand
-          3) Recommended — third-party preview catalog (flat, no nested categories)
+          2) Recommended — OfficeCLI (installable) + third-party preview catalog
         */}
         <div className={cn(pluginsLayoutClass.pluginPageContainer, "space-y-10")}>
           <section
@@ -1376,8 +1297,6 @@ export function PluginsPage(props: PluginsPageProps) {
             </div>
           </section>
 
-          <OfficeCliPluginSection />
-
           <section
             className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
             aria-labelledby="connectors-recommend-heading"
@@ -1394,6 +1313,7 @@ export function PluginsPage(props: PluginsPageProps) {
               </p>
             </div>
             <div className={pluginsLayoutClass.connectorCardGrid}>
+              <OfficeCliPluginCard />
               {samplePlugins.map((item) => (
                 <PluginCard key={item.id} item={item} />
               ))}

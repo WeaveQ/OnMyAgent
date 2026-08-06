@@ -9,7 +9,9 @@ import { test } from "node:test";
 import {
   compareOfficeCliVersions,
   createOfficeCliManager,
+  loadOfficeCliDownloadConfig,
   officeCliPlatformKey,
+  resolveOfficeCliDownloadConfigPath,
 } from "./officecli-manager.mjs";
 import { resolveLocalSkillsRoot } from "../config-profile-paths.mjs";
 
@@ -135,6 +137,7 @@ test("accepts the uploaded Alibaba OSS manifest shape with signed URL overrides"
       },
     };
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: rootUrl,
       releaseManifestUrl: releaseUrl,
@@ -167,6 +170,7 @@ test("does not expose signed URL query parameters in network errors", async () =
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-safe-error-"));
   try {
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl:
         "https://oss.test/officecli/manifest.json?OSSAccessKeyId=secret&Signature=secret",
@@ -194,6 +198,7 @@ test("publishes the refreshed status after a background update check", async () 
     const releaseManifest = release("1.0.102", binary, skill);
     const statuses = [];
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: fixtureFetch({
@@ -225,6 +230,7 @@ test("retries a transient manifest fetch before reporting an error", async () =>
     const releaseManifest = release("1.0.102", binary, skill);
     let rootAttempts = 0;
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       networkRetryCount: 2,
@@ -258,6 +264,7 @@ test("returns a typed timeout when the manifest request never completes", async 
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-timeout-"));
   try {
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       networkTimeoutMs: 10,
@@ -287,6 +294,7 @@ test("times out when a response stream stalls after its headers arrive", async (
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-stream-timeout-"));
   try {
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       networkTimeoutMs: 10,
@@ -313,6 +321,7 @@ test("streams binary downloads and reports received bytes", async () => {
     const releaseManifest = release("1.0.102", binary, skill);
     const progress = [];
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: async (input) => {
@@ -356,6 +365,7 @@ test("installs a verified OfficeCLI release and materializes the official skill"
     const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
     const releaseManifest = release("1.0.102", binary, skill);
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: fixtureFetch({
@@ -396,6 +406,7 @@ test("rejects a binary whose version only contains the requested version", async
     const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
     const releaseManifest = release("1.0.102", binary, skill);
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: fixtureFetch({
@@ -421,6 +432,7 @@ test("marks an installed runtime unusable when its binary is tampered with", asy
     const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
     const releaseManifest = release("1.0.102", binary, skill);
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: fixtureFetch({
@@ -481,6 +493,7 @@ test("selects the Windows x64 asset and launcher names", async () => {
       },
     };
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: async (input) => {
@@ -536,6 +549,7 @@ test(
       const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
       const releaseManifest = release("1.0.102", binary, skill);
       const manager = createOfficeCliManager({
+      downloadConfig: false,
         homeDir: home,
         manifestUrl: "https://oss.test/officecli/manifest.json",
         fetchImpl: fixtureFetch({
@@ -577,6 +591,7 @@ test("keeps the active release when a later update fails verification", async ()
     let binaryForLatest = binary102;
     let skillForLatest = skill102;
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: async (input) => {
@@ -649,6 +664,7 @@ test("does not overwrite a user-owned OfficeCLI skill", async () => {
     const binary = Buffer.from("officecli-1.0.102-binary");
     const releaseManifest = release("1.0.102", binary, userSkill);
     const manager = createOfficeCliManager({
+      downloadConfig: false,
       homeDir: home,
       manifestUrl: "https://oss.test/officecli/manifest.json",
       fetchImpl: fixtureFetch({
@@ -668,5 +684,122 @@ test("does not overwrite a user-owned OfficeCLI skill", async () => {
     assert.equal((await manager.getStatus()).state, "not_installed");
   } finally {
     await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("loadOfficeCliDownloadConfig reads local URL overrides from JSON", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-download-config-"));
+  try {
+    const configPath = path.join(root, "download-config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        manifestUrl: "https://oss.test/officecli/manifest.json?sig=root",
+        releaseManifestUrl: "https://oss.test/officecli/releases/1.0.143/manifest.json?sig=rel",
+        skillUrl: "https://oss.test/officecli/releases/1.0.143/SKILL.md?sig=skill",
+        assets: {
+          "officecli-mac-arm64":
+            "https://oss.test/officecli/releases/1.0.143/officecli-mac-arm64?sig=bin",
+          "officecli-mac-x64":
+            "https://oss.test/officecli/releases/1.0.143/officecli-mac-x64?sig=binx",
+        },
+      }),
+      "utf8",
+    );
+
+    const config = loadOfficeCliDownloadConfig(configPath);
+    assert.equal(
+      config.manifestUrl,
+      "https://oss.test/officecli/manifest.json?sig=root",
+    );
+    assert.equal(
+      config.releaseManifestUrl,
+      "https://oss.test/officecli/releases/1.0.143/manifest.json?sig=rel",
+    );
+    assert.equal(
+      config.skillUrl,
+      "https://oss.test/officecli/releases/1.0.143/SKILL.md?sig=skill",
+    );
+    assert.equal(
+      config.assetUrlOverrides["officecli-mac-arm64"],
+      "https://oss.test/officecli/releases/1.0.143/officecli-mac-arm64?sig=bin",
+    );
+    assert.equal(
+      resolveOfficeCliDownloadConfigPath(configPath),
+      configPath,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("installLatest uses download-config.json overrides without env injection", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-config-install-"));
+  const configRoot = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-config-file-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.143-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const rootUrl = "https://oss.test/officecli/manifest.json?root-signature";
+    const releaseUrl =
+      "https://oss.test/officecli/releases/1.0.143/manifest.json?release-signature";
+    const skillUrl =
+      "https://oss.test/officecli/releases/1.0.143/SKILL.md?skill-signature";
+    const assetUrl =
+      "https://oss.test/officecli/releases/1.0.143/officecli-mac-arm64?asset-signature";
+    const configPath = path.join(configRoot, "download-config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        manifestUrl: rootUrl,
+        releaseManifestUrl: releaseUrl,
+        skillUrl,
+        assets: { "officecli-mac-arm64": assetUrl },
+      }),
+      "utf8",
+    );
+
+    const latest = {
+      schemaVersion: 1,
+      channel: "stable",
+      latestVersion: "1.0.143",
+      releaseManifest: "releases/1.0.143/manifest.json",
+    };
+    const releaseManifest = {
+      schemaVersion: 1,
+      version: "1.0.143",
+      officecliVersion: "1.0.143",
+      skillPath: "SKILL.md",
+      assets: {
+        "officecli-mac-arm64": {
+          path: "officecli-mac-arm64",
+          sha256: sha256(binary),
+          size: binary.byteLength,
+        },
+      },
+    };
+
+    const manager = createOfficeCliManager({
+      homeDir: home,
+      downloadConfigPath: configPath,
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url === rootUrl) return jsonResponse(latest);
+        if (url === releaseUrl) return jsonResponse(releaseManifest);
+        if (url === assetUrl) return bytesResponse(binary);
+        if (url === skillUrl) return bytesResponse(skill);
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    const status = await manager.installLatest();
+    assert.equal(status.installedVersion, "1.0.143");
+    assert.equal(status.usable, true);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+    await rm(configRoot, { recursive: true, force: true });
   }
 });

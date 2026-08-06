@@ -11,8 +11,8 @@
   "expertType": "agent",
   "agentName": "ask-liuxiaopai",
   "displayName": {
-    "en": "AI Liu Xiaopai",
-    "zh": "AI 刘小排"
+    "en": "Product Advisor",
+    "zh": "产品顾问"
   },
   "profession": {
     "en": "Product Advisor",

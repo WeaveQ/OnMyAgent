@@ -1,0 +1,12 @@
+{
+  "name": "PDF图片文字提取",
+  "installedAt": 1785919654320,
+  "source": "marketplace",
+  "version": "1.1.0",
+  "skillId": "skill_2082741997694226432",
+  "description_zh": "从图片或PDF中识别提取文字，保留原始格式输出结构化结果",
+  "description_en": "Extract text from images and PDFs with structure-preserving output",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_b71a8b12-516.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/pdf-image-text-extractor/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_b71a8b12-516.svg"
+}

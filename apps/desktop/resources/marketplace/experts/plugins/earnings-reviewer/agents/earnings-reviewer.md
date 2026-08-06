@@ -1,9 +1,9 @@
 ---
 name: earnings-reviewer
-description: Processes an earnings event end to end — reads the call transcript and filings, updates the coverage model, and drafts the post-earnings note. Use when a covered name reports; for a single name interactively, or fanned out across a coverage list in batch mode.
 displayName:
-  en: "Earnings Reviewer"
-  zh: "季明辨"
+  en: "Earnings Research Expert"
+  zh: "财报研究专家"
+description: Processes an earnings event end to end — reads the call transcript and filings, updates the coverage model, and drafts the post-earnings note. Use when a covered name reports; for a single name interactively, or fanned out across a coverage list in batch mode.
 profession:
   en: "Earnings Research Associate"
   zh: "财报研究员"
