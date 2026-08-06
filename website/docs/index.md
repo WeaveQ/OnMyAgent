@@ -45,7 +45,7 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 | 页面 | 截图 |
 |------|------|
 | 首页会话 | ![首页](/images/home-session.png) |
-| 文件 | ![文件](/images/files.png) |
+| 文件 | ![文件](/images/files-list.png) |
 | 市场 · 专家 | ![市场](/images/marketplace.png) |
 
 ## 建议阅读顺序

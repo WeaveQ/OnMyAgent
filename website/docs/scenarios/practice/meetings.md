@@ -10,7 +10,7 @@ title: 实践 8：会议纪要与行动项
 
 ![主界面：新建任务、最近会话与输入区](/images/home-session.png)
 
-![文件区：验收生成的纪要与其它产物](/images/files.png)
+![文件区：验收生成的纪要与其它产物](/images/files-list.png)
 
 ## 场景与目标
 
