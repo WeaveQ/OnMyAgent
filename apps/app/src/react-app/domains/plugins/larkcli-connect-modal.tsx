@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronRight, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 
 import type { LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
 import { LARK_CLI_OPEN_PLATFORM_APP_URL } from "@onmyagent/types/lark-cli-auth";
@@ -337,57 +337,74 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         <DialogHeader className="border-b border-dls-border px-5 py-4 text-left">
           <DialogTitle>{t("plugins.larkcli_connect_title")}</DialogTitle>
           <DialogDescription>{t("plugins.larkcli_connect_subtitle")}</DialogDescription>
-          <div
-            className="mt-4 flex items-center justify-center gap-2 text-xs"
+          {/* Centered process stepper: completed / current / pending */}
+          <nav
+            className="mt-5 flex w-full items-start justify-center"
             aria-label={`${t("plugins.larkcli_step_config")} → ${t("plugins.larkcli_step_login")}`}
           >
-            {/* Step 1: active on step 1, completed once past it */}
-            <div
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium",
-                step === 1
-                  ? "border-dls-accent/40 bg-dls-accent/10 text-dls-accent"
-                  : "border-dls-status-success-border bg-dls-success-soft text-dls-success",
-              )}
-            >
-              {step === 2 ? (
-                <Check className="size-3.5 shrink-0" aria-hidden />
-              ) : (
-                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-accent text-[10px] text-white">
-                  1
+            <ol className="flex items-start gap-0">
+              {/* Step 1 */}
+              <li className="flex w-28 flex-col items-center gap-2 sm:w-32">
+                <span
+                  className={cn(
+                    "flex size-9 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4",
+                    step === 1
+                      ? "bg-dls-accent text-white ring-dls-accent/15"
+                      : "bg-dls-success text-white ring-dls-success/15",
+                  )}
+                >
+                  {step === 2 ? (
+                    <Check className="size-4" strokeWidth={2.5} aria-hidden />
+                  ) : (
+                    "1"
+                  )}
                 </span>
-              )}
-              {t("plugins.larkcli_step_config")}
-            </div>
-            <ChevronRight
-              className={cn(
-                "size-4 shrink-0",
-                step === 2 ? "text-dls-success" : "text-dls-secondary",
-              )}
-              aria-hidden
-            />
-            {/* Step 2: pending until step 1 done, then active */}
-            <div
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium",
-                step === 2
-                  ? "border-dls-accent/40 bg-dls-accent/10 text-dls-accent"
-                  : "border-dls-border bg-dls-surface text-dls-secondary",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]",
-                  step === 2
-                    ? "bg-dls-accent text-white"
-                    : "bg-dls-surface-muted text-dls-secondary",
-                )}
+                <span
+                  className={cn(
+                    "text-center text-xs font-medium leading-tight",
+                    step === 1 ? "text-dls-accent" : "text-dls-success",
+                  )}
+                >
+                  {t("plugins.larkcli_step_config")}
+                </span>
+              </li>
+
+              {/* Connector */}
+              <li
+                className="mt-[1.125rem] flex w-12 shrink-0 items-center sm:w-16"
+                aria-hidden
               >
-                2
-              </span>
-              {t("plugins.larkcli_step_login")}
-            </div>
-          </div>
+                <span
+                  className={cn(
+                    "h-0.5 w-full rounded-full",
+                    step === 2 ? "bg-dls-success" : "bg-dls-border",
+                  )}
+                />
+              </li>
+
+              {/* Step 2 */}
+              <li className="flex w-28 flex-col items-center gap-2 sm:w-32">
+                <span
+                  className={cn(
+                    "flex size-9 items-center justify-center rounded-full text-sm font-semibold ring-4",
+                    step === 2
+                      ? "bg-dls-accent text-white shadow-sm ring-dls-accent/15"
+                      : "bg-dls-surface-muted text-dls-secondary ring-transparent",
+                  )}
+                >
+                  2
+                </span>
+                <span
+                  className={cn(
+                    "text-center text-xs font-medium leading-tight",
+                    step === 2 ? "text-dls-accent" : "text-dls-secondary",
+                  )}
+                >
+                  {t("plugins.larkcli_step_login")}
+                </span>
+              </li>
+            </ol>
+          </nav>
         </DialogHeader>
 
         <div className="max-h-[min(70vh,560px)] space-y-4 overflow-y-auto px-5 py-4">
