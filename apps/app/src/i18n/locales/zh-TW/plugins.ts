@@ -151,6 +151,7 @@ export default {
   "plugins.larkcli_qr_step1": "手機掃碼後，先為飛書應用授權並取得 App ID 和 App Secret。",
   "plugins.larkcli_qr_step2": "完成後，桌面端會繼續為目前用戶端完成連線授權。",
   "plugins.larkcli_qr_waiting": "等待掃碼設定…",
+  "plugins.larkcli_qr_not_ready": "尚未偵測到應用設定，請完成掃碼後再繼續。",
   "plugins.larkcli_open_in_browser": "在瀏覽器開啟",
   "plugins.larkcli_manual_steps_title": "連線步驟",
   "plugins.larkcli_manual_step1_prefix": "登入",

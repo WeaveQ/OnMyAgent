@@ -20,6 +20,7 @@ import { SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-ro
 import {
   cancelLarkCliConfigInit,
   completeLarkCliUserLogin,
+  getLarkCliConnectionStatus,
   getLarkCliRecommendedScopesJson,
   startLarkCliConfigInit,
   startLarkCliUserLogin,
@@ -76,6 +77,22 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     setLoginSessionId(null);
   }, [props.open, props.initialStep, props.initialTab]);
 
+  const advanceToLogin = useCallback(
+    async (status?: LarkCliConnectionStatus) => {
+      if (status) props.onConnectionChange(status);
+      else {
+        try {
+          props.onConnectionChange(await getLarkCliConnectionStatus());
+        } catch {
+          // ignore
+        }
+      }
+      setStep(2);
+      setLoginSessionId(null);
+    },
+    [props],
+  );
+
   useEffect(() => {
     if (!props.open) return undefined;
     return subscribeLarkCliAuthProgress((progress) => {
@@ -83,6 +100,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         if (progress.operation === "config_init") {
           setConfigUrl(progress.verificationUrl);
           if (progress.qrcodeDataUrl) setConfigQr(progress.qrcodeDataUrl);
+          setBusy(false);
         }
         if (progress.operation === "user_login") {
           setLoginUrl(progress.verificationUrl);
@@ -90,14 +108,21 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         }
       }
       if (progress.phase === "complete" && progress.operation === "config_init") {
-        setStep(2);
+        void advanceToLogin();
       }
-      if (progress.phase === "error" && progress.errorMessage) {
-        setError(progress.errorMessage);
+      if (
+        progress.phase === "error" &&
+        progress.operation === "config_init" &&
+        progress.errorMessage
+      ) {
+        // Do not surface cancel as hard error when switching tabs.
+        if (progress.errorCode !== "config_init_failed" || progress.phase === "error") {
+          setError(progress.errorMessage);
+        }
         setBusy(false);
       }
     });
-  }, [props.open]);
+  }, [props.open, advanceToLogin]);
 
   const startLoginFlow = useCallback(async () => {
     setBusy(true);
@@ -122,9 +147,10 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     void startLoginFlow();
   }, [props.open, step, loginSessionId, startLoginFlow]);
 
+  // Start config init once per open+QR tab. Do NOT depend on configUrl —
+  // otherwise setting the URL re-runs cleanup and kills the waiting process.
   useEffect(() => {
     if (!props.open || step !== 1 || tab !== "qr") return;
-    if (configUrl) return;
     let cancelled = false;
     (async () => {
       setBusy(true);
@@ -135,7 +161,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         if (result.verificationUrl) setConfigUrl(result.verificationUrl);
         if (result.qrcodeDataUrl) setConfigQr(result.qrcodeDataUrl);
         if (!result.pending && result.exitCode === 0) {
-          setStep(2);
+          await advanceToLogin();
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -147,7 +173,35 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       cancelled = true;
       void cancelLarkCliConfigInit();
     };
-  }, [props.open, step, tab, configUrl]);
+  }, [props.open, step, tab, advanceToLogin]);
+
+  // Backup: poll local CLI config until app credentials appear after scan.
+  useEffect(() => {
+    if (!props.open || step !== 1 || tab !== "qr" || !configUrl) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const status = await getLarkCliConnectionStatus();
+        if (stopped) return;
+        if (
+          status.phase === "connected_not_logged_in" ||
+          status.phase === "connected_logged_in"
+        ) {
+          await advanceToLogin(status);
+        }
+      } catch {
+        // keep waiting
+      }
+    };
+    const id = window.setInterval(() => {
+      void tick();
+    }, 2000);
+    void tick();
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [props.open, step, tab, configUrl, advanceToLogin]);
 
   const handleClose = (open: boolean) => {
     if (!open) {
@@ -176,10 +230,8 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         appSecret: appSecret.trim(),
         brand: "feishu",
       });
-      props.onConnectionChange(status);
       setAppSecret("");
-      setStep(2);
-      setLoginSessionId(null);
+      await advanceToLogin(status);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -432,7 +484,27 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                   size="sm"
                   variant="outline"
                   disabled={busy}
-                  onClick={() => setStep(2)}
+                  onClick={() => {
+                    void (async () => {
+                      setBusy(true);
+                      setError(null);
+                      try {
+                        const status = await getLarkCliConnectionStatus();
+                        if (
+                          status.phase === "connected_not_logged_in" ||
+                          status.phase === "connected_logged_in"
+                        ) {
+                          await advanceToLogin(status);
+                        } else {
+                          setError(t("plugins.larkcli_qr_not_ready"));
+                        }
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : String(e));
+                      } finally {
+                        setBusy(false);
+                      }
+                    })();
+                  }}
                 >
                   {t("plugins.larkcli_continue")}
                 </Button>
