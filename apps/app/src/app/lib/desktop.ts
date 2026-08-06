@@ -152,6 +152,12 @@ declare global {
         ) => () => void;
         onStatus?: (callback: (status: OfficeCliStatus) => void) => () => void;
       };
+      larkCli?: {
+        onProgress?: (
+          callback: (progress: OfficeCliProgress) => void,
+        ) => () => void;
+        onStatus?: (callback: (status: OfficeCliStatus) => void) => () => void;
+      };
       migration?: {
         readSnapshot?: () => Promise<unknown>;
         ackSnapshot?: () => Promise<{ ok: boolean; moved: boolean }>;
@@ -776,6 +782,27 @@ export function subscribeOfficeCliStatus(
   callback: (status: OfficeCliStatus) => void,
 ) {
   return window.__ONMYAGENT_ELECTRON__?.officeCli?.onStatus?.(callback) ?? (() => undefined);
+}
+
+export const getLarkCliStatus = (options?: { forceRefresh?: boolean }) =>
+  invokeDesktopCommand("larkCliGetStatus", options);
+
+export const installLarkCli = (): Promise<OfficeCliStatus> =>
+  invokeDesktopCommand("larkCliInstallLatest");
+
+export const uninstallLarkCli = (): Promise<OfficeCliStatus> =>
+  invokeDesktopCommand("larkCliUninstall");
+
+export function subscribeLarkCliProgress(
+  callback: (progress: OfficeCliProgress) => void,
+) {
+  return window.__ONMYAGENT_ELECTRON__?.larkCli?.onProgress?.(callback) ?? (() => undefined);
+}
+
+export function subscribeLarkCliStatus(
+  callback: (status: OfficeCliStatus) => void,
+) {
+  return window.__ONMYAGENT_ELECTRON__?.larkCli?.onStatus?.(callback) ?? (() => undefined);
 }
 
 // ---------------------------------------------------------------------------

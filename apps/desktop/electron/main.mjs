@@ -101,6 +101,7 @@ import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
 import { createOfficeCliManager } from "./managed-tools/officecli-manager.mjs";
+import { createLarkCliManager } from "./managed-tools/lark-cli-manager.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 import { createSkillsScan } from "./skills-scan.mjs";
 import {
@@ -946,6 +947,19 @@ const officeCliManager = createOfficeCliManager({
   },
 });
 
+const larkCliManager = createLarkCliManager({
+  homeDir: getRealHomeDir(),
+  refreshSkillLinks: refreshRuntimeSkillLinks,
+  onProgress: (progress) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:lark-cli:progress", progress);
+  },
+  onStatus: (status) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:lark-cli:status", status);
+  },
+});
+
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
 // singleton event bus is shared by every channel service's dispatcher, so a
@@ -1196,6 +1210,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   isBundledSkillPath,
   refreshRuntimeSkillLinks,
   officeCliManager,
+  larkCliManager,
   // system
   userAgentRegistryPath,
   getRealHomeDir,
@@ -1494,6 +1509,7 @@ if (!app.requestSingleInstanceLock()) {
     // background check makes a later OSS version visible as “Update” without
     // requiring a renderer reload or a manual command.
     void officeCliManager.checkForUpdates(false);
+    void larkCliManager.checkForUpdates(false);
   });
 
   app.on("activate", async () => {
