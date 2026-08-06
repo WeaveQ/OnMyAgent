@@ -65,7 +65,7 @@ export default {
     "Install OfficeCLI when you need it. The files stay in the user directory, so the desktop installer stays small; new regular and expert sessions can use it immediately after installation.",
   "plugins.officecli_title": "OfficeCLI",
   "plugins.officecli_description":
-    "Official document tooling for reading, presenting, editing, creating, and merging Office files.",
+    "Create, analyze, proofread, and edit Office documents (.docx, .xlsx, .pptx) via chat or Agent.",
   "plugins.officecli_checking": "Checking OfficeCLI status",
   "plugins.officecli_not_installed_hint": "Not installed yet. Install it to enable the tool.",
   "plugins.officecli_installed_hint": "Version {version} is installed and ready for new sessions.",
@@ -100,7 +100,7 @@ export default {
   "plugins.officecli_error_hint": "OfficeCLI could not be installed or updated. Check the network and try again.",
   "plugins.larkcli_title": "Feishu CLI",
   "plugins.larkcli_description":
-    "Official Lark/Feishu CLI for messages, docs, calendar, base, mail, tasks, meetings, and more.",
+    "Manage full Feishu/Lark capabilities via chat or Agent: messaging, mail, calendar, docs, sheets, Base, slides, whiteboard, wiki, drive, minutes, meetings, tasks, approval, attendance, contacts, OKR, and more.",
   "plugins.larkcli_checking": "Checking Feishu CLI status",
   "plugins.larkcli_not_installed_hint": "Not installed yet. Install it to enable the tool.",
   "plugins.larkcli_installed_hint": "Version {version} is installed and ready for new sessions.",
@@ -171,9 +171,11 @@ export default {
   "plugins.larkcli_manual_step5": "Enter App ID and App Secret below",
   "plugins.larkcli_continue": "Continue",
   "plugins.larkcli_skip_for_now": "Skip for now",
-  "plugins.larkcli_login_hint":
-    "Scan with Feishu or open the link to authorize. The dialog closes automatically when sign-in succeeds.",
-  "plugins.larkcli_login_waiting": "Waiting for scan… closes automatically on success",
-  "plugins.larkcli_skip_login": "Skip sign-in",
-  "plugins.larkcli_i_authorized": "I have authorized",
+  "plugins.larkcli_login_howto_title": "How to authorize",
+  "plugins.larkcli_login_step1":
+    "Option 1: Scan with Feishu to sign in and access or operate your related data.",
+  "plugins.larkcli_login_step2_prefix": "Option 2: ",
+  "plugins.larkcli_login_step2_link": "open the browser for sign-in authorization",
+  "plugins.larkcli_login_step2_suffix": ".",
+  "plugins.larkcli_login_waiting": "Waiting for scan to complete sign-in…",
 } as const;

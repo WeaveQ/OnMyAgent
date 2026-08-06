@@ -84,7 +84,8 @@ import { fileURLToPath } from "node:url";
 const root = path.dirname(fileURLToPath(import.meta.url));
 const statePath = path.join(root, "state.json");
 const state = JSON.parse(readFileSync(statePath, "utf8"));
-if (!/^\d+\.\d+\.\d+$/.test(String(state.activeVersion ?? ""))) {
+// Escape \\d / \\. for template literal so written launcher keeps real digit regex.
+if (!/^\\d+\\.\\d+\\.\\d+$/.test(String(state.activeVersion ?? ""))) {
   throw new Error("Invalid lark-cli active version");
 }
 if (!/^lark-cli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? ""))) {

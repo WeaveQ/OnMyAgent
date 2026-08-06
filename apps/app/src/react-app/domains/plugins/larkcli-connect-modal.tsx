@@ -2,7 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 
-import type { LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
+import type {
+  LarkCliAuthProgress,
+  LarkCliConnectionStatus,
+} from "@onmyagent/types/lark-cli-auth";
 import { LARK_CLI_OPEN_PLATFORM_APP_URL } from "@onmyagent/types/lark-cli-auth";
 
 import { Button } from "@/components/ui/button";
@@ -16,10 +19,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import {
   cancelLarkCliConfigInit,
-  completeLarkCliUserLogin,
   getLarkCliConnectionStatus,
   getLarkCliRecommendedScopesJson,
   startLarkCliConfigInit,
@@ -45,6 +47,48 @@ type ConfigTab = "qr" | "manual";
 const clickableTextClassName =
   "mac:titlebar-no-drag inline-flex items-center gap-1 font-medium text-dls-accent underline underline-offset-2 transition-opacity hover:opacity-80";
 
+/** Timeouts / expired waits → silent QR refresh, not a scary banner. */
+function isTransientAuthFailure(
+  code?: string | null,
+  message?: string | null,
+): boolean {
+  if (
+    code === "network_timeout" ||
+    code === "device_code_expired" ||
+    code === "login_session_missing" ||
+    // QR wait process ended without credentials — issue a new code instead of dumping exit text.
+    code === "config_init_failed"
+  ) {
+    return true;
+  }
+  if (!message) return false;
+  // Only match real wait timeouts — not every CLI string that mentions "device code".
+  return /authorization wait timed out|lark-cli timed out|network_timeout|config init exited/i.test(
+    message,
+  );
+}
+
+function errorCodeFromUnknown(error: unknown): string | null {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" && code.length > 0 ? code : null;
+  }
+  return null;
+}
+
+function messageFromUnknown(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Only surface clear product failures; drop CLI dumps / secrets. */
+function userFacingAuthError(message: string): string | null {
+  const trimmed = message.trim();
+  if (!trimmed) return null;
+  if (isTransientAuthFailure(null, trimmed)) return null;
+  if (/--device-code|auth login|config init --new/i.test(trimmed)) return null;
+  return trimmed;
+}
+
 export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
   const [step, setStep] = useState<1 | 2>(props.initialStep ?? 1);
   const [tab, setTab] = useState<ConfigTab>(props.initialTab ?? "qr");
@@ -54,6 +98,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
   // Step 1 QR
   const [configUrl, setConfigUrl] = useState<string | null>(null);
   const [configQr, setConfigQr] = useState<string | null>(null);
+  const [configRefreshKey, setConfigRefreshKey] = useState(0);
 
   // Step 1 manual
   const [appId, setAppId] = useState("");
@@ -63,8 +108,33 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
   // Step 2 login
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [loginQr, setLoginQr] = useState<string | null>(null);
-  const [loginSessionId, setLoginSessionId] = useState<string | null>(null);
+  const [loginRefreshKey, setLoginRefreshKey] = useState(0);
   const loginStartedRef = useRef(false);
+  const loginRefreshTimerRef = useRef<number | null>(null);
+  const configRefreshTimerRef = useRef<number | null>(null);
+
+  const scheduleLoginRefresh = useCallback(() => {
+    if (loginRefreshTimerRef.current != null) return;
+    loginRefreshTimerRef.current = window.setTimeout(() => {
+      loginRefreshTimerRef.current = null;
+      loginStartedRef.current = false;
+      setError(null);
+      setLoginUrl(null);
+      setLoginQr(null);
+      setLoginRefreshKey((key) => key + 1);
+    }, 400);
+  }, []);
+
+  const scheduleConfigRefresh = useCallback(() => {
+    if (configRefreshTimerRef.current != null) return;
+    configRefreshTimerRef.current = window.setTimeout(() => {
+      configRefreshTimerRef.current = null;
+      setError(null);
+      setConfigUrl(null);
+      setConfigQr(null);
+      setConfigRefreshKey((key) => key + 1);
+    }, 400);
+  }, []);
 
   useEffect(() => {
     if (!props.open) return;
@@ -79,9 +149,21 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     setConfigQr(null);
     setLoginUrl(null);
     setLoginQr(null);
-    setLoginSessionId(null);
+    setConfigRefreshKey(0);
+    setLoginRefreshKey(0);
     loginStartedRef.current = false;
   }, [props.open, props.initialStep, props.initialTab]);
+
+  useEffect(() => {
+    return () => {
+      if (loginRefreshTimerRef.current != null) {
+        window.clearTimeout(loginRefreshTimerRef.current);
+      }
+      if (configRefreshTimerRef.current != null) {
+        window.clearTimeout(configRefreshTimerRef.current);
+      }
+    };
+  }, []);
 
   const advanceToLogin = useCallback(
     async (status?: LarkCliConnectionStatus) => {
@@ -94,7 +176,6 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         }
       }
       setStep(2);
-      setLoginSessionId(null);
       loginStartedRef.current = false;
     },
     [props],
@@ -115,7 +196,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
 
   useEffect(() => {
     if (!props.open) return undefined;
-    return subscribeLarkCliAuthProgress((progress) => {
+    return subscribeLarkCliAuthProgress((progress: LarkCliAuthProgress) => {
       if (progress.verificationUrl) {
         if (progress.operation === "config_init") {
           setConfigUrl(progress.verificationUrl);
@@ -133,14 +214,35 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       if (progress.phase === "complete" && progress.operation === "user_login") {
         void finishLoginSuccess();
       }
+      if (
+        progress.phase === "expired" ||
+        (progress.phase === "error" &&
+          isTransientAuthFailure(progress.errorCode, progress.errorMessage))
+      ) {
+        setBusy(false);
+        setError(null);
+        if (progress.operation === "user_login") scheduleLoginRefresh();
+        if (progress.operation === "config_init") scheduleConfigRefresh();
+        return;
+      }
       if (progress.phase === "error" && progress.errorMessage) {
-        if (progress.operation === "user_login" || progress.operation === "config_init") {
-          setError(progress.errorMessage);
+        if (
+          progress.operation === "user_login" ||
+          progress.operation === "config_init"
+        ) {
+          const facing = userFacingAuthError(progress.errorMessage);
+          if (facing) setError(facing);
         }
         setBusy(false);
       }
     });
-  }, [props.open, advanceToLogin, finishLoginSuccess]);
+  }, [
+    props.open,
+    advanceToLogin,
+    finishLoginSuccess,
+    scheduleLoginRefresh,
+    scheduleConfigRefresh,
+  ]);
 
   const startLoginFlow = useCallback(async () => {
     if (loginStartedRef.current) return;
@@ -150,37 +252,36 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     setLoginUrl(null);
     setLoginQr(null);
     try {
+      // Main process starts a long-lived device-code wait (up to 15 min) in the
+      // background and emits auth-progress. Do NOT await completeUserLogin here —
+      // that reuses a rejected promise after a prior timeout and looks "instant".
       const started = await startLarkCliUserLogin();
       if (started.alreadyLoggedIn) {
         await finishLoginSuccess();
         return;
       }
-      setLoginSessionId(started.sessionId);
       setLoginUrl(started.verificationUrl);
       setLoginQr(started.qrcodeDataUrl);
-      // Background device-code poll is already running in main; also wait here
-      // so the button path / IPC errors surface if background fails.
-      if (started.sessionId) {
-        void completeLarkCliUserLogin(started.sessionId)
-          .then((status) => finishLoginSuccess(status))
-          .catch((e) => {
-            setError(e instanceof Error ? e.message : String(e));
-            setBusy(false);
-          });
-      }
     } catch (e) {
       loginStartedRef.current = false;
-      setError(e instanceof Error ? e.message : String(e));
+      const code = errorCodeFromUnknown(e);
+      const message = messageFromUnknown(e);
+      if (isTransientAuthFailure(code, message)) {
+        scheduleLoginRefresh();
+        return;
+      }
+      const facing = userFacingAuthError(message);
+      if (facing) setError(facing);
     } finally {
       setBusy(false);
     }
-  }, [finishLoginSuccess]);
+  }, [finishLoginSuccess, scheduleLoginRefresh]);
 
   useEffect(() => {
     if (!props.open || step !== 2) return;
     if (loginStartedRef.current) return;
     void startLoginFlow();
-  }, [props.open, step, startLoginFlow]);
+  }, [props.open, step, startLoginFlow, loginRefreshKey]);
 
   // Step 2: poll until user token is valid, then close modal + refresh card.
   // Complements main-process device-code poll / auth-progress events.
@@ -208,8 +309,9 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     };
   }, [props.open, step, finishLoginSuccess]);
 
-  // Start config init once per open+QR tab. Do NOT depend on configUrl —
-  // otherwise setting the URL re-runs cleanup and kills the waiting process.
+  // Start config init once per open+QR tab (or silent refresh after timeout).
+  // Do NOT depend on configUrl — otherwise setting the URL re-runs cleanup
+  // and kills the waiting process.
   useEffect(() => {
     if (!props.open || step !== 1 || tab !== "qr") return;
     let cancelled = false;
@@ -225,7 +327,16 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
           await advanceToLogin();
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (cancelled) return;
+        const code = errorCodeFromUnknown(e);
+        const message = messageFromUnknown(e);
+        if (isTransientAuthFailure(code, message) || code === "busy") {
+          // busy = previous child still tearing down — retry shortly.
+          scheduleConfigRefresh();
+          return;
+        }
+        const facing = userFacingAuthError(message);
+        if (facing) setError(facing);
       } finally {
         if (!cancelled) setBusy(false);
       }
@@ -234,7 +345,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       cancelled = true;
       void cancelLarkCliConfigInit();
     };
-  }, [props.open, step, tab, advanceToLogin]);
+  }, [props.open, step, tab, advanceToLogin, configRefreshKey, scheduleConfigRefresh]);
 
   // Backup: poll local CLI config until app credentials appear after scan.
   useEffect(() => {
@@ -300,37 +411,6 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     }
   };
 
-  const handleLoginComplete = async () => {
-    if (!loginSessionId) {
-      // Background poll may already have finished; re-check status.
-      try {
-        const status = await getLarkCliConnectionStatus();
-        if (status.phase === "connected_logged_in") {
-          await finishLoginSuccess(status);
-          return;
-        }
-      } catch {
-        // fall through
-      }
-      setError(t("plugins.larkcli_login_waiting"));
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const status = await completeLarkCliUserLogin(loginSessionId);
-      await finishLoginSuccess(status);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSkipLogin = () => {
-    props.onOpenChange(false);
-  };
-
   return (
     <Dialog open={props.open} onOpenChange={handleClose}>
       <DialogContent className="max-w-xl gap-0 p-0 sm:max-w-2xl">
@@ -343,14 +423,14 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
             aria-label={`${t("plugins.larkcli_step_config")} → ${t("plugins.larkcli_step_login")}`}
           >
             <ol className="flex items-start gap-0">
-              {/* Step 1 */}
+              {/* Step 1 — completed: solid green circle + check (same size-9 as number). */}
               <li className="flex w-28 flex-col items-center gap-2 sm:w-32">
                 <span
                   className={cn(
-                    "flex size-9 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4",
+                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4",
                     step === 1
                       ? "bg-dls-accent text-white ring-dls-accent/15"
-                      : "bg-dls-success text-white ring-dls-success/15",
+                      : "bg-dls-status-success-fg text-white ring-dls-status-success-fg/20",
                   )}
                 >
                   {step === 2 ? (
@@ -362,33 +442,43 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                 <span
                   className={cn(
                     "text-center text-xs font-medium leading-tight",
-                    step === 1 ? "text-dls-accent" : "text-dls-success",
+                    step === 1
+                      ? "text-dls-accent"
+                      : "text-dls-status-success-fg",
                   )}
                 >
                   {t("plugins.larkcli_step_config")}
                 </span>
               </li>
 
-              {/* Connector */}
+              {/* Connector: single shaft + arrowhead (no gap); green when step 1 done. */}
               <li
                 className="mt-[1.125rem] flex w-12 shrink-0 items-center sm:w-16"
                 aria-hidden
               >
                 <span
                   className={cn(
-                    "h-0.5 w-full rounded-full",
-                    step === 2 ? "bg-dls-success" : "bg-dls-border",
+                    "relative block h-0.5 w-full rounded-full",
+                    step === 2
+                      ? "bg-dls-status-success-fg"
+                      : "bg-dls-border-strong",
+                    // Arrowhead flush with the shaft end.
+                    "after:absolute after:end-0 after:top-1/2 after:size-0 after:-translate-y-1/2",
+                    "after:border-y-[4px] after:border-y-transparent after:border-s-[6px]",
+                    step === 2
+                      ? "after:border-s-dls-status-success-fg"
+                      : "after:border-s-dls-border-strong",
                   )}
                 />
               </li>
 
-              {/* Step 2 */}
+              {/* Step 2 — same circle size; green+check only if ever shown completed. */}
               <li className="flex w-28 flex-col items-center gap-2 sm:w-32">
                 <span
                   className={cn(
-                    "flex size-9 items-center justify-center rounded-full text-sm font-semibold ring-4",
+                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4",
                     step === 2
-                      ? "bg-dls-accent text-white shadow-sm ring-dls-accent/15"
+                      ? "bg-dls-accent text-white ring-dls-accent/15"
                       : "bg-dls-surface-muted text-dls-secondary ring-transparent",
                   )}
                 >
@@ -417,11 +507,20 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
           {step === 1 ? (
             <>
               <div className="flex justify-center">
-                <SegmentedTabGroup className="w-full max-w-md rounded-xl border border-dls-border bg-dls-surface-muted/50 p-1 shadow-sm">
-                  <SegmentedTabButton
-                    size="tab"
+                <SegmentedTabGroup density="filter" className="w-full max-w-md">
+                  <NavTabButton
+                    type="button"
                     active={tab === "qr"}
-                    className="flex-1"
+                    size="tab"
+                    shape="tab"
+                    data-active={tab === "qr" ? "true" : undefined}
+                    aria-pressed={tab === "qr"}
+                    className={cn(
+                      "min-h-0 flex-1",
+                      // Soft wash fills the track segment; inverted black blends into dialog surface.
+                      tab === "qr" &&
+                        "!bg-dls-list-selected !text-dls-text shadow-none hover:!bg-dls-list-selected",
+                    )}
                     onClick={() => {
                       setTab("qr");
                       setConfigUrl(null);
@@ -429,91 +528,97 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     }}
                   >
                     {t("plugins.larkcli_tab_qr")}
-                  </SegmentedTabButton>
-                  <SegmentedTabButton
-                    size="tab"
+                  </NavTabButton>
+                  <NavTabButton
+                    type="button"
                     active={tab === "manual"}
-                    className="flex-1"
+                    size="tab"
+                    shape="tab"
+                    data-active={tab === "manual" ? "true" : undefined}
+                    aria-pressed={tab === "manual"}
+                    className={cn(
+                      "min-h-0 flex-1",
+                      tab === "manual" &&
+                        "!bg-dls-list-selected !text-dls-text shadow-none hover:!bg-dls-list-selected",
+                    )}
                     onClick={() => {
                       setTab("manual");
                       void cancelLarkCliConfigInit();
                     }}
                   >
                     {t("plugins.larkcli_tab_manual")}
-                  </SegmentedTabButton>
+                  </NavTabButton>
                 </SegmentedTabGroup>
               </div>
 
               {tab === "qr" ? (
-                <div className="overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
-                  <div className="grid gap-0 sm:grid-cols-[1fr_auto]">
-                    <div className="space-y-3 border-b border-dls-border p-5 sm:border-b-0 sm:border-r">
-                      <p className="text-sm font-semibold text-dls-text">
-                        {t("plugins.larkcli_qr_howto_title")}
-                      </p>
-                      <ul className="space-y-3 text-sm leading-relaxed text-dls-secondary">
-                        <li className="flex gap-2.5">
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
-                            1
-                          </span>
-                          <span>{t("plugins.larkcli_qr_step1")}</span>
-                        </li>
-                        <li className="flex gap-2.5">
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
-                            2
-                          </span>
-                          <span>
-                            {t("plugins.larkcli_qr_step2_prefix")}
-                            <button
-                              type="button"
-                              disabled={!configUrl}
-                              className={cn(
-                                clickableTextClassName,
-                                !configUrl && "cursor-not-allowed opacity-50 no-underline",
-                              )}
-                              onClick={() => {
-                                if (!configUrl) return;
-                                window.open(configUrl, "_blank", "noopener,noreferrer");
-                              }}
-                            >
-                              {t("plugins.larkcli_qr_step2_link")}
-                              <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                            </button>
-                            {t("plugins.larkcli_qr_step2_suffix")}
-                          </span>
-                        </li>
-                        <li className="flex gap-2.5">
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
-                            3
-                          </span>
-                          <span>{t("plugins.larkcli_qr_step3")}</span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="flex flex-col items-center justify-center gap-3 bg-dls-surface-muted/30 px-6 py-6">
-                      <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
-                        {configQr ? (
-                          <img
-                            src={configQr}
-                            alt=""
-                            className="size-44 rounded-lg"
-                          />
-                        ) : (
-                          <div className="flex size-44 items-center justify-center">
-                            {busy ? (
-                              <Loader2 className="size-8 animate-spin text-dls-secondary" />
-                            ) : (
-                              <span className="px-3 text-center text-xs text-dls-secondary">
-                                {t("plugins.larkcli_qr_waiting")}
-                              </span>
+                <div className="space-y-5 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-dls-text">
+                      {t("plugins.larkcli_qr_howto_title")}
+                    </p>
+                    <ul className="space-y-3 text-sm leading-relaxed text-dls-secondary">
+                      <li className="flex gap-2.5">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                          1
+                        </span>
+                        <span>{t("plugins.larkcli_qr_step1")}</span>
+                      </li>
+                      <li className="flex gap-2.5">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                          2
+                        </span>
+                        <span>
+                          {t("plugins.larkcli_qr_step2_prefix")}
+                          <button
+                            type="button"
+                            disabled={!configUrl}
+                            className={cn(
+                              clickableTextClassName,
+                              !configUrl && "cursor-not-allowed opacity-50 no-underline",
                             )}
-                          </div>
-                        )}
-                      </div>
-                      <p className="max-w-[12rem] text-center text-xs text-dls-secondary">
-                        {t("plugins.larkcli_qr_waiting")}
-                      </p>
+                            onClick={() => {
+                              if (!configUrl) return;
+                              window.open(configUrl, "_blank", "noopener,noreferrer");
+                            }}
+                          >
+                            {t("plugins.larkcli_qr_step2_link")}
+                            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                          </button>
+                          {t("plugins.larkcli_qr_step2_suffix")}
+                        </span>
+                      </li>
+                      <li className="flex gap-2.5">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                          3
+                        </span>
+                        <span>{t("plugins.larkcli_qr_step3")}</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
+                      {configQr ? (
+                        <img
+                          src={configQr}
+                          alt=""
+                          className="size-40 rounded-lg"
+                        />
+                      ) : (
+                        <div className="flex size-40 items-center justify-center">
+                          {busy ? (
+                            <Loader2 className="size-8 animate-spin text-dls-secondary" />
+                          ) : (
+                            <span className="px-3 text-center text-xs text-dls-secondary">
+                              {t("plugins.larkcli_qr_waiting")}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
+                    <p className="max-w-xs text-center text-xs text-dls-secondary">
+                      {t("plugins.larkcli_qr_waiting")}
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -633,16 +738,50 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               )}
             </>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
-              <div className="flex flex-col items-center gap-4 px-6 py-8">
-                <p className="max-w-md text-center text-sm text-dls-secondary">
-                  {t("plugins.larkcli_login_hint")}
+            <div className="space-y-5 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-dls-text">
+                  {t("plugins.larkcli_login_howto_title")}
                 </p>
+                <ul className="space-y-3 text-sm leading-relaxed text-dls-secondary">
+                  <li className="flex gap-2.5">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                      1
+                    </span>
+                    <span>{t("plugins.larkcli_login_step1")}</span>
+                  </li>
+                  <li className="flex gap-2.5">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                      2
+                    </span>
+                    <span>
+                      {t("plugins.larkcli_login_step2_prefix")}
+                      <button
+                        type="button"
+                        disabled={!loginUrl}
+                        className={cn(
+                          clickableTextClassName,
+                          !loginUrl && "cursor-not-allowed opacity-50 no-underline",
+                        )}
+                        onClick={() => {
+                          if (!loginUrl) return;
+                          window.open(loginUrl, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        {t("plugins.larkcli_login_step2_link")}
+                        <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                      </button>
+                      {t("plugins.larkcli_login_step2_suffix")}
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <div className="flex flex-col items-center justify-center gap-3">
                 <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
                   {loginQr ? (
-                    <img src={loginQr} alt="" className="size-44 rounded-lg" />
+                    <img src={loginQr} alt="" className="size-40 rounded-lg" />
                   ) : (
-                    <div className="flex size-44 items-center justify-center">
+                    <div className="flex size-40 items-center justify-center">
                       {busy ? (
                         <Loader2 className="size-8 animate-spin text-dls-secondary" />
                       ) : (
@@ -653,39 +792,13 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     </div>
                   )}
                 </div>
-                {loginUrl ? (
-                  <button
-                    type="button"
-                    className={cn(clickableTextClassName, "text-xs")}
-                    onClick={() => {
-                      window.open(loginUrl, "_blank", "noopener,noreferrer");
-                    }}
-                  >
-                    <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                    {t("plugins.larkcli_open_in_browser")}
-                  </button>
-                ) : null}
+                <p className="max-w-xs text-center text-xs text-dls-secondary">
+                  {t("plugins.larkcli_login_waiting")}
+                </p>
               </div>
             </div>
           )}
         </div>
-
-        {/* Footer only for step 2 — step 1 has no bottom bar (avoids empty divider). */}
-        {step === 2 ? (
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-dls-border px-5 py-3">
-            <Button size="sm" variant="ghost" disabled={busy} onClick={handleSkipLogin}>
-              {t("plugins.larkcli_skip_login")}
-            </Button>
-            <Button
-              size="sm"
-              disabled={busy || !loginSessionId}
-              onClick={() => void handleLoginComplete()}
-            >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {t("plugins.larkcli_i_authorized")}
-            </Button>
-          </div>
-        ) : null}
       </DialogContent>
     </Dialog>
   );

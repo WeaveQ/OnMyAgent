@@ -65,7 +65,7 @@ export default {
     "按需安装 OfficeCLI。文件保存在用户目录，不会增加桌面端安装包体积；安装完成后，新的普通会话和专家会话都可以直接使用。",
   "plugins.officecli_title": "OfficeCLI",
   "plugins.officecli_description":
-    "官方文档处理工具，支持读取、展示、修改、创建和合并 Office 文件。",
+    "通过对话或Agent创建、分析、校对和修改 Office 文档（.docx、.xlsx、.pptx）",
   "plugins.officecli_checking": "正在检查 OfficeCLI 状态",
   "plugins.officecli_not_installed_hint": "尚未安装，点击安装即可启用。",
   "plugins.officecli_installed_hint": "已安装版本 {version}，新的会话可直接使用。",
@@ -101,7 +101,7 @@ export default {
   "plugins.officecli_error_hint": "OfficeCLI 安装或更新失败，请检查网络后重试。",
   "plugins.larkcli_title": "飞书 CLI",
   "plugins.larkcli_description":
-    "官方飞书/Lark CLI，覆盖消息、文档、日历、多维表格、邮箱、任务、会议等。",
+    "通过对话或Agent管理飞书/Lark 全产品能力：即时通讯、邮箱、日历、云文档、电子表格、多维表格（Base）、幻灯片、画板、知识库、云空间、妙记、视频会议、任务、审批、考勤、通讯录、OKR 等。",
   "plugins.larkcli_checking": "正在检查飞书 CLI 状态",
   "plugins.larkcli_not_installed_hint": "尚未安装，点击安装即可启用。",
   "plugins.larkcli_installed_hint": "已安装版本 {version}，新的会话可直接使用。",
@@ -172,9 +172,11 @@ export default {
   "plugins.larkcli_manual_step5": "在下方填写 App ID 和 App Secret 完成连接",
   "plugins.larkcli_continue": "继续",
   "plugins.larkcli_skip_for_now": "暂时跳过",
-  "plugins.larkcli_login_hint":
-    "使用飞书扫码或打开链接完成用户授权。授权成功后将自动关闭并显示已登录。",
-  "plugins.larkcli_login_waiting": "等待扫码授权，成功后自动关闭…",
-  "plugins.larkcli_skip_login": "跳过登录",
-  "plugins.larkcli_i_authorized": "我已完成授权",
+  "plugins.larkcli_login_howto_title": "授权方式",
+  "plugins.larkcli_login_step1":
+    "方式一：使用飞书扫码登录授权访问和操作你的相关数据。",
+  "plugins.larkcli_login_step2_prefix": "方式二：",
+  "plugins.larkcli_login_step2_link": "打开浏览器进行登录授权",
+  "plugins.larkcli_login_step2_suffix": "。",
+  "plugins.larkcli_login_waiting": "等待扫码进行登录授权…",
 } as const;

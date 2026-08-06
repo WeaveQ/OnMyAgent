@@ -175,19 +175,6 @@ function primaryActionIcon(action: OfficeCliPrimaryAction) {
   }
 }
 
-function officeCliVersionSummary(status: OfficeCliStatus): string {
-  if (!status.installedVersion) return t("plugins.officecli_not_installed_hint");
-  if (status.state === "update_available" && status.latestVersion) {
-    return t("plugins.officecli_update_hint", {
-      installed: status.installedVersion,
-      latest: status.latestVersion,
-    });
-  }
-  return t("plugins.officecli_installed_hint", {
-    version: status.installedVersion,
-  });
-}
-
 /**
  * OfficeCLI card for the connectors recommended-install grid.
  * Section chrome lives on PluginsPage (no separate "optional enhancements" band).
@@ -311,10 +298,10 @@ export function OfficeCliPluginCard() {
           className={connectorTileDescClassName}
           title={t("plugins.officecli_description")}
         >
-          {status ? officeCliVersionSummary(status) : t("plugins.officecli_checking")}
+          {t("plugins.officecli_description")}
         </p>
 
-        <div className={connectorTileFooterClassName}>
+        <div className={cn(connectorTileFooterClassName, "justify-end gap-1.5")}>
           {!status || status.state === "checking" ? (
             <span
               className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"

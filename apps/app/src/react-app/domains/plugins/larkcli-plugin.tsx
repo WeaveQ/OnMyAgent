@@ -2,10 +2,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Download,
+  LogIn,
   Plus,
   RefreshCw,
   RotateCcw,
   Trash2,
+  Unlink,
 } from "lucide-react";
 
 import type {
@@ -178,19 +180,6 @@ function primaryActionIcon(action: LarkCliPrimaryAction) {
     case "retry":
       return RotateCcw;
   }
-}
-
-function larkCliVersionSummary(status: OfficeCliStatus): string {
-  if (!status.installedVersion) return t("plugins.larkcli_not_installed_hint");
-  if (status.state === "update_available" && status.latestVersion) {
-    return t("plugins.larkcli_update_hint", {
-      installed: status.installedVersion,
-      latest: status.latestVersion,
-    });
-  }
-  return t("plugins.larkcli_installed_hint", {
-    version: status.installedVersion,
-  });
 }
 
 /**
@@ -385,10 +374,10 @@ export function LarkCliPluginCard() {
           className={connectorTileDescClassName}
           title={t("plugins.larkcli_description")}
         >
-          {status ? larkCliVersionSummary(status) : t("plugins.larkcli_checking")}
+          {t("plugins.larkcli_description")}
         </p>
 
-        <div className={connectorTileFooterClassName}>
+        <div className={cn(connectorTileFooterClassName, "justify-end gap-1.5")}>
           {!status || status.state === "checking" ? (
             <span
               className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
@@ -417,19 +406,7 @@ export function LarkCliPluginCard() {
             </Button>
           ) : installedReady &&
             connection?.phase === "installed_disconnected" ? (
-            <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  setConnectStep(1);
-                  setConnectOpen(true);
-                }}
-              >
-                <Plus aria-hidden="true" />
-                {t("plugins.larkcli_connect")}
-              </Button>
+            <>
               {canUninstall ? (
                 <Button
                   size="xs"
@@ -441,41 +418,52 @@ export function LarkCliPluginCard() {
                   {t("plugins.larkcli_uninstall")}
                 </Button>
               ) : null}
-            </div>
-          ) : installedReady &&
-            connection?.phase === "connected_not_logged_in" ? (
-            <div className="flex flex-wrap items-center gap-1.5">
               <Button
                 size="xs"
-                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setConnectStep(1);
+                  setConnectOpen(true);
+                }}
+              >
+                <Plus aria-hidden="true" />
+                {t("plugins.larkcli_connect")}
+              </Button>
+            </>
+          ) : installedReady &&
+            connection?.phase === "connected_not_logged_in" ? (
+            <>
+              <Button
+                size="xs"
+                variant="destructive"
+                disabled={busy}
+                onClick={() => setDisconnectConfirmOpen(true)}
+              >
+                <Unlink aria-hidden="true" />
+                {t("plugins.larkcli_disconnect")}
+              </Button>
+              <Button
+                size="xs"
                 disabled={busy}
                 onClick={() => {
                   setConnectStep(2);
                   setConnectOpen(true);
                 }}
               >
+                <LogIn aria-hidden="true" />
                 {t("plugins.larkcli_go_login")}
               </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => setDisconnectConfirmOpen(true)}
-              >
-                {t("plugins.larkcli_disconnect")}
-              </Button>
-            </div>
+            </>
           ) : installedReady && connection?.phase === "connected_logged_in" ? (
-            <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => setDisconnectConfirmOpen(true)}
-              >
-                {t("plugins.larkcli_disconnect")}
-              </Button>
-            </div>
+            <Button
+              size="xs"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => setDisconnectConfirmOpen(true)}
+            >
+              <Unlink aria-hidden="true" />
+              {t("plugins.larkcli_disconnect")}
+            </Button>
           ) : (
             <span className="text-xs text-dls-secondary">
               {status?.supported
