@@ -77,17 +77,35 @@
 /* —— Layout ——
  * VitePress pins .content-container to 688px (scoped). Override with
  * !important so handbook body + product screenshots can use the main column.
+ * Keep horizontal gutters so content / outline never hug the viewport edges.
  */
+:root {
+  --oma-doc-gutter-x: 28px;
+  --oma-doc-aside-gap: 32px;
+  --oma-doc-aside-edge: 28px;
+  /* Keep screenshots / tables / prev-next on the same content width */
+  --oma-doc-img-bleed: 0px;
+}
+
 .VPDoc.has-sidebar.has-aside .container,
 .VPDoc.has-sidebar .container {
   max-width: var(--vp-layout-max-width) !important;
 }
 
+@media (min-width: 960px) {
+  .VPDoc {
+    /* outer air under the nav, both sides of the main doc frame */
+    padding-left: var(--oma-doc-gutter-x) !important;
+    padding-right: var(--oma-doc-gutter-x) !important;
+  }
+}
+
 @media (min-width: 1280px) {
   :root {
-    --oma-doc-content-max: 84rem;
-    /* Screenshots expand slightly past text measure into outline gap */
-    --oma-doc-img-bleed: 2rem;
+    --oma-doc-content-max: 78rem;
+    --oma-doc-gutter-x: 36px;
+    --oma-doc-aside-gap: 40px;
+    --oma-doc-aside-edge: 32px;
   }
 
   .VPDoc .container {
@@ -97,22 +115,41 @@
 
 @media (min-width: 1440px) {
   :root {
-    --oma-doc-content-max: 92rem;
-    --oma-doc-img-bleed: 4rem;
+    --oma-doc-content-max: 86rem;
+    --oma-doc-gutter-x: 48px;
+    --oma-doc-aside-gap: 48px;
+    --oma-doc-aside-edge: 40px;
   }
 }
 
 @media (min-width: 1680px) {
   :root {
-    --oma-doc-content-max: 100rem;
-    --oma-doc-img-bleed: 6rem;
+    --oma-doc-content-max: 92rem;
+    --oma-doc-gutter-x: 56px;
+    --oma-doc-aside-gap: 56px;
+    --oma-doc-aside-edge: 48px;
   }
 }
 
-/* Main article column: fill available space between sidebar and outline */
+/* Main article column: wide but with breathing room beside outline */
 .VPDoc .content {
   max-width: var(--oma-doc-content-max) !important;
   flex-grow: 1;
+}
+
+@media (min-width: 960px) {
+  .VPDoc .content {
+    /* left of article + right gap before outline */
+    padding-left: 36px !important;
+    padding-right: 28px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .VPDoc .content {
+    padding-left: 44px !important;
+    padding-right: 36px !important;
+  }
 }
 
 .VPDoc .content-container,
@@ -154,20 +191,59 @@
   color: var(--vp-c-text-3);
 }
 
-.VPSidebarItem.level-1 .text {
+/* Level-1 links: inset pill row (overrides scoped padding) */
+.VPSidebarItem.level-1 {
+  margin: 1px 0;
+}
+
+.VPSidebarItem.level-1 > .item {
+  border-radius: 8px;
+  margin: 0 8px;
+  padding: 0 10px !important;
+  transition: background-color 0.15s ease;
+}
+
+.VPSidebarItem.level-1 > .item:hover {
+  background-color: var(--vp-c-bg-soft);
+}
+
+.VPSidebarItem.level-1 .text,
+.VPSidebarItem.level-1 > .item .link > .text {
   font-size: 14px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  padding: 7px 0 !important;
+  line-height: 22px;
+}
+
+.VPSidebarItem.level-1.is-link > .item > .link:hover .text {
   color: var(--vp-c-text-1);
 }
 
-.VPSidebarItem.level-1.is-active > .item .text {
-  color: var(--vp-c-brand-1);
-  font-weight: 600;
+/* Active: full-width inset pill + left brand bar */
+.VPSidebarItem.level-1.is-active > .item {
+  background-color: rgba(37, 99, 235, 0.1) !important;
+  border-radius: 8px;
+  box-shadow: inset 3px 0 0 0 var(--vp-c-brand-1);
 }
 
-/* Active nav pill: soft blue wash, not purple */
-.VPSidebarItem.level-1.is-active > .item {
-  background-color: var(--vp-c-brand-soft);
-  border-radius: 8px;
+.VPSidebarItem.level-1.is-active > .item:hover {
+  background-color: rgba(37, 99, 235, 0.14) !important;
+}
+
+.VPSidebarItem.level-1.is-active > .item .text,
+.VPSidebarItem.level-1.is-active > .item .link > .text {
+  color: var(--vp-c-brand-1) !important;
+  font-weight: 600 !important;
+}
+
+.dark .VPSidebarItem.level-1.is-active > .item {
+  background-color: rgba(96, 165, 250, 0.12) !important;
+  box-shadow: inset 3px 0 0 0 var(--vp-c-brand-1);
+}
+
+.dark .VPSidebarItem.level-1.is-active > .item:hover {
+  background-color: rgba(96, 165, 250, 0.16) !important;
 }
 
 /* —— Top bar: single surface (theme-aware, no grey title slab) —— */
@@ -276,9 +352,22 @@
   display: none;
 }
 
-/* Outline */
+/* Outline — keep clear gap from article and from the viewport edge */
+@media (min-width: 1280px) {
+  .VPDoc .aside {
+    padding-left: var(--oma-doc-aside-gap) !important;
+    padding-right: var(--oma-doc-aside-edge) !important;
+    max-width: 280px;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 224px;
+  }
+}
+
 .VPDocAside {
-  padding-left: 16px;
+  padding-left: 0;
 }
 
 .VPDocAsideOutline .outline-title {
@@ -286,10 +375,12 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--vp-c-text-3);
+  margin-bottom: 8px;
 }
 
 .VPDocAside .outline-link {
   color: var(--vp-c-text-2);
+  line-height: 1.6;
 }
 
 .VPDocAside .outline-link.active,
@@ -334,6 +425,7 @@
 .vp-doc table {
   display: table;
   width: 100%;
+  max-width: 100%;
   font-size: 0.95em;
   border-collapse: collapse;
 }
@@ -359,12 +451,12 @@
   color: var(--vp-c-text-1);
 }
 
-/* Screenshots: edge-to-edge in content (no frame/chrome) */
+/* Screenshots: same content width as tables / prev-next (no extra bleed) */
 .vp-doc img,
 .vp-doc p > img {
   display: block;
-  width: calc(100% + var(--oma-doc-img-bleed));
-  max-width: calc(100% + var(--oma-doc-img-bleed));
+  width: 100%;
+  max-width: 100%;
   height: auto;
   margin: 1.25rem 0 1.5rem;
   border: none;
@@ -377,7 +469,7 @@
 .vp-doc > p:has(> img:only-child),
 .vp-doc p:has(> img:only-child) {
   margin: 1.25rem 0 1.5rem;
-  max-width: none;
+  max-width: 100%;
 }
 
 .vp-doc p:has(> img:only-child) > img {
@@ -462,11 +554,22 @@ body.oma-zoom-open {
 .VPDocFooter {
   margin-top: 3rem;
   border-top: 1px solid var(--vp-c-divider);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Same column width as .vp-doc body (tables / screenshots) */
+.VPDocFooter .prev-next {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .pager-link {
   border-color: var(--vp-c-border) !important;
   background: var(--vp-c-bg-elv) !important;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1279px) {
