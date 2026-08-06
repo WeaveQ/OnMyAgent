@@ -93,6 +93,7 @@ export default {
   "plugins.officecli_progress_downloading_manifest": "获取版本信息",
   "plugins.officecli_progress_downloading_binary": "下载运行文件",
   "plugins.officecli_progress_downloading_skill": "下载使用说明",
+  "plugins.officecli_progress_downloading_skills_pack": "下载高级技能包",
   "plugins.officecli_progress_verifying": "校验文件",
   "plugins.officecli_progress_installing": "写入本地目录",
   "plugins.officecli_progress_refreshing_skills": "刷新会话能力",

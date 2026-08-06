@@ -777,6 +777,120 @@ test("installs from self-contained root catalog (zip assets + hot update)", asyn
   }
 });
 
+test("installs skillsPack flat under profile skills and uninstalls managed packages", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-skills-pack-"));
+  const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-skills-pack-fx-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.200-binary");
+    const skill = "---\nname: officecli\n---\nEntry catalog.\n";
+    const rootUrl = "https://cdn.test/officecli/manifest.json";
+    const skillUrl = "https://cdn.test/officecli/SKILL.md";
+    const zipUrl = "https://cdn.test/officecli/officecli_mac_arm64.zip";
+    const packUrl = "https://cdn.test/officecli/officecli-skills.zip";
+
+    const packDir = path.join(fixtureRoot, "officecli-skills");
+    for (const id of ["officecli-docx", "officecli-pptx", "morph-ppt"]) {
+      const dir = path.join(packDir, id);
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        path.join(dir, "SKILL.md"),
+        `---\nname: ${id}\n---\nBody for ${id}.\n`,
+        "utf8",
+      );
+    }
+    // Broken entry stub inside pack must be ignored.
+    await mkdir(path.join(packDir, "officecli"), { recursive: true });
+    await writeFile(path.join(packDir, "officecli", "SKILL.md"), "stub", "utf8");
+    // Replace with a symlink to a missing target so discover skips it.
+    await rm(path.join(packDir, "officecli"), { recursive: true, force: true });
+    await mkdir(path.join(packDir, "officecli"), { recursive: true });
+    execFileSync("ln", ["-s", "../../SKILL.md", path.join(packDir, "officecli", "SKILL.md")]);
+
+    const packZipPath = path.join(fixtureRoot, "officecli-skills.zip");
+    execFileSync("zip", ["-ry", packZipPath, "officecli-skills"], {
+      cwd: fixtureRoot,
+      stdio: "ignore",
+    });
+    const packBytes = await readFile(packZipPath);
+
+    const binZipRoot = path.join(fixtureRoot, "bin");
+    await mkdir(binZipRoot, { recursive: true });
+    const entryPath = path.join(binZipRoot, "officecli-mac-arm64");
+    const binZipPath = path.join(binZipRoot, "officecli_mac_arm64.zip");
+    await writeFile(entryPath, binary);
+    execFileSync("zip", ["-j", binZipPath, entryPath], { stdio: "ignore" });
+    const zipBytes = await readFile(binZipPath);
+
+    const catalog = {
+      schemaVersion: 1,
+      pluginId: "officecli",
+      channel: "stable",
+      latestVersion: "1.0.200",
+      skill: { url: skillUrl },
+      skillsPack: {
+        url: packUrl,
+        archive: "zip",
+        sha256: sha256(packBytes),
+        size: packBytes.byteLength,
+      },
+      assets: {
+        "officecli-mac-arm64": {
+          url: zipUrl,
+          archive: "zip",
+          entry: "officecli-mac-arm64",
+          sha256: sha256(binary),
+          size: binary.byteLength,
+        },
+      },
+    };
+
+    const manager = createOfficeCliManager({
+      downloadConfig: { manifestUrl: rootUrl },
+      homeDir: home,
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url === rootUrl) return jsonResponse(catalog);
+        if (url === skillUrl) return bytesResponse(skill);
+        if (url === zipUrl) return bytesResponse(zipBytes);
+        if (url === packUrl) return bytesResponse(packBytes);
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    const status = await manager.installLatest();
+    assert.equal(status.installedVersion, "1.0.200");
+    assert.equal(status.usable, true);
+
+    const skillsRoot = resolveLocalSkillsRoot(home);
+    const entrySkill = await readFile(path.join(skillsRoot, "officecli", "SKILL.md"), "utf8");
+    assert.match(entrySkill, /Entry catalog/);
+    const docx = await readFile(path.join(skillsRoot, "officecli-docx", "SKILL.md"), "utf8");
+    assert.match(docx, /officecli-docx/);
+    const pptx = await readFile(path.join(skillsRoot, "officecli-pptx", "SKILL.md"), "utf8");
+    assert.match(pptx, /officecli-pptx/);
+    const morph = await readFile(path.join(skillsRoot, "morph-ppt", "SKILL.md"), "utf8");
+    assert.match(morph, /morph-ppt/);
+    // Pack entry stub must not overwrite the managed entry skill.
+    assert.doesNotMatch(entrySkill, /^stub$/m);
+    const managedMarker = JSON.parse(
+      await readFile(path.join(skillsRoot, "officecli-docx", ".onmyagent-managed.json"), "utf8"),
+    );
+    assert.equal(managedMarker.pluginId, "officecli");
+
+    await manager.uninstall();
+    for (const id of ["officecli", "officecli-docx", "officecli-pptx", "morph-ppt"]) {
+      await assert.rejects(() => stat(path.join(skillsRoot, id)));
+    }
+  } finally {
+    await rm(home, { recursive: true, force: true });
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 test("installLatest uses download-config.json overrides without env injection", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-config-install-"));
   const configRoot = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-config-file-"));

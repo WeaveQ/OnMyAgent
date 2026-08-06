@@ -116,3 +116,39 @@ export async function extractZipEntry(input) {
     await rm(extractRoot, { recursive: true, force: true });
   }
 }
+
+/**
+ * Extract an entire zip archive into `destDir` (created if missing).
+ *
+ * @param {{
+ *   archivePath: string,
+ *   destDir: string,
+ *   platform?: NodeJS.Platform,
+ * }} input
+ */
+export async function extractZipToDir(input) {
+  const archivePath = String(input.archivePath ?? "");
+  const destDir = String(input.destDir ?? "");
+  const platform = input.platform ?? process.platform;
+  if (!archivePath || !destDir) {
+    throw new Error("extractZipToDir requires archivePath and destDir");
+  }
+
+  await mkdir(destDir, { recursive: true });
+  if (platform === "win32") {
+    const script = [
+      `$ErrorActionPreference = 'Stop'`,
+      `Expand-Archive -LiteralPath '${archivePath.replaceAll("'", "''")}' -DestinationPath '${destDir.replaceAll("'", "''")}' -Force`,
+    ].join("; ");
+    await execFileAsync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", script],
+      { windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
+    );
+    return;
+  }
+
+  await execFileAsync("unzip", ["-o", archivePath, "-d", destDir], {
+    maxBuffer: 32 * 1024 * 1024,
+  });
+}

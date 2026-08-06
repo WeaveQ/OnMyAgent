@@ -92,6 +92,7 @@ export default {
   "plugins.officecli_progress_downloading_manifest": "取得版本資訊",
   "plugins.officecli_progress_downloading_binary": "下載執行檔",
   "plugins.officecli_progress_downloading_skill": "下載使用說明",
+  "plugins.officecli_progress_downloading_skills_pack": "下載進階技能包",
   "plugins.officecli_progress_verifying": "校驗檔案",
   "plugins.officecli_progress_installing": "寫入本機目錄",
   "plugins.officecli_progress_refreshing_skills": "刷新會話能力",
