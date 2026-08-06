@@ -733,6 +733,73 @@ test("loadOfficeCliDownloadConfig reads local URL overrides from JSON", async ()
   }
 });
 
+test("installs from pinned CDN config without root manifest (zip assets)", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-pinned-zip-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.143-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseUrl =
+      "https://cdn.test/officecli/release/1_0_143/manifest.json";
+    const skillUrl = "https://cdn.test/officecli/release/1_0_143/SKILL.md";
+    const zipUrl = "https://cdn.test/officecli/release/1_0_143/officecli_mac_arm64.zip";
+    const releaseManifest = {
+      schemaVersion: 1,
+      version: "1.0.143",
+      officecliVersion: "1.0.143",
+      assets: {
+        "officecli-mac-arm64": {
+          path: "officecli-mac-arm64",
+          sha256: sha256(binary),
+          size: binary.byteLength,
+        },
+      },
+    };
+
+    // Build a real zip so extractZipEntry runs.
+    const zipRoot = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-zip-src-"));
+    const entryPath = path.join(zipRoot, "officecli-mac-arm64");
+    const zipPath = path.join(zipRoot, "officecli_mac_arm64.zip");
+    await writeFile(entryPath, binary);
+    execFileSync("zip", ["-j", zipPath, entryPath], { stdio: "ignore" });
+    const zipBytes = await readFile(zipPath);
+
+    const manager = createOfficeCliManager({
+      downloadConfig: {
+        version: "1.0.143",
+        releaseManifestUrl: releaseUrl,
+        skillUrl,
+        assets: {
+          "officecli-mac-arm64": {
+            url: zipUrl,
+            archive: "zip",
+            entry: "officecli-mac-arm64",
+          },
+        },
+      },
+      homeDir: home,
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url === releaseUrl) return jsonResponse(releaseManifest);
+        if (url === skillUrl) return bytesResponse(skill);
+        if (url === zipUrl) return bytesResponse(zipBytes);
+        throw new Error(`unexpected test URL: ${url}`);
+      },
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    const status = await manager.installLatest();
+    assert.equal(status.installedVersion, "1.0.143");
+    assert.equal(status.usable, true);
+    assert.equal(status.latestVersion, "1.0.143");
+    await rm(zipRoot, { recursive: true, force: true });
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test("installLatest uses download-config.json overrides without env injection", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-config-install-"));
   const configRoot = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-config-file-"));
