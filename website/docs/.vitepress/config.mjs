@@ -129,7 +129,8 @@ export default defineConfig({
   ],
   // Shared chrome
   themeConfig: {
-    logo: "/favicon-32x32.png",
+    // Crisp product mark (not the 32px favicon — that clips badly in the title bar)
+    logo: "/logo.png",
     // No social icons in top bar (cleaner handbook chrome).
     socialLinks: [],
     search: {

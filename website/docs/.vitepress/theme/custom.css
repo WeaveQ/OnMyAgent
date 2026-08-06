@@ -263,22 +263,45 @@
   background: transparent;
 }
 
-/* Title column aligns with sidebar width; same surface as the rest of the bar */
+/* Title column aligns with sidebar width; do not clip logo + name */
 .VPNavBarTitle.has-sidebar {
   width: var(--vp-sidebar-width);
   max-width: var(--vp-sidebar-width);
   border-right: 1px solid var(--vp-c-divider);
   background: var(--vp-nav-bg-color) !important;
+  overflow: visible;
 }
 
-.VPNavBar .title {
+.VPNavBarTitle .title {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 16px 0 18px !important;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.01em;
   color: var(--vp-c-text-1);
   white-space: nowrap;
+  overflow: visible !important;
+  text-overflow: clip;
+}
+
+.VPNavBarTitle .VPImage.logo {
+  display: block;
+  width: 24px !important;
+  height: 24px !important;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+/* Keep the site name readable; shrink only if viewport is tiny */
+.VPNavBarTitle .title > span {
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Search */
