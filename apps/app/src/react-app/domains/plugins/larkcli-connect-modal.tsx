@@ -518,70 +518,70 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
-                    <div className="border-b border-dls-border bg-dls-surface-muted/30 px-5 py-3">
-                      <p className="text-sm font-semibold text-dls-text">
+                  <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface shadow-sm">
+                    <div className="border-b border-dls-border bg-dls-surface-muted/30 px-3.5 py-2">
+                      <p className="text-xs font-semibold text-dls-text">
                         {t("plugins.larkcli_manual_steps_title")}
                       </p>
                     </div>
-                    <ol className="space-y-0 divide-y divide-dls-border px-0 text-sm text-dls-secondary">
-                      <li className="flex gap-3 px-5 py-3">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                    <ol className="divide-y divide-dls-border text-xs text-dls-secondary">
+                      <li className="flex gap-2 px-3.5 py-1.5">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
                           1
                         </span>
-                        <span className="leading-relaxed">
+                        <span className="leading-snug">
                           {t("plugins.larkcli_manual_step1_prefix")}{" "}
                           <a
                             href={LARK_CLI_OPEN_PLATFORM_APP_URL}
                             target="_blank"
                             rel="noreferrer"
-                            className={clickableTextClassName}
+                            className={cn(clickableTextClassName, "text-xs")}
                           >
                             {t("plugins.larkcli_open_platform")}
-                            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                            <ExternalLink className="size-3 shrink-0" aria-hidden />
                           </a>
                           {t("plugins.larkcli_manual_step1_suffix")}
                         </span>
                       </li>
-                      <li className="flex gap-3 px-5 py-3">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                      <li className="flex gap-2 px-3.5 py-1.5">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
                           2
                         </span>
-                        <span className="leading-relaxed">
+                        <span className="leading-snug">
                           {t("plugins.larkcli_manual_step2")}
                         </span>
                       </li>
-                      <li className="flex gap-3 px-5 py-3">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                      <li className="flex gap-2 px-3.5 py-1.5">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
                           3
                         </span>
-                        <span className="leading-relaxed">
+                        <span className="leading-snug">
                           {t("plugins.larkcli_manual_step3")}{" "}
                           <button
                             type="button"
-                            className={clickableTextClassName}
+                            className={cn(clickableTextClassName, "text-xs")}
                             onClick={() => void handleCopyScopes()}
                           >
-                            <Copy className="size-3.5 shrink-0" aria-hidden />
+                            <Copy className="size-3 shrink-0" aria-hidden />
                             {copyDone
                               ? t("plugins.larkcli_scopes_copied")
                               : t("plugins.larkcli_copy_scopes")}
                           </button>
                         </span>
                       </li>
-                      <li className="flex gap-3 px-5 py-3">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                      <li className="flex gap-2 px-3.5 py-1.5">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
                           4
                         </span>
-                        <span className="leading-relaxed">
+                        <span className="leading-snug">
                           {t("plugins.larkcli_manual_step4")}
                         </span>
                       </li>
-                      <li className="flex gap-3 px-5 py-3">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                      <li className="flex gap-2 px-3.5 py-1.5">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
                           5
                         </span>
-                        <span className="leading-relaxed">
+                        <span className="leading-snug">
                           {t("plugins.larkcli_manual_step5")}
                         </span>
                       </li>
