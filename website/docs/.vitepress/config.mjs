@@ -141,11 +141,11 @@ export default defineConfig({
     root: {
       label: "简体中文",
       lang: "zh-CN",
-      title: "OnMyAgent Docs",
+      title: "OnMyAgent",
       description:
         "本地优先的办公 Agent 工作台：快速开始、功能指南、平台三分、下载与安全。",
       themeConfig: {
-        siteTitle: "OnMyAgent Docs",
+        siteTitle: "OnMyAgent",
         nav: [
           { text: "简介", link: "/" },
           { text: "快速开始", link: "/quickstart" },
@@ -189,11 +189,11 @@ export default defineConfig({
       label: "English",
       lang: "en-US",
       link: "/en/",
-      title: "OnMyAgent Docs",
+      title: "OnMyAgent",
       description:
         "Local-first office Agent workbench: intro, guides, and more (EN skeleton).",
       themeConfig: {
-        siteTitle: "OnMyAgent Docs",
+        siteTitle: "OnMyAgent",
         nav: [{ text: "Introduction", link: "/" }],
         sidebar: sidebarEn,
         outline: {
