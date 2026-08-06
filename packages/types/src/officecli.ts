@@ -14,12 +14,19 @@ const officeCliRelativePathSchema = z
     "path must stay inside the OfficeCLI release root",
   );
 
+/** Platform asset keys for all managed remote CLIs (OfficeCLI + lark-cli + …). */
 export const officeCliAssetKeySchema = z.enum([
   "officecli-mac-arm64",
   "officecli-mac-x64",
   "officecli-win-arm64",
   "officecli-win-x64",
+  "lark-cli-mac-arm64",
+  "lark-cli-mac-x64",
+  "lark-cli-win-arm64",
+  "lark-cli-win-x64",
 ]);
+
+export const managedCliPluginIdSchema = z.enum(["officecli", "lark-cli"]);
 
 export const officeCliVersionSchema = z
   .string()
@@ -32,13 +39,14 @@ const httpsUrlSchema = z
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/i);
 
-/** Binary asset: integrity required; absolute CDN url preferred. */
+/** Binary asset: sha256 required; size optional; absolute CDN url preferred. */
 const officeCliFileSchema = z
   .object({
     /** Relative path inside a legacy hierarchical release dir (optional when url is set). */
     path: officeCliRelativePathSchema.optional(),
     sha256: sha256Schema,
-    size: z.number().int().nonnegative(),
+    /** Optional byte length of the verified payload (extracted binary for zip assets). */
+    size: z.number().int().nonnegative().optional(),
     url: httpsUrlSchema.optional(),
     /** When url points to a zip, extract this entry (binary name). */
     archive: z.enum(["raw", "zip"]).optional(),
@@ -92,7 +100,7 @@ const officeCliFileReferenceSchema = z.union([
 export const officeCliRootCatalogSchema = z
   .object({
     schemaVersion: z.literal(1),
-    pluginId: z.literal("officecli").optional(),
+    pluginId: managedCliPluginIdSchema.optional(),
     channel: z.literal("stable"),
     latestVersion: officeCliVersionSchema,
     skill: officeCliSkillDescriptorSchema,
@@ -112,7 +120,7 @@ export const officeCliRootCatalogSchema = z
 export const officeCliReleaseManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
-    pluginId: z.literal("officecli").optional(),
+    pluginId: managedCliPluginIdSchema.optional(),
     version: officeCliVersionSchema,
     officecliVersion: officeCliVersionSchema.optional(),
     skill: z.union([officeCliFileSchema, officeCliSkillDescriptorSchema]).optional(),
@@ -129,7 +137,7 @@ export const officeCliReleaseManifestSchema = z
 export const officeCliLatestManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
-    pluginId: z.literal("officecli").optional(),
+    pluginId: managedCliPluginIdSchema.optional(),
     channel: z.literal("stable"),
     latestVersion: officeCliVersionSchema,
     releaseManifest: officeCliFileReferenceSchema,
@@ -147,7 +155,7 @@ export const officeCliReleaseStateSchema = z
 export const officeCliStateSchema = z
   .object({
     schemaVersion: z.literal(1),
-    pluginId: z.literal("officecli"),
+    pluginId: managedCliPluginIdSchema,
     activeVersion: officeCliVersionSchema,
     previousVersion: officeCliVersionSchema.nullable(),
     platform: officeCliAssetKeySchema,
@@ -160,6 +168,7 @@ export const officeCliStateSchema = z
   })
   .strict();
 export type OfficeCliAssetKey = z.infer<typeof officeCliAssetKeySchema>;
+export type ManagedCliPluginId = z.infer<typeof managedCliPluginIdSchema>;
 export type OfficeCliRootCatalog = z.infer<typeof officeCliRootCatalogSchema>;
 export type OfficeCliLatestManifest = z.infer<
   typeof officeCliLatestManifestSchema
@@ -181,7 +190,7 @@ export type OfficeCliLifecycleState =
   | "error";
 
 export type OfficeCliStatus = {
-  pluginId: "officecli";
+  pluginId: ManagedCliPluginId;
   state: OfficeCliLifecycleState;
   supported: boolean;
   platform: OfficeCliAssetKey | string;
@@ -209,3 +218,7 @@ export type OfficeCliProgress = {
   receivedBytes?: number;
   totalBytes?: number;
 };
+
+/** @deprecated Alias — status shape is shared across managed CLIs. */
+export type ManagedCliStatus = OfficeCliStatus;
+export type ManagedCliProgress = OfficeCliProgress;
