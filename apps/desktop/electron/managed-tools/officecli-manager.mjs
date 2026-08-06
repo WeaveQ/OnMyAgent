@@ -444,6 +444,13 @@ async function hashFile(target, maximum, label) {
 
 function verifyOptionalBytes(bytes, expected, label) {
   if (!expected || typeof expected !== "object") return digestBytes(bytes);
+  // Skill may only carry url (no integrity); still record actual digest.
+  if (
+    typeof expected.sha256 !== "string" ||
+    typeof expected.size !== "number"
+  ) {
+    return digestBytes(bytes);
+  }
   return verifyBytes(bytes, expected, label);
 }
 

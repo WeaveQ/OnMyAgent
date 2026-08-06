@@ -4,9 +4,7 @@
   "channel": "stable",
   "latestVersion": "1.0.143",
   "skill": {
-    "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/SKILL.md",
-    "sha256": "REPLACE_WITH_64_HEX_SHA256_OF_SKILL_MD_BYTES",
-    "size": 0
+    "url": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/SKILL.md"
   },
   "assets": {
     "officecli-mac-arm64": {

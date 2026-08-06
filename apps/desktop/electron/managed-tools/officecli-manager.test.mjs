@@ -748,8 +748,6 @@ test("installs from self-contained root catalog (zip assets + hot update)", asyn
       latestVersion: "1.0.143",
       skill: {
         url: skillUrl,
-        sha256: sha256(skill),
-        size: Buffer.byteLength(skill),
       },
       assets: {
         "officecli-mac-arm64": {
