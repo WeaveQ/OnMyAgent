@@ -43,9 +43,19 @@ packages/
   types/        共享类型与 Zod schema：server API / Desktop IPC（含 `DesktopCommandMap`）/ desktop-policies / restrictions / inference；health/status/runtime 响应类型也在此包
   ui/           Paper shader 视觉组件：仅 React 导出（`@onmyagent/ui/react`）；Solid 已移除
   artifact-runtime/ 文档/表格/演示等 artifact 运行时（CJS helpers，供预览路径）
-  handsfree/    macOS-only Computer Use：Swift AX + Appshot + JS CUA runner（Windows/Linux 不打包 helper）
+  handsfree/    macOS Computer Use：Swift AX + Skysight + JS CUA runner（Windows/Linux 不打包本包）
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
 ```
+
+**Computer Use / Appshot（跨平台摘要）：**
+
+| 能力 | macOS | Windows | Linux |
+| --- | --- | --- | --- |
+| Agent Computer Use MCP | HandsFree helper（默认开，helper 就绪时） | Bundled **Cua Driver**（staged；MCP **默认关**） | 无 helper |
+| Composer Appshot | Electron `desktopCapturer` | 同左 | 同左 |
+| HandsFree AX / Skysight | ✓ | — | — |
+
+实现入口：`apps/desktop/electron/computer-use-desktop.mjs`、`computer-use-runtime-config.mjs`、`prepare-cua-helper.mjs`、`computer-use-appshot.mjs`。详表见 [`windows-compat.md`](./windows-compat.md)。
 
 默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。
 

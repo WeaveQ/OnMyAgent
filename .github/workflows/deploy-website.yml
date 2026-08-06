@@ -17,7 +17,8 @@ permissions:
 
 concurrency:
   group: pages-website
-  cancel-in-progress: true
+  # Keep in-flight deploys; rapid website pushes otherwise cancel mid-upload.
+  cancel-in-progress: false
 
 jobs:
   build:

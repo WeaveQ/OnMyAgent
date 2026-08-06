@@ -5,17 +5,18 @@ Accessibility / Screen Recording). Packaged OnMyAgent builds wrap this runtime
 in a bundled `Computer Use.app` helper so TCC permissions belong to the helper
 app instead of a transient Node or Swift process.
 
-| Platform | HandsFree helper | Composer “capture desktop” (Appshot) | Agent Computer Use tools |
+| Platform | HandsFree helper (this package) | Composer Appshot | Agent Computer Use tools |
 | --- | --- | --- | --- |
-| macOS | Built and bundled | Yes — Electron `desktopCapturer` + Settings shortcuts | Yes |
-| Windows | Not shipped | Yes — same Electron path | N/A |
-| Linux | Not shipped | Yes — same Electron path | N/A |
+| macOS | Built and bundled | Electron `desktopCapturer` + Settings shortcuts | Yes (HandsFree MCP, on by default when staged) |
+| Windows | Not shipped | Same Electron path | Yes via **desktop Cua Driver** (not this package; MCP default off) |
+| Linux | Not shipped | Same Electron path | No helper yet |
 
 **Appshot** is Electron-only (`desktopCapturer` + customizable
 `globalShortcut`). This package remains the **macOS Computer Use** runtime (AX,
 MCP, Skysight). Windows / Linux skip HandsFree packaging
-(`prepare-computer-use-helper` early-returns off `darwin`).
-See [`docs/windows-compat.md`](../../docs/windows-compat.md).
+(`prepare-computer-use-helper` early-returns off `darwin`). Windows agent CU is
+wired in `apps/desktop` (Cua), not here. See
+[`docs/windows-compat.md`](../../docs/windows-compat.md).
 
 This package focuses on the reusable control layer:
 

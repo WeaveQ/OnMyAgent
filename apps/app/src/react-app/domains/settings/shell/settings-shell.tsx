@@ -22,14 +22,10 @@ import type { SettingsTab } from "../../../../app/types";
 import {
   SettingsPage,
   SettingsSidebar,
-  getArchivedSettingsTabs,
-  getGlobalSettingsTabs,
-  getOverviewSettingsTabs,
-  getPersonalMemorySettingsTabs,
+  getSettingsNavSections,
   getSettingsTabDescription,
   getSettingsTabIcon,
   getSettingsTabLabel,
-  getWorkspaceSettingsTabs,
 } from "./settings-page";
 import { WorkspaceIcon } from "../../../design-system/workspace-icon";
 import { SettingsNotice } from "../settings-section";
@@ -228,19 +224,10 @@ function SettingsSectionMenu(
     "activeTab" | "developerMode" | "onSelectTab"
   >,
 ) {
-  const sections: Array<{ label: string | null; tabs: SettingsTab[] }> = [
-    { label: null, tabs: getOverviewSettingsTabs() },
-    { label: t("settings.group_workspace"), tabs: getWorkspaceSettingsTabs() },
-    {
-      label: t("settings.group_personal_memory"),
-      tabs: getPersonalMemorySettingsTabs(),
-    },
-    {
-      label: t("settings.group_global"),
-      tabs: getGlobalSettingsTabs(props.developerMode),
-    },
-    { label: t("settings.group_archived"), tabs: getArchivedSettingsTabs() },
-  ];
+  const sections = getSettingsNavSections(props.developerMode).map((section) => ({
+    label: section.labelKey ? t(section.labelKey as never) : null,
+    tabs: section.tabs,
+  }));
   const ActiveIcon = getSettingsTabIcon(props.activeTab);
 
   return (

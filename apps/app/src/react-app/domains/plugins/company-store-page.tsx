@@ -18,7 +18,11 @@ import {
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
-import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
+import {
+  MARKETPLACE_CARD_GRID,
+  SkillMarketplaceCard,
+} from "@/components/ui/skill-marketplace-card";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
@@ -46,10 +50,6 @@ type CompanyCatalog = {
   } | null;
 };
 
-/** Same density as skills marketplace grid. */
-const MARKET_CARD_GRID =
-  "grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
-
 function OrgBadge() {
   return (
     <StatusBadge tone="neutral" size="sm" className="shrink-0">
@@ -58,12 +58,16 @@ function OrgBadge() {
   );
 }
 
-function EmptyState(props: { title: string; desc: string }) {
+function CompanyEmptyState(props: { title: string; desc: string }) {
   return (
-    <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+    <EmptyStateBox
+      size="spacious"
+      tone="muted"
+      className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6"
+    >
       <p className="text-base font-medium text-dls-text">{props.title}</p>
       <p className="max-w-sm text-xs leading-5">{props.desc}</p>
-    </div>
+    </EmptyStateBox>
   );
 }
 
@@ -295,7 +299,9 @@ export function CompanyStorePage(props: {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
         {error ? (
-          <p className="mb-3 text-xs text-red-600 dark:text-red-400">{error}</p>
+          <NoticeBox tone="error" className="mb-3">
+            {error}
+          </NoticeBox>
         ) : null}
 
         {!connected ? (
@@ -416,7 +422,7 @@ export function CompanyStorePage(props: {
           </div>
         ) : subTab === "skills" ? (
           skills.length > 0 ? (
-            <div className={MARKET_CARD_GRID}>
+            <div className={MARKETPLACE_CARD_GRID}>
               {skills.map((skill) => (
                 <SkillMarketplaceCard
                   key={skill.id}
@@ -445,20 +451,20 @@ export function CompanyStorePage(props: {
               ))}
             </div>
           ) : (
-            <EmptyState
+            <CompanyEmptyState
               title={t("store.company_no_skills_title")}
               desc={t("store.company_no_skills_desc")}
             />
           )
         ) : subTab === "experts" ? (
           experts.length > 0 ? (
-            <div className={MARKET_CARD_GRID}>
+            <div className={MARKETPLACE_CARD_GRID}>
               {experts.map((expert) => (
                 <CompanyExpertCard key={expert.id} expert={expert} />
               ))}
             </div>
           ) : (
-            <EmptyState
+            <CompanyEmptyState
               title={t("store.company_no_experts_title")}
               desc={t("store.company_no_experts_desc")}
             />
@@ -470,7 +476,7 @@ export function CompanyStorePage(props: {
                 {t("store.company_gateway_title")}
               </h3>
               {connectors.length > 0 ? (
-                <div className={MARKET_CARD_GRID}>
+                <div className={MARKETPLACE_CARD_GRID}>
                   {connectors.map((c) => (
                     <CompanyGatewayCard key={c.id} id={c.id} name={c.name} />
                   ))}
@@ -486,7 +492,7 @@ export function CompanyStorePage(props: {
                 {t("store.company_models_title")}
               </h3>
               {models.length > 0 ? (
-                <div className={MARKET_CARD_GRID}>
+                <div className={MARKETPLACE_CARD_GRID}>
                   {models.map((m) => (
                     <CompanyModelCard key={m.id} id={m.id} name={m.name || m.id} />
                   ))}
@@ -499,7 +505,7 @@ export function CompanyStorePage(props: {
             </section>
           </div>
         ) : (
-          <EmptyState
+          <CompanyEmptyState
             title={t("store.company_no_connectors_title")}
             desc={t("store.company_no_connectors_desc")}
           />

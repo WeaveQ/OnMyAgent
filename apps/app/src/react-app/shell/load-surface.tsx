@@ -33,7 +33,7 @@ const surfaceClass = {
   contentInset: "flex flex-col items-center",
   brandMark:
     "flex size-16 items-center justify-center rounded-2xl border border-dls-border bg-dls-surface-solid shadow-[0_8px_28px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.35)]",
-  brandTitle: "text-[15px] font-semibold tracking-tight text-dls-text",
+  brandTitle: "text-sm font-semibold tracking-tight text-dls-text",
   message: "text-sm leading-6 text-dls-secondary",
   messageInset: "mt-3 text-xs leading-5 text-dls-secondary",
   statusRow: "flex flex-col items-center gap-3",

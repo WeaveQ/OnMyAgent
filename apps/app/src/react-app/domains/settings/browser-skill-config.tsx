@@ -205,7 +205,7 @@ export function BrowserSkillConfig() {
               </Button>
             </div>
             {!cliOk ? (
-              <pre className="mt-2 max-h-20 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-dls-surface p-2 font-mono text-[11px] text-dls-secondary">
+              <pre className="mt-2 max-h-20 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-dls-surface p-2 font-mono text-2xs text-dls-secondary">
                 {installCommand}
               </pre>
             ) : null}
@@ -258,7 +258,7 @@ export function BrowserSkillConfig() {
           <summary className="cursor-pointer text-xs font-medium text-dls-text">
             {t("extensions.browser_skill_doctor_details")}
           </summary>
-          <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap text-[11px] text-dls-secondary">
+          <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap text-2xs text-dls-secondary">
             {status.doctorSummary}
           </pre>
         </details>
@@ -285,7 +285,7 @@ function SetupStep(props: {
           {props.complete ? (
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-dls-accent" />
           ) : (
-            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface text-[10px] font-semibold text-dls-secondary ring-1 ring-dls-border">
+            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface text-2xs font-semibold text-dls-secondary ring-1 ring-dls-border">
               {props.step}
             </span>
           )}

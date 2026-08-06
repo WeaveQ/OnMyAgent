@@ -51,7 +51,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
+import {
+  MARKETPLACE_CARD_GRID_COMPACT,
+  SkillMarketplaceCard,
+} from "@/components/ui/skill-marketplace-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ResizableHandle,
@@ -360,7 +363,7 @@ function ExpertCoach(props: {
   }
 
   return (
-    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl bg-dls-surface p-5 sm:p-6">
       <div className="flex min-h-0 flex-1 flex-col">
         <ExpertCreationConversation
           draft={props.draft}
@@ -374,7 +377,7 @@ function ExpertCoach(props: {
             <img
               src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
               alt=""
-              className="size-10 shrink-0 rounded-full object-cover"
+              className="size-11 shrink-0 rounded-full object-cover"
             />
           )}
           initialContent={(
@@ -382,7 +385,7 @@ function ExpertCoach(props: {
               <p>{t("agents.expert_creation_coach_greeting")}</p>
               <p>{t("agents.expert_creation_coach_intro")}</p>
               <p>{t("agents.expert_creation_coach_question")}</p>
-              <ol className="list-decimal space-y-1 pl-5">
+              <ol className="list-decimal space-y-1.5 pl-5">
                 {coachOptions.map((option) => (
                   <li key={option}>{option}</li>
                 ))}
@@ -408,7 +411,7 @@ function PromptEditor(props: {
   ariaLabel: string;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden bg-dls-background focus-within:ring-3 focus-within:ring-ring/30">
+    <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl bg-dls-background focus-within:ring-3 focus-within:ring-ring/30">
       <Textarea
         value={props.value}
         onChange={(event) => props.onChange(event.currentTarget.value)}
@@ -416,7 +419,7 @@ function PromptEditor(props: {
         aria-label={props.ariaLabel}
         controlSize="editor"
         className={cn(
-          "min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0",
+          "min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-4 leading-6 shadow-none focus-visible:ring-0",
           EXPERT_FORM_FIELD_CLASS,
         )}
       />
@@ -446,22 +449,22 @@ function BasicInfoPanel(props: {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <section className="h-40 shrink-0 rounded-xl bg-dls-surface p-4">
+    <div className="flex h-full min-h-0 flex-col gap-5">
+      <section className="shrink-0 rounded-2xl border border-dls-border/50 bg-dls-surface-muted/25 p-5">
         <div
           className={cn(
-            "grid gap-5 xl:grid-cols-[6.5rem_minmax(0,1fr)]",
-            !props.compact && "lg:grid-cols-[6.5rem_minmax(0,1fr)]",
+            "grid items-start gap-5 xl:grid-cols-[5.5rem_minmax(0,1fr)]",
+            !props.compact && "lg:grid-cols-[5.5rem_minmax(0,1fr)]",
           )}
         >
-          <div className="flex flex-col items-start gap-3">
+          <div className="flex flex-col items-start gap-3 pt-0.5">
             <button
               type="button"
               className="relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
               onClick={() => uploadInputRef.current?.click()}
               aria-label={t("agents.expert_creation_avatar")}
             >
-              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-20 text-xl" />
+              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-[4.5rem] text-xl" />
               <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-5 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
                 <Plus className="size-3" aria-hidden />
               </span>
@@ -477,7 +480,7 @@ function BasicInfoPanel(props: {
               }}
             />
           </div>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3.5">
             <Input
               value={props.draft.name}
               onChange={(event) => props.onDraftChange("name", event.currentTarget.value)}
@@ -492,18 +495,21 @@ function BasicInfoPanel(props: {
               value={props.draft.description}
               onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
               placeholder={t("agents.expert_creation_intro_placeholder")}
-              className={cn("min-h-20 border-0 shadow-none", EXPERT_FORM_FIELD_CLASS)}
+              className={cn(
+                "min-h-[5.5rem] border-0 shadow-none leading-6",
+                EXPERT_FORM_FIELD_CLASS,
+              )}
               aria-label={t("agents.expert_creation_intro")}
             />
           </div>
         </div>
       </section>
-      <section className="flex min-h-0 flex-1 flex-col rounded-xl bg-dls-surface p-4">
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-dls-text">
+      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-dls-border/50 bg-dls-surface-muted/25 p-5">
+        <div className="mb-4 shrink-0">
+          <h3 className="text-base font-semibold leading-6 text-dls-text">
             {t("agents.expert_creation_role_prompt")}
           </h3>
-          <p className="mt-1 text-sm leading-6 text-dls-secondary">
+          <p className="mt-1.5 max-w-[52ch] text-sm leading-6 text-dls-secondary">
             {t("agents.expert_creation_role_prompt_desc")}
           </p>
         </div>
@@ -828,7 +834,7 @@ function SkillsPanel(props: {
           </div>
         </div>
       ) : selectedSkills.length > 0 ? (
-        <div className="grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={MARKETPLACE_CARD_GRID_COMPACT}>
           {selectedSkills.map((skill) => {
             return (
               <SkillMarketplaceCard
@@ -1707,8 +1713,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           </Button>
         </div>
       </header>
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 bg-dls-background p-3">
-        <ResizablePanel defaultSize="34%" minSize="300px" maxSize="48%" className="min-w-0">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 gap-3 bg-dls-background p-4">
+        <ResizablePanel defaultSize="36%" minSize="320px" maxSize="48%" className="min-w-0">
           <ExpertCoach
             draft={draft}
             registry={sourceRegistry}
@@ -1747,9 +1753,9 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           />
         </ResizablePanel>
         <ResizableHandle withHandle aria-label={t("agents.expert_creation_resize_coach")} />
-        <ResizablePanel minSize="420px" className="min-w-0">
-        <main className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border bg-dls-surface px-4 py-3">
+        <ResizablePanel minSize="440px" className="min-w-0">
+        <main className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl bg-dls-surface">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border bg-dls-surface px-5 py-3.5">
             <span aria-hidden />
             <SegmentedTabGroup aria-label={t("agents.expert_creation_title")}>
               {TABS.map((tab) => (
@@ -1773,10 +1779,10 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             ) : null}
           </div>
           <div className="flex min-h-0 flex-1">
-            <section className="min-w-0 flex-1 overflow-y-auto p-4">
+            <section className="min-w-0 flex-1 overflow-y-auto px-5 py-5">
               <div className="h-full min-h-0 w-full">
                 {submitError ? (
-                  <NoticeBox role="alert" tone="error" size="content" className="mb-4">
+                  <NoticeBox role="alert" tone="error" size="content" className="mb-5">
                     {submitError}
                   </NoticeBox>
                 ) : null}
@@ -1789,12 +1795,12 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "memory" ? (
-                  <section className="flex h-full min-h-0 flex-col rounded-xl bg-dls-surface p-4">
-                    <div className="mb-4">
-                      <h3 className="text-base font-semibold text-dls-text">
+                  <section className="flex h-full min-h-0 flex-col rounded-2xl border border-dls-border/50 bg-dls-surface-muted/25 p-5">
+                    <div className="mb-4 shrink-0">
+                      <h3 className="text-base font-semibold leading-6 text-dls-text">
                         {t("agents.expert_creation_memory")}
                       </h3>
-                      <p className="mt-1 text-sm leading-6 text-dls-secondary">
+                      <p className="mt-1.5 max-w-[52ch] text-sm leading-6 text-dls-secondary">
                         {t("agents.expert_creation_memory_desc")}
                       </p>
                     </div>

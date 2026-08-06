@@ -30,11 +30,13 @@ OnMyAgent UI work should improve consistency without turning pages into one-off 
 | Free-float category filter | `FilterChip` — selected `bg-dls-list-selected` (no white elevated pill); idle plain label |
 | Composer send affordance | `SendButton` — the only `rounded-full` **primary send** CTA allowed inside workbench chrome (pill filters may also use `rounded-full`) |
 | Icon/avatar tile | `IconTile` |
-| Status/count badge | `StatusBadge`, `CountBadge`, `StepMarker` |
+| Status/count badge | `StatusBadge`, `CountBadge` (`default` / `compact` / `meta` for file-tree counts / `dot` / `label`), `StepMarker` |
 | Status dot/ping/loading | `StatusDot`, `StatusPing`, `LoadingSpinner` |
+| Marketplace card shelf grid | `MARKETPLACE_CARD_GRID` or `MARKETPLACE_CARD_GRID_COMPACT` from `@/components/ui/skill-marketplace-card` — never re-copy the long Tailwind grid string in pages |
 | Command/path/code chip | `CodeToken` |
-| Notice/help/warning surface | `NoticeBox` |
+| Notice/help/warning surface | `NoticeBox` (errors: `tone="error"`; do not use raw `text-red-600`) |
 | Dialog/dropdown/select/tooltip/switch/checkbox | Existing `@/components/ui/*` wrappers |
+| Type scale | Prefer `text-2xs` / `text-xs` / `text-sm` DLS tokens; ban new `text-[Npx]` arbitrary sizes |
 
 ## Component Contracts (machine-readable)
 

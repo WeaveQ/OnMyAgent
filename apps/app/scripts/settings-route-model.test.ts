@@ -214,6 +214,28 @@ describe("settings route workspace model", () => {
       tab: "company",
       redirectPath: null,
     });
+    // Environment fused into System (same as permissions / app-snapshot).
+    expect(parseSettingsPath("/settings/environment")).toEqual({
+      tab: "system",
+      redirectPath: "system",
+    });
+    expect(parseSettingsPath("/workspace/ws_1/settings/environment")).toEqual({
+      tab: "system",
+      redirectPath: "system",
+    });
+    expect(parseSettingsPath("/settings/permissions")).toEqual({
+      tab: "system",
+      redirectPath: "system",
+    });
+    expect(parseSettingsPath("/settings/app-snapshot")).toEqual({
+      tab: "system",
+      redirectPath: "system",
+    });
+    // Preferences is a real Global tab (not Workspace).
+    expect(parseSettingsPath("/settings/preferences")).toEqual({
+      tab: "preferences",
+      redirectPath: null,
+    });
     expect(parseSettingsPath("/settings/nope")).toEqual({ tab: "general", redirectPath: "general" });
     expect(settingsPathForRoute({ tab: "general", redirectPath: null })).toBe("general");
   });

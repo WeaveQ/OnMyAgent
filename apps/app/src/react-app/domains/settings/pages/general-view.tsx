@@ -1,18 +1,17 @@
 /** @jsxImportSource react */
+/**
+ * Settings overview — same 2-column card grid as System “应用选项”
+ * (IconTile + title/desc + chevron). Tab lists stay shared with the sidebar.
+ */
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  LifeBuoy,
-} from "lucide-react";
+import { ArrowUpRight, ChevronRight, LifeBuoy } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
-import { ActionRowButton, IconTile } from "@/components/ui/action-row";
+import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
 import {
   getDataSettingsTabs,
   getGlobalSettingsTabs,
@@ -23,59 +22,61 @@ import {
   getWorkspaceSettingsTabs,
 } from "../shell/settings-page";
 
-const settingsOverviewTextClass = {
-  groupLabel: "text-sm font-medium text-dls-secondary",
-  cardTitle: "text-sm font-medium leading-5 text-dls-text",
-  cardDescription: "line-clamp-2 text-xs leading-5 text-dls-secondary",
-};
-
 export type GeneralSettingsViewProps = {
   onNavigateTab: (tab: SettingsTab) => void;
   developerMode: boolean;
   onReportIssue: () => void;
 };
 
-function OverviewNavCard(props: {
-  icon: LucideIcon;
-  title: string;
-  desc: string;
-  onClick: () => void;
-  className?: string;
-}) {
-  const Icon = props.icon;
-  return (
-    <ActionRowButton
-      density="settingsCard"
-      type="button"
-      onClick={props.onClick}
-      className={cn(
-        "h-auto min-h-[4.5rem] items-center gap-3 hover:bg-dls-surface-muted/60",
-        props.className,
-      )}
-    >
-      <IconTile border className="size-9 shrink-0">
-        <Icon size={16} className="text-dls-secondary" />
-      </IconTile>
-      <div className="min-w-0 flex-1 text-left">
-        <div className={settingsOverviewTextClass.cardTitle}>{props.title}</div>
-        <div className={settingsOverviewTextClass.cardDescription}>
-          {props.desc}
-        </div>
-      </div>
-      <ArrowRight size={14} className="shrink-0 text-dls-secondary" />
-    </ActionRowButton>
-  );
-}
-
 function OverviewSection(props: {
   label: string;
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2.5">
-      <h3 className={settingsOverviewTextClass.groupLabel}>{props.label}</h3>
+    <section className="space-y-3">
+      <h3 className="text-lg font-medium leading-7 text-dls-text">{props.label}</h3>
       {props.children}
     </section>
+  );
+}
+
+/** Match SystemOptionCard chrome: one row, 2 cols on sm+. */
+function OverviewNavCard(props: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+  className?: string;
+}) {
+  const Icon = props.icon;
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      className={cn(
+        "flex min-h-[4.75rem] w-full items-center gap-3 rounded-xl border border-dls-border",
+        "bg-dls-surface px-3.5 py-3 text-left transition-colors",
+        "hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+        props.className,
+      )}
+    >
+      <IconTile border className="size-9 shrink-0">
+        <Icon size={16} className="text-dls-secondary" aria-hidden />
+      </IconTile>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium leading-5 text-dls-text">
+          {props.title}
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
+          {props.description}
+        </p>
+      </div>
+      <ChevronRight
+        size={16}
+        className="shrink-0 text-dls-secondary"
+        aria-hidden
+      />
+    </button>
   );
 }
 
@@ -83,29 +84,24 @@ function OverviewTabGrid(props: {
   tabs: SettingsTab[];
   onNavigateTab: (tab: SettingsTab) => void;
 }) {
+  if (props.tabs.length === 0) return null;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {props.tabs.map((tab, index) => {
-        const isLastOdd =
-          props.tabs.length % 2 === 1 && index === props.tabs.length - 1;
-        return (
-          <OverviewNavCard
-            key={tab}
-            icon={getSettingsTabIcon(tab)}
-            title={getSettingsTabLabel(tab)}
-            desc={getSettingsTabDescription(tab)}
-            onClick={() => props.onNavigateTab(tab)}
-            className={isLastOdd ? "sm:col-span-2" : undefined}
-          />
-        );
-      })}
+      {props.tabs.map((tab) => (
+        <OverviewNavCard
+          key={tab}
+          icon={getSettingsTabIcon(tab)}
+          title={getSettingsTabLabel(tab)}
+          description={getSettingsTabDescription(tab)}
+          onClick={() => props.onNavigateTab(tab)}
+        />
+      ))}
     </div>
   );
 }
 
 /**
- * Settings overview — cards are generated from the same tab lists as the
- * sidebar so 总览 never drifts (e.g. after fusing permissions / moving usage).
+ * Settings overview — 2-up cards from the same tab getters as the sidebar.
  */
 export function GeneralSettingsView(props: GeneralSettingsViewProps) {
   const workspaceTabs = getWorkspaceSettingsTabs();
@@ -137,41 +133,40 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       </OverviewSection>
 
       <OverviewSection label={t("settings.group_data")}>
-        <OverviewTabGrid tabs={dataTabs} onNavigateTab={props.onNavigateTab} />
+        <OverviewTabGrid
+          tabs={dataTabs}
+          onNavigateTab={props.onNavigateTab}
+        />
       </OverviewSection>
 
       <OverviewSection label={t("settings.help_title")}>
-        <SettingsSurfaceCard size="compact" tone="surface" className="p-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <LifeBuoy size={14} className="shrink-0 text-dls-secondary" />
-              <div className="min-w-0">
-                <div className={settingsOverviewTextClass.cardTitle}>
-                  {t("settings.feedback_title")}
-                </div>
-                <p
-                  className={cn(
-                    "mt-0.5 max-w-[52ch]",
-                    settingsOverviewTextClass.cardDescription,
-                    "line-clamp-2",
-                  )}
-                >
-                  {t("settings.feedback_desc")}
-                </p>
-              </div>
+        <div
+          className={cn(
+            "flex min-h-[4.75rem] flex-wrap items-center gap-3 rounded-xl border border-dls-border",
+            "bg-dls-surface px-3.5 py-3",
+          )}
+        >
+          <IconTile border className="size-9 shrink-0">
+            <LifeBuoy size={16} className="text-dls-secondary" aria-hidden />
+          </IconTile>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium leading-5 text-dls-text">
+              {t("settings.feedback_title")}
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={props.onReportIssue}
-              >
-                {t("settings.report_issue")}
-                <ArrowUpRight size={12} />
-              </Button>
-            </div>
+            <p className="mt-0.5 line-clamp-2 max-w-[52ch] text-xs leading-5 text-dls-secondary">
+              {t("settings.feedback_desc")}
+            </p>
           </div>
-        </SettingsSurfaceCard>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={props.onReportIssue}
+          >
+            {t("settings.report_issue")}
+            <ArrowUpRight size={12} />
+          </Button>
+        </div>
       </OverviewSection>
     </div>
   );

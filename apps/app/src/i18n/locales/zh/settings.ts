@@ -140,7 +140,7 @@ export default {
   "settings.feedback_title": `帮助塑造${APP_NAME}`,
   "settings.group_global": "全局",
   "settings.group_workspace": "工作区",
-  "settings.group_personal_memory": "个人与记忆",
+  "settings.group_personal_memory": "个人",
   "settings.group_archived": "归档",
   "settings.group_data": "数据",
   "settings.tab_archived_tasks": "归档",
@@ -879,8 +879,7 @@ export default {
 
   "settings.tab_system": "系统设置",
   "settings.tab_company": "公司",
-  "settings.tab_description_company":
-    "连接 OnMyCompany（组织技能/专家）。路径：设置 → 全局 → 公司",
+  "settings.tab_description_company": "连接 OnMyCompany，同步组织技能与专家",
   "settings.tab_description_system": "开机自启、通知与系统权限",
   "settings.tab_shortcuts": "快捷键",
   "settings.tab_description_shortcuts": "自定义通用、任务与会话操作的快捷键",
@@ -949,10 +948,13 @@ export default {
   "settings.company_connection_section_title": "连接公司",
   "settings.company_desc_disconnected":
     "填写内网 OnMyCompany 地址并用邮箱 OTP 登录后，组织技能与专家会出现在「技能 / 专家」页的「公司」栏目。本机配置不变。",
+  "settings.company_desc_disconnected_short": "填写服务地址并用邮箱验证码登录。",
   "settings.company_desc_connected":
     "已接入组织目录。技能、专家、连接器与模型以公司下发为准，本机已连接模型仍可继续使用。",
   "settings.company_status_badge_connected": "已连接",
   "settings.company_status_badge_disconnected": "未连接",
+  "settings.company_health_ok": "正常",
+  "settings.company_health_bad": "异常",
   "settings.company_health_badge": "服务正常 · {org} · {version}",
   "settings.company_connected_as": "已连接 · {email}",
   "settings.company_config_version": "配置版本 {version}",

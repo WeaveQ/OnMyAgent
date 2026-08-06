@@ -1,0 +1,808 @@
+/**
+ * Clean handbook shell: white canvas, quiet sidebar, no two-tone chrome.
+ */
+
+:root {
+  /* Filled by layout block below — keep viewport-safe defaults */
+  --vp-layout-max-width: 100%;
+  --oma-doc-content-max: 48rem;
+  --oma-doc-img-bleed: 0px;
+  --oma-shot-radius: 12px;
+
+  /* Neutral light palette — avoid muddy greys / purple-tinted neutrals */
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f6f7f9;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #f4f5f7;
+
+  --vp-c-border: #e8eaee;
+  --vp-c-divider: #eef0f3;
+  --vp-c-gutter: #eef0f3;
+
+  --vp-c-text-1: #1a1d23;
+  --vp-c-text-2: #5c6370;
+  --vp-c-text-3: #8b929e;
+
+  /* Brand: calm blue (not default purple-indigo) */
+  --vp-c-brand-1: #2563eb;
+  --vp-c-brand-2: #3b82f6;
+  --vp-c-brand-3: #1d4ed8;
+  --vp-c-brand-soft: rgba(37, 99, 235, 0.08);
+
+  --vp-c-indigo-1: #2563eb;
+  --vp-c-indigo-2: #3b82f6;
+  --vp-c-indigo-3: #1d4ed8;
+  --vp-c-indigo-soft: rgba(37, 99, 235, 0.08);
+
+  --vp-sidebar-bg-color: #fafbfc;
+  --vp-nav-bg-color: #ffffff;
+
+  --vp-code-bg: #f4f5f7;
+  --vp-code-block-bg: #f6f7f9;
+}
+
+/* Must redeclare every token set on :root — equal specificity, later :root
+ * would otherwise pin the page to light after VitePress's own .dark rules. */
+.dark {
+  --vp-c-bg: #0f1115;
+  --vp-c-bg-alt: #16181d;
+  --vp-c-bg-elv: #1a1d23;
+  --vp-c-bg-soft: #1c1f26;
+
+  --vp-c-border: #2a2e36;
+  --vp-c-divider: #242830;
+  --vp-c-gutter: #242830;
+
+  --vp-c-text-1: #e8eaee;
+  --vp-c-text-2: #a0a6b0;
+  --vp-c-text-3: #6e7580;
+
+  --vp-c-brand-1: #60a5fa;
+  --vp-c-brand-2: #93c5fd;
+  --vp-c-brand-3: #3b82f6;
+  --vp-c-brand-soft: rgba(96, 165, 250, 0.12);
+
+  --vp-c-indigo-1: #60a5fa;
+  --vp-c-indigo-2: #93c5fd;
+  --vp-c-indigo-3: #3b82f6;
+  --vp-c-indigo-soft: rgba(96, 165, 250, 0.12);
+
+  --vp-sidebar-bg-color: #12141a;
+  --vp-nav-bg-color: #0f1115;
+
+  --vp-code-bg: #1c1f26;
+  --vp-code-block-bg: #16181d;
+}
+
+/* —— Layout ——
+ * Fit sidebar + article + outline into the viewport without horizontal scroll.
+ *
+ * Outline (右侧大纲):
+ *   < 1280px  — VitePress: outline only in local-nav dropdown
+ *   ≥ 1280px  — show side outline (was hidden until 1520; too late for laptops)
+ *
+ * Main column sits closer to the left rail (smaller left pad + moderate max-width)
+ * so the outline has room without pushing content off-center to the right.
+ */
+:root {
+  --vp-layout-max-width: 100%;
+  --oma-doc-content-max: 44rem;
+  --oma-doc-gutter-x: 0px;
+  --oma-doc-aside-gap: 16px;
+  --oma-doc-aside-edge: 12px;
+  /* Match article + prev/next footer column; no image bleed */
+  --oma-doc-img-bleed: 0px;
+  --oma-shot-radius: 12px;
+  --oma-outline-min-width: 1280px;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+.VPDoc.has-sidebar.has-aside .container,
+.VPDoc.has-sidebar .container {
+  max-width: 100% !important;
+}
+
+/* Article takes remaining space; allow flex shrink so sidebar stays visible */
+.VPDoc .content {
+  max-width: var(--oma-doc-content-max) !important;
+  min-width: 0 !important;
+  flex: 1 1 auto;
+}
+
+@media (min-width: 960px) {
+  .VPDoc .content {
+    /* Pull main column left toward the sidebar */
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --oma-doc-content-max: 46rem;
+    --oma-doc-aside-gap: 16px;
+    --oma-doc-aside-edge: 12px;
+  }
+
+  .VPDoc .content {
+    padding-left: 18px !important;
+    padding-right: 12px !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --oma-doc-content-max: 48rem;
+    --oma-doc-aside-gap: 20px;
+    --oma-doc-aside-edge: 16px;
+  }
+
+  .VPDoc .content {
+    padding-left: 20px !important;
+    padding-right: 16px !important;
+  }
+}
+
+@media (min-width: 1680px) {
+  :root {
+    --oma-doc-content-max: 52rem;
+    --oma-doc-aside-gap: 28px;
+    --oma-doc-aside-edge: 20px;
+  }
+
+  .VPDoc .content {
+    padding-left: 24px !important;
+    padding-right: 20px !important;
+  }
+}
+
+.VPDoc .content-container,
+.VPDoc.has-aside .content-container {
+  max-width: none !important;
+  width: 100%;
+}
+
+@media (min-width: 960px) {
+  .VPDoc:not(.has-sidebar) .container {
+    max-width: 1104px !important;
+  }
+
+  .VPDoc:not(.has-sidebar) .content {
+    max-width: var(--oma-doc-content-max) !important;
+  }
+}
+
+/*
+ * Shared left rail: logo column (nav) + sidebar MUST share the same outer box.
+ * VitePress ≥1440 uses calc(100vw …) / calc(100% …) that drift (scrollbar +
+ * padding on .title). Force a fixed px rail and kill those formulas.
+ */
+:root {
+  --vp-sidebar-width: 272px !important;
+  --oma-rail-width: 272px;
+  --oma-rail-pad-x: 24px;
+  --oma-rail-pad-left: 24px;
+}
+
+/* Sidebar — fixed outer width, border on the rail edge */
+.VPSidebar {
+  border-right: 1px solid var(--vp-c-divider);
+  background-color: var(--vp-sidebar-bg-color) !important;
+  left: 0 !important;
+  right: auto !important;
+  box-sizing: border-box !important;
+  padding: 32px var(--oma-rail-pad-x) 96px var(--oma-rail-pad-left) !important;
+  width: var(--oma-rail-width) !important;
+  max-width: var(--oma-rail-width) !important;
+  min-width: var(--oma-rail-width) !important;
+  margin: 0 !important;
+}
+
+@media (min-width: 960px) {
+  .VPSidebar {
+    padding-top: calc(var(--vp-nav-height) + 24px) !important;
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+    padding-left: var(--oma-rail-pad-left) !important;
+    padding-right: var(--oma-rail-pad-x) !important;
+  }
+}
+
+/* Kill VitePress ≥1440 sidebar width / padding-left formulas entirely */
+@media (min-width: 1440px) {
+  .VPSidebar {
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+    padding-left: var(--oma-rail-pad-left) !important;
+    padding-right: var(--oma-rail-pad-x) !important;
+    left: 0 !important;
+  }
+}
+
+.VPSidebarItem.level-0 > .item > .text {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--vp-c-text-3);
+}
+
+/* Level-1 links: inset pill row (overrides scoped padding) */
+.VPSidebarItem.level-1 {
+  margin: 1px 0;
+}
+
+.VPSidebarItem.level-1 > .item {
+  border-radius: 8px;
+  margin: 0 8px;
+  padding: 0 10px !important;
+  transition: background-color 0.15s ease;
+}
+
+.VPSidebarItem.level-1 > .item:hover {
+  background-color: var(--vp-c-bg-soft);
+}
+
+.VPSidebarItem.level-1 .text,
+.VPSidebarItem.level-1 > .item .link > .text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  padding: 7px 0 !important;
+  line-height: 22px;
+}
+
+.VPSidebarItem.level-1.is-link > .item > .link:hover .text {
+  color: var(--vp-c-text-1);
+}
+
+/* Active: full-width inset pill + left brand bar */
+.VPSidebarItem.level-1.is-active > .item {
+  background-color: rgba(37, 99, 235, 0.1) !important;
+  border-radius: 8px;
+  box-shadow: inset 3px 0 0 0 var(--vp-c-brand-1);
+}
+
+.VPSidebarItem.level-1.is-active > .item:hover {
+  background-color: rgba(37, 99, 235, 0.14) !important;
+}
+
+.VPSidebarItem.level-1.is-active > .item .text,
+.VPSidebarItem.level-1.is-active > .item .link > .text {
+  color: var(--vp-c-brand-1) !important;
+  font-weight: 600 !important;
+}
+
+.dark .VPSidebarItem.level-1.is-active > .item {
+  background-color: rgba(96, 165, 250, 0.12) !important;
+  box-shadow: inset 3px 0 0 0 var(--vp-c-brand-1);
+}
+
+.dark .VPSidebarItem.level-1.is-active > .item:hover {
+  background-color: rgba(96, 165, 250, 0.16) !important;
+}
+
+/* —— Top bar: single surface (theme-aware, no grey title slab) —— */
+.VPNav {
+  z-index: 60;
+}
+
+.VPNavBar {
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: var(--vp-nav-bg-color) !important;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.VPNavBar .wrapper,
+.VPNavBar .container {
+  background: transparent;
+}
+
+/*
+ * Nav logo column = same outer width as .VPSidebar (co-linear right border).
+ * Target BOTH .VPNavBar .title (absolute shell) and .VPNavBarTitle (inner).
+ * Zero outer padding on the shell so width is not "272 + padding" drift.
+ */
+@media (min-width: 960px) {
+  .VPNavBar.has-sidebar .title {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+    height: var(--vp-nav-height) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border-right: 1px solid var(--vp-c-divider);
+    background: var(--vp-nav-bg-color) !important;
+    overflow: hidden;
+  }
+
+  .VPNavBarTitle.has-sidebar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 100%;
+    box-sizing: border-box !important;
+    border-right: none; /* border lives on outer .title shell only */
+    background: transparent !important;
+    overflow: hidden;
+  }
+
+  .VPNavBar.has-sidebar .content,
+  .VPNavBar.has-sidebar .divider {
+    padding-left: var(--oma-rail-width) !important;
+    padding-right: 24px !important;
+  }
+
+  /* Content column also starts exactly at rail edge (no 100vw calc drift) */
+  .VPContent.has-sidebar {
+    padding-left: var(--oma-rail-width) !important;
+    padding-right: 0 !important;
+  }
+}
+
+/* Kill VitePress ≥1440 title/content/sidebar calc formulas (100vw vs 100%) */
+@media (min-width: 1440px) {
+  .VPNavBar.has-sidebar .title {
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+    padding: 0 !important;
+    left: 0 !important;
+  }
+
+  .VPNavBar.has-sidebar .content,
+  .VPNavBar.has-sidebar .divider {
+    padding-left: var(--oma-rail-width) !important;
+    padding-right: 32px !important;
+  }
+
+  .VPContent.has-sidebar {
+    padding-left: var(--oma-rail-width) !important;
+    padding-right: 0 !important;
+  }
+}
+
+/*
+ * Brand mark: logo + name centered as a unit in the left rail
+ * (horizontal center of the 272px column, vertical center of nav height).
+ */
+.VPNavBarTitle {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.VPNavBarTitle .title {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: auto !important;
+  max-width: calc(100% - 16px) !important;
+  height: var(--vp-nav-height) !important;
+  box-sizing: border-box;
+  padding: 0 8px !important;
+  margin: 0 auto !important;
+  border-bottom: none !important;
+  font-weight: 650;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--vp-c-text-1);
+  white-space: nowrap;
+  overflow: hidden !important;
+  text-overflow: ellipsis;
+  line-height: 1;
+  gap: 12px;
+}
+
+/* VP scoped rule adds bottom border on has-sidebar — kill the double hairline */
+.VPNavBarTitle.has-sidebar .title {
+  border-bottom-color: transparent !important;
+}
+
+.VPNavBarTitle .VPImage.logo,
+.VPNavBarTitle :deep(.logo) {
+  display: block !important;
+  width: 34px !important;
+  height: 34px !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.VPNavBarTitle .title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  line-height: 1;
+  transform: translateY(0.5px); /* optical vertical align with logo */
+}
+
+/* Search */
+.VPNavBarSearch {
+  flex: 0 0 auto;
+  padding-left: 16px;
+}
+
+.DocSearch-Button {
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg-elv);
+  margin: 0;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  justify-content: flex-start;
+  gap: 6px;
+  color: var(--vp-c-text-2);
+}
+
+.DocSearch-Button:hover {
+  background: var(--vp-c-bg-soft);
+  border-color: var(--vp-c-border);
+}
+
+.DocSearch-Button .DocSearch-Button-Placeholder {
+  font-size: 13px;
+  padding: 0 8px 0 4px;
+  color: var(--vp-c-text-3);
+}
+
+.DocSearch-Button .DocSearch-Button-Keys {
+  min-width: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.DocSearch-Button-Key {
+  font-size: 11px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-border);
+  color: var(--vp-c-text-3);
+  box-shadow: none;
+}
+
+.VPNavBarMenu {
+  margin-right: 4px;
+}
+
+.VPNavBarMenuLink {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vp-c-text-2) !important;
+}
+
+.VPNavBarMenuLink:hover,
+.VPNavBarMenuLink.active {
+  color: var(--vp-c-text-1) !important;
+}
+
+.VPNavBarAppearance {
+  margin-right: 8px;
+}
+
+.VPNavBarSocialLinks:empty,
+.VPSocialLinks:empty {
+  display: none;
+}
+
+/*
+ * Outline (大纲): show from VitePress desktop breakpoint (1280px).
+ * Compact aside on mid laptops so main + outline fit without hiding TOC.
+ */
+@media (min-width: 1280px) {
+  .VPDoc .aside {
+    display: block !important;
+    padding-left: var(--oma-doc-aside-gap) !important;
+    padding-right: var(--oma-doc-aside-edge) !important;
+    max-width: 200px;
+    width: 180px;
+    flex-grow: 0;
+    flex-shrink: 0;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 168px;
+  }
+
+  /* Keep article from stretching into the outline zone */
+  .VPDoc.has-aside .content {
+    max-width: var(--oma-doc-content-max) !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  .VPDoc .aside {
+    max-width: 220px;
+    width: 200px;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 188px;
+  }
+}
+
+@media (min-width: 1680px) {
+  .VPDoc .aside {
+    max-width: 240px;
+    width: 220px;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 200px;
+  }
+}
+
+.VPDocAside {
+  padding-left: 0;
+}
+
+.VPDocAsideOutline .outline-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--vp-c-text-3);
+  margin-bottom: 8px;
+}
+
+.VPDocAside .outline-link {
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+
+.VPDocAside .outline-link.active,
+.VPDocAside .outline-link:hover {
+  color: var(--vp-c-brand-1);
+}
+
+/* Doc body */
+.vp-doc {
+  color: var(--vp-c-text-1);
+}
+
+.vp-doc h1 {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.6em;
+  color: var(--vp-c-text-1);
+}
+
+.vp-doc h2 {
+  margin-top: 2em;
+  padding-top: 0.5em;
+  border-top: 1px solid var(--vp-c-divider);
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.vp-doc h2:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.vp-doc a {
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+}
+
+.vp-doc a:hover {
+  color: var(--vp-c-brand-3);
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+  max-width: 100%;
+  font-size: 0.95em;
+  border-collapse: collapse;
+}
+
+.vp-doc tr {
+  border-top: 1px solid var(--vp-c-divider);
+  background: transparent;
+}
+
+.vp-doc tr:nth-child(2n) {
+  background: var(--vp-c-bg-soft);
+}
+
+.vp-doc th,
+.vp-doc td {
+  border: 1px solid var(--vp-c-divider);
+  padding: 10px 14px;
+}
+
+.vp-doc th {
+  background: var(--vp-c-bg-alt);
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+/*
+ * Product screenshots — global, consistent:
+ * - Same width as article / prev-next footer (no bleed)
+ * - 12px radius, no card frame / letterbox / shadow stage
+ * Assets are full-bleed UI captures (normalized PNG set).
+ */
+.vp-doc > p:has(> img:only-child),
+.vp-doc p:has(> img:only-child) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5rem 0 2rem !important;
+  padding: 0 !important;
+  line-height: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: none;
+  overflow: hidden; /* clip image to radius */
+}
+
+.vp-doc > p:has(> img:only-child) > img,
+.vp-doc p:has(> img:only-child) > img,
+.vp-doc .vp-doc-img,
+.vp-doc img[src*="/images/"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0 !important;
+  padding: 0;
+  border: none;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+  object-fit: unset;
+  object-position: unset;
+}
+
+/* Standalone img in doc (not wrapped, or not only-child) */
+.vp-doc > img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5rem 0 2rem !important;
+  border: none;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: none;
+  background: transparent;
+  overflow: hidden;
+}
+
+/* Caption under a shot */
+.vp-doc img + .oma-shot-caption,
+.vp-doc p:has(> img:only-child) + .oma-shot-caption {
+  margin: -0.85rem 0 2rem;
+  text-align: center;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  line-height: 1.4;
+}
+
+.vp-doc img.oma-zoomable {
+  cursor: zoom-in;
+}
+
+/* Lightbox overlay */
+.oma-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+  cursor: zoom-out;
+}
+
+.oma-zoom-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.oma-zoom-overlay .oma-zoom-img {
+  max-width: min(96vw, 1200px);
+  max-height: min(88vh, 780px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: none;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: none;
+  background: transparent;
+  cursor: default;
+  margin: 0;
+}
+
+.oma-zoom-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.oma-zoom-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.oma-zoom-hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  user-select: none;
+}
+
+body.oma-zoom-open {
+  overflow: hidden;
+}
+
+.VPDocFooter {
+  margin-top: 3rem;
+  border-top: 1px solid var(--vp-c-divider);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Same column width as .vp-doc body (tables / screenshots) */
+.VPDocFooter .prev-next {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.pager-link {
+  border-color: var(--vp-c-border) !important;
+  background: var(--vp-c-bg-elv) !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1279px) {
+  .VPDoc .content {
+    max-width: 100%;
+  }
+}
