@@ -1,42 +1,24 @@
-# OfficeCLI OSS / CDN 发布约定
+# OfficeCLI CDN 发布约定
 
-OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端安装包不内置二进制；用户点击安装后，桌面端按 **打包进 asar 的 download-config** 拉取 release metadata、`SKILL.md` 与当前平台 zip，解压出二进制后写入用户目录。
+OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端 **只内置一个永久 root `manifestUrl`**（`officecli-download-config.json`）。客户端定期/安装时拉取该 JSON，比较 `latestVersion` 与本地安装版本；有更新则按 manifest 内绝对 URL 下载 skill 与平台 zip。
 
-## 永久 CDN（当前生产）
+## 热更新模型
 
-CDN 对象键**不可覆盖**、每次上传 URL 唯一。因此客户端**不能**靠「同一链接换内容」做热更新；升级路径是：
+| 层 | 是否可变 | 说明 |
+|----|----------|------|
+| 客户端 `manifestUrl` | 固定（写死在包内） | 永久 CDN 链接，不随版本改代码 |
+| root `manifest.json` 内容 | 可变 | 发布新版本时更新该文件（或同 URL 指向新对象） |
+| 版本化资源 URL | 不可覆盖 | 每版独立路径，如 `…/release/1_0_144/…` |
 
-1. 上传新版本对象（新路径，如 `…/release/1_0_144/…`）
-2. 改仓库内 `apps/desktop/electron/managed-tools/officecli-download-config.json`
-3. 重新打包发布桌面端
+示例文件：`apps/desktop/electron/managed-tools/officecli-root-manifest.example.json`。
 
-**不需要**根级 “latest pointer” `manifest.json`。版本钉在 download-config 的 `version` 字段。
+zip 解压 `entry` 后，用 manifest 中的 **sha256/size 校验解压后的二进制**（不是 zip 包本身）。
 
-```json
-{
-  "version": "1.0.143",
-  "releaseManifestUrl": "https://imagecdn…/release/1_0_143/manifest.json",
-  "skillUrl": "https://imagecdn…/release/1_0_143/SKILL.md",
-  "assets": {
-    "officecli-mac-arm64": {
-      "url": "https://imagecdn…/officecli_mac_arm64.zip",
-      "archive": "zip",
-      "entry": "officecli-mac-arm64"
-    }
-  }
-}
-```
-
-zip 下载后解压 `entry` 得到可执行文件；integrity（sha256/size）校验的是**解压后的二进制**，与 release `manifest.json` 中资产描述一致。
-
-当前不发布 Linux 二进制；平台键：
-
-- `officecli-mac-arm64` / `officecli-mac-x64`
-- `officecli-win-arm64` / `officecli-win-x64`
+平台键：`officecli-mac-arm64` / `officecli-mac-x64` / `officecli-win-arm64` / `officecli-win-x64`（无 Linux）。
 
 ## 可复用能力
 
-下载/解压/配置加载在 `apps/desktop/electron/managed-tools/managed-cli/`，供 OfficeCLI 与后续飞书 CLI 等复用。
+`apps/desktop/electron/managed-tools/managed-cli/`：download-config 加载、zip 解压，供飞书 CLI 等复用。
 
 ## Manifest 格式
 
