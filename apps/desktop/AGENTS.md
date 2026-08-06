@@ -31,3 +31,4 @@ runtime smoke：`pnpm test:runtime`（按变更范围选用）。
 - **配置 / skills 根路径**：经 `config-profile-paths` resolve；OpenCode skill 物化在 `runtime.mjs` 也必须走 resolve（禁止写死 `~/.onmyagent/skills`）。
 - **未登录零企业流量**；迁移只复制不删 legacy skills/marketplaces；禁止擅自创建 `profiles/company`。
 - **Computer Use**：macOS → HandsFree（`packages/handsfree`）；Windows → bundled Cua（`prepare-cua-helper` / `computer-use-runtime-config`，MCP 默认关）。Appshot 全平台 Electron `desktopCapturer`，勿再引入 Rust/xcap helper。
+- **推荐安装 managed CLI（OfficeCLI / 飞书 CLI）**：逻辑只在 `electron/managed-tools/**` + plugins 下 `officecli-plugin*` / `larkcli-*`；手册与禁止事项见 [`electron/managed-tools/AGENTS.md`](electron/managed-tools/AGENTS.md)。边界契约：`node --test electron/managed-tools/recommended-managed-cli.boundary.test.mjs`（已进 `test:runtime`）。
