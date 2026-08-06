@@ -14,6 +14,7 @@ export default defineConfig({
     channel: "src/channel.ts",
     "artifact-plugin": "src/artifact-plugin.ts",
     officecli: "src/officecli.ts",
+    "lark-cli-auth": "src/lark-cli-auth.ts",
   },
   tsconfig: "./tsconfig.json",
   format: ["esm"],

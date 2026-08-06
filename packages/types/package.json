@@ -73,6 +73,11 @@
       "types": "./src/officecli.ts",
       "development": "./src/officecli.ts",
       "default": "./dist/officecli.js"
+    },
+    "./lark-cli-auth": {
+      "types": "./src/lark-cli-auth.ts",
+      "development": "./src/lark-cli-auth.ts",
+      "default": "./dist/lark-cli-auth.js"
     }
   },
   "files": [

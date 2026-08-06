@@ -39,6 +39,18 @@ export {
   type OfficeCliStatusTone,
 } from "./officecli-plugin-state";
 export {
+  LarkCliPluginCard,
+  LarkCliPluginSection,
+} from "./larkcli-plugin";
+export {
+  canUninstallLarkCli,
+  getLarkCliPrimaryAction,
+  getLarkCliStatusTone,
+  isLarkCliBusy,
+  type LarkCliPrimaryAction,
+  type LarkCliStatusTone,
+} from "./larkcli-plugin-state";
+export {
   recommendBrowserSurface,
   type BrowserSurfaceId,
   type BrowserSurfaceIntent,

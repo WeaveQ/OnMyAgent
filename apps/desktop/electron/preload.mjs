@@ -101,6 +101,29 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       };
     },
   },
+  larkCli: {
+    onProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:lark-cli:progress", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:lark-cli:progress", handler);
+      };
+    },
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:lark-cli:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:lark-cli:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:lark-cli:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:lark-cli:auth-progress", handler);
+      };
+    },
+  },
   computerUse: {
     onActivity(callback) {
       const handler = (_event, activity) => callback(activity);

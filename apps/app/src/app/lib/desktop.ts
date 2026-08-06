@@ -68,6 +68,12 @@ export type {
   MyExpertPackageWriteInput,
 } from "./desktop-types";
 import type { OfficeCliProgress, OfficeCliStatus } from "@onmyagent/types/officecli";
+import type {
+  LarkCliAuthProgress,
+  LarkCliConnectionStatus,
+  LarkCliManualCredentialsInput,
+  LarkCliStartUserLoginResult,
+} from "@onmyagent/types/lark-cli-auth";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -151,6 +157,15 @@ declare global {
           callback: (progress: OfficeCliProgress) => void,
         ) => () => void;
         onStatus?: (callback: (status: OfficeCliStatus) => void) => () => void;
+      };
+      larkCli?: {
+        onProgress?: (
+          callback: (progress: OfficeCliProgress) => void,
+        ) => () => void;
+        onStatus?: (callback: (status: OfficeCliStatus) => void) => () => void;
+        onAuthProgress?: (
+          callback: (progress: LarkCliAuthProgress) => void,
+        ) => () => void;
       };
       migration?: {
         readSnapshot?: () => Promise<unknown>;
@@ -776,6 +791,66 @@ export function subscribeOfficeCliStatus(
   callback: (status: OfficeCliStatus) => void,
 ) {
   return window.__ONMYAGENT_ELECTRON__?.officeCli?.onStatus?.(callback) ?? (() => undefined);
+}
+
+export const getLarkCliStatus = (options?: { forceRefresh?: boolean }) =>
+  invokeDesktopCommand("larkCliGetStatus", options);
+
+export const installLarkCli = (): Promise<OfficeCliStatus> =>
+  invokeDesktopCommand("larkCliInstallLatest");
+
+export const uninstallLarkCli = (): Promise<OfficeCliStatus> =>
+  invokeDesktopCommand("larkCliUninstall");
+
+export function subscribeLarkCliProgress(
+  callback: (progress: OfficeCliProgress) => void,
+) {
+  return window.__ONMYAGENT_ELECTRON__?.larkCli?.onProgress?.(callback) ?? (() => undefined);
+}
+
+export function subscribeLarkCliStatus(
+  callback: (status: OfficeCliStatus) => void,
+) {
+  return window.__ONMYAGENT_ELECTRON__?.larkCli?.onStatus?.(callback) ?? (() => undefined);
+}
+
+export const getLarkCliConnectionStatus = (): Promise<LarkCliConnectionStatus> =>
+  invokeDesktopCommand("larkCliGetConnectionStatus");
+
+export const getLarkCliRecommendedScopesJson = (): Promise<string> =>
+  invokeDesktopCommand("larkCliGetRecommendedScopesJson");
+
+export const submitLarkCliManualCredentials = (
+  input: LarkCliManualCredentialsInput,
+): Promise<LarkCliConnectionStatus> =>
+  invokeDesktopCommand("larkCliSubmitManualCredentials", input);
+
+export const startLarkCliUserLogin = (): Promise<LarkCliStartUserLoginResult> =>
+  invokeDesktopCommand("larkCliStartUserLogin");
+
+export const completeLarkCliUserLogin = (
+  sessionId: string,
+): Promise<LarkCliConnectionStatus> =>
+  invokeDesktopCommand("larkCliCompleteUserLogin", { sessionId });
+
+export const startLarkCliConfigInit = () =>
+  invokeDesktopCommand("larkCliStartConfigInit");
+
+export const cancelLarkCliConfigInit = () =>
+  invokeDesktopCommand("larkCliCancelConfigInit");
+
+export const disconnectLarkCli = (options?: {
+  clearCredentials?: boolean;
+}): Promise<LarkCliConnectionStatus> =>
+  invokeDesktopCommand("larkCliDisconnect", options);
+
+export function subscribeLarkCliAuthProgress(
+  callback: (progress: LarkCliAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.larkCli?.onAuthProgress?.(callback) ??
+    (() => undefined)
+  );
 }
 
 // ---------------------------------------------------------------------------

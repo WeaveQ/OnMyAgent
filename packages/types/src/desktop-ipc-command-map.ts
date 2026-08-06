@@ -180,6 +180,11 @@ import type {
 import type {
   OfficeCliStatus,
 } from "./officecli.js";
+import type {
+  LarkCliConnectionStatus,
+  LarkCliManualCredentialsInput,
+  LarkCliStartUserLoginResult,
+} from "./lark-cli-auth.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -1122,6 +1127,37 @@ type TypedDesktopCommandMap = {
   >;
   officeCliInstallLatest: DesktopCommandContract<[], OfficeCliStatus>;
   officeCliUninstall: DesktopCommandContract<[], OfficeCliStatus>;
+  larkCliGetStatus: DesktopCommandContract<
+    [{ forceRefresh?: boolean }?],
+    OfficeCliStatus
+  >;
+  larkCliInstallLatest: DesktopCommandContract<[], OfficeCliStatus>;
+  larkCliUninstall: DesktopCommandContract<[], OfficeCliStatus>;
+  larkCliGetConnectionStatus: DesktopCommandContract<[], LarkCliConnectionStatus>;
+  larkCliGetRecommendedScopesJson: DesktopCommandContract<[], string>;
+  larkCliSubmitManualCredentials: DesktopCommandContract<
+    [LarkCliManualCredentialsInput],
+    LarkCliConnectionStatus
+  >;
+  larkCliStartUserLogin: DesktopCommandContract<[], LarkCliStartUserLoginResult>;
+  larkCliCompleteUserLogin: DesktopCommandContract<
+    [{ sessionId: string }],
+    LarkCliConnectionStatus
+  >;
+  larkCliStartConfigInit: DesktopCommandContract<
+    [],
+    {
+      verificationUrl: string | null;
+      qrcodeDataUrl: string | null;
+      pending: boolean;
+      exitCode?: number;
+    }
+  >;
+  larkCliCancelConfigInit: DesktopCommandContract<[], { ok: boolean }>;
+  larkCliDisconnect: DesktopCommandContract<
+    [{ clearCredentials?: boolean }?],
+    LarkCliConnectionStatus
+  >;
 };
 
 /**
