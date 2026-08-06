@@ -184,19 +184,25 @@ export function getSettingsTabDescription(tab: SettingsTab) {
 }
 
 /**
- * Top-level tabs (no group label) — Overview only.
- * Preferences (language/theme/font) live under Workspace.
+ * Settings nav IA (top → bottom):
+ * 1. Overview (ungrouped)
+ * 2. Workspace — workspace-scoped: models, company
+ * 3. Personal — profile + memory
+ * 4. App / Global — appearance, OS, shortcuts, env, updates
+ * 5. Data — usage, reset, archive
+ *
+ * Preferences (language/theme/font) stay under Global, not Workspace.
  */
 export function getOverviewSettingsTabs(): SettingsTab[] {
   return ["general"];
 }
 
+/** Models + company connect (workspace / org scoped). */
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // Preferences + models + company connect; system auth under Global → System.
-  return ["preferences", "ai", "company"];
+  return ["ai", "company"];
 }
 
-/** Personal profile + conversation/work memory (own nav group for discoverability). */
+/** Personal profile + conversation/work memory. */
 export function getPersonalMemorySettingsTabs(): SettingsTab[] {
   return ["memory", "conversation-memory"];
 }
@@ -211,8 +217,13 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
   return getDataSettingsTabs();
 }
 
+/**
+ * App-wide settings: appearance first, then system/runtime.
+ * Preferences are not workspace-scoped (language/theme/font).
+ */
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
   const tabs: SettingsTab[] = [
+    "preferences",
     "system",
     "shortcuts",
     "environment",
