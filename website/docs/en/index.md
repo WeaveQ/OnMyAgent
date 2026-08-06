@@ -45,7 +45,7 @@ Left rail: **Home · Experts · Automation · Files · Marketplace · Projects**
 | View | Screenshot |
 |------|------------|
 | Home session | ![Home](/images/home-session.png) |
-| Files | ![Files](/images/files.png) |
+| Files | ![Files](/images/files-list.png) |
 | Marketplace · Experts | ![Marketplace](/images/marketplace.png) |
 
 ## Language note
