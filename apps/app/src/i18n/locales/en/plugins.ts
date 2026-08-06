@@ -143,7 +143,7 @@ export default {
   "plugins.larkcli_disconnect_message":
     "This signs out the user session and clears local app credentials. It does not delete the app on the Feishu Open Platform.",
   "plugins.larkcli_connect_title": "Connect Feishu",
-  "plugins.larkcli_connect_subtitle": "Complete app authorization first, then continue with user authorization.",
+  "plugins.larkcli_connect_subtitle": "Complete app authorization first, then continue with sign-in authorization.",
   "plugins.larkcli_step_config": "App authorization",
   "plugins.larkcli_step_login": "Sign-in authorization",
   "plugins.larkcli_tab_qr": "Scan to authorize",
