@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   officeCliLatestManifestSchema,
   officeCliReleaseManifestSchema,
+  officeCliRootCatalogSchema,
   officeCliStateSchema,
 } from "@onmyagent/types/officecli";
 
@@ -762,6 +763,10 @@ export function createOfficeCliManager(options = {}) {
     return process.env.ONMYAGENT_OFFICECLI_ASSET_URL?.trim() || null;
   }
 
+  /**
+   * Prefer self-contained root catalog (skill + assets URLs inline).
+   * Fall back to legacy root pointer → release manifest pair.
+   */
   async function loadRemote(forceRefresh) {
     let cached = null;
     try {
@@ -777,58 +782,86 @@ export function createOfficeCliManager(options = {}) {
     ) {
       const latest = officeCliLatestManifestSchema.parse(cached.latest);
       const release = officeCliReleaseManifestSchema.parse(cached.release);
-      const releaseUrl =
-        releaseManifestUrlOverride ??
-        (manifestUrl
-          ? resolveOfficeCliUrl(manifestUrl, latest.releaseManifest)
-          : null);
-      if (!releaseUrl) {
-        throw new Error("OfficeCLI release manifest URL is not configured");
-      }
-      return { latest, release, releaseUrl, fetchedAt: Number(cached.fetchedAt) };
-    }
-
-    // Pinned mode: download-config supplies releaseManifestUrl + version (no root pointer).
-    if (releaseManifestUrlOverride && !manifestUrl) {
-      const releaseResponse = await fetchJson(
-        releaseManifestUrlOverride,
-        MAX_MANIFEST_BYTES,
-      );
-      const rawRelease = normalizeReleaseManifestPayload(releaseResponse.value);
-      const release = officeCliReleaseManifestSchema.parse(rawRelease);
-      const latestVersion = pinnedVersion || release.version;
-      if (
-        (release.pluginId && release.pluginId !== OFFICECLI_PLUGIN_ID) ||
-        (pinnedVersion && release.version !== pinnedVersion) ||
-        (release.officecliVersion && release.officecliVersion !== release.version)
-      ) {
-        throw new Error("OfficeCLI release manifest does not match the download config pin");
-      }
-      const latest = {
-        schemaVersion: 1,
-        channel: "stable",
-        latestVersion,
-        releaseManifest: "manifest.json",
-      };
-      officeCliLatestManifestSchema.parse(latest);
-      const fetchedAt = now();
-      await writeJsonAtomic(cachePath, { fetchedAt, latest, release });
       return {
         latest,
         release,
-        releaseUrl: releaseManifestUrlOverride,
-        fetchedAt,
+        releaseUrl: nonEmptyString(cached.releaseUrl) || manifestUrl || "https://localhost/",
+        fetchedAt: Number(cached.fetchedAt),
       };
     }
 
     if (!manifestUrl) {
       throw new Error(
-        "OfficeCLI download config must provide releaseManifestUrl (or legacy manifestUrl)",
+        "OfficeCLI download config must provide manifestUrl (permanent root catalog)",
       );
     }
 
     const root = await fetchJson(manifestUrl, MAX_MANIFEST_BYTES);
-    const latest = officeCliLatestManifestSchema.parse(root.value);
+    const raw = root.value;
+
+    // New hot-update catalog: one permanent JSON with version + absolute URLs.
+    if (
+      raw &&
+      typeof raw === "object" &&
+      raw.skill &&
+      typeof raw.skill === "object" &&
+      raw.assets &&
+      typeof raw.assets === "object"
+    ) {
+      const catalog = officeCliRootCatalogSchema.parse(raw);
+      if (
+        catalog.pluginId &&
+        catalog.pluginId !== OFFICECLI_PLUGIN_ID
+      ) {
+        throw new Error("OfficeCLI root catalog pluginId mismatch");
+      }
+      const release = officeCliReleaseManifestSchema.parse({
+        schemaVersion: 1,
+        pluginId: OFFICECLI_PLUGIN_ID,
+        version: catalog.latestVersion,
+        officecliVersion: catalog.latestVersion,
+        skill: catalog.skill,
+        assets: catalog.assets,
+      });
+      const latest = {
+        schemaVersion: 1,
+        channel: catalog.channel,
+        latestVersion: catalog.latestVersion,
+        releaseManifest: "inline",
+      };
+      officeCliLatestManifestSchema.parse({
+        ...latest,
+        // Satisfy legacy schema: relative path placeholder when catalog is inline.
+        releaseManifest: "manifest.json",
+      });
+      const fetchedAt = now();
+      await writeJsonAtomic(cachePath, {
+        fetchedAt,
+        latest: {
+          schemaVersion: 1,
+          channel: "stable",
+          latestVersion: catalog.latestVersion,
+          releaseManifest: "manifest.json",
+        },
+        release,
+        releaseUrl: manifestUrl,
+        mode: "root_catalog",
+      });
+      return {
+        latest: {
+          schemaVersion: 1,
+          channel: "stable",
+          latestVersion: catalog.latestVersion,
+          releaseManifest: "manifest.json",
+        },
+        release,
+        releaseUrl: manifestUrl,
+        fetchedAt,
+      };
+    }
+
+    // Legacy: root pointer → separate release manifest.
+    const latest = officeCliLatestManifestSchema.parse(raw);
     const releaseUrl =
       releaseManifestUrlOverride ??
       resolveOfficeCliUrl(manifestUrl, latest.releaseManifest);
@@ -847,7 +880,13 @@ export function createOfficeCliManager(options = {}) {
       throw new Error("OfficeCLI release manifest does not match the latest pointer");
     }
     const fetchedAt = now();
-    await writeJsonAtomic(cachePath, { fetchedAt, latest, release });
+    await writeJsonAtomic(cachePath, {
+      fetchedAt,
+      latest,
+      release,
+      releaseUrl,
+      mode: "legacy_pointer",
+    });
     return { latest, release, releaseUrl, fetchedAt };
   }
 
@@ -1015,23 +1054,36 @@ export function createOfficeCliManager(options = {}) {
       try {
         const releaseManifestText = `${JSON.stringify(remote.release, null, 2)}\n`;
         await writeFile(path.join(stagingRoot, "manifest.json"), releaseManifestText, "utf8");
-        const assetSpec = platformKey ? assetSpecs[platformKey] : null;
+        // Prefer archive metadata from root catalog / release asset descriptor.
+        const archiveKind =
+          asset.archive === "zip" || assetSpecs[platformKey]?.archive === "zip"
+            ? "zip"
+            : "raw";
+        const zipEntry =
+          nonEmptyString(asset.entry) ||
+          assetSpecs[platformKey]?.entry ||
+          nonEmptyString(asset.path) ||
+          "officecli";
         const binaryUrl = resolveOfficeCliUrl(
           remote.releaseUrl,
           referenceWithOverride(
             asset,
-            assetSpec?.url ?? assetUrlOverride(platformKey),
+            asset.url || assetSpecs[platformKey]?.url || assetUrlOverride(platformKey),
           ),
         );
         const skillUrl = resolveOfficeCliUrl(
           remote.releaseUrl,
-          referenceWithOverride(skillReference, skillUrlOverride),
+          referenceWithOverride(
+            skillReference,
+            (typeof skillReference === "object" && skillReference.url) ||
+              skillUrlOverride,
+          ),
         );
         emitProgress({ operation: operationName, phase: "downloading_binary" });
-        if (assetSpec?.archive === "zip") {
+        if (archiveKind === "zip") {
           const stagingZip = path.join(stagingRoot, "binary.zip");
           const binaryResponse = await fetchWithRetry(binaryUrl);
-          // Zip integrity is not in release manifest (checksums are for extracted binary).
+          // Checksums in the catalog apply to the extracted binary, not the zip.
           await streamResponseToFile(
             binaryResponse,
             stagingZip,
@@ -1049,7 +1101,7 @@ export function createOfficeCliManager(options = {}) {
           );
           await extractZipEntry({
             archivePath: stagingZip,
-            entryName: assetSpec.entry || asset.path || "officecli",
+            entryName: zipEntry,
             destPath: stagingBinary,
             platform,
           });

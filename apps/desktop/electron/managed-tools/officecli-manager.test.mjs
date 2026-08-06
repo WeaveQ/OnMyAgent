@@ -733,29 +733,35 @@ test("loadOfficeCliDownloadConfig reads local URL overrides from JSON", async ()
   }
 });
 
-test("installs from pinned CDN config without root manifest (zip assets)", async () => {
-  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-pinned-zip-"));
+test("installs from self-contained root catalog (zip assets + hot update)", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-root-catalog-"));
   try {
     const binary = Buffer.from("officecli-1.0.143-binary");
     const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
-    const releaseUrl =
-      "https://cdn.test/officecli/release/1_0_143/manifest.json";
+    const rootUrl = "https://cdn.test/officecli/manifest.json";
     const skillUrl = "https://cdn.test/officecli/release/1_0_143/SKILL.md";
     const zipUrl = "https://cdn.test/officecli/release/1_0_143/officecli_mac_arm64.zip";
-    const releaseManifest = {
+    const catalog = {
       schemaVersion: 1,
-      version: "1.0.143",
-      officecliVersion: "1.0.143",
+      pluginId: "officecli",
+      channel: "stable",
+      latestVersion: "1.0.143",
+      skill: {
+        url: skillUrl,
+        sha256: sha256(skill),
+        size: Buffer.byteLength(skill),
+      },
       assets: {
         "officecli-mac-arm64": {
-          path: "officecli-mac-arm64",
+          url: zipUrl,
+          archive: "zip",
+          entry: "officecli-mac-arm64",
           sha256: sha256(binary),
           size: binary.byteLength,
         },
       },
     };
 
-    // Build a real zip so extractZipEntry runs.
     const zipRoot = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-zip-src-"));
     const entryPath = path.join(zipRoot, "officecli-mac-arm64");
     const zipPath = path.join(zipRoot, "officecli_mac_arm64.zip");
@@ -764,22 +770,11 @@ test("installs from pinned CDN config without root manifest (zip assets)", async
     const zipBytes = await readFile(zipPath);
 
     const manager = createOfficeCliManager({
-      downloadConfig: {
-        version: "1.0.143",
-        releaseManifestUrl: releaseUrl,
-        skillUrl,
-        assets: {
-          "officecli-mac-arm64": {
-            url: zipUrl,
-            archive: "zip",
-            entry: "officecli-mac-arm64",
-          },
-        },
-      },
+      downloadConfig: { manifestUrl: rootUrl },
       homeDir: home,
       fetchImpl: async (input) => {
         const url = String(input);
-        if (url === releaseUrl) return jsonResponse(releaseManifest);
+        if (url === rootUrl) return jsonResponse(catalog);
         if (url === skillUrl) return bytesResponse(skill);
         if (url === zipUrl) return bytesResponse(zipBytes);
         throw new Error(`unexpected test URL: ${url}`);
