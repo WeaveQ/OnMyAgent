@@ -35,7 +35,7 @@ export const MANAGED_CLI_DEFAULT_REGISTRY_PATH = path.join(
 );
 
 /**
- * @param {string | null | undefined} customPath
+ * @param {string | null | undefined} [customPath]
  * @returns {string}
  */
 export function resolveManagedCliRegistryPath(customPath) {
