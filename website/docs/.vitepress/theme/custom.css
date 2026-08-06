@@ -401,13 +401,14 @@ body {
   margin: 0 auto !important;
   border-bottom: none !important;
   font-weight: 650;
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: -0.02em;
   color: var(--vp-c-text-1);
   white-space: nowrap;
   overflow: hidden !important;
   text-overflow: ellipsis;
   line-height: 1;
+  gap: 12px;
 }
 
 /* VP scoped rule adds bottom border on has-sidebar — kill the double hairline */
@@ -418,12 +419,12 @@ body {
 .VPNavBarTitle .VPImage.logo,
 .VPNavBarTitle :deep(.logo) {
   display: block !important;
-  width: 28px !important;
-  height: 28px !important;
+  width: 34px !important;
+  height: 34px !important;
   margin: 0 !important;
   flex-shrink: 0;
   object-fit: contain;
-  border-radius: 7px;
+  border-radius: 8px;
 }
 
 .VPNavBarTitle .title > span {
