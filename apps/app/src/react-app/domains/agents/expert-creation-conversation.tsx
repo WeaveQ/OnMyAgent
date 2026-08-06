@@ -361,22 +361,22 @@ export function ExpertCreationConversation(
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", props.className)}>
       {!props.hideHeader ? (
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3 pb-1">
           {props.avatar}
-          <h2 className="truncate text-base font-semibold text-dls-text">
+          <h2 className="truncate text-base font-semibold leading-6 text-dls-text">
             {props.title}
           </h2>
         </div>
       ) : null}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-8">
-        <div className="space-y-5 text-sm leading-7 text-dls-text">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-6">
+        <div className="space-y-6 text-sm leading-7 text-dls-text">
           {props.initialContent}
           {messages.length === 0 && !sending ? props.emptyContent : null}
           {messages.map((message) => (
             <div
               key={message.id}
               className={cn(
-                "max-w-[94%] rounded-xl px-3 py-2.5 leading-6",
+                "max-w-[94%] rounded-2xl px-3.5 py-3 leading-6",
                 message.role === "user"
                   ? "ml-auto bg-dls-accent text-white"
                   : "bg-dls-hover text-dls-text",
