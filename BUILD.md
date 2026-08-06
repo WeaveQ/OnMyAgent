@@ -45,7 +45,7 @@ This builds the React UI in `apps/app` and shared UI package dependencies.
 
 Run desktop package scripts from the repository root.
 
-The first public release line targets macOS only. Windows packaging will be added later, and Linux/AUR packaging is intentionally disabled for now.
+Primary release and signing target is **macOS**. **Windows** has an unsigned NSIS developer-preview path (`pnpm --filter @onmyagent/desktop package:electron` on a Windows host or via CI `windows-2022`); see [`docs/windows-compat.md`](./docs/windows-compat.md). **Linux/AUR** packaging remains intentionally disabled.
 
 ```bash
 pnpm --dir apps/desktop build

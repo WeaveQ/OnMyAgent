@@ -63,7 +63,8 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
         </SettingsTabSuspense>
       );
     case "permissions":
-      // Fused into System settings — deep links should redirect via parseSettingsPath.
+    case "environment":
+      // Fused into System settings — deep links redirect via parseSettingsPath.
       // Fall through to same body if redirect missed.
     case "system":
       return (
@@ -138,6 +139,22 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 void ctx.providerAuthStore.refreshProviders();
                 void ctx.connectionsStore.refreshMcpServers();
               }}
+            />
+            <LazyEnvironmentView
+              client={ctx.onmyagentServerSnapshot.onmyagentServerClient}
+              isRemoteWorkspace={ctx.isRemoteWorkspace}
+              onApplyChanges={
+                isDesktopRuntime() && !ctx.isRemoteWorkspace
+                  ? ctx.handleApplyEnvironmentChanges
+                  : undefined
+              }
+              applyBlocked={ctx.activeReloadBlockingSessions.length > 0}
+              applyBlockedReason={
+                ctx.activeReloadBlockingSessions.length > 0
+                  ? t("settings.environment.apply_blocked_active_tasks")
+                  : null
+              }
+              runtimeKey={ctx.environmentRuntimeKey}
             />
           </SettingsStack>
         </SettingsTabSuspense>
@@ -481,23 +498,6 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             workspaceId={ctx.runtimeWorkspaceId?.trim() || ctx.selectedWorkspaceId}
             workspaceRoot={ctx.selectedWorkspaceRoot}
             deleteSessionOwnedWorkspaceFiles={deleteSessionOwnedWorkspaceFiles}
-          />
-        </SettingsTabSuspense>
-      );
-    case "environment":
-      return (
-        <SettingsTabSuspense>
-          <LazyEnvironmentView
-            client={ctx.onmyagentServerSnapshot.onmyagentServerClient}
-            isRemoteWorkspace={ctx.isRemoteWorkspace}
-            onApplyChanges={isDesktopRuntime() && !ctx.isRemoteWorkspace ? ctx.handleApplyEnvironmentChanges : undefined}
-            applyBlocked={ctx.activeReloadBlockingSessions.length > 0}
-            applyBlockedReason={
-              ctx.activeReloadBlockingSessions.length > 0
-                ? t("settings.environment.apply_blocked_active_tasks")
-                : null
-            }
-            runtimeKey={ctx.environmentRuntimeKey}
           />
         </SettingsTabSuspense>
       );

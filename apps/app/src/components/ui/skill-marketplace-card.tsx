@@ -4,6 +4,18 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
+/**
+ * Shared responsive grid for marketplace-style card shelves
+ * (skills market, company store, expert market, plugins).
+ * Single source — do not re-copy this Tailwind string in pages.
+ */
+export const MARKETPLACE_CARD_GRID =
+  "grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+
+/** Same columns as MARKETPLACE_CARD_GRID without the 2xl breakpoint (dense shelves). */
+export const MARKETPLACE_CARD_GRID_COMPACT =
+  "grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+
 export type SkillMarketplaceCardModel = {
   id: string;
   displayName: string;

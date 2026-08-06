@@ -124,7 +124,7 @@ export default {
   "settings.feedback_title": `Help shape ${APP_NAME}`,
   "settings.group_global": "Global",
   "settings.group_workspace": "Workspace",
-  "settings.group_personal_memory": "Personal & Memory",
+  "settings.group_personal_memory": "Personal",
   "settings.group_archived": "Archive",
   "settings.group_data": "Data",
   "settings.tab_archived_tasks": "Archive",
@@ -931,8 +931,7 @@ export default {
 
   "settings.tab_system": "System",
   "settings.tab_company": "Company",
-  "settings.tab_description_company":
-    "Connect OnMyCompany (org skills/experts). Path: Settings → Global → Company",
+  "settings.tab_description_company": "Connect OnMyCompany for org skills and experts",
   "settings.tab_description_system": "Startup, notifications, and permissions",
   "settings.tab_shortcuts": "Keyboard shortcuts",
   "settings.tab_description_shortcuts": "Customize general, task, and session shortcuts",
@@ -1001,10 +1000,14 @@ export default {
   "settings.company_connection_section_title": "Connect company",
   "settings.company_desc_disconnected":
     "Enter your internal OnMyCompany URL and sign in with email OTP. Org skills and experts then appear under the Company tab in Skills / Experts. Local config is unchanged.",
+  "settings.company_desc_disconnected_short":
+    "Enter the service URL and sign in with email OTP.",
   "settings.company_desc_connected":
     "Org catalog is connected. Skills, experts, connectors, and models follow company distribution. Locally connected models still work.",
   "settings.company_status_badge_connected": "Connected",
   "settings.company_status_badge_disconnected": "Not connected",
+  "settings.company_health_ok": "Healthy",
+  "settings.company_health_bad": "Unhealthy",
   "settings.company_health_badge": "Healthy · {org} · {version}",
   "settings.company_connected_as": "Connected · {email}",
   "settings.company_config_version": "Config {version}",

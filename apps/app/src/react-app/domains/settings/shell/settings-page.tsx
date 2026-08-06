@@ -184,19 +184,25 @@ export function getSettingsTabDescription(tab: SettingsTab) {
 }
 
 /**
- * Top-level tabs (no group label) — Overview only.
- * Preferences (language/theme/font) live under Workspace.
+ * Settings nav IA (top → bottom):
+ * 1. Overview (ungrouped)
+ * 2. Workspace — workspace-scoped: models, company
+ * 3. Personal — profile + memory
+ * 4. App / Global — appearance, OS, shortcuts, env, updates
+ * 5. Data — usage, reset, archive
+ *
+ * Preferences (language/theme/font) stay under Global, not Workspace.
  */
 export function getOverviewSettingsTabs(): SettingsTab[] {
   return ["general"];
 }
 
+/** Models + company connect (workspace / org scoped). */
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // Preferences + models; system auth under Global → System.
-  return ["preferences", "ai"];
+  return ["ai", "company"];
 }
 
-/** Personal profile + conversation/work memory (own nav group for discoverability). */
+/** Personal profile + conversation/work memory. */
 export function getPersonalMemorySettingsTabs(): SettingsTab[] {
   return ["memory", "conversation-memory"];
 }
@@ -211,17 +217,50 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
   return getDataSettingsTabs();
 }
 
+/**
+ * App-wide settings: appearance first, then system/runtime.
+ * Preferences are not workspace-scoped (language/theme/font).
+ */
+/**
+ * App-wide settings. Environment is fused into System (not a top-level nav item);
+ * deep links /settings/environment still resolve to system.
+ */
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  // Company near top so “连接公司” is easy to find (not buried under the fold).
   const tabs: SettingsTab[] = [
-    "company",
+    "preferences",
     "system",
     "shortcuts",
-    "environment",
     "updates",
   ];
   if (developerMode) tabs.push("debug");
   return tabs;
+}
+
+/**
+ * Single source of truth for Settings sidebar + compact section menu groups.
+ * Labels are i18n keys (or null for overview-only top block).
+ */
+export type SettingsNavSectionDef = {
+  labelKey: string | null;
+  tabs: SettingsTab[];
+};
+
+export function getSettingsNavSections(
+  developerMode: boolean,
+): SettingsNavSectionDef[] {
+  return [
+    { labelKey: null, tabs: getOverviewSettingsTabs() },
+    { labelKey: "settings.group_workspace", tabs: getWorkspaceSettingsTabs() },
+    {
+      labelKey: "settings.group_personal_memory",
+      tabs: getPersonalMemorySettingsTabs(),
+    },
+    {
+      labelKey: "settings.group_global",
+      tabs: getGlobalSettingsTabs(developerMode),
+    },
+    { labelKey: "settings.group_data", tabs: getDataSettingsTabs() },
+  ];
 }
 
 type SettingsPageProps = {
@@ -290,11 +329,7 @@ function SettingsNavGroup(props: {
 }
 
 export function SettingsSidebar(props: SettingsSidebarProps) {
-  const overviewTabs = getOverviewSettingsTabs();
-  const workspaceTabs = getWorkspaceSettingsTabs();
-  const personalMemoryTabs = getPersonalMemorySettingsTabs();
-  const dataTabs = getDataSettingsTabs();
-  const globalTabs = getGlobalSettingsTabs(props.developerMode);
+  const sections = getSettingsNavSections(props.developerMode);
 
   return (
     <Sidebar className={settingsSidebarClass}>
@@ -315,35 +350,15 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="px-2 pb-4">
-        <SettingsNavGroup
-          tabs={overviewTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_workspace")}
-          tabs={workspaceTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_personal_memory")}
-          tabs={personalMemoryTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_global")}
-          tabs={globalTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_data")}
-          tabs={dataTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
+        {sections.map((section) => (
+          <SettingsNavGroup
+            key={section.labelKey ?? "overview"}
+            label={section.labelKey ? t(section.labelKey as never) : undefined}
+            tabs={section.tabs}
+            activeTab={props.activeTab}
+            onSelectTab={props.onSelectTab}
+          />
+        ))}
       </SidebarContent>
     </Sidebar>
   );

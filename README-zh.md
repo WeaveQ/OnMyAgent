@@ -92,11 +92,16 @@ OnMyAgent 不是：
 ## 平台支持
 
 - **macOS** 是主发布与日常 dogfood 平台（Apple Silicon + Intel）。
-- **Windows** 可跑 Electron shell、sidecar 与大部分产品 UI；预检、NSIS 打包与
-  macOS-only 缺口（Computer Use / Appshot 桌面截图、`sandbox-exec`）见
+- **Windows** 可跑 Electron shell、sidecar 与大部分产品 UI；预检、NSIS 打包、
+  Computer Use（内置 Cua Driver）、Appshot，以及仍属 macOS-only 的缺口
+  （`sandbox-exec`、HandsFree AX/Skysight、代码签名）见
   [`docs/windows-compat.md`](./docs/windows-compat.md)。
 - **Linux** 包（含 Arch AUR）暂不支持。
-- **Computer Use 与 Appshot** 依赖原生 HandsFree helper，**仅 macOS**。
+- **Computer Use**：macOS 使用 HandsFree helper（helper 就绪时 MCP 默认开）；
+  Windows 打包 **Cua Driver**（MCP 会注册，**默认关**，需
+  `ONMYAGENT_COMPUTER_USE_ENABLED=1` 开启）。**不是**完整 HandsFree 对等。
+- **Appshot**（对话「截取桌面」）：macOS / Windows / Linux 均走 Electron
+  `desktopCapturer`；快捷键在 设置 → 快捷键 中可改。
 
 ## 工作流
 
@@ -190,7 +195,7 @@ apps/server         本地 HTTP API，用于 workspace/session/skill/MCP 操作
 apps/orchestrator   启动 OpenCode、server、sandbox 的宿主进程
 packages/types      共享 Zod schema 和类型边界
 packages/ui         共享 React 视觉组件（`@onmyagent/ui/react`）
-packages/handsfree  本地 Computer Use runner
+packages/handsfree  macOS Computer Use（HandsFree）；Windows CU 见桌面 Cua Driver
 packages/onmyagent-ui-mcp 让 Agent 检查/控制 UI 的 MCP server
 ```
 

@@ -48,9 +48,11 @@ apps/server       本地 HTTP API，workspace/session/skill/MCP/审批，SQLite�
 apps/orchestrator 进程编排，嵌入 server，spawn opencode，sandbox
 packages/types    Zod schema，共享类型边界
 packages/ui       React-only 视觉组件（@onmyagent/ui/react），不依赖 app 状态
-packages/handsfree macOS-only Computer Use（含 Appshot；Win/Linux 不打包）
+packages/handsfree macOS Computer Use（HandsFree AX/Skysight；Win/Linux 不打包此包）
 packages/onmyagent-ui-mcp UI 控制面 MCP server
 ```
+
+**Computer Use 跨平台：** macOS = HandsFree helper；Windows = 桌面侧 bundled **Cua Driver**（`prepare-cua-helper` / `computer-use-runtime-config`，MCP 默认关）。Appshot 全桌面平台走 Electron `desktopCapturer`。细节见 `docs/windows-compat.md`。
 
 默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`；React 域细节只维护在 `apps/app/src/react-app/ARCHITECTURE.md`。
 

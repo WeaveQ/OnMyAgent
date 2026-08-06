@@ -1,11 +1,12 @@
 /** @jsxImportSource react */
-import type { ComponentType } from "react";
+import { useEffect, useMemo, type ComponentType } from "react";
 
 import { RailButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "../../../../lib/public-asset-url";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { t } from "../../../../i18n";
+import { useCompanyConnected } from "../hooks/use-company-connected";
 import {
   SidebarAccountButton,
   type SidebarAccountInfo,
@@ -59,8 +60,9 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Automation → Files → Store → Company → Projects
+// Order: Home → Experts → Automation → Files → Store → Company (gated) → Projects
 // Local agents + agent management live under the account/settings menu.
+// Company stays in the list definition for icon contracts; runtime filters by OMC connect.
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
@@ -176,6 +178,22 @@ export function OnMyAgentRail(props: {
   onSignOut?: () => void;
   onOpenBilling?: () => void;
 }) {
+  // Only show Company shortcut after Settings → Workspace → Company is connected.
+  const companyConnected = useCompanyConnected();
+  const topRailItems = useMemo(
+    () =>
+      TOP_RAIL_ITEMS.filter(
+        (item) => item.id !== "company" || companyConnected,
+      ),
+    [companyConnected],
+  );
+
+  useEffect(() => {
+    if (!companyConnected && props.activeView === "company") {
+      props.onOpenView("assistant");
+    }
+  }, [companyConnected, props.activeView, props.onOpenView]);
+
   // mac:pt-10 clears traffic lights (y≈12) without a large empty band above the brand mark.
   // Windows keeps compact top padding. Column = --dls-rail-width; pills = --dls-rail-pill-width.
   // Single soft right edge only — avoid double seam next to the list panel.
@@ -184,7 +202,7 @@ export function OnMyAgentRail(props: {
       <div className="flex min-h-0 w-full flex-1 flex-col items-center">
         <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <RailBrandMark onClick={() => props.onOpenView("assistant")} />
-          {TOP_RAIL_ITEMS.map((item) => (
+          {topRailItems.map((item) => (
             <TopRailButton
               key={item.id}
               item={item}

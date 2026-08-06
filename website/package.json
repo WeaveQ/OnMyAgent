@@ -5,9 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
+    "dev:docs": "vitepress dev docs --port 5173",
     "build": "node scripts/build.mjs",
+    "build:docs": "vitepress build docs",
     "check": "node scripts/check.mjs",
-    "preview": "node scripts/serve.mjs --dist"
+    "preview": "node scripts/serve.mjs --dist",
+    "test": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
   },
   "packageManager": "pnpm@10.27.0",
   "license": "Apache-2.0"

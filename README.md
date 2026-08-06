@@ -94,9 +94,14 @@ OnMyAgent is not:
 - **macOS** is the primary release and dogfood target (Apple Silicon + Intel).
 - **Windows** runs the Electron shell, sidecars, and most product UI; see
   [`docs/windows-compat.md`](./docs/windows-compat.md) for preflight, NSIS packaging,
-  and macOS-only gaps (Computer Use / Appshot desktop capture, `sandbox-exec`).
+  Computer Use (bundled Cua Driver), Appshot, and remaining macOS-only gaps
+  (`sandbox-exec`, HandsFree AX/Skysight, code signing).
 - **Linux** packages (including Arch AUR) are not supported for now.
-- **Computer Use + Appshot** require the native HandsFree helper and are **macOS only**.
+- **Computer Use**: macOS uses the HandsFree helper (MCP on by default when staged);
+  Windows stages a **Cua Driver** helper (MCP registered, **off by default** —
+  set `ONMYAGENT_COMPUTER_USE_ENABLED=1` to enable). Not full HandsFree parity.
+- **Appshot** (composer “capture desktop”): Electron `desktopCapturer` on
+  macOS / Windows / Linux; customizable global shortcut in Settings → Shortcuts.
 
 ## Workflow
 
@@ -190,7 +195,7 @@ apps/server         Local HTTP API for workspace/session/skill/MCP operations
 apps/orchestrator   Host process that starts OpenCode, server, sandbox
 packages/types      Shared Zod schemas and type boundaries
 packages/ui         Shared React visual components (`@onmyagent/ui/react`)
-packages/handsfree  Local Computer Use runner
+packages/handsfree  macOS Computer Use (HandsFree); Win CU is desktop Cua Driver
 packages/onmyagent-ui-mcp MCP server that lets agents inspect/control the UI
 ```
 

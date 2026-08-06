@@ -44,6 +44,8 @@ const countBadgeVariants = cva(
       size: {
         default: "h-7 min-w-7 px-2 text-xs",
         compact: "h-6 min-w-6 px-2 text-xs",
+        /** File tree / outline meta counts (ring + 2xs type). */
+        meta: "min-h-5 px-2 py-0.5 text-2xs ring-1 ring-dls-border/60",
         dot: "min-h-3.5 min-w-3.5 px-1 text-2xs font-semibold",
         label: "min-h-5 rounded-md px-2 py-0.5 text-xs",
       },

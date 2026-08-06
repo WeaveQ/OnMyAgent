@@ -1,5 +1,5 @@
 /**
- * Navigate to Settings → Company, preserving workspace hash when present.
+ * Navigate to Settings → Workspace → Company, preserving workspace hash when present.
  */
 export function openCompanySettingsPath(): void {
   try {

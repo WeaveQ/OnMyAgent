@@ -1,33 +1,19 @@
 /** @jsxImportSource react */
 /**
  * Connect company (OnMyCompany) settings panel.
- * Layout aligned with System settings: LayoutStack max-w-3xl, section chrome,
- * IconTile rows, 2-col metric cards, divided list surfaces.
+ * Compact connection panel: identity, metrics, actions.
  * All company HTTP goes through Electron IPC (main process).
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
-import {
-  Building2,
-  ExternalLink,
-  LogIn,
-  LogOut,
-  RefreshCw,
-  Server,
-  Bot,
-  Boxes,
-  Cable,
-  Cpu,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ExternalLink, LogIn, LogOut, RefreshCw, Server } from "lucide-react";
 
-import { IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
@@ -193,58 +179,14 @@ async function disconnectDurable(): Promise<CompanySettings> {
   });
 }
 
-/** Match SystemOptionCard surface: IconTile + title/desc + trailing. */
-function MetricCard(props: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  value: number;
-}) {
-  const Icon = props.icon;
+/** Compact metric tile — label + number only (no subtitle). */
+function MetricTile(props: { title: string; value: number }) {
   return (
-    <div
-      className={cn(
-        "flex min-h-[4.75rem] items-center gap-3 rounded-xl border border-dls-border",
-        "bg-dls-surface px-3.5 py-3",
-      )}
-    >
-      <IconTile border className="size-9 shrink-0">
-        <Icon size={16} className="text-dls-secondary" />
-      </IconTile>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium leading-5 text-dls-text">{props.title}</div>
-        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
-          {props.description}
-        </p>
-      </div>
-      <div className="shrink-0 text-lg font-semibold tabular-nums leading-none text-dls-text">
+    <div className="rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5">
+      <div className="text-lg font-semibold tabular-nums leading-none text-dls-text">
         {props.value}
       </div>
-    </div>
-  );
-}
-
-function ListRow(props: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  trailing?: ReactNode;
-}) {
-  const Icon = props.icon;
-  return (
-    <div className="flex items-center gap-3 px-4 py-3.5">
-      <IconTile border className="size-9 shrink-0">
-        <Icon size={16} className="text-dls-secondary" />
-      </IconTile>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium leading-5 text-dls-text">{props.title}</div>
-        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
-          {props.description}
-        </p>
-      </div>
-      {props.trailing ? (
-        <div className="flex shrink-0 items-center gap-2">{props.trailing}</div>
-      ) : null}
+      <div className="mt-1 text-xs text-dls-secondary">{props.title}</div>
     </div>
   );
 }
@@ -485,116 +427,97 @@ export function CompanySettingsView(props: CompanyViewProps) {
   const modelCount = catalog?.models?.length ?? 0;
   const gatewayCount = catalog?.gatewayServices?.length ?? 0;
 
-  const gatewayNames =
-    catalog?.gatewayServices
-      ?.map((s) => s.name || s.id)
-      .filter(Boolean)
-      .slice(0, 4) ?? [];
-  const modelNames =
-    catalog?.models
-      ?.map((m) => m.name || m.id)
-      .filter(Boolean)
-      .slice(0, 6) ?? [];
+  const policyLine = useMemo(() => {
+    if (!catalog?.policy) return null;
+    const parts = [
+      allowActions.length
+        ? `${t("settings.company_policy_allow")}: ${allowActions.slice(0, 3).join(", ")}`
+        : null,
+      denyActions.length
+        ? `${t("settings.company_policy_deny")}: ${denyActions.slice(0, 3).join(", ")}`
+        : null,
+      catalog.policy.egress?.mode
+        ? `${t("settings.company_policy_egress")}: ${catalog.policy.egress.mode}`
+        : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }, [allowActions, catalog?.policy, denyActions]);
 
   return (
     <LayoutStack>
-      {/* Connection section — same chrome as System options */}
       <section className="flex w-full max-w-3xl flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <h3 className="flex flex-wrap items-center gap-2 text-lg font-medium leading-7 text-dls-text">
-              {t("settings.company_connection_section_title")}
-              <StatusBadge
-                tone={connected ? "success" : "neutral"}
-                size="sm"
-                shape="soft"
-              >
-                {connected
-                  ? t("settings.company_status_badge_connected")
-                  : t("settings.company_status_badge_disconnected")}
-              </StatusBadge>
-              {health ? (
-                <StatusBadge
-                  tone={health.ok ? "success" : "warning"}
-                  size="sm"
-                  shape="soft"
-                >
-                  {t("settings.company_health_badge", {
-                    org: health.orgId,
-                    version: health.version || "—",
-                  })}
-                </StatusBadge>
-              ) : null}
-            </h3>
-            <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
-              {connected
-                ? t("settings.company_desc_connected")
-                : t("settings.company_desc_disconnected")}
-            </p>
-          </div>
-          {connected ? (
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              {catalog?.adminConsoleUrl ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => openAdminConsole(catalog.adminConsoleUrl!)}
-                >
-                  <ExternalLink data-icon="inline-start" className="size-3.5" />
-                  {t("settings.company_open_admin")}
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void refreshHealth()}
-              >
-                <Server data-icon="inline-start" className="size-3.5" />
-                {t("settings.company_probe")}
-              </Button>
-              {isDesktopRuntime() ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void syncConfig()}
-                >
-                  <RefreshCw
-                    data-icon="inline-start"
-                    className={cn("size-3.5", loading && "animate-spin")}
-                  />
-                  {t("settings.company_sync")}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
         {connected ? (
           <>
-            {/* Identity row — same divided list surface as system authorizations */}
-            <div
-              className={cn(
-                "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
-                "divide-y divide-dls-border",
-              )}
-            >
-              <ListRow
-                icon={Building2}
-                title={t("settings.company_connected_as", { email: displayEmail })}
-                description={[
-                  displayBaseUrl,
-                  t("settings.company_config_version", { version: configVersion }),
-                  syncedAtLabel,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-                trailing={
+            {/* Single identity + actions card */}
+            <div className="rounded-xl border border-dls-border bg-dls-surface px-4 py-3.5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-medium text-dls-text">
+                      {displayEmail}
+                    </span>
+                    <StatusBadge tone="success" size="sm" shape="soft">
+                      {t("settings.company_status_badge_connected")}
+                    </StatusBadge>
+                    {health ? (
+                      <StatusBadge
+                        tone={health.ok ? "success" : "warning"}
+                        size="sm"
+                        shape="soft"
+                      >
+                        {health.ok
+                          ? t("settings.company_health_ok")
+                          : t("settings.company_health_bad")}
+                      </StatusBadge>
+                    ) : null}
+                  </div>
+                  <p className="truncate text-xs text-dls-secondary">
+                    {[
+                      displayBaseUrl,
+                      configVersion !== "—"
+                        ? t("settings.company_config_version", {
+                            version: configVersion,
+                          })
+                        : null,
+                      syncedAtLabel,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {policyLine ? (
+                    <p className="line-clamp-1 text-xs text-dls-secondary">
+                      {policyLine}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {catalog?.adminConsoleUrl ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => openAdminConsole(catalog.adminConsoleUrl!)}
+                    >
+                      <ExternalLink data-icon="inline-start" className="size-3.5" />
+                      {t("settings.company_open_admin")}
+                    </Button>
+                  ) : null}
+                  {isDesktopRuntime() ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void syncConfig()}
+                    >
+                      <RefreshCw
+                        data-icon="inline-start"
+                        className={cn("size-3.5", loading && "animate-spin")}
+                      />
+                      {t("settings.company_sync")}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"
@@ -607,45 +530,35 @@ export function CompanySettingsView(props: CompanyViewProps) {
                       ? t("settings.company_working")
                       : t("settings.company_disconnect")}
                   </Button>
-                }
-              />
-            </div>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <MetricCard
-                icon={Boxes}
-                title={t("settings.company_metric_skills")}
-                description={t("settings.company_metric_skills_desc")}
-                value={skillCount}
-              />
-              <MetricCard
-                icon={Bot}
-                title={t("settings.company_metric_experts")}
-                description={t("settings.company_metric_experts_desc")}
-                value={expertCount}
-              />
-              <MetricCard
-                icon={Cable}
-                title={t("settings.company_metric_gateways")}
-                description={t("settings.company_metric_gateways_desc")}
-                value={gatewayCount}
-              />
-              <MetricCard
-                icon={Cpu}
-                title={t("settings.company_metric_models")}
-                description={t("settings.company_metric_models_desc")}
-                value={modelCount}
-              />
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <MetricTile
+                  title={t("settings.company_metric_skills")}
+                  value={skillCount}
+                />
+                <MetricTile
+                  title={t("settings.company_metric_experts")}
+                  value={expertCount}
+                />
+                <MetricTile
+                  title={t("settings.company_metric_gateways")}
+                  value={gatewayCount}
+                />
+                <MetricTile
+                  title={t("settings.company_metric_models")}
+                  value={modelCount}
+                />
+              </div>
             </div>
           </>
         ) : (
-          <div
-            className={cn(
-              "rounded-xl border border-dls-border bg-dls-surface",
-              "px-4 py-4",
-            )}
-          >
-            <div className="grid gap-4">
+          <div className="rounded-xl border border-dls-border bg-dls-surface px-4 py-4">
+            <p className="mb-4 text-sm text-dls-secondary">
+              {t("settings.company_desc_disconnected_short")}
+            </p>
+            <div className="grid gap-3">
               <Field>
                 <FieldLabel htmlFor="company-base-url">
                   {t("settings.company_base_url")}
@@ -658,12 +571,9 @@ export function CompanySettingsView(props: CompanyViewProps) {
                   disabled={busy}
                   autoComplete="url"
                 />
-                <FieldDescription className="text-xs">
-                  {t("settings.company_base_url_hint")}
-                </FieldDescription>
               </Field>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="company-email">
                     {t("settings.company_email")}
@@ -698,7 +608,9 @@ export function CompanySettingsView(props: CompanyViewProps) {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={busy || !baseUrl.trim() || !email.trim() || !code.trim()}
+                  disabled={
+                    busy || !baseUrl.trim() || !email.trim() || !code.trim()
+                  }
                   onClick={() => void connect()}
                 >
                   <LogIn data-icon="inline-start" className="size-3.5" />
@@ -723,90 +635,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
 
         {status ? <SettingsNotice tone="success">{status}</SettingsNotice> : null}
         {error ? <SettingsNotice tone="error">{error}</SettingsNotice> : null}
-      </section>
 
-      {/* Capability section — same second-section pattern as System permissions */}
-      {connected ? (
-        <section className="flex w-full max-w-3xl flex-col gap-3">
-          <div className="space-y-1">
-            <h3 className="text-lg font-medium leading-7 text-dls-text">
-              {t("settings.company_capability_title")}
-            </h3>
-            <p className="max-w-[52ch] text-sm leading-5 text-dls-secondary">
-              {t("settings.company_capability_desc")}
-            </p>
-          </div>
-
-          <div
-            className={cn(
-              "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
-              "divide-y divide-dls-border",
-            )}
-          >
-            <ListRow
-              icon={Cable}
-              title={t("settings.company_gateway_section")}
-              description={
-                gatewayNames.length > 0
-                  ? gatewayNames.join(" · ") +
-                    (gatewayCount > gatewayNames.length
-                      ? t("settings.company_list_more", {
-                          count: gatewayCount - gatewayNames.length,
-                        })
-                      : "")
-                  : t("settings.company_gateway_empty")
-              }
-              trailing={
-                <StatusBadge tone="neutral" size="sm">
-                  {gatewayCount}
-                </StatusBadge>
-              }
-            />
-            <ListRow
-              icon={Cpu}
-              title={t("settings.company_models_section")}
-              description={
-                modelNames.length > 0
-                  ? modelNames.join(" · ") +
-                    (modelCount > modelNames.length
-                      ? t("settings.company_list_more", {
-                          count: modelCount - modelNames.length,
-                        })
-                      : "")
-                  : t("settings.company_models_empty")
-              }
-              trailing={
-                <StatusBadge tone="neutral" size="sm">
-                  {modelCount}
-                </StatusBadge>
-              }
-            />
-            <ListRow
-              icon={Server}
-              title={t("settings.company_policy_title")}
-              description={
-                catalog?.policy
-                  ? [
-                      allowActions.length
-                        ? `${t("settings.company_policy_allow")}: ${allowActions.slice(0, 4).join(", ")}`
-                        : null,
-                      denyActions.length
-                        ? `${t("settings.company_policy_deny")}: ${denyActions.slice(0, 4).join(", ")}`
-                        : null,
-                      catalog.policy.egress?.mode
-                        ? `${t("settings.company_policy_egress")}: ${catalog.policy.egress.mode}`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || t("settings.company_policy_empty")
-                  : t("settings.company_policy_empty")
-              }
-            />
-          </div>
-        </section>
-      ) : null}
-
-      <section className="flex w-full max-w-3xl flex-col gap-2">
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <CollapsibleTrigger
             render={
@@ -829,6 +658,20 @@ export function CompanySettingsView(props: CompanyViewProps) {
                 "divide-y divide-dls-border text-xs text-dls-secondary",
               )}
             >
+              {connected ? (
+                <div className="flex flex-wrap gap-2 px-4 py-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void refreshHealth()}
+                  >
+                    <Server data-icon="inline-start" className="size-3.5" />
+                    {t("settings.company_probe")}
+                  </Button>
+                </div>
+              ) : null}
               <div className="px-4 py-3">
                 {t("settings.company_adv_store")}:{" "}
                 {storeMode === "desktop"
@@ -841,9 +684,14 @@ export function CompanySettingsView(props: CompanyViewProps) {
               <div className="px-4 py-3">
                 {t("settings.company_adv_base_url")}: {displayBaseUrl}
               </div>
-              <div className="px-4 py-3 text-dls-secondary/90">
-                {t("settings.company_adv_hint")}
-              </div>
+              {health ? (
+                <div className="px-4 py-3">
+                  {t("settings.company_health_badge", {
+                    org: health.orgId,
+                    version: health.version || "—",
+                  })}
+                </div>
+              ) : null}
             </div>
           </CollapsibleContent>
         </Collapsible>
