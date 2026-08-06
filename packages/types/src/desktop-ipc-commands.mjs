@@ -137,6 +137,14 @@ const commandGroups = /** @type {const} */ ({
   managedTools: [
     "officeCliGetStatus", "officeCliInstallLatest", "officeCliUninstall",
     "larkCliGetStatus", "larkCliInstallLatest", "larkCliUninstall",
+    "larkCliGetConnectionStatus",
+    "larkCliGetRecommendedScopesJson",
+    "larkCliSubmitManualCredentials",
+    "larkCliStartUserLogin",
+    "larkCliCompleteUserLogin",
+    "larkCliStartConfigInit",
+    "larkCliCancelConfigInit",
+    "larkCliDisconnect",
   ],
 });
 

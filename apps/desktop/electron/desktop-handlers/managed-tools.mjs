@@ -10,6 +10,14 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "larkCliGetStatus",
   "larkCliInstallLatest",
   "larkCliUninstall",
+  "larkCliGetConnectionStatus",
+  "larkCliGetRecommendedScopesJson",
+  "larkCliSubmitManualCredentials",
+  "larkCliStartUserLogin",
+  "larkCliCompleteUserLogin",
+  "larkCliStartConfigInit",
+  "larkCliCancelConfigInit",
+  "larkCliDisconnect",
 ]);
 
 function errorDetails(error, fallbackCode) {
@@ -62,12 +70,16 @@ function createPluginHandlers(manager, fallbackCode) {
 export function createManagedToolsDomainHandlers({
   officeCliManager,
   larkCliManager,
+  larkCliAuth,
 } = {}) {
   if (!officeCliManager) {
     throw new Error("createManagedToolsDomainHandlers requires officeCliManager");
   }
   if (!larkCliManager) {
     throw new Error("createManagedToolsDomainHandlers requires larkCliManager");
+  }
+  if (!larkCliAuth) {
+    throw new Error("createManagedToolsDomainHandlers requires larkCliAuth");
   }
 
   const office = createPluginHandlers(officeCliManager, "officecli_error");
@@ -80,5 +92,22 @@ export function createManagedToolsDomainHandlers({
     larkCliGetStatus: lark.getStatus,
     larkCliInstallLatest: lark.installLatest,
     larkCliUninstall: lark.uninstall,
+
+    larkCliGetConnectionStatus: async () => larkCliAuth.getConnectionStatus(),
+    larkCliGetRecommendedScopesJson: async () => larkCliAuth.getRecommendedScopesJson(),
+    larkCliSubmitManualCredentials: async (_event, args) => {
+      const input = args?.[0] ?? {};
+      return larkCliAuth.submitManualCredentials(input);
+    },
+    larkCliStartUserLogin: async () => larkCliAuth.startUserLogin(),
+    larkCliCompleteUserLogin: async (_event, args) => {
+      const sessionId = args?.[0]?.sessionId;
+      return larkCliAuth.completeUserLogin(sessionId);
+    },
+    larkCliStartConfigInit: async () => larkCliAuth.startConfigInit(),
+    larkCliCancelConfigInit: async () => larkCliAuth.cancelConfigInit(),
+    larkCliDisconnect: async (_event, args) => {
+      return larkCliAuth.disconnect(args?.[0] ?? {});
+    },
   };
 }
