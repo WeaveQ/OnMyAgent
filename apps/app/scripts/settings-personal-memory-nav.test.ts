@@ -28,11 +28,14 @@ describe("settings personal & memory navigation (shipped)", () => {
 
   test("global group hosts preferences then system runtime tabs", () => {
     const tabs = getGlobalSettingsTabs(false);
-    expect(tabs[0]).toBe("preferences");
-    expect(tabs).toContain("system");
-    expect(tabs).toContain("shortcuts");
-    expect(tabs).toContain("environment");
-    expect(tabs).toContain("updates");
+    expect(tabs).toEqual([
+      "preferences",
+      "system",
+      "shortcuts",
+      "updates",
+    ]);
+    // Environment is fused into System, not a top-level nav entry.
+    expect(tabs).not.toContain("environment");
     expect(tabs).not.toContain("company");
     expect(tabs).not.toContain("ai");
   });

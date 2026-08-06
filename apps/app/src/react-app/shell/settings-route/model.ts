@@ -284,7 +284,6 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "system":
     case "company":
     case "shortcuts":
-    case "environment":
     case "updates":
     case "usage":
     case "memory":
@@ -293,9 +292,10 @@ export function parseSettingsPath(pathname: string): SettingsRoutePath {
     case "recovery":
     case "debug":
       return { tab: head, redirectPath: null };
-    // Permissions + app-snapshot auth fused into System settings.
+    // Permissions / app-snapshot / environment fused into System settings.
     case "permissions":
     case "app-snapshot":
+    case "environment":
       return { tab: "system", redirectPath: "system" };
     case "cloud-marketplaces":
     case "cloud-providers":

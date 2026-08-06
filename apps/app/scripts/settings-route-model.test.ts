@@ -214,6 +214,15 @@ describe("settings route workspace model", () => {
       tab: "company",
       redirectPath: null,
     });
+    // Environment fused into System (same as permissions / app-snapshot).
+    expect(parseSettingsPath("/settings/environment")).toEqual({
+      tab: "system",
+      redirectPath: "system",
+    });
+    expect(parseSettingsPath("/settings/permissions")).toEqual({
+      tab: "system",
+      redirectPath: "system",
+    });
     expect(parseSettingsPath("/settings/nope")).toEqual({ tab: "general", redirectPath: "general" });
     expect(settingsPathForRoute({ tab: "general", redirectPath: null })).toBe("general");
   });

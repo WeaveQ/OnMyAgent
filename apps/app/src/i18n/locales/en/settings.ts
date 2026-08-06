@@ -124,7 +124,7 @@ export default {
   "settings.feedback_title": `Help shape ${APP_NAME}`,
   "settings.group_global": "Global",
   "settings.group_workspace": "Workspace",
-  "settings.group_personal_memory": "Personal & Memory",
+  "settings.group_personal_memory": "Personal",
   "settings.group_archived": "Archive",
   "settings.group_data": "Data",
   "settings.tab_archived_tasks": "Archive",

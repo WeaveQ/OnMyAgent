@@ -1,18 +1,19 @@
 /** @jsxImportSource react */
+/**
+ * Settings overview — compact row lists (not a flat 2-col card grid).
+ * Rows come from the same tab getters as the sidebar so order never drifts.
+ */
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  LifeBuoy,
-} from "lucide-react";
+import { ArrowUpRight, ChevronRight, LifeBuoy } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
-import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SettingsCard as SettingsSurfaceCard } from "../settings-section";
+import {
+  SettingsBlock,
+  SettingsBlockRow,
+} from "../settings-section";
 import {
   getDataSettingsTabs,
   getGlobalSettingsTabs,
@@ -23,10 +24,10 @@ import {
   getWorkspaceSettingsTabs,
 } from "../shell/settings-page";
 
-const settingsOverviewTextClass = {
+const overviewTextClass = {
   groupLabel: "text-sm font-medium text-dls-secondary",
   cardTitle: "text-sm font-medium leading-5 text-dls-text",
-  cardDescription: "line-clamp-2 text-xs leading-5 text-dls-secondary",
+  cardDescription: "text-xs leading-5 text-dls-secondary",
 };
 
 export type GeneralSettingsViewProps = {
@@ -35,77 +36,64 @@ export type GeneralSettingsViewProps = {
   onReportIssue: () => void;
 };
 
-function OverviewNavCard(props: {
-  icon: LucideIcon;
-  title: string;
-  desc: string;
-  onClick: () => void;
-  className?: string;
-}) {
-  const Icon = props.icon;
-  return (
-    <ActionRowButton
-      density="settingsCard"
-      type="button"
-      onClick={props.onClick}
-      className={cn(
-        "h-auto min-h-[4.5rem] items-center gap-3 hover:bg-dls-surface-muted/60",
-        props.className,
-      )}
-    >
-      <IconTile border className="size-9 shrink-0">
-        <Icon size={16} className="text-dls-secondary" />
-      </IconTile>
-      <div className="min-w-0 flex-1 text-left">
-        <div className={settingsOverviewTextClass.cardTitle}>{props.title}</div>
-        <div className={settingsOverviewTextClass.cardDescription}>
-          {props.desc}
-        </div>
-      </div>
-      <ArrowRight size={14} className="shrink-0 text-dls-secondary" />
-    </ActionRowButton>
-  );
-}
-
 function OverviewSection(props: {
   label: string;
   children: ReactNode;
 }) {
   return (
     <section className="space-y-2.5">
-      <h3 className={settingsOverviewTextClass.groupLabel}>{props.label}</h3>
+      <h3 className={overviewTextClass.groupLabel}>{props.label}</h3>
       {props.children}
     </section>
   );
 }
 
-function OverviewTabGrid(props: {
+function OverviewTabList(props: {
   tabs: SettingsTab[];
   onNavigateTab: (tab: SettingsTab) => void;
 }) {
+  if (props.tabs.length === 0) return null;
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {props.tabs.map((tab, index) => {
-        const isLastOdd =
-          props.tabs.length % 2 === 1 && index === props.tabs.length - 1;
+    <SettingsBlock>
+      {props.tabs.map((tab) => {
+        const Icon = getSettingsTabIcon(tab);
         return (
-          <OverviewNavCard
+          <button
             key={tab}
-            icon={getSettingsTabIcon(tab)}
-            title={getSettingsTabLabel(tab)}
-            desc={getSettingsTabDescription(tab)}
+            type="button"
+            data-slot="settings-block-row"
+            className={cn(
+              "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors",
+              "hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+            )}
             onClick={() => props.onNavigateTab(tab)}
-            className={isLastOdd ? "sm:col-span-2" : undefined}
-          />
+          >
+            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-dls-border bg-dls-surface-muted text-dls-secondary">
+              <Icon size={16} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 space-y-0.5">
+              <span className={cn("block", overviewTextClass.cardTitle)}>
+                {getSettingsTabLabel(tab)}
+              </span>
+              <span className={cn("block line-clamp-1", overviewTextClass.cardDescription)}>
+                {getSettingsTabDescription(tab)}
+              </span>
+            </span>
+            <ChevronRight
+              size={16}
+              className="shrink-0 text-dls-secondary"
+              aria-hidden
+            />
+          </button>
         );
       })}
-    </div>
+    </SettingsBlock>
   );
 }
 
 /**
- * Settings overview — cards are generated from the same tab lists as the
- * sidebar so 总览 never drifts (e.g. after fusing permissions / moving usage).
+ * Settings overview — list rows generated from the same tab lists as the
+ * sidebar so 总览 never drifts.
  */
 export function GeneralSettingsView(props: GeneralSettingsViewProps) {
   const workspaceTabs = getWorkspaceSettingsTabs();
@@ -114,53 +102,47 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
   const dataTabs = getDataSettingsTabs();
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-7">
       <OverviewSection label={t("settings.workspace_title")}>
-        <OverviewTabGrid
+        <OverviewTabList
           tabs={workspaceTabs}
           onNavigateTab={props.onNavigateTab}
         />
       </OverviewSection>
 
       <OverviewSection label={t("settings.group_personal_memory")}>
-        <OverviewTabGrid
+        <OverviewTabList
           tabs={personalMemoryTabs}
           onNavigateTab={props.onNavigateTab}
         />
       </OverviewSection>
 
       <OverviewSection label={t("settings.global_title")}>
-        <OverviewTabGrid
+        <OverviewTabList
           tabs={globalTabs}
           onNavigateTab={props.onNavigateTab}
         />
       </OverviewSection>
 
       <OverviewSection label={t("settings.group_data")}>
-        <OverviewTabGrid tabs={dataTabs} onNavigateTab={props.onNavigateTab} />
+        <OverviewTabList
+          tabs={dataTabs}
+          onNavigateTab={props.onNavigateTab}
+        />
       </OverviewSection>
 
       <OverviewSection label={t("settings.help_title")}>
-        <SettingsSurfaceCard size="compact" tone="surface" className="p-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <LifeBuoy size={14} className="shrink-0 text-dls-secondary" />
-              <div className="min-w-0">
-                <div className={settingsOverviewTextClass.cardTitle}>
-                  {t("settings.feedback_title")}
-                </div>
-                <p
-                  className={cn(
-                    "mt-0.5 max-w-[52ch]",
-                    settingsOverviewTextClass.cardDescription,
-                    "line-clamp-2",
-                  )}
-                >
-                  {t("settings.feedback_desc")}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <SettingsBlock>
+          <SettingsBlockRow
+            align="start"
+            title={
+              <span className="inline-flex items-center gap-2">
+                <LifeBuoy size={14} className="text-dls-secondary" aria-hidden />
+                {t("settings.feedback_title")}
+              </span>
+            }
+            description={t("settings.feedback_desc")}
+            actions={
               <Button
                 variant="outline"
                 size="sm"
@@ -169,9 +151,9 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
                 {t("settings.report_issue")}
                 <ArrowUpRight size={12} />
               </Button>
-            </div>
-          </div>
-        </SettingsSurfaceCard>
+            }
+          />
+        </SettingsBlock>
       </OverviewSection>
     </div>
   );

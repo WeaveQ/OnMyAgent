@@ -140,7 +140,7 @@ export default {
   "settings.feedback_title": `帮助塑造${APP_NAME}`,
   "settings.group_global": "全局",
   "settings.group_workspace": "工作区",
-  "settings.group_personal_memory": "个人与记忆",
+  "settings.group_personal_memory": "个人",
   "settings.group_archived": "归档",
   "settings.group_data": "数据",
   "settings.tab_archived_tasks": "归档",
