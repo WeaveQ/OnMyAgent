@@ -4,27 +4,28 @@ title: MCP / 连接
 
 # MCP 与连接器
 
-通过 **MCP（Model Context Protocol）** 与 **连接器** 把外部工具、数据源接到 Agent。
+通过 **MCP（Model Context Protocol）** 与 **连接器**，把外部工具、数据源接到 Agent（如办公套件、浏览器、业务系统等）。
 
 ## 在哪里配置
 
-- **市场 → 连接器**  
-- 设置中的 MCP / 连接相关页（以当前版本为准）  
+主入口：左侧主栏 **市场** → 顶栏 **连接器** Tab（与 **专家**、**技能** 并列）。
 
-![市场入口（含连接器 Tab）](/images/marketplace.png)
+![市场顶栏：专家 / 技能 / 连接器](/images/marketplace.png)
+
+安装技能后，若该技能依赖外部服务，也可能在技能详情或首次调用时引导配置；密钥仍走配置页，不要贴进对话。
 
 ## 原则
 
 | 原则 | 说明 |
 |------|------|
 | 最小权限 | 只开任务需要的连接 |
-| 密钥不进聊天 | API Key 走配置，不贴在对话里 |
+| 密钥不进聊天 | API Key 走配置页，不贴在对话里 |
 | 可撤销 | 不用的连接及时关闭 |
 
 ## 与公司模式
 
-若连接 [OnMyCompany](../platform/onmycompany)，部分外发可能需走组织 Gateway（按策略）。未连接公司时，以本机配置为准。
+若已连接 [OnMyCompany](../platform/onmycompany)，部分外发可能需走组织 Gateway（按策略）。未连接公司时，以本机配置为准。
 
 ## 相关
 
-- [技能](./skills) · [安全与数据](../security)
+- [技能](./skills) · [市场界面](./overview#市场) · [安全与数据](../security)

@@ -70,6 +70,8 @@ title: 快速开始
 | 目标 | 文档 |
 |------|------|
 | 走通完整示例 | [第一个任务](./first-task) |
+| 通用场景工作法 | [场景使用说明](./scenarios/usage-guide) |
+| 10 条上手习惯 | [高效使用技巧](./guide/efficient-tips) |
 | 熟悉布局 | [界面与工作区](./guide/overview) |
 | 装专家 / 技能 | [专家](./guide/experts) · [技能](./guide/skills) · [市场](./guide/overview#市场) |
 | 定时任务 | [自动化](./guide/automation) |

@@ -8,7 +8,7 @@ title: 界面与工作区
 
 ## 整体布局
 
-![首页布局：主栏、会话列表、对话区](/images/home-session.png)
+![主界面布局：主栏、最近会话、欢迎与输入区](/images/home-session.png)
 
 | 区域 | 作用 |
 |------|------|

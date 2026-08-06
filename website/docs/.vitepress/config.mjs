@@ -4,20 +4,29 @@ import { fileURLToPath } from "node:url";
 
 const configDir = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(configDir, "../../dist/docs");
+// Local default /docs/; GitHub project Pages sets DOCS_BASE=/OnMyAgent/docs/
+function normalizeBase(raw) {
+  const s = (raw || "/docs/").trim() || "/docs/";
+  return s.endsWith("/") ? s : `${s}/`;
+}
+const base = normalizeBase(process.env.DOCS_BASE);
 
-const sidebar = [
+/** Chinese (default / root) — full handbook */
+const sidebarZh = [
   {
-    text: "入门",
+    text: "入门指南",
     items: [
       { text: "简介", link: "/" },
       { text: "快速开始", link: "/quickstart" },
       { text: "第一个任务", link: "/first-task" },
+      { text: "高效使用技巧", link: "/guide/efficient-tips" },
       { text: "下载与安装", link: "/download" },
       { text: "更新日志", link: "/changelog" },
     ],
   },
   {
     text: "功能指南",
+    collapsed: false,
     items: [
       { text: "界面与工作区", link: "/guide/overview" },
       { text: "会话", link: "/guide/sessions" },
@@ -32,19 +41,22 @@ const sidebar = [
       { text: "设置", link: "/guide/settings" },
     ],
   },
+  // 平台文档暂不在侧栏展示（页面仍可直链访问）
   {
-    text: "平台",
+    text: "场景与实践",
+    collapsed: false,
     items: [
-      { text: "三分总览", link: "/platform/" },
-      { text: "OnMyAgent", link: "/platform/onmyagent" },
-      { text: "OnMyBuddy", link: "/platform/onmybuddy" },
-      { text: "OnMyCompany", link: "/platform/onmycompany" },
-      { text: "试点组合 A/B/C", link: "/platform/pilot-combos" },
-    ],
-  },
-  {
-    text: "场景",
-    items: [
+      { text: "场景使用说明", link: "/scenarios/usage-guide" },
+      { text: "实践总览", link: "/scenarios/practice/" },
+      { text: "1. 文件识别与整理", link: "/scenarios/practice/files" },
+      { text: "2. 文档生成与编辑", link: "/scenarios/practice/docs" },
+      { text: "3. 表格分析与汇总", link: "/scenarios/practice/data" },
+      { text: "4. 内容选题与分发", link: "/scenarios/practice/content" },
+      { text: "5. 每日/每周自动简报", link: "/scenarios/practice/daily-brief" },
+      { text: "6. 创建与进化技能", link: "/scenarios/practice/skills-evolve" },
+      { text: "7. 自动化持续推进", link: "/scenarios/practice/self-drive" },
+      { text: "8. 会议纪要与行动项", link: "/scenarios/practice/meetings" },
+      { text: "9. 云文档协作（可选）", link: "/scenarios/practice/tencent-docs" },
       { text: "报告与纪要", link: "/scenarios/office-docs" },
       { text: "定时汇总", link: "/scenarios/automation-digest" },
       { text: "团队试点", link: "/scenarios/team-pilot" },
@@ -52,6 +64,7 @@ const sidebar = [
   },
   {
     text: "安装",
+    collapsed: true,
     items: [
       { text: "macOS", link: "/install/macos" },
       { text: "Windows", link: "/install/windows" },
@@ -60,6 +73,7 @@ const sidebar = [
   },
   {
     text: "安全与 FAQ",
+    collapsed: true,
     items: [
       { text: "安全与数据", link: "/security" },
       { text: "FAQ", link: "/faq" },
@@ -67,33 +81,152 @@ const sidebar = [
   },
 ];
 
+/** English — skeleton: intro only (more pages later) */
+const sidebarEn = [
+  {
+    text: "Get started",
+    items: [{ text: "Introduction", link: "/" }],
+  },
+];
+
 export default defineConfig({
-  base: "/docs/",
-  title: "OnMyAgent Docs",
-  description:
-    "本地优先的办公 Agent 工作台：快速开始、功能指南、平台三分、下载与安全。",
-  lang: "zh-CN",
+  base,
   srcExclude: ["**/plan/**"],
   outDir,
   cleanUrls: true,
-  themeConfig: {
-    nav: [
-      { text: "简介", link: "/" },
-      { text: "快速开始", link: "/quickstart" },
-      { text: "平台", link: "/platform/" },
-      { text: "下载", link: "/download" },
+  // Prefer light handbook look; user can still toggle dark in theme switch.
+  appearance: true,
+  head: [
+    // OMA product icons (same set as apps/app / desktop)
+    // head hrefs are absolute site paths — include base (VitePress does not rewrite these)
+    ["link", { rel: "icon", href: `${base}favicon.ico`, sizes: "any" }],
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "32x32",
+        href: `${base}favicon-32x32.png`,
+      },
     ],
-    sidebar,
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "16x16",
+        href: `${base}favicon-16x16.png`,
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: `${base}apple-touch-icon.png`,
+      },
+    ],
+  ],
+  // Shared chrome
+  themeConfig: {
+    logo: "/favicon-32x32.png",
+    // No social icons in top bar (cleaner handbook chrome).
+    socialLinks: [],
     search: {
       provider: "local",
     },
-    socialLinks: [
-      { icon: "github", link: "https://github.com/WeaveQ/OnMyAgent" },
-    ],
-    outline: { level: [2, 3] },
-    docFooter: { prev: "上一页", next: "下一页" },
-    returnToTopLabel: "回到顶部",
-    sidebarMenuLabel: "菜单",
-    darkModeSwitchLabel: "主题",
+  },
+  locales: {
+    root: {
+      label: "简体中文",
+      lang: "zh-CN",
+      title: "OnMyAgent Docs",
+      description:
+        "本地优先的办公 Agent 工作台：快速开始、功能指南、平台三分、下载与安全。",
+      themeConfig: {
+        siteTitle: "OnMyAgent Docs",
+        nav: [
+          { text: "简介", link: "/" },
+          { text: "快速开始", link: "/quickstart" },
+          { text: "下载", link: "/download" },
+        ],
+        sidebar: sidebarZh,
+        outline: {
+          level: [2, 3],
+          label: "快速导航",
+        },
+        docFooter: { prev: "上一页", next: "下一页" },
+        returnToTopLabel: "回到顶部",
+        sidebarMenuLabel: "菜单",
+        darkModeSwitchLabel: "主题",
+        lightModeSwitchTitle: "切换到浅色",
+        darkModeSwitchTitle: "切换到深色",
+        langMenuLabel: "切换语言",
+        search: {
+          provider: "local",
+          options: {
+            translations: {
+              button: {
+                buttonText: "搜索",
+                buttonAriaLabel: "搜索文档",
+              },
+              modal: {
+                noResultsText: "没有结果",
+                resetButtonTitle: "清除",
+                footer: {
+                  selectText: "选择",
+                  navigateText: "切换",
+                  closeText: "关闭",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    en: {
+      label: "English",
+      lang: "en-US",
+      link: "/en/",
+      title: "OnMyAgent Docs",
+      description:
+        "Local-first office Agent workbench: intro, guides, and more (EN skeleton).",
+      themeConfig: {
+        siteTitle: "OnMyAgent Docs",
+        nav: [{ text: "Introduction", link: "/" }],
+        sidebar: sidebarEn,
+        outline: {
+          level: [2, 3],
+          label: "On this page",
+        },
+        docFooter: { prev: "Previous", next: "Next" },
+        returnToTopLabel: "Back to top",
+        sidebarMenuLabel: "Menu",
+        darkModeSwitchLabel: "Theme",
+        lightModeSwitchTitle: "Switch to light",
+        darkModeSwitchTitle: "Switch to dark",
+        langMenuLabel: "Change language",
+        search: {
+          provider: "local",
+          options: {
+            translations: {
+              button: {
+                buttonText: "Search",
+                buttonAriaLabel: "Search docs",
+              },
+              modal: {
+                noResultsText: "No results",
+                resetButtonTitle: "Clear",
+                footer: {
+                  selectText: "to select",
+                  navigateText: "to navigate",
+                  closeText: "to close",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 });

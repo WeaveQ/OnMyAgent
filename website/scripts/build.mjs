@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -8,6 +8,10 @@ const publicDir = resolve(root, "public");
 const distDir = resolve(root, "dist");
 
 console.log("[website] build root:", root);
+console.log(
+  "[website] DOCS_BASE:",
+  process.env.DOCS_BASE || "/docs/ (default)",
+);
 
 await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
@@ -32,5 +36,8 @@ for (const ent of entries) {
     recursive: true,
   });
 }
+
+// GitHub Pages: skip Jekyll so _* assets are published
+await writeFile(resolve(distDir, ".nojekyll"), "");
 
 console.log(`[website] built ${distDir} (landing + docs)`);

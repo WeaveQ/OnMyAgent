@@ -6,7 +6,7 @@ title: 会话
 
 会话（任务对话）是一次可恢复的办公协作：你描述目标，Agent 执行并回复，可多轮追问。
 
-![会话：任务列表与对话](/images/home-session.png)
+![主界面：最近任务列表与输入区](/images/home-session.png)
 
 ## 能做什么
 

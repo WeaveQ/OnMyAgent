@@ -12,4 +12,4 @@ title: 试点组合 A/B/C
 
 建议 **从 A 起步**，2–4 周后再加深 B/C。
 
-![本机交付界面](/images/home-session.png)
+![主界面：新建任务与最近会话](/images/home-session.png)

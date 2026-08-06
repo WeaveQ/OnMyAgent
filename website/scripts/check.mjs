@@ -19,7 +19,7 @@ const required = [
   "OnMyCompany",
   "OnMyBuddy",
   "必须登录或连接公司吗",
-  'href="/docs/"',
+  'href="docs/"',
   "https://github.com/WeaveQ/OnMyAgent",
 ];
 
@@ -40,8 +40,13 @@ if (!/<script[\s\S]*toggleLang\(\)[\s\S]*<\/script>/i.test(html)) {
 }
 
 const config = await readFile(resolve(root, "docs/.vitepress/config.mjs"), "utf8");
-if (!config.includes('base: "/docs/"') && !config.includes("base: '/docs/'")) {
-  failures.push("vitepress base is not /docs/");
+// base comes from DOCS_BASE (default /docs/); CI may set /OnMyAgent/docs/
+if (
+  !config.includes("DOCS_BASE") &&
+  !config.includes('base: "/docs/"') &&
+  !config.includes("base: '/docs/'")
+) {
+  failures.push("vitepress base / DOCS_BASE not configured");
 }
 if (!config.includes('provider: "local"') && !config.includes("provider: 'local'")) {
   failures.push("local search not configured");
@@ -51,7 +56,6 @@ if (!config.includes("srcExclude") || !config.includes("plan")) {
 }
 for (const needle of [
   "/guide/sessions",
-  "/platform/",
   "/scenarios/office-docs",
   "/install/macos",
   "/security",
@@ -167,6 +171,98 @@ async function checkDocsLinksAndImages() {
     failures.push(
       "guide/settings.md references settings-usage.png without acknowledging loading state",
     );
+  }
+
+  // Handoff: no customer-specific brand names in public product docs.
+  const bannedBrands = ["一枕星河", "剧鲸"];
+  for (const file of files) {
+    const text = await readFile(file, "utf8");
+    for (const brand of bannedBrands) {
+      if (text.includes(brand)) {
+        failures.push(`${file}: customer brand leak: ${brand}`);
+      }
+    }
+  }
+
+  // Handoff hubs must exist and show a product screenshot.
+  for (const rel of [
+    "scenarios/usage-guide.md",
+    "scenarios/practice/index.md",
+    "guide/efficient-tips.md",
+  ]) {
+    const p = resolve(docsDir, rel);
+    if (!(await exists(p))) {
+      failures.push(`missing handoff hub: ${rel}`);
+      continue;
+    }
+    const body = await readFile(p, "utf8");
+    if (!/!\[.*\]\(\/images\//.test(body)) {
+      failures.push(`${rel}: handoff hub missing /images/ screenshot`);
+    }
+  }
+
+  // Caption honesty for known screenshot assets (home-session is empty welcome UI).
+  const dishonestCaptionPatterns = [
+    {
+      fileSubstring: "home-session.png",
+      badCaption: /助手回复|对话气泡|整理材料并交付|执行中|已完成/,
+      reason:
+        "home-session.png is empty welcome UI (no assistant reply / deliverable)",
+    },
+    {
+      fileSubstring: "settings-usage.png",
+      // Must acknowledge loading if that asset is still the loading frame
+      requireIfPresent: /加载|loading/i,
+      reason: "settings-usage.png may show loading state",
+    },
+  ];
+
+  for (const file of files) {
+    const text = await readFile(file, "utf8");
+    for (const m of text.matchAll(/!\[([^\]]*)\]\((\/images\/[^)\s]+)\)/g)) {
+      const caption = m[1] || "";
+      const src = m[2] || "";
+      for (const rule of dishonestCaptionPatterns) {
+        if (!src.includes(rule.fileSubstring)) continue;
+        if (rule.badCaption && rule.badCaption.test(caption)) {
+          failures.push(
+            `${file}: dishonest caption for ${src}: "${caption}" (${rule.reason})`,
+          );
+        }
+        if (
+          rule.requireIfPresent &&
+          src.includes("settings-usage") &&
+          !rule.requireIfPresent.test(caption) &&
+          !rule.requireIfPresent.test(text)
+        ) {
+          // nearby prose already checked for settings.md globally; skip double
+        }
+      }
+    }
+  }
+
+  // Practice numbering: sidebar labels and page H1 must use continuous 1–9 (not 八/十一).
+  const practiceNumbering = [
+    ["scenarios/practice/files.md", "实践 1"],
+    ["scenarios/practice/docs.md", "实践 2"],
+    ["scenarios/practice/data.md", "实践 3"],
+    ["scenarios/practice/content.md", "实践 4"],
+    ["scenarios/practice/daily-brief.md", "实践 5"],
+    ["scenarios/practice/skills-evolve.md", "实践 6"],
+    ["scenarios/practice/self-drive.md", "实践 7"],
+    ["scenarios/practice/meetings.md", "实践 8"],
+    ["scenarios/practice/tencent-docs.md", "实践 9"],
+  ];
+  for (const [rel, needle] of practiceNumbering) {
+    const p = resolve(docsDir, rel);
+    if (!(await exists(p))) continue;
+    const body = await readFile(p, "utf8");
+    if (!body.includes(needle)) {
+      failures.push(`${rel}: expected title numbering "${needle}"`);
+    }
+    if (/实践[八九十]/.test(body) || /实践十一/.test(body)) {
+      failures.push(`${rel}: legacy Chinese ordinal practice numbering found`);
+    }
   }
 
   console.log(

@@ -12,7 +12,7 @@ OnMyAgent 不是「一个 App 塞进所有形态」，而是三条可组合轨�
    数字员工 · 催办 · 指令          工作台 · 文件 · Skill         策略 · Gateway · 审计
 ```
 
-![本机工作台是交付主场](/images/home-session.png)
+![主界面：本机工作台入口](/images/home-session.png)
 
 ## 一句话分工
 
