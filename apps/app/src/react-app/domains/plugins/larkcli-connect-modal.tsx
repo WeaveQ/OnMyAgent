@@ -392,9 +392,10 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
 
               {tab === "qr" ? (
                 <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface-muted/40 p-4">
-                  <ol className="list-decimal space-y-1 pl-4 text-sm text-dls-secondary">
+                  <ol className="list-decimal space-y-1.5 pl-4 text-sm text-dls-secondary">
                     <li>{t("plugins.larkcli_qr_step1")}</li>
                     <li>{t("plugins.larkcli_qr_step2")}</li>
+                    <li>{t("plugins.larkcli_qr_step3")}</li>
                   </ol>
                   <div className="flex flex-col items-center gap-3 py-2">
                     {configQr ? (
@@ -423,7 +424,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         }}
                       >
                         <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                        {t("plugins.larkcli_open_in_browser")}
+                        {t("plugins.larkcli_open_browser_app_auth")}
                       </button>
                     ) : null}
                     <p className="text-center text-xs text-dls-secondary">
@@ -452,22 +453,18 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         {t("plugins.larkcli_manual_step1_suffix")}
                       </li>
                       <li>{t("plugins.larkcli_manual_step2")}</li>
-                      <li className="space-y-1.5">
-                        <span>{t("plugins.larkcli_manual_step3")}</span>
-                        <div>
-                          <Button
-                            type="button"
-                            size="xs"
-                            variant="outline"
-                            className="mac:titlebar-no-drag"
-                            onClick={() => void handleCopyScopes()}
-                          >
-                            <Copy className="size-3.5" aria-hidden />
-                            {copyDone
-                              ? t("plugins.larkcli_scopes_copied")
-                              : t("plugins.larkcli_copy_scopes")}
-                          </Button>
-                        </div>
+                      <li>
+                        {t("plugins.larkcli_manual_step3")}{" "}
+                        <button
+                          type="button"
+                          className={clickableTextClassName}
+                          onClick={() => void handleCopyScopes()}
+                        >
+                          <Copy className="size-3.5 shrink-0" aria-hidden />
+                          {copyDone
+                            ? t("plugins.larkcli_scopes_copied")
+                            : t("plugins.larkcli_copy_scopes")}
+                        </button>
                       </li>
                       <li>{t("plugins.larkcli_manual_step4")}</li>
                       <li>{t("plugins.larkcli_manual_step5")}</li>
