@@ -105,10 +105,18 @@ export function createLarkCliAuthService(options = {}) {
   const homeDir = options.homeDir ?? os.homedir();
   const now = options.now ?? (() => Date.now());
   const emitProgress = options.onProgress ?? (() => undefined);
-  /** @type {Map<string, { deviceCode: string, createdAt: number }>} */
+  /**
+   * @type {Map<string, {
+   *   deviceCode: string,
+   *   createdAt: number,
+   *   promise?: Promise<any>,
+   * }>}
+   */
   const loginSessions = new Map();
   /** @type {import('node:child_process').ChildProcess | null} */
   let configInitChild = null;
+  /** Serialize startUserLogin to avoid dual device flows. */
+  let loginStartInFlight = null;
 
   async function pathExists(target) {
     try {
@@ -471,69 +479,180 @@ export function createLarkCliAuthService(options = {}) {
     }
   }
 
+  /**
+   * Finish device-code login; shared by background poll + explicit complete.
+   * @param {string} sessionId
+   * @param {string} deviceCode
+   */
+  function runDeviceCodeCompletion(sessionId, deviceCode) {
+    emitProgress({ operation: "user_login", phase: "polling" });
+    return runCli(["auth", "login", "--device-code", deviceCode], {
+      // Device flow blocks until user authorizes in Feishu (up to ~10 min).
+      timeoutMs: 600_000,
+    })
+      .then(async (result) => {
+        // Success if CLI exits 0 OR local status already shows a valid user token
+        // (some CLI builds print banners and still exit non-zero).
+        let status = await getConnectionStatus();
+        if (result.code === 0 || status.phase === "connected_logged_in") {
+          loginSessions.delete(sessionId);
+          emitProgress({ operation: "user_login", phase: "complete" });
+          return status;
+        }
+        const err = parseCliJsonBlob(result.combined);
+        const error = asRecord(asRecord(err)?.error);
+        const message =
+          nonEmptyString(error?.message) ||
+          nonEmptyString(error?.hint) ||
+          result.stderr?.trim() ||
+          result.stdout?.trim() ||
+          `User login failed (exit ${result.code})`;
+        emitProgress({
+          operation: "user_login",
+          phase: "error",
+          errorCode: nonEmptyString(error?.subtype) || "login_failed",
+          errorMessage: message,
+        });
+        throw codedError(message, nonEmptyString(error?.subtype) || "login_failed");
+      })
+      .catch(async (error) => {
+        // Timeout / kill: user may have finished auth just as we stopped polling.
+        try {
+          const status = await getConnectionStatus();
+          if (status.phase === "connected_logged_in") {
+            loginSessions.delete(sessionId);
+            emitProgress({ operation: "user_login", phase: "complete" });
+            return status;
+          }
+        } catch {
+          // fall through
+        }
+        const message =
+          error instanceof Error ? error.message : String(error);
+        emitProgress({
+          operation: "user_login",
+          phase: "error",
+          errorCode:
+            error && typeof error === "object" && "code" in error
+              ? String(error.code)
+              : "login_failed",
+          errorMessage: message,
+        });
+        throw error instanceof Error
+          ? error
+          : codedError(message, "login_failed");
+      });
+  }
+
   async function startUserLogin() {
-    emitProgress({ operation: "user_login", phase: "starting" });
-    const result = await runCli(
-      ["auth", "login", "--recommend", "--no-wait", "--json"],
-      { timeoutMs: 30_000 },
-    );
-    const verificationUrl = extractVerificationUrl(result.combined);
-    const deviceCode = extractDeviceCode(result.combined);
-    if (!verificationUrl || !deviceCode) {
+    if (loginStartInFlight) return loginStartInFlight;
+
+    loginStartInFlight = (async () => {
+      // Already signed in — skip a new device flow.
+      const existing = await getConnectionStatus();
+      if (existing.phase === "connected_logged_in") {
+        emitProgress({ operation: "user_login", phase: "complete" });
+        return {
+          sessionId: "",
+          verificationUrl: "",
+          qrcodeDataUrl: null,
+          alreadyLoggedIn: true,
+        };
+      }
+
+      emitProgress({ operation: "user_login", phase: "starting" });
+      const result = await runCli(
+        ["auth", "login", "--recommend", "--no-wait", "--json"],
+        { timeoutMs: 30_000 },
+      );
+      if (result.code !== 0 && !extractVerificationUrl(result.combined)) {
+        const err = parseCliJsonBlob(result.combined);
+        const error = asRecord(asRecord(err)?.error);
+        const message =
+          nonEmptyString(error?.message) ||
+          result.stderr?.trim() ||
+          "Could not start device authorization";
+        emitProgress({
+          operation: "user_login",
+          phase: "error",
+          errorCode: nonEmptyString(error?.subtype) || "login_start_failed",
+          errorMessage: message,
+        });
+        throw codedError(message, nonEmptyString(error?.subtype) || "login_start_failed");
+      }
+      const verificationUrl = extractVerificationUrl(result.combined);
+      const deviceCode = extractDeviceCode(result.combined);
+      if (!verificationUrl || !deviceCode) {
+        emitProgress({
+          operation: "user_login",
+          phase: "error",
+          errorCode: "login_start_failed",
+          errorMessage: "Could not start device authorization",
+        });
+        throw codedError(
+          "Could not start user login (missing verification URL or device code)",
+          "login_start_failed",
+        );
+      }
+      const sessionId = randomUUID();
+      // Background poller: CLI blocks until the user finishes Feishu authorization.
+      const promise = runDeviceCodeCompletion(sessionId, deviceCode);
+      loginSessions.set(sessionId, {
+        deviceCode,
+        createdAt: now(),
+        promise,
+      });
+      // Prevent unhandled rejection if UI never calls complete.
+      promise.catch(() => undefined);
+
+      const qrcodeDataUrl = await generateQrcodeDataUrl(verificationUrl);
       emitProgress({
         operation: "user_login",
-        phase: "error",
-        errorCode: "login_start_failed",
-        errorMessage: "Could not start device authorization",
+        phase: "waiting_user",
+        verificationUrl,
+        qrcodeDataUrl: qrcodeDataUrl ?? undefined,
       });
-      throw codedError(
-        "Could not start user login (missing verification URL or device code)",
-        "login_start_failed",
-      );
+      return {
+        sessionId,
+        verificationUrl,
+        qrcodeDataUrl,
+        alreadyLoggedIn: false,
+      };
+    })();
+
+    try {
+      return await loginStartInFlight;
+    } finally {
+      loginStartInFlight = null;
     }
-    const sessionId = randomUUID();
-    loginSessions.set(sessionId, { deviceCode, createdAt: now() });
-    const qrcodeDataUrl = await generateQrcodeDataUrl(verificationUrl);
-    emitProgress({
-      operation: "user_login",
-      phase: "waiting_user",
-      verificationUrl,
-      qrcodeDataUrl: qrcodeDataUrl ?? undefined,
-    });
-    return { sessionId, verificationUrl, qrcodeDataUrl };
   }
 
   /**
    * @param {string} sessionId
    */
   async function completeUserLogin(sessionId) {
+    // Already signed in (e.g. scan finished while UI waited).
+    const current = await getConnectionStatus();
+    if (current.phase === "connected_logged_in") {
+      emitProgress({ operation: "user_login", phase: "complete" });
+      return current;
+    }
+
     const id = nonEmptyString(sessionId);
     const session = id ? loginSessions.get(id) : null;
     if (!session) {
-      throw codedError("Login session expired or missing", "login_session_missing");
-    }
-    emitProgress({ operation: "user_login", phase: "polling" });
-    const result = await runCli(
-      ["auth", "login", "--device-code", session.deviceCode],
-      { timeoutMs: 120_000 },
-    );
-    loginSessions.delete(id);
-    if (result.code !== 0) {
-      const err = parseCliJsonBlob(result.combined);
-      const error = asRecord(asRecord(err)?.error);
-      emitProgress({
-        operation: "user_login",
-        phase: "error",
-        errorCode: nonEmptyString(error?.subtype) || "login_failed",
-        errorMessage: nonEmptyString(error?.message) || "login failed",
-      });
       throw codedError(
-        nonEmptyString(error?.message) || "User login failed",
-        nonEmptyString(error?.subtype) || "login_failed",
+        "Login session expired or missing — close the dialog and open Sign in again",
+        "login_session_missing",
       );
     }
-    emitProgress({ operation: "user_login", phase: "complete" });
-    return getConnectionStatus();
+    if (session.promise) {
+      return session.promise;
+    }
+    const promise = runDeviceCodeCompletion(id, session.deviceCode);
+    session.promise = promise;
+    promise.catch(() => undefined);
+    return promise;
   }
 
   /**
