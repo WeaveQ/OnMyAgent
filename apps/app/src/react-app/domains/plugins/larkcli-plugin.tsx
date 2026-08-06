@@ -412,7 +412,7 @@ export function LarkCliPluginCard() {
             </Button>
           ) : installedReady &&
             connection?.phase === "installed_disconnected" ? (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
               <Button
                 size="xs"
                 variant="outline"
@@ -422,6 +422,7 @@ export function LarkCliPluginCard() {
                   setConnectOpen(true);
                 }}
               >
+                <Plus aria-hidden="true" />
                 {t("plugins.larkcli_connect")}
               </Button>
               {canUninstall ? (
