@@ -333,7 +333,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg gap-0 p-0 sm:max-w-lg">
+      <DialogContent className="max-w-xl gap-0 p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-dls-border px-5 py-4 text-left">
           <DialogTitle>{t("plugins.larkcli_connect_title")}</DialogTitle>
           <DialogDescription>{t("plugins.larkcli_connect_subtitle")}</DialogDescription>
