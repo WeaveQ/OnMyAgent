@@ -30,12 +30,14 @@ const httpsUrlSchema = z
   .url()
   .refine((value) => value.startsWith("https://"), "url must use HTTPS");
 
-/** Integrity + optional absolute download URL (CDN-friendly). */
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/i);
+
+/** Binary asset: integrity required; absolute CDN url preferred. */
 const officeCliFileSchema = z
   .object({
     /** Relative path inside a legacy hierarchical release dir (optional when url is set). */
     path: officeCliRelativePathSchema.optional(),
-    sha256: z.string().regex(/^[a-f0-9]{64}$/i),
+    sha256: sha256Schema,
     size: z.number().int().nonnegative(),
     url: httpsUrlSchema.optional(),
     /** When url points to a zip, extract this entry (binary name). */
@@ -51,6 +53,19 @@ const officeCliFileSchema = z
     { message: "zip assets require entry (or path) for extract" },
   );
 
+/**
+ * Skill file: only absolute url is required (hash/size optional).
+ * Binaries still use officeCliFileSchema with mandatory integrity.
+ */
+const officeCliSkillDescriptorSchema = z
+  .object({
+    url: httpsUrlSchema,
+    path: officeCliRelativePathSchema.optional(),
+    sha256: sha256Schema.optional(),
+    size: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
 const officeCliFileReferenceSchema = z.union([
   officeCliRelativePathSchema,
   officeCliFileSchema,
@@ -59,8 +74,7 @@ const officeCliFileReferenceSchema = z.union([
 /**
  * Self-contained root catalog (hot-update entry).
  * Clients only ship a permanent `manifestUrl`; this document holds version +
- * absolute skill/asset URLs + integrity. Replace the object on CDN (or point
- * the same stable URL at a new object via CDN config) to publish updates.
+ * absolute skill/asset URLs + binary integrity.
  */
 export const officeCliRootCatalogSchema = z
   .object({
@@ -68,14 +82,10 @@ export const officeCliRootCatalogSchema = z
     pluginId: z.literal("officecli").optional(),
     channel: z.literal("stable"),
     latestVersion: officeCliVersionSchema,
-    skill: officeCliFileSchema,
+    skill: officeCliSkillDescriptorSchema,
     assets: z.partialRecord(officeCliAssetKeySchema, officeCliFileSchema),
   })
   .strict()
-  .refine((value) => Boolean(value.skill.url), {
-    message: "root catalog skill must provide https url",
-    path: ["skill", "url"],
-  })
   .refine(
     (value) =>
       Object.keys(value.assets).length > 0 &&
@@ -90,7 +100,7 @@ export const officeCliReleaseManifestSchema = z
     pluginId: z.literal("officecli").optional(),
     version: officeCliVersionSchema,
     officecliVersion: officeCliVersionSchema.optional(),
-    skill: officeCliFileSchema.optional(),
+    skill: z.union([officeCliFileSchema, officeCliSkillDescriptorSchema]).optional(),
     skillPath: officeCliRelativePathSchema.optional(),
     assets: z.partialRecord(officeCliAssetKeySchema, officeCliFileSchema),
   })
