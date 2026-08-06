@@ -27,6 +27,22 @@ const larkStatus = {
   lastCheckedAt: 1,
 };
 
+const connectionStatus = {
+  phase: "installed_disconnected",
+  installed: true,
+  installedVersion: "1.0.84",
+  appId: null,
+  brand: null,
+  userName: null,
+  userOpenId: null,
+  userTokenValid: false,
+  botReady: false,
+  message: null,
+  errorCode: null,
+  errorMessage: null,
+  lastCheckedAt: 1,
+};
+
 function stubManagers(overrides = {}) {
   return {
     officeCliManager: {
@@ -42,6 +58,25 @@ function stubManagers(overrides = {}) {
       installLatest: async () => larkStatus,
       uninstall: async () => larkStatus,
       ...(overrides.larkCliManager ?? {}),
+    },
+    larkCliAuth: {
+      getConnectionStatus: async () => connectionStatus,
+      getRecommendedScopesJson: async () => '{"scopes":{"user":[]}}\n',
+      submitManualCredentials: async () => connectionStatus,
+      startUserLogin: async () => ({
+        sessionId: "s1",
+        verificationUrl: "https://example.com",
+        qrcodeDataUrl: null,
+      }),
+      completeUserLogin: async () => connectionStatus,
+      startConfigInit: async () => ({
+        verificationUrl: null,
+        qrcodeDataUrl: null,
+        pending: false,
+      }),
+      cancelConfigInit: async () => ({ ok: true }),
+      disconnect: async () => connectionStatus,
+      ...(overrides.larkCliAuth ?? {}),
     },
   };
 }
