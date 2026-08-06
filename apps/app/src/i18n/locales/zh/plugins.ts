@@ -152,6 +152,7 @@ export default {
   "plugins.larkcli_qr_step1": "手机扫码后，先为飞书应用授权并获取 App ID 和 App Secret。",
   "plugins.larkcli_qr_step2": "完成后，桌面端会继续为当前客户端完成连接授权。",
   "plugins.larkcli_qr_waiting": "等待扫码配置…",
+  "plugins.larkcli_qr_not_ready": "尚未检测到应用配置，请完成扫码后再继续。",
   "plugins.larkcli_open_in_browser": "在浏览器打开",
   "plugins.larkcli_manual_steps_title": "连接步骤",
   "plugins.larkcli_manual_step1_prefix": "登录",

@@ -151,6 +151,7 @@ export default {
   "plugins.larkcli_qr_step1": "Scan with your phone to authorize and create/select an app (App ID & Secret).",
   "plugins.larkcli_qr_step2": "When finished, this desktop app continues connection setup.",
   "plugins.larkcli_qr_waiting": "Waiting for scan…",
+  "plugins.larkcli_qr_not_ready": "App credentials not detected yet. Finish the scan, then continue.",
   "plugins.larkcli_open_in_browser": "Open in browser",
   "plugins.larkcli_manual_steps_title": "Steps",
   "plugins.larkcli_manual_step1_prefix": "Open",

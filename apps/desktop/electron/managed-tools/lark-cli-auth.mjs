@@ -631,26 +631,38 @@ export function createLarkCliAuthService(options = {}) {
       });
       child.on("close", (code) => {
         configInitChild = null;
-        if (code === 0) {
-          emitProgress({ operation: "config_init", phase: "complete" });
-        } else if (code != null) {
-          emitProgress({
-            operation: "config_init",
-            phase: "error",
-            errorCode: "config_init_failed",
-            errorMessage: `config init exited with ${code}`,
-          });
-        }
-        if (!settled) {
-          settled = true;
-          const verificationUrl = extractVerificationUrl(`${stdout}\n${stderr}`);
-          resolve({
-            verificationUrl,
-            qrcodeDataUrl: null,
-            pending: false,
-            exitCode: code ?? 1,
-          });
-        }
+        void (async () => {
+          // Prefer reporting complete when local credentials exist (scan finished).
+          let configured = false;
+          try {
+            const status = await getConnectionStatus();
+            configured =
+              status.phase === "connected_not_logged_in" ||
+              status.phase === "connected_logged_in";
+          } catch {
+            configured = false;
+          }
+          if (code === 0 || configured) {
+            emitProgress({ operation: "config_init", phase: "complete" });
+          } else if (code != null && code !== 0) {
+            emitProgress({
+              operation: "config_init",
+              phase: "error",
+              errorCode: "config_init_failed",
+              errorMessage: `config init exited with ${code}`,
+            });
+          }
+          if (!settled) {
+            settled = true;
+            const verificationUrl = extractVerificationUrl(`${stdout}\n${stderr}`);
+            resolve({
+              verificationUrl,
+              qrcodeDataUrl: null,
+              pending: false,
+              exitCode: code ?? 1,
+            });
+          }
+        })();
       });
     });
   }
