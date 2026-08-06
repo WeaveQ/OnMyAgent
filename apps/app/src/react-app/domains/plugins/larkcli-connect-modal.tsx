@@ -470,27 +470,17 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-dls-border px-5 py-3">
           {step === 1 ? (
-            <>
+            // No "skip" on step 1 — dialog X is enough to dismiss.
+            tab === "manual" ? (
               <Button
                 size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => handleClose(false)}
+                disabled={busy || !appId.trim() || !appSecret.trim()}
+                onClick={() => void handleManualContinue()}
               >
-                {t("plugins.larkcli_skip_for_now")}
+                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                {t("plugins.larkcli_continue")}
               </Button>
-              {/* QR tab: no Continue — auto-advance after scan succeeds. */}
-              {tab === "manual" ? (
-                <Button
-                  size="sm"
-                  disabled={busy || !appId.trim() || !appSecret.trim()}
-                  onClick={() => void handleManualContinue()}
-                >
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                  {t("plugins.larkcli_continue")}
-                </Button>
-              ) : null}
-            </>
+            ) : null
           ) : (
             <>
               <Button size="sm" variant="ghost" disabled={busy} onClick={handleSkipLogin}>
