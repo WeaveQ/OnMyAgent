@@ -344,7 +344,7 @@ export function OfficeCliPluginCard() {
           ) : canUninstall ? (
             <Button
               size="xs"
-              variant="ghost"
+              variant="destructive"
               disabled={busy}
               onClick={() => setUninstallConfirmOpen(true)}
             >

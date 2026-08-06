@@ -426,7 +426,7 @@ export function LarkCliPluginCard() {
               {canUninstall ? (
                 <Button
                   size="xs"
-                  variant="ghost"
+                  variant="destructive"
                   disabled={busy}
                   onClick={() => setUninstallConfirmOpen(true)}
                 >
@@ -471,7 +471,7 @@ export function LarkCliPluginCard() {
               {canUninstall ? (
                 <Button
                   size="xs"
-                  variant="ghost"
+                  variant="destructive"
                   disabled={busy}
                   onClick={() => setUninstallConfirmOpen(true)}
                 >
@@ -483,7 +483,7 @@ export function LarkCliPluginCard() {
           ) : canUninstall ? (
             <Button
               size="xs"
-              variant="ghost"
+              variant="destructive"
               disabled={busy}
               onClick={() => setUninstallConfirmOpen(true)}
             >
