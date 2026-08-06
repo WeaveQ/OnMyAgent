@@ -64,6 +64,7 @@ packages/onmyagent-ui-mcp UI 控制面 MCP server
 |----|------|
 | `apps/app` | [`apps/app/AGENTS.md`](apps/app/AGENTS.md) |
 | `apps/desktop` | [`apps/desktop/AGENTS.md`](apps/desktop/AGENTS.md) |
+| `apps/desktop` managed CLI（OfficeCLI / 飞书） | [`apps/desktop/electron/managed-tools/AGENTS.md`](apps/desktop/electron/managed-tools/AGENTS.md) |
 | `apps/server` | [`apps/server/AGENTS.md`](apps/server/AGENTS.md) |
 | `apps/orchestrator` | [`apps/orchestrator/AGENTS.md`](apps/orchestrator/AGENTS.md) |
 | `packages/types` | [`packages/types/AGENTS.md`](packages/types/AGENTS.md) |
