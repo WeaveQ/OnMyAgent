@@ -879,8 +879,7 @@ export default {
 
   "settings.tab_system": "系統設置",
   "settings.tab_company": "公司",
-  "settings.tab_description_company":
-    "連接 OnMyCompany：Base URL、登入、組織配置同步與個人 Skills 疊加",
+  "settings.tab_description_company": "連接 OnMyCompany，同步組織技能與專家",
   "settings.tab_description_system": "開機自啟、通知與系統權限",
   "settings.tab_shortcuts": "快捷鍵",
   "settings.tab_description_shortcuts": "自訂通用、任務與會話操作的快捷鍵",
@@ -951,6 +950,9 @@ export default {
     "填寫內網 OnMyCompany 位址並以信箱 OTP 登入後，組織技能與專家會出現在「技能 / 專家」頁的「公司」欄目。本機設定不變。",
   "settings.company_desc_connected":
     "已接入組織目錄。技能、專家、連接器與模型以公司下發為準，本機已連接模型仍可繼續使用。",
+  "settings.company_desc_disconnected_short": "填寫服務位址並以信箱驗證碼登入。",
+  "settings.company_health_ok": "正常",
+  "settings.company_health_bad": "異常",
   "settings.company_status_badge_connected": "已連接",
   "settings.company_status_badge_disconnected": "未連接",
   "settings.company_health_badge": "服務正常 · {org} · {version}",
