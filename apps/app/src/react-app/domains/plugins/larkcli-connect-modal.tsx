@@ -588,9 +588,19 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     </ol>
                   </div>
                   <div className="space-y-3 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
-                    <p className="text-sm font-semibold text-dls-text">
-                      {t("plugins.larkcli_manual_credentials_title")}
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-dls-text">
+                        {t("plugins.larkcli_manual_credentials_title")}
+                      </p>
+                      <Button
+                        size="sm"
+                        disabled={busy || !appId.trim() || !appSecret.trim()}
+                        onClick={() => void handleManualContinue()}
+                      >
+                        {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                        {t("plugins.larkcli_continue")}
+                      </Button>
+                    </div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="lark-app-id">
@@ -660,35 +670,22 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-dls-border px-5 py-3">
-          {step === 1 ? (
-            // No "skip" on step 1 — dialog X is enough to dismiss.
-            tab === "manual" ? (
-              <Button
-                size="sm"
-                disabled={busy || !appId.trim() || !appSecret.trim()}
-                onClick={() => void handleManualContinue()}
-              >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t("plugins.larkcli_continue")}
-              </Button>
-            ) : null
-          ) : (
-            <>
-              <Button size="sm" variant="ghost" disabled={busy} onClick={handleSkipLogin}>
-                {t("plugins.larkcli_skip_login")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={busy || !loginSessionId}
-                onClick={() => void handleLoginComplete()}
-              >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t("plugins.larkcli_i_authorized")}
-              </Button>
-            </>
-          )}
-        </div>
+        {/* Footer only for step 2 — step 1 has no bottom bar (avoids empty divider). */}
+        {step === 2 ? (
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-dls-border px-5 py-3">
+            <Button size="sm" variant="ghost" disabled={busy} onClick={handleSkipLogin}>
+              {t("plugins.larkcli_skip_login")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={busy || !loginSessionId}
+              onClick={() => void handleLoginComplete()}
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t("plugins.larkcli_i_authorized")}
+            </Button>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
