@@ -22,7 +22,7 @@ import {
   MARKETPLACE_CARD_GRID,
   SkillMarketplaceCard,
 } from "@/components/ui/skill-marketplace-card";
-import { NoticeBox } from "@/components/ui/notice-box";
+import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { shellChrome } from "@/react-app/design-system/type-scale";
@@ -58,12 +58,16 @@ function OrgBadge() {
   );
 }
 
-function EmptyState(props: { title: string; desc: string }) {
+function CompanyEmptyState(props: { title: string; desc: string }) {
   return (
-    <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+    <EmptyStateBox
+      size="spacious"
+      tone="muted"
+      className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6"
+    >
       <p className="text-base font-medium text-dls-text">{props.title}</p>
       <p className="max-w-sm text-xs leading-5">{props.desc}</p>
-    </div>
+    </EmptyStateBox>
   );
 }
 
@@ -447,7 +451,7 @@ export function CompanyStorePage(props: {
               ))}
             </div>
           ) : (
-            <EmptyState
+            <CompanyEmptyState
               title={t("store.company_no_skills_title")}
               desc={t("store.company_no_skills_desc")}
             />
@@ -460,7 +464,7 @@ export function CompanyStorePage(props: {
               ))}
             </div>
           ) : (
-            <EmptyState
+            <CompanyEmptyState
               title={t("store.company_no_experts_title")}
               desc={t("store.company_no_experts_desc")}
             />
@@ -501,7 +505,7 @@ export function CompanyStorePage(props: {
             </section>
           </div>
         ) : (
-          <EmptyState
+          <CompanyEmptyState
             title={t("store.company_no_connectors_title")}
             desc={t("store.company_no_connectors_desc")}
           />
