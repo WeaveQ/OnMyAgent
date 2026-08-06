@@ -41,6 +41,10 @@ export type LarkCliConnectModalProps = {
 
 type ConfigTab = "qr" | "manual";
 
+/** Inline action affordance: looks clickable (accent + underline). */
+const clickableTextClassName =
+  "mac:titlebar-no-drag inline-flex items-center gap-1 font-medium text-dls-accent underline underline-offset-2 transition-opacity hover:opacity-80";
+
 export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
   const [step, setStep] = useState<1 | 2>(props.initialStep ?? 1);
   const [tab, setTab] = useState<ConfigTab>(props.initialTab ?? "qr");
@@ -344,12 +348,12 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     {configUrl ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 text-xs text-dls-link"
+                        className={cn(clickableTextClassName, "text-xs")}
                         onClick={() => {
                           window.open(configUrl, "_blank", "noopener,noreferrer");
                         }}
                       >
-                        <ExternalLink className="size-3.5" aria-hidden />
+                        <ExternalLink className="size-3.5 shrink-0" aria-hidden />
                         {t("plugins.larkcli_open_in_browser")}
                       </button>
                     ) : null}
@@ -371,25 +375,30 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                           href={LARK_CLI_OPEN_PLATFORM_APP_URL}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-dls-link"
+                          className={clickableTextClassName}
                         >
                           {t("plugins.larkcli_open_platform")}
+                          <ExternalLink className="size-3.5 shrink-0" aria-hidden />
                         </a>
                         {t("plugins.larkcli_manual_step1_suffix")}
                       </li>
                       <li>{t("plugins.larkcli_manual_step2")}</li>
-                      <li>
-                        {t("plugins.larkcli_manual_step3")}{" "}
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 text-dls-link"
-                          onClick={() => void handleCopyScopes()}
-                        >
-                          <Copy className="size-3.5" aria-hidden />
-                          {copyDone
-                            ? t("plugins.larkcli_scopes_copied")
-                            : t("plugins.larkcli_copy_scopes")}
-                        </button>
+                      <li className="space-y-1.5">
+                        <span>{t("plugins.larkcli_manual_step3")}</span>
+                        <div>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            className="mac:titlebar-no-drag"
+                            onClick={() => void handleCopyScopes()}
+                          >
+                            <Copy className="size-3.5" aria-hidden />
+                            {copyDone
+                              ? t("plugins.larkcli_scopes_copied")
+                              : t("plugins.larkcli_copy_scopes")}
+                          </Button>
+                        </div>
                       </li>
                       <li>{t("plugins.larkcli_manual_step4")}</li>
                       <li>{t("plugins.larkcli_manual_step5")}</li>
@@ -445,12 +454,12 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                 {loginUrl ? (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 text-xs text-dls-link"
+                    className={cn(clickableTextClassName, "text-xs")}
                     onClick={() => {
                       window.open(loginUrl, "_blank", "noopener,noreferrer");
                     }}
                   >
-                    <ExternalLink className="size-3.5" aria-hidden />
+                    <ExternalLink className="size-3.5 shrink-0" aria-hidden />
                     {t("plugins.larkcli_open_in_browser")}
                   </button>
                 ) : null}
