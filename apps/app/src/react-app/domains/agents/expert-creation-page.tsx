@@ -51,7 +51,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
+import {
+  MARKETPLACE_CARD_GRID_COMPACT,
+  SkillMarketplaceCard,
+} from "@/components/ui/skill-marketplace-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ResizableHandle,
@@ -828,7 +831,7 @@ function SkillsPanel(props: {
           </div>
         </div>
       ) : selectedSkills.length > 0 ? (
-        <div className="grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={MARKETPLACE_CARD_GRID_COMPACT}>
           {selectedSkills.map((skill) => {
             return (
               <SkillMarketplaceCard

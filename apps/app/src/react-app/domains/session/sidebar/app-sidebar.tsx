@@ -868,7 +868,7 @@ function CompanyConnectionChip(props: {
   return (
     <button
       type="button"
-      className="mb-1 w-full truncate rounded-md border border-dls-border/60 bg-dls-surface-muted/40 px-2 py-1 text-left text-[11px] text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
+      className="mb-1 w-full truncate rounded-md border border-dls-border/60 bg-dls-surface-muted/40 px-2 py-1 text-left text-2xs text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text"
       title={label}
       onClick={() => props.onOpenCompanySettings?.()}
     >

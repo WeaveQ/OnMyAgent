@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { MARKETPLACE_CARD_GRID } from "@/components/ui/skill-marketplace-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { desktopBridge } from "@/app/lib/desktop";
@@ -272,7 +273,7 @@ export function ExpertMarketplacePage(props: {
               })}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className={MARKETPLACE_CARD_GRID}>
                 {filteredExperts.map((expert) => (
                   <ExpertCard
                     key={expert.id}
@@ -288,7 +289,7 @@ export function ExpertMarketplacePage(props: {
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
             {/* Create expert lives in the store header (market view), not here. */}
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className={MARKETPLACE_CARD_GRID}>
               {props.myExperts.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
                   {t("session.no_expert_conversations")}

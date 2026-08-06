@@ -3,6 +3,7 @@
  */
 import type { ComponentType, ReactNode } from "react";
 import { ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
+import { CountBadge } from "@/components/ui/status-badge";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
@@ -159,9 +160,9 @@ export function FilesTreeDirRow(props: FilesTreeDirRowProps) {
             </button>
           )}
           {props.fileCount > 0 ? (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
+            <CountBadge size="meta">
               {t("files.file_count", { count: props.fileCount })}
-            </span>
+            </CountBadge>
           ) : null}
           {!isUngrouped ? (
             <FileNameQuickActions

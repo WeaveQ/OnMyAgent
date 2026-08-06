@@ -272,7 +272,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
                 ? t("files.move_to_root")
                 : pickerPath.split("/").pop()}
             </span>
-            <span className="shrink-0 text-[11px] text-dls-secondary">
+            <span className="shrink-0 text-2xs text-dls-secondary">
               {t("files.move_to_current")}
             </span>
           </button>

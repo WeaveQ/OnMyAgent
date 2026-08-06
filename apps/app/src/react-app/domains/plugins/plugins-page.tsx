@@ -27,6 +27,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { MARKETPLACE_CARD_GRID_COMPACT } from "@/components/ui/skill-marketplace-card";
 import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -155,9 +156,8 @@ const pluginsTextClass = {
 const PRODUCT_CONNECTOR_GRID =
   "grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
-/** Coming-soon / recommend catalog can stay denser. */
-const PLUGIN_CARD_GRID =
-  "grid auto-rows-fr grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+/** Coming-soon / recommend catalog can stay denser (shared columns + equal-height rows). */
+const PLUGIN_CARD_GRID = cn(MARKETPLACE_CARD_GRID_COMPACT, "auto-rows-fr");
 
 /** File-processing plugins: browser + Office suite in product order. */
 const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
