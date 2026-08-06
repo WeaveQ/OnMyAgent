@@ -1122,6 +1122,12 @@ type TypedDesktopCommandMap = {
   >;
   officeCliInstallLatest: DesktopCommandContract<[], OfficeCliStatus>;
   officeCliUninstall: DesktopCommandContract<[], OfficeCliStatus>;
+  larkCliGetStatus: DesktopCommandContract<
+    [{ forceRefresh?: boolean }?],
+    OfficeCliStatus
+  >;
+  larkCliInstallLatest: DesktopCommandContract<[], OfficeCliStatus>;
+  larkCliUninstall: DesktopCommandContract<[], OfficeCliStatus>;
 };
 
 /**

@@ -7,13 +7,16 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "officeCliGetStatus",
   "officeCliInstallLatest",
   "officeCliUninstall",
+  "larkCliGetStatus",
+  "larkCliInstallLatest",
+  "larkCliUninstall",
 ]);
 
-function errorDetails(error) {
+function errorDetails(error, fallbackCode) {
   const code =
     error && typeof error === "object" && "code" in error && typeof error.code === "string"
       ? error.code
-      : "officecli_error";
+      : fallbackCode;
   return {
     errorCode: code,
     errorMessage: error instanceof Error ? error.message : String(error),
@@ -21,34 +24,61 @@ function errorDetails(error) {
 }
 
 /**
- * @param {Record<string, any>} deps
- * @returns {Record<string, (event: any, args: any[]) => any>}
+ * @param {{
+ *   getStatus: () => Promise<any>,
+ *   checkForUpdates: (force: boolean) => Promise<any>,
+ *   installLatest: () => Promise<any>,
+ *   uninstall: () => Promise<any>,
+ * }} manager
+ * @param {string} fallbackCode
  */
-export function createManagedToolsDomainHandlers({ officeCliManager } = {}) {
-  if (!officeCliManager) {
-    throw new Error("createManagedToolsDomainHandlers requires officeCliManager");
-  }
-
+function createPluginHandlers(manager, fallbackCode) {
   return {
-    officeCliGetStatus: async (_event, args) => {
+    getStatus: async (_event, args) => {
       if (args?.[0]?.forceRefresh === true) {
-        return officeCliManager.checkForUpdates(true);
+        return manager.checkForUpdates(true);
       }
-      return officeCliManager.getStatus();
+      return manager.getStatus();
     },
-
-    officeCliInstallLatest: async () => officeCliManager.installLatest(),
-
-    officeCliUninstall: async () => {
+    installLatest: async () => manager.installLatest(),
+    uninstall: async () => {
       try {
-        return await officeCliManager.uninstall();
+        return await manager.uninstall();
       } catch (error) {
         return {
-          ...(await officeCliManager.getStatus()),
+          ...(await manager.getStatus()),
           state: "error",
-          ...errorDetails(error),
+          ...errorDetails(error, fallbackCode),
         };
       }
     },
+  };
+}
+
+/**
+ * @param {Record<string, any>} deps
+ * @returns {Record<string, (event: any, args: any[]) => any>}
+ */
+export function createManagedToolsDomainHandlers({
+  officeCliManager,
+  larkCliManager,
+} = {}) {
+  if (!officeCliManager) {
+    throw new Error("createManagedToolsDomainHandlers requires officeCliManager");
+  }
+  if (!larkCliManager) {
+    throw new Error("createManagedToolsDomainHandlers requires larkCliManager");
+  }
+
+  const office = createPluginHandlers(officeCliManager, "officecli_error");
+  const lark = createPluginHandlers(larkCliManager, "lark_cli_error");
+
+  return {
+    officeCliGetStatus: office.getStatus,
+    officeCliInstallLatest: office.installLatest,
+    officeCliUninstall: office.uninstall,
+    larkCliGetStatus: lark.getStatus,
+    larkCliInstallLatest: lark.installLatest,
+    larkCliUninstall: lark.uninstall,
   };
 }
