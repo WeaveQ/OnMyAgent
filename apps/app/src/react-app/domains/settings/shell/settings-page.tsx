@@ -192,8 +192,8 @@ export function getOverviewSettingsTabs(): SettingsTab[] {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  // Preferences + models; system auth under Global → System.
-  return ["preferences", "ai"];
+  // Preferences + models + company connect; system auth under Global → System.
+  return ["preferences", "ai", "company"];
 }
 
 /** Personal profile + conversation/work memory (own nav group for discoverability). */
@@ -212,9 +212,7 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  // Company near top so “连接公司” is easy to find (not buried under the fold).
   const tabs: SettingsTab[] = [
-    "company",
     "system",
     "shortcuts",
     "environment",
