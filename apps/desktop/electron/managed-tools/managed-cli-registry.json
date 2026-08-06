@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "plugins": {
+    "officecli": {
+      "manifestUrl": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json"
+    }
+  }
+}
