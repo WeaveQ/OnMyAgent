@@ -1,25 +1,21 @@
 /**
- * Shared download-config loader for managed remote CLIs.
+ * Shared download-config / registry loader for managed remote CLIs.
  *
- * Config is the version pin + permanent asset URLs (CDN object keys are immutable).
- * Updating a CLI means shipping a new config JSON in a desktop release — there is
- * no root "latest" pointer that can swap content behind a stable URL.
+ * Desktop ships one registry JSON (pluginId → permanent root manifestUrl).
+ * Each plugin's remote root catalog holds version + asset/skill URLs for hot updates.
  *
- * Example (OfficeCLI):
+ * Example registry:
  * {
- *   "version": "1.0.143",
- *   "releaseManifestUrl": "https://…/manifest.json",
- *   "skillUrl": "https://…/SKILL.md",
- *   "assets": {
- *     "officecli-mac-arm64": {
- *       "url": "https://…/officecli_mac_arm64.zip",
- *       "archive": "zip",
- *       "entry": "officecli-mac-arm64"
- *     }
+ *   "schemaVersion": 1,
+ *   "plugins": {
+ *     "officecli": { "manifestUrl": "https://…/officecli/manifest.json" },
+ *     "feishu-cli": { "manifestUrl": "https://…/feishu-cli/manifest.json" }
  *   }
  * }
  */
 import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * @param {unknown} value
@@ -29,6 +25,25 @@ export function nonEmptyString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+/** Default registry next to managed-tools/ (packaged in electron asar). */
+export const MANAGED_CLI_DEFAULT_REGISTRY_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "managed-cli-registry.json",
+);
+
+/**
+ * @param {string | null | undefined} customPath
+ * @returns {string}
+ */
+export function resolveManagedCliRegistryPath(customPath) {
+  const fromOption = nonEmptyString(customPath);
+  if (fromOption) return fromOption;
+  const fromEnv = nonEmptyString(process.env.ONMYAGENT_MANAGED_CLI_REGISTRY);
+  if (fromEnv) return fromEnv;
+  return MANAGED_CLI_DEFAULT_REGISTRY_PATH;
 }
 
 /**
@@ -52,6 +67,70 @@ export function parseManagedCliAssetSpec(entry) {
 }
 
 /**
+ * Load the multi-plugin registry (pluginId → manifestUrl, …).
+ *
+ * @param {string | null | undefined} [registryPath]
+ * @returns {{
+ *   schemaVersion: number | null,
+ *   plugins: Record<string, { manifestUrl: string | null }>,
+ * }}
+ */
+export function loadManagedCliRegistry(registryPath) {
+  const empty = { schemaVersion: null, plugins: {} };
+  const resolvedPath = resolveManagedCliRegistryPath(registryPath);
+  let raw;
+  try {
+    raw = readFileSync(resolvedPath, "utf8");
+  } catch {
+    return empty;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return empty;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return empty;
+  }
+
+  const pluginsRaw =
+    parsed.plugins && typeof parsed.plugins === "object" && !Array.isArray(parsed.plugins)
+      ? parsed.plugins
+      : {};
+  /** @type {Record<string, { manifestUrl: string | null }>} */
+  const plugins = Object.create(null);
+  for (const [pluginId, entry] of Object.entries(pluginsRaw)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = /** @type {Record<string, unknown>} */ (entry);
+    plugins[pluginId] = {
+      manifestUrl: nonEmptyString(record.manifestUrl),
+    };
+  }
+
+  const schemaVersion =
+    typeof parsed.schemaVersion === "number" && Number.isFinite(parsed.schemaVersion)
+      ? parsed.schemaVersion
+      : null;
+
+  return { schemaVersion, plugins };
+}
+
+/**
+ * @param {string} pluginId
+ * @param {string | null | undefined} [registryPath]
+ * @returns {{ manifestUrl: string | null }}
+ */
+export function loadManagedCliPluginEntry(pluginId, registryPath) {
+  const id = nonEmptyString(pluginId);
+  if (!id) return { manifestUrl: null };
+  const registry = loadManagedCliRegistry(registryPath);
+  return registry.plugins[id] ?? { manifestUrl: null };
+}
+
+/**
+ * Legacy single-plugin download-config shape (still useful in unit tests).
+ *
  * @param {{
  *   configPath: string,
  *   assetKeys: readonly string[],
@@ -85,6 +164,11 @@ export function loadManagedCliDownloadConfig(input) {
     return empty;
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return empty;
+  }
+
+  // Registry shape: { plugins: { officecli: { manifestUrl } } }
+  if (parsed.plugins && typeof parsed.plugins === "object") {
     return empty;
   }
 

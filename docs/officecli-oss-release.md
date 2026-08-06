@@ -1,24 +1,42 @@
 # OfficeCLI CDN 发布约定
 
-OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端 **只内置一个永久 root `manifestUrl`**（`officecli-download-config.json`）。客户端定期/安装时拉取该 JSON，比较 `latestVersion` 与本地安装版本；有更新则按 manifest 内绝对 URL 下载 skill 与平台 zip。
+OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端内置 **统一 registry**：
+
+`apps/desktop/electron/managed-tools/managed-cli-registry.json`
+
+```json
+{
+  "schemaVersion": 1,
+  "plugins": {
+    "officecli": {
+      "manifestUrl": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json"
+    },
+    "feishu-cli": {
+      "manifestUrl": "https://…/feishu-cli/manifest.json"
+    }
+  }
+}
+```
+
+客户端按 `pluginId` 取 `manifestUrl`，拉取远端 root catalog，比较 `latestVersion`；有更新则按 catalog 内绝对 URL 下载 skill 与平台 zip。
 
 ## 热更新模型
 
 | 层 | 是否可变 | 说明 |
 |----|----------|------|
-| 客户端 `manifestUrl` | 固定（写死在包内） | 永久 CDN 链接，不随版本改代码 |
-| root `manifest.json` 内容 | 可变 | 发布新版本时更新该文件（或同 URL 指向新对象） |
-| 版本化资源 URL | 不可覆盖 | 每版独立路径，如 `…/release/1_0_144/…` |
+| 包内 `managed-cli-registry.json` | 少改 | 各 CLI 的永久 root URL；新增 CLI 时加一条 |
+| 各 CLI root `manifest.json` | 可变 | 最新版本 + 下载链接 + 二进制 hash |
+| 版本化资源 URL | 不可覆盖 | 每版独立路径 |
 
-示例文件：`apps/desktop/electron/managed-tools/officecli-root-manifest.example.json`。
+Root catalog 示例：`apps/desktop/electron/managed-tools/officecli-root-manifest.example.json`。
 
-zip 解压 `entry` 后，用 manifest 中的 **sha256/size 校验解压后的二进制**（不是 zip 包本身）。
+zip 解压 `entry` 后，用 catalog 中 **sha256/size 校验解压后的二进制**（不是 zip 包）。
 
 平台键：`officecli-mac-arm64` / `officecli-mac-x64` / `officecli-win-arm64` / `officecli-win-x64`（无 Linux）。
 
 ## 可复用能力
 
-`apps/desktop/electron/managed-tools/managed-cli/`：download-config 加载、zip 解压，供飞书 CLI 等复用。
+`apps/desktop/electron/managed-tools/managed-cli/`：registry 加载、zip 解压，供飞书 CLI 等复用。
 
 ## Manifest 格式
 
@@ -76,45 +94,16 @@ node scripts/officecli/validate-manifest.mjs \
 
 此外，必须在对应系统上执行每个二进制的 `--version`，并确认输出与 manifest 版本完全相同。校验器无法在 macOS 主机上替代 Windows 二进制的实际启动检查；桌面端安装时也会再次拒绝版本不一致的二进制。
 
-## 公网与临时签名 URL
+## 配置与覆盖
 
-最终面向国内用户时，推荐将 `officecli/manifest.json`、release manifest、`SKILL.md` 和四个平台文件设置为 OSS 公共读，并保持稳定的 HTTPS 路径。这样客户端只需要内置根 manifest 地址，用户点击市场卡片的安装或更新即可完成整个流程。
+**Registry（包内）：** `apps/desktop/electron/managed-tools/managed-cli-registry.json`
 
-临时测试 / 内测打包阶段可以使用签名 URL。推荐直接改本地配置文件（会打进 electron asar，无需 `source .env`）：
+可选环境变量：
 
-**配置文件路径：** `apps/desktop/electron/managed-tools/officecli-download-config.json`
+- `ONMYAGENT_MANAGED_CLI_REGISTRY` — 指向其它 registry JSON
+- `ONMYAGENT_OFFICECLI_MANIFEST_URL` — 覆盖 officecli 的 root catalog URL（调试用）
 
-```json
-{
-  "manifestUrl": "https://…/officecli/manifest.json?…",
-  "releaseManifestUrl": "https://…/officecli/releases/1.0.143/manifest.json?…",
-  "skillUrl": "https://…/officecli/releases/1.0.143/SKILL.md?…",
-  "assets": {
-    "officecli-mac-arm64": "https://…/officecli-mac-arm64?…",
-    "officecli-mac-x64": "https://…/officecli-mac-x64?…",
-    "officecli-win-arm64": "https://…/officecli-win-arm64.exe?…",
-    "officecli-win-x64": "https://…/officecli-win-x64.exe?…"
-  }
-}
-```
-
-更新链接后：`pnpm dev` 直接生效；给内测用户则重新打包即可。签名过期后只改该文件里的 URL。
-
-可选：`ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG=/abs/path.json` 指向其它配置文件。
-
-优先级：`createOfficeCliManager` 入参 > 环境变量 > 配置文件 > 内置公共读默认 URL。
-
-环境变量覆盖（测试 / 一次性调试仍可用）：
-
-- `ONMYAGENT_OFFICECLI_MANIFEST_URL`
-- `ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL`
-- `ONMYAGENT_OFFICECLI_SKILL_URL`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_MAC_ARM64`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_MAC_X64`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_WIN_ARM64`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_WIN_X64`
-
-临时签名 URL 必须覆盖根 manifest、release manifest、SKILL 和当前平台资产。切换到公共读 URL 后，把配置文件字段清空或删掉对应键，重启桌面端即可恢复默认路径。
+优先级：`createOfficeCliManager` 入参 > 环境变量 > registry。
 
 ## 会话产物卡
 

@@ -31,15 +31,15 @@ import {
 import {
   extractZipEntry,
   loadManagedCliDownloadConfig,
+  loadManagedCliPluginEntry,
+  MANAGED_CLI_DEFAULT_REGISTRY_PATH,
   nonEmptyString,
+  resolveManagedCliRegistryPath,
 } from "./managed-cli/index.mjs";
 
 export const OFFICECLI_PLUGIN_ID = "officecli";
-/** Packaged + dev default path (next to this module; included in electron asar). */
-export const OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "officecli-download-config.json",
-);
+/** @deprecated Use MANAGED_CLI_DEFAULT_REGISTRY_PATH / resolveManagedCliRegistryPath. */
+export const OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH = MANAGED_CLI_DEFAULT_REGISTRY_PATH;
 export const OFFICECLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 export const OFFICECLI_NETWORK_TIMEOUT_MS = 30_000;
 export const OFFICECLI_NETWORK_RETRY_COUNT = 2;
@@ -136,20 +136,23 @@ export function compareOfficeCliVersions(left, right) {
 }
 
 /**
- * Resolve which download-config JSON to load.
- * Priority: explicit path → ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG → default next to this module.
+ * Resolve managed-cli registry path (multi-plugin manifestUrl map).
+ * Priority: explicit path → ONMYAGENT_MANAGED_CLI_REGISTRY →
+ * ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG (legacy) → default registry.
  */
 export function resolveOfficeCliDownloadConfigPath(customPath) {
   const fromOption = nonEmptyString(customPath);
   if (fromOption) return fromOption;
-  const fromEnv = nonEmptyString(process.env.ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG);
-  if (fromEnv) return fromEnv;
-  return OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH;
+  const fromRegistryEnv = nonEmptyString(process.env.ONMYAGENT_MANAGED_CLI_REGISTRY);
+  if (fromRegistryEnv) return fromRegistryEnv;
+  const fromLegacyEnv = nonEmptyString(process.env.ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG);
+  if (fromLegacyEnv) return fromLegacyEnv;
+  return resolveManagedCliRegistryPath();
 }
 
 /**
- * Load local OfficeCLI download config (version pin + permanent CDN URLs).
- * Missing / invalid file → empty config (fall through to env / options).
+ * Load OfficeCLI entry from the shared managed-cli registry (or a legacy
+ * single-plugin download-config JSON used in unit tests).
  *
  * @returns {{
  *   version: string | null,
@@ -162,6 +165,18 @@ export function resolveOfficeCliDownloadConfigPath(customPath) {
  */
 export function loadOfficeCliDownloadConfig(configPath) {
   const resolvedPath = resolveOfficeCliDownloadConfigPath(configPath);
+  const pluginEntry = loadManagedCliPluginEntry(OFFICECLI_PLUGIN_ID, resolvedPath);
+  if (pluginEntry.manifestUrl) {
+    return {
+      version: null,
+      manifestUrl: pluginEntry.manifestUrl,
+      releaseManifestUrl: null,
+      skillUrl: null,
+      assets: {},
+      assetUrlOverrides: {},
+    };
+  }
+  // Unit tests / overrides may still pass a single-plugin download-config file.
   const loaded = loadManagedCliDownloadConfig({
     configPath: resolvedPath,
     assetKeys: ASSET_PLATFORM_KEYS,

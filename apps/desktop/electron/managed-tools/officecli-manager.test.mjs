@@ -687,47 +687,31 @@ test("does not overwrite a user-owned OfficeCLI skill", async () => {
   }
 });
 
-test("loadOfficeCliDownloadConfig reads local URL overrides from JSON", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-download-config-"));
+test("loadOfficeCliDownloadConfig reads officecli entry from managed-cli registry", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-managed-cli-registry-"));
   try {
-    const configPath = path.join(root, "download-config.json");
+    const registryPath = path.join(root, "managed-cli-registry.json");
     await writeFile(
-      configPath,
+      registryPath,
       JSON.stringify({
-        manifestUrl: "https://oss.test/officecli/manifest.json?sig=root",
-        releaseManifestUrl: "https://oss.test/officecli/releases/1.0.143/manifest.json?sig=rel",
-        skillUrl: "https://oss.test/officecli/releases/1.0.143/SKILL.md?sig=skill",
-        assets: {
-          "officecli-mac-arm64":
-            "https://oss.test/officecli/releases/1.0.143/officecli-mac-arm64?sig=bin",
-          "officecli-mac-x64":
-            "https://oss.test/officecli/releases/1.0.143/officecli-mac-x64?sig=binx",
+        schemaVersion: 1,
+        plugins: {
+          officecli: {
+            manifestUrl: "https://oss.test/officecli/manifest.json",
+          },
+          "feishu-cli": {
+            manifestUrl: "https://oss.test/feishu-cli/manifest.json",
+          },
         },
       }),
       "utf8",
     );
 
-    const config = loadOfficeCliDownloadConfig(configPath);
-    assert.equal(
-      config.manifestUrl,
-      "https://oss.test/officecli/manifest.json?sig=root",
-    );
-    assert.equal(
-      config.releaseManifestUrl,
-      "https://oss.test/officecli/releases/1.0.143/manifest.json?sig=rel",
-    );
-    assert.equal(
-      config.skillUrl,
-      "https://oss.test/officecli/releases/1.0.143/SKILL.md?sig=skill",
-    );
-    assert.equal(
-      config.assetUrlOverrides["officecli-mac-arm64"],
-      "https://oss.test/officecli/releases/1.0.143/officecli-mac-arm64?sig=bin",
-    );
-    assert.equal(
-      resolveOfficeCliDownloadConfigPath(configPath),
-      configPath,
-    );
+    const config = loadOfficeCliDownloadConfig(registryPath);
+    assert.equal(config.manifestUrl, "https://oss.test/officecli/manifest.json");
+    assert.equal(config.releaseManifestUrl, null);
+    assert.equal(config.skillUrl, null);
+    assert.equal(resolveOfficeCliDownloadConfigPath(registryPath), registryPath);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
