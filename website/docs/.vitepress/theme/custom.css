@@ -3,10 +3,9 @@
  */
 
 :root {
-  /* Full-window handbook: use most of the main column */
-  --vp-layout-max-width: 1920px;
-  /* Wider article so product screenshots read clearly */
-  --oma-doc-content-max: 78rem;
+  /* Filled by layout block below — keep viewport-safe defaults */
+  --vp-layout-max-width: 100%;
+  --oma-doc-content-max: 48rem;
   --oma-doc-img-bleed: 0px;
 
   /* Neutral light palette — avoid muddy greys / purple-tinted neutrals */
@@ -75,80 +74,73 @@
 }
 
 /* —— Layout ——
- * VitePress pins .content-container to 688px (scoped). Override with
- * !important so handbook body + product screenshots can use the main column.
- * Keep horizontal gutters so content / outline never hug the viewport edges.
+ * Fit sidebar + article (+ optional outline) into the viewport without
+ * horizontal scroll — oversized content max was pushing the left rail off-screen.
+ *
+ * Outline (右侧大纲) visibility by width (auto, no manual toggle in VP default):
+ *   < 1280px  — VitePress default: outline in local-nav dropdown only
+ *   1280–1519 — we keep outline hidden so article + sidebar stay usable
+ *   ≥ 1520px  — outline shown beside the article
  */
 :root {
-  --oma-doc-gutter-x: 28px;
-  --oma-doc-aside-gap: 32px;
-  --oma-doc-aside-edge: 28px;
-  /* Keep screenshots / tables / prev-next on the same content width */
+  --vp-layout-max-width: 100%;
+  --oma-doc-content-max: 48rem;
+  --oma-doc-gutter-x: 0px;
+  --oma-doc-aside-gap: 24px;
+  --oma-doc-aside-edge: 16px;
   --oma-doc-img-bleed: 0px;
+  /* Outline only when the screen is wide enough */
+  --oma-outline-min-width: 1520px;
+}
+
+html,
+body {
+  overflow-x: hidden;
 }
 
 .VPDoc.has-sidebar.has-aside .container,
 .VPDoc.has-sidebar .container {
-  max-width: var(--vp-layout-max-width) !important;
+  max-width: 100% !important;
+}
+
+/* Article takes remaining space; allow flex shrink so sidebar stays visible */
+.VPDoc .content {
+  max-width: var(--oma-doc-content-max) !important;
+  min-width: 0 !important;
+  flex: 1 1 auto;
 }
 
 @media (min-width: 960px) {
-  .VPDoc {
-    /* outer air under the nav, both sides of the main doc frame */
-    padding-left: var(--oma-doc-gutter-x) !important;
-    padding-right: var(--oma-doc-gutter-x) !important;
+  .VPDoc .content {
+    padding-left: 28px !important;
+    padding-right: 24px !important;
   }
 }
 
 @media (min-width: 1280px) {
   :root {
-    --oma-doc-content-max: 78rem;
-    --oma-doc-gutter-x: 36px;
-    --oma-doc-aside-gap: 40px;
-    --oma-doc-aside-edge: 32px;
+    --oma-doc-content-max: 52rem;
   }
 
-  .VPDoc .container {
-    max-width: var(--vp-layout-max-width) !important;
+  .VPDoc .content {
+    padding-left: 32px !important;
+    padding-right: 28px !important;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1520px) {
   :root {
-    --oma-doc-content-max: 86rem;
-    --oma-doc-gutter-x: 48px;
-    --oma-doc-aside-gap: 48px;
-    --oma-doc-aside-edge: 40px;
+    --oma-doc-content-max: 56rem;
+    --oma-doc-aside-gap: 28px;
+    --oma-doc-aside-edge: 20px;
   }
 }
 
 @media (min-width: 1680px) {
   :root {
-    --oma-doc-content-max: 92rem;
-    --oma-doc-gutter-x: 56px;
-    --oma-doc-aside-gap: 56px;
-    --oma-doc-aside-edge: 48px;
-  }
-}
-
-/* Main article column: wide but with breathing room beside outline */
-.VPDoc .content {
-  max-width: var(--oma-doc-content-max) !important;
-  flex-grow: 1;
-}
-
-@media (min-width: 960px) {
-  .VPDoc .content {
-    /* left of article + right gap before outline */
-    padding-left: 36px !important;
-    padding-right: 28px !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  .VPDoc .content {
-    padding-left: 44px !important;
-    padding-right: 36px !important;
+    --oma-doc-content-max: 60rem;
+    --oma-doc-aside-gap: 36px;
+    --oma-doc-aside-edge: 28px;
   }
 }
 
@@ -160,7 +152,7 @@
 
 @media (min-width: 960px) {
   .VPDoc:not(.has-sidebar) .container {
-    max-width: var(--vp-layout-max-width) !important;
+    max-width: 1104px !important;
   }
 
   .VPDoc:not(.has-sidebar) .content {
@@ -168,20 +160,12 @@
   }
 }
 
-@media (min-width: 1440px) {
-  .VPDoc:not(.has-sidebar) .content {
-    max-width: var(--oma-doc-content-max) !important;
-  }
-
-  .VPDoc:not(.has-sidebar) .container {
-    max-width: var(--vp-layout-max-width) !important;
-  }
-}
-
-/* Sidebar */
+/* Sidebar — always fully on-screen (do not let page overflow clip it) */
 .VPSidebar {
   border-right: 1px solid var(--vp-c-divider);
   background-color: var(--vp-sidebar-bg-color) !important;
+  left: 0 !important;
+  box-sizing: border-box;
 }
 
 .VPSidebarItem.level-0 > .item > .text {
@@ -375,17 +359,34 @@
   display: none;
 }
 
-/* Outline — keep clear gap from article and from the viewport edge */
-@media (min-width: 1280px) {
+/* Outline: hide on mid widths (1280–1519) so left sidebar + article fit.
+ * VitePress already shows outline in the sticky local-nav dropdown below 1280.
+ * Wide screens (≥1520) get the side outline back.
+ */
+@media (min-width: 1280px) and (max-width: 1519.98px) {
   .VPDoc .aside {
+    display: none !important;
+  }
+
+  /* Use full main column when outline is auto-hidden */
+  .VPDoc.has-aside .content {
+    max-width: min(56rem, 100%) !important;
+  }
+}
+
+@media (min-width: 1520px) {
+  .VPDoc .aside {
+    display: block !important;
     padding-left: var(--oma-doc-aside-gap) !important;
     padding-right: var(--oma-doc-aside-edge) !important;
-    max-width: 280px;
+    max-width: 240px;
+    flex-grow: 0;
+    flex-shrink: 0;
   }
 
   .VPDoc .aside-container,
   .VPDoc .aside-curtain {
-    width: 224px;
+    width: 200px;
   }
 }
 
