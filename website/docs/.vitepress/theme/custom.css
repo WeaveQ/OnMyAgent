@@ -700,13 +700,66 @@ body {
 
 /* Caption under a shot */
 .vp-doc img + .oma-shot-caption,
-.vp-doc p:has(> img:only-child) + .oma-shot-caption {
+.vp-doc p:has(> img:only-child) + .oma-shot-caption,
+.vp-doc .oma-theme-shot + .oma-shot-caption,
+.vp-doc p:has(> .oma-theme-shot:only-child) + .oma-shot-caption {
   margin: -0.85rem 0 2rem;
   text-align: center;
   font-size: 0.9em;
   font-weight: 500;
   color: var(--vp-c-text-2);
   line-height: 1.4;
+}
+
+/*
+ * Theme-matched product shots:
+ * light handbook → light app UI; dark handbook → dark app UI.
+ * Markup is injected by theme-shots.js (span.oma-theme-shot > img.light + img.dark).
+ */
+.oma-theme-shot {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  line-height: 0;
+  border-radius: var(--oma-shot-radius);
+  overflow: hidden;
+}
+
+.oma-theme-shot > img {
+  display: none;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0 !important;
+  border-radius: var(--oma-shot-radius);
+}
+
+/* Default (light handbook): show light app screenshots */
+.oma-theme-shot > img.oma-shot-light {
+  display: block;
+}
+
+/* Dark handbook: show dark app screenshots */
+.dark .oma-theme-shot > img.oma-shot-light {
+  display: none;
+}
+
+.dark .oma-theme-shot > img.oma-shot-dark {
+  display: block;
+}
+
+/* Paragraph wrapper when markdown only-child is dual-shot */
+.vp-doc p:has(> .oma-theme-shot:only-child) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5rem 0 2rem !important;
+  padding: 0 !important;
+  line-height: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--oma-shot-radius);
+  overflow: hidden;
 }
 
 .vp-doc img.oma-zoomable {

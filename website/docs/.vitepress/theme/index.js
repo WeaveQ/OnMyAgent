@@ -3,6 +3,7 @@ import { onMounted, watch, nextTick } from "vue";
 import { useRoute } from "vitepress";
 import "./custom.css";
 import { installImageZoom, bindDocImageZoom, closeZoom } from "./image-zoom.js";
+import { installThemeShots, bindThemeShots } from "./theme-shots.js";
 
 export default {
   extends: DefaultTheme,
@@ -10,6 +11,7 @@ export default {
     const route = useRoute();
 
     onMounted(() => {
+      installThemeShots();
       installImageZoom();
     });
 
@@ -17,7 +19,10 @@ export default {
       () => route.path,
       () => {
         closeZoom();
-        nextTick(() => bindDocImageZoom());
+        nextTick(() => {
+          bindThemeShots();
+          bindDocImageZoom();
+        });
       },
     );
   },

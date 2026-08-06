@@ -56,16 +56,33 @@ function closeZoom() {
   if (img) img.removeAttribute("src");
 }
 
+function isDarkTheme() {
+  return document.documentElement.classList.contains("dark");
+}
+
+function zoomSrcFor(img) {
+  const wrap = img.closest?.(".oma-theme-shot");
+  if (wrap) {
+    const theme = isDarkTheme() ? "dark" : "light";
+    const themed = wrap.querySelector(`img[data-oma-shot-theme="${theme}"]`);
+    if (themed) return themed.currentSrc || themed.src;
+  }
+  return img.currentSrc || img.src;
+}
+
 function bindImages(root = document) {
-  const imgs = root.querySelectorAll(".vp-doc img:not([data-oma-zoom-bound])");
+  const imgs = root.querySelectorAll(
+    ".vp-doc img:not([data-oma-zoom-bound]), .oma-theme-shot img:not([data-oma-zoom-bound])",
+  );
   imgs.forEach((img) => {
     if (img.closest("a")) return;
+    if (img.closest(".oma-zoom-overlay")) return;
     img.setAttribute("data-oma-zoom-bound", "1");
     img.classList.add("oma-zoomable");
     img.setAttribute("title", "点击放大");
     img.addEventListener("click", (e) => {
       e.preventDefault();
-      const src = img.currentSrc || img.src;
+      const src = zoomSrcFor(img);
       if (!src) return;
       openZoom(src, img.alt || "");
     });
