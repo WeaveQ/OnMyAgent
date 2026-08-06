@@ -641,25 +641,81 @@ body {
   color: var(--vp-c-text-1);
 }
 
-/* Screenshots: same content width as tables / prev-next (no extra bleed) */
-.vp-doc img,
-.vp-doc p > img {
+/*
+ * Product screenshots — unified frame (standard: app window ~1280×820).
+ * All shots share the same outer card size/radius/shadow so mixed source
+ * dimensions (1280×820 / 1392×932 / 1600×1029) still look one family.
+ */
+:root {
+  --oma-shot-radius: 12px;
+  --oma-shot-ratio: 1280 / 820;
+  --oma-shot-bg: #0c0e12;
+  --oma-shot-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.04),
+    0 12px 40px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.dark {
+  --oma-shot-bg: #0a0c10;
+  --oma-shot-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.2),
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Paragraph that only holds a screenshot → framed stage */
+.vp-doc > p:has(> img:only-child),
+.vp-doc p:has(> img:only-child) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5rem 0 2rem !important;
+  padding: 0 !important;
+  aspect-ratio: var(--oma-shot-ratio);
+  background: var(--oma-shot-bg);
+  border-radius: var(--oma-shot-radius);
+  box-shadow: var(--oma-shot-shadow);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.vp-doc > p:has(> img:only-child) > img,
+.vp-doc p:has(> img:only-child) > img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0 !important;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  background: var(--oma-shot-bg);
+  object-fit: contain;
+  object-position: center center;
+}
+
+/* Fallback when img is not wrapped alone in a p (rare) */
+.vp-doc > img {
   display: block;
   width: 100%;
   max-width: 100%;
   height: auto;
-  margin: 1.25rem 0 1.5rem;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-  outline: none;
+  aspect-ratio: var(--oma-shot-ratio);
+  object-fit: contain;
+  object-position: center center;
+  margin: 1.5rem 0 2rem !important;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: var(--oma-shot-shadow);
+  background: var(--oma-shot-bg);
 }
 
-/* Screenshot + title under image (replaces ugly page/screenshot tables) */
+/* Caption under a framed shot */
 .vp-doc img + .oma-shot-caption,
 .vp-doc p:has(> img:only-child) + .oma-shot-caption {
-  margin: -0.85rem 0 2rem;
+  margin: -1.25rem 0 2rem;
   text-align: center;
   font-size: 0.9em;
   font-weight: 500;
@@ -667,30 +723,22 @@ body {
   line-height: 1.4;
 }
 
-.vp-doc p:has(> img:only-child) {
-  margin-bottom: 0.35rem;
-}
-
-.vp-doc p:has(> img:only-child) > img {
-  margin-bottom: 0;
-}
-
-.vp-doc > p:has(> img:only-child),
-.vp-doc p:has(> img:only-child) {
-  margin: 1.25rem 0 1.5rem;
-  max-width: 100%;
-}
-
-.vp-doc p:has(> img:only-child) > img {
-  margin: 0;
-}
-
 .vp-doc img.oma-zoomable {
   cursor: zoom-in;
 }
 
-.vp-doc img.oma-zoomable:hover {
-  opacity: 0.98;
+.vp-doc p:has(> img.oma-zoomable:only-child):hover {
+  box-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.04),
+    0 16px 48px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+.dark .vp-doc p:has(> img.oma-zoomable:only-child):hover {
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.2),
+    0 18px 52px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(96, 165, 250, 0.22);
 }
 
 /* Lightbox overlay */
@@ -703,8 +751,8 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(6px);
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.18s ease, visibility 0.18s ease;
@@ -717,15 +765,15 @@ body {
 }
 
 .oma-zoom-overlay .oma-zoom-img {
-  max-width: min(98vw, 1600px);
-  max-height: min(92vh, 1100px);
+  max-width: min(96vw, 1200px);
+  max-height: min(88vh, 780px);
   width: auto;
   height: auto;
   object-fit: contain;
   border: none;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: var(--oma-shot-shadow);
+  background: var(--oma-shot-bg);
   cursor: default;
   margin: 0;
 }
