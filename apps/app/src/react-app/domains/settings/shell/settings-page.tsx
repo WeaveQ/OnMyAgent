@@ -236,6 +236,33 @@ export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
   return tabs;
 }
 
+/**
+ * Single source of truth for Settings sidebar + compact section menu groups.
+ * Labels are i18n keys (or null for overview-only top block).
+ */
+export type SettingsNavSectionDef = {
+  labelKey: string | null;
+  tabs: SettingsTab[];
+};
+
+export function getSettingsNavSections(
+  developerMode: boolean,
+): SettingsNavSectionDef[] {
+  return [
+    { labelKey: null, tabs: getOverviewSettingsTabs() },
+    { labelKey: "settings.group_workspace", tabs: getWorkspaceSettingsTabs() },
+    {
+      labelKey: "settings.group_personal_memory",
+      tabs: getPersonalMemorySettingsTabs(),
+    },
+    {
+      labelKey: "settings.group_global",
+      tabs: getGlobalSettingsTabs(developerMode),
+    },
+    { labelKey: "settings.group_data", tabs: getDataSettingsTabs() },
+  ];
+}
+
 type SettingsPageProps = {
   activeTab: SettingsTab;
   onSelectTab: (tab: SettingsTab) => void;
@@ -302,11 +329,7 @@ function SettingsNavGroup(props: {
 }
 
 export function SettingsSidebar(props: SettingsSidebarProps) {
-  const overviewTabs = getOverviewSettingsTabs();
-  const workspaceTabs = getWorkspaceSettingsTabs();
-  const personalMemoryTabs = getPersonalMemorySettingsTabs();
-  const dataTabs = getDataSettingsTabs();
-  const globalTabs = getGlobalSettingsTabs(props.developerMode);
+  const sections = getSettingsNavSections(props.developerMode);
 
   return (
     <Sidebar className={settingsSidebarClass}>
@@ -327,35 +350,15 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="px-2 pb-4">
-        <SettingsNavGroup
-          tabs={overviewTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_workspace")}
-          tabs={workspaceTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_personal_memory")}
-          tabs={personalMemoryTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_global")}
-          tabs={globalTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
-        <SettingsNavGroup
-          label={t("settings.group_data")}
-          tabs={dataTabs}
-          activeTab={props.activeTab}
-          onSelectTab={props.onSelectTab}
-        />
+        {sections.map((section) => (
+          <SettingsNavGroup
+            key={section.labelKey ?? "overview"}
+            label={section.labelKey ? t(section.labelKey as never) : undefined}
+            tabs={section.tabs}
+            activeTab={props.activeTab}
+            onSelectTab={props.onSelectTab}
+          />
+        ))}
       </SidebarContent>
     </Sidebar>
   );
