@@ -160,12 +160,21 @@ body {
   }
 }
 
-/* Sidebar — always fully on-screen (do not let page overflow clip it) */
+/* Sidebar — always fully on-screen; fixed 32px inset matches nav title */
 .VPSidebar {
   border-right: 1px solid var(--vp-c-divider);
   background-color: var(--vp-sidebar-bg-color) !important;
   left: 0 !important;
   box-sizing: border-box;
+  /* Override VP wide-screen calc that drifts away from the title column */
+  padding: 32px 24px 96px 32px !important;
+  width: var(--vp-sidebar-width) !important;
+}
+
+@media (min-width: 960px) {
+  .VPSidebar {
+    padding-top: calc(var(--vp-nav-height) + 24px) !important;
+  }
 }
 
 .VPSidebarItem.level-0 > .item > .text {
@@ -247,45 +256,51 @@ body {
   background: transparent;
 }
 
-/* Title column aligns with sidebar width; do not clip logo + name */
+/* Title column = same width as sidebar; left padding matches VPSidebar (32px)
+ * so logo lines up with section labels like「入门指南」.
+ */
 .VPNavBarTitle.has-sidebar {
   width: var(--vp-sidebar-width);
   max-width: var(--vp-sidebar-width);
   border-right: 1px solid var(--vp-c-divider);
   background: var(--vp-nav-bg-color) !important;
   overflow: visible;
+  box-sizing: border-box;
 }
 
 .VPNavBarTitle .title {
   display: flex !important;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
+  height: var(--vp-nav-height);
   box-sizing: border-box;
-  padding: 0 16px 0 18px !important;
+  /* Match .VPSidebar { padding: 32px 32px … } horizontal inset */
+  padding: 0 24px 0 32px !important;
+  margin: 0 !important;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.01em;
   color: var(--vp-c-text-1);
   white-space: nowrap;
-  overflow: visible !important;
-  text-overflow: clip;
+  overflow: hidden !important;
+  text-overflow: ellipsis;
 }
 
 .VPNavBarTitle .VPImage.logo {
   display: block;
-  width: 24px !important;
-  height: 24px !important;
+  width: 22px !important;
+  height: 22px !important;
   flex-shrink: 0;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 5px;
 }
 
-/* Keep the site name readable; shrink only if viewport is tiny */
 .VPNavBarTitle .title > span {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  line-height: 1.2;
 }
 
 /* Search */
