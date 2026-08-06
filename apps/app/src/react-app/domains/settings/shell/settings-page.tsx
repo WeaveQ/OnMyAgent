@@ -221,12 +221,15 @@ export function getArchivedSettingsTabs(): SettingsTab[] {
  * App-wide settings: appearance first, then system/runtime.
  * Preferences are not workspace-scoped (language/theme/font).
  */
+/**
+ * App-wide settings. Environment is fused into System (not a top-level nav item);
+ * deep links /settings/environment still resolve to system.
+ */
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
   const tabs: SettingsTab[] = [
     "preferences",
     "system",
     "shortcuts",
-    "environment",
     "updates",
   ];
   if (developerMode) tabs.push("debug");
