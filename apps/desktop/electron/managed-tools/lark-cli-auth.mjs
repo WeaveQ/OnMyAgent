@@ -132,6 +132,7 @@ export function createLarkCliAuthService(options = {}) {
    *   deviceCode: string,
    *   createdAt: number,
    *   promise?: Promise<any>,
+   *   controller?: AbortController,
    * }>}
    */
   const loginSessions = new Map();
@@ -188,6 +189,7 @@ export function createLarkCliAuthService(options = {}) {
     }
     const timeoutMs = opts.timeoutMs ?? 60_000;
     const cwd = opts.cwd ?? os.tmpdir();
+    /** @type {NodeJS.ProcessEnv} */
     const env = {
       ...process.env,
       LARKSUITE_CLI_NO_UPDATE_NOTIFIER: "1",
@@ -810,6 +812,7 @@ export function createLarkCliAuthService(options = {}) {
     if (!resolved) throw codedError("lark-cli is not installed", "not_installed");
 
     emitProgress({ operation: "config_init", phase: "starting" });
+    /** @type {NodeJS.ProcessEnv} */
     const env = {
       ...process.env,
       LARKSUITE_CLI_NO_UPDATE_NOTIFIER: "1",
