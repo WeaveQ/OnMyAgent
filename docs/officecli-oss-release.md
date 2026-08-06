@@ -11,8 +11,8 @@ OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端内置 **
     "officecli": {
       "manifestUrl": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json"
     },
-    "feishu-cli": {
-      "manifestUrl": "https://…/feishu-cli/manifest.json"
+    "lark-cli": {
+      "manifestUrl": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/lark-cli/manifest.json"
     }
   }
 }
@@ -30,7 +30,7 @@ OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端内置 **
 
 Root catalog 示例：`apps/desktop/electron/managed-tools/officecli-root-manifest.example.json`。
 
-zip 解压 `entry` 后，用 catalog 中 **sha256/size 校验解压后的二进制**（不是 zip 包）。
+zip 解压 `entry` 后，用 catalog 中 **sha256 校验解压后的二进制**（不是 zip 包）。`size` 可选；若提供则额外校验解压后字节数。
 
 ### skillsPack（高级技能包）
 
@@ -58,7 +58,17 @@ pack 布局示例：`officecli-skills/officecli-docx/SKILL.md`、`morph-ppt/…`
 
 ## 可复用能力
 
-`apps/desktop/electron/managed-tools/managed-cli/`：registry 加载、zip 解压，供飞书 CLI 等复用。
+`apps/desktop/electron/managed-tools/managed-cli/`：
+
+| 模块 | 能力 |
+|------|------|
+| `config.mjs` | registry / download-config 加载 |
+| `archive.mjs` | zip 解压（单文件 entry / 整包） |
+| `download.mjs` | `createManagedCliDownloader`：fetch 重试、stream 落盘、`hashFile` / `verifyDigest`（sha256 必校、size 可选） |
+| `version.mjs` | `x.y.z` 版本比较 |
+| `errors.mjs` | `codedError` |
+
+产品 manager（`officecli-manager`、后续飞书/腾讯文档）只保留：platform keys、binary 名、skill 物化、launcher、state schema。
 
 ## Manifest 格式
 
