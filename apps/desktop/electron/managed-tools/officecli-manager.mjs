@@ -1,19 +1,18 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
 import {
   access,
   chmod,
   cp,
   lstat,
-  open,
   mkdir,
   readdir,
   readFile,
   rename,
   rm,
   writeFile,
-} from "node:fs/promises";import os from "node:os";
+} from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,21 +29,33 @@ import {
   resolveOfficeCliManagedRoot,
 } from "../config-profile-paths.mjs";
 import {
+  codedError,
+  compareManagedCliVersions,
+  createManagedCliDownloader,
+  errorCode as managedErrorCode,
   extractZipEntry,
   extractZipToDir,
+  hashFile,
   loadManagedCliDownloadConfig,
   loadManagedCliPluginEntry,
   MANAGED_CLI_DEFAULT_REGISTRY_PATH,
+  MANAGED_CLI_NETWORK_RETRY_COUNT,
+  MANAGED_CLI_NETWORK_TIMEOUT_MS,
   nonEmptyString,
   resolveManagedCliRegistryPath,
+  safeDownloadTarget,
+  verifyBytes,
+  verifyDigest,
+  verifyHash,
+  verifyOptionalBytes,
 } from "./managed-cli/index.mjs";
 
 export const OFFICECLI_PLUGIN_ID = "officecli";
 /** @deprecated Use MANAGED_CLI_DEFAULT_REGISTRY_PATH / resolveManagedCliRegistryPath. */
 export const OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH = MANAGED_CLI_DEFAULT_REGISTRY_PATH;
 export const OFFICECLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-export const OFFICECLI_NETWORK_TIMEOUT_MS = 30_000;
-export const OFFICECLI_NETWORK_RETRY_COUNT = 2;
+export const OFFICECLI_NETWORK_TIMEOUT_MS = MANAGED_CLI_NETWORK_TIMEOUT_MS;
+export const OFFICECLI_NETWORK_RETRY_COUNT = MANAGED_CLI_NETWORK_RETRY_COUNT;
 
 const ASSET_PLATFORM_KEYS = [
   "officecli-mac-arm64",
@@ -132,13 +143,7 @@ export function officeCliPlatformKey(platform = process.platform, arch = os.arch
 }
 
 export function compareOfficeCliVersions(left, right) {
-  const leftParts = String(left).split(".").map(Number);
-  const rightParts = String(right).split(".").map(Number);
-  for (let index = 0; index < 3; index += 1) {
-    if (leftParts[index] > rightParts[index]) return 1;
-    if (leftParts[index] < rightParts[index]) return -1;
-  }
-  return 0;
+  return compareManagedCliVersions(left, right);
 }
 
 /**
@@ -366,30 +371,8 @@ function nowMs() {
   return Date.now();
 }
 
-function safeDownloadTarget(value) {
-  const text = String(value);
-  try {
-    const url = new URL(text);
-    url.search = "";
-    url.hash = "";
-    return url.href;
-  } catch {
-    return text.split(/[?#]/, 1)[0] || "OfficeCLI resource";
-  }
-}
-
-function codedError(message, code) {
-  /** @type {Error & { code?: string }} */
-  const error = new Error(message);
-  error.code = code;
-  return error;
-}
-
 function errorCode(error) {
-  if (error && typeof error === "object" && "code" in error) {
-    return typeof error.code === "string" ? error.code : "officecli_error";
-  }
-  return "officecli_error";
+  return managedErrorCode(error, "officecli_error");
 }
 
 async function pathExists(target) {
@@ -410,214 +393,6 @@ async function writeJsonAtomic(target, value) {
   const temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   await rename(temporary, target);
-}
-
-async function readStreamChunk(reader, timeoutMs, label) {
-  const safeLabel = safeDownloadTarget(label);
-  let timeout = null;
-  try {
-    return await Promise.race([
-      reader.read(),
-      new Promise((_, reject) => {
-        timeout = setTimeout(
-          () => reject(codedError(`OfficeCLI response timed out: ${safeLabel}`, "network_timeout")),
-          timeoutMs,
-        );
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
-/**
- * @param {Response} response
- * @param {number} maximum
- * @param {string} url
- * @param {(receivedBytes: number, totalBytes: number | undefined) => void} [onProgress]
- * @param {number} [timeoutMs]
- */
-async function responseBytes(
-  response,
-  maximum,
-  url,
-  onProgress = () => undefined,
-  timeoutMs = OFFICECLI_NETWORK_TIMEOUT_MS,
-) {
-  const safeUrl = safeDownloadTarget(url);
-  if (!response.ok) {
-    throw new Error(`OfficeCLI download failed (${response.status}): ${safeUrl}`);
-  }
-  const contentLength = Number(response.headers.get("content-length") ?? "0");
-  if (contentLength > maximum) {
-    throw new Error(`OfficeCLI response exceeds size limit: ${safeUrl}`);
-  }
-  if (!response.body) {
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.byteLength > maximum) {
-      throw new Error(`OfficeCLI response exceeds size limit: ${safeUrl}`);
-    }
-    onProgress(bytes.byteLength, contentLength || undefined);
-    return bytes;
-  }
-
-  const reader = response.body.getReader();
-  const chunks = [];
-  let receivedBytes = 0;
-  try {
-    while (true) {
-      const next = await readStreamChunk(reader, timeoutMs, url);
-      if (next.done) break;
-      const chunk = Buffer.from(next.value);
-      receivedBytes += chunk.byteLength;
-      if (receivedBytes > maximum) {
-        await reader.cancel();
-        throw new Error(`OfficeCLI response exceeds size limit: ${safeUrl}`);
-      }
-      chunks.push(chunk);
-      onProgress(receivedBytes, contentLength || undefined);
-    }
-  } catch (error) {
-    await reader.cancel().catch(() => undefined);
-    throw error;
-  }
-  return Buffer.concat(chunks, receivedBytes);
-}
-
-function verifyDigest(size, digest, expected, label) {
-  if (size !== expected.size) {
-    throw codedError(`${label} size mismatch`, "integrity_mismatch");
-  }
-  if (digest.toLowerCase() !== expected.sha256.toLowerCase()) {
-    throw codedError(`${label} checksum mismatch`, "integrity_mismatch");
-  }
-  return digest;
-}
-
-function verifyBytes(bytes, expected, label) {
-  return verifyDigest(
-    bytes.byteLength,
-    createHash("sha256").update(bytes).digest("hex"),
-    expected,
-    label,
-  );
-}
-
-function digestBytes(bytes) {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
-async function hashFile(target, maximum, label) {
-  const stream = createReadStream(target);
-  const hash = createHash("sha256");
-  let size = 0;
-  for await (const chunk of stream) {
-    size += chunk.byteLength;
-    if (size > maximum) {
-      stream.destroy();
-      throw codedError(`${label} exceeds size limit`, "integrity_mismatch");
-    }
-    hash.update(chunk);
-  }
-  return { size, sha256: hash.digest("hex") };
-}
-
-function verifyOptionalBytes(bytes, expected, label) {
-  if (!expected || typeof expected !== "object") return digestBytes(bytes);
-  // Skill may only carry url (no integrity); still record actual digest.
-  if (
-    typeof expected.sha256 !== "string" ||
-    typeof expected.size !== "number"
-  ) {
-    return digestBytes(bytes);
-  }
-  return verifyBytes(bytes, expected, label);
-}
-
-function verifyHash(digest, expected, label) {
-  if (digest.toLowerCase() !== expected.toLowerCase()) {
-    throw codedError(`${label} checksum mismatch`, "integrity_mismatch");
-  }
-}
-
-/**
- * @param {Response} response
- * @param {string} target
- * @param {number} maximum
- * @param {{ size: number, sha256: string } | undefined} expected
- * @param {string} label
- * @param {(receivedBytes: number, totalBytes: number | undefined) => void} [onProgress]
- * @param {number} [timeoutMs]
- */
-async function streamResponseToFile(
-  response,
-  target,
-  maximum,
-  expected,
-  label,
-  onProgress = () => undefined,
-  timeoutMs = OFFICECLI_NETWORK_TIMEOUT_MS,
-) {
-  if (!response.ok) {
-    throw new Error(`OfficeCLI download failed (${response.status}): ${label}`);
-  }
-  const contentLength = Number(response.headers.get("content-length") ?? "0");
-  if (contentLength > maximum) {
-    throw new Error(`OfficeCLI response exceeds size limit: ${label}`);
-  }
-  if (!response.body) {
-    throw new Error(`OfficeCLI streaming response is unavailable: ${label}`);
-  }
-
-  const reader = response.body.getReader();
-  const file = await open(target, "w");
-  const hash = createHash("sha256");
-  let receivedBytes = 0;
-  try {
-    while (true) {
-      const next = await readStreamChunk(reader, timeoutMs, label);
-      if (next.done) break;
-      const chunk = Buffer.from(next.value);
-      receivedBytes += chunk.byteLength;
-      if (receivedBytes > maximum) {
-        await reader.cancel();
-        throw new Error(`OfficeCLI response exceeds size limit: ${label}`);
-      }
-      hash.update(chunk);
-      await file.write(chunk);
-      onProgress(receivedBytes, contentLength || undefined);
-    }
-  } catch (error) {
-    await reader.cancel().catch(() => undefined);
-    throw error;
-  } finally {
-    await file.close();
-  }
-  const digest = hash.digest("hex");
-  if (expected) verifyDigest(receivedBytes, digest, expected, label);
-  return { receivedBytes, digest };
-}
-
-function retryableStatus(status) {
-  return status === 408 || status === 425 || status === 429 || status >= 500;
-}
-
-function retryableError(error) {
-  return error instanceof Error;
-}
-
-function networkError(error, url) {
-  if (error?.name === "AbortError") {
-    return codedError(
-      `OfficeCLI request timed out: ${safeDownloadTarget(url)}`,
-      "network_timeout",
-    );
-  }
-  return error;
-}
-
-function waitForRetry(delayMs) {
-  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
@@ -783,6 +558,18 @@ export function createOfficeCliManager(options = {}) {
     ? Math.max(0, Number(options.networkRetryCount))
     : OFFICECLI_NETWORK_RETRY_COUNT;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const downloader = createManagedCliDownloader({
+    label: "OfficeCLI",
+    networkTimeoutMs,
+    networkRetryCount,
+    fetchImpl,
+  });
+  const {
+    fetchWithRetry,
+    fetchJson,
+    responseBytes,
+    streamResponseToFile,
+  } = downloader;
   const refreshSkillLinks = options.refreshSkillLinks ?? (async () => undefined);
   const runBinaryVersion = options.runBinaryVersion ?? defaultRunBinaryVersion;
   const emitProgress = options.onProgress ?? (() => undefined);
@@ -812,44 +599,6 @@ export function createOfficeCliManager(options = {}) {
     } catch {
       return null;
     }
-  }
-
-  async function fetchWithRetry(url) {
-    if (typeof fetchImpl !== "function") {
-      throw new Error("OfficeCLI network fetch is unavailable");
-    }
-    let lastError = null;
-    for (let attempt = 0; attempt <= networkRetryCount; attempt += 1) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), networkTimeoutMs);
-      try {
-        const response = await fetchImpl(url, {
-          redirect: "error",
-          signal: controller.signal,
-        });
-        if (retryableStatus(response.status) && attempt < networkRetryCount) {
-          await response.body?.cancel();
-          await waitForRetry(100 * (attempt + 1));
-          continue;
-        }
-        return response;
-      } catch (error) {
-        lastError = networkError(error, url);
-        if (attempt >= networkRetryCount || !retryableError(lastError)) {
-          throw lastError;
-        }
-        await waitForRetry(100 * (attempt + 1));
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
-    throw lastError ?? new Error(`OfficeCLI request failed: ${safeDownloadTarget(url)}`);
-  }
-
-  async function fetchJson(url, maximum) {
-    const response = await fetchWithRetry(url);
-    const bytes = await responseBytes(response, maximum, url, () => undefined, networkTimeoutMs);
-    return { bytes, value: JSON.parse(bytes.toString("utf8")) };
   }
 
   function assetUrlOverride(key) {
