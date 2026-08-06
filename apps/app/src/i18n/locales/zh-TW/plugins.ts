@@ -143,7 +143,7 @@ export default {
   "plugins.larkcli_disconnect_message":
     "將退出使用者登入並清除本機應用憑證。不會刪除飛書開放平台上的應用。",
   "plugins.larkcli_connect_title": "連線飛書",
-  "plugins.larkcli_connect_subtitle": "請先完成應用設定，再繼續使用者授權。",
+  "plugins.larkcli_connect_subtitle": "請先完成應用授權，再繼續使用者授權。",
   "plugins.larkcli_step_config": "應用授權",
   "plugins.larkcli_step_login": "登入授權",
   "plugins.larkcli_tab_qr": "掃碼授權",
