@@ -166,8 +166,8 @@ export default {
   "plugins.larkcli_continue": "Continue",
   "plugins.larkcli_skip_for_now": "Skip for now",
   "plugins.larkcli_login_hint":
-    "Scan with Feishu or open the link to authorize as a user (OAuth device flow). No password entry here.",
-  "plugins.larkcli_login_waiting": "Waiting for authorization…",
+    "Scan with Feishu or open the link to authorize. The dialog closes automatically when sign-in succeeds.",
+  "plugins.larkcli_login_waiting": "Waiting for scan… closes automatically on success",
   "plugins.larkcli_skip_login": "Skip sign-in",
   "plugins.larkcli_i_authorized": "I have authorized",
 } as const;

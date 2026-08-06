@@ -166,8 +166,8 @@ export default {
   "plugins.larkcli_continue": "繼續",
   "plugins.larkcli_skip_for_now": "暫時略過",
   "plugins.larkcli_login_hint":
-    "使用飛書掃碼或開啟連結，完成使用者身份授權（OAuth 裝置碼）。不是輸入帳號密碼。",
-  "plugins.larkcli_login_waiting": "等待授權…",
+    "使用飛書掃碼或開啟連結完成使用者授權。授權成功後將自動關閉並顯示已登入。",
+  "plugins.larkcli_login_waiting": "等待掃碼授權，成功後自動關閉…",
   "plugins.larkcli_skip_login": "略過登入",
   "plugins.larkcli_i_authorized": "我已完成授權",
 } as const;

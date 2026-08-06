@@ -167,8 +167,8 @@ export default {
   "plugins.larkcli_continue": "继续",
   "plugins.larkcli_skip_for_now": "暂时跳过",
   "plugins.larkcli_login_hint":
-    "使用飞书扫码或打开链接，完成用户身份授权（OAuth 设备码）。不是输入账号密码。",
-  "plugins.larkcli_login_waiting": "等待授权…",
+    "使用飞书扫码或打开链接完成用户授权。授权成功后将自动关闭并显示已登录。",
+  "plugins.larkcli_login_waiting": "等待扫码授权，成功后自动关闭…",
   "plugins.larkcli_skip_login": "跳过登录",
   "plugins.larkcli_i_authorized": "我已完成授权",
 } as const;

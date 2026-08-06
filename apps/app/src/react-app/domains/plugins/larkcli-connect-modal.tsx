@@ -182,6 +182,32 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     void startLoginFlow();
   }, [props.open, step, startLoginFlow]);
 
+  // Step 2: poll until user token is valid, then close modal + refresh card.
+  // Complements main-process device-code poll / auth-progress events.
+  useEffect(() => {
+    if (!props.open || step !== 2) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const status = await getLarkCliConnectionStatus();
+        if (stopped) return;
+        if (status.phase === "connected_logged_in") {
+          await finishLoginSuccess(status);
+        }
+      } catch {
+        // keep waiting
+      }
+    };
+    const id = window.setInterval(() => {
+      void tick();
+    }, 2000);
+    void tick();
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [props.open, step, finishLoginSuccess]);
+
   // Start config init once per open+QR tab. Do NOT depend on configUrl —
   // otherwise setting the URL re-runs cleanup and kills the waiting process.
   useEffect(() => {
