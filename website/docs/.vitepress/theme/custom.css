@@ -552,6 +552,25 @@ body {
   outline: none;
 }
 
+/* Screenshot + title under image (replaces ugly page/screenshot tables) */
+.vp-doc img + .oma-shot-caption,
+.vp-doc p:has(> img:only-child) + .oma-shot-caption {
+  margin: -0.85rem 0 2rem;
+  text-align: center;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  line-height: 1.4;
+}
+
+.vp-doc p:has(> img:only-child) {
+  margin-bottom: 0.35rem;
+}
+
+.vp-doc p:has(> img:only-child) > img {
+  margin-bottom: 0;
+}
+
 .vp-doc > p:has(> img:only-child),
 .vp-doc p:has(> img:only-child) {
   margin: 1.25rem 0 1.5rem;
