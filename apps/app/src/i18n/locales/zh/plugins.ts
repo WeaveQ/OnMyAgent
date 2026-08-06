@@ -144,7 +144,7 @@ export default {
   "plugins.larkcli_disconnect_message":
     "将退出用户登录并清除本机应用凭证。不会删除飞书开放平台上的应用。",
   "plugins.larkcli_connect_title": "连接飞书",
-  "plugins.larkcli_connect_subtitle": "请先完成应用授权，再继续用户授权。",
+  "plugins.larkcli_connect_subtitle": "请先完成应用授权，再继续登录授权。",
   "plugins.larkcli_step_config": "应用授权",
   "plugins.larkcli_step_login": "登录授权",
   "plugins.larkcli_tab_qr": "扫码授权",
