@@ -11,6 +11,7 @@ import type {
   OfficeCliProgress,
   OfficeCliStatus,
 } from "@onmyagent/types/officecli";
+import type { LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -18,6 +19,8 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
+  disconnectLarkCli,
+  getLarkCliConnectionStatus,
   getLarkCliStatus,
   installLarkCli,
   subscribeLarkCliProgress,
@@ -37,6 +40,7 @@ import {
   connectorTileFooterClassName,
   connectorTileHeaderClassName,
 } from "./connector-tile";
+import { LarkCliConnectModal } from "./larkcli-connect-modal";
 import {
   canUninstallLarkCli,
   getLarkCliPrimaryAction,
@@ -192,10 +196,47 @@ function larkCliVersionSummary(status: OfficeCliStatus): string {
  * lark-cli card for the connectors recommended-install grid.
  * Section chrome lives on PluginsPage (no separate "optional enhancements" band).
  */
+function connectionBadge(
+  connection: LarkCliConnectionStatus | null,
+  installStatus: OfficeCliStatus | null,
+): { tone: StatusBadgeTone; label: string } | null {
+  if (!installStatus?.installedVersion && installStatus?.state !== "installed") {
+    return null;
+  }
+  if (!connection || !connection.installed) {
+    return { tone: "neutral", label: t("plugins.larkcli_badge_disconnected") };
+  }
+  switch (connection.phase) {
+    case "connected_logged_in":
+      return { tone: "success", label: t("plugins.larkcli_badge_logged_in") };
+    case "connected_not_logged_in":
+      return { tone: "success", label: t("plugins.larkcli_badge_connected") };
+    case "installed_disconnected":
+      return { tone: "neutral", label: t("plugins.larkcli_badge_disconnected") };
+    case "error":
+      return { tone: "danger", label: t("plugins.larkcli_status_error") };
+    default:
+      return { tone: "neutral", label: t("plugins.larkcli_badge_disconnected") };
+  }
+}
+
 export function LarkCliPluginCard() {
   const [status, setStatus] = useState<OfficeCliStatus | null>(null);
+  const [connection, setConnection] = useState<LarkCliConnectionStatus | null>(null);
   const [progress, setProgress] = useState<OfficeCliProgress | null>(null);
   const [uninstallConfirmOpen, setUninstallConfirmOpen] = useState(false);
+  const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [connectStep, setConnectStep] = useState<1 | 2>(1);
+
+  const refreshConnection = useCallback(async () => {
+    if (!isDesktopRuntime()) return;
+    try {
+      setConnection(await getLarkCliConnectionStatus());
+    } catch {
+      // keep previous
+    }
+  }, []);
 
   const refreshStatus = useCallback(async (forceRefresh: boolean) => {
     if (!isDesktopRuntime()) {
@@ -208,10 +249,11 @@ export function LarkCliPluginCard() {
     );
     try {
       setStatus(await getLarkCliStatus({ forceRefresh }));
+      await refreshConnection();
     } catch (error) {
       setStatus((current) => createErrorStatus(current, error));
     }
-  }, []);
+  }, [refreshConnection]);
 
   useEffect(() => {
     void refreshStatus(true);
@@ -221,22 +263,29 @@ export function LarkCliPluginCard() {
     });
     const unsubscribeStatus = subscribeLarkCliStatus((nextStatus) => {
       setStatus(nextStatus);
+      void refreshConnection();
     });
     return () => {
       unsubscribeProgress();
       unsubscribeStatus();
     };
-  }, [refreshStatus]);
+  }, [refreshStatus, refreshConnection]);
 
   const primaryAction = useMemo(
     () => (status ? getLarkCliPrimaryAction(status) : null),
     [status],
   );
   const busy = status ? isLarkCliBusy(status) : true;
-  const tone: StatusBadgeTone = status
+  const installTone: StatusBadgeTone = status
     ? getLarkCliStatusTone(status)
     : "neutral";
+  const connBadge = connectionBadge(connection, status);
   const canUninstall = status ? canUninstallLarkCli(status) : false;
+  const installedReady =
+    Boolean(status?.installedVersion) &&
+    status?.state !== "not_installed" &&
+    status?.state !== "unsupported" &&
+    status?.supported !== false;
 
   const handlePrimaryAction = async () => {
     if (!status || !primaryAction || busy) return;
@@ -251,7 +300,13 @@ export function LarkCliPluginCard() {
     });
     setStatus({ ...status, state: primaryAction === "update" ? "updating" : "installing" });
     try {
-      setStatus(await installLarkCli());
+      const next = await installLarkCli();
+      setStatus(next);
+      await refreshConnection();
+      if (next.installedVersion || next.usable) {
+        setConnectStep(1);
+        setConnectOpen(true);
+      }
     } catch (error) {
       setStatus(createErrorStatus(status, error));
     } finally {
@@ -266,6 +321,7 @@ export function LarkCliPluginCard() {
     setProgress({ operation: "uninstall", phase: "installing" });
     try {
       setStatus(await uninstallLarkCli());
+      setConnection(null);
     } catch (error) {
       setStatus(createErrorStatus(status, error));
     } finally {
@@ -273,10 +329,22 @@ export function LarkCliPluginCard() {
     }
   };
 
+  const handleDisconnect = async () => {
+    setDisconnectConfirmOpen(false);
+    try {
+      const next = await disconnectLarkCli({ clearCredentials: true });
+      setConnection(next);
+    } catch {
+      await refreshConnection();
+    }
+  };
+
   const progressLabel = progress ? progressLabelKey(progress) : null;
   const PrimaryActionIcon = primaryAction ? primaryActionIcon(primaryAction) : null;
+  const headerBadge = installedReady && connBadge ? connBadge : status
+    ? { tone: installTone, label: t(statusLabelKey(status)) }
+    : null;
 
-  // Single grid cell: modal portals but must not become a second grid item.
   return (
     <div className="min-w-0">
       <article
@@ -297,9 +365,9 @@ export function LarkCliPluginCard() {
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
               {t("plugins.larkcli_title")}
             </h3>
-            {status ? (
-              <StatusBadge tone={tone} size="tiny">
-                {t(statusLabelKey(status))}
+            {headerBadge ? (
+              <StatusBadge tone={headerBadge.tone} size="tiny">
+                {headerBadge.label}
               </StatusBadge>
             ) : (
               <LoadingSpinner size="sm" />
@@ -341,6 +409,77 @@ export function LarkCliPluginCard() {
               <PrimaryActionIcon aria-hidden="true" />
               {primaryActionLabel(primaryAction)}
             </Button>
+          ) : installedReady &&
+            connection?.phase === "installed_disconnected" ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setConnectStep(1);
+                  setConnectOpen(true);
+                }}
+              >
+                {t("plugins.larkcli_connect")}
+              </Button>
+              {canUninstall ? (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setUninstallConfirmOpen(true)}
+                >
+                  <Trash2 aria-hidden="true" />
+                  {t("plugins.larkcli_uninstall")}
+                </Button>
+              ) : null}
+            </div>
+          ) : installedReady &&
+            connection?.phase === "connected_not_logged_in" ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setConnectStep(2);
+                  setConnectOpen(true);
+                }}
+              >
+                {t("plugins.larkcli_go_login")}
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setDisconnectConfirmOpen(true)}
+              >
+                {t("plugins.larkcli_disconnect")}
+              </Button>
+            </div>
+          ) : installedReady && connection?.phase === "connected_logged_in" ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setDisconnectConfirmOpen(true)}
+              >
+                {t("plugins.larkcli_disconnect")}
+              </Button>
+              {canUninstall ? (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setUninstallConfirmOpen(true)}
+                >
+                  <Trash2 aria-hidden="true" />
+                  {t("plugins.larkcli_uninstall")}
+                </Button>
+              ) : null}
+            </div>
           ) : canUninstall ? (
             <Button
               size="xs"
@@ -376,6 +515,23 @@ export function LarkCliPluginCard() {
         variant="danger"
         onConfirm={() => void handleUninstall()}
         onCancel={() => setUninstallConfirmOpen(false)}
+      />
+      <ConfirmModal
+        open={disconnectConfirmOpen}
+        title={t("plugins.larkcli_disconnect_title")}
+        message={t("plugins.larkcli_disconnect_message")}
+        confirmLabel={t("plugins.larkcli_disconnect")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        onConfirm={() => void handleDisconnect()}
+        onCancel={() => setDisconnectConfirmOpen(false)}
+      />
+      <LarkCliConnectModal
+        open={connectOpen}
+        initialStep={connectStep}
+        initialTab="qr"
+        onOpenChange={setConnectOpen}
+        onConnectionChange={setConnection}
       />
     </div>
   );
