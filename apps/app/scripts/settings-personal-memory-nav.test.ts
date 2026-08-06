@@ -1,9 +1,11 @@
 /**
- * Settings nav must surface Personal + Memory tabs (work-memory M1 discoverability).
+ * Settings nav IA: workspace vs personal vs global boundaries.
  */
 import { describe, expect, test } from "bun:test";
 
 import {
+  getDataSettingsTabs,
+  getGlobalSettingsTabs,
   getPersonalMemorySettingsTabs,
   getWorkspaceSettingsTabs,
 } from "../src/react-app/domains/settings/shell/settings-page";
@@ -16,11 +18,30 @@ describe("settings personal & memory navigation (shipped)", () => {
     expect(tabs).toHaveLength(2);
   });
 
-  test("workspace group no longer swallows personal/memory", () => {
+  test("workspace group is models + company only", () => {
     const tabs = getWorkspaceSettingsTabs();
-    expect(tabs).toContain("preferences");
-    expect(tabs).toContain("ai");
+    expect(tabs).toEqual(["ai", "company"]);
+    expect(tabs).not.toContain("preferences");
     expect(tabs).not.toContain("memory");
     expect(tabs).not.toContain("conversation-memory");
+  });
+
+  test("global group hosts preferences then system runtime tabs", () => {
+    const tabs = getGlobalSettingsTabs(false);
+    expect(tabs[0]).toBe("preferences");
+    expect(tabs).toContain("system");
+    expect(tabs).toContain("shortcuts");
+    expect(tabs).toContain("environment");
+    expect(tabs).toContain("updates");
+    expect(tabs).not.toContain("company");
+    expect(tabs).not.toContain("ai");
+  });
+
+  test("data group lists usage, recovery, archive", () => {
+    expect(getDataSettingsTabs()).toEqual([
+      "usage",
+      "recovery",
+      "archived-tasks",
+    ]);
   });
 });
