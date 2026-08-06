@@ -470,6 +470,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               >
                 {t("plugins.larkcli_skip_for_now")}
               </Button>
+              {/* QR tab: no Continue — auto-advance after scan succeeds. */}
               {tab === "manual" ? (
                 <Button
                   size="sm"
@@ -479,36 +480,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                   {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                   {t("plugins.larkcli_continue")}
                 </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    void (async () => {
-                      setBusy(true);
-                      setError(null);
-                      try {
-                        const status = await getLarkCliConnectionStatus();
-                        if (
-                          status.phase === "connected_not_logged_in" ||
-                          status.phase === "connected_logged_in"
-                        ) {
-                          await advanceToLogin(status);
-                        } else {
-                          setError(t("plugins.larkcli_qr_not_ready"));
-                        }
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : String(e));
-                      } finally {
-                        setBusy(false);
-                      }
-                    })();
-                  }}
-                >
-                  {t("plugins.larkcli_continue")}
-                </Button>
-              )}
+              ) : null}
             </>
           ) : (
             <>
