@@ -416,157 +416,233 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
 
           {step === 1 ? (
             <>
-              <SegmentedTabGroup className="w-full">
-                <SegmentedTabButton
-                  size="tab"
-                  active={tab === "qr"}
-                  onClick={() => {
-                    setTab("qr");
-                    setConfigUrl(null);
-                    setConfigQr(null);
-                  }}
-                >
-                  {t("plugins.larkcli_tab_qr")}
-                </SegmentedTabButton>
-                <SegmentedTabButton
-                  size="tab"
-                  active={tab === "manual"}
-                  onClick={() => {
-                    setTab("manual");
-                    void cancelLarkCliConfigInit();
-                  }}
-                >
-                  {t("plugins.larkcli_tab_manual")}
-                </SegmentedTabButton>
-              </SegmentedTabGroup>
+              <div className="flex justify-center">
+                <SegmentedTabGroup className="w-full max-w-md rounded-xl border border-dls-border bg-dls-surface-muted/50 p-1 shadow-sm">
+                  <SegmentedTabButton
+                    size="tab"
+                    active={tab === "qr"}
+                    className="flex-1"
+                    onClick={() => {
+                      setTab("qr");
+                      setConfigUrl(null);
+                      setConfigQr(null);
+                    }}
+                  >
+                    {t("plugins.larkcli_tab_qr")}
+                  </SegmentedTabButton>
+                  <SegmentedTabButton
+                    size="tab"
+                    active={tab === "manual"}
+                    className="flex-1"
+                    onClick={() => {
+                      setTab("manual");
+                      void cancelLarkCliConfigInit();
+                    }}
+                  >
+                    {t("plugins.larkcli_tab_manual")}
+                  </SegmentedTabButton>
+                </SegmentedTabGroup>
+              </div>
 
               {tab === "qr" ? (
-                <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface-muted/40 p-4">
-                  <ol className="list-decimal space-y-1.5 pl-4 text-sm text-dls-secondary">
-                    <li>{t("plugins.larkcli_qr_step1")}</li>
-                    <li>{t("plugins.larkcli_qr_step2")}</li>
-                    <li>{t("plugins.larkcli_qr_step3")}</li>
-                  </ol>
-                  <div className="flex flex-col items-center gap-3 py-2">
-                    {configQr ? (
-                      <img
-                        src={configQr}
-                        alt=""
-                        className="size-48 rounded-lg bg-white p-2"
-                      />
-                    ) : (
-                      <div className="flex size-48 items-center justify-center rounded-lg bg-dls-surface">
-                        {busy ? (
-                          <Loader2 className="size-8 animate-spin text-dls-secondary" />
-                        ) : (
-                          <span className="text-xs text-dls-secondary">
-                            {t("plugins.larkcli_qr_waiting")}
+                <div className="overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
+                  <div className="grid gap-0 sm:grid-cols-[1fr_auto]">
+                    <div className="space-y-3 border-b border-dls-border p-5 sm:border-b-0 sm:border-r">
+                      <p className="text-sm font-semibold text-dls-text">
+                        {t("plugins.larkcli_qr_howto_title")}
+                      </p>
+                      <ul className="space-y-3 text-sm leading-relaxed text-dls-secondary">
+                        <li className="flex gap-2.5">
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                            1
                           </span>
+                          <span>{t("plugins.larkcli_qr_step1")}</span>
+                        </li>
+                        <li className="flex gap-2.5">
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                            2
+                          </span>
+                          <span>
+                            {t("plugins.larkcli_qr_step2_prefix")}
+                            <button
+                              type="button"
+                              disabled={!configUrl}
+                              className={cn(
+                                clickableTextClassName,
+                                !configUrl && "cursor-not-allowed opacity-50 no-underline",
+                              )}
+                              onClick={() => {
+                                if (!configUrl) return;
+                                window.open(configUrl, "_blank", "noopener,noreferrer");
+                              }}
+                            >
+                              {t("plugins.larkcli_qr_step2_link")}
+                              <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                            </button>
+                            {t("plugins.larkcli_qr_step2_suffix")}
+                          </span>
+                        </li>
+                        <li className="flex gap-2.5">
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                            3
+                          </span>
+                          <span>{t("plugins.larkcli_qr_step3")}</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-3 bg-dls-surface-muted/30 px-6 py-6">
+                      <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
+                        {configQr ? (
+                          <img
+                            src={configQr}
+                            alt=""
+                            className="size-44 rounded-lg"
+                          />
+                        ) : (
+                          <div className="flex size-44 items-center justify-center">
+                            {busy ? (
+                              <Loader2 className="size-8 animate-spin text-dls-secondary" />
+                            ) : (
+                              <span className="px-3 text-center text-xs text-dls-secondary">
+                                {t("plugins.larkcli_qr_waiting")}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                    {configUrl ? (
-                      <button
-                        type="button"
-                        className={cn(clickableTextClassName, "text-xs")}
-                        onClick={() => {
-                          window.open(configUrl, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                        {t("plugins.larkcli_open_browser_app_auth")}
-                      </button>
-                    ) : null}
-                    <p className="text-center text-xs text-dls-secondary">
-                      {t("plugins.larkcli_qr_waiting")}
-                    </p>
+                      <p className="max-w-[12rem] text-center text-xs text-dls-secondary">
+                        {t("plugins.larkcli_qr_waiting")}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="space-y-2 rounded-xl border border-dls-border bg-dls-surface-muted/40 p-4 text-sm text-dls-secondary">
-                    <p className="font-medium text-dls-text">
-                      {t("plugins.larkcli_manual_steps_title")}
-                    </p>
-                    <ol className="list-decimal space-y-1.5 pl-4">
-                      <li>
-                        {t("plugins.larkcli_manual_step1_prefix")}{" "}
-                        <a
-                          href={LARK_CLI_OPEN_PLATFORM_APP_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={clickableTextClassName}
-                        >
-                          {t("plugins.larkcli_open_platform")}
-                          <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                        </a>
-                        {t("plugins.larkcli_manual_step1_suffix")}
+                  <div className="overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
+                    <div className="border-b border-dls-border bg-dls-surface-muted/30 px-5 py-3">
+                      <p className="text-sm font-semibold text-dls-text">
+                        {t("plugins.larkcli_manual_steps_title")}
+                      </p>
+                    </div>
+                    <ol className="space-y-0 divide-y divide-dls-border px-0 text-sm text-dls-secondary">
+                      <li className="flex gap-3 px-5 py-3">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                          1
+                        </span>
+                        <span className="leading-relaxed">
+                          {t("plugins.larkcli_manual_step1_prefix")}{" "}
+                          <a
+                            href={LARK_CLI_OPEN_PLATFORM_APP_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={clickableTextClassName}
+                          >
+                            {t("plugins.larkcli_open_platform")}
+                            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                          </a>
+                          {t("plugins.larkcli_manual_step1_suffix")}
+                        </span>
                       </li>
-                      <li>{t("plugins.larkcli_manual_step2")}</li>
-                      <li>
-                        {t("plugins.larkcli_manual_step3")}{" "}
-                        <button
-                          type="button"
-                          className={clickableTextClassName}
-                          onClick={() => void handleCopyScopes()}
-                        >
-                          <Copy className="size-3.5 shrink-0" aria-hidden />
-                          {copyDone
-                            ? t("plugins.larkcli_scopes_copied")
-                            : t("plugins.larkcli_copy_scopes")}
-                        </button>
+                      <li className="flex gap-3 px-5 py-3">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                          2
+                        </span>
+                        <span className="leading-relaxed">
+                          {t("plugins.larkcli_manual_step2")}
+                        </span>
                       </li>
-                      <li>{t("plugins.larkcli_manual_step4")}</li>
-                      <li>{t("plugins.larkcli_manual_step5")}</li>
+                      <li className="flex gap-3 px-5 py-3">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                          3
+                        </span>
+                        <span className="leading-relaxed">
+                          {t("plugins.larkcli_manual_step3")}{" "}
+                          <button
+                            type="button"
+                            className={clickableTextClassName}
+                            onClick={() => void handleCopyScopes()}
+                          >
+                            <Copy className="size-3.5 shrink-0" aria-hidden />
+                            {copyDone
+                              ? t("plugins.larkcli_scopes_copied")
+                              : t("plugins.larkcli_copy_scopes")}
+                          </button>
+                        </span>
+                      </li>
+                      <li className="flex gap-3 px-5 py-3">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                          4
+                        </span>
+                        <span className="leading-relaxed">
+                          {t("plugins.larkcli_manual_step4")}
+                        </span>
+                      </li>
+                      <li className="flex gap-3 px-5 py-3">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[11px] font-semibold text-dls-text">
+                          5
+                        </span>
+                        <span className="leading-relaxed">
+                          {t("plugins.larkcli_manual_step5")}
+                        </span>
+                      </li>
                     </ol>
                   </div>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lark-app-id">
-                        App ID <span className="text-dls-danger">*</span>
-                      </Label>
-                      <Input
-                        id="lark-app-id"
-                        value={appId}
-                        onChange={(e) => setAppId(e.target.value)}
-                        placeholder="cli_xxxxxxxx"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lark-app-secret">
-                        App Secret <span className="text-dls-danger">*</span>
-                      </Label>
-                      <Input
-                        id="lark-app-secret"
-                        type="password"
-                        value={appSecret}
-                        onChange={(e) => setAppSecret(e.target.value)}
-                        placeholder="Your Lark App Secret"
-                        autoComplete="off"
-                      />
+                  <div className="space-y-3 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
+                    <p className="text-sm font-semibold text-dls-text">
+                      {t("plugins.larkcli_manual_credentials_title")}
+                    </p>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="lark-app-id">
+                          App ID <span className="text-dls-danger">*</span>
+                        </Label>
+                        <Input
+                          id="lark-app-id"
+                          value={appId}
+                          onChange={(e) => setAppId(e.target.value)}
+                          placeholder="cli_xxxxxxxx"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="lark-app-secret">
+                          App Secret <span className="text-dls-danger">*</span>
+                        </Label>
+                        <Input
+                          id="lark-app-secret"
+                          type="password"
+                          value={appSecret}
+                          onChange={(e) => setAppSecret(e.target.value)}
+                          placeholder="Your Lark App Secret"
+                          autoComplete="off"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
             </>
           ) : (
-            <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface-muted/40 p-4">
-              <p className="text-sm text-dls-secondary">{t("plugins.larkcli_login_hint")}</p>
-              <div className="flex flex-col items-center gap-3 py-2">
-                {loginQr ? (
-                  <img src={loginQr} alt="" className="size-48 rounded-lg bg-white p-2" />
-                ) : (
-                  <div className="flex size-48 items-center justify-center rounded-lg bg-dls-surface">
-                    {busy ? (
-                      <Loader2 className="size-8 animate-spin text-dls-secondary" />
-                    ) : (
-                      <span className="text-xs text-dls-secondary">
-                        {t("plugins.larkcli_login_waiting")}
-                      </span>
-                    )}
-                  </div>
-                )}
+            <div className="overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
+              <div className="flex flex-col items-center gap-4 px-6 py-8">
+                <p className="max-w-md text-center text-sm text-dls-secondary">
+                  {t("plugins.larkcli_login_hint")}
+                </p>
+                <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
+                  {loginQr ? (
+                    <img src={loginQr} alt="" className="size-44 rounded-lg" />
+                  ) : (
+                    <div className="flex size-44 items-center justify-center">
+                      {busy ? (
+                        <Loader2 className="size-8 animate-spin text-dls-secondary" />
+                      ) : (
+                        <span className="px-3 text-center text-xs text-dls-secondary">
+                          {t("plugins.larkcli_login_waiting")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {loginUrl ? (
                   <button
                     type="button"
