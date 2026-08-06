@@ -28,18 +28,41 @@ function safePath(urlPath) {
   return target
 }
 
-const server = createServer(async (req, res) => {
-  const target = safePath(req.url ?? '/')
+async function resolveFile(target) {
   try {
     const info = await stat(target)
-    const file = info.isDirectory() ? join(target, 'index.html') : target
-    res.setHeader('Content-Type', contentTypes.get(extname(file)) ?? 'application/octet-stream')
-    createReadStream(file).pipe(res)
+    if (info.isDirectory()) {
+      const index = join(target, 'index.html')
+      await stat(index)
+      return index
+    }
+    return target
   } catch {
+    // Clean VitePress URLs: /docs/guide/settings → settings.html
+    if (!extname(target)) {
+      const withHtml = `${target}.html`
+      try {
+        await stat(withHtml)
+        return withHtml
+      } catch {
+        /* fall through */
+      }
+    }
+    return null
+  }
+}
+
+const server = createServer(async (req, res) => {
+  const target = safePath(req.url ?? '/')
+  const file = await resolveFile(target)
+  if (!file) {
     res.statusCode = 404
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.end('Not found')
+    return
   }
+  res.setHeader('Content-Type', contentTypes.get(extname(file)) ?? 'application/octet-stream')
+  createReadStream(file).pipe(res)
 })
 
 server.listen(port, () => {

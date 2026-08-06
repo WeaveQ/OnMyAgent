@@ -6,7 +6,7 @@ title: OnMyAgent 简介
 
 OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描述需求，它在本机规划、执行，并把可验收的结果落到工作区文件里——不只是聊天建议。
 
-![会话首页：新建任务、最近会话与助手回复](/images/home-session.png)
+![主界面：新建任务、最近会话与输入区](/images/home-session.png)
 
 ## 核心能力
 
@@ -52,9 +52,9 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 
 1. [快速开始](./quickstart) — 安装并完成第一次运行  
 2. [第一个任务](./first-task) — 从一句话到产物  
-3. [界面与工作区](./guide/overview) — 日常布局  
-4. [会话](./guide/sessions) · [文件](./guide/files) · [技能](./guide/skills)  
-5. [平台三分](./platform/) — 与 OnMyBuddy / OnMyCompany 如何组合  
-6. [安全与数据](./security)
+3. [场景使用说明](./scenarios/usage-guide) — 通用工作法（公式、循环、选型）  
+4. [高效使用技巧](./guide/efficient-tips) — 10 条上手习惯  
+5. [实践案例总览](./scenarios/practice/) — 文件/文档/表格/自动化等端到端案例  
+6. [界面与工作区](./guide/overview) · [技能](./guide/skills) · [安全与数据](./security)
 
-返回 [产品首页](/)。
+站点落地页在文档上一级路径（本地为站点根 `/`，GitHub Pages 为仓库根 URL）。
