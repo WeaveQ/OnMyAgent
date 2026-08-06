@@ -79,6 +79,7 @@ import {
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
 import { OfficeCliPluginCard } from "./officecli-plugin";
+import { LarkCliPluginCard } from "./larkcli-plugin";
 import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
 import {
   getExtensionConfigSlot,
@@ -1314,6 +1315,7 @@ export function PluginsPage(props: PluginsPageProps) {
             </div>
             <div className={pluginsLayoutClass.connectorCardGrid}>
               <OfficeCliPluginCard />
+              <LarkCliPluginCard />
               {samplePlugins.map((item) => (
                 <PluginCard key={item.id} item={item} />
               ))}
