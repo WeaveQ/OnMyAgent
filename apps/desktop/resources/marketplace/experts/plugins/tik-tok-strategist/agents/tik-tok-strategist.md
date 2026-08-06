@@ -1,5 +1,8 @@
 ---
 name: tik-tok-strategist
+displayName:
+  en: "TikTok Strategist"
+  zh: "TikTok策略专家"
 description: Expert TikTok marketing specialist focused on viral content creation, algorithm optimization, and community building. Masters TikTok's unique culture and features for brand growth.
 color: "#000000"
 emoji: 🎵

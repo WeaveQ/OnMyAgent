@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
+import { createReadStream, readFileSync } from "node:fs";
 import {
   access,
   chmod,
@@ -14,6 +14,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   officeCliLatestManifestSchema,
@@ -30,9 +31,21 @@ import {
 export const OFFICECLI_PLUGIN_ID = "officecli";
 export const OFFICECLI_DEFAULT_MANIFEST_URL =
   "https://weaveq-static.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json";
+/** Packaged + dev default path (next to this module; included in electron asar). */
+export const OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "officecli-download-config.json",
+);
 export const OFFICECLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 export const OFFICECLI_NETWORK_TIMEOUT_MS = 30_000;
 export const OFFICECLI_NETWORK_RETRY_COUNT = 2;
+
+const ASSET_PLATFORM_KEYS = [
+  "officecli-mac-arm64",
+  "officecli-mac-x64",
+  "officecli-win-arm64",
+  "officecli-win-x64",
+];
 
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_SKILL_BYTES = 1024 * 1024;
@@ -40,11 +53,20 @@ const MAX_BINARY_BYTES = 512 * 1024 * 1024;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const PLATFORM_PATTERN = /^officecli-(?:mac|win)-(?:arm64|x64)$/;
 
+/**
+ * Managed launcher: runs the pinned binary, then emits ONMYAGENT_DELIVERABLE
+ * markers so session product cards can open Office files the same way as
+ * artifact-runtime writes.
+ */
 export const OFFICECLI_LAUNCHER_SOURCE = `
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  collectOfficeCliDeliverablePaths,
+  formatOfficeCliDeliverableMarkers,
+} from "./officecli-deliverable.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const statePath = path.join(root, "state.json");
@@ -57,13 +79,33 @@ if (!/^officecli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? "")))
 }
 const binaryName = process.platform === "win32" ? "officecli.exe" : "officecli";
 const binaryPath = path.join(root, "releases", state.activeVersion, state.platform, binaryName);
-const result = spawnSync(binaryPath, process.argv.slice(2), {
-  stdio: "inherit",
+const cliArgs = process.argv.slice(2);
+const result = spawnSync(binaryPath, cliArgs, {
+  encoding: "utf8",
+  maxBuffer: 32 * 1024 * 1024,
   windowsHide: true,
 });
 if (result.error) throw result.error;
-process.exit(result.status ?? 1);
+const stdout = result.stdout ?? "";
+const stderr = result.stderr ?? "";
+if (stdout) process.stdout.write(stdout);
+if (stderr) process.stderr.write(stderr);
+const exitCode = result.status ?? 1;
+const deliverables = collectOfficeCliDeliverablePaths({
+  argv: cliArgs,
+  stdout,
+  exitCode,
+});
+const markers = formatOfficeCliDeliverableMarkers(deliverables);
+if (markers) process.stdout.write(markers);
+process.exit(exitCode);
 `;
+
+const OFFICECLI_DELIVERABLE_MODULE_NAME = "officecli-deliverable.mjs";
+const OFFICECLI_DELIVERABLE_SOURCE_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  OFFICECLI_DELIVERABLE_MODULE_NAME,
+);
 
 function normalizeArch(arch) {
   if (arch === "arm64") return "arm64";
@@ -87,6 +129,86 @@ export function compareOfficeCliVersions(left, right) {
     if (leftParts[index] < rightParts[index]) return -1;
   }
   return 0;
+}
+
+function nonEmptyString(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Resolve which download-config JSON to load.
+ * Priority: explicit path → ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG → default next to this module.
+ */
+export function resolveOfficeCliDownloadConfigPath(customPath) {
+  const fromOption = nonEmptyString(customPath);
+  if (fromOption) return fromOption;
+  const fromEnv = nonEmptyString(process.env.ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG);
+  if (fromEnv) return fromEnv;
+  return OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH;
+}
+
+/**
+ * Load local OfficeCLI download URL overrides from a JSON file.
+ * Missing / invalid file → empty config (fall through to env / default public URL).
+ *
+ * @returns {{
+ *   manifestUrl: string | null,
+ *   releaseManifestUrl: string | null,
+ *   skillUrl: string | null,
+ *   assetUrlOverrides: Record<string, string>,
+ * }}
+ */
+export function loadOfficeCliDownloadConfig(configPath) {
+  const empty = {
+    manifestUrl: null,
+    releaseManifestUrl: null,
+    skillUrl: null,
+    assetUrlOverrides: {},
+  };
+  const resolvedPath = resolveOfficeCliDownloadConfigPath(configPath);
+  let raw;
+  try {
+    raw = readFileSync(resolvedPath, "utf8");
+  } catch {
+    return empty;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return empty;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return empty;
+  }
+
+  const assets =
+    parsed.assets && typeof parsed.assets === "object" && !Array.isArray(parsed.assets)
+      ? parsed.assets
+      : {};
+  /** @type {Record<string, string>} */
+  const assetUrlOverrides = Object.create(null);
+  for (const key of ASSET_PLATFORM_KEYS) {
+    const url = nonEmptyString(assets[key]);
+    if (url) assetUrlOverrides[key] = url;
+  }
+
+  return {
+    manifestUrl: nonEmptyString(parsed.manifestUrl),
+    releaseManifestUrl: nonEmptyString(parsed.releaseManifestUrl),
+    skillUrl: nonEmptyString(parsed.skillUrl),
+    assetUrlOverrides,
+  };
+}
+
+function firstConfiguredUrl(...candidates) {
+  for (const candidate of candidates) {
+    const value = nonEmptyString(candidate);
+    if (value) return value;
+  }
+  return null;
 }
 
 function isSafeVersion(value) {
@@ -464,20 +586,63 @@ export function createOfficeCliManager(options = {}) {
   const platform = options.platform ?? process.platform;
   const arch = options.arch ?? os.arch();
   const platformKey = officeCliPlatformKey(platform, arch);
-  const manifestUrl = String(
-    options.manifestUrl ??
-      process.env.ONMYAGENT_OFFICECLI_MANIFEST_URL ??
+  // options > env > local download-config.json > built-in public URL
+  // Pass downloadConfig: false to skip the on-disk file (unit tests).
+  const emptyFileConfig = {
+    manifestUrl: null,
+    releaseManifestUrl: null,
+    skillUrl: null,
+    assetUrlOverrides: {},
+  };
+  const fileConfig =
+    options.downloadConfig === false
+      ? emptyFileConfig
+      : options.downloadConfig && typeof options.downloadConfig === "object"
+        ? {
+            manifestUrl: nonEmptyString(options.downloadConfig.manifestUrl),
+            releaseManifestUrl: nonEmptyString(
+              options.downloadConfig.releaseManifestUrl,
+            ),
+            skillUrl: nonEmptyString(options.downloadConfig.skillUrl),
+            assetUrlOverrides:
+              options.downloadConfig.assetUrlOverrides &&
+              typeof options.downloadConfig.assetUrlOverrides === "object"
+                ? options.downloadConfig.assetUrlOverrides
+                : {},
+          }
+        : loadOfficeCliDownloadConfig(options.downloadConfigPath);
+  const manifestUrl =
+    firstConfiguredUrl(
+      options.manifestUrl,
+      process.env.ONMYAGENT_OFFICECLI_MANIFEST_URL,
+      fileConfig.manifestUrl,
       OFFICECLI_DEFAULT_MANIFEST_URL,
-  ).trim();
-  const releaseManifestUrlOverride = String(
-    options.releaseManifestUrl ??
-      process.env.ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL ??
-      "",
-  ).trim() || null;
-  const skillUrlOverride = String(
-    options.skillUrl ?? process.env.ONMYAGENT_OFFICECLI_SKILL_URL ?? "",
-  ).trim() || null;
-  const assetUrlOverrides = options.assetUrlOverrides ?? {};
+    ) ?? OFFICECLI_DEFAULT_MANIFEST_URL;
+  const releaseManifestUrlOverride = firstConfiguredUrl(
+    options.releaseManifestUrl,
+    process.env.ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL,
+    fileConfig.releaseManifestUrl,
+  );
+  const skillUrlOverride = firstConfiguredUrl(
+    options.skillUrl,
+    process.env.ONMYAGENT_OFFICECLI_SKILL_URL,
+    fileConfig.skillUrl,
+  );
+  const envAssetUrlOverrides = {};
+  for (const assetKey of ASSET_PLATFORM_KEYS) {
+    const envKey = `ONMYAGENT_OFFICECLI_ASSET_URL_${assetKey
+      .replace(/^officecli-/, "")
+      .replaceAll("-", "_")
+      .toUpperCase()}`;
+    const environmentValue = nonEmptyString(process.env[envKey]);
+    if (environmentValue) envAssetUrlOverrides[assetKey] = environmentValue;
+  }
+  // options > env > download-config.json
+  const assetUrlOverrides = {
+    ...fileConfig.assetUrlOverrides,
+    ...envAssetUrlOverrides,
+    ...(options.assetUrlOverrides ?? {}),
+  };
   const networkTimeoutMs = Number.isFinite(Number(options.networkTimeoutMs))
     ? Math.max(1, Number(options.networkTimeoutMs))
     : OFFICECLI_NETWORK_TIMEOUT_MS;
@@ -546,15 +711,9 @@ export function createOfficeCliManager(options = {}) {
     return { bytes, value: JSON.parse(bytes.toString("utf8")) };
   }
 
-  function assetUrlOverride(platformKey) {
-    const configured = assetUrlOverrides[platformKey];
+  function assetUrlOverride(key) {
+    const configured = assetUrlOverrides[key];
     if (typeof configured === "string" && configured.trim()) return configured.trim();
-    const envKey = `ONMYAGENT_OFFICECLI_ASSET_URL_${platformKey
-      .replace(/^officecli-/, "")
-      .replaceAll("-", "_")
-      .toUpperCase()}`;
-    const environmentValue = process.env[envKey]?.trim();
-    if (environmentValue) return environmentValue;
     return process.env.ONMYAGENT_OFFICECLI_ASSET_URL?.trim() || null;
   }
 
@@ -615,6 +774,11 @@ export function createOfficeCliManager(options = {}) {
   async function ensureLauncher() {
     await mkdir(toolsBinRoot, { recursive: true });
     await mkdir(managedRoot, { recursive: true });
+    // Keep deliverable helper next to launcher.mjs (relative import).
+    await cp(
+      OFFICECLI_DELIVERABLE_SOURCE_PATH,
+      path.join(managedRoot, OFFICECLI_DELIVERABLE_MODULE_NAME),
+    );
     await writeFile(path.join(managedRoot, "launcher.mjs"), OFFICECLI_LAUNCHER_SOURCE, "utf8");
     const posixLauncher = path.join(toolsBinRoot, "officecli");
     const windowsLauncher = path.join(toolsBinRoot, "officecli.cmd");
@@ -649,6 +813,8 @@ export function createOfficeCliManager(options = {}) {
     const state = await readState();
     if (!platformKey) return status;
     if (state) {
+      // Refresh launcher so existing installs pick up deliverable markers without reinstall.
+      await ensureLauncher().catch(() => undefined);
       status.installedVersion = state.activeVersion;
       status.previousVersion = state.previousVersion;
       const binaryPath = await activeBinaryPath(state);

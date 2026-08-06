@@ -51,7 +51,7 @@ describe("skills", () => {
     await rm(tempRoot, { recursive: true, force: true });
   });
 
-  test("classifies bundled, OnMyAgent, and local project skills separately", async () => {
+  test("lists profile skills as onmyagent and project skills as local", async () => {
     const workspace = join(tempRoot, "workspace");
     const onmyagent = join(tempRoot, "onmyagent-skills");
     const bundled = join(tempRoot, "bundled-skills");
@@ -66,7 +66,8 @@ describe("skills", () => {
     const items = await listSkills(workspace, true);
     const scopes = new Map(items.map((item) => [item.name, item.scope]));
 
-    expect(scopes.get("builtin-only")).toBe("built-in");
+    // Packaged bundled-skills are not session-available until installed to user root.
+    expect(scopes.has("builtin-only")).toBe(false);
     expect(scopes.get("onmyagent-only")).toBe("onmyagent");
     expect(scopes.get("local-only")).toBe("local");
   });
@@ -113,16 +114,18 @@ describe("skills", () => {
     }
   });
 
-  test("filters disabled built-in artifact skills without deleting local or unrelated skills", async () => {
+  test("filters disabled built-in artifact skills without deleting user-root skills", async () => {
     const workspace = join(tempRoot, "workspace");
     const bundled = join(tempRoot, "bundled-skills");
     const project = join(workspace, ".opencode", "skills");
-    process.env.OPENCODE_GLOBAL_SKILLS_DIR = join(tempRoot, "onmyagent-skills");
+    const onmyagent = join(tempRoot, "onmyagent-skills");
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = onmyagent;
     process.env.ONMYAGENT_BUNDLED_SKILLS_DIR = bundled;
 
     await writeSkill(bundled, "documents", "Bundled documents skill");
     await writeSkill(bundled, "pdf", "Bundled PDF skill");
     await writeSkill(bundled, "weather", "Unrelated bundled skill");
+    await writeSkill(onmyagent, "weather", "Installed weather skill");
     await writeSkill(project, "documents", "Local documents policy");
     const pluginPdf = join(tempRoot, "plugins", "pdf", "SKILL.md");
     await writeSkill(join(tempRoot, "plugins"), "pdf", "Plugin PDF skill");
@@ -134,19 +137,24 @@ describe("skills", () => {
     });
 
     expect(items.some((item) => item.scope === "built-in" && item.name === "documents")).toBe(false);
+    // Project local documents is listed under local scope.
     expect(items.some((item) => item.scope === "local" && item.name === "documents")).toBe(true);
     expect(items.some((item) => item.scope === "built-in" && item.name === "pdf")).toBe(true);
-    expect(items.some((item) => item.scope === "built-in" && item.name === "weather")).toBe(true);
+    // weather only via user root install, not raw bundled tree.
+    expect(items.some((item) => item.scope === "onmyagent" && item.name === "weather")).toBe(true);
+    expect(items.filter((item) => item.name === "weather")).toHaveLength(1);
   });
 
   test("skill list and content routes share effective Artifact filtering", async () => {
     const workspaceRoot = join(tempRoot, "workspace");
     const bundled = join(tempRoot, "bundled-skills");
+    const userSkills = join(tempRoot, "onmyagent-skills");
     const configPath = join(tempRoot, "config", "server.json");
     await writeSkill(bundled, "documents", "Bundled documents skill");
     await writeSkill(bundled, "pdf", "Bundled PDF skill");
-    await writeSkill(join(workspaceRoot, ".opencode", "skills"), "documents", "Local documents policy");
-    process.env.OPENCODE_GLOBAL_SKILLS_DIR = join(tempRoot, "onmyagent-skills");
+    // User-root install remains listable even when artifact "documents" is disabled.
+    await writeSkill(userSkills, "documents", "User installed documents skill");
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = userSkills;
     process.env.ONMYAGENT_BUNDLED_SKILLS_DIR = bundled;
     process.env.ONMYAGENT_BUNDLED_PLUGINS_DIR = resolve(
       import.meta.dir,
@@ -187,20 +195,47 @@ describe("skills", () => {
       resolveWorkspace: async () => workspace,
       requireApproval: async () => {},
       emitReloadEvent: () => {},
-      globalSkillsDir: () => join(tempRoot, "onmyagent-skills"),
+      globalSkillsDir: () => userSkills,
       readJsonBody: async () => ({}),
     });
 
     const listResponse = await callSkillRoute(routes, "GET", "/workspace/workspace-1/skills", config);
     const listedDocuments = listResponse.items.filter((item: { name: string }) => item.name === "documents");
     expect(listedDocuments).toEqual([
-      expect.objectContaining({ name: "documents", scope: "local" }),
+      expect.objectContaining({ name: "documents", scope: "onmyagent" }),
     ]);
 
     const detailResponse = await callSkillRoute(routes, "GET", "/workspace/workspace-1/skills/documents", config);
-    expect(detailResponse.item).toEqual(expect.objectContaining({ name: "documents", scope: "local" }));
-    expect(detailResponse.content).toContain("Local documents policy");
+    expect(detailResponse.item).toEqual(expect.objectContaining({ name: "documents", scope: "onmyagent" }));
+    expect(detailResponse.content).toContain("User installed documents skill");
   });
+
+  test("resolves user skills root to profile path only", async () => {
+    const home = join(tempRoot, "home");
+    const profile = join(home, ".onmyagent", "profiles", "local", "config", "skills");
+    const legacy = join(home, ".onmyagent", "skills");
+    await writeSkill(profile, "find-skills", "Discover skills");
+    await writeSkill(legacy, "legacy-only", "Legacy skill");
+
+    const { resolveGlobalSkillsDir, resolveGlobalSkillsDirs } = await import(
+      "../src/workspace/workspace-files.js"
+    );
+    expect(resolveGlobalSkillsDir(home)).toBe(profile);
+    expect(resolveGlobalSkillsDirs(home)).toEqual([profile]);
+
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = profile;
+    try {
+      const items = await listSkills(join(tempRoot, "workspace"), true);
+      const names = new Set(items.map((item) => item.name));
+      expect(names.has("find-skills")).toBe(true);
+      expect(names.has("legacy-only")).toBe(false);
+    } finally {
+      delete process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+    }
+  });
+
+
+
 });
 
 async function callSkillRoute(

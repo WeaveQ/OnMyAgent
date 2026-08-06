@@ -61,7 +61,6 @@ describe("expert marketplace UI contract", () => {
     expect(packageNames).toEqual(
       expect.arrayContaining([
         "document-generation-expert",
-        "gaokao-advisor",
         "viral-topic-master",
         "logistics-ops-navigator",
         "logistics-line-haul",

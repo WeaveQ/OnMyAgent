@@ -80,7 +80,7 @@ describe("agent session visibility", () => {
         },
         {
           sessionId: "expert_chuangye",
-          agentId: "chuangye-manor:chuangye-manor",
+          agentId: "content-creator:content-creator",
         },
       ],
     });

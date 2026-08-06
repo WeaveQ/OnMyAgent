@@ -1,0 +1,12 @@
+{
+  "name": "小红书账号榜单",
+  "installedAt": 1785919933791,
+  "source": "marketplace",
+  "version": "1.0.1",
+  "skillId": "skill_2082743269940506624",
+  "description_zh": "小红书账号榜单追踪工具，支持日榜周榜月榜TOP50查询，按品类筛选并生成HTML可视化报告。",
+  "description_en": "XHS account ranking tracker. Supports daily/weekly/monthly TOP50 rankings, category filtering, and HTML report generation.",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_72bc64f8-a43.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/xiaohongshu-top-account/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/9f40ec1e-e8c9-4dca-ace6-b634b3c73991/avatar/skill/au_72bc64f8-a43.svg"
+}

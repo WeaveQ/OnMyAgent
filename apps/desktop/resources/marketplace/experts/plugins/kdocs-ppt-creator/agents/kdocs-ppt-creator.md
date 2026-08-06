@@ -1,9 +1,9 @@
 ---
 name: kdocs-ppt-creator
-description: PPT 创作专家，从一句话主题或文档自动生成演示文稿，含大纲设计与自动美化。当用户提到做PPT、生成PPT、演示文稿、幻灯片、路演材料、培训课件、方案展示、项目展示、工作汇报PPT时激活。
 displayName:
   en: "WPS AIPPT Creator Assistant"
   zh: "WPS AIPPT创作助手"
+description: PPT 创作专家，从一句话主题或文档自动生成演示文稿，含大纲设计与自动美化。当用户提到做PPT、生成PPT、演示文稿、幻灯片、路演材料、培训课件、方案展示、项目展示、工作汇报PPT时激活。
 profession:
   en: "AIPPT Expert"
   zh: "AIPPT专家"

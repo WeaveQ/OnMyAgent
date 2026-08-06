@@ -74,16 +74,18 @@ describe("config-profile-paths", () => {
     );
   });
 
-  test("resolve skills uses legacy when no migration and profile empty", async () => {
+  test("resolve skills always uses profile path (no legacy dual-read)", async () => {
     await withTempHome(async (home) => {
       const legacy = resolveLegacySkillsPath(home);
+      const profile = resolveLocalSkillsProfilePath(home);
       await mkdir(path.join(legacy, "skill-a"), { recursive: true });
       await writeFile(path.join(legacy, "skill-a", "SKILL.md"), "# a\n");
-      assert.equal(resolveLocalSkillsRoot(home), legacy);
+      // Even with only legacy populated, product root is profile.
+      assert.equal(resolveLocalSkillsRoot(home), profile);
     });
   });
 
-  test("resolve skills prefers profile when non-empty even if not complete", async () => {
+  test("resolve skills stays on profile when non-empty", async () => {
     await withTempHome(async (home) => {
       const profile = resolveLocalSkillsProfilePath(home);
       await mkdir(path.join(profile, "skill-b"), { recursive: true });

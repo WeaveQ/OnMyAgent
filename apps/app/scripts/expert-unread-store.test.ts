@@ -172,4 +172,64 @@ describe("expert unread store", () => {
       useExpertUnreadStore.getState().isSessionUnread("ws_1", "ses_focused"),
     ).toBe(false);
   });
+
+  test("getTotalUnreadAgentCount counts unread experts not summed turns", () => {
+    const store = useExpertUnreadStore.getState();
+    store.noteAssistantActivity("ws_1", "agent_x", {
+      at: 1_000,
+      sessionId: "ses_1",
+      runKey: "run_1",
+    });
+    store.noteAssistantActivity("ws_1", "agent_x", {
+      at: 2_000,
+      sessionId: "ses_1",
+      runKey: "run_2",
+    });
+    store.noteAssistantActivity("ws_1", "agent_x", {
+      at: 3_000,
+      sessionId: "ses_1",
+      runKey: "run_3",
+    });
+    store.noteAssistantActivity("ws_1", "agent_y", {
+      at: 4_000,
+      sessionId: "ses_2",
+      runKey: "run_1",
+    });
+    // Per-agent turn counts can be >1; dock uses agent count.
+    expect(store.getUnreadCount("ws_1", "agent_x")).toBe(3);
+    expect(useExpertUnreadStore.getState().getTotalUnreadAgentCount()).toBe(2);
+
+    useExpertUnreadStore.getState().markRead("ws_1", "agent_x", 5_000);
+    expect(useExpertUnreadStore.getState().getTotalUnreadAgentCount()).toBe(1);
+
+    useExpertUnreadStore.getState().setFocusedAgent("ws_1", "agent_y");
+    expect(useExpertUnreadStore.getState().getTotalUnreadAgentCount()).toBe(0);
+  });
+
+  test("getTotalUnreadAgentCount ignores stale high counts after markRead", () => {
+    useExpertUnreadStore.getState().noteAssistantActivity("ws_1", "agent_z", {
+      at: 1_000,
+      sessionId: "ses_z",
+      runKey: "run_1",
+    });
+    useExpertUnreadStore.getState().markRead("ws_1", "agent_z", 2_000);
+    // Force a residual-looking payload that isUnread would reject.
+    useExpertUnreadStore.setState((state) => ({
+      byWorkspace: {
+        ...state.byWorkspace,
+        ws_1: {
+          ...(state.byWorkspace.ws_1 ?? {}),
+          agent_z: {
+            lastReadAt: 10_000,
+            lastAssistantAt: 5_000,
+            unreadCount: 99,
+            lastNotedSessionId: null,
+            lastNotedRunKey: null,
+            manualUnread: false,
+          },
+        },
+      },
+    }));
+    expect(useExpertUnreadStore.getState().getTotalUnreadAgentCount()).toBe(0);
+  });
 });

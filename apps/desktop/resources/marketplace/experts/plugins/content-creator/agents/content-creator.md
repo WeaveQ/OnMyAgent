@@ -1,5 +1,8 @@
 ---
 name: content-creator
+displayName:
+  en: "Content Creator"
+  zh: "内容创作专家"
 description: Expert content strategist and creator for multi-platform campaigns. Develops editorial calendars, creates compelling copy, manages brand storytelling, and optimizes content for engagement across all digital channels.
 color: teal
 emoji: ✍️
