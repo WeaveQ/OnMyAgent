@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Copy, ExternalLink, Loader2 } from "lucide-react";
 
 import type { LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
 import { LARK_CLI_OPEN_PLATFORM_APP_URL } from "@onmyagent/types/lark-cli-auth";
@@ -337,23 +337,56 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         <DialogHeader className="border-b border-dls-border px-5 py-4 text-left">
           <DialogTitle>{t("plugins.larkcli_connect_title")}</DialogTitle>
           <DialogDescription>{t("plugins.larkcli_connect_subtitle")}</DialogDescription>
-          <div className="mt-3 flex gap-2 text-xs text-dls-secondary">
-            <span
+          <div
+            className="mt-4 flex items-center justify-center gap-2 text-xs"
+            aria-label={`${t("plugins.larkcli_step_config")} → ${t("plugins.larkcli_step_login")}`}
+          >
+            {/* Step 1: active on step 1, completed once past it */}
+            <div
               className={cn(
-                "rounded-full px-2 py-0.5",
-                step === 1 ? "bg-dls-surface-muted font-medium text-dls-text" : "",
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium",
+                step === 1
+                  ? "border-dls-accent/40 bg-dls-accent/10 text-dls-accent"
+                  : "border-dls-status-success-border bg-dls-success-soft text-dls-success",
               )}
             >
-              1. {t("plugins.larkcli_step_config")}
-            </span>
-            <span
+              {step === 2 ? (
+                <Check className="size-3.5 shrink-0" aria-hidden />
+              ) : (
+                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-accent text-[10px] text-white">
+                  1
+                </span>
+              )}
+              {t("plugins.larkcli_step_config")}
+            </div>
+            <ChevronRight
               className={cn(
-                "rounded-full px-2 py-0.5",
-                step === 2 ? "bg-dls-surface-muted font-medium text-dls-text" : "",
+                "size-4 shrink-0",
+                step === 2 ? "text-dls-success" : "text-dls-secondary",
+              )}
+              aria-hidden
+            />
+            {/* Step 2: pending until step 1 done, then active */}
+            <div
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium",
+                step === 2
+                  ? "border-dls-accent/40 bg-dls-accent/10 text-dls-accent"
+                  : "border-dls-border bg-dls-surface text-dls-secondary",
               )}
             >
-              2. {t("plugins.larkcli_step_login")}
-            </span>
+              <span
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]",
+                  step === 2
+                    ? "bg-dls-accent text-white"
+                    : "bg-dls-surface-muted text-dls-secondary",
+                )}
+              >
+                2
+              </span>
+              {t("plugins.larkcli_step_login")}
+            </div>
           </div>
         </DialogHeader>
 
