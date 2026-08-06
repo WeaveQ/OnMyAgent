@@ -7,6 +7,7 @@
   --vp-layout-max-width: 100%;
   --oma-doc-content-max: 48rem;
   --oma-doc-img-bleed: 0px;
+  --oma-shot-radius: 12px;
 
   /* Neutral light palette — avoid muddy greys / purple-tinted neutrals */
   --vp-c-bg: #ffffff;
@@ -89,7 +90,9 @@
   --oma-doc-gutter-x: 0px;
   --oma-doc-aside-gap: 16px;
   --oma-doc-aside-edge: 12px;
+  /* Match article + prev/next footer column; no image bleed */
   --oma-doc-img-bleed: 0px;
+  --oma-shot-radius: 12px;
   --oma-outline-min-width: 1280px;
 }
 
@@ -642,29 +645,11 @@ body {
 }
 
 /*
- * Product screenshots — unified frame (standard: app window ~1280×820).
- * All shots share the same outer card size/radius/shadow so mixed source
- * dimensions (1280×820 / 1392×932 / 1600×1029) still look one family.
+ * Product screenshots — global, consistent:
+ * - Same width as article / prev-next footer (no bleed)
+ * - 12px radius, no card frame / letterbox / shadow stage
+ * Assets are full-bleed UI captures (normalized PNG set).
  */
-:root {
-  --oma-shot-radius: 12px;
-  --oma-shot-ratio: 1280 / 820;
-  --oma-shot-bg: #0c0e12;
-  --oma-shot-shadow:
-    0 1px 0 rgba(15, 23, 42, 0.04),
-    0 12px 40px rgba(15, 23, 42, 0.12),
-    0 0 0 1px rgba(15, 23, 42, 0.08);
-}
-
-.dark {
-  --oma-shot-bg: #0a0c10;
-  --oma-shot-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.2),
-    0 16px 48px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-/* Paragraph that only holds a screenshot → framed stage */
 .vp-doc > p:has(> img:only-child),
 .vp-doc p:has(> img:only-child) {
   display: block;
@@ -672,50 +657,51 @@ body {
   max-width: 100%;
   margin: 1.5rem 0 2rem !important;
   padding: 0 !important;
-  aspect-ratio: var(--oma-shot-ratio);
-  background: var(--oma-shot-bg);
-  border-radius: var(--oma-shot-radius);
-  box-shadow: var(--oma-shot-shadow);
-  overflow: hidden;
   line-height: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--oma-shot-radius);
+  box-shadow: none;
+  overflow: hidden; /* clip image to radius */
 }
 
 .vp-doc > p:has(> img:only-child) > img,
-.vp-doc p:has(> img:only-child) > img {
+.vp-doc p:has(> img:only-child) > img,
+.vp-doc .vp-doc-img,
+.vp-doc img[src*="/images/"] {
   display: block;
   width: 100%;
   max-width: 100%;
-  height: 100%;
+  height: auto;
   margin: 0 !important;
   padding: 0;
   border: none;
-  border-radius: 0;
+  border-radius: var(--oma-shot-radius);
   box-shadow: none;
   outline: none;
-  background: var(--oma-shot-bg);
-  object-fit: contain;
-  object-position: center center;
+  background: transparent;
+  object-fit: unset;
+  object-position: unset;
 }
 
-/* Fallback when img is not wrapped alone in a p (rare) */
+/* Standalone img in doc (not wrapped, or not only-child) */
 .vp-doc > img {
   display: block;
   width: 100%;
   max-width: 100%;
   height: auto;
-  aspect-ratio: var(--oma-shot-ratio);
-  object-fit: contain;
-  object-position: center center;
   margin: 1.5rem 0 2rem !important;
+  border: none;
   border-radius: var(--oma-shot-radius);
-  box-shadow: var(--oma-shot-shadow);
-  background: var(--oma-shot-bg);
+  box-shadow: none;
+  background: transparent;
+  overflow: hidden;
 }
 
-/* Caption under a framed shot */
+/* Caption under a shot */
 .vp-doc img + .oma-shot-caption,
 .vp-doc p:has(> img:only-child) + .oma-shot-caption {
-  margin: -1.25rem 0 2rem;
+  margin: -0.85rem 0 2rem;
   text-align: center;
   font-size: 0.9em;
   font-weight: 500;
@@ -725,20 +711,6 @@ body {
 
 .vp-doc img.oma-zoomable {
   cursor: zoom-in;
-}
-
-.vp-doc p:has(> img.oma-zoomable:only-child):hover {
-  box-shadow:
-    0 1px 0 rgba(15, 23, 42, 0.04),
-    0 16px 48px rgba(15, 23, 42, 0.16),
-    0 0 0 1px rgba(37, 99, 235, 0.18);
-}
-
-.dark .vp-doc p:has(> img.oma-zoomable:only-child):hover {
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.2),
-    0 18px 52px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(96, 165, 250, 0.22);
 }
 
 /* Lightbox overlay */
@@ -772,8 +744,8 @@ body {
   object-fit: contain;
   border: none;
   border-radius: var(--oma-shot-radius);
-  box-shadow: var(--oma-shot-shadow);
-  background: var(--oma-shot-bg);
+  box-shadow: none;
+  background: transparent;
   cursor: default;
   margin: 0;
 }
