@@ -74,23 +74,23 @@
 }
 
 /* —— Layout ——
- * Fit sidebar + article (+ optional outline) into the viewport without
- * horizontal scroll — oversized content max was pushing the left rail off-screen.
+ * Fit sidebar + article + outline into the viewport without horizontal scroll.
  *
- * Outline (右侧大纲) visibility by width (auto, no manual toggle in VP default):
- *   < 1280px  — VitePress default: outline in local-nav dropdown only
- *   1280–1519 — we keep outline hidden so article + sidebar stay usable
- *   ≥ 1520px  — outline shown beside the article
+ * Outline (右侧大纲):
+ *   < 1280px  — VitePress: outline only in local-nav dropdown
+ *   ≥ 1280px  — show side outline (was hidden until 1520; too late for laptops)
+ *
+ * Main column sits closer to the left rail (smaller left pad + moderate max-width)
+ * so the outline has room without pushing content off-center to the right.
  */
 :root {
   --vp-layout-max-width: 100%;
-  --oma-doc-content-max: 48rem;
+  --oma-doc-content-max: 44rem;
   --oma-doc-gutter-x: 0px;
-  --oma-doc-aside-gap: 24px;
-  --oma-doc-aside-edge: 16px;
+  --oma-doc-aside-gap: 16px;
+  --oma-doc-aside-edge: 12px;
   --oma-doc-img-bleed: 0px;
-  /* Outline only when the screen is wide enough */
-  --oma-outline-min-width: 1520px;
+  --oma-outline-min-width: 1280px;
 }
 
 html,
@@ -112,35 +112,48 @@ body {
 
 @media (min-width: 960px) {
   .VPDoc .content {
-    padding-left: 28px !important;
-    padding-right: 24px !important;
+    /* Pull main column left toward the sidebar */
+    padding-left: 16px !important;
+    padding-right: 16px !important;
   }
 }
 
 @media (min-width: 1280px) {
   :root {
-    --oma-doc-content-max: 52rem;
+    --oma-doc-content-max: 46rem;
+    --oma-doc-aside-gap: 16px;
+    --oma-doc-aside-edge: 12px;
   }
 
   .VPDoc .content {
-    padding-left: 32px !important;
-    padding-right: 28px !important;
+    padding-left: 18px !important;
+    padding-right: 12px !important;
   }
 }
 
-@media (min-width: 1520px) {
+@media (min-width: 1440px) {
   :root {
-    --oma-doc-content-max: 56rem;
-    --oma-doc-aside-gap: 28px;
-    --oma-doc-aside-edge: 20px;
+    --oma-doc-content-max: 48rem;
+    --oma-doc-aside-gap: 20px;
+    --oma-doc-aside-edge: 16px;
+  }
+
+  .VPDoc .content {
+    padding-left: 20px !important;
+    padding-right: 16px !important;
   }
 }
 
 @media (min-width: 1680px) {
   :root {
-    --oma-doc-content-max: 60rem;
-    --oma-doc-aside-gap: 36px;
-    --oma-doc-aside-edge: 28px;
+    --oma-doc-content-max: 52rem;
+    --oma-doc-aside-gap: 28px;
+    --oma-doc-aside-edge: 20px;
+  }
+
+  .VPDoc .content {
+    padding-left: 24px !important;
+    padding-right: 20px !important;
   }
 }
 
@@ -160,22 +173,30 @@ body {
   }
 }
 
-/* Shared rail width: nav title column MUST equal sidebar (no VP 1440 calc drift) */
+/*
+ * Shared left rail: logo column (nav) + sidebar MUST share the same outer box.
+ * VitePress ≥1440 uses calc(100vw …) / calc(100% …) that drift (scrollbar +
+ * padding on .title). Force a fixed px rail and kill those formulas.
+ */
 :root {
-  --vp-sidebar-width: 272px;
+  --vp-sidebar-width: 272px !important;
   --oma-rail-width: 272px;
+  --oma-rail-pad-x: 24px;
+  --oma-rail-pad-left: 24px;
 }
 
-/* Sidebar — always fully on-screen; fixed 32px inset matches nav title */
+/* Sidebar — fixed outer width, border on the rail edge */
 .VPSidebar {
   border-right: 1px solid var(--vp-c-divider);
   background-color: var(--vp-sidebar-bg-color) !important;
   left: 0 !important;
-  box-sizing: border-box;
-  padding: 32px 24px 96px 32px !important;
+  right: auto !important;
+  box-sizing: border-box !important;
+  padding: 32px var(--oma-rail-pad-x) 96px var(--oma-rail-pad-left) !important;
   width: var(--oma-rail-width) !important;
   max-width: var(--oma-rail-width) !important;
   min-width: var(--oma-rail-width) !important;
+  margin: 0 !important;
 }
 
 @media (min-width: 960px) {
@@ -184,16 +205,20 @@ body {
     width: var(--oma-rail-width) !important;
     max-width: var(--oma-rail-width) !important;
     min-width: var(--oma-rail-width) !important;
+    padding-left: var(--oma-rail-pad-left) !important;
+    padding-right: var(--oma-rail-pad-x) !important;
   }
 }
 
-/* Kill VitePress ≥1440 sidebar width formula */
+/* Kill VitePress ≥1440 sidebar width / padding-left formulas entirely */
 @media (min-width: 1440px) {
   .VPSidebar {
     width: var(--oma-rail-width) !important;
     max-width: var(--oma-rail-width) !important;
     min-width: var(--oma-rail-width) !important;
-    padding-left: 32px !important;
+    padding-left: var(--oma-rail-pad-left) !important;
+    padding-right: var(--oma-rail-pad-x) !important;
+    left: 0 !important;
   }
 }
 
@@ -276,42 +301,73 @@ body {
   background: transparent;
 }
 
-/* Nav title column — identical outer width + right border as .VPSidebar */
+/*
+ * Nav logo column = same outer width as .VPSidebar (co-linear right border).
+ * Target BOTH .VPNavBar .title (absolute shell) and .VPNavBarTitle (inner).
+ * Zero outer padding on the shell so width is not "272 + padding" drift.
+ */
 @media (min-width: 960px) {
-  .VPNavBar.has-sidebar .title,
-  .VPNavBarTitle.has-sidebar {
+  .VPNavBar.has-sidebar .title {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 2 !important;
     width: var(--oma-rail-width) !important;
     max-width: var(--oma-rail-width) !important;
     min-width: var(--oma-rail-width) !important;
+    height: var(--vp-nav-height) !important;
+    padding: 0 !important;
+    margin: 0 !important;
     box-sizing: border-box !important;
+    border-right: 1px solid var(--vp-c-divider);
+    background: var(--vp-nav-bg-color) !important;
+    overflow: hidden;
+  }
+
+  .VPNavBarTitle.has-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 100%;
+    box-sizing: border-box !important;
+    border-right: none; /* border lives on outer .title shell only */
+    background: transparent !important;
+    overflow: hidden;
   }
 
   .VPNavBar.has-sidebar .content,
   .VPNavBar.has-sidebar .divider {
     padding-left: var(--oma-rail-width) !important;
+    padding-right: 24px !important;
+  }
+
+  /* Content column also starts exactly at rail edge (no 100vw calc drift) */
+  .VPContent.has-sidebar {
+    padding-left: var(--oma-rail-width) !important;
+    padding-right: 0 !important;
   }
 }
 
-/* Override VitePress ≥1440 title-width calc so borders stay co-linear */
+/* Kill VitePress ≥1440 title/content/sidebar calc formulas (100vw vs 100%) */
 @media (min-width: 1440px) {
-  .VPNavBar.has-sidebar .title,
-  .VPNavBarTitle.has-sidebar {
+  .VPNavBar.has-sidebar .title {
     width: var(--oma-rail-width) !important;
     max-width: var(--oma-rail-width) !important;
     min-width: var(--oma-rail-width) !important;
+    padding: 0 !important;
+    left: 0 !important;
   }
 
   .VPNavBar.has-sidebar .content,
   .VPNavBar.has-sidebar .divider {
     padding-left: var(--oma-rail-width) !important;
+    padding-right: 32px !important;
   }
-}
 
-.VPNavBarTitle.has-sidebar {
-  border-right: 1px solid var(--vp-c-divider);
-  background: var(--vp-nav-bg-color) !important;
-  overflow: hidden;
-  box-sizing: border-box;
+  .VPContent.has-sidebar {
+    padding-left: var(--oma-rail-width) !important;
+    padding-right: 0 !important;
+  }
 }
 
 .VPNavBarTitle .title {
@@ -322,8 +378,8 @@ body {
   max-width: 100% !important;
   height: var(--vp-nav-height);
   box-sizing: border-box;
-  /* Same 32px left inset as sidebar content */
-  padding: 0 24px 0 32px !important;
+  /* Same horizontal inset as sidebar content */
+  padding: 0 var(--oma-rail-pad-x) 0 var(--oma-rail-pad-left) !important;
   margin: 0 !important;
   font-weight: 600;
   font-size: 14px;
@@ -421,29 +477,48 @@ body {
   display: none;
 }
 
-/* Outline: hide on mid widths (1280–1519) so left sidebar + article fit.
- * VitePress already shows outline in the sticky local-nav dropdown below 1280.
- * Wide screens (≥1520) get the side outline back.
+/*
+ * Outline (大纲): show from VitePress desktop breakpoint (1280px).
+ * Compact aside on mid laptops so main + outline fit without hiding TOC.
  */
-@media (min-width: 1280px) and (max-width: 1519.98px) {
-  .VPDoc .aside {
-    display: none !important;
-  }
-
-  /* Use full main column when outline is auto-hidden */
-  .VPDoc.has-aside .content {
-    max-width: min(56rem, 100%) !important;
-  }
-}
-
-@media (min-width: 1520px) {
+@media (min-width: 1280px) {
   .VPDoc .aside {
     display: block !important;
     padding-left: var(--oma-doc-aside-gap) !important;
     padding-right: var(--oma-doc-aside-edge) !important;
-    max-width: 240px;
+    max-width: 200px;
+    width: 180px;
     flex-grow: 0;
     flex-shrink: 0;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 168px;
+  }
+
+  /* Keep article from stretching into the outline zone */
+  .VPDoc.has-aside .content {
+    max-width: var(--oma-doc-content-max) !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  .VPDoc .aside {
+    max-width: 220px;
+    width: 200px;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 188px;
+  }
+}
+
+@media (min-width: 1680px) {
+  .VPDoc .aside {
+    max-width: 240px;
+    width: 220px;
   }
 
   .VPDoc .aside-container,
