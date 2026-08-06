@@ -60,6 +60,8 @@ export type LarkCliStartUserLoginResult = {
   sessionId: string;
   verificationUrl: string;
   qrcodeDataUrl: string | null;
+  /** True when a valid user token already exists — no new device flow. */
+  alreadyLoggedIn?: boolean;
 };
 
 export const LARK_CLI_OPEN_PLATFORM_APP_URL = "https://open.feishu.cn/app";

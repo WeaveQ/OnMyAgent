@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, Loader2 } from "lucide-react";
 
 import type { LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
@@ -64,6 +64,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [loginQr, setLoginQr] = useState<string | null>(null);
   const [loginSessionId, setLoginSessionId] = useState<string | null>(null);
+  const loginStartedRef = useRef(false);
 
   useEffect(() => {
     if (!props.open) return;
@@ -79,6 +80,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
     setLoginUrl(null);
     setLoginQr(null);
     setLoginSessionId(null);
+    loginStartedRef.current = false;
   }, [props.open, props.initialStep, props.initialTab]);
 
   const advanceToLogin = useCallback(
@@ -93,6 +95,20 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       }
       setStep(2);
       setLoginSessionId(null);
+      loginStartedRef.current = false;
+    },
+    [props],
+  );
+
+  const finishLoginSuccess = useCallback(
+    async (status?: LarkCliConnectionStatus) => {
+      try {
+        const next = status ?? (await getLarkCliConnectionStatus());
+        props.onConnectionChange(next);
+      } catch {
+        // ignore
+      }
+      props.onOpenChange(false);
     },
     [props],
   );
@@ -114,42 +130,57 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       if (progress.phase === "complete" && progress.operation === "config_init") {
         void advanceToLogin();
       }
-      if (
-        progress.phase === "error" &&
-        progress.operation === "config_init" &&
-        progress.errorMessage
-      ) {
-        // Do not surface cancel as hard error when switching tabs.
-        if (progress.errorCode !== "config_init_failed" || progress.phase === "error") {
+      if (progress.phase === "complete" && progress.operation === "user_login") {
+        void finishLoginSuccess();
+      }
+      if (progress.phase === "error" && progress.errorMessage) {
+        if (progress.operation === "user_login" || progress.operation === "config_init") {
           setError(progress.errorMessage);
         }
         setBusy(false);
       }
     });
-  }, [props.open, advanceToLogin]);
+  }, [props.open, advanceToLogin, finishLoginSuccess]);
 
   const startLoginFlow = useCallback(async () => {
+    if (loginStartedRef.current) return;
+    loginStartedRef.current = true;
     setBusy(true);
     setError(null);
     setLoginUrl(null);
     setLoginQr(null);
     try {
       const started = await startLarkCliUserLogin();
+      if (started.alreadyLoggedIn) {
+        await finishLoginSuccess();
+        return;
+      }
       setLoginSessionId(started.sessionId);
       setLoginUrl(started.verificationUrl);
       setLoginQr(started.qrcodeDataUrl);
+      // Background device-code poll is already running in main; also wait here
+      // so the button path / IPC errors surface if background fails.
+      if (started.sessionId) {
+        void completeLarkCliUserLogin(started.sessionId)
+          .then((status) => finishLoginSuccess(status))
+          .catch((e) => {
+            setError(e instanceof Error ? e.message : String(e));
+            setBusy(false);
+          });
+      }
     } catch (e) {
+      loginStartedRef.current = false;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [finishLoginSuccess]);
 
   useEffect(() => {
     if (!props.open || step !== 2) return;
-    if (loginSessionId) return;
+    if (loginStartedRef.current) return;
     void startLoginFlow();
-  }, [props.open, step, loginSessionId, startLoginFlow]);
+  }, [props.open, step, startLoginFlow]);
 
   // Start config init once per open+QR tab. Do NOT depend on configUrl —
   // otherwise setting the URL re-runs cleanup and kills the waiting process.
@@ -244,13 +275,25 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
   };
 
   const handleLoginComplete = async () => {
-    if (!loginSessionId) return;
+    if (!loginSessionId) {
+      // Background poll may already have finished; re-check status.
+      try {
+        const status = await getLarkCliConnectionStatus();
+        if (status.phase === "connected_logged_in") {
+          await finishLoginSuccess(status);
+          return;
+        }
+      } catch {
+        // fall through
+      }
+      setError(t("plugins.larkcli_login_waiting"));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const status = await completeLarkCliUserLogin(loginSessionId);
-      props.onConnectionChange(status);
-      props.onOpenChange(false);
+      await finishLoginSuccess(status);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
