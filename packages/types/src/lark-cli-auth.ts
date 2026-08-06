@@ -42,7 +42,9 @@ export type LarkCliAuthProgress = {
     | "polling"
     | "complete"
     | "error"
-    | "cancelled";
+    | "cancelled"
+    /** Device/QR wait expired — UI should silently refresh, not show raw CLI text. */
+    | "expired";
   verificationUrl?: string;
   qrcodeDataUrl?: string;
   message?: string;

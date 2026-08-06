@@ -27,6 +27,28 @@ function asRecord(value) {
   return /** @type {Record<string, unknown>} */ (value);
 }
 
+/** Feishu device-code QR is typically valid for several minutes; leave headroom. */
+const DEVICE_CODE_WAIT_MS = 15 * 60_000;
+
+/**
+ * Timeouts that should silently refresh QR — not show raw CLI text.
+ * Do NOT match arbitrary "device code" wording (would false-positive start failures).
+ * @param {unknown} error
+ */
+function isTimeoutOrExpiredError(error) {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String(/** @type {{ code?: unknown }} */ (error).code ?? "");
+    if (code === "network_timeout" || code === "device_code_expired") {
+      return true;
+    }
+    if (code === "aborted") return false;
+  }
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /authorization wait timed out|lark-cli timed out|network_timeout/i.test(
+    message,
+  );
+}
+
 /**
  * Parse first JSON object from CLI stdout/stderr blob.
  * @param {string} text
@@ -154,7 +176,7 @@ export function createLarkCliAuthService(options = {}) {
 
   /**
    * @param {string[]} args
-   * @param {{ stdinText?: string, timeoutMs?: number, cwd?: string }} [opts]
+   * @param {{ stdinText?: string, timeoutMs?: number, cwd?: string, signal?: AbortSignal }} [opts]
    */
   async function runCli(args, opts = {}) {
     if (typeof options.runCli === "function") {
@@ -176,6 +198,10 @@ export function createLarkCliAuthService(options = {}) {
     delete env.HERMES_HOME;
 
     return new Promise((resolve, reject) => {
+      if (opts.signal?.aborted) {
+        reject(codedError("Operation aborted", "aborted"));
+        return;
+      }
       const child = spawn(resolved.binaryPath, args, {
         cwd,
         env,
@@ -184,10 +210,30 @@ export function createLarkCliAuthService(options = {}) {
       });
       let stdout = "";
       let stderr = "";
+      let settled = false;
+      const settleReject = (error) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      };
+      const settleResolve = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
       const timer = setTimeout(() => {
         child.kill();
-        reject(codedError(`lark-cli timed out: ${args.join(" ")}`, "network_timeout"));
+        // Never put CLI args / device codes into the message (UI silent-refresh path).
+        settleReject(codedError("Authorization wait timed out", "network_timeout"));
       }, timeoutMs);
+      const onAbort = () => {
+        clearTimeout(timer);
+        child.kill();
+        settleReject(codedError("Operation aborted", "aborted"));
+      };
+      if (opts.signal) {
+        opts.signal.addEventListener("abort", onAbort, { once: true });
+      }
       child.stdout?.on("data", (chunk) => {
         stdout += chunk.toString("utf8");
       });
@@ -196,11 +242,13 @@ export function createLarkCliAuthService(options = {}) {
       });
       child.on("error", (error) => {
         clearTimeout(timer);
-        reject(error);
+        opts.signal?.removeEventListener("abort", onAbort);
+        settleReject(error);
       });
       child.on("close", (code) => {
         clearTimeout(timer);
-        resolve({
+        opts.signal?.removeEventListener("abort", onAbort);
+        settleResolve({
           code: code ?? 1,
           stdout,
           stderr,
@@ -214,6 +262,17 @@ export function createLarkCliAuthService(options = {}) {
       }
       child.stdin?.end();
     });
+  }
+
+  function abortAllLoginSessions() {
+    for (const session of loginSessions.values()) {
+      try {
+        session.controller?.abort();
+      } catch {
+        // ignore
+      }
+    }
+    loginSessions.clear();
   }
 
   function emptyStatus(partial = {}) {
@@ -483,14 +542,20 @@ export function createLarkCliAuthService(options = {}) {
    * Finish device-code login; shared by background poll + explicit complete.
    * @param {string} sessionId
    * @param {string} deviceCode
+   * @param {AbortSignal} [signal]
    */
-  function runDeviceCodeCompletion(sessionId, deviceCode) {
+  function runDeviceCodeCompletion(sessionId, deviceCode, signal) {
     emitProgress({ operation: "user_login", phase: "polling" });
     return runCli(["auth", "login", "--device-code", deviceCode], {
-      // Device flow blocks until user authorizes in Feishu (up to ~10 min).
-      timeoutMs: 600_000,
+      // Leave enough time for scan + Feishu consent (device code usually lasts minutes).
+      timeoutMs: DEVICE_CODE_WAIT_MS,
+      signal,
     })
       .then(async (result) => {
+        // Session superseded by a newer login attempt — stay silent.
+        if (!loginSessions.has(sessionId)) {
+          return getConnectionStatus();
+        }
         // Success if CLI exits 0 OR local status already shows a valid user token
         // (some CLI builds print banners and still exit non-zero).
         let status = await getConnectionStatus();
@@ -507,15 +572,41 @@ export function createLarkCliAuthService(options = {}) {
           result.stderr?.trim() ||
           result.stdout?.trim() ||
           `User login failed (exit ${result.code})`;
+        const code = nonEmptyString(error?.subtype) || "login_failed";
+        loginSessions.delete(sessionId);
+        if (isTimeoutOrExpiredError({ code, message })) {
+          emitProgress({
+            operation: "user_login",
+            phase: "expired",
+            errorCode: "network_timeout",
+          });
+          throw codedError("Authorization wait timed out", "network_timeout");
+        }
+        // Prefer CLI's human message when present; never invent command dumps.
+        const safeMessage =
+          nonEmptyString(error?.message) ||
+          nonEmptyString(error?.hint) ||
+          "User login failed";
         emitProgress({
           operation: "user_login",
           phase: "error",
-          errorCode: nonEmptyString(error?.subtype) || "login_failed",
-          errorMessage: message,
+          errorCode: code,
+          errorMessage: safeMessage,
         });
-        throw codedError(message, nonEmptyString(error?.subtype) || "login_failed");
+        throw codedError(safeMessage, code);
       })
       .catch(async (error) => {
+        // Aborted because a newer login started — do not surface to UI.
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "aborted"
+        ) {
+          return getConnectionStatus().catch(() =>
+            emptyStatus({ phase: "error", installed: true }),
+          );
+        }
         // Timeout / kill: user may have finished auth just as we stopped polling.
         try {
           const status = await getConnectionStatus();
@@ -526,6 +617,22 @@ export function createLarkCliAuthService(options = {}) {
           }
         } catch {
           // fall through
+        }
+        // Superseded — no progress noise.
+        if (!loginSessions.has(sessionId)) {
+          throw error instanceof Error
+            ? error
+            : codedError(String(error), "login_failed");
+        }
+        loginSessions.delete(sessionId);
+        if (isTimeoutOrExpiredError(error)) {
+          // UI auto-refreshes QR after full wait window; no raw CLI text.
+          emitProgress({
+            operation: "user_login",
+            phase: "expired",
+            errorCode: "network_timeout",
+          });
+          throw codedError("Authorization wait timed out", "network_timeout");
         }
         const message =
           error instanceof Error ? error.message : String(error);
@@ -559,6 +666,10 @@ export function createLarkCliAuthService(options = {}) {
           alreadyLoggedIn: true,
         };
       }
+
+      // Drop prior device-code waits so a re-open never reuses a rejected promise
+      // (that looked like an "instant" timeout in the UI).
+      abortAllLoginSessions();
 
       emitProgress({ operation: "user_login", phase: "starting" });
       const result = await runCli(
@@ -595,12 +706,18 @@ export function createLarkCliAuthService(options = {}) {
         );
       }
       const sessionId = randomUUID();
+      const controller = new AbortController();
       // Background poller: CLI blocks until the user finishes Feishu authorization.
-      const promise = runDeviceCodeCompletion(sessionId, deviceCode);
+      const promise = runDeviceCodeCompletion(
+        sessionId,
+        deviceCode,
+        controller.signal,
+      );
       loginSessions.set(sessionId, {
         deviceCode,
         createdAt: now(),
         promise,
+        controller,
       });
       // Prevent unhandled rejection if UI never calls complete.
       promise.catch(() => undefined);
@@ -641,15 +758,18 @@ export function createLarkCliAuthService(options = {}) {
     const id = nonEmptyString(sessionId);
     const session = id ? loginSessions.get(id) : null;
     if (!session) {
+      // Prefer silent recovery over instant timeout-looking errors.
       throw codedError(
-        "Login session expired or missing — close the dialog and open Sign in again",
+        "Login session expired or missing",
         "login_session_missing",
       );
     }
     if (session.promise) {
       return session.promise;
     }
-    const promise = runDeviceCodeCompletion(id, session.deviceCode);
+    const controller = new AbortController();
+    session.controller = controller;
+    const promise = runDeviceCodeCompletion(id, session.deviceCode, controller.signal);
     session.promise = promise;
     promise.catch(() => undefined);
     return promise;
@@ -812,7 +932,7 @@ export function createLarkCliAuthService(options = {}) {
         // continue
       }
     }
-    loginSessions.clear();
+    abortAllLoginSessions();
     emitProgress({ operation: "disconnect", phase: "complete" });
     return getConnectionStatus();
   }
