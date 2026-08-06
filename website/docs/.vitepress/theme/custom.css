@@ -160,20 +160,40 @@ body {
   }
 }
 
+/* Shared rail width: nav title column MUST equal sidebar (no VP 1440 calc drift) */
+:root {
+  --vp-sidebar-width: 272px;
+  --oma-rail-width: 272px;
+}
+
 /* Sidebar — always fully on-screen; fixed 32px inset matches nav title */
 .VPSidebar {
   border-right: 1px solid var(--vp-c-divider);
   background-color: var(--vp-sidebar-bg-color) !important;
   left: 0 !important;
   box-sizing: border-box;
-  /* Override VP wide-screen calc that drifts away from the title column */
   padding: 32px 24px 96px 32px !important;
-  width: var(--vp-sidebar-width) !important;
+  width: var(--oma-rail-width) !important;
+  max-width: var(--oma-rail-width) !important;
+  min-width: var(--oma-rail-width) !important;
 }
 
 @media (min-width: 960px) {
   .VPSidebar {
     padding-top: calc(var(--vp-nav-height) + 24px) !important;
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+  }
+}
+
+/* Kill VitePress ≥1440 sidebar width formula */
+@media (min-width: 1440px) {
+  .VPSidebar {
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+    padding-left: 32px !important;
   }
 }
 
@@ -256,15 +276,41 @@ body {
   background: transparent;
 }
 
-/* Title column = same width as sidebar; left padding matches VPSidebar (32px)
- * so logo lines up with section labels like「入门指南」.
- */
+/* Nav title column — identical outer width + right border as .VPSidebar */
+@media (min-width: 960px) {
+  .VPNavBar.has-sidebar .title,
+  .VPNavBarTitle.has-sidebar {
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+    box-sizing: border-box !important;
+  }
+
+  .VPNavBar.has-sidebar .content,
+  .VPNavBar.has-sidebar .divider {
+    padding-left: var(--oma-rail-width) !important;
+  }
+}
+
+/* Override VitePress ≥1440 title-width calc so borders stay co-linear */
+@media (min-width: 1440px) {
+  .VPNavBar.has-sidebar .title,
+  .VPNavBarTitle.has-sidebar {
+    width: var(--oma-rail-width) !important;
+    max-width: var(--oma-rail-width) !important;
+    min-width: var(--oma-rail-width) !important;
+  }
+
+  .VPNavBar.has-sidebar .content,
+  .VPNavBar.has-sidebar .divider {
+    padding-left: var(--oma-rail-width) !important;
+  }
+}
+
 .VPNavBarTitle.has-sidebar {
-  width: var(--vp-sidebar-width);
-  max-width: var(--vp-sidebar-width);
   border-right: 1px solid var(--vp-c-divider);
   background: var(--vp-nav-bg-color) !important;
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -272,10 +318,11 @@ body {
   display: flex !important;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   height: var(--vp-nav-height);
   box-sizing: border-box;
-  /* Match .VPSidebar { padding: 32px 32px … } horizontal inset */
+  /* Same 32px left inset as sidebar content */
   padding: 0 24px 0 32px !important;
   margin: 0 !important;
   font-weight: 600;
