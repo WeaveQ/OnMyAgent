@@ -35,6 +35,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { CountBadge } from "@/components/ui/status-badge";
 import {
   TableBody,
   TableCell,
@@ -1362,11 +1363,11 @@ export function WorkspaceFilesUploadsPanel(props: {
                                     {node.name}
                                   </button>
                                   {outlineRow.fileCount > 0 ? (
-                                    <span className="inline-flex shrink-0 items-center rounded-full bg-dls-surface-muted px-2 py-0.5 text-[11px] font-medium text-dls-secondary ring-1 ring-dls-border/60">
+                                    <CountBadge size="meta">
                                       {t("files.file_count", {
                                         count: outlineRow.fileCount,
                                       })}
-                                    </span>
+                                    </CountBadge>
                                   ) : null}
                                 </div>
                               </TableCell>

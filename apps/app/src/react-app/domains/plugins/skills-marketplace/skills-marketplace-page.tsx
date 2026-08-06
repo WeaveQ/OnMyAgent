@@ -43,7 +43,10 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
-import { SkillMarketplaceCard } from "@/components/ui/skill-marketplace-card";
+import {
+  MARKETPLACE_CARD_GRID,
+  SkillMarketplaceCard,
+} from "@/components/ui/skill-marketplace-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -64,11 +67,10 @@ import type { SkillMarketplaceEntry } from "./types";
 /** Shared with connectors optional-enhancement card. */
 const OFFICECLI_SKILL_ICON_SRC = "/connector-icons/officecli.png";
 
-/** Align with expert marketplace grid density. */
-const SKILL_CARD_GRID =
-  "grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+/** Align with expert marketplace grid density (shared export). */
+const SKILL_CARD_GRID = MARKETPLACE_CARD_GRID;
 /** Installed/builtin mine list — same grid; cards hug content (no stretched empty belly). */
-const SKILL_INSTALLED_CARD_GRID = SKILL_CARD_GRID;
+const SKILL_INSTALLED_CARD_GRID = MARKETPLACE_CARD_GRID;
 
 const OPC_AGGREGATED_CATEGORY_IDS = new Set([
   "productivity",
@@ -648,16 +650,16 @@ function InstalledSkillCard(props: {
               >
                 {name}
               </span>
-              <span
-                className={cn(
-                  "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium leading-none",
-                  props.originBuiltin && props.enabled
-                    ? "bg-dls-accent/12 text-dls-accent"
-                    : "bg-dls-surface-muted text-dls-secondary",
-                )}
+              <StatusBadge
+                size="tiny"
+                shape="soft"
+                tone={
+                  props.originBuiltin && props.enabled ? "accent" : "neutral"
+                }
+                className="shrink-0"
               >
                 {typeLabel}
-              </span>
+              </StatusBadge>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
               {/* ··· / pin: hover-only; pinned pin stays visible so state is scannable */}
