@@ -34,10 +34,23 @@ describe("settings personal & memory navigation (shipped)", () => {
       "shortcuts",
       "updates",
     ]);
+    // Preferences lead Global (app-wide appearance), not Workspace.
+    expect(tabs[0]).toBe("preferences");
     // Environment is fused into System, not a top-level nav entry.
     expect(tabs).not.toContain("environment");
     expect(tabs).not.toContain("company");
     expect(tabs).not.toContain("ai");
+  });
+
+  test("developer mode appends debug only on Global", () => {
+    expect(getGlobalSettingsTabs(true)).toEqual([
+      "preferences",
+      "system",
+      "shortcuts",
+      "updates",
+      "debug",
+    ]);
+    expect(getWorkspaceSettingsTabs()).not.toContain("debug");
   });
 
   test("data group lists usage, recovery, archive", () => {
