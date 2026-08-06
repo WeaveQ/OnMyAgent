@@ -281,7 +281,12 @@ export function LarkCliPluginCard() {
     ? getLarkCliStatusTone(status)
     : "neutral";
   const connBadge = connectionBadge(connection, status);
-  const canUninstall = status ? canUninstallLarkCli(status) : false;
+  // Uninstall only when installed but not app-authorized and not signed in.
+  const canUninstall =
+    Boolean(status && canUninstallLarkCli(status)) &&
+    (connection?.phase === "installed_disconnected" ||
+      connection?.phase === "not_installed" ||
+      (!connection && Boolean(status?.installedVersion)));
   const installedReady =
     Boolean(status?.installedVersion) &&
     status?.state !== "not_installed" &&
@@ -316,7 +321,7 @@ export function LarkCliPluginCard() {
   };
 
   const handleUninstall = async () => {
-    if (!status || busy || !status.installedVersion) return;
+    if (!status || busy || !status.installedVersion || !canUninstall) return;
     setUninstallConfirmOpen(false);
     setStatus({ ...status, state: "uninstalling" });
     setProgress({ operation: "uninstall", phase: "installing" });
@@ -461,7 +466,7 @@ export function LarkCliPluginCard() {
               </Button>
             </div>
           ) : installedReady && connection?.phase === "connected_logged_in" ? (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
               <Button
                 size="xs"
                 variant="ghost"
@@ -470,28 +475,7 @@ export function LarkCliPluginCard() {
               >
                 {t("plugins.larkcli_disconnect")}
               </Button>
-              {canUninstall ? (
-                <Button
-                  size="xs"
-                  variant="destructive"
-                  disabled={busy}
-                  onClick={() => setUninstallConfirmOpen(true)}
-                >
-                  <Trash2 aria-hidden="true" />
-                  {t("plugins.larkcli_uninstall")}
-                </Button>
-              ) : null}
             </div>
-          ) : canUninstall ? (
-            <Button
-              size="xs"
-              variant="destructive"
-              disabled={busy}
-              onClick={() => setUninstallConfirmOpen(true)}
-            >
-              <Trash2 aria-hidden="true" />
-              {t("plugins.larkcli_uninstall")}
-            </Button>
           ) : (
             <span className="text-xs text-dls-secondary">
               {status?.supported
