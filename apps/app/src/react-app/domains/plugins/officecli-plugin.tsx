@@ -73,6 +73,7 @@ type OfficeCliProgressKey =
   | "plugins.officecli_progress_downloading_binary"
   | "plugins.officecli_progress_downloading_manifest"
   | "plugins.officecli_progress_downloading_skill"
+  | "plugins.officecli_progress_downloading_skills_pack"
   | "plugins.officecli_progress_installing"
   | "plugins.officecli_progress_refreshing_skills"
   | "plugins.officecli_progress_uninstalling"
@@ -139,6 +140,8 @@ function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | n
       return "plugins.officecli_progress_downloading_binary";
     case "downloading_skill":
       return "plugins.officecli_progress_downloading_skill";
+    case "downloading_skills_pack":
+      return "plugins.officecli_progress_downloading_skills_pack";
     case "verifying":
       return "plugins.officecli_progress_verifying";
     case "installing":
@@ -170,19 +173,6 @@ function primaryActionIcon(action: OfficeCliPrimaryAction) {
     case "retry":
       return RotateCcw;
   }
-}
-
-function officeCliVersionSummary(status: OfficeCliStatus): string {
-  if (!status.installedVersion) return t("plugins.officecli_not_installed_hint");
-  if (status.state === "update_available" && status.latestVersion) {
-    return t("plugins.officecli_update_hint", {
-      installed: status.installedVersion,
-      latest: status.latestVersion,
-    });
-  }
-  return t("plugins.officecli_installed_hint", {
-    version: status.installedVersion,
-  });
 }
 
 /**
@@ -308,10 +298,10 @@ export function OfficeCliPluginCard() {
           className={connectorTileDescClassName}
           title={t("plugins.officecli_description")}
         >
-          {status ? officeCliVersionSummary(status) : t("plugins.officecli_checking")}
+          {t("plugins.officecli_description")}
         </p>
 
-        <div className={connectorTileFooterClassName}>
+        <div className={cn(connectorTileFooterClassName, "justify-end gap-1.5")}>
           {!status || status.state === "checking" ? (
             <span
               className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
@@ -341,7 +331,7 @@ export function OfficeCliPluginCard() {
           ) : canUninstall ? (
             <Button
               size="xs"
-              variant="ghost"
+              variant="destructive"
               disabled={busy}
               onClick={() => setUninstallConfirmOpen(true)}
             >

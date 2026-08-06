@@ -1,32 +1,74 @@
-# OfficeCLI OSS 发布约定
+# OfficeCLI CDN 发布约定
 
-OfficeCLI 是“市场 → 插件”中的可选增强。桌面端安装包不内置二进制；用户点击安装后，桌面端从 OSS 下载当前平台的二进制和 `SKILL.md`，写入用户目录，并让后续普通会话与专家会话共用同一份已安装能力。
+OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端内置 **统一 registry**：
 
-## OSS 目录
+`apps/desktop/electron/managed-tools/managed-cli-registry.json`
 
-固定版本的推荐目录如下：
-
-```text
-officecli/
-  manifest.json
-  releases/
-    1.0.102/
-      manifest.json
-      SKILL.md
-      officecli-mac-arm64
-      officecli-mac-x64
-      officecli-win-arm64.exe
-      officecli-win-x64.exe
+```json
+{
+  "schemaVersion": 1,
+  "plugins": {
+    "officecli": {
+      "manifestUrl": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/manifest.json"
+    },
+    "lark-cli": {
+      "manifestUrl": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/lark-cli/manifest.json"
+    }
+  }
+}
 ```
 
-当前不发布 Linux 二进制；受支持的平台键只有：
+客户端按 `pluginId` 取 `manifestUrl`，拉取远端 root catalog，比较 `latestVersion`；有更新则按 catalog 内绝对 URL 下载 skill、可选 skillsPack 与平台 zip。
 
-- `officecli-mac-arm64`
-- `officecli-mac-x64`
-- `officecli-win-arm64`
-- `officecli-win-x64`
+## 热更新模型
 
-根 `manifest.json` 是更新检查入口。它的 `latestVersion` 指向当前版本，`releaseManifest` 指向对应版本的 release manifest。版本切换时先上传完整的新版本目录，再更新根 manifest，避免客户端看到“更新”后下载到不完整目录。
+| 层 | 是否可变 | 说明 |
+|----|----------|------|
+| 包内 `managed-cli-registry.json` | 少改 | 各 CLI 的永久 root URL；新增 CLI 时加一条 |
+| 各 CLI root `manifest.json` | 可变 | 最新版本 + 下载链接 + 二进制 hash |
+| 版本化资源 URL | 不可覆盖 | 每版独立路径 |
+
+Root catalog 示例：`apps/desktop/electron/managed-tools/officecli-root-manifest.example.json`。
+
+zip 解压 `entry` 后，用 catalog 中 **sha256 校验解压后的二进制**（不是 zip 包）。`size` 可选；若提供则额外校验解压后字节数。
+
+### skillsPack（高级技能包）
+
+Root catalog 可带可选字段：
+
+```json
+"skillsPack": {
+  "url": "https://…/officecli-skills.zip",
+  "archive": "zip",
+  "sha256": "<optional 64-hex of zip>",
+  "size": 0
+}
+```
+
+安装时：
+
+1. 入口 `skill.url` → `profiles/local/config/skills/officecli/SKILL.md`（目录型路由 skill）
+2. `skillsPack` zip 解压后，扫描含 `SKILL.md` 的包，**扁平**写入 `profiles/local/config/skills/<name>/`
+3. 跳过 pack 内的 `officecli` 入口目录（入口只来自 `skill.url`）
+4. 每个 managed 目录写 `.onmyagent-managed.json`；卸载时按 marker / `managedSkillIds` 批量清理
+
+pack 布局示例：`officecli-skills/officecli-docx/SKILL.md`、`morph-ppt/…`（可有 `reference/` 等附属文件）。
+
+平台键：`officecli-mac-arm64` / `officecli-mac-x64` / `officecli-win-arm64` / `officecli-win-x64`（无 Linux）。
+
+## 可复用能力
+
+`apps/desktop/electron/managed-tools/managed-cli/`：
+
+| 模块 | 能力 |
+|------|------|
+| `config.mjs` | registry / download-config 加载 |
+| `archive.mjs` | zip 解压（单文件 entry / 整包） |
+| `download.mjs` | `createManagedCliDownloader`：fetch 重试、stream 落盘、`hashFile` / `verifyDigest`（sha256 必校、size 可选） |
+| `version.mjs` | `x.y.z` 版本比较 |
+| `errors.mjs` | `codedError` |
+
+产品 manager（`officecli-manager`、后续飞书/腾讯文档）只保留：platform keys、binary 名、skill 物化、launcher、state schema。
 
 ## Manifest 格式
 
@@ -84,45 +126,16 @@ node scripts/officecli/validate-manifest.mjs \
 
 此外，必须在对应系统上执行每个二进制的 `--version`，并确认输出与 manifest 版本完全相同。校验器无法在 macOS 主机上替代 Windows 二进制的实际启动检查；桌面端安装时也会再次拒绝版本不一致的二进制。
 
-## 公网与临时签名 URL
+## 配置与覆盖
 
-最终面向国内用户时，推荐将 `officecli/manifest.json`、release manifest、`SKILL.md` 和四个平台文件设置为 OSS 公共读，并保持稳定的 HTTPS 路径。这样客户端只需要内置根 manifest 地址，用户点击市场卡片的安装或更新即可完成整个流程。
+**Registry（包内）：** `apps/desktop/electron/managed-tools/managed-cli-registry.json`
 
-临时测试 / 内测打包阶段可以使用签名 URL。推荐直接改本地配置文件（会打进 electron asar，无需 `source .env`）：
+可选环境变量：
 
-**配置文件路径：** `apps/desktop/electron/managed-tools/officecli-download-config.json`
+- `ONMYAGENT_MANAGED_CLI_REGISTRY` — 指向其它 registry JSON
+- `ONMYAGENT_OFFICECLI_MANIFEST_URL` — 覆盖 officecli 的 root catalog URL（调试用）
 
-```json
-{
-  "manifestUrl": "https://…/officecli/manifest.json?…",
-  "releaseManifestUrl": "https://…/officecli/releases/1.0.143/manifest.json?…",
-  "skillUrl": "https://…/officecli/releases/1.0.143/SKILL.md?…",
-  "assets": {
-    "officecli-mac-arm64": "https://…/officecli-mac-arm64?…",
-    "officecli-mac-x64": "https://…/officecli-mac-x64?…",
-    "officecli-win-arm64": "https://…/officecli-win-arm64.exe?…",
-    "officecli-win-x64": "https://…/officecli-win-x64.exe?…"
-  }
-}
-```
-
-更新链接后：`pnpm dev` 直接生效；给内测用户则重新打包即可。签名过期后只改该文件里的 URL。
-
-可选：`ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG=/abs/path.json` 指向其它配置文件。
-
-优先级：`createOfficeCliManager` 入参 > 环境变量 > 配置文件 > 内置公共读默认 URL。
-
-环境变量覆盖（测试 / 一次性调试仍可用）：
-
-- `ONMYAGENT_OFFICECLI_MANIFEST_URL`
-- `ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL`
-- `ONMYAGENT_OFFICECLI_SKILL_URL`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_MAC_ARM64`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_MAC_X64`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_WIN_ARM64`
-- `ONMYAGENT_OFFICECLI_ASSET_URL_WIN_X64`
-
-临时签名 URL 必须覆盖根 manifest、release manifest、SKILL 和当前平台资产。切换到公共读 URL 后，把配置文件字段清空或删掉对应键，重启桌面端即可恢复默认路径。
+优先级：`createOfficeCliManager` 入参 > 环境变量 > registry。
 
 ## 会话产物卡
 

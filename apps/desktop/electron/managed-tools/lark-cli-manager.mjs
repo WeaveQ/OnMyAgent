@@ -26,7 +26,7 @@ import {
 import {
   resolveLocalManagedToolsBinRoot,
   resolveLocalSkillsRoot,
-  resolveOfficeCliManagedRoot,
+  resolveLarkCliManagedRoot,
 } from "../config-profile-paths.mjs";
 import {
   codedError,
@@ -50,18 +50,18 @@ import {
   verifyOptionalBytes,
 } from "./managed-cli/index.mjs";
 
-export const OFFICECLI_PLUGIN_ID = "officecli";
+export const LARK_CLI_PLUGIN_ID = "lark-cli";
 /** @deprecated Use MANAGED_CLI_DEFAULT_REGISTRY_PATH / resolveManagedCliRegistryPath. */
-export const OFFICECLI_DEFAULT_DOWNLOAD_CONFIG_PATH = MANAGED_CLI_DEFAULT_REGISTRY_PATH;
-export const OFFICECLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-export const OFFICECLI_NETWORK_TIMEOUT_MS = MANAGED_CLI_NETWORK_TIMEOUT_MS;
-export const OFFICECLI_NETWORK_RETRY_COUNT = MANAGED_CLI_NETWORK_RETRY_COUNT;
+export const LARK_CLI_DEFAULT_DOWNLOAD_CONFIG_PATH = MANAGED_CLI_DEFAULT_REGISTRY_PATH;
+export const LARK_CLI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+export const LARK_CLI_NETWORK_TIMEOUT_MS = MANAGED_CLI_NETWORK_TIMEOUT_MS;
+export const LARK_CLI_NETWORK_RETRY_COUNT = MANAGED_CLI_NETWORK_RETRY_COUNT;
 
 const ASSET_PLATFORM_KEYS = [
-  "officecli-mac-arm64",
-  "officecli-mac-x64",
-  "officecli-win-arm64",
-  "officecli-win-x64",
+  "lark-cli-mac-arm64",
+  "lark-cli-mac-x64",
+  "lark-cli-win-arm64",
+  "lark-cli-win-x64",
 ];
 
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
@@ -69,64 +69,41 @@ const MAX_SKILL_BYTES = 1024 * 1024;
 const MAX_SKILLS_PACK_BYTES = 64 * 1024 * 1024;
 const MAX_BINARY_BYTES = 512 * 1024 * 1024;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
-const PLATFORM_PATTERN = /^officecli-(?:mac|win)-(?:arm64|x64)$/;
+const PLATFORM_PATTERN = /^lark-cli-(?:mac|win)-(?:arm64|x64)$/;
 /** Entry skill is installed from skill.url; pack may still contain a stub dir. */
-const ENTRY_SKILL_ID = "officecli";
+const ENTRY_SKILL_ID = "lark-cli";
 const SKILL_DIR_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
-/**
- * Managed launcher: runs the pinned binary, then emits ONMYAGENT_DELIVERABLE
- * markers so session product cards can open Office files the same way as
- * artifact-runtime writes.
- */
-export const OFFICECLI_LAUNCHER_SOURCE = `
+/** Managed launcher: runs the pinned lark-cli binary via tools/bin. */
+export const LARK_CLI_LAUNCHER_SOURCE = `
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  collectOfficeCliDeliverablePaths,
-  formatOfficeCliDeliverableMarkers,
-} from "./officecli-deliverable.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const statePath = path.join(root, "state.json");
 const state = JSON.parse(readFileSync(statePath, "utf8"));
+// Escape \\d / \\. for template literal so written launcher keeps real digit regex.
 if (!/^\\d+\\.\\d+\\.\\d+$/.test(String(state.activeVersion ?? ""))) {
-  throw new Error("Invalid OfficeCLI active version");
+  throw new Error("Invalid lark-cli active version");
 }
-if (!/^officecli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? ""))) {
-  throw new Error("Invalid OfficeCLI platform");
+if (!/^lark-cli-(?:mac|win)-(?:arm64|x64)$/.test(String(state.platform ?? ""))) {
+  throw new Error("Invalid lark-cli platform");
 }
-const binaryName = process.platform === "win32" ? "officecli.exe" : "officecli";
+const binaryName = process.platform === "win32" ? "lark-cli.exe" : "lark-cli";
 const binaryPath = path.join(root, "releases", state.activeVersion, state.platform, binaryName);
-const cliArgs = process.argv.slice(2);
-const result = spawnSync(binaryPath, cliArgs, {
+const result = spawnSync(binaryPath, process.argv.slice(2), {
   encoding: "utf8",
   maxBuffer: 32 * 1024 * 1024,
   windowsHide: true,
 });
 if (result.error) throw result.error;
-const stdout = result.stdout ?? "";
-const stderr = result.stderr ?? "";
-if (stdout) process.stdout.write(stdout);
-if (stderr) process.stderr.write(stderr);
-const exitCode = result.status ?? 1;
-const deliverables = collectOfficeCliDeliverablePaths({
-  argv: cliArgs,
-  stdout,
-  exitCode,
-});
-const markers = formatOfficeCliDeliverableMarkers(deliverables);
-if (markers) process.stdout.write(markers);
-process.exit(exitCode);
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
 `;
 
-const OFFICECLI_DELIVERABLE_MODULE_NAME = "officecli-deliverable.mjs";
-const OFFICECLI_DELIVERABLE_SOURCE_PATH = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  OFFICECLI_DELIVERABLE_MODULE_NAME,
-);
 
 function normalizeArch(arch) {
   if (arch === "arm64") return "arm64";
@@ -134,35 +111,35 @@ function normalizeArch(arch) {
   return null;
 }
 
-export function officeCliPlatformKey(platform = process.platform, arch = os.arch()) {
+export function larkCliPlatformKey(platform = process.platform, arch = os.arch()) {
   const normalizedArch = normalizeArch(arch);
   if (!normalizedArch) return null;
-  if (platform === "darwin") return `officecli-mac-${normalizedArch}`;
-  if (platform === "win32") return `officecli-win-${normalizedArch}`;
+  if (platform === "darwin") return `lark-cli-mac-${normalizedArch}`;
+  if (platform === "win32") return `lark-cli-win-${normalizedArch}`;
   return null;
 }
 
-export function compareOfficeCliVersions(left, right) {
+export function compareLarkCliVersions(left, right) {
   return compareManagedCliVersions(left, right);
 }
 
 /**
  * Resolve managed-cli registry path (multi-plugin manifestUrl map).
  * Priority: explicit path → ONMYAGENT_MANAGED_CLI_REGISTRY →
- * ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG (legacy) → default registry.
+ * ONMYAGENT_LARK_CLI_DOWNLOAD_CONFIG (legacy) → default registry.
  */
-export function resolveOfficeCliDownloadConfigPath(customPath) {
+export function resolveLarkCliDownloadConfigPath(customPath) {
   const fromOption = nonEmptyString(customPath);
   if (fromOption) return fromOption;
   const fromRegistryEnv = nonEmptyString(process.env.ONMYAGENT_MANAGED_CLI_REGISTRY);
   if (fromRegistryEnv) return fromRegistryEnv;
-  const fromLegacyEnv = nonEmptyString(process.env.ONMYAGENT_OFFICECLI_DOWNLOAD_CONFIG);
+  const fromLegacyEnv = nonEmptyString(process.env.ONMYAGENT_LARK_CLI_DOWNLOAD_CONFIG);
   if (fromLegacyEnv) return fromLegacyEnv;
   return resolveManagedCliRegistryPath();
 }
 
 /**
- * Load OfficeCLI entry from the shared managed-cli registry (or a legacy
+ * Load lark-cli entry from the shared managed-cli registry (or a legacy
  * single-plugin download-config JSON used in unit tests).
  *
  * @returns {{
@@ -174,9 +151,9 @@ export function resolveOfficeCliDownloadConfigPath(customPath) {
  *   assetUrlOverrides: Record<string, string>,
  * }}
  */
-export function loadOfficeCliDownloadConfig(configPath) {
-  const resolvedPath = resolveOfficeCliDownloadConfigPath(configPath);
-  const pluginEntry = loadManagedCliPluginEntry(OFFICECLI_PLUGIN_ID, resolvedPath);
+export function loadLarkCliDownloadConfig(configPath) {
+  const resolvedPath = resolveLarkCliDownloadConfigPath(configPath);
+  const pluginEntry = loadManagedCliPluginEntry(LARK_CLI_PLUGIN_ID, resolvedPath);
   if (pluginEntry.manifestUrl) {
     return {
       version: null,
@@ -232,7 +209,7 @@ function assertSafeRelativePath(value) {
     /^[A-Za-z]:[\\/]/.test(text) ||
     text.split(/[\\/]/).includes("..")
   ) {
-    throw new Error(`Unsafe OfficeCLI release path: ${text}`);
+    throw new Error(`Unsafe lark-cli release path: ${text}`);
   }
 }
 
@@ -240,11 +217,11 @@ function resolveSameOriginUrl(base, relativeReference) {
   assertSafeRelativePath(relativeReference);
   const baseUrl = new URL(base);
   if (baseUrl.protocol !== "https:") {
-    throw new Error("OfficeCLI downloads require HTTPS");
+    throw new Error("lark-cli downloads require HTTPS");
   }
   const resolved = new URL(relativeReference, baseUrl);
   if (resolved.origin !== baseUrl.origin) {
-    throw new Error("OfficeCLI download must stay on the configured OSS origin");
+    throw new Error("lark-cli download must stay on the configured OSS origin");
   }
   return resolved.href;
 }
@@ -261,15 +238,15 @@ function assertHttpsUrl(value, label) {
  * Resolve download URL. Absolute https:// URLs (permanent CDN) are accepted as-is;
  * relative paths stay same-origin to the release base.
  */
-function resolveOfficeCliUrl(base, reference) {
+function resolveLarkCliUrl(base, reference) {
   if (typeof reference === "string") {
     if (/^https:\/\//i.test(reference)) {
-      return assertHttpsUrl(reference, "OfficeCLI download URL");
+      return assertHttpsUrl(reference, "lark-cli download URL");
     }
     return resolveSameOriginUrl(base, reference);
   }
   if (reference.url) {
-    return assertHttpsUrl(reference.url, "OfficeCLI download URL");
+    return assertHttpsUrl(reference.url, "lark-cli download URL");
   }
   return resolveSameOriginUrl(base, reference.path);
 }
@@ -339,7 +316,7 @@ async function discoverSkillPackages(root) {
       const id = path.basename(skillDir);
       if (!SKILL_DIR_NAME_PATTERN.test(id) || id === ENTRY_SKILL_ID) continue;
       if (found.some((item) => item.id === id)) {
-        throw new Error(`Duplicate OfficeCLI skill package in pack: ${id}`);
+        throw new Error(`Duplicate lark-cli skill package in pack: ${id}`);
       }
       found.push({ id, sourceDir: skillDir });
     }
@@ -360,7 +337,7 @@ function normalizeReleaseManifestPayload(value) {
 }
 
 function binaryName(platform) {
-  return platform === "win32" ? "officecli.exe" : "officecli";
+  return platform === "win32" ? "lark-cli.exe" : "lark-cli";
 }
 
 function shellQuote(value) {
@@ -372,7 +349,7 @@ function nowMs() {
 }
 
 function errorCode(error) {
-  return managedErrorCode(error, "officecli_error");
+  return managedErrorCode(error, "lark_cli_error");
 }
 
 async function pathExists(target) {
@@ -432,7 +409,7 @@ async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
 
 function statusBase(platform) {
   return {
-    pluginId: OFFICECLI_PLUGIN_ID,
+    pluginId: LARK_CLI_PLUGIN_ID,
     state: platform ? "not_installed" : "unsupported",
     supported: Boolean(platform),
     platform: platform ?? `${process.platform}-${os.arch()}`,
@@ -444,11 +421,11 @@ function statusBase(platform) {
   };
 }
 
-export function createOfficeCliManager(options = {}) {
+export function createLarkCliManager(options = {}) {
   const homeDir = options.homeDir ?? os.homedir();
   const platform = options.platform ?? process.platform;
   const arch = options.arch ?? os.arch();
-  const platformKey = officeCliPlatformKey(platform, arch);
+  const platformKey = larkCliPlatformKey(platform, arch);
   // options > env > local download-config.json (version pin + permanent CDN URLs).
   // Pass downloadConfig: false to skip the on-disk file (unit tests).
   const emptyFileConfig = {
@@ -506,32 +483,32 @@ export function createOfficeCliManager(options = {}) {
               assetUrlOverrides,
             };
           })()
-        : loadOfficeCliDownloadConfig(options.downloadConfigPath);
+        : loadLarkCliDownloadConfig(options.downloadConfigPath);
   // Optional root pointer (legacy). Prefer releaseManifestUrl + version from config.
   const manifestUrl = firstConfiguredUrl(
     options.manifestUrl,
-    process.env.ONMYAGENT_OFFICECLI_MANIFEST_URL,
+    process.env.ONMYAGENT_LARK_CLI_MANIFEST_URL,
     fileConfig.manifestUrl,
   );
   const releaseManifestUrlOverride = firstConfiguredUrl(
     options.releaseManifestUrl,
-    process.env.ONMYAGENT_OFFICECLI_RELEASE_MANIFEST_URL,
+    process.env.ONMYAGENT_LARK_CLI_RELEASE_MANIFEST_URL,
     fileConfig.releaseManifestUrl,
   );
   const skillUrlOverride = firstConfiguredUrl(
     options.skillUrl,
-    process.env.ONMYAGENT_OFFICECLI_SKILL_URL,
+    process.env.ONMYAGENT_LARK_CLI_SKILL_URL,
     fileConfig.skillUrl,
   );
   const pinnedVersion =
     nonEmptyString(options.version) ||
-    nonEmptyString(process.env.ONMYAGENT_OFFICECLI_VERSION) ||
+    nonEmptyString(process.env.ONMYAGENT_LARK_CLI_VERSION) ||
     fileConfig.version;
   /** @type {Record<string, string>} */
   const envAssetUrlOverrides = Object.create(null);
   for (const assetKey of ASSET_PLATFORM_KEYS) {
-    const envKey = `ONMYAGENT_OFFICECLI_ASSET_URL_${assetKey
-      .replace(/^officecli-/, "")
+    const envKey = `ONMYAGENT_LARK_CLI_ASSET_URL_${assetKey
+      .replace(/^lark-cli-/, "")
       .replaceAll("-", "_")
       .toUpperCase()}`;
     const environmentValue = nonEmptyString(process.env[envKey]);
@@ -553,13 +530,13 @@ export function createOfficeCliManager(options = {}) {
   }
   const networkTimeoutMs = Number.isFinite(Number(options.networkTimeoutMs))
     ? Math.max(1, Number(options.networkTimeoutMs))
-    : OFFICECLI_NETWORK_TIMEOUT_MS;
+    : LARK_CLI_NETWORK_TIMEOUT_MS;
   const networkRetryCount = Number.isInteger(Number(options.networkRetryCount))
     ? Math.max(0, Number(options.networkRetryCount))
-    : OFFICECLI_NETWORK_RETRY_COUNT;
+    : LARK_CLI_NETWORK_RETRY_COUNT;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const downloader = createManagedCliDownloader({
-    label: "OfficeCLI",
+    label: "lark-cli",
     networkTimeoutMs,
     networkRetryCount,
     fetchImpl,
@@ -575,7 +552,7 @@ export function createOfficeCliManager(options = {}) {
   const emitProgress = options.onProgress ?? (() => undefined);
   const emitStatus = options.onStatus ?? (() => undefined);
   const now = options.now ?? nowMs;
-  const managedRoot = resolveOfficeCliManagedRoot(homeDir);
+  const managedRoot = resolveLarkCliManagedRoot(homeDir);
   const toolsBinRoot = resolveLocalManagedToolsBinRoot(homeDir);
   const statePath = path.join(managedRoot, "state.json");
   const cachePath = path.join(managedRoot, "update-cache.json");
@@ -586,7 +563,7 @@ export function createOfficeCliManager(options = {}) {
   }
 
   function currentSkillPath() {
-    return path.join(skillsRoot(), OFFICECLI_PLUGIN_ID);
+    return path.join(skillsRoot(), LARK_CLI_PLUGIN_ID);
   }
 
   function skillPackagePath(skillId) {
@@ -604,7 +581,7 @@ export function createOfficeCliManager(options = {}) {
   function assetUrlOverride(key) {
     const configured = assetUrlOverrides[key];
     if (typeof configured === "string" && configured.trim()) return configured.trim();
-    return process.env.ONMYAGENT_OFFICECLI_ASSET_URL?.trim() || null;
+    return process.env.ONMYAGENT_LARK_CLI_ASSET_URL?.trim() || null;
   }
 
   /**
@@ -622,7 +599,7 @@ export function createOfficeCliManager(options = {}) {
     if (
       !forceRefresh &&
       cached &&
-      Number(cached.fetchedAt) + OFFICECLI_CACHE_TTL_MS > now()
+      Number(cached.fetchedAt) + LARK_CLI_CACHE_TTL_MS > now()
     ) {
       const latest = officeCliLatestManifestSchema.parse(cached.latest);
       const release = officeCliReleaseManifestSchema.parse(cached.release);
@@ -636,7 +613,7 @@ export function createOfficeCliManager(options = {}) {
 
     if (!manifestUrl) {
       throw new Error(
-        "OfficeCLI download config must provide manifestUrl (permanent root catalog)",
+        "lark-cli download config must provide manifestUrl (permanent root catalog)",
       );
     }
 
@@ -655,13 +632,13 @@ export function createOfficeCliManager(options = {}) {
       const catalog = officeCliRootCatalogSchema.parse(raw);
       if (
         catalog.pluginId &&
-        catalog.pluginId !== OFFICECLI_PLUGIN_ID
+        catalog.pluginId !== LARK_CLI_PLUGIN_ID
       ) {
-        throw new Error("OfficeCLI root catalog pluginId mismatch");
+        throw new Error("lark-cli root catalog pluginId mismatch");
       }
       const release = officeCliReleaseManifestSchema.parse({
         schemaVersion: 1,
-        pluginId: OFFICECLI_PLUGIN_ID,
+        pluginId: LARK_CLI_PLUGIN_ID,
         version: catalog.latestVersion,
         officecliVersion: catalog.latestVersion,
         skill: catalog.skill,
@@ -709,7 +686,7 @@ export function createOfficeCliManager(options = {}) {
     const latest = officeCliLatestManifestSchema.parse(raw);
     const releaseUrl =
       releaseManifestUrlOverride ??
-      resolveOfficeCliUrl(manifestUrl, latest.releaseManifest);
+      resolveLarkCliUrl(manifestUrl, latest.releaseManifest);
     const releaseResponse = await fetchJson(releaseUrl, MAX_MANIFEST_BYTES);
     if (typeof latest.releaseManifest !== "string") {
       verifyBytes(releaseResponse.bytes, latest.releaseManifest, "release manifest");
@@ -718,11 +695,11 @@ export function createOfficeCliManager(options = {}) {
       normalizeReleaseManifestPayload(releaseResponse.value),
     );
     if (
-      (release.pluginId && release.pluginId !== OFFICECLI_PLUGIN_ID) ||
+      (release.pluginId && release.pluginId !== LARK_CLI_PLUGIN_ID) ||
       release.version !== latest.latestVersion ||
       (release.officecliVersion && release.officecliVersion !== release.version)
     ) {
-      throw new Error("OfficeCLI release manifest does not match the latest pointer");
+      throw new Error("lark-cli release manifest does not match the latest pointer");
     }
     const fetchedAt = now();
     await writeJsonAtomic(cachePath, {
@@ -740,7 +717,7 @@ export function createOfficeCliManager(options = {}) {
       const marker = JSON.parse(
         await readFile(path.join(skillPath, ".onmyagent-managed.json"), "utf8"),
       );
-      return marker?.owner === "onmyagent" && marker?.pluginId === OFFICECLI_PLUGIN_ID;
+      return marker?.owner === "onmyagent" && marker?.pluginId === LARK_CLI_PLUGIN_ID;
     } catch {
       return false;
     }
@@ -750,7 +727,7 @@ export function createOfficeCliManager(options = {}) {
     await writeJsonAtomic(path.join(skillPath, ".onmyagent-managed.json"), {
       schemaVersion: 1,
       owner: "onmyagent",
-      pluginId: OFFICECLI_PLUGIN_ID,
+      pluginId: LARK_CLI_PLUGIN_ID,
       version,
     });
   }
@@ -782,7 +759,7 @@ export function createOfficeCliManager(options = {}) {
   }
 
   /**
-   * Remove managed OfficeCLI skill dirs (entry + pack). Prefers state list,
+   * Remove managed lark-cli skill dirs (entry + pack). Prefers state list,
    * then scans skills root for owned markers so orphans are cleaned.
    * @param {string[] | undefined | null} knownIds
    */
@@ -810,7 +787,7 @@ export function createOfficeCliManager(options = {}) {
       if (!(await readOwnership(full))) {
         if (id === ENTRY_SKILL_ID) {
           throw codedError(
-            "An existing user-owned officecli skill was not removed",
+            "An existing user-owned lark-cli skill was not removed",
             "skill_conflict",
           );
         }
@@ -823,14 +800,9 @@ export function createOfficeCliManager(options = {}) {
   async function ensureLauncher() {
     await mkdir(toolsBinRoot, { recursive: true });
     await mkdir(managedRoot, { recursive: true });
-    // Keep deliverable helper next to launcher.mjs (relative import).
-    await cp(
-      OFFICECLI_DELIVERABLE_SOURCE_PATH,
-      path.join(managedRoot, OFFICECLI_DELIVERABLE_MODULE_NAME),
-    );
-    await writeFile(path.join(managedRoot, "launcher.mjs"), OFFICECLI_LAUNCHER_SOURCE, "utf8");
-    const posixLauncher = path.join(toolsBinRoot, "officecli");
-    const windowsLauncher = path.join(toolsBinRoot, "officecli.cmd");
+    await writeFile(path.join(managedRoot, "launcher.mjs"), LARK_CLI_LAUNCHER_SOURCE, "utf8");
+    const posixLauncher = path.join(toolsBinRoot, "lark-cli");
+    const windowsLauncher = path.join(toolsBinRoot, "lark-cli.cmd");
     await writeFile(
       posixLauncher,
       `#!/bin/sh\nexec node ${shellQuote(path.join(managedRoot, "launcher.mjs"))} "$@"\n`,
@@ -839,7 +811,7 @@ export function createOfficeCliManager(options = {}) {
     await chmod(posixLauncher, 0o755).catch(() => undefined);
     await writeFile(
       windowsLauncher,
-      `@echo off\r\nnode "%~dp0..\\officecli\\launcher.mjs" %*\r\n`,
+      `@echo off\r\nnode "%~dp0..\\lark-cli\\launcher.mjs" %*\r\n`,
       "utf8",
     );
   }
@@ -880,15 +852,15 @@ export function createOfficeCliManager(options = {}) {
           status.usable = false;
           status.state = "error";
           status.errorCode = "integrity_missing";
-          status.errorMessage = "OfficeCLI integrity metadata is missing";
+          status.errorMessage = "lark-cli integrity metadata is missing";
         } else {
           try {
             const [binaryDigest, skillDigest] = await Promise.all([
-              hashFile(binaryPath, MAX_BINARY_BYTES, "OfficeCLI binary"),
-              hashFile(path.join(skillPath, "SKILL.md"), MAX_SKILL_BYTES, "OfficeCLI SKILL.md"),
+              hashFile(binaryPath, MAX_BINARY_BYTES, "lark-cli binary"),
+              hashFile(path.join(skillPath, "SKILL.md"), MAX_SKILL_BYTES, "lark-cli SKILL.md"),
             ]);
-            verifyHash(binaryDigest.sha256, expectedRelease.binarySha256, "OfficeCLI binary");
-            verifyHash(skillDigest.sha256, expectedRelease.skillSha256, "OfficeCLI SKILL.md");
+            verifyHash(binaryDigest.sha256, expectedRelease.binarySha256, "lark-cli binary");
+            verifyHash(skillDigest.sha256, expectedRelease.skillSha256, "lark-cli SKILL.md");
           } catch (error) {
             status.usable = false;
             status.state = "error";
@@ -906,7 +878,7 @@ export function createOfficeCliManager(options = {}) {
       if (
         state &&
         status.usable &&
-        compareOfficeCliVersions(latest.latestVersion, state.activeVersion) > 0
+        compareLarkCliVersions(latest.latestVersion, state.activeVersion) > 0
       ) {
         status.state = "update_available";
       }
@@ -943,7 +915,7 @@ export function createOfficeCliManager(options = {}) {
       const asset = platformKey ? remote.release.assets[platformKey] : undefined;
       if (!platformKey || !asset) {
         throw codedError(
-          "OfficeCLI is not supported on this platform",
+          "lark-cli is not supported on this platform",
           "unsupported_platform",
         );
       }
@@ -982,15 +954,15 @@ export function createOfficeCliManager(options = {}) {
           nonEmptyString(asset.entry) ||
           assetSpecs[platformKey]?.entry ||
           nonEmptyString(asset.path) ||
-          "officecli";
-        const binaryUrl = resolveOfficeCliUrl(
+          "lark-cli";
+        const binaryUrl = resolveLarkCliUrl(
           remote.releaseUrl,
           referenceWithOverride(
             asset,
             asset.url || assetSpecs[platformKey]?.url || assetUrlOverride(platformKey),
           ),
         );
-        const skillUrl = resolveOfficeCliUrl(
+        const skillUrl = resolveLarkCliUrl(
           remote.releaseUrl,
           referenceWithOverride(
             skillReference,
@@ -1008,7 +980,7 @@ export function createOfficeCliManager(options = {}) {
             stagingZip,
             MAX_BINARY_BYTES,
             undefined,
-            "OfficeCLI binary archive",
+            "lark-cli binary archive",
             (receivedBytes, totalBytes) =>
               emitProgress({
                 operation: operationName,
@@ -1028,13 +1000,13 @@ export function createOfficeCliManager(options = {}) {
           const binaryDigest = await hashFile(
             stagingBinary,
             MAX_BINARY_BYTES,
-            "OfficeCLI binary",
+            "lark-cli binary",
           );
           verifyDigest(
             binaryDigest.size,
             binaryDigest.sha256,
             asset,
-            "OfficeCLI binary",
+            "lark-cli binary",
           );
         } else {
           const binaryResponse = await fetchWithRetry(binaryUrl);
@@ -1043,7 +1015,7 @@ export function createOfficeCliManager(options = {}) {
             stagingBinary,
             MAX_BINARY_BYTES,
             asset,
-            "OfficeCLI binary",
+            "lark-cli binary",
             (receivedBytes, totalBytes) =>
               emitProgress({
                 operation: operationName,
@@ -1074,11 +1046,11 @@ export function createOfficeCliManager(options = {}) {
         const skillSha256 = verifyOptionalBytes(
           skillBytes,
           expectedSkill,
-          "OfficeCLI SKILL.md",
+          "lark-cli SKILL.md",
         );
         const skillText = skillBytes.toString("utf8");
-        if (!/^---[\r\n]+[\s\S]*?name:\s*officecli(?:\r?\n|$)/m.test(skillText)) {
-          throw new Error("OfficeCLI SKILL.md has an invalid name");
+        if (!/^---[\r\n]+[\s\S]*?name:\s*lark-cli(?:\r?\n|$)/m.test(skillText)) {
+          throw new Error("lark-cli SKILL.md has an invalid name");
         }
         await writeFile(stagingSkill, skillBytes);
 
@@ -1089,7 +1061,7 @@ export function createOfficeCliManager(options = {}) {
         const skillsPackRef = releaseSkillsPackReference(remote.release);
         if (skillsPackRef?.url) {
           emitProgress({ operation: operationName, phase: "downloading_skills_pack" });
-          const packUrl = resolveOfficeCliUrl(remote.releaseUrl, skillsPackRef);
+          const packUrl = resolveLarkCliUrl(remote.releaseUrl, skillsPackRef);
           const stagingPackZip = path.join(stagingRoot, "skills-pack.zip");
           const stagingPackDir = path.join(stagingRoot, "skills-pack");
           const packResponse = await fetchWithRetry(packUrl);
@@ -1103,7 +1075,7 @@ export function createOfficeCliManager(options = {}) {
             stagingPackZip,
             MAX_SKILLS_PACK_BYTES,
             packExpected,
-            "OfficeCLI skills pack",
+            "lark-cli skills pack",
             (receivedBytes, totalBytes) =>
               emitProgress({
                 operation: operationName,
@@ -1120,7 +1092,7 @@ export function createOfficeCliManager(options = {}) {
             verifyHash(
               packStream.digest,
               skillsPackRef.sha256,
-              "OfficeCLI skills pack",
+              "lark-cli skills pack",
             );
           }
           skillsPackSha256 = packStream.digest;
@@ -1131,20 +1103,20 @@ export function createOfficeCliManager(options = {}) {
           });
           packPackages = await discoverSkillPackages(stagingPackDir);
           if (packPackages.length === 0) {
-            throw new Error("OfficeCLI skills pack contained no skill packages");
+            throw new Error("lark-cli skills pack contained no skill packages");
           }
         }
 
         emitProgress({ operation: operationName, phase: "verifying" });
         if (!(await runBinaryVersion(stagingBinary, remote.release.version))) {
-          throw new Error("OfficeCLI binary version check failed");
+          throw new Error("lark-cli binary version check failed");
         }
 
         const skillPath = currentSkillPath();
         const skillExists = await pathExists(skillPath);
         if (skillExists && !(await readOwnership(skillPath))) {
           throw codedError(
-            "An existing user-owned officecli skill was not overwritten",
+            "An existing user-owned lark-cli skill was not overwritten",
             "skill_conflict",
           );
         }
@@ -1217,7 +1189,7 @@ export function createOfficeCliManager(options = {}) {
           }
           await writeJsonAtomic(statePath, {
             schemaVersion: 1,
-            pluginId: OFFICECLI_PLUGIN_ID,
+            pluginId: LARK_CLI_PLUGIN_ID,
             activeVersion: remote.release.version,
             previousVersion,
             platform: platformKey,
@@ -1267,8 +1239,8 @@ export function createOfficeCliManager(options = {}) {
       const state = await readState();
       await removeManagedSkills(state?.managedSkillIds);
       await rm(managedRoot, { recursive: true, force: true });
-      await rm(path.join(toolsBinRoot, "officecli"), { force: true });
-      await rm(path.join(toolsBinRoot, "officecli.cmd"), { force: true });
+      await rm(path.join(toolsBinRoot, "lark-cli"), { force: true });
+      await rm(path.join(toolsBinRoot, "lark-cli.cmd"), { force: true });
       await refreshSkillLinks();
       const status = statusBase(platformKey);
       emitStatus(status);

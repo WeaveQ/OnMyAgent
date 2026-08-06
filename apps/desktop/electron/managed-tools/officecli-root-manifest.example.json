@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "officecli",
+  "channel": "stable",
+  "latestVersion": "1.0.143",
+  "skill": {
+    "url": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/SKILL.md"
+  },
+  "skillsPack": {
+    "url": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/officecli-skills.zip",
+    "archive": "zip"
+  },
+  "assets": {
+    "officecli-mac-arm64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_mac_arm64.zip",
+      "archive": "zip",
+      "entry": "officecli-mac-arm64",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256_OF_EXTRACTED_BINARY"
+    },
+    "officecli-mac-x64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_mac_x64.zip",
+      "archive": "zip",
+      "entry": "officecli-mac-x64",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256_OF_EXTRACTED_BINARY"
+    },
+    "officecli-win-arm64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_win_arm64.zip",
+      "archive": "zip",
+      "entry": "officecli-win-arm64.exe",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256_OF_EXTRACTED_BINARY"
+    },
+    "officecli-win-x64": {
+      "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_win_x64.zip",
+      "archive": "zip",
+      "entry": "officecli-win-x64.exe",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256_OF_EXTRACTED_BINARY"
+    }
+  }
+}

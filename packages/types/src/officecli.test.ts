@@ -6,6 +6,7 @@ import {
   officeCliAssetKeySchema,
   officeCliLatestManifestSchema,
   officeCliReleaseManifestSchema,
+  officeCliRootCatalogSchema,
   officeCliStateSchema,
 } from "@onmyagent/types/officecli";
 
@@ -30,6 +31,20 @@ test("accepts a stable OfficeCLI release manifest", () => {
 
   assert.equal(parsed.pluginId, "officecli");
   assert.equal(parsed.assets["officecli-mac-arm64"]?.size, 1200);
+});
+
+test("accepts binary assets with sha256 only (size optional)", () => {
+  const parsed = officeCliReleaseManifestSchema.parse({
+    ...releaseManifest,
+    assets: {
+      "officecli-mac-arm64": {
+        path: "officecli-mac-arm64",
+        sha256: digest,
+      },
+    },
+  });
+  assert.equal(parsed.assets["officecli-mac-arm64"]?.sha256, digest);
+  assert.equal(parsed.assets["officecli-mac-arm64"]?.size, undefined);
 });
 
 test("rejects unsafe release paths and invalid versions", () => {
@@ -86,5 +101,33 @@ test("keeps the platform key vocabulary explicit", () => {
     "officecli-mac-x64",
     "officecli-win-arm64",
     "officecli-win-x64",
+    "lark-cli-mac-arm64",
+    "lark-cli-mac-x64",
+    "lark-cli-win-arm64",
+    "lark-cli-win-x64",
   ]);
+});
+
+test("accepts a lark-cli root catalog shape", () => {
+  const catalog = officeCliRootCatalogSchema.parse({
+    schemaVersion: 1,
+    pluginId: "lark-cli",
+    channel: "stable",
+    latestVersion: "1.0.84",
+    skill: { url: "https://example.com/lark-cli/SKILL.md" },
+    skillsPack: {
+      url: "https://example.com/lark-cli/skills.zip",
+      archive: "zip",
+    },
+    assets: {
+      "lark-cli-mac-arm64": {
+        url: "https://example.com/lark-cli-mac-arm64.zip",
+        archive: "zip",
+        entry: "lark-cli",
+        sha256: digest,
+      },
+    },
+  });
+  assert.equal(catalog.pluginId, "lark-cli");
+  assert.equal(catalog.assets["lark-cli-mac-arm64"]?.entry, "lark-cli");
 });

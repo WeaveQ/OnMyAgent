@@ -255,7 +255,18 @@ export type DesktopCommandName =
   | "uninstallSkill"
   | "officeCliGetStatus"
   | "officeCliInstallLatest"
-  | "officeCliUninstall";
+  | "officeCliUninstall"
+  | "larkCliGetStatus"
+  | "larkCliInstallLatest"
+  | "larkCliUninstall"
+  | "larkCliGetConnectionStatus"
+  | "larkCliGetRecommendedScopesJson"
+  | "larkCliSubmitManualCredentials"
+  | "larkCliStartUserLogin"
+  | "larkCliCompleteUserLogin"
+  | "larkCliStartConfigInit"
+  | "larkCliCancelConfigInit"
+  | "larkCliDisconnect";
 
 export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
 
