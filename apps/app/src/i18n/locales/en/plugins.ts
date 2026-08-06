@@ -151,7 +151,7 @@ export default {
   "plugins.larkcli_qr_step1": "Option 1: Scan with the Feishu app to create the app and authorize automatically.",
   "plugins.larkcli_qr_step2": "Option 2: Open the link under the QR code in a browser to create the app and authorize.",
   "plugins.larkcli_qr_step3": "After app authorization, you will continue to user sign-in automatically.",
-  "plugins.larkcli_qr_waiting": "Waiting for scan…",
+  "plugins.larkcli_qr_waiting": "Waiting for scan to authorize the app…",
   "plugins.larkcli_qr_not_ready": "App credentials not detected yet. Finish the scan, then continue.",
   "plugins.larkcli_open_in_browser": "Open in browser",
   "plugins.larkcli_open_browser_app_auth": "Open in browser for app authorization",

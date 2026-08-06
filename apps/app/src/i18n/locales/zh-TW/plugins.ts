@@ -151,7 +151,7 @@ export default {
   "plugins.larkcli_qr_step1": "方式一：手機飛書 App 掃碼，自動建立應用並授權。",
   "plugins.larkcli_qr_step2": "方式二：點擊二維碼下方連結，在瀏覽器中建立應用並授權。",
   "plugins.larkcli_qr_step3": "應用授權完成後，將自動進入使用者登入授權流程。",
-  "plugins.larkcli_qr_waiting": "等待掃碼設定…",
+  "plugins.larkcli_qr_waiting": "等待掃碼進行應用授權…",
   "plugins.larkcli_qr_not_ready": "尚未偵測到應用設定，請完成掃碼後再繼續。",
   "plugins.larkcli_open_in_browser": "在瀏覽器開啟",
   "plugins.larkcli_open_browser_app_auth": "在瀏覽器中開啟進行應用授權",
