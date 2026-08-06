@@ -17,8 +17,9 @@ permissions:
 
 concurrency:
   group: pages-website
-  # Keep in-flight deploys; rapid website pushes otherwise cancel mid-upload.
-  cancel-in-progress: false
+  # Newest deploy wins. Queue mode (false) stacked multiple Pages deploys that
+  # each sat in deployment_in_progress ~10m and hit deploy-pages' default timeout.
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -57,9 +58,15 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # deploy-pages poll can exceed 10m when Pages is slow; give the job headroom
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Default is 600000 (10m). Successful deploys here often take ~10m of
+          # deployment_in_progress alone; raise so slow Pages does not false-fail.
+          timeout: 1200000
