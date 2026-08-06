@@ -92,6 +92,7 @@ export default {
   "plugins.officecli_progress_downloading_manifest": "Getting release information",
   "plugins.officecli_progress_downloading_binary": "Downloading runtime",
   "plugins.officecli_progress_downloading_skill": "Downloading instructions",
+  "plugins.officecli_progress_downloading_skills_pack": "Downloading advanced skills",
   "plugins.officecli_progress_verifying": "Verifying files",
   "plugins.officecli_progress_installing": "Installing locally",
   "plugins.officecli_progress_refreshing_skills": "Refreshing session capabilities",

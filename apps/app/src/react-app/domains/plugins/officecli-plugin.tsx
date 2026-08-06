@@ -73,6 +73,7 @@ type OfficeCliProgressKey =
   | "plugins.officecli_progress_downloading_binary"
   | "plugins.officecli_progress_downloading_manifest"
   | "plugins.officecli_progress_downloading_skill"
+  | "plugins.officecli_progress_downloading_skills_pack"
   | "plugins.officecli_progress_installing"
   | "plugins.officecli_progress_refreshing_skills"
   | "plugins.officecli_progress_uninstalling"
@@ -139,6 +140,8 @@ function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | n
       return "plugins.officecli_progress_downloading_binary";
     case "downloading_skill":
       return "plugins.officecli_progress_downloading_skill";
+    case "downloading_skills_pack":
+      return "plugins.officecli_progress_downloading_skills_pack";
     case "verifying":
       return "plugins.officecli_progress_verifying";
     case "installing":

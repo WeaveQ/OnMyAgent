@@ -5,7 +5,8 @@
  *   pluginId → permanent root manifestUrl
  *
  * Root catalog (CDN, hot-updated):
- *   latestVersion + skill.url + assets[platform].{url,archive,entry,sha256,size}
+ *   latestVersion + skill.url + optional skillsPack +
+ *   assets[platform].{url,archive,entry,sha256,size}
  */
 export {
   loadManagedCliDownloadConfig,
@@ -16,4 +17,4 @@ export {
   parseManagedCliAssetSpec,
   resolveManagedCliRegistryPath,
 } from "./config.mjs";
-export { extractZipEntry } from "./archive.mjs";
+export { extractZipEntry, extractZipToDir } from "./archive.mjs";

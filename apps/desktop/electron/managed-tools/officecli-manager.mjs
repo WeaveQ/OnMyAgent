@@ -5,14 +5,15 @@ import {
   access,
   chmod,
   cp,
+  lstat,
   open,
   mkdir,
+  readdir,
   readFile,
   rename,
   rm,
   writeFile,
-} from "node:fs/promises";
-import os from "node:os";
+} from "node:fs/promises";import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,6 +31,7 @@ import {
 } from "../config-profile-paths.mjs";
 import {
   extractZipEntry,
+  extractZipToDir,
   loadManagedCliDownloadConfig,
   loadManagedCliPluginEntry,
   MANAGED_CLI_DEFAULT_REGISTRY_PATH,
@@ -53,9 +55,13 @@ const ASSET_PLATFORM_KEYS = [
 
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_SKILL_BYTES = 1024 * 1024;
+const MAX_SKILLS_PACK_BYTES = 64 * 1024 * 1024;
 const MAX_BINARY_BYTES = 512 * 1024 * 1024;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const PLATFORM_PATTERN = /^officecli-(?:mac|win)-(?:arm64|x64)$/;
+/** Entry skill is installed from skill.url; pack may still contain a stub dir. */
+const ENTRY_SKILL_ID = "officecli";
+const SKILL_DIR_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 /**
  * Managed launcher: runs the pinned binary, then emits ONMYAGENT_DELIVERABLE
@@ -275,6 +281,65 @@ function releaseSkillReference(release) {
   if (release.skillPath) return release.skillPath;
   // CDN release manifests may omit skill; skillUrl comes from download config.
   return "SKILL.md";
+}
+
+function releaseSkillsPackReference(release) {
+  if (release.skillsPack && typeof release.skillsPack === "object") {
+    return release.skillsPack;
+  }
+  return null;
+}
+
+/**
+ * Walk extract root for skill package directories (contain SKILL.md).
+ * Skips entry skill id, macOS junk, and broken symlinks.
+ * @param {string} root
+ * @returns {Promise<Array<{ id: string, sourceDir: string }>>}
+ */
+async function discoverSkillPackages(root) {
+  /** @type {Array<{ id: string, sourceDir: string }>} */
+  const found = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    let entries;
+    try {
+      entries = await readdir(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "__MACOSX") continue;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+        continue;
+      }
+      if (entry.name !== "SKILL.md") continue;
+      // Skip broken / external symlinks (entry skill stub in pack).
+      try {
+        const st = await lstat(full);
+        if (st.isSymbolicLink()) {
+          try {
+            await access(full);
+          } catch {
+            continue;
+          }
+        }
+      } catch {
+        continue;
+      }
+      const skillDir = path.dirname(full);
+      const id = path.basename(skillDir);
+      if (!SKILL_DIR_NAME_PATTERN.test(id) || id === ENTRY_SKILL_ID) continue;
+      if (found.some((item) => item.id === id)) {
+        throw new Error(`Duplicate OfficeCLI skill package in pack: ${id}`);
+      }
+      found.push({ id, sourceDir: skillDir });
+    }
+  }
+  return found;
 }
 
 /** Ensure Zod accepts release payloads that omit skill/skillPath (CDN pin mode). */
@@ -729,8 +794,16 @@ export function createOfficeCliManager(options = {}) {
   const cachePath = path.join(managedRoot, "update-cache.json");
   let operation = null;
 
+  function skillsRoot() {
+    return resolveLocalSkillsRoot(homeDir);
+  }
+
   function currentSkillPath() {
-    return path.join(resolveLocalSkillsRoot(homeDir), OFFICECLI_PLUGIN_ID);
+    return path.join(skillsRoot(), OFFICECLI_PLUGIN_ID);
+  }
+
+  function skillPackagePath(skillId) {
+    return path.join(skillsRoot(), skillId);
   }
 
   async function readState() {
@@ -843,6 +916,7 @@ export function createOfficeCliManager(options = {}) {
         version: catalog.latestVersion,
         officecliVersion: catalog.latestVersion,
         skill: catalog.skill,
+        skillsPack: catalog.skillsPack,
         assets: catalog.assets,
       });
       const latest = {
@@ -920,6 +994,80 @@ export function createOfficeCliManager(options = {}) {
       return marker?.owner === "onmyagent" && marker?.pluginId === OFFICECLI_PLUGIN_ID;
     } catch {
       return false;
+    }
+  }
+
+  async function writeManagedMarker(skillPath, version) {
+    await writeJsonAtomic(path.join(skillPath, ".onmyagent-managed.json"), {
+      schemaVersion: 1,
+      owner: "onmyagent",
+      pluginId: OFFICECLI_PLUGIN_ID,
+      version,
+    });
+  }
+
+  /**
+   * Install discovered skill packages into the profile skills root.
+   * @returns {Promise<string[]>} installed skill ids
+   */
+  async function installSkillPackages(packages, version) {
+    /** @type {string[]} */
+    const installedIds = [];
+    for (const pkg of packages) {
+      const dest = skillPackagePath(pkg.id);
+      if (await pathExists(dest)) {
+        if (!(await readOwnership(dest))) {
+          throw codedError(
+            `An existing user-owned skill was not overwritten: ${pkg.id}`,
+            "skill_conflict",
+          );
+        }
+        await rm(dest, { recursive: true, force: true });
+      }
+      await mkdir(path.dirname(dest), { recursive: true });
+      await cp(pkg.sourceDir, dest, { recursive: true });
+      await writeManagedMarker(dest, version);
+      installedIds.push(pkg.id);
+    }
+    return installedIds;
+  }
+
+  /**
+   * Remove managed OfficeCLI skill dirs (entry + pack). Prefers state list,
+   * then scans skills root for owned markers so orphans are cleaned.
+   * @param {string[] | undefined | null} knownIds
+   */
+  async function removeManagedSkills(knownIds) {
+    const root = skillsRoot();
+    /** @type {Set<string>} */
+    const ids = new Set(
+      Array.isArray(knownIds) ? knownIds.filter((id) => SKILL_DIR_NAME_PATTERN.test(id)) : [],
+    );
+    ids.add(ENTRY_SKILL_ID);
+    try {
+      const entries = await readdir(root, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || !SKILL_DIR_NAME_PATTERN.test(entry.name)) continue;
+        const full = path.join(root, entry.name);
+        if (await readOwnership(full)) ids.add(entry.name);
+      }
+    } catch {
+      // skills root may not exist
+    }
+
+    for (const id of ids) {
+      const full = skillPackagePath(id);
+      if (!(await pathExists(full))) continue;
+      if (!(await readOwnership(full))) {
+        if (id === ENTRY_SKILL_ID) {
+          throw codedError(
+            "An existing user-owned officecli skill was not removed",
+            "skill_conflict",
+          );
+        }
+        continue;
+      }
+      await rm(full, { recursive: true, force: true });
     }
   }
 
@@ -1185,6 +1333,59 @@ export function createOfficeCliManager(options = {}) {
         }
         await writeFile(stagingSkill, skillBytes);
 
+        /** @type {Array<{ id: string, sourceDir: string }>} */
+        let packPackages = [];
+        /** @type {string | undefined} */
+        let skillsPackSha256;
+        const skillsPackRef = releaseSkillsPackReference(remote.release);
+        if (skillsPackRef?.url) {
+          emitProgress({ operation: operationName, phase: "downloading_skills_pack" });
+          const packUrl = resolveOfficeCliUrl(remote.releaseUrl, skillsPackRef);
+          const stagingPackZip = path.join(stagingRoot, "skills-pack.zip");
+          const stagingPackDir = path.join(stagingRoot, "skills-pack");
+          const packResponse = await fetchWithRetry(packUrl);
+          const packExpected =
+            typeof skillsPackRef.sha256 === "string" &&
+            typeof skillsPackRef.size === "number"
+              ? { sha256: skillsPackRef.sha256, size: skillsPackRef.size }
+              : undefined;
+          const packStream = await streamResponseToFile(
+            packResponse,
+            stagingPackZip,
+            MAX_SKILLS_PACK_BYTES,
+            packExpected,
+            "OfficeCLI skills pack",
+            (receivedBytes, totalBytes) =>
+              emitProgress({
+                operation: operationName,
+                phase: "downloading_skills_pack",
+                receivedBytes,
+                totalBytes,
+              }),
+            networkTimeoutMs,
+          );
+          if (
+            typeof skillsPackRef.sha256 === "string" &&
+            typeof skillsPackRef.size !== "number"
+          ) {
+            verifyHash(
+              packStream.digest,
+              skillsPackRef.sha256,
+              "OfficeCLI skills pack",
+            );
+          }
+          skillsPackSha256 = packStream.digest;
+          await extractZipToDir({
+            archivePath: stagingPackZip,
+            destDir: stagingPackDir,
+            platform,
+          });
+          packPackages = await discoverSkillPackages(stagingPackDir);
+          if (packPackages.length === 0) {
+            throw new Error("OfficeCLI skills pack contained no skill packages");
+          }
+        }
+
         emitProgress({ operation: operationName, phase: "verifying" });
         if (!(await runBinaryVersion(stagingBinary, remote.release.version))) {
           throw new Error("OfficeCLI binary version check failed");
@@ -1199,6 +1400,17 @@ export function createOfficeCliManager(options = {}) {
           );
         }
 
+        // Pre-check pack skill ownership before mutating release root.
+        for (const pkg of packPackages) {
+          const dest = skillPackagePath(pkg.id);
+          if ((await pathExists(dest)) && !(await readOwnership(dest))) {
+            throw codedError(
+              `An existing user-owned skill was not overwritten: ${pkg.id}`,
+              "skill_conflict",
+            );
+          }
+        }
+
         await mkdir(path.dirname(releaseRoot), { recursive: true });
         emitProgress({ operation: operationName, phase: "installing" });
         await rm(releaseRoot, { recursive: true, force: true });
@@ -1208,22 +1420,47 @@ export function createOfficeCliManager(options = {}) {
           ? path.join(managedRoot, "staging", `${randomUUID()}-skill-backup`)
           : null;
         if (skillBackup) await rename(skillPath, skillBackup);
+        /** @type {string[]} */
+        const previousManagedIds = Array.isArray(current?.managedSkillIds)
+          ? current.managedSkillIds
+          : [];
+        /** @type {string[]} */
+        let installedPackIds = [];
         try {
           await mkdir(path.dirname(skillPath), { recursive: true });
           await mkdir(skillPath, { recursive: true });
           await cp(movedSkillPath, path.join(skillPath, "SKILL.md"));
-          await writeJsonAtomic(path.join(skillPath, ".onmyagent-managed.json"), {
-            schemaVersion: 1,
-            owner: "onmyagent",
-            pluginId: OFFICECLI_PLUGIN_ID,
-            version: remote.release.version,
-          });
+          await writeManagedMarker(skillPath, remote.release.version);
+
+          // Remap pack sources after stagingRoot moved to releaseRoot.
+          const remappedPackages = packPackages.map((pkg) => ({
+            id: pkg.id,
+            sourceDir: path.join(
+              releaseRoot,
+              path.relative(stagingRoot, pkg.sourceDir),
+            ),
+          }));
+          installedPackIds = await installSkillPackages(
+            remappedPackages,
+            remote.release.version,
+          );
+
+          // Drop pack skills from the previous version that are no longer present.
+          for (const oldId of previousManagedIds) {
+            if (installedPackIds.includes(oldId)) continue;
+            const oldPath = skillPackagePath(oldId);
+            if ((await pathExists(oldPath)) && (await readOwnership(oldPath))) {
+              await rm(oldPath, { recursive: true, force: true });
+            }
+          }
+
           const previousVersion = current?.activeVersion ?? null;
           const releases = {
             ...(current?.releases ?? {}),
             [remote.release.version]: {
               binarySha256: asset.sha256,
               skillSha256,
+              ...(skillsPackSha256 ? { skillsPackSha256 } : {}),
             },
           };
           if (previousVersion && current?.releases?.[previousVersion]) {
@@ -1236,6 +1473,7 @@ export function createOfficeCliManager(options = {}) {
             previousVersion,
             platform: platformKey,
             installedSkillPath: skillPath,
+            managedSkillIds: installedPackIds,
             installedAt: current?.installedAt ?? now(),
             updatedAt: now(),
             releases,
@@ -1245,6 +1483,13 @@ export function createOfficeCliManager(options = {}) {
           await refreshSkillLinks();
           if (skillBackup) await rm(skillBackup, { recursive: true, force: true });
         } catch (error) {
+          // Best-effort rollback of newly written pack skills.
+          for (const id of installedPackIds) {
+            const dest = skillPackagePath(id);
+            if ((await pathExists(dest)) && (await readOwnership(dest))) {
+              await rm(dest, { recursive: true, force: true }).catch(() => undefined);
+            }
+          }
           await rm(skillPath, { recursive: true, force: true });
           if (skillBackup) await rename(skillBackup, skillPath);
           if (current) await writeJsonAtomic(statePath, current);
@@ -1270,16 +1515,8 @@ export function createOfficeCliManager(options = {}) {
     if (operation) return operation;
     operation = (async () => {
       emitProgress({ operation: "uninstall", phase: "installing" });
-      const skillPath = currentSkillPath();
-      if (await pathExists(skillPath)) {
-        if (!(await readOwnership(skillPath))) {
-          throw codedError(
-            "An existing user-owned officecli skill was not removed",
-            "skill_conflict",
-          );
-        }
-        await rm(skillPath, { recursive: true, force: true });
-      }
+      const state = await readState();
+      await removeManagedSkills(state?.managedSkillIds);
       await rm(managedRoot, { recursive: true, force: true });
       await rm(path.join(toolsBinRoot, "officecli"), { force: true });
       await rm(path.join(toolsBinRoot, "officecli.cmd"), { force: true });

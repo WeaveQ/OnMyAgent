@@ -6,6 +6,10 @@
   "skill": {
     "url": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/SKILL.md"
   },
+  "skillsPack": {
+    "url": "https://weaveq-plugs.oss-cn-hangzhou.aliyuncs.com/officecli/releases/1.0.143/officecli-skills.zip",
+    "archive": "zip"
+  },
   "assets": {
     "officecli-mac-arm64": {
       "url": "https://imagecdn.ymm56.com/ymmfile/static/resource/officecli/release/1_0_143/officecli_mac_arm64.zip",

@@ -66,6 +66,19 @@ const officeCliSkillDescriptorSchema = z
   })
   .strict();
 
+/**
+ * Optional multi-skill zip (advanced officecli-* / morph-ppt packages).
+ * sha256/size apply to the zip bytes when provided.
+ */
+const officeCliSkillsPackSchema = z
+  .object({
+    url: httpsUrlSchema,
+    archive: z.literal("zip").optional(),
+    sha256: sha256Schema.optional(),
+    size: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
 const officeCliFileReferenceSchema = z.union([
   officeCliRelativePathSchema,
   officeCliFileSchema,
@@ -83,6 +96,8 @@ export const officeCliRootCatalogSchema = z
     channel: z.literal("stable"),
     latestVersion: officeCliVersionSchema,
     skill: officeCliSkillDescriptorSchema,
+    /** Advanced skill packages zip; installed flat under profile skills root. */
+    skillsPack: officeCliSkillsPackSchema.optional(),
     assets: z.partialRecord(officeCliAssetKeySchema, officeCliFileSchema),
   })
   .strict()
@@ -102,6 +117,7 @@ export const officeCliReleaseManifestSchema = z
     officecliVersion: officeCliVersionSchema.optional(),
     skill: z.union([officeCliFileSchema, officeCliSkillDescriptorSchema]).optional(),
     skillPath: officeCliRelativePathSchema.optional(),
+    skillsPack: officeCliSkillsPackSchema.optional(),
     assets: z.partialRecord(officeCliAssetKeySchema, officeCliFileSchema),
   })
   .refine((value) => value.skill !== undefined || value.skillPath !== undefined, {
@@ -109,7 +125,6 @@ export const officeCliReleaseManifestSchema = z
     path: ["skill"],
   })
   .strict();
-
 /** Legacy root pointer (latestVersion + releaseManifest). Still accepted. */
 export const officeCliLatestManifestSchema = z
   .object({
@@ -125,6 +140,7 @@ export const officeCliReleaseStateSchema = z
   .object({
     binarySha256: z.string().regex(/^[a-f0-9]{64}$/i),
     skillSha256: z.string().regex(/^[a-f0-9]{64}$/i),
+    skillsPackSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   })
   .strict();
 
@@ -136,12 +152,13 @@ export const officeCliStateSchema = z
     previousVersion: officeCliVersionSchema.nullable(),
     platform: officeCliAssetKeySchema,
     installedSkillPath: z.string().min(1),
+    /** Skill directory names managed with the entry skill (flat under skills root). */
+    managedSkillIds: z.array(z.string().min(1)).optional(),
     installedAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative(),
     releases: z.record(officeCliVersionSchema, officeCliReleaseStateSchema),
   })
   .strict();
-
 export type OfficeCliAssetKey = z.infer<typeof officeCliAssetKeySchema>;
 export type OfficeCliRootCatalog = z.infer<typeof officeCliRootCatalogSchema>;
 export type OfficeCliLatestManifest = z.infer<
@@ -184,6 +201,7 @@ export type OfficeCliProgress = {
     | "downloading_manifest"
     | "downloading_binary"
     | "downloading_skill"
+    | "downloading_skills_pack"
     | "verifying"
     | "installing"
     | "refreshing_skills"

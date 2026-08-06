@@ -18,7 +18,7 @@ OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端内置 **
 }
 ```
 
-客户端按 `pluginId` 取 `manifestUrl`，拉取远端 root catalog，比较 `latestVersion`；有更新则按 catalog 内绝对 URL 下载 skill 与平台 zip。
+客户端按 `pluginId` 取 `manifestUrl`，拉取远端 root catalog，比较 `latestVersion`；有更新则按 catalog 内绝对 URL 下载 skill、可选 skillsPack 与平台 zip。
 
 ## 热更新模型
 
@@ -31,6 +31,28 @@ OfficeCLI 是连接器「推荐安装」中的可下载 CLI。桌面端内置 **
 Root catalog 示例：`apps/desktop/electron/managed-tools/officecli-root-manifest.example.json`。
 
 zip 解压 `entry` 后，用 catalog 中 **sha256/size 校验解压后的二进制**（不是 zip 包）。
+
+### skillsPack（高级技能包）
+
+Root catalog 可带可选字段：
+
+```json
+"skillsPack": {
+  "url": "https://…/officecli-skills.zip",
+  "archive": "zip",
+  "sha256": "<optional 64-hex of zip>",
+  "size": 0
+}
+```
+
+安装时：
+
+1. 入口 `skill.url` → `profiles/local/config/skills/officecli/SKILL.md`（目录型路由 skill）
+2. `skillsPack` zip 解压后，扫描含 `SKILL.md` 的包，**扁平**写入 `profiles/local/config/skills/<name>/`
+3. 跳过 pack 内的 `officecli` 入口目录（入口只来自 `skill.url`）
+4. 每个 managed 目录写 `.onmyagent-managed.json`；卸载时按 marker / `managedSkillIds` 批量清理
+
+pack 布局示例：`officecli-skills/officecli-docx/SKILL.md`、`morph-ppt/…`（可有 `reference/` 等附属文件）。
 
 平台键：`officecli-mac-arm64` / `officecli-mac-x64` / `officecli-win-arm64` / `officecli-win-x64`（无 Linux）。
 
