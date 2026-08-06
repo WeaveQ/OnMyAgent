@@ -7,6 +7,7 @@ import {
   getDataSettingsTabs,
   getGlobalSettingsTabs,
   getPersonalMemorySettingsTabs,
+  getSettingsNavSections,
   getWorkspaceSettingsTabs,
 } from "../src/react-app/domains/settings/shell/settings-page";
 
@@ -59,5 +60,26 @@ describe("settings personal & memory navigation (shipped)", () => {
       "recovery",
       "archived-tasks",
     ]);
+  });
+
+  test("sidebar and section menu share nav section label keys", () => {
+    const sections = getSettingsNavSections(false);
+    expect(sections.map((s) => s.labelKey)).toEqual([
+      null,
+      "settings.group_workspace",
+      "settings.group_personal_memory",
+      "settings.group_global",
+      "settings.group_data",
+    ]);
+    // Residual IA bug: never label data group as archived.
+    expect(sections.map((s) => s.labelKey)).not.toContain(
+      "settings.group_archived",
+    );
+    const data = sections.find((s) => s.labelKey === "settings.group_data");
+    expect(data?.tabs).toEqual(["usage", "recovery", "archived-tasks"]);
+    const personal = sections.find(
+      (s) => s.labelKey === "settings.group_personal_memory",
+    );
+    expect(personal?.tabs).toEqual(["memory", "conversation-memory"]);
   });
 });
