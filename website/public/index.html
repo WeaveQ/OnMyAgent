@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OnMyAgent - Free desktop entry to local AI work</title>
-<meta name="description" content="OnMyAgent is your free desktop entry to local AI work. One workspace to manage Codex, Claude Code, OpenCode, Hermes, OpenClaw, MCP, Skills, Memory, sessions, tasks, and artifacts.">
+<title>OnMyAgent - Local-first AI workbench for your desktop</title>
+<meta name="description" content="OnMyAgent is a local-first office AI workbench: sessions, files, skills, automation, and approvals on your machine. Optional OnMyCompany for org control and OnMyBuddy for IM. No cloud SaaS required.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -378,6 +378,18 @@ body::after{opacity:.035}
 @media(max-width:1024px){.hero h1{font-size:clamp(48px,9vw,76px)}.section-title{font-size:clamp(38px,8vw,58px)}.bento{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(210px,auto)}}
 @media(max-width:768px){.hero{padding-top:128px}.hero h1{font-size:clamp(42px,13vw,58px)}.hero-sub{font-size:17px;line-height:1.7}.section-title{font-size:clamp(34px,10vw,48px)}.problem-card,.worker-card,.trust-card,.bento-card,.wf-step5{padding:26px}.cockpit-body{min-height:auto}.int-grid{grid-template-columns:1fr}.faq-item{padding:22px}}
 
+
+/* ══════ Family ══════ */
+.family{padding:var(--spy) 0}
+.family-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:36px}
+.family-card{border:1px solid var(--border-s);background:var(--bg-card);border-radius:var(--r);padding:28px 24px;box-shadow:var(--panel-shadow)}
+.family-card .fam-tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);margin-bottom:10px}
+.family-card h3{font-size:22px;margin-bottom:10px;letter-spacing:-.02em}
+.family-card p{font-size:14px;color:var(--t2);line-height:1.7}
+.family-card .fam-note{margin-top:14px;font-size:12px;color:var(--t3);font-family:var(--mono)}
+@media(max-width:900px){.family-grid{grid-template-columns:1fr}}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.reveal{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -388,13 +400,13 @@ body::after{opacity:.035}
     <div class="nav-logo"><span class="dot"></span>OnMyAgent</div>
     <div class="nav-links">
       <a href="#solution" class="en">Product</a><a href="#solution" class="zh">产品</a>
-      <a href="#integrations" class="en">Integrations</a><a href="#integrations" class="zh">集成</a>
+      <a href="#family" class="en">Family</a><a href="#family" class="zh">产品线</a>
       <a href="/docs/" class="en">Docs</a><a href="/docs/" class="zh">文档</a>
-      <a href="#" class="en">GitHub</a><a href="#" class="zh">GitHub</a>
+      <a href="https://github.com/WeaveQ/OnMyAgent" class="en" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/WeaveQ/OnMyAgent" class="zh" target="_blank" rel="noopener">GitHub</a>
       <a href="#faq" class="en">FAQ</a><a href="#faq" class="zh">常见问题</a>
       <button class="lang-toggle" onclick="toggleLang()" id="langBtn">中文</button>
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">Light</button>
-      <a href="#" class="btn-star"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>Star</a>
+      <a href="https://github.com/WeaveQ/OnMyAgent" class="btn-star" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>Star</a>
     </div>
   </div>
 </nav>
@@ -404,15 +416,21 @@ body::after{opacity:.035}
   <div class="container hero-grid">
     <div class="hero-content">
       <h1>
-        <span class="en">Your free desktop entry<br><span class="accent-line">to local AI work</span></span>
-        <span class="zh">你的免费桌面级<br><span class="accent-line">本地 AI 工作入口</span></span>
+        <span class="en">Local-first AI workbench<br><span class="accent-line">on your desktop</span></span>
+        <span class="zh">本地优先的办公 Agent<br><span class="accent-line">工作台</span></span>
       </h1>
       <p class="hero-sub">
-        <span class="en">One workspace to manage Codex, Claude Code, OpenCode, Hermes, OpenClaw, MCP, Skills, Memory, sessions, tasks, and artifacts.</span>
-        <span class="zh">用一个工作台管理 Codex、Claude Code、OpenCode、Hermes、OpenClaw、MCP、Skills、Memory、会话、任务和产物。</span>
+        <span class="en">OnMyAgent runs on your machine: sessions, files, skills, automation, and approvals in one place. Connect org control or IM when you need them - not as a login wall.</span>
+        <span class="zh">OnMyAgent 跑在你自己的电脑上：会话、文件、技能、自动化与审批同屏管理。需要时再连组织管控或飞书/钉钉数字员工--<strong>不登录也能完整使用</strong>。</span>
       </p>
+      <div class="hero-strategic">
+        <span class="strat-line en">Desktop workbench · Optional company · Optional IM digital employee</span>
+        <span class="strat-line en">Keys and files stay local by default. Cloud SaaS is not required.</span>
+        <span class="strat-line zh">桌面工作台 · 可选连公司 · 可选 IM 数字员工</span>
+        <span class="strat-line zh">默认本机密钥与文件；不绑定公网多租户 SaaS。</span>
+      </div>
       <div class="hero-cta">
-        <a href="#" class="btn-primary">
+        <a href="https://github.com/WeaveQ/OnMyAgent" class="btn-primary" target="_blank" rel="noopener">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
           <span class="en">Star on GitHub</span><span class="zh">GitHub Star</span>
         </a>
@@ -427,40 +445,40 @@ body::after{opacity:.035}
           <span class="cockpit-dot d-r"></span>
           <span class="cockpit-dot d-y"></span>
           <span class="cockpit-dot d-g"></span>
-          <span class="cockpit-title">OnMyAgent / Local AI Work</span>
+          <span class="cockpit-title">OnMyAgent / Local Workbench</span>
         </div>
         <div class="cockpit-body">
           <div class="cp-col">
-            <div class="cp-col-title">Agents <span class="badge-mini">5</span></div>
-            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Codex</span><span class="agent-meta">cli</span></div>
-            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Claude Code</span><span class="agent-meta">cli</span></div>
-            <div class="agent-row"><span class="status ok"></span><span class="agent-name">OpenCode</span><span class="agent-meta">core</span></div>
-            <div class="agent-row"><span class="status warn"></span><span class="agent-name">Hermes</span><span class="agent-meta">setup</span></div>
-            <div class="agent-row"><span class="status idle"></span><span class="agent-name">OpenClaw</span><span class="agent-meta">desktop</span></div>
-            <div style="margin-top:14px"><div class="cp-col-title">MCP</div>
-              <div class="agent-row"><span class="status ok"></span><span class="agent-name">filesystem</span></div>
-              <div class="agent-row"><span class="status ok"></span><span class="agent-name">browser</span></div>
-              <div class="agent-row"><span class="status ok"></span><span class="agent-name">search</span></div>
+            <div class="cp-col-title">Workspace</div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Sessions</span><span class="agent-meta">live</span></div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Files</span><span class="agent-meta">local</span></div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Skills</span><span class="agent-meta">ready</span></div>
+            <div class="agent-row"><span class="status ok"></span><span class="agent-name">Automation</span><span class="agent-meta">on</span></div>
+            <div class="agent-row"><span class="status warn"></span><span class="agent-name">Company</span><span class="agent-meta">optional</span></div>
+            <div style="margin-top:14px"><div class="cp-col-title">Connectors</div>
+              <div class="agent-row"><span class="status ok"></span><span class="agent-name">MCP</span></div>
+              <div class="agent-row"><span class="status ok"></span><span class="agent-name">Models BYOK</span></div>
+              <div class="agent-row"><span class="status idle"></span><span class="agent-name">IM Buddy</span></div>
             </div>
           </div>
           <div class="cp-col">
-            <div class="cp-col-title">Work Queue <span class="badge-mini">3</span></div>
+            <div class="cp-col-title">Sessions <span class="badge-mini">3</span></div>
             <div class="queue-item done">
-              <div class="qi-head"><span class="qi-tag ok">DONE</span><span class="qi-title">Refactor auth flow</span></div>
-              <div class="qi-meta">Codex · 12 files · 2 min ago</div>
+              <div class="qi-head"><span class="qi-tag ok">DONE</span><span class="qi-title">Weekly ops report</span></div>
+              <div class="qi-meta">Skill · 4 files · 2 min ago</div>
             </div>
             <div class="queue-item running">
-              <div class="qi-head"><span class="qi-tag run">RUNNING</span><span class="qi-title">Generate test suite</span></div>
-              <div class="qi-meta">Claude Code · session #142 · 38s</div>
+              <div class="qi-head"><span class="qi-tag run">RUNNING</span><span class="qi-title">Draft customer reply</span></div>
+              <div class="qi-meta">Session · 38s</div>
               <div class="queue-progress"><div class="bar"></div></div>
             </div>
             <div class="queue-item">
-              <div class="qi-head"><span class="qi-tag wait">QUEUED</span><span class="qi-title">Update docs</span></div>
-              <div class="qi-meta">OpenCode · waiting</div>
+              <div class="qi-head"><span class="qi-tag wait">QUEUED</span><span class="qi-title">Scheduled digest</span></div>
+              <div class="qi-meta">Automation · waiting</div>
             </div>
-            <div style="margin-top:10px"><div class="cp-col-title">Sessions</div>
+            <div style="margin-top:10px"><div class="cp-col-title">Approvals</div>
               <div class="queue-item" style="padding:6px 10px">
-                <div class="qi-meta" style="margin-top:0">3 active · 12 archived</div>
+                <div class="qi-meta" style="margin-top:0">1 pending · high-risk actions</div>
               </div>
             </div>
           </div>
@@ -480,11 +498,11 @@ body::after{opacity:.035}
         <div class="cockpit-foot">
           <span class="live">● Live</span>
           <span class="sep">·</span>
-          <span>3 agents running</span>
+          <span>Workbench live</span>
           <span class="sep">·</span>
           <span>Local-first</span>
           <span class="sep">·</span>
-          <span style="margin-left:auto">BYOK</span>
+          <span style="margin-left:auto">No login wall</span>
         </div>
       </div>
     </div>
@@ -495,32 +513,32 @@ body::after{opacity:.035}
 <section class="problems" id="problems">
   <div class="container">
     <h2 class="section-title reveal">
-      <span class="en">The more agents you use, the more you need a workspace.</span>
-      <span class="zh">你的 Agent 越多，越需要一个工作台</span>
+      <span class="en">Models are strong. Office work is still hard to finish.</span>
+      <span class="zh">模型已经够强，办公事仍然办不完</span>
     </h2>
     <p class="section-desc reveal">
-      <span class="en">You can run excellent agents today. The hard part is keeping tools, context, logs, and deliverables in one place.</span>
-      <span class="zh">你已经可以运行很强的 Agent。真正困难的是把工具、上下文、日志和交付物放回一个地方。</span>
+      <span class="en">Pilot teams get stuck less on model quality and more on scattered work, weak control, and data they cannot leave on a public cloud.</span>
+      <span class="zh">试点里真正卡人的，往往不是模型不够强，而是事散、管不住、数据放不下心。</span>
     </p>
     <div class="section-quote reveal">
-      <span class="en">Agents are not the problem. Sprawl is.</span>
-      <span class="zh">问题不是没有 Agent，而是 Agent 太分散。</span>
+      <span class="en">Not another chat window. A workbench you can ship from.</span>
+      <span class="zh">不是再开一个聊天窗，而是能真正交付的工作台。</span>
     </div>
     <div class="problem-grid">
       <div class="problem-card reveal rd1">
-        <div class="problem-icon"><span class="en">SCATTERED</span><span class="zh">分散</span></div>
-        <h3><span class="en">Tools live everywhere</span><span class="zh">工具到处分散</span></h3>
-        <p><span class="en">Codex, Claude Code, OpenCode, and custom CLIs each keep their own setup, sessions, and outputs.</span><span class="zh">Codex、Claude Code、OpenCode 和自定义 CLI 各有各的配置、会话和输出。</span></p>
+        <div class="problem-icon"><span class="en">UNFINISHED</span><span class="zh">办不完</span></div>
+        <h3><span class="en">Work stays scattered</span><span class="zh">事办不完</span></h3>
+        <p><span class="en">Chats, files, scheduled tasks, and approvals live in different places. There is no single desk to finish real office work.</span><span class="zh">对话、文件、定时任务和审批各在一处，缺少同一张桌子把交付做完。</span></p>
       </div>
       <div class="problem-card reveal rd2">
-        <div class="problem-icon"><span class="en">FRAGMENTED</span><span class="zh">割裂</span></div>
-        <h3><span class="en">Context is fragmented</span><span class="zh">上下文割裂</span></h3>
-        <p><span class="en">MCP servers, Skills, Memory, model keys, and project context sit in different tools and folders.</span><span class="zh">MCP、Skills、Memory、模型 Key 和项目上下文分散在不同工具和目录里。</span></p>
+        <div class="problem-icon"><span class="en">UNGOVERNED</span><span class="zh">管不住</span></div>
+        <h3><span class="en">Hard to govern many tools</span><span class="zh">多工具时管不住</span></h3>
+        <p><span class="en">Who installed which skill, what changed, and which high-risk actions need confirmation stay unclear.</span><span class="zh">能力怎么发、谁改了什么、高风险动作是否要确认，缺少统一工作台。</span></p>
       </div>
       <div class="problem-card reveal rd3">
-        <div class="problem-icon"><span class="en">INVISIBLE</span><span class="zh">不可见</span></div>
-        <h3><span class="en">Work is hard to verify</span><span class="zh">工作难以追踪</span></h3>
-        <p><span class="en">What changed, which agent did it, where the artifacts are, and whether the work can resume are all hard to answer.</span><span class="zh">谁改了什么、产物在哪里、能不能恢复，今天都很难回答。</span></p>
+        <div class="problem-icon"><span class="en">UNTRUSTED</span><span class="zh">放不下心</span></div>
+        <h3><span class="en">Data and keys feel unsafe</span><span class="zh">数据与密钥放不下心</span></h3>
+        <p><span class="en">Customer files and API keys defaulting to public cloud make security and compliance hard to answer.</span><span class="zh">客户资料与密钥若默认上公有云托管，安全与合规很难答。</span></p>
       </div>
     </div>
   </div>
@@ -530,41 +548,77 @@ body::after{opacity:.035}
 <section class="solution" id="solution">
   <div class="container">
     <h2 class="section-title reveal">
-      <span class="en">Turn prompts into <span class="accent">trackable local work.</span></span>
-      <span class="zh">把一句话需求变成<span class="accent">可追踪的本地工作。</span></span>
+      <span class="en">A local workbench for <span class="accent">finishable office work.</span></span>
+      <span class="zh">本机工作台，把办公事<span class="accent">做完、可管、可交付。</span></span>
     </h2>
     <p class="section-desc reveal">
-      <span class="en">OnMyAgent gives every agent a queue, a session, logs, permissions, and deliverables, so local AI work can be managed.</span>
-      <span class="zh">OnMyAgent 给每个 Agent 补上队列、会话、日志、权限和交付物，让本地 AI 工作可以被管理。</span>
+      <span class="en">OnMyAgent is the desktop control surface for sessions, skills, files, automation, and approvals. It is not another chat bot and not a coding IDE replacement.</span>
+      <span class="zh">OnMyAgent 是本机会话、技能、文件、自动化与审批的桌面工作台--不是又一个聊天机器人，也不替代专业编码 IDE。</span>
     </p>
     <div class="solution-quote reveal">
-      <span class="en">Not another agent. The workspace for the agents you already use.</span>
-      <span class="zh">不是另一个 Agent，而是你已有 Agent 的工作台。</span>
+      <span class="en">Local-first. No login wall. Company and IM are optional depth.</span>
+      <span class="zh">本地优先，不挡首页。公司与 IM 是可选加深，不是前提。</span>
     </div>
     <div class="worker-grid">
       <div class="worker-card reveal rd1">
-        <div class="worker-key"><span class="en">SCHEDULABLE</span><span class="zh">可调度</span></div>
-        <h3><span class="en">One queue for many agents</span><span class="zh">多个 Agent，一条队列</span></h3>
-        <span class="worker-en">Schedulable</span>
-        <p><span class="en">Submit tasks, pick the right agent, route them through a unified Work Queue, and know who is doing what.</span><span class="zh">统一发起任务、选择 Agent、进入 Work Queue，知道谁在干什么。</span></p>
+        <div class="worker-key"><span class="en">LOCAL</span><span class="zh">本机</span></div>
+        <h3><span class="en">Work where files live</span><span class="zh">在文件所在处干活</span></h3>
+        <span class="worker-en">Local-first</span>
+        <p><span class="en">Workspace folders, previews, and deliverables stay on your machine. BYOK models - no forced cloud account.</span><span class="zh">工作区、预览与产物默认在本机；模型 BYOK，不强绑云账号。</span></p>
       </div>
       <div class="worker-card reveal rd2">
-        <div class="worker-key"><span class="en">TRACEABLE</span><span class="zh">可追踪</span></div>
-        <h3><span class="en">Every step recorded</span><span class="zh">每一步都有记录</span></h3>
-        <span class="worker-en">Traceable</span>
-        <p><span class="en">Plans, commands, tool calls, MCP requests, logs, and state are captured in one timeline you can replay.</span><span class="zh">保存计划、命令、Tool Calls、MCP 调用、日志和状态，形成可回看的时间线。</span></p>
+        <div class="worker-key"><span class="en">CAPABLE</span><span class="zh">能交付</span></div>
+        <h3><span class="en">Skills, automation, approvals</span><span class="zh">技能 · 自动化 · 审批</span></h3>
+        <span class="worker-en">Ship work</span>
+        <p><span class="en">Install skills and MCP, run scheduled office tasks, and confirm high-risk local actions before they run.</span><span class="zh">安装技能与 MCP、跑定时办公任务，高风险本机动作可先审批再执行。</span></p>
       </div>
       <div class="worker-card reveal rd3">
-        <div class="worker-key"><span class="en">DELIVERABLE</span><span class="zh">可交付</span></div>
-        <h3><span class="en">Artifacts you can ship</span><span class="zh">产物可以直接交付</span></h3>
-        <span class="worker-en">Deliverable</span>
-        <p><span class="en">Diffs, reports, screenshots, files, and test results are collected as Artifacts and ready to deliver.</span><span class="zh">归档 Diff、报告、截图、文件、测试结果和最终 Artifact，准备好直接交付。</span></p>
+        <div class="worker-key"><span class="en">EXTENDABLE</span><span class="zh">可加深</span></div>
+        <h3><span class="en">Add company or IM when ready</span><span class="zh">就绪后再加深</span></h3>
+        <span class="worker-en">Optional depth</span>
+        <p><span class="en">Connect OnMyCompany for org policy, or OnMyBuddy for Feishu/DingTalk reach - without blocking solo use.</span><span class="zh">需要时连 OnMyCompany 做组织策略，或 OnMyBuddy 做飞书/钉钉触达--不影响单人本机使用。</span></p>
       </div>
     </div>
     <div class="transform-arrow reveal">
-      <span class="from"><span class="en">scattered local agents</span><span class="zh">分散的本地 Agent</span></span>
+      <span class="from"><span class="en">scattered chats &amp; tools</span><span class="zh">散落的对话与工具</span></span>
       <span class="arrow">→</span>
-      <span class="to"><span class="en">manageable AI Workers</span><span class="zh">可管理的 AI Worker</span></span>
+      <span class="to"><span class="en">one local workbench</span><span class="zh">一张本机工作台</span></span>
+    </div>
+  </div>
+</section>
+
+
+<!-- S3b FAMILY -->
+<section class="family" id="family">
+  <div class="container">
+    <div class="section-label reveal en">Product family</div><div class="section-label reveal zh">产品全家福</div>
+    <h2 class="section-title reveal">
+      <span class="en">Desktop, IM, and optional org control.</span>
+      <span class="zh">桌面、IM 触达、可选组织管控</span>
+    </h2>
+    <p class="section-desc reveal">
+      <span class="en">Three products, one story. OpenConnector is gateway tech inside OnMyCompany - not a third brand you need to buy.</span>
+      <span class="zh">三套产品、一套叙事。OpenConnector 是 OnMyCompany 内的 Gateway 实现，不单独对外卖第三条产品线。</span>
+    </p>
+    <div class="family-grid">
+      <div class="family-card reveal rd1">
+        <div class="fam-tag">OMA</div>
+        <h3>OnMyAgent</h3>
+        <p><span class="en">Desktop workbench for sessions, files, skills, automation, and approvals. Full personal path without company login.</span><span class="zh">本机会话、文件、技能、自动化与审批工作台。不连公司也能完整使用。</span></p>
+        <div class="fam-note"><span class="en">Required for every pilot</span><span class="zh">试点主场 · 必装</span></div>
+      </div>
+      <div class="family-card reveal rd2">
+        <div class="fam-tag">OMB</div>
+        <h3>OnMyBuddy</h3>
+        <p><span class="en">IM digital employee in Feishu / DingTalk: reminders, commands, process templates. Heavy work stays on the desktop.</span><span class="zh">飞书 / 钉钉里的数字员工：催办、指令、流程样板。重活仍在本机工作台完成。</span></p>
+        <div class="fam-note"><span class="en">Optional · pairing roadmap</span><span class="zh">可选 · 与本机配对持续推进</span></div>
+      </div>
+      <div class="family-card reveal rd3">
+        <div class="fam-tag">OMC</div>
+        <h3>OnMyCompany</h3>
+        <p><span class="en">Intranet control plane: identity, org config, gateway egress, audit. Not a public multi-tenant SaaS pitch.</span><span class="zh">内网管控面：身份、组织配置、出口 Gateway、审计。不是公网多租户 SaaS 主交付。</span></p>
+        <div class="fam-note"><span class="en">Optional depth for teams</span><span class="zh">可选加深 · 内网试点</span></div>
+      </div>
     </div>
   </div>
 </section>
@@ -572,46 +626,46 @@ body::after{opacity:.035}
 <!-- S4 CONTROL PLANE -->
 <section class="controlplane" id="controlplane">
   <div class="container">
-    <div class="section-label reveal en">Control Plane</div><div class="section-label reveal zh">控制平面</div>
+    <div class="section-label reveal en">How it fits</div><div class="section-label reveal zh">怎么放进你的环境</div>
     <h2 class="section-title reveal" style="text-align:center">
-      <span class="en">One local control plane for your agent stack.</span>
-      <span class="zh">一个本地控制平面<br>管住你的 Agent 技术栈</span>
+      <span class="en">Local workbench first.<br>Org and IM when you need them.</span>
+      <span class="zh">先本机工作台<br>需要时再加深组织与 IM</span>
     </h2>
     <p class="section-desc reveal" style="text-align:center;margin-left:auto;margin-right:auto">
-      <span class="en">The technical view: agent aggregation, workflow control, and local-first ownership running on your own machine.</span>
-      <span class="zh">Agent 聚合、工作流控制、本地优先三层结构，全部跑在你自己的机器上。</span>
+      <span class="en">Same stack whether you stay personal or connect an intranet company server later.</span>
+      <span class="zh">无论只做个人本机，还是稍后连内网公司服，主路径同一套工作台。</span>
     </p>
     <div class="cp-stack">
       <div class="cp-layer reveal rd1">
         <div class="cp-layer-head">
           <span class="cp-layer-num">1</span>
-          <span class="cp-layer-name"><span class="en">Agent Aggregation</span><span class="zh">Agent 聚合</span></span>
-          <span class="cp-layer-tag">Bring your own agents</span>
+          <span class="cp-layer-name"><span class="en">Desktop workbench</span><span class="zh">桌面工作台</span></span>
+          <span class="cp-layer-tag">OnMyAgent</span>
         </div>
         <div class="cp-items">
-          <span class="cp-item">Codex</span><span class="cp-item">Claude Code</span><span class="cp-item">OpenCode</span><span class="cp-item">Kilo</span><span class="cp-item">Cline</span><span class="cp-item">Roo</span><span class="cp-item">MCP</span>
+          <span class="cp-item">Sessions</span><span class="cp-item">Files</span><span class="cp-item">Skills</span><span class="cp-item">MCP</span><span class="cp-item">Automation</span><span class="cp-item">Approvals</span><span class="cp-item">Memory</span>
         </div>
       </div>
       <div class="cp-conn"></div>
       <div class="cp-layer reveal rd2">
         <div class="cp-layer-head">
           <span class="cp-layer-num">2</span>
-          <span class="cp-layer-name"><span class="en">Workflow Control</span><span class="zh">工作流控制</span></span>
-          <span class="cp-layer-tag">Session · Task · Artifact</span>
+          <span class="cp-layer-name"><span class="en">Local-first ownership</span><span class="zh">本地优先</span></span>
+          <span class="cp-layer-tag">Your keys · Your files</span>
         </div>
         <div class="cp-items">
-          <span class="cp-item">Session</span><span class="cp-item">Task</span><span class="cp-item">Artifact</span><span class="cp-item">Memory</span><span class="cp-item">Skill</span><span class="cp-item">Logs</span><span class="cp-item">Approvals</span>
+          <span class="cp-item">BYOK</span><span class="cp-item">Local workspace</span><span class="cp-item">No login wall</span><span class="cp-item">Exportable config</span>
         </div>
       </div>
       <div class="cp-conn"></div>
       <div class="cp-layer reveal rd3">
         <div class="cp-layer-head">
           <span class="cp-layer-num">3</span>
-          <span class="cp-layer-name"><span class="en">Local-first Ownership</span><span class="zh">本地优先</span></span>
-          <span class="cp-layer-tag">Your keys · Your context</span>
+          <span class="cp-layer-name"><span class="en">Optional depth</span><span class="zh">可选加深</span></span>
+          <span class="cp-layer-tag">Company · IM</span>
         </div>
         <div class="cp-items">
-          <span class="cp-item">BYOK</span><span class="cp-item">Local-first</span><span class="cp-item">User-owned context</span><span class="cp-item">Model Keys</span><span class="cp-item">Project Context</span>
+          <span class="cp-item">OnMyCompany</span><span class="cp-item">Org config</span><span class="cp-item">Gateway</span><span class="cp-item">OnMyBuddy</span><span class="cp-item">Feishu / DingTalk</span>
         </div>
       </div>
     </div>
@@ -621,65 +675,65 @@ body::after{opacity:.035}
 <!-- S5 PRODUCT MODULES -->
 <section class="modules" id="modules">
   <div class="container">
-    <div class="section-label reveal en">Product Modules</div><div class="section-label reveal zh">产品模块</div>
+    <div class="section-label reveal en">What you get today</div><div class="section-label reveal zh">现在就能用</div>
     <h2 class="section-title reveal">
-      <span class="en">Everything your local agents need, in one workspace.</span>
-      <span class="zh">本地 Agent 需要的东西，都在一个工作台里。</span>
+      <span class="en">Office workbench capabilities on your machine.</span>
+      <span class="zh">本机办公工作台能力</span>
     </h2>
     <p class="section-desc reveal">
-      <span class="en">Eight modules. One mental model. Zero terminal gymnastics.</span>
-      <span class="zh">八个核心模块，一套统一心智，告别终端切来切去。</span>
+      <span class="en">Honest baseline: strong personal path; company connect is available and still deepening.</span>
+      <span class="zh">诚实基线：个人本机路径扎实；连接公司已可用并持续加深。</span>
     </p>
     <div class="bento">
       <div class="bento-card span2 reveal rd1">
         <div>
-          <div class="bento-icon">AG</div>
-          <h4><span class="en">Agent Registry</span><span class="zh">Agent Registry</span></h4>
-          <span class="b-en">Bring your own agents</span>
-          <p><span class="en">Register Codex, Claude Code, OpenCode, Hermes, OpenClaw, or any custom CLI agent. Detect, configure, and switch with one click.</span><span class="zh">接入 Codex、Claude Code、OpenCode、Hermes、OpenClaw 和自定义 CLI Agent。检测、配置、一键切换。</span></p>
+          <div class="bento-icon">WB</div>
+          <h4><span class="en">Sessions &amp; workspace</span><span class="zh">会话与工作区</span></h4>
+          <span class="b-en">Chat · Files · Artifacts</span>
+          <p><span class="en">Run work in sessions tied to a local folder. Preview files, keep deliverables, resume when you return.</span><span class="zh">会话绑定本机工作区：预览文件、保留产物、回来可继续。</span></p>
         </div>
       </div>
       <div class="bento-card reveal rd2">
-        <div class="bento-icon">WQ</div>
-        <h4><span class="en">Work Queue</span><span class="zh">Work Queue</span></h4>
-        <span class="b-en">Queue · Run · Resume</span>
-        <p><span class="en">Task queue with execution state, retries, and recovery.</span><span class="zh">任务队列、执行状态、失败恢复。</span></p>
+        <div class="bento-icon">AU</div>
+        <h4><span class="en">Automation</span><span class="zh">自动化</span></h4>
+        <span class="b-en">Schedule · Trigger</span>
+        <p><span class="en">Timed and event-style office tasks on your machine.</span><span class="zh">本机定时与触发类办公任务。</span></p>
       </div>
       <div class="bento-card reveal rd3">
-        <div class="bento-icon">AD</div>
-        <h4><span class="en">Artifacts & Diff</span><span class="zh">Artifacts & Diff</span></h4>
-        <span class="b-en">Review what changed</span>
-        <p><span class="en">Diffs, reports, screenshots, deliverables in one place.</span><span class="zh">集中查看 Diff、报告、截图、交付物。</span></p>
+        <div class="bento-icon">MD</div>
+        <h4><span class="en">Models BYOK</span><span class="zh">模型 BYOK</span></h4>
+        <span class="b-en">Your keys</span>
+        <p><span class="en">Connect vendors or local-compatible APIs. No single-vendor lock-in as a prerequisite.</span><span class="zh">接入多厂商或兼容 API / 本机模型，不强绑单一平台。</span></p>
       </div>
       <div class="bento-card reveal rd1">
         <div class="bento-icon">MP</div>
-        <h4><span class="en">MCP Manager</span><span class="zh">MCP Manager</span></h4>
-        <span class="b-en">Install · Test · Debug</span>
-        <p><span class="en">Configure, enable, and troubleshoot MCP servers.</span><span class="zh">安装、启用、测试、排错 MCP Server。</span></p>
+        <h4><span class="en">MCP &amp; connectors</span><span class="zh">MCP 与连接器</span></h4>
+        <span class="b-en">Tools</span>
+        <p><span class="en">Configure MCP servers and tool access for the workbench.</span><span class="zh">为工作台配置 MCP 与工具访问。</span></p>
       </div>
       <div class="bento-card reveal rd2">
         <div class="bento-icon">SK</div>
-        <h4><span class="en">Skill Sync</span><span class="zh">Skill Sync</span></h4>
-        <span class="b-en">Reusable capabilities</span>
-        <p><span class="en">Manage Skills across OnMyAgent, Codex, and other tools.</span><span class="zh">管理 Skills，支持跨工具同步。</span></p>
+        <h4><span class="en">Skills &amp; experts</span><span class="zh">技能与专家</span></h4>
+        <span class="b-en">Install · Use</span>
+        <p><span class="en">Marketplace and local skills; org skills when company is connected.</span><span class="zh">市场与本机技能；连公司后可看组织下发技能。</span></p>
       </div>
       <div class="bento-card reveal rd3">
         <div class="bento-icon">MB</div>
-        <h4><span class="en">Memory Bridge</span><span class="zh">Memory Bridge</span></h4>
-        <span class="b-en">Context that persists</span>
-        <p><span class="en">User, project, and agent memory in one bridge.</span><span class="zh">管理用户、项目和 Agent 记忆。</span></p>
+        <h4><span class="en">Personal memory</span><span class="zh">个人记忆</span></h4>
+        <span class="b-en">On device</span>
+        <p><span class="en">Profile and conversation memory stored on this machine.</span><span class="zh">个人画像与对话记忆落在本机。</span></p>
       </div>
       <div class="bento-card reveal rd4">
-        <div class="bento-icon">SM</div>
-        <h4><span class="en">Session Manager</span><span class="zh">Session Manager</span></h4>
-        <span class="b-en">Resume from anywhere</span>
-        <p><span class="en">View, restore, archive sessions across agents.</span><span class="zh">统一查看、恢复、归档会话。</span></p>
+        <div class="bento-icon">CO</div>
+        <h4><span class="en">Company connect</span><span class="zh">连接公司</span></h4>
+        <span class="b-en">Optional</span>
+        <p><span class="en">Link OnMyCompany for org catalog mirror. Full egress enforcement still deepening.</span><span class="zh">连接 OnMyCompany 同步组织目录；全链路企业出口仍在加深。</span></p>
       </div>
       <div class="bento-card reveal rd1">
         <div class="bento-icon">PA</div>
-        <h4><span class="en">Permission & Approval</span><span class="zh">Permission & Approval</span></h4>
-        <span class="b-en">Stay in control</span>
-        <p><span class="en">Explicit approval for risky actions, scoped permissions per Worker.</span><span class="zh">高风险动作显式审批，每个 Worker 独立权限边界。</span></p>
+        <h4><span class="en">Approvals</span><span class="zh">本机审批</span></h4>
+        <span class="b-en">Human in the loop</span>
+        <p><span class="en">Confirm high-risk local actions before they run.</span><span class="zh">高风险本机动作执行前可确认。</span></p>
       </div>
     </div>
   </div>
@@ -693,39 +747,39 @@ body::after{opacity:.035}
       <span class="zh">从<span class="accent">一句话需求</span>到<span class="accent">产物交付</span></span>
     </h2>
     <p class="section-desc reveal">
-      <span class="en">A simple loop: connect tools, run work, track progress, deliver artifacts, keep memory.</span>
-      <span class="zh">一个简单闭环：连接工具、执行任务、追踪过程、交付产物、沉淀记忆。</span>
+      <span class="en">Install desktop, pick a workspace, connect a model, run skills, deliver files - optionally add company or IM later.</span>
+      <span class="zh">安装桌面、选工作区、接模型、跑技能、交付文件--公司或 IM 可后加。</span>
     </p>
     <div class="wf-steps5">
       <div class="wf-step5 reveal rd1">
         <div class="wf-step5-num">1</div>
         <span class="wf-en">Detect</span>
-        <h4><span class="en">Detect environment</span><span class="zh">检测环境</span></h4>
-        <p><span class="en">Local agents, model keys, MCP, and runtime are checked before work starts.</span><span class="zh">检测本地 Agent、模型 Key、MCP、运行环境。</span></p>
+        <h4><span class="en">Install desktop</span><span class="zh">安装桌面</span></h4>
+        <p><span class="en">Open OnMyAgent. No account required to start local work.</span><span class="zh">打开 OnMyAgent。开始本机工作无需账号。</span></p>
       </div>
       <div class="wf-step5 reveal rd2">
         <div class="wf-step5-num">2</div>
         <span class="wf-en">Connect</span>
-        <h4><span class="en">Connect agents</span><span class="zh">接入 Agent</span></h4>
-        <p><span class="en">Wire up Codex, Claude Code, OpenCode, Hermes, OpenClaw, Skills, Memory.</span><span class="zh">接入 Codex / Claude Code / OpenCode / Hermes / OpenClaw / Skills / Memory。</span></p>
+        <h4><span class="en">Connect models &amp; tools</span><span class="zh">接模型与工具</span></h4>
+        <p><span class="en">BYOK providers, skills, and MCP for the jobs you run.</span><span class="zh">BYOK 模型、技能与 MCP，对准真实任务。</span></p>
       </div>
       <div class="wf-step5 reveal rd3">
         <div class="wf-step5-num">3</div>
         <span class="wf-en">Run</span>
-        <h4><span class="en">Run as a Worker</span><span class="zh">作为 Worker 执行</span></h4>
-        <p><span class="en">Submit a task, pick an agent, enter the Work Queue.</span><span class="zh">发起任务，选择 Agent，进入 Work Queue。</span></p>
+        <h4><span class="en">Do the work</span><span class="zh">干活</span></h4>
+        <p><span class="en">Sessions, automation, and files stay in one workbench.</span><span class="zh">会话、自动化与文件在同一工作台。</span></p>
       </div>
       <div class="wf-step5 reveal rd4">
         <div class="wf-step5-num">4</div>
         <span class="wf-en">Track</span>
-        <h4><span class="en">Track everything</span><span class="zh">全程追踪</span></h4>
-        <p><span class="en">Plans, commands, logs, tool calls, and diffs stay in one timeline.</span><span class="zh">追踪计划、命令、日志、Tool Calls、Diff，统一时间线。</span></p>
+        <h4><span class="en">Approve when needed</span><span class="zh">需要时审批</span></h4>
+        <p><span class="en">High-risk local actions stay human-in-the-loop.</span><span class="zh">高风险本机动作保持人在回路。</span></p>
       </div>
       <div class="wf-step5 reveal rd4">
         <div class="wf-step5-num">5</div>
         <span class="wf-en">Deliver</span>
-        <h4><span class="en">Deliver artifacts</span><span class="zh">交付产物</span></h4>
-        <p><span class="en">Archive deliverables, summarize results, persist Memory.</span><span class="zh">归档 Artifact，总结结果，沉淀 Memory。</span></p>
+        <h4><span class="en">Ship deliverables</span><span class="zh">交付产物</span></h4>
+        <p><span class="en">Keep files in the workspace; add company or IM depth when ready.</span><span class="zh">产物留在工作区；就绪后再加深公司或 IM。</span></p>
       </div>
     </div>
   </div>
@@ -735,14 +789,14 @@ body::after{opacity:.035}
 <section class="integrations" id="integrations">
   <div class="container">
     <h2 class="section-title reveal">
-      <span class="en">Bring your own agents.</span>
-      <span class="zh">带上你已有的 Agent</span>
+      <span class="en">Works with the tools you already use.</span>
+      <span class="zh">兼容你已有的工具</span>
     </h2>
     <div class="int-quote reveal">
-      <span class="int-line en">Bring Codex, Claude Code, OpenCode, Hermes, and OpenClaw into one workspace.</span>
-      <span class="int-line muted en">Add MCP, Skills, Memory, and model keys without changing your tools.</span>
-      <span class="int-line zh">把 Codex、Claude Code、OpenCode、Hermes 和 OpenClaw 收进同一个工作台。</span>
-      <span class="int-line muted zh">接入 MCP、Skills、Memory 和模型 Key，但不改变你已有的工具。</span>
+      <span class="int-line en">OpenCode runtime, MCP, skills, and BYOK models sit under one desktop shell.</span>
+      <span class="int-line muted en">Coding CLIs remain optional tools - not the product hero story.</span>
+      <span class="int-line zh">OpenCode 运行时、MCP、技能与 BYOK 模型统一在桌面壳里。</span>
+      <span class="int-line muted zh">编码 CLI 可作为能力接入--但不是首页主叙事。</span>
     </div>
     <div class="int-grid">
       <div class="int-chip reveal rd1"><span class="int-chip-icon">●</span><span class="int-chip-name">Codex</span><span class="int-chip-tag">Worker</span></div>
@@ -764,27 +818,27 @@ body::after{opacity:.035}
 <!-- S8 OPEN-SOURCE / LOCAL-FIRST -->
 <section class="trust" id="trust">
   <div class="container">
-    <div class="section-label reveal en">Free desktop entry to local AI work</div><div class="section-label reveal zh">免费的桌面级本地 AI 工作入口</div>
+    <div class="section-label reveal en">Why teams pilot it</div><div class="section-label reveal zh">为什么适合试点</div>
     <h2 class="section-title reveal">
       <span class="en">Open-source. Local-first. Bring your own keys.</span>
-      <span class="zh">开源 本地 免费 优先 使用自有模型</span>
+      <span class="zh">开源 · 本地优先 · 自带 Key</span>
     </h2>
     <p class="section-desc reveal">
-      <span class="en">Three reasons OnMyAgent is safe to put at the center of your local agent stack.</span>
-      <span class="zh">三个理由，让 OnMyAgent 放心成为你本地 Agent 技术栈的中心。</span>
+      <span class="en">Three reasons it is safe to put OnMyAgent on employee desktops first.</span>
+      <span class="zh">三个理由，适合先把 OnMyAgent 放上员工本机。</span>
     </p>
     <div class="trust-grid">
       <div class="trust-card reveal rd1">
         <div class="trust-icon">●</div>
         <h3><span class="en">Open-source</span><span class="zh">开源</span></h3>
         <span class="trust-en">Auditable · Extensible</span>
-        <p><span class="en">Read the code, audit it, contribute Adapters, and shape the roadmap. No black box.</span><span class="zh">开源透明，适合开发者试用、审计和贡献 Adapter。没有黑盒。</span></p>
+        <p><span class="en">Read the code, audit it, and run it yourself. No black-box SaaS requirement.</span><span class="zh">可审计、可自托管试用，不以黑盒 SaaS 为前提。</span></p>
       </div>
       <div class="trust-card reveal rd2">
         <div class="trust-icon">LO</div>
         <h3><span class="en">Local-first</span><span class="zh">本地优先</span></h3>
         <span class="trust-en">Your machine · Your data</span>
-        <p><span class="en">Sessions, logs, artifacts, and context live in your local workspace before anything leaves the machine.</span><span class="zh">会话、日志、产物、上下文优先沉淀在你的本地工作区，离开机器前由你决定。</span></p>
+        <p><span class="en">Sessions, files, and config default to this machine. Company connect is opt-in depth.</span><span class="zh">会话、文件与配置默认本机；连公司是可选加深。</span></p>
       </div>
       <div class="trust-card reveal rd3">
         <div class="trust-icon">⌁</div>
@@ -803,49 +857,49 @@ body::after{opacity:.035}
     <div style="height:40px"></div>
     <div class="faq-list">
       <div class="faq-item reveal" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><span><span class="en">Is OnMyAgent based on OpenCode?</span><span class="zh">OnMyAgent 是基于 OpenCode 的吗？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">Yes. OnMyAgent is built on OpenCode as a local agent runtime foundation, then adds a desktop workspace for agent registry, work queue, sessions, logs, artifacts, skills, memory, and approvals. It is not a replacement for OpenCode. It is the workspace around it.</span><span class="zh">是的。OnMyAgent 基于 OpenCode 作为本地 Agent 运行基础，并在外层增加桌面工作台，用来管理 Agent Registry、Work Queue、会话、日志、产物、Skills、Memory 和审批。它不是替代 OpenCode，而是围绕 OpenCode 和其他 Agent 工具的工作台。</span></div>
+        <div class="faq-q"><span><span class="en">What is OnMyAgent in one sentence?</span><span class="zh">一句话：OnMyAgent 是什么？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">A local-first office AI workbench and control surface on your desktop - sessions, files, skills, automation, and approvals - with optional company control and IM digital employees.</span><span class="zh">本地优先的办公 Agent 工作台：本机会话、文件、技能、自动化与审批；可选连接组织管控与飞书/钉钉数字员工。</span></div>
       </div>
       <div class="faq-item reveal" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><span><span class="en">OnMyAgent vs Codex / Claude Code / OpenCode?</span><span class="zh">OnMyAgent 和 Codex / Claude Code / OpenCode 是什么关系？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">Codex / Claude Code / OpenCode are agents. OnMyAgent is the workspace and local Agent control console that manages them: registry, queue, sessions, logs, diffs, artifacts, and approvals all in one local app. We do not replace them; we make them easier to operate.</span><span class="zh">Codex / Claude Code / OpenCode 是 Agent。OnMyAgent 是管理它们的工作台和本地 Agent 控制台：Agent Registry、队列、会话、日志、Diff、产物、审批，都在一个本地应用里。我们不替代它们，而是让它们更好用。</span></div>
+        <div class="faq-q"><span><span class="en">Do I need to log in or connect a company?</span><span class="zh">必须登录或连接公司吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">No. Personal / Mode A works fully offline from org services. Connecting OnMyCompany is optional depth for policy, catalog, and audit - not a login wall.</span><span class="zh">不必须。未登录 / 未连公司时本机工作台完整可用。连接 OnMyCompany 是策略与配置加深，不是登录墙。</span></div>
       </div>
       <div class="faq-item reveal" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><span><span class="en">OnMyAgent vs LibreChat / Open WebUI / LobeChat?</span><span class="zh">OnMyAgent 和 LibreChat / Open WebUI / LobeChat 有什么区别？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">Those are excellent chat clients / LLM web UIs. OnMyAgent manages CLI agents, MCP, Skills, Memory, sessions, work queues, and artifacts on your machine. Different category.</span><span class="zh">它们是优秀的聊天客户端 / LLM Web UI。OnMyAgent 在你的机器上管理 CLI Agent、MCP、Skills、Memory、会话、Work Queue 和产物。不同品类。</span></div>
+        <div class="faq-q"><span><span class="en">OnMyAgent vs OnMyCompany vs OnMyBuddy?</span><span class="zh">和 OnMyCompany / OnMyBuddy 什么关系？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">OnMyAgent is the desktop workbench. OnMyCompany is the intranet control plane (identity, policy, gateway, audit). OnMyBuddy is the IM digital employee (Feishu/DingTalk). OpenConnector is gateway tech inside OnMyCompany, not a separate product line.</span><span class="zh">OnMyAgent 是桌面工作台；OnMyCompany 是内网管控（身份、策略、Gateway、审计）；OnMyBuddy 是 IM 数字员工。OpenConnector 是 OMC 内 Gateway 实现，不单独对外讲第三条产品线。</span></div>
       </div>
       <div class="faq-item reveal" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><span><span class="en">OnMyAgent vs n8n / Dify / Zapier?</span><span class="zh">和 n8n / Dify / Zapier 有什么区别？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">n8n / Dify / Zapier are cloud workflow automation platforms. OnMyAgent focuses on local-first agent work: your code, your machine, your model keys, your artifacts. Different category.</span><span class="zh">它们是云端工作流自动化平台。OnMyAgent 聚焦本地优先的 Agent 工作：你的代码、你的机器、你的 Key、你的产物。不同品类。</span></div>
+        <div class="faq-q"><span><span class="en">Is it based on OpenCode?</span><span class="zh">是基于 OpenCode 的吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">Yes as a local runtime foundation. OnMyAgent adds the desktop workbench for sessions, files, skills, automation, and approvals around that runtime.</span><span class="zh">是的，OpenCode 是本地运行时基础之一。OnMyAgent 在外层提供会话、文件、技能、自动化与审批的桌面工作台。</span></div>
       </div>
       <div class="faq-item reveal" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><span><span class="en">Is it free? Is it really open source?</span><span class="zh">免费吗？真的开源吗？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">Yes. OnMyAgent is planned as free and open source for individuals, developers, learning, research, and self-hosted personal use. Commercial or enterprise use may require a separate license. Final terms will be published in the repo before release.</span><span class="zh">是的。OnMyAgent 计划对个人、开发者、学习研究和自托管个人使用免费开源。商业或企业使用可能需要单独授权。最终协议条款会在仓库发布前明确写清楚。</span></div>
+        <div class="faq-q"><span><span class="en">Is it free / open source?</span><span class="zh">免费吗？开源吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">The desktop product is developed in the open. See the GitHub repository for license and release assets. Public multi-tenant SaaS is not the current primary delivery.</span><span class="zh">桌面产品开源演进，许可证与安装包见 GitHub Releases。公网多租户 SaaS 不是当前主交付形态。</span></div>
+      </div>
+      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
+        <div class="faq-q"><span><span class="en">Can my team pilot it?</span><span class="zh">团队能试点吗？</span></span><span class="arrow">+</span></div>
+        <div class="faq-a"><span class="en">Yes. Start with desktop-only (combo A). Add OnMyBuddy for IM reach or OnMyCompany for intranet control when ready. Do not treat full IM-to-desktop dispatch or full org egress enforcement as already shipped defaults.</span><span class="zh">可以。建议先只上桌面（组合 A）；需要时再加 Buddy 或内网 OMC。勿把「IM 一句话改本机文件」或「全企业出口强制」当成已默认上线能力。</span></div>
       </div>
       <div class="faq-item reveal" onclick="this.classList.toggle('open')">
         <div class="faq-q"><span><span class="en">Relationship with WeaveQ?</span><span class="zh">和 WeaveQ 什么关系？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">OnMyAgent is the open-source local AI workspace for individuals, and under the hood it works as a local Agent control plane. WeaveQ is the enterprise Worker delivery platform with deeper business surfaces. Same team, different scope.</span><span class="zh">OnMyAgent 是面向个人的开源本地 AI 工作台，底层是一个本地 Agent 控制平面。WeaveQ 是企业 Worker 交付平台，具备更深的业务能力。同一团队，不同范围。</span></div>
-      </div>
-      <div class="faq-item reveal" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><span><span class="en">Can my team use it?</span><span class="zh">团队可以用吗？</span></span><span class="arrow">+</span></div>
-        <div class="faq-a"><span class="en">OnMyAgent is free for individuals. Team support is planned for later, with shared workspaces, permissions, and organization-level audit opening through private beta.</span><span class="zh">OnMyAgent 面向个人免费。团队能力会放在后续路线图中，通过私有 Beta 开放共享工作区、权限和组织级审计。</span></div>
+        <div class="faq-a"><span class="en">WeaveQ is the team / org publishing OnMyAgent. Enterprise control is OnMyCompany; industry packs may use WeaveQ as a delivery name - that is not the same as OnMyCompany.</span><span class="zh">WeaveQ 是发布 OnMyAgent 的团队/组织名。企业管控是 OnMyCompany；行业 Pack/交付仍可用 WeaveQ 称呼，但不等于 OnMyCompany。</span></div>
       </div>
     </div>
     <div class="final-cta reveal">
-      <h2><span class="en">Ready to manage local agents</span><span class="zh">准备好管理你的本地 Agent</span></h2>
+      <h2><span class="en">Put the workbench on your desktop</span><span class="zh">把工作台放上桌面</span></h2>
       <p>
-        <span class="en">Free desktop entry to local AI work. One workspace for Codex, Claude Code, OpenCode, Hermes, OpenClaw, MCP, Skills, Memory, sessions, and artifacts.</span>
-        <span class="zh">免费的桌面级本地 AI 工作入口。一个工作台管好 Codex、Claude Code、OpenCode、Hermes、OpenClaw、MCP、Skills、Memory、会话和产物。</span>
+        <span class="en">Local-first office AI workbench. Optional company and IM. No cloud SaaS required to start.</span>
+        <span class="zh">本地优先的办公 Agent 工作台。公司与 IM 可选。开始不必上公网 SaaS。</span>
       </p>
       <div class="final-cta-buttons">
-        <a href="#" class="btn-primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg><span class="en">Star on GitHub</span><span class="zh">GitHub Star</span></a>
-        <a href="#" class="btn-secondary"><span class="en">Try locally</span><span class="zh">本地试用</span></a>
+        <a href="https://github.com/WeaveQ/OnMyAgent" class="btn-primary" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg><span class="en">Star on GitHub</span><span class="zh">GitHub Star</span></a>
+        <a href="/docs/quickstart" class="btn-secondary"><span class="en">Quick start</span><span class="zh">快速开始</span></a>
         <a href="/docs/" class="btn-ghost"><span class="en">Read the docs</span><span class="zh">查看文档</span></a>
       </div>
     </div>
     <footer class="footer">
-      <p>OnMyAgent by <a href="#">WeaveQ</a>. Free desktop entry to local AI work</p>
-      <p style="margin-top:8px"><span class="en">Not another agent. The workspace for the agents you already use.</span><span class="zh">不是另一个 Agent，而是你已有 Agent 的工作台。</span></p>
+      <p>OnMyAgent by <a href="https://github.com/WeaveQ" target="_blank" rel="noopener">WeaveQ</a>. Local-first desktop workbench</p>
+      <p style="margin-top:8px"><span class="en">Not another chat bot. A workbench you can ship office work from.</span><span class="zh">不是又一个聊天机器人，而是能交付办公工作的本机工作台。</span></p>
     </footer>
   </div>
 </section>
