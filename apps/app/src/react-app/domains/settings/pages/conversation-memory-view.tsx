@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { currentLocale, t } from "@/i18n";
 import {
@@ -123,9 +124,9 @@ function PendingMemoryCard(props: {
             {title}
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-dls-secondary">
-            <span className="rounded-md bg-dls-surface-muted px-1.5 py-0.5 text-dls-secondary">
+            <StatusBadge tone="neutral" size="tiny" shape="soft">
               {sourceLabel}
-            </span>
+            </StatusBadge>
             <span>{categoryLabel(parsed.category)}</span>
             <span aria-hidden>·</span>
             <span>{scopeLabel}</span>
