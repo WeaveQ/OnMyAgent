@@ -513,20 +513,21 @@ body {
  * Outline (大纲): show from VitePress desktop breakpoint (1280px).
  * Compact aside on mid laptops so main + outline fit without hiding TOC.
  */
+/* Wider outline for numbered Chinese titles (WorkBuddy-like TOC) */
 @media (min-width: 1280px) {
   .VPDoc .aside {
     display: block !important;
     padding-left: var(--oma-doc-aside-gap) !important;
     padding-right: var(--oma-doc-aside-edge) !important;
-    max-width: 200px;
-    width: 180px;
+    max-width: 220px;
+    width: 200px;
     flex-grow: 0;
     flex-shrink: 0;
   }
 
   .VPDoc .aside-container,
   .VPDoc .aside-curtain {
-    width: 168px;
+    width: 188px;
   }
 
   /* Keep article from stretching into the outline zone */
@@ -537,48 +538,105 @@ body {
 
 @media (min-width: 1440px) {
   .VPDoc .aside {
-    max-width: 220px;
-    width: 200px;
-  }
-
-  .VPDoc .aside-container,
-  .VPDoc .aside-curtain {
-    width: 188px;
-  }
-}
-
-@media (min-width: 1680px) {
-  .VPDoc .aside {
     max-width: 240px;
     width: 220px;
   }
 
   .VPDoc .aside-container,
   .VPDoc .aside-curtain {
-    width: 200px;
+    width: 208px;
   }
 }
 
+@media (min-width: 1680px) {
+  .VPDoc .aside {
+    max-width: 260px;
+    width: 240px;
+  }
+
+  .VPDoc .aside-container,
+  .VPDoc .aside-curtain {
+    width: 224px;
+  }
+}
+
+/*
+ * Right outline — WorkBuddy-style「快速导航」:
+ * compact title, numbered top-level sections (from body H2 text),
+ * indented nested H3, soft active color (marker bar is VitePress default).
+ */
 .VPDocAside {
   padding-left: 0;
 }
 
+.VPDocAsideOutline .content {
+  border-left-color: var(--vp-c-divider) !important;
+  padding-left: 14px !important;
+}
+
 .VPDocAsideOutline .outline-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--vp-c-text-3);
-  margin-bottom: 8px;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  color: var(--vp-c-text-1) !important;
+  line-height: 1.4 !important;
+  margin: 0 0 10px !important;
+  padding: 0 !important;
+}
+
+/* Root H2 list */
+.VPDocAside .VPDocOutlineItem.root {
+  position: relative;
+  z-index: 1;
+}
+
+.VPDocAside .VPDocOutlineItem.root > li {
+  margin: 0;
 }
 
 .VPDocAside .outline-link {
+  /* 2-line clamp for long Chinese titles (WorkBuddy-style nested TOC) */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   color: var(--vp-c-text-2);
-  line-height: 1.6;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  padding: 5px 0 !important;
+  white-space: normal !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
 }
 
-.VPDocAside .outline-link.active,
 .VPDocAside .outline-link:hover {
-  color: var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
+}
+
+.VPDocAside .outline-link.active {
+  color: var(--vp-c-brand-1) !important;
+  font-weight: 500 !important;
+}
+
+/* Nested H3: indent only (no auto-number — body text is source of truth) */
+.VPDocAside .VPDocOutlineItem.nested {
+  padding-left: 12px !important;
+  padding-right: 0 !important;
+  margin: 0 0 4px !important;
+  border-left: none;
+}
+
+.VPDocAside .VPDocOutlineItem.nested .outline-link {
+  font-size: 12.5px !important;
+  color: var(--vp-c-text-3);
+  padding: 3px 0 3px 2px !important;
+  -webkit-line-clamp: 2;
+}
+
+.VPDocAside .VPDocOutlineItem.nested .outline-link:hover,
+.VPDocAside .VPDocOutlineItem.nested .outline-link.active {
+  color: var(--vp-c-brand-1) !important;
 }
 
 /* Doc body */
