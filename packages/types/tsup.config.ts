@@ -15,6 +15,7 @@ export default defineConfig({
     "artifact-plugin": "src/artifact-plugin.ts",
     officecli: "src/officecli.ts",
     "lark-cli-auth": "src/lark-cli-auth.ts",
+    "tencent-docs-connector": "src/tencent-docs-connector.ts",
   },
   tsconfig: "./tsconfig.json",
   format: ["esm"],
