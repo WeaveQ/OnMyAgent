@@ -187,22 +187,37 @@ export default {
   "plugins.tencent_docs_badge_authorizing": "Authorizing",
   "plugins.tencent_docs_badge_connected": "Connected",
   "plugins.tencent_docs_badge_error": "Retry needed",
-  "plugins.tencent_docs_connect": "Authorize",
+  "plugins.tencent_docs_connect": "Connect",
   "plugins.tencent_docs_retry": "Retry",
   "plugins.tencent_docs_disconnect": "Disconnect",
   "plugins.tencent_docs_disconnect_title": "Disconnect Tencent Docs?",
   "plugins.tencent_docs_disconnect_message":
     "This removes local authorization, OpenCode MCP entries, and the managed Tencent Docs skill. You can authorize again later.",
-  "plugins.tencent_docs_connect_title": "Authorize Tencent Docs",
+  "plugins.tencent_docs_intro_title": "Connect Tencent Docs as an AI knowledge base",
+  "plugins.tencent_docs_intro_body":
+    "After authorization, OnMyAgent can read your docs when you start a task—summaries, Q&A, and automated document creation and management.",
+  "plugins.tencent_docs_scope_heading": "Permissions requested",
+  "plugins.tencent_docs_scope_read_title": "Read documents and content",
+  "plugins.tencent_docs_scope_read_desc":
+    "Read your files, folders, and document content of all types",
+  "plugins.tencent_docs_scope_edit_title": "Edit and manage files",
+  "plugins.tencent_docs_scope_edit_desc":
+    "View, edit, create, and manage documents on your behalf",
+  "plugins.tencent_docs_go_authorize": "Continue to authorize",
+  "plugins.tencent_docs_privacy_note":
+    "OnMyAgent only uses data while running your AI tasks and protects your privacy",
+  "plugins.tencent_docs_connect_title": "Finish Tencent Docs authorization",
   "plugins.tencent_docs_connect_subtitle":
-    "Your system browser will open the Tencent Docs authorization page. You may see an Authorize button or a login confirmation (not always a QR code). When it succeeds, return to OnMyAgent.",
+    "The Tencent Docs login/authorization page opened in your system browser. Follow the prompts (WeChat login, QQ login, or an Authorize button).",
   "plugins.tencent_docs_waiting": "Waiting for browser authorization…",
-  "plugins.tencent_docs_open_browser": "Open authorization page",
+  "plugins.tencent_docs_waiting_hint":
+    "This dialog closes automatically when authorization succeeds. If the browser did not open, use the button below.",
+  "plugins.tencent_docs_open_browser": "Reopen authorization page",
   "plugins.tencent_docs_cancel": "Cancel",
   "plugins.tencent_docs_error_hint":
     "Tencent Docs authorization failed. Check the network and try again.",
   "plugins.tencent_docs_hint_disconnected":
-    "Not authorized yet. Authorize to enable tools in new sessions.",
+    "Not connected yet. Connect and authorize to enable tools in new sessions.",
   "plugins.tencent_docs_hint_connected":
-    "Authorized. New regular sessions can use Tencent Docs tools and the skill.",
+    "Connected. New regular sessions can use Tencent Docs tools and the skill.",
 } as const;
