@@ -520,8 +520,12 @@ export function createTencentDocsConnectorManager(options) {
             message: "Waiting for browser authorization",
           });
 
+          // Never block the OAuth wait on the OS browser open (macOS openExternal
+          // can hang or resolve late). Fire-and-forget so the callback server is armed.
           if (options.openExternal) {
-            await options.openExternal(authorizationUrl);
+            void Promise.resolve(options.openExternal(authorizationUrl)).catch(
+              () => undefined,
+            );
           }
 
           const { code } = await callback.waitForCode();
@@ -553,8 +557,12 @@ export function createTencentDocsConnectorManager(options) {
             serverNames: [...MCP_SERVER_NAMES],
           });
 
+          // Push status before resolving the IPC waiters so the UI can close the
+          // modal even if completeConnect's invoke is slow or already dropped.
+          const status = await getStatus();
           emitProgress({ operation: "connect", phase: "complete" });
-          return getStatus();
+          emitStatus(status);
+          return status;
         } catch (error) {
           const code =
             error && typeof error === "object" && "code" in error
@@ -611,9 +619,24 @@ export function createTencentDocsConnectorManager(options) {
     }
     const session = sessions.get(sessionId);
     if (!session) {
+      // OAuth may have finished and cleaned the session before the renderer
+      // called completeConnect (or after a hot reload). Prefer disk truth.
+      const status = await getStatus();
+      if (status.authorized) {
+        return status;
+      }
       throw oauthError("Unknown or expired connect session", "session_not_found");
     }
-    return session.completion;
+    try {
+      return await session.completion;
+    } catch (error) {
+      // If exchange already persisted tokens before a late error, treat as connected.
+      const status = await getStatus();
+      if (status.authorized) {
+        return status;
+      }
+      throw error;
+    }
   }
 
   async function cancelConnect() {
