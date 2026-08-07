@@ -178,4 +178,31 @@ export default {
   "plugins.larkcli_login_step2_link": "open the browser for sign-in authorization",
   "plugins.larkcli_login_step2_suffix": ".",
   "plugins.larkcli_login_waiting": "Waiting for scan to complete sign-in…",
+  "plugins.tencent_docs_title": "Tencent Docs",
+  "plugins.tencent_docs_description":
+    "Authorize once to create, search, and edit Tencent Docs (docs, sheets, slides, smart tables) from chat. No separate CLI install.",
+  "plugins.tencent_docs_checking": "Checking Tencent Docs status",
+  "plugins.tencent_docs_desktop_only": "Available on desktop",
+  "plugins.tencent_docs_badge_disconnected": "Not connected",
+  "plugins.tencent_docs_badge_authorizing": "Authorizing",
+  "plugins.tencent_docs_badge_connected": "Connected",
+  "plugins.tencent_docs_badge_error": "Retry needed",
+  "plugins.tencent_docs_connect": "Authorize",
+  "plugins.tencent_docs_retry": "Retry",
+  "plugins.tencent_docs_disconnect": "Disconnect",
+  "plugins.tencent_docs_disconnect_title": "Disconnect Tencent Docs?",
+  "plugins.tencent_docs_disconnect_message":
+    "This removes local authorization, OpenCode MCP entries, and the managed Tencent Docs skill. You can authorize again later.",
+  "plugins.tencent_docs_connect_title": "Authorize Tencent Docs",
+  "plugins.tencent_docs_connect_subtitle":
+    "Scan with WeChat in the browser to allow OnMyAgent to access your Tencent Docs.",
+  "plugins.tencent_docs_waiting": "Waiting for browser authorization…",
+  "plugins.tencent_docs_open_browser": "Open authorization page",
+  "plugins.tencent_docs_cancel": "Cancel",
+  "plugins.tencent_docs_error_hint":
+    "Tencent Docs authorization failed. Check the network and try again.",
+  "plugins.tencent_docs_hint_disconnected":
+    "Not authorized yet. Authorize to enable tools in new sessions.",
+  "plugins.tencent_docs_hint_connected":
+    "Authorized. New regular sessions can use Tencent Docs tools and the skill.",
 } as const;

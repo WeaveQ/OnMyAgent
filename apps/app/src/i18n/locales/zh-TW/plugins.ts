@@ -178,4 +178,28 @@ export default {
   "plugins.larkcli_login_step2_link": "開啟瀏覽器進行登入授權",
   "plugins.larkcli_login_step2_suffix": "。",
   "plugins.larkcli_login_waiting": "等待掃碼進行登入授權…",
+  "plugins.tencent_docs_title": "騰訊文件",
+  "plugins.tencent_docs_description":
+    "授權後即可在會話中建立、搜尋與編輯騰訊文件（文件／試算表／簡報／智慧表格等），無需安裝額外 CLI。",
+  "plugins.tencent_docs_checking": "正在檢查騰訊文件狀態",
+  "plugins.tencent_docs_desktop_only": "桌面端可用",
+  "plugins.tencent_docs_badge_disconnected": "未連線",
+  "plugins.tencent_docs_badge_authorizing": "授權中",
+  "plugins.tencent_docs_badge_connected": "已連線",
+  "plugins.tencent_docs_badge_error": "需要重試",
+  "plugins.tencent_docs_connect": "授權",
+  "plugins.tencent_docs_retry": "重試",
+  "plugins.tencent_docs_disconnect": "中斷連線",
+  "plugins.tencent_docs_disconnect_title": "確定中斷騰訊文件？",
+  "plugins.tencent_docs_disconnect_message":
+    "將清除本機授權、OpenCode MCP 設定與託管技能。之後仍可重新授權。",
+  "plugins.tencent_docs_connect_title": "授權騰訊文件",
+  "plugins.tencent_docs_connect_subtitle":
+    "在瀏覽器中使用微信掃碼，允許 OnMyAgent 存取你的騰訊文件。",
+  "plugins.tencent_docs_waiting": "等待瀏覽器授權…",
+  "plugins.tencent_docs_open_browser": "開啟授權頁",
+  "plugins.tencent_docs_cancel": "取消",
+  "plugins.tencent_docs_error_hint": "騰訊文件授權失敗，請檢查網路後重試。",
+  "plugins.tencent_docs_hint_disconnected": "尚未授權。完成授權後新會話即可使用。",
+  "plugins.tencent_docs_hint_connected": "已授權。新的一般會話可使用騰訊文件工具與技能。",
 } as const;

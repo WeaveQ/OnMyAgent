@@ -14,6 +14,18 @@ import {
 } from "./constants.mjs";
 
 /**
+ * @param {string} message
+ * @param {string} [code]
+ * @returns {Error & { code?: string, status?: number, body?: unknown }}
+ */
+export function oauthError(message, code) {
+  /** @type {Error & { code?: string, status?: number, body?: unknown }} */
+  const err = new Error(message);
+  if (code) err.code = code;
+  return err;
+}
+
+/**
  * @param {number} [bytes]
  */
 export function randomHex(bytes = 16) {
@@ -71,8 +83,7 @@ async function fetchJson(url, init) {
         : body && typeof body === "object" && "error" in body
           ? String(body.error)
           : `HTTP ${res.status}`;
-    const err = new Error(msg);
-    err.code = "oauth_http_error";
+    const err = oauthError(msg, "oauth_http_error");
     err.status = res.status;
     err.body = body;
     throw err;
@@ -115,9 +126,10 @@ export async function discoverOAuthEndpoints() {
   const tokenEndpoint = String(asMeta?.token_endpoint ?? "");
   const registrationEndpoint = String(asMeta?.registration_endpoint ?? "");
   if (!authorizationEndpoint || !tokenEndpoint || !registrationEndpoint) {
-    const err = new Error("OAuth metadata missing required endpoints");
-    err.code = "oauth_metadata_invalid";
-    throw err;
+    throw oauthError(
+      "OAuth metadata missing required endpoints",
+      "oauth_metadata_invalid",
+    );
   }
 
   return {
@@ -133,7 +145,11 @@ export async function discoverOAuthEndpoints() {
  *   registrationEndpoint: string,
  *   redirectUri: string,
  *   clientName?: string,
- *   existing?: { client_id?: string } | null,
+ *   existing?: {
+ *     client_id?: string,
+ *     client_id_issued_at?: number | null,
+ *     redirect_uris?: string[],
+ *   } | null,
  * }} input
  */
 export async function ensureDynamicClient(input) {
@@ -161,9 +177,10 @@ export async function ensureDynamicClient(input) {
   });
 
   if (!body?.client_id) {
-    const err = new Error("Dynamic client registration returned no client_id");
-    err.code = "oauth_register_failed";
-    throw err;
+    throw oauthError(
+      "Dynamic client registration returned no client_id",
+      "oauth_register_failed",
+    );
   }
 
   return {
@@ -271,9 +288,7 @@ export async function refreshAccessToken(input) {
 function normalizeTokenSet(body, fallbackRefresh) {
   const accessToken = String(body?.access_token ?? "");
   if (!accessToken) {
-    const err = new Error("Token response missing access_token");
-    err.code = "oauth_token_invalid";
-    throw err;
+    throw oauthError("Token response missing access_token", "oauth_token_invalid");
   }
   const expiresIn = Number(body?.expires_in);
   const obtainedAt = Date.now();
@@ -355,9 +370,7 @@ export function createOAuthCallbackServer(input) {
         const desc = url.searchParams.get("error_description") ?? error;
         res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
         res.end(renderResultPage(false, desc));
-        const err = new Error(desc);
-        err.code = "oauth_denied";
-        finish(err);
+        finish(oauthError(desc, "oauth_denied"));
         return;
       }
 
@@ -366,17 +379,13 @@ export function createOAuthCallbackServer(input) {
       if (!code || !state) {
         res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
         res.end(renderResultPage(false, "Missing code or state"));
-        const err = new Error("Missing authorization code");
-        err.code = "oauth_callback_invalid";
-        finish(err);
+        finish(oauthError("Missing authorization code", "oauth_callback_invalid"));
         return;
       }
       if (state !== input.expectedState) {
         res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
         res.end(renderResultPage(false, "Invalid state"));
-        const err = new Error("OAuth state mismatch");
-        err.code = "oauth_state_mismatch";
-        finish(err);
+        finish(oauthError("OAuth state mismatch", "oauth_state_mismatch"));
         return;
       }
 
@@ -396,9 +405,7 @@ export function createOAuthCallbackServer(input) {
   });
 
   timer = setTimeout(() => {
-    const err = new Error("Authorization timed out");
-    err.code = "oauth_timeout";
-    finish(err);
+    finish(oauthError("Authorization timed out", "oauth_timeout"));
   }, timeoutMs);
   if (typeof timer.unref === "function") timer.unref();
 

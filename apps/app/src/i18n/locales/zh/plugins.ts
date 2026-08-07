@@ -179,4 +179,28 @@ export default {
   "plugins.larkcli_login_step2_link": "打开浏览器进行登录授权",
   "plugins.larkcli_login_step2_suffix": "。",
   "plugins.larkcli_login_waiting": "等待扫码进行登录授权…",
+  "plugins.tencent_docs_title": "腾讯文档",
+  "plugins.tencent_docs_description":
+    "授权后即可在会话中创建、搜索与编辑腾讯文档（文档 / 表格 / 幻灯片 / 智能表格等），无需安装额外 CLI。",
+  "plugins.tencent_docs_checking": "正在检查腾讯文档状态",
+  "plugins.tencent_docs_desktop_only": "桌面端可用",
+  "plugins.tencent_docs_badge_disconnected": "未连接",
+  "plugins.tencent_docs_badge_authorizing": "授权中",
+  "plugins.tencent_docs_badge_connected": "已连接",
+  "plugins.tencent_docs_badge_error": "需要重试",
+  "plugins.tencent_docs_connect": "授权",
+  "plugins.tencent_docs_retry": "重试",
+  "plugins.tencent_docs_disconnect": "断开连接",
+  "plugins.tencent_docs_disconnect_title": "确定断开腾讯文档？",
+  "plugins.tencent_docs_disconnect_message":
+    "将清除本机授权、OpenCode MCP 配置与托管技能。之后仍可重新授权。",
+  "plugins.tencent_docs_connect_title": "授权腾讯文档",
+  "plugins.tencent_docs_connect_subtitle":
+    "在浏览器中使用微信扫码，允许 OnMyAgent 访问你的腾讯文档。",
+  "plugins.tencent_docs_waiting": "等待浏览器授权…",
+  "plugins.tencent_docs_open_browser": "打开授权页",
+  "plugins.tencent_docs_cancel": "取消",
+  "plugins.tencent_docs_error_hint": "腾讯文档授权失败，请检查网络后重试。",
+  "plugins.tencent_docs_hint_disconnected": "尚未授权。完成授权后新会话即可使用。",
+  "plugins.tencent_docs_hint_connected": "已授权。新的普通会话可使用腾讯文档工具与技能。",
 } as const;
