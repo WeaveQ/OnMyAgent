@@ -34,6 +34,10 @@ title: 会话
 - 长任务拆成多步，每步可验收  
 - 敏感操作前收紧权限模式  
 
+## 和 Agent 对话的区别
+
+首页会话走的是 **OnMyAgent 内置办公助手**。若要直接驱动本机 **Claude Code / Codex / OpenCode** 等 CLI 智能体，请用左下账号菜单里的 [Agent 对话](./agent-chat)；舰队安装与修复见 [Agent 管理](./agent-management)。
+
 ## 相关
 
-- [第一个任务](../first-task) · [审批](./approvals) · [模型](./models)
+- [第一个任务](../first-task) · [Agent 对话](./agent-chat) · [审批](./approvals) · [模型](./models)
