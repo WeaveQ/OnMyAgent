@@ -195,7 +195,7 @@ export default {
     "將清除本機授權、OpenCode MCP 設定與託管技能。之後仍可重新授權。",
   "plugins.tencent_docs_connect_title": "授權騰訊文件",
   "plugins.tencent_docs_connect_subtitle":
-    "在瀏覽器中使用微信掃碼，允許 OnMyAgent 存取你的騰訊文件。",
+    "將開啟系統瀏覽器完成騰訊文件授權。頁面可能顯示「授權」按鈕或登入確認（不一定是二維碼）；完成後回到 OnMyAgent 即可。",
   "plugins.tencent_docs_waiting": "等待瀏覽器授權…",
   "plugins.tencent_docs_open_browser": "開啟授權頁",
   "plugins.tencent_docs_cancel": "取消",

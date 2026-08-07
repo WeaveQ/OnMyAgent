@@ -355,15 +355,16 @@ export function TencentDocsPluginCard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="flex items-center justify-center gap-2 text-sm text-dls-secondary">
-              <LoadingSpinner size="sm" />
-              {t("plugins.tencent_docs_waiting")}
-            </div>
             {authError ? (
               <NoticeBox tone="error" role="alert">
                 {authError}
               </NoticeBox>
-            ) : null}
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-sm text-dls-secondary">
+                <LoadingSpinner size="sm" />
+                {t("plugins.tencent_docs_waiting")}
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:justify-end">
             <Button

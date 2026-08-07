@@ -298,6 +298,52 @@ export function createTencentDocsConnectorManager(options) {
     }
   }
 
+  /**
+   * Foreign managed skill (another OnMyAgent plugin) must not be clobbered.
+   * Unmarked / legacy marketplace copies of tencent-docs are upgraded in place.
+   * @param {string} dir
+   */
+  async function readForeignManagedPluginId(dir) {
+    try {
+      const marker = JSON.parse(
+        await readFile(path.join(dir, MANAGED_MARKER_FILE), "utf8"),
+      );
+      if (
+        marker &&
+        typeof marker === "object" &&
+        marker.owner === OWNER &&
+        typeof marker.pluginId === "string" &&
+        marker.pluginId !== PLUGIN_ID
+      ) {
+        return marker.pluginId;
+      }
+    } catch {
+      // no marker
+    }
+    return null;
+  }
+
+  /**
+   * True when dest is the product tencent-docs skill (or empty enough to claim).
+   * Legacy installs often have no managed marker but frontmatter name: tencent-docs.
+   * @param {string} dir
+   */
+  async function isUpgradeableTencentDocsSkill(dir) {
+    if (await readOwnership(dir)) return true;
+    if (await readForeignManagedPluginId(dir)) return false;
+    try {
+      const skillMd = await readFile(path.join(dir, "SKILL.md"), "utf8");
+      // YAML frontmatter name: tencent-docs (with optional quotes)
+      if (/^name:\s*["']?tencent-docs["']?\s*$/m.test(skillMd)) {
+        return true;
+      }
+      // Directory is our product id and has a skill entry file.
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
   async function materializeSkill() {
     const source = bundledSkillSource();
     const dest = skillPath();
@@ -308,12 +354,20 @@ export function createTencentDocsConnectorManager(options) {
       );
     }
     if (await pathExists(dest)) {
-      if (!(await readOwnership(dest))) {
+      const foreign = await readForeignManagedPluginId(dest);
+      if (foreign) {
+        throw oauthError(
+          `Skill path is owned by another managed plugin: ${foreign}`,
+          "skill_conflict",
+        );
+      }
+      if (!(await isUpgradeableTencentDocsSkill(dest))) {
         throw oauthError(
           "An existing user-owned tencent-docs skill was not overwritten",
           "skill_conflict",
         );
       }
+      // Upgrade legacy marketplace / unmarked copies to connector-managed skill.
       await rm(dest, { recursive: true, force: true });
     }
     await mkdir(path.dirname(dest), { recursive: true });
@@ -324,6 +378,7 @@ export function createTencentDocsConnectorManager(options) {
       pluginId: PLUGIN_ID,
       skillId: SKILL_ID,
       installedAt: now(),
+      upgradedFrom: "connector",
     });
     if (options.refreshSkillLinks) {
       await options.refreshSkillLinks();
@@ -333,8 +388,8 @@ export function createTencentDocsConnectorManager(options) {
   async function removeManagedSkill() {
     const dest = skillPath();
     if (!(await pathExists(dest))) return;
+    // Only remove skills we marked as connector-managed.
     if (!(await readOwnership(dest))) {
-      // Do not delete user-owned skill.
       return;
     }
     await rm(dest, { recursive: true, force: true });

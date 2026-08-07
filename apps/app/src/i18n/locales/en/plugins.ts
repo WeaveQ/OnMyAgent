@@ -195,7 +195,7 @@ export default {
     "This removes local authorization, OpenCode MCP entries, and the managed Tencent Docs skill. You can authorize again later.",
   "plugins.tencent_docs_connect_title": "Authorize Tencent Docs",
   "plugins.tencent_docs_connect_subtitle":
-    "Scan with WeChat in the browser to allow OnMyAgent to access your Tencent Docs.",
+    "Your system browser will open the Tencent Docs authorization page. You may see an Authorize button or a login confirmation (not always a QR code). When it succeeds, return to OnMyAgent.",
   "plugins.tencent_docs_waiting": "Waiting for browser authorization…",
   "plugins.tencent_docs_open_browser": "Open authorization page",
   "plugins.tencent_docs_cancel": "Cancel",
